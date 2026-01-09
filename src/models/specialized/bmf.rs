@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 /// Given an m×n boolean matrix A and rank k, find:
 /// - B: m×k boolean matrix
 /// - C: k×n boolean matrix
-/// Such that the Hamming distance between A and B⊙C is minimized.
+///   Such that the Hamming distance between A and B⊙C is minimized.
 ///
 /// # Example
 ///
@@ -168,11 +168,7 @@ impl Problem for BMF {
     }
 
     fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("rows", self.m),
-            ("cols", self.n),
-            ("rank", self.k),
-        ])
+        ProblemSize::new(vec![("rows", self.m), ("cols", self.n), ("rank", self.k)])
     }
 
     fn energy_mode(&self) -> EnergyMode {
@@ -249,10 +245,7 @@ mod tests {
         let b = vec![vec![true], vec![true]];
         let c = vec![vec![true, true]];
         let product = BMF::boolean_product(&b, &c);
-        assert_eq!(
-            product,
-            vec![vec![true, true], vec![true, true]]
-        );
+        assert_eq!(product, vec![vec![true, true], vec![true, true]]);
     }
 
     #[test]
@@ -262,10 +255,7 @@ mod tests {
         let b = vec![vec![true, false], vec![false, true]];
         let c = vec![vec![true, false], vec![false, true]];
         let product = BMF::boolean_product(&b, &c);
-        assert_eq!(
-            product,
-            vec![vec![true, false], vec![false, true]]
-        );
+        assert_eq!(product, vec![vec![true, false], vec![false, true]]);
     }
 
     #[test]

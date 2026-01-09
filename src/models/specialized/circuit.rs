@@ -47,6 +47,7 @@ impl BooleanExpr {
     }
 
     /// Create a NOT expression.
+    #[allow(clippy::should_implement_trait)]
     pub fn not(expr: BooleanExpr) -> Self {
         BooleanExpr {
             op: BooleanOp::Not(Box::new(expr)),
@@ -104,7 +105,9 @@ impl BooleanExpr {
             BooleanOp::Not(inner) => !inner.evaluate(assignments),
             BooleanOp::And(args) => args.iter().all(|a| a.evaluate(assignments)),
             BooleanOp::Or(args) => args.iter().any(|a| a.evaluate(assignments)),
-            BooleanOp::Xor(args) => args.iter().fold(false, |acc, a| acc ^ a.evaluate(assignments)),
+            BooleanOp::Xor(args) => args
+                .iter()
+                .fold(false, |acc, a| acc ^ a.evaluate(assignments)),
         }
     }
 }

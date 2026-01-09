@@ -206,7 +206,11 @@ fn is_independent_set_config(graph: &UnGraph<(), ()>, config: &[usize]) -> bool 
 /// * `num_vertices` - Total number of vertices
 /// * `edges` - List of edges as (u, v) pairs
 /// * `selected` - Boolean slice indicating which vertices are selected
-pub fn is_independent_set(num_vertices: usize, edges: &[(usize, usize)], selected: &[bool]) -> bool {
+pub fn is_independent_set(
+    num_vertices: usize,
+    edges: &[(usize, usize)],
+    selected: &[bool],
+) -> bool {
     if selected.len() != num_vertices {
         return false;
     }
@@ -368,8 +372,16 @@ mod tests {
         assert!(is_independent_set(3, &[(0, 1)], &[true, false, true]));
         assert!(is_independent_set(3, &[(0, 1)], &[false, true, true]));
         assert!(!is_independent_set(3, &[(0, 1)], &[true, true, false]));
-        assert!(is_independent_set(3, &[(0, 1), (1, 2)], &[true, false, true]));
-        assert!(!is_independent_set(3, &[(0, 1), (1, 2)], &[false, true, true]));
+        assert!(is_independent_set(
+            3,
+            &[(0, 1), (1, 2)],
+            &[true, false, true]
+        ));
+        assert!(!is_independent_set(
+            3,
+            &[(0, 1), (1, 2)],
+            &[false, true, true]
+        ));
     }
 
     #[test]

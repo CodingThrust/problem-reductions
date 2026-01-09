@@ -1,12 +1,12 @@
 //! Benchmarks for the BruteForce solver on various problem types.
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
-use problemreductions::prelude::*;
 use problemreductions::models::graph::*;
 use problemreductions::models::optimization::*;
 use problemreductions::models::satisfiability::*;
 use problemreductions::models::set::*;
 use problemreductions::models::specialized::*;
+use problemreductions::prelude::*;
 
 /// Benchmark IndependentSet on graphs of varying sizes.
 fn bench_independent_set(c: &mut Criterion) {
@@ -119,9 +119,11 @@ fn bench_set_covering(c: &mut Criterion) {
         let problem = SetCovering::<i32>::new(*num_sets, sets);
         let solver = BruteForce::new();
 
-        group.bench_with_input(BenchmarkId::new("overlapping", num_sets), num_sets, |b, _| {
-            b.iter(|| solver.find_best(black_box(&problem)))
-        });
+        group.bench_with_input(
+            BenchmarkId::new("overlapping", num_sets),
+            num_sets,
+            |b, _| b.iter(|| solver.find_best(black_box(&problem))),
+        );
     }
 
     group.finish();

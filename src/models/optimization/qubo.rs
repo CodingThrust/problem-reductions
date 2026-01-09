@@ -262,7 +262,11 @@ mod tests {
 
     #[test]
     fn test_matrix_access() {
-        let problem = QUBO::from_matrix(vec![vec![1.0, 2.0, 3.0], vec![0.0, 4.0, 5.0], vec![0.0, 0.0, 6.0]]);
+        let problem = QUBO::from_matrix(vec![
+            vec![1.0, 2.0, 3.0],
+            vec![0.0, 4.0, 5.0],
+            vec![0.0, 0.0, 6.0],
+        ]);
         let matrix = problem.matrix();
         assert_eq!(matrix.len(), 3);
         assert_eq!(matrix[0], vec![1.0, 2.0, 3.0]);

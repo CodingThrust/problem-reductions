@@ -122,7 +122,10 @@ impl BicliqueCover {
     /// Config is a flat array where each vertex has k binary variables
     /// indicating membership in each of the k bicliques.
     /// Returns: (left_memberships, right_memberships) where each is a Vec of k HashSets.
-    fn get_biclique_memberships(&self, config: &[usize]) -> (Vec<HashSet<usize>>, Vec<HashSet<usize>>) {
+    fn get_biclique_memberships(
+        &self,
+        config: &[usize],
+    ) -> (Vec<HashSet<usize>>, Vec<HashSet<usize>>) {
         let n = self.num_vertices();
         let mut left_bicliques: Vec<HashSet<usize>> = vec![HashSet::new(); self.k];
         let mut right_bicliques: Vec<HashSet<usize>> = vec![HashSet::new(); self.k];
@@ -343,14 +346,8 @@ mod tests {
     #[test]
     fn test_is_biclique_cover_function() {
         let edges = vec![(0, 2), (1, 3)];
-        let left = vec![
-            vec![0].into_iter().collect(),
-            vec![1].into_iter().collect(),
-        ];
-        let right = vec![
-            vec![2].into_iter().collect(),
-            vec![3].into_iter().collect(),
-        ];
+        let left = vec![vec![0].into_iter().collect(), vec![1].into_iter().collect()];
+        let right = vec![vec![2].into_iter().collect(), vec![3].into_iter().collect()];
         assert!(is_biclique_cover(&edges, &left, &right));
 
         // Missing coverage

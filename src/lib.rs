@@ -69,7 +69,9 @@ pub mod types;
 
 /// Prelude module for convenient imports.
 pub mod prelude {
-    pub use crate::config::{bits_to_config, config_to_bits, config_to_index, index_to_config, ConfigIterator};
+    pub use crate::config::{
+        bits_to_config, config_to_bits, config_to_index, index_to_config, ConfigIterator,
+    };
     pub use crate::error::{ProblemError, Result};
     pub use crate::models::graph::{
         Coloring, DominatingSet, IndependentSet, Matching, MaxCut, MaximalIS, VertexCovering,

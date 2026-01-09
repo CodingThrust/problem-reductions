@@ -201,11 +201,7 @@ where
 }
 
 /// Check if a set of vertices is a dominating set.
-pub fn is_dominating_set(
-    num_vertices: usize,
-    edges: &[(usize, usize)],
-    selected: &[bool],
-) -> bool {
+pub fn is_dominating_set(num_vertices: usize, edges: &[(usize, usize)], selected: &[bool]) -> bool {
     if selected.len() != num_vertices {
         return false;
     }
@@ -349,17 +345,9 @@ mod tests {
         // All leaves dominate (leaf dominates center which dominates others)
         assert!(is_dominating_set(4, &edges, &[false, true, true, true]));
         // Single leaf doesn't dominate other leaves
-        assert!(!is_dominating_set(
-            4,
-            &edges,
-            &[false, true, false, false]
-        ));
+        assert!(!is_dominating_set(4, &edges, &[false, true, false, false]));
         // Empty doesn't dominate
-        assert!(!is_dominating_set(
-            4,
-            &edges,
-            &[false, false, false, false]
-        ));
+        assert!(!is_dominating_set(4, &edges, &[false, false, false, false]));
     }
 
     #[test]

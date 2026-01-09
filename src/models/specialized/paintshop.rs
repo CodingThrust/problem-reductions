@@ -80,21 +80,18 @@ impl PaintShop {
         }
 
         // Convert sequence to indices
-        let sequence_indices: Vec<usize> = sequence
-            .iter()
-            .map(|item| car_to_index[item])
-            .collect();
+        let sequence_indices: Vec<usize> = sequence.iter().map(|item| car_to_index[item]).collect();
 
         // Determine which positions are first occurrences
         let mut seen: HashMap<usize, bool> = HashMap::new();
         let is_first: Vec<bool> = sequence_indices
             .iter()
             .map(|&idx| {
-                if seen.contains_key(&idx) {
-                    false
-                } else {
-                    seen.insert(idx, true);
+                if let std::collections::hash_map::Entry::Vacant(e) = seen.entry(idx) {
+                    e.insert(true);
                     true
+                } else {
+                    false
                 }
             })
             .collect();

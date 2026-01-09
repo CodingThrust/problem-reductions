@@ -312,10 +312,8 @@ mod tests {
     #[test]
     fn test_complete_graph_k4() {
         // K4: every partition cuts exactly 4 edges (balanced) or less
-        let problem = MaxCut::<i32>::unweighted(
-            4,
-            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-        );
+        let problem =
+            MaxCut::<i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);

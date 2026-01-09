@@ -76,8 +76,7 @@ impl MaximalIS {
         for edge in self.graph.edge_references() {
             let u = edge.source().index();
             let v = edge.target().index();
-            if config.get(u).copied().unwrap_or(0) == 1
-                && config.get(v).copied().unwrap_or(0) == 1
+            if config.get(u).copied().unwrap_or(0) == 1 && config.get(v).copied().unwrap_or(0) == 1
             {
                 return false;
             }
@@ -98,9 +97,10 @@ impl MaximalIS {
             }
 
             // Check if v can be added
-            let can_add = self.neighbors(v).iter().all(|&u| {
-                config.get(u).copied().unwrap_or(0) == 0
-            });
+            let can_add = self
+                .neighbors(v)
+                .iter()
+                .all(|&u| config.get(u).copied().unwrap_or(0) == 0);
 
             if can_add {
                 return false; // Set is not maximal
@@ -170,10 +170,10 @@ impl ConstraintSatisfactionProblem for MaximalIS {
             // Valid if: v is selected (first bit = 1) OR
             //           at least one neighbor is selected (not all others are 0)
             let mut spec = vec![false; num_configs];
-            for config_idx in 0..num_configs {
+            for (config_idx, valid) in spec.iter_mut().enumerate().take(num_configs) {
                 let v_selected = (config_idx & 1) == 1;
                 let any_neighbor_selected = (config_idx >> 1) > 0;
-                spec[config_idx] = v_selected || any_neighbor_selected;
+                *valid = v_selected || any_neighbor_selected;
             }
 
             constraints.push(LocalConstraint::new(2, vars, spec));
@@ -328,7 +328,11 @@ mod tests {
 
         assert!(is_maximal_independent_set(3, &edges, &[true, false, true]));
         assert!(is_maximal_independent_set(3, &edges, &[false, true, false]));
-        assert!(!is_maximal_independent_set(3, &edges, &[true, false, false])); // Can add 2
+        assert!(!is_maximal_independent_set(
+            3,
+            &edges,
+            &[true, false, false]
+        )); // Can add 2
         assert!(!is_maximal_independent_set(3, &edges, &[true, true, false])); // Not independent
     }
 
@@ -363,7 +367,7 @@ mod tests {
 
         assert!(problem.is_satisfied(&[1, 0, 1])); // Maximal
         assert!(problem.is_satisfied(&[0, 1, 0])); // Maximal
-        // Note: is_satisfied checks constraints, which may be more complex
+                                                   // Note: is_satisfied checks constraints, which may be more complex
     }
 
     #[test]
