@@ -63,7 +63,9 @@
 pub mod config;
 pub mod error;
 pub mod models;
+pub mod registry;
 pub mod solvers;
+pub mod testing;
 pub mod traits;
 pub mod types;
 
@@ -80,6 +82,9 @@ pub mod prelude {
     pub use crate::models::satisfiability::{CNFClause, Satisfiability};
     pub use crate::models::set::{SetCovering, SetPacking};
     pub use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
+    pub use crate::registry::{
+        ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,
+    };
     pub use crate::solvers::{BruteForce, Solver};
     pub use crate::traits::{csp_solution_size, ConstraintSatisfactionProblem, Problem};
     pub use crate::types::{
@@ -89,6 +94,7 @@ pub mod prelude {
 
 // Re-export commonly used items at crate root
 pub use error::{ProblemError, Result};
+pub use registry::{ComplexityClass, ProblemCategory, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::{ConstraintSatisfactionProblem, Problem};
 pub use types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};

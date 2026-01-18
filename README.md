@@ -40,18 +40,27 @@ assert!(solutions.iter().all(|s| s.iter().sum::<usize>() == 1));
 
 ## Development
 
+### Using Make
+
 ```bash
-# Build
-cargo build
+make help      # Show all available targets
+make build     # Build the project
+make test      # Run all tests
+make fmt       # Format code with rustfmt
+make fmt-check # Check code formatting
+make clippy    # Run clippy lints
+make doc       # Build and open documentation
+make coverage  # Generate coverage report (requires cargo-llvm-cov)
+make clean     # Clean build artifacts
+make check     # Quick check before commit (fmt + clippy + test)
+```
 
-# Test
-cargo test
+### Using Cargo directly
 
-# Run clippy
-make clippy
-
-# Generate docs
-cargo doc --open
+```bash
+cargo build --all-features
+cargo test --all-features
+cargo doc --all-features --no-deps --open
 ```
 
 ## License
