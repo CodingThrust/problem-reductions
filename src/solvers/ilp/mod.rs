@@ -22,8 +22,5 @@
 //! ```
 
 mod solver;
-mod traits;
 
 pub use solver::ILPSolver;
-// Re-export traits for backwards compatibility (will be removed in Task 3)
-pub use traits::{ILPFormulation, ObjectiveSense, ToILP};

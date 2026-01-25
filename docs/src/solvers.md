@@ -63,37 +63,40 @@ if let Some(solution) = solver.solve(&problem) {
 let solver = ILPSolver::with_time_limit(60.0);  // 60 seconds
 ```
 
-### Supported Problems
+### Working with ILP
 
-The ILP solver works with problems that implement the `ToILP` trait. Currently supported:
-
-| Problem | ILP Formulation |
-|---------|-----------------|
-| `IndependentSetT` | max Σ wᵢxᵢ s.t. xᵤ + xᵥ ≤ 1 ∀(u,v)∈E |
-| `VertexCoverT` | min Σ wᵢxᵢ s.t. xᵤ + xᵥ ≥ 1 ∀(u,v)∈E |
-
-### Implementing ToILP for Custom Problems
+The ILP solver works with the `ILP` problem type directly. Problems that implement `ReduceTo<ILP>` can be solved using the `solve_reduced` method.
 
 ```rust,ignore
-use problemreductions::solvers::ilp::{ToILP, ILPFormulation, ObjectiveSense};
-use good_lp::{Variable, Expression};
+use problemreductions::models::optimization::{ILP, LinearConstraint, ObjectiveSense};
+use problemreductions::solvers::ILPSolver;
 
-impl ToILP for MyProblem {
-    fn to_ilp(&self, vars: &[Variable]) -> ILPFormulation {
-        let mut constraints = Vec::new();
+// Create an ILP directly
+let ilp = ILP::binary(
+    2,
+    vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
+    vec![(0, 1.0), (1, 2.0)],
+    ObjectiveSense::Maximize,
+);
 
-        // Add constraints using vars[i] for variable i
-        for (u, v) in self.edges() {
-            constraints.push((vars[u] + vars[v]).leq(1.0));
-        }
+let solver = ILPSolver::new();
+if let Some(solution) = solver.solve(&ilp) {
+    println!("Solution: {:?}", solution);
+}
+```
 
-        // Build objective
-        let objective: Expression = vars.iter().enumerate()
-            .map(|(i, v)| self.weight(i) * v)
-            .sum();
+### Solving Problems via Reduction
 
-        ILPFormulation::maximize(constraints, objective)
-    }
+For problems that implement `ReduceTo<ILP>`, use `solve_reduced`:
+
+```rust,ignore
+use problemreductions::solvers::ILPSolver;
+
+let problem = SomeProblem::new(...); // Problem that implements ReduceTo<ILP>
+let solver = ILPSolver::new();
+
+if let Some(solution) = solver.solve_reduced(&problem) {
+    println!("Solution: {:?}", solution);
 }
 ```
 
