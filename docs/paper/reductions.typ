@@ -515,7 +515,7 @@ $ &(ell_1 or ... or ell_(k-1) or y_1) and \
 
 == Factoring → Circuit-SAT (Multiplier Circuit)
 
-*Reference:* @shor1994
+*Note:* This reduction uses a classical array multiplier circuit construction. It is a folklore result based on the observation that multiplication circuits can be inverted via SAT solving. The construction is standard in hardware verification and cryptographic research. No single canonical reference exists for this approach.
 
 *Input:* Target $N$, bit sizes $m$ (for $p$) and $n$ (for $q$).
 
