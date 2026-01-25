@@ -87,16 +87,26 @@ impl ReductionGraph {
 
         use crate::models::graph::*;
         use crate::models::optimization::*;
+        use crate::models::satisfiability::*;
         use crate::models::set::*;
+        use crate::models::specialized::*;
 
         register! {
             IndependentSet<i32> => "IndependentSet<i32>",
             VertexCovering<i32> => "VertexCovering<i32>",
             SetPacking<i32> => "SetPacking<i32>",
+            SetCovering<i32> => "SetCovering<i32>",
+            Matching<i32> => "Matching<i32>",
+            DominatingSet<i32> => "DominatingSet<i32>",
+            Coloring => "Coloring",
             MaxCut<i32> => "MaxCut<i32>",
             SpinGlass<i32> => "SpinGlass<i32>",
             SpinGlass<f64> => "SpinGlass<f64>",
             QUBO<f64> => "QUBO<f64>",
+            Satisfiability<i32> => "Satisfiability<i32>",
+            KSatisfiability<3, i32> => "KSatisfiability<3, i32>",
+            CircuitSAT<i32> => "CircuitSAT<i32>",
+            Factoring => "Factoring",
         }
     }
 
@@ -106,7 +116,9 @@ impl ReductionGraph {
     ) {
         use crate::models::graph::*;
         use crate::models::optimization::*;
+        use crate::models::satisfiability::*;
         use crate::models::set::*;
+        use crate::models::specialized::*;
 
         macro_rules! add_edge {
             ($src:ty => $dst:ty) => {
@@ -120,14 +132,31 @@ impl ReductionGraph {
         }
 
         // Register all implemented reductions
+
+        // Graph problem reductions
         add_edge!(IndependentSet<i32> => VertexCovering<i32>);
         add_edge!(VertexCovering<i32> => IndependentSet<i32>);
         add_edge!(IndependentSet<i32> => SetPacking<i32>);
         add_edge!(SetPacking<i32> => IndependentSet<i32>);
+        add_edge!(VertexCovering<i32> => SetCovering<i32>);
+        add_edge!(Matching<i32> => SetPacking<i32>);
+
+        // Optimization reductions
         add_edge!(SpinGlass<f64> => QUBO<f64>);
         add_edge!(QUBO<f64> => SpinGlass<f64>);
         add_edge!(MaxCut<i32> => SpinGlass<i32>);
         add_edge!(SpinGlass<i32> => MaxCut<i32>);
+
+        // SAT-based reductions
+        add_edge!(Satisfiability<i32> => KSatisfiability<3, i32>);
+        add_edge!(KSatisfiability<3, i32> => Satisfiability<i32>);
+        add_edge!(Satisfiability<i32> => IndependentSet<i32>);
+        add_edge!(Satisfiability<i32> => Coloring);
+        add_edge!(Satisfiability<i32> => DominatingSet<i32>);
+
+        // Circuit reductions
+        add_edge!(CircuitSAT<i32> => SpinGlass<i32>);
+        add_edge!(Factoring => CircuitSAT<i32>);
     }
 
     /// Find all paths from source to target type.

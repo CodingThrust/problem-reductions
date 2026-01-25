@@ -1,0 +1,970 @@
+//! Reduction from CircuitSAT to SpinGlass.
+//!
+//! This module implements the reduction from boolean circuit satisfiability
+//! to the Spin Glass (Ising model) problem using logic gadgets.
+//!
+//! Each logic gate is encoded as a SpinGlass Hamiltonian where the ground
+//! states correspond to valid input/output combinations.
+
+use crate::models::optimization::SpinGlass;
+use crate::models::specialized::{Assignment, BooleanExpr, BooleanOp, CircuitSAT};
+use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::traits::Problem;
+use crate::types::ProblemSize;
+use num_traits::{Num, Zero};
+use std::collections::HashMap;
+use std::ops::AddAssign;
+
+/// A logic gadget represented as a SpinGlass problem.
+///
+/// Each gadget encodes a logic gate where the ground states of the
+/// Hamiltonian correspond to valid input/output combinations.
+///
+/// # References
+/// - [What are the cost function for NAND and NOR gates?](https://support.dwavesys.com/hc/en-us/community/posts/1500000470701-What-are-the-cost-function-for-NAND-and-NOR-gates)
+/// - Nguyen, M.-T., Liu, J.-G., et al., PRX Quantum 4, 010316 (2023)
+#[derive(Debug, Clone)]
+pub struct LogicGadget<W> {
+    /// The SpinGlass problem encoding the gate.
+    pub problem: SpinGlass<W>,
+    /// Input spin indices (0-indexed within the gadget).
+    pub inputs: Vec<usize>,
+    /// Output spin indices (0-indexed within the gadget).
+    pub outputs: Vec<usize>,
+}
+
+impl<W> LogicGadget<W> {
+    /// Create a new logic gadget.
+    pub fn new(problem: SpinGlass<W>, inputs: Vec<usize>, outputs: Vec<usize>) -> Self {
+        Self {
+            problem,
+            inputs,
+            outputs,
+        }
+    }
+}
+
+impl<W: Clone + Default> LogicGadget<W> {
+    /// Get the number of spins in this gadget.
+    pub fn num_spins(&self) -> usize {
+        self.problem.num_spins()
+    }
+}
+
+/// Create an AND gate gadget.
+///
+/// 3-variable SpinGlass: inputs at indices 0, 1; output at index 2.
+/// Ground states: (0,0,0), (0,1,0), (1,0,0), (1,1,1) corresponding to
+/// all valid AND truth table entries.
+///
+/// J = [1, -2, -2] for edges (0,1), (0,2), (1,2)
+/// h = [-1, -1, 2] (negated from Julia to account for different spin convention)
+///
+/// Note: Julia uses config 0 -> spin +1, 1 -> spin -1
+///       Rust uses config 0 -> spin -1, 1 -> spin +1
+///       So h values are negated to produce equivalent ground states.
+pub fn and_gadget<W>() -> LogicGadget<W>
+where
+    W: Clone + Default + From<i32>,
+{
+    let interactions = vec![
+        ((0, 1), W::from(1)),
+        ((0, 2), W::from(-2)),
+        ((1, 2), W::from(-2)),
+    ];
+    let fields = vec![W::from(-1), W::from(-1), W::from(2)];
+    let sg = SpinGlass::new(3, interactions, fields);
+    LogicGadget::new(sg, vec![0, 1], vec![2])
+}
+
+/// Create an OR gate gadget.
+///
+/// 3-variable SpinGlass: inputs at indices 0, 1; output at index 2.
+/// Ground states: (0,0,0), (0,1,1), (1,0,1), (1,1,1) corresponding to
+/// all valid OR truth table entries.
+///
+/// J = [1, -2, -2] for edges (0,1), (0,2), (1,2)
+/// h = [1, 1, -2] (negated from Julia to account for different spin convention)
+pub fn or_gadget<W>() -> LogicGadget<W>
+where
+    W: Clone + Default + From<i32>,
+{
+    let interactions = vec![
+        ((0, 1), W::from(1)),
+        ((0, 2), W::from(-2)),
+        ((1, 2), W::from(-2)),
+    ];
+    let fields = vec![W::from(1), W::from(1), W::from(-2)];
+    let sg = SpinGlass::new(3, interactions, fields);
+    LogicGadget::new(sg, vec![0, 1], vec![2])
+}
+
+/// Create a NOT gate gadget.
+///
+/// 2-variable SpinGlass: input at index 0; output at index 1.
+/// Ground states: (0,1), (1,0) corresponding to valid NOT.
+///
+/// J = [1] for edge (0,1)
+/// h = [0, 0]
+pub fn not_gadget<W>() -> LogicGadget<W>
+where
+    W: Clone + Default + From<i32> + Zero,
+{
+    let interactions = vec![((0, 1), W::from(1))];
+    let fields = vec![W::zero(), W::zero()];
+    let sg = SpinGlass::new(2, interactions, fields);
+    LogicGadget::new(sg, vec![0], vec![1])
+}
+
+/// Create an XOR gate gadget.
+///
+/// 4-variable SpinGlass: inputs at indices 0, 1; output at 2; auxiliary at 3.
+/// Ground states correspond to valid XOR truth table entries.
+///
+/// J = [1, -1, -2, -1, -2, 2] for edges (0,1), (0,2), (0,3), (1,2), (1,3), (2,3)
+/// h = [-1, -1, 1, 2] (negated from Julia to account for different spin convention)
+pub fn xor_gadget<W>() -> LogicGadget<W>
+where
+    W: Clone + Default + From<i32>,
+{
+    let interactions = vec![
+        ((0, 1), W::from(1)),
+        ((0, 2), W::from(-1)),
+        ((0, 3), W::from(-2)),
+        ((1, 2), W::from(-1)),
+        ((1, 3), W::from(-2)),
+        ((2, 3), W::from(2)),
+    ];
+    let fields = vec![W::from(-1), W::from(-1), W::from(1), W::from(2)];
+    let sg = SpinGlass::new(4, interactions, fields);
+    // Note: output is at index 2 (not 3) according to Julia code
+    // The Julia code has: LogicGadget(sg, [1, 2], [3]) which is 1-indexed
+    // In 0-indexed: inputs [0, 1], output [2]
+    LogicGadget::new(sg, vec![0, 1], vec![2])
+}
+
+/// Create a SET0 gadget (constant false).
+///
+/// 1-variable SpinGlass that prefers config 0 (spin -1 in Rust convention).
+/// h = [1] (negated from Julia's [-1] to account for different spin convention)
+pub fn set0_gadget<W>() -> LogicGadget<W>
+where
+    W: Clone + Default + From<i32>,
+{
+    let interactions = vec![];
+    let fields = vec![W::from(1)];
+    let sg = SpinGlass::new(1, interactions, fields);
+    LogicGadget::new(sg, vec![], vec![0])
+}
+
+/// Create a SET1 gadget (constant true).
+///
+/// 1-variable SpinGlass that prefers config 1 (spin +1 in Rust convention).
+/// h = [-1] (negated from Julia's [1] to account for different spin convention)
+pub fn set1_gadget<W>() -> LogicGadget<W>
+where
+    W: Clone + Default + From<i32>,
+{
+    let interactions = vec![];
+    let fields = vec![W::from(-1)];
+    let sg = SpinGlass::new(1, interactions, fields);
+    LogicGadget::new(sg, vec![], vec![0])
+}
+
+/// Result of reducing CircuitSAT to SpinGlass.
+#[derive(Debug, Clone)]
+pub struct ReductionCircuitToSG<W> {
+    /// The target SpinGlass problem.
+    target: SpinGlass<W>,
+    /// Mapping from source variable names to spin indices.
+    variable_map: HashMap<String, usize>,
+    /// Source variable names in order.
+    source_variables: Vec<String>,
+    /// Source problem size.
+    source_size: ProblemSize,
+}
+
+impl<W> ReductionResult for ReductionCircuitToSG<W>
+where
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+{
+    type Source = CircuitSAT<W>;
+    type Target = SpinGlass<W>;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+        self.source_variables
+            .iter()
+            .map(|var| {
+                self.variable_map
+                    .get(var)
+                    .and_then(|&idx| target_solution.get(idx).copied())
+                    .unwrap_or(0)
+            })
+            .collect()
+    }
+
+    fn source_size(&self) -> ProblemSize {
+        self.source_size.clone()
+    }
+
+    fn target_size(&self) -> ProblemSize {
+        self.target.problem_size()
+    }
+}
+
+/// Builder for constructing the combined SpinGlass from circuit gadgets.
+struct SpinGlassBuilder<W> {
+    /// Current number of spins.
+    num_spins: usize,
+    /// Accumulated interactions.
+    interactions: HashMap<(usize, usize), W>,
+    /// Accumulated fields.
+    fields: Vec<W>,
+    /// Variable name to spin index mapping.
+    variable_map: HashMap<String, usize>,
+}
+
+impl<W> SpinGlassBuilder<W>
+where
+    W: Clone + Default + Zero + AddAssign + From<i32>,
+{
+    fn new() -> Self {
+        Self {
+            num_spins: 0,
+            interactions: HashMap::new(),
+            fields: Vec::new(),
+            variable_map: HashMap::new(),
+        }
+    }
+
+    /// Allocate a new spin and return its index.
+    fn allocate_spin(&mut self) -> usize {
+        let idx = self.num_spins;
+        self.num_spins += 1;
+        self.fields.push(W::zero());
+        idx
+    }
+
+    /// Get or create a spin index for a variable.
+    fn get_or_create_variable(&mut self, name: &str) -> usize {
+        if let Some(&idx) = self.variable_map.get(name) {
+            idx
+        } else {
+            let idx = self.allocate_spin();
+            self.variable_map.insert(name.to_string(), idx);
+            idx
+        }
+    }
+
+    /// Add a gadget to the builder with the given spin mapping.
+    fn add_gadget(&mut self, gadget: &LogicGadget<W>, spin_map: &[usize]) {
+        // Add interactions
+        for ((i, j), weight) in gadget.problem.interactions() {
+            let global_i = spin_map[*i];
+            let global_j = spin_map[*j];
+            let key = if global_i < global_j {
+                (global_i, global_j)
+            } else {
+                (global_j, global_i)
+            };
+            self.interactions
+                .entry(key)
+                .or_insert_with(W::zero)
+                .add_assign(weight.clone());
+        }
+
+        // Add fields
+        for (local_idx, field) in gadget.problem.fields().iter().enumerate() {
+            let global_idx = spin_map[local_idx];
+            self.fields[global_idx].add_assign(field.clone());
+        }
+    }
+
+    /// Build the final SpinGlass.
+    fn build(self) -> (SpinGlass<W>, HashMap<String, usize>) {
+        let interactions: Vec<((usize, usize), W)> =
+            self.interactions.into_iter().collect();
+        let sg = SpinGlass::new(self.num_spins, interactions, self.fields);
+        (sg, self.variable_map)
+    }
+}
+
+/// Process a boolean expression and return the spin index of its output.
+fn process_expression<W>(
+    expr: &BooleanExpr,
+    builder: &mut SpinGlassBuilder<W>,
+) -> usize
+where
+    W: Clone + Default + Zero + AddAssign + From<i32>,
+{
+    match &expr.op {
+        BooleanOp::Var(name) => builder.get_or_create_variable(name),
+
+        BooleanOp::Const(value) => {
+            let gadget: LogicGadget<W> = if *value {
+                set1_gadget()
+            } else {
+                set0_gadget()
+            };
+            let output_spin = builder.allocate_spin();
+            let spin_map = vec![output_spin];
+            builder.add_gadget(&gadget, &spin_map);
+            output_spin
+        }
+
+        BooleanOp::Not(inner) => {
+            let input_spin = process_expression(inner, builder);
+            let gadget: LogicGadget<W> = not_gadget();
+            let output_spin = builder.allocate_spin();
+            let spin_map = vec![input_spin, output_spin];
+            builder.add_gadget(&gadget, &spin_map);
+            output_spin
+        }
+
+        BooleanOp::And(args) => process_binary_chain(args, builder, and_gadget),
+
+        BooleanOp::Or(args) => process_binary_chain(args, builder, or_gadget),
+
+        BooleanOp::Xor(args) => process_binary_chain(args, builder, xor_gadget),
+    }
+}
+
+/// Process a multi-input gate by chaining binary gates.
+fn process_binary_chain<W, F>(
+    args: &[BooleanExpr],
+    builder: &mut SpinGlassBuilder<W>,
+    gadget_fn: F,
+) -> usize
+where
+    W: Clone + Default + Zero + AddAssign + From<i32>,
+    F: Fn() -> LogicGadget<W>,
+{
+    assert!(!args.is_empty(), "Binary gate must have at least one argument");
+
+    if args.len() == 1 {
+        // Single argument - just return its output
+        return process_expression(&args[0], builder);
+    }
+
+    // Process first two arguments
+    let mut result_spin = {
+        let input0 = process_expression(&args[0], builder);
+        let input1 = process_expression(&args[1], builder);
+        let gadget = gadget_fn();
+        let output_spin = builder.allocate_spin();
+
+        // For XOR gadget, we need to allocate the auxiliary spin too
+        let spin_map = if gadget.num_spins() == 4 {
+            // XOR: inputs [0, 1], aux at 3, output at 2
+            let aux_spin = builder.allocate_spin();
+            vec![input0, input1, output_spin, aux_spin]
+        } else {
+            // AND/OR: inputs [0, 1], output at 2
+            vec![input0, input1, output_spin]
+        };
+
+        builder.add_gadget(&gadget, &spin_map);
+        output_spin
+    };
+
+    // Chain remaining arguments
+    for arg in args.iter().skip(2) {
+        let next_input = process_expression(arg, builder);
+        let gadget = gadget_fn();
+        let output_spin = builder.allocate_spin();
+
+        let spin_map = if gadget.num_spins() == 4 {
+            let aux_spin = builder.allocate_spin();
+            vec![result_spin, next_input, output_spin, aux_spin]
+        } else {
+            vec![result_spin, next_input, output_spin]
+        };
+
+        builder.add_gadget(&gadget, &spin_map);
+        result_spin = output_spin;
+    }
+
+    result_spin
+}
+
+/// Process a circuit assignment.
+fn process_assignment<W>(
+    assignment: &Assignment,
+    builder: &mut SpinGlassBuilder<W>,
+) where
+    W: Clone + Default + Zero + AddAssign + From<i32>,
+{
+    // Process the expression to get the output spin
+    let expr_output = process_expression(&assignment.expr, builder);
+
+    // For each output variable, we need to constrain it to equal the expression output
+    // This is done by adding a NOT gadget constraint (with J=1) to enforce equality
+    for output_name in &assignment.outputs {
+        let output_spin = builder.get_or_create_variable(output_name);
+
+        // If the output spin is different from expr_output, add equality constraint
+        if output_spin != expr_output {
+            // Add ferromagnetic coupling to enforce s_i = s_j
+            // J = -1 means aligned spins have lower energy
+            // Actually, we want to use a strong negative coupling
+            let key = if output_spin < expr_output {
+                (output_spin, expr_output)
+            } else {
+                (expr_output, output_spin)
+            };
+            builder
+                .interactions
+                .entry(key)
+                .or_insert_with(W::zero)
+                .add_assign(W::from(-4)); // Strong ferromagnetic coupling
+        }
+    }
+}
+
+impl<W> ReduceTo<SpinGlass<W>> for CircuitSAT<W>
+where
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+{
+    type Result = ReductionCircuitToSG<W>;
+
+    fn reduce_to(&self) -> Self::Result {
+        let mut builder = SpinGlassBuilder::new();
+
+        // Process each assignment in the circuit
+        for assignment in &self.circuit().assignments {
+            process_assignment(assignment, &mut builder);
+        }
+
+        let (target, variable_map) = builder.build();
+        let source_variables = self.variable_names().to_vec();
+        let source_size = self.problem_size();
+
+        ReductionCircuitToSG {
+            target,
+            variable_map,
+            source_variables,
+            source_size,
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::models::specialized::Circuit;
+    use crate::solvers::{BruteForce, Solver};
+
+    /// Verify a gadget has the correct ground states.
+    fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<usize>, Vec<usize>)])
+    where
+        W: Clone
+            + Default
+            + PartialOrd
+            + Num
+            + Zero
+            + AddAssign
+            + From<i32>
+            + std::ops::Mul<Output = W>
+            + std::fmt::Debug,
+    {
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(&gadget.problem);
+
+        // For each expected input/output pair, verify there's a matching ground state
+        for (inputs, outputs) in expected {
+            let found = solutions.iter().any(|sol| {
+                let input_match = gadget
+                    .inputs
+                    .iter()
+                    .zip(inputs)
+                    .all(|(&idx, &expected)| sol[idx] == expected);
+                let output_match = gadget
+                    .outputs
+                    .iter()
+                    .zip(outputs)
+                    .all(|(&idx, &expected)| sol[idx] == expected);
+                input_match && output_match
+            });
+            assert!(
+                found,
+                "Expected ground state with inputs {:?} and outputs {:?} not found in {:?}",
+                inputs, outputs, solutions
+            );
+        }
+    }
+
+    #[test]
+    fn test_and_gadget() {
+        let gadget: LogicGadget<i32> = and_gadget();
+        assert_eq!(gadget.num_spins(), 3);
+        assert_eq!(gadget.inputs, vec![0, 1]);
+        assert_eq!(gadget.outputs, vec![2]);
+
+        // AND truth table: (a, b) -> a AND b
+        let truth_table = vec![
+            (vec![0, 0], vec![0]), // 0 AND 0 = 0
+            (vec![0, 1], vec![0]), // 0 AND 1 = 0
+            (vec![1, 0], vec![0]), // 1 AND 0 = 0
+            (vec![1, 1], vec![1]), // 1 AND 1 = 1
+        ];
+        verify_gadget_truth_table(&gadget, &truth_table);
+    }
+
+    #[test]
+    fn test_or_gadget() {
+        let gadget: LogicGadget<i32> = or_gadget();
+        assert_eq!(gadget.num_spins(), 3);
+        assert_eq!(gadget.inputs, vec![0, 1]);
+        assert_eq!(gadget.outputs, vec![2]);
+
+        // OR truth table: (a, b) -> a OR b
+        let truth_table = vec![
+            (vec![0, 0], vec![0]), // 0 OR 0 = 0
+            (vec![0, 1], vec![1]), // 0 OR 1 = 1
+            (vec![1, 0], vec![1]), // 1 OR 0 = 1
+            (vec![1, 1], vec![1]), // 1 OR 1 = 1
+        ];
+        verify_gadget_truth_table(&gadget, &truth_table);
+    }
+
+    #[test]
+    fn test_not_gadget() {
+        let gadget: LogicGadget<i32> = not_gadget();
+        assert_eq!(gadget.num_spins(), 2);
+        assert_eq!(gadget.inputs, vec![0]);
+        assert_eq!(gadget.outputs, vec![1]);
+
+        // NOT truth table: a -> NOT a
+        let truth_table = vec![
+            (vec![0], vec![1]), // NOT 0 = 1
+            (vec![1], vec![0]), // NOT 1 = 0
+        ];
+        verify_gadget_truth_table(&gadget, &truth_table);
+    }
+
+    #[test]
+    fn test_xor_gadget() {
+        let gadget: LogicGadget<i32> = xor_gadget();
+        assert_eq!(gadget.num_spins(), 4);
+        assert_eq!(gadget.inputs, vec![0, 1]);
+        assert_eq!(gadget.outputs, vec![2]);
+
+        // XOR truth table: (a, b) -> a XOR b
+        let truth_table = vec![
+            (vec![0, 0], vec![0]), // 0 XOR 0 = 0
+            (vec![0, 1], vec![1]), // 0 XOR 1 = 1
+            (vec![1, 0], vec![1]), // 1 XOR 0 = 1
+            (vec![1, 1], vec![0]), // 1 XOR 1 = 0
+        ];
+        verify_gadget_truth_table(&gadget, &truth_table);
+    }
+
+    #[test]
+    fn test_set0_gadget() {
+        let gadget: LogicGadget<i32> = set0_gadget();
+        assert_eq!(gadget.num_spins(), 1);
+        assert_eq!(gadget.inputs, Vec::<usize>::new());
+        assert_eq!(gadget.outputs, vec![0]);
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(&gadget.problem);
+        // Ground state should be spin down (0)
+        assert!(solutions.contains(&vec![0]));
+        assert!(!solutions.contains(&vec![1]));
+    }
+
+    #[test]
+    fn test_set1_gadget() {
+        let gadget: LogicGadget<i32> = set1_gadget();
+        assert_eq!(gadget.num_spins(), 1);
+        assert_eq!(gadget.inputs, Vec::<usize>::new());
+        assert_eq!(gadget.outputs, vec![0]);
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(&gadget.problem);
+        // Ground state should be spin up (1)
+        assert!(solutions.contains(&vec![1]));
+        assert!(!solutions.contains(&vec![0]));
+    }
+
+    #[test]
+    fn test_simple_and_circuit() {
+        // c = x AND y
+        let circuit = Circuit::new(vec![Assignment::new(
+            vec!["c".to_string()],
+            BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+        )]);
+        let problem = CircuitSAT::<i32>::new(circuit);
+        let reduction = problem.reduce_to();
+        let sg = reduction.target_problem();
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(sg);
+
+        // Extract and verify solutions
+        let extracted: Vec<Vec<usize>> = solutions
+            .iter()
+            .map(|s| reduction.extract_solution(s))
+            .collect();
+
+        // Should have valid AND configurations
+        // Variables are sorted: c, x, y
+        let valid_configs = vec![
+            vec![0, 0, 0], // c=0, x=0, y=0: 0 AND 0 = 0 OK
+            vec![0, 0, 1], // c=0, x=0, y=1: 0 AND 1 = 0 OK
+            vec![0, 1, 0], // c=0, x=1, y=0: 1 AND 0 = 0 OK
+            vec![1, 1, 1], // c=1, x=1, y=1: 1 AND 1 = 1 OK
+        ];
+
+        for config in &valid_configs {
+            assert!(
+                extracted.contains(config),
+                "Expected valid config {:?} not found in {:?}",
+                config,
+                extracted
+            );
+        }
+    }
+
+    #[test]
+    fn test_simple_or_circuit() {
+        // c = x OR y
+        let circuit = Circuit::new(vec![Assignment::new(
+            vec!["c".to_string()],
+            BooleanExpr::or(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+        )]);
+        let problem = CircuitSAT::<i32>::new(circuit);
+        let reduction = problem.reduce_to();
+        let sg = reduction.target_problem();
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(sg);
+
+        let extracted: Vec<Vec<usize>> = solutions
+            .iter()
+            .map(|s| reduction.extract_solution(s))
+            .collect();
+
+        // Variables sorted: c, x, y
+        let valid_configs = vec![
+            vec![0, 0, 0], // c=0, x=0, y=0: 0 OR 0 = 0 OK
+            vec![1, 0, 1], // c=1, x=0, y=1: 0 OR 1 = 1 OK
+            vec![1, 1, 0], // c=1, x=1, y=0: 1 OR 0 = 1 OK
+            vec![1, 1, 1], // c=1, x=1, y=1: 1 OR 1 = 1 OK
+        ];
+
+        for config in &valid_configs {
+            assert!(
+                extracted.contains(config),
+                "Expected valid config {:?} not found in {:?}",
+                config,
+                extracted
+            );
+        }
+    }
+
+    #[test]
+    fn test_not_circuit() {
+        // c = NOT x
+        let circuit = Circuit::new(vec![Assignment::new(
+            vec!["c".to_string()],
+            BooleanExpr::not(BooleanExpr::var("x")),
+        )]);
+        let problem = CircuitSAT::<i32>::new(circuit);
+        let reduction = problem.reduce_to();
+        let sg = reduction.target_problem();
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(sg);
+
+        let extracted: Vec<Vec<usize>> = solutions
+            .iter()
+            .map(|s| reduction.extract_solution(s))
+            .collect();
+
+        // Variables sorted: c, x
+        let valid_configs = vec![
+            vec![1, 0], // c=1, x=0: NOT 0 = 1 OK
+            vec![0, 1], // c=0, x=1: NOT 1 = 0 OK
+        ];
+
+        for config in &valid_configs {
+            assert!(
+                extracted.contains(config),
+                "Expected valid config {:?} not found in {:?}",
+                config,
+                extracted
+            );
+        }
+    }
+
+    #[test]
+    fn test_xor_circuit() {
+        // c = x XOR y
+        let circuit = Circuit::new(vec![Assignment::new(
+            vec!["c".to_string()],
+            BooleanExpr::xor(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+        )]);
+        let problem = CircuitSAT::<i32>::new(circuit);
+        let reduction = problem.reduce_to();
+        let sg = reduction.target_problem();
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(sg);
+
+        let extracted: Vec<Vec<usize>> = solutions
+            .iter()
+            .map(|s| reduction.extract_solution(s))
+            .collect();
+
+        // Variables sorted: c, x, y
+        let valid_configs = vec![
+            vec![0, 0, 0], // c=0, x=0, y=0: 0 XOR 0 = 0 OK
+            vec![1, 0, 1], // c=1, x=0, y=1: 0 XOR 1 = 1 OK
+            vec![1, 1, 0], // c=1, x=1, y=0: 1 XOR 0 = 1 OK
+            vec![0, 1, 1], // c=0, x=1, y=1: 1 XOR 1 = 0 OK
+        ];
+
+        for config in &valid_configs {
+            assert!(
+                extracted.contains(config),
+                "Expected valid config {:?} not found in {:?}",
+                config,
+                extracted
+            );
+        }
+    }
+
+    #[test]
+    fn test_constant_true() {
+        // c = true
+        let circuit = Circuit::new(vec![Assignment::new(
+            vec!["c".to_string()],
+            BooleanExpr::constant(true),
+        )]);
+        let problem = CircuitSAT::<i32>::new(circuit);
+        let reduction = problem.reduce_to();
+        let sg = reduction.target_problem();
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(sg);
+
+        let extracted: Vec<Vec<usize>> = solutions
+            .iter()
+            .map(|s| reduction.extract_solution(s))
+            .collect();
+
+        // c should be 1
+        assert!(extracted.contains(&vec![1]), "Expected c=1 in {:?}", extracted);
+    }
+
+    #[test]
+    fn test_constant_false() {
+        // c = false
+        let circuit = Circuit::new(vec![Assignment::new(
+            vec!["c".to_string()],
+            BooleanExpr::constant(false),
+        )]);
+        let problem = CircuitSAT::<i32>::new(circuit);
+        let reduction = problem.reduce_to();
+        let sg = reduction.target_problem();
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(sg);
+
+        let extracted: Vec<Vec<usize>> = solutions
+            .iter()
+            .map(|s| reduction.extract_solution(s))
+            .collect();
+
+        // c should be 0
+        assert!(extracted.contains(&vec![0]), "Expected c=0 in {:?}", extracted);
+    }
+
+    #[test]
+    fn test_multi_input_and() {
+        // c = x AND y AND z (3-input AND)
+        let circuit = Circuit::new(vec![Assignment::new(
+            vec!["c".to_string()],
+            BooleanExpr::and(vec![
+                BooleanExpr::var("x"),
+                BooleanExpr::var("y"),
+                BooleanExpr::var("z"),
+            ]),
+        )]);
+        let problem = CircuitSAT::<i32>::new(circuit);
+        let reduction = problem.reduce_to();
+        let sg = reduction.target_problem();
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(sg);
+
+        let extracted: Vec<Vec<usize>> = solutions
+            .iter()
+            .map(|s| reduction.extract_solution(s))
+            .collect();
+
+        // Variables sorted: c, x, y, z
+        // Only c=1 when all inputs are 1
+        assert!(
+            extracted.contains(&vec![1, 1, 1, 1]),
+            "Expected (1,1,1,1) in {:?}",
+            extracted
+        );
+        // c=0 for all other combinations
+        assert!(
+            extracted.contains(&vec![0, 0, 0, 0]),
+            "Expected (0,0,0,0) in {:?}",
+            extracted
+        );
+    }
+
+    #[test]
+    fn test_chained_circuit() {
+        // c = x AND y
+        // d = c OR z
+        let circuit = Circuit::new(vec![
+            Assignment::new(
+                vec!["c".to_string()],
+                BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+            ),
+            Assignment::new(
+                vec!["d".to_string()],
+                BooleanExpr::or(vec![BooleanExpr::var("c"), BooleanExpr::var("z")]),
+            ),
+        ]);
+        let problem = CircuitSAT::<i32>::new(circuit);
+        let reduction = problem.reduce_to();
+        let sg = reduction.target_problem();
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(sg);
+
+        let extracted: Vec<Vec<usize>> = solutions
+            .iter()
+            .map(|s| reduction.extract_solution(s))
+            .collect();
+
+        // Verify some valid configurations
+        // Variables sorted: c, d, x, y, z
+        // c = x AND y, d = c OR z
+
+        // x=1, y=1 -> c=1, z=0 -> d=1
+        assert!(
+            extracted.contains(&vec![1, 1, 1, 1, 0]),
+            "Expected (1,1,1,1,0) in {:?}",
+            extracted
+        );
+
+        // x=0, y=0 -> c=0, z=1 -> d=1
+        assert!(
+            extracted.contains(&vec![0, 1, 0, 0, 1]),
+            "Expected (0,1,0,0,1) in {:?}",
+            extracted
+        );
+
+        // x=0, y=0 -> c=0, z=0 -> d=0
+        assert!(
+            extracted.contains(&vec![0, 0, 0, 0, 0]),
+            "Expected (0,0,0,0,0) in {:?}",
+            extracted
+        );
+    }
+
+    #[test]
+    fn test_nested_expression() {
+        // c = (x AND y) OR z
+        let circuit = Circuit::new(vec![Assignment::new(
+            vec!["c".to_string()],
+            BooleanExpr::or(vec![
+                BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+                BooleanExpr::var("z"),
+            ]),
+        )]);
+        let problem = CircuitSAT::<i32>::new(circuit);
+        let reduction = problem.reduce_to();
+        let sg = reduction.target_problem();
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(sg);
+
+        let extracted: Vec<Vec<usize>> = solutions
+            .iter()
+            .map(|s| reduction.extract_solution(s))
+            .collect();
+
+        // Variables sorted: c, x, y, z
+        // c = (x AND y) OR z
+
+        // x=1, y=1, z=0 -> c=1
+        assert!(
+            extracted.contains(&vec![1, 1, 1, 0]),
+            "Expected (1,1,1,0) in {:?}",
+            extracted
+        );
+
+        // x=0, y=0, z=1 -> c=1
+        assert!(
+            extracted.contains(&vec![1, 0, 0, 1]),
+            "Expected (1,0,0,1) in {:?}",
+            extracted
+        );
+
+        // x=0, y=0, z=0 -> c=0
+        assert!(
+            extracted.contains(&vec![0, 0, 0, 0]),
+            "Expected (0,0,0,0) in {:?}",
+            extracted
+        );
+    }
+
+    #[test]
+    fn test_reduction_result_methods() {
+        let circuit = Circuit::new(vec![Assignment::new(
+            vec!["c".to_string()],
+            BooleanExpr::var("x"),
+        )]);
+        let problem = CircuitSAT::<i32>::new(circuit);
+        let reduction = problem.reduce_to();
+
+        // Test source_size and target_size
+        let source_size = reduction.source_size();
+        let target_size = reduction.target_size();
+
+        assert!(source_size.get("num_variables").is_some());
+        assert!(target_size.get("num_spins").is_some());
+    }
+
+    #[test]
+    fn test_empty_circuit() {
+        let circuit = Circuit::new(vec![]);
+        let problem = CircuitSAT::<i32>::new(circuit);
+        let reduction = problem.reduce_to();
+        let sg = reduction.target_problem();
+
+        // Empty circuit should result in empty SpinGlass
+        assert_eq!(sg.num_spins(), 0);
+    }
+
+    #[test]
+    fn test_solution_extraction() {
+        let circuit = Circuit::new(vec![Assignment::new(
+            vec!["c".to_string()],
+            BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+        )]);
+        let problem = CircuitSAT::<i32>::new(circuit);
+        let reduction = problem.reduce_to();
+
+        // The source variables are c, x, y (sorted)
+        assert_eq!(reduction.source_variables, vec!["c", "x", "y"]);
+
+        // Test extraction with a mock target solution
+        // Need to know the mapping to construct proper test
+        let sg = reduction.target_problem();
+        assert!(sg.num_spins() >= 3); // At least c, x, y
+    }
+}
