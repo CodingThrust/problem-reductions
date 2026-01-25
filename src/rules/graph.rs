@@ -344,25 +344,27 @@ impl ReductionGraph {
         let mut layers: HashMap<&'static str, usize> = HashMap::new();
 
         for &name in self.type_names.values() {
-            let layer = match Self::categorize_type(name) {
-                "specialized" => {
-                    if name.contains("Factoring") {
-                        0
-                    } else {
-                        1
-                    }
-                }
-                "satisfiability" => {
-                    if name.contains("Circuit") {
-                        1
-                    } else {
-                        2
-                    }
-                }
-                "graph" => 3,
-                "set" => 4,
-                "optimization" => 2,
-                _ => 3,
+            // Assign layers based on problem hierarchy
+            // Layer 0: Root problems (Factoring)
+            // Layer 1: Circuit-level problems
+            // Layer 2: SAT and optimization problems
+            // Layer 3: Graph problems
+            // Layer 4: Set problems
+            let layer = if name.contains("Factoring") {
+                0
+            } else if name.contains("Circuit") {
+                1
+            } else if name.contains("Satisfiability")
+                || name.contains("SAT")
+                || name.contains("SpinGlass")
+                || name.contains("QUBO")
+            {
+                2
+            } else if name.contains("SetPacking") || name.contains("SetCover") {
+                4
+            } else {
+                // Graph problems and anything else
+                3
             };
             layers.insert(name, layer);
         }
@@ -416,13 +418,19 @@ impl ReductionGraph {
 
         // Step 4: Sort nodes within each layer by category for visual grouping
         for nodes in layer_groups.values_mut() {
-            nodes.sort_by_key(|&name| match Self::categorize_type(name) {
-                "specialized" => 0,
-                "satisfiability" => 1,
-                "graph" => 2,
-                "set" => 3,
-                "optimization" => 4,
-                _ => 5,
+            nodes.sort_by_key(|&name| {
+                // Sort by category priority within each layer
+                if name.contains("Factoring") || name.contains("Circuit") {
+                    0
+                } else if name.contains("Satisfiability") || name.contains("SAT") {
+                    1
+                } else if name.contains("SpinGlass") || name.contains("QUBO") {
+                    4
+                } else if name.contains("SetPacking") || name.contains("SetCover") {
+                    3
+                } else {
+                    2 // Graph problems
+                }
             });
         }
 
