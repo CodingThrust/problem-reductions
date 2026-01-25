@@ -173,7 +173,7 @@ let result = ReduceTo::<SpinGlass<i32>>::reduce_to(&problem);
 
 Constructs a multiplier circuit that computes p * q and constrains the output to equal the target number N. A satisfying assignment reveals the factors.
 
-**Citation**: Shor, P. W. (1994). "Algorithms for quantum computation: discrete logarithms and factoring". Proceedings of the 35th Annual Symposium on Foundations of Computer Science. pp. 124-134.
+**Citation**: Folklore result using standard array multiplier circuits. The construction is well-known in hardware verification and circuit complexity.
 
 ```rust
 use problemreductions::prelude::*;
@@ -203,4 +203,4 @@ let result = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
 | Satisfiability | Coloring | Gadget | Garey & Johnson 1979 |
 | Satisfiability | DominatingSet | Gadget | Garey & Johnson 1979 |
 | CircuitSAT | SpinGlass | Gate gadgets | Whitfield et al. 2012 |
-| Factoring | CircuitSAT | Multiplier circuit | Shor 1994 |
+| Factoring | CircuitSAT | Multiplier circuit | Folklore |
