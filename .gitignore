@@ -54,3 +54,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 *.temp
+
+# mdBook output
+book/
+
+# Tarpaulin
+tarpaulin-report.html
