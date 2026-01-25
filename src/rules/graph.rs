@@ -920,4 +920,136 @@ mod tests {
         // But it contains "SAT" so it goes to satisfiability first
         // Let's verify the actual behavior matches what the code does
     }
+
+    #[test]
+    fn test_layout_layer_ordering() {
+        let graph = ReductionGraph::new();
+        let json = graph.to_json();
+
+        // Collect nodes by category and verify layer ordering
+        let mut factoring_y = None;
+        let mut circuit_y = None;
+        let mut sat_y = None;
+        let mut graph_y = None;
+        let mut set_y = None;
+        let mut opt_y = None;
+
+        for node in &json.nodes {
+            match node.label.as_str() {
+                "Factoring" => factoring_y = Some(node.y),
+                "CircuitSAT" => circuit_y = Some(node.y),
+                "Satisfiability" | "KSatisfiability" => {
+                    if sat_y.is_none() || node.y < sat_y.unwrap() {
+                        sat_y = Some(node.y);
+                    }
+                }
+                "IndependentSet" | "VertexCovering" | "MaxCut" | "Coloring" | "DominatingSet"
+                | "Matching" => {
+                    if graph_y.is_none() {
+                        graph_y = Some(node.y);
+                    }
+                }
+                "SetPacking" | "SetCovering" => {
+                    if set_y.is_none() {
+                        set_y = Some(node.y);
+                    }
+                }
+                "SpinGlass" | "QUBO" => {
+                    if opt_y.is_none() {
+                        opt_y = Some(node.y);
+                    }
+                }
+                _ => {}
+            }
+        }
+
+        // Factoring should be at the top (y=0)
+        assert!(factoring_y.is_some());
+        assert!(factoring_y.unwrap() <= 0.1, "Factoring should be at y≈0");
+
+        // CircuitSAT should be below Factoring
+        assert!(circuit_y.is_some());
+        assert!(
+            circuit_y.unwrap() > factoring_y.unwrap(),
+            "CircuitSAT should be below Factoring"
+        );
+    }
+
+    #[test]
+    fn test_multiple_nodes_per_layer_spacing() {
+        let graph = ReductionGraph::new();
+        let json = graph.to_json();
+
+        // Find nodes on the same layer (same y coordinate)
+        let mut layers: HashMap<i64, Vec<&NodeJson>> = HashMap::new();
+        for node in &json.nodes {
+            let layer_key = (node.y * 10.0).round() as i64;
+            layers.entry(layer_key).or_default().push(node);
+        }
+
+        // Verify that nodes on the same layer have different x coordinates
+        for nodes in layers.values() {
+            if nodes.len() > 1 {
+                let mut x_coords: Vec<i64> = nodes.iter().map(|n| (n.x * 100.0).round() as i64).collect();
+                x_coords.sort();
+                for i in 1..x_coords.len() {
+                    assert!(
+                        x_coords[i] != x_coords[i - 1],
+                        "Nodes on same layer should have different x coordinates"
+                    );
+                }
+            }
+        }
+    }
+
+    #[test]
+    fn test_edge_bidirectionality_detection() {
+        let graph = ReductionGraph::new();
+        let json = graph.to_json();
+
+        // Count bidirectional and unidirectional edges
+        let bidirectional_count = json.edges.iter().filter(|e| e.bidirectional).count();
+        let unidirectional_count = json.edges.iter().filter(|e| !e.bidirectional).count();
+
+        // We should have both types
+        assert!(bidirectional_count > 0, "Should have bidirectional edges");
+        assert!(unidirectional_count > 0, "Should have unidirectional edges");
+
+        // Verify specific known bidirectional edges
+        let is_vc_bidir = json.edges.iter().any(|e| {
+            (e.source.contains("IndependentSet") && e.target.contains("VertexCovering")
+                || e.source.contains("VertexCovering") && e.target.contains("IndependentSet"))
+                && e.bidirectional
+        });
+        assert!(is_vc_bidir, "IS <-> VC should be bidirectional");
+
+        // Verify specific known unidirectional edge
+        let factoring_circuit_unidir = json.edges.iter().any(|e| {
+            e.source.contains("Factoring")
+                && e.target.contains("CircuitSAT")
+                && !e.bidirectional
+        });
+        assert!(
+            factoring_circuit_unidir,
+            "Factoring -> CircuitSAT should be unidirectional"
+        );
+    }
+
+    #[test]
+    fn test_simplify_type_name_edge_cases() {
+        // Empty string
+        assert_eq!(ReductionGraph::simplify_type_name(""), "");
+
+        // Multiple generic parameters
+        assert_eq!(
+            ReductionGraph::simplify_type_name("HashMap<String, Vec<i32>>"),
+            "HashMap"
+        );
+
+        // Nested generics
+        assert_eq!(
+            ReductionGraph::simplify_type_name("Option<Result<T, E>>"),
+            "Option"
+        );
+    }
 }
