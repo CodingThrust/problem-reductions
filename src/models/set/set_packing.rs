@@ -98,6 +98,11 @@ impl<W: Clone + Default> SetPacking<W> {
         }
         pairs
     }
+
+    /// Get a reference to the weights vector.
+    pub fn weights_ref(&self) -> &Vec<W> {
+        &self.weights
+    }
 }
 
 impl<W> Problem for SetPacking<W>
