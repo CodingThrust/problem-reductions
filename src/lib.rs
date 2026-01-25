@@ -82,7 +82,9 @@ pub mod prelude {
     pub use crate::models::graph::{
         Coloring, DominatingSet, IndependentSet, Matching, MaxCut, MaximalIS, VertexCovering,
     };
-    pub use crate::models::optimization::{SpinGlass, QUBO};
+    pub use crate::models::optimization::{
+        Comparison, LinearConstraint, ObjectiveSense, SpinGlass, VarBounds, ILP, QUBO,
+    };
     pub use crate::models::satisfiability::{CNFClause, Satisfiability};
     pub use crate::models::set::{SetCovering, SetPacking};
     pub use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
