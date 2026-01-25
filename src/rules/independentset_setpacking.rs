@@ -170,7 +170,8 @@ mod tests {
             vec![1, 2], // overlaps with both
         ];
         let sp_problem = SetPacking::<i32>::new(sets);
-        let reduction: ReductionSPToIS<i32> = sp_problem.reduce_to();
+        let reduction: ReductionSPToIS<i32> =
+            ReduceTo::<IndependentSet<i32>>::reduce_to(&sp_problem);
         let is_problem = reduction.target_problem();
 
         let solver = BruteForce::new();
@@ -192,7 +193,8 @@ mod tests {
         // IS -> SP -> IS
         let reduction1 = ReduceTo::<SetPacking<i32>>::reduce_to(&original);
         let sp = reduction1.target_problem().clone();
-        let reduction2: ReductionSPToIS<i32> = sp.reduce_to();
+        let reduction2: ReductionSPToIS<i32> =
+            ReduceTo::<IndependentSet<i32>>::reduce_to(&sp);
         let roundtrip = reduction2.target_problem();
 
         let roundtrip_solutions = solver.find_best(roundtrip);
@@ -236,7 +238,8 @@ mod tests {
         // Completely disjoint sets
         let sets = vec![vec![0], vec![1], vec![2]];
         let sp_problem = SetPacking::<i32>::new(sets);
-        let reduction: ReductionSPToIS<i32> = sp_problem.reduce_to();
+        let reduction: ReductionSPToIS<i32> =
+            ReduceTo::<IndependentSet<i32>>::reduce_to(&sp_problem);
         let is_problem = reduction.target_problem();
 
         // No edges in the intersection graph

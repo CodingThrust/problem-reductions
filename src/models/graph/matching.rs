@@ -101,7 +101,7 @@ impl<W: Clone + Default> Matching<W> {
     }
 
     /// Build a map from vertices to incident edges.
-    fn vertex_to_edges(&self) -> HashMap<usize, Vec<usize>> {
+    pub fn vertex_to_edges(&self) -> HashMap<usize, Vec<usize>> {
         let mut v2e: HashMap<usize, Vec<usize>> = HashMap::new();
         for (idx, edge) in self.graph.edge_references().enumerate() {
             let u = edge.source().index();
