@@ -8,6 +8,8 @@ mod spinglass_qubo;
 mod vertexcovering_independentset;
 
 #[cfg(feature = "ilp")]
+mod clique_ilp;
+#[cfg(feature = "ilp")]
 mod dominatingset_ilp;
 #[cfg(feature = "ilp")]
 mod independentset_ilp;
@@ -27,6 +29,8 @@ pub use spinglass_maxcut::{ReductionMaxCutToSG, ReductionSGToMaxCut};
 pub use spinglass_qubo::{ReductionQUBOToSG, ReductionSGToQUBO};
 pub use vertexcovering_independentset::{ReductionISToVC, ReductionVCToIS};
 
+#[cfg(feature = "ilp")]
+pub use clique_ilp::ReductionCliqueToILP;
 #[cfg(feature = "ilp")]
 pub use dominatingset_ilp::ReductionDSToILP;
 #[cfg(feature = "ilp")]
