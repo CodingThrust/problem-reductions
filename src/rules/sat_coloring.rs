@@ -249,6 +249,10 @@ where
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         // First determine which color is TRUE, FALSE, and AUX
         // Vertices 0, 1, 2 are TRUE, FALSE, AUX respectively
+        assert!(
+            target_solution.len() >= 3,
+            "Invalid solution: coloring must have at least 3 vertices"
+        );
         let true_color = target_solution[0];
         let false_color = target_solution[1];
         let aux_color = target_solution[2];

@@ -153,15 +153,12 @@ where
         }
 
         // Second pass: add edges between complementary literals across clauses
+        // Since we only add clique edges within clauses in the first pass,
+        // complementary literals in different clauses won't already have an edge
         for i in 0..vertex_count {
             for j in (i + 1)..vertex_count {
                 if literals[i].is_complement(&literals[j]) {
-                    // Check if edge doesn't already exist (it won't if they're in different clauses)
-                    // Since we only add clique edges within clauses, complementary literals
-                    // in different clauses won't have an edge yet
-                    if !edges.contains(&(i, j)) && !edges.contains(&(j, i)) {
-                        edges.push((i, j));
-                    }
+                    edges.push((i, j));
                 }
             }
         }

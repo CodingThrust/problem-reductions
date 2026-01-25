@@ -3,7 +3,7 @@
 //! The Dominating Set problem can be formulated as a binary ILP:
 //! - Variables: One binary variable per vertex (0 = not selected, 1 = selected)
 //! - Constraints: For each vertex v: x_v + sum_{u in N(v)} x_u >= 1
-//!               (v or at least one of its neighbors must be selected)
+//!   (v or at least one of its neighbors must be selected)
 //! - Objective: Minimize the sum of weights of selected vertices
 
 use crate::models::graph::DominatingSet;
