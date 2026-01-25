@@ -7,9 +7,15 @@ mod spinglass_maxcut;
 mod spinglass_qubo;
 mod vertexcovering_independentset;
 
+#[cfg(feature = "ilp")]
+mod independentset_ilp;
+
 pub use graph::{ReductionGraph, ReductionPath};
 pub use traits::{ReduceTo, ReductionResult};
 pub use independentset_setpacking::{ReductionISToSP, ReductionSPToIS};
 pub use spinglass_maxcut::{ReductionMaxCutToSG, ReductionSGToMaxCut};
 pub use spinglass_qubo::{ReductionQUBOToSG, ReductionSGToQUBO};
 pub use vertexcovering_independentset::{ReductionISToVC, ReductionVCToIS};
+
+#[cfg(feature = "ilp")]
+pub use independentset_ilp::ReductionISToILP;
