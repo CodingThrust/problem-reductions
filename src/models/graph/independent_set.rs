@@ -102,6 +102,11 @@ impl<W: Clone + Default> IndependentSet<W> {
             .find_edge(NodeIndex::new(u), NodeIndex::new(v))
             .is_some()
     }
+
+    /// Get a reference to the weights vector.
+    pub fn weights_ref(&self) -> &Vec<W> {
+        &self.weights
+    }
 }
 
 impl<W> Problem for IndependentSet<W>

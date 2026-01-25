@@ -32,6 +32,14 @@ pub enum ProblemError {
     /// Index out of bounds.
     #[error("index out of bounds: {index} >= {bound}")]
     IndexOutOfBounds { index: usize, bound: usize },
+
+    /// I/O error.
+    #[error("I/O error: {0}")]
+    IoError(String),
+
+    /// Serialization/deserialization error.
+    #[error("serialization error: {0}")]
+    SerializationError(String),
 }
 
 /// Result type alias for problemreductions operations.

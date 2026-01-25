@@ -188,13 +188,14 @@ where
             let num_configs = 2usize.pow(num_edges as u32);
 
             // Valid if at most one edge is selected
-            let mut spec = vec![false; num_configs];
-            for (config_idx, valid) in spec.iter_mut().enumerate().take(num_configs) {
-                let count = (0..num_edges)
-                    .filter(|&i| (config_idx >> i) & 1 == 1)
-                    .count();
-                *valid = count <= 1;
-            }
+            let spec: Vec<bool> = (0..num_configs)
+                .map(|config_idx| {
+                    let count = (0..num_edges)
+                        .filter(|&i| (config_idx >> i) & 1 == 1)
+                        .count();
+                    count <= 1
+                })
+                .collect();
 
             constraints.push(LocalConstraint::new(2, incident_edges, spec));
         }
@@ -385,8 +386,10 @@ mod tests {
     #[test]
     fn test_perfect_matching() {
         // K4: can have perfect matching (2 edges covering all 4 vertices)
-        let problem =
-            Matching::<i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+        let problem = Matching::<i32>::unweighted(
+            4,
+            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+        );
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);

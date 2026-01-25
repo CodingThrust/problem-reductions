@@ -62,11 +62,15 @@
 
 pub mod config;
 pub mod error;
+pub mod io;
 pub mod models;
 pub mod registry;
+pub mod rules;
 pub mod solvers;
 pub mod testing;
+pub mod topology;
 pub mod traits;
+pub mod truth_table;
 pub mod types;
 
 /// Prelude module for convenient imports.
@@ -86,6 +90,7 @@ pub mod prelude {
         ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,
     };
     pub use crate::solvers::{BruteForce, Solver};
+    pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::traits::{csp_solution_size, ConstraintSatisfactionProblem, Problem};
     pub use crate::types::{
         EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize,
