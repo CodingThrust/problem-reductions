@@ -8,7 +8,7 @@
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// The Paint Shop problem.
 ///
@@ -86,17 +86,10 @@ impl PaintShop {
             .collect();
 
         // Determine which positions are first occurrences
-        let mut seen: HashMap<usize, bool> = HashMap::new();
+        let mut seen: HashSet<usize> = HashSet::new();
         let is_first: Vec<bool> = sequence_indices
             .iter()
-            .map(|&idx| {
-                if seen.contains_key(&idx) {
-                    false
-                } else {
-                    seen.insert(idx, true);
-                    true
-                }
-            })
+            .map(|&idx| seen.insert(idx))
             .collect();
 
         let num_cars = car_labels.len();

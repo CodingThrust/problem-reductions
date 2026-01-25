@@ -113,10 +113,11 @@ impl Solver for BruteForce {
 
 impl BruteForce {
     /// Check if two sizes are equal (with tolerance for floating point).
+    #[allow(clippy::neg_cmp_op_on_partial_ord)]
     fn is_equal_size<T: PartialOrd + Clone>(&self, a: &T, b: &T) -> bool {
-        // For exact types, use exact comparison
-        // This works for integers
-        !(a < b) && !(b < a)
+        // For exact types, use exact comparison via partial_cmp
+        // This works for integers and handles incomparable values correctly
+        matches!(a.partial_cmp(b), Some(std::cmp::Ordering::Equal))
     }
 }
 
@@ -461,7 +462,7 @@ mod tests {
             }
 
             fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-                let size = match (config.get(0), config.get(1)) {
+                let size = match (config.first(), config.get(1)) {
                     (Some(1), Some(0)) => 10.0,
                     (Some(0), Some(1)) => 10.0 + 1e-12, // Nearly equal
                     _ => 0.0,

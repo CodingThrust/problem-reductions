@@ -62,14 +62,22 @@
 
 pub mod config;
 pub mod error;
+pub mod io;
 pub mod models;
+pub mod registry;
+pub mod rules;
 pub mod solvers;
+pub mod testing;
+pub mod topology;
 pub mod traits;
+pub mod truth_table;
 pub mod types;
 
 /// Prelude module for convenient imports.
 pub mod prelude {
-    pub use crate::config::{bits_to_config, config_to_bits, config_to_index, index_to_config, ConfigIterator};
+    pub use crate::config::{
+        bits_to_config, config_to_bits, config_to_index, index_to_config, ConfigIterator,
+    };
     pub use crate::error::{ProblemError, Result};
     pub use crate::models::graph::{
         Coloring, DominatingSet, IndependentSet, Matching, MaxCut, MaximalIS, VertexCovering,
@@ -78,7 +86,11 @@ pub mod prelude {
     pub use crate::models::satisfiability::{CNFClause, Satisfiability};
     pub use crate::models::set::{SetCovering, SetPacking};
     pub use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
+    pub use crate::registry::{
+        ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,
+    };
     pub use crate::solvers::{BruteForce, Solver};
+    pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::traits::{csp_solution_size, ConstraintSatisfactionProblem, Problem};
     pub use crate::types::{
         EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize,
@@ -87,6 +99,7 @@ pub mod prelude {
 
 // Re-export commonly used items at crate root
 pub use error::{ProblemError, Result};
+pub use registry::{ComplexityClass, ProblemCategory, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::{ConstraintSatisfactionProblem, Problem};
 pub use types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};

@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
 /// Given an m×n boolean matrix A and rank k, find:
 /// - B: m×k boolean matrix
 /// - C: k×n boolean matrix
+///
 /// Such that the Hamming distance between A and B⊙C is minimized.
 ///
 /// # Example

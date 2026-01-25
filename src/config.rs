@@ -186,7 +186,10 @@ mod tests {
 
     #[test]
     fn test_config_to_bits() {
-        assert_eq!(config_to_bits(&[0, 1, 0, 1]), vec![false, true, false, true]);
+        assert_eq!(
+            config_to_bits(&[0, 1, 0, 1]),
+            vec![false, true, false, true]
+        );
         assert_eq!(config_to_bits(&[0, 0, 0]), vec![false, false, false]);
         assert_eq!(config_to_bits(&[1, 1, 1]), vec![true, true, true]);
     }

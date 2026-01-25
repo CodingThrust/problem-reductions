@@ -236,8 +236,7 @@ mod tests {
 
     #[test]
     fn test_set_covering_with_weights() {
-        let problem =
-            SetCovering::with_weights(3, vec![vec![0, 1], vec![1, 2]], vec![5, 10]);
+        let problem = SetCovering::with_weights(3, vec![vec![0, 1], vec![1, 2]], vec![5, 10]);
         assert_eq!(problem.weights(), vec![5, 10]);
         assert!(problem.is_weighted());
     }
@@ -303,11 +302,8 @@ mod tests {
     #[test]
     fn test_brute_force_weighted() {
         // Prefer lighter sets
-        let problem = SetCovering::with_weights(
-            3,
-            vec![vec![0, 1, 2], vec![0, 1], vec![2]],
-            vec![10, 3, 3],
-        );
+        let problem =
+            SetCovering::with_weights(3, vec![vec![0, 1, 2], vec![0, 1], vec![2]], vec![10, 3, 3]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);

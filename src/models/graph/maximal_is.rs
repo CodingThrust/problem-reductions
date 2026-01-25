@@ -169,12 +169,13 @@ impl ConstraintSatisfactionProblem for MaximalIS {
 
             // Valid if: v is selected (first bit = 1) OR
             //           at least one neighbor is selected (not all others are 0)
-            let mut spec = vec![false; num_configs];
-            for config_idx in 0..num_configs {
-                let v_selected = (config_idx & 1) == 1;
-                let any_neighbor_selected = (config_idx >> 1) > 0;
-                spec[config_idx] = v_selected || any_neighbor_selected;
-            }
+            let spec: Vec<bool> = (0..num_configs)
+                .map(|config_idx| {
+                    let v_selected = (config_idx & 1) == 1;
+                    let any_neighbor_selected = (config_idx >> 1) > 0;
+                    v_selected || any_neighbor_selected
+                })
+                .collect();
 
             constraints.push(LocalConstraint::new(2, vars, spec));
         }

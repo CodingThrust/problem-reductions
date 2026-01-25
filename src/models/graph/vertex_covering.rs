@@ -87,6 +87,11 @@ impl<W: Clone + Default> VertexCovering<W> {
             .map(|e| (e.source().index(), e.target().index()))
             .collect()
     }
+
+    /// Get a reference to the weights vector.
+    pub fn weights_ref(&self) -> &Vec<W> {
+        &self.weights
+    }
 }
 
 impl<W> Problem for VertexCovering<W>
@@ -197,10 +202,8 @@ pub fn is_vertex_cover(num_vertices: usize, edges: &[(usize, usize)], selected: 
         return false;
     }
     for &(u, v) in edges {
-        if u < selected.len() && v < selected.len() {
-            if !selected[u] && !selected[v] {
-                return false;
-            }
+        if u < selected.len() && v < selected.len() && !selected[u] && !selected[v] {
+            return false;
         }
     }
     true
@@ -297,7 +300,11 @@ mod tests {
     fn test_is_vertex_cover_function() {
         assert!(is_vertex_cover(3, &[(0, 1), (1, 2)], &[false, true, false]));
         assert!(is_vertex_cover(3, &[(0, 1), (1, 2)], &[true, false, true]));
-        assert!(!is_vertex_cover(3, &[(0, 1), (1, 2)], &[true, false, false]));
+        assert!(!is_vertex_cover(
+            3,
+            &[(0, 1), (1, 2)],
+            &[true, false, false]
+        ));
         assert!(!is_vertex_cover(
             3,
             &[(0, 1), (1, 2)],

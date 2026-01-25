@@ -228,21 +228,22 @@ where
                 let num_configs = 2usize.pow(vars.len() as u32);
 
                 // Build spec: config is valid if clause is satisfied
-                let mut spec = vec![false; num_configs];
-                for config_idx in 0..num_configs {
-                    // Convert config index to local assignment
-                    let local_assignment: Vec<bool> = (0..vars.len())
-                        .map(|i| (config_idx >> (vars.len() - 1 - i)) & 1 == 1)
-                        .collect();
+                let spec: Vec<bool> = (0..num_configs)
+                    .map(|config_idx| {
+                        // Convert config index to local assignment
+                        let local_assignment: Vec<bool> = (0..vars.len())
+                            .map(|i| (config_idx >> (vars.len() - 1 - i)) & 1 == 1)
+                            .collect();
 
-                    // Build full assignment for clause evaluation
-                    let mut full_assignment = vec![false; self.num_vars];
-                    for (i, &var) in vars.iter().enumerate() {
-                        full_assignment[var] = local_assignment[i];
-                    }
+                        // Build full assignment for clause evaluation
+                        let mut full_assignment = vec![false; self.num_vars];
+                        for (i, &var) in vars.iter().enumerate() {
+                            full_assignment[var] = local_assignment[i];
+                        }
 
-                    spec[config_idx] = clause.is_satisfied(&full_assignment);
-                }
+                        clause.is_satisfied(&full_assignment)
+                    })
+                    .collect();
 
                 LocalConstraint::new(2, vars, spec)
             })
@@ -258,21 +259,24 @@ where
                 let vars = clause.variables();
                 let num_configs = 2usize.pow(vars.len() as u32);
 
-                let mut spec = vec![W::zero(); num_configs];
-                for config_idx in 0..num_configs {
-                    let local_assignment: Vec<bool> = (0..vars.len())
-                        .map(|i| (config_idx >> (vars.len() - 1 - i)) & 1 == 1)
-                        .collect();
+                let spec: Vec<W> = (0..num_configs)
+                    .map(|config_idx| {
+                        let local_assignment: Vec<bool> = (0..vars.len())
+                            .map(|i| (config_idx >> (vars.len() - 1 - i)) & 1 == 1)
+                            .collect();
 
-                    let mut full_assignment = vec![false; self.num_vars];
-                    for (i, &var) in vars.iter().enumerate() {
-                        full_assignment[var] = local_assignment[i];
-                    }
+                        let mut full_assignment = vec![false; self.num_vars];
+                        for (i, &var) in vars.iter().enumerate() {
+                            full_assignment[var] = local_assignment[i];
+                        }
 
-                    if clause.is_satisfied(&full_assignment) {
-                        spec[config_idx] = weight.clone();
-                    }
-                }
+                        if clause.is_satisfied(&full_assignment) {
+                            weight.clone()
+                        } else {
+                            W::zero()
+                        }
+                    })
+                    .collect();
 
                 LocalSolutionSize::new(2, vars, spec)
             })

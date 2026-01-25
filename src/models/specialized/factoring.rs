@@ -85,10 +85,7 @@ impl Factoring {
 
 /// Convert a bit vector (little-endian) to an integer.
 fn bits_to_int(bits: &[usize]) -> u64 {
-    bits.iter()
-        .enumerate()
-        .map(|(i, &b)| (b as u64) << i)
-        .sum()
+    bits.iter().enumerate().map(|(i, &b)| (b as u64) << i).sum()
 }
 
 /// Convert an integer to a bit vector (little-endian).
@@ -247,10 +244,7 @@ mod tests {
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
-        let factor_pairs: Vec<_> = solutions
-            .iter()
-            .map(|s| problem.read_factors(s))
-            .collect();
+        let factor_pairs: Vec<_> = solutions.iter().map(|s| problem.read_factors(s)).collect();
 
         // Should find (1,7) and (7,1)
         assert!(factor_pairs.contains(&(1, 7)) || factor_pairs.contains(&(7, 1)));

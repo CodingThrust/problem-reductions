@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "A library for reducing NP-hard problems"
 license = "MIT"
-repository = "https://github.com/liujinguo/problemreductions"
+repository = "https://github.com/CodingThrust/problem-reductions"
 keywords = ["np-hard", "optimization", "reduction", "sat", "graph"]
 categories = ["algorithms", "science"]
 
@@ -12,6 +12,7 @@ categories = ["algorithms", "science"]
 petgraph = { version = "0.6", features = ["serde-1"] }
 bitvec = "1.0"
 serde = { version = "1.0", features = ["derive"] }
+serde_json = "1.0"
 thiserror = "1.0"
 num-traits = "0.2"
 
