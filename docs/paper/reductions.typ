@@ -48,6 +48,33 @@
   category-colors.at(category, default: rgb("#f0f0f0"))
 }
 
+// Automatic layered layout based on problem hierarchy
+#let node-positions = (
+  // Layer 0: Root (specialized entry point)
+  "Factoring": (0, 0),
+  // Layer 1: Circuit-level
+  "CircuitSAT": (0, 1),
+  // Layer 2: SAT and optimization
+  "Satisfiability": (-1.5, 2),
+  "KSatisfiability": (-2.5, 2),
+  "SpinGlass": (1, 2),
+  "QUBO": (2, 2),
+  // Layer 3: Graph problems
+  "IndependentSet": (-2, 3),
+  "VertexCovering": (-0.5, 3),
+  "MaxCut": (1, 3),
+  "Coloring": (2.5, 3),
+  "DominatingSet": (-3.5, 3),
+  "Matching": (-3, 4),
+  // Layer 4: Set problems
+  "SetPacking": (-1, 4),
+  "SetCovering": (0.5, 4),
+)
+
+#let get-position(label) = {
+  node-positions.at(label, default: (0, 0))
+}
+
 #align(center)[
   #text(size: 16pt, weight: "bold")[Problem Reductions: Models and Transformations]
   #v(0.5em)
@@ -71,35 +98,20 @@ A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a po
 
 We use the following notation throughout. An _undirected graph_ $G = (V, E)$ consists of a vertex set $V$ and edge set $E subset.eq binom(V, 2)$. For a set $S$, $overline(S)$ or $V backslash S$ denotes its complement. We write $|S|$ for cardinality. For Boolean variables, $overline(x)$ denotes negation ($not x$). A _literal_ is a variable $x$ or its negation $overline(x)$. A _clause_ is a disjunction of literals. A formula in _conjunctive normal form_ (CNF) is a conjunction of clauses. We abbreviate Independent Set as IS, Vertex Cover as VC, and use $n$ for problem size, $m$ for number of clauses, and $k_j = |C_j|$ for clause size.
 
-#let x-vals = graph-data.nodes.map(n => n.x)
-#let y-vals = graph-data.nodes.map(n => n.y)
-#let x-min = calc.min(..x-vals)
-#let x-max = calc.max(..x-vals)
-#let y-min = calc.min(..y-vals)
-#let y-max = calc.max(..y-vals)
-#let x-range = x-max - x-min
-#let y-range = y-max - y-min
-#let normalize(val, min-val, range) = {
-  if range == 0 { 0.5 } else { (val - min-val) / range }
-}
-#let target-width = 4.0
-#let target-height = 3.0
-
 #figure(
   box(
-    width: 50%,
+    width: 60%,
     align(center,
       diagram(
-        spacing: (18mm, 12mm),
+        spacing: (15mm, 12mm),
         node-stroke: 0.6pt,
         edge-stroke: 0.6pt,
         node-corner-radius: 2pt,
         node-inset: 3pt,
         ..graph-data.nodes.map(n => {
           let color = get-color(n.category)
-          let nx = normalize(n.x, x-min, x-range) * target-width
-          let ny = normalize(n.y, y-min, y-range) * target-height
-          node((nx, ny), text(size: 7pt)[#n.label], fill: color, name: label(n.id))
+          let pos = get-position(n.label)
+          node(pos, text(size: 7pt)[#n.label], fill: color, name: label(n.id))
         }),
         ..graph-data.edges.map(e => {
           let arrow = if e.bidirectional { "<|-|>" } else { "-|>" }

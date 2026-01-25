@@ -24,10 +24,6 @@ pub struct NodeJson {
     pub label: String,
     /// Category of the problem (e.g., "graph", "set", "optimization", "satisfiability", "specialized").
     pub category: String,
-    /// X position for layout (computed automatically).
-    pub x: f64,
-    /// Y position for layout (computed automatically).
-    pub y: f64,
 }
 
 /// An edge in the reduction graph JSON.
@@ -300,22 +296,16 @@ impl ReductionGraph {
             }
         }
 
-        // Compute layered layout positions
-        let positions = self.compute_layered_layout();
-
-        // Build nodes with categories and positions
+        // Build nodes with categories (layout is handled by visualization tools)
         let nodes: Vec<NodeJson> = self
             .type_names
             .values()
             .map(|&name| {
                 let category = Self::categorize_type(name);
-                let (x, y) = positions.get(name).copied().unwrap_or((0.0, 0.0));
                 NodeJson {
                     id: name.to_string(),
                     label: Self::simplify_type_name(name),
                     category: category.to_string(),
-                    x,
-                    y,
                 }
             })
             .collect();
@@ -331,117 +321,6 @@ impl ReductionGraph {
             .collect();
 
         ReductionGraphJson { nodes, edges }
-    }
-
-    /// Compute layered layout positions using a simplified Sugiyama algorithm.
-    fn compute_layered_layout(&self) -> HashMap<&'static str, (f64, f64)> {
-        use std::collections::VecDeque;
-
-        let mut positions: HashMap<&'static str, (f64, f64)> = HashMap::new();
-
-        // Step 1: Assign layers based on category hierarchy
-        // This is simpler and avoids cycles in bidirectional edges
-        let mut layers: HashMap<&'static str, usize> = HashMap::new();
-
-        for &name in self.type_names.values() {
-            // Assign layers based on problem hierarchy
-            // Layer 0: Root problems (Factoring)
-            // Layer 1: Circuit-level problems
-            // Layer 2: SAT and optimization problems
-            // Layer 3: Graph problems
-            // Layer 4: Set problems
-            let layer = if name.contains("Factoring") {
-                0
-            } else if name.contains("Circuit") {
-                1
-            } else if name.contains("Satisfiability")
-                || name.contains("SAT")
-                || name.contains("SpinGlass")
-                || name.contains("QUBO")
-            {
-                2
-            } else if name.contains("SetPacking") || name.contains("SetCover") {
-                4
-            } else {
-                // Graph problems and anything else
-                3
-            };
-            layers.insert(name, layer);
-        }
-
-        // Step 2: Refine layers using BFS from sources (with visit tracking)
-        let mut visited: std::collections::HashSet<NodeIndex> = std::collections::HashSet::new();
-        let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
-
-        // Start from Factoring (if exists) or any source
-        for (type_id, &idx) in &self.node_indices {
-            if let Some(&name) = self.type_names.get(type_id) {
-                if name.contains("Factoring") {
-                    queue.push_back((idx, 0));
-                    visited.insert(idx);
-                    layers.insert(name, 0);
-                    break;
-                }
-            }
-        }
-
-        // BFS to refine layers based on graph structure
-        while let Some((idx, depth)) = queue.pop_front() {
-            for neighbor in self.graph.neighbors(idx) {
-                if !visited.contains(&neighbor) {
-                    visited.insert(neighbor);
-                    if let Some(&neighbor_name) = self.type_names.get(&self.graph[neighbor]) {
-                        let current_layer = *layers.get(neighbor_name).unwrap_or(&0);
-                        let new_layer = depth + 1;
-                        if new_layer > current_layer {
-                            layers.insert(neighbor_name, new_layer);
-                        }
-                        queue.push_back((neighbor, new_layer));
-                    }
-                }
-            }
-        }
-
-        // Step 3: Group nodes by layer
-        let mut layer_groups: HashMap<usize, Vec<&'static str>> = HashMap::new();
-        for (&name, &layer) in &layers {
-            layer_groups.entry(layer).or_default().push(name);
-        }
-
-        // Step 4: Sort nodes within each layer by category for visual grouping
-        for nodes in layer_groups.values_mut() {
-            nodes.sort_by_key(|&name| {
-                // Sort by category priority within each layer
-                if name.contains("Factoring") || name.contains("Circuit") {
-                    0
-                } else if name.contains("Satisfiability") || name.contains("SAT") {
-                    1
-                } else if name.contains("SpinGlass") || name.contains("QUBO") {
-                    4
-                } else if name.contains("SetPacking") || name.contains("SetCover") {
-                    3
-                } else {
-                    2 // Graph problems
-                }
-            });
-        }
-
-        // Step 5: Assign positions (compact layout)
-        let y_spacing = 1.0;
-        let x_spacing = 1.2;
-
-        for (&layer, nodes) in &layer_groups {
-            let y = layer as f64 * y_spacing;
-            let total_width = (nodes.len() as f64 - 1.0) * x_spacing;
-            let start_x = -total_width / 2.0;
-
-            for (i, &name) in nodes.iter().enumerate() {
-                let x = start_x + i as f64 * x_spacing;
-                positions.insert(name, (x, y));
-            }
-        }
-
-        positions
     }
 
     /// Export the reduction graph as a JSON string.
@@ -753,24 +632,6 @@ mod tests {
     }
 
     #[test]
-    fn test_json_layout_positions() {
-        let graph = ReductionGraph::new();
-        let json = graph.to_json();
-
-        // Check that all nodes have positions
-        for node in &json.nodes {
-            // x and y should be finite numbers
-            assert!(node.x.is_finite());
-            assert!(node.y.is_finite());
-        }
-
-        // Check that Factoring is at or near the top (y=0)
-        let factoring = json.nodes.iter().find(|n| n.label == "Factoring");
-        assert!(factoring.is_some());
-        assert!(factoring.unwrap().y <= 0.1);
-    }
-
-    #[test]
     fn test_all_categories_present() {
         let graph = ReductionGraph::new();
         let json = graph.to_json();
@@ -889,28 +750,6 @@ mod tests {
     }
 
     #[test]
-    fn test_json_node_positions_all_finite() {
-        let graph = ReductionGraph::new();
-        let json = graph.to_json();
-
-        // Verify all positions are finite (no NaN or infinity)
-        for node in &json.nodes {
-            assert!(
-                node.x.is_finite(),
-                "Node {} has non-finite x: {}",
-                node.id,
-                node.x
-            );
-            assert!(
-                node.y.is_finite(),
-                "Node {} has non-finite y: {}",
-                node.id,
-                node.y
-            );
-        }
-    }
-
-    #[test]
     fn test_categorize_circuit_as_specialized() {
         // CircuitSAT should be categorized as specialized (contains "Circuit")
         assert_eq!(
@@ -919,87 +758,6 @@ mod tests {
         );
         // But it contains "SAT" so it goes to satisfiability first
         // Let's verify the actual behavior matches what the code does
-    }
-
-    #[test]
-    fn test_layout_layer_ordering() {
-        let graph = ReductionGraph::new();
-        let json = graph.to_json();
-
-        // Collect nodes by category and verify layer ordering
-        let mut factoring_y = None;
-        let mut circuit_y = None;
-        let mut sat_y = None;
-        let mut graph_y = None;
-        let mut set_y = None;
-        let mut opt_y = None;
-
-        for node in &json.nodes {
-            match node.label.as_str() {
-                "Factoring" => factoring_y = Some(node.y),
-                "CircuitSAT" => circuit_y = Some(node.y),
-                "Satisfiability" | "KSatisfiability" => {
-                    if sat_y.is_none() || node.y < sat_y.unwrap() {
-                        sat_y = Some(node.y);
-                    }
-                }
-                "IndependentSet" | "VertexCovering" | "MaxCut" | "Coloring" | "DominatingSet"
-                | "Matching" => {
-                    if graph_y.is_none() {
-                        graph_y = Some(node.y);
-                    }
-                }
-                "SetPacking" | "SetCovering" => {
-                    if set_y.is_none() {
-                        set_y = Some(node.y);
-                    }
-                }
-                "SpinGlass" | "QUBO" => {
-                    if opt_y.is_none() {
-                        opt_y = Some(node.y);
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        // Factoring should be at the top (y=0)
-        assert!(factoring_y.is_some());
-        assert!(factoring_y.unwrap() <= 0.1, "Factoring should be at y≈0");
-
-        // CircuitSAT should be below Factoring
-        assert!(circuit_y.is_some());
-        assert!(
-            circuit_y.unwrap() > factoring_y.unwrap(),
-            "CircuitSAT should be below Factoring"
-        );
-    }
-
-    #[test]
-    fn test_multiple_nodes_per_layer_spacing() {
-        let graph = ReductionGraph::new();
-        let json = graph.to_json();
-
-        // Find nodes on the same layer (same y coordinate)
-        let mut layers: HashMap<i64, Vec<&NodeJson>> = HashMap::new();
-        for node in &json.nodes {
-            let layer_key = (node.y * 10.0).round() as i64;
-            layers.entry(layer_key).or_default().push(node);
-        }
-
-        // Verify that nodes on the same layer have different x coordinates
-        for nodes in layers.values() {
-            if nodes.len() > 1 {
-                let mut x_coords: Vec<i64> = nodes.iter().map(|n| (n.x * 100.0).round() as i64).collect();
-                x_coords.sort();
-                for i in 1..x_coords.len() {
-                    assert!(
-                        x_coords[i] != x_coords[i - 1],
-                        "Nodes on same layer should have different x coordinates"
-                    );
-                }
-            }
-        }
     }
 
     #[test]

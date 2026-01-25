@@ -1,132 +1,82 @@
 {
   "nodes": [
     {
-      "id": "CircuitSAT<i32>",
-      "label": "CircuitSAT",
-      "category": "satisfiability",
-      "x": 0.0,
-      "y": 1.0
-    },
-    {
-      "id": "SpinGlass<i32>",
-      "label": "SpinGlass",
-      "category": "optimization",
-      "x": 2.4,
-      "y": 2.0
-    },
-    {
-      "id": "DominatingSet<i32>",
-      "label": "DominatingSet",
-      "category": "graph",
-      "x": -3.0,
-      "y": 3.0
-    },
-    {
-      "id": "SpinGlass<f64>",
-      "label": "SpinGlass",
-      "category": "optimization",
-      "x": 0.0,
-      "y": 2.0
-    },
-    {
-      "id": "KSatisfiability<3, i32>",
-      "label": "KSatisfiability",
-      "category": "satisfiability",
-      "x": -2.4,
-      "y": 2.0
-    },
-    {
-      "id": "IndependentSet<i32>",
-      "label": "IndependentSet",
-      "category": "graph",
-      "x": -0.6000000000000001,
-      "y": 3.0
-    },
-    {
-      "id": "Matching<i32>",
-      "label": "Matching",
-      "category": "graph",
-      "x": -1.8,
-      "y": 3.0
-    },
-    {
       "id": "SetPacking<i32>",
       "label": "SetPacking",
-      "category": "set",
-      "x": -0.6,
-      "y": 4.0
-    },
-    {
-      "id": "SetCovering<i32>",
-      "label": "SetCovering",
-      "category": "set",
-      "x": 0.6,
-      "y": 4.0
-    },
-    {
-      "id": "MaxCut<i32>",
-      "label": "MaxCut",
-      "category": "graph",
-      "x": 0.5999999999999996,
-      "y": 3.0
-    },
-    {
-      "id": "Coloring",
-      "label": "Coloring",
-      "category": "graph",
-      "x": 3.0,
-      "y": 3.0
-    },
-    {
-      "id": "Factoring",
-      "label": "Factoring",
-      "category": "specialized",
-      "x": 0.0,
-      "y": 0.0
-    },
-    {
-      "id": "VertexCovering<i32>",
-      "label": "VertexCovering",
-      "category": "graph",
-      "x": 1.7999999999999998,
-      "y": 3.0
-    },
-    {
-      "id": "Satisfiability<i32>",
-      "label": "Satisfiability",
-      "category": "satisfiability",
-      "x": -1.2,
-      "y": 2.0
+      "category": "set"
     },
     {
       "id": "QUBO<f64>",
       "label": "QUBO",
-      "category": "optimization",
-      "x": 1.1999999999999997,
-      "y": 2.0
+      "category": "optimization"
+    },
+    {
+      "id": "Matching<i32>",
+      "label": "Matching",
+      "category": "graph"
+    },
+    {
+      "id": "Factoring",
+      "label": "Factoring",
+      "category": "specialized"
+    },
+    {
+      "id": "SpinGlass<i32>",
+      "label": "SpinGlass",
+      "category": "optimization"
+    },
+    {
+      "id": "KSatisfiability<3, i32>",
+      "label": "KSatisfiability",
+      "category": "satisfiability"
+    },
+    {
+      "id": "IndependentSet<i32>",
+      "label": "IndependentSet",
+      "category": "graph"
+    },
+    {
+      "id": "SetCovering<i32>",
+      "label": "SetCovering",
+      "category": "set"
+    },
+    {
+      "id": "Satisfiability<i32>",
+      "label": "Satisfiability",
+      "category": "satisfiability"
+    },
+    {
+      "id": "Coloring",
+      "label": "Coloring",
+      "category": "graph"
+    },
+    {
+      "id": "VertexCovering<i32>",
+      "label": "VertexCovering",
+      "category": "graph"
+    },
+    {
+      "id": "MaxCut<i32>",
+      "label": "MaxCut",
+      "category": "graph"
+    },
+    {
+      "id": "DominatingSet<i32>",
+      "label": "DominatingSet",
+      "category": "graph"
+    },
+    {
+      "id": "CircuitSAT<i32>",
+      "label": "CircuitSAT",
+      "category": "satisfiability"
+    },
+    {
+      "id": "SpinGlass<f64>",
+      "label": "SpinGlass",
+      "category": "optimization"
     }
   ],
   "edges": [
-    {
-      "source": "Satisfiability<i32>",
-      "target": "IndependentSet<i32>",
-      "bidirectional": false
-    },
-    {
-      "source": "Satisfiability<i32>",
-      "target": "Coloring",
-      "bidirectional": false
-    },
-    {
-      "source": "VertexCovering<i32>",
-      "target": "SetCovering<i32>",
-      "bidirectional": false
-    },
-    {
-      "source": "SpinGlass<f64>",
-      "target": "QUBO<f64>",
-      "bidirectional": true
-    },
     {
       "source": "Satisfiability<i32>",
       "target": "DominatingSet<i32>",
@@ -136,16 +86,6 @@
       "source": "Factoring",
       "target": "CircuitSAT<i32>",
       "bidirectional": false
-    },
-    {
-      "source": "CircuitSAT<i32>",
-      "target": "SpinGlass<i32>",
-      "bidirectional": false
-    },
-    {
-      "source": "Satisfiability<i32>",
-      "target": "KSatisfiability<3, i32>",
-      "bidirectional": true
     },
     {
       "source": "IndependentSet<i32>",
@@ -158,9 +98,39 @@
       "bidirectional": true
     },
     {
+      "source": "Satisfiability<i32>",
+      "target": "Coloring",
+      "bidirectional": false
+    },
+    {
+      "source": "CircuitSAT<i32>",
+      "target": "SpinGlass<i32>",
+      "bidirectional": false
+    },
+    {
+      "source": "VertexCovering<i32>",
+      "target": "SetCovering<i32>",
+      "bidirectional": false
+    },
+    {
       "source": "IndependentSet<i32>",
       "target": "VertexCovering<i32>",
       "bidirectional": true
+    },
+    {
+      "source": "Satisfiability<i32>",
+      "target": "KSatisfiability<3, i32>",
+      "bidirectional": true
+    },
+    {
+      "source": "SpinGlass<f64>",
+      "target": "QUBO<f64>",
+      "bidirectional": true
+    },
+    {
+      "source": "Satisfiability<i32>",
+      "target": "IndependentSet<i32>",
+      "bidirectional": false
     },
     {
       "source": "Matching<i32>",
