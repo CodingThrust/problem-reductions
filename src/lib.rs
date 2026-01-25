@@ -67,6 +67,7 @@ pub mod registry;
 pub mod rules;
 pub mod solvers;
 pub mod testing;
+pub mod topology;
 pub mod traits;
 pub mod types;
 
