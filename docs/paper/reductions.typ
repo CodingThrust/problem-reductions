@@ -343,7 +343,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     [SAT $arrow.l.r$ $k$-SAT], [$O(sum_j |C_j|)$], [@cook1971 @garey1979],
     [CircuitSAT $arrow.r$ SpinGlass], [$O(|"gates"|)$], [@whitfield2012 @lucas2014],
     [Factoring $arrow.r$ CircuitSAT], [$O(m n)$], [Folklore],
-    [SpinGlass $arrow.l.r$ MaxCut], [$O(n + |J|)$], [@barahona1982],
+    [SpinGlass $arrow.l.r$ MaxCut], [$O(n + |J|)$], [@barahona1982 @lucas2014],
   ),
   caption: [Summary of reductions. Gray rows indicate trivial reductions.]
 ) <tab:summary>
