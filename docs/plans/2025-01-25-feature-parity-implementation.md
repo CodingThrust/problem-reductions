@@ -1407,3 +1407,358 @@ Run coverage, ensure >95%, add doc comments.
 cargo tarpaulin --out Html
 cargo doc --open
 ```
+
+---
+
+## Task 14: CI/CD, Badges, and mdBook Documentation
+
+**Files:**
+- Create: `.github/workflows/ci.yml`
+- Create: `.github/workflows/docs.yml`
+- Modify: `README.md`
+- Create: `book.toml`
+- Create: `docs/src/SUMMARY.md`
+- Create: `docs/src/` (mdBook content)
+
+**Step 1: Create GitHub Actions CI workflow**
+
+Create `.github/workflows/ci.yml`:
+```yaml
+name: CI
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+env:
+  CARGO_TERM_COLOR: always
+
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Cache cargo
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/bin/
+            ~/.cargo/registry/index/
+            ~/.cargo/registry/cache/
+            ~/.cargo/git/db/
+            target/
+          key: ${{ runner.os }}-cargo-${{ hashFiles('**/Cargo.lock') }}
+
+      - name: Build
+        run: cargo build --verbose
+
+      - name: Run tests
+        run: cargo test --verbose
+
+      - name: Run clippy
+        run: cargo clippy -- -D warnings
+
+      - name: Check formatting
+        run: cargo fmt --check
+
+  coverage:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install Rust
+        uses: dtolnay/rust-action@stable
+
+      - name: Install tarpaulin
+        run: cargo install cargo-tarpaulin
+
+      - name: Run coverage
+        run: cargo tarpaulin --out Xml --output-dir coverage
+
+      - name: Upload coverage to Codecov
+        uses: codecov/codecov-action@v4
+        with:
+          files: coverage/cobertura.xml
+          fail_ci_if_error: true
+          token: ${{ secrets.CODECOV_TOKEN }}
+```
+
+**Step 2: Create GitHub Actions docs workflow**
+
+Create `.github/workflows/docs.yml`:
+```yaml
+name: Deploy Docs
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: false
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install mdBook
+        run: |
+          mkdir -p ~/bin
+          curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.36/mdbook-v0.4.36-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C ~/bin
+          echo "$HOME/bin" >> $GITHUB_PATH
+
+      - name: Build book
+        run: mdbook build
+
+      - name: Setup Pages
+        uses: actions/configure-pages@v4
+
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: './book'
+
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    needs: build
+    steps:
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
+```
+
+**Step 3: Create mdBook configuration**
+
+Create `book.toml`:
+```toml
+[book]
+title = "Problem Reductions"
+authors = ["Your Name"]
+description = "A Rust library for reducing NP-hard problems"
+language = "en"
+src = "docs/src"
+
+[build]
+build-dir = "book"
+
+[output.html]
+default-theme = "rust"
+preferred-dark-theme = "coal"
+git-repository-url = "https://github.com/liujinguo/problemreductions"
+edit-url-template = "https://github.com/liujinguo/problemreductions/edit/main/{path}"
+
+[output.html.fold]
+enable = true
+level = 1
+```
+
+**Step 4: Create mdBook structure**
+
+Create `docs/src/SUMMARY.md`:
+```markdown
+# Summary
+
+[Introduction](./introduction.md)
+
+# User Guide
+
+- [Getting Started](./getting-started.md)
+- [Problem Types](./problems/README.md)
+  - [Satisfiability](./problems/satisfiability.md)
+  - [Graph Problems](./problems/graph.md)
+  - [Set Problems](./problems/set.md)
+  - [Optimization](./problems/optimization.md)
+  - [Specialized](./problems/specialized.md)
+- [Reduction Rules](./reductions/README.md)
+  - [Available Reductions](./reductions/available.md)
+  - [Using Reductions](./reductions/usage.md)
+  - [Reduction Paths](./reductions/paths.md)
+- [Solvers](./solvers.md)
+- [Topology Types](./topology.md)
+
+# Reference
+
+- [API Documentation](./api.md)
+- [Examples](./examples.md)
+
+# Development
+
+- [Contributing](./contributing.md)
+- [Changelog](./changelog.md)
+```
+
+Create `docs/src/introduction.md`:
+```markdown
+# Problem Reductions
+
+A Rust library for reducing NP-hard problems.
+
+## Overview
+
+This library provides:
+
+- **18+ NP-hard problem definitions** - SAT, Independent Set, Max Cut, QUBO, and more
+- **Reduction rules** - Transform problems into equivalent problems
+- **Solvers** - Brute-force solver for testing and verification
+- **Path finding** - Automatically discover reduction chains between problems
+
+## Quick Example
+
+```rust
+use problemreductions::prelude::*;
+
+// Create an Independent Set problem
+let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+
+// Solve with brute force
+let solver = BruteForce::new();
+let solutions = solver.find_best(&problem);
+
+println!("Found {} optimal solutions", solutions.len());
+```
+
+## Use Cases
+
+- **Algorithm research** - Implement and test reduction-based algorithms
+- **Education** - Learn about NP-hard problems and their relationships
+- **Quantum optimization** - Convert problems to QUBO/Ising form for quantum annealers
+```
+
+Create `docs/src/getting-started.md`:
+```markdown
+# Getting Started
+
+## Installation
+
+Add to your `Cargo.toml`:
+
+```toml
+[dependencies]
+problemreductions = "0.1"
+```
+
+## Basic Usage
+
+### Creating Problems
+
+```rust
+use problemreductions::prelude::*;
+
+// Boolean Satisfiability
+let sat = Satisfiability::new(3, vec![
+    CNFClause::new(vec![1, 2]),    // x1 OR x2
+    CNFClause::new(vec![-1, 3]),   // NOT x1 OR x3
+]);
+
+// Independent Set on a graph
+let is = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+
+// Max Cut
+let mc = MaxCut::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+```
+
+### Solving Problems
+
+```rust
+let solver = BruteForce::new();
+let solutions = solver.find_best(&problem);
+```
+
+### Using Reductions
+
+```rust
+use problemreductions::rules::ReduceTo;
+
+let is_problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2)]);
+let reduction = is_problem.reduce_to::<VertexCovering<i32>>();
+let vc_problem = reduction.target_problem();
+
+// Solve VC, then extract IS solution
+let vc_solutions = solver.find_best(vc_problem);
+let is_solutions: Vec<_> = vc_solutions.iter()
+    .map(|s| reduction.extract_solution(s))
+    .collect();
+```
+```
+
+**Step 5: Update README.md with badges**
+
+Modify `README.md` to add badges at the top:
+```markdown
+# Problem Reductions
+
+[![CI](https://github.com/liujinguo/problemreductions/actions/workflows/ci.yml/badge.svg)](https://github.com/liujinguo/problemreductions/actions/workflows/ci.yml)
+[![codecov](https://codecov.io/gh/liujinguo/problemreductions/branch/main/graph/badge.svg)](https://codecov.io/gh/liujinguo/problemreductions)
+[![Crates.io](https://img.shields.io/crates/v/problemreductions.svg)](https://crates.io/crates/problemreductions)
+[![Documentation](https://docs.rs/problemreductions/badge.svg)](https://docs.rs/problemreductions)
+[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
+
+A Rust library for reducing NP-hard problems.
+
+## Features
+
+- **18+ NP-hard problems** - SAT, Independent Set, Max Cut, QUBO, SpinGlass, and more
+- **14 reduction rules** - Transform between problem types
+- **Reduction path finding** - Automatically discover multi-step reductions
+- **Brute-force solver** - For testing and small instances
+- **97%+ test coverage** - Thoroughly tested
+
+## Installation
+
+```toml
+[dependencies]
+problemreductions = "0.1"
+```
+
+## Quick Start
+
+```rust
+use problemreductions::prelude::*;
+
+// Create a Max Independent Set problem
+let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+
+// Solve
+let solver = BruteForce::new();
+let solutions = solver.find_best(&problem);
+```
+
+## Documentation
+
+- [User Guide](https://liujinguo.github.io/problemreductions/)
+- [API Docs](https://docs.rs/problemreductions)
+
+## License
+
+MIT
+```
+
+**Step 6: Run mdbook locally to verify**
+
+```bash
+cargo install mdbook
+mdbook serve
+```
+
+**Step 7: Commit all CI/CD and docs files**
+
+```bash
+git add .github/ book.toml docs/src/ README.md
+git commit -m "feat: add CI/CD workflows, badges, and mdBook documentation"
+```
