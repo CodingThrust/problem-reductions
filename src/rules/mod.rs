@@ -1,5 +1,6 @@
 //! Reduction rules between NP-hard problems.
 
+mod circuit_spinglass;
 mod graph;
 mod traits;
 mod factoring_circuit;
@@ -42,6 +43,10 @@ pub use vertexcovering_independentset::{ReductionISToVC, ReductionVCToIS};
 pub use vertexcovering_setcovering::ReductionVCToSC;
 pub use sat_ksat::{ReductionKSATToSAT, ReductionSATToKSAT};
 pub use factoring_circuit::ReductionFactoringToCircuit;
+pub use circuit_spinglass::{
+    LogicGadget, ReductionCircuitToSG,
+    and_gadget, or_gadget, not_gadget, xor_gadget, set0_gadget, set1_gadget,
+};
 
 #[cfg(feature = "ilp")]
 pub use clique_ilp::ReductionCliqueToILP;
