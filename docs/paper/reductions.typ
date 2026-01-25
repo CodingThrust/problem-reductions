@@ -65,7 +65,11 @@
 
 = Introduction
 
-A reduction $A arrow.long B$ transforms instances of problem $A$ into instances of problem $B$ satisfying: (1) polynomial-time computability, (2) efficient solution extraction from $B$ back to $A$, and (3) optimality preservation. @fig:reduction-graph shows the #graph-data.edges.len() reductions connecting #graph-data.nodes.len() problem types.
+A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. @fig:reduction-graph shows the #graph-data.edges.len() reductions connecting #graph-data.nodes.len() problem types.
+
+== Notation
+
+We use the following notation throughout. An _undirected graph_ $G = (V, E)$ consists of a vertex set $V$ and edge set $E subset.eq binom(V, 2)$. For a set $S$, $overline(S)$ or $V backslash S$ denotes its complement. We write $|S|$ for cardinality. For Boolean variables, $overline(x)$ denotes negation ($not x$). A _literal_ is a variable $x$ or its negation $overline(x)$. A _clause_ is a disjunction of literals. A formula in _conjunctive normal form_ (CNF) is a conjunction of clauses. We abbreviate Independent Set as IS, Vertex Cover as VC, and use $n$ for problem size, $m$ for number of clauses, and $k_j = |C_j|$ for clause size.
 
 #let x-vals = graph-data.nodes.map(n => n.x)
 #let y-vals = graph-data.nodes.map(n => n.y)
@@ -111,12 +115,14 @@ A reduction $A arrow.long B$ transforms instances of problem $A$ into instances 
 
 == Graph Problems
 
-#definition("Independent Set")[
-  Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ s.t. $forall u, v in S: (u, v) in.not E$.
+In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| = n$ vertices and $|E|$ edges.
+
+#definition("Independent Set (IS)")[
+  Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
 ]
 
-#definition("Vertex Cover")[
-  Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall (u, v) in E: u in S or v in S$.
+#definition("Vertex Cover (VC)")[
+  Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
 ]
 
 #definition("Max-Cut")[
@@ -147,8 +153,8 @@ A reduction $A arrow.long B$ transforms instances of problem $A$ into instances 
 
 == Optimization Problems
 
-#definition("Spin Glass")[
-  Given $n$ spins $s_i in {-1, +1}$, couplings $J_(i j)$, fields $h_i$, minimize $H(bold(s)) = -sum_((i,j)) J_(i j) s_i s_j - sum_i h_i s_i$.
+#definition("Spin Glass (Ising Model)")[
+  Given $n$ spin variables $s_i in {-1, +1}$, pairwise couplings $J_(i j) in RR$, and external fields $h_i in RR$, minimize the Hamiltonian (energy function): $H(bold(s)) = -sum_((i,j)) J_(i j) s_i s_j - sum_i h_i s_i$.
 ]
 
 #definition("QUBO")[
@@ -158,7 +164,7 @@ A reduction $A arrow.long B$ transforms instances of problem $A$ into instances 
 == Satisfiability Problems
 
 #definition("SAT")[
-  Given CNF $phi = and.big_(j=1)^m C_j$ where $C_j = or.big_i ell_(j i)$, find $bold(x) in {0, 1}^n$ s.t. $phi(bold(x)) = 1$.
+  Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 1$ (all clauses satisfied).
 ]
 
 #definition("$k$-SAT")[
@@ -166,11 +172,11 @@ A reduction $A arrow.long B$ transforms instances of problem $A$ into instances 
 ]
 
 #definition("Circuit-SAT")[
-  Given Boolean circuit $C$ with gates ${and, or, not, xor}$, find $bold(x)$ s.t. $C(bold(x)) = 1$.
+  Given a Boolean circuit $C$ composed of logic gates (AND, OR, NOT, XOR) with $n$ input variables, find an input assignment $bold(x) in {0,1}^n$ such that $C(bold(x)) = 1$.
 ]
 
 #definition("Factoring")[
-  Given composite $N$, bit sizes $m, n$, find $p in [2, 2^m - 1]$, $q in [2, 2^n - 1]$ s.t. $p times q = N$.
+  Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
 ]
 
 = Reductions <sec:reductions>
@@ -265,7 +271,7 @@ A reduction $A arrow.long B$ transforms instances of problem $A$ into instances 
 ]
 
 #theorem[
-  *(CircuitSAT $arrow.r$ Spin Glass)* @whitfield2012 @lucas2014 @nguyen2023 Each gate maps to a gadget whose ground states encode valid I/O.
+  *(CircuitSAT $arrow.r$ Spin Glass)* @whitfield2012 @lucas2014 Each gate maps to a gadget whose ground states encode valid I/O.
 ]
 
 #proof[
