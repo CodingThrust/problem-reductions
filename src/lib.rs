@@ -64,6 +64,7 @@ pub mod config;
 pub mod error;
 pub mod models;
 pub mod registry;
+pub mod rules;
 pub mod solvers;
 pub mod testing;
 pub mod traits;
@@ -86,6 +87,7 @@ pub mod prelude {
         ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,
     };
     pub use crate::solvers::{BruteForce, Solver};
+    pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::traits::{csp_solution_size, ConstraintSatisfactionProblem, Problem};
     pub use crate::types::{
         EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize,
