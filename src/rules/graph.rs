@@ -385,21 +385,13 @@ impl ReductionGraph {
             }
         }
 
-        // BFS with limited iterations to prevent infinite loops
-        let max_iterations = self.graph.node_count() * 10;
-        let mut iterations = 0;
-
+        // BFS to refine layers based on graph structure
         while let Some((idx, depth)) = queue.pop_front() {
-            iterations += 1;
-            if iterations > max_iterations {
-                break;
-            }
-
             for neighbor in self.graph.neighbors(idx) {
                 if !visited.contains(&neighbor) {
                     visited.insert(neighbor);
                     if let Some(&neighbor_name) = self.type_names.get(&self.graph[neighbor]) {
-                        let current_layer = layers.get(neighbor_name).copied().unwrap_or(0);
+                        let current_layer = *layers.get(neighbor_name).unwrap_or(&0);
                         let new_layer = depth + 1;
                         if new_layer > current_layer {
                             layers.insert(neighbor_name, new_layer);
