@@ -87,6 +87,11 @@ impl<W: Clone + Default> VertexCovering<W> {
             .map(|e| (e.source().index(), e.target().index()))
             .collect()
     }
+
+    /// Get a reference to the weights vector.
+    pub fn weights_ref(&self) -> &Vec<W> {
+        &self.weights
+    }
 }
 
 impl<W> Problem for VertexCovering<W>
