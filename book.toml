@@ -5,12 +5,15 @@ description = "A Rust library for reducing NP-hard problems"
 language = "en"
 src = "docs/src"
 
+[preprocessor.mermaid]
+command = "mdbook-mermaid"
+
 [output.html]
 default-theme = "rust"
 git-repository-url = "https://github.com/liujinguo/problemreductions"
 edit-url-template = "https://github.com/liujinguo/problemreductions/edit/main/{path}"
 additional-css = []
-additional-js = []
+additional-js = ["mermaid.min.js", "mermaid-init.js"]
 no-section-label = false
 
 [output.html.fold]

@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc clean coverage
+.PHONY: help build test fmt clippy doc mdbook paper clean coverage
 
 # Default target
 help:
@@ -10,7 +10,9 @@ help:
 	@echo "  fmt        - Format code with rustfmt"
 	@echo "  fmt-check  - Check code formatting"
 	@echo "  clippy     - Run clippy lints"
-	@echo "  doc        - Build and open documentation"
+	@echo "  doc        - Build mdBook documentation"
+	@echo "  mdbook     - Build and serve mdBook (with live reload)"
+	@echo "  paper      - Build Typst paper (requires typst)"
 	@echo "  coverage   - Generate coverage report (requires cargo-llvm-cov)"
 	@echo "  clean      - Clean build artifacts"
 	@echo "  check      - Quick check (fmt + clippy + test)"
@@ -35,9 +37,18 @@ fmt-check:
 clippy:
 	cargo clippy --all-targets --all-features -- -D warnings
 
-# Build and open documentation
+# Build mdBook documentation
 doc:
-	cargo doc --all-features --no-deps --open
+	mdbook build docs
+
+# Build and serve mdBook with live reload
+mdbook:
+	mdbook serve docs --open
+
+# Build Typst paper
+paper:
+	cargo run --example export_graph
+	cd docs/paper && typst compile reductions.typ reductions.pdf
 
 # Generate coverage report (requires: cargo install cargo-llvm-cov)
 coverage:
