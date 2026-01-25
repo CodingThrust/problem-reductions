@@ -397,7 +397,7 @@ mod tests {
         for sol in &solutions {
             assert_eq!(problem.solution_size(sol).size, 2);
             // Check it's a valid matching using 4 vertices
-            let mut used = vec![false; 4];
+            let mut used = [false; 4];
             for (idx, &sel) in sol.iter().enumerate() {
                 if sel == 1 {
                     if let Some((u, v)) = problem.edge_endpoints(idx) {

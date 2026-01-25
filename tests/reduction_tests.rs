@@ -262,8 +262,9 @@ mod sg_qubo_reductions {
         let extracted = result.extract_solution(&qubo_solutions[0]);
 
         // Convert solutions to spins for energy computation
-        let sg_spins: Vec<i32> = sg_solutions[0].iter().map(|&x| x as i32).collect();
-        let extracted_spins: Vec<i32> = extracted.iter().map(|&x| x as i32).collect();
+        // SpinGlass::config_to_spins converts 0/1 configs to -1/+1 spins
+        let sg_spins = SpinGlass::<f64>::config_to_spins(&sg_solutions[0]);
+        let extracted_spins = SpinGlass::<f64>::config_to_spins(&extracted);
 
         // Should be among optimal SG solutions (or equivalent)
         let sg_energy = sg.compute_energy(&sg_spins);
@@ -341,8 +342,9 @@ mod sg_maxcut_reductions {
         let extracted = result.extract_solution(&maxcut_solutions[0]);
 
         // Convert solutions to spins for energy computation
-        let direct_spins: Vec<i32> = sg_solutions[0].iter().map(|&x| x as i32).collect();
-        let extracted_spins: Vec<i32> = extracted.iter().map(|&x| x as i32).collect();
+        // SpinGlass::config_to_spins converts 0/1 configs to -1/+1 spins
+        let direct_spins = SpinGlass::<i32>::config_to_spins(&sg_solutions[0]);
+        let extracted_spins = SpinGlass::<i32>::config_to_spins(&extracted);
 
         // Should have same energy as directly solved SG
         let direct_energy = sg.compute_energy(&direct_spins);
