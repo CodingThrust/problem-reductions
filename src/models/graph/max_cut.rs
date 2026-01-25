@@ -100,6 +100,27 @@ impl<W: Clone + Default> MaxCut<W> {
             .find_edge(NodeIndex::new(u), NodeIndex::new(v))
             .map(|e| self.graph.edge_weight(e).unwrap())
     }
+
+    /// Create a MaxCut problem from edges without weights in tuple form.
+    pub fn with_weights(num_vertices: usize, edges: Vec<(usize, usize)>, weights: Vec<W>) -> Self {
+        assert_eq!(edges.len(), weights.len(), "edges and weights must have same length");
+        let mut graph = UnGraph::new_undirected();
+        for _ in 0..num_vertices {
+            graph.add_node(());
+        }
+        for ((u, v), w) in edges.into_iter().zip(weights.into_iter()) {
+            graph.add_edge(NodeIndex::new(u), NodeIndex::new(v), w);
+        }
+        Self { graph }
+    }
+
+    /// Get edge weights only.
+    pub fn edge_weights(&self) -> Vec<W> {
+        self.graph
+            .edge_references()
+            .map(|e| e.weight().clone())
+            .collect()
+    }
 }
 
 impl<W> Problem for MaxCut<W>
