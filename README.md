@@ -1,9 +1,8 @@
 # Problem Reductions
 
 [![CI](https://github.com/CodingThrust/problem-reductions/actions/workflows/ci.yml/badge.svg)](https://github.com/CodingThrust/problem-reductions/actions/workflows/ci.yml)
-[![codecov](https://codecov.io/gh/CodingThrust/problem-reductions/branch/main/graph/badge.svg)](https://codecov.io/gh/CodingThrust/problem-reductions)
-[![Crates.io](https://img.shields.io/crates/v/problemreductions.svg)](https://crates.io/crates/problemreductions)
-[![Documentation](https://docs.rs/problemreductions/badge.svg)](https://docs.rs/problemreductions)
+[![Coverage](https://github.com/CodingThrust/problem-reductions/actions/workflows/coverage.yml/badge.svg)](https://github.com/CodingThrust/problem-reductions/actions/workflows/coverage.yml)
+[![Documentation](https://github.com/CodingThrust/problem-reductions/actions/workflows/docs.yml/badge.svg)](https://codingthrust.github.io/problem-reductions/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Rust library for NP-hard problem definitions and reductions.
@@ -12,8 +11,9 @@ A Rust library for NP-hard problem definitions and reductions.
 
 - **18+ Problem Types**: Implementations of classic NP-hard problems
 - **Type-Safe Reductions**: Compile-time verified problem transformations
-- **BruteForce Solver**: For testing and verification on small instances
-- **Topology Types**: HyperGraph and UnitDiskGraph support
+- **Graph Abstraction**: Generic `Graph` trait with `SimpleGraph` and `UnitDiskGraph` implementations
+- **Multiple Solvers**: BruteForce and ILP (HiGHS) solvers
+- **Topology Types**: HyperGraph and UnitDiskGraph for specialized constraints
 - **File I/O**: JSON serialization for all problem types
 
 ## Installation
@@ -31,14 +31,14 @@ problemreductions = "0.1"
 use problemreductions::prelude::*;
 
 // Create an Independent Set problem
-let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+let problem: IndependentSetT = IndependentSetT::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
 // Solve with brute force
 let solver = BruteForce::new();
 let solutions = solver.find_best(&problem);
 
 // Apply a reduction
-let result = ReduceTo::<VertexCovering<i32>>::reduce_to(&problem);
+let result = ReduceTo::<VertexCoverT>::reduce_to(&problem);
 let vc = result.target_problem();
 ```
 
