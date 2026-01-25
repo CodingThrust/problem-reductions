@@ -3,9 +3,11 @@
 mod graph;
 mod traits;
 mod independentset_setpacking;
+mod matching_setpacking;
 mod spinglass_maxcut;
 mod spinglass_qubo;
 mod vertexcovering_independentset;
+mod vertexcovering_setcovering;
 
 #[cfg(feature = "ilp")]
 mod clique_ilp;
@@ -25,9 +27,11 @@ mod vertexcovering_ilp;
 pub use graph::{ReductionGraph, ReductionPath};
 pub use traits::{ReduceTo, ReductionResult};
 pub use independentset_setpacking::{ReductionISToSP, ReductionSPToIS};
+pub use matching_setpacking::ReductionMatchingToSP;
 pub use spinglass_maxcut::{ReductionMaxCutToSG, ReductionSGToMaxCut};
 pub use spinglass_qubo::{ReductionQUBOToSG, ReductionSGToQUBO};
 pub use vertexcovering_independentset::{ReductionISToVC, ReductionVCToIS};
+pub use vertexcovering_setcovering::ReductionVCToSC;
 
 #[cfg(feature = "ilp")]
 pub use clique_ilp::ReductionCliqueToILP;
