@@ -113,6 +113,7 @@ impl Solver for BruteForce {
 
 impl BruteForce {
     /// Check if two sizes are equal (with tolerance for floating point).
+    #[allow(clippy::neg_cmp_op_on_partial_ord)]
     fn is_equal_size<T: PartialOrd + Clone>(&self, a: &T, b: &T) -> bool {
         // For exact types, use exact comparison via partial_cmp
         // This works for integers and handles incomparable values correctly

@@ -8,7 +8,7 @@
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 /// The Paint Shop problem.
 ///
@@ -80,20 +80,16 @@ impl PaintShop {
         }
 
         // Convert sequence to indices
-        let sequence_indices: Vec<usize> = sequence.iter().map(|item| car_to_index[item]).collect();
+        let sequence_indices: Vec<usize> = sequence
+            .iter()
+            .map(|item| car_to_index[item])
+            .collect();
 
         // Determine which positions are first occurrences
-        let mut seen: HashMap<usize, bool> = HashMap::new();
+        let mut seen: HashSet<usize> = HashSet::new();
         let is_first: Vec<bool> = sequence_indices
             .iter()
-            .map(|&idx| {
-                if let std::collections::hash_map::Entry::Vacant(e) = seen.entry(idx) {
-                    e.insert(true);
-                    true
-                } else {
-                    false
-                }
-            })
+            .map(|&idx| seen.insert(idx))
             .collect();
 
         let num_cars = car_labels.len();

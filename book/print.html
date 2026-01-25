@@ -1,0 +1,1015 @@
+<!DOCTYPE HTML>
+<html lang="en" class="rust sidebar-visible" dir="ltr">
+    <head>
+        <!-- Book generated using mdBook -->
+        <meta charset="UTF-8">
+        <title>Problem Reductions</title>
+        <meta name="robots" content="noindex">
+
+
+        <!-- Custom HTML head -->
+
+        <meta name="description" content="A Rust library for reducing NP-hard problems">
+        <meta name="viewport" content="width=device-width, initial-scale=1">
+        <meta name="theme-color" content="#ffffff">
+
+        <link rel="icon" href="favicon-de23e50b.svg">
+        <link rel="shortcut icon" href="favicon-8114d1fc.png">
+        <link rel="stylesheet" href="css/variables-8adf115d.css">
+        <link rel="stylesheet" href="css/general-2459343d.css">
+        <link rel="stylesheet" href="css/chrome-ae938929.css">
+        <link rel="stylesheet" href="css/print-9e4910d8.css" media="print">
+
+        <!-- Fonts -->
+        <link rel="stylesheet" href="fonts/fonts-9644e21d.css">
+
+        <!-- Highlight.js Stylesheets -->
+        <link rel="stylesheet" id="mdbook-highlight-css" href="highlight-493f70e1.css">
+        <link rel="stylesheet" id="mdbook-tomorrow-night-css" href="tomorrow-night-4c0ae647.css">
+        <link rel="stylesheet" id="mdbook-ayu-highlight-css" href="ayu-highlight-3fdfc3ac.css">
+
+        <!-- Custom theme stylesheets -->
+
+
+        <!-- Provide site root and default themes to javascript -->
+        <script>
+            const path_to_root = "";
+            const default_light_theme = "rust";
+            const default_dark_theme = "navy";
+            window.path_to_searchindex_js = "searchindex-997d595e.js";
+        </script>
+        <!-- Start loading toc.js asap -->
+        <script src="toc-b6e9a39e.js"></script>
+    </head>
+    <body>
+    <div id="mdbook-help-container">
+        <div id="mdbook-help-popup">
+            <h2 class="mdbook-help-title">Keyboard shortcuts</h2>
+            <div>
+                <p>Press <kbd>←</kbd> or <kbd>→</kbd> to navigate between chapters</p>
+                <p>Press <kbd>S</kbd> or <kbd>/</kbd> to search in the book</p>
+                <p>Press <kbd>?</kbd> to show this help</p>
+                <p>Press <kbd>Esc</kbd> to hide this help</p>
+            </div>
+        </div>
+    </div>
+    <div id="mdbook-body-container">
+        <!-- Work around some values being stored in localStorage wrapped in quotes -->
+        <script>
+            try {
+                let theme = localStorage.getItem('mdbook-theme');
+                let sidebar = localStorage.getItem('mdbook-sidebar');
+
+                if (theme.startsWith('"') && theme.endsWith('"')) {
+                    localStorage.setItem('mdbook-theme', theme.slice(1, theme.length - 1));
+                }
+
+                if (sidebar.startsWith('"') && sidebar.endsWith('"')) {
+                    localStorage.setItem('mdbook-sidebar', sidebar.slice(1, sidebar.length - 1));
+                }
+            } catch (e) { }
+        </script>
+
+        <!-- Set the theme before any content is loaded, prevents flash -->
+        <script>
+            const default_theme = window.matchMedia("(prefers-color-scheme: dark)").matches ? default_dark_theme : default_light_theme;
+            let theme;
+            try { theme = localStorage.getItem('mdbook-theme'); } catch(e) { }
+            if (theme === null || theme === undefined) { theme = default_theme; }
+            const html = document.documentElement;
+            html.classList.remove('rust')
+            html.classList.add(theme);
+            html.classList.add("js");
+        </script>
+
+        <input type="checkbox" id="mdbook-sidebar-toggle-anchor" class="hidden">
+
+        <!-- Hide / unhide sidebar before it is displayed -->
+        <script>
+            let sidebar = null;
+            const sidebar_toggle = document.getElementById("mdbook-sidebar-toggle-anchor");
+            if (document.body.clientWidth >= 1080) {
+                try { sidebar = localStorage.getItem('mdbook-sidebar'); } catch(e) { }
+                sidebar = sidebar || 'visible';
+            } else {
+                sidebar = 'hidden';
+                sidebar_toggle.checked = false;
+            }
+            if (sidebar === 'visible') {
+                sidebar_toggle.checked = true;
+            } else {
+                html.classList.remove('sidebar-visible');
+            }
+        </script>
+
+        <nav id="mdbook-sidebar" class="sidebar" aria-label="Table of contents">
+            <!-- populated by js -->
+            <mdbook-sidebar-scrollbox class="sidebar-scrollbox"></mdbook-sidebar-scrollbox>
+            <noscript>
+                <iframe class="sidebar-iframe-outer" src="toc.html"></iframe>
+            </noscript>
+            <div id="mdbook-sidebar-resize-handle" class="sidebar-resize-handle">
+                <div class="sidebar-resize-indicator"></div>
+            </div>
+        </nav>
+
+        <div id="mdbook-page-wrapper" class="page-wrapper">
+
+            <div class="page">
+                <div id="mdbook-menu-bar-hover-placeholder"></div>
+                <div id="mdbook-menu-bar" class="menu-bar sticky">
+                    <div class="left-buttons">
+                        <label id="mdbook-sidebar-toggle" class="icon-button" for="mdbook-sidebar-toggle-anchor" title="Toggle Table of Contents" aria-label="Toggle Table of Contents" aria-controls="mdbook-sidebar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M0 96C0 78.3 14.3 64 32 64H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32C14.3 128 0 113.7 0 96zM0 256c0-17.7 14.3-32 32-32H416c17.7 0 32 14.3 32 32s-14.3 32-32 32H32c-17.7 0-32-14.3-32-32zM448 416c0 17.7-14.3 32-32 32H32c-17.7 0-32-14.3-32-32s14.3-32 32-32H416c17.7 0 32 14.3 32 32z"/></svg></span>
+                        </label>
+                        <button id="mdbook-theme-toggle" class="icon-button" type="button" title="Change theme" aria-label="Change theme" aria-haspopup="true" aria-expanded="false" aria-controls="mdbook-theme-list">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M371.3 367.1c27.3-3.9 51.9-19.4 67.2-42.9L600.2 74.1c12.6-19.5 9.4-45.3-7.6-61.2S549.7-4.4 531.1 9.6L294.4 187.2c-24 18-38.2 46.1-38.4 76.1L371.3 367.1zm-19.6 25.4l-116-104.4C175.9 290.3 128 339.6 128 400c0 3.9 .2 7.8 .6 11.6c1.8 17.5-10.2 36.4-27.8 36.4H96c-17.7 0-32 14.3-32 32s14.3 32 32 32H240c61.9 0 112-50.1 112-112c0-2.5-.1-5-.2-7.5z"/></svg></span>
+                        </button>
+                        <ul id="mdbook-theme-list" class="theme-popup" aria-label="Themes" role="menu">
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-default_theme">Auto</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-light">Light</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-rust">Rust</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-coal">Coal</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-navy">Navy</button></li>
+                            <li role="none"><button role="menuitem" class="theme" id="mdbook-theme-ayu">Ayu</button></li>
+                        </ul>
+                        <button id="mdbook-search-toggle" class="icon-button" type="button" title="Search (`/`)" aria-label="Toggle Searchbar" aria-expanded="false" aria-keyshortcuts="/ s" aria-controls="mdbook-searchbar">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M416 208c0 45.9-14.9 88.3-40 122.7L502.6 457.4c12.5 12.5 12.5 32.8 0 45.3s-32.8 12.5-45.3 0L330.7 376c-34.4 25.2-76.8 40-122.7 40C93.1 416 0 322.9 0 208S93.1 0 208 0S416 93.1 416 208zM208 352c79.5 0 144-64.5 144-144s-64.5-144-144-144S64 128.5 64 208s64.5 144 144 144z"/></svg></span>
+                        </button>
+                    </div>
+
+                    <h1 class="menu-title">Problem Reductions</h1>
+
+                    <div class="right-buttons">
+                        <a href="print.html" title="Print this book" aria-label="Print this book">
+                            <span class=fa-svg id="print-button"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M128 0C92.7 0 64 28.7 64 64v96h64V64H354.7L384 93.3V160h64V93.3c0-17-6.7-33.3-18.7-45.3L400 18.7C388 6.7 371.7 0 354.7 0H128zM384 352v32 64H128V384 368 352H384zm64 32h32c17.7 0 32-14.3 32-32V256c0-35.3-28.7-64-64-64H64c-35.3 0-64 28.7-64 64v96c0 17.7 14.3 32 32 32H64v64c0 35.3 28.7 64 64 64H384c35.3 0 64-28.7 64-64V384zm-16-88c-13.3 0-24-10.7-24-24s10.7-24 24-24s24 10.7 24 24s-10.7 24-24 24z"/></svg></span>
+                        </a>
+                        <a href="https://github.com/liujinguo/problemreductions" title="Git repository" aria-label="Git repository">
+                            <span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 496 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M165.9 397.4c0 2-2.3 3.6-5.2 3.6-3.3.3-5.6-1.3-5.6-3.6 0-2 2.3-3.6 5.2-3.6 3-.3 5.6 1.3 5.6 3.6zm-31.1-4.5c-.7 2 1.3 4.3 4.3 4.9 2.6 1 5.6 0 6.2-2s-1.3-4.3-4.3-5.2c-2.6-.7-5.5.3-6.2 2.3zm44.2-1.7c-2.9.7-4.9 2.6-4.6 4.9.3 2 2.9 3.3 5.9 2.6 2.9-.7 4.9-2.6 4.6-4.6-.3-1.9-3-3.2-5.9-2.9zM244.8 8C106.1 8 0 113.3 0 252c0 110.9 69.8 205.8 169.5 239.2 12.8 2.3 17.3-5.6 17.3-12.1 0-6.2-.3-40.4-.3-61.4 0 0-70 15-84.7-29.8 0 0-11.4-29.1-27.8-36.6 0 0-22.9-15.7 1.6-15.4 0 0 24.9 2 38.6 25.8 21.9 38.6 58.6 27.5 72.9 20.9 2.3-16 8.8-27.1 16-33.7-55.9-6.2-112.3-14.3-112.3-110.5 0-27.5 7.6-41.3 23.6-58.9-2.6-6.5-11.1-33.3 2.6-67.9 20.9-6.5 69 27 69 27 20-5.6 41.5-8.5 62.8-8.5s42.8 2.9 62.8 8.5c0 0 48.1-33.6 69-27 13.7 34.7 5.2 61.4 2.6 67.9 16 17.7 25.8 31.5 25.8 58.9 0 96.5-58.9 104.2-114.8 110.5 9.2 7.9 17 22.9 17 46.4 0 33.7-.3 75.4-.3 83.6 0 6.5 4.6 14.4 17.3 12.1C428.2 457.8 496 362.9 496 252 496 113.3 383.5 8 244.8 8zM97.2 352.9c-1.3 1-1 3.3.7 5.2 1.6 1.6 3.9 2.3 5.2 1 1.3-1 1-3.3-.7-5.2-1.6-1.6-3.9-2.3-5.2-1zm-10.8-8.1c-.7 1.3.3 2.9 2.3 3.9 1.6 1 3.6.7 4.3-.7.7-1.3-.3-2.9-2.3-3.9-2-.6-3.6-.3-4.3.7zm32.4 35.6c-1.6 1.3-1 4.3 1.3 6.2 2.3 2.3 5.2 2.6 6.5 1 1.3-1.3.7-4.3-1.3-6.2-2.2-2.3-5.2-2.6-6.5-1zm-11.4-14.7c-1.6 1-1.6 3.6 0 5.9 1.6 2.3 4.3 3.3 5.6 2.3 1.6-1.3 1.6-3.9 0-6.2-1.4-2.3-4-3.3-5.6-2z"/></svg></span>
+                        </a>
+
+                    </div>
+                </div>
+
+                <div id="mdbook-search-wrapper" class="hidden">
+                    <form id="mdbook-searchbar-outer" class="searchbar-outer">
+                        <div class="search-wrapper">
+                            <input type="search" id="mdbook-searchbar" name="searchbar" placeholder="Search this book ..." aria-controls="mdbook-searchresults-outer" aria-describedby="searchresults-header">
+                            <div class="spinner-wrapper">
+                                <span class=fa-svg id="fa-spin"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M304 48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zm0 416c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM48 304c26.5 0 48-21.5 48-48s-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48zm464-48c0-26.5-21.5-48-48-48s-48 21.5-48 48s21.5 48 48 48s48-21.5 48-48zM142.9 437c18.7-18.7 18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zm0-294.2c18.7-18.7 18.7-49.1 0-67.9S93.7 56.2 75 75s-18.7 49.1 0 67.9s49.1 18.7 67.9 0zM369.1 437c18.7 18.7 49.1 18.7 67.9 0s18.7-49.1 0-67.9s-49.1-18.7-67.9 0s-18.7 49.1 0 67.9z"/></svg></span>
+                            </div>
+                        </div>
+                    </form>
+                    <div id="mdbook-searchresults-outer" class="searchresults-outer hidden">
+                        <div id="mdbook-searchresults-header" class="searchresults-header"></div>
+                        <ul id="mdbook-searchresults">
+                        </ul>
+                    </div>
+                </div>
+
+                <!-- Apply ARIA attributes after the sidebar and the sidebar toggle button are added to the DOM -->
+                <script>
+                    document.getElementById('mdbook-sidebar-toggle').setAttribute('aria-expanded', sidebar === 'visible');
+                    document.getElementById('mdbook-sidebar').setAttribute('aria-hidden', sidebar !== 'visible');
+                    Array.from(document.querySelectorAll('#mdbook-sidebar a')).forEach(function(link) {
+                        link.setAttribute('tabIndex', sidebar === 'visible' ? 0 : -1);
+                    });
+                </script>
+
+                <div id="mdbook-content" class="content">
+                    <main>
+                        <h1 id="problem-reductions"><a class="header" href="#problem-reductions">Problem Reductions</a></h1>
+<p>A Rust library for reducing NP-hard problems.</p>
+<h2 id="overview"><a class="header" href="#overview">Overview</a></h2>
+<p><strong>problemreductions</strong> provides implementations of various NP-hard computational problems and reduction rules between them. It is designed for algorithm research, education, and quantum optimization studies.</p>
+<h2 id="features"><a class="header" href="#features">Features</a></h2>
+<ul>
+<li><strong>18+ Problem Types</strong>: Implementations of classic NP-hard problems</li>
+<li><strong>Type-Safe Reductions</strong>: Compile-time verified problem transformations</li>
+<li><strong>BruteForce Solver</strong>: For testing and verification on small instances</li>
+<li><strong>Topology Types</strong>: HyperGraph and UnitDiskGraph support</li>
+<li><strong>File I/O</strong>: JSON serialization for all problem types</li>
+<li><strong>Truth Tables</strong>: Utilities for logic gadget construction</li>
+</ul>
+<h2 id="quick-example"><a class="header" href="#quick-example">Quick Example</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+// Create an Independent Set problem on a triangle graph
+let problem = IndependentSet::&lt;i32&gt;::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+
+// Solve with brute force
+let solver = BruteForce::new();
+let solutions = solver.find_best(&amp;problem);
+
+// Maximum independent set in a triangle has size 1
+assert!(solutions.iter().all(|s| s.iter().sum::&lt;usize&gt;() == 1));
+<span class="boring">}</span></code></pre>
+<h2 id="problem-categories"><a class="header" href="#problem-categories">Problem Categories</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Category</th><th>Problems</th></tr>
+</thead>
+<tbody>
+<tr><td><strong>Satisfiability</strong></td><td>SAT, K-SAT, CircuitSAT, Factoring</td></tr>
+<tr><td><strong>Graph</strong></td><td>IndependentSet, VertexCovering, MaxCut, Coloring, DominatingSet, MaximalIS, Matching</td></tr>
+<tr><td><strong>Set</strong></td><td>SetCovering, SetPacking</td></tr>
+<tr><td><strong>Optimization</strong></td><td>SpinGlass, QUBO</td></tr>
+<tr><td><strong>Specialized</strong></td><td>Paintshop, BicliqueCover, BMF</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="license"><a class="header" href="#license">License</a></h2>
+<p>MIT License</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="getting-started"><a class="header" href="#getting-started">Getting Started</a></h1>
+<h2 id="installation"><a class="header" href="#installation">Installation</a></h2>
+<p>Add to your <code>Cargo.toml</code>:</p>
+<pre><code class="language-toml">[dependencies]
+problemreductions = "0.1"
+</code></pre>
+<h2 id="basic-usage"><a class="header" href="#basic-usage">Basic Usage</a></h2>
+<h3 id="creating-a-problem"><a class="header" href="#creating-a-problem">Creating a Problem</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+// Independent Set on a path graph
+let is = IndependentSet::&lt;i32&gt;::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+
+// Vertex Cover on the same graph
+let vc = VertexCovering::&lt;i32&gt;::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+
+// QUBO problem
+let qubo = QUBO::from_matrix(vec![
+    vec![1.0, -2.0],
+    vec![0.0, 1.0],
+]);
+<span class="boring">}</span></code></pre>
+<h3 id="solving-a-problem"><a class="header" href="#solving-a-problem">Solving a Problem</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = IndependentSet::&lt;i32&gt;::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+let solver = BruteForce::new();
+let solutions = solver.find_best(&amp;problem);
+
+println!("Found {} optimal solutions", solutions.len());
+for sol in &amp;solutions {
+    println!("  Solution: {:?}", sol);
+}
+<span class="boring">}</span></code></pre>
+<h3 id="applying-reductions"><a class="header" href="#applying-reductions">Applying Reductions</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+// Create an Independent Set problem
+let is = IndependentSet::&lt;i32&gt;::new(4, vec![(0, 1), (1, 2)]);
+
+// Reduce to Vertex Cover
+let result = ReduceTo::&lt;VertexCovering&lt;i32&gt;&gt;::reduce_to(&amp;is);
+let vc = result.target_problem();
+
+// Solve the reduced problem
+let solver = BruteForce::new();
+let vc_solutions = solver.find_best(vc);
+
+// Extract solution back to original problem
+let is_solution = result.extract_solution(&amp;vc_solutions[0]);
+<span class="boring">}</span></code></pre>
+<h2 id="next-steps"><a class="header" href="#next-steps">Next Steps</a></h2>
+<ul>
+<li>Learn about <a href="#problem-types">Problem Types</a></li>
+<li>Explore <a href="#reductions">Available Reductions</a></li>
+<li>Check out the <a href="#api-reference-1">API Reference</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="problem-types"><a class="header" href="#problem-types">Problem Types</a></h1>
+<p>This library implements 18+ NP-hard computational problems across several categories.</p>
+<h2 id="categories"><a class="header" href="#categories">Categories</a></h2>
+<h3 id="graph-problems"><a class="header" href="#graph-problems">Graph Problems</a></h3>
+<p>Problems defined on graphs with vertices and edges:</p>
+<ul>
+<li><strong>IndependentSet</strong>: Find maximum weight set of non-adjacent vertices</li>
+<li><strong>VertexCovering</strong>: Find minimum weight set covering all edges</li>
+<li><strong>MaxCut</strong>: Partition vertices to maximize cut weight</li>
+<li><strong>Coloring</strong>: Assign colors minimizing conflicts</li>
+<li><strong>DominatingSet</strong>: Find minimum set dominating all vertices</li>
+<li><strong>MaximalIS</strong>: Find maximal independent sets</li>
+<li><strong>Matching</strong>: Find maximum weight matching</li>
+</ul>
+<p><a href="#graph-problems-1">Learn more about Graph Problems</a></p>
+<h3 id="satisfiability-problems"><a class="header" href="#satisfiability-problems">Satisfiability Problems</a></h3>
+<p>Boolean satisfaction problems:</p>
+<ul>
+<li><strong>Satisfiability (SAT)</strong>: Find satisfying assignments for CNF formulas</li>
+<li><strong>CircuitSAT</strong>: Satisfy boolean circuits</li>
+<li><strong>Factoring</strong>: Factor integers (reducible to SAT)</li>
+</ul>
+<p><a href="#satisfiability-problems-1">Learn more about Satisfiability Problems</a></p>
+<h3 id="optimization-problems"><a class="header" href="#optimization-problems">Optimization Problems</a></h3>
+<p>Continuous optimization on discrete domains:</p>
+<ul>
+<li><strong>SpinGlass</strong>: Ising model Hamiltonian minimization</li>
+<li><strong>QUBO</strong>: Quadratic unconstrained binary optimization</li>
+</ul>
+<p><a href="#optimization-problems-1">Learn more about Optimization Problems</a></p>
+<h3 id="set-problems"><a class="header" href="#set-problems">Set Problems</a></h3>
+<p>Problems involving set collections:</p>
+<ul>
+<li><strong>SetCovering</strong>: Minimum weight cover of universe</li>
+<li><strong>SetPacking</strong>: Maximum weight packing of disjoint sets</li>
+</ul>
+<p><a href="#set-problems-1">Learn more about Set Problems</a></p>
+<h3 id="specialized-problems"><a class="header" href="#specialized-problems">Specialized Problems</a></h3>
+<p>Domain-specific problems:</p>
+<ul>
+<li><strong>PaintShop</strong>: Minimize color switches</li>
+<li><strong>BicliqueCover</strong>: Cover bipartite graph with bicliques</li>
+<li><strong>BMF</strong>: Boolean matrix factorization</li>
+</ul>
+<p><a href="#specialized-problems-1">Learn more about Specialized Problems</a></p>
+<h2 id="common-interface"><a class="header" href="#common-interface">Common Interface</a></h2>
+<p>All problems implement the <code>Problem</code> trait:</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub trait Problem {
+    type Size;
+
+    fn num_variables(&amp;self) -&gt; usize;
+    fn num_flavors(&amp;self) -&gt; usize;
+    fn problem_size(&amp;self) -&gt; ProblemSize;
+    fn solution_size(&amp;self, config: &amp;[usize]) -&gt; SolutionSize&lt;Self::Size&gt;;
+    fn energy_mode(&amp;self) -&gt; EnergyMode;
+}
+<span class="boring">}</span></code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="graph-problems-1"><a class="header" href="#graph-problems-1">Graph Problems</a></h1>
+<h2 id="independentset"><a class="header" href="#independentset">IndependentSet</a></h2>
+<p>Find a maximum weight set of vertices where no two are adjacent.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = IndependentSet::&lt;i32&gt;::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+let solver = BruteForce::new();
+let solutions = solver.find_best(&amp;problem);
+// Maximum IS on a path of 4 vertices has size 2
+<span class="boring">}</span></code></pre>
+<h2 id="vertexcovering"><a class="header" href="#vertexcovering">VertexCovering</a></h2>
+<p>Find a minimum weight set of vertices that covers all edges.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = VertexCovering::&lt;i32&gt;::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+// Minimum vertex cover on a path of 4 vertices has size 2
+<span class="boring">}</span></code></pre>
+<p><strong>Relationship</strong>: IS and VC are complements. For any graph: <code>|max IS| + |min VC| = n</code>.</p>
+<h2 id="maxcut"><a class="header" href="#maxcut">MaxCut</a></h2>
+<p>Partition vertices into two sets to maximize the weight of edges between them.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = MaxCut::new(3, vec![(0, 1, 2), (1, 2, 3), (0, 2, 1)]);
+<span class="boring">}</span></code></pre>
+<h2 id="coloring"><a class="header" href="#coloring">Coloring</a></h2>
+<p>Assign k colors to vertices minimizing adjacent same-color pairs.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = Coloring::new(4, 3, vec![(0, 1), (1, 2), (2, 3)]);
+<span class="boring">}</span></code></pre>
+<h2 id="dominatingset"><a class="header" href="#dominatingset">DominatingSet</a></h2>
+<p>Find minimum set where every vertex is in the set or adjacent to it.</p>
+<h2 id="maximalis"><a class="header" href="#maximalis">MaximalIS</a></h2>
+<p>Find independent sets that cannot be extended.</p>
+<h2 id="matching"><a class="header" href="#matching">Matching</a></h2>
+<p>Find maximum weight set of non-adjacent edges.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="satisfiability-problems-1"><a class="header" href="#satisfiability-problems-1">Satisfiability Problems</a></h1>
+<h2 id="sat-boolean-satisfiability"><a class="header" href="#sat-boolean-satisfiability">SAT (Boolean Satisfiability)</a></h2>
+<p>Find assignments satisfying a CNF formula.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = Satisfiability::&lt;i32&gt;::new(
+    3,
+    vec![
+        CNFClause::new(vec![1, 2]),     // x1 OR x2
+        CNFClause::new(vec![-1, 3]),    // NOT x1 OR x3
+    ],
+);
+
+let solver = BruteForce::new();
+let solutions = solver.find_best(&amp;problem);
+<span class="boring">}</span></code></pre>
+<h2 id="circuitsat"><a class="header" href="#circuitsat">CircuitSAT</a></h2>
+<p>Satisfy a boolean circuit with gates.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let circuit = Circuit::new(vec![
+    Assignment::new(
+        vec!["output".to_string()],
+        BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+    ),
+]);
+let problem = CircuitSAT::&lt;i32&gt;::new(circuit);
+<span class="boring">}</span></code></pre>
+<h2 id="factoring"><a class="header" href="#factoring">Factoring</a></h2>
+<p>Integer factorization as a decision problem.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+// Factor 15 with 2-bit factors
+let problem = Factoring::new(15, 2, 2);
+<span class="boring">}</span></code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="optimization-problems-1"><a class="header" href="#optimization-problems-1">Optimization Problems</a></h1>
+<h2 id="spinglass-ising-model"><a class="header" href="#spinglass-ising-model">SpinGlass (Ising Model)</a></h2>
+<p>Minimize the Ising Hamiltonian: <code>H = Σ J_ij s_i s_j + Σ h_i s_i</code></p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = SpinGlass::new(
+    3,
+    vec![((0, 1), -1.0), ((1, 2), 1.0)],  // Interactions
+    vec![0.5, -0.5, 0.0],                  // On-site fields
+);
+
+let solver = BruteForce::new();
+let solutions = solver.find_best(&amp;problem);
+<span class="boring">}</span></code></pre>
+<h2 id="qubo"><a class="header" href="#qubo">QUBO</a></h2>
+<p>Quadratic Unconstrained Binary Optimization: <code>minimize x^T Q x</code></p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+// From matrix
+let problem = QUBO::from_matrix(vec![
+    vec![1.0, -2.0],
+    vec![0.0, 1.0],
+]);
+
+// From linear and quadratic terms
+let problem = QUBO::new(
+    vec![1.0, -1.0],           // Linear (diagonal)
+    vec![((0, 1), 0.5)],       // Quadratic (off-diagonal)
+);
+<span class="boring">}</span></code></pre>
+<h2 id="relationship"><a class="header" href="#relationship">Relationship</a></h2>
+<p>SpinGlass and QUBO are equivalent via the transformation <code>s = 2x - 1</code>:</p>
+<ul>
+<li><code>x = 0</code> corresponds to <code>s = -1</code></li>
+<li><code>x = 1</code> corresponds to <code>s = +1</code></li>
+</ul>
+<p>The library provides bidirectional reductions between them.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="set-problems-1"><a class="header" href="#set-problems-1">Set Problems</a></h1>
+<h2 id="setcovering"><a class="header" href="#setcovering">SetCovering</a></h2>
+<p>Find minimum weight collection of sets that covers all elements.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = SetCovering::&lt;i32&gt;::new(
+    5,  // Universe size
+    vec![
+        vec![0, 1, 2],
+        vec![2, 3, 4],
+        vec![0, 4],
+    ],
+);
+<span class="boring">}</span></code></pre>
+<h2 id="setpacking"><a class="header" href="#setpacking">SetPacking</a></h2>
+<p>Find maximum weight collection of pairwise disjoint sets.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = SetPacking::&lt;i32&gt;::new(vec![
+    vec![0, 1],
+    vec![1, 2],  // Overlaps with first
+    vec![2, 3],
+    vec![4],
+]);
+<span class="boring">}</span></code></pre>
+<h2 id="relationship-to-graph-problems"><a class="header" href="#relationship-to-graph-problems">Relationship to Graph Problems</a></h2>
+<p>SetPacking is equivalent to IndependentSet on the intersection graph:</p>
+<ul>
+<li>Each set becomes a vertex</li>
+<li>Overlapping sets are connected by edges</li>
+</ul>
+<p>The library provides reductions between them.</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="specialized-problems-1"><a class="header" href="#specialized-problems-1">Specialized Problems</a></h1>
+<h2 id="paintshop"><a class="header" href="#paintshop">PaintShop</a></h2>
+<p>Minimize color switches in a painting sequence where each car type needs both colors.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = PaintShop::new(vec!["a", "b", "a", "b", "c", "c"]);
+<span class="boring">}</span></code></pre>
+<h2 id="bicliquecover"><a class="header" href="#bicliquecover">BicliqueCover</a></h2>
+<p>Cover edges of a bipartite graph using k bicliques.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = BicliqueCover::new(
+    2,  // Left vertices
+    2,  // Right vertices
+    vec![(0, 2), (0, 3), (1, 2), (1, 3)],  // Edges
+    1,  // Number of bicliques
+);
+<span class="boring">}</span></code></pre>
+<h2 id="bmf-boolean-matrix-factorization"><a class="header" href="#bmf-boolean-matrix-factorization">BMF (Boolean Matrix Factorization)</a></h2>
+<p>Factor a boolean matrix M into A * B with minimum rank.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = BMF::new(
+    vec![
+        vec![true, true],
+        vec![true, false],
+    ],
+    1,  // Rank
+);
+<span class="boring">}</span></code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="reductions"><a class="header" href="#reductions">Reductions</a></h1>
+<p>Problem reductions allow transforming one NP-hard problem into another while preserving solution structure.</p>
+<h2 id="why-reductions"><a class="header" href="#why-reductions">Why Reductions?</a></h2>
+<ul>
+<li><strong>Solve problems indirectly</strong>: Transform to a problem with a better solver</li>
+<li><strong>Prove equivalence</strong>: Show problems have the same computational complexity</li>
+<li><strong>Hardware mapping</strong>: Transform to problems supported by quantum hardware</li>
+</ul>
+<h2 id="available-reductions"><a class="header" href="#available-reductions">Available Reductions</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Source</th><th>Target</th><th>Notes</th></tr>
+</thead>
+<tbody>
+<tr><td>IndependentSet</td><td>VertexCovering</td><td>Complement relationship</td></tr>
+<tr><td>VertexCovering</td><td>IndependentSet</td><td>Complement relationship</td></tr>
+<tr><td>IndependentSet</td><td>SetPacking</td><td>Intersection graph</td></tr>
+<tr><td>SetPacking</td><td>IndependentSet</td><td>Intersection graph</td></tr>
+<tr><td>SpinGlass</td><td>QUBO</td><td>Variable substitution</td></tr>
+<tr><td>QUBO</td><td>SpinGlass</td><td>Variable substitution</td></tr>
+<tr><td>SpinGlass</td><td>MaxCut</td><td>Direct mapping (may add ancilla)</td></tr>
+<tr><td>MaxCut</td><td>SpinGlass</td><td>Direct mapping</td></tr>
+</tbody>
+</table>
+</div>
+<h2 id="reduction-traits"><a class="header" href="#reduction-traits">Reduction Traits</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub trait ReduceTo&lt;T: Problem&gt;: Problem {
+    type Result: ReductionResult&lt;Source = Self, Target = T&gt;;
+    fn reduce_to(&amp;self) -&gt; Self::Result;
+}
+
+pub trait ReductionResult: Clone {
+    type Source: Problem;
+    type Target: Problem;
+
+    fn target_problem(&amp;self) -&gt; &amp;Self::Target;
+    fn extract_solution(&amp;self, target_solution: &amp;[usize]) -&gt; Vec&lt;usize&gt;;
+}
+<span class="boring">}</span></code></pre>
+<p>See:</p>
+<ul>
+<li><a href="#using-reductions">Using Reductions</a></li>
+<li><a href="#available-reductions-1">Available Reductions</a></li>
+<li><a href="#reduction-graph">Reduction Graph</a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="using-reductions"><a class="header" href="#using-reductions">Using Reductions</a></h1>
+<h2 id="basic-usage-1"><a class="header" href="#basic-usage-1">Basic Usage</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+// Create source problem
+let is = IndependentSet::&lt;i32&gt;::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+
+// Reduce to target problem
+let result = ReduceTo::&lt;VertexCovering&lt;i32&gt;&gt;::reduce_to(&amp;is);
+let vc = result.target_problem();
+
+// Solve target problem
+let solver = BruteForce::new();
+let vc_solutions = solver.find_best(vc);
+
+// Extract solution back to source problem
+let is_solution = result.extract_solution(&amp;vc_solutions[0]);
+
+// Verify solution is valid
+assert!(is.solution_size(&amp;is_solution).is_valid);
+<span class="boring">}</span></code></pre>
+<h2 id="chaining-reductions"><a class="header" href="#chaining-reductions">Chaining Reductions</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let sp = SetPacking::&lt;i32&gt;::new(vec![
+    vec![0, 1],
+    vec![1, 2],
+    vec![2, 3],
+]);
+
+// SetPacking -&gt; IndependentSet -&gt; VertexCovering
+let sp_to_is = ReduceTo::&lt;IndependentSet&lt;i32&gt;&gt;::reduce_to(&amp;sp);
+let is = sp_to_is.target_problem();
+
+let is_to_vc = ReduceTo::&lt;VertexCovering&lt;i32&gt;&gt;::reduce_to(is);
+let vc = is_to_vc.target_problem();
+
+// Solve and extract back through the chain
+let solver = BruteForce::new();
+let vc_solutions = solver.find_best(vc);
+let is_solution = is_to_vc.extract_solution(&amp;vc_solutions[0]);
+let sp_solution = sp_to_is.extract_solution(&amp;is_solution);
+<span class="boring">}</span></code></pre>
+<h2 id="type-safety"><a class="header" href="#type-safety">Type Safety</a></h2>
+<p>The reduction system is compile-time verified. Invalid reductions won’t compile:</p>
+<pre class="playground"><code class="language-rust compile_fail"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>// This won't compile - no reduction from QUBO to SetPacking
+let result = ReduceTo::&lt;SetPacking&lt;i32&gt;&gt;::reduce_to(&amp;qubo);
+<span class="boring">}</span></code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="available-reductions-1"><a class="header" href="#available-reductions-1">Available Reductions</a></h1>
+<h2 id="independentset--vertexcovering"><a class="header" href="#independentset--vertexcovering">IndependentSet ↔ VertexCovering</a></h2>
+<p>These are complement problems on the same graph.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let is = IndependentSet::&lt;i32&gt;::new(4, vec![(0, 1), (1, 2)]);
+let result = ReduceTo::&lt;VertexCovering&lt;i32&gt;&gt;::reduce_to(&amp;is);
+<span class="boring">}</span></code></pre>
+<p>For any graph: <code>|max IS| + |min VC| = n</code></p>
+<h2 id="independentset--setpacking"><a class="header" href="#independentset--setpacking">IndependentSet ↔ SetPacking</a></h2>
+<p>Based on the intersection graph equivalence.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let is = IndependentSet::&lt;i32&gt;::new(3, vec![(0, 1), (1, 2)]);
+let result = ReduceTo::&lt;SetPacking&lt;i32&gt;&gt;::reduce_to(&amp;is);
+<span class="boring">}</span></code></pre>
+<h2 id="spinglass--qubo"><a class="header" href="#spinglass--qubo">SpinGlass ↔ QUBO</a></h2>
+<p>Uses variable substitution <code>s = 2x - 1</code>.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let sg = SpinGlass::new(2, vec![((0, 1), -1.0)], vec![0.0, 0.0]);
+let result = ReduceTo::&lt;QUBO&gt;::reduce_to(&amp;sg);
+<span class="boring">}</span></code></pre>
+<h2 id="spinglass--maxcut"><a class="header" href="#spinglass--maxcut">SpinGlass ↔ MaxCut</a></h2>
+<p>Direct mapping for pure interaction terms; ancilla vertex for on-site fields.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let sg = SpinGlass::new(3, vec![((0, 1), 1), ((1, 2), 1)], vec![0, 0, 0]);
+let result = ReduceTo::&lt;MaxCut&lt;i32&gt;&gt;::reduce_to(&amp;sg);
+<span class="boring">}</span></code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="reduction-graph"><a class="header" href="#reduction-graph">Reduction Graph</a></h1>
+<p>The <code>ReductionGraph</code> allows discovering reduction paths between problem types.</p>
+<h2 id="usage"><a class="header" href="#usage">Usage</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+use problemreductions::rules::ReductionGraph;
+
+let graph = ReductionGraph::new();
+
+// Check if direct reduction exists
+let has_direct = graph.has_direct_reduction::&lt;IndependentSet&lt;i32&gt;, VertexCovering&lt;i32&gt;&gt;();
+
+// Find all paths between types
+let paths = graph.find_paths::&lt;SetPacking&lt;i32&gt;, VertexCovering&lt;i32&gt;&gt;();
+
+// Find shortest path
+let shortest = graph.find_shortest_path::&lt;SetPacking&lt;i32&gt;, VertexCovering&lt;i32&gt;&gt;();
+<span class="boring">}</span></code></pre>
+<h2 id="current-reduction-graph"><a class="header" href="#current-reduction-graph">Current Reduction Graph</a></h2>
+<pre><code>IndependentSet&lt;i32&gt; &lt;---&gt; VertexCovering&lt;i32&gt;
+       |
+       +--------&gt; SetPacking&lt;i32&gt;
+
+SpinGlass&lt;f64&gt; &lt;---&gt; QUBO&lt;f64&gt;
+
+SpinGlass&lt;i32&gt; &lt;---&gt; MaxCut&lt;i32&gt;
+</code></pre>
+<h2 id="api"><a class="header" href="#api">API</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl ReductionGraph {
+    pub fn new() -&gt; Self;
+    pub fn has_direct_reduction&lt;S: 'static, T: 'static&gt;(&amp;self) -&gt; bool;
+    pub fn find_paths&lt;S: 'static, T: 'static&gt;(&amp;self) -&gt; Vec&lt;ReductionPath&gt;;
+    pub fn find_shortest_path&lt;S: 'static, T: 'static&gt;(&amp;self) -&gt; Option&lt;ReductionPath&gt;;
+    pub fn problem_types(&amp;self) -&gt; Vec&lt;&amp;'static str&gt;;
+    pub fn num_types(&amp;self) -&gt; usize;
+    pub fn num_reductions(&amp;self) -&gt; usize;
+}
+<span class="boring">}</span></code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="solvers"><a class="header" href="#solvers">Solvers</a></h1>
+<h2 id="bruteforce-solver"><a class="header" href="#bruteforce-solver">BruteForce Solver</a></h2>
+<p>The library includes a brute-force solver for testing and verification.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::prelude::*;
+
+let problem = IndependentSet::&lt;i32&gt;::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+let solver = BruteForce::new();
+let solutions = solver.find_best(&amp;problem);
+<span class="boring">}</span></code></pre>
+<h2 id="configuration"><a class="header" href="#configuration">Configuration</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>let solver = BruteForce::new()
+    .valid_only(true)     // Only return valid solutions
+    .tolerance(1e-6);     // Tolerance for floating-point comparisons
+<span class="boring">}</span></code></pre>
+<h2 id="solver-trait"><a class="header" href="#solver-trait">Solver Trait</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>pub trait Solver&lt;P: Problem&gt; {
+    fn find_best(&amp;self, problem: &amp;P) -&gt; Vec&lt;Vec&lt;usize&gt;&gt;;
+}
+<span class="boring">}</span></code></pre>
+<h2 id="performance-notes"><a class="header" href="#performance-notes">Performance Notes</a></h2>
+<p>The brute-force solver enumerates all <code>num_flavors^num_variables</code> configurations. Use only for small instances (typically &lt; 20 variables).</p>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="topology-types"><a class="header" href="#topology-types">Topology Types</a></h1>
+<h2 id="hypergraph"><a class="header" href="#hypergraph">HyperGraph</a></h2>
+<p>Generalized graphs with edges connecting multiple vertices.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::topology::HyperGraph;
+
+let hg = HyperGraph::new(5, vec![
+    vec![0, 1, 2],  // Hyperedge connecting 3 vertices
+    vec![2, 3, 4],  // Another hyperedge
+]);
+
+assert_eq!(hg.num_vertices(), 5);
+assert_eq!(hg.num_edges(), 2);
+
+// Get neighbors (vertices sharing a hyperedge)
+let neighbors = hg.neighbors(2);  // [0, 1, 3, 4]
+<span class="boring">}</span></code></pre>
+<h2 id="unitdiskgraph"><a class="header" href="#unitdiskgraph">UnitDiskGraph</a></h2>
+<p>Geometric graphs where edges connect points within a radius.</p>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::topology::UnitDiskGraph;
+
+let positions = vec![
+    (0.0, 0.0),
+    (0.5, 0.0),   // Within radius of (0,0)
+    (2.0, 0.0),   // Too far from (0,0)
+];
+
+let udg = UnitDiskGraph::new(positions, 1.0);
+
+// Get edges as (u, v) pairs
+let edges = udg.edges();
+
+// Use with IndependentSet
+use problemreductions::prelude::*;
+let is = IndependentSet::&lt;i32&gt;::new(3, edges.to_vec());
+<span class="boring">}</span></code></pre>
+<h2 id="api-reference"><a class="header" href="#api-reference">API Reference</a></h2>
+<h3 id="hypergraph-1"><a class="header" href="#hypergraph-1">HyperGraph</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl HyperGraph {
+    pub fn new(num_vertices: usize, edges: Vec&lt;Vec&lt;usize&gt;&gt;) -&gt; Self;
+    pub fn num_vertices(&amp;self) -&gt; usize;
+    pub fn num_edges(&amp;self) -&gt; usize;
+    pub fn neighbors(&amp;self, v: usize) -&gt; Vec&lt;usize&gt;;
+    pub fn degree(&amp;self, v: usize) -&gt; usize;
+}
+<span class="boring">}</span></code></pre>
+<h3 id="unitdiskgraph-1"><a class="header" href="#unitdiskgraph-1">UnitDiskGraph</a></h3>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>impl UnitDiskGraph {
+    pub fn new(positions: Vec&lt;(f64, f64)&gt;, radius: f64) -&gt; Self;
+    pub fn edges(&amp;self) -&gt; &amp;[(usize, usize)];
+    pub fn num_vertices(&amp;self) -&gt; usize;
+    pub fn neighbors(&amp;self, v: usize) -&gt; Vec&lt;usize&gt;;
+}
+<span class="boring">}</span></code></pre>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="file-io"><a class="header" href="#file-io">File I/O</a></h1>
+<p>All problem types support JSON serialization.</p>
+<h2 id="writing-problems"><a class="header" href="#writing-problems">Writing Problems</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::io::{write_problem, FileFormat};
+use problemreductions::prelude::*;
+
+let problem = IndependentSet::&lt;i32&gt;::new(4, vec![(0, 1), (1, 2)]);
+write_problem(&amp;problem, "problem.json", FileFormat::Json).unwrap();
+<span class="boring">}</span></code></pre>
+<h2 id="reading-problems"><a class="header" href="#reading-problems">Reading Problems</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::io::{read_problem, FileFormat};
+use problemreductions::prelude::*;
+
+let problem: IndependentSet&lt;i32&gt; = read_problem("problem.json", FileFormat::Json).unwrap();
+<span class="boring">}</span></code></pre>
+<h2 id="string-serialization"><a class="header" href="#string-serialization">String Serialization</a></h2>
+<pre class="playground"><code class="language-rust"><span class="boring">#![allow(unused)]
+</span><span class="boring">fn main() {
+</span>use problemreductions::io::{to_json, from_json};
+use problemreductions::prelude::*;
+
+let problem = IndependentSet::&lt;i32&gt;::new(3, vec![(0, 1)]);
+
+// Serialize to string
+let json = to_json(&amp;problem).unwrap();
+
+// Deserialize from string
+let restored: IndependentSet&lt;i32&gt; = from_json(&amp;json).unwrap();
+<span class="boring">}</span></code></pre>
+<h2 id="file-formats"><a class="header" href="#file-formats">File Formats</a></h2>
+<div class="table-wrapper">
+<table>
+<thead>
+<tr><th>Format</th><th>Description</th></tr>
+</thead>
+<tbody>
+<tr><td><code>Json</code></td><td>Pretty-printed JSON</td></tr>
+<tr><td><code>JsonCompact</code></td><td>Compact JSON (no whitespace)</td></tr>
+</tbody>
+</table>
+</div>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="api-reference-1"><a class="header" href="#api-reference-1">API Reference</a></h1>
+<p>Full API documentation is available at <a href="https://docs.rs/problemreductions">docs.rs/problemreductions</a> or in the generated rustdoc.</p>
+<h2 id="quick-links"><a class="header" href="#quick-links">Quick Links</a></h2>
+<h3 id="core-traits"><a class="header" href="#core-traits">Core Traits</a></h3>
+<ul>
+<li><a href="api/problemreductions/traits/trait.Problem.html"><code>Problem</code></a> - Base trait for all problems</li>
+<li><a href="api/problemreductions/traits/trait.ConstraintSatisfactionProblem.html"><code>ConstraintSatisfactionProblem</code></a> - CSP-specific trait</li>
+<li><a href="api/problemreductions/rules/trait.ReduceTo.html"><code>ReduceTo</code></a> - Reduction trait</li>
+<li><a href="api/problemreductions/rules/trait.ReductionResult.html"><code>ReductionResult</code></a> - Reduction result trait</li>
+<li><a href="api/problemreductions/solvers/trait.Solver.html"><code>Solver</code></a> - Solver trait</li>
+</ul>
+<h3 id="problem-types-1"><a class="header" href="#problem-types-1">Problem Types</a></h3>
+<h4 id="graph"><a class="header" href="#graph">Graph</a></h4>
+<ul>
+<li><a href="api/problemreductions/models/graph/struct.IndependentSet.html"><code>IndependentSet</code></a></li>
+<li><a href="api/problemreductions/models/graph/struct.VertexCovering.html"><code>VertexCovering</code></a></li>
+<li><a href="api/problemreductions/models/graph/struct.MaxCut.html"><code>MaxCut</code></a></li>
+<li><a href="api/problemreductions/models/graph/struct.Coloring.html"><code>Coloring</code></a></li>
+<li><a href="api/problemreductions/models/graph/struct.DominatingSet.html"><code>DominatingSet</code></a></li>
+<li><a href="api/problemreductions/models/graph/struct.MaximalIS.html"><code>MaximalIS</code></a></li>
+<li><a href="api/problemreductions/models/graph/struct.Matching.html"><code>Matching</code></a></li>
+</ul>
+<h4 id="optimization"><a class="header" href="#optimization">Optimization</a></h4>
+<ul>
+<li><a href="api/problemreductions/models/optimization/struct.SpinGlass.html"><code>SpinGlass</code></a></li>
+<li><a href="api/problemreductions/models/optimization/struct.QUBO.html"><code>QUBO</code></a></li>
+</ul>
+<h4 id="set"><a class="header" href="#set">Set</a></h4>
+<ul>
+<li><a href="api/problemreductions/models/set/struct.SetCovering.html"><code>SetCovering</code></a></li>
+<li><a href="api/problemreductions/models/set/struct.SetPacking.html"><code>SetPacking</code></a></li>
+</ul>
+<h4 id="satisfiability"><a class="header" href="#satisfiability">Satisfiability</a></h4>
+<ul>
+<li><a href="api/problemreductions/models/satisfiability/struct.Satisfiability.html"><code>Satisfiability</code></a></li>
+<li><a href="api/problemreductions/models/specialized/struct.CircuitSAT.html"><code>CircuitSAT</code></a></li>
+<li><a href="api/problemreductions/models/specialized/struct.Factoring.html"><code>Factoring</code></a></li>
+</ul>
+<h3 id="utilities"><a class="header" href="#utilities">Utilities</a></h3>
+<ul>
+<li><a href="api/problemreductions/rules/struct.ReductionGraph.html"><code>ReductionGraph</code></a></li>
+<li><a href="api/problemreductions/truth_table/struct.TruthTable.html"><code>TruthTable</code></a></li>
+<li><a href="api/problemreductions/topology/struct.HyperGraph.html"><code>HyperGraph</code></a></li>
+<li><a href="api/problemreductions/topology/struct.UnitDiskGraph.html"><code>UnitDiskGraph</code></a></li>
+</ul>
+<div style="break-before: page; page-break-before: always;"></div>
+<h1 id="contributing"><a class="header" href="#contributing">Contributing</a></h1>
+<p>Contributions are welcome!</p>
+<h2 id="development-setup"><a class="header" href="#development-setup">Development Setup</a></h2>
+<pre><code class="language-bash">git clone https://github.com/liujinguo/problemreductions
+cd problemreductions
+cargo build
+cargo test
+</code></pre>
+<h2 id="running-tests"><a class="header" href="#running-tests">Running Tests</a></h2>
+<pre><code class="language-bash">cargo test                    # Run all tests
+cargo test --test integration # Integration tests only
+cargo test --test reduction   # Reduction tests only
+</code></pre>
+<h2 id="code-coverage"><a class="header" href="#code-coverage">Code Coverage</a></h2>
+<pre><code class="language-bash">cargo tarpaulin --skip-clean --ignore-tests
+</code></pre>
+<h2 id="documentation"><a class="header" href="#documentation">Documentation</a></h2>
+<pre><code class="language-bash">cargo doc --open              # Rustdoc
+mdbook serve                  # mdBook (requires mdbook installed)
+</code></pre>
+<h2 id="adding-a-new-problem"><a class="header" href="#adding-a-new-problem">Adding a New Problem</a></h2>
+<ol>
+<li>Create file in <code>src/models/&lt;category&gt;/</code></li>
+<li>Implement <code>Problem</code> trait</li>
+<li>Optionally implement <code>ConstraintSatisfactionProblem</code></li>
+<li>Add tests</li>
+<li>Export in <code>mod.rs</code> and <code>prelude</code></li>
+</ol>
+<h2 id="adding-a-new-reduction"><a class="header" href="#adding-a-new-reduction">Adding a New Reduction</a></h2>
+<ol>
+<li>Create file in <code>src/rules/</code></li>
+<li>Implement <code>ReductionResult</code> for the result type</li>
+<li>Implement <code>ReduceTo&lt;Target&gt; for Source</code></li>
+<li>Add edge in <code>ReductionGraph</code></li>
+<li>Add tests</li>
+<li>Export in <code>mod.rs</code></li>
+</ol>
+<h2 id="code-style"><a class="header" href="#code-style">Code Style</a></h2>
+<ul>
+<li>Run <code>cargo fmt</code> before committing</li>
+<li>Run <code>cargo clippy</code> and fix warnings</li>
+<li>Add doc comments for public items</li>
+<li>Include examples in documentation</li>
+</ul>
+
+                    </main>
+
+                    <nav class="nav-wrapper" aria-label="Page navigation">
+                        <!-- Mobile navigation buttons -->
+
+
+                        <div style="clear: both"></div>
+                    </nav>
+                </div>
+            </div>
+
+            <nav class="nav-wide-wrapper" aria-label="Page navigation">
+
+            </nav>
+
+        </div>
+
+        <template id=fa-eye><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 576 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M288 32c-80.8 0-145.5 36.8-192.6 80.6C48.6 156 17.3 208 2.5 243.7c-3.3 7.9-3.3 16.7 0 24.6C17.3 304 48.6 356 95.4 399.4C142.5 443.2 207.2 480 288 480s145.5-36.8 192.6-80.6c46.8-43.5 78.1-95.4 93-131.1c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C433.5 68.8 368.8 32 288 32zM432 256c0 79.5-64.5 144-144 144s-144-64.5-144-144s64.5-144 144-144s144 64.5 144 144zM288 192c0 35.3-28.7 64-64 64c-11.5 0-22.3-3-31.6-8.4c-.2 2.8-.4 5.5-.4 8.4c0 53 43 96 96 96s96-43 96-96s-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6z"/></svg></span></template>
+        <template id=fa-eye-slash><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 640 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M38.8 5.1C28.4-3.1 13.3-1.2 5.1 9.2S-1.2 34.7 9.2 42.9l592 464c10.4 8.2 25.5 6.3 33.7-4.1s6.3-25.5-4.1-33.7L525.6 386.7c39.6-40.6 66.4-86.1 79.9-118.4c3.3-7.9 3.3-16.7 0-24.6c-14.9-35.7-46.2-87.7-93-131.1C465.5 68.8 400.8 32 320 32c-68.2 0-125 26.3-169.3 60.8L38.8 5.1zM223.1 149.5C248.6 126.2 282.7 112 320 112c79.5 0 144 64.5 144 144c0 24.9-6.3 48.3-17.4 68.7L408 294.5c5.2-11.8 8-24.8 8-38.5c0-53-43-96-96-96c-2.8 0-5.6 .1-8.4 .4c5.3 9.3 8.4 20.1 8.4 31.6c0 10.2-2.4 19.8-6.6 28.3l-90.3-70.8zm223.1 298L373 389.9c-16.4 6.5-34.3 10.1-53 10.1c-79.5 0-144-64.5-144-144c0-6.9 .5-13.6 1.4-20.2L83.1 161.5C60.3 191.2 44 220.8 34.5 243.7c-3.3 7.9-3.3 16.7 0 24.6c14.9 35.7 46.2 87.7 93 131.1C174.5 443.2 239.2 480 320 480c47.8 0 89.9-12.9 126.2-32.5z"/></svg></span></template>
+        <template id=fa-copy><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M502.6 70.63l-61.25-61.25C435.4 3.371 427.2 0 418.7 0H255.1c-35.35 0-64 28.66-64 64l.0195 256C192 355.4 220.7 384 256 384h192c35.2 0 64-28.8 64-64V93.25C512 84.77 508.6 76.63 502.6 70.63zM464 320c0 8.836-7.164 16-16 16H255.1c-8.838 0-16-7.164-16-16L239.1 64.13c0-8.836 7.164-16 16-16h128L384 96c0 17.67 14.33 32 32 32h47.1V320zM272 448c0 8.836-7.164 16-16 16H63.1c-8.838 0-16-7.164-16-16L47.98 192.1c0-8.836 7.164-16 16-16H160V128H63.99c-35.35 0-64 28.65-64 64l.0098 256C.002 483.3 28.66 512 64 512h192c35.2 0 64-28.8 64-64v-32h-47.1L272 448z"/></svg></span></template>
+        <template id=fa-play><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 384 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M73 39c-14.8-9.1-33.4-9.4-48.5-.9S0 62.6 0 80V432c0 17.4 9.4 33.4 24.5 41.9s33.7 8.1 48.5-.9L361 297c14.3-8.7 23-24.2 23-41s-8.7-32.2-23-41L73 39z"/></svg></span></template>
+        <template id=fa-clock-rotate-left><span class=fa-svg><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><!--! Font Awesome Free 6.2.0 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2022 Fonticons, Inc. --><path d="M75 75L41 41C25.9 25.9 0 36.6 0 57.9V168c0 13.3 10.7 24 24 24H134.1c21.4 0 32.1-25.9 17-41l-30.8-30.8C155 85.5 203 64 256 64c106 0 192 86 192 192s-86 192-192 192c-40.8 0-78.6-12.7-109.7-34.4c-14.5-10.1-34.4-6.6-44.6 7.9s-6.6 34.4 7.9 44.6C151.2 495 201.7 512 256 512c141.4 0 256-114.6 256-256S397.4 0 256 0C185.3 0 121.3 28.7 75 75zm181 53c-13.3 0-24 10.7-24 24V256c0 6.4 2.5 12.5 7 17l72 72c9.4 9.4 24.6 9.4 33.9 0s9.4-24.6 0-33.9l-65-65V152c0-13.3-10.7-24-24-24z"/></svg></span></template>
+
+
+
+        <script>
+            window.playground_copyable = true;
+        </script>
+
+
+        <script src="elasticlunr-ef4e11c1.min.js"></script>
+        <script src="mark-09e88c2c.min.js"></script>
+        <script src="searcher-c2a407aa.js"></script>
+
+        <script src="clipboard-1626706a.min.js"></script>
+        <script src="highlight-abc7f01d.js"></script>
+        <script src="book-a0b12cfe.js"></script>
+
+        <!-- Custom JS scripts -->
+
+        <script>
+        window.addEventListener('load', function() {
+            window.setTimeout(window.print, 100);
+        });
+        </script>
+
+
+    </div>
+    </body>
+</html>

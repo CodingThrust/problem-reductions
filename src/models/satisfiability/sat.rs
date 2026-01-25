@@ -228,21 +228,22 @@ where
                 let num_configs = 2usize.pow(vars.len() as u32);
 
                 // Build spec: config is valid if clause is satisfied
-                let mut spec = vec![false; num_configs];
-                for (config_idx, valid) in spec.iter_mut().enumerate().take(num_configs) {
-                    // Convert config index to local assignment
-                    let local_assignment: Vec<bool> = (0..vars.len())
-                        .map(|i| (config_idx >> (vars.len() - 1 - i)) & 1 == 1)
-                        .collect();
+                let spec: Vec<bool> = (0..num_configs)
+                    .map(|config_idx| {
+                        // Convert config index to local assignment
+                        let local_assignment: Vec<bool> = (0..vars.len())
+                            .map(|i| (config_idx >> (vars.len() - 1 - i)) & 1 == 1)
+                            .collect();
 
-                    // Build full assignment for clause evaluation
-                    let mut full_assignment = vec![false; self.num_vars];
-                    for (i, &var) in vars.iter().enumerate() {
-                        full_assignment[var] = local_assignment[i];
-                    }
+                        // Build full assignment for clause evaluation
+                        let mut full_assignment = vec![false; self.num_vars];
+                        for (i, &var) in vars.iter().enumerate() {
+                            full_assignment[var] = local_assignment[i];
+                        }
 
-                    *valid = clause.is_satisfied(&full_assignment);
-                }
+                        clause.is_satisfied(&full_assignment)
+                    })
+                    .collect();
 
                 LocalConstraint::new(2, vars, spec)
             })
@@ -258,21 +259,24 @@ where
                 let vars = clause.variables();
                 let num_configs = 2usize.pow(vars.len() as u32);
 
-                let mut spec = vec![W::zero(); num_configs];
-                for (config_idx, spec_weight) in spec.iter_mut().enumerate().take(num_configs) {
-                    let local_assignment: Vec<bool> = (0..vars.len())
-                        .map(|i| (config_idx >> (vars.len() - 1 - i)) & 1 == 1)
-                        .collect();
+                let spec: Vec<W> = (0..num_configs)
+                    .map(|config_idx| {
+                        let local_assignment: Vec<bool> = (0..vars.len())
+                            .map(|i| (config_idx >> (vars.len() - 1 - i)) & 1 == 1)
+                            .collect();
 
-                    let mut full_assignment = vec![false; self.num_vars];
-                    for (i, &var) in vars.iter().enumerate() {
-                        full_assignment[var] = local_assignment[i];
-                    }
+                        let mut full_assignment = vec![false; self.num_vars];
+                        for (i, &var) in vars.iter().enumerate() {
+                            full_assignment[var] = local_assignment[i];
+                        }
 
-                    if clause.is_satisfied(&full_assignment) {
-                        *spec_weight = weight.clone();
-                    }
-                }
+                        if clause.is_satisfied(&full_assignment) {
+                            weight.clone()
+                        } else {
+                            W::zero()
+                        }
+                    })
+                    .collect();
 
                 LocalSolutionSize::new(2, vars, spec)
             })
@@ -394,11 +398,7 @@ mod tests {
     fn test_count_satisfied() {
         let problem = Satisfiability::<i32>::new(
             2,
-            vec![
-                CNFClause::new(vec![1]),
-                CNFClause::new(vec![2]),
-                CNFClause::new(vec![-1, -2]),
-            ],
+            vec![CNFClause::new(vec![1]), CNFClause::new(vec![2]), CNFClause::new(vec![-1, -2])],
         );
 
         assert_eq!(problem.count_satisfied(&[true, true]), 2); // x1, x2 satisfied
@@ -482,11 +482,7 @@ mod tests {
 
         assert!(is_satisfying_assignment(3, &clauses, &[true, false, true]));
         assert!(is_satisfying_assignment(3, &clauses, &[false, true, false]));
-        assert!(!is_satisfying_assignment(
-            3,
-            &clauses,
-            &[true, false, false]
-        ));
+        assert!(!is_satisfying_assignment(3, &clauses, &[true, false, false]));
     }
 
     #[test]
@@ -515,8 +511,10 @@ mod tests {
     #[test]
     fn test_single_literal_clauses() {
         // Unit propagation scenario: x1 AND NOT x2
-        let problem =
-            Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])]);
+        let problem = Satisfiability::<i32>::new(
+            2,
+            vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])],
+        );
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -568,7 +566,11 @@ mod tests {
 
     #[test]
     fn test_objectives() {
-        let problem = Satisfiability::with_weights(2, vec![CNFClause::new(vec![1, 2])], vec![5]);
+        let problem = Satisfiability::with_weights(
+            2,
+            vec![CNFClause::new(vec![1, 2])],
+            vec![5],
+        );
         let objectives = problem.objectives();
         assert_eq!(objectives.len(), 1);
     }

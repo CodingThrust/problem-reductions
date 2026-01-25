@@ -114,11 +114,11 @@ where
 
         // Create edges between sets that overlap
         let mut edges = Vec::new();
-        for i in 0..n {
-            let set_i: HashSet<_> = sets[i].iter().collect();
-            for j in (i + 1)..n {
+        for (i, set_i_vec) in sets.iter().enumerate() {
+            let set_i: HashSet<_> = set_i_vec.iter().collect();
+            for (j, set_j) in sets.iter().enumerate().skip(i + 1) {
                 // Check if sets[i] and sets[j] overlap
-                if sets[j].iter().any(|elem| set_i.contains(elem)) {
+                if set_j.iter().any(|elem| set_i.contains(elem)) {
                     edges.push((i, j));
                 }
             }
