@@ -145,7 +145,7 @@ mod tests {
     fn test_vc_to_is_reduction() {
         // Path graph 0-1-2: min VC = 1 (just vertex 1), max IS = 2 (vertices 0 and 2)
         let vc_problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
-        let reduction: ReductionVCToIS<i32> = vc_problem.reduce_to();
+        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&vc_problem);
         let is_problem = reduction.target_problem();
 
         let solver = BruteForce::new();
@@ -172,7 +172,7 @@ mod tests {
         // IS -> VC -> IS
         let reduction1 = ReduceTo::<VertexCovering<i32>>::reduce_to(&original);
         let vc = reduction1.target_problem().clone();
-        let reduction2: ReductionVCToIS<i32> = vc.reduce_to();
+        let reduction2 = ReduceTo::<IndependentSet<i32>>::reduce_to(&vc);
         let roundtrip = reduction2.target_problem();
 
         let roundtrip_solutions = solver.find_best(roundtrip);
