@@ -1,0 +1,33 @@
+[book]
+title = "Problem Reductions"
+authors = ["liujinguo"]
+description = "A Rust library for reducing NP-hard problems"
+language = "en"
+src = "docs/src"
+
+[output.html]
+default-theme = "rust"
+git-repository-url = "https://github.com/liujinguo/problemreductions"
+edit-url-template = "https://github.com/liujinguo/problemreductions/edit/main/{path}"
+additional-css = []
+additional-js = []
+no-section-label = false
+
+[output.html.fold]
+enable = true
+level = 1
+
+[output.html.playground]
+editable = false
+copy-js = true
+
+[output.html.search]
+enable = true
+limit-results = 30
+teaser-word-count = 30
+boost-title = 2
+boost-hierarchy = 1
+boost-paragraph = 1
+expand = true
+heading-split-level = 3
+copy-js = true

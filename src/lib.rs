@@ -62,6 +62,7 @@
 
 pub mod config;
 pub mod error;
+pub mod io;
 pub mod models;
 pub mod registry;
 pub mod rules;
