@@ -318,26 +318,28 @@ A reduction $A arrow.long B$ transforms instances of problem $A$ into instances 
 
 = Summary <sec:summary>
 
+#let gray = rgb("#e8e8e8")
+
 #figure(
   table(
     columns: (auto, auto, auto),
     inset: 5pt,
     align: left,
-    table.header([*Reduction*], [*Type*], [*Reference*]),
-    [IS $arrow.l.r$ VC], [Trivial], [Complement],
-    [IS $arrow.r$ SetPacking], [Trivial], [Incident edges],
-    [Matching $arrow.r$ SetPacking], [Trivial], [Edge endpoints],
-    [VC $arrow.r$ SetCovering], [Trivial], [Edge indices],
-    [QUBO $arrow.l.r$ SpinGlass], [Trivial], [Variable substitution],
-    [SAT $arrow.r$ IS], [Non-trivial], [@karp1972],
-    [SAT $arrow.r$ 3-Coloring], [Non-trivial], [@garey1979],
-    [SAT $arrow.r$ DominatingSet], [Non-trivial], [@garey1979],
-    [SAT $arrow.l.r$ $k$-SAT], [Non-trivial], [@cook1971 @garey1979],
-    [CircuitSAT $arrow.r$ SpinGlass], [Non-trivial], [@whitfield2012 @lucas2014],
-    [Factoring $arrow.r$ CircuitSAT], [Non-trivial], [Folklore],
-    [SpinGlass $arrow.l.r$ MaxCut], [Non-trivial], [@barahona1982],
+    table.header([*Reduction*], [*Overhead*], [*Reference*]),
+    table.cell(fill: gray)[IS $arrow.l.r$ VC], table.cell(fill: gray)[$O(|V|)$], table.cell(fill: gray)[—],
+    table.cell(fill: gray)[IS $arrow.r$ SetPacking], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
+    table.cell(fill: gray)[Matching $arrow.r$ SetPacking], table.cell(fill: gray)[$O(|E|)$], table.cell(fill: gray)[—],
+    table.cell(fill: gray)[VC $arrow.r$ SetCovering], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
+    table.cell(fill: gray)[QUBO $arrow.l.r$ SpinGlass], table.cell(fill: gray)[$O(n^2)$], table.cell(fill: gray)[—],
+    [SAT $arrow.r$ IS], [$O(sum_j |C_j|^2)$], [@karp1972],
+    [SAT $arrow.r$ 3-Coloring], [$O(n + sum_j |C_j|)$], [@garey1979],
+    [SAT $arrow.r$ DominatingSet], [$O(3n + m)$], [@garey1979],
+    [SAT $arrow.l.r$ $k$-SAT], [$O(sum_j |C_j|)$], [@cook1971 @garey1979],
+    [CircuitSAT $arrow.r$ SpinGlass], [$O(|"gates"|)$], [@whitfield2012 @lucas2014],
+    [Factoring $arrow.r$ CircuitSAT], [$O(m n)$], [Folklore],
+    [SpinGlass $arrow.l.r$ MaxCut], [$O(n + |J|)$], [@barahona1982],
   ),
-  caption: [Summary of implemented reductions with classification and references.]
+  caption: [Summary of reductions. Gray rows indicate trivial reductions.]
 ) <tab:summary>
 
 #bibliography("references.bib", style: "ieee")
