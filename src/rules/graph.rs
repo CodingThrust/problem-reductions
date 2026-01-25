@@ -346,10 +346,18 @@ impl ReductionGraph {
         for &name in self.type_names.values() {
             let layer = match Self::categorize_type(name) {
                 "specialized" => {
-                    if name.contains("Factoring") { 0 } else { 1 }
+                    if name.contains("Factoring") {
+                        0
+                    } else {
+                        1
+                    }
                 }
                 "satisfiability" => {
-                    if name.contains("Circuit") { 1 } else { 2 }
+                    if name.contains("Circuit") {
+                        1
+                    } else {
+                        2
+                    }
                 }
                 "graph" => 3,
                 "set" => 4,
@@ -408,15 +416,13 @@ impl ReductionGraph {
 
         // Step 4: Sort nodes within each layer by category for visual grouping
         for nodes in layer_groups.values_mut() {
-            nodes.sort_by_key(|&name| {
-                match Self::categorize_type(name) {
-                    "specialized" => 0,
-                    "satisfiability" => 1,
-                    "graph" => 2,
-                    "set" => 3,
-                    "optimization" => 4,
-                    _ => 5,
-                }
+            nodes.sort_by_key(|&name| match Self::categorize_type(name) {
+                "specialized" => 0,
+                "satisfiability" => 1,
+                "graph" => 2,
+                "set" => 3,
+                "optimization" => 4,
+                _ => 5,
             });
         }
 
@@ -529,7 +535,8 @@ mod tests {
     fn test_no_path() {
         let graph = ReductionGraph::new();
         // No path between IS<i32> and QUBO<f64> (different weight types)
-        let paths = graph.find_paths::<IndependentSet<i32>, crate::models::optimization::QUBO<f64>>();
+        let paths =
+            graph.find_paths::<IndependentSet<i32>, crate::models::optimization::QUBO<f64>>();
         assert!(paths.is_empty());
     }
 
@@ -552,7 +559,9 @@ mod tests {
     #[test]
     fn test_reduction_path_methods() {
         let graph = ReductionGraph::new();
-        let path = graph.find_shortest_path::<IndependentSet<i32>, VertexCovering<i32>>().unwrap();
+        let path = graph
+            .find_shortest_path::<IndependentSet<i32>, VertexCovering<i32>>()
+            .unwrap();
 
         assert!(!path.is_empty());
         assert!(path.source().unwrap().contains("IndependentSet"));
@@ -606,5 +615,232 @@ mod tests {
         assert!(json_string.contains("IndependentSet"));
         assert!(json_string.contains("\"category\""));
         assert!(json_string.contains("\"bidirectional\""));
+    }
+
+    #[test]
+    fn test_categorize_type() {
+        // Graph problems
+        assert_eq!(
+            ReductionGraph::categorize_type("IndependentSet<i32>"),
+            "graph"
+        );
+        assert_eq!(
+            ReductionGraph::categorize_type("VertexCovering<i32>"),
+            "graph"
+        );
+        assert_eq!(ReductionGraph::categorize_type("MaxCut<i32>"), "graph");
+        assert_eq!(ReductionGraph::categorize_type("Coloring"), "graph");
+        assert_eq!(
+            ReductionGraph::categorize_type("DominatingSet<i32>"),
+            "graph"
+        );
+        assert_eq!(ReductionGraph::categorize_type("Matching<i32>"), "graph");
+
+        // Set problems
+        assert_eq!(ReductionGraph::categorize_type("SetPacking<i32>"), "set");
+        assert_eq!(ReductionGraph::categorize_type("SetCovering<i32>"), "set");
+
+        // Optimization
+        assert_eq!(
+            ReductionGraph::categorize_type("SpinGlass<i32>"),
+            "optimization"
+        );
+        assert_eq!(ReductionGraph::categorize_type("QUBO<f64>"), "optimization");
+
+        // Satisfiability
+        assert_eq!(
+            ReductionGraph::categorize_type("Satisfiability<i32>"),
+            "satisfiability"
+        );
+        assert_eq!(
+            ReductionGraph::categorize_type("KSatisfiability<3, i32>"),
+            "satisfiability"
+        );
+        assert_eq!(
+            ReductionGraph::categorize_type("CircuitSAT<i32>"),
+            "satisfiability"
+        );
+
+        // Specialized
+        assert_eq!(ReductionGraph::categorize_type("Factoring"), "specialized");
+
+        // Unknown
+        assert_eq!(ReductionGraph::categorize_type("UnknownProblem"), "other");
+    }
+
+    #[test]
+    fn test_simplify_type_name() {
+        assert_eq!(
+            ReductionGraph::simplify_type_name("IndependentSet<i32>"),
+            "IndependentSet"
+        );
+        assert_eq!(
+            ReductionGraph::simplify_type_name("SpinGlass<f64>"),
+            "SpinGlass"
+        );
+        assert_eq!(ReductionGraph::simplify_type_name("Coloring"), "Coloring");
+        assert_eq!(
+            ReductionGraph::simplify_type_name("KSatisfiability<3, i32>"),
+            "KSatisfiability"
+        );
+    }
+
+    #[test]
+    fn test_sat_based_reductions() {
+        use crate::models::graph::Coloring;
+        use crate::models::graph::DominatingSet;
+        use crate::models::satisfiability::Satisfiability;
+
+        let graph = ReductionGraph::new();
+
+        // SAT -> IS
+        assert!(graph.has_direct_reduction::<Satisfiability<i32>, IndependentSet<i32>>());
+
+        // SAT -> Coloring
+        assert!(graph.has_direct_reduction::<Satisfiability<i32>, Coloring>());
+
+        // SAT -> DominatingSet
+        assert!(graph.has_direct_reduction::<Satisfiability<i32>, DominatingSet<i32>>());
+    }
+
+    #[test]
+    fn test_circuit_reductions() {
+        use crate::models::optimization::SpinGlass;
+        use crate::models::specialized::{CircuitSAT, Factoring};
+
+        let graph = ReductionGraph::new();
+
+        // Factoring -> CircuitSAT
+        assert!(graph.has_direct_reduction::<Factoring, CircuitSAT<i32>>());
+
+        // CircuitSAT -> SpinGlass
+        assert!(graph.has_direct_reduction::<CircuitSAT<i32>, SpinGlass<i32>>());
+
+        // Find path from Factoring to SpinGlass
+        let paths = graph.find_paths::<Factoring, SpinGlass<i32>>();
+        assert!(!paths.is_empty());
+        let shortest = graph
+            .find_shortest_path::<Factoring, SpinGlass<i32>>()
+            .unwrap();
+        assert_eq!(shortest.len(), 2); // Factoring -> CircuitSAT -> SpinGlass
+    }
+
+    #[test]
+    fn test_optimization_reductions() {
+        use crate::models::graph::MaxCut;
+        use crate::models::optimization::{SpinGlass, QUBO};
+
+        let graph = ReductionGraph::new();
+
+        // SpinGlass <-> QUBO (bidirectional)
+        assert!(graph.has_direct_reduction::<SpinGlass<f64>, QUBO<f64>>());
+        assert!(graph.has_direct_reduction::<QUBO<f64>, SpinGlass<f64>>());
+
+        // MaxCut <-> SpinGlass (bidirectional)
+        assert!(graph.has_direct_reduction::<MaxCut<i32>, SpinGlass<i32>>());
+        assert!(graph.has_direct_reduction::<SpinGlass<i32>, MaxCut<i32>>());
+    }
+
+    #[test]
+    fn test_ksat_reductions() {
+        use crate::models::satisfiability::{KSatisfiability, Satisfiability};
+
+        let graph = ReductionGraph::new();
+
+        // SAT <-> 3-SAT (bidirectional)
+        assert!(graph.has_direct_reduction::<Satisfiability<i32>, KSatisfiability<3, i32>>());
+        assert!(graph.has_direct_reduction::<KSatisfiability<3, i32>, Satisfiability<i32>>());
+    }
+
+    #[test]
+    fn test_json_layout_positions() {
+        let graph = ReductionGraph::new();
+        let json = graph.to_json();
+
+        // Check that all nodes have positions
+        for node in &json.nodes {
+            // x and y should be finite numbers
+            assert!(node.x.is_finite());
+            assert!(node.y.is_finite());
+        }
+
+        // Check that Factoring is at or near the top (y=0)
+        let factoring = json.nodes.iter().find(|n| n.label == "Factoring");
+        assert!(factoring.is_some());
+        assert!(factoring.unwrap().y <= 0.1);
+    }
+
+    #[test]
+    fn test_all_categories_present() {
+        let graph = ReductionGraph::new();
+        let json = graph.to_json();
+
+        let categories: std::collections::HashSet<&str> =
+            json.nodes.iter().map(|n| n.category.as_str()).collect();
+
+        assert!(categories.contains("graph"));
+        assert!(categories.contains("set"));
+        assert!(categories.contains("optimization"));
+        assert!(categories.contains("satisfiability"));
+        assert!(categories.contains("specialized"));
+    }
+
+    #[test]
+    fn test_empty_path_source_target() {
+        let path = ReductionPath {
+            type_names: vec![],
+            type_ids: vec![],
+        };
+        assert!(path.is_empty());
+        assert_eq!(path.len(), 0);
+        assert!(path.source().is_none());
+        assert!(path.target().is_none());
+    }
+
+    #[test]
+    fn test_single_node_path() {
+        let path = ReductionPath {
+            type_names: vec!["IndependentSet<i32>"],
+            type_ids: vec![std::any::TypeId::of::<IndependentSet<i32>>()],
+        };
+        assert!(!path.is_empty());
+        assert_eq!(path.len(), 0); // No reductions, just one type
+        assert_eq!(path.source(), Some("IndependentSet<i32>"));
+        assert_eq!(path.target(), Some("IndependentSet<i32>"));
+    }
+
+    #[test]
+    fn test_default_implementation() {
+        let graph1 = ReductionGraph::new();
+        let graph2 = ReductionGraph::default();
+
+        assert_eq!(graph1.num_types(), graph2.num_types());
+        assert_eq!(graph1.num_reductions(), graph2.num_reductions());
+    }
+
+    #[test]
+    fn test_to_json_file() {
+        use std::env;
+        use std::fs;
+
+        let graph = ReductionGraph::new();
+        let file_path = env::temp_dir().join("problemreductions_test_graph.json");
+
+        // Write to file
+        graph.to_json_file(&file_path).unwrap();
+
+        // Read back and verify
+        let content = fs::read_to_string(&file_path).unwrap();
+        assert!(content.contains("\"nodes\""));
+        assert!(content.contains("\"edges\""));
+        assert!(content.contains("IndependentSet"));
+
+        // Parse as generic JSON to verify validity
+        let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
+        assert!(parsed["nodes"].as_array().unwrap().len() > 0);
+        assert!(parsed["edges"].as_array().unwrap().len() > 0);
+
+        // Clean up
+        let _ = fs::remove_file(&file_path);
     }
 }
