@@ -21,16 +21,10 @@ use good_lp::{default_solver, variable, ProblemVariables, Solution, SolverModel,
 ///     println!("Solution: {:?}", solution);
 /// }
 /// ```
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Default)]
 pub struct ILPSolver {
     /// Time limit in seconds (None = no limit).
     pub time_limit: Option<f64>,
-}
-
-impl Default for ILPSolver {
-    fn default() -> Self {
-        Self { time_limit: None }
-    }
 }
 
 impl ILPSolver {
