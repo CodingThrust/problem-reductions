@@ -236,12 +236,13 @@ macro_rules! quick_problem_test {
 mod tests {
     use crate::models::graph::{IndependentSetT, VertexCoverT};
     use crate::prelude::*;
+    use crate::topology::SimpleGraph;
 
     // Test the quick_problem_test macro
     #[test]
     fn test_quick_problem_test_macro() {
         quick_problem_test!(
-            IndependentSetT<i32>,
+            IndependentSetT<SimpleGraph, i32>,
             new(3, vec![(0, 1), (1, 2)]),
             solution: [1, 0, 1],
             expected_size: 2,
@@ -249,7 +250,7 @@ mod tests {
         );
 
         quick_problem_test!(
-            IndependentSetT<i32>,
+            IndependentSetT<SimpleGraph, i32>,
             new(3, vec![(0, 1), (1, 2)]),
             solution: [1, 1, 0],
             expected_size: 2,
@@ -260,8 +261,8 @@ mod tests {
     // Test the complement_test macro
     complement_test! {
         name: test_is_vc_complement,
-        problem_a: IndependentSetT<i32>,
-        problem_b: VertexCoverT<i32>,
+        problem_a: IndependentSetT<SimpleGraph, i32>,
+        problem_b: VertexCoverT<SimpleGraph, i32>,
         test_graphs: [
             (3, [(0, 1), (1, 2)]),
             (4, [(0, 1), (1, 2), (2, 3), (0, 3)]),

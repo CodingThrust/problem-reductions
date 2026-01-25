@@ -3,6 +3,7 @@
 //! A unit disk graph (UDG) is a graph where vertices have positions in 2D space,
 //! and two vertices are connected if their distance is at most a threshold (radius).
 
+use super::graph::Graph;
 use serde::{Deserialize, Serialize};
 
 /// A unit disk graph with vertices at 2D positions.
@@ -172,6 +173,40 @@ impl UnitDiskGraph {
             }
         }
         Self::new(positions, radius)
+    }
+}
+
+impl Graph for UnitDiskGraph {
+    fn num_vertices(&self) -> usize {
+        self.positions.len()
+    }
+
+    fn num_edges(&self) -> usize {
+        self.edges.len()
+    }
+
+    fn edges(&self) -> Vec<(usize, usize)> {
+        self.edges.clone()
+    }
+
+    fn has_edge(&self, u: usize, v: usize) -> bool {
+        let (u, v) = if u < v { (u, v) } else { (v, u) };
+        self.edges.contains(&(u, v))
+    }
+
+    fn neighbors(&self, v: usize) -> Vec<usize> {
+        self.edges
+            .iter()
+            .filter_map(|&(u1, u2)| {
+                if u1 == v {
+                    Some(u2)
+                } else if u2 == v {
+                    Some(u1)
+                } else {
+                    None
+                }
+            })
+            .collect()
     }
 }
 

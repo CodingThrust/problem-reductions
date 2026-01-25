@@ -36,9 +36,10 @@
 //! ```rust
 //! use problemreductions::registry::ProblemMetadata;
 //! use problemreductions::models::graph::IndependentSetT;
+//! use problemreductions::topology::SimpleGraph;
 //!
-//! let info = IndependentSetT::<i32>::problem_info();
-//! let category = IndependentSetT::<i32>::category();
+//! let info = IndependentSetT::<SimpleGraph, i32>::problem_info();
+//! let category = IndependentSetT::<SimpleGraph, i32>::category();
 //!
 //! println!("Problem: {} ({})", info.name, category.path());
 //! ```

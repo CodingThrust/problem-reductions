@@ -211,12 +211,13 @@ impl fmt::Display for ProblemInfo {
 /// ```rust
 /// use problemreductions::registry::{ProblemMetadata, ProblemInfo, ProblemCategory};
 /// use problemreductions::models::graph::IndependentSetT;
+/// use problemreductions::topology::SimpleGraph;
 ///
 /// // Get problem metadata
-/// let info = IndependentSetT::<i32>::problem_info();
+/// let info = IndependentSetT::<SimpleGraph, i32>::problem_info();
 /// assert_eq!(info.name, "Independent Set");
 ///
-/// let category = IndependentSetT::<i32>::category();
+/// let category = IndependentSetT::<SimpleGraph, i32>::category();
 /// assert_eq!(category.path(), "graph/independent");
 /// ```
 ///

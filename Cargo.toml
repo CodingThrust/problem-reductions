@@ -8,6 +8,10 @@ repository = "https://github.com/CodingThrust/problem-reductions"
 keywords = ["np-hard", "optimization", "reduction", "sat", "graph"]
 categories = ["algorithms", "science"]
 
+[features]
+default = []
+ilp = ["good_lp"]
+
 [dependencies]
 petgraph = { version = "0.6", features = ["serde-1"] }
 bitvec = "1.0"
@@ -15,6 +19,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "1.0"
 num-traits = "0.2"
+good_lp = { version = "1.8", default-features = false, features = ["highs"], optional = true }
 
 [dev-dependencies]
 rand = "0.8"

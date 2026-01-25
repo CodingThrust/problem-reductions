@@ -19,6 +19,7 @@
 //!
 //! ```rust
 //! use problemreductions::models::graph::{GraphConstraint, GraphProblem};
+//! use problemreductions::topology::SimpleGraph;
 //! use problemreductions::registry::GraphSubcategory;
 //! use problemreductions::types::EnergyMode;
 //!
@@ -38,11 +39,11 @@
 //!     }
 //! }
 //!
-//! // Step 2: Create a type alias
-//! pub type MyProblem<W = i32> = GraphProblem<MyConstraint, W>;
+//! // Step 2: Create a type alias (G defaults to SimpleGraph, W defaults to i32)
+//! pub type MyProblem<G = SimpleGraph, W = i32> = GraphProblem<MyConstraint, G, W>;
 //!
 //! // Step 3: Use it!
-//! let problem = MyProblem::<i32>::new(3, vec![(0, 1), (1, 2)]);
+//! let problem: MyProblem = MyProblem::new(3, vec![(0, 1), (1, 2)]);
 //! ```
 //!
 //! # Built-in Problem Types
@@ -71,11 +72,10 @@
 //! - **Perfect Matching**: Define on edge graph with exactly one selected
 
 use crate::registry::{ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata};
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use num_traits::{Num, Zero};
-use petgraph::graph::{NodeIndex, UnGraph};
-use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 use std::ops::AddAssign;
@@ -152,7 +152,7 @@ pub trait GraphConstraint: Clone + Send + Sync + 'static {
     }
 }
 
-/// A generic graph problem parameterized by constraint type and weight type.
+/// A generic graph problem parameterized by constraint type, graph type, and weight type.
 ///
 /// This struct provides a standard implementation for binary graph problems where:
 /// - Each vertex can be either selected (1) or not selected (0)
@@ -161,22 +161,29 @@ pub trait GraphConstraint: Clone + Send + Sync + 'static {
 ///
 /// # Type Parameters
 ///
-/// - `C`: The constraint type implementing `GraphConstraint`
+/// - `C`: The constraint type implementing [`GraphConstraint`]
+/// - `G`: The graph type implementing [`Graph`] (default: [`SimpleGraph`])
 /// - `W`: The weight type (default: `i32`)
 ///
 /// # Example
 ///
 /// ```rust,ignore
-/// // Define Independent Set as a type alias
-/// pub type IndependentSet<W = i32> = GraphProblem<IndependentSetConstraint, W>;
+/// use problemreductions::topology::{SimpleGraph, UnitDiskGraph};
 ///
-/// // Create an instance
+/// // Define Independent Set as a type alias (defaults to SimpleGraph)
+/// pub type IndependentSet<G = SimpleGraph, W = i32> = GraphProblem<IndependentSetConstraint, G, W>;
+///
+/// // Create an instance with SimpleGraph (default)
 /// let problem = IndependentSet::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+///
+/// // Create an instance with UnitDiskGraph for quantum hardware
+/// let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)], 1.5);
+/// let problem_udg = IndependentSet::<UnitDiskGraph>::from_graph(udg);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct GraphProblem<C: GraphConstraint, W = i32> {
+pub struct GraphProblem<C: GraphConstraint, G: Graph = SimpleGraph, W = i32> {
     /// The underlying graph structure.
-    graph: UnGraph<(), ()>,
+    graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
     /// Phantom data to track the constraint type.
@@ -184,8 +191,8 @@ pub struct GraphProblem<C: GraphConstraint, W = i32> {
     _constraint: PhantomData<C>,
 }
 
-impl<C: GraphConstraint, W: Clone + Default> GraphProblem<C, W> {
-    /// Create a new graph problem with unit weights.
+impl<C: GraphConstraint, W: Clone + Default> GraphProblem<C, SimpleGraph, W> {
+    /// Create a new graph problem with unit weights using SimpleGraph.
     ///
     /// # Arguments
     /// * `num_vertices` - Number of vertices in the graph
@@ -194,13 +201,7 @@ impl<C: GraphConstraint, W: Clone + Default> GraphProblem<C, W> {
     where
         W: From<i32>,
     {
-        let mut graph = UnGraph::new_undirected();
-        for _ in 0..num_vertices {
-            graph.add_node(());
-        }
-        for (u, v) in edges {
-            graph.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
-        }
+        let graph = SimpleGraph::new(num_vertices, edges);
         let weights = vec![W::from(1); num_vertices];
         Self {
             graph,
@@ -209,7 +210,7 @@ impl<C: GraphConstraint, W: Clone + Default> GraphProblem<C, W> {
         }
     }
 
-    /// Create a new graph problem with custom weights.
+    /// Create a new graph problem with custom weights using SimpleGraph.
     ///
     /// # Arguments
     /// * `num_vertices` - Number of vertices in the graph
@@ -224,13 +225,22 @@ impl<C: GraphConstraint, W: Clone + Default> GraphProblem<C, W> {
             num_vertices,
             "weights length must match num_vertices"
         );
-        let mut graph = UnGraph::new_undirected();
-        for _ in 0..num_vertices {
-            graph.add_node(());
+        let graph = SimpleGraph::new(num_vertices, edges);
+        Self {
+            graph,
+            weights,
+            _constraint: PhantomData,
         }
-        for (u, v) in edges {
-            graph.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
-        }
+    }
+}
+
+impl<C: GraphConstraint, G: Graph, W: Clone + Default> GraphProblem<C, G, W> {
+    /// Create a graph problem from an existing graph with unit weights.
+    pub fn from_graph(graph: G) -> Self
+    where
+        W: From<i32>,
+    {
+        let weights = vec![W::from(1); graph.num_vertices()];
         Self {
             graph,
             weights,
@@ -238,36 +248,51 @@ impl<C: GraphConstraint, W: Clone + Default> GraphProblem<C, W> {
         }
     }
 
+    /// Create a graph problem from an existing graph with custom weights.
+    ///
+    /// # Panics
+    /// Panics if `weights.len() != graph.num_vertices()`.
+    pub fn from_graph_with_weights(graph: G, weights: Vec<W>) -> Self {
+        assert_eq!(
+            weights.len(),
+            graph.num_vertices(),
+            "weights length must match num_vertices"
+        );
+        Self {
+            graph,
+            weights,
+            _constraint: PhantomData,
+        }
+    }
+
+    /// Get a reference to the underlying graph.
+    pub fn graph(&self) -> &G {
+        &self.graph
+    }
+
     /// Get the number of vertices.
     pub fn num_vertices(&self) -> usize {
-        self.graph.node_count()
+        self.graph.num_vertices()
     }
 
     /// Get the number of edges.
     pub fn num_edges(&self) -> usize {
-        self.graph.edge_count()
+        self.graph.num_edges()
     }
 
     /// Get the edges as a list of (u, v) pairs.
     pub fn edges(&self) -> Vec<(usize, usize)> {
-        self.graph
-            .edge_references()
-            .map(|e| (e.source().index(), e.target().index()))
-            .collect()
+        self.graph.edges()
     }
 
     /// Check if two vertices are adjacent.
     pub fn has_edge(&self, u: usize, v: usize) -> bool {
-        self.graph
-            .find_edge(NodeIndex::new(u), NodeIndex::new(v))
-            .is_some()
+        self.graph.has_edge(u, v)
     }
 
     /// Check if a configuration satisfies all edge constraints.
     fn is_valid_config(&self, config: &[usize]) -> bool {
-        for edge in self.graph.edge_references() {
-            let u = edge.source().index();
-            let v = edge.target().index();
+        for (u, v) in self.graph.edges() {
             let u_selected = config.get(u).copied().unwrap_or(0) == 1;
             let v_selected = config.get(v).copied().unwrap_or(0) == 1;
             if !C::is_edge_satisfied(u_selected, v_selected) {
@@ -278,15 +303,16 @@ impl<C: GraphConstraint, W: Clone + Default> GraphProblem<C, W> {
     }
 }
 
-impl<C, W> Problem for GraphProblem<C, W>
+impl<C, G, W> Problem for GraphProblem<C, G, W>
 where
     C: GraphConstraint,
+    G: Graph,
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
 {
     type Size = W;
 
     fn num_variables(&self) -> usize {
-        self.graph.node_count()
+        self.graph.num_vertices()
     }
 
     fn num_flavors(&self) -> usize {
@@ -295,8 +321,8 @@ where
 
     fn problem_size(&self) -> ProblemSize {
         ProblemSize::new(vec![
-            ("num_vertices", self.graph.node_count()),
-            ("num_edges", self.graph.edge_count()),
+            ("num_vertices", self.graph.num_vertices()),
+            ("num_edges", self.graph.num_edges()),
         ])
     }
 
@@ -316,22 +342,18 @@ where
     }
 }
 
-impl<C, W> ConstraintSatisfactionProblem for GraphProblem<C, W>
+impl<C, G, W> ConstraintSatisfactionProblem for GraphProblem<C, G, W>
 where
     C: GraphConstraint,
+    G: Graph,
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         let spec = C::edge_constraint_spec();
         self.graph
-            .edge_references()
-            .map(|e| {
-                LocalConstraint::new(
-                    2,
-                    vec![e.source().index(), e.target().index()],
-                    spec.to_vec(),
-                )
-            })
+            .edges()
+            .into_iter()
+            .map(|(u, v)| LocalConstraint::new(2, vec![u, v], spec.to_vec()))
             .collect()
     }
 
@@ -361,9 +383,10 @@ where
     }
 }
 
-impl<C, W> ProblemMetadata for GraphProblem<C, W>
+impl<C, G, W> ProblemMetadata for GraphProblem<C, G, W>
 where
     C: GraphConstraint,
+    G: Graph,
     W: Clone + Default,
 {
     fn problem_info() -> ProblemInfo {
@@ -454,26 +477,135 @@ impl GraphConstraint for CliqueConstraint {
 /// Independent Set problem using the generic template.
 ///
 /// Find a maximum weight set of vertices where no two are adjacent.
-pub type IndependentSetT<W = i32> = GraphProblem<IndependentSetConstraint, W>;
+///
+/// # Type Parameters
+/// - `G`: Graph type (default: [`SimpleGraph`])
+/// - `W`: Weight type (default: `i32`)
+///
+/// # Examples
+///
+/// ```rust,ignore
+/// use problemreductions::models::graph::IndependentSetT;
+/// use problemreductions::topology::{SimpleGraph, UnitDiskGraph};
+///
+/// // Default: SimpleGraph
+/// let is = IndependentSetT::new(4, vec![(0, 1), (1, 2)]);
+///
+/// // With UnitDiskGraph for quantum hardware
+/// let udg = UnitDiskGraph::new(positions, radius);
+/// let is_udg = IndependentSetT::<UnitDiskGraph>::from_graph(udg);
+/// ```
+pub type IndependentSetT<G = SimpleGraph, W = i32> = GraphProblem<IndependentSetConstraint, G, W>;
 
 /// Vertex Cover problem using the generic template.
 ///
 /// Find a minimum weight set of vertices that covers all edges.
-pub type VertexCoverT<W = i32> = GraphProblem<VertexCoverConstraint, W>;
+///
+/// # Type Parameters
+/// - `G`: Graph type (default: [`SimpleGraph`])
+/// - `W`: Weight type (default: `i32`)
+pub type VertexCoverT<G = SimpleGraph, W = i32> = GraphProblem<VertexCoverConstraint, G, W>;
 
 /// Clique problem using the generic template.
 ///
 /// Note: For finding cliques, create the complement graph first.
-pub type CliqueT<W = i32> = GraphProblem<CliqueConstraint, W>;
+///
+/// # Type Parameters
+/// - `G`: Graph type (default: [`SimpleGraph`])
+/// - `W`: Weight type (default: `i32`)
+pub type CliqueT<G = SimpleGraph, W = i32> = GraphProblem<CliqueConstraint, G, W>;
+
+// ============================================================================
+// ILP formulations (only available with "ilp" feature)
+// ============================================================================
+
+#[cfg(feature = "ilp")]
+mod ilp_impl {
+    use super::*;
+    use crate::solvers::ilp::{ILPFormulation, ObjectiveSense, ToILP};
+    use good_lp::{Expression, Variable};
+
+    /// Trait for constraint types that can provide ILP constraint coefficients.
+    ///
+    /// This is used internally to generate ILP formulations for different
+    /// graph problem types.
+    pub trait ILPConstraintSpec: GraphConstraint {
+        /// Returns the (lhs_coeff, rhs) for edge constraints.
+        /// For x_u + x_v {<=, >=, ==} rhs
+        fn ilp_edge_constraint() -> ILPEdgeConstraint;
+    }
+
+    /// Describes how to form ILP constraints for edges.
+    #[derive(Debug, Clone, Copy)]
+    pub enum ILPEdgeConstraint {
+        /// x_u + x_v <= 1 (at most one selected)
+        AtMostOne,
+        /// x_u + x_v >= 1 (at least one selected)
+        AtLeastOne,
+    }
+
+    impl ILPConstraintSpec for IndependentSetConstraint {
+        fn ilp_edge_constraint() -> ILPEdgeConstraint {
+            ILPEdgeConstraint::AtMostOne
+        }
+    }
+
+    impl ILPConstraintSpec for VertexCoverConstraint {
+        fn ilp_edge_constraint() -> ILPEdgeConstraint {
+            ILPEdgeConstraint::AtLeastOne
+        }
+    }
+
+    impl<C, G, W> ToILP for GraphProblem<C, G, W>
+    where
+        C: GraphConstraint + ILPConstraintSpec,
+        G: Graph,
+        W: Clone + Default + PartialOrd + Num + Zero + AddAssign + Into<f64>,
+    {
+        fn to_ilp(&self, vars: &[Variable]) -> ILPFormulation {
+            let mut constraints = Vec::new();
+
+            // Add edge constraints based on constraint type
+            let edge_constraint = C::ilp_edge_constraint();
+            for (u, v) in self.graph.edges() {
+                let constraint = match edge_constraint {
+                    ILPEdgeConstraint::AtMostOne => (vars[u] + vars[v]).leq(1.0),
+                    ILPEdgeConstraint::AtLeastOne => (vars[u] + vars[v]).geq(1.0),
+                };
+                constraints.push(constraint);
+            }
+
+            // Build objective: sum of weighted variables
+            let objective: Expression = self
+                .weights
+                .iter()
+                .enumerate()
+                .map(|(i, w)| {
+                    let weight: f64 = w.clone().into();
+                    weight * vars[i]
+                })
+                .sum();
+
+            let sense = ObjectiveSense::from(C::ENERGY_MODE);
+
+            ILPFormulation::new(constraints, objective, sense)
+        }
+    }
+}
+
+#[cfg(feature = "ilp")]
+pub use ilp_impl::*;
 
 #[cfg(test)]
 mod tests {
     use super::*;
     use crate::solvers::{BruteForce, Solver};
+    use crate::topology::UnitDiskGraph;
 
     #[test]
     fn test_independent_set_template() {
-        let problem = IndependentSetT::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        // Explicit type annotation needed for weight type inference
+        let problem: IndependentSetT = IndependentSetT::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         assert_eq!(problem.num_vertices(), 3);
         assert_eq!(problem.num_edges(), 3);
         assert!(problem.energy_mode().is_maximization());
@@ -489,7 +621,7 @@ mod tests {
 
     #[test]
     fn test_vertex_cover_template() {
-        let problem = VertexCoverT::<i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem: VertexCoverT = VertexCoverT::new(3, vec![(0, 1), (1, 2)]);
         assert!(problem.energy_mode().is_minimization());
 
         let solver = BruteForce::new();
@@ -501,7 +633,8 @@ mod tests {
 
     #[test]
     fn test_weighted_problem() {
-        let problem = IndependentSetT::with_weights(3, vec![(0, 1), (1, 2)], vec![1, 100, 1]);
+        let problem: IndependentSetT =
+            IndependentSetT::with_weights(3, vec![(0, 1), (1, 2)], vec![1, 100, 1]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         // Should select vertex 1 (weight 100) over 0+2 (weight 2)
@@ -510,12 +643,35 @@ mod tests {
 
     #[test]
     fn test_problem_metadata() {
-        let info = IndependentSetT::<i32>::problem_info();
+        // Use explicit types for metadata (doesn't need instance)
+        let info = IndependentSetT::<SimpleGraph, i32>::problem_info();
         assert_eq!(info.name, "Independent Set");
         assert!(info.aliases.contains(&"MIS"));
 
-        let cat = IndependentSetT::<i32>::category();
+        let cat = IndependentSetT::<SimpleGraph, i32>::category();
         assert_eq!(cat.path(), "graph/independent");
+    }
+
+    #[test]
+    fn test_unit_disk_graph_problem() {
+        // Create a UnitDiskGraph
+        let udg = UnitDiskGraph::new(
+            vec![(0.0, 0.0), (1.0, 0.0), (2.0, 0.0), (3.0, 0.0)],
+            1.5, // radius: connects adjacent vertices only
+        );
+        // Path: 0-1-2-3
+
+        // Create IndependentSet on UnitDiskGraph
+        let problem: IndependentSetT<UnitDiskGraph> = IndependentSetT::from_graph(udg);
+        assert_eq!(problem.num_vertices(), 4);
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(&problem);
+
+        // Maximum IS on path of 4 is 2 (vertices 0,2 or 1,3)
+        for sol in &solutions {
+            assert_eq!(sol.iter().sum::<usize>(), 2);
+        }
     }
 
     #[test]
@@ -537,7 +693,7 @@ mod tests {
 
     #[test]
     fn test_csp_interface() {
-        let problem = IndependentSetT::<i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem: IndependentSetT = IndependentSetT::new(3, vec![(0, 1), (1, 2)]);
 
         let constraints = problem.constraints();
         assert_eq!(constraints.len(), 2);
@@ -551,7 +707,7 @@ mod tests {
 
     #[test]
     fn test_edges_and_adjacency() {
-        let problem = IndependentSetT::<i32>::new(4, vec![(0, 1), (2, 3)]);
+        let problem: IndependentSetT = IndependentSetT::new(4, vec![(0, 1), (2, 3)]);
         assert!(problem.has_edge(0, 1));
         assert!(problem.has_edge(1, 0)); // Undirected
         assert!(!problem.has_edge(0, 2));
@@ -562,7 +718,7 @@ mod tests {
 
     #[test]
     fn test_empty_graph() {
-        let problem = IndependentSetT::<i32>::new(3, vec![]);
+        let problem: IndependentSetT = IndependentSetT::new(3, vec![]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         // All vertices can be selected
@@ -571,10 +727,18 @@ mod tests {
 
     #[test]
     fn test_set_weights() {
-        let mut problem = IndependentSetT::<i32>::new(3, vec![(0, 1)]);
+        let mut problem: IndependentSetT = IndependentSetT::new(3, vec![(0, 1)]);
         assert!(!problem.is_weighted());
         problem.set_weights(vec![1, 2, 3]);
         assert!(problem.is_weighted());
         assert_eq!(problem.weights(), vec![1, 2, 3]);
+    }
+
+    #[test]
+    fn test_graph_accessor() {
+        let problem: IndependentSetT = IndependentSetT::new(4, vec![(0, 1), (1, 2)]);
+        let graph = problem.graph();
+        assert_eq!(graph.num_vertices(), 4);
+        assert_eq!(graph.num_edges(), 2);
     }
 }

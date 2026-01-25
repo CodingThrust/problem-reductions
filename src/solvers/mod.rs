@@ -2,7 +2,13 @@
 
 mod brute_force;
 
+#[cfg(feature = "ilp")]
+pub mod ilp;
+
 pub use brute_force::{BruteForce, BruteForceFloat};
+
+#[cfg(feature = "ilp")]
+pub use ilp::{ILPSolver, ToILP};
 
 use crate::traits::Problem;
 use crate::types::SolutionSize;
