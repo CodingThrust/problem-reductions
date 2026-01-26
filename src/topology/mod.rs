@@ -23,9 +23,11 @@
 //! ```
 
 mod graph;
+mod grid_graph;
 mod hypergraph;
 mod unit_disk_graph;
 
 pub use graph::{Graph, SimpleGraph};
+pub use grid_graph::{GridGraph, GridNode, GridType};
 pub use hypergraph::HyperGraph;
 pub use unit_disk_graph::UnitDiskGraph;
