@@ -6,7 +6,9 @@
 mod copyline;
 mod gadgets;
 mod grid;
+mod map_graph;
 
 pub use copyline::{create_copylines, mis_overhead_copyline, remove_order, CopyLine};
 pub use gadgets::*;
 pub use grid::{CellState, MappingGrid};
+pub use map_graph::{embed_graph, map_graph, map_graph_with_order, MappingResult};
