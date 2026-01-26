@@ -65,6 +65,7 @@ pub mod error;
 pub mod graph_types;
 pub mod io;
 pub mod models;
+pub mod polynomial;
 pub mod registry;
 pub mod rules;
 pub mod solvers;
