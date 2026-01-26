@@ -68,7 +68,7 @@ pub struct ReductionSATToIS<W> {
 
 impl<W> ReductionResult for ReductionSATToIS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = Satisfiability<W>;
     type Target = IndependentSet<W>;
@@ -124,7 +124,7 @@ impl<W> ReductionSATToIS<W> {
 
 impl<W> ReduceTo<IndependentSet<W>> for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSATToIS<W>;
 
@@ -495,5 +495,22 @@ mod tests {
         assert_eq!(literals.len(), 2);
         assert_eq!(literals[0], BoolVar::new(0, false)); // x1
         assert_eq!(literals[1], BoolVar::new(1, true));  // NOT x2
+    }
+}
+
+// Register reduction with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "Satisfiability",
+        target_name: "IndependentSet",
+        source_graph: "CNF",
+        target_graph: "SimpleGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(7 * num_clauses)),
+            ("num_edges", poly!(21 * num_clauses)),
+        ]),
     }
 }

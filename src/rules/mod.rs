@@ -1,5 +1,10 @@
 //! Reduction rules between NP-hard problems.
 
+pub mod cost;
+pub mod registry;
+pub use cost::{CustomCost, Minimize, MinimizeLexicographic, MinimizeMax, MinimizeSteps, MinimizeWeighted, PathCostFn};
+pub use registry::{ReductionEntry, ReductionOverhead};
+
 mod circuit_spinglass;
 mod graph;
 mod traits;
@@ -30,7 +35,7 @@ mod setpacking_ilp;
 #[cfg(feature = "ilp")]
 mod vertexcovering_ilp;
 
-pub use graph::{EdgeJson, NodeJson, ReductionGraph, ReductionGraphJson, ReductionPath};
+pub use graph::{EdgeJson, NodeJson, ReductionEdge, ReductionGraph, ReductionGraphJson, ReductionPath};
 pub use traits::{ReduceTo, ReductionResult};
 pub use independentset_setpacking::{ReductionISToSP, ReductionSPToIS};
 pub use matching_setpacking::ReductionMatchingToSP;

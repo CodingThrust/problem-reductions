@@ -2,12 +2,24 @@
 //!
 //! The graph uses type-erased names (e.g., "SpinGlass" instead of "SpinGlass<i32>")
 //! for topology, allowing path finding regardless of weight type parameters.
+//!
+//! This module implements set-theoretic validation for path finding:
+//! - Graph hierarchy is built from `GraphSubtypeEntry` registrations
+//! - Reduction applicability uses subtype relationships: A <= C and D <= B
+//! - Dijkstra's algorithm with custom cost functions for optimal paths
 
+use crate::graph_types::GraphSubtypeEntry;
+use crate::rules::cost::PathCostFn;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+use crate::types::ProblemSize;
+use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
 use petgraph::graph::{DiGraph, NodeIndex};
+use petgraph::visit::EdgeRef;
 use serde::Serialize;
 use std::any::TypeId;
-use std::collections::HashMap;
+use std::cmp::Reverse;
+use std::collections::{BinaryHeap, HashMap, HashSet};
 
 /// JSON-serializable representation of the reduction graph.
 #[derive(Debug, Clone, Serialize)]
@@ -73,42 +85,136 @@ impl ReductionPath {
     }
 }
 
+/// Edge data for a reduction.
+#[derive(Clone, Debug)]
+pub struct ReductionEdge {
+    /// Graph type of source problem (e.g., "SimpleGraph").
+    pub source_graph: &'static str,
+    /// Graph type of target problem.
+    pub target_graph: &'static str,
+    /// Overhead information for cost calculations.
+    pub overhead: ReductionOverhead,
+}
+
 /// Runtime graph of all registered reductions.
 ///
 /// Uses type-erased names for the graph topology, so `MaxCut<i32>` and `MaxCut<f64>`
 /// map to the same node "MaxCut". This allows finding reduction paths regardless
 /// of weight type parameters.
+///
+/// The graph supports:
+/// - Auto-discovery of reductions from `inventory::iter::<ReductionEntry>`
+/// - Graph hierarchy from `inventory::iter::<GraphSubtypeEntry>`
+/// - Set-theoretic validation for path finding
+/// - Dijkstra with custom cost functions
 pub struct ReductionGraph {
     /// Graph with base type names as node data.
-    graph: DiGraph<&'static str, ()>,
+    graph: DiGraph<&'static str, ReductionEdge>,
     /// Map from base type name to node index.
     name_indices: HashMap<&'static str, NodeIndex>,
     /// Map from TypeId to base type name (for generic API compatibility).
     type_to_name: HashMap<TypeId, &'static str>,
+    /// Graph hierarchy: subtype -> set of supertypes (transitively closed).
+    graph_hierarchy: HashMap<&'static str, HashSet<&'static str>>,
 }
 
 impl ReductionGraph {
-    /// Create a new reduction graph with all registered reductions.
+    /// Create a new reduction graph with all registered reductions from inventory.
     pub fn new() -> Self {
         let mut graph = DiGraph::new();
         let mut name_indices = HashMap::new();
         let mut type_to_name = HashMap::new();
 
-        // Register all problem types
+        // Build graph hierarchy from GraphSubtypeEntry registrations
+        let graph_hierarchy = Self::build_graph_hierarchy();
+
+        // First, register all problem types (for TypeId mapping)
         Self::register_types(&mut graph, &mut name_indices, &mut type_to_name);
 
-        // Register all reductions as edges
+        // Then, register reductions from inventory (auto-discovery)
+        for entry in inventory::iter::<ReductionEntry> {
+            // Ensure source node exists
+            if !name_indices.contains_key(entry.source_name) {
+                let idx = graph.add_node(entry.source_name);
+                name_indices.insert(entry.source_name, idx);
+            }
+            // Ensure target node exists
+            if !name_indices.contains_key(entry.target_name) {
+                let idx = graph.add_node(entry.target_name);
+                name_indices.insert(entry.target_name, idx);
+            }
+
+            // Add edge with metadata
+            let src = name_indices[entry.source_name];
+            let dst = name_indices[entry.target_name];
+
+            // Check if edge already exists (avoid duplicates)
+            if graph.find_edge(src, dst).is_none() {
+                graph.add_edge(
+                    src,
+                    dst,
+                    ReductionEdge {
+                        source_graph: entry.source_graph,
+                        target_graph: entry.target_graph,
+                        overhead: entry.overhead(),
+                    },
+                );
+            }
+        }
+
+        // Also register manual reductions for backward compatibility
         Self::register_reductions(&mut graph, &name_indices);
 
         Self {
             graph,
             name_indices,
             type_to_name,
+            graph_hierarchy,
         }
     }
 
+    /// Build graph hierarchy from GraphSubtypeEntry registrations.
+    /// Computes the transitive closure of the subtype relationship.
+    fn build_graph_hierarchy() -> HashMap<&'static str, HashSet<&'static str>> {
+        let mut supertypes: HashMap<&'static str, HashSet<&'static str>> = HashMap::new();
+
+        // Collect direct subtype relationships
+        for entry in inventory::iter::<GraphSubtypeEntry> {
+            supertypes.entry(entry.subtype).or_default().insert(entry.supertype);
+        }
+
+        // Compute transitive closure
+        loop {
+            let mut changed = false;
+            let types: Vec<_> = supertypes.keys().copied().collect();
+
+            for sub in &types {
+                let current: Vec<_> = supertypes
+                    .get(sub)
+                    .map(|s| s.iter().copied().collect())
+                    .unwrap_or_default();
+
+                for sup in current {
+                    if let Some(sup_supers) = supertypes.get(sup).cloned() {
+                        for ss in sup_supers {
+                            if supertypes.entry(sub).or_default().insert(ss) {
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !changed {
+                break;
+            }
+        }
+
+        supertypes
+    }
+
     fn register_types(
-        graph: &mut DiGraph<&'static str, ()>,
+        graph: &mut DiGraph<&'static str, ReductionEdge>,
         name_indices: &mut HashMap<&'static str, NodeIndex>,
         type_to_name: &mut HashMap<TypeId, &'static str>,
     ) {
@@ -164,16 +270,25 @@ impl ReductionGraph {
     }
 
     fn register_reductions(
-        graph: &mut DiGraph<&'static str, ()>,
+        graph: &mut DiGraph<&'static str, ReductionEdge>,
         name_indices: &HashMap<&'static str, NodeIndex>,
     ) {
-        // Add an edge between two problem types by name.
+        // Add an edge between two problem types by name (with default overhead).
+        // This is for backward compatibility with manually registered reductions.
         macro_rules! add_edge {
             ($src:expr => $dst:expr) => {
                 if let (Some(&src), Some(&dst)) = (name_indices.get($src), name_indices.get($dst)) {
                     // Avoid duplicate edges
                     if graph.find_edge(src, dst).is_none() {
-                        graph.add_edge(src, dst, ());
+                        graph.add_edge(
+                            src,
+                            dst,
+                            ReductionEdge {
+                                source_graph: "SimpleGraph",
+                                target_graph: "SimpleGraph",
+                                overhead: ReductionOverhead::default(),
+                            },
+                        );
                     }
                 }
             };
@@ -203,6 +318,130 @@ impl ReductionGraph {
         // Circuit reductions
         add_edge!("CircuitSAT" => "SpinGlass");
         add_edge!("Factoring" => "CircuitSAT");
+    }
+
+    /// Check if `sub` is a subtype of `sup` (or equal).
+    pub fn is_graph_subtype(&self, sub: &str, sup: &str) -> bool {
+        sub == sup
+            || self
+                .graph_hierarchy
+                .get(sub)
+                .map(|s| s.contains(sup))
+                .unwrap_or(false)
+    }
+
+    /// Check if a reduction rule can be used.
+    ///
+    /// For a reduction from problem A (on graph type G_A) to problem B (on graph type G_B),
+    /// using a rule that reduces C (on G_C) to D (on G_D):
+    ///
+    /// The rule is applicable if:
+    /// - G_A is a subtype of G_C (our source graph is more specific than rule requires)
+    /// - G_D is a subtype of G_B (rule produces a graph that fits our target requirement)
+    pub fn rule_applicable(
+        &self,
+        want_source_graph: &str,
+        want_target_graph: &str,
+        rule_source_graph: &str,
+        rule_target_graph: &str,
+    ) -> bool {
+        // A <= C: our source must be subtype of rule's source (or equal)
+        // D <= B: rule's target must be subtype of our target (or equal)
+        self.is_graph_subtype(want_source_graph, rule_source_graph)
+            && self.is_graph_subtype(rule_target_graph, want_target_graph)
+    }
+
+    /// Find the cheapest path using a custom cost function.
+    ///
+    /// Uses Dijkstra's algorithm with set-theoretic validation.
+    ///
+    /// # Arguments
+    /// - `source`: (problem_name, graph_type) for source
+    /// - `target`: (problem_name, graph_type) for target
+    /// - `input_size`: Initial problem size for cost calculations
+    /// - `cost_fn`: Custom cost function for path optimization
+    ///
+    /// # Returns
+    /// The cheapest path if one exists that satisfies the graph type constraints.
+    pub fn find_cheapest_path<C: PathCostFn>(
+        &self,
+        source: (&str, &str),
+        target: (&str, &str),
+        input_size: &ProblemSize,
+        cost_fn: &C,
+    ) -> Option<ReductionPath> {
+        let src_idx = *self.name_indices.get(source.0)?;
+        let dst_idx = *self.name_indices.get(target.0)?;
+
+        let mut costs: HashMap<NodeIndex, f64> = HashMap::new();
+        let mut sizes: HashMap<NodeIndex, ProblemSize> = HashMap::new();
+        let mut prev: HashMap<NodeIndex, (NodeIndex, petgraph::graph::EdgeIndex)> = HashMap::new();
+        let mut heap = BinaryHeap::new();
+
+        costs.insert(src_idx, 0.0);
+        sizes.insert(src_idx, input_size.clone());
+        heap.push(Reverse((OrderedFloat(0.0), src_idx)));
+
+        while let Some(Reverse((cost, node))) = heap.pop() {
+            if node == dst_idx {
+                return Some(self.reconstruct_path(&prev, src_idx, dst_idx));
+            }
+
+            if cost.0 > *costs.get(&node).unwrap_or(&f64::INFINITY) {
+                continue;
+            }
+
+            let current_size = match sizes.get(&node) {
+                Some(s) => s.clone(),
+                None => continue,
+            };
+
+            for edge_ref in self.graph.edges(node) {
+                let edge = edge_ref.weight();
+                let next = edge_ref.target();
+
+                // Check set-theoretic applicability
+                if !self.rule_applicable(source.1, target.1, edge.source_graph, edge.target_graph) {
+                    continue;
+                }
+
+                let edge_cost = cost_fn.edge_cost(&edge.overhead, &current_size);
+                let new_cost = cost.0 + edge_cost;
+                let new_size = edge.overhead.evaluate_output_size(&current_size);
+
+                if new_cost < *costs.get(&next).unwrap_or(&f64::INFINITY) {
+                    costs.insert(next, new_cost);
+                    sizes.insert(next, new_size);
+                    prev.insert(next, (node, edge_ref.id()));
+                    heap.push(Reverse((OrderedFloat(new_cost), next)));
+                }
+            }
+        }
+
+        None
+    }
+
+    /// Reconstruct a path from the predecessor map.
+    fn reconstruct_path(
+        &self,
+        prev: &HashMap<NodeIndex, (NodeIndex, petgraph::graph::EdgeIndex)>,
+        src: NodeIndex,
+        dst: NodeIndex,
+    ) -> ReductionPath {
+        let mut path = vec![self.graph[dst]];
+        let mut current = dst;
+
+        while current != src {
+            if let Some(&(prev_node, _)) = prev.get(&current) {
+                path.push(self.graph[prev_node]);
+                current = prev_node;
+            } else {
+                break;
+            }
+        }
+
+        path.reverse();
+        ReductionPath { type_names: path }
     }
 
     /// Find all paths from source to target type.
@@ -297,6 +536,11 @@ impl ReductionGraph {
     pub fn num_reductions(&self) -> usize {
         self.graph.edge_count()
     }
+
+    /// Get the graph hierarchy (for inspection/testing).
+    pub fn graph_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
+        &self.graph_hierarchy
+    }
 }
 
 impl Default for ReductionGraph {
@@ -390,7 +634,6 @@ impl ReductionGraph {
             "other"
         }
     }
-
 }
 
 #[cfg(test)]
@@ -398,6 +641,7 @@ mod tests {
     use super::*;
     use crate::models::graph::{IndependentSet, VertexCovering};
     use crate::models::set::SetPacking;
+    use crate::rules::cost::MinimizeSteps;
 
     #[test]
     fn test_find_direct_path() {
@@ -446,10 +690,14 @@ mod tests {
         let graph = ReductionGraph::new();
 
         // Different weight types should find the same path (type-erased)
-        let paths_i32 =
-            graph.find_paths::<crate::models::graph::MaxCut<i32>, crate::models::optimization::SpinGlass<i32>>();
-        let paths_f64 =
-            graph.find_paths::<crate::models::graph::MaxCut<f64>, crate::models::optimization::SpinGlass<f64>>();
+        let paths_i32 = graph.find_paths::<
+            crate::models::graph::MaxCut<i32>,
+            crate::models::optimization::SpinGlass<i32>,
+        >();
+        let paths_f64 = graph.find_paths::<
+            crate::models::graph::MaxCut<f64>,
+            crate::models::optimization::SpinGlass<f64>,
+        >();
 
         // Both should find paths since we use type-erased names
         assert!(!paths_i32.is_empty());
@@ -682,9 +930,7 @@ mod tests {
 
     #[test]
     fn test_empty_path_source_target() {
-        let path = ReductionPath {
-            type_names: vec![],
-        };
+        let path = ReductionPath { type_names: vec![] };
         assert!(path.is_empty());
         assert_eq!(path.len(), 0);
         assert!(path.source().is_none());
@@ -823,5 +1069,207 @@ mod tests {
             factoring_circuit_unidir,
             "Factoring -> CircuitSAT should be unidirectional"
         );
+    }
+
+    // New tests for set-theoretic path finding
+
+    #[test]
+    fn test_graph_hierarchy_built() {
+        let graph = ReductionGraph::new();
+        let hierarchy = graph.graph_hierarchy();
+
+        // Should have relationships from GraphSubtypeEntry registrations
+        // UnitDiskGraph -> PlanarGraph -> SimpleGraph
+        // BipartiteGraph -> SimpleGraph
+        assert!(
+            hierarchy.get("UnitDiskGraph").map(|s| s.contains("SimpleGraph")).unwrap_or(false),
+            "UnitDiskGraph should have SimpleGraph as supertype"
+        );
+        assert!(
+            hierarchy.get("PlanarGraph").map(|s| s.contains("SimpleGraph")).unwrap_or(false),
+            "PlanarGraph should have SimpleGraph as supertype"
+        );
+    }
+
+    #[test]
+    fn test_is_graph_subtype_reflexive() {
+        let graph = ReductionGraph::new();
+
+        // Every type is a subtype of itself
+        assert!(graph.is_graph_subtype("SimpleGraph", "SimpleGraph"));
+        assert!(graph.is_graph_subtype("PlanarGraph", "PlanarGraph"));
+        assert!(graph.is_graph_subtype("UnitDiskGraph", "UnitDiskGraph"));
+    }
+
+    #[test]
+    fn test_is_graph_subtype_direct() {
+        let graph = ReductionGraph::new();
+
+        // Direct subtype relationships
+        assert!(graph.is_graph_subtype("PlanarGraph", "SimpleGraph"));
+        assert!(graph.is_graph_subtype("BipartiteGraph", "SimpleGraph"));
+        assert!(graph.is_graph_subtype("UnitDiskGraph", "PlanarGraph"));
+    }
+
+    #[test]
+    fn test_is_graph_subtype_transitive() {
+        let graph = ReductionGraph::new();
+
+        // Transitive closure: UnitDiskGraph -> PlanarGraph -> SimpleGraph
+        assert!(graph.is_graph_subtype("UnitDiskGraph", "SimpleGraph"));
+    }
+
+    #[test]
+    fn test_is_graph_subtype_not_supertype() {
+        let graph = ReductionGraph::new();
+
+        // SimpleGraph is NOT a subtype of PlanarGraph (only the reverse)
+        assert!(!graph.is_graph_subtype("SimpleGraph", "PlanarGraph"));
+        assert!(!graph.is_graph_subtype("SimpleGraph", "UnitDiskGraph"));
+    }
+
+    #[test]
+    fn test_rule_applicable_same_graphs() {
+        let graph = ReductionGraph::new();
+
+        // Rule for SimpleGraph -> SimpleGraph applies to same
+        assert!(graph.rule_applicable("SimpleGraph", "SimpleGraph", "SimpleGraph", "SimpleGraph"));
+    }
+
+    #[test]
+    fn test_rule_applicable_subtype_source() {
+        let graph = ReductionGraph::new();
+
+        // Rule for SimpleGraph -> SimpleGraph applies when source is PlanarGraph
+        // (because PlanarGraph <= SimpleGraph)
+        assert!(graph.rule_applicable("PlanarGraph", "SimpleGraph", "SimpleGraph", "SimpleGraph"));
+    }
+
+    #[test]
+    fn test_rule_applicable_subtype_target() {
+        let graph = ReductionGraph::new();
+
+        // Rule producing PlanarGraph applies when we want SimpleGraph
+        // (because PlanarGraph <= SimpleGraph)
+        assert!(graph.rule_applicable("SimpleGraph", "SimpleGraph", "SimpleGraph", "PlanarGraph"));
+    }
+
+    #[test]
+    fn test_rule_not_applicable_wrong_source() {
+        let graph = ReductionGraph::new();
+
+        // Rule requiring PlanarGraph does NOT apply to SimpleGraph source
+        // (because SimpleGraph is NOT <= PlanarGraph)
+        assert!(!graph.rule_applicable("SimpleGraph", "SimpleGraph", "PlanarGraph", "SimpleGraph"));
+    }
+
+    #[test]
+    fn test_rule_not_applicable_wrong_target() {
+        let graph = ReductionGraph::new();
+
+        // Rule producing SimpleGraph does NOT apply when we need PlanarGraph
+        // (because SimpleGraph is NOT <= PlanarGraph)
+        assert!(!graph.rule_applicable("SimpleGraph", "PlanarGraph", "SimpleGraph", "SimpleGraph"));
+    }
+
+    #[test]
+    fn test_find_cheapest_path_minimize_steps() {
+        let graph = ReductionGraph::new();
+        let cost_fn = MinimizeSteps;
+        let input_size = ProblemSize::new(vec![("n", 10), ("m", 20)]);
+
+        // Find path from IndependentSet to VertexCovering on SimpleGraph
+        let path = graph.find_cheapest_path(
+            ("IndependentSet", "SimpleGraph"),
+            ("VertexCovering", "SimpleGraph"),
+            &input_size,
+            &cost_fn,
+        );
+
+        assert!(path.is_some());
+        let path = path.unwrap();
+        assert_eq!(path.len(), 1); // Direct path
+    }
+
+    #[test]
+    fn test_find_cheapest_path_multi_step() {
+        let graph = ReductionGraph::new();
+        let cost_fn = MinimizeSteps;
+        let input_size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
+
+        // Find multi-step path where all edges use compatible graph types
+        // IndependentSet (SimpleGraph) -> SetPacking (SetSystem) -> IndependentSet (SimpleGraph)
+        // This tests the algorithm can find multi-step paths with consistent graph types
+        let path = graph.find_cheapest_path(
+            ("IndependentSet", "SimpleGraph"),
+            ("SetPacking", "SetSystem"),
+            &input_size,
+            &cost_fn,
+        );
+
+        assert!(path.is_some());
+        let path = path.unwrap();
+        assert_eq!(path.len(), 1); // Direct path: IndependentSet -> SetPacking
+    }
+
+    #[test]
+    fn test_find_cheapest_path_no_path() {
+        let graph = ReductionGraph::new();
+        let cost_fn = MinimizeSteps;
+        let input_size = ProblemSize::new(vec![("n", 10)]);
+
+        // No path from IndependentSet to QUBO
+        let path = graph.find_cheapest_path(
+            ("IndependentSet", "SimpleGraph"),
+            ("QUBO", "SimpleGraph"),
+            &input_size,
+            &cost_fn,
+        );
+
+        assert!(path.is_none());
+    }
+
+    #[test]
+    fn test_find_cheapest_path_unknown_source() {
+        let graph = ReductionGraph::new();
+        let cost_fn = MinimizeSteps;
+        let input_size = ProblemSize::new(vec![("n", 10)]);
+
+        let path = graph.find_cheapest_path(
+            ("UnknownProblem", "SimpleGraph"),
+            ("VertexCovering", "SimpleGraph"),
+            &input_size,
+            &cost_fn,
+        );
+
+        assert!(path.is_none());
+    }
+
+    #[test]
+    fn test_find_cheapest_path_unknown_target() {
+        let graph = ReductionGraph::new();
+        let cost_fn = MinimizeSteps;
+        let input_size = ProblemSize::new(vec![("n", 10)]);
+
+        let path = graph.find_cheapest_path(
+            ("IndependentSet", "SimpleGraph"),
+            ("UnknownProblem", "SimpleGraph"),
+            &input_size,
+            &cost_fn,
+        );
+
+        assert!(path.is_none());
+    }
+
+    #[test]
+    fn test_reduction_edge_struct() {
+        let edge = ReductionEdge {
+            source_graph: "PlanarGraph",
+            target_graph: "SimpleGraph",
+            overhead: ReductionOverhead::default(),
+        };
+
+        assert_eq!(edge.source_graph, "PlanarGraph");
+        assert_eq!(edge.target_graph, "SimpleGraph");
     }
 }

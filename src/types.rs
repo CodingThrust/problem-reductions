@@ -3,6 +3,16 @@
 use serde::{Deserialize, Serialize};
 use std::fmt;
 
+/// Marker trait for numeric weight types.
+///
+/// Weight subsumption uses Rust's `From` trait:
+/// - `i32 → f64` is valid (From<i32> for f64 exists)
+/// - `f64 → i32` is invalid (no lossless conversion)
+pub trait NumericWeight: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static {}
+
+// Blanket implementation for any type satisfying the bounds
+impl<T> NumericWeight for T where T: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static {}
+
 /// Specifies whether larger or smaller objective values are better.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EnergyMode {
@@ -332,5 +342,15 @@ mod tests {
         assert_eq!(objective.evaluate(&[0, 1]), 1);
         assert_eq!(objective.evaluate(&[1, 0]), 2);
         assert_eq!(objective.evaluate(&[1, 1]), 3);
+    }
+
+    #[test]
+    fn test_numeric_weight_impls() {
+        fn assert_numeric_weight<T: NumericWeight>() {}
+
+        assert_numeric_weight::<i32>();
+        assert_numeric_weight::<f64>();
+        assert_numeric_weight::<i64>();
+        assert_numeric_weight::<f32>();
     }
 }

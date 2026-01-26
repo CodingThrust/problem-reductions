@@ -20,7 +20,7 @@ pub struct ReductionVCToSC<W> {
 
 impl<W> ReductionResult for ReductionVCToSC<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = VertexCovering<W>;
     type Target = SetCovering<W>;
@@ -46,7 +46,7 @@ where
 
 impl<W> ReduceTo<SetCovering<W>> for VertexCovering<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionVCToSC<W>;
 
@@ -262,5 +262,22 @@ mod tests {
                 vc_sol
             );
         }
+    }
+}
+
+// Register reduction with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "VertexCovering",
+        target_name: "SetCovering",
+        source_graph: "SimpleGraph",
+        target_graph: "SetSystem",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_sets", poly!(num_vertices)),
+            ("num_elements", poly!(num_edges)),
+        ]),
     }
 }

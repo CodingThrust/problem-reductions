@@ -20,6 +20,8 @@ serde_json = "1.0"
 thiserror = "1.0"
 num-traits = "0.2"
 good_lp = { version = "1.8", default-features = false, features = ["highs"], optional = true }
+inventory = "0.3"
+ordered-float = "5.0"
 
 [dev-dependencies]
 rand = "0.8"

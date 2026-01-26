@@ -43,7 +43,7 @@ pub struct ReductionSATToDS<W> {
 
 impl<W> ReductionResult for ReductionSATToDS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = Satisfiability<W>;
     type Target = DominatingSet<W>;
@@ -128,7 +128,7 @@ impl<W> ReductionSATToDS<W> {
 
 impl<W> ReduceTo<DominatingSet<W>> for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSATToDS<W>;
 
@@ -505,5 +505,22 @@ mod tests {
         // - 3 for second triangle: (3,4), (3,5), (4,5)
         // - 2 from negated literals to clause: (1,6), (4,6)
         assert_eq!(ds_problem.num_edges(), 8);
+    }
+}
+
+// Register reduction with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "Satisfiability",
+        target_name: "DominatingSet",
+        source_graph: "CNF",
+        target_graph: "SimpleGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_vars)),
+            ("num_edges", poly!(num_clauses)),
+        ]),
     }
 }

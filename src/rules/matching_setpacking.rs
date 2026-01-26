@@ -20,7 +20,7 @@ pub struct ReductionMatchingToSP<W> {
 
 impl<W> ReductionResult for ReductionMatchingToSP<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = Matching<W>;
     type Target = SetPacking<W>;
@@ -45,7 +45,7 @@ where
 
 impl<W> ReduceTo<SetPacking<W>> for Matching<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionMatchingToSP<W>;
 
@@ -259,5 +259,22 @@ mod tests {
         }
         // Should have 3 optimal solutions
         assert_eq!(sp_solutions.len(), 3);
+    }
+}
+
+// Register reduction with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "Matching",
+        target_name: "SetPacking",
+        source_graph: "SimpleGraph",
+        target_graph: "SetSystem",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_sets", poly!(num_edges)),
+            ("num_elements", poly!(num_vertices)),
+        ]),
     }
 }

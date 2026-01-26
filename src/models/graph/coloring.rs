@@ -3,6 +3,7 @@
 //! The K-Coloring problem asks whether a graph can be colored with K colors
 //! such that no two adjacent vertices have the same color.
 
+use crate::graph_types::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use petgraph::graph::{NodeIndex, UnGraph};
@@ -96,6 +97,9 @@ impl Coloring {
 }
 
 impl Problem for Coloring {
+    const NAME: &'static str = "Coloring";
+    type GraphType = SimpleGraph;
+    type Weight = i32;
     type Size = i32;
 
     fn num_variables(&self) -> usize {

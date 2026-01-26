@@ -3,6 +3,7 @@
 //! The Set Covering problem asks for a minimum weight collection of sets
 //! that covers all elements in the universe.
 
+use crate::graph_types::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -111,8 +112,11 @@ impl<W: Clone + Default> SetCovering<W> {
 
 impl<W> Problem for SetCovering<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
+    const NAME: &'static str = "SetCovering";
+    type GraphType = SimpleGraph;
+    type Weight = W;
     type Size = W;
 
     fn num_variables(&self) -> usize {
@@ -151,7 +155,7 @@ where
 
 impl<W> ConstraintSatisfactionProblem for SetCovering<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         // For each element, at least one set containing it must be selected

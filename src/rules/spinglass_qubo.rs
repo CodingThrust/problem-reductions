@@ -267,3 +267,31 @@ mod tests {
         assert_eq!(solutions[0], vec![0], "Should prefer x=0 (s=-1)");
     }
 }
+
+// Register reductions with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "QUBO",
+        target_name: "SpinGlass",
+        source_graph: "QUBOMatrix",
+        target_graph: "SpinGlassGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_spins", poly!(num_vars)),
+        ]),
+    }
+}
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "SpinGlass",
+        target_name: "QUBO",
+        source_graph: "SpinGlassGraph",
+        target_graph: "QUBOMatrix",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vars", poly!(num_spins)),
+        ]),
+    }
+}

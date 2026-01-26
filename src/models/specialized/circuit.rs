@@ -3,6 +3,7 @@
 //! CircuitSAT represents a boolean circuit satisfiability problem.
 //! The goal is to find variable assignments that satisfy the circuit constraints.
 
+use crate::graph_types::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -268,8 +269,11 @@ impl<W> CircuitSAT<W> {
 
 impl<W> Problem for CircuitSAT<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
+    const NAME: &'static str = "CircuitSAT";
+    type GraphType = SimpleGraph;
+    type Weight = W;
     type Size = W;
 
     fn num_variables(&self) -> usize {

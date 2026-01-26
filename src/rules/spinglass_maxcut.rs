@@ -20,7 +20,7 @@ pub struct ReductionMaxCutToSG<W> {
 
 impl<W> ReductionResult for ReductionMaxCutToSG<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Source = MaxCut<W>;
     type Target = SpinGlass<W>;
@@ -44,7 +44,7 @@ where
 
 impl<W> ReduceTo<SpinGlass<W>> for MaxCut<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionMaxCutToSG<W>;
 
@@ -97,7 +97,7 @@ pub struct ReductionSGToMaxCut<W> {
 
 impl<W> ReductionResult for ReductionSGToMaxCut<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Source = SpinGlass<W>;
     type Target = MaxCut<W>;
@@ -134,7 +134,7 @@ where
 
 impl<W> ReduceTo<MaxCut<W>> for SpinGlass<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSGToMaxCut<W>;
 
@@ -254,5 +254,35 @@ mod tests {
         // Verify interactions have correct weights
         let interactions = sg.interactions();
         assert_eq!(interactions.len(), 2);
+    }
+}
+
+// Register reductions with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "MaxCut",
+        target_name: "SpinGlass",
+        source_graph: "SimpleGraph",
+        target_graph: "SpinGlassGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_spins", poly!(num_vertices)),
+            ("num_interactions", poly!(num_edges)),
+        ]),
+    }
+}
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "SpinGlass",
+        target_name: "MaxCut",
+        source_graph: "SpinGlassGraph",
+        target_graph: "SimpleGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_spins)),
+            ("num_edges", poly!(num_interactions)),
+        ]),
     }
 }

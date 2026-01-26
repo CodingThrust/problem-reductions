@@ -228,7 +228,7 @@ pub struct ReductionSATToColoring<W> {
 
 impl<W> ReductionResult for ReductionSATToColoring<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = Satisfiability<W>;
     type Target = Coloring;
@@ -310,7 +310,7 @@ impl<W> ReductionSATToColoring<W> {
 
 impl<W> ReduceTo<Coloring> for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSATToColoring<W>;
 
@@ -645,5 +645,22 @@ mod tests {
         let coloring_permuted2 = vec![1, 2, 0, 1, 2];
         let extracted2 = reduction.extract_solution(&coloring_permuted2);
         assert_eq!(extracted2, vec![1]);
+    }
+}
+
+// Register reduction with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "Satisfiability",
+        target_name: "Coloring",
+        source_graph: "CNF",
+        target_graph: "SimpleGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(3 * num_vars)),
+            ("num_colors", poly!(3)),
+        ]),
     }
 }

@@ -3,6 +3,7 @@
 //! K-SAT is a special case of SAT where each clause has exactly K literals.
 //! Common variants include 3-SAT (K=3) and 2-SAT (K=2).
 
+use crate::graph_types::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -168,8 +169,11 @@ impl<const K: usize, W: Clone + Default> KSatisfiability<K, W> {
 
 impl<const K: usize, W> Problem for KSatisfiability<K, W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
+    const NAME: &'static str = "KSatisfiability";
+    type GraphType = SimpleGraph;
+    type Weight = W;
     type Size = W;
 
     fn num_variables(&self) -> usize {
@@ -209,7 +213,7 @@ where
 
 impl<const K: usize, W> ConstraintSatisfactionProblem for KSatisfiability<K, W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         self.clauses

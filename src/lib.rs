@@ -62,8 +62,10 @@
 
 pub mod config;
 pub mod error;
+pub mod graph_types;
 pub mod io;
 pub mod models;
+pub mod polynomial;
 pub mod registry;
 pub mod rules;
 pub mod solvers;
@@ -95,7 +97,7 @@ pub mod prelude {
     pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::traits::{csp_solution_size, ConstraintSatisfactionProblem, Problem};
     pub use crate::types::{
-        EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize,
+        EnergyMode, LocalConstraint, LocalSolutionSize, NumericWeight, ProblemSize, SolutionSize,
     };
 }
 

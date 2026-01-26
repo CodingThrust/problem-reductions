@@ -21,7 +21,7 @@ pub struct ReductionISToSP<W> {
 
 impl<W> ReductionResult for ReductionISToSP<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = IndependentSet<W>;
     type Target = SetPacking<W>;
@@ -46,7 +46,7 @@ where
 
 impl<W> ReduceTo<SetPacking<W>> for IndependentSet<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionISToSP<W>;
 
@@ -79,7 +79,7 @@ pub struct ReductionSPToIS<W> {
 
 impl<W> ReductionResult for ReductionSPToIS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = SetPacking<W>;
     type Target = IndependentSet<W>;
@@ -104,7 +104,7 @@ where
 
 impl<W> ReduceTo<IndependentSet<W>> for SetPacking<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSPToIS<W>;
 
@@ -244,5 +244,35 @@ mod tests {
 
         // No edges in the intersection graph
         assert_eq!(is_problem.num_edges(), 0);
+    }
+}
+
+// Register reductions with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "IndependentSet",
+        target_name: "SetPacking",
+        source_graph: "SimpleGraph",
+        target_graph: "SetSystem",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_sets", poly!(num_vertices)),
+            ("num_elements", poly!(num_vertices)),
+        ]),
+    }
+}
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "SetPacking",
+        target_name: "IndependentSet",
+        source_graph: "SetSystem",
+        target_graph: "SimpleGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_sets)),
+            ("num_edges", poly!(num_sets)),
+        ]),
     }
 }
