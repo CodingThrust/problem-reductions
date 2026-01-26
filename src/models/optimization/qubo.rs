@@ -2,6 +2,7 @@
 //!
 //! QUBO minimizes a quadratic function over binary variables.
 
+use crate::graph_types::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -108,8 +109,12 @@ where
         + num_traits::Num
         + num_traits::Zero
         + std::ops::AddAssign
-        + std::ops::Mul<Output = W>,
+        + std::ops::Mul<Output = W>
+        + 'static,
 {
+    const NAME: &'static str = "QUBO";
+    type GraphType = SimpleGraph;
+    type Weight = W;
     type Size = W;
 
     fn num_variables(&self) -> usize {

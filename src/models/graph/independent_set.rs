@@ -3,6 +3,7 @@
 //! The Independent Set problem asks for a maximum weight subset of vertices
 //! such that no two vertices in the subset are adjacent.
 
+use crate::graph_types::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use petgraph::graph::{NodeIndex, UnGraph};
@@ -111,8 +112,11 @@ impl<W: Clone + Default> IndependentSet<W> {
 
 impl<W> Problem for IndependentSet<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
+    const NAME: &'static str = "IndependentSet";
+    type GraphType = SimpleGraph;
+    type Weight = W;
     type Size = W;
 
     fn num_variables(&self) -> usize {
@@ -148,7 +152,7 @@ where
 
 impl<W> ConstraintSatisfactionProblem for IndependentSet<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         // For each edge (u, v), at most one of u, v can be selected

@@ -3,6 +3,7 @@
 //! The Vertex Cover problem asks for a minimum weight subset of vertices
 //! such that every edge has at least one endpoint in the subset.
 
+use crate::graph_types::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use petgraph::graph::{NodeIndex, UnGraph};
@@ -96,8 +97,11 @@ impl<W: Clone + Default> VertexCovering<W> {
 
 impl<W> Problem for VertexCovering<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
+    const NAME: &'static str = "VertexCovering";
+    type GraphType = SimpleGraph;
+    type Weight = W;
     type Size = W;
 
     fn num_variables(&self) -> usize {
@@ -133,7 +137,7 @@ where
 
 impl<W> ConstraintSatisfactionProblem for VertexCovering<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         // For each edge (u, v), at least one of u, v must be selected

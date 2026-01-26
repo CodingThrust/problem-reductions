@@ -10,12 +10,8 @@ use std::fmt;
 /// - `f64 → i32` is invalid (no lossless conversion)
 pub trait NumericWeight: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static {}
 
-impl NumericWeight for i8 {}
-impl NumericWeight for i16 {}
-impl NumericWeight for i32 {}
-impl NumericWeight for i64 {}
-impl NumericWeight for f32 {}
-impl NumericWeight for f64 {}
+// Blanket implementation for any type satisfying the bounds
+impl<T> NumericWeight for T where T: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static {}
 
 /// Specifies whether larger or smaller objective values are better.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

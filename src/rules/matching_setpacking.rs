@@ -20,7 +20,7 @@ pub struct ReductionMatchingToSP<W> {
 
 impl<W> ReductionResult for ReductionMatchingToSP<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = Matching<W>;
     type Target = SetPacking<W>;
@@ -45,7 +45,7 @@ where
 
 impl<W> ReduceTo<SetPacking<W>> for Matching<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionMatchingToSP<W>;
 

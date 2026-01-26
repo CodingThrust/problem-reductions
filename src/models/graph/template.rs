@@ -71,6 +71,7 @@
 //! - **Vertex Cover**: `[false, true, true, true]` - at least one selected
 //! - **Perfect Matching**: Define on edge graph with exactly one selected
 
+use crate::graph_types::SimpleGraph as SimpleGraphMarker;
 use crate::registry::{ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
@@ -307,8 +308,11 @@ impl<C, G, W> Problem for GraphProblem<C, G, W>
 where
     C: GraphConstraint,
     G: Graph,
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
+    const NAME: &'static str = C::NAME;
+    type GraphType = SimpleGraphMarker;
+    type Weight = W;
     type Size = W;
 
     fn num_variables(&self) -> usize {
@@ -346,7 +350,7 @@ impl<C, G, W> ConstraintSatisfactionProblem for GraphProblem<C, G, W>
 where
     C: GraphConstraint,
     G: Graph,
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         let spec = C::edge_constraint_spec();

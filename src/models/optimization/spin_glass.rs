@@ -2,6 +2,7 @@
 //!
 //! The Spin Glass problem minimizes the Ising Hamiltonian energy.
 
+use crate::graph_types::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -105,8 +106,12 @@ where
         + num_traits::Zero
         + std::ops::AddAssign
         + std::ops::Mul<Output = W>
-        + From<i32>,
+        + From<i32>
+        + 'static,
 {
+    const NAME: &'static str = "SpinGlass";
+    type GraphType = SimpleGraph;
+    type Weight = W;
     type Size = W;
 
     fn num_variables(&self) -> usize {

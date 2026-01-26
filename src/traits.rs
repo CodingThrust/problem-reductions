@@ -1,6 +1,6 @@
 //! Core traits for problem definitions.
 
-use crate::graph_types::{GraphMarker, SimpleGraph};
+use crate::graph_types::GraphMarker;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, NumericWeight, ProblemSize, SolutionSize};
 use num_traits::{Num, Zero};
 use std::ops::AddAssign;
@@ -118,6 +118,7 @@ pub fn csp_solution_size<P: ConstraintSatisfactionProblem>(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::graph_types::SimpleGraph;
 
     // A simple test problem: select binary variables to maximize sum of weights
     #[derive(Clone)]

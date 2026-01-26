@@ -3,6 +3,7 @@
 //! SAT is the problem of determining if there exists an assignment of
 //! Boolean variables that makes a given Boolean formula true.
 
+use crate::graph_types::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -174,8 +175,11 @@ impl<W: Clone + Default> Satisfiability<W> {
 
 impl<W> Problem for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
+    const NAME: &'static str = "Satisfiability";
+    type GraphType = SimpleGraph;
+    type Weight = W;
     type Size = W;
 
     fn num_variables(&self) -> usize {
@@ -217,7 +221,7 @@ where
 
 impl<W> ConstraintSatisfactionProblem for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         // Each clause is a constraint

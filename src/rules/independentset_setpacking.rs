@@ -21,7 +21,7 @@ pub struct ReductionISToSP<W> {
 
 impl<W> ReductionResult for ReductionISToSP<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = IndependentSet<W>;
     type Target = SetPacking<W>;
@@ -46,7 +46,7 @@ where
 
 impl<W> ReduceTo<SetPacking<W>> for IndependentSet<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionISToSP<W>;
 
@@ -79,7 +79,7 @@ pub struct ReductionSPToIS<W> {
 
 impl<W> ReductionResult for ReductionSPToIS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = SetPacking<W>;
     type Target = IndependentSet<W>;
@@ -104,7 +104,7 @@ where
 
 impl<W> ReduceTo<IndependentSet<W>> for SetPacking<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSPToIS<W>;
 

@@ -29,7 +29,7 @@ pub struct ReductionSATToKSAT<const K: usize, W> {
 
 impl<const K: usize, W> ReductionResult for ReductionSATToKSAT<K, W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Source = Satisfiability<W>;
     type Target = KSatisfiability<K, W>;
@@ -128,7 +128,7 @@ macro_rules! impl_sat_to_ksat {
     ($k:expr) => {
         impl<W> ReduceTo<KSatisfiability<$k, W>> for Satisfiability<W>
         where
-            W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+            W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
         {
             type Result = ReductionSATToKSAT<$k, W>;
 
@@ -175,7 +175,7 @@ pub struct ReductionKSATToSAT<const K: usize, W> {
 
 impl<const K: usize, W> ReductionResult for ReductionKSATToSAT<K, W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Source = KSatisfiability<K, W>;
     type Target = Satisfiability<W>;
@@ -200,7 +200,7 @@ where
 
 impl<const K: usize, W> ReduceTo<Satisfiability<W>> for KSatisfiability<K, W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionKSATToSAT<K, W>;
 

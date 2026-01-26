@@ -3,6 +3,7 @@
 //! The Factoring problem represents integer factorization as a computational problem.
 //! Given a number N, find two factors (a, b) such that a * b = N.
 
+use crate::graph_types::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -95,6 +96,9 @@ fn int_to_bits(n: u64, num_bits: usize) -> Vec<usize> {
 }
 
 impl Problem for Factoring {
+    const NAME: &'static str = "Factoring";
+    type GraphType = SimpleGraph;
+    type Weight = i32;
     type Size = i32;
 
     fn num_variables(&self) -> usize {

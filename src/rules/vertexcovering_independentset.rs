@@ -18,7 +18,7 @@ pub struct ReductionISToVC<W> {
 
 impl<W> ReductionResult for ReductionISToVC<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = IndependentSet<W>;
     type Target = VertexCovering<W>;
@@ -44,7 +44,7 @@ where
 
 impl<W> ReduceTo<VertexCovering<W>> for IndependentSet<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionISToVC<W>;
 
@@ -70,7 +70,7 @@ pub struct ReductionVCToIS<W> {
 
 impl<W> ReductionResult for ReductionVCToIS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = VertexCovering<W>;
     type Target = IndependentSet<W>;
@@ -95,7 +95,7 @@ where
 
 impl<W> ReduceTo<IndependentSet<W>> for VertexCovering<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionVCToIS<W>;
 

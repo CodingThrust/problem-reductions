@@ -3,6 +3,7 @@
 //! The Maximum Matching problem asks for a maximum weight set of edges
 //! such that no two edges share a vertex.
 
+use crate::graph_types::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use petgraph::graph::{NodeIndex, UnGraph};
@@ -133,8 +134,11 @@ impl<W: Clone + Default> Matching<W> {
 
 impl<W> Problem for Matching<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
+    const NAME: &'static str = "Matching";
+    type GraphType = SimpleGraph;
+    type Weight = W;
     type Size = W;
 
     fn num_variables(&self) -> usize {
@@ -172,7 +176,7 @@ where
 
 impl<W> ConstraintSatisfactionProblem for Matching<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         let v2e = self.vertex_to_edges();

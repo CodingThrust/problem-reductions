@@ -20,7 +20,7 @@ pub struct ReductionMaxCutToSG<W> {
 
 impl<W> ReductionResult for ReductionMaxCutToSG<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Source = MaxCut<W>;
     type Target = SpinGlass<W>;
@@ -44,7 +44,7 @@ where
 
 impl<W> ReduceTo<SpinGlass<W>> for MaxCut<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionMaxCutToSG<W>;
 
@@ -97,7 +97,7 @@ pub struct ReductionSGToMaxCut<W> {
 
 impl<W> ReductionResult for ReductionSGToMaxCut<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Source = SpinGlass<W>;
     type Target = MaxCut<W>;
@@ -134,7 +134,7 @@ where
 
 impl<W> ReduceTo<MaxCut<W>> for SpinGlass<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSGToMaxCut<W>;
 

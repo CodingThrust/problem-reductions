@@ -43,7 +43,7 @@ pub struct ReductionSATToDS<W> {
 
 impl<W> ReductionResult for ReductionSATToDS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = Satisfiability<W>;
     type Target = DominatingSet<W>;
@@ -128,7 +128,7 @@ impl<W> ReductionSATToDS<W> {
 
 impl<W> ReduceTo<DominatingSet<W>> for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSATToDS<W>;
 

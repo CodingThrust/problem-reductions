@@ -20,7 +20,7 @@ pub struct ReductionVCToSC<W> {
 
 impl<W> ReductionResult for ReductionVCToSC<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = VertexCovering<W>;
     type Target = SetCovering<W>;
@@ -46,7 +46,7 @@ where
 
 impl<W> ReduceTo<SetCovering<W>> for VertexCovering<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionVCToSC<W>;
 

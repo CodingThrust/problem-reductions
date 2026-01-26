@@ -186,7 +186,7 @@ pub struct ReductionCircuitToSG<W> {
 
 impl<W> ReductionResult for ReductionCircuitToSG<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Source = CircuitSAT<W>;
     type Target = SpinGlass<W>;
@@ -427,7 +427,7 @@ fn process_assignment<W>(
 
 impl<W> ReduceTo<SpinGlass<W>> for CircuitSAT<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionCircuitToSG<W>;
 
@@ -469,7 +469,8 @@ mod tests {
             + AddAssign
             + From<i32>
             + std::ops::Mul<Output = W>
-            + std::fmt::Debug,
+            + std::fmt::Debug
+            + 'static,
     {
         let solver = BruteForce::new();
         let solutions = solver.find_best(&gadget.problem);

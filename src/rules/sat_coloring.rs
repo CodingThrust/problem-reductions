@@ -228,7 +228,7 @@ pub struct ReductionSATToColoring<W> {
 
 impl<W> ReductionResult for ReductionSATToColoring<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = Satisfiability<W>;
     type Target = Coloring;
@@ -310,7 +310,7 @@ impl<W> ReductionSATToColoring<W> {
 
 impl<W> ReduceTo<Coloring> for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSATToColoring<W>;
 

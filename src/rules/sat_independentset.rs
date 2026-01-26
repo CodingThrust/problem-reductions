@@ -68,7 +68,7 @@ pub struct ReductionSATToIS<W> {
 
 impl<W> ReductionResult for ReductionSATToIS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = Satisfiability<W>;
     type Target = IndependentSet<W>;
@@ -124,7 +124,7 @@ impl<W> ReductionSATToIS<W> {
 
 impl<W> ReduceTo<IndependentSet<W>> for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32>,
+    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSATToIS<W>;
 
