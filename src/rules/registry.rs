@@ -86,4 +86,48 @@ mod tests {
         let overhead = ReductionOverhead::default();
         assert!(overhead.output_size.is_empty());
     }
+
+    #[test]
+    fn test_reduction_entry_overhead() {
+        let entry = ReductionEntry {
+            source_name: "TestSource",
+            target_name: "TestTarget",
+            source_graph: "SimpleGraph",
+            target_graph: "SimpleGraph",
+            overhead_fn: || ReductionOverhead::new(vec![("n", poly!(2 * n))]),
+        };
+
+        let overhead = entry.overhead();
+        let input = ProblemSize::new(vec![("n", 5)]);
+        let output = overhead.evaluate_output_size(&input);
+        assert_eq!(output.get("n"), Some(10));
+    }
+
+    #[test]
+    fn test_reduction_entry_debug() {
+        let entry = ReductionEntry {
+            source_name: "A",
+            target_name: "B",
+            source_graph: "SimpleGraph",
+            target_graph: "SimpleGraph",
+            overhead_fn: || ReductionOverhead::default(),
+        };
+
+        let debug_str = format!("{:?}", entry);
+        assert!(debug_str.contains("A"));
+        assert!(debug_str.contains("B"));
+    }
+
+    #[test]
+    fn test_reduction_entries_registered() {
+        let entries: Vec<_> = inventory::iter::<ReductionEntry>().collect();
+
+        // Should have at least some registered reductions
+        assert!(entries.len() >= 10);
+
+        // Check specific reductions exist
+        assert!(entries
+            .iter()
+            .any(|e| e.source_name == "IndependentSet" && e.target_name == "VertexCovering"));
+    }
 }

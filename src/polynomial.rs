@@ -168,6 +168,45 @@ mod tests {
     fn test_missing_variable() {
         let p = Polynomial::var("missing");
         let size = ProblemSize::new(vec![("n", 10)]);
-        assert_eq!(p.evaluate(&size), 0.0);  // missing var = 0
+        assert_eq!(p.evaluate(&size), 0.0); // missing var = 0
+    }
+
+    #[test]
+    fn test_polynomial_zero() {
+        let p = Polynomial::zero();
+        let size = ProblemSize::new(vec![("n", 100)]);
+        assert_eq!(p.evaluate(&size), 0.0);
+    }
+
+    #[test]
+    fn test_polynomial_constant() {
+        let p = Polynomial::constant(42.0);
+        let size = ProblemSize::new(vec![("n", 100)]);
+        assert_eq!(p.evaluate(&size), 42.0);
+    }
+
+    #[test]
+    fn test_monomial_scale() {
+        let m = Monomial::var("n").scale(3.0);
+        let size = ProblemSize::new(vec![("n", 10)]);
+        assert_eq!(m.evaluate(&size), 30.0);
+    }
+
+    #[test]
+    fn test_polynomial_scale() {
+        let p = Polynomial::var("n").scale(5.0);
+        let size = ProblemSize::new(vec![("n", 10)]);
+        assert_eq!(p.evaluate(&size), 50.0);
+    }
+
+    #[test]
+    fn test_monomial_multi_variable() {
+        // n * m^2
+        let m = Monomial {
+            coefficient: 1.0,
+            variables: vec![("n", 1), ("m", 2)],
+        };
+        let size = ProblemSize::new(vec![("n", 2), ("m", 3)]);
+        assert_eq!(m.evaluate(&size), 18.0); // 2 * 9
     }
 }
