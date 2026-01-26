@@ -1,6 +1,7 @@
 //! Core traits for problem definitions.
 
-use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
+use crate::graph_types::{GraphMarker, SimpleGraph};
+use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, NumericWeight, ProblemSize, SolutionSize};
 use num_traits::{Num, Zero};
 use std::ops::AddAssign;
 
@@ -9,6 +10,15 @@ use std::ops::AddAssign;
 /// This trait defines the interface for computational problems that can be
 /// solved by enumeration or reduction to other problems.
 pub trait Problem: Clone {
+    /// Base name of this problem type (e.g., "IndependentSet").
+    const NAME: &'static str;
+
+    /// The graph type this problem operates on.
+    type GraphType: GraphMarker;
+
+    /// The weight type for this problem.
+    type Weight: NumericWeight;
+
     /// The type used for objective/size values.
     type Size: Clone + PartialOrd + Num + Zero + AddAssign;
 
@@ -116,6 +126,9 @@ mod tests {
     }
 
     impl Problem for SimpleWeightedProblem {
+        const NAME: &'static str = "SimpleWeightedProblem";
+        type GraphType = SimpleGraph;
+        type Weight = i32;
         type Size = i32;
 
         fn num_variables(&self) -> usize {
@@ -151,6 +164,9 @@ mod tests {
     }
 
     impl Problem for SimpleCsp {
+        const NAME: &'static str = "SimpleCsp";
+        type GraphType = SimpleGraph;
+        type Weight = i32;
         type Size = i32;
 
         fn num_variables(&self) -> usize {
@@ -430,6 +446,9 @@ mod tests {
     }
 
     impl Problem for MultiFlavorProblem {
+        const NAME: &'static str = "MultiFlavorProblem";
+        type GraphType = SimpleGraph;
+        type Weight = i32;
         type Size = i32;
 
         fn num_variables(&self) -> usize {
