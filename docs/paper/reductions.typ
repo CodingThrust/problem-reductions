@@ -500,18 +500,22 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
 })
 
 // Draw grid graph from JSON with unit disk edges
+// Note: JSON contains sparse waypoints with spacing=4, so we use spacing+epsilon as radius
 #let draw-grid-cetz(data, cell-size: 0.06) = canvas(length: 1cm, {
   import draw: *
   let grid-data = data.grid_graph
-  let radius = grid-data.radius
+  let spacing = data.spacing  // typically 4
 
-  // Extract positions from nodes
-  let vertices = grid-data.nodes.map(n => (n.col * cell-size, -n.row * cell-size))
+  // Extract original grid positions (for edge computation)
+  let grid-positions = grid-data.nodes.map(n => (n.col, n.row))
   let weights = grid-data.nodes.map(n => n.weight)
 
-  // Compute unit disk edges
-  let unit = radius * cell-size
-  let edges = udg-edges(vertices, unit: unit)
+  // Use spacing + small epsilon to connect adjacent waypoints on copy lines
+  let unit = spacing + 0.5
+  let edges = udg-edges(grid-positions, unit: unit)
+
+  // Scale positions for drawing
+  let vertices = grid-positions.map(p => (p.at(0) * cell-size, -p.at(1) * cell-size))
 
   // Draw edges first
   for (k, l) in edges {
