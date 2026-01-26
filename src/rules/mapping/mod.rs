@@ -1,7 +1,41 @@
-//! Graph to grid mapping functionality.
+//! Graph to grid graph mapping.
 //!
-//! This module provides tools for embedding arbitrary graphs into 2D grids
-//! using the copy-line technique.
+//! This module implements reductions from arbitrary graphs to unit disk grid graphs
+//! using the copy-line technique from UnitDiskMapping.jl.
+//!
+//! # Overview
+//!
+//! The mapping works by:
+//! 1. Creating "copy lines" for each vertex (L-shaped paths on the grid)
+//! 2. Resolving crossings using gadgets that preserve MIS properties
+//! 3. The resulting grid graph has the property that a MIS solution can be
+//!    mapped back to a MIS solution on the original graph
+//!
+//! # Example
+//!
+//! ```rust
+//! use problemreductions::rules::mapping::{map_graph, map_graph_triangular};
+//! use problemreductions::topology::Graph;
+//!
+//! // Map a triangle graph to a square lattice
+//! let edges = vec![(0, 1), (1, 2), (0, 2)];
+//! let result = map_graph(3, &edges);
+//!
+//! println!("Grid graph has {} vertices", result.grid_graph.num_vertices());
+//! println!("MIS overhead: {}", result.mis_overhead);
+//!
+//! // Map the same graph to a triangular lattice
+//! let tri_result = map_graph_triangular(3, &edges);
+//! println!("Triangular grid has {} vertices", tri_result.grid_graph.num_vertices());
+//! ```
+//!
+//! # Submodules
+//!
+//! - `copyline`: Copy line creation and manipulation
+//! - `gadgets`: Crossing gadgets for resolving line intersections
+//! - `grid`: Grid representation and cell state management
+//! - `map_graph`: Main mapping functions for square lattices
+//! - `triangular`: Mapping functions for triangular lattices
 
 mod copyline;
 mod gadgets;
