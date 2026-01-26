@@ -62,6 +62,7 @@
 
 pub mod config;
 pub mod error;
+pub mod graph_types;
 pub mod io;
 pub mod models;
 pub mod registry;
