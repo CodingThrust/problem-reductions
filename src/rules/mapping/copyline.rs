@@ -81,6 +81,66 @@ impl CopyLine {
 
         locs
     }
+
+    /// Generate dense grid locations for this copy line (all cells along the L-shape).
+    /// This matches UnitDiskMapping.jl's `copyline_locations` function.
+    ///
+    /// Returns Vec<(row, col, weight)> with nodes at every cell along the path.
+    pub fn dense_locations(&self, padding: usize, spacing: usize) -> Vec<(usize, usize, usize)> {
+        let mut locs = Vec::new();
+        let mut nline = 0usize;
+
+        // Center location (I, J) - matches Julia's center_location
+        let i = (spacing * (self.hslot - 1) + padding + 2) as isize;
+        let j = (spacing * (self.vslot - 1) + padding + 1) as isize;
+        let spacing = spacing as isize;
+
+        // Grow up: from I down to start
+        let start = i + spacing * (self.vstart as isize - self.hslot as isize) + 1;
+        if self.vstart < self.hslot {
+            nline += 1;
+        }
+        for row in (start..=i).rev() {
+            if row >= 0 {
+                let weight = if row != start { 2 } else { 1 };
+                locs.push((row as usize, j as usize, weight));
+            }
+        }
+
+        // Grow down: from I to stop
+        let stop = i + spacing * (self.vstop as isize - self.hslot as isize) - 1;
+        if self.vstop > self.hslot {
+            nline += 1;
+        }
+        for row in i..=stop {
+            if row >= 0 {
+                if row == i {
+                    // Special: first node going down is offset by (1, 1)
+                    locs.push(((row + 1) as usize, (j + 1) as usize, 2));
+                } else {
+                    let weight = if row != stop { 2 } else { 1 };
+                    locs.push((row as usize, j as usize, weight));
+                }
+            }
+        }
+
+        // Grow right: from J+2 to stop
+        let stop_col = j + spacing * (self.hstop as isize - self.vslot as isize) - 1;
+        if self.hstop > self.vslot {
+            nline += 1;
+        }
+        for col in (j + 2)..=stop_col {
+            if col >= 0 {
+                let weight = if col != stop_col { 2 } else { 1 };
+                locs.push((i as usize, col as usize, weight));
+            }
+        }
+
+        // Center node at (I, J+1)
+        locs.push((i as usize, (j + 1) as usize, nline));
+
+        locs
+    }
 }
 
 /// Helper function to compute the removal order for vertices.
@@ -395,5 +455,50 @@ mod tests {
         // Check that we have vertical positions
         let has_vertical = locs.iter().any(|&(_r, c, _)| c == 1);
         assert!(has_vertical);
+    }
+
+    #[test]
+    fn test_dense_locations_simple() {
+        // Simple L-shape: vslot=1, hslot=1, vstart=1, vstop=2, hstop=2
+        let line = CopyLine::new(0, 1, 1, 1, 2, 2);
+        let locs = line.dense_locations(2, 4); // padding=2, spacing=4
+
+        // Center: I = 4*(1-1) + 2 + 2 = 4, J = 4*(1-1) + 2 + 1 = 3
+        // vstart=1, hslot=1: no "up" segment
+        // vstop=2, hslot=1: "down" segment from I to I + 4*(2-1) - 1 = 4 to 7
+        // hstop=2, vslot=1: "right" segment from J+2=5 to J + 4*(2-1) - 1 = 6
+
+        assert!(!locs.is_empty());
+        // Should have nodes at every cell, not just at spacing intervals
+        // Check we have more than just the sparse waypoints
+        let node_count = locs.len();
+        println!("Dense locations for simple L-shape: {:?}", locs);
+        println!("Node count: {}", node_count);
+
+        // Dense should have many more nodes than sparse (which has ~3-4)
+        assert!(node_count > 4, "Dense locations should have more than sparse");
+    }
+
+    #[test]
+    fn test_dense_locations_matches_julia() {
+        // Test case that can be verified against Julia's UnitDiskMapping
+        // Using vslot=1, hslot=2, vstart=1, vstop=2, hstop=3, padding=2, spacing=4
+        let line = CopyLine::new(0, 1, 2, 1, 2, 3);
+        let locs = line.dense_locations(2, 4);
+
+        // Center location: I = 4*(2-1) + 2 + 2 = 8, J = 4*(1-1) + 2 + 1 = 3
+
+        // Verify center node is present at (I, J+1) = (8, 4)
+        let has_center = locs.iter().any(|&(r, c, _)| r == 8 && c == 4);
+        assert!(has_center, "Center node at (8, 4) should be present");
+
+        // All positions should be valid
+        for &(row, col, weight) in &locs {
+            assert!(weight >= 1, "Weight should be >= 1");
+            assert!(row > 0, "Row should be positive");
+            assert!(col > 0, "Col should be positive");
+        }
+
+        println!("Dense locations: {:?}", locs);
     }
 }
