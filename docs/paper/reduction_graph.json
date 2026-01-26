@@ -1,0 +1,136 @@
+{
+  "nodes": [
+    {
+      "id": "MaxCut",
+      "label": "MaxCut",
+      "category": "graph"
+    },
+    {
+      "id": "DominatingSet",
+      "label": "DominatingSet",
+      "category": "graph"
+    },
+    {
+      "id": "SpinGlass",
+      "label": "SpinGlass",
+      "category": "optimization"
+    },
+    {
+      "id": "QUBO",
+      "label": "QUBO",
+      "category": "optimization"
+    },
+    {
+      "id": "IndependentSet",
+      "label": "IndependentSet",
+      "category": "graph"
+    },
+    {
+      "id": "SetPacking",
+      "label": "SetPacking",
+      "category": "set"
+    },
+    {
+      "id": "Satisfiability",
+      "label": "Satisfiability",
+      "category": "satisfiability"
+    },
+    {
+      "id": "Coloring",
+      "label": "Coloring",
+      "category": "graph"
+    },
+    {
+      "id": "VertexCovering",
+      "label": "VertexCovering",
+      "category": "graph"
+    },
+    {
+      "id": "KSatisfiability",
+      "label": "KSatisfiability",
+      "category": "satisfiability"
+    },
+    {
+      "id": "CircuitSAT",
+      "label": "CircuitSAT",
+      "category": "satisfiability"
+    },
+    {
+      "id": "Factoring",
+      "label": "Factoring",
+      "category": "specialized"
+    },
+    {
+      "id": "Matching",
+      "label": "Matching",
+      "category": "graph"
+    },
+    {
+      "id": "SetCovering",
+      "label": "SetCovering",
+      "category": "set"
+    }
+  ],
+  "edges": [
+    {
+      "source": "CircuitSAT",
+      "target": "SpinGlass",
+      "bidirectional": false
+    },
+    {
+      "source": "Matching",
+      "target": "SetPacking",
+      "bidirectional": false
+    },
+    {
+      "source": "Satisfiability",
+      "target": "KSatisfiability",
+      "bidirectional": true
+    },
+    {
+      "source": "Factoring",
+      "target": "CircuitSAT",
+      "bidirectional": false
+    },
+    {
+      "source": "IndependentSet",
+      "target": "SetPacking",
+      "bidirectional": true
+    },
+    {
+      "source": "SpinGlass",
+      "target": "QUBO",
+      "bidirectional": true
+    },
+    {
+      "source": "MaxCut",
+      "target": "SpinGlass",
+      "bidirectional": true
+    },
+    {
+      "source": "VertexCovering",
+      "target": "SetCovering",
+      "bidirectional": false
+    },
+    {
+      "source": "Satisfiability",
+      "target": "IndependentSet",
+      "bidirectional": false
+    },
+    {
+      "source": "Satisfiability",
+      "target": "Coloring",
+      "bidirectional": false
+    },
+    {
+      "source": "IndependentSet",
+      "target": "VertexCovering",
+      "bidirectional": true
+    },
+    {
+      "source": "Satisfiability",
+      "target": "DominatingSet",
+      "bidirectional": false
+    }
+  ]
+}

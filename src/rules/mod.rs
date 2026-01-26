@@ -30,7 +30,7 @@ mod setpacking_ilp;
 #[cfg(feature = "ilp")]
 mod vertexcovering_ilp;
 
-pub use graph::{ReductionGraph, ReductionPath};
+pub use graph::{EdgeJson, NodeJson, ReductionGraph, ReductionGraphJson, ReductionPath};
 pub use traits::{ReduceTo, ReductionResult};
 pub use independentset_setpacking::{ReductionISToSP, ReductionSPToIS};
 pub use matching_setpacking::ReductionMatchingToSP;

@@ -147,11 +147,7 @@ mod is_sp_reductions {
     #[test]
     fn test_sp_to_is_basic() {
         // Disjoint sets pack perfectly
-        let sets = vec![
-            vec![0, 1],
-            vec![2, 3],
-            vec![4],
-        ];
+        let sets = vec![vec![0, 1], vec![2, 3], vec![4]];
         let sp_problem = SetPacking::<i32>::new(sets);
 
         let result = ReduceTo::<IndependentSet<i32>>::reduce_to(&sp_problem);
@@ -244,10 +240,7 @@ mod sg_qubo_reductions {
     #[test]
     fn test_sg_qubo_energy_preservation() {
         // The reduction should preserve optimal energy (up to constant)
-        let sg = SpinGlass::new(3,
-            vec![((0, 1), -1.0), ((1, 2), 1.0)],
-            vec![0.0, 0.0, 0.0]
-        );
+        let sg = SpinGlass::new(3, vec![((0, 1), -1.0), ((1, 2), 1.0)], vec![0.0, 0.0, 0.0]);
 
         let result = ReduceTo::<QUBO>::reduce_to(&sg);
         let qubo = result.target_problem();
@@ -282,9 +275,10 @@ mod sg_maxcut_reductions {
     #[test]
     fn test_sg_to_maxcut_basic() {
         // Antiferromagnetic on triangle (frustrated)
-        let sg = SpinGlass::new(3,
+        let sg = SpinGlass::new(
+            3,
             vec![((0, 1), 1), ((1, 2), 1), ((0, 2), 1)],
-            vec![0, 0, 0]
+            vec![0, 0, 0],
         );
 
         let result = ReduceTo::<MaxCut<i32>>::reduce_to(&sg);
@@ -324,9 +318,10 @@ mod sg_maxcut_reductions {
     #[test]
     fn test_sg_maxcut_optimal_correspondence() {
         // For pure antiferromagnetic SG (J > 0), optimal <-> max cut
-        let sg = SpinGlass::new(4,
+        let sg = SpinGlass::new(
+            4,
             vec![((0, 1), 1), ((1, 2), 1), ((2, 3), 1), ((0, 3), 1)],
-            vec![0, 0, 0, 0]
+            vec![0, 0, 0, 0],
         );
 
         let result = ReduceTo::<MaxCut<i32>>::reduce_to(&sg);
@@ -366,7 +361,7 @@ mod reduction_graph_tests {
         assert!(graph.has_direct_reduction::<VertexCovering<i32>, IndependentSet<i32>>());
         assert!(graph.has_direct_reduction::<IndependentSet<i32>, SetPacking<i32>>());
         assert!(graph.has_direct_reduction::<SpinGlass<f64>, QUBO<f64>>());
-        assert!(graph.has_direct_reduction::<SpinGlass<i32>, MaxCut<i32>>());
+        assert!(graph.has_direct_reduction::<SpinGlass<f64>, MaxCut<i32>>());
     }
 
     #[test]
@@ -406,8 +401,12 @@ mod reduction_graph_tests {
         let graph = ReductionGraph::new();
 
         // IS <-> VC is bidirectional
-        assert!(!graph.find_paths::<IndependentSet<i32>, VertexCovering<i32>>().is_empty());
-        assert!(!graph.find_paths::<VertexCovering<i32>, IndependentSet<i32>>().is_empty());
+        assert!(!graph
+            .find_paths::<IndependentSet<i32>, VertexCovering<i32>>()
+            .is_empty());
+        assert!(!graph
+            .find_paths::<VertexCovering<i32>, IndependentSet<i32>>()
+            .is_empty());
 
         // SG <-> QUBO is bidirectional
         assert!(!graph.find_paths::<SpinGlass<f64>, QUBO<f64>>().is_empty());
@@ -423,11 +422,7 @@ mod topology_tests {
     #[test]
     fn test_hypergraph_to_setpacking() {
         // HyperGraph can be seen as a SetPacking problem
-        let hg = HyperGraph::new(5, vec![
-            vec![0, 1, 2],
-            vec![2, 3],
-            vec![3, 4],
-        ]);
+        let hg = HyperGraph::new(5, vec![vec![0, 1, 2], vec![2, 3], vec![3, 4]]);
 
         // Convert hyperedges to sets for SetPacking
         let sets: Vec<Vec<usize>> = hg.edges().to_vec();
@@ -444,9 +439,9 @@ mod topology_tests {
         // UDG with some overlapping points
         let positions = vec![
             (0.0, 0.0),
-            (0.5, 0.0),  // Close to 0
-            (2.0, 0.0),  // Far from 0 and 1
-            (2.5, 0.0),  // Close to 2
+            (0.5, 0.0), // Close to 0
+            (2.0, 0.0), // Far from 0 and 1
+            (2.5, 0.0), // Close to 2
         ];
         let udg = UnitDiskGraph::new(positions, 1.0);
 
@@ -514,7 +509,7 @@ mod truth_table_tests {
 /// Tests for File I/O with reductions.
 mod io_tests {
     use super::*;
-    use problemreductions::io::{to_json, from_json};
+    use problemreductions::io::{from_json, to_json};
 
     #[test]
     fn test_serialize_reduce_deserialize() {
@@ -541,10 +536,7 @@ mod io_tests {
     #[test]
     fn test_serialize_qubo_sg_roundtrip() {
         // Use from_matrix for simpler construction
-        let qubo = QUBO::from_matrix(vec![
-            vec![1.0, 0.5],
-            vec![0.0, -1.0],
-        ]);
+        let qubo = QUBO::from_matrix(vec![vec![1.0, 0.5], vec![0.0, -1.0]]);
 
         // Serialize
         let json = to_json(&qubo).unwrap();
@@ -573,9 +565,7 @@ mod end_to_end {
     #[test]
     fn test_full_pipeline_is_vc_sp() {
         // Start with an IndependentSet problem
-        let is = IndependentSet::<i32>::new(5, vec![
-            (0, 1), (1, 2), (2, 3), (3, 4), (0, 4)
-        ]);
+        let is = IndependentSet::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4)]);
 
         // Solve directly
         let solver = BruteForce::new();
@@ -604,9 +594,10 @@ mod end_to_end {
     #[test]
     fn test_full_pipeline_sg_maxcut() {
         // Start with SpinGlass (integer weights for MaxCut compatibility)
-        let sg = SpinGlass::new(4,
+        let sg = SpinGlass::new(
+            4,
             vec![((0, 1), 1), ((1, 2), -1), ((2, 3), 1), ((0, 3), -1)],
-            vec![0, 0, 0, 0]
+            vec![0, 0, 0, 0],
         );
 
         // Solve directly
@@ -634,12 +625,7 @@ mod end_to_end {
     #[test]
     fn test_chain_reduction_sp_is_vc() {
         // SetPacking -> IndependentSet -> VertexCovering
-        let sets = vec![
-            vec![0, 1],
-            vec![1, 2],
-            vec![2, 3],
-            vec![3],
-        ];
+        let sets = vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3]];
         let sp = SetPacking::<i32>::new(sets);
 
         // SP -> IS

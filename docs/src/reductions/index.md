@@ -16,10 +16,19 @@ Problem reductions allow transforming one NP-hard problem into another while pre
 | VertexCovering | IndependentSet | Complement relationship |
 | IndependentSet | SetPacking | Intersection graph |
 | SetPacking | IndependentSet | Intersection graph |
+| VertexCovering | SetCovering | Edge covering |
+| Matching | SetPacking | Edge-to-set mapping |
 | SpinGlass | QUBO | Variable substitution |
 | QUBO | SpinGlass | Variable substitution |
 | SpinGlass | MaxCut | Direct mapping (may add ancilla) |
 | MaxCut | SpinGlass | Direct mapping |
+| Satisfiability | KSatisfiability | Clause splitting/padding |
+| KSatisfiability | Satisfiability | Direct embedding |
+| Satisfiability | IndependentSet | Gadget construction |
+| Satisfiability | Coloring | OR-gadget construction |
+| Satisfiability | DominatingSet | Variable-clause graph |
+| CircuitSAT | SpinGlass | Gate gadgets |
+| Factoring | CircuitSAT | Multiplier circuit |
 
 ## Reduction Traits
 
