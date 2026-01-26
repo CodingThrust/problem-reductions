@@ -60,3 +60,6 @@ book/
 
 # Tarpaulin
 tarpaulin-report.html
+
+# Generated documents
+*.pdf
