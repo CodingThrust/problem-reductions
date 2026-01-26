@@ -834,7 +834,9 @@ mod gadget_tests {
 mod mis_verification {
     use super::*;
     use problemreductions::models::graph::IndependentSet;
-    use problemreductions::solvers::{BruteForce, Solver};
+    use problemreductions::models::optimization::ILP;
+    use problemreductions::rules::{ReduceTo, ReductionResult};
+    use problemreductions::solvers::ILPSolver;
 
     /// Helper function to check if a configuration is a valid independent set
     fn is_independent_set(edges: &[(usize, usize)], config: &[usize]) -> bool {
@@ -848,15 +850,19 @@ mod mis_verification {
         true
     }
 
-    /// Helper to solve MIS and get the maximum size
+    /// Helper to solve MIS using ILPSolver and get the maximum size
     fn solve_mis(num_vertices: usize, edges: &[(usize, usize)]) -> usize {
         let problem = IndependentSet::<i32>::new(num_vertices, edges.to_vec());
-        let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
-        solutions[0].iter().sum()
+        let reduction = <IndependentSet<i32> as ReduceTo<ILP>>::reduce_to(&problem);
+        let solver = ILPSolver::new();
+        if let Some(solution) = solver.solve(reduction.target_problem()) {
+            solution.iter().sum()
+        } else {
+            0
+        }
     }
 
-    /// Helper to solve MIS on a GridGraph
+    /// Helper to solve MIS on a GridGraph using ILPSolver
     fn solve_grid_mis(result: &MappingResult) -> usize {
         let edges = result.grid_graph.edges().to_vec();
         let num_vertices = result.grid_graph.num_vertices();
@@ -1028,6 +1034,14 @@ mod mis_verification {
         );
     }
 
+    /// Helper to solve MIS and get the optimal configuration
+    fn solve_mis_config(num_vertices: usize, edges: &[(usize, usize)]) -> Vec<usize> {
+        let problem = IndependentSet::<i32>::new(num_vertices, edges.to_vec());
+        let reduction = <IndependentSet<i32> as ReduceTo<ILP>>::reduce_to(&problem);
+        let solver = ILPSolver::new();
+        solver.solve(reduction.target_problem()).unwrap_or_default()
+    }
+
     #[test]
     #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_map_config_back_returns_valid_is() {
@@ -1035,17 +1049,12 @@ mod mis_verification {
         let edges = vec![(0, 1), (1, 2)];
         let result = map_graph(3, &edges);
 
-        // Solve MIS on the grid graph
+        // Solve MIS on the grid graph using ILP
         let grid_edges = result.grid_graph.edges().to_vec();
-        let problem = IndependentSet::<i32>::new(
-            result.grid_graph.num_vertices(),
-            grid_edges.clone(),
-        );
-        let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let grid_config = solve_mis_config(result.grid_graph.num_vertices(), &grid_edges);
 
         // Map back to original graph
-        let original_config = result.map_config_back(&solutions[0]);
+        let original_config = result.map_config_back(&grid_config);
 
         // Verify it's a valid independent set
         assert!(
@@ -1068,15 +1077,11 @@ mod mis_verification {
         let edges = vec![(0, 1), (1, 2), (0, 2)];
         let result = map_graph(3, &edges);
 
+        // Solve MIS on grid using ILP
         let grid_edges = result.grid_graph.edges().to_vec();
-        let problem = IndependentSet::<i32>::new(
-            result.grid_graph.num_vertices(),
-            grid_edges.clone(),
-        );
-        let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let grid_config = solve_mis_config(result.grid_graph.num_vertices(), &grid_edges);
 
-        let original_config = result.map_config_back(&solutions[0]);
+        let original_config = result.map_config_back(&grid_config);
 
         assert!(
             is_independent_set(&edges, &original_config),
@@ -1103,16 +1108,11 @@ mod mis_verification {
             "MIS overhead formula should hold for K23"
         );
 
-        // Also verify config back
+        // Also verify config back using ILP
         let grid_edges = result.grid_graph.edges().to_vec();
-        let problem = IndependentSet::<i32>::new(
-            result.grid_graph.num_vertices(),
-            grid_edges,
-        );
-        let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let grid_config = solve_mis_config(result.grid_graph.num_vertices(), &grid_edges);
 
-        let original_config = result.map_config_back(&solutions[0]);
+        let original_config = result.map_config_back(&grid_config);
         assert!(is_independent_set(&edges, &original_config));
     }
 }
