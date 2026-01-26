@@ -48,22 +48,28 @@
   category-colors.at(category, default: rgb("#f0f0f0"))
 }
 
-// Layered layout positions (computed manually based on reduction hierarchy)
+// Optimized layout: SAT branch (left) + Physics branch (right)
+// Use node ID for positioning to handle duplicate labels (e.g., SpinGlass<i32> vs SpinGlass<f64>)
 #let node-positions = (
-  "Factoring": (0, 0),
-  "CircuitSAT": (0, 1),
-  "Satisfiability": (-1.5, 2),
-  "KSatisfiability": (-2.5, 2),
-  "SpinGlass": (1, 2),
-  "QUBO": (2, 2),
-  "IndependentSet": (-2, 3),
-  "VertexCovering": (-0.5, 3),
-  "MaxCut": (1, 3),
-  "Coloring": (2.5, 3),
-  "DominatingSet": (-3.5, 3),
-  "Matching": (-2.5, 4),
-  "SetPacking": (-1, 4),
-  "SetCovering": (0.5, 4),
+  // Row 0: Root nodes
+  "Satisfiability<i32>": (-1.5, 0),
+  "Factoring": (2, 0),
+  // Row 1: Direct children of roots
+  "KSatisfiability<3, i32>": (-2.5, 1),
+  "IndependentSet<i32>": (-0.5, 1),
+  "Coloring": (0.5, 1),
+  "DominatingSet<i32>": (-1.5, 1),
+  "CircuitSAT<i32>": (2, 1),
+  // Row 2: Next level
+  "VertexCovering<i32>": (-0.5, 2),
+  "Matching<i32>": (-2, 2),
+  "SpinGlass<i32>": (2, 2),
+  "SpinGlass<f64>": (3, 2),
+  // Row 3: Leaf nodes
+  "SetPacking<i32>": (-1.5, 3),
+  "SetCovering<i32>": (0.5, 3),
+  "MaxCut<i32>": (1.5, 3),
+  "QUBO<f64>": (3, 3),
 )
 
 #align(center)[
@@ -101,7 +107,7 @@ We use the following notation throughout. An _undirected graph_ $G = (V, E)$ con
         node-inset: 3pt,
         ..graph-data.nodes.map(n => {
           let color = get-color(n.category)
-          let pos = node-positions.at(n.label, default: (0, 0))
+          let pos = node-positions.at(n.id, default: (0, 0))
           node(pos, text(size: 7pt)[#n.label], fill: color, name: label(n.id))
         }),
         ..graph-data.edges.map(e => {
