@@ -1,5 +1,7 @@
 //! Graph type markers for parametric problem modeling.
 
+use inventory;
+
 /// Marker trait for graph types.
 pub trait GraphMarker: 'static + Clone + Send + Sync {
     /// The name of this graph type for runtime queries.
@@ -44,6 +46,35 @@ impl GraphMarker for BipartiteGraph {
     const NAME: &'static str = "BipartiteGraph";
 }
 
+/// Runtime registration of graph subtype relationships.
+pub struct GraphSubtypeEntry {
+    pub subtype: &'static str,
+    pub supertype: &'static str,
+}
+
+inventory::collect!(GraphSubtypeEntry);
+
+/// Macro to declare both compile-time trait and runtime registration.
+#[macro_export]
+macro_rules! declare_graph_subtype {
+    ($sub:ty => $sup:ty) => {
+        impl $crate::graph_types::GraphSubtype<$sup> for $sub {}
+
+        ::inventory::submit! {
+            $crate::graph_types::GraphSubtypeEntry {
+                subtype: <$sub as $crate::graph_types::GraphMarker>::NAME,
+                supertype: <$sup as $crate::graph_types::GraphMarker>::NAME,
+            }
+        }
+    };
+}
+
+// Declare the graph type hierarchy
+declare_graph_subtype!(UnitDiskGraph => PlanarGraph);
+declare_graph_subtype!(UnitDiskGraph => SimpleGraph);
+declare_graph_subtype!(PlanarGraph => SimpleGraph);
+declare_graph_subtype!(BipartiteGraph => SimpleGraph);
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -64,5 +95,21 @@ mod tests {
         assert_subtype::<SimpleGraph, SimpleGraph>();
         assert_subtype::<PlanarGraph, PlanarGraph>();
         assert_subtype::<UnitDiskGraph, UnitDiskGraph>();
+    }
+
+    #[test]
+    fn test_subtype_entries_registered() {
+        let entries: Vec<_> = inventory::iter::<GraphSubtypeEntry>().collect();
+
+        // Should have at least 4 entries
+        assert!(entries.len() >= 4);
+
+        // Check specific relationships
+        assert!(entries.iter().any(|e|
+            e.subtype == "UnitDiskGraph" && e.supertype == "SimpleGraph"
+        ));
+        assert!(entries.iter().any(|e|
+            e.subtype == "PlanarGraph" && e.supertype == "SimpleGraph"
+        ));
     }
 }
