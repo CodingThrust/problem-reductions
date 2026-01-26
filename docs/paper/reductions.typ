@@ -499,34 +499,65 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
   }
 })
 
-// Draw grid graph from JSON with unit disk edges
-// Note: JSON contains sparse waypoints with spacing=4, so we use spacing+epsilon as radius
-#let draw-grid-cetz(data, cell-size: 0.06) = canvas(length: 1cm, {
+// Generate dense copy line nodes from sparse waypoints
+// Copy line forms L-shape: vertical from vstart to vstop, horizontal at hslot to hstop
+#let dense-copyline-nodes(lines, spacing, padding) = {
+  let nodes = ()
+  for line in lines {
+    let col = spacing * (line.vslot - 1) + padding + 1
+    // Vertical segment
+    for v in range(line.vstart, line.vstop + 1) {
+      let row = spacing * (v - 1) + padding + 2
+      // Add intermediate nodes along vertical
+      if v < line.vstop {
+        for dr in range(spacing) {
+          nodes.push((col, row + dr))
+        }
+      } else {
+        nodes.push((col, row))
+      }
+    }
+    // Horizontal segment
+    let hrow = spacing * (line.hslot - 1) + padding + 2
+    for h in range(line.vslot + 1, line.hstop + 1) {
+      let hcol = spacing * (h - 1) + padding + 1
+      // Add intermediate nodes along horizontal
+      if h < line.hstop {
+        for dc in range(spacing) {
+          nodes.push((hcol + dc, hrow))
+        }
+      } else {
+        nodes.push((hcol, hrow))
+      }
+    }
+  }
+  nodes
+}
+
+// Draw grid graph as King's subgraph with dense nodes
+#let draw-grid-cetz(data, cell-size: 0.025) = canvas(length: 1cm, {
   import draw: *
-  let grid-data = data.grid_graph
-  let spacing = data.spacing  // typically 4
+  let radius = data.grid_graph.radius  // 1.5 for King's graph
+  let spacing = data.spacing
+  let padding = data.padding
 
-  // Extract original grid positions (for edge computation)
-  let grid-positions = grid-data.nodes.map(n => (n.col, n.row))
-  let weights = grid-data.nodes.map(n => n.weight)
+  // Generate dense nodes from copy lines
+  let grid-positions = dense-copyline-nodes(data.lines, spacing, padding)
 
-  // Use spacing + small epsilon to connect adjacent waypoints on copy lines
-  let unit = spacing + 0.5
-  let edges = udg-edges(grid-positions, unit: unit)
+  // Compute King's subgraph edges (radius connects 8-neighbors)
+  let edges = udg-edges(grid-positions, unit: radius)
 
   // Scale positions for drawing
   let vertices = grid-positions.map(p => (p.at(0) * cell-size, -p.at(1) * cell-size))
 
   // Draw edges first
   for (k, l) in edges {
-    line(vertices.at(k), vertices.at(l), stroke: 0.3pt + gray)
+    line(vertices.at(k), vertices.at(l), stroke: 0.2pt + gray)
   }
 
-  // Draw nodes with color by weight
-  for (k, pos) in vertices.enumerate() {
-    let w = weights.at(k)
-    let color = if w == 1 { blue } else if w == 2 { red } else { green }
-    circle(pos, radius: 0.03, fill: color, stroke: none)
+  // Draw nodes
+  for pos in vertices {
+    circle(pos, radius: 0.015, fill: blue, stroke: none)
   }
 })
 
