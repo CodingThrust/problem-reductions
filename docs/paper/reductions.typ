@@ -430,7 +430,86 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
   _Correctness._ ($arrow.r.double$) An IS in $G$ maps to selecting all copy line vertices for included vertices; crossing gadgets ensure no conflicts. ($arrow.l.double$) A grid MIS maps back to an IS by the copy line activity rule.
 ]
 
-*Example: Petersen Graph.* The Petersen graph ($n=10$, MIS$=4$) maps to a $29 times 41$ grid graph with overhead $Delta = 88$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 88 = 92$.
+*Example: Petersen Graph.* The Petersen graph ($n=10$, MIS$=4$) maps to a $42 times 46$ King's subgraph with 54 nodes and overhead $Delta = 174$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 174 = 178$. With triangular lattice encoding @pan2025, the same graph maps to a $60 times 66$ grid with overhead $Delta = 446$.
+
+// Load JSON data
+#let petersen = json("petersen_source.json")
+#let square_mapping = json("petersen_square.json")
+
+// Helper to draw Petersen graph with circular layout
+#let draw-petersen(data, scale: 1.0) = {
+  let n = data.num_vertices
+  let r-outer = 40pt * scale
+  let r-inner = 20pt * scale
+  let node-r = 3pt * scale
+
+  // Positions: outer pentagon (0-4), inner star (5-9)
+  let positions = ()
+  for i in range(5) {
+    let angle = 90deg - i * 72deg
+    positions.push((calc.cos(angle) * r-outer, calc.sin(angle) * r-outer))
+  }
+  for i in range(5) {
+    let angle = 90deg - i * 72deg
+    positions.push((calc.cos(angle) * r-inner, calc.sin(angle) * r-inner))
+  }
+
+  box(width: 2.2 * r-outer, height: 2.2 * r-outer, {
+    let cx = r-outer + 5pt
+    let cy = r-outer + 5pt
+
+    // Draw edges
+    for edge in data.edges {
+      let (u, v) = (edge.at(0), edge.at(1))
+      let (x1, y1) = positions.at(u)
+      let (x2, y2) = positions.at(v)
+      place(line(
+        start: (cx + x1, cy - y1),
+        end: (cx + x2, cy - y2),
+        stroke: 0.5pt + gray,
+      ))
+    }
+
+    // Draw nodes
+    for i in range(n) {
+      let (x, y) = positions.at(i)
+      place(dx: cx + x - node-r, dy: cy - y - node-r, circle(radius: node-r, fill: blue))
+    }
+  })
+}
+
+// Helper to draw grid graph nodes
+#let draw-grid-graph(data, scale: 1.0) = {
+  let grid = data.grid_graph
+  let (rows, cols) = (grid.size.at(0), grid.size.at(1))
+  let cell = 2pt * scale
+  let node-r = 1.2pt * scale
+
+  box(width: cols * cell + 4pt, height: rows * cell + 4pt, {
+    for node in grid.nodes {
+      let x = node.col * cell + 2pt
+      let y = node.row * cell + 2pt
+      let color = if node.weight == 1 { blue } else if node.weight == 2 { red } else { green }
+      place(dx: x - node-r, dy: y - node-r, circle(radius: node-r, fill: color))
+    }
+  })
+}
+
+#figure(
+  grid(
+    columns: 2,
+    gutter: 1em,
+    align(center)[
+      #draw-petersen(petersen, scale: 1.0)
+      (a) Petersen graph
+    ],
+    align(center)[
+      #draw-grid-graph(square_mapping, scale: 1.0)
+      (b) King's subgraph mapping
+    ],
+  ),
+  caption: [Unit disk mapping of the Petersen graph. Blue nodes have weight 1, red nodes have weight 2.],
+) <fig:petersen-mapping>
 
 *Weighted Extension.* For MWIS, copy lines use weighted vertices (weights 1, 2, or 3). Source weights $< 1$ are added to designated "pin" vertices.
 
