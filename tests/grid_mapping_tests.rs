@@ -823,14 +823,8 @@ mod gadget_tests {
 
 /// MIS verification tests - these mirror the GenericTensorNetworks tests in UnitDiskMapping.jl.
 /// They verify that mis_overhead + original_MIS = mapped_MIS.
-///
-/// NOTE: These tests are currently ignored because the Rust implementation uses a different
-/// node placement strategy than the Julia implementation:
-/// - Julia: Places nodes at EVERY cell along copy lines (dense placement)
-/// - Rust: Places nodes only at slot boundaries (sparse placement, spacing intervals)
-///
-/// This difference means the mis_overhead formula doesn't match. To enable these tests,
-/// the implementation would need to be updated to use dense node placement like Julia.
+/// Requires the `ilp` feature for ILPSolver.
+#[cfg(feature = "ilp")]
 mod mis_verification {
     use super::*;
     use problemreductions::models::graph::IndependentSet;
@@ -870,7 +864,6 @@ mod mis_verification {
     }
 
     #[test]
-    #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_mis_overhead_path_graph() {
         // Path graph: 0-1-2 (MIS = 2: vertices 0 and 2)
         let edges = vec![(0, 1), (1, 2)];
@@ -892,7 +885,6 @@ mod mis_verification {
     }
 
     #[test]
-    #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_mis_overhead_single_edge() {
         // Single edge: 0-1 (MIS = 1)
         let edges = vec![(0, 1)];
@@ -910,7 +902,6 @@ mod mis_verification {
     }
 
     #[test]
-    #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_mis_overhead_triangle() {
         // Triangle: MIS = 1
         let edges = vec![(0, 1), (1, 2), (0, 2)];
@@ -928,7 +919,6 @@ mod mis_verification {
     }
 
     #[test]
-    #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_mis_overhead_empty_graph() {
         // Empty graph: MIS = all vertices = 3
         let edges: Vec<(usize, usize)> = vec![];
@@ -946,7 +936,6 @@ mod mis_verification {
     }
 
     #[test]
-    #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_mis_overhead_star_graph() {
         // Star graph: center 0 connected to 1,2,3 (MIS = 3: vertices 1,2,3)
         let edges = vec![(0, 1), (0, 2), (0, 3)];
@@ -964,7 +953,6 @@ mod mis_verification {
     }
 
     #[test]
-    #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_mis_overhead_k4() {
         // K4: MIS = 1
         let edges = vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
@@ -982,7 +970,6 @@ mod mis_verification {
     }
 
     #[test]
-    #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_mis_overhead_diamond() {
         // Diamond (K4 minus one edge): MIS = 2
         let edges = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)];
@@ -1000,7 +987,6 @@ mod mis_verification {
     }
 
     #[test]
-    #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_mis_overhead_house() {
         // House graph: MIS = 2
         let edges = vec![(0, 1), (1, 2), (2, 3), (3, 0), (2, 4), (3, 4)];
@@ -1018,7 +1004,6 @@ mod mis_verification {
     }
 
     #[test]
-    #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_mis_overhead_bull() {
         // Bull graph: triangle with two pendant vertices
         let edges = vec![(0, 1), (1, 2), (0, 2), (1, 3), (2, 4)];
@@ -1043,7 +1028,6 @@ mod mis_verification {
     }
 
     #[test]
-    #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_map_config_back_returns_valid_is() {
         // Test that mapping back a valid MIS on grid gives valid IS on original
         let edges = vec![(0, 1), (1, 2)];
@@ -1072,7 +1056,6 @@ mod mis_verification {
     }
 
     #[test]
-    #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_map_config_back_triangle() {
         let edges = vec![(0, 1), (1, 2), (0, 2)];
         let result = map_graph(3, &edges);
@@ -1093,7 +1076,6 @@ mod mis_verification {
     }
 
     #[test]
-    #[ignore = "Requires dense node placement matching Julia implementation"]
     fn test_map_config_back_k23() {
         // K_{2,3} bipartite graph
         let edges = vec![(0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4)];
