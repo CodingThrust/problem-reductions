@@ -132,7 +132,6 @@ impl ReductionGraph {
             DominatingSet<i32> => "DominatingSet<i32>",
             Coloring => "Coloring",
             MaxCut<i32> => "MaxCut<i32>",
-            SpinGlass<i32> => "SpinGlass<i32>",
             SpinGlass<f64> => "SpinGlass<f64>",
             QUBO<f64> => "QUBO<f64>",
             Satisfiability<i32> => "Satisfiability<i32>",
@@ -176,8 +175,8 @@ impl ReductionGraph {
         // Optimization reductions
         add_edge!(SpinGlass<f64> => QUBO<f64>);
         add_edge!(QUBO<f64> => SpinGlass<f64>);
-        add_edge!(MaxCut<i32> => SpinGlass<i32>);
-        add_edge!(SpinGlass<i32> => MaxCut<i32>);
+        add_edge!(MaxCut<i32> => SpinGlass<f64>);
+        add_edge!(SpinGlass<f64> => MaxCut<i32>);
 
         // SAT-based reductions
         add_edge!(Satisfiability<i32> => KSatisfiability<3, i32>);
@@ -187,7 +186,7 @@ impl ReductionGraph {
         add_edge!(Satisfiability<i32> => DominatingSet<i32>);
 
         // Circuit reductions
-        add_edge!(CircuitSAT<i32> => SpinGlass<i32>);
+        add_edge!(CircuitSAT<i32> => SpinGlass<f64>);
         add_edge!(Factoring => CircuitSAT<i32>);
     }
 
@@ -593,13 +592,13 @@ mod tests {
         assert!(graph.has_direct_reduction::<Factoring, CircuitSAT<i32>>());
 
         // CircuitSAT -> SpinGlass
-        assert!(graph.has_direct_reduction::<CircuitSAT<i32>, SpinGlass<i32>>());
+        assert!(graph.has_direct_reduction::<CircuitSAT<i32>, SpinGlass<f64>>());
 
         // Find path from Factoring to SpinGlass
-        let paths = graph.find_paths::<Factoring, SpinGlass<i32>>();
+        let paths = graph.find_paths::<Factoring, SpinGlass<f64>>();
         assert!(!paths.is_empty());
         let shortest = graph
-            .find_shortest_path::<Factoring, SpinGlass<i32>>()
+            .find_shortest_path::<Factoring, SpinGlass<f64>>()
             .unwrap();
         assert_eq!(shortest.len(), 2); // Factoring -> CircuitSAT -> SpinGlass
     }
@@ -616,8 +615,8 @@ mod tests {
         assert!(graph.has_direct_reduction::<QUBO<f64>, SpinGlass<f64>>());
 
         // MaxCut <-> SpinGlass (bidirectional)
-        assert!(graph.has_direct_reduction::<MaxCut<i32>, SpinGlass<i32>>());
-        assert!(graph.has_direct_reduction::<SpinGlass<i32>, MaxCut<i32>>());
+        assert!(graph.has_direct_reduction::<MaxCut<i32>, SpinGlass<f64>>());
+        assert!(graph.has_direct_reduction::<SpinGlass<f64>, MaxCut<i32>>());
     }
 
     #[test]
