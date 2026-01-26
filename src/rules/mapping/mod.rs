@@ -5,6 +5,8 @@
 
 mod copyline;
 mod gadgets;
+mod grid;
 
 pub use copyline::{create_copylines, mis_overhead_copyline, remove_order, CopyLine};
 pub use gadgets::*;
+pub use grid::{CellState, MappingGrid};

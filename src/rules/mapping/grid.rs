@@ -1,0 +1,273 @@
+//! Mapping grid for intermediate representation during graph embedding.
+
+use serde::{Deserialize, Serialize};
+
+/// Cell state in the mapping grid.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
+pub enum CellState {
+    #[default]
+    Empty,
+    Occupied { weight: i32 },
+    Doubled { weight: i32 },
+    Connected { weight: i32 },
+}
+
+impl CellState {
+    pub fn is_empty(&self) -> bool {
+        matches!(self, CellState::Empty)
+    }
+
+    pub fn is_occupied(&self) -> bool {
+        !self.is_empty()
+    }
+
+    pub fn weight(&self) -> i32 {
+        match self {
+            CellState::Empty => 0,
+            CellState::Occupied { weight } => *weight,
+            CellState::Doubled { weight } => *weight,
+            CellState::Connected { weight } => *weight,
+        }
+    }
+}
+
+/// A 2D grid for mapping graphs.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct MappingGrid {
+    content: Vec<Vec<CellState>>,
+    rows: usize,
+    cols: usize,
+    spacing: usize,
+    padding: usize,
+}
+
+impl MappingGrid {
+    /// Create a new mapping grid.
+    pub fn new(rows: usize, cols: usize, spacing: usize) -> Self {
+        Self {
+            content: vec![vec![CellState::Empty; cols]; rows],
+            rows,
+            cols,
+            spacing,
+            padding: 2,
+        }
+    }
+
+    /// Create with custom padding.
+    pub fn with_padding(rows: usize, cols: usize, spacing: usize, padding: usize) -> Self {
+        Self {
+            content: vec![vec![CellState::Empty; cols]; rows],
+            rows,
+            cols,
+            spacing,
+            padding,
+        }
+    }
+
+    /// Get grid dimensions.
+    pub fn size(&self) -> (usize, usize) {
+        (self.rows, self.cols)
+    }
+
+    /// Get spacing.
+    pub fn spacing(&self) -> usize {
+        self.spacing
+    }
+
+    /// Get padding.
+    pub fn padding(&self) -> usize {
+        self.padding
+    }
+
+    /// Check if a cell is occupied.
+    pub fn is_occupied(&self, row: usize, col: usize) -> bool {
+        self.get(row, col).map(|c| c.is_occupied()).unwrap_or(false)
+    }
+
+    /// Get cell state safely.
+    pub fn get(&self, row: usize, col: usize) -> Option<&CellState> {
+        self.content.get(row).and_then(|r| r.get(col))
+    }
+
+    /// Get mutable cell state safely.
+    pub fn get_mut(&mut self, row: usize, col: usize) -> Option<&mut CellState> {
+        self.content.get_mut(row).and_then(|r| r.get_mut(col))
+    }
+
+    /// Set cell state.
+    ///
+    /// Silently ignores out-of-bounds access.
+    pub fn set(&mut self, row: usize, col: usize, state: CellState) {
+        if row < self.rows && col < self.cols {
+            self.content[row][col] = state;
+        }
+    }
+
+    /// Add a node at position.
+    ///
+    /// Silently ignores out-of-bounds access.
+    pub fn add_node(&mut self, row: usize, col: usize, weight: i32) {
+        if row < self.rows && col < self.cols {
+            match self.content[row][col] {
+                CellState::Empty => {
+                    self.content[row][col] = CellState::Occupied { weight };
+                }
+                CellState::Occupied { weight: w } => {
+                    self.content[row][col] = CellState::Doubled { weight: w + weight };
+                }
+                _ => {}
+            }
+        }
+    }
+
+    /// Mark a cell as connected.
+    ///
+    /// Silently ignores out-of-bounds access.
+    pub fn connect(&mut self, row: usize, col: usize) {
+        if row < self.rows && col < self.cols {
+            if let CellState::Occupied { weight } = self.content[row][col] {
+                self.content[row][col] = CellState::Connected { weight };
+            }
+        }
+    }
+
+    /// Check if a pattern matches at position.
+    pub fn matches_pattern(
+        &self,
+        pattern: &[(usize, usize)],
+        offset_row: usize,
+        offset_col: usize,
+    ) -> bool {
+        pattern.iter().all(|&(r, c)| {
+            let row = offset_row + r;
+            let col = offset_col + c;
+            self.get(row, col).map(|c| c.is_occupied()).unwrap_or(false)
+        })
+    }
+
+    /// Get all occupied coordinates.
+    pub fn occupied_coords(&self) -> Vec<(usize, usize)> {
+        let mut coords = Vec::new();
+        for r in 0..self.rows {
+            for c in 0..self.cols {
+                if self.content[r][c].is_occupied() {
+                    coords.push((r, c));
+                }
+            }
+        }
+        coords
+    }
+
+    /// Get cross location for two vertices.
+    pub fn cross_at(&self, v_slot: usize, w_slot: usize, h_slot: usize) -> (usize, usize) {
+        let w = v_slot.max(w_slot);
+        let row = (h_slot - 1) * self.spacing + 2 + self.padding;
+        let col = (w - 1) * self.spacing + 1 + self.padding;
+        (row, col)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_mapping_grid_create() {
+        let grid = MappingGrid::new(10, 10, 4);
+        assert_eq!(grid.size(), (10, 10));
+        assert_eq!(grid.spacing(), 4);
+    }
+
+    #[test]
+    fn test_mapping_grid_with_padding() {
+        let grid = MappingGrid::with_padding(8, 12, 3, 5);
+        assert_eq!(grid.size(), (8, 12));
+        assert_eq!(grid.spacing(), 3);
+        assert_eq!(grid.padding(), 5);
+    }
+
+    #[test]
+    fn test_mapping_grid_add_node() {
+        let mut grid = MappingGrid::new(10, 10, 4);
+        grid.add_node(2, 3, 1);
+        assert!(grid.is_occupied(2, 3));
+        assert!(!grid.is_occupied(2, 4));
+    }
+
+    #[test]
+    fn test_mapping_grid_get_out_of_bounds() {
+        let grid = MappingGrid::new(5, 5, 2);
+        assert!(grid.get(0, 0).is_some());
+        assert!(grid.get(4, 4).is_some());
+        assert!(grid.get(5, 0).is_none());
+        assert!(grid.get(0, 5).is_none());
+        assert!(grid.get(10, 10).is_none());
+    }
+
+    #[test]
+    fn test_mapping_grid_add_node_doubled() {
+        let mut grid = MappingGrid::new(10, 10, 4);
+        grid.add_node(2, 3, 5);
+        assert_eq!(
+            grid.get(2, 3),
+            Some(&CellState::Occupied { weight: 5 })
+        );
+        grid.add_node(2, 3, 3);
+        assert_eq!(
+            grid.get(2, 3),
+            Some(&CellState::Doubled { weight: 8 })
+        );
+    }
+
+    #[test]
+    fn test_mapping_grid_connect() {
+        let mut grid = MappingGrid::new(10, 10, 4);
+        grid.add_node(3, 4, 7);
+        assert_eq!(
+            grid.get(3, 4),
+            Some(&CellState::Occupied { weight: 7 })
+        );
+        grid.connect(3, 4);
+        assert_eq!(
+            grid.get(3, 4),
+            Some(&CellState::Connected { weight: 7 })
+        );
+    }
+
+    #[test]
+    fn test_mapping_grid_connect_empty_cell() {
+        let mut grid = MappingGrid::new(10, 10, 4);
+        grid.connect(3, 4);
+        assert_eq!(grid.get(3, 4), Some(&CellState::Empty));
+    }
+
+    #[test]
+    fn test_mapping_grid_matches_pattern() {
+        let mut grid = MappingGrid::new(10, 10, 4);
+        grid.add_node(2, 2, 1);
+        grid.add_node(2, 3, 1);
+        grid.add_node(3, 2, 1);
+
+        let pattern = vec![(0, 0), (0, 1), (1, 0)];
+        assert!(grid.matches_pattern(&pattern, 2, 2));
+        assert!(!grid.matches_pattern(&pattern, 0, 0));
+    }
+
+    #[test]
+    fn test_mapping_grid_matches_pattern_out_of_bounds() {
+        let grid = MappingGrid::new(5, 5, 2);
+        let pattern = vec![(0, 0), (1, 1)];
+        assert!(!grid.matches_pattern(&pattern, 10, 10));
+    }
+
+    #[test]
+    fn test_mapping_grid_cross_at() {
+        let grid = MappingGrid::new(20, 20, 4);
+        let (row, col) = grid.cross_at(1, 3, 2);
+        assert_eq!(row, (2 - 1) * 4 + 2 + 2);
+        assert_eq!(col, (3 - 1) * 4 + 1 + 2);
+
+        let (row2, col2) = grid.cross_at(3, 1, 2);
+        assert_eq!((row, col), (row2, col2));
+    }
+}
