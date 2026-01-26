@@ -57,12 +57,12 @@ impl MappingResult {
     }
 }
 
-/// Embed a graph into a mapping grid.
-pub fn embed_graph(
+/// Internal function that creates both the mapping grid and copylines.
+fn embed_graph_internal(
     num_vertices: usize,
     edges: &[(usize, usize)],
     vertex_order: &[usize],
-) -> Option<MappingGrid> {
+) -> Option<(MappingGrid, Vec<CopyLine>)> {
     if num_vertices == 0 {
         return None;
     }
@@ -92,8 +92,14 @@ pub fn embed_graph(
 
     // Mark edge connections
     for &(u, v) in edges {
-        let u_idx = vertex_order.iter().position(|&x| x == u).unwrap();
-        let v_idx = vertex_order.iter().position(|&x| x == v).unwrap();
+        let u_idx = vertex_order
+            .iter()
+            .position(|&x| x == u)
+            .expect("Edge vertex u not found in vertex_order");
+        let v_idx = vertex_order
+            .iter()
+            .position(|&x| x == v)
+            .expect("Edge vertex v not found in vertex_order");
         let u_line = &copylines[u_idx];
         let v_line = &copylines[v_idx];
 
@@ -110,7 +116,20 @@ pub fn embed_graph(
         }
     }
 
-    Some(grid)
+    Some((grid, copylines))
+}
+
+/// Embed a graph into a mapping grid.
+///
+/// # Panics
+///
+/// Panics if any edge vertex is not found in `vertex_order`.
+pub fn embed_graph(
+    num_vertices: usize,
+    edges: &[(usize, usize)],
+    vertex_order: &[usize],
+) -> Option<MappingGrid> {
+    embed_graph_internal(num_vertices, edges, vertex_order).map(|(grid, _)| grid)
 }
 
 /// Map a graph to a grid graph.
@@ -121,6 +140,10 @@ pub fn map_graph(num_vertices: usize, edges: &[(usize, usize)]) -> MappingResult
 }
 
 /// Map a graph with a specific vertex ordering.
+///
+/// # Panics
+///
+/// Panics if `num_vertices == 0`.
 pub fn map_graph_with_order(
     num_vertices: usize,
     edges: &[(usize, usize)],
@@ -129,9 +152,8 @@ pub fn map_graph_with_order(
     let spacing = DEFAULT_SPACING;
     let padding = DEFAULT_PADDING;
 
-    let grid = embed_graph(num_vertices, edges, vertex_order).expect("Failed to embed graph");
-
-    let copylines = create_copylines(num_vertices, edges, vertex_order);
+    let (grid, copylines) = embed_graph_internal(num_vertices, edges, vertex_order)
+        .expect("Failed to embed graph: num_vertices must be > 0");
 
     // Calculate MIS overhead
     let mis_overhead: i32 = copylines
