@@ -1,6 +1,7 @@
 //! Polynomial representation for reduction overhead.
 
 use crate::types::ProblemSize;
+use std::ops::Add;
 
 /// A monomial: coefficient × Π(variable^exponent)
 #[derive(Clone, Debug, PartialEq)]
@@ -68,13 +69,18 @@ impl Polynomial {
         self
     }
 
-    pub fn add(mut self, other: Self) -> Self {
-        self.terms.extend(other.terms);
-        self
-    }
 
     pub fn evaluate(&self, size: &ProblemSize) -> f64 {
         self.terms.iter().map(|m| m.evaluate(size)).sum()
+    }
+}
+
+impl Add for Polynomial {
+    type Output = Self;
+
+    fn add(mut self, other: Self) -> Self {
+        self.terms.extend(other.terms);
+        self
     }
 }
 
@@ -132,7 +138,7 @@ mod tests {
     fn test_polynomial_add() {
         // 3n + 2m
         let p = Polynomial::var("n").scale(3.0)
-            .add(Polynomial::var("m").scale(2.0));
+            + Polynomial::var("m").scale(2.0);
 
         let size = ProblemSize::new(vec![("n", 10), ("m", 5)]);
         assert_eq!(p.evaluate(&size), 40.0);  // 3*10 + 2*5
@@ -142,7 +148,7 @@ mod tests {
     fn test_polynomial_complex() {
         // n^2 + 3m
         let p = Polynomial::var_pow("n", 2)
-            .add(Polynomial::var("m").scale(3.0));
+            + Polynomial::var("m").scale(3.0);
 
         let size = ProblemSize::new(vec![("n", 4), ("m", 2)]);
         assert_eq!(p.evaluate(&size), 22.0);  // 16 + 6

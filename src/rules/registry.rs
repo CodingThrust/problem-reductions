@@ -4,7 +4,7 @@ use crate::polynomial::Polynomial;
 use crate::types::ProblemSize;
 
 /// Overhead specification for a reduction.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct ReductionOverhead {
     /// Output size as polynomials of input size variables.
     /// Each entry is (output_field_name, polynomial).
@@ -25,11 +25,6 @@ impl ReductionOverhead {
     }
 }
 
-impl Default for ReductionOverhead {
-    fn default() -> Self {
-        Self { output_size: vec![] }
-    }
-}
 
 /// A registered reduction entry.
 #[derive(Clone, Debug)]
