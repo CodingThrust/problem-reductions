@@ -408,7 +408,7 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
 == Unit Disk Mapping
 
 #theorem[
-  *(IS $arrow.r$ GridGraph IS)* @cai2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a unit disk graph (King's subgraph) with polynomial overhead.
+  *(IS $arrow.r$ GridGraph IS)* @nguyen2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a unit disk graph (King's subgraph) with at most quadratic overhead in the number of vertices.
 ]
 
 #proof[
@@ -430,7 +430,7 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
   _Correctness._ ($arrow.r.double$) An IS in $G$ maps to selecting all copy line vertices for included vertices; crossing gadgets ensure no conflicts. ($arrow.l.double$) A grid MIS maps back to an IS by the copy line activity rule.
 ]
 
-*Example: Petersen Graph.* The Petersen graph ($n=10$, MIS$=4$) maps to a $approx 30 times 50$ grid graph. Solving MIS on the grid and subtracting the overhead recovers MIS$=4$.
+*Example: Petersen Graph.* The Petersen graph ($n=10$, MIS$=4$) maps to a $29 times 41$ grid graph with overhead $Delta = 88$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 88 = 92$.
 
 *Weighted Extension.* For MWIS, copy lines use weighted vertices (weights 1, 2, or 3). Source weights $< 1$ are added to designated "pin" vertices.
 
@@ -463,9 +463,9 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
     [SpinGlass $arrow.l.r$ MaxCut], [$O(n + |J|)$], [@barahona1982 @lucas2014],
     table.cell(fill: gray)[Coloring $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| dot k + |E| dot k)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[Factoring $arrow.r$ ILP], table.cell(fill: gray)[$O(m n)$], table.cell(fill: gray)[—],
-    [IS $arrow.r$ GridGraph IS], [$O(n^2 dot "pw")$], [@cai2023],
+    [IS $arrow.r$ GridGraph IS], [$O(n^2)$], [@nguyen2023],
   ),
-  caption: [Summary of reductions. Gray rows indicate trivial reductions. "pw" denotes pathwidth.]
+  caption: [Summary of reductions. Gray rows indicate trivial reductions.]
 ) <tab:summary>
 
 #bibliography("references.bib", style: "ieee")
