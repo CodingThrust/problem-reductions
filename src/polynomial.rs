@@ -69,7 +69,6 @@ impl Polynomial {
         self
     }
 
-
     pub fn evaluate(&self, size: &ProblemSize) -> f64 {
         self.terms.iter().map(|m| m.evaluate(size)).sum()
     }

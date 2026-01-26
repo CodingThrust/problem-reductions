@@ -17,6 +17,11 @@ impl ReductionOverhead {
     }
 
     /// Evaluate output size given input size.
+    ///
+    /// Uses `round()` for the f64 to usize conversion because polynomial coefficients
+    /// are typically integers (1, 2, 3, 7, 21, etc.) and any fractional results come
+    /// from floating-point arithmetic imprecision, not intentional fractions.
+    /// For problem sizes, rounding to nearest integer is the most intuitive behavior.
     pub fn evaluate_output_size(&self, input: &ProblemSize) -> ProblemSize {
         let fields: Vec<_> = self.output_size.iter()
             .map(|(name, poly)| (*name, poly.evaluate(input).round() as usize))
