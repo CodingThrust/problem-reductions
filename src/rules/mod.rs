@@ -1,5 +1,8 @@
 //! Reduction rules between NP-hard problems.
 
+pub mod registry;
+pub use registry::{ReductionEntry, ReductionOverhead};
+
 mod circuit_spinglass;
 mod graph;
 mod traits;
