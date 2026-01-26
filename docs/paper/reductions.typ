@@ -1,6 +1,7 @@
 // Problem Reductions: A Mathematical Reference
 
 #import "@preview/fletcher:0.5.8" as fletcher: diagram, node, edge
+#import "@preview/cetz:0.4.0": canvas, draw
 
 #set page(paper: "a4", margin: (x: 2cm, y: 2.5cm))
 #set text(font: "New Computer Modern", size: 10pt)
@@ -436,12 +437,44 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
 #let petersen = json("petersen_source.json")
 #let square_mapping = json("petersen_square.json")
 
-// Helper to draw Petersen graph with circular layout
-#let draw-petersen(data, scale: 1.0) = {
-  let n = data.num_vertices
-  let r-outer = 40pt * scale
-  let r-inner = 20pt * scale
-  let node-r = 3pt * scale
+// Euclidean distance
+#let distance(a, b) = calc.sqrt(calc.pow(a.at(0) - b.at(0), 2) + calc.pow(a.at(1) - b.at(1), 2))
+
+// Compute unit disk graph edges from vertex positions
+#let udg-edges(vertices, unit: 1) = {
+  let edges = ()
+  for (k, pos-k) in vertices.enumerate() {
+    for (l, pos-l) in vertices.enumerate() {
+      if l < k and distance(pos-k, pos-l) <= unit {
+        edges.push((k, l))
+      }
+    }
+  }
+  edges
+}
+
+// Draw graph with cetz
+#let show-graph(vertices, edges, radius: 0.15, node-color: blue) = {
+  import draw: *
+  for (k, (i, j)) in vertices.enumerate() {
+    circle((i, j), radius: radius, fill: node-color, stroke: none, name: str(k))
+  }
+  for (k, l) in edges {
+    line(str(k), str(l), stroke: 0.4pt + gray)
+  }
+}
+
+// Draw unit disk graph
+#let show-udg(vertices, unit: 1, radius: 0.15, node-color: blue) = {
+  let edges = udg-edges(vertices, unit: unit)
+  show-graph(vertices, edges, radius: radius, node-color: node-color)
+}
+
+// Draw Petersen graph with standard layout
+#let draw-petersen-cetz(data) = canvas(length: 1cm, {
+  import draw: *
+  let r-outer = 1.2
+  let r-inner = 0.6
 
   // Positions: outer pentagon (0-4), inner star (5-9)
   let positions = ()
@@ -454,61 +487,59 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
     positions.push((calc.cos(angle) * r-inner, calc.sin(angle) * r-inner))
   }
 
-  box(width: 2.2 * r-outer, height: 2.2 * r-outer, {
-    let cx = r-outer + 5pt
-    let cy = r-outer + 5pt
+  // Draw edges
+  for edge in data.edges {
+    let (u, v) = (edge.at(0), edge.at(1))
+    line(positions.at(u), positions.at(v), stroke: 0.6pt + gray)
+  }
 
-    // Draw edges
-    for edge in data.edges {
-      let (u, v) = (edge.at(0), edge.at(1))
-      let (x1, y1) = positions.at(u)
-      let (x2, y2) = positions.at(v)
-      place(line(
-        start: (cx + x1, cy - y1),
-        end: (cx + x2, cy - y2),
-        stroke: 0.5pt + gray,
-      ))
-    }
+  // Draw nodes
+  for (k, pos) in positions.enumerate() {
+    circle(pos, radius: 0.12, fill: blue, stroke: none)
+  }
+})
 
-    // Draw nodes
-    for i in range(n) {
-      let (x, y) = positions.at(i)
-      place(dx: cx + x - node-r, dy: cy - y - node-r, circle(radius: node-r, fill: blue))
-    }
-  })
-}
+// Draw grid graph from JSON with unit disk edges
+#let draw-grid-cetz(data, cell-size: 0.06) = canvas(length: 1cm, {
+  import draw: *
+  let grid-data = data.grid_graph
+  let radius = grid-data.radius
 
-// Helper to draw grid graph nodes
-#let draw-grid-graph(data, scale: 1.0) = {
-  let grid = data.grid_graph
-  let (rows, cols) = (grid.size.at(0), grid.size.at(1))
-  let cell = 2pt * scale
-  let node-r = 1.2pt * scale
+  // Extract positions from nodes
+  let vertices = grid-data.nodes.map(n => (n.col * cell-size, -n.row * cell-size))
+  let weights = grid-data.nodes.map(n => n.weight)
 
-  box(width: cols * cell + 4pt, height: rows * cell + 4pt, {
-    for node in grid.nodes {
-      let x = node.col * cell + 2pt
-      let y = node.row * cell + 2pt
-      let color = if node.weight == 1 { blue } else if node.weight == 2 { red } else { green }
-      place(dx: x - node-r, dy: y - node-r, circle(radius: node-r, fill: color))
-    }
-  })
-}
+  // Compute unit disk edges
+  let unit = radius * cell-size
+  let edges = udg-edges(vertices, unit: unit)
+
+  // Draw edges first
+  for (k, l) in edges {
+    line(vertices.at(k), vertices.at(l), stroke: 0.3pt + gray)
+  }
+
+  // Draw nodes with color by weight
+  for (k, pos) in vertices.enumerate() {
+    let w = weights.at(k)
+    let color = if w == 1 { blue } else if w == 2 { red } else { green }
+    circle(pos, radius: 0.03, fill: color, stroke: none)
+  }
+})
 
 #figure(
   grid(
     columns: 2,
-    gutter: 1em,
-    align(center)[
-      #draw-petersen(petersen, scale: 1.0)
+    gutter: 2em,
+    align(center + horizon)[
+      #draw-petersen-cetz(petersen)
       (a) Petersen graph
     ],
-    align(center)[
-      #draw-grid-graph(square_mapping, scale: 1.0)
+    align(center + horizon)[
+      #draw-grid-cetz(square_mapping)
       (b) King's subgraph mapping
     ],
   ),
-  caption: [Unit disk mapping of the Petersen graph. Blue nodes have weight 1, red nodes have weight 2.],
+  caption: [Unit disk mapping of the Petersen graph. Blue: weight 1, red: weight 2.],
 ) <fig:petersen-mapping>
 
 *Weighted Extension.* For MWIS, copy lines use weighted vertices (weights 1, 2, or 3). Source weights $< 1$ are added to designated "pin" vertices.
