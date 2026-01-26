@@ -1,4 +1,7 @@
 //! Runtime reduction graph for discovering and executing reduction paths.
+//!
+//! The graph uses type-erased names (e.g., "SpinGlass" instead of "SpinGlass<i32>")
+//! for topology, allowing path finding regardless of weight type parameters.
 
 use petgraph::algo::all_simple_paths;
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -18,7 +21,7 @@ pub struct ReductionGraphJson {
 /// A node in the reduction graph JSON.
 #[derive(Debug, Clone, Serialize)]
 pub struct NodeJson {
-    /// Unique identifier for the node.
+    /// Unique identifier for the node (base type name).
     pub id: String,
     /// Display label for the node.
     pub label: String,
@@ -40,11 +43,8 @@ pub struct EdgeJson {
 /// A path through the reduction graph.
 #[derive(Debug, Clone)]
 pub struct ReductionPath {
-    /// Human-readable type names in the path.
+    /// Human-readable type names in the path (base names without type parameters).
     pub type_names: Vec<&'static str>,
-    /// Type IDs for each step (reserved for future use).
-    #[allow(dead_code)]
-    type_ids: Vec<TypeId>,
 }
 
 impl ReductionPath {
@@ -74,45 +74,57 @@ impl ReductionPath {
 }
 
 /// Runtime graph of all registered reductions.
+///
+/// Uses type-erased names for the graph topology, so `MaxCut<i32>` and `MaxCut<f64>`
+/// map to the same node "MaxCut". This allows finding reduction paths regardless
+/// of weight type parameters.
 pub struct ReductionGraph {
-    graph: DiGraph<TypeId, ()>,
-    type_names: HashMap<TypeId, &'static str>,
-    node_indices: HashMap<TypeId, NodeIndex>,
+    /// Graph with base type names as node data.
+    graph: DiGraph<&'static str, ()>,
+    /// Map from base type name to node index.
+    name_indices: HashMap<&'static str, NodeIndex>,
+    /// Map from TypeId to base type name (for generic API compatibility).
+    type_to_name: HashMap<TypeId, &'static str>,
 }
 
 impl ReductionGraph {
     /// Create a new reduction graph with all registered reductions.
     pub fn new() -> Self {
         let mut graph = DiGraph::new();
-        let mut type_names = HashMap::new();
-        let mut node_indices = HashMap::new();
+        let mut name_indices = HashMap::new();
+        let mut type_to_name = HashMap::new();
 
         // Register all problem types
-        Self::register_types(&mut graph, &mut type_names, &mut node_indices);
+        Self::register_types(&mut graph, &mut name_indices, &mut type_to_name);
 
         // Register all reductions as edges
-        Self::register_reductions(&mut graph, &node_indices);
+        Self::register_reductions(&mut graph, &name_indices);
 
         Self {
             graph,
-            type_names,
-            node_indices,
+            name_indices,
+            type_to_name,
         }
     }
 
     fn register_types(
-        graph: &mut DiGraph<TypeId, ()>,
-        type_names: &mut HashMap<TypeId, &'static str>,
-        node_indices: &mut HashMap<TypeId, NodeIndex>,
+        graph: &mut DiGraph<&'static str, ()>,
+        name_indices: &mut HashMap<&'static str, NodeIndex>,
+        type_to_name: &mut HashMap<TypeId, &'static str>,
     ) {
-        // Add all problem types
+        // Register a problem type with its base name.
+        // Multiple concrete types can map to the same base name.
         macro_rules! register {
-            ($($ty:ty => $name:expr),* $(,)?) => {
+            ($($ty:ty => $base_name:expr),* $(,)?) => {
                 $(
-                    let id = TypeId::of::<$ty>();
-                    let idx = graph.add_node(id);
-                    type_names.insert(id, $name);
-                    node_indices.insert(id, idx);
+                    // Map TypeId to base name
+                    type_to_name.insert(TypeId::of::<$ty>(), $base_name);
+
+                    // Only add node if not already present
+                    if !name_indices.contains_key($base_name) {
+                        let idx = graph.add_node($base_name);
+                        name_indices.insert($base_name, idx);
+                    }
                 )*
             };
         }
@@ -123,83 +135,100 @@ impl ReductionGraph {
         use crate::models::set::*;
         use crate::models::specialized::*;
 
+        // Register problem types - multiple concrete types can share a base name
         register! {
-            IndependentSet<i32> => "IndependentSet<i32>",
-            VertexCovering<i32> => "VertexCovering<i32>",
-            SetPacking<i32> => "SetPacking<i32>",
-            SetCovering<i32> => "SetCovering<i32>",
-            Matching<i32> => "Matching<i32>",
-            DominatingSet<i32> => "DominatingSet<i32>",
+            // Graph problems
+            IndependentSet<i32> => "IndependentSet",
+            IndependentSet<f64> => "IndependentSet",
+            VertexCovering<i32> => "VertexCovering",
+            VertexCovering<f64> => "VertexCovering",
+            MaxCut<i32> => "MaxCut",
+            MaxCut<f64> => "MaxCut",
+            Matching<i32> => "Matching",
+            DominatingSet<i32> => "DominatingSet",
             Coloring => "Coloring",
-            MaxCut<i32> => "MaxCut<i32>",
-            SpinGlass<f64> => "SpinGlass<f64>",
-            QUBO<f64> => "QUBO<f64>",
-            Satisfiability<i32> => "Satisfiability<i32>",
-            KSatisfiability<3, i32> => "KSatisfiability<3, i32>",
-            CircuitSAT<i32> => "CircuitSAT<i32>",
+            // Set problems
+            SetPacking<i32> => "SetPacking",
+            SetCovering<i32> => "SetCovering",
+            // Optimization problems
+            SpinGlass<i32> => "SpinGlass",
+            SpinGlass<f64> => "SpinGlass",
+            QUBO<f64> => "QUBO",
+            // Satisfiability problems
+            Satisfiability<i32> => "Satisfiability",
+            KSatisfiability<3, i32> => "KSatisfiability",
+            CircuitSAT<i32> => "CircuitSAT",
+            // Specialized
             Factoring => "Factoring",
         }
     }
 
     fn register_reductions(
-        graph: &mut DiGraph<TypeId, ()>,
-        node_indices: &HashMap<TypeId, NodeIndex>,
+        graph: &mut DiGraph<&'static str, ()>,
+        name_indices: &HashMap<&'static str, NodeIndex>,
     ) {
-        use crate::models::graph::*;
-        use crate::models::optimization::*;
-        use crate::models::satisfiability::*;
-        use crate::models::set::*;
-        use crate::models::specialized::*;
-
+        // Add an edge between two problem types by name.
         macro_rules! add_edge {
-            ($src:ty => $dst:ty) => {
-                if let (Some(&src), Some(&dst)) = (
-                    node_indices.get(&TypeId::of::<$src>()),
-                    node_indices.get(&TypeId::of::<$dst>()),
-                ) {
-                    graph.add_edge(src, dst, ());
+            ($src:expr => $dst:expr) => {
+                if let (Some(&src), Some(&dst)) = (name_indices.get($src), name_indices.get($dst)) {
+                    // Avoid duplicate edges
+                    if graph.find_edge(src, dst).is_none() {
+                        graph.add_edge(src, dst, ());
+                    }
                 }
             };
         }
 
-        // Register all implemented reductions
-
         // Graph problem reductions
-        add_edge!(IndependentSet<i32> => VertexCovering<i32>);
-        add_edge!(VertexCovering<i32> => IndependentSet<i32>);
-        add_edge!(IndependentSet<i32> => SetPacking<i32>);
-        add_edge!(SetPacking<i32> => IndependentSet<i32>);
-        add_edge!(VertexCovering<i32> => SetCovering<i32>);
-        add_edge!(Matching<i32> => SetPacking<i32>);
+        add_edge!("IndependentSet" => "VertexCovering");
+        add_edge!("VertexCovering" => "IndependentSet");
+        add_edge!("IndependentSet" => "SetPacking");
+        add_edge!("SetPacking" => "IndependentSet");
+        add_edge!("VertexCovering" => "SetCovering");
+        add_edge!("Matching" => "SetPacking");
 
         // Optimization reductions
-        add_edge!(SpinGlass<f64> => QUBO<f64>);
-        add_edge!(QUBO<f64> => SpinGlass<f64>);
-        add_edge!(MaxCut<i32> => SpinGlass<f64>);
-        add_edge!(SpinGlass<f64> => MaxCut<i32>);
+        add_edge!("SpinGlass" => "QUBO");
+        add_edge!("QUBO" => "SpinGlass");
+        add_edge!("MaxCut" => "SpinGlass");
+        add_edge!("SpinGlass" => "MaxCut");
 
         // SAT-based reductions
-        add_edge!(Satisfiability<i32> => KSatisfiability<3, i32>);
-        add_edge!(KSatisfiability<3, i32> => Satisfiability<i32>);
-        add_edge!(Satisfiability<i32> => IndependentSet<i32>);
-        add_edge!(Satisfiability<i32> => Coloring);
-        add_edge!(Satisfiability<i32> => DominatingSet<i32>);
+        add_edge!("Satisfiability" => "KSatisfiability");
+        add_edge!("KSatisfiability" => "Satisfiability");
+        add_edge!("Satisfiability" => "IndependentSet");
+        add_edge!("Satisfiability" => "Coloring");
+        add_edge!("Satisfiability" => "DominatingSet");
 
         // Circuit reductions
-        add_edge!(CircuitSAT<i32> => SpinGlass<f64>);
-        add_edge!(Factoring => CircuitSAT<i32>);
+        add_edge!("CircuitSAT" => "SpinGlass");
+        add_edge!("Factoring" => "CircuitSAT");
     }
 
     /// Find all paths from source to target type.
+    ///
+    /// Uses type-erased names, so `find_paths::<MaxCut<i32>, SpinGlass<f64>>()`
+    /// will find paths even though the weight types differ.
     pub fn find_paths<S: 'static, T: 'static>(&self) -> Vec<ReductionPath> {
-        let src_id = TypeId::of::<S>();
-        let dst_id = TypeId::of::<T>();
+        let src_name = match self.type_to_name.get(&TypeId::of::<S>()) {
+            Some(&name) => name,
+            None => return vec![],
+        };
+        let dst_name = match self.type_to_name.get(&TypeId::of::<T>()) {
+            Some(&name) => name,
+            None => return vec![],
+        };
 
-        let src_idx = match self.node_indices.get(&src_id) {
+        self.find_paths_by_name(src_name, dst_name)
+    }
+
+    /// Find all paths between problem types by name.
+    pub fn find_paths_by_name(&self, src: &str, dst: &str) -> Vec<ReductionPath> {
+        let src_idx = match self.name_indices.get(src) {
             Some(&idx) => idx,
             None => return vec![],
         };
-        let dst_idx = match self.node_indices.get(&dst_id) {
+        let dst_idx = match self.name_indices.get(dst) {
             Some(&idx) => idx,
             None => return vec![],
         };
@@ -210,15 +239,9 @@ impl ReductionGraph {
         paths
             .into_iter()
             .map(|path| {
-                let type_ids: Vec<TypeId> = path.iter().map(|&idx| self.graph[idx]).collect();
-                let type_names: Vec<&'static str> = type_ids
-                    .iter()
-                    .filter_map(|id| self.type_names.get(id).copied())
-                    .collect();
-                ReductionPath {
-                    type_names,
-                    type_ids,
-                }
+                let type_names: Vec<&'static str> =
+                    path.iter().map(|&idx| self.graph[idx]).collect();
+                ReductionPath { type_names }
             })
             .collect()
     }
@@ -229,29 +252,45 @@ impl ReductionGraph {
         paths.into_iter().min_by_key(|p| p.len())
     }
 
+    /// Find the shortest path by name.
+    pub fn find_shortest_path_by_name(&self, src: &str, dst: &str) -> Option<ReductionPath> {
+        let paths = self.find_paths_by_name(src, dst);
+        paths.into_iter().min_by_key(|p| p.len())
+    }
+
     /// Check if a direct reduction exists from S to T.
     pub fn has_direct_reduction<S: 'static, T: 'static>(&self) -> bool {
-        let src_id = TypeId::of::<S>();
-        let dst_id = TypeId::of::<T>();
+        let src_name = match self.type_to_name.get(&TypeId::of::<S>()) {
+            Some(&name) => name,
+            None => return false,
+        };
+        let dst_name = match self.type_to_name.get(&TypeId::of::<T>()) {
+            Some(&name) => name,
+            None => return false,
+        };
 
-        if let (Some(&src_idx), Some(&dst_idx)) = (
-            self.node_indices.get(&src_id),
-            self.node_indices.get(&dst_id),
-        ) {
+        self.has_direct_reduction_by_name(src_name, dst_name)
+    }
+
+    /// Check if a direct reduction exists by name.
+    pub fn has_direct_reduction_by_name(&self, src: &str, dst: &str) -> bool {
+        if let (Some(&src_idx), Some(&dst_idx)) =
+            (self.name_indices.get(src), self.name_indices.get(dst))
+        {
             self.graph.find_edge(src_idx, dst_idx).is_some()
         } else {
             false
         }
     }
 
-    /// Get all registered problem type names.
+    /// Get all registered problem type names (base names).
     pub fn problem_types(&self) -> Vec<&'static str> {
-        self.type_names.values().copied().collect()
+        self.name_indices.keys().copied().collect()
     }
 
     /// Get the number of registered problem types.
     pub fn num_types(&self) -> usize {
-        self.type_names.len()
+        self.name_indices.len()
     }
 
     /// Get the number of registered reductions.
@@ -270,40 +309,33 @@ impl ReductionGraph {
     /// Export the reduction graph as a JSON-serializable structure.
     pub fn to_json(&self) -> ReductionGraphJson {
         // Collect all edges first to determine bidirectionality
-        let mut edge_set: HashMap<(String, String), bool> = HashMap::new();
+        let mut edge_set: HashMap<(&str, &str), bool> = HashMap::new();
 
         for edge in self.graph.edge_indices() {
             if let Some((src_idx, dst_idx)) = self.graph.edge_endpoints(edge) {
-                let src_id = self.graph[src_idx];
-                let dst_id = self.graph[dst_idx];
+                let src_name = self.graph[src_idx];
+                let dst_name = self.graph[dst_idx];
 
-                if let (Some(&src_name), Some(&dst_name)) =
-                    (self.type_names.get(&src_id), self.type_names.get(&dst_id))
-                {
-                    let src = src_name.to_string();
-                    let dst = dst_name.to_string();
-
-                    // Check if reverse edge exists
-                    let reverse_key = (dst.clone(), src.clone());
-                    if edge_set.contains_key(&reverse_key) {
-                        // Mark the existing edge as bidirectional
-                        edge_set.insert(reverse_key, true);
-                    } else {
-                        edge_set.insert((src, dst), false);
-                    }
+                // Check if reverse edge exists
+                let reverse_key = (dst_name, src_name);
+                if edge_set.contains_key(&reverse_key) {
+                    // Mark the existing edge as bidirectional
+                    edge_set.insert(reverse_key, true);
+                } else {
+                    edge_set.insert((src_name, dst_name), false);
                 }
             }
         }
 
-        // Build nodes with categories (layout is handled by visualization tools)
+        // Build nodes with categories
         let nodes: Vec<NodeJson> = self
-            .type_names
-            .values()
+            .name_indices
+            .keys()
             .map(|&name| {
                 let category = Self::categorize_type(name);
                 NodeJson {
                     id: name.to_string(),
-                    label: Self::simplify_type_name(name),
+                    label: name.to_string(), // Base name is already simplified
                     category: category.to_string(),
                 }
             })
@@ -313,8 +345,8 @@ impl ReductionGraph {
         let edges: Vec<EdgeJson> = edge_set
             .into_iter()
             .map(|((src, dst), bidirectional)| EdgeJson {
-                source: src,
-                target: dst,
+                source: src.to_string(),
+                target: dst.to_string(),
                 bidirectional,
             })
             .collect();
@@ -359,15 +391,6 @@ impl ReductionGraph {
         }
     }
 
-    /// Simplify a type name for display (remove generic parameters).
-    fn simplify_type_name(name: &str) -> String {
-        // Remove <i32>, <f64>, etc. for cleaner display
-        if let Some(idx) = name.find('<') {
-            name[..idx].to_string()
-        } else {
-            name.to_string()
-        }
-    }
 }
 
 #[cfg(test)]
@@ -412,10 +435,39 @@ mod tests {
     #[test]
     fn test_no_path() {
         let graph = ReductionGraph::new();
-        // No path between IS<i32> and QUBO<f64> (different weight types)
+        // No path between IndependentSet and QUBO (disconnected in graph topology)
         let paths =
             graph.find_paths::<IndependentSet<i32>, crate::models::optimization::QUBO<f64>>();
         assert!(paths.is_empty());
+    }
+
+    #[test]
+    fn test_type_erased_paths() {
+        let graph = ReductionGraph::new();
+
+        // Different weight types should find the same path (type-erased)
+        let paths_i32 =
+            graph.find_paths::<crate::models::graph::MaxCut<i32>, crate::models::optimization::SpinGlass<i32>>();
+        let paths_f64 =
+            graph.find_paths::<crate::models::graph::MaxCut<f64>, crate::models::optimization::SpinGlass<f64>>();
+
+        // Both should find paths since we use type-erased names
+        assert!(!paths_i32.is_empty());
+        assert!(!paths_f64.is_empty());
+        assert_eq!(paths_i32[0].type_names, paths_f64[0].type_names);
+    }
+
+    #[test]
+    fn test_find_paths_by_name() {
+        let graph = ReductionGraph::new();
+
+        let paths = graph.find_paths_by_name("MaxCut", "SpinGlass");
+        assert!(!paths.is_empty());
+        assert_eq!(paths[0].len(), 1); // Direct path
+
+        let paths = graph.find_paths_by_name("Factoring", "SpinGlass");
+        assert!(!paths.is_empty());
+        assert_eq!(paths[0].len(), 2); // Factoring -> CircuitSAT -> SpinGlass
     }
 
     #[test]
@@ -547,23 +599,6 @@ mod tests {
     }
 
     #[test]
-    fn test_simplify_type_name() {
-        assert_eq!(
-            ReductionGraph::simplify_type_name("IndependentSet<i32>"),
-            "IndependentSet"
-        );
-        assert_eq!(
-            ReductionGraph::simplify_type_name("SpinGlass<f64>"),
-            "SpinGlass"
-        );
-        assert_eq!(ReductionGraph::simplify_type_name("Coloring"), "Coloring");
-        assert_eq!(
-            ReductionGraph::simplify_type_name("KSatisfiability<3, i32>"),
-            "KSatisfiability"
-        );
-    }
-
-    #[test]
     fn test_sat_based_reductions() {
         use crate::models::graph::Coloring;
         use crate::models::graph::DominatingSet;
@@ -649,7 +684,6 @@ mod tests {
     fn test_empty_path_source_target() {
         let path = ReductionPath {
             type_names: vec![],
-            type_ids: vec![],
         };
         assert!(path.is_empty());
         assert_eq!(path.len(), 0);
@@ -660,13 +694,12 @@ mod tests {
     #[test]
     fn test_single_node_path() {
         let path = ReductionPath {
-            type_names: vec!["IndependentSet<i32>"],
-            type_ids: vec![std::any::TypeId::of::<IndependentSet<i32>>()],
+            type_names: vec!["IndependentSet"],
         };
         assert!(!path.is_empty());
         assert_eq!(path.len(), 0); // No reductions, just one type
-        assert_eq!(path.source(), Some("IndependentSet<i32>"));
-        assert_eq!(path.target(), Some("IndependentSet<i32>"));
+        assert_eq!(path.source(), Some("IndependentSet"));
+        assert_eq!(path.target(), Some("IndependentSet"));
     }
 
     #[test]
@@ -789,24 +822,6 @@ mod tests {
         assert!(
             factoring_circuit_unidir,
             "Factoring -> CircuitSAT should be unidirectional"
-        );
-    }
-
-    #[test]
-    fn test_simplify_type_name_edge_cases() {
-        // Empty string
-        assert_eq!(ReductionGraph::simplify_type_name(""), "");
-
-        // Multiple generic parameters
-        assert_eq!(
-            ReductionGraph::simplify_type_name("HashMap<String, Vec<i32>>"),
-            "HashMap"
-        );
-
-        // Nested generics
-        assert_eq!(
-            ReductionGraph::simplify_type_name("Option<Result<T, E>>"),
-            "Option"
         );
     }
 }

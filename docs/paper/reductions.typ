@@ -49,25 +49,26 @@
 }
 
 // Optimized layout: SAT branch (left) + Physics branch (right)
+// Node IDs use base names without type parameters
 #let node-positions = (
   // Row 0: Root nodes
-  "Satisfiability<i32>": (-1.5, 0),
+  "Satisfiability": (-1.5, 0),
   "Factoring": (2.5, 0),
   // Row 1: Direct children of roots
-  "KSatisfiability<3, i32>": (-2.5, 1),
-  "IndependentSet<i32>": (-0.5, 1),
+  "KSatisfiability": (-2.5, 1),
+  "IndependentSet": (-0.5, 1),
   "Coloring": (0.5, 1),
-  "DominatingSet<i32>": (-1.5, 1),
-  "CircuitSAT<i32>": (2.5, 1),
+  "DominatingSet": (-1.5, 1),
+  "CircuitSAT": (2.5, 1),
   // Row 2: Next level
-  "VertexCovering<i32>": (-0.5, 2),
-  "Matching<i32>": (-2, 2),
-  "SpinGlass<f64>": (2.5, 2),
+  "VertexCovering": (-0.5, 2),
+  "Matching": (-2, 2),
+  "SpinGlass": (2.5, 2),
   // Row 3: Leaf nodes
-  "SetPacking<i32>": (-1.5, 3),
-  "SetCovering<i32>": (0.5, 3),
-  "MaxCut<i32>": (1.5, 3),
-  "QUBO<f64>": (3.5, 3),
+  "SetPacking": (-1.5, 3),
+  "SetCovering": (0.5, 3),
+  "MaxCut": (1.5, 3),
+  "QUBO": (3.5, 3),
 )
 
 #align(center)[
