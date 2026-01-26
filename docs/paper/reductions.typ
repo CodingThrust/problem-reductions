@@ -70,6 +70,7 @@
   "SetCovering": (0.5, 3),
   "MaxCut": (1.5, 3),
   "QUBO": (3.5, 3),
+  "GridGraph": (0.5, 2),
 )
 
 #align(center)[
@@ -148,6 +149,10 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #definition("Matching")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
+]
+
+#definition("Unit Disk Graph (Grid Graph)")[
+  A graph $G = (V, E)$ where vertices $V$ are points on a 2D lattice and $(u, v) in E$ iff the Euclidean distance $d(u, v) <= r$ for some radius $r$. A _King's subgraph_ uses the King's graph lattice (8-connectivity square grid) with $r approx 1.5$.
 ]
 
 == Set Problems
@@ -400,6 +405,40 @@ let (p, q) = problem.read_factors(&extracted);
 assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
 ```
 
+== Unit Disk Mapping
+
+#theorem[
+  *(IS $arrow.r$ GridGraph IS)* @cai2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a unit disk graph (King's subgraph) with polynomial overhead.
+]
+
+#proof[
+  _Construction (Copy-Line Method)._ Given $G = (V, E)$ with $n = |V|$:
+
+  1. _Vertex ordering:_ Compute a path decomposition of $G$ to obtain vertex order $(v_1, ..., v_n)$. The pathwidth determines the grid height.
+
+  2. _Copy lines:_ For each vertex $v_i$, create an L-shaped "copy line" on the grid:
+  $ "CopyLine"(v_i) = {(r, c_i) : r in [r_"start", r_"stop"]} union {(r_i, c) : c in [c_i, c_"stop"]} $
+  where positions are determined by the vertex order and edge structure.
+
+  3. _Crossing gadgets:_ When two copy lines cross (corresponding to an edge $(v_i, v_j) in E$), insert a crossing gadget that enforces: at most one of the two lines can be "active" (all vertices selected).
+
+  4. _MIS correspondence:_ Each copy line has MIS contribution $approx |"line"|/2$. The gadgets add overhead $Delta$ such that:
+  $ "MIS"(G_"grid") = "MIS"(G) + Delta $
+
+  _Solution extraction._ For each copy line, check if the majority of its vertices are in the grid MIS. Map back: $v_i in S$ iff copy line $i$ is active.
+
+  _Correctness._ ($arrow.r.double$) An IS in $G$ maps to selecting all copy line vertices for included vertices; crossing gadgets ensure no conflicts. ($arrow.l.double$) A grid MIS maps back to an IS by the copy line activity rule.
+]
+
+*Example: Petersen Graph.* The Petersen graph ($n=10$, MIS$=4$) maps to a $approx 30 times 50$ grid graph. Solving MIS on the grid and subtracting the overhead recovers MIS$=4$.
+
+*Weighted Extension.* For MWIS, copy lines use weighted vertices (weights 1, 2, or 3). Source weights $< 1$ are added to designated "pin" vertices.
+
+*QUBO Mapping.* A QUBO problem $min bold(x)^top Q bold(x)$ maps to weighted MIS on a grid by:
+1. Creating copy lines for each variable
+2. Using XOR gadgets for couplings: $x_"out" = not(x_1 xor x_2)$
+3. Adding weights for linear and quadratic terms
+
 = Summary <sec:summary>
 
 #let gray = rgb("#e8e8e8")
@@ -424,8 +463,9 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
     [SpinGlass $arrow.l.r$ MaxCut], [$O(n + |J|)$], [@barahona1982 @lucas2014],
     table.cell(fill: gray)[Coloring $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| dot k + |E| dot k)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[Factoring $arrow.r$ ILP], table.cell(fill: gray)[$O(m n)$], table.cell(fill: gray)[—],
+    [IS $arrow.r$ GridGraph IS], [$O(n^2 dot "pw")$], [@cai2023],
   ),
-  caption: [Summary of reductions. Gray rows indicate trivial reductions.]
+  caption: [Summary of reductions. Gray rows indicate trivial reductions. "pw" denotes pathwidth.]
 ) <tab:summary>
 
 #bibliography("references.bib", style: "ieee")
