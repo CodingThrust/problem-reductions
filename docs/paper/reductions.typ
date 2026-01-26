@@ -48,32 +48,23 @@
   category-colors.at(category, default: rgb("#f0f0f0"))
 }
 
-// Automatic layered layout based on problem hierarchy
+// Layered layout positions (computed manually based on reduction hierarchy)
 #let node-positions = (
-  // Layer 0: Root (specialized entry point)
   "Factoring": (0, 0),
-  // Layer 1: Circuit-level
   "CircuitSAT": (0, 1),
-  // Layer 2: SAT and optimization
   "Satisfiability": (-1.5, 2),
   "KSatisfiability": (-2.5, 2),
   "SpinGlass": (1, 2),
   "QUBO": (2, 2),
-  // Layer 3: Graph problems
   "IndependentSet": (-2, 3),
   "VertexCovering": (-0.5, 3),
   "MaxCut": (1, 3),
   "Coloring": (2.5, 3),
   "DominatingSet": (-3.5, 3),
-  "Matching": (-3, 4),
-  // Layer 4: Set problems
+  "Matching": (-2.5, 4),
   "SetPacking": (-1, 4),
   "SetCovering": (0.5, 4),
 )
-
-#let get-position(label) = {
-  node-positions.at(label, default: (0, 0))
-}
 
 #align(center)[
   #text(size: 16pt, weight: "bold")[Problem Reductions: Models and Transformations]
@@ -100,17 +91,17 @@ We use the following notation throughout. An _undirected graph_ $G = (V, E)$ con
 
 #figure(
   box(
-    width: 60%,
+    width: 70%,
     align(center,
       diagram(
-        spacing: (15mm, 12mm),
+        spacing: (18mm, 14mm),
         node-stroke: 0.6pt,
         edge-stroke: 0.6pt,
         node-corner-radius: 2pt,
         node-inset: 3pt,
         ..graph-data.nodes.map(n => {
           let color = get-color(n.category)
-          let pos = get-position(n.label)
+          let pos = node-positions.at(n.label, default: (0, 0))
           node(pos, text(size: 7pt)[#n.label], fill: color, name: label(n.id))
         }),
         ..graph-data.edges.map(e => {
