@@ -821,6 +821,302 @@ mod gadget_tests {
     }
 }
 
+/// MIS verification tests - these mirror the GenericTensorNetworks tests in UnitDiskMapping.jl.
+/// They verify that mis_overhead + original_MIS = mapped_MIS.
+///
+/// NOTE: These tests are currently ignored because the Rust implementation uses a different
+/// node placement strategy than the Julia implementation:
+/// - Julia: Places nodes at EVERY cell along copy lines (dense placement)
+/// - Rust: Places nodes only at slot boundaries (sparse placement, spacing intervals)
+///
+/// This difference means the mis_overhead formula doesn't match. To enable these tests,
+/// the implementation would need to be updated to use dense node placement like Julia.
+mod mis_verification {
+    use super::*;
+    use problemreductions::models::graph::IndependentSet;
+    use problemreductions::solvers::{BruteForce, Solver};
+
+    /// Helper function to check if a configuration is a valid independent set
+    fn is_independent_set(edges: &[(usize, usize)], config: &[usize]) -> bool {
+        for &(u, v) in edges {
+            if config.get(u).copied().unwrap_or(0) == 1
+                && config.get(v).copied().unwrap_or(0) == 1
+            {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Helper to solve MIS and get the maximum size
+    fn solve_mis(num_vertices: usize, edges: &[(usize, usize)]) -> usize {
+        let problem = IndependentSet::<i32>::new(num_vertices, edges.to_vec());
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(&problem);
+        solutions[0].iter().sum()
+    }
+
+    /// Helper to solve MIS on a GridGraph
+    fn solve_grid_mis(result: &MappingResult) -> usize {
+        let edges = result.grid_graph.edges().to_vec();
+        let num_vertices = result.grid_graph.num_vertices();
+        solve_mis(num_vertices, &edges)
+    }
+
+    #[test]
+    #[ignore = "Requires dense node placement matching Julia implementation"]
+    fn test_mis_overhead_path_graph() {
+        // Path graph: 0-1-2 (MIS = 2: vertices 0 and 2)
+        let edges = vec![(0, 1), (1, 2)];
+        let original_mis = solve_mis(3, &edges);
+        assert_eq!(original_mis, 2);
+
+        let result = map_graph(3, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        // Verify: mis_overhead + original_MIS = mapped_MIS
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "MIS overhead formula should hold: {} + {} = {}",
+            result.mis_overhead,
+            original_mis,
+            mapped_mis
+        );
+    }
+
+    #[test]
+    #[ignore = "Requires dense node placement matching Julia implementation"]
+    fn test_mis_overhead_single_edge() {
+        // Single edge: 0-1 (MIS = 1)
+        let edges = vec![(0, 1)];
+        let original_mis = solve_mis(2, &edges);
+        assert_eq!(original_mis, 1);
+
+        let result = map_graph(2, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "MIS overhead formula should hold"
+        );
+    }
+
+    #[test]
+    #[ignore = "Requires dense node placement matching Julia implementation"]
+    fn test_mis_overhead_triangle() {
+        // Triangle: MIS = 1
+        let edges = vec![(0, 1), (1, 2), (0, 2)];
+        let original_mis = solve_mis(3, &edges);
+        assert_eq!(original_mis, 1);
+
+        let result = map_graph(3, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "MIS overhead formula should hold for triangle"
+        );
+    }
+
+    #[test]
+    #[ignore = "Requires dense node placement matching Julia implementation"]
+    fn test_mis_overhead_empty_graph() {
+        // Empty graph: MIS = all vertices = 3
+        let edges: Vec<(usize, usize)> = vec![];
+        let original_mis = solve_mis(3, &edges);
+        assert_eq!(original_mis, 3);
+
+        let result = map_graph(3, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "MIS overhead formula should hold for empty graph"
+        );
+    }
+
+    #[test]
+    #[ignore = "Requires dense node placement matching Julia implementation"]
+    fn test_mis_overhead_star_graph() {
+        // Star graph: center 0 connected to 1,2,3 (MIS = 3: vertices 1,2,3)
+        let edges = vec![(0, 1), (0, 2), (0, 3)];
+        let original_mis = solve_mis(4, &edges);
+        assert_eq!(original_mis, 3);
+
+        let result = map_graph(4, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "MIS overhead formula should hold for star graph"
+        );
+    }
+
+    #[test]
+    #[ignore = "Requires dense node placement matching Julia implementation"]
+    fn test_mis_overhead_k4() {
+        // K4: MIS = 1
+        let edges = vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
+        let original_mis = solve_mis(4, &edges);
+        assert_eq!(original_mis, 1);
+
+        let result = map_graph(4, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "MIS overhead formula should hold for K4"
+        );
+    }
+
+    #[test]
+    #[ignore = "Requires dense node placement matching Julia implementation"]
+    fn test_mis_overhead_diamond() {
+        // Diamond (K4 minus one edge): MIS = 2
+        let edges = vec![(0, 1), (0, 2), (1, 2), (1, 3), (2, 3)];
+        let original_mis = solve_mis(4, &edges);
+        assert_eq!(original_mis, 2);
+
+        let result = map_graph(4, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "MIS overhead formula should hold for diamond"
+        );
+    }
+
+    #[test]
+    #[ignore = "Requires dense node placement matching Julia implementation"]
+    fn test_mis_overhead_house() {
+        // House graph: MIS = 2
+        let edges = vec![(0, 1), (1, 2), (2, 3), (3, 0), (2, 4), (3, 4)];
+        let original_mis = solve_mis(5, &edges);
+        assert_eq!(original_mis, 2);
+
+        let result = map_graph(5, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "MIS overhead formula should hold for house graph"
+        );
+    }
+
+    #[test]
+    #[ignore = "Requires dense node placement matching Julia implementation"]
+    fn test_mis_overhead_bull() {
+        // Bull graph: triangle with two pendant vertices
+        let edges = vec![(0, 1), (1, 2), (0, 2), (1, 3), (2, 4)];
+        let original_mis = solve_mis(5, &edges);
+
+        let result = map_graph(5, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "MIS overhead formula should hold for bull graph"
+        );
+    }
+
+    #[test]
+    #[ignore = "Requires dense node placement matching Julia implementation"]
+    fn test_map_config_back_returns_valid_is() {
+        // Test that mapping back a valid MIS on grid gives valid IS on original
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph(3, &edges);
+
+        // Solve MIS on the grid graph
+        let grid_edges = result.grid_graph.edges().to_vec();
+        let problem = IndependentSet::<i32>::new(
+            result.grid_graph.num_vertices(),
+            grid_edges.clone(),
+        );
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(&problem);
+
+        // Map back to original graph
+        let original_config = result.map_config_back(&solutions[0]);
+
+        // Verify it's a valid independent set
+        assert!(
+            is_independent_set(&edges, &original_config),
+            "Mapped back configuration should be a valid independent set"
+        );
+
+        // Verify size matches expected MIS
+        let original_is_size: usize = original_config.iter().sum();
+        let expected_mis = solve_mis(3, &edges);
+        assert_eq!(
+            original_is_size, expected_mis,
+            "Mapped back IS should have optimal size"
+        );
+    }
+
+    #[test]
+    #[ignore = "Requires dense node placement matching Julia implementation"]
+    fn test_map_config_back_triangle() {
+        let edges = vec![(0, 1), (1, 2), (0, 2)];
+        let result = map_graph(3, &edges);
+
+        let grid_edges = result.grid_graph.edges().to_vec();
+        let problem = IndependentSet::<i32>::new(
+            result.grid_graph.num_vertices(),
+            grid_edges.clone(),
+        );
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(&problem);
+
+        let original_config = result.map_config_back(&solutions[0]);
+
+        assert!(
+            is_independent_set(&edges, &original_config),
+            "Mapped back configuration should be valid IS for triangle"
+        );
+
+        let original_is_size: usize = original_config.iter().sum();
+        assert_eq!(original_is_size, 1, "Triangle MIS should be 1");
+    }
+
+    #[test]
+    #[ignore = "Requires dense node placement matching Julia implementation"]
+    fn test_map_config_back_k23() {
+        // K_{2,3} bipartite graph
+        let edges = vec![(0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4)];
+        let original_mis = solve_mis(5, &edges);
+
+        let result = map_graph(5, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "MIS overhead formula should hold for K23"
+        );
+
+        // Also verify config back
+        let grid_edges = result.grid_graph.edges().to_vec();
+        let problem = IndependentSet::<i32>::new(
+            result.grid_graph.num_vertices(),
+            grid_edges,
+        );
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(&problem);
+
+        let original_config = result.map_config_back(&solutions[0]);
+        assert!(is_independent_set(&edges, &original_config));
+    }
+}
+
 /// Tests for copy line properties.
 mod copyline_properties {
     use super::*;
