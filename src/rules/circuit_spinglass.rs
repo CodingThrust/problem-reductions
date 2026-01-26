@@ -969,3 +969,20 @@ mod tests {
         assert!(sg.num_spins() >= 3); // At least c, x, y
     }
 }
+
+// Register reduction with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "CircuitSAT",
+        target_name: "SpinGlass",
+        source_graph: "Circuit",
+        target_graph: "SpinGlassGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_spins", poly!(num_assignments)),
+            ("num_interactions", poly!(num_assignments)),
+        ]),
+    }
+}

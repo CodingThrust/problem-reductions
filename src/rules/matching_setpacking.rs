@@ -261,3 +261,20 @@ mod tests {
         assert_eq!(sp_solutions.len(), 3);
     }
 }
+
+// Register reduction with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "Matching",
+        target_name: "SetPacking",
+        source_graph: "SimpleGraph",
+        target_graph: "SetSystem",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_sets", poly!(num_edges)),
+            ("num_elements", poly!(num_vertices)),
+        ]),
+    }
+}

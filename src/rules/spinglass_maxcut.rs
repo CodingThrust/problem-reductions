@@ -256,3 +256,33 @@ mod tests {
         assert_eq!(interactions.len(), 2);
     }
 }
+
+// Register reductions with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "MaxCut",
+        target_name: "SpinGlass",
+        source_graph: "SimpleGraph",
+        target_graph: "SpinGlassGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_spins", poly!(num_vertices)),
+            ("num_interactions", poly!(num_edges)),
+        ]),
+    }
+}
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "SpinGlass",
+        target_name: "MaxCut",
+        source_graph: "SpinGlassGraph",
+        target_graph: "SimpleGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_spins)),
+            ("num_edges", poly!(num_interactions)),
+        ]),
+    }
+}

@@ -26,8 +26,8 @@ impl ReductionOverhead {
 }
 
 
-/// A registered reduction entry.
-#[derive(Clone, Debug)]
+/// A registered reduction entry for static inventory registration.
+/// Uses function pointer to lazily create the overhead (avoids static allocation issues).
 pub struct ReductionEntry {
     /// Base name of source problem (e.g., "IndependentSet").
     pub source_name: &'static str,
@@ -37,8 +37,27 @@ pub struct ReductionEntry {
     pub source_graph: &'static str,
     /// Graph type of target problem.
     pub target_graph: &'static str,
-    /// Overhead information.
-    pub overhead: ReductionOverhead,
+    /// Function to create overhead information (lazy evaluation for static context).
+    pub overhead_fn: fn() -> ReductionOverhead,
+}
+
+impl ReductionEntry {
+    /// Get the overhead by calling the function.
+    pub fn overhead(&self) -> ReductionOverhead {
+        (self.overhead_fn)()
+    }
+}
+
+impl std::fmt::Debug for ReductionEntry {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("ReductionEntry")
+            .field("source_name", &self.source_name)
+            .field("target_name", &self.target_name)
+            .field("source_graph", &self.source_graph)
+            .field("target_graph", &self.target_graph)
+            .field("overhead", &self.overhead())
+            .finish()
+    }
 }
 
 inventory::collect!(ReductionEntry);

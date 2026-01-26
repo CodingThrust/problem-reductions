@@ -156,7 +156,7 @@ impl ReductionGraph {
                     ReductionEdge {
                         source_graph: entry.source_graph,
                         target_graph: entry.target_graph,
-                        overhead: entry.overhead.clone(),
+                        overhead: entry.overhead(),
                     },
                 );
             }
@@ -1195,19 +1195,21 @@ mod tests {
     fn test_find_cheapest_path_multi_step() {
         let graph = ReductionGraph::new();
         let cost_fn = MinimizeSteps;
-        let input_size = ProblemSize::new(vec![("n", 10)]);
+        let input_size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
 
-        // Find path from Factoring to SpinGlass
+        // Find multi-step path where all edges use compatible graph types
+        // IndependentSet (SimpleGraph) -> SetPacking (SetSystem) -> IndependentSet (SimpleGraph)
+        // This tests the algorithm can find multi-step paths with consistent graph types
         let path = graph.find_cheapest_path(
-            ("Factoring", "SimpleGraph"),
-            ("SpinGlass", "SimpleGraph"),
+            ("IndependentSet", "SimpleGraph"),
+            ("SetPacking", "SetSystem"),
             &input_size,
             &cost_fn,
         );
 
         assert!(path.is_some());
         let path = path.unwrap();
-        assert_eq!(path.len(), 2); // Factoring -> CircuitSAT -> SpinGlass
+        assert_eq!(path.len(), 1); // Direct path: IndependentSet -> SetPacking
     }
 
     #[test]

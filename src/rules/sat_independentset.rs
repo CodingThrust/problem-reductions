@@ -497,3 +497,20 @@ mod tests {
         assert_eq!(literals[1], BoolVar::new(1, true));  // NOT x2
     }
 }
+
+// Register reduction with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "Satisfiability",
+        target_name: "IndependentSet",
+        source_graph: "CNF",
+        target_graph: "SimpleGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(7 * num_clauses)),
+            ("num_edges", poly!(21 * num_clauses)),
+        ]),
+    }
+}

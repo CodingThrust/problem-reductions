@@ -572,3 +572,19 @@ mod tests {
         );
     }
 }
+
+// Register reduction with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "Factoring",
+        target_name: "CircuitSAT",
+        source_graph: "Factoring",
+        target_graph: "Circuit",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_gates", poly!(num_bits_first^2)),
+        ]),
+    }
+}

@@ -207,3 +207,33 @@ mod tests {
         assert_eq!(target_size.get("num_vertices"), Some(5));
     }
 }
+
+// Register reductions with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "IndependentSet",
+        target_name: "VertexCovering",
+        source_graph: "SimpleGraph",
+        target_graph: "SimpleGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_vertices)),
+            ("num_edges", poly!(num_edges)),
+        ]),
+    }
+}
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "VertexCovering",
+        target_name: "IndependentSet",
+        source_graph: "SimpleGraph",
+        target_graph: "SimpleGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_vertices)),
+            ("num_edges", poly!(num_edges)),
+        ]),
+    }
+}

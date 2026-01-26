@@ -246,3 +246,33 @@ mod tests {
         assert_eq!(is_problem.num_edges(), 0);
     }
 }
+
+// Register reductions with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "IndependentSet",
+        target_name: "SetPacking",
+        source_graph: "SimpleGraph",
+        target_graph: "SetSystem",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_sets", poly!(num_vertices)),
+            ("num_elements", poly!(num_vertices)),
+        ]),
+    }
+}
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "SetPacking",
+        target_name: "IndependentSet",
+        source_graph: "SetSystem",
+        target_graph: "SimpleGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_sets)),
+            ("num_edges", poly!(num_sets)),
+        ]),
+    }
+}

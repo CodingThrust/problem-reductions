@@ -647,3 +647,20 @@ mod tests {
         assert_eq!(extracted2, vec![1]);
     }
 }
+
+// Register reduction with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "Satisfiability",
+        target_name: "Coloring",
+        source_graph: "CNF",
+        target_graph: "SimpleGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(3 * num_vars)),
+            ("num_colors", poly!(3)),
+        ]),
+    }
+}

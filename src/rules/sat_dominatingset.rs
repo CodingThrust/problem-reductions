@@ -507,3 +507,20 @@ mod tests {
         assert_eq!(ds_problem.num_edges(), 8);
     }
 }
+
+// Register reduction with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "Satisfiability",
+        target_name: "DominatingSet",
+        source_graph: "CNF",
+        target_graph: "SimpleGraph",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_vars)),
+            ("num_edges", poly!(num_clauses)),
+        ]),
+    }
+}

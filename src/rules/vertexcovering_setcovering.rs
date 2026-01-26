@@ -264,3 +264,20 @@ mod tests {
         }
     }
 }
+
+// Register reduction with inventory for auto-discovery
+use crate::poly;
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+
+inventory::submit! {
+    ReductionEntry {
+        source_name: "VertexCovering",
+        target_name: "SetCovering",
+        source_graph: "SimpleGraph",
+        target_graph: "SetSystem",
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_sets", poly!(num_vertices)),
+            ("num_elements", poly!(num_edges)),
+        ]),
+    }
+}
