@@ -431,7 +431,7 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
   _Correctness._ ($arrow.r.double$) An IS in $G$ maps to selecting all copy line vertices for included vertices; crossing gadgets ensure no conflicts. ($arrow.l.double$) A grid MIS maps back to an IS by the copy line activity rule.
 ]
 
-*Example: Petersen Graph.* The Petersen graph ($n=10$, MIS$=4$) maps to a $42 times 46$ King's subgraph with 54 nodes and overhead $Delta = 174$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 174 = 178$. With triangular lattice encoding @pan2025, the same graph maps to a $60 times 66$ grid with overhead $Delta = 446$.
+*Example: Petersen Graph.* The Petersen graph ($n=10$, MIS$=4$) maps to a $42 times 46$ King's subgraph with 281 nodes and overhead $Delta = 174$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 174 = 178$. With triangular lattice encoding @pan2025, the same graph maps to a $60 times 66$ grid with 54 nodes and overhead $Delta = 446$.
 
 // Load JSON data
 #let petersen = json("petersen_source.json")
