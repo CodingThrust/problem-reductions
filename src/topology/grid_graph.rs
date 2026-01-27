@@ -47,7 +47,7 @@ impl<W> GridNode<W> {
 /// # Example
 ///
 /// ```
-/// use problemreductions::topology::{GridGraph, GridNode, GridType};
+/// use problemreductions::topology::{Graph, GridGraph, GridNode, GridType};
 ///
 /// let nodes = vec![
 ///     GridNode::new(0, 0, 1),

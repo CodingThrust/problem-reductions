@@ -41,12 +41,20 @@ mod copyline;
 mod gadgets;
 mod grid;
 mod map_graph;
+pub mod pathdecomposition;
 mod triangular;
 
 pub use copyline::{create_copylines, mis_overhead_copyline, remove_order, CopyLine};
-pub use gadgets::*;
+pub use gadgets::{
+    apply_crossing_gadgets, apply_gadget, apply_simplifier_gadgets, pattern_matches,
+    tape_entry_mis_overhead, unapply_gadget, Branch, BranchFix, BranchFixB, Cross, DanglingLeg,
+    EndTurn, Mirror, Pattern, PatternBoxed, PatternCell, ReflectedGadget, RotatedGadget, TCon,
+    TapeEntry, TrivialTurn, Turn, WTurn,
+};
 pub use grid::{CellState, MappingGrid};
-pub use map_graph::{embed_graph, map_graph, map_graph_with_order, MappingResult};
+pub use map_graph::{embed_graph, map_graph, map_graph_with_method, map_graph_with_order, MappingResult};
+pub use pathdecomposition::{pathwidth, Layout, PathDecompositionMethod};
 pub use triangular::{
-    map_graph_triangular, map_graph_triangular_with_order, TriBranch, TriCross, TriTurn,
+    map_graph_triangular, map_graph_triangular_with_method, map_graph_triangular_with_order,
+    TriBranch, TriCross, TriTurn,
 };

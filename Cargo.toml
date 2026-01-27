@@ -9,7 +9,7 @@ keywords = ["np-hard", "optimization", "reduction", "sat", "graph"]
 categories = ["algorithms", "science"]
 
 [features]
-default = []
+default = ["ilp"]
 ilp = ["good_lp"]
 
 [dependencies]
@@ -22,9 +22,9 @@ num-traits = "0.2"
 good_lp = { version = "1.8", default-features = false, features = ["highs"], optional = true }
 inventory = "0.3"
 ordered-float = "5.0"
+rand = "0.8"
 
 [dev-dependencies]
-rand = "0.8"
 proptest = "1.0"
 criterion = "0.5"
 

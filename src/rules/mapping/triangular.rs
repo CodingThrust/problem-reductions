@@ -1,9 +1,9 @@
 //! Triangular lattice mapping support.
 
 use super::copyline::create_copylines;
-use super::gadgets::Gadget;
 use super::grid::MappingGrid;
 use super::map_graph::MappingResult;
+use super::pathdecomposition::{pathwidth, vertex_order_from_layout, PathDecompositionMethod};
 use crate::topology::{GridGraph, GridNode, GridType};
 use serde::{Deserialize, Serialize};
 
@@ -11,11 +11,22 @@ const TRIANGULAR_SPACING: usize = 6;
 const TRIANGULAR_PADDING: usize = 2;
 const TRIANGULAR_UNIT_RADIUS: f64 = 1.1;
 
+/// Trait for triangular lattice gadgets (simplified interface).
+#[allow(dead_code)]
+pub trait TriangularGadget {
+    fn size(&self) -> (usize, usize);
+    fn cross_location(&self) -> (usize, usize);
+    fn is_connected(&self) -> bool;
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>);
+    fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>);
+    fn mis_overhead(&self) -> i32;
+}
+
 /// Triangular cross gadget.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriCross<const CON: bool>;
 
-impl Gadget for TriCross<true> {
+impl TriangularGadget for TriCross<true> {
     fn size(&self) -> (usize, usize) {
         (6, 4)
     }
@@ -68,7 +79,7 @@ impl Gadget for TriCross<true> {
     }
 }
 
-impl Gadget for TriCross<false> {
+impl TriangularGadget for TriCross<false> {
     fn size(&self) -> (usize, usize) {
         (6, 6)
     }
@@ -132,7 +143,7 @@ impl Gadget for TriCross<false> {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriTurn;
 
-impl Gadget for TriTurn {
+impl TriangularGadget for TriTurn {
     fn size(&self) -> (usize, usize) {
         (3, 4)
     }
@@ -166,7 +177,7 @@ impl Gadget for TriTurn {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriBranch;
 
-impl Gadget for TriBranch {
+impl TriangularGadget for TriBranch {
     fn size(&self) -> (usize, usize) {
         (6, 4)
     }
@@ -216,12 +227,22 @@ impl Gadget for TriBranch {
     }
 }
 
-/// Map a graph to a triangular lattice grid graph.
+/// Map a graph to a triangular lattice grid graph using optimal path decomposition.
 ///
 /// # Panics
 /// Panics if `num_vertices == 0`.
 pub fn map_graph_triangular(num_vertices: usize, edges: &[(usize, usize)]) -> MappingResult {
-    let vertex_order: Vec<usize> = (0..num_vertices).collect();
+    map_graph_triangular_with_method(num_vertices, edges, PathDecompositionMethod::MinhThiTrick)
+}
+
+/// Map a graph to triangular lattice using a specific path decomposition method.
+pub fn map_graph_triangular_with_method(
+    num_vertices: usize,
+    edges: &[(usize, usize)],
+    method: PathDecompositionMethod,
+) -> MappingResult {
+    let layout = pathwidth(num_vertices, edges, method);
+    let vertex_order = vertex_order_from_layout(&layout);
     map_graph_triangular_with_order(num_vertices, edges, &vertex_order)
 }
 
@@ -300,6 +321,7 @@ pub fn map_graph_triangular_with_order(
         padding,
         spacing,
         mis_overhead,
+        tape: Vec::new(), // Triangular lattice uses different gadgets
     }
 }
 
@@ -329,36 +351,36 @@ mod tests {
     #[test]
     fn test_triangular_cross_connected_gadget() {
         let cross = TriCross::<true>;
-        assert_eq!(Gadget::size(&cross), (6, 4));
-        assert_eq!(Gadget::cross_location(&cross), (2, 2));
-        assert!(Gadget::is_connected(&cross));
-        assert_eq!(Gadget::mis_overhead(&cross), 1);
+        assert_eq!(TriangularGadget::size(&cross), (6, 4));
+        assert_eq!(TriangularGadget::cross_location(&cross), (2, 2));
+        assert!(TriangularGadget::is_connected(&cross));
+        assert_eq!(TriangularGadget::mis_overhead(&cross), 1);
     }
 
     #[test]
     fn test_triangular_cross_disconnected_gadget() {
         let cross = TriCross::<false>;
-        assert_eq!(Gadget::size(&cross), (6, 6));
-        assert_eq!(Gadget::cross_location(&cross), (2, 4));
-        assert!(!Gadget::is_connected(&cross));
-        assert_eq!(Gadget::mis_overhead(&cross), 3);
+        assert_eq!(TriangularGadget::size(&cross), (6, 6));
+        assert_eq!(TriangularGadget::cross_location(&cross), (2, 4));
+        assert!(!TriangularGadget::is_connected(&cross));
+        assert_eq!(TriangularGadget::mis_overhead(&cross), 3);
     }
 
     #[test]
     fn test_triangular_turn_gadget() {
         let turn = TriTurn;
-        assert_eq!(Gadget::size(&turn), (3, 4));
-        assert_eq!(Gadget::mis_overhead(&turn), 0);
-        let (_, pins) = Gadget::source_graph(&turn);
+        assert_eq!(TriangularGadget::size(&turn), (3, 4));
+        assert_eq!(TriangularGadget::mis_overhead(&turn), 0);
+        let (_, pins) = TriangularGadget::source_graph(&turn);
         assert_eq!(pins.len(), 2);
     }
 
     #[test]
     fn test_triangular_branch_gadget() {
         let branch = TriBranch;
-        assert_eq!(Gadget::size(&branch), (6, 4));
-        assert_eq!(Gadget::mis_overhead(&branch), 0);
-        let (_, pins) = Gadget::source_graph(&branch);
+        assert_eq!(TriangularGadget::size(&branch), (6, 4));
+        assert_eq!(TriangularGadget::mis_overhead(&branch), 0);
+        let (_, pins) = TriangularGadget::source_graph(&branch);
         assert_eq!(pins.len(), 3);
     }
 
@@ -391,7 +413,7 @@ mod tests {
     #[test]
     fn test_triangular_gadgets_have_valid_pins() {
         // Verify pin indices are within bounds for each gadget
-        fn check_gadget<G: Gadget>(gadget: &G, name: &str) {
+        fn check_gadget<G: TriangularGadget>(gadget: &G, name: &str) {
             let (source_locs, source_pins) = gadget.source_graph();
             let (mapped_locs, mapped_pins) = gadget.mapped_graph();
 
