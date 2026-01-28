@@ -11,6 +11,44 @@ const TRIANGULAR_SPACING: usize = 6;
 const TRIANGULAR_PADDING: usize = 2;
 const TRIANGULAR_UNIT_RADIUS: f64 = 1.1;
 
+/// Tape entry recording a triangular gadget application.
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct TriangularTapeEntry {
+    /// Index of the gadget in the ruleset (0-12).
+    pub gadget_idx: usize,
+    /// Row where gadget was applied.
+    pub row: usize,
+    /// Column where gadget was applied.
+    pub col: usize,
+}
+
+/// Calculate crossing point for two copylines on triangular lattice.
+fn crossat_triangular(
+    copylines: &[super::copyline::CopyLine],
+    v: usize,
+    w: usize,
+    spacing: usize,
+    padding: usize,
+) -> (usize, usize) {
+    let line_v = &copylines[v];
+    let line_w = &copylines[w];
+
+    // Use vslot to determine order
+    let (line_first, line_second) = if line_v.vslot < line_w.vslot {
+        (line_v, line_w)
+    } else {
+        (line_w, line_v)
+    };
+
+    let hslot = line_first.hslot;
+    let max_vslot = line_second.vslot;
+
+    let row = (hslot - 1) * spacing + 2 + padding;
+    let col = (max_vslot - 1) * spacing + 1 + padding;
+
+    (row, col)
+}
+
 /// Trait for triangular lattice gadgets (simplified interface).
 ///
 /// Note: source_graph returns explicit edges (like Julia's simplegraph),
