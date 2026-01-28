@@ -57,6 +57,7 @@ pub use map_graph::{embed_graph, map_graph, map_graph_with_method, map_graph_wit
 pub use pathdecomposition::{pathwidth, Layout, PathDecompositionMethod};
 pub use triangular::{
     map_graph_triangular, map_graph_triangular_with_method, map_graph_triangular_with_order,
-    TriangularGadget, TriBranch, TriCross, TriTurn,
+    TriangularGadget, TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown,
+    TriTConLeft, TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
 };
 pub use weighted::{WeightedGadget, Weightable};

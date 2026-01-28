@@ -12,12 +12,17 @@ const TRIANGULAR_PADDING: usize = 2;
 const TRIANGULAR_UNIT_RADIUS: f64 = 1.1;
 
 /// Trait for triangular lattice gadgets (simplified interface).
+///
+/// Note: source_graph returns explicit edges (like Julia's simplegraph),
+/// while mapped_graph locations should use unit disk edges.
 #[allow(dead_code)]
 pub trait TriangularGadget {
     fn size(&self) -> (usize, usize);
     fn cross_location(&self) -> (usize, usize);
     fn is_connected(&self) -> bool;
-    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>);
+    /// Returns (locations, edges, pins) - edges are explicit, not unit disk.
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>);
+    /// Returns (locations, pins) - use unit disk for edges on triangular lattice.
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>);
     fn mis_overhead(&self) -> i32;
 }
@@ -39,36 +44,53 @@ impl TriangularGadget for TriCross<true> {
         true
     }
 
-    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(2,1), (2,2), (2,3), (2,4), (1,2), (2,2), (3,2), (4,2), (5,2), (6,2)])
+        // Julia: g = simplegraph([(1,2), (2,3), (3,4), (5,6), (6,7), (7,8), (8,9), (9,10), (1,5)])
+        // Note: Julia is 1-indexed, Rust is 0-indexed
         let locs = vec![
-            (2, 1),
-            (2, 2),
-            (2, 3),
-            (2, 4),
-            (1, 2),
-            (2, 2),
-            (3, 2),
-            (4, 2),
-            (5, 2),
-            (6, 2),
+            (2, 1), // 0
+            (2, 2), // 1
+            (2, 3), // 2
+            (2, 4), // 3
+            (1, 2), // 4
+            (2, 2), // 5 (duplicate of 1)
+            (3, 2), // 6
+            (4, 2), // 7
+            (5, 2), // 8
+            (6, 2), // 9
         ];
-        let pins = vec![0, 4, 9, 3];
-        (locs, pins)
+        // Convert Julia 1-indexed edges to 0-indexed
+        let edges = vec![
+            (0, 1), // (1,2)
+            (1, 2), // (2,3)
+            (2, 3), // (3,4)
+            (4, 5), // (5,6)
+            (5, 6), // (6,7)
+            (6, 7), // (7,8)
+            (7, 8), // (8,9)
+            (8, 9), // (9,10)
+            (0, 4), // (1,5)
+        ];
+        let pins = vec![0, 4, 9, 3]; // Julia: [1,5,10,4] -> 0-indexed: [0,4,9,3]
+        (locs, edges, pins)
     }
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,2), (2,1), (2,2), (2,3), (1,4), (3,3), (4,2), (4,3), (5,1), (6,1), (6,2)])
+        // Julia: pins = [2,1,11,5] -> 0-indexed: [1,0,10,4]
         let locs = vec![
-            (1, 2),
-            (2, 1),
-            (2, 2),
-            (2, 3),
-            (1, 4),
-            (3, 3),
-            (4, 2),
-            (4, 3),
-            (5, 1),
-            (6, 1),
-            (6, 2),
+            (1, 2), // 0
+            (2, 1), // 1
+            (2, 2), // 2
+            (2, 3), // 3
+            (1, 4), // 4
+            (3, 3), // 5
+            (4, 2), // 6
+            (4, 3), // 7
+            (5, 1), // 8
+            (6, 1), // 9
+            (6, 2), // 10
         ];
         let pins = vec![1, 0, 10, 4];
         (locs, pins)
@@ -92,31 +114,49 @@ impl TriangularGadget for TriCross<false> {
         false
     }
 
-    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(2,2), (2,3), (2,4), (2,5), (2,6), (1,4), (2,4), (3,4), (4,4), (5,4), (6,4), (2,1)])
+        // Julia: g = simplegraph([(1,2), (2,3), (3,4), (4,5), (6,7), (7,8), (8,9), (9,10), (10,11), (12,1)])
+        // Julia: pins = [12,6,11,5] -> 0-indexed: [11,5,10,4]
         let locs = vec![
-            (2, 2),
-            (2, 3),
-            (2, 4),
-            (2, 5),
-            (2, 6),
-            (1, 4),
-            (2, 4),
-            (3, 4),
-            (4, 4),
-            (5, 4),
-            (6, 4),
-            (2, 1),
+            (2, 2), // 0
+            (2, 3), // 1
+            (2, 4), // 2
+            (2, 5), // 3
+            (2, 6), // 4
+            (1, 4), // 5
+            (2, 4), // 6 (duplicate of 2)
+            (3, 4), // 7
+            (4, 4), // 8
+            (5, 4), // 9
+            (6, 4), // 10
+            (2, 1), // 11
+        ];
+        // Convert Julia 1-indexed edges to 0-indexed
+        let edges = vec![
+            (0, 1),  // (1,2)
+            (1, 2),  // (2,3)
+            (2, 3),  // (3,4)
+            (3, 4),  // (4,5)
+            (5, 6),  // (6,7)
+            (6, 7),  // (7,8)
+            (7, 8),  // (8,9)
+            (8, 9),  // (9,10)
+            (9, 10), // (10,11)
+            (11, 0), // (12,1)
         ];
         let pins = vec![11, 5, 10, 4];
-        (locs, pins)
+        (locs, edges, pins)
     }
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,4), (2,2), (2,3), (2,4), (2,5), (2,6), (3,2), (3,3), (3,4), (3,5), (4,2), (4,3), (5,2), (6,3), (6,4), (2,1)])
+        // Julia: pins = [16,1,15,6] -> 0-indexed: [15,0,14,5]
         let locs = vec![
-            (1, 4),
-            (2, 2),
-            (2, 3),
-            (2, 4),
+            (1, 4), // 0
+            (2, 2), // 1
+            (2, 3), // 2
+            (2, 4), // 3
             (2, 5),
             (2, 6),
             (3, 2),
@@ -156,10 +196,14 @@ impl TriangularGadget for TriTurn {
         false
     }
 
-    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,2), (2,2), (2,3), (2,4)])
+        // Julia: g = simplegraph([(1,2), (2,3), (3,4)])
+        // Julia: pins = [1,4] -> 0-indexed: [0,3]
         let locs = vec![(1, 2), (2, 2), (2, 3), (2, 4)];
+        let edges = vec![(0, 1), (1, 2), (2, 3)];
         let pins = vec![0, 3];
-        (locs, pins)
+        (locs, edges, pins)
     }
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
@@ -190,26 +234,92 @@ impl TriangularGadget for TriBranch {
         false
     }
 
-    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,2),(2,2),(2,3),(2,4),(3,3),(3,2),(4,2),(5,2),(6,2)])
+        // Julia: g = simplegraph([(1,2), (2,3), (3, 4), (3,5), (5,6), (6,7), (7,8), (8,9)])
+        // Julia: pins = [1, 4, 9] -> 0-indexed: [0, 3, 8]
         let locs = vec![
-            (1, 2),
-            (2, 2),
-            (2, 3),
-            (2, 4),
-            (3, 3),
-            (3, 2),
-            (4, 2),
-            (5, 2),
-            (6, 2),
+            (1, 2), // 0
+            (2, 2), // 1
+            (2, 3), // 2
+            (2, 4), // 3
+            (3, 3), // 4
+            (3, 2), // 5
+            (4, 2), // 6
+            (5, 2), // 7
+            (6, 2), // 8
+        ];
+        // Convert Julia 1-indexed edges to 0-indexed
+        let edges = vec![
+            (0, 1), // (1,2)
+            (1, 2), // (2,3)
+            (2, 3), // (3,4)
+            (2, 4), // (3,5)
+            (4, 5), // (5,6)
+            (5, 6), // (6,7)
+            (6, 7), // (7,8)
+            (7, 8), // (8,9)
         ];
         let pins = vec![0, 3, 8];
-        (locs, pins)
+        (locs, edges, pins)
     }
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,2),(2,2),(2,4),(3,3),(4,2),(4,3),(5,1),(6,1),(6,2)])
+        // Julia: pins = [1,3,9] -> 0-indexed: [0,2,8]
+        let locs = vec![
+            (1, 2), // 0
+            (2, 2), // 1
+            (2, 4), // 2
+            (3, 3), // 3
+            (4, 2), // 4
+            (4, 3), // 5
+            (5, 1), // 6
+            (6, 1), // 7
+            (6, 2), // 8
+        ];
+        let pins = vec![0, 2, 8];
+        (locs, pins)
+    }
+
+    fn mis_overhead(&self) -> i32 {
+        0
+    }
+}
+
+/// Triangular T-connection left gadget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriTConLeft;
+
+impl TriangularGadget for TriTConLeft {
+    fn size(&self) -> (usize, usize) {
+        (6, 5)
+    }
+
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+
+    fn is_connected(&self) -> bool {
+        true
+    }
+
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,2), (2,1), (2,2), (3,2), (4,2), (5,2), (6,2)])
+        // Julia: g = simplegraph([(1,2), (1,3), (3,4), (4,5), (5,6), (6,7)])
+        let locs = vec![(1, 2), (2, 1), (2, 2), (3, 2), (4, 2), (5, 2), (6, 2)];
+        let edges = vec![(0, 1), (0, 2), (2, 3), (3, 4), (4, 5), (5, 6)];
+        let pins = vec![0, 1, 6];
+        (locs, edges, pins)
+    }
+
+    fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,2), (2,1), (2,2), (2,3), (2,4), (3,3), (4,2), (4,3), (5,1), (6,1), (6,2)])
         let locs = vec![
             (1, 2),
+            (2, 1),
             (2, 2),
+            (2, 3),
             (2, 4),
             (3, 3),
             (4, 2),
@@ -218,12 +328,309 @@ impl TriangularGadget for TriBranch {
             (6, 1),
             (6, 2),
         ];
-        let pins = vec![0, 2, 8];
+        let pins = vec![0, 1, 10];
+        (locs, pins)
+    }
+
+    fn mis_overhead(&self) -> i32 {
+        4
+    }
+}
+
+/// Triangular T-connection down gadget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriTConDown;
+
+impl TriangularGadget for TriTConDown {
+    fn size(&self) -> (usize, usize) {
+        (3, 3)
+    }
+
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+
+    fn is_connected(&self) -> bool {
+        true
+    }
+
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(2,1), (2,2), (2,3), (3,2)])
+        // Julia: g = simplegraph([(1,2), (2,3), (1,4)])
+        let locs = vec![(2, 1), (2, 2), (2, 3), (3, 2)];
+        let edges = vec![(0, 1), (1, 2), (0, 3)];
+        let pins = vec![0, 3, 2];
+        (locs, edges, pins)
+    }
+
+    fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(2,2), (3,1), (3,2), (3,3)])
+        let locs = vec![(2, 2), (3, 1), (3, 2), (3, 3)];
+        let pins = vec![1, 2, 3];
         (locs, pins)
     }
 
     fn mis_overhead(&self) -> i32 {
         0
+    }
+}
+
+/// Triangular T-connection up gadget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriTConUp;
+
+impl TriangularGadget for TriTConUp {
+    fn size(&self) -> (usize, usize) {
+        (3, 3)
+    }
+
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+
+    fn is_connected(&self) -> bool {
+        true
+    }
+
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,2), (2,1), (2,2), (2,3)])
+        // Julia: g = simplegraph([(1,2), (2,3), (3,4)])
+        let locs = vec![(1, 2), (2, 1), (2, 2), (2, 3)];
+        let edges = vec![(0, 1), (1, 2), (2, 3)];
+        let pins = vec![1, 0, 3];
+        (locs, edges, pins)
+    }
+
+    fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,2), (2,1), (2,2), (2,3)])
+        let locs = vec![(1, 2), (2, 1), (2, 2), (2, 3)];
+        let pins = vec![1, 0, 3];
+        (locs, pins)
+    }
+
+    fn mis_overhead(&self) -> i32 {
+        0
+    }
+}
+
+/// Triangular trivial turn left gadget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriTrivialTurnLeft;
+
+impl TriangularGadget for TriTrivialTurnLeft {
+    fn size(&self) -> (usize, usize) {
+        (2, 2)
+    }
+
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+
+    fn is_connected(&self) -> bool {
+        true
+    }
+
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        let locs = vec![(1, 2), (2, 1)];
+        let edges = vec![(0, 1)];
+        let pins = vec![0, 1];
+        (locs, edges, pins)
+    }
+
+    fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        let locs = vec![(1, 2), (2, 1)];
+        let pins = vec![0, 1];
+        (locs, pins)
+    }
+
+    fn mis_overhead(&self) -> i32 {
+        0
+    }
+}
+
+/// Triangular trivial turn right gadget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriTrivialTurnRight;
+
+impl TriangularGadget for TriTrivialTurnRight {
+    fn size(&self) -> (usize, usize) {
+        (2, 2)
+    }
+
+    fn cross_location(&self) -> (usize, usize) {
+        (1, 2)
+    }
+
+    fn is_connected(&self) -> bool {
+        true
+    }
+
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        let locs = vec![(1, 1), (2, 2)];
+        let edges = vec![(0, 1)];
+        let pins = vec![0, 1];
+        (locs, edges, pins)
+    }
+
+    fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        let locs = vec![(2, 1), (2, 2)];
+        let pins = vec![0, 1];
+        (locs, pins)
+    }
+
+    fn mis_overhead(&self) -> i32 {
+        0
+    }
+}
+
+/// Triangular end turn gadget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriEndTurn;
+
+impl TriangularGadget for TriEndTurn {
+    fn size(&self) -> (usize, usize) {
+        (3, 4)
+    }
+
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+
+    fn is_connected(&self) -> bool {
+        false
+    }
+
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,2), (2,2), (2,3)])
+        // Julia: g = simplegraph([(1,2), (2,3)])
+        let locs = vec![(1, 2), (2, 2), (2, 3)];
+        let edges = vec![(0, 1), (1, 2)];
+        let pins = vec![0];
+        (locs, edges, pins)
+    }
+
+    fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        let locs = vec![(1, 2)];
+        let pins = vec![0];
+        (locs, pins)
+    }
+
+    fn mis_overhead(&self) -> i32 {
+        -2
+    }
+}
+
+/// Triangular W-turn gadget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriWTurn;
+
+impl TriangularGadget for TriWTurn {
+    fn size(&self) -> (usize, usize) {
+        (4, 4)
+    }
+
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+
+    fn is_connected(&self) -> bool {
+        false
+    }
+
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(2,3), (2,4), (3,2),(3,3),(4,2)])
+        // Julia: g = simplegraph([(1,2), (1,4), (3,4),(3,5)])
+        let locs = vec![(2, 3), (2, 4), (3, 2), (3, 3), (4, 2)];
+        let edges = vec![(0, 1), (0, 3), (2, 3), (2, 4)];
+        let pins = vec![1, 4];
+        (locs, edges, pins)
+    }
+
+    fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,4), (2,3), (3,2), (3,3), (4,2)])
+        let locs = vec![(1, 4), (2, 3), (3, 2), (3, 3), (4, 2)];
+        let pins = vec![0, 4];
+        (locs, pins)
+    }
+
+    fn mis_overhead(&self) -> i32 {
+        0
+    }
+}
+
+/// Triangular branch fix gadget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriBranchFix;
+
+impl TriangularGadget for TriBranchFix {
+    fn size(&self) -> (usize, usize) {
+        (4, 4)
+    }
+
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+
+    fn is_connected(&self) -> bool {
+        false
+    }
+
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,2), (2,2), (2,3),(3,3),(3,2),(4,2)])
+        // Julia: g = simplegraph([(1,2), (2,3), (3,4),(4,5), (5,6)])
+        let locs = vec![(1, 2), (2, 2), (2, 3), (3, 3), (3, 2), (4, 2)];
+        let edges = vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 5)];
+        let pins = vec![0, 5];
+        (locs, edges, pins)
+    }
+
+    fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,2),(2,2),(3,2),(4,2)])
+        let locs = vec![(1, 2), (2, 2), (3, 2), (4, 2)];
+        let pins = vec![0, 3];
+        (locs, pins)
+    }
+
+    fn mis_overhead(&self) -> i32 {
+        -2
+    }
+}
+
+/// Triangular branch fix B gadget.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TriBranchFixB;
+
+impl TriangularGadget for TriBranchFixB {
+    fn size(&self) -> (usize, usize) {
+        (4, 4)
+    }
+
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+
+    fn is_connected(&self) -> bool {
+        false
+    }
+
+    fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(2,3),(3,2),(3,3),(4,2)])
+        // Julia: g = simplegraph([(1,3), (2,3), (2,4)])
+        let locs = vec![(2, 3), (3, 2), (3, 3), (4, 2)];
+        let edges = vec![(0, 2), (1, 2), (1, 3)];
+        let pins = vec![0, 3];
+        (locs, edges, pins)
+    }
+
+    fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(3,2),(4,2)])
+        let locs = vec![(3, 2), (4, 2)];
+        let pins = vec![0, 1];
+        (locs, pins)
+    }
+
+    fn mis_overhead(&self) -> i32 {
+        -2
     }
 }
 
@@ -371,7 +778,7 @@ mod tests {
         let turn = TriTurn;
         assert_eq!(TriangularGadget::size(&turn), (3, 4));
         assert_eq!(TriangularGadget::mis_overhead(&turn), 0);
-        let (_, pins) = TriangularGadget::source_graph(&turn);
+        let (_, _, pins) = TriangularGadget::source_graph(&turn);
         assert_eq!(pins.len(), 2);
     }
 
@@ -380,7 +787,7 @@ mod tests {
         let branch = TriBranch;
         assert_eq!(TriangularGadget::size(&branch), (6, 4));
         assert_eq!(TriangularGadget::mis_overhead(&branch), 0);
-        let (_, pins) = TriangularGadget::source_graph(&branch);
+        let (_, _, pins) = TriangularGadget::source_graph(&branch);
         assert_eq!(pins.len(), 3);
     }
 
@@ -414,7 +821,7 @@ mod tests {
     fn test_triangular_gadgets_have_valid_pins() {
         // Verify pin indices are within bounds for each gadget
         fn check_gadget<G: TriangularGadget>(gadget: &G, name: &str) {
-            let (source_locs, source_pins) = gadget.source_graph();
+            let (source_locs, _, source_pins) = gadget.source_graph();
             let (mapped_locs, mapped_pins) = gadget.mapped_graph();
 
             for &pin in &source_pins {
