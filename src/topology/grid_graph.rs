@@ -6,6 +6,7 @@
 
 use super::graph::Graph;
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// The type of grid lattice.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
@@ -213,6 +214,87 @@ impl<W: Clone + Send + Sync> Graph for GridGraph<W> {
                 }
             })
             .collect()
+    }
+}
+
+impl<W: Clone + fmt::Display> GridGraph<W> {
+    /// Format the grid graph as a string matching Julia's UnitDiskMapping format.
+    ///
+    /// Characters (matching Julia exactly):
+    /// - `⋅` = empty cell
+    /// - `●` = node (or selected node when config provided)
+    /// - `○` = unselected node (when config provided)
+    /// - Each cell is followed by a space
+    ///
+    /// When show_weight is true, displays the weight as a number for single digits.
+    pub fn format_with_config(&self, config: Option<&[usize]>, show_weight: bool) -> String {
+        use std::collections::HashMap;
+
+        if self.nodes.is_empty() {
+            return String::from("(empty grid graph)");
+        }
+
+        // Find grid bounds (use full size, not min/max of nodes)
+        let (rows, cols) = self.size;
+
+        // Build position to node index map
+        let mut pos_to_idx: HashMap<(i32, i32), usize> = HashMap::new();
+        for (idx, node) in self.nodes.iter().enumerate() {
+            pos_to_idx.insert((node.row, node.col), idx);
+        }
+
+        let mut lines = Vec::new();
+
+        for r in 0..rows as i32 {
+            let mut line = String::new();
+            for c in 0..cols as i32 {
+                let s = if let Some(&idx) = pos_to_idx.get(&(r, c)) {
+                    if let Some(cfg) = config {
+                        if cfg.get(idx).copied().unwrap_or(0) > 0 {
+                            "●".to_string() // Selected node
+                        } else {
+                            "○".to_string() // Unselected node
+                        }
+                    } else if show_weight {
+                        Self::weight_str(&self.nodes[idx].weight)
+                    } else {
+                        "●".to_string()
+                    }
+                } else {
+                    "⋅".to_string()
+                };
+                line.push_str(&s);
+                line.push(' ');
+            }
+            // Remove trailing space
+            line.pop();
+            lines.push(line);
+        }
+
+        lines.join("\n")
+    }
+
+    /// Get a string representation of a weight.
+    fn weight_str(weight: &W) -> String {
+        let s = format!("{}", weight);
+        if s.len() == 1 {
+            s
+        } else {
+            "●".to_string()
+        }
+    }
+
+    /// Print a configuration on this grid graph.
+    ///
+    /// This is equivalent to Julia's `print_config(res, c)`.
+    pub fn print_config(&self, config: &[usize]) {
+        print!("{}", self.format_with_config(Some(config), false));
+    }
+}
+
+impl<W: Clone + fmt::Display> fmt::Display for GridGraph<W> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.format_with_config(None, true))
     }
 }
 

@@ -8,6 +8,8 @@ use super::grid::MappingGrid;
 use super::pathdecomposition::{pathwidth, vertex_order_from_layout, PathDecompositionMethod};
 use crate::topology::{GridGraph, GridNode, GridType};
 use serde::{Deserialize, Serialize};
+use std::collections::HashMap;
+use std::fmt;
 
 const DEFAULT_SPACING: usize = 4;
 const DEFAULT_PADDING: usize = 2;
@@ -137,6 +139,107 @@ impl MappingResult {
 
         result
     }
+
+    /// Print a configuration on the grid, highlighting selected nodes.
+    ///
+    /// This is equivalent to Julia's `print_config(res, c)` where `c` is a 2D
+    /// configuration matrix indexed by grid coordinates.
+    ///
+    /// Characters (matching Julia exactly):
+    /// - `⋅` = empty cell (no grid node at this position)
+    /// - `●` = selected node (config != 0)
+    /// - `○` = unselected node (config == 0)
+    /// - Each cell is followed by a space
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - A 2D configuration where `config[row][col] = 1` means the node is selected.
+    ///   The matrix should have dimensions matching the grid size.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// use problemreductions::rules::mapping::map_graph;
+    ///
+    /// let edges = vec![(0, 1), (1, 2)];
+    /// let result = map_graph(3, &edges);
+    ///
+    /// // Create a config matrix (rows x cols)
+    /// let (rows, cols) = result.grid_graph.size();
+    /// let config = vec![vec![0; cols]; rows];
+    /// result.print_config(&config);
+    /// ```
+    pub fn print_config(&self, config: &[Vec<usize>]) {
+        print!("{}", self.format_config(config));
+    }
+
+    /// Format a 2D configuration as a string matching Julia's print_config format.
+    ///
+    /// Characters (matching Julia exactly):
+    /// - `⋅` = empty cell (no grid node at this position)
+    /// - `●` = selected node (config != 0)
+    /// - `○` = unselected node (config == 0)
+    /// - Each cell is followed by a space
+    pub fn format_config(&self, config: &[Vec<usize>]) -> String {
+        let (rows, cols) = self.grid_graph.size();
+
+        // Build position to node index map
+        let mut pos_to_node: HashMap<(i32, i32), usize> = HashMap::new();
+        for (idx, node) in self.grid_graph.nodes().iter().enumerate() {
+            pos_to_node.insert((node.row, node.col), idx);
+        }
+
+        let mut lines = Vec::new();
+
+        for r in 0..rows {
+            let mut line = String::new();
+            for c in 0..cols {
+                let is_selected = config.get(r).and_then(|row| row.get(c)).copied().unwrap_or(0) > 0;
+                let has_node = pos_to_node.contains_key(&(r as i32, c as i32));
+
+                let s = if has_node {
+                    if is_selected { "●" } else { "○" }
+                } else {
+                    if is_selected {
+                        // Julia would error here, but we just ignore
+                        "⋅"
+                    } else {
+                        "⋅"
+                    }
+                };
+                line.push_str(s);
+                line.push(' ');
+            }
+            // Remove trailing space
+            line.pop();
+            lines.push(line);
+        }
+
+        lines.join("\n")
+    }
+
+    /// Print a flat configuration vector on the grid.
+    ///
+    /// This is an alternative to `print_config` when the configuration is a flat
+    /// vector indexed by node order rather than a 2D matrix.
+    ///
+    /// # Arguments
+    ///
+    /// * `config` - A flat configuration vector where `config[i] = 1` means node `i` is selected.
+    pub fn print_config_flat(&self, config: &[usize]) {
+        print!("{}", self.format_config_flat(config));
+    }
+
+    /// Format a flat configuration vector as a string.
+    pub fn format_config_flat(&self, config: &[usize]) -> String {
+        self.grid_graph.format_with_config(Some(config), false)
+    }
+}
+
+impl fmt::Display for MappingResult {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.grid_graph)
+    }
 }
 
 /// Internal function that creates both the mapping grid and copylines.
@@ -154,14 +257,13 @@ fn embed_graph_internal(
 
     let copylines = create_copylines(num_vertices, edges, vertex_order);
 
-    // Calculate grid dimensions
+    // Calculate grid dimensions - matching Julia's ugrid formula:
+    // N = (n-1)*col_spacing + 2 + 2*padding (columns)
+    // M = nrow*row_spacing + 2 + 2*padding (rows, where nrow = max_hslot)
     let max_hslot = copylines.iter().map(|l| l.hslot).max().unwrap_or(1);
-    let max_vslot = copylines.iter().map(|l| l.vslot).max().unwrap_or(1);
-    let max_hstop = copylines.iter().map(|l| l.hstop).max().unwrap_or(1);
-    let max_vstop = copylines.iter().map(|l| l.vstop).max().unwrap_or(1);
 
-    let rows = max_hslot.max(max_vstop) * spacing + 2 + 2 * padding;
-    let cols = max_vslot.max(max_hstop) * spacing + 2 + 2 * padding;
+    let rows = max_hslot * spacing + 2 + 2 * padding;
+    let cols = (num_vertices - 1) * spacing + 2 + 2 * padding;
 
     let mut grid = MappingGrid::with_padding(rows, cols, spacing, padding);
 
@@ -173,19 +275,20 @@ fn embed_graph_internal(
     }
 
     // Mark edge connections
+    // Copylines are indexed by vertex ID (copylines[v] = copyline for vertex v)
+    // Julia's crossat uses hslot from the line with smaller position (vslot)
     for &(u, v) in edges {
-        let u_idx = vertex_order
-            .iter()
-            .position(|&x| x == u)
-            .expect("Edge vertex u not found in vertex_order");
-        let v_idx = vertex_order
-            .iter()
-            .position(|&x| x == v)
-            .expect("Edge vertex v not found in vertex_order");
-        let u_line = &copylines[u_idx];
-        let v_line = &copylines[v_idx];
+        let u_line = &copylines[u];
+        let v_line = &copylines[v];
 
-        let (row, col) = grid.cross_at(u_line.vslot, v_line.vslot, u_line.hslot.min(v_line.hslot));
+        // Julia's crossat uses: minmax(i,j) then lines[i].hslot (smaller position) for row,
+        // and j (larger position) for col
+        let (smaller_line, larger_line) = if u_line.vslot < v_line.vslot {
+            (u_line, v_line)
+        } else {
+            (v_line, u_line)
+        };
+        let (row, col) = grid.cross_at(smaller_line.vslot, larger_line.vslot, smaller_line.hslot);
 
         // Mark connected cells
         if col > 0 {

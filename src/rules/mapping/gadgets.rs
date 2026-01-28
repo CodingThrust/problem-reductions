@@ -126,8 +126,6 @@ pub trait Pattern: Clone + std::fmt::Debug {
 pub fn pattern_matches<P: Pattern>(pattern: &P, grid: &MappingGrid, i: usize, j: usize) -> bool {
     let source = pattern.source_matrix();
     let (m, n) = pattern.size();
-    let is_cross = pattern.is_cross_gadget();
-    let is_connected = pattern.is_connected();
 
     for r in 0..m {
         for c in 0..n {
@@ -137,22 +135,9 @@ pub fn pattern_matches<P: Pattern>(pattern: &P, grid: &MappingGrid, i: usize, j:
             let expected = source[r][c];
             let actual = safe_get_pattern_cell(grid, grid_r, grid_c);
 
-            // For Cross gadgets specifically:
-            // - Cross<true> (connected) can match at Connected cells
-            // - Cross<false> (unconnected) should NOT match at Connected cells
-            // For all other gadgets, Connected cells are treated as Occupied.
-            let matches = match (expected, actual) {
-                // Exact match
-                (a, b) if a == b => true,
-                // Connected grid cell matching Occupied pattern:
-                // - For Cross gadgets: only match if the gadget is the connected variant
-                // - For non-Cross gadgets: always match (Connected ≈ Occupied)
-                (PatternCell::Occupied, PatternCell::Connected) => !is_cross || is_connected,
-                // Occupied grid cell matching Connected pattern
-                (PatternCell::Connected, PatternCell::Occupied) => !is_cross || is_connected,
-                // Otherwise no match
-                _ => false,
-            };
+            // Follow Julia's exact equality matching.
+            // Connected cells only match Connected cells, Occupied only matches Occupied.
+            let matches = expected == actual;
 
             if !matches {
                 return false;
@@ -1873,5 +1858,693 @@ mod tests {
         let leg = DanglingLeg;
         assert_eq!(Pattern::size(&leg), (4, 3));
         assert_eq!(Pattern::mis_overhead(&leg), -1);
+    }
+
+    fn verify_gadget_consistency<P: Pattern>(gadget: &P, name: &str) {
+        let (rows, cols) = gadget.size();
+        let cross_loc = gadget.cross_location();
+        let source = gadget.source_matrix();
+        let mapped = gadget.mapped_matrix();
+        let (src_locs, _src_edges, src_pins) = gadget.source_graph();
+        let (map_locs, map_pins) = gadget.mapped_graph();
+
+        // Size should be positive
+        assert!(rows > 0, "{}: rows should be positive", name);
+        assert!(cols > 0, "{}: cols should be positive", name);
+
+        // Cross location should be within bounds (1-indexed)
+        assert!(cross_loc.0 >= 1 && cross_loc.0 <= rows, "{}: cross_location row out of bounds", name);
+        assert!(cross_loc.1 >= 1 && cross_loc.1 <= cols, "{}: cross_location col out of bounds", name);
+
+        // Matrices should match size
+        assert_eq!(source.len(), rows, "{}: source matrix rows", name);
+        assert_eq!(mapped.len(), rows, "{}: mapped matrix rows", name);
+        for row in &source {
+            assert_eq!(row.len(), cols, "{}: source matrix cols", name);
+        }
+        for row in &mapped {
+            assert_eq!(row.len(), cols, "{}: mapped matrix cols", name);
+        }
+
+        // Graphs should have content
+        assert!(!src_locs.is_empty(), "{}: source graph should have locations", name);
+        assert!(!map_locs.is_empty(), "{}: mapped graph should have locations", name);
+        assert!(!src_pins.is_empty(), "{}: source graph should have pins", name);
+        assert!(!map_pins.is_empty(), "{}: mapped graph should have pins", name);
+
+        // Pin indices should be valid
+        for &pin in &src_pins {
+            assert!(pin < src_locs.len(), "{}: source pin out of bounds", name);
+        }
+        for &pin in &map_pins {
+            assert!(pin < map_locs.len(), "{}: mapped pin out of bounds", name);
+        }
+    }
+
+    #[test]
+    fn test_all_gadgets_consistency() {
+        verify_gadget_consistency(&Cross::<false>, "Cross<false>");
+        verify_gadget_consistency(&Cross::<true>, "Cross<true>");
+        verify_gadget_consistency(&Turn, "Turn");
+        verify_gadget_consistency(&WTurn, "WTurn");
+        verify_gadget_consistency(&Branch, "Branch");
+        verify_gadget_consistency(&BranchFix, "BranchFix");
+        verify_gadget_consistency(&TCon, "TCon");
+        verify_gadget_consistency(&TrivialTurn, "TrivialTurn");
+        verify_gadget_consistency(&EndTurn, "EndTurn");
+        verify_gadget_consistency(&BranchFixB, "BranchFixB");
+        verify_gadget_consistency(&DanglingLeg, "DanglingLeg");
+    }
+
+    #[test]
+    fn test_cross_gadgets_properties() {
+        // Cross<false> is unconnected
+        assert!(!Pattern::is_connected(&Cross::<false>));
+        assert!(Pattern::is_cross_gadget(&Cross::<false>));
+
+        // Cross<true> is connected
+        assert!(Pattern::is_connected(&Cross::<true>));
+        assert!(Pattern::is_cross_gadget(&Cross::<true>));
+
+        // Both have negative overhead (reduces MIS)
+        assert!(Pattern::mis_overhead(&Cross::<false>) < 0);
+        assert!(Pattern::mis_overhead(&Cross::<true>) < 0);
+    }
+
+    #[test]
+    fn test_turn_gadgets_properties() {
+        // Turn, WTurn, EndTurn are not cross gadgets and not connected
+        assert!(!Pattern::is_cross_gadget(&Turn));
+        assert!(!Pattern::is_cross_gadget(&WTurn));
+        assert!(!Pattern::is_cross_gadget(&EndTurn));
+        assert!(!Pattern::is_connected(&Turn));
+        assert!(!Pattern::is_connected(&WTurn));
+        assert!(!Pattern::is_connected(&EndTurn));
+    }
+
+    #[test]
+    fn test_wturn_gadget() {
+        let wturn = WTurn;
+        let (locs, edges, pins) = Pattern::source_graph(&wturn);
+        assert!(!locs.is_empty());
+        assert!(!edges.is_empty());
+        assert_eq!(pins.len(), 2);
+
+        let (mapped_locs, mapped_pins) = Pattern::mapped_graph(&wturn);
+        assert!(!mapped_locs.is_empty());
+        assert_eq!(mapped_pins.len(), 2);
+    }
+
+    #[test]
+    fn test_branch_gadget() {
+        let branch = Branch;
+        let (locs, edges, pins) = Pattern::source_graph(&branch);
+        assert!(!locs.is_empty());
+        assert!(!edges.is_empty());
+        assert_eq!(pins.len(), 3);
+
+        let (mapped_locs, mapped_pins) = Pattern::mapped_graph(&branch);
+        assert!(!mapped_locs.is_empty());
+        assert_eq!(mapped_pins.len(), 3);
+    }
+
+    #[test]
+    fn test_branchfix_gadget() {
+        let branchfix = BranchFix;
+        let (locs, edges, pins) = Pattern::source_graph(&branchfix);
+        assert!(!locs.is_empty());
+        assert!(!edges.is_empty());
+        assert!(!pins.is_empty());
+
+        let (mapped_locs, mapped_pins) = Pattern::mapped_graph(&branchfix);
+        assert!(!mapped_locs.is_empty());
+        assert!(!mapped_pins.is_empty());
+    }
+
+    #[test]
+    fn test_tcon_gadget() {
+        let tcon = TCon;
+        let (locs, edges, pins) = Pattern::source_graph(&tcon);
+        assert!(!locs.is_empty());
+        assert!(!edges.is_empty());
+        assert!(!pins.is_empty());
+
+        let (mapped_locs, mapped_pins) = Pattern::mapped_graph(&tcon);
+        assert!(!mapped_locs.is_empty());
+        assert!(!mapped_pins.is_empty());
+    }
+
+    #[test]
+    fn test_trivialturn_gadget() {
+        let trivial = TrivialTurn;
+        let (locs, edges, pins) = Pattern::source_graph(&trivial);
+        assert!(!locs.is_empty());
+        assert!(!edges.is_empty());
+        assert!(!pins.is_empty());
+
+        let (mapped_locs, mapped_pins) = Pattern::mapped_graph(&trivial);
+        assert!(!mapped_locs.is_empty());
+        assert!(!mapped_pins.is_empty());
+    }
+
+    #[test]
+    fn test_endturn_gadget() {
+        let endturn = EndTurn;
+        let (locs, edges, pins) = Pattern::source_graph(&endturn);
+        assert!(!locs.is_empty());
+        assert!(!edges.is_empty());
+        assert!(!pins.is_empty());
+
+        let (mapped_locs, mapped_pins) = Pattern::mapped_graph(&endturn);
+        assert!(!mapped_locs.is_empty());
+        assert!(!mapped_pins.is_empty());
+    }
+
+    #[test]
+    fn test_branchfixb_gadget() {
+        let branchfixb = BranchFixB;
+        let (locs, edges, pins) = Pattern::source_graph(&branchfixb);
+        assert!(!locs.is_empty());
+        assert!(!edges.is_empty());
+        assert!(!pins.is_empty());
+
+        let (mapped_locs, mapped_pins) = Pattern::mapped_graph(&branchfixb);
+        assert!(!mapped_locs.is_empty());
+        assert!(!mapped_pins.is_empty());
+    }
+
+    #[test]
+    fn test_danglingleg_graphs() {
+        let leg = DanglingLeg;
+        let (locs, edges, pins) = Pattern::source_graph(&leg);
+        assert!(!locs.is_empty());
+        assert!(!edges.is_empty());
+        assert!(!pins.is_empty());
+
+        let (mapped_locs, mapped_pins) = Pattern::mapped_graph(&leg);
+        assert!(!mapped_locs.is_empty());
+        assert!(!mapped_pins.is_empty());
+    }
+
+    #[test]
+    fn test_rotated_gadget_all_rotations() {
+        let tcon = TCon;
+
+        // 0 rotations - same as original
+        let r0 = RotatedGadget::new(tcon, 0);
+        assert_eq!(Pattern::size(&r0), (3, 4));
+
+        // 1 rotation (90 degrees) - swaps dimensions
+        let r1 = RotatedGadget::new(tcon, 1);
+        assert_eq!(Pattern::size(&r1), (4, 3));
+
+        // 2 rotations (180 degrees) - same dimensions
+        let r2 = RotatedGadget::new(tcon, 2);
+        assert_eq!(Pattern::size(&r2), (3, 4));
+
+        // 3 rotations (270 degrees) - swaps dimensions
+        let r3 = RotatedGadget::new(tcon, 3);
+        assert_eq!(Pattern::size(&r3), (4, 3));
+
+        // 4 rotations = 0 rotations
+        let r4 = RotatedGadget::new(tcon, 4);
+        assert_eq!(Pattern::size(&r4), Pattern::size(&r0));
+    }
+
+    #[test]
+    fn test_rotated_gadget_properties() {
+        // Test with TCon which IS connected
+        let tcon = TCon;
+        let rotated = RotatedGadget::new(tcon, 1);
+
+        // TCon is connected, so rotated version should also be connected
+        assert!(Pattern::is_connected(&rotated));
+        assert!(!Pattern::is_cross_gadget(&rotated));
+        assert!(!Pattern::connected_nodes(&rotated).is_empty());
+        assert_eq!(Pattern::mis_overhead(&rotated), 0);
+
+        // Test source and mapped graphs are rotated
+        let (locs, edges, pins) = Pattern::source_graph(&rotated);
+        assert!(!locs.is_empty());
+        assert!(!edges.is_empty());
+        assert!(!pins.is_empty());
+
+        let (mapped_locs, mapped_pins) = Pattern::mapped_graph(&rotated);
+        assert!(!mapped_locs.is_empty());
+        assert!(!mapped_pins.is_empty());
+
+        // Test with Turn which is NOT connected
+        let turn = Turn;
+        let rotated_turn = RotatedGadget::new(turn, 1);
+        assert!(!Pattern::is_connected(&rotated_turn));
+        assert!(Pattern::connected_nodes(&rotated_turn).is_empty());
+    }
+
+    #[test]
+    fn test_rotated_gadget_cross_location() {
+        let tcon = TCon;
+        let original_cross = Pattern::cross_location(&tcon);
+
+        for n in 0..4 {
+            let rotated = RotatedGadget::new(tcon, n);
+            let cross = Pattern::cross_location(&rotated);
+            // Cross location should be valid (positive coordinates)
+            assert!(cross.0 >= 1);
+            assert!(cross.1 >= 1);
+        }
+
+        // Rotation 0 should preserve cross location
+        let r0 = RotatedGadget::new(tcon, 0);
+        assert_eq!(Pattern::cross_location(&r0), original_cross);
+    }
+
+    #[test]
+    fn test_reflected_gadget_all_mirrors() {
+        let cross = Cross::<true>;
+
+        // X mirror
+        let rx = ReflectedGadget::new(cross, Mirror::X);
+        assert_eq!(Pattern::size(&rx), (3, 3));
+
+        // Y mirror
+        let ry = ReflectedGadget::new(cross, Mirror::Y);
+        assert_eq!(Pattern::size(&ry), (3, 3));
+
+        // Diagonal mirror - swaps dimensions
+        let rdiag = ReflectedGadget::new(cross, Mirror::Diag);
+        assert_eq!(Pattern::size(&rdiag), (3, 3));
+
+        // Off-diagonal mirror - swaps dimensions
+        let roffdiag = ReflectedGadget::new(cross, Mirror::OffDiag);
+        assert_eq!(Pattern::size(&roffdiag), (3, 3));
+    }
+
+    #[test]
+    fn test_reflected_gadget_non_square() {
+        let tcon = TCon; // 3x4 gadget
+
+        // X/Y mirrors preserve dimensions
+        let rx = ReflectedGadget::new(tcon, Mirror::X);
+        assert_eq!(Pattern::size(&rx), (3, 4));
+
+        let ry = ReflectedGadget::new(tcon, Mirror::Y);
+        assert_eq!(Pattern::size(&ry), (3, 4));
+
+        // Diagonal mirrors swap dimensions
+        let rdiag = ReflectedGadget::new(tcon, Mirror::Diag);
+        assert_eq!(Pattern::size(&rdiag), (4, 3));
+
+        let roffdiag = ReflectedGadget::new(tcon, Mirror::OffDiag);
+        assert_eq!(Pattern::size(&roffdiag), (4, 3));
+    }
+
+    #[test]
+    fn test_reflected_gadget_properties() {
+        let cross = Cross::<true>;
+        let reflected = ReflectedGadget::new(cross, Mirror::Y);
+
+        assert!(Pattern::is_connected(&reflected));
+        assert!(Pattern::is_cross_gadget(&reflected));
+        assert_eq!(Pattern::connected_nodes(&reflected), vec![0, 5]);
+        assert_eq!(Pattern::mis_overhead(&reflected), -1);
+    }
+
+    #[test]
+    fn test_reflected_gadget_graphs() {
+        let tcon = TCon;
+        let reflected = ReflectedGadget::new(tcon, Mirror::X);
+
+        let (locs, edges, pins) = Pattern::source_graph(&reflected);
+        assert!(!locs.is_empty());
+        assert!(!edges.is_empty());
+        assert!(!pins.is_empty());
+
+        let (mapped_locs, mapped_pins) = Pattern::mapped_graph(&reflected);
+        assert!(!mapped_locs.is_empty());
+        assert!(!mapped_pins.is_empty());
+    }
+
+    #[test]
+    fn test_pattern_matches_basic() {
+        use super::super::grid::MappingGrid;
+
+        let mut grid = MappingGrid::new(10, 10, 4);
+
+        // Set up a Turn pattern at position (0, 0)
+        // Turn source locations: (1,2), (2,2), (3,2), (3,3), (3,4)
+        // 0-indexed: (0,1), (1,1), (2,1), (2,2), (2,3)
+        grid.set(0, 1, CellState::Occupied { weight: 1 });
+        grid.set(1, 1, CellState::Occupied { weight: 1 });
+        grid.set(2, 1, CellState::Occupied { weight: 1 });
+        grid.set(2, 2, CellState::Occupied { weight: 1 });
+        grid.set(2, 3, CellState::Occupied { weight: 1 });
+
+        let turn = Turn;
+        assert!(pattern_matches(&turn, &grid, 0, 0));
+
+        // Should not match at different position
+        assert!(!pattern_matches(&turn, &grid, 1, 0));
+    }
+
+    #[test]
+    fn test_apply_and_unapply_gadget() {
+        use super::super::grid::MappingGrid;
+
+        let mut grid = MappingGrid::new(10, 10, 4);
+
+        // Set up source pattern for Turn
+        grid.set(0, 1, CellState::Occupied { weight: 1 });
+        grid.set(1, 1, CellState::Occupied { weight: 1 });
+        grid.set(2, 1, CellState::Occupied { weight: 1 });
+        grid.set(2, 2, CellState::Occupied { weight: 1 });
+        grid.set(2, 3, CellState::Occupied { weight: 1 });
+
+        let turn = Turn;
+
+        // Apply gadget
+        apply_gadget(&turn, &mut grid, 0, 0);
+
+        // Mapped pattern should be present
+        // Turn mapped locations: (1,2), (2,3), (3,4) -> 0-indexed: (0,1), (1,2), (2,3)
+        assert!(matches!(grid.get(0, 1), Some(CellState::Occupied { .. })));
+        assert!(matches!(grid.get(1, 2), Some(CellState::Occupied { .. })));
+        assert!(matches!(grid.get(2, 3), Some(CellState::Occupied { .. })));
+
+        // Unapply gadget
+        unapply_gadget(&turn, &mut grid, 0, 0);
+
+        // Source pattern should be restored
+        assert!(matches!(grid.get(0, 1), Some(CellState::Occupied { .. })));
+        assert!(matches!(grid.get(1, 1), Some(CellState::Occupied { .. })));
+        assert!(matches!(grid.get(2, 1), Some(CellState::Occupied { .. })));
+    }
+
+    #[test]
+    fn test_mapped_entry_to_compact_all_gadgets() {
+        // Verify all gadgets have valid mappings
+        let gadgets: Vec<Box<dyn Fn() -> std::collections::HashMap<usize, usize>>> = vec![
+            Box::new(|| Cross::<true>.mapped_entry_to_compact()),
+            Box::new(|| Cross::<false>.mapped_entry_to_compact()),
+            Box::new(|| Turn.mapped_entry_to_compact()),
+            Box::new(|| WTurn.mapped_entry_to_compact()),
+            Box::new(|| Branch.mapped_entry_to_compact()),
+            Box::new(|| BranchFix.mapped_entry_to_compact()),
+            Box::new(|| TCon.mapped_entry_to_compact()),
+            Box::new(|| TrivialTurn.mapped_entry_to_compact()),
+            Box::new(|| EndTurn.mapped_entry_to_compact()),
+            Box::new(|| BranchFixB.mapped_entry_to_compact()),
+            Box::new(|| DanglingLeg.mapped_entry_to_compact()),
+        ];
+
+        for get_map in gadgets {
+            let map = get_map();
+            assert!(!map.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_source_entry_to_configs_all_gadgets() {
+        // Verify all gadgets have valid config mappings
+        let gadgets: Vec<Box<dyn Fn() -> std::collections::HashMap<usize, Vec<Vec<bool>>>>> = vec![
+            Box::new(|| Cross::<true>.source_entry_to_configs()),
+            Box::new(|| Cross::<false>.source_entry_to_configs()),
+            Box::new(|| Turn.source_entry_to_configs()),
+            Box::new(|| WTurn.source_entry_to_configs()),
+            Box::new(|| Branch.source_entry_to_configs()),
+            Box::new(|| BranchFix.source_entry_to_configs()),
+            Box::new(|| TCon.source_entry_to_configs()),
+            Box::new(|| TrivialTurn.source_entry_to_configs()),
+            Box::new(|| EndTurn.source_entry_to_configs()),
+            Box::new(|| BranchFixB.source_entry_to_configs()),
+            Box::new(|| DanglingLeg.source_entry_to_configs()),
+        ];
+
+        for get_map in gadgets {
+            let map = get_map();
+            assert!(!map.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_source_matrix_with_connected() {
+        // Test source matrix generation for connected gadget
+        let cross = Cross::<true>;
+        let matrix = Pattern::source_matrix(&cross);
+
+        assert_eq!(matrix.len(), 3);
+        assert_eq!(matrix[0].len(), 3);
+
+        // Connected gadget should have Connected cells
+        let has_connected = matrix.iter().any(|row| row.iter().any(|&c| c == PatternCell::Connected));
+        assert!(has_connected);
+    }
+
+    #[test]
+    fn test_source_matrix_with_doubled() {
+        // Cross<false> has a doubled node at (2,3)
+        let cross = Cross::<false>;
+        let matrix = Pattern::source_matrix(&cross);
+
+        // The crossing point (2,3) is doubled (appears twice in source_graph)
+        // 0-indexed: row 1, col 2
+        assert_eq!(matrix[1][2], PatternCell::Doubled);
+    }
+
+    fn check_mapped_matrix<P: Pattern>(gadget: &P) {
+        let matrix = gadget.mapped_matrix();
+        let (rows, cols) = gadget.size();
+
+        assert_eq!(matrix.len(), rows);
+        assert!(matrix.iter().all(|row| row.len() == cols));
+
+        // Should have at least some occupied cells
+        let has_occupied = matrix.iter().any(|row| {
+            row.iter().any(|&c| c == PatternCell::Occupied || c == PatternCell::Doubled)
+        });
+        assert!(has_occupied);
+    }
+
+    #[test]
+    fn test_mapped_matrix_generation_all_gadgets() {
+        check_mapped_matrix(&Cross::<false>);
+        check_mapped_matrix(&Cross::<true>);
+        check_mapped_matrix(&Turn);
+        check_mapped_matrix(&WTurn);
+        check_mapped_matrix(&Branch);
+        check_mapped_matrix(&BranchFix);
+        check_mapped_matrix(&TCon);
+        check_mapped_matrix(&TrivialTurn);
+        check_mapped_matrix(&EndTurn);
+        check_mapped_matrix(&BranchFixB);
+        check_mapped_matrix(&DanglingLeg);
+    }
+
+    #[test]
+    fn test_rotated_gadget_mapped_entry_to_compact() {
+        let tcon = TCon;
+        let rotated = RotatedGadget::new(tcon, 1);
+
+        let original_map = tcon.mapped_entry_to_compact();
+        let rotated_map = rotated.mapped_entry_to_compact();
+
+        // Rotated gadget should have same mappings as original
+        assert_eq!(original_map, rotated_map);
+    }
+
+    #[test]
+    fn test_reflected_gadget_mapped_entry_to_compact() {
+        let cross = Cross::<true>;
+        let reflected = ReflectedGadget::new(cross, Mirror::Y);
+
+        let original_map = cross.mapped_entry_to_compact();
+        let reflected_map = reflected.mapped_entry_to_compact();
+
+        // Reflected gadget should have same mappings as original
+        assert_eq!(original_map, reflected_map);
+    }
+
+    #[test]
+    fn test_pattern_unmatches() {
+        use super::super::grid::MappingGrid;
+
+        let mut grid = MappingGrid::new(10, 10, 4);
+        let turn = Turn;
+
+        // Set up mapped pattern for Turn
+        // Turn mapped locations: (1,2), (2,3), (3,4) -> 0-indexed: (0,1), (1,2), (2,3)
+        grid.set(0, 1, CellState::Occupied { weight: 1 });
+        grid.set(1, 2, CellState::Occupied { weight: 1 });
+        grid.set(2, 3, CellState::Occupied { weight: 1 });
+
+        assert!(pattern_unmatches(&turn, &grid, 0, 0));
+    }
+
+    #[test]
+    fn test_safe_get_pattern_cell_out_of_bounds() {
+        use super::super::grid::MappingGrid;
+
+        let grid = MappingGrid::new(5, 5, 4);
+
+        // Out of bounds should return Empty
+        assert_eq!(safe_get_pattern_cell(&grid, 10, 10), PatternCell::Empty);
+        assert_eq!(safe_get_pattern_cell(&grid, 5, 0), PatternCell::Empty);
+        assert_eq!(safe_get_pattern_cell(&grid, 0, 5), PatternCell::Empty);
+    }
+
+    #[test]
+    fn test_safe_get_pattern_cell_all_states() {
+        use super::super::grid::MappingGrid;
+
+        let mut grid = MappingGrid::new(5, 5, 4);
+
+        grid.set(0, 0, CellState::Empty);
+        grid.set(1, 0, CellState::Occupied { weight: 1 });
+        grid.set(2, 0, CellState::Doubled { weight: 2 });
+        grid.set(3, 0, CellState::Connected { weight: 1 });
+
+        assert_eq!(safe_get_pattern_cell(&grid, 0, 0), PatternCell::Empty);
+        assert_eq!(safe_get_pattern_cell(&grid, 1, 0), PatternCell::Occupied);
+        assert_eq!(safe_get_pattern_cell(&grid, 2, 0), PatternCell::Doubled);
+        assert_eq!(safe_get_pattern_cell(&grid, 3, 0), PatternCell::Connected);
+    }
+
+    #[test]
+    fn test_pattern_matches_strict_equality() {
+        use super::super::grid::MappingGrid;
+
+        // Test that pattern_matches uses strict equality (like Julia)
+        // Connected cells only match Connected, Occupied only matches Occupied
+
+        let cross_con = Cross::<true>;
+        let source = Pattern::source_matrix(&cross_con);
+
+        // Test 1: Exact match should work
+        let mut grid = MappingGrid::new(10, 10, 4);
+        for (r, row) in source.iter().enumerate() {
+            for (c, cell) in row.iter().enumerate() {
+                let state = match cell {
+                    PatternCell::Occupied => CellState::Occupied { weight: 1 },
+                    PatternCell::Doubled => CellState::Doubled { weight: 2 },
+                    PatternCell::Connected => CellState::Connected { weight: 1 },
+                    PatternCell::Empty => CellState::Empty,
+                };
+                grid.set(r, c, state);
+            }
+        }
+        assert!(pattern_matches(&cross_con, &grid, 0, 0));
+
+        // Test 2: With strict equality, replacing Occupied with Connected should NOT match
+        let mut grid2 = MappingGrid::new(10, 10, 4);
+        for (r, row) in source.iter().enumerate() {
+            for (c, cell) in row.iter().enumerate() {
+                let state = match cell {
+                    // Replace Occupied with Connected - strict equality means this won't match
+                    PatternCell::Occupied => CellState::Connected { weight: 1 },
+                    PatternCell::Doubled => CellState::Doubled { weight: 2 },
+                    PatternCell::Connected => CellState::Connected { weight: 1 },
+                    PatternCell::Empty => CellState::Empty,
+                };
+                grid2.set(r, c, state);
+            }
+        }
+        // Strict equality: Connected ≠ Occupied, so pattern should NOT match
+        assert!(!pattern_matches(&cross_con, &grid2, 0, 0));
+
+        // Test 3: Replacing Connected with Occupied should also NOT match
+        let mut grid3 = MappingGrid::new(10, 10, 4);
+        for (r, row) in source.iter().enumerate() {
+            for (c, cell) in row.iter().enumerate() {
+                let state = match cell {
+                    PatternCell::Occupied => CellState::Occupied { weight: 1 },
+                    PatternCell::Doubled => CellState::Doubled { weight: 2 },
+                    // Replace Connected with Occupied
+                    PatternCell::Connected => CellState::Occupied { weight: 1 },
+                    PatternCell::Empty => CellState::Empty,
+                };
+                grid3.set(r, c, state);
+            }
+        }
+        // Strict equality: Occupied ≠ Connected, so pattern should NOT match
+        assert!(!pattern_matches(&cross_con, &grid3, 0, 0));
+    }
+
+    #[test]
+    fn test_rotated_and_reflected_danglinleg() {
+        let patterns = rotated_and_reflected_danglinleg();
+
+        // Should generate multiple variants
+        assert!(patterns.len() > 1);
+
+        // Each should be a valid pattern
+        for pattern in &patterns {
+            let (rows, cols) = pattern.size();
+            assert!(rows > 0);
+            assert!(cols > 0);
+        }
+    }
+
+    #[test]
+    fn test_apply_crossing_gadgets_empty_grid() {
+        use super::super::grid::MappingGrid;
+        use super::super::copyline::CopyLine;
+
+        let mut grid = MappingGrid::new(20, 20, 4);
+        let copylines: Vec<CopyLine> = vec![];
+
+        // Should not panic with empty inputs
+        let tape = apply_crossing_gadgets(&mut grid, &copylines);
+
+        assert!(tape.is_empty());
+    }
+
+    #[test]
+    fn test_tape_entry_creation() {
+        let entry = TapeEntry {
+            pattern_idx: 0,
+            row: 5,
+            col: 10,
+        };
+
+        assert_eq!(entry.pattern_idx, 0);
+        assert_eq!(entry.row, 5);
+        assert_eq!(entry.col, 10);
+    }
+
+    #[test]
+    fn test_reflected_gadget_cross_location() {
+        let cross = Cross::<true>;
+
+        for mirror in [Mirror::X, Mirror::Y, Mirror::Diag, Mirror::OffDiag] {
+            let reflected = ReflectedGadget::new(cross, mirror);
+            let cross_loc = Pattern::cross_location(&reflected);
+
+            // Cross location should be valid (positive coordinates)
+            assert!(cross_loc.0 >= 1);
+            assert!(cross_loc.1 >= 1);
+        }
+    }
+
+    #[test]
+    fn test_rotated_gadget_source_entry_to_configs() {
+        let tcon = TCon;
+        let rotated = RotatedGadget::new(tcon, 2);
+
+        let original_configs = tcon.source_entry_to_configs();
+        let rotated_configs = rotated.source_entry_to_configs();
+
+        // Rotated gadget should have same config mappings
+        assert_eq!(original_configs, rotated_configs);
+    }
+
+    #[test]
+    fn test_reflected_gadget_source_entry_to_configs() {
+        let cross = Cross::<false>;
+        let reflected = ReflectedGadget::new(cross, Mirror::X);
+
+        let original_configs = cross.source_entry_to_configs();
+        let reflected_configs = reflected.source_entry_to_configs();
+
+        // Reflected gadget should have same config mappings
+        assert_eq!(original_configs, reflected_configs);
     }
 }

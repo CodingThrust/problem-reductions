@@ -1,6 +1,7 @@
 //! Mapping grid for intermediate representation during graph embedding.
 
 use serde::{Deserialize, Serialize};
+use std::fmt;
 
 /// Cell state in the mapping grid.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Default, Serialize, Deserialize)]
@@ -159,11 +160,110 @@ impl MappingGrid {
     }
 
     /// Get cross location for two vertices.
+    /// Julia's crossat uses smaller position's hslot for row and larger position for col.
     pub fn cross_at(&self, v_slot: usize, w_slot: usize, h_slot: usize) -> (usize, usize) {
-        let w = v_slot.max(w_slot);
+        let larger_slot = v_slot.max(w_slot);
         let row = (h_slot - 1) * self.spacing + 2 + self.padding;
-        let col = (w - 1) * self.spacing + 1 + self.padding;
+        let col = (larger_slot - 1) * self.spacing + 1 + self.padding;
         (row, col)
+    }
+
+    /// Format the grid as a string matching Julia's UnitDiskMapping format.
+    ///
+    /// Characters (matching Julia exactly):
+    /// - `⋅` = empty cell
+    /// - `●` = occupied cell (weight=1 or 2)
+    /// - `◉` = doubled cell (two copy lines overlap)
+    /// - `◆` = connected cell (weight=2)
+    /// - `◇` = connected cell (weight=1)
+    /// - `▴` = cell with weight >= 3
+    /// - Each cell is followed by a space
+    ///
+    /// With configuration:
+    /// - `●` = selected node (config=1)
+    /// - `○` = unselected node (config=0)
+    pub fn format_with_config(&self, config: Option<&[usize]>) -> String {
+        use std::collections::HashMap;
+
+        // Build position to config index map if config is provided
+        let pos_to_idx: HashMap<(usize, usize), usize> = if config.is_some() {
+            let mut map = HashMap::new();
+            let mut idx = 0;
+            for r in 0..self.rows {
+                for c in 0..self.cols {
+                    if self.content[r][c].is_occupied() {
+                        map.insert((r, c), idx);
+                        idx += 1;
+                    }
+                }
+            }
+            map
+        } else {
+            HashMap::new()
+        };
+
+        let mut lines = Vec::new();
+
+        for r in 0..self.rows {
+            let mut line = String::new();
+            for c in 0..self.cols {
+                let cell = &self.content[r][c];
+                let s = if let Some(cfg) = config {
+                    if let Some(&idx) = pos_to_idx.get(&(r, c)) {
+                        if cfg.get(idx).copied().unwrap_or(0) > 0 {
+                            "●" // Selected node
+                        } else {
+                            "○" // Unselected node
+                        }
+                    } else {
+                        "⋅" // Empty
+                    }
+                } else {
+                    Self::cell_str(cell)
+                };
+                line.push_str(s);
+                line.push(' ');
+            }
+            // Remove trailing space
+            line.pop();
+            lines.push(line);
+        }
+
+        lines.join("\n")
+    }
+
+    /// Get the string representation of a cell (matching Julia's print_cell).
+    fn cell_str(cell: &CellState) -> &'static str {
+        match cell {
+            CellState::Empty => "⋅",
+            CellState::Occupied { weight } => {
+                if *weight >= 3 {
+                    "▴"
+                } else {
+                    "●"
+                }
+            }
+            CellState::Doubled { .. } => "◉",
+            CellState::Connected { weight } => {
+                if *weight == 1 {
+                    "◇"
+                } else {
+                    "◆"
+                }
+            }
+        }
+    }
+}
+
+impl fmt::Display for CellState {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", MappingGrid::cell_str(self))
+    }
+}
+
+impl fmt::Display for MappingGrid {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.format_with_config(None))
     }
 }
 
@@ -263,9 +363,10 @@ mod tests {
     #[test]
     fn test_mapping_grid_cross_at() {
         let grid = MappingGrid::new(20, 20, 4);
+        // Julia's crossat uses larger position for col calculation
         let (row, col) = grid.cross_at(1, 3, 2);
-        assert_eq!(row, (2 - 1) * 4 + 2 + 2);
-        assert_eq!(col, (3 - 1) * 4 + 1 + 2);
+        assert_eq!(row, (2 - 1) * 4 + 2 + 2); // (hslot - 1) * spacing + 2 + padding
+        assert_eq!(col, (3 - 1) * 4 + 1 + 2); // (larger_vslot - 1) * spacing + 1 + padding
 
         let (row2, col2) = grid.cross_at(3, 1, 2);
         assert_eq!((row, col), (row2, col2));
