@@ -266,6 +266,53 @@ pub fn trace_centers(result: &MappingResult) -> Vec<(usize, usize)> {
     indexed.into_iter().map(|(_, c)| c).collect()
 }
 
+/// Map source vertex weights to grid graph weights.
+///
+/// # Arguments
+/// * `result` - The mapping result from map_graph_triangular
+/// * `source_weights` - Weights for each original vertex (should be in [0, 1])
+///
+/// # Returns
+/// A vector of weights for each node in the grid graph.
+pub fn map_weights(result: &MappingResult, source_weights: &[f64]) -> Vec<f64> {
+    assert!(
+        source_weights.iter().all(|&w| (0.0..=1.0).contains(&w)),
+        "all weights must be in range [0, 1]"
+    );
+    assert_eq!(
+        source_weights.len(),
+        result.lines.len(),
+        "source_weights length must match number of vertices"
+    );
+
+    // Start with base weights from grid nodes
+    let mut weights: Vec<f64> = result
+        .grid_graph
+        .nodes()
+        .iter()
+        .map(|n| n.weight as f64)
+        .collect();
+
+    // Get center locations for each original vertex
+    let centers = trace_centers(result);
+
+    // Add source weights at center locations
+    for (vertex, &src_weight) in source_weights.iter().enumerate() {
+        let center = centers[vertex];
+        // Find the node index at this center location
+        if let Some(idx) = result
+            .grid_graph
+            .nodes()
+            .iter()
+            .position(|n| n.row as usize == center.0 && n.col as usize == center.1)
+        {
+            weights[idx] += src_weight;
+        }
+    }
+
+    weights
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -368,5 +415,35 @@ mod tests {
             assert!(*row > 0);
             assert!(*col > 0);
         }
+    }
+
+    #[test]
+    fn test_map_weights_basic() {
+        use crate::rules::mapping::map_graph_triangular;
+        use crate::topology::Graph;
+
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph_triangular(3, &edges);
+
+        let source_weights = vec![0.5, 0.3, 0.7];
+        let grid_weights = super::map_weights(&result, &source_weights);
+
+        // Should have same length as grid nodes
+        assert_eq!(grid_weights.len(), result.grid_graph.num_vertices());
+
+        // All weights should be positive
+        assert!(grid_weights.iter().all(|&w| w > 0.0));
+    }
+
+    #[test]
+    #[should_panic(expected = "all weights must be in range")]
+    fn test_map_weights_rejects_invalid() {
+        use crate::rules::mapping::map_graph_triangular;
+
+        let edges = vec![(0, 1)];
+        let result = map_graph_triangular(2, &edges);
+
+        let source_weights = vec![1.5, 0.3]; // Invalid: > 1
+        super::map_weights(&result, &source_weights);
     }
 }
