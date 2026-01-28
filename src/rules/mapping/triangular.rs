@@ -765,6 +765,7 @@ fn apply_triangular_gadget<G: TriangularGadget>(
 pub fn apply_triangular_crossing_gadgets(
     grid: &mut MappingGrid,
     copylines: &[super::copyline::CopyLine],
+    edges: &[(usize, usize)],
     spacing: usize,
     padding: usize,
 ) -> Vec<TriangularTapeEntry> {
@@ -772,22 +773,19 @@ pub fn apply_triangular_crossing_gadgets(
 
     let mut tape = Vec::new();
     let mut processed = HashSet::new();
-    let n = copylines.len();
 
-    // Iterate through all pairs of vertices
-    for j in 0..n {
-        for i in 0..n {
-            let (cross_row, cross_col) = crossat_triangular(copylines, i, j, spacing, padding);
+    // Only process crossings for actual edges in the graph
+    for &(u, v) in edges {
+        let (cross_row, cross_col) = crossat_triangular(copylines, u, v, spacing, padding);
 
-            if processed.contains(&(cross_row, cross_col)) {
-                continue;
-            }
+        if processed.contains(&(cross_row, cross_col)) {
+            continue;
+        }
 
-            // Try each gadget in the ruleset
-            if let Some(entry) = try_match_triangular_gadget(grid, cross_row, cross_col) {
-                tape.push(entry);
-                processed.insert((cross_row, cross_col));
-            }
+        // Try each gadget in the ruleset
+        if let Some(entry) = try_match_triangular_gadget(grid, cross_row, cross_col) {
+            tape.push(entry);
+            processed.insert((cross_row, cross_col));
         }
     }
 
@@ -904,29 +902,44 @@ pub fn map_graph_triangular_with_order(
 
     let mut grid = MappingGrid::with_padding(rows, cols, spacing, padding);
 
-    // Add copy line nodes
+    // Add copy line nodes using dense locations (all cells along the L-shape)
     for line in &copylines {
-        for (row, col, weight) in line.locations(padding, spacing) {
+        for (row, col, weight) in line.dense_locations(padding, spacing) {
             grid.add_node(row, col, weight as i32);
         }
     }
 
-    // Apply crossing gadgets
-    let triangular_tape = apply_triangular_crossing_gadgets(&mut grid, &copylines, spacing, padding);
+    // Mark edge connections at crossing points
+    for &(u, v) in edges {
+        let u_line = &copylines[u];
+        let v_line = &copylines[v];
 
-    // Calculate MIS overhead from copylines
+        let (smaller_line, larger_line) = if u_line.vslot < v_line.vslot {
+            (u_line, v_line)
+        } else {
+            (v_line, u_line)
+        };
+
+        let (row, col) = crossat_triangular(&copylines, smaller_line.vertex, larger_line.vertex, spacing, padding);
+
+        // Mark connected cells at crossing point
+        if col > 0 {
+            grid.connect(row, col - 1);
+        }
+        if row > 0 && grid.is_occupied(row - 1, col) {
+            grid.connect(row - 1, col);
+        } else if row + 1 < grid.size().0 && grid.is_occupied(row + 1, col) {
+            grid.connect(row + 1, col);
+        }
+    }
+
+    // Apply crossing gadgets
+    let triangular_tape = apply_triangular_crossing_gadgets(&mut grid, &copylines, edges, spacing, padding);
+
+    // Calculate MIS overhead from copylines (dense locations / 2)
     let copyline_overhead: i32 = copylines
         .iter()
-        .map(|line| {
-            let row_overhead = (line.hslot.saturating_sub(line.vstart)) * spacing
-                + (line.vstop.saturating_sub(line.hslot)) * spacing;
-            let col_overhead = if line.hstop > line.vslot {
-                (line.hstop - line.vslot) * spacing - 2
-            } else {
-                0
-            };
-            (row_overhead + col_overhead) as i32
-        })
+        .map(|line| (line.dense_locations(padding, spacing).len() / 2) as i32)
         .sum();
 
     // Add gadget overhead

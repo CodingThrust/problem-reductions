@@ -59,8 +59,9 @@ pub use grid::{CellState, MappingGrid};
 pub use map_graph::{embed_graph, map_graph, map_graph_with_method, map_graph_with_order, MappingResult};
 pub use pathdecomposition::{pathwidth, Layout, PathDecompositionMethod};
 pub use triangular::{
-    map_graph_triangular, map_graph_triangular_with_method, map_graph_triangular_with_order,
-    TriangularGadget, TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown,
+    apply_triangular_crossing_gadgets, map_graph_triangular, map_graph_triangular_with_method,
+    map_graph_triangular_with_order, triangular_tape_entry_mis_overhead, TriangularGadget,
+    TriangularTapeEntry, TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown,
     TriTConLeft, TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
 };
 pub use weighted::{
