@@ -660,6 +660,35 @@ impl TriangularGadget for TriBranchFixB {
     }
 }
 
+/// Check if a triangular gadget pattern matches at position (i, j) in the grid.
+/// i, j are 0-indexed row/col offsets.
+fn pattern_matches_triangular<G: TriangularGadget>(
+    gadget: &G,
+    grid: &MappingGrid,
+    i: usize,
+    j: usize,
+) -> bool {
+    let source = gadget.source_matrix();
+    let (m, n) = gadget.size();
+
+    for r in 0..m {
+        for c in 0..n {
+            let grid_r = i + r;
+            let grid_c = j + c;
+            let expected_occupied = source[r][c];
+            let actual_occupied = grid
+                .get(grid_r, grid_c)
+                .map(|cell| !cell.is_empty())
+                .unwrap_or(false);
+
+            if expected_occupied != actual_occupied {
+                return false;
+            }
+        }
+    }
+    true
+}
+
 /// Map a graph to a triangular lattice grid graph using optimal path decomposition.
 ///
 /// # Panics
