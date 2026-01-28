@@ -1,6 +1,7 @@
 //! Triangular lattice mapping support.
 
 use super::copyline::create_copylines;
+use super::gadgets::TapeEntry;
 use super::grid::MappingGrid;
 use super::map_graph::MappingResult;
 use super::pathdecomposition::{pathwidth, vertex_order_from_layout, PathDecompositionMethod};
@@ -910,8 +911,11 @@ pub fn map_graph_triangular_with_order(
         }
     }
 
-    // Calculate MIS overhead
-    let mis_overhead: i32 = copylines
+    // Apply crossing gadgets
+    let triangular_tape = apply_triangular_crossing_gadgets(&mut grid, &copylines, spacing, padding);
+
+    // Calculate MIS overhead from copylines
+    let copyline_overhead: i32 = copylines
         .iter()
         .map(|line| {
             let row_overhead = (line.hslot.saturating_sub(line.vstart)) * spacing
@@ -924,6 +928,23 @@ pub fn map_graph_triangular_with_order(
             (row_overhead + col_overhead) as i32
         })
         .sum();
+
+    // Add gadget overhead
+    let gadget_overhead: i32 = triangular_tape
+        .iter()
+        .map(triangular_tape_entry_mis_overhead)
+        .sum();
+    let mis_overhead = copyline_overhead + gadget_overhead;
+
+    // Convert triangular tape entries to generic tape entries
+    let tape: Vec<TapeEntry> = triangular_tape
+        .into_iter()
+        .map(|entry| TapeEntry {
+            pattern_idx: entry.gadget_idx,
+            row: entry.row,
+            col: entry.col,
+        })
+        .collect();
 
     // Convert to GridGraph with triangular type
     let nodes: Vec<GridNode<i32>> = grid
@@ -951,7 +972,7 @@ pub fn map_graph_triangular_with_order(
         padding,
         spacing,
         mis_overhead,
-        tape: Vec::new(), // Triangular lattice uses different gadgets
+        tape,
     }
 }
 
