@@ -762,10 +762,12 @@ fn apply_triangular_gadget<G: TriangularGadget>(
 
 /// Apply all triangular crossing gadgets to resolve crossings.
 /// Returns the tape of applied gadgets.
+///
+/// This matches Julia's `apply_crossing_gadgets!` which iterates ALL pairs (i,j)
+/// and tries to match patterns at each crossing point.
 pub fn apply_triangular_crossing_gadgets(
     grid: &mut MappingGrid,
     copylines: &[super::copyline::CopyLine],
-    edges: &[(usize, usize)],
     spacing: usize,
     padding: usize,
 ) -> Vec<TriangularTapeEntry> {
@@ -773,19 +775,24 @@ pub fn apply_triangular_crossing_gadgets(
 
     let mut tape = Vec::new();
     let mut processed = HashSet::new();
+    let n = copylines.len();
 
-    // Only process crossings for actual edges in the graph
-    for &(u, v) in edges {
-        let (cross_row, cross_col) = crossat_triangular(copylines, u, v, spacing, padding);
+    // Iterate ALL pairs (matching Julia's for j=1:n, for i=1:n)
+    for j in 0..n {
+        for i in 0..n {
+            let (cross_row, cross_col) = crossat_triangular(copylines, i, j, spacing, padding);
 
-        if processed.contains(&(cross_row, cross_col)) {
-            continue;
-        }
+            // Skip if this crossing point has already been processed
+            // (avoids double-applying trivial gadgets for symmetric pairs like (i,j) and (j,i))
+            if processed.contains(&(cross_row, cross_col)) {
+                continue;
+            }
 
-        // Try each gadget in the ruleset
-        if let Some(entry) = try_match_triangular_gadget(grid, cross_row, cross_col) {
-            tape.push(entry);
-            processed.insert((cross_row, cross_col));
+            // Try each gadget in the ruleset at this crossing point
+            if let Some(entry) = try_match_triangular_gadget(grid, cross_row, cross_col) {
+                tape.push(entry);
+                processed.insert((cross_row, cross_col));
+            }
         }
     }
 
@@ -902,9 +909,10 @@ pub fn map_graph_triangular_with_order(
 
     let mut grid = MappingGrid::with_padding(rows, cols, spacing, padding);
 
-    // Add copy line nodes using dense locations (all cells along the L-shape)
+    // Add copy line nodes using triangular-specific dense locations
+    // (includes endpoint node for proper crossings)
     for line in &copylines {
-        for (row, col, weight) in line.dense_locations(padding, spacing) {
+        for (row, col, weight) in line.dense_locations_triangular(padding, spacing) {
             grid.add_node(row, col, weight as i32);
         }
     }
@@ -933,13 +941,15 @@ pub fn map_graph_triangular_with_order(
         }
     }
 
-    // Apply crossing gadgets
-    let triangular_tape = apply_triangular_crossing_gadgets(&mut grid, &copylines, edges, spacing, padding);
+    // Apply crossing gadgets (iterates ALL pairs, not just edges)
+    let triangular_tape = apply_triangular_crossing_gadgets(&mut grid, &copylines, spacing, padding);
 
-    // Calculate MIS overhead from copylines (dense locations / 2)
+    // Calculate MIS overhead from copylines.
+    // For unweighted mode (nodes have weight 1), use length(locs) / 2.
+    // This matches Julia's mis_overhead_copyline for Unweighted mode.
     let copyline_overhead: i32 = copylines
         .iter()
-        .map(|line| (line.dense_locations(padding, spacing).len() / 2) as i32)
+        .map(|line| (line.dense_locations_triangular(padding, spacing).len() / 2) as i32)
         .sum();
 
     // Add gadget overhead

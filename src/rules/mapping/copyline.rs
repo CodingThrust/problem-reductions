@@ -141,6 +141,72 @@ impl CopyLine {
 
         locs
     }
+
+    /// Generate dense grid locations for triangular mode (includes endpoint node).
+    /// This matches Julia's `copyline_locations(TriangularWeighted, ...)` formula.
+    ///
+    /// The key difference from `dense_locations` is that the horizontal segment
+    /// extends one more cell to include the endpoint at `J + spacing * (hstop - vslot)`.
+    pub fn dense_locations_triangular(&self, padding: usize, spacing: usize) -> Vec<(usize, usize, usize)> {
+        let mut locs = Vec::new();
+        let mut nline = 0usize;
+
+        // Center location (I, J) - matches Julia's center_location
+        let i = (spacing * (self.hslot - 1) + padding + 2) as isize;
+        let j = (spacing * (self.vslot - 1) + padding + 1) as isize;
+        let spacing = spacing as isize;
+
+        // Grow up: from I down to start
+        let start = i + spacing * (self.vstart as isize - self.hslot as isize) + 1;
+        if self.vstart < self.hslot {
+            nline += 1;
+        }
+        for row in (start..=i).rev() {
+            if row >= 0 {
+                let weight = if row != start { 2 } else { 1 };
+                locs.push((row as usize, j as usize, weight));
+            }
+        }
+
+        // Grow down: from I to stop
+        let stop = i + spacing * (self.vstop as isize - self.hslot as isize) - 1;
+        if self.vstop > self.hslot {
+            nline += 1;
+        }
+        for row in i..=stop {
+            if row >= 0 {
+                if row == i {
+                    // Special: first node going down is offset by (1, 1)
+                    locs.push(((row + 1) as usize, (j + 1) as usize, 2));
+                } else {
+                    let weight = if row != stop { 2 } else { 1 };
+                    locs.push((row as usize, j as usize, weight));
+                }
+            }
+        }
+
+        // Grow right: from J+2 to stop (INCLUDES endpoint for triangular mode)
+        // Julia formula: hstop_J = J + spacing * (hstop - vslot)
+        let stop_col = j + spacing * (self.hstop as isize - self.vslot as isize);
+        if self.hstop > self.vslot {
+            nline += 1;
+        }
+        // Loop from J+2 to stop_col-1 with weight 2
+        for col in (j + 2)..stop_col {
+            if col >= 0 {
+                locs.push((i as usize, col as usize, 2));
+            }
+        }
+        // Add endpoint with weight 1
+        if stop_col > j + 1 && stop_col >= 0 {
+            locs.push((i as usize, stop_col as usize, 1));
+        }
+
+        // Center node at (I, J+1) - always at least weight 1
+        locs.push((i as usize, (j + 1) as usize, nline.max(1)));
+
+        locs
+    }
 }
 
 /// Helper function to compute the removal order for vertices.
