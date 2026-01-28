@@ -2270,6 +2270,44 @@ mod triangular_mis_verification {
             );
         }
     }
+
+    /// Test that maps standard graphs and verifies config back produces valid IS.
+    /// Mirrors Julia's "triangular map configurations back" test.
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_map_configurations_back() {
+        use problemreductions::topology::smallgraph;
+
+        let graph_names = ["bull", "petersen", "cubical", "house", "diamond", "tutte"];
+
+        for name in graph_names {
+            let (n, edges) = smallgraph(name).unwrap();
+            let result = map_graph_triangular(n, &edges);
+
+            // Solve MIS on the grid graph to get a valid configuration
+            let grid_edges = result.grid_graph.edges().to_vec();
+            let grid_config = solve_mis_config(result.grid_graph.num_vertices(), &grid_edges);
+
+            // Map the grid configuration back to original graph
+            let original_config = result.map_config_back(&grid_config);
+
+            // Verify the mapped-back config is a valid IS
+            assert!(
+                is_independent_set(&edges, &original_config),
+                "{}: mapped-back config is not a valid independent set",
+                name
+            );
+
+            // Verify the original config has the expected MIS size
+            let original_is_size: usize = original_config.iter().sum();
+            let expected_mis = solve_mis(n, &edges);
+            assert_eq!(
+                original_is_size, expected_mis,
+                "{}: mapped-back IS size {} should equal original MIS {}",
+                name, original_is_size, expected_mis
+            );
+        }
+    }
 }
 
 /// Tests for copy line properties.
