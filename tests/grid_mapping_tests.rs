@@ -2234,6 +2234,52 @@ mod triangular_mis_verification {
         }
     }
 
+    /// Enhanced interface test with random weights and config extraction.
+    /// Mirrors Julia's "triangular interface" test.
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_interface_full() {
+        use problemreductions::rules::mapping::{map_weights, trace_centers};
+        use problemreductions::topology::smallgraph;
+
+        let (n, edges) = smallgraph("petersen").unwrap();
+        let result = map_graph_triangular(n, &edges);
+
+        // Random weights (seeded for reproducibility)
+        let ws: Vec<f64> = (0..n).map(|i| (i as f64 * 0.1 + 0.05).min(0.95)).collect();
+        let grid_weights = map_weights(&result, &ws);
+
+        // Verify weights are valid
+        assert_eq!(grid_weights.len(), result.grid_graph.num_vertices());
+        assert!(grid_weights.iter().all(|&w| w > 0.0));
+
+        // Solve weighted MIS
+        let int_weights: Vec<i32> = grid_weights.iter().map(|&w| (w * 100.0).round() as i32).collect();
+        let grid_edges = result.grid_graph.edges().to_vec();
+        let mapped_mis_size = solve_weighted_mis(result.grid_graph.num_vertices(), &grid_edges, &int_weights);
+
+        // Solve original graph MIS
+        let src_int: Vec<i32> = ws.iter().map(|&w| (w * 100.0).round() as i32).collect();
+        let original_mis_size = solve_weighted_mis(n, &edges, &src_int);
+
+        // Verify: mis_overhead + original ≈ mapped
+        let expected = original_mis_size + (result.mis_overhead * 100) as i32;
+        assert!(
+            (mapped_mis_size - expected).abs() <= 1,
+            "MIS overhead formula: {} + {}*100 = {} but got {}",
+            original_mis_size, result.mis_overhead, expected, mapped_mis_size
+        );
+
+        // Test map_config_back
+        let config = vec![0; result.grid_graph.num_vertices()];
+        let original_config = result.map_config_back(&config);
+        assert_eq!(original_config.len(), n);
+
+        // Verify trace_centers
+        let centers = trace_centers(&result);
+        assert_eq!(centers.len(), n);
+    }
+
     #[test]
     fn test_triangular_copyline_mis_overhead_8_configs() {
         use problemreductions::rules::mapping::{
