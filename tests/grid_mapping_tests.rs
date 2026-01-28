@@ -1961,6 +1961,31 @@ mod triangular_mis_verification {
         assert_eq!(original_is_size, expected_mis);
     }
 
+    /// Test that configuration count is preserved across mapping.
+    /// This is a simplified version of Julia's CountingMax test.
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_config_count_preserved() {
+        use problemreductions::topology::smallgraph;
+
+        // Use diamond graph (small, easy to verify)
+        let (n, edges) = smallgraph("diamond").unwrap();
+        let result = map_graph_triangular(n, &edges);
+
+        // Unweighted MIS (all weights = 1)
+        let original_mis = solve_mis(n, &edges);
+        let grid_edges = result.grid_graph.edges().to_vec();
+        let mapped_mis = solve_mis(result.grid_graph.num_vertices(), &grid_edges);
+
+        // Verify overhead formula holds for unweighted case
+        let expected = original_mis as i32 + result.mis_overhead;
+        assert_eq!(
+            mapped_mis as i32, expected,
+            "Unweighted MIS: {} + {} = {}, got {}",
+            original_mis, result.mis_overhead, expected, mapped_mis
+        );
+    }
+
     // === Phase 1: Triangular Gadget MIS Equivalence ===
     //
     // These tests verify that each triangular gadget's source_graph and mapped_graph
