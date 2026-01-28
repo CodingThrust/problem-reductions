@@ -822,27 +822,45 @@ mod crossing_connect_count {
 
     #[test]
     fn test_gadget_matching_before_apply() {
-        // Use bull graph like Julia test
+        // Use bull graph like Julia test - mirrors Julia's "crossing connect count" test
+        // Uses strict equality matching (Connected ≠ Occupied) like Julia
         let (n, edges) = smallgraph("bull").unwrap();
         let vertex_order: Vec<usize> = (0..n).rev().collect();
         let grid = embed_graph(n, &edges, &vertex_order).unwrap();
 
-        // Test Cross<false> - may or may not match depending on embedding
-        let cross_false = Cross::<false>;
-        let count_false = count_matches(&cross_false, &grid);
-        // Just verify we can count matches (value depends on vertex order and edges)
-        let _ = count_false;
-
-        // Test Cross<true> - may or may not match depending on embedding
-        let cross_true = Cross::<true>;
-        let count_true = count_matches(&cross_true, &grid);
-        let _ = count_true;
+        // Expected counts for bull graph with reverse vertex order
+        // These values match the current implementation's grid layout
+        assert_eq!(count_matches(&Cross::<false>, &grid), 1);
+        assert_eq!(count_matches(&Cross::<true>, &grid), 0);
+        assert_eq!(count_matches(&Turn, &grid), 1);
+        assert_eq!(count_matches(&WTurn, &grid), 1);
+        assert_eq!(count_matches(&Branch, &grid), 0);
+        assert_eq!(count_matches(&BranchFix, &grid), 1);
+        assert_eq!(count_matches(&TCon, &grid), 1);
+        assert_eq!(count_matches(&TrivialTurn, &grid), 1);
+        assert_eq!(count_matches(&RotatedGadget::new(TCon, 1), &grid), 0);
+        assert_eq!(
+            count_matches(&ReflectedGadget::new(Cross::<true>, Mirror::Y), &grid),
+            0
+        );
+        assert_eq!(
+            count_matches(&ReflectedGadget::new(TrivialTurn, Mirror::Y), &grid),
+            2
+        );
+        assert_eq!(count_matches(&BranchFixB, &grid), 0);
+        assert_eq!(
+            count_matches(
+                &ReflectedGadget::new(RotatedGadget::new(TCon, 1), Mirror::Y),
+                &grid
+            ),
+            1
+        );
     }
 
     #[test]
-    #[ignore = "TrivialTurn has identical source/mapped patterns so always matches"]
-    fn test_no_gadgets_match_after_apply() {
-        // After apply_crossing_gadgets, no crossing gadgets should match
+    fn test_no_crossing_gadgets_match_after_apply() {
+        // After apply_crossing_gadgets, ALL gadgets should have 0 matches
+        // This mirrors Julia's test: all gadgets match 0 times after apply
         let (n, edges) = smallgraph("bull").unwrap();
         let vertex_order: Vec<usize> = (0..n).rev().collect();
         let mut grid = embed_graph(n, &edges, &vertex_order).unwrap();
@@ -851,28 +869,34 @@ mod crossing_connect_count {
         // Apply crossing gadgets
         let _tape = apply_crossing_gadgets(&mut grid, &copylines);
 
-        // All crossing gadgets should have 0 matches after application
-        let gadgets: Vec<Box<dyn Fn(&MappingGrid) -> usize>> = vec![
-            Box::new(|g| count_matches(&Cross::<false>, g)),
-            Box::new(|g| count_matches(&Cross::<true>, g)),
-            Box::new(|g| count_matches(&Turn, g)),
-            Box::new(|g| count_matches(&WTurn, g)),
-            Box::new(|g| count_matches(&Branch, g)),
-            Box::new(|g| count_matches(&BranchFix, g)),
-            Box::new(|g| count_matches(&BranchFixB, g)),
-            Box::new(|g| count_matches(&TCon, g)),
-            Box::new(|g| count_matches(&TrivialTurn, g)),
-            Box::new(|g| count_matches(&EndTurn, g)),
-        ];
-
-        for (i, count_fn) in gadgets.iter().enumerate() {
-            let count = count_fn(&grid);
-            assert_eq!(
-                count, 0,
-                "Gadget {} should have 0 matches after apply_crossing_gadgets",
-                i
-            );
-        }
+        // All gadgets should have 0 matches after application
+        // With strict equality matching, TrivialTurn also doesn't match because
+        // source has Connected cells but mapped produces Occupied cells
+        assert_eq!(count_matches(&Cross::<false>, &grid), 0);
+        assert_eq!(count_matches(&Cross::<true>, &grid), 0);
+        assert_eq!(count_matches(&Turn, &grid), 0);
+        assert_eq!(count_matches(&WTurn, &grid), 0);
+        assert_eq!(count_matches(&Branch, &grid), 0);
+        assert_eq!(count_matches(&BranchFix, &grid), 0);
+        assert_eq!(count_matches(&BranchFixB, &grid), 0);
+        assert_eq!(count_matches(&TCon, &grid), 0);
+        assert_eq!(count_matches(&TrivialTurn, &grid), 0);
+        assert_eq!(count_matches(&RotatedGadget::new(TCon, 1), &grid), 0);
+        assert_eq!(
+            count_matches(&ReflectedGadget::new(Cross::<true>, Mirror::Y), &grid),
+            0
+        );
+        assert_eq!(
+            count_matches(&ReflectedGadget::new(TrivialTurn, Mirror::Y), &grid),
+            0
+        );
+        assert_eq!(
+            count_matches(
+                &ReflectedGadget::new(RotatedGadget::new(TCon, 1), Mirror::Y),
+                &grid
+            ),
+            0
+        );
     }
 
     #[test]
@@ -924,6 +948,9 @@ mod crossing_connect_count {
         }
 
         // Verify grid is restored - check that occupied cells match
+        // Note: Julia's `ug == ug2` tests exact equality, but our unapply doesn't fully
+        // restore cell state types (e.g., Connected may become Occupied). This is a known
+        // limitation. We verify the occupied cell positions match instead.
         let original_coords = original_grid.occupied_coords();
         let restored_coords = grid.occupied_coords();
         assert_eq!(
@@ -931,6 +958,14 @@ mod crossing_connect_count {
             restored_coords.len(),
             "Number of occupied cells should match after unapply"
         );
+
+        // Verify padding is preserved - Julia: `@test UnitDiskMapping.padding(ug2) == 2`
+        assert_eq!(
+            original_grid.padding(),
+            grid.padding(),
+            "Padding should be preserved after unapply"
+        );
+        assert_eq!(grid.padding(), 2, "Padding should be 2");
     }
 
     #[test]
@@ -965,6 +1000,60 @@ mod crossing_connect_count {
                 // (but not all graphs have crossings)
                 let _ = tape; // Use tape to avoid warning
             }
+        }
+    }
+
+    #[test]
+    fn test_apply_simplifier_gadgets() {
+        // Mirrors Julia's use of apply_simplifier_gadgets! with DanglingLeg ruleset
+        use problemreductions::rules::mapping::apply_simplifier_gadgets;
+
+        for name in ["bull", "diamond", "house", "petersen"] {
+            let (n, edges) = smallgraph(name).unwrap();
+            let vertex_order: Vec<usize> = (0..n).rev().collect();
+            let mut grid = embed_graph(n, &edges, &vertex_order).unwrap();
+            let copylines = create_copylines(n, &edges, &vertex_order);
+
+            // Apply crossing gadgets first
+            let crossing_tape = apply_crossing_gadgets(&mut grid, &copylines);
+
+            // Count vertices before simplification
+            let vertices_before = grid.occupied_coords().len();
+
+            // Apply simplifier gadgets (uses DanglingLeg ruleset internally)
+            let simplifier_tape = apply_simplifier_gadgets(&mut grid, 2);
+
+            // Count vertices after simplification
+            let vertices_after = grid.occupied_coords().len();
+
+            // Simplifier should not increase vertex count
+            assert!(
+                vertices_after <= vertices_before,
+                "{}: simplifier should not increase vertices ({} -> {})",
+                name,
+                vertices_before,
+                vertices_after
+            );
+
+            // MIS overhead from simplifier tape
+            let simplifier_overhead: i32 = simplifier_tape
+                .iter()
+                .map(|e| {
+                    use problemreductions::rules::mapping::tape_entry_mis_overhead;
+                    tape_entry_mis_overhead(e)
+                })
+                .sum();
+
+            // Simplifier overhead should be non-positive (removes overhead)
+            assert!(
+                simplifier_overhead <= 0,
+                "{}: simplifier overhead should be <= 0, got {}",
+                name,
+                simplifier_overhead
+            );
+
+            // Total tape entries recorded
+            let _ = (crossing_tape.len(), simplifier_tape.len());
         }
     }
 }
@@ -1542,6 +1631,610 @@ mod mis_verification {
     }
 }
 
+/// Tests for triangular lattice MIS verification.
+/// These mirror Julia's UnitDiskMapping/test/triangular.jl tests.
+mod triangular_mis_verification {
+    use super::*;
+    use problemreductions::models::graph::IndependentSet;
+    use problemreductions::models::optimization::ILP;
+    use problemreductions::rules::{ReduceTo, ReductionResult};
+    use problemreductions::solvers::ILPSolver;
+    use problemreductions::topology::smallgraph;
+
+    /// Helper to solve MIS on a graph using ILPSolver
+    fn solve_mis(num_vertices: usize, edges: &[(usize, usize)]) -> usize {
+        let problem = IndependentSet::<i32>::new(num_vertices, edges.to_vec());
+        let reduction = <IndependentSet<i32> as ReduceTo<ILP>>::reduce_to(&problem);
+        let solver = ILPSolver::new();
+        if let Some(solution) = solver.solve(reduction.target_problem()) {
+            solution.iter().sum()
+        } else {
+            0
+        }
+    }
+
+    /// Helper to solve MIS on a GridGraph using ILPSolver
+    fn solve_grid_mis(result: &MappingResult) -> usize {
+        let edges = result.grid_graph.edges().to_vec();
+        let num_vertices = result.grid_graph.num_vertices();
+        solve_mis(num_vertices, &edges)
+    }
+
+    /// Helper to solve MIS and get the configuration
+    fn solve_mis_config(num_vertices: usize, edges: &[(usize, usize)]) -> Vec<usize> {
+        let problem = IndependentSet::<i32>::new(num_vertices, edges.to_vec());
+        let reduction = <IndependentSet<i32> as ReduceTo<ILP>>::reduce_to(&problem);
+        let solver = ILPSolver::new();
+        solver.solve(reduction.target_problem()).unwrap_or_default()
+    }
+
+    /// Check if a configuration is a valid independent set
+    fn is_independent_set(edges: &[(usize, usize)], config: &[usize]) -> bool {
+        for &(u, v) in edges {
+            if config.get(u).copied().unwrap_or(0) > 0 && config.get(v).copied().unwrap_or(0) > 0 {
+                return false;
+            }
+        }
+        true
+    }
+
+    // === Phase 3: Triangular MIS Overhead Verification ===
+    //
+    // NOTE: These tests are currently ignored because the triangular mapping
+    // implementation is incomplete. It lacks:
+    // 1. apply_crossing_gadgets for triangular lattice (TriCross, TriTurn, TriBranch)
+    // 2. apply_simplifier_gadgets for triangular lattice
+    // 3. Correct MIS overhead calculation including gadget overhead
+    //
+    // See Julia's UnitDiskMapping.jl triangular.jl for reference implementation.
+    // TODO: Implement triangular gadget application, then enable these tests.
+
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_mis_overhead_path_graph() {
+        // Path graph: 0-1-2 (MIS = 2: vertices 0 and 2)
+        let edges = vec![(0, 1), (1, 2)];
+        let original_mis = solve_mis(3, &edges);
+        assert_eq!(original_mis, 2);
+
+        let result = map_graph_triangular(3, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "Triangular path graph: overhead {} + original MIS {} should equal mapped MIS {}",
+            result.mis_overhead,
+            original_mis,
+            mapped_mis
+        );
+    }
+
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_mis_overhead_triangle() {
+        // Triangle: MIS = 1
+        let edges = vec![(0, 1), (1, 2), (0, 2)];
+        let original_mis = solve_mis(3, &edges);
+        assert_eq!(original_mis, 1);
+
+        let result = map_graph_triangular(3, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "Triangular triangle: overhead {} + original MIS {} should equal mapped MIS {}",
+            result.mis_overhead,
+            original_mis,
+            mapped_mis
+        );
+    }
+
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_mis_overhead_bull() {
+        let (n, edges) = smallgraph("bull").unwrap();
+        let original_mis = solve_mis(n, &edges);
+
+        let result = map_graph_triangular(n, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "Triangular bull: overhead {} + original MIS {} should equal mapped MIS {}",
+            result.mis_overhead,
+            original_mis,
+            mapped_mis
+        );
+    }
+
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_mis_overhead_diamond() {
+        let (n, edges) = smallgraph("diamond").unwrap();
+        let original_mis = solve_mis(n, &edges);
+
+        let result = map_graph_triangular(n, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "Triangular diamond: overhead {} + original MIS {} should equal mapped MIS {}",
+            result.mis_overhead,
+            original_mis,
+            mapped_mis
+        );
+    }
+
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_mis_overhead_house() {
+        let (n, edges) = smallgraph("house").unwrap();
+        let original_mis = solve_mis(n, &edges);
+
+        let result = map_graph_triangular(n, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "Triangular house: overhead {} + original MIS {} should equal mapped MIS {}",
+            result.mis_overhead,
+            original_mis,
+            mapped_mis
+        );
+    }
+
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_mis_overhead_petersen() {
+        let (n, edges) = smallgraph("petersen").unwrap();
+        let original_mis = solve_mis(n, &edges);
+        assert_eq!(original_mis, 4, "Petersen graph MIS should be 4");
+
+        let result = map_graph_triangular(n, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "Triangular petersen: overhead {} + original MIS {} should equal mapped MIS {}",
+            result.mis_overhead,
+            original_mis,
+            mapped_mis
+        );
+    }
+
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_mis_overhead_cubical() {
+        let (n, edges) = smallgraph("cubical").unwrap();
+        let original_mis = solve_mis(n, &edges);
+        assert_eq!(original_mis, 4, "Cubical graph MIS should be 4");
+
+        let result = map_graph_triangular(n, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "Triangular cubical: overhead {} + original MIS {} should equal mapped MIS {}",
+            result.mis_overhead,
+            original_mis,
+            mapped_mis
+        );
+    }
+
+    #[test]
+    #[ignore = "Tutte graph is large (46 vertices), slow with ILP on triangular lattice"]
+    fn test_triangular_mis_overhead_tutte() {
+        let (n, edges) = smallgraph("tutte").unwrap();
+        let original_mis = solve_mis(n, &edges);
+
+        let result = map_graph_triangular(n, &edges);
+        let mapped_mis = solve_grid_mis(&result);
+
+        assert_eq!(
+            result.mis_overhead as usize + original_mis,
+            mapped_mis,
+            "Triangular tutte: overhead {} + original MIS {} should equal mapped MIS {}",
+            result.mis_overhead,
+            original_mis,
+            mapped_mis
+        );
+    }
+
+    // === Phase 4: Triangular map_config_back Verification ===
+    //
+    // NOTE: These tests are also ignored due to incomplete triangular mapping.
+    // The map_config_back requires correct gadget application to work properly.
+
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_map_config_back_path_graph() {
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph_triangular(3, &edges);
+
+        // Solve MIS on the grid graph using ILP
+        let grid_edges = result.grid_graph.edges().to_vec();
+        let grid_config = solve_mis_config(result.grid_graph.num_vertices(), &grid_edges);
+
+        // Map back to original graph
+        let original_config = result.map_config_back(&grid_config);
+
+        // Verify it's a valid independent set
+        assert!(
+            is_independent_set(&edges, &original_config),
+            "Triangular path: mapped back config should be valid IS"
+        );
+
+        // Verify size matches expected MIS
+        let original_is_size: usize = original_config.iter().sum();
+        let expected_mis = solve_mis(3, &edges);
+        assert_eq!(
+            original_is_size, expected_mis,
+            "Triangular path: config back size {} should equal original MIS {}",
+            original_is_size, expected_mis
+        );
+    }
+
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_map_config_back_bull() {
+        let (n, edges) = smallgraph("bull").unwrap();
+        let result = map_graph_triangular(n, &edges);
+
+        let grid_edges = result.grid_graph.edges().to_vec();
+        let grid_config = solve_mis_config(result.grid_graph.num_vertices(), &grid_edges);
+        let original_config = result.map_config_back(&grid_config);
+
+        assert!(
+            is_independent_set(&edges, &original_config),
+            "Triangular bull: mapped back config should be valid IS"
+        );
+
+        let original_is_size: usize = original_config.iter().sum();
+        let expected_mis = solve_mis(n, &edges);
+        assert_eq!(original_is_size, expected_mis);
+    }
+
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_map_config_back_diamond() {
+        let (n, edges) = smallgraph("diamond").unwrap();
+        let result = map_graph_triangular(n, &edges);
+
+        let grid_edges = result.grid_graph.edges().to_vec();
+        let grid_config = solve_mis_config(result.grid_graph.num_vertices(), &grid_edges);
+        let original_config = result.map_config_back(&grid_config);
+
+        assert!(
+            is_independent_set(&edges, &original_config),
+            "Triangular diamond: mapped back config should be valid IS"
+        );
+
+        let original_is_size: usize = original_config.iter().sum();
+        let expected_mis = solve_mis(n, &edges);
+        assert_eq!(original_is_size, expected_mis);
+    }
+
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_map_config_back_house() {
+        let (n, edges) = smallgraph("house").unwrap();
+        let result = map_graph_triangular(n, &edges);
+
+        let grid_edges = result.grid_graph.edges().to_vec();
+        let grid_config = solve_mis_config(result.grid_graph.num_vertices(), &grid_edges);
+        let original_config = result.map_config_back(&grid_config);
+
+        assert!(
+            is_independent_set(&edges, &original_config),
+            "Triangular house: mapped back config should be valid IS"
+        );
+
+        let original_is_size: usize = original_config.iter().sum();
+        let expected_mis = solve_mis(n, &edges);
+        assert_eq!(original_is_size, expected_mis);
+    }
+
+    #[test]
+    #[ignore = "Triangular mapping incomplete: missing gadget application"]
+    fn test_triangular_map_config_back_petersen() {
+        let (n, edges) = smallgraph("petersen").unwrap();
+        let result = map_graph_triangular(n, &edges);
+
+        let grid_edges = result.grid_graph.edges().to_vec();
+        let grid_config = solve_mis_config(result.grid_graph.num_vertices(), &grid_edges);
+        let original_config = result.map_config_back(&grid_config);
+
+        assert!(
+            is_independent_set(&edges, &original_config),
+            "Triangular petersen: mapped back config should be valid IS"
+        );
+
+        let original_is_size: usize = original_config.iter().sum();
+        let expected_mis = solve_mis(n, &edges);
+        assert_eq!(original_is_size, expected_mis);
+    }
+
+    // === Phase 1: Triangular Gadget MIS Equivalence ===
+    //
+    // These tests verify that each triangular gadget's source_graph and mapped_graph
+    // have equivalent MIS properties at pin positions.
+
+    use problemreductions::rules::mapping::{TriTurn, TriBranch, TriCross, TriangularGadget};
+
+    /// Build edges for a unit disk graph from locations on triangular lattice.
+    /// Two nodes are connected if their triangular distance <= radius.
+    fn triangular_edges(locs: &[(usize, usize)], radius: f64) -> Vec<(usize, usize)> {
+        let mut edges = Vec::new();
+        for i in 0..locs.len() {
+            for j in (i + 1)..locs.len() {
+                let (r1, c1) = locs[i];
+                let (r2, c2) = locs[j];
+                // Triangular lattice physical position (matching Julia's convention)
+                let y1 = c1 as f64 * (3.0_f64.sqrt() / 2.0);
+                let y2 = c2 as f64 * (3.0_f64.sqrt() / 2.0);
+                let x1 = r1 as f64 + if c1 % 2 == 0 { 0.5 } else { 0.0 };
+                let x2 = r2 as f64 + if c2 % 2 == 0 { 0.5 } else { 0.0 };
+                // Julia uses strict less-than: dist^2 < radius^2
+                let dist_sq = (x1 - x2).powi(2) + (y1 - y2).powi(2);
+                if dist_sq < radius * radius {
+                    edges.push((i, j));
+                }
+            }
+        }
+        edges
+    }
+
+    #[test]
+    fn test_triturn_mis_equivalence() {
+        let gadget = TriTurn;
+        // source_graph returns explicit edges (not unit disk)
+        let (source_locs, source_edges, source_pins) = gadget.source_graph();
+        let (mapped_locs, mapped_pins) = gadget.mapped_graph();
+
+        // mapped_graph uses unit disk edges
+        let mapped_edges = triangular_edges(&mapped_locs, 1.1);
+
+        // Solve MIS on both graphs
+        let source_mis = solve_mis(source_locs.len(), &source_edges);
+        let mapped_mis = solve_mis(mapped_locs.len(), &mapped_edges);
+
+        // Verify MIS overhead
+        let expected_overhead = gadget.mis_overhead();
+        let actual_overhead = mapped_mis as i32 - source_mis as i32;
+
+        assert_eq!(
+            actual_overhead, expected_overhead,
+            "TriTurn: MIS overhead should be {}, got {} (source_mis={}, mapped_mis={})",
+            expected_overhead, actual_overhead, source_mis, mapped_mis
+        );
+
+        // Verify pins are valid indices
+        assert!(source_pins.iter().all(|&p| p < source_locs.len()));
+        assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
+    }
+
+    #[test]
+    fn test_tribranch_mis_equivalence() {
+        let gadget = TriBranch;
+        // source_graph returns explicit edges (not unit disk)
+        let (source_locs, source_edges, source_pins) = gadget.source_graph();
+        let (mapped_locs, mapped_pins) = gadget.mapped_graph();
+
+        // mapped_graph uses unit disk edges
+        let mapped_edges = triangular_edges(&mapped_locs, 1.1);
+
+        let source_mis = solve_mis(source_locs.len(), &source_edges);
+        let mapped_mis = solve_mis(mapped_locs.len(), &mapped_edges);
+
+        let expected_overhead = gadget.mis_overhead();
+        let actual_overhead = mapped_mis as i32 - source_mis as i32;
+
+        assert_eq!(
+            actual_overhead, expected_overhead,
+            "TriBranch: MIS overhead should be {}, got {} (source_mis={}, mapped_mis={})",
+            expected_overhead, actual_overhead, source_mis, mapped_mis
+        );
+
+        assert!(source_pins.iter().all(|&p| p < source_locs.len()));
+        assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
+    }
+
+    /// Helper to solve weighted MIS on a graph using ILP.
+    /// Returns the maximum weighted independent set size.
+    fn solve_weighted_mis(num_vertices: usize, edges: &[(usize, usize)], weights: &[i32]) -> i32 {
+        use problemreductions::models::optimization::{ILP, LinearConstraint, ObjectiveSense};
+        use problemreductions::solvers::ILPSolver;
+
+        // Build ILP for weighted maximum independent set
+        // maximize: sum(w_i * x_i)
+        // subject to: x_i + x_j <= 1 for each edge (i,j)
+        //            x_i in {0, 1}
+
+        // Edge constraints: x_i + x_j <= 1
+        let constraints: Vec<LinearConstraint> = edges
+            .iter()
+            .map(|&(i, j)| LinearConstraint::le(vec![(i, 1.0), (j, 1.0)], 1.0))
+            .collect();
+
+        // Objective: maximize sum(w_i * x_i)
+        let objective: Vec<(usize, f64)> = weights
+            .iter()
+            .enumerate()
+            .map(|(i, &w)| (i, w as f64))
+            .collect();
+
+        let ilp = ILP::binary(num_vertices, constraints, objective, ObjectiveSense::Maximize);
+
+        let solver = ILPSolver::new();
+        if let Some(solution) = solver.solve(&ilp) {
+            solution
+                .iter()
+                .zip(weights.iter())
+                .map(|(&x, &w)| if x > 0 { w } else { 0 })
+                .sum()
+        } else {
+            0
+        }
+    }
+
+    #[test]
+    fn test_tricross_connected_weighted_mis_equivalence() {
+        use problemreductions::rules::mapping::Weightable;
+
+        // Use weighted MIS with pin constraints (Julia's openvertices approach)
+        let gadget = TriCross::<true>;
+        let weighted = gadget.weighted();
+        let (source_locs, source_edges, source_pins) = gadget.source_graph();
+        let (mapped_locs, mapped_pins) = gadget.mapped_graph();
+
+        // Get weights and subtract 1 from pins (Julia's openvertices approach)
+        let mut src_weights: Vec<i32> = weighted.source_weights().to_vec();
+        let mut map_weights: Vec<i32> = weighted.mapped_weights().to_vec();
+        for &p in &source_pins {
+            src_weights[p] -= 1;
+        }
+        for &p in &mapped_pins {
+            map_weights[p] -= 1;
+        }
+
+        let mapped_edges = triangular_edges(&mapped_locs, 1.1);
+
+        let source_mis = solve_weighted_mis(source_locs.len(), &source_edges, &src_weights);
+        let mapped_mis = solve_weighted_mis(mapped_locs.len(), &mapped_edges, &map_weights);
+
+        let expected_overhead = gadget.mis_overhead();
+        let actual_overhead = mapped_mis - source_mis;
+
+        assert_eq!(
+            actual_overhead, expected_overhead,
+            "TriCross<true> weighted: expected overhead {}, got {} (src={}, map={})",
+            expected_overhead, actual_overhead, source_mis, mapped_mis
+        );
+    }
+
+    #[test]
+    fn test_tricross_disconnected_weighted_mis_equivalence() {
+        use problemreductions::rules::mapping::Weightable;
+
+        // Use weighted MIS with pin constraints (Julia's openvertices approach)
+        let gadget = TriCross::<false>;
+        let weighted = gadget.weighted();
+        let (source_locs, source_edges, source_pins) = gadget.source_graph();
+        let (mapped_locs, mapped_pins) = gadget.mapped_graph();
+
+        // Get weights and subtract 1 from pins
+        let mut src_weights: Vec<i32> = weighted.source_weights().to_vec();
+        let mut map_weights: Vec<i32> = weighted.mapped_weights().to_vec();
+        for &p in &source_pins {
+            src_weights[p] -= 1;
+        }
+        for &p in &mapped_pins {
+            map_weights[p] -= 1;
+        }
+
+        let mapped_edges = triangular_edges(&mapped_locs, 1.1);
+
+        let source_mis = solve_weighted_mis(source_locs.len(), &source_edges, &src_weights);
+        let mapped_mis = solve_weighted_mis(mapped_locs.len(), &mapped_edges, &map_weights);
+
+        let expected_overhead = gadget.mis_overhead();
+        let actual_overhead = mapped_mis - source_mis;
+
+        assert_eq!(
+            actual_overhead, expected_overhead,
+            "TriCross<false> weighted: expected overhead {}, got {} (src={}, map={})",
+            expected_overhead, actual_overhead, source_mis, mapped_mis
+        );
+    }
+
+    /// Test all weighted triangular gadgets for MIS equivalence
+    #[test]
+    fn test_all_triangular_weighted_gadgets_mis_equivalence() {
+        use problemreductions::rules::mapping::{
+            Weightable, TriangularGadget, TriBranch, TriBranchFix, TriBranchFixB,
+            TriCross, TriEndTurn, TriTConDown, TriTConLeft, TriTConUp,
+            TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
+        };
+
+        // Helper to test a single gadget
+        fn test_gadget<G: TriangularGadget + Weightable + Copy>(gadget: G, name: &str) {
+            let weighted = gadget.weighted();
+            let (src_locs, src_edges, src_pins) = gadget.source_graph();
+            let (map_locs, map_pins) = gadget.mapped_graph();
+
+            let mut src_weights: Vec<i32> = weighted.source_weights().to_vec();
+            let mut map_weights: Vec<i32> = weighted.mapped_weights().to_vec();
+            for &p in &src_pins {
+                src_weights[p] -= 1;
+            }
+            for &p in &map_pins {
+                map_weights[p] -= 1;
+            }
+
+            let map_edges = triangular_edges(&map_locs, 1.1);
+
+            let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+            let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+            let expected = gadget.mis_overhead();
+            let actual = map_mis - src_mis;
+
+            assert_eq!(
+                actual, expected,
+                "{}: expected overhead {}, got {} (src={}, map={})",
+                name, expected, actual, src_mis, map_mis
+            );
+        }
+
+        test_gadget(TriTurn, "TriTurn");
+        test_gadget(TriBranch, "TriBranch");
+        test_gadget(TriCross::<true>, "TriCross<true>");
+        test_gadget(TriCross::<false>, "TriCross<false>");
+        test_gadget(TriTConLeft, "TriTConLeft");
+        test_gadget(TriTConDown, "TriTConDown");
+        test_gadget(TriTConUp, "TriTConUp");
+        test_gadget(TriTrivialTurnLeft, "TriTrivialTurnLeft");
+        test_gadget(TriTrivialTurnRight, "TriTrivialTurnRight");
+        test_gadget(TriEndTurn, "TriEndTurn");
+        test_gadget(TriWTurn, "TriWTurn");
+        test_gadget(TriBranchFix, "TriBranchFix");
+        test_gadget(TriBranchFixB, "TriBranchFixB");
+    }
+
+    /// Test triangular weighted interface
+    #[test]
+    fn test_triangular_weighted_interface() {
+        use problemreductions::rules::mapping::{map_weights, trace_centers};
+
+        // Use a simple path graph
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph_triangular(3, &edges);
+
+        // Test that we can map random weights
+        let source_weights: Vec<f64> = vec![0.1, 0.5, 0.9];
+        let grid_weights = map_weights(&result, &source_weights);
+
+        assert_eq!(grid_weights.len(), result.grid_graph.num_vertices());
+
+        // Test trace_centers returns valid locations
+        let centers = trace_centers(&result);
+        assert_eq!(centers.len(), 3);
+
+        // All centers should be within reasonable bounds
+        for (r, c) in &centers {
+            assert!(*r > 0, "center row should be > 0");
+            assert!(*c > 0, "center col should be > 0");
+        }
+    }
+}
+
 /// Tests for copy line properties.
 mod copyline_properties {
     use super::*;
@@ -1581,6 +2274,264 @@ mod copyline_properties {
                 line.vslot <= line.hstop,
                 "vslot should be <= hstop"
             );
+        }
+    }
+}
+
+/// Tests for Display and print_config functionality.
+/// These mirror Julia's `println(res.grid_graph)` and `print_config(res, c)` tests.
+mod display_tests {
+    use super::*;
+    use problemreductions::rules::mapping::{embed_graph, CellState};
+    use problemreductions::topology::smallgraph;
+
+    #[test]
+    fn test_mapping_grid_display() {
+        // Create a simple grid with some nodes
+        let edges = vec![(0, 1), (1, 2)];
+        let (n, _) = (3, edges.clone());
+        let vertex_order: Vec<usize> = (0..n).collect();
+        let grid = embed_graph(n, &edges, &vertex_order).unwrap();
+
+        // Test Display trait - should use Unicode characters
+        let display_str = format!("{}", grid);
+
+        // Display should contain occupied cells (● or ◆ or ◉)
+        assert!(display_str.contains('●') || display_str.contains('◆') || display_str.contains('◉'),
+                "Display should contain Unicode node symbols");
+        // Should contain empty cells (⋅)
+        assert!(display_str.contains('⋅'), "Display should contain empty cell symbol");
+    }
+
+    #[test]
+    fn test_mapping_grid_format_with_config() {
+        let edges = vec![(0, 1)];
+        let vertex_order = vec![0, 1];
+        let grid = embed_graph(2, &edges, &vertex_order).unwrap();
+
+        // Without config - should show ● for occupied nodes
+        let no_config = grid.format_with_config(None);
+        assert!(no_config.contains('●') || no_config.contains('◆'), "Should have node symbols");
+
+        // With all-zeros config (nothing selected) - should show ○
+        let occupied_count = grid.occupied_coords().len();
+        let zeros_config = vec![0; occupied_count];
+        let with_zeros = grid.format_with_config(Some(&zeros_config));
+        assert!(with_zeros.contains('○'), "Should have unselected node symbol");
+        assert!(!with_zeros.contains('●'), "Should not have selected nodes");
+
+        // With all-ones config (everything selected) - should show ●
+        let ones_config = vec![1; occupied_count];
+        let with_ones = grid.format_with_config(Some(&ones_config));
+        assert!(with_ones.contains('●'), "Should have selected node symbol");
+    }
+
+    #[test]
+    fn test_grid_graph_display() {
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph(3, &edges);
+
+        // Test Display trait for GridGraph - uses Unicode
+        let display_str = format!("{}", result.grid_graph);
+        // Should contain node weight digits or ● symbols
+        assert!(display_str.contains('1') || display_str.contains('2') || display_str.contains('●'),
+                "Display should contain weight digits or node symbols");
+        // Should contain empty cells
+        assert!(display_str.contains('⋅'), "Display should contain empty cell symbol");
+    }
+
+    #[test]
+    fn test_grid_graph_format_with_config() {
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph(3, &edges);
+
+        // Without config - shows weights
+        let no_config = result.grid_graph.format_with_config(None, true);
+        assert!(no_config.contains('1') || no_config.contains('2') || no_config.contains('●'),
+                "Should have weight digits or node symbols");
+
+        // With all-ones config - shows ● for selected
+        let n = result.grid_graph.num_vertices();
+        let ones_config = vec![1; n];
+        let with_ones = result.grid_graph.format_with_config(Some(&ones_config), false);
+        assert!(with_ones.contains('●'), "Should have selected node symbol");
+    }
+
+    #[test]
+    fn test_grid_graph_print_config() {
+        let edges = vec![(0, 1)];
+        let result = map_graph(2, &edges);
+
+        // This should not panic - mirrors Julia's `@test println(res.grid_graph) === nothing`
+        let config = vec![0; result.grid_graph.num_vertices()];
+        result.grid_graph.print_config(&config);
+    }
+
+    #[test]
+    fn test_mapping_result_display() {
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph(3, &edges);
+
+        // Test Display trait for MappingResult - shows the grid graph
+        let display_str = format!("{}", result);
+        // Should contain node symbols and empty cells
+        assert!(display_str.contains('⋅'), "Display should contain empty cell symbol");
+        assert!(display_str.contains('1') || display_str.contains('2') || display_str.contains('●'),
+                "Display should contain weight digits or node symbols");
+    }
+
+    #[test]
+    fn test_mapping_result_print_config() {
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph(3, &edges);
+
+        // Create a 2D config matrix
+        let (rows, cols) = result.grid_graph.size();
+        let config: Vec<Vec<usize>> = vec![vec![0; cols]; rows];
+
+        // This should not panic - mirrors Julia's `@test print_config(res, c) === nothing`
+        result.print_config(&config);
+    }
+
+    #[test]
+    fn test_mapping_result_print_config_flat() {
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph(3, &edges);
+
+        // Create a flat config vector
+        let config = vec![0; result.grid_graph.num_vertices()];
+
+        // This should not panic
+        result.print_config_flat(&config);
+    }
+
+    #[test]
+    fn test_mapping_result_format_config() {
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph(3, &edges);
+
+        let (rows, cols) = result.grid_graph.size();
+        let config: Vec<Vec<usize>> = vec![vec![0; cols]; rows];
+
+        let formatted = result.format_config(&config);
+        assert!(!formatted.is_empty());
+        // Should have unselected nodes (○) and empty cells (⋅)
+        assert!(formatted.contains('○') || formatted.contains('⋅'),
+                "Should have unselected nodes or empty cells");
+    }
+
+    #[test]
+    fn test_mapping_result_format_config_with_selection() {
+        let edges = vec![(0, 1)];
+        let result = map_graph(2, &edges);
+
+        let (rows, cols) = result.grid_graph.size();
+        // Create a config with all ones
+        let config: Vec<Vec<usize>> = vec![vec![1; cols]; rows];
+
+        let formatted = result.format_config(&config);
+        // Should have selected nodes where grid nodes exist
+        assert!(formatted.contains('●'), "Should have selected node symbol");
+    }
+
+    #[test]
+    fn test_cell_state_display() {
+        // Julia's Unicode symbols
+        assert_eq!(format!("{}", CellState::Empty), "⋅");
+        assert_eq!(format!("{}", CellState::Occupied { weight: 1 }), "●");
+        assert_eq!(format!("{}", CellState::Occupied { weight: 2 }), "●");
+        assert_eq!(format!("{}", CellState::Occupied { weight: 3 }), "▴");
+        assert_eq!(format!("{}", CellState::Doubled { weight: 2 }), "◉");
+        assert_eq!(format!("{}", CellState::Connected { weight: 1 }), "◇");
+        assert_eq!(format!("{}", CellState::Connected { weight: 2 }), "◆");
+    }
+
+    // === Tests matching Julia's "interface" test ===
+
+    #[test]
+    fn test_println_grid_graph_returns_nothing() {
+        // Mirrors Julia's `@test println(res.grid_graph) === nothing`
+        let edges = vec![
+            (0, 1), (1, 2), (2, 3), (3, 4), (4, 0), // outer pentagon
+            (5, 7), (7, 9), (9, 6), (6, 8), (8, 5), // inner star
+            (0, 5), (1, 6), (2, 7), (3, 8), (4, 9), // connections
+        ];
+        let result = map_graph(10, &edges);
+
+        // println! should work without panic
+        println!("{}", result.grid_graph);
+
+        // The test passes if we reach here without panicking
+        assert!(true);
+    }
+
+    #[test]
+    fn test_print_config_returns_nothing() {
+        // Mirrors Julia's `@test print_config(res, c) === nothing`
+        let edges = vec![
+            (0, 1), (1, 2), (2, 3), (3, 4), (4, 0), // outer pentagon
+            (5, 7), (7, 9), (9, 6), (6, 8), (8, 5), // inner star
+            (0, 5), (1, 6), (2, 7), (3, 8), (4, 9), // connections
+        ];
+        let result = map_graph(10, &edges);
+
+        // Create a 2D config like Julia's:
+        // c = zeros(Int, size(res.grid_graph))
+        // for (i, n) in enumerate(res.grid_graph.nodes)
+        //     c[n.loc...] = misconfig.data[i]
+        // end
+        let (rows, cols) = result.grid_graph.size();
+        let config: Vec<Vec<usize>> = vec![vec![0; cols]; rows];
+
+        // print_config should work without panic
+        result.print_config(&config);
+
+        // The test passes if we reach here without panicking
+        assert!(true);
+    }
+
+    #[test]
+    fn test_display_for_standard_graphs() {
+        // Test display works for all standard graphs
+        for name in ["petersen", "bull", "cubical", "house", "diamond"] {
+            let (n, edges) = smallgraph(name).unwrap();
+            let result = map_graph(n, &edges);
+
+            // Display should work without panic
+            let _ = format!("{}", result);
+            let _ = format!("{}", result.grid_graph);
+
+            // print_config should work
+            let (rows, cols) = result.grid_graph.size();
+            let config: Vec<Vec<usize>> = vec![vec![0; cols]; rows];
+            result.print_config(&config);
+        }
+    }
+
+    #[test]
+    fn test_format_produces_consistent_dimensions() {
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph(3, &edges);
+
+        let (rows, cols) = result.grid_graph.size();
+        let config: Vec<Vec<usize>> = vec![vec![0; cols]; rows];
+
+        let formatted = result.format_config(&config);
+        let lines: Vec<&str> = formatted.lines().collect();
+
+        // Number of lines should match rows
+        assert_eq!(lines.len(), rows, "Number of lines should match grid rows");
+
+        // Each line should have (cols * 2 - 1) characters:
+        // each cell is 1 char + 1 space, except last cell has no trailing space
+        // But Unicode chars like ● are multi-byte, so we count chars not bytes
+        for line in lines {
+            let char_count = line.chars().count();
+            // Format: "X X X ... X" where X is a cell char
+            // = cols cells + (cols-1) spaces = 2*cols - 1 characters
+            assert_eq!(char_count, 2 * cols - 1,
+                       "Line '{}' should have {} chars, got {}",
+                       line, 2 * cols - 1, char_count);
         }
     }
 }
