@@ -25,6 +25,32 @@ pub trait TriangularGadget {
     /// Returns (locations, pins) - use unit disk for edges on triangular lattice.
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>);
     fn mis_overhead(&self) -> i32;
+
+    /// Generate source matrix for pattern matching.
+    fn source_matrix(&self) -> Vec<Vec<bool>> {
+        let (rows, cols) = self.size();
+        let (locs, _, _) = self.source_graph();
+        let mut matrix = vec![vec![false; cols]; rows];
+        for (r, c) in locs {
+            if r > 0 && c > 0 && r <= rows && c <= cols {
+                matrix[r - 1][c - 1] = true;
+            }
+        }
+        matrix
+    }
+
+    /// Generate mapped matrix for gadget application.
+    fn mapped_matrix(&self) -> Vec<Vec<bool>> {
+        let (rows, cols) = self.size();
+        let (locs, _) = self.mapped_graph();
+        let mut matrix = vec![vec![false; cols]; rows];
+        for (r, c) in locs {
+            if r > 0 && c > 0 && r <= rows && c <= cols {
+                matrix[r - 1][c - 1] = true;
+            }
+        }
+        matrix
+    }
 }
 
 /// Triangular cross gadget.
