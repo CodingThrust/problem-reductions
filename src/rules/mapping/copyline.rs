@@ -334,6 +334,101 @@ pub fn mis_overhead_copyline(line: &CopyLine, spacing: usize, padding: usize) ->
     locs.len() / 2
 }
 
+/// Generate weighted locations for a copy line in triangular mode.
+/// This matches Julia's `copyline_locations(TriangularWeighted(), ...)`.
+///
+/// Returns (locations, weights) where:
+/// - locations: Vec of (row, col) positions
+/// - weights: Vec of i32 weights (typically 2 for regular nodes, 1 for turn points)
+///
+/// The sequence of nodes forms a chain-like structure with the center node at the end.
+/// Nodes with weight=1 mark "break points" in the chain where the next node connects
+/// to the center (last node) instead of the previous node.
+///
+/// # Arguments
+/// * `line` - The copy line
+/// * `spacing` - Grid spacing parameter
+///
+/// # Returns
+/// A tuple of (locations, weights) vectors.
+pub fn copyline_weighted_locations_triangular(
+    line: &CopyLine,
+    spacing: usize,
+) -> (Vec<(usize, usize)>, Vec<i32>) {
+    let mut locs = Vec::new();
+    let mut weights = Vec::new();
+    let mut nline = 0usize;
+
+    // Count segments and calculate lengths
+    let has_up = line.vstart < line.hslot;
+    let has_down = line.vstop > line.hslot;
+    let has_right = line.hstop > line.vslot;
+
+    if has_up {
+        nline += 1;
+    }
+    if has_down {
+        nline += 1;
+    }
+    if has_right {
+        nline += 1;
+    }
+
+    // Upward segment: from vstart to hslot
+    // Length = (hslot - vstart) * spacing
+    if has_up {
+        let len = (line.hslot - line.vstart) * spacing;
+        for i in 0..len {
+            locs.push((i, 0));
+            // Last node of segment (turn point) gets weight 1, others get 2
+            let w = if i == len - 1 { 1 } else { 2 };
+            weights.push(w);
+        }
+    }
+
+    // Downward segment: from hslot to vstop
+    // Length = (vstop - hslot) * spacing
+    if has_down {
+        let len = (line.vstop - line.hslot) * spacing;
+        let offset = locs.len();
+        for i in 0..len {
+            locs.push((offset + i, 1));
+            // Last node of segment (turn point) gets weight 1, others get 2
+            let w = if i == len - 1 { 1 } else { 2 };
+            weights.push(w);
+        }
+    }
+
+    // Rightward segment: from vslot to hstop
+    // Length = (hstop - vslot) * spacing
+    if has_right {
+        let len = (line.hstop - line.vslot) * spacing;
+        let offset = locs.len();
+        for i in 0..len {
+            locs.push((offset, 2 + i));
+            // Last node of segment (end point) gets weight 1, others get 2
+            let w = if i == len - 1 { 1 } else { 2 };
+            weights.push(w);
+        }
+    }
+
+    // Add center node at the end with weight = nline (number of segments)
+    // This is the "hub" node that the chain wraps around to
+    let center_row = locs.len();
+    locs.push((center_row, 0));
+    weights.push(nline.max(1) as i32);
+
+    (locs, weights)
+}
+
+/// Calculate MIS overhead for a copy line in triangular mode.
+/// This matches Julia's `mis_overhead_copyline(TriangularWeighted(), ...)`.
+pub fn mis_overhead_copyline_triangular(line: &CopyLine, spacing: usize) -> i32 {
+    let (_, weights) = copyline_weighted_locations_triangular(line, spacing);
+    let sum: i32 = weights.iter().sum();
+    sum / 2
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;

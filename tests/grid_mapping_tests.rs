@@ -2233,6 +2233,43 @@ mod triangular_mis_verification {
             assert!(*c > 0, "center col should be > 0");
         }
     }
+
+    #[test]
+    fn test_triangular_copyline_mis_overhead_8_configs() {
+        use problemreductions::rules::mapping::{
+            copyline_weighted_locations_triangular, mis_overhead_copyline_triangular, CopyLine,
+        };
+
+        // Test configurations from Julia: triangular.jl line 33-35
+        let configs = [
+            (3, 7, 8), (3, 5, 8), (5, 9, 8), (5, 5, 8),
+            (1, 7, 5), (5, 8, 5), (1, 5, 5), (5, 5, 5),
+        ];
+
+        for (vstart, vstop, hstop) in configs {
+            let copyline = CopyLine::new(0, 1, 5, vstart, vstop, hstop);
+            let (locs, weights) = copyline_weighted_locations_triangular(&copyline, 2);
+
+            // Build graph from copy line (chain with wraparound based on weights)
+            let mut edges = Vec::new();
+            for i in 0..locs.len() - 1 {
+                if i == 0 || weights[i - 1] == 1 {
+                    edges.push((locs.len() - 1, i));
+                } else {
+                    edges.push((i, i - 1));
+                }
+            }
+
+            let actual_mis = solve_weighted_mis(locs.len(), &edges, &weights);
+            let expected = mis_overhead_copyline_triangular(&copyline, 2);
+
+            assert_eq!(
+                actual_mis, expected,
+                "Config ({}, {}, {}): expected {}, got {}",
+                vstart, vstop, hstop, expected, actual_mis
+            );
+        }
+    }
 }
 
 /// Tests for copy line properties.

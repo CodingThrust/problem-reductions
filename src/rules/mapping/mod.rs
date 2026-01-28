@@ -45,7 +45,10 @@ pub mod pathdecomposition;
 mod triangular;
 mod weighted;
 
-pub use copyline::{create_copylines, mis_overhead_copyline, remove_order, CopyLine};
+pub use copyline::{
+    copyline_weighted_locations_triangular, create_copylines, mis_overhead_copyline,
+    mis_overhead_copyline_triangular, remove_order, CopyLine,
+};
 pub use gadgets::{
     apply_crossing_gadgets, apply_gadget, apply_simplifier_gadgets, pattern_matches,
     tape_entry_mis_overhead, unapply_gadget, Branch, BranchFix, BranchFixB, Cross, DanglingLeg,
