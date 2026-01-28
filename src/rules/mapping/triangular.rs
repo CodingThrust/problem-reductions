@@ -689,6 +689,38 @@ fn pattern_matches_triangular<G: TriangularGadget>(
     true
 }
 
+/// Apply a triangular gadget pattern at position (i, j).
+fn apply_triangular_gadget<G: TriangularGadget>(
+    gadget: &G,
+    grid: &mut MappingGrid,
+    i: usize,
+    j: usize,
+) {
+    use super::grid::CellState;
+
+    let source = gadget.source_matrix();
+    let mapped = gadget.mapped_matrix();
+    let (m, n) = gadget.size();
+
+    // First, clear source pattern cells
+    for r in 0..m {
+        for c in 0..n {
+            if source[r][c] {
+                grid.set(i + r, j + c, CellState::Empty);
+            }
+        }
+    }
+
+    // Then, add mapped pattern cells
+    for r in 0..m {
+        for c in 0..n {
+            if mapped[r][c] {
+                grid.add_node(i + r, j + c, 1);
+            }
+        }
+    }
+}
+
 /// Map a graph to a triangular lattice grid graph using optimal path decomposition.
 ///
 /// # Panics
