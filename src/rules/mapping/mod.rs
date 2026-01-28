@@ -61,5 +61,6 @@ pub use triangular::{
     TriTConLeft, TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
 };
 pub use weighted::{
-    triangular_weighted_ruleset, WeightedGadget, WeightedTriangularGadget, Weightable,
+    trace_centers, triangular_weighted_ruleset, WeightedGadget, WeightedTriangularGadget,
+    Weightable,
 };

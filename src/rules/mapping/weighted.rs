@@ -1,5 +1,6 @@
 //! Weighted gadget support for triangular lattice mapping.
 
+use super::map_graph::MappingResult;
 use super::triangular::{
     TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown, TriTConLeft,
     TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
@@ -249,6 +250,22 @@ pub fn triangular_weighted_ruleset() -> Vec<WeightedTriangularGadget> {
     ]
 }
 
+/// Trace center locations through gadget transformations.
+/// Returns the final center location for each original vertex.
+pub fn trace_centers(result: &MappingResult) -> Vec<(usize, usize)> {
+    // Get center locations for each copy line, sorted by vertex index
+    let mut indexed: Vec<_> = result
+        .lines
+        .iter()
+        .map(|line| {
+            let center = line.center_location(result.padding, result.spacing);
+            (line.vertex, center)
+        })
+        .collect();
+    indexed.sort_by_key(|(v, _)| *v);
+    indexed.into_iter().map(|(_, c)| c).collect()
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -334,5 +351,22 @@ mod tests {
     fn test_triangular_weighted_ruleset_has_13_gadgets() {
         let ruleset = super::triangular_weighted_ruleset();
         assert_eq!(ruleset.len(), 13);
+    }
+
+    #[test]
+    fn test_trace_centers_basic() {
+        use crate::rules::mapping::map_graph_triangular;
+
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph_triangular(3, &edges);
+
+        let centers = super::trace_centers(&result);
+        assert_eq!(centers.len(), 3);
+
+        // Centers should be valid grid positions
+        for (row, col) in &centers {
+            assert!(*row > 0);
+            assert!(*col > 0);
+        }
     }
 }
