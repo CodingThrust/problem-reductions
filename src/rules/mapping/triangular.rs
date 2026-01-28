@@ -759,6 +759,104 @@ fn apply_triangular_gadget<G: TriangularGadget>(
     }
 }
 
+/// Apply all triangular crossing gadgets to resolve crossings.
+/// Returns the tape of applied gadgets.
+pub fn apply_triangular_crossing_gadgets(
+    grid: &mut MappingGrid,
+    copylines: &[super::copyline::CopyLine],
+    spacing: usize,
+    padding: usize,
+) -> Vec<TriangularTapeEntry> {
+    use std::collections::HashSet;
+
+    let mut tape = Vec::new();
+    let mut processed = HashSet::new();
+    let n = copylines.len();
+
+    // Iterate through all pairs of vertices
+    for j in 0..n {
+        for i in 0..n {
+            let (cross_row, cross_col) = crossat_triangular(copylines, i, j, spacing, padding);
+
+            if processed.contains(&(cross_row, cross_col)) {
+                continue;
+            }
+
+            // Try each gadget in the ruleset
+            if let Some(entry) = try_match_triangular_gadget(grid, cross_row, cross_col) {
+                tape.push(entry);
+                processed.insert((cross_row, cross_col));
+            }
+        }
+    }
+
+    tape
+}
+
+/// Try to match and apply a triangular gadget at the crossing point.
+fn try_match_triangular_gadget(
+    grid: &mut MappingGrid,
+    cross_row: usize,
+    cross_col: usize,
+) -> Option<TriangularTapeEntry> {
+    // Macro to reduce repetition
+    macro_rules! try_gadget {
+        ($gadget:expr, $idx:expr) => {{
+            let g = $gadget;
+            let (cr, cc) = g.cross_location();
+            if cross_row >= cr && cross_col >= cc {
+                let x = cross_row - cr + 1;
+                let y = cross_col - cc + 1;
+                if pattern_matches_triangular(&g, grid, x, y) {
+                    apply_triangular_gadget(&g, grid, x, y);
+                    return Some(TriangularTapeEntry {
+                        gadget_idx: $idx,
+                        row: x,
+                        col: y,
+                    });
+                }
+            }
+        }};
+    }
+
+    // Try gadgets in order (matching Julia's triangular_crossing_ruleset)
+    try_gadget!(TriCross::<false>, 0);
+    try_gadget!(TriCross::<true>, 1);
+    try_gadget!(TriTConLeft, 2);
+    try_gadget!(TriTConUp, 3);
+    try_gadget!(TriTConDown, 4);
+    try_gadget!(TriTrivialTurnLeft, 5);
+    try_gadget!(TriTrivialTurnRight, 6);
+    try_gadget!(TriEndTurn, 7);
+    try_gadget!(TriTurn, 8);
+    try_gadget!(TriWTurn, 9);
+    try_gadget!(TriBranchFix, 10);
+    try_gadget!(TriBranchFixB, 11);
+    try_gadget!(TriBranch, 12);
+
+    None
+}
+
+/// Get MIS overhead for a triangular tape entry.
+pub fn triangular_tape_entry_mis_overhead(entry: &TriangularTapeEntry) -> i32 {
+    match entry.gadget_idx {
+        0 => TriCross::<false>.mis_overhead(),
+        1 => TriCross::<true>.mis_overhead(),
+        2 => TriTConLeft.mis_overhead(),
+        3 => TriTConUp.mis_overhead(),
+        4 => TriTConDown.mis_overhead(),
+        5 => TriTrivialTurnLeft.mis_overhead(),
+        6 => TriTrivialTurnRight.mis_overhead(),
+        7 => TriEndTurn.mis_overhead(),
+        8 => TriTurn.mis_overhead(),
+        9 => TriWTurn.mis_overhead(),
+        10 => TriBranchFix.mis_overhead(),
+        11 => TriBranchFixB.mis_overhead(),
+        12 => TriBranch.mis_overhead(),
+        _ => 0,
+    }
+}
+
 /// Map a graph to a triangular lattice grid graph using optimal path decomposition.
 ///
 /// # Panics
