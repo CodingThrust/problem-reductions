@@ -60,4 +60,6 @@ pub use triangular::{
     TriangularGadget, TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown,
     TriTConLeft, TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
 };
-pub use weighted::{WeightedGadget, Weightable};
+pub use weighted::{
+    triangular_weighted_ruleset, WeightedGadget, WeightedTriangularGadget, Weightable,
+};

@@ -151,6 +151,104 @@ impl Weightable for TriBranchFixB {
     }
 }
 
+/// Enum wrapper for weighted triangular gadgets to enable dynamic dispatch.
+#[derive(Debug, Clone)]
+pub enum WeightedTriangularGadget {
+    CrossFalse(WeightedGadget<TriCross<false>>),
+    CrossTrue(WeightedGadget<TriCross<true>>),
+    TConLeft(WeightedGadget<TriTConLeft>),
+    TConUp(WeightedGadget<TriTConUp>),
+    TConDown(WeightedGadget<TriTConDown>),
+    TrivialTurnLeft(WeightedGadget<TriTrivialTurnLeft>),
+    TrivialTurnRight(WeightedGadget<TriTrivialTurnRight>),
+    EndTurn(WeightedGadget<TriEndTurn>),
+    Turn(WeightedGadget<TriTurn>),
+    WTurn(WeightedGadget<TriWTurn>),
+    BranchFix(WeightedGadget<TriBranchFix>),
+    BranchFixB(WeightedGadget<TriBranchFixB>),
+    Branch(WeightedGadget<TriBranch>),
+}
+
+impl WeightedTriangularGadget {
+    /// Get source weights for this gadget.
+    pub fn source_weights(&self) -> &[i32] {
+        match self {
+            Self::CrossFalse(g) => g.source_weights(),
+            Self::CrossTrue(g) => g.source_weights(),
+            Self::TConLeft(g) => g.source_weights(),
+            Self::TConUp(g) => g.source_weights(),
+            Self::TConDown(g) => g.source_weights(),
+            Self::TrivialTurnLeft(g) => g.source_weights(),
+            Self::TrivialTurnRight(g) => g.source_weights(),
+            Self::EndTurn(g) => g.source_weights(),
+            Self::Turn(g) => g.source_weights(),
+            Self::WTurn(g) => g.source_weights(),
+            Self::BranchFix(g) => g.source_weights(),
+            Self::BranchFixB(g) => g.source_weights(),
+            Self::Branch(g) => g.source_weights(),
+        }
+    }
+
+    /// Get mapped weights for this gadget.
+    pub fn mapped_weights(&self) -> &[i32] {
+        match self {
+            Self::CrossFalse(g) => g.mapped_weights(),
+            Self::CrossTrue(g) => g.mapped_weights(),
+            Self::TConLeft(g) => g.mapped_weights(),
+            Self::TConUp(g) => g.mapped_weights(),
+            Self::TConDown(g) => g.mapped_weights(),
+            Self::TrivialTurnLeft(g) => g.mapped_weights(),
+            Self::TrivialTurnRight(g) => g.mapped_weights(),
+            Self::EndTurn(g) => g.mapped_weights(),
+            Self::Turn(g) => g.mapped_weights(),
+            Self::WTurn(g) => g.mapped_weights(),
+            Self::BranchFix(g) => g.mapped_weights(),
+            Self::BranchFixB(g) => g.mapped_weights(),
+            Self::Branch(g) => g.mapped_weights(),
+        }
+    }
+
+    /// Get mis_overhead for this gadget.
+    pub fn mis_overhead(&self) -> i32 {
+        use super::triangular::TriangularGadget;
+        match self {
+            Self::CrossFalse(g) => g.gadget.mis_overhead(),
+            Self::CrossTrue(g) => g.gadget.mis_overhead(),
+            Self::TConLeft(g) => g.gadget.mis_overhead(),
+            Self::TConUp(g) => g.gadget.mis_overhead(),
+            Self::TConDown(g) => g.gadget.mis_overhead(),
+            Self::TrivialTurnLeft(g) => g.gadget.mis_overhead(),
+            Self::TrivialTurnRight(g) => g.gadget.mis_overhead(),
+            Self::EndTurn(g) => g.gadget.mis_overhead(),
+            Self::Turn(g) => g.gadget.mis_overhead(),
+            Self::WTurn(g) => g.gadget.mis_overhead(),
+            Self::BranchFix(g) => g.gadget.mis_overhead(),
+            Self::BranchFixB(g) => g.gadget.mis_overhead(),
+            Self::Branch(g) => g.gadget.mis_overhead(),
+        }
+    }
+}
+
+/// Get the weighted triangular crossing ruleset.
+/// This matches Julia's `crossing_ruleset_triangular_weighted`.
+pub fn triangular_weighted_ruleset() -> Vec<WeightedTriangularGadget> {
+    vec![
+        WeightedTriangularGadget::CrossFalse(TriCross::<false>.weighted()),
+        WeightedTriangularGadget::CrossTrue(TriCross::<true>.weighted()),
+        WeightedTriangularGadget::TConLeft(TriTConLeft.weighted()),
+        WeightedTriangularGadget::TConUp(TriTConUp.weighted()),
+        WeightedTriangularGadget::TConDown(TriTConDown.weighted()),
+        WeightedTriangularGadget::TrivialTurnLeft(TriTrivialTurnLeft.weighted()),
+        WeightedTriangularGadget::TrivialTurnRight(TriTrivialTurnRight.weighted()),
+        WeightedTriangularGadget::EndTurn(TriEndTurn.weighted()),
+        WeightedTriangularGadget::Turn(TriTurn.weighted()),
+        WeightedTriangularGadget::WTurn(TriWTurn.weighted()),
+        WeightedTriangularGadget::BranchFix(TriBranchFix.weighted()),
+        WeightedTriangularGadget::BranchFixB(TriBranchFixB.weighted()),
+        WeightedTriangularGadget::Branch(TriBranch.weighted()),
+    ]
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,5 +328,11 @@ mod tests {
         check(TriWTurn, "TriWTurn");
         check(TriBranchFix, "TriBranchFix");
         check(TriBranchFixB, "TriBranchFixB");
+    }
+
+    #[test]
+    fn test_triangular_weighted_ruleset_has_13_gadgets() {
+        let ruleset = super::triangular_weighted_ruleset();
+        assert_eq!(ruleset.len(), 13);
     }
 }
