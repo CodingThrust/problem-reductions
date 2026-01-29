@@ -431,11 +431,12 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
   _Correctness._ ($arrow.r.double$) An IS in $G$ maps to selecting all copy line vertices for included vertices; crossing gadgets ensure no conflicts. ($arrow.l.double$) A grid MIS maps back to an IS by the copy line activity rule.
 ]
 
-*Example: Petersen Graph.* The Petersen graph ($n=10$, MIS$=4$) maps to a $42 times 46$ King's subgraph with 281 nodes and overhead $Delta = 174$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 174 = 178$. With triangular lattice encoding @pan2025, the same graph maps to a $60 times 66$ grid with 54 nodes and overhead $Delta = 446$.
+*Example: Petersen Graph.* The Petersen graph ($n=10$, MIS$=4$) maps to a $30 times 42$ King's subgraph with 220 nodes and overhead $Delta = 88$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 88 = 92$. With triangular lattice encoding @nguyen2023, the same graph maps to a $42 times 60$ grid with 404 nodes and overhead $Delta = 384$, giving $"MIS"(G_"tri") = 4 + 384 = 388$.
 
 // Load JSON data
 #let petersen = json("petersen_source.json")
 #let square_mapping = json("petersen_square.json")
+#let triangular_mapping = json("petersen_triangular.json")
 
 // Euclidean distance
 #let distance(a, b) = calc.sqrt(calc.pow(a.at(0) - b.at(0), 2) + calc.pow(a.at(1) - b.at(1), 2))
@@ -451,23 +452,6 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
     }
   }
   edges
-}
-
-// Draw graph with cetz
-#let show-graph(vertices, edges, radius: 0.15, node-color: blue) = {
-  import draw: *
-  for (k, (i, j)) in vertices.enumerate() {
-    circle((i, j), radius: radius, fill: node-color, stroke: none, name: str(k))
-  }
-  for (k, l) in edges {
-    line(str(k), str(l), stroke: 0.4pt + gray)
-  }
-}
-
-// Draw unit disk graph
-#let show-udg(vertices, unit: 1, radius: 0.15, node-color: blue) = {
-  let edges = udg-edges(vertices, unit: unit)
-  show-graph(vertices, edges, radius: radius, node-color: node-color)
 }
 
 // Draw Petersen graph with standard layout
@@ -500,7 +484,7 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
 })
 
 // Draw King's Subgraph from JSON nodes with 8-connectivity
-#let draw-grid-cetz(data, cell-size: 0.05) = canvas(length: 1cm, {
+#let draw-grid-cetz(data, cell-size: 0.2) = canvas(length: 1cm, {
   import draw: *
   let grid-data = data.grid_graph
   let radius = grid-data.radius  // 1.5 for King's graph (8-neighbors)
@@ -528,20 +512,60 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
   }
 })
 
+// Draw triangular lattice from JSON nodes
+// Triangular lattice: y-coordinates scaled by sqrt(3)/2, odd columns offset by 0.5
+#let draw-triangular-cetz(data, cell-size: 0.2) = canvas(length: 1cm, {
+  import draw: *
+  let grid-data = data.grid_graph
+  let radius = grid-data.radius  // 1.1 for triangular lattice
+
+  // Get node positions with triangular geometry
+  // For triangular lattice: physical_y = row * sqrt(3)/2, physical_x = col + 0.5*(row % 2)
+  let sqrt3_2 = calc.sqrt(3) / 2
+  let grid-positions = grid-data.nodes.map(n => {
+    let x = n.col + 0.5 * calc.rem(n.row, 2)
+    let y = n.row * sqrt3_2
+    (x, y)
+  })
+  let weights = grid-data.nodes.map(n => n.weight)
+
+  // Compute unit disk edges on triangular lattice
+  let edges = udg-edges(grid-positions, unit: radius)
+
+  // Scale for drawing
+  let vertices = grid-positions.map(p => (p.at(0) * cell-size, -p.at(1) * cell-size))
+
+  // Draw edges
+  for (k, l) in edges {
+    line(vertices.at(k), vertices.at(l), stroke: 0.3pt + gray)
+  }
+
+  // Draw nodes with weight-based color
+  for (k, pos) in vertices.enumerate() {
+    let w = weights.at(k)
+    let color = if w == 1 { blue } else if w == 2 { red } else { green }
+    circle(pos, radius: 0.025, fill: color, stroke: none)
+  }
+})
+
 #figure(
   grid(
-    columns: 2,
-    gutter: 2em,
+    columns: 3,
+    gutter: 1.5em,
     align(center + horizon)[
       #draw-petersen-cetz(petersen)
       (a) Petersen graph
     ],
     align(center + horizon)[
       #draw-grid-cetz(square_mapping)
-      (b) King's subgraph mapping
+      (b) King's subgraph
+    ],
+    align(center + horizon)[
+      #draw-triangular-cetz(triangular_mapping)
+      (c) Triangular lattice
     ],
   ),
-  caption: [Unit disk mapping of the Petersen graph. Blue: weight 1, red: weight 2.],
+  caption: [Unit disk mappings of the Petersen graph. Blue: weight 1, red: weight 2, green: weight 3.],
 ) <fig:petersen-mapping>
 
 *Weighted Extension.* For MWIS, copy lines use weighted vertices (weights 1, 2, or 3). Source weights $< 1$ are added to designated "pin" vertices.
