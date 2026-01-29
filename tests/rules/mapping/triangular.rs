@@ -124,6 +124,7 @@ fn verify_mis_overhead(name: &str) -> bool {
     let (n, edges) = smallgraph(name).unwrap();
     let result = map_graph_triangular(n, &edges);
 
+    // Calculate mapped weighted MIS using grid weights directly (without map_weights)
     let grid_edges = result.grid_graph.edges().to_vec();
     let grid_weights: Vec<i32> = (0..result.grid_graph.num_vertices())
         .map(|i| result.grid_graph.weight(i).copied().unwrap_or(1))
@@ -131,6 +132,9 @@ fn verify_mis_overhead(name: &str) -> bool {
     let mapped_weighted_mis =
         solve_weighted_mis(result.grid_graph.num_vertices(), &grid_edges, &grid_weights);
 
+    // When using grid weights directly (without map_weights), the relationship is:
+    // mapped_mis == overhead
+    // (map_weights would add original vertex weights at center locations)
     let diff = (mapped_weighted_mis - result.mis_overhead).abs();
 
     if diff > 1 {

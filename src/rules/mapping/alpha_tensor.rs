@@ -253,8 +253,9 @@ pub fn build_triangular_unit_disk_edges(locs: &[(usize, usize)]) -> Vec<(usize, 
             let x2 = r2 as f64 + if c2 % 2 == 0 { 0.5 } else { 0.0 };
             let y2 = c2 as f64 * (3.0_f64.sqrt() / 2.0);
 
-            let dist = ((x1 - x2).powi(2) + (y1 - y2).powi(2)).sqrt();
-            if dist <= radius {
+            // Use squared distance comparison (like Julia): dist^2 < radius^2
+            let dist_sq = (x1 - x2).powi(2) + (y1 - y2).powi(2);
+            if dist_sq < radius * radius {
                 edges.push((i, j));
             }
         }
@@ -309,9 +310,9 @@ pub fn verify_triangular_gadget<G: super::triangular::TriangularGadget>(
     }
 
     // Get mapped graph
-    // Use standard Euclidean unit disk with radius 1.5 (matching Julia's unitdisk_graph)
+    // Use triangular unit disk with radius 1.1 (matching Julia's triangular_unitdisk_graph)
     let (map_locs, map_pins) = gadget.mapped_graph();
-    let map_edges = build_standard_unit_disk_edges(&map_locs);
+    let map_edges = build_triangular_unit_disk_edges(&map_locs);
     // Use gadget's mapped weights, then subtract 1 from pins
     let mut map_weights = gadget.mapped_weights();
     for &pin in &map_pins {

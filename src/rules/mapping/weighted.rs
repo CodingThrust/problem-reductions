@@ -239,18 +239,184 @@ pub fn triangular_weighted_ruleset() -> Vec<WeightedTriangularGadget> {
 
 /// Trace center locations through gadget transformations.
 /// Returns the final center location for each original vertex.
+///
+/// This matches Julia's `trace_centers` function which:
+/// 1. Gets initial center locations with (0, 1) offset
+/// 2. Applies `move_center` for each gadget in the tape
 pub fn trace_centers(result: &MappingResult) -> Vec<(usize, usize)> {
-    // Get center locations for each copy line, sorted by vertex index
-    let mut indexed: Vec<_> = result
+    // Get gadget sizes for bounds checking
+    fn get_gadget_size(gadget_idx: usize) -> (usize, usize) {
+        use super::triangular::TriangularGadget;
+        use super::triangular::{
+            TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown,
+            TriTConLeft, TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
+        };
+        match gadget_idx {
+            0 => TriCross::<false>.size(),
+            1 => TriCross::<true>.size(),
+            2 => TriTConLeft.size(),
+            3 => TriTConUp.size(),
+            4 => TriTConDown.size(),
+            5 => TriTrivialTurnLeft.size(),
+            6 => TriTrivialTurnRight.size(),
+            7 => TriEndTurn.size(),
+            8 => TriTurn.size(),
+            9 => TriWTurn.size(),
+            10 => TriBranchFix.size(),
+            11 => TriBranchFixB.size(),
+            12 => TriBranch.size(),
+            _ => (0, 0),
+        }
+    }
+
+    // Get center locations for each copy line with (0, 1) offset (matching Julia)
+    let mut centers: Vec<(usize, usize)> = result
         .lines
         .iter()
         .map(|line| {
-            let center = line.center_location(result.padding, result.spacing);
-            (line.vertex, center)
+            let (row, col) = line.center_location(result.padding, result.spacing);
+            (row, col + 1) // Julia adds (0, 1) offset
         })
+        .collect();
+
+    // Apply gadget transformations from tape
+    for entry in &result.tape {
+        let gadget_idx = entry.pattern_idx;
+        let gi = entry.row;
+        let gj = entry.col;
+
+        // Get gadget size
+        let (m, n) = get_gadget_size(gadget_idx);
+        if m == 0 || n == 0 {
+            continue; // Unknown gadget
+        }
+
+        // For each center location, check if it's within this gadget's area
+        for center in centers.iter_mut() {
+            let (ci, cj) = *center;
+
+            // Check if center is within gadget bounds (using >= for lower and < for upper)
+            if ci >= gi && ci < gi + m && cj >= gj && cj < gj + n {
+                // Local coordinates within gadget (1-indexed as in Julia)
+                let local_i = ci - gi + 1;
+                let local_j = cj - gj + 1;
+
+                // Apply gadget-specific center movement
+                if let Some(new_pos) =
+                    move_center_for_gadget(gadget_idx, (local_i, local_j), gi, gj)
+                {
+                    *center = new_pos;
+                }
+            }
+        }
+    }
+
+    // Sort by vertex index and return
+    let mut indexed: Vec<_> = result
+        .lines
+        .iter()
+        .enumerate()
+        .map(|(idx, line)| (line.vertex, centers[idx]))
         .collect();
     indexed.sort_by_key(|(v, _)| *v);
     indexed.into_iter().map(|(_, c)| c).collect()
+}
+
+/// Move a center through a specific gadget transformation.
+/// Returns the new global position if the gadget affects this center.
+///
+/// The center location includes the (0, 1) offset from Julia's trace_centers,
+/// so it's at cross_location + (0, 1) within the gadget.
+fn move_center_for_gadget(
+    gadget_idx: usize,
+    local_pos: (usize, usize),
+    gi: usize,
+    gj: usize,
+) -> Option<(usize, usize)> {
+    use super::triangular::TriangularGadget;
+    use super::triangular::{
+        TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown, TriTConLeft,
+        TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
+    };
+
+    // The center is at cross_location + (0, 1) for most gadgets.
+    // We need to find where it maps to in the transformed pattern.
+    // The general rule is: center stays at same row, moves to column of nearest mapped node.
+
+    let (m, n, cross_loc) = match gadget_idx {
+        0 => (TriCross::<false>.size().0, TriCross::<false>.size().1, TriCross::<false>.cross_location()),
+        1 => (TriCross::<true>.size().0, TriCross::<true>.size().1, TriCross::<true>.cross_location()),
+        2 => (TriTConLeft.size().0, TriTConLeft.size().1, TriTConLeft.cross_location()),
+        3 => (TriTConUp.size().0, TriTConUp.size().1, TriTConUp.cross_location()),
+        4 => (TriTConDown.size().0, TriTConDown.size().1, TriTConDown.cross_location()),
+        5 => (TriTrivialTurnLeft.size().0, TriTrivialTurnLeft.size().1, TriTrivialTurnLeft.cross_location()),
+        6 => (TriTrivialTurnRight.size().0, TriTrivialTurnRight.size().1, TriTrivialTurnRight.cross_location()),
+        7 => (TriEndTurn.size().0, TriEndTurn.size().1, TriEndTurn.cross_location()),
+        8 => (TriTurn.size().0, TriTurn.size().1, TriTurn.cross_location()),
+        9 => (TriWTurn.size().0, TriWTurn.size().1, TriWTurn.cross_location()),
+        10 => (TriBranchFix.size().0, TriBranchFix.size().1, TriBranchFix.cross_location()),
+        11 => (TriBranchFixB.size().0, TriBranchFixB.size().1, TriBranchFixB.cross_location()),
+        12 => (TriBranch.size().0, TriBranch.size().1, TriBranch.cross_location()),
+        _ => return None, // Unknown gadget or simplifier
+    };
+
+    let (li, lj) = local_pos;
+
+    // Check bounds
+    if li < 1 || li > m || lj < 1 || lj > n {
+        return None;
+    }
+
+    // The center is expected to be at cross_location + (0, 1)
+    let expected_center = (cross_loc.0, cross_loc.1 + 1);
+
+    // For most gadgets, if the center is at the expected position,
+    // it maps to a specific location in the mapped pattern.
+    // The mapped center is typically at cross_location (the gadget's anchor point).
+    if local_pos == expected_center {
+        // Map center from cross_location + (0, 1) to cross_location + (0, 1) in mapped
+        // But if that position doesn't exist in mapped, use cross_location
+        let mapped_pos = match gadget_idx {
+            // TriCross<false>: center at (2, 4) maps to (2, 4) - stays same
+            0 => (cross_loc.0, cross_loc.1 + 1),
+            // TriCross<true>: center at (2, 3) maps to (2, 3) - stays same
+            1 => (cross_loc.0, cross_loc.1 + 1),
+            // TriTConLeft: center at (2, 3) maps to (2, 3)
+            2 => (cross_loc.0, cross_loc.1 + 1),
+            // TriTConUp: center at (2, 3) maps to (2, 3)
+            3 => (cross_loc.0, cross_loc.1 + 1),
+            // TriTConDown: center at (2, 3) maps to (3, 2) - moves to different position
+            4 => (cross_loc.0 + 1, cross_loc.1),
+            // TriTrivialTurnLeft: center at (2, 3) - but size is (2, 2), so this doesn't apply
+            5 => (cross_loc.0, cross_loc.1 + 1),
+            // TriTrivialTurnRight: center at (1, 3) - but size is (2, 2), so this doesn't apply
+            6 => (cross_loc.0 + 1, cross_loc.1 + 1),
+            // TriEndTurn: center at (2, 3) maps to (1, 2) - center moves to first node
+            7 => (1, 2),
+            // TriTurn: center at (3, 3) maps to (2, 3) - follows the turn
+            8 => (2, 3),
+            // TriWTurn: center at (2, 3) maps to (3, 3)
+            9 => (3, 3),
+            // TriBranchFix: center at (2, 3) maps to (2, 2) - straightens to column 2
+            10 => (cross_loc.0, cross_loc.1),
+            // TriBranchFixB: center at (2, 3) maps to (3, 2) - moves down
+            11 => (3, 2),
+            // TriBranch: center at (3, 3) maps to (2, 3)
+            12 => (2, 3),
+            _ => return None,
+        };
+        // Convert to global coordinates
+        return Some((gi + mapped_pos.0 - 1, gj + mapped_pos.1 - 1));
+    }
+
+    // Also check if center is at cross_location (without the +1 offset)
+    // This can happen if the offset wasn't applied or gadgets shifted things
+    if local_pos == cross_loc {
+        // Return cross_location in global coords
+        return Some((gi + cross_loc.0 - 1, gj + cross_loc.1 - 1));
+    }
+
+    None
 }
 
 /// Map source vertex weights to grid graph weights.

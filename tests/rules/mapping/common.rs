@@ -119,15 +119,22 @@ pub fn solve_weighted_mis_config(
     }
 }
 
-/// Generate edges for triangular lattice based on distance.
+/// Generate edges for triangular lattice using proper triangular coordinates.
+/// Triangular coordinates: (row, col) maps to physical position:
+/// - x = row + 0.5 if col is even, else row
+/// - y = col * sqrt(3)/2
 pub fn triangular_edges(locs: &[(usize, usize)], radius: f64) -> Vec<(usize, usize)> {
     let mut edges = Vec::new();
     for (i, &(r1, c1)) in locs.iter().enumerate() {
         for (j, &(r2, c2)) in locs.iter().enumerate() {
             if i < j {
-                let dr = (r1 as f64) - (r2 as f64);
-                let dc = (c1 as f64) - (c2 as f64);
-                let dist = (dr * dr + dc * dc).sqrt();
+                // Convert to physical triangular coordinates
+                let x1 = r1 as f64 + if c1 % 2 == 0 { 0.5 } else { 0.0 };
+                let y1 = c1 as f64 * (3.0_f64.sqrt() / 2.0);
+                let x2 = r2 as f64 + if c2 % 2 == 0 { 0.5 } else { 0.0 };
+                let y2 = c2 as f64 * (3.0_f64.sqrt() / 2.0);
+
+                let dist = ((x1 - x2).powi(2) + (y1 - y2).powi(2)).sqrt();
                 if dist <= radius {
                     edges.push((i, j));
                 }
