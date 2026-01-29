@@ -136,6 +136,94 @@ pub fn mapped_boundary_config<P: Pattern>(pattern: &P, config: &[usize]) -> usiz
     result
 }
 
+/// Map configuration back through a single gadget.
+/// Julia: `map_config_back!(p, i, j, configuration)`
+///
+/// This function:
+/// 1. Extracts config values at mapped_graph locations
+/// 2. Computes boundary config
+/// 3. Looks up source configs via mapped_entry_to_compact and source_entry_to_configs
+/// 4. Clears the gadget area in the config matrix
+/// 5. Writes source config to source_graph locations
+///
+/// # Arguments
+/// * `pattern` - The gadget pattern
+/// * `gi, gj` - Position where gadget was applied (0-indexed)
+/// * `config` - 2D config matrix (modified in place)
+pub fn map_config_back_pattern<P: Pattern>(
+    pattern: &P,
+    gi: usize,
+    gj: usize,
+    config: &mut Vec<Vec<usize>>,
+) {
+    let (m, n) = pattern.size();
+    let (mapped_locs, mapped_pins) = pattern.mapped_graph();
+    let (source_locs, _, _) = pattern.source_graph();
+
+    // Step 1: Extract config at mapped locations
+    let mapped_config: Vec<usize> = mapped_locs
+        .iter()
+        .map(|&(r, c)| {
+            let row = gi + r - 1; // Convert 1-indexed to 0-indexed
+            let col = gj + c - 1;
+            config.get(row).and_then(|row_vec| row_vec.get(col)).copied().unwrap_or(0)
+        })
+        .collect();
+
+    // Step 2: Compute boundary config
+    let bc = {
+        let mut result = 0usize;
+        for (i, &pin_idx) in mapped_pins.iter().enumerate() {
+            if pin_idx < mapped_config.len() && mapped_config[pin_idx] > 0 {
+                result |= 1 << i;
+            }
+        }
+        result
+    };
+
+    // Step 3: Look up source config
+    let d1 = pattern.mapped_entry_to_compact();
+    let d2 = pattern.source_entry_to_configs();
+
+    let compact = d1.get(&bc).copied();
+    debug_assert!(compact.is_some(), "Boundary config {} not found in mapped_entry_to_compact", bc);
+    let compact = compact.unwrap_or(0);
+
+    let source_configs = d2.get(&compact).cloned();
+    debug_assert!(source_configs.is_some(), "Compact {} not found in source_entry_to_configs", compact);
+    let source_configs = source_configs.unwrap_or_default();
+
+    // Pick first valid config (Julia uses rand, we use first)
+    debug_assert!(!source_configs.is_empty(), "Empty source configs for compact {}. This may indicate an invalid MIS configuration.", compact);
+    let new_config = if source_configs.is_empty() {
+        vec![false; source_locs.len()]
+    } else {
+        source_configs[0].clone()
+    };
+
+    // Step 4: Clear gadget area
+    for row in gi..gi + m {
+        for col in gj..gj + n {
+            if let Some(row_vec) = config.get_mut(row) {
+                if let Some(cell) = row_vec.get_mut(col) {
+                    *cell = 0;
+                }
+            }
+        }
+    }
+
+    // Step 5: Write source config
+    for (k, &(r, c)) in source_locs.iter().enumerate() {
+        let row = gi + r - 1;
+        let col = gj + c - 1;
+        if let Some(rv) = config.get_mut(row) {
+            if let Some(cv) = rv.get_mut(col) {
+                *cv += if new_config.get(k).copied().unwrap_or(false) { 1 } else { 0 };
+            }
+        }
+    }
+}
+
 /// Check if a pattern matches at position (i, j) in the grid.
 /// i, j are 0-indexed row/col offsets.
 ///
@@ -2586,5 +2674,38 @@ mod tests {
         // All zeros -> 0
         let config = vec![0; 16];
         assert_eq!(mapped_boundary_config(&cross, &config), 0);
+    }
+
+    #[test]
+    fn test_map_config_back_pattern_danglingleg() {
+        // DanglingLeg: source (2,2),(3,2),(4,2) -> mapped (4,2)
+        // If mapped node is selected (1), source should be [1,0,1]
+        // If mapped node is not selected (0), source should be [1,0,0] or [0,1,0]
+
+        let mut config = vec![vec![0; 5]; 6];
+        // Place mapped node at (4,2) as selected (gadget at position (1,1))
+        config[4][2] = 1;
+
+        map_config_back_pattern(&DanglingLeg, 1, 1, &mut config);
+
+        // After unapply, source nodes at (2,2), (3,2), (4,2) relative to (1,1)
+        // which is global (2,2), (3,2), (4,2)
+        // Should be [1,0,1]
+        assert_eq!(config[2][2], 1);
+        assert_eq!(config[3][2], 0);
+        assert_eq!(config[4][2], 1);
+    }
+
+    #[test]
+    fn test_map_config_back_pattern_danglingleg_unselected() {
+        let mut config = vec![vec![0; 5]; 6];
+        // Mapped node not selected
+        config[4][2] = 0;
+
+        map_config_back_pattern(&DanglingLeg, 1, 1, &mut config);
+
+        // Source should be [1,0,0] or [0,1,0]
+        let sum = config[2][2] + config[3][2] + config[4][2];
+        assert_eq!(sum, 1); // Exactly one node selected
     }
 }
