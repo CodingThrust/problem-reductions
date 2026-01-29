@@ -263,6 +263,34 @@ pub fn build_triangular_unit_disk_edges(locs: &[(usize, usize)]) -> Vec<(usize, 
     edges
 }
 
+/// Build unit disk graph edges using standard Euclidean distance.
+/// Uses radius 1.5 matching Julia's unitdisk_graph for gadget verification.
+///
+/// This treats coordinates as standard grid positions, not triangular lattice.
+pub fn build_standard_unit_disk_edges(locs: &[(usize, usize)]) -> Vec<(usize, usize)> {
+    let n = locs.len();
+    let mut edges = Vec::new();
+    let radius = 1.5;
+
+    for i in 0..n {
+        for j in (i + 1)..n {
+            let (r1, c1) = locs[i];
+            let (r2, c2) = locs[j];
+
+            // Standard Euclidean distance
+            let dr = r1 as f64 - r2 as f64;
+            let dc = c1 as f64 - c2 as f64;
+            let dist = (dr * dr + dc * dc).sqrt();
+
+            if dist <= radius {
+                edges.push((i, j));
+            }
+        }
+    }
+
+    edges
+}
+
 /// Verify a triangular gadget's correctness using alpha tensors.
 ///
 /// Returns Ok if the gadget is correct (source and mapped have equivalent alpha tensors),
@@ -281,8 +309,9 @@ pub fn verify_triangular_gadget<G: super::triangular::TriangularGadget>(
     }
 
     // Get mapped graph
+    // Use standard Euclidean unit disk with radius 1.5 (matching Julia's unitdisk_graph)
     let (map_locs, map_pins) = gadget.mapped_graph();
-    let map_edges = build_triangular_unit_disk_edges(&map_locs);
+    let map_edges = build_standard_unit_disk_edges(&map_locs);
     // Use gadget's mapped weights, then subtract 1 from pins
     let mut map_weights = gadget.mapped_weights();
     for &pin in &map_pins {

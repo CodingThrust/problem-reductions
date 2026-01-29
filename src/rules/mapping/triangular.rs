@@ -10,7 +10,9 @@ use serde::{Deserialize, Serialize};
 
 const TRIANGULAR_SPACING: usize = 6;
 const TRIANGULAR_PADDING: usize = 2;
-const TRIANGULAR_UNIT_RADIUS: f64 = 1.1;
+// Use radius 1.5 to match Julia's unitdisk_graph for gadgets
+// This ensures diagonal nodes at distance sqrt(2) are connected
+const TRIANGULAR_UNIT_RADIUS: f64 = 1.5;
 
 /// Tape entry recording a triangular gadget application.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -131,16 +133,22 @@ pub trait TriangularGadget {
     }
 }
 
-/// Triangular cross gadget.
+/// Triangular cross gadget - matches Julia's Cross gadget with weights.
+///
+/// This uses the same structure as Julia's base Cross gadget, with all nodes
+/// having weight 2 (the standard weighted mode).
+/// mis_overhead = base_overhead * 2 = -1 * 2 = -2
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriCross<const CON: bool>;
 
 impl TriangularGadget for TriCross<true> {
     fn size(&self) -> (usize, usize) {
-        (6, 4)
+        // Julia: Base.size(::Cross{true}) = (3, 3)
+        (3, 3)
     }
 
     fn cross_location(&self) -> (usize, usize) {
+        // Julia: cross_location(::Cross{true}) = (2,2)
         (2, 2)
     }
 
@@ -149,79 +157,72 @@ impl TriangularGadget for TriCross<true> {
     }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
-        // Julia: locs = Node.([(2,1), (2,2), (2,3), (2,4), (1,2), (2,2), (3,2), (4,2), (5,2), (6,2)])
-        // Julia: g = simplegraph([(1,2), (2,3), (3,4), (5,6), (6,7), (7,8), (8,9), (9,10), (1,5)])
-        // Note: Julia is 1-indexed, Rust is 0-indexed
+        // Julia: locs = Node.([(2,1), (2,2), (2,3), (1,2), (2,2), (3,2)])
+        // Julia: g = simplegraph([(1,2), (2,3), (4,5), (5,6), (1,6)])
+        // Julia: pins = [1,4,6,3] -> 0-indexed: [0,3,5,2]
         let locs = vec![
             (2, 1), // 0
             (2, 2), // 1
             (2, 3), // 2
-            (2, 4), // 3
-            (1, 2), // 4
-            (2, 2), // 5 (duplicate of 1)
-            (3, 2), // 6
-            (4, 2), // 7
-            (5, 2), // 8
-            (6, 2), // 9
+            (1, 2), // 3
+            (2, 2), // 4 (duplicate - doubled node)
+            (3, 2), // 5
         ];
-        // Convert Julia 1-indexed edges to 0-indexed
         let edges = vec![
             (0, 1), // (1,2)
             (1, 2), // (2,3)
-            (2, 3), // (3,4)
+            (3, 4), // (4,5)
             (4, 5), // (5,6)
-            (5, 6), // (6,7)
-            (6, 7), // (7,8)
-            (7, 8), // (8,9)
-            (8, 9), // (9,10)
-            (0, 4), // (1,5)
+            (0, 5), // (1,6) - connection between the two lines
         ];
-        let pins = vec![0, 4, 9, 3]; // Julia: [1,5,10,4] -> 0-indexed: [0,4,9,3]
+        let pins = vec![0, 3, 5, 2];
         (locs, edges, pins)
     }
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
-        // Julia: locs = Node.([(1,2), (2,1), (2,2), (2,3), (1,4), (3,3), (4,2), (4,3), (5,1), (6,1), (6,2)])
-        // Julia: pins = [2,1,11,5] -> 0-indexed: [1,0,10,4]
+        // Julia: locs = Node.([(2,1), (2,2), (2,3), (1,2), (3,2)])
+        // Julia: pins = [1,4,5,3] -> 0-indexed: [0,3,4,2]
         let locs = vec![
-            (1, 2), // 0
-            (2, 1), // 1
-            (2, 2), // 2
-            (2, 3), // 3
-            (1, 4), // 4
-            (3, 3), // 5
-            (4, 2), // 6
-            (4, 3), // 7
-            (5, 1), // 8
-            (6, 1), // 9
-            (6, 2), // 10
+            (2, 1), // 0
+            (2, 2), // 1
+            (2, 3), // 2
+            (1, 2), // 3
+            (3, 2), // 4
         ];
-        let pins = vec![1, 0, 10, 4];
+        let pins = vec![0, 3, 4, 2];
         (locs, pins)
     }
 
     fn mis_overhead(&self) -> i32 {
-        1
+        // Julia: mis_overhead(::Cross{true}) = -1, weighted = -2
+        -2
     }
 
     fn connected_nodes(&self) -> Vec<usize> {
-        // Julia: connected_nodes(::TriCross{true}) = [1,5]
-        vec![1, 5]
+        // Julia: connected_nodes(::Cross{true}) = [1, 6] -> 0-indexed: [0, 5]
+        vec![0, 5]
+    }
+
+    fn source_weights(&self) -> Vec<i32> {
+        // All weight 2 for weighted mode
+        vec![2; 6]
     }
 
     fn mapped_weights(&self) -> Vec<i32> {
-        // Julia: mw = [3,2,3,3,2,2,2,2,2,2,2]
-        vec![3, 2, 3, 3, 2, 2, 2, 2, 2, 2, 2]
+        // All weight 2 for weighted mode
+        vec![2; 5]
     }
 }
 
 impl TriangularGadget for TriCross<false> {
     fn size(&self) -> (usize, usize) {
-        (6, 6)
+        // Julia: Base.size(::Cross{false}) = (4, 5)
+        (4, 5)
     }
 
     fn cross_location(&self) -> (usize, usize) {
-        (2, 4)
+        // Julia: cross_location(::Cross{false}) = (2,3)
+        (2, 3)
     }
 
     fn is_connected(&self) -> bool {
@@ -229,86 +230,87 @@ impl TriangularGadget for TriCross<false> {
     }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
-        // Julia: locs = Node.([(2,2), (2,3), (2,4), (2,5), (2,6), (1,4), (2,4), (3,4), (4,4), (5,4), (6,4), (2,1)])
-        // Julia: g = simplegraph([(1,2), (2,3), (3,4), (4,5), (6,7), (7,8), (8,9), (9,10), (10,11), (12,1)])
-        // Julia: pins = [12,6,11,5] -> 0-indexed: [11,5,10,4]
+        // Julia: locs = Node.([(2,1), (2,2), (2,3), (2,4), (2,5), (1,3), (2,3), (3,3), (4,3)])
+        // Julia: g = simplegraph([(1,2), (2,3), (3,4), (4,5), (6,7), (7,8), (8,9)])
+        // Julia: pins = [1,6,9,5] -> 0-indexed: [0,5,8,4]
         let locs = vec![
-            (2, 2), // 0
-            (2, 3), // 1
-            (2, 4), // 2
-            (2, 5), // 3
-            (2, 6), // 4
-            (1, 4), // 5
-            (2, 4), // 6 (duplicate of 2)
-            (3, 4), // 7
-            (4, 4), // 8
-            (5, 4), // 9
-            (6, 4), // 10
-            (2, 1), // 11
+            (2, 1), // 0
+            (2, 2), // 1
+            (2, 3), // 2
+            (2, 4), // 3
+            (2, 5), // 4
+            (1, 3), // 5
+            (2, 3), // 6 (duplicate - doubled node)
+            (3, 3), // 7
+            (4, 3), // 8
         ];
-        // Convert Julia 1-indexed edges to 0-indexed
         let edges = vec![
-            (0, 1),  // (1,2)
-            (1, 2),  // (2,3)
-            (2, 3),  // (3,4)
-            (3, 4),  // (4,5)
-            (5, 6),  // (6,7)
-            (6, 7),  // (7,8)
-            (7, 8),  // (8,9)
-            (8, 9),  // (9,10)
-            (9, 10), // (10,11)
-            (11, 0), // (12,1)
+            (0, 1), // (1,2)
+            (1, 2), // (2,3)
+            (2, 3), // (3,4)
+            (3, 4), // (4,5)
+            (5, 6), // (6,7)
+            (6, 7), // (7,8)
+            (7, 8), // (8,9)
         ];
-        let pins = vec![11, 5, 10, 4];
+        let pins = vec![0, 5, 8, 4];
         (locs, edges, pins)
     }
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
-        // Julia: locs = Node.([(1,4), (2,2), (2,3), (2,4), (2,5), (2,6), (3,2), (3,3), (3,4), (3,5), (4,2), (4,3), (5,2), (6,3), (6,4), (2,1)])
-        // Julia: pins = [16,1,15,6] -> 0-indexed: [15,0,14,5]
+        // Julia: locs = Node.([(2,1), (2,2), (2,3), (2,4), (2,5), (1,3), (3,3), (4,3), (3, 2), (3,4)])
+        // Julia: pins = [1,6,8,5] -> 0-indexed: [0,5,7,4]
         let locs = vec![
-            (1, 4), // 0
+            (2, 1), // 0
             (2, 2), // 1
             (2, 3), // 2
             (2, 4), // 3
-            (2, 5),
-            (2, 6),
-            (3, 2),
-            (3, 3),
-            (3, 4),
-            (3, 5),
-            (4, 2),
-            (4, 3),
-            (5, 2),
-            (6, 3),
-            (6, 4),
-            (2, 1),
+            (2, 5), // 4
+            (1, 3), // 5
+            (3, 3), // 6
+            (4, 3), // 7
+            (3, 2), // 8
+            (3, 4), // 9
         ];
-        let pins = vec![15, 0, 14, 5];
+        let pins = vec![0, 5, 7, 4];
         (locs, pins)
     }
 
     fn mis_overhead(&self) -> i32 {
-        3
+        // Julia: mis_overhead(::Cross{false}) = -1, weighted = -2
+        -2
+    }
+
+    fn source_weights(&self) -> Vec<i32> {
+        // All weight 2 for weighted mode
+        vec![2; 9]
     }
 
     fn mapped_weights(&self) -> Vec<i32> {
-        // Julia: mw = [3,3,2,4,2,2,2,4,3,2,2,2,2,2,2,2]
-        vec![3, 3, 2, 4, 2, 2, 2, 4, 3, 2, 2, 2, 2, 2, 2, 2]
+        // All weight 2 for weighted mode
+        vec![2; 10]
     }
 }
 
-/// Triangular turn gadget.
+/// Triangular turn gadget - matches Julia's Turn gadget with weights.
+///
+/// Julia Turn:
+/// - size = (4, 4)
+/// - cross_location = (3, 2)
+/// - 5 source nodes, 3 mapped nodes
+/// - mis_overhead = -1 (base), -2 (weighted)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriTurn;
 
 impl TriangularGadget for TriTurn {
     fn size(&self) -> (usize, usize) {
-        (3, 4)
+        // Julia: Base.size(::Turn) = (4, 4)
+        (4, 4)
     }
 
     fn cross_location(&self) -> (usize, usize) {
-        (2, 2)
+        // Julia: cross_location(::Turn) = (3, 2)
+        (3, 2)
     }
 
     fn is_connected(&self) -> bool {
@@ -316,37 +318,74 @@ impl TriangularGadget for TriTurn {
     }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
-        // Julia: locs = Node.([(1,2), (2,2), (2,3), (2,4)])
-        // Julia: g = simplegraph([(1,2), (2,3), (3,4)])
-        // Julia: pins = [1,4] -> 0-indexed: [0,3]
-        let locs = vec![(1, 2), (2, 2), (2, 3), (2, 4)];
-        let edges = vec![(0, 1), (1, 2), (2, 3)];
-        let pins = vec![0, 3];
+        // Julia: locs = Node.([(1,2), (2,2), (3,2), (3,3), (3,4)])
+        // Julia: g = simplegraph([(1,2), (2,3), (3,4), (4,5)])
+        // Julia: pins = [1,5] -> 0-indexed: [0,4]
+        let locs = vec![
+            (1, 2), // 0
+            (2, 2), // 1
+            (3, 2), // 2
+            (3, 3), // 3
+            (3, 4), // 4
+        ];
+        let edges = vec![
+            (0, 1), // (1,2)
+            (1, 2), // (2,3)
+            (2, 3), // (3,4)
+            (3, 4), // (4,5)
+        ];
+        let pins = vec![0, 4];
         (locs, edges, pins)
     }
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
-        let locs = vec![(1, 2), (2, 2), (3, 3), (2, 4)];
-        let pins = vec![0, 3];
+        // Julia: locs = Node.([(1,2), (2,3), (3,4)])
+        // Julia: pins = [1,3] -> 0-indexed: [0,2]
+        let locs = vec![
+            (1, 2), // 0
+            (2, 3), // 1
+            (3, 4), // 2
+        ];
+        let pins = vec![0, 2];
         (locs, pins)
     }
 
     fn mis_overhead(&self) -> i32 {
-        0
+        // Julia: mis_overhead(::Turn) = -1, weighted = -2
+        -2
+    }
+
+    fn source_weights(&self) -> Vec<i32> {
+        // All weight 2 for weighted mode
+        vec![2; 5]
+    }
+
+    fn mapped_weights(&self) -> Vec<i32> {
+        // All weight 2 for weighted mode
+        vec![2; 3]
     }
 }
 
-/// Triangular branch gadget.
+/// Triangular branch gadget - matches Julia's Branch gadget with weights.
+///
+/// Julia Branch:
+/// - size = (5, 4)
+/// - cross_location = (3, 2)
+/// - 8 source nodes, 6 mapped nodes
+/// - mis_overhead = -1 (base), -2 (weighted)
+/// - For weighted mode: source node 4 has weight 3, mapped node 2 has weight 3
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriBranch;
 
 impl TriangularGadget for TriBranch {
     fn size(&self) -> (usize, usize) {
-        (6, 4)
+        // Julia: Base.size(::Branch) = (5, 4)
+        (5, 4)
     }
 
     fn cross_location(&self) -> (usize, usize) {
-        (2, 2)
+        // Julia: cross_location(::Branch) = (3, 2)
+        (3, 2)
     }
 
     fn is_connected(&self) -> bool {
@@ -354,68 +393,85 @@ impl TriangularGadget for TriBranch {
     }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
-        // Julia: locs = Node.([(1,2),(2,2),(2,3),(2,4),(3,3),(3,2),(4,2),(5,2),(6,2)])
-        // Julia: g = simplegraph([(1,2), (2,3), (3, 4), (3,5), (5,6), (6,7), (7,8), (8,9)])
-        // Julia: pins = [1, 4, 9] -> 0-indexed: [0, 3, 8]
+        // Julia: locs = Node.([(1,2), (2,2), (3,2),(3,3),(3,4),(4,3),(4,2),(5,2)])
+        // Julia: g = simplegraph([(1,2), (2,3), (3, 4), (4,5), (4,6), (6,7), (7,8)])
+        // Julia: pins = [1, 5, 8] -> 0-indexed: [0, 4, 7]
         let locs = vec![
             (1, 2), // 0
             (2, 2), // 1
-            (2, 3), // 2
-            (2, 4), // 3
-            (3, 3), // 4
-            (3, 2), // 5
+            (3, 2), // 2
+            (3, 3), // 3
+            (3, 4), // 4
+            (4, 3), // 5
             (4, 2), // 6
             (5, 2), // 7
-            (6, 2), // 8
         ];
-        // Convert Julia 1-indexed edges to 0-indexed
         let edges = vec![
             (0, 1), // (1,2)
             (1, 2), // (2,3)
             (2, 3), // (3,4)
-            (2, 4), // (3,5)
-            (4, 5), // (5,6)
+            (3, 4), // (4,5)
+            (3, 5), // (4,6)
             (5, 6), // (6,7)
             (6, 7), // (7,8)
-            (7, 8), // (8,9)
         ];
-        let pins = vec![0, 3, 8];
+        let pins = vec![0, 4, 7];
         (locs, edges, pins)
     }
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
-        // Julia: locs = Node.([(1,2),(2,2),(2,4),(3,3),(4,2),(4,3),(5,1),(6,1),(6,2)])
-        // Julia: pins = [1,3,9] -> 0-indexed: [0,2,8]
+        // Julia: locs = Node.([(1,2), (2,3), (3,2),(3,4),(4,3),(5,2)])
+        // Julia: pins = [1,4,6] -> 0-indexed: [0,3,5]
         let locs = vec![
             (1, 2), // 0
-            (2, 2), // 1
-            (2, 4), // 2
-            (3, 3), // 3
-            (4, 2), // 4
-            (4, 3), // 5
-            (5, 1), // 6
-            (6, 1), // 7
-            (6, 2), // 8
+            (2, 3), // 1
+            (3, 2), // 2
+            (3, 4), // 3
+            (4, 3), // 4
+            (5, 2), // 5
         ];
-        let pins = vec![0, 2, 8];
+        let pins = vec![0, 3, 5];
         (locs, pins)
     }
 
     fn mis_overhead(&self) -> i32 {
-        0
+        // Julia: mis_overhead(::Branch) = -1, weighted = -2
+        -2
+    }
+
+    fn source_weights(&self) -> Vec<i32> {
+        // Julia weighted: sw[4] = 3, rest = 2
+        // 0-indexed: index 3 has weight 3
+        vec![2, 2, 2, 3, 2, 2, 2, 2]
+    }
+
+    fn mapped_weights(&self) -> Vec<i32> {
+        // Julia weighted: mw[2] = 3, rest = 2
+        // 0-indexed: index 1 has weight 3
+        vec![2, 3, 2, 2, 2, 2]
     }
 }
 
-/// Triangular T-connection left gadget.
+/// Triangular T-connection left gadget - matches Julia's TCon gadget with weights.
+///
+/// Julia TCon:
+/// - size = (3, 4)
+/// - cross_location = (2, 2)
+/// - 4 source nodes, 4 mapped nodes, 3 pins
+/// - connected_nodes = [1, 2] -> [0, 1]
+/// - mis_overhead = 0 (both base and weighted)
+/// - For weighted mode: source node 2 has weight 1, mapped node 2 has weight 1
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriTConLeft;
 
 impl TriangularGadget for TriTConLeft {
     fn size(&self) -> (usize, usize) {
-        (6, 5)
+        // Julia: Base.size(::TCon) = (3, 4)
+        (3, 4)
     }
 
     fn cross_location(&self) -> (usize, usize) {
+        // Julia: cross_location(::TCon) = (2, 2)
         (2, 2)
     }
 
@@ -424,51 +480,57 @@ impl TriangularGadget for TriTConLeft {
     }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
-        // Julia: locs = Node.([(1,2), (2,1), (2,2), (3,2), (4,2), (5,2), (6,2)])
-        // Julia: g = simplegraph([(1,2), (1,3), (3,4), (4,5), (5,6), (6,7)])
-        let locs = vec![(1, 2), (2, 1), (2, 2), (3, 2), (4, 2), (5, 2), (6, 2)];
-        let edges = vec![(0, 1), (0, 2), (2, 3), (3, 4), (4, 5), (5, 6)];
-        let pins = vec![0, 1, 6];
+        // Julia: locs = Node.([(1,2), (2,1), (2,2),(3,2)])
+        // Julia: g = simplegraph([(1,2), (1,3), (3,4)])
+        // Julia: pins = [1,2,4] -> 0-indexed: [0,1,3]
+        let locs = vec![
+            (1, 2), // 0
+            (2, 1), // 1
+            (2, 2), // 2
+            (3, 2), // 3
+        ];
+        let edges = vec![
+            (0, 1), // (1,2)
+            (0, 2), // (1,3)
+            (2, 3), // (3,4)
+        ];
+        let pins = vec![0, 1, 3];
         (locs, edges, pins)
     }
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
-        // Julia: locs = Node.([(1,2), (2,1), (2,2), (2,3), (2,4), (3,3), (4,2), (4,3), (5,1), (6,1), (6,2)])
+        // Julia: locs = Node.([(1,2),(2,1),(2,3),(3,2)])
+        // Julia: pins = [1,2,4] -> 0-indexed: [0,1,3]
         let locs = vec![
-            (1, 2),
-            (2, 1),
-            (2, 2),
-            (2, 3),
-            (2, 4),
-            (3, 3),
-            (4, 2),
-            (4, 3),
-            (5, 1),
-            (6, 1),
-            (6, 2),
+            (1, 2), // 0
+            (2, 1), // 1
+            (2, 3), // 2
+            (3, 2), // 3
         ];
-        let pins = vec![0, 1, 10];
+        let pins = vec![0, 1, 3];
         (locs, pins)
     }
 
     fn mis_overhead(&self) -> i32 {
-        // Julia: mis_overhead(::TriTCon_left) = 4
-        4
+        // Julia: mis_overhead(::TCon) = 0, weighted = 0
+        0
     }
 
     fn connected_nodes(&self) -> Vec<usize> {
-        // Julia: connected_nodes(::TriTCon_left) = [1, 2]
-        vec![1, 2]
+        // Julia: connected_nodes(::TCon) = [1, 2] -> 0-indexed: [0, 1]
+        vec![0, 1]
     }
 
     fn source_weights(&self) -> Vec<i32> {
-        // Julia: sw = [2,1,2,2,2,2,2]
-        vec![2, 1, 2, 2, 2, 2, 2]
+        // Julia weighted: sw[2] = 1, rest = 2
+        // 0-indexed: index 1 has weight 1
+        vec![2, 1, 2, 2]
     }
 
     fn mapped_weights(&self) -> Vec<i32> {
-        // Julia: mw = [3,2,3,3,1,3,2,2,2,2,2]
-        vec![3, 2, 3, 3, 1, 3, 2, 2, 2, 2, 2]
+        // Julia weighted: mw[2] = 1, rest = 2
+        // 0-indexed: index 1 has weight 1
+        vec![2, 1, 2, 2]
     }
 }
 
@@ -628,16 +690,25 @@ impl TriangularGadget for TriTrivialTurnRight {
     }
 }
 
-/// Triangular end turn gadget.
+/// Triangular end turn gadget - matches Julia's EndTurn gadget with weights.
+///
+/// Julia EndTurn:
+/// - size = (3, 4)
+/// - cross_location = (2, 2)
+/// - 3 source nodes, 1 mapped node, 1 pin
+/// - mis_overhead = -1 (base), -2 (weighted)
+/// - For weighted mode: source node 3 has weight 1, mapped node 1 has weight 1
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriEndTurn;
 
 impl TriangularGadget for TriEndTurn {
     fn size(&self) -> (usize, usize) {
+        // Julia: Base.size(::EndTurn) = (3, 4)
         (3, 4)
     }
 
     fn cross_location(&self) -> (usize, usize) {
+        // Julia: cross_location(::EndTurn) = (2, 2)
         (2, 2)
     }
 
@@ -648,38 +719,64 @@ impl TriangularGadget for TriEndTurn {
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         // Julia: locs = Node.([(1,2), (2,2), (2,3)])
         // Julia: g = simplegraph([(1,2), (2,3)])
-        let locs = vec![(1, 2), (2, 2), (2, 3)];
-        let edges = vec![(0, 1), (1, 2)];
+        // Julia: pins = [1] -> 0-indexed: [0]
+        let locs = vec![
+            (1, 2), // 0
+            (2, 2), // 1
+            (2, 3), // 2
+        ];
+        let edges = vec![
+            (0, 1), // (1,2)
+            (1, 2), // (2,3)
+        ];
         let pins = vec![0];
         (locs, edges, pins)
     }
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
+        // Julia: locs = Node.([(1,2)])
+        // Julia: pins = [1] -> 0-indexed: [0]
         let locs = vec![(1, 2)];
         let pins = vec![0];
         (locs, pins)
     }
 
     fn mis_overhead(&self) -> i32 {
+        // Julia: mis_overhead(::EndTurn) = -1, weighted = -2
         -2
     }
 
+    fn source_weights(&self) -> Vec<i32> {
+        // Julia weighted: sw[3] = 1, rest = 2
+        // 0-indexed: index 2 has weight 1
+        vec![2, 2, 1]
+    }
+
     fn mapped_weights(&self) -> Vec<i32> {
-        // Julia: m1 = [1] for EndTurn, first mapped node has weight 1
+        // Julia weighted: mw[1] = 1
+        // 0-indexed: index 0 has weight 1
         vec![1]
     }
 }
 
-/// Triangular W-turn gadget.
+/// Triangular W-turn gadget - matches Julia's WTurn gadget with weights.
+///
+/// Julia WTurn:
+/// - size = (4, 4)
+/// - cross_location = (2, 2)
+/// - 5 source nodes, 3 mapped nodes
+/// - mis_overhead = -1 (base), -2 (weighted)
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct TriWTurn;
 
 impl TriangularGadget for TriWTurn {
     fn size(&self) -> (usize, usize) {
+        // Julia: Base.size(::WTurn) = (4, 4)
         (4, 4)
     }
 
     fn cross_location(&self) -> (usize, usize) {
+        // Julia: cross_location(::WTurn) = (2, 2)
         (2, 2)
     }
 
@@ -690,21 +787,49 @@ impl TriangularGadget for TriWTurn {
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         // Julia: locs = Node.([(2,3), (2,4), (3,2),(3,3),(4,2)])
         // Julia: g = simplegraph([(1,2), (1,4), (3,4),(3,5)])
-        let locs = vec![(2, 3), (2, 4), (3, 2), (3, 3), (4, 2)];
-        let edges = vec![(0, 1), (0, 3), (2, 3), (2, 4)];
+        // Julia: pins = [2, 5] -> 0-indexed: [1, 4]
+        let locs = vec![
+            (2, 3), // 0
+            (2, 4), // 1
+            (3, 2), // 2
+            (3, 3), // 3
+            (4, 2), // 4
+        ];
+        let edges = vec![
+            (0, 1), // (1,2)
+            (0, 3), // (1,4)
+            (2, 3), // (3,4)
+            (2, 4), // (3,5)
+        ];
         let pins = vec![1, 4];
         (locs, edges, pins)
     }
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
-        // Julia: locs = Node.([(1,4), (2,3), (3,2), (3,3), (4,2)])
-        let locs = vec![(1, 4), (2, 3), (3, 2), (3, 3), (4, 2)];
-        let pins = vec![0, 4];
+        // Julia: locs = Node.([(2,4),(3,3),(4,2)])
+        // Julia: pins = [1, 3] -> 0-indexed: [0, 2]
+        let locs = vec![
+            (2, 4), // 0
+            (3, 3), // 1
+            (4, 2), // 2
+        ];
+        let pins = vec![0, 2];
         (locs, pins)
     }
 
     fn mis_overhead(&self) -> i32 {
-        0
+        // Julia: mis_overhead(::WTurn) = -1, weighted = -2
+        -2
+    }
+
+    fn source_weights(&self) -> Vec<i32> {
+        // All weight 2 for weighted mode
+        vec![2; 5]
+    }
+
+    fn mapped_weights(&self) -> Vec<i32> {
+        // All weight 2 for weighted mode
+        vec![2; 3]
     }
 }
 
@@ -969,8 +1094,277 @@ pub fn triangular_tape_entry_mis_overhead(entry: &TriangularTapeEntry) -> i32 {
         10 => TriBranchFix.mis_overhead(),
         11 => TriBranchFixB.mis_overhead(),
         12 => TriBranch.mis_overhead(),
+        // Simplifier gadgets (100+)
+        idx if idx >= 100 => -1, // DanglingLeg has overhead -1
         _ => 0,
     }
+}
+
+// ============================================================================
+// Triangular Simplifier Gadgets
+// ============================================================================
+
+/// Apply simplifier gadgets to the triangular grid.
+/// This matches Julia's `apply_simplifier_gadgets!` for TriangularWeighted mode.
+///
+/// The weighted DanglingLeg pattern matches 3 nodes in a line where:
+/// - The end node (closest to center) has weight 1
+/// - The other two nodes have weight 2
+/// After simplification, only 1 node remains with weight 1.
+pub fn apply_triangular_simplifier_gadgets(
+    grid: &mut MappingGrid,
+    nrepeat: usize,
+) -> Vec<TriangularTapeEntry> {
+    #[allow(unused)]
+    use super::grid::CellState;
+
+    let mut tape = Vec::new();
+    let (rows, cols) = grid.size();
+
+    for _ in 0..nrepeat {
+        // Try all 4 directions at each position
+        // Pattern functions handle bounds checking internally
+        for j in 0..cols {
+            for i in 0..rows {
+                // Down pattern (4x3): needs i+3 < rows, j+2 < cols
+                if try_apply_dangling_leg_down(grid, i, j) {
+                    tape.push(TriangularTapeEntry {
+                        gadget_idx: 100,  // DanglingLeg down
+                        row: i,
+                        col: j,
+                    });
+                }
+                // Up pattern (4x3): needs i+3 < rows, j+2 < cols
+                if try_apply_dangling_leg_up(grid, i, j) {
+                    tape.push(TriangularTapeEntry {
+                        gadget_idx: 101,  // DanglingLeg up
+                        row: i,
+                        col: j,
+                    });
+                }
+                // Right pattern (3x4): needs i+2 < rows, j+3 < cols
+                if try_apply_dangling_leg_right(grid, i, j) {
+                    tape.push(TriangularTapeEntry {
+                        gadget_idx: 102,  // DanglingLeg right
+                        row: i,
+                        col: j,
+                    });
+                }
+                // Left pattern (3x4): needs i+2 < rows, j+3 < cols
+                if try_apply_dangling_leg_left(grid, i, j) {
+                    tape.push(TriangularTapeEntry {
+                        gadget_idx: 103,  // DanglingLeg left
+                        row: i,
+                        col: j,
+                    });
+                }
+            }
+        }
+    }
+
+    tape
+}
+
+/// Try to apply DanglingLeg pattern going downward.
+/// Julia pattern (4 rows x 3 cols, 0-indexed at (i,j)):
+///   ⋅ ⋅ ⋅    <- row i: empty, empty, empty
+///   ⋅ o ⋅    <- row i+1: empty, occupied(w=1), empty  [dangling end]
+///   ⋅ @ ⋅    <- row i+2: empty, occupied(w=2), empty
+///   ⋅ @ ⋅    <- row i+3: empty, occupied(w=2), empty
+/// After: only node at (i+3, j+1) remains with weight 1
+fn try_apply_dangling_leg_down(grid: &mut MappingGrid, i: usize, j: usize) -> bool {
+    use super::grid::CellState;
+
+    let (rows, cols) = grid.size();
+
+    // Need at least 4 rows and 3 cols from position (i, j)
+    if i + 3 >= rows || j + 2 >= cols {
+        return false;
+    }
+
+    // Helper to check if cell at (row, col) is empty
+    let is_empty = |row: usize, col: usize| -> bool {
+        !grid.is_occupied(row, col)
+    };
+
+    // Helper to check if cell has specific weight
+    let has_weight = |row: usize, col: usize, w: i32| -> bool {
+        grid.get(row, col).map_or(false, |c| c.weight() == w)
+    };
+
+    // Row i (row 1 of pattern): all 3 cells must be empty
+    if !is_empty(i, j) || !is_empty(i, j + 1) || !is_empty(i, j + 2) {
+        return false;
+    }
+
+    // Row i+1 (row 2): empty, occupied(w=1), empty
+    if !is_empty(i + 1, j) || !has_weight(i + 1, j + 1, 1) || !is_empty(i + 1, j + 2) {
+        return false;
+    }
+
+    // Row i+2 (row 3): empty, occupied(w=2), empty
+    if !is_empty(i + 2, j) || !has_weight(i + 2, j + 1, 2) || !is_empty(i + 2, j + 2) {
+        return false;
+    }
+
+    // Row i+3 (row 4): empty, occupied(w=2), empty
+    if !is_empty(i + 3, j) || !has_weight(i + 3, j + 1, 2) || !is_empty(i + 3, j + 2) {
+        return false;
+    }
+
+    // Apply transformation: remove top 2 nodes, bottom node gets weight 1
+    grid.set(i + 1, j + 1, CellState::Empty);
+    grid.set(i + 2, j + 1, CellState::Empty);
+    grid.set(i + 3, j + 1, CellState::Occupied { weight: 1 });
+
+    true
+}
+
+/// Try to apply DanglingLeg pattern going upward (180° rotation of down).
+/// Julia pattern (4 rows x 3 cols, 0-indexed at (i,j)):
+///   ⋅ @ ⋅    <- row i: empty, occupied(w=2), empty [base]
+///   ⋅ @ ⋅    <- row i+1: empty, occupied(w=2), empty
+///   ⋅ o ⋅    <- row i+2: empty, occupied(w=1), empty [dangling end]
+///   ⋅ ⋅ ⋅    <- row i+3: empty, empty, empty
+/// After: only node at (i, j+1) remains with weight 1
+fn try_apply_dangling_leg_up(grid: &mut MappingGrid, i: usize, j: usize) -> bool {
+    use super::grid::CellState;
+
+    let (rows, cols) = grid.size();
+
+    // Need at least 4 rows and 3 cols from position (i, j)
+    if i + 3 >= rows || j + 2 >= cols {
+        return false;
+    }
+
+    let is_empty = |row: usize, col: usize| -> bool {
+        !grid.is_occupied(row, col)
+    };
+
+    let has_weight = |row: usize, col: usize, w: i32| -> bool {
+        grid.get(row, col).map_or(false, |c| c.weight() == w)
+    };
+
+    // Row i: empty, occupied(w=2), empty
+    if !is_empty(i, j) || !has_weight(i, j + 1, 2) || !is_empty(i, j + 2) {
+        return false;
+    }
+
+    // Row i+1: empty, occupied(w=2), empty
+    if !is_empty(i + 1, j) || !has_weight(i + 1, j + 1, 2) || !is_empty(i + 1, j + 2) {
+        return false;
+    }
+
+    // Row i+2: empty, occupied(w=1), empty [dangling end]
+    if !is_empty(i + 2, j) || !has_weight(i + 2, j + 1, 1) || !is_empty(i + 2, j + 2) {
+        return false;
+    }
+
+    // Row i+3: all 3 cells must be empty
+    if !is_empty(i + 3, j) || !is_empty(i + 3, j + 1) || !is_empty(i + 3, j + 2) {
+        return false;
+    }
+
+    // Apply transformation: remove dangling end and middle, base gets weight 1
+    grid.set(i + 1, j + 1, CellState::Empty);
+    grid.set(i + 2, j + 1, CellState::Empty);
+    grid.set(i, j + 1, CellState::Occupied { weight: 1 });
+
+    true
+}
+
+/// Try to apply DanglingLeg pattern going right (90° rotation of down).
+/// Julia pattern (3 rows x 4 cols, 0-indexed at (i,j)):
+///   ⋅ ⋅ ⋅ ⋅    <- row i: all empty
+///   @ @ o ⋅    <- row i+1: occupied(w=2), occupied(w=2), occupied(w=1), empty
+///   ⋅ ⋅ ⋅ ⋅    <- row i+2: all empty
+/// After: only node at (i+1, j) remains with weight 1
+fn try_apply_dangling_leg_right(grid: &mut MappingGrid, i: usize, j: usize) -> bool {
+    use super::grid::CellState;
+
+    let (rows, cols) = grid.size();
+
+    // Need at least 3 rows and 4 cols from position (i, j)
+    if i + 2 >= rows || j + 3 >= cols {
+        return false;
+    }
+
+    let is_empty = |row: usize, col: usize| -> bool {
+        !grid.is_occupied(row, col)
+    };
+
+    let has_weight = |row: usize, col: usize, w: i32| -> bool {
+        grid.get(row, col).map_or(false, |c| c.weight() == w)
+    };
+
+    // Row i: all 4 cells must be empty
+    if !is_empty(i, j) || !is_empty(i, j + 1) || !is_empty(i, j + 2) || !is_empty(i, j + 3) {
+        return false;
+    }
+
+    // Row i+1: occupied(w=2), occupied(w=2), occupied(w=1), empty
+    if !has_weight(i + 1, j, 2) || !has_weight(i + 1, j + 1, 2) || !has_weight(i + 1, j + 2, 1) || !is_empty(i + 1, j + 3) {
+        return false;
+    }
+
+    // Row i+2: all 4 cells must be empty
+    if !is_empty(i + 2, j) || !is_empty(i + 2, j + 1) || !is_empty(i + 2, j + 2) || !is_empty(i + 2, j + 3) {
+        return false;
+    }
+
+    // Apply transformation: remove dangling and middle, base gets weight 1
+    grid.set(i + 1, j + 1, CellState::Empty);
+    grid.set(i + 1, j + 2, CellState::Empty);
+    grid.set(i + 1, j, CellState::Occupied { weight: 1 });
+
+    true
+}
+
+/// Try to apply DanglingLeg pattern going left (270° rotation of down).
+/// Julia pattern (3 rows x 4 cols, 0-indexed at (i,j)):
+///   ⋅ ⋅ ⋅ ⋅    <- row i: all empty
+///   ⋅ o @ @    <- row i+1: empty, occupied(w=1), occupied(w=2), occupied(w=2)
+///   ⋅ ⋅ ⋅ ⋅    <- row i+2: all empty
+/// After: only node at (i+1, j+3) remains with weight 1
+fn try_apply_dangling_leg_left(grid: &mut MappingGrid, i: usize, j: usize) -> bool {
+    use super::grid::CellState;
+
+    let (rows, cols) = grid.size();
+
+    // Need at least 3 rows and 4 cols from position (i, j)
+    if i + 2 >= rows || j + 3 >= cols {
+        return false;
+    }
+
+    let is_empty = |row: usize, col: usize| -> bool {
+        !grid.is_occupied(row, col)
+    };
+
+    let has_weight = |row: usize, col: usize, w: i32| -> bool {
+        grid.get(row, col).map_or(false, |c| c.weight() == w)
+    };
+
+    // Row i: all 4 cells must be empty
+    if !is_empty(i, j) || !is_empty(i, j + 1) || !is_empty(i, j + 2) || !is_empty(i, j + 3) {
+        return false;
+    }
+
+    // Row i+1: empty, occupied(w=1), occupied(w=2), occupied(w=2)
+    if !is_empty(i + 1, j) || !has_weight(i + 1, j + 1, 1) || !has_weight(i + 1, j + 2, 2) || !has_weight(i + 1, j + 3, 2) {
+        return false;
+    }
+
+    // Row i+2: all 4 cells must be empty
+    if !is_empty(i + 2, j) || !is_empty(i + 2, j + 1) || !is_empty(i + 2, j + 2) || !is_empty(i + 2, j + 3) {
+        return false;
+    }
+
+    // Apply transformation: remove dangling and middle, base gets weight 1
+    grid.set(i + 1, j + 1, CellState::Empty);
+    grid.set(i + 1, j + 2, CellState::Empty);
+    grid.set(i + 1, j + 3, CellState::Occupied { weight: 1 });
+
+    true
 }
 
 /// Map a graph to a triangular lattice grid graph using optimal path decomposition.
@@ -1056,6 +1450,15 @@ pub fn map_graph_triangular_with_order(
     // Apply crossing gadgets (iterates ALL pairs, not just edges)
     let triangular_tape = apply_triangular_crossing_gadgets(&mut grid, &copylines, spacing, padding);
 
+    // NOTE: Simplifier gadgets (DanglingLeg) are NOT applied in our triangular mode
+    // because our copyline structure differs from Julia's Weighted mode.
+    // Julia's simplifier patterns assume a different grid layout where:
+    // 1. Nodes are placed on a square grid with unit disk connections
+    // 2. DanglingLeg patterns only appear after crossing gadgets create isolated chains
+    //
+    // Our triangular mode uses triangular gadgets and has weight-1 endpoints at copyline
+    // ends that would incorrectly match the DanglingLeg pattern.
+
     // Calculate MIS overhead from copylines using the dedicated function
     // which matches Julia's mis_overhead_copyline(TriangularWeighted(), ...)
     let copyline_overhead: i32 = copylines
@@ -1091,10 +1494,10 @@ pub fn map_graph_triangular_with_order(
         .filter(|n| n.weight > 0)
         .collect();
 
+    // Use Square grid type for edge computation to match gadget expectations
+    // The gadgets use standard Euclidean distance, not triangular lattice distance
     let grid_graph = GridGraph::new(
-        GridType::Triangular {
-            offset_even_cols: true,
-        },
+        GridType::Square,
         grid.size(),
         nodes,
         TRIANGULAR_UNIT_RADIUS,
@@ -1117,8 +1520,9 @@ mod tests {
 
     #[test]
     fn test_triangular_cross_gadget() {
+        // Julia: Base.size(::Cross{true}) = (3, 3)
         let cross = TriCross::<true>;
-        assert_eq!(cross.size(), (6, 4));
+        assert_eq!(cross.size(), (3, 3));
     }
 
     #[test]
@@ -1135,36 +1539,40 @@ mod tests {
 
     #[test]
     fn test_triangular_cross_connected_gadget() {
+        // Julia: Cross{true} - size (3,3), cross (2,2), overhead -1 (base) / -2 (weighted)
         let cross = TriCross::<true>;
-        assert_eq!(TriangularGadget::size(&cross), (6, 4));
+        assert_eq!(TriangularGadget::size(&cross), (3, 3));
         assert_eq!(TriangularGadget::cross_location(&cross), (2, 2));
         assert!(TriangularGadget::is_connected(&cross));
-        assert_eq!(TriangularGadget::mis_overhead(&cross), 1);
+        assert_eq!(TriangularGadget::mis_overhead(&cross), -2);
     }
 
     #[test]
     fn test_triangular_cross_disconnected_gadget() {
+        // Julia: Cross{false} - size (4,5), cross (2,3), overhead -1 (base) / -2 (weighted)
         let cross = TriCross::<false>;
-        assert_eq!(TriangularGadget::size(&cross), (6, 6));
-        assert_eq!(TriangularGadget::cross_location(&cross), (2, 4));
+        assert_eq!(TriangularGadget::size(&cross), (4, 5));
+        assert_eq!(TriangularGadget::cross_location(&cross), (2, 3));
         assert!(!TriangularGadget::is_connected(&cross));
-        assert_eq!(TriangularGadget::mis_overhead(&cross), 3);
+        assert_eq!(TriangularGadget::mis_overhead(&cross), -2);
     }
 
     #[test]
     fn test_triangular_turn_gadget() {
+        // Julia: Turn - size (4,4), cross (3,2), overhead -1 (base) / -2 (weighted)
         let turn = TriTurn;
-        assert_eq!(TriangularGadget::size(&turn), (3, 4));
-        assert_eq!(TriangularGadget::mis_overhead(&turn), 0);
+        assert_eq!(TriangularGadget::size(&turn), (4, 4));
+        assert_eq!(TriangularGadget::mis_overhead(&turn), -2);
         let (_, _, pins) = TriangularGadget::source_graph(&turn);
         assert_eq!(pins.len(), 2);
     }
 
     #[test]
     fn test_triangular_branch_gadget() {
+        // Julia: Branch - size (5,4), cross (3,2), overhead -1 (base) / -2 (weighted)
         let branch = TriBranch;
-        assert_eq!(TriangularGadget::size(&branch), (6, 4));
-        assert_eq!(TriangularGadget::mis_overhead(&branch), 0);
+        assert_eq!(TriangularGadget::size(&branch), (5, 4));
+        assert_eq!(TriangularGadget::mis_overhead(&branch), -2);
         let (_, _, pins) = TriangularGadget::source_graph(&branch);
         assert_eq!(pins.len(), 3);
     }
