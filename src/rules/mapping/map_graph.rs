@@ -277,6 +277,115 @@ impl fmt::Display for MappingResult {
     }
 }
 
+/// Extract original vertex configurations from copyline locations.
+/// Julia: `map_config_copyback!(ug, c)`
+///
+/// For each copyline, count selected nodes and subtract overhead:
+/// `res[vertex] = count - (len(locs) / 2)`
+///
+/// This works after gadgets have been unapplied, so copyline locations
+/// are intact in the config matrix.
+pub fn map_config_copyback(
+    lines: &[CopyLine],
+    padding: usize,
+    spacing: usize,
+    config: &[Vec<usize>],
+) -> Vec<usize> {
+    let mut result = vec![0usize; lines.len()];
+
+    for line in lines {
+        let locs = line.dense_locations(padding, spacing);
+        let mut count = 0usize;
+
+        for &(row, col, _weight) in &locs {
+            if let Some(val) = config.get(row).and_then(|r| r.get(col)) {
+                count += val;
+            }
+        }
+
+        // Subtract overhead: MIS overhead for copyline is len/2
+        let overhead = locs.len() / 2;
+        result[line.vertex] = count.saturating_sub(overhead);
+    }
+
+    result
+}
+
+/// Trace center locations through square lattice gadget transformations.
+///
+/// This follows Julia's approach: start with center locations, then apply
+/// move_center for each gadget in the tape.
+///
+/// For square lattice:
+/// - Crossing gadgets don't move centers (source_centers = mapped_centers)
+/// - DanglingLeg simplifier: source_center = (2,2), mapped_center = (4,2)
+///
+/// Returns traced center locations sorted by vertex index.
+pub fn trace_centers_square(result: &MappingResult) -> Vec<(usize, usize)> {
+    // Initial center locations with (0, 1) offset (matching Julia)
+    let mut centers: Vec<(usize, usize)> = result
+        .lines
+        .iter()
+        .map(|line| {
+            let (row, col) = line.center_location(result.padding, result.spacing);
+            (row, col + 1) // Julia adds (0, 1) offset
+        })
+        .collect();
+
+    // Apply gadget transformations from tape
+    for entry in &result.tape {
+        let pattern_idx = entry.pattern_idx;
+        let gi = entry.row;
+        let gj = entry.col;
+
+        // Get gadget size and center mapping
+        // pattern_idx < 100: crossing gadgets (don't move centers)
+        // pattern_idx >= 100: simplifier gadgets (DanglingLeg with rotations)
+        if pattern_idx >= 100 {
+            // DanglingLeg variants
+            let simplifier_idx = pattern_idx - 100;
+            let (m, n, source_center, mapped_center) = match simplifier_idx {
+                0 => (4, 3, (2, 2), (4, 2)), // DanglingLeg (no rotation)
+                1 => (3, 4, (2, 2), (2, 4)), // Rotated 90° clockwise
+                2 => (4, 3, (3, 2), (1, 2)), // Rotated 180°
+                3 => (3, 4, (2, 3), (2, 1)), // Rotated 270°
+                4 => (4, 3, (2, 2), (4, 2)), // Reflected X (same as original for vertical)
+                5 => (4, 3, (2, 2), (4, 2)), // Reflected Y (same as original for vertical)
+                _ => continue,
+            };
+
+            // Check each center and apply transformation if within gadget bounds
+            for center in centers.iter_mut() {
+                let (ci, cj) = *center;
+
+                // Check if center is within gadget bounds (1-indexed)
+                if ci >= gi && ci < gi + m && cj >= gj && cj < gj + n {
+                    // Local coordinates (1-indexed)
+                    let local_i = ci - gi + 1;
+                    let local_j = cj - gj + 1;
+
+                    // Check if this matches the source center
+                    if local_i == source_center.0 && local_j == source_center.1 {
+                        // Move to mapped center
+                        *center = (gi + mapped_center.0 - 1, gj + mapped_center.1 - 1);
+                    }
+                }
+            }
+        }
+        // Crossing gadgets (pattern_idx < 100) don't move centers
+    }
+
+    // Sort by vertex index and return
+    let mut indexed: Vec<_> = result
+        .lines
+        .iter()
+        .enumerate()
+        .map(|(idx, line)| (line.vertex, centers[idx]))
+        .collect();
+    indexed.sort_by_key(|(v, _)| *v);
+    indexed.into_iter().map(|(_, c)| c).collect()
+}
+
 /// Internal function that creates both the mapping grid and copylines.
 fn embed_graph_internal(
     num_vertices: usize,
@@ -591,5 +700,115 @@ mod tests {
         let original = result.map_config_back(&config);
 
         assert_eq!(original.len(), 2);
+    }
+
+    #[test]
+    fn test_map_config_copyback_simple() {
+        // Create a simple copyline
+        let line = CopyLine {
+            vertex: 0,
+            vslot: 1,
+            hslot: 1,
+            vstart: 1,
+            vstop: 1,
+            hstop: 3,
+        };
+        let lines = vec![line];
+
+        // Create config with some nodes selected
+        let locs = lines[0].dense_locations(2, 4);
+        let (rows, cols) = (20, 20);
+        let mut config = vec![vec![0; cols]; rows];
+
+        // Select all nodes in copyline
+        for &(row, col, _) in &locs {
+            if row < rows && col < cols {
+                config[row][col] = 1;
+            }
+        }
+
+        let result = map_config_copyback(&lines, 2, 4, &config);
+
+        // count = len(locs), overhead = len/2
+        // result = count - overhead = len - len/2 = (len+1)/2 for odd len, len/2+1 for even
+        let expected = locs.len() - locs.len() / 2;
+        assert_eq!(result[0], expected);
+    }
+
+    #[test]
+    fn test_map_config_copyback_multiple_vertices() {
+        // Create two copylines for different vertices
+        let line0 = CopyLine {
+            vertex: 0,
+            vslot: 1,
+            hslot: 1,
+            vstart: 1,
+            vstop: 1,
+            hstop: 2,
+        };
+        let line1 = CopyLine {
+            vertex: 1,
+            vslot: 2,
+            hslot: 1,
+            vstart: 1,
+            vstop: 1,
+            hstop: 2,
+        };
+        let lines = vec![line0, line1];
+
+        let (rows, cols) = (20, 20);
+        let mut config = vec![vec![0; cols]; rows];
+
+        // Select all nodes for vertex 0, none for vertex 1
+        let locs0 = lines[0].dense_locations(2, 4);
+        for &(row, col, _) in &locs0 {
+            if row < rows && col < cols {
+                config[row][col] = 1;
+            }
+        }
+
+        let result = map_config_copyback(&lines, 2, 4, &config);
+
+        // Vertex 0: all selected
+        let expected0 = locs0.len() - locs0.len() / 2;
+        assert_eq!(result[0], expected0);
+
+        // Vertex 1: none selected, count=0, overhead=len/2
+        // result = saturating_sub(0, overhead) = 0
+        assert_eq!(result[1], 0);
+    }
+
+    #[test]
+    fn test_map_config_copyback_partial_selection() {
+        // Create a copyline
+        let line = CopyLine {
+            vertex: 0,
+            vslot: 1,
+            hslot: 1,
+            vstart: 1,
+            vstop: 2,
+            hstop: 2,
+        };
+        let lines = vec![line];
+
+        let locs = lines[0].dense_locations(2, 4);
+        let (rows, cols) = (20, 20);
+        let mut config = vec![vec![0; cols]; rows];
+
+        // Select only half the nodes
+        let half = locs.len() / 2;
+        for &(row, col, _) in locs.iter().take(half) {
+            if row < rows && col < cols {
+                config[row][col] = 1;
+            }
+        }
+
+        let result = map_config_copyback(&lines, 2, 4, &config);
+
+        // count = half, overhead = len/2
+        // result = half - len/2 = 0 (since half == len/2)
+        let overhead = locs.len() / 2;
+        let expected = half.saturating_sub(overhead);
+        assert_eq!(result[0], expected);
     }
 }
