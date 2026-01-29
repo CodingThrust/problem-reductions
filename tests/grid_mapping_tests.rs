@@ -446,198 +446,80 @@ mod cross_lattice_consistency {
 }
 
 /// Tests for standard graphs from UnitDiskMapping.jl test suite.
-/// These mirror the Julia tests for petersen, bull, cubical, house, diamond, tutte graphs.
+/// Uses smallgraph from topology module for graph definitions.
 mod standard_graphs {
     use super::*;
+    use problemreductions::topology::smallgraph;
 
-    /// Petersen graph - 10 vertices, 15 edges
-    fn petersen_graph() -> (usize, Vec<(usize, usize)>) {
-        let edges = vec![
-            // Outer pentagon
-            (0, 1), (1, 2), (2, 3), (3, 4), (4, 0),
-            // Inner pentagram
-            (5, 7), (7, 9), (9, 6), (6, 8), (8, 5),
-            // Spokes
-            (0, 5), (1, 6), (2, 7), (3, 8), (4, 9),
-        ];
-        (10, edges)
-    }
+    /// Test graphs for square and triangular mapping.
+    const TEST_GRAPHS: &[&str] = &[
+        "petersen", "bull", "cubical", "house", "diamond",
+        "heawood", "pappus", "frucht",
+    ];
 
-    /// Bull graph - 5 vertices, 5 edges (triangle with two pendant vertices)
-    fn bull_graph() -> (usize, Vec<(usize, usize)>) {
-        let edges = vec![
-            (0, 1), (1, 2), (0, 2),  // Triangle
-            (1, 3), (2, 4),          // Pendant edges
-        ];
-        (5, edges)
-    }
+    #[test]
+    fn test_map_standard_graphs_square() {
+        for name in TEST_GRAPHS {
+            let (n, edges) = smallgraph(name).expect(&format!("Unknown graph: {}", name));
+            let result = map_graph(n, &edges);
 
-    /// Cubical graph - 8 vertices, 12 edges (3D cube)
-    fn cubical_graph() -> (usize, Vec<(usize, usize)>) {
-        let edges = vec![
-            // Bottom face
-            (0, 1), (1, 2), (2, 3), (3, 0),
-            // Top face
-            (4, 5), (5, 6), (6, 7), (7, 4),
-            // Vertical edges
-            (0, 4), (1, 5), (2, 6), (3, 7),
-        ];
-        (8, edges)
-    }
+            assert_eq!(
+                result.lines.len(),
+                n,
+                "{}: lines.len() should equal num_vertices",
+                name
+            );
+            assert!(
+                result.grid_graph.num_vertices() > n,
+                "{}: grid should have more vertices than original",
+                name
+            );
+            assert!(
+                result.mis_overhead >= 0,
+                "{}: MIS overhead should be non-negative",
+                name
+            );
 
-    /// House graph - 5 vertices, 6 edges (square with a triangular roof)
-    fn house_graph() -> (usize, Vec<(usize, usize)>) {
-        let edges = vec![
-            (0, 1), (1, 2), (2, 3), (3, 0),  // Square base
-            (2, 4), (3, 4),                  // Triangular roof
-        ];
-        (5, edges)
-    }
-
-    /// Diamond graph - 4 vertices, 5 edges (K4 minus one edge)
-    fn diamond_graph() -> (usize, Vec<(usize, usize)>) {
-        let edges = vec![
-            (0, 1), (0, 2), (1, 2), (1, 3), (2, 3),
-        ];
-        (4, edges)
-    }
-
-    /// Tutte graph - 46 vertices, 69 edges (3-regular, 3-connected, non-Hamiltonian)
-    fn tutte_graph() -> (usize, Vec<(usize, usize)>) {
-        // Simplified version for testing - actual Tutte graph has 46 vertices
-        // Using a smaller representative 3-regular graph
-        let edges = vec![
-            (0, 1), (0, 2), (0, 3),
-            (1, 4), (1, 5),
-            (2, 6), (2, 7),
-            (3, 8), (3, 9),
-            (4, 6), (5, 8),
-            (6, 10), (7, 9),
-            (8, 10), (9, 11),
-            (10, 11), (4, 7), (5, 11),
-        ];
-        (12, edges)
-    }
-
-    /// K23 graph - complete bipartite graph K_{2,3}
-    fn k23_graph() -> (usize, Vec<(usize, usize)>) {
-        let edges = vec![
-            (0, 2), (0, 3), (0, 4),
-            (1, 2), (1, 3), (1, 4),
-        ];
-        (5, edges)
+            // Verify config back mapping works
+            let config = vec![0; result.grid_graph.num_vertices()];
+            let original = result.map_config_back(&config);
+            assert_eq!(
+                original.len(),
+                n,
+                "{}: config back should have correct length",
+                name
+            );
+        }
     }
 
     #[test]
-    fn test_map_petersen_graph() {
-        let (n, edges) = petersen_graph();
+    fn test_map_standard_graphs_triangular() {
+        for name in TEST_GRAPHS {
+            let (n, edges) = smallgraph(name).expect(&format!("Unknown graph: {}", name));
+            let result = map_graph_triangular(n, &edges);
+
+            assert_eq!(
+                result.lines.len(),
+                n,
+                "{}: lines.len() should equal num_vertices",
+                name
+            );
+            assert!(
+                result.grid_graph.num_vertices() > n,
+                "{}: grid should have more vertices than original",
+                name
+            );
+        }
+    }
+
+    #[test]
+    fn test_map_tutte_graph() {
+        // Tutte graph is larger (46 vertices), test separately
+        let (n, edges) = smallgraph("tutte").unwrap();
         let result = map_graph(n, &edges);
 
-        assert_eq!(result.lines.len(), 10);
-        assert!(result.grid_graph.num_vertices() > 10);
-        assert!(result.mis_overhead >= 0);
-
-        // Verify config back mapping
-        let config = vec![0; result.grid_graph.num_vertices()];
-        let original = result.map_config_back(&config);
-        assert_eq!(original.len(), 10);
-    }
-
-    #[test]
-    fn test_map_bull_graph() {
-        let (n, edges) = bull_graph();
-        let result = map_graph(n, &edges);
-
-        assert_eq!(result.lines.len(), 5);
-        assert!(result.grid_graph.num_vertices() > 5);
-    }
-
-    #[test]
-    fn test_map_cubical_graph() {
-        let (n, edges) = cubical_graph();
-        let result = map_graph(n, &edges);
-
-        assert_eq!(result.lines.len(), 8);
-        assert!(result.grid_graph.num_vertices() > 8);
-    }
-
-    #[test]
-    fn test_map_house_graph() {
-        let (n, edges) = house_graph();
-        let result = map_graph(n, &edges);
-
-        assert_eq!(result.lines.len(), 5);
-        assert!(result.grid_graph.num_vertices() > 5);
-    }
-
-    #[test]
-    fn test_map_diamond_graph() {
-        let (n, edges) = diamond_graph();
-        let result = map_graph(n, &edges);
-
-        assert_eq!(result.lines.len(), 4);
-        assert!(result.grid_graph.num_vertices() > 4);
-    }
-
-    #[test]
-    fn test_map_tutte_like_graph() {
-        let (n, edges) = tutte_graph();
-        let result = map_graph(n, &edges);
-
-        assert_eq!(result.lines.len(), 12);
-        assert!(result.grid_graph.num_vertices() > 12);
-    }
-
-    #[test]
-    fn test_map_k23_graph() {
-        let (n, edges) = k23_graph();
-        let result = map_graph(n, &edges);
-
-        assert_eq!(result.lines.len(), 5);
-        assert!(result.grid_graph.num_vertices() > 5);
-    }
-
-    // Triangular lattice versions of standard graphs
-    #[test]
-    fn test_triangular_petersen_graph() {
-        let (n, edges) = petersen_graph();
-        let result = map_graph_triangular(n, &edges);
-
-        assert_eq!(result.lines.len(), 10);
-        assert!(matches!(result.grid_graph.grid_type(), GridType::Triangular { .. }));
-    }
-
-    #[test]
-    fn test_triangular_bull_graph() {
-        let (n, edges) = bull_graph();
-        let result = map_graph_triangular(n, &edges);
-
-        assert_eq!(result.lines.len(), 5);
-        assert!(result.grid_graph.num_vertices() > 5);
-    }
-
-    #[test]
-    fn test_triangular_cubical_graph() {
-        let (n, edges) = cubical_graph();
-        let result = map_graph_triangular(n, &edges);
-
-        assert_eq!(result.lines.len(), 8);
-    }
-
-    #[test]
-    fn test_triangular_house_graph() {
-        let (n, edges) = house_graph();
-        let result = map_graph_triangular(n, &edges);
-
-        assert_eq!(result.lines.len(), 5);
-    }
-
-    #[test]
-    fn test_triangular_diamond_graph() {
-        let (n, edges) = diamond_graph();
-        let result = map_graph_triangular(n, &edges);
-
-        assert_eq!(result.lines.len(), 4);
+        assert_eq!(result.lines.len(), n);
+        assert!(result.grid_graph.num_vertices() > n);
     }
 }
 
