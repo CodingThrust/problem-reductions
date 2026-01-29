@@ -46,8 +46,8 @@ impl MappingResult {
         // Build a position to node index map
         let mut pos_to_idx: HashMap<(usize, usize), usize> = HashMap::new();
         for (idx, node) in self.grid_graph.nodes().iter().enumerate() {
-            let row = node.row as usize;
-            let col = node.col as usize;
+            let row = usize::try_from(node.row).expect("Grid node row must be non-negative");
+            let col = usize::try_from(node.col).expect("Grid node col must be non-negative");
             pos_to_idx.insert((row, col), idx);
         }
 
@@ -113,8 +113,8 @@ impl MappingResult {
                 let max_col = locs.iter().map(|l| l.1).max().unwrap_or(0) + 1;
 
                 for (idx, node) in self.grid_graph.nodes().iter().enumerate() {
-                    let r = node.row as usize;
-                    let c = node.col as usize;
+                    let r = usize::try_from(node.row).expect("Grid node row must be non-negative");
+                    let c = usize::try_from(node.col).expect("Grid node col must be non-negative");
                     if r >= min_row && r <= max_row && c >= min_col && c <= max_col {
                         total_weight += 1.0;
                         if grid_config.get(idx).copied().unwrap_or(0) > 0 {

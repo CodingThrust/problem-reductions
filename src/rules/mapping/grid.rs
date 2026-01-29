@@ -161,7 +161,12 @@ impl MappingGrid {
 
     /// Get cross location for two vertices.
     /// Julia's crossat uses smaller position's hslot for row and larger position for col.
+    ///
+    /// Note: All slot parameters are 1-indexed (must be >= 1).
     pub fn cross_at(&self, v_slot: usize, w_slot: usize, h_slot: usize) -> (usize, usize) {
+        debug_assert!(h_slot >= 1, "h_slot must be >= 1 (1-indexed)");
+        debug_assert!(v_slot >= 1, "v_slot must be >= 1 (1-indexed)");
+        debug_assert!(w_slot >= 1, "w_slot must be >= 1 (1-indexed)");
         let larger_slot = v_slot.max(w_slot);
         let row = (h_slot - 1) * self.spacing + 2 + self.padding;
         let col = (larger_slot - 1) * self.spacing + 1 + self.padding;

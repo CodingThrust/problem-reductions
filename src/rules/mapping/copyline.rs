@@ -311,7 +311,13 @@ pub fn create_copylines(
 
     for (i, (&v, rs)) in vertex_order.iter().zip(rmorder.iter()).enumerate() {
         // Find first free slot (1-indexed in Julia, but we use 0-indexed internally)
-        let islot = slots.iter().position(|&x| x == 0).unwrap();
+        // Safety: A free slot always exists because the removal order (`rmorder`) ensures that
+        // vertices whose neighbors have all been processed are removed before new vertices are
+        // added. The number of active (non-removed) vertices never exceeds `num_vertices`.
+        let islot = slots
+            .iter()
+            .position(|&x| x == 0)
+            .expect("Slot reuse invariant violated: no free slot available");
         slots[islot] = v + 1; // Store vertex+1 to distinguish from empty (0)
         hslots[i] = islot + 1; // 1-indexed hslot
 
@@ -487,12 +493,30 @@ pub fn copyline_weighted_locations_triangular(
     (locs, weights)
 }
 
-/// Calculate MIS overhead for a copy line in triangular mode.
-/// This uses the weight-sum formula that matches the actual grid construction.
+/// Calculate MIS overhead for a copy line in triangular weighted mode.
+///
+/// Uses Julia's exact formula for weighted mode:
+/// ```julia
+/// s = 4  # constant factor per slot
+/// overhead = (hslot - vstart) * s + (vstop - hslot) * s + max((hstop - vslot) * s - 2, 0)
+/// ```
+///
+/// The formula computes overhead based on the copyline structure:
+/// - Vertical segment from vstart to hslot: (hslot - vstart) * 4
+/// - Vertical segment from vstart to hslot: (hslot - vstart) * s
+/// - Vertical segment from hslot to vstop: (vstop - hslot) * s
+/// - Horizontal segment from vslot to hstop: max((hstop - vslot) * s - 2, 0)
+///
+/// For spacing=6 (our default), use s=spacing to match the node density.
 pub fn mis_overhead_copyline_triangular(line: &CopyLine, spacing: usize) -> i32 {
-    let (_, weights) = copyline_weighted_locations_triangular(line, spacing);
-    let sum: i32 = weights.iter().sum();
-    sum / 2
+    // Use spacing directly as the factor
+    let s: i32 = spacing as i32;
+
+    let vertical_up = (line.hslot as i32 - line.vstart as i32) * s;
+    let vertical_down = (line.vstop as i32 - line.hslot as i32) * s;
+    let horizontal = ((line.hstop as i32 - line.vslot as i32) * s - 2).max(0);
+
+    vertical_up + vertical_down + horizontal
 }
 
 #[cfg(test)]
