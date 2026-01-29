@@ -160,3 +160,90 @@ fn test_copyline_serialization() {
     let deserialized: CopyLine = serde_json::from_str(&json).unwrap();
     assert_eq!(line, deserialized);
 }
+
+#[test]
+fn test_copyline_hstop_determines_width() {
+    // hstop determines horizontal extent
+    let line1 = CopyLine::new(0, 1, 2, 1, 2, 3);
+    let line2 = CopyLine::new(0, 1, 2, 1, 2, 5);
+
+    let locs1 = line1.locations(2, 4);
+    let locs2 = line2.locations(2, 4);
+
+    // Line with larger hstop should have more nodes
+    assert!(locs2.len() >= locs1.len());
+}
+
+#[test]
+fn test_copyline_vstop_determines_height() {
+    // vstop determines vertical extent
+    let line1 = CopyLine::new(0, 1, 3, 1, 3, 3);
+    let line2 = CopyLine::new(0, 1, 5, 1, 5, 5);
+
+    let locs1 = line1.locations(2, 4);
+    let locs2 = line2.locations(2, 4);
+
+    // Line with larger vstop should have more nodes
+    assert!(locs2.len() >= locs1.len());
+}
+
+#[test]
+fn test_copyline_weights_positive() {
+    let line = CopyLine::new(0, 2, 3, 1, 3, 5);
+    let locs = line.locations(2, 4);
+
+    // All weights should be positive
+    for &(_row, _col, weight) in &locs {
+        assert!(weight >= 1, "All weights should be positive");
+    }
+}
+
+#[test]
+fn test_copyline_dense_locations_structure() {
+    let line = CopyLine::new(0, 2, 3, 1, 3, 5);
+    let dense = line.dense_locations(2, 4);
+
+    // Dense locations should have multiple nodes
+    assert!(dense.len() > 1, "Dense should have multiple nodes");
+
+    // Check weights follow pattern (ends are 1, middle can be 2)
+    let weights: Vec<usize> = dense.iter().map(|&(_, _, w)| w).collect();
+    assert!(weights.iter().all(|&w| w == 1 || w == 2));
+}
+
+#[test]
+fn test_copyline_triangular_spacing() {
+    let edges = vec![(0, 1), (1, 2)];
+    let result = map_graph_triangular(3, &edges);
+
+    // Triangular uses spacing=6
+    assert_eq!(result.spacing, 6);
+
+    // Each copyline should produce valid triangular locations
+    for line in &result.lines {
+        let locs = line.dense_locations_triangular(result.padding, result.spacing);
+        assert!(!locs.is_empty());
+    }
+}
+
+#[test]
+fn test_copyline_center_vs_locations() {
+    let line = CopyLine::new(0, 2, 3, 1, 3, 4);
+    let (center_row, center_col) = line.center_location(2, 4);
+    let locs = line.locations(2, 4);
+
+    // Center should be within the bounding box of locations
+    let min_row = locs.iter().map(|&(r, _, _)| r).min().unwrap();
+    let max_row = locs.iter().map(|&(r, _, _)| r).max().unwrap();
+    let min_col = locs.iter().map(|&(_, c, _)| c).min().unwrap();
+    let max_col = locs.iter().map(|&(_, c, _)| c).max().unwrap();
+
+    assert!(
+        center_row >= min_row && center_row <= max_row,
+        "Center row should be within location bounds"
+    );
+    assert!(
+        center_col >= min_col && center_col <= max_col,
+        "Center col should be within location bounds"
+    );
+}
