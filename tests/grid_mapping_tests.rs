@@ -3146,3 +3146,420 @@ mod julia_mapping_tests {
         test_standard_graph_by_name("truncatedtetrahedron");
     }
 }
+
+// =============================================================================
+// SYMMETRY OPERATION TESTS
+// =============================================================================
+
+mod symmetry_tests {
+    use problemreductions::rules::mapping::{
+        Cross, Mirror, Pattern, ReflectedGadget, RotatedGadget, TCon, Turn,
+    };
+
+    #[test]
+    fn test_rotated_gadget_size_0_rotations() {
+        let rotated = RotatedGadget::new(Turn, 0);
+        // 0 rotations should preserve size
+        assert_eq!(Pattern::size(&Turn), Pattern::size(&rotated));
+    }
+
+    #[test]
+    fn test_rotated_gadget_size_1_rotation() {
+        let (m, n) = Pattern::size(&Turn);
+        let rotated = RotatedGadget::new(Turn, 1);
+        // 1 rotation (90°) swaps dimensions
+        assert_eq!(Pattern::size(&rotated), (n, m));
+    }
+
+    #[test]
+    fn test_rotated_gadget_size_2_rotations() {
+        let rotated = RotatedGadget::new(Turn, 2);
+        // 2 rotations (180°) preserves size
+        assert_eq!(Pattern::size(&Turn), Pattern::size(&rotated));
+    }
+
+    #[test]
+    fn test_rotated_gadget_size_4_rotations_identity() {
+        let rotated = RotatedGadget::new(Turn, 4);
+        // 4 rotations = identity
+        assert_eq!(Pattern::size(&Turn), Pattern::size(&rotated));
+    }
+
+    #[test]
+    fn test_rotated_gadget_mis_overhead_preserved() {
+        let cross = Cross::<true>;
+        for n in 0..4 {
+            let rotated = RotatedGadget::new(cross, n);
+            assert_eq!(
+                Pattern::mis_overhead(&cross),
+                Pattern::mis_overhead(&rotated),
+                "MIS overhead should be preserved under rotation"
+            );
+        }
+    }
+
+    #[test]
+    fn test_reflected_gadget_size_x_mirror() {
+        let reflected = ReflectedGadget::new(Turn, Mirror::X);
+        // X mirror preserves dimensions
+        assert_eq!(Pattern::size(&Turn), Pattern::size(&reflected));
+    }
+
+    #[test]
+    fn test_reflected_gadget_size_y_mirror() {
+        let reflected = ReflectedGadget::new(Turn, Mirror::Y);
+        // Y mirror preserves dimensions
+        assert_eq!(Pattern::size(&Turn), Pattern::size(&reflected));
+    }
+
+    #[test]
+    fn test_reflected_gadget_size_diag_mirror() {
+        let (m, n) = Pattern::size(&Turn);
+        let reflected = ReflectedGadget::new(Turn, Mirror::Diag);
+        // Diagonal mirror swaps dimensions
+        assert_eq!(Pattern::size(&reflected), (n, m));
+    }
+
+    #[test]
+    fn test_reflected_gadget_size_offdiag_mirror() {
+        let (m, n) = Pattern::size(&Turn);
+        let reflected = ReflectedGadget::new(Turn, Mirror::OffDiag);
+        // Off-diagonal mirror swaps dimensions
+        assert_eq!(Pattern::size(&reflected), (n, m));
+    }
+
+    #[test]
+    fn test_reflected_gadget_mis_overhead_preserved() {
+        let cross = Cross::<true>;
+        for mirror in [Mirror::X, Mirror::Y, Mirror::Diag, Mirror::OffDiag] {
+            let reflected = ReflectedGadget::new(cross, mirror);
+            assert_eq!(
+                Pattern::mis_overhead(&cross),
+                Pattern::mis_overhead(&reflected),
+                "MIS overhead should be preserved under reflection"
+            );
+        }
+    }
+
+    #[test]
+    fn test_rotated_tcon_all_rotations() {
+        let tcon = TCon;
+        for n in 0..4 {
+            let rotated = RotatedGadget::new(tcon, n);
+            let (locs, _pins) = Pattern::mapped_graph(&rotated);
+            // All locations should be positive
+            for loc in locs {
+                assert!(loc.0 >= 1, "Row should be >= 1");
+                assert!(loc.1 >= 1, "Col should be >= 1");
+            }
+        }
+    }
+
+    #[test]
+    fn test_reflected_cross_all_mirrors() {
+        let cross = Cross::<false>;
+        for mirror in [Mirror::X, Mirror::Y, Mirror::Diag, Mirror::OffDiag] {
+            let reflected = ReflectedGadget::new(cross, mirror);
+            let cross_loc = Pattern::cross_location(&reflected);
+            // Cross location should be positive
+            assert!(cross_loc.0 >= 1, "Cross row should be >= 1");
+            assert!(cross_loc.1 >= 1, "Cross col should be >= 1");
+        }
+    }
+
+    #[test]
+    fn test_combined_rotation_reflection() {
+        // Rotate then reflect
+        let rotated = RotatedGadget::new(Turn, 1);
+        let reflected = ReflectedGadget::new(rotated, Mirror::X);
+
+        let (locs, _pins) = Pattern::mapped_graph(&reflected);
+        for loc in locs {
+            assert!(loc.0 >= 1);
+            assert!(loc.1 >= 1);
+        }
+    }
+}
+
+// =============================================================================
+// TRACE CENTERS AND MAP WEIGHTS TESTS
+// =============================================================================
+
+mod weighted_mode_tests {
+    use problemreductions::rules::mapping::{map_graph_triangular, map_weights, trace_centers};
+    use problemreductions::topology::Graph;
+
+    #[test]
+    fn test_trace_centers_single_vertex() {
+        let edges: Vec<(usize, usize)> = vec![];
+        let result = map_graph_triangular(1, &edges);
+
+        let centers = trace_centers(&result);
+        assert_eq!(centers.len(), 1, "Single vertex should have one center");
+    }
+
+    #[test]
+    fn test_trace_centers_path_graph() {
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph_triangular(3, &edges);
+
+        let centers = trace_centers(&result);
+        assert_eq!(centers.len(), 3, "Path graph should have 3 centers");
+
+        // Each center should be unique
+        let mut unique_centers = centers.clone();
+        unique_centers.sort();
+        unique_centers.dedup();
+        assert_eq!(unique_centers.len(), 3, "All centers should be unique");
+    }
+
+    #[test]
+    fn test_trace_centers_triangle() {
+        let edges = vec![(0, 1), (1, 2), (0, 2)];
+        let result = map_graph_triangular(3, &edges);
+
+        let centers = trace_centers(&result);
+        assert_eq!(centers.len(), 3);
+    }
+
+    #[test]
+    fn test_map_weights_uniform() {
+        let edges = vec![(0, 1), (1, 2)];
+        let result = map_graph_triangular(3, &edges);
+
+        // All vertices have weight 0.5
+        let source_weights = vec![0.5, 0.5, 0.5];
+        let mapped = map_weights(&result, &source_weights);
+
+        // Mapped weights should be at least the base weights
+        assert_eq!(mapped.len(), result.grid_graph.num_vertices());
+        for &w in &mapped {
+            assert!(w >= 0.0, "All weights should be non-negative");
+        }
+    }
+
+    #[test]
+    fn test_map_weights_zero() {
+        let edges = vec![(0, 1)];
+        let result = map_graph_triangular(2, &edges);
+
+        // All vertices have weight 0
+        let source_weights = vec![0.0, 0.0];
+        let mapped = map_weights(&result, &source_weights);
+
+        // Should match base grid weights (no additions)
+        for (i, &w) in mapped.iter().enumerate() {
+            let base_weight = result.grid_graph.weight(i).copied().unwrap_or(0) as f64;
+            assert_eq!(w, base_weight);
+        }
+    }
+
+    #[test]
+    fn test_map_weights_one() {
+        let edges = vec![(0, 1)];
+        let result = map_graph_triangular(2, &edges);
+
+        // All vertices have maximum weight 1.0
+        let source_weights = vec![1.0, 1.0];
+        let mapped = map_weights(&result, &source_weights);
+
+        // The total weight should increase by the sum of source weights
+        let base_sum: f64 = result
+            .grid_graph
+            .nodes()
+            .iter()
+            .map(|n| n.weight as f64)
+            .sum();
+        let mapped_sum: f64 = mapped.iter().sum();
+        let source_sum: f64 = source_weights.iter().sum();
+
+        // Total should increase by approximately source_sum
+        // (centers might not all have corresponding nodes)
+        assert!(
+            mapped_sum >= base_sum,
+            "Mapped sum {} should be >= base sum {}",
+            mapped_sum,
+            base_sum
+        );
+        assert!(
+            mapped_sum <= base_sum + source_sum + 0.01,
+            "Mapped sum {} should be <= base sum {} + source sum {}",
+            mapped_sum,
+            base_sum,
+            source_sum
+        );
+    }
+
+    #[test]
+    #[should_panic(expected = "all weights must be in range")]
+    fn test_map_weights_invalid_negative() {
+        let edges = vec![(0, 1)];
+        let result = map_graph_triangular(2, &edges);
+
+        let source_weights = vec![-0.1, 0.5];
+        map_weights(&result, &source_weights);
+    }
+
+    #[test]
+    #[should_panic(expected = "all weights must be in range")]
+    fn test_map_weights_invalid_over_one() {
+        let edges = vec![(0, 1)];
+        let result = map_graph_triangular(2, &edges);
+
+        let source_weights = vec![0.5, 1.5];
+        map_weights(&result, &source_weights);
+    }
+
+    #[test]
+    #[should_panic(expected = "source_weights length must match")]
+    fn test_map_weights_wrong_length() {
+        let edges = vec![(0, 1)];
+        let result = map_graph_triangular(2, &edges);
+
+        let source_weights = vec![0.5]; // Only 1, but need 2
+        map_weights(&result, &source_weights);
+    }
+}
+
+// =============================================================================
+// COPYLINE FEATURE TESTS
+// =============================================================================
+
+mod copyline_tests {
+    use problemreductions::rules::mapping::{map_graph, map_graph_triangular, CopyLine};
+
+    #[test]
+    fn test_copyline_center_location() {
+        let line = CopyLine::new(0, 1, 1, 1, 3, 2);
+        let padding = 2;
+        let spacing = 4;
+
+        let (row, col) = line.center_location(padding, spacing);
+        // Row = spacing * (hslot - 1) + padding + 2 = 4*0 + 2 + 2 = 4
+        // Col = spacing * (vslot - 1) + padding + 1 = 4*0 + 2 + 1 = 3
+        assert_eq!(row, 4);
+        assert_eq!(col, 3);
+    }
+
+    #[test]
+    fn test_copyline_center_location_offset() {
+        let line = CopyLine::new(0, 2, 3, 1, 4, 5);
+        let padding = 3;
+        let spacing = 5;
+
+        let (row, col) = line.center_location(padding, spacing);
+        // Row = 5 * (3 - 1) + 3 + 2 = 10 + 5 = 15
+        // Col = 5 * (2 - 1) + 3 + 1 = 5 + 4 = 9
+        assert_eq!(row, 15);
+        assert_eq!(col, 9);
+    }
+
+    #[test]
+    fn test_copyline_locations_basic() {
+        let line = CopyLine::new(0, 1, 2, 1, 3, 2);
+        let padding = 2;
+        let spacing = 4;
+
+        let locs = line.locations(padding, spacing);
+        assert!(!locs.is_empty(), "Should generate locations");
+
+        // All weights should be 1 for basic locations
+        for (_row, _col, weight) in &locs {
+            assert_eq!(*weight, 1);
+        }
+    }
+
+    #[test]
+    fn test_copyline_dense_locations() {
+        let line = CopyLine::new(0, 1, 2, 1, 3, 2);
+        let padding = 2;
+        let spacing = 4;
+
+        let dense = line.dense_locations(padding, spacing);
+        let sparse = line.locations(padding, spacing);
+
+        // Dense should have more or equal locations than sparse
+        assert!(
+            dense.len() >= sparse.len(),
+            "Dense should have at least as many locations"
+        );
+
+        // Dense should include weight-2 nodes
+        let has_weight_2 = dense.iter().any(|(_, _, w)| *w == 2);
+        assert!(has_weight_2, "Dense locations should have weight-2 nodes");
+    }
+
+    #[test]
+    fn test_copyline_dense_locations_triangular() {
+        let line = CopyLine::new(0, 1, 2, 1, 3, 3);
+        let padding = 2;
+        let spacing = 4;
+
+        let triangular = line.dense_locations_triangular(padding, spacing);
+        assert!(!triangular.is_empty());
+
+        // Should have varying weights
+        let weights: Vec<_> = triangular.iter().map(|(_, _, w)| *w).collect();
+        assert!(weights.iter().any(|&w| w > 1), "Should have higher weights");
+    }
+
+    #[test]
+    fn test_mapping_result_has_copylines() {
+        let edges = vec![(0, 1), (1, 2), (0, 2)];
+        let result = map_graph(3, &edges);
+
+        // Should have 3 copy lines (one per vertex)
+        assert_eq!(result.lines.len(), 3);
+
+        // Each vertex should have a unique copy line
+        let vertices: Vec<_> = result.lines.iter().map(|l| l.vertex).collect();
+        assert!(vertices.contains(&0));
+        assert!(vertices.contains(&1));
+        assert!(vertices.contains(&2));
+    }
+
+    #[test]
+    fn test_triangular_mapping_result_has_copylines() {
+        let edges = vec![(0, 1), (1, 2), (0, 2)];
+        let result = map_graph_triangular(3, &edges);
+
+        assert_eq!(result.lines.len(), 3);
+    }
+
+    #[test]
+    fn test_copyline_vslot_hslot_ordering() {
+        let edges = vec![(0, 1), (1, 2), (2, 3)];
+        let result = map_graph(4, &edges);
+
+        // Check that vslots and hslots are within valid ranges
+        for line in &result.lines {
+            assert!(line.vslot >= 1, "vslot should be >= 1");
+            assert!(line.hslot >= 1, "hslot should be >= 1");
+            assert!(
+                line.vstart <= line.vstop,
+                "vstart should be <= vstop: {} <= {}",
+                line.vstart,
+                line.vstop
+            );
+        }
+    }
+
+    #[test]
+    fn test_copyline_center_on_grid() {
+        let edges = vec![(0, 1)];
+        let result = map_graph_triangular(2, &edges);
+
+        for line in &result.lines {
+            let (row, col) = line.center_location(result.padding, result.spacing);
+
+            // Center should be within grid bounds
+            let grid = &result.grid_graph;
+            let has_node_near = grid.nodes().iter().any(|n| {
+                let dr = (n.row as isize - row as isize).abs();
+                let dc = (n.col as isize - col as isize).abs();
+                dr <= 1 && dc <= 1
+            });
+            assert!(has_node_near, "Center should be near a grid node");
+        }
+    }
+}
