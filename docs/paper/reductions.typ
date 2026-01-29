@@ -497,16 +497,17 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
 })
 
 // Draw triangular lattice from JSON nodes - uses pre-computed edges
-// For drawing: y-coordinates scaled by sqrt(3)/2, odd rows offset by 0.5
+// Rust uses: x = row + offset (0.5 for odd cols), y = col * sqrt(3)/2
 #let draw-triangular-cetz(data, cell-size: 0.2) = canvas(length: 1cm, {
   import draw: *
   let grid-data = data.grid_graph
 
   // Get node positions with triangular geometry for drawing
+  // Match Rust: x = row + offset, y = col * sqrt(3)/2
   let sqrt3_2 = calc.sqrt(3) / 2
   let grid-positions = grid-data.nodes.map(n => {
-    let x = n.col + 0.5 * calc.rem(n.row, 2)
-    let y = n.row * sqrt3_2
+    let x = n.row + 0.5 * calc.rem(n.col, 2)  // offset odd columns
+    let y = n.col * sqrt3_2
     (x, y)
   })
   let weights = grid-data.nodes.map(n => n.weight)
