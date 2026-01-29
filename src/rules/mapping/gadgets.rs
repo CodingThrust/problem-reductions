@@ -119,6 +119,23 @@ pub trait Pattern: Clone + std::fmt::Debug {
     fn source_entry_to_configs(&self) -> std::collections::HashMap<usize, Vec<Vec<bool>>>;
 }
 
+/// Compute binary boundary config from pin values in the mapped graph.
+/// Julia: `mapped_boundary_config(p, config)` -> `_boundary_config(pins, config)`
+///
+/// This computes: result |= (1 << i) for each pin where config[pin] > 0
+///
+/// Note: Out-of-bounds pin indices are treated as 0 (unset).
+pub fn mapped_boundary_config<P: Pattern>(pattern: &P, config: &[usize]) -> usize {
+    let (_, pins) = pattern.mapped_graph();
+    let mut result = 0usize;
+    for (i, &pin_idx) in pins.iter().enumerate() {
+        if pin_idx < config.len() && config[pin_idx] > 0 {
+            result |= 1 << i;
+        }
+    }
+    result
+}
+
 /// Check if a pattern matches at position (i, j) in the grid.
 /// i, j are 0-indexed row/col offsets.
 ///
@@ -2551,5 +2568,23 @@ mod tests {
 
         // Reflected gadget should have same config mappings
         assert_eq!(original_configs, reflected_configs);
+    }
+
+    #[test]
+    fn test_mapped_boundary_config_danglingleg() {
+        // DanglingLeg has 1 mapped node at (4,2), pins = [0]
+        // config[0] = 0 -> boundary = 0
+        // config[0] = 1 -> boundary = 1
+        assert_eq!(mapped_boundary_config(&DanglingLeg, &[0]), 0);
+        assert_eq!(mapped_boundary_config(&DanglingLeg, &[1]), 1);
+    }
+
+    #[test]
+    fn test_mapped_boundary_config_cross_false() {
+        // Cross<false> has multiple pins, test a few cases
+        let cross = Cross::<false>;
+        // All zeros -> 0
+        let config = vec![0; 16];
+        assert_eq!(mapped_boundary_config(&cross, &config), 0);
     }
 }
