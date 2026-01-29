@@ -54,7 +54,7 @@ pub use gadgets::{
     apply_crossing_gadgets, apply_gadget, apply_simplifier_gadgets, pattern_matches,
     tape_entry_mis_overhead, unapply_gadget, Branch, BranchFix, BranchFixB, Cross, DanglingLeg,
     EndTurn, Mirror, Pattern, PatternBoxed, PatternCell, ReflectedGadget, RotatedGadget, TCon,
-    TapeEntry, TrivialTurn, Turn, WTurn,
+    TapeEntry, TrivialTurn, Turn, WTurn, SquarePattern,
 };
 pub use grid::{CellState, MappingGrid};
 pub use map_graph::{embed_graph, map_graph, map_graph_with_method, map_graph_with_order, MappingResult};

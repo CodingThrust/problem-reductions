@@ -2,7 +2,8 @@
 
 use super::copyline::{create_copylines, mis_overhead_copyline, CopyLine};
 use super::gadgets::{
-    apply_crossing_gadgets, apply_simplifier_gadgets, tape_entry_mis_overhead, TapeEntry,
+    apply_crossing_gadgets, apply_simplifier_gadgets, tape_entry_mis_overhead, SquarePattern,
+    TapeEntry,
 };
 use super::grid::MappingGrid;
 use super::pathdecomposition::{pathwidth, vertex_order_from_layout, PathDecompositionMethod};
@@ -35,109 +36,34 @@ pub struct MappingResult {
 impl MappingResult {
     /// Map a configuration back from grid to original graph.
     ///
-    /// This uses a region-based approach: for each copyline, we look at the
-    /// bounding box of its cells and count selected grid nodes in that region.
-    /// The vertex is selected if more than half the relevant grid nodes are selected.
+    /// This follows Julia's exact algorithm:
+    /// 1. Convert flat grid config to 2D matrix
+    /// 2. Unapply gadgets in reverse order (modifying config matrix)
+    /// 3. Extract vertex configs from copyline locations
+    ///
+    /// # Arguments
+    /// * `grid_config` - Configuration on the grid graph (0 = not selected, 1 = selected)
+    ///
+    /// # Returns
+    /// A vector where `result[v]` is 1 if vertex `v` is selected, 0 otherwise.
     pub fn map_config_back(&self, grid_config: &[usize]) -> Vec<usize> {
-        use std::collections::HashMap;
+        // Step 1: Convert flat config to 2D matrix
+        let (rows, cols) = self.grid_graph.size();
+        let mut config_2d = vec![vec![0usize; cols]; rows];
 
-        let debug = std::env::var("DEBUG_MAP_CONFIG").is_ok();
-
-        // Build a position to node index map
-        let mut pos_to_idx: HashMap<(usize, usize), usize> = HashMap::new();
         for (idx, node) in self.grid_graph.nodes().iter().enumerate() {
-            let row = usize::try_from(node.row).expect("Grid node row must be non-negative");
-            let col = usize::try_from(node.col).expect("Grid node col must be non-negative");
-            pos_to_idx.insert((row, col), idx);
-        }
-
-        if debug {
-            eprintln!("=== map_config_back debug ===");
-            eprintln!("Grid nodes: {}", self.grid_graph.nodes().len());
-            eprintln!("Grid config (selected nodes):");
-            for (idx, &val) in grid_config.iter().enumerate() {
-                if val > 0 {
-                    if let Some(node) = self.grid_graph.nodes().get(idx) {
-                        eprintln!("  node {} at ({}, {})", idx, node.row, node.col);
-                    }
-                }
-            }
-            eprintln!("Copylines:");
-            for line in &self.lines {
-                let locs = line.dense_locations(self.padding, self.spacing);
-                eprintln!(
-                    "  vertex={}: vslot={}, hslot={}, locs={:?}",
-                    line.vertex, line.vslot, line.hslot, locs
-                );
+            let row = node.row as usize;
+            let col = node.col as usize;
+            if row < rows && col < cols {
+                config_2d[row][col] = grid_config.get(idx).copied().unwrap_or(0);
             }
         }
 
-        // For each copyline, find grid nodes at copyline positions
-        // Use weighted counting: weight=1 cells (endpoints) count double
-        let mut result = vec![0; self.lines.len()];
+        // Step 2: Unapply gadgets in reverse order
+        unapply_gadgets(&self.tape, &mut config_2d);
 
-        for line in &self.lines {
-            let locs = line.dense_locations(self.padding, self.spacing);
-            let mut weighted_count = 0.0;
-            let mut total_weight = 0.0;
-
-            // Check each copyline location for a grid node
-            for &(row, col, weight) in locs.iter() {
-                if let Some(&node_idx) = pos_to_idx.get(&(row, col)) {
-                    // Use inverse weight: endpoint cells (weight=1) are more important
-                    let w = if weight == 1 { 2.0 } else { 1.0 };
-                    total_weight += w;
-                    if grid_config.get(node_idx).copied().unwrap_or(0) > 0 {
-                        weighted_count += w;
-                    }
-                }
-            }
-
-            if debug {
-                eprintln!(
-                    "Line vertex={}: locs={}, total_weight={}, weighted_count={}",
-                    line.vertex,
-                    locs.len(),
-                    total_weight,
-                    weighted_count
-                );
-            }
-
-            // For copylines that have no nodes in the final grid (all transformed by gadgets),
-            // we need to look at neighboring cells that replaced them
-            if total_weight == 0.0 {
-                // Expand search to the bounding box + 1 cell margin
-                let min_row = locs.iter().map(|l| l.0).min().unwrap_or(0).saturating_sub(1);
-                let max_row = locs.iter().map(|l| l.0).max().unwrap_or(0) + 1;
-                let min_col = locs.iter().map(|l| l.1).min().unwrap_or(0).saturating_sub(1);
-                let max_col = locs.iter().map(|l| l.1).max().unwrap_or(0) + 1;
-
-                for (idx, node) in self.grid_graph.nodes().iter().enumerate() {
-                    let r = usize::try_from(node.row).expect("Grid node row must be non-negative");
-                    let c = usize::try_from(node.col).expect("Grid node col must be non-negative");
-                    if r >= min_row && r <= max_row && c >= min_col && c <= max_col {
-                        total_weight += 1.0;
-                        if grid_config.get(idx).copied().unwrap_or(0) > 0 {
-                            weighted_count += 1.0;
-                        }
-                    }
-                }
-
-                if debug {
-                    eprintln!(
-                        "  (expanded search) total_weight={}, weighted_count={}",
-                        total_weight, weighted_count
-                    );
-                }
-            }
-
-            // Use majority voting: weighted_count must be at least half
-            // (>= rather than > to handle edge cases)
-            let threshold = total_weight / 2.0;
-            result[line.vertex] = if total_weight > 0.0 && weighted_count >= threshold { 1 } else { 0 };
-        }
-
-        result
+        // Step 3: Extract vertex configs from copylines
+        map_config_copyback(&self.lines, self.padding, self.spacing, &config_2d)
     }
 
     /// Map a configuration back from grid to original graph using center locations.
@@ -309,6 +235,21 @@ pub fn map_config_copyback(
     }
 
     result
+}
+
+/// Unapply gadgets from tape in reverse order, converting mapped configs to source configs.
+/// Julia: `unapply_gadgets!(ug, tape, configurations)`
+///
+/// # Arguments
+/// * `tape` - Vector of TapeEntry recording applied gadgets
+/// * `config` - 2D config matrix (modified in place)
+pub fn unapply_gadgets(tape: &[TapeEntry], config: &mut Vec<Vec<usize>>) {
+    // Iterate tape in REVERSE order
+    for entry in tape.iter().rev() {
+        if let Some(pattern) = SquarePattern::from_tape_idx(entry.pattern_idx) {
+            pattern.map_config_back(entry.row, entry.col, config);
+        }
+    }
 }
 
 /// Trace center locations through square lattice gadget transformations.
