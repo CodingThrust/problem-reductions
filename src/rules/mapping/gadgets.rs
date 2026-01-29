@@ -1456,6 +1456,94 @@ impl Pattern for DanglingLeg {
 }
 
 // ============================================================================
+// SquarePattern Enum for Dynamic Dispatch
+// ============================================================================
+
+/// Enum wrapping all square lattice patterns for dynamic dispatch during unapply.
+#[derive(Debug, Clone)]
+pub enum SquarePattern {
+    CrossFalse(Cross<false>),
+    CrossTrue(Cross<true>),
+    Turn(Turn),
+    WTurn(WTurn),
+    Branch(Branch),
+    BranchFix(BranchFix),
+    TCon(TCon),
+    TrivialTurn(TrivialTurn),
+    EndTurn(EndTurn),
+    BranchFixB(BranchFixB),
+    DanglingLeg(DanglingLeg),
+    // Rotated and reflected variants
+    RotatedTCon1(RotatedGadget<TCon>),
+    ReflectedCrossTrue(ReflectedGadget<Cross<true>>),
+    ReflectedTrivialTurn(ReflectedGadget<TrivialTurn>),
+    ReflectedRotatedTCon1(ReflectedGadget<RotatedGadget<TCon>>),
+    // DanglingLeg rotations/reflections (6 variants, indices 100-105)
+    DanglingLegRot1(RotatedGadget<DanglingLeg>),
+    DanglingLegRot2(RotatedGadget<RotatedGadget<DanglingLeg>>),
+    DanglingLegRot3(RotatedGadget<RotatedGadget<RotatedGadget<DanglingLeg>>>),
+    DanglingLegReflX(ReflectedGadget<DanglingLeg>),
+    DanglingLegReflY(ReflectedGadget<DanglingLeg>),
+}
+
+impl SquarePattern {
+    /// Get pattern from tape index.
+    /// Crossing gadgets: 0-12
+    /// Simplifier gadgets: 100-105 (DanglingLeg variants)
+    pub fn from_tape_idx(idx: usize) -> Option<Self> {
+        match idx {
+            0 => Some(Self::CrossFalse(Cross::<false>)),
+            1 => Some(Self::Turn(Turn)),
+            2 => Some(Self::WTurn(WTurn)),
+            3 => Some(Self::Branch(Branch)),
+            4 => Some(Self::BranchFix(BranchFix)),
+            5 => Some(Self::TCon(TCon)),
+            6 => Some(Self::TrivialTurn(TrivialTurn)),
+            7 => Some(Self::RotatedTCon1(RotatedGadget::new(TCon, 1))),
+            8 => Some(Self::ReflectedCrossTrue(ReflectedGadget::new(Cross::<true>, Mirror::Y))),
+            9 => Some(Self::ReflectedTrivialTurn(ReflectedGadget::new(TrivialTurn, Mirror::Y))),
+            10 => Some(Self::BranchFixB(BranchFixB)),
+            11 => Some(Self::EndTurn(EndTurn)),
+            12 => Some(Self::ReflectedRotatedTCon1(ReflectedGadget::new(RotatedGadget::new(TCon, 1), Mirror::Y))),
+            // Simplifier gadgets
+            100 => Some(Self::DanglingLeg(DanglingLeg)),
+            101 => Some(Self::DanglingLegRot1(RotatedGadget::new(DanglingLeg, 1))),
+            102 => Some(Self::DanglingLegRot2(RotatedGadget::new(RotatedGadget::new(DanglingLeg, 1), 1))),
+            103 => Some(Self::DanglingLegRot3(RotatedGadget::new(RotatedGadget::new(RotatedGadget::new(DanglingLeg, 1), 1), 1))),
+            104 => Some(Self::DanglingLegReflX(ReflectedGadget::new(DanglingLeg, Mirror::X))),
+            105 => Some(Self::DanglingLegReflY(ReflectedGadget::new(DanglingLeg, Mirror::Y))),
+            _ => None,
+        }
+    }
+
+    /// Apply map_config_back_pattern for this pattern.
+    pub fn map_config_back(&self, gi: usize, gj: usize, config: &mut Vec<Vec<usize>>) {
+        match self {
+            Self::CrossFalse(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::CrossTrue(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::Turn(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::WTurn(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::Branch(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::BranchFix(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::TCon(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::TrivialTurn(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::EndTurn(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::BranchFixB(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::DanglingLeg(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::RotatedTCon1(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::ReflectedCrossTrue(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::ReflectedTrivialTurn(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::ReflectedRotatedTCon1(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::DanglingLegRot1(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::DanglingLegRot2(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::DanglingLegRot3(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::DanglingLegReflX(p) => map_config_back_pattern(p, gi, gj, config),
+            Self::DanglingLegReflY(p) => map_config_back_pattern(p, gi, gj, config),
+        }
+    }
+}
+
+// ============================================================================
 // Crossing ruleset and apply functions
 // ============================================================================
 
@@ -2707,5 +2795,15 @@ mod tests {
         // Source should be [1,0,0] or [0,1,0]
         let sum = config[2][2] + config[3][2] + config[4][2];
         assert_eq!(sum, 1); // Exactly one node selected
+    }
+
+    #[test]
+    fn test_square_pattern_from_tape_idx() {
+        assert!(SquarePattern::from_tape_idx(0).is_some()); // CrossFalse
+        assert!(SquarePattern::from_tape_idx(11).is_some()); // EndTurn
+        assert!(SquarePattern::from_tape_idx(12).is_some()); // ReflectedRotatedTCon1
+        assert!(SquarePattern::from_tape_idx(100).is_some()); // DanglingLeg
+        assert!(SquarePattern::from_tape_idx(105).is_some()); // DanglingLeg ReflY
+        assert!(SquarePattern::from_tape_idx(200).is_none()); // Invalid
     }
 }
