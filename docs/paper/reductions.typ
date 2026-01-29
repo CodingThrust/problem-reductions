@@ -438,22 +438,6 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
 #let square_mapping = json("petersen_square.json")
 #let triangular_mapping = json("petersen_triangular.json")
 
-// Euclidean distance
-#let distance(a, b) = calc.sqrt(calc.pow(a.at(0) - b.at(0), 2) + calc.pow(a.at(1) - b.at(1), 2))
-
-// Compute unit disk graph edges from vertex positions
-#let udg-edges(vertices, unit: 1) = {
-  let edges = ()
-  for (k, pos-k) in vertices.enumerate() {
-    for (l, pos-l) in vertices.enumerate() {
-      if l < k and distance(pos-k, pos-l) <= unit {
-        edges.push((k, l))
-      }
-    }
-  }
-  edges
-}
-
 // Draw Petersen graph with standard layout
 #let draw-petersen-cetz(data) = canvas(length: 1cm, {
   import draw: *
@@ -483,24 +467,24 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
   }
 })
 
-// Draw King's Subgraph from JSON nodes with 8-connectivity
+// Draw King's Subgraph from JSON nodes - uses pre-computed edges
 #let draw-grid-cetz(data, cell-size: 0.2) = canvas(length: 1cm, {
   import draw: *
   let grid-data = data.grid_graph
-  let radius = grid-data.radius  // 1.5 for King's graph (8-neighbors)
 
-  // Get node positions (col, row) for edge computation
+  // Get node positions (col, row) for drawing
   let grid-positions = grid-data.nodes.map(n => (n.col, n.row))
   let weights = grid-data.nodes.map(n => n.weight)
 
-  // Compute King's subgraph edges
-  let edges = udg-edges(grid-positions, unit: radius)
+  // Use pre-computed edges from JSON
+  let edges = grid-data.edges
 
   // Scale for drawing
   let vertices = grid-positions.map(p => (p.at(0) * cell-size, -p.at(1) * cell-size))
 
   // Draw edges
-  for (k, l) in edges {
+  for edge in edges {
+    let (k, l) = (edge.at(0), edge.at(1))
     line(vertices.at(k), vertices.at(l), stroke: 0.4pt + gray)
   }
 
@@ -512,15 +496,13 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
   }
 })
 
-// Draw triangular lattice from JSON nodes
-// Triangular lattice: y-coordinates scaled by sqrt(3)/2, odd columns offset by 0.5
+// Draw triangular lattice from JSON nodes - uses pre-computed edges
+// For drawing: y-coordinates scaled by sqrt(3)/2, odd rows offset by 0.5
 #let draw-triangular-cetz(data, cell-size: 0.2) = canvas(length: 1cm, {
   import draw: *
   let grid-data = data.grid_graph
-  let radius = grid-data.radius  // 1.1 for triangular lattice
 
-  // Get node positions with triangular geometry
-  // For triangular lattice: physical_y = row * sqrt(3)/2, physical_x = col + 0.5*(row % 2)
+  // Get node positions with triangular geometry for drawing
   let sqrt3_2 = calc.sqrt(3) / 2
   let grid-positions = grid-data.nodes.map(n => {
     let x = n.col + 0.5 * calc.rem(n.row, 2)
@@ -529,14 +511,15 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
   })
   let weights = grid-data.nodes.map(n => n.weight)
 
-  // Compute unit disk edges on triangular lattice
-  let edges = udg-edges(grid-positions, unit: radius)
+  // Use pre-computed edges from JSON
+  let edges = grid-data.edges
 
   // Scale for drawing
   let vertices = grid-positions.map(p => (p.at(0) * cell-size, -p.at(1) * cell-size))
 
   // Draw edges
-  for (k, l) in edges {
+  for edge in edges {
+    let (k, l) = (edge.at(0), edge.at(1))
     line(vertices.at(k), vertices.at(l), stroke: 0.3pt + gray)
   }
 
