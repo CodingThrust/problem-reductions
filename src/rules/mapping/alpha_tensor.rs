@@ -21,6 +21,7 @@ use std::collections::HashSet;
 /// * `edges` - Edge list (0-indexed)
 /// * `weights` - Weight of each vertex
 /// * `pins` - Indices of open vertices (0-indexed)
+#[allow(clippy::needless_range_loop)]
 pub fn compute_alpha_tensor(
     num_vertices: usize,
     edges: &[(usize, usize)],
@@ -117,6 +118,7 @@ fn compute_mis_with_fixed_pins(
 
 /// Exhaustive weighted MIS solver for small graphs.
 /// Uses brute force enumeration for correctness (suitable for gadgets with <20 vertices).
+#[allow(clippy::needless_range_loop)]
 fn weighted_mis_exhaustive(num_vertices: usize, edges: &[(usize, usize)], weights: &[i32]) -> i32 {
     if num_vertices == 0 {
         return 0;
@@ -182,12 +184,11 @@ pub fn mis_compactify(tensor: &mut [i32]) {
             continue;
         }
         for b in 0..n {
-            if a != b && tensor[b] != i32::MIN {
-                if worse_than(a, b, tensor[a], tensor[b]) {
+            if a != b && tensor[b] != i32::MIN
+                && worse_than(a, b, tensor[a], tensor[b]) {
                     tensor[a] = i32::MIN;
                     break;
                 }
-            }
         }
     }
 }
@@ -320,8 +321,8 @@ pub fn verify_triangular_gadget<G: super::triangular::TriangularGadget>(
     }
 
     // Compute alpha tensors
-    let mut src_tensor = compute_alpha_tensor(src_locs.len(), &src_edges, &src_weights, &src_pins);
-    let mut map_tensor = compute_alpha_tensor(map_locs.len(), &map_edges, &map_weights, &map_pins);
+    let src_tensor = compute_alpha_tensor(src_locs.len(), &src_edges, &src_weights, &src_pins);
+    let map_tensor = compute_alpha_tensor(map_locs.len(), &map_edges, &map_weights, &map_pins);
 
     // Julia doesn't use mis_compactify for weighted gadgets - it just checks that
     // the maximum entries are in the same positions and differ by a constant.

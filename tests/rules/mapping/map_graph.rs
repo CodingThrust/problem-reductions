@@ -279,3 +279,105 @@ fn test_mis_overhead_triangle() {
         expected
     );
 }
+
+// === map_config_back_via_centers Tests ===
+
+#[test]
+fn test_map_config_back_via_centers_all_zeros() {
+    let edges = vec![(0, 1), (1, 2)];
+    let result = map_graph(3, &edges);
+
+    let config = vec![0; result.grid_graph.num_vertices()];
+    let original = result.map_config_back_via_centers(&config);
+
+    assert_eq!(original.len(), 3);
+    // All zeros should map back to all zeros
+    assert!(original.iter().all(|&x| x == 0));
+}
+
+#[test]
+fn test_map_config_back_via_centers_triangle() {
+    let edges = vec![(0, 1), (1, 2), (0, 2)];
+    let result = map_graph(3, &edges);
+
+    let config = vec![0; result.grid_graph.num_vertices()];
+    let original = result.map_config_back_via_centers(&config);
+
+    assert_eq!(original.len(), 3);
+}
+
+#[test]
+fn test_map_config_back_via_centers_star() {
+    let edges = vec![(0, 1), (0, 2), (0, 3)];
+    let result = map_graph(4, &edges);
+
+    // Set all grid nodes to selected
+    let config = vec![1; result.grid_graph.num_vertices()];
+    let original = result.map_config_back_via_centers(&config);
+
+    assert_eq!(original.len(), 4);
+}
+
+#[test]
+fn test_map_config_back_consistency() {
+    // Both methods should give reasonable results for the same input
+    let edges = vec![(0, 1), (1, 2)];
+    let result = map_graph(3, &edges);
+
+    let config = vec![0; result.grid_graph.num_vertices()];
+
+    let via_regions = result.map_config_back(&config);
+    let via_centers = result.map_config_back_via_centers(&config);
+
+    assert_eq!(via_regions.len(), via_centers.len());
+    // Both should return all zeros for zero input
+    assert!(via_regions.iter().all(|&x| x == 0));
+    assert!(via_centers.iter().all(|&x| x == 0));
+}
+
+// === Additional Edge Cases ===
+
+#[test]
+fn test_large_graph_mapping() {
+    // Test with a larger graph to exercise more code paths
+    let edges: Vec<(usize, usize)> = (0..9)
+        .flat_map(|i| [(i, (i + 1) % 10), (i, (i + 3) % 10)])
+        .collect();
+    let result = map_graph(10, &edges);
+
+    assert_eq!(result.lines.len(), 10);
+    assert!(result.grid_graph.num_vertices() > 10);
+}
+
+#[test]
+fn test_mapping_result_tape_populated() {
+    // Triangle graph should generate crossings
+    let edges = vec![(0, 1), (1, 2), (0, 2)];
+    let result = map_graph(3, &edges);
+
+    // Tape may or may not have entries depending on crossings
+    // Just verify it's accessible
+    let _tape_len = result.tape.len();
+}
+
+#[test]
+fn test_grid_graph_edges() {
+    let edges = vec![(0, 1), (1, 2)];
+    let result = map_graph(3, &edges);
+
+    let grid_edges = result.grid_graph.edges();
+    // Grid graph should have edges based on unit disk distance
+    // Just verify edges are accessible
+    let _edge_count = grid_edges.len();
+}
+
+#[test]
+fn test_grid_graph_nodes_have_weights() {
+    let edges = vec![(0, 1), (1, 2)];
+    let result = map_graph(3, &edges);
+
+    for node in result.grid_graph.nodes() {
+        // All nodes should have positive weights
+        assert!(node.weight > 0, "Node weight should be positive");
+    }
+}

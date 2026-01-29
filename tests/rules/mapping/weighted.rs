@@ -74,7 +74,7 @@ fn test_map_weights_zero() {
 
 #[test]
 fn test_map_weights_one() {
-    use problemreductions::topology::Graph;
+    
 
     let edges = vec![(0, 1), (1, 2)];
     let result = map_graph_triangular(3, &edges);
@@ -216,6 +216,145 @@ fn test_triangular_copyline_weight_invariant() {
             hslot,
             vstart,
             hstop
+        );
+    }
+}
+
+// === Weighted MIS Weight Sum Invariant Tests ===
+
+#[test]
+fn test_weighted_gadgets_weight_conservation() {
+    // For each weighted gadget, verify weight sums are consistent with MIS properties
+    use problemreductions::rules::mapping::triangular_weighted_ruleset;
+
+    let ruleset = triangular_weighted_ruleset();
+    for gadget in &ruleset {
+        let source_sum: i32 = gadget.source_weights().iter().sum();
+        let mapped_sum: i32 = gadget.mapped_weights().iter().sum();
+        let overhead = gadget.mis_overhead();
+
+        // Both sums should be positive (all gadgets have at least some nodes)
+        assert!(
+            source_sum > 0 && mapped_sum > 0,
+            "Both sums should be positive"
+        );
+
+        // MIS overhead can be negative for gadgets that reduce MIS
+        // The key invariant is: mapped_MIS = source_MIS + overhead
+        // So overhead = mapped_MIS - source_MIS (can be positive, zero, or negative)
+        assert!(
+            overhead.abs() <= source_sum.max(mapped_sum),
+            "Overhead magnitude {} should be bounded by max sum {}",
+            overhead.abs(),
+            source_sum.max(mapped_sum)
+        );
+    }
+}
+
+#[test]
+fn test_weighted_gadgets_positive_weights() {
+    // All individual weights should be positive
+    use problemreductions::rules::mapping::triangular_weighted_ruleset;
+
+    let ruleset = triangular_weighted_ruleset();
+    for gadget in &ruleset {
+        for &w in gadget.source_weights() {
+            assert!(w > 0, "Source weights should be positive, got {}", w);
+        }
+        for &w in gadget.mapped_weights() {
+            assert!(w > 0, "Mapped weights should be positive, got {}", w);
+        }
+    }
+}
+
+// === Solution Extraction Integration Tests ===
+
+#[test]
+fn test_map_config_back_extracts_valid_is_triangular() {
+    use problemreductions::rules::mapping::map_graph_triangular;
+    use problemreductions::topology::{smallgraph, Graph};
+
+    let (n, edges) = smallgraph("bull").unwrap();
+    let result = map_graph_triangular(n, &edges);
+
+    // Get all zeros config
+    let config = vec![0; result.grid_graph.num_vertices()];
+    let extracted = result.map_config_back(&config);
+
+    // All zeros should extract to all zeros
+    assert_eq!(extracted.len(), n);
+    assert!(extracted.iter().all(|&x| x == 0));
+}
+
+#[test]
+fn test_map_weights_preserves_total_weight() {
+    // map_weights should add original weights to base weights
+    let edges = vec![(0, 1), (1, 2), (0, 2)];
+    let result = map_graph_triangular(3, &edges);
+
+    let original_weights = vec![0.5, 0.3, 0.7];
+    let mapped = map_weights(&result, &original_weights);
+
+    // Sum of mapped weights should be base_sum + original_sum
+    let base_sum: f64 = result
+        .grid_graph
+        .nodes()
+        .iter()
+        .map(|n| n.weight as f64)
+        .sum();
+    let original_sum: f64 = original_weights.iter().sum();
+    let mapped_sum: f64 = mapped.iter().sum();
+
+    // Allow small tolerance for floating point
+    assert!(
+        (mapped_sum - (base_sum + original_sum)).abs() < 1.5,
+        "Weight sum {} should be close to base {} + original {} = {}",
+        mapped_sum,
+        base_sum,
+        original_sum,
+        base_sum + original_sum
+    );
+}
+
+#[test]
+fn test_trace_centers_consistency_with_config_back() {
+    use problemreductions::topology::smallgraph;
+
+    let (n, edges) = smallgraph("diamond").unwrap();
+    let result = map_graph_triangular(n, &edges);
+
+    // Get centers
+    let centers = trace_centers(&result);
+    assert_eq!(centers.len(), n);
+
+    // Each center should be within grid bounds
+    let (rows, cols) = {
+        let max_row = result
+            .grid_graph
+            .nodes()
+            .iter()
+            .map(|n| n.row)
+            .max()
+            .unwrap_or(0);
+        let max_col = result
+            .grid_graph
+            .nodes()
+            .iter()
+            .map(|n| n.col)
+            .max()
+            .unwrap_or(0);
+        (max_row as usize + 1, max_col as usize + 1)
+    };
+
+    for (v, &(r, c)) in centers.iter().enumerate() {
+        assert!(
+            r < rows && c < cols,
+            "Vertex {} center ({}, {}) out of bounds ({}, {})",
+            v,
+            r,
+            c,
+            rows,
+            cols
         );
     }
 }

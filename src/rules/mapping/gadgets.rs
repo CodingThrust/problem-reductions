@@ -22,6 +22,7 @@ pub enum PatternCell {
 
 
 /// A gadget pattern that transforms source configurations to mapped configurations.
+#[allow(clippy::type_complexity)]
 pub trait Pattern: Clone + std::fmt::Debug {
     /// Size of the gadget pattern (rows, cols).
     fn size(&self) -> (usize, usize);
@@ -123,6 +124,7 @@ pub trait Pattern: Clone + std::fmt::Debug {
 ///
 /// Note: Connected cells are treated as Occupied for matching purposes,
 /// since they represent occupied cells with edge markers.
+#[allow(clippy::needless_range_loop)]
 pub fn pattern_matches<P: Pattern>(pattern: &P, grid: &MappingGrid, i: usize, j: usize) -> bool {
     let source = pattern.source_matrix();
     let (m, n) = pattern.size();
@@ -148,7 +150,7 @@ pub fn pattern_matches<P: Pattern>(pattern: &P, grid: &MappingGrid, i: usize, j:
 }
 
 /// Check if unmapped pattern matches (for unapply verification).
-#[allow(dead_code)]
+#[allow(dead_code, clippy::needless_range_loop)]
 pub fn pattern_unmatches<P: Pattern>(pattern: &P, grid: &MappingGrid, i: usize, j: usize) -> bool {
     let mapped = pattern.mapped_matrix();
     let (m, n) = pattern.size();
@@ -184,6 +186,7 @@ fn safe_get_pattern_cell(grid: &MappingGrid, row: usize, col: usize) -> PatternC
 }
 
 /// Apply a gadget pattern at position (i, j).
+#[allow(clippy::needless_range_loop)]
 pub fn apply_gadget<P: Pattern>(pattern: &P, grid: &mut MappingGrid, i: usize, j: usize) {
     let mapped = pattern.mapped_matrix();
     let (m, n) = pattern.size();
@@ -206,6 +209,7 @@ pub fn apply_gadget<P: Pattern>(pattern: &P, grid: &mut MappingGrid, i: usize, j
 }
 
 /// Unapply a gadget pattern at position (i, j).
+#[allow(clippy::needless_range_loop)]
 pub fn unapply_gadget<P: Pattern>(pattern: &P, grid: &mut MappingGrid, i: usize, j: usize) {
     let source = pattern.source_matrix();
     let (m, n) = pattern.size();
@@ -454,9 +458,7 @@ impl Pattern for Cross<false> {
         );
         // Fill others with reasonable defaults
         for i in [1, 3, 5, 6, 7, 8, 10, 12, 14, 15] {
-            if !map.contains_key(&i) {
-                map.insert(i, vec![]);
-            }
+            map.entry(i).or_insert_with(std::vec::Vec::new);
         }
         map
     }
@@ -1735,6 +1737,7 @@ impl<P: Pattern> PatternBoxed for P {
     }
 }
 
+#[allow(clippy::needless_range_loop)]
 fn pattern_matches_boxed(pattern: &dyn PatternBoxed, grid: &MappingGrid, i: usize, j: usize) -> bool {
     let source = pattern.source_matrix();
     let (m, n) = pattern.size();
@@ -1755,6 +1758,7 @@ fn pattern_matches_boxed(pattern: &dyn PatternBoxed, grid: &MappingGrid, i: usiz
     true
 }
 
+#[allow(clippy::needless_range_loop)]
 fn apply_gadget_boxed(pattern: &dyn PatternBoxed, grid: &mut MappingGrid, i: usize, j: usize) {
     let mapped = pattern.mapped_matrix();
     let (m, n) = pattern.size();
@@ -2263,6 +2267,7 @@ mod tests {
     }
 
     #[test]
+    #[allow(clippy::type_complexity)]
     fn test_source_entry_to_configs_all_gadgets() {
         // Verify all gadgets have valid config mappings
         let gadgets: Vec<Box<dyn Fn() -> std::collections::HashMap<usize, Vec<Vec<bool>>>>> = vec![
@@ -2295,7 +2300,7 @@ mod tests {
         assert_eq!(matrix[0].len(), 3);
 
         // Connected gadget should have Connected cells
-        let has_connected = matrix.iter().any(|row| row.iter().any(|&c| c == PatternCell::Connected));
+        let has_connected = matrix.iter().any(|row| row.contains(&PatternCell::Connected));
         assert!(has_connected);
     }
 

@@ -7,7 +7,7 @@
 //! - docs/paper/petersen_square.json - Mapping to square lattice (King's subgraph)
 //! - docs/paper/petersen_triangular.json - Mapping to triangular lattice
 
-use problemreductions::rules::mapping::{map_graph, map_graph_triangular, CopyLine, MappingResult};
+use problemreductions::rules::mapping::{map_graph, map_graph_triangular, MappingResult};
 use problemreductions::topology::{Graph, GridGraph, GridNode, GridType};
 use serde::Serialize;
 use std::fs;

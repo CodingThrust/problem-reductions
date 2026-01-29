@@ -109,7 +109,7 @@ fn test_mapping_result_has_copylines() {
     assert_eq!(result.lines.len(), 3);
 
     // Each vertex should have exactly one copy line
-    let mut found = vec![false; 3];
+    let mut found = [false; 3];
     for line in &result.lines {
         found[line.vertex] = true;
     }

@@ -65,6 +65,7 @@ pub enum SourceCell {
 /// Note: source_graph returns explicit edges (like Julia's simplegraph),
 /// while mapped_graph locations should use unit disk edges.
 #[allow(dead_code)]
+#[allow(clippy::type_complexity)]
 pub trait TriangularGadget {
     fn size(&self) -> (usize, usize);
     fn cross_location(&self) -> (usize, usize);
@@ -853,6 +854,7 @@ impl TriangularGadget for TriBranchFixB {
 
 /// Check if a triangular gadget pattern matches at position (i, j) in the grid.
 /// i, j are 0-indexed row/col offsets.
+#[allow(clippy::needless_range_loop)]
 fn pattern_matches_triangular<G: TriangularGadget>(
     gadget: &G,
     grid: &MappingGrid,
@@ -898,6 +900,7 @@ fn pattern_matches_triangular<G: TriangularGadget>(
 }
 
 /// Apply a triangular gadget pattern at position (i, j).
+#[allow(clippy::needless_range_loop)]
 fn apply_triangular_gadget<G: TriangularGadget>(
     gadget: &G,
     grid: &mut MappingGrid,
@@ -1047,7 +1050,8 @@ pub fn triangular_tape_entry_mis_overhead(entry: &TriangularTapeEntry) -> i32 {
 /// The weighted DanglingLeg pattern matches 3 nodes in a line where:
 /// - The end node (closest to center) has weight 1
 /// - The other two nodes have weight 2
-/// After simplification, only 1 node remains with weight 1.
+///   After simplification, only 1 node remains with weight 1.
+#[allow(dead_code)]
 pub fn apply_triangular_simplifier_gadgets(
     grid: &mut MappingGrid,
     nrepeat: usize,
@@ -1109,6 +1113,7 @@ pub fn apply_triangular_simplifier_gadgets(
 ///   ⋅ @ ⋅    <- row i+2: empty, occupied(w=2), empty
 ///   ⋅ @ ⋅    <- row i+3: empty, occupied(w=2), empty
 /// After: only node at (i+3, j+1) remains with weight 1
+#[allow(dead_code)]
 fn try_apply_dangling_leg_down(grid: &mut MappingGrid, i: usize, j: usize) -> bool {
     use super::grid::CellState;
 
@@ -1126,7 +1131,7 @@ fn try_apply_dangling_leg_down(grid: &mut MappingGrid, i: usize, j: usize) -> bo
 
     // Helper to check if cell has specific weight
     let has_weight = |row: usize, col: usize, w: i32| -> bool {
-        grid.get(row, col).map_or(false, |c| c.weight() == w)
+        grid.get(row, col).is_some_and(|c| c.weight() == w)
     };
 
     // Row i (row 1 of pattern): all 3 cells must be empty
@@ -1164,6 +1169,7 @@ fn try_apply_dangling_leg_down(grid: &mut MappingGrid, i: usize, j: usize) -> bo
 ///   ⋅ o ⋅    <- row i+2: empty, occupied(w=1), empty [dangling end]
 ///   ⋅ ⋅ ⋅    <- row i+3: empty, empty, empty
 /// After: only node at (i, j+1) remains with weight 1
+#[allow(dead_code)]
 fn try_apply_dangling_leg_up(grid: &mut MappingGrid, i: usize, j: usize) -> bool {
     use super::grid::CellState;
 
@@ -1179,7 +1185,7 @@ fn try_apply_dangling_leg_up(grid: &mut MappingGrid, i: usize, j: usize) -> bool
     };
 
     let has_weight = |row: usize, col: usize, w: i32| -> bool {
-        grid.get(row, col).map_or(false, |c| c.weight() == w)
+        grid.get(row, col).is_some_and(|c| c.weight() == w)
     };
 
     // Row i: empty, occupied(w=2), empty
@@ -1216,6 +1222,7 @@ fn try_apply_dangling_leg_up(grid: &mut MappingGrid, i: usize, j: usize) -> bool
 ///   @ @ o ⋅    <- row i+1: occupied(w=2), occupied(w=2), occupied(w=1), empty
 ///   ⋅ ⋅ ⋅ ⋅    <- row i+2: all empty
 /// After: only node at (i+1, j) remains with weight 1
+#[allow(dead_code)]
 fn try_apply_dangling_leg_right(grid: &mut MappingGrid, i: usize, j: usize) -> bool {
     use super::grid::CellState;
 
@@ -1231,7 +1238,7 @@ fn try_apply_dangling_leg_right(grid: &mut MappingGrid, i: usize, j: usize) -> b
     };
 
     let has_weight = |row: usize, col: usize, w: i32| -> bool {
-        grid.get(row, col).map_or(false, |c| c.weight() == w)
+        grid.get(row, col).is_some_and(|c| c.weight() == w)
     };
 
     // Row i: all 4 cells must be empty
@@ -1263,6 +1270,7 @@ fn try_apply_dangling_leg_right(grid: &mut MappingGrid, i: usize, j: usize) -> b
 ///   ⋅ o @ @    <- row i+1: empty, occupied(w=1), occupied(w=2), occupied(w=2)
 ///   ⋅ ⋅ ⋅ ⋅    <- row i+2: all empty
 /// After: only node at (i+1, j+3) remains with weight 1
+#[allow(dead_code)]
 fn try_apply_dangling_leg_left(grid: &mut MappingGrid, i: usize, j: usize) -> bool {
     use super::grid::CellState;
 
@@ -1278,7 +1286,7 @@ fn try_apply_dangling_leg_left(grid: &mut MappingGrid, i: usize, j: usize) -> bo
     };
 
     let has_weight = |row: usize, col: usize, w: i32| -> bool {
-        grid.get(row, col).map_or(false, |c| c.weight() == w)
+        grid.get(row, col).is_some_and(|c| c.weight() == w)
     };
 
     // Row i: all 4 cells must be empty
