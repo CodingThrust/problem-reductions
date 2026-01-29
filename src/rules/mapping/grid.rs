@@ -370,7 +370,7 @@ mod tests {
         let grid = MappingGrid::new(20, 20, 4);
         // Julia's crossat uses larger position for col calculation
         let (row, col) = grid.cross_at(1, 3, 2);
-        assert_eq!(row, (2 - 1) * 4 + 2 + 2); // (hslot - 1) * spacing + 2 + padding
+        assert_eq!(row, 4 + 2 + 2); // (hslot - 1) * spacing + 2 + padding
         assert_eq!(col, (3 - 1) * 4 + 1 + 2); // (larger_vslot - 1) * spacing + 1 + padding
 
         let (row2, col2) = grid.cross_at(3, 1, 2);

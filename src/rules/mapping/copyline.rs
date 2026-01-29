@@ -474,7 +474,7 @@ pub fn copyline_weighted_locations_triangular(
     if has_right {
         let full_len = (line.hstop - line.vslot) * spacing;
         // Julia starts at J+2 and ends at stop, so we skip 2 positions
-        let len = if full_len >= 2 { full_len - 2 } else { 0 };
+        let len = full_len.saturating_sub(2);
         let offset = locs.len();
         for i in 0..len {
             locs.push((offset, 2 + i));

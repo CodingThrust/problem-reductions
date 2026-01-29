@@ -236,13 +236,11 @@ impl MappingResult {
 
                 let s = if has_node {
                     if is_selected { "●" } else { "○" }
+                } else if is_selected {
+                    // Julia would error here, but we just ignore
+                    "⋅"
                 } else {
-                    if is_selected {
-                        // Julia would error here, but we just ignore
-                        "⋅"
-                    } else {
-                        "⋅"
-                    }
+                    "⋅"
                 };
                 line.push_str(s);
                 line.push(' ');
