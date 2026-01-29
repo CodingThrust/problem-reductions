@@ -168,8 +168,9 @@ impl MappingGrid {
         debug_assert!(v_slot >= 1, "v_slot must be >= 1 (1-indexed)");
         debug_assert!(w_slot >= 1, "w_slot must be >= 1 (1-indexed)");
         let larger_slot = v_slot.max(w_slot);
-        let row = (h_slot - 1) * self.spacing + 2 + self.padding;
-        let col = (larger_slot - 1) * self.spacing + 1 + self.padding;
+        // Use saturating_sub to prevent underflow in release mode (slots are 1-indexed)
+        let row = h_slot.saturating_sub(1) * self.spacing + 2 + self.padding;
+        let col = larger_slot.saturating_sub(1) * self.spacing + 1 + self.padding;
         (row, col)
     }
 
