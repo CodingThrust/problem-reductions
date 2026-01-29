@@ -37,6 +37,7 @@
 //! - `map_graph`: Main mapping functions for square lattices
 //! - `triangular`: Mapping functions for triangular lattices
 
+pub mod alpha_tensor;
 mod copyline;
 mod gadgets;
 mod grid;

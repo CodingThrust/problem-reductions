@@ -185,21 +185,18 @@ impl CopyLine {
             }
         }
 
-        // Grow right: from J+2 to stop (INCLUDES endpoint for triangular mode)
-        // Julia formula: hstop_J = J + spacing * (hstop - vslot)
-        let stop_col = j + spacing * (self.hstop as isize - self.vslot as isize);
+        // Grow right: from J+2 to stop (inclusive)
+        // Julia formula: stop = J + col_s*(hstop-vslot) - 1
+        let stop_col = j + spacing * (self.hstop as isize - self.vslot as isize) - 1;
         if self.hstop > self.vslot {
             nline += 1;
         }
-        // Loop from J+2 to stop_col-1 with weight 2
-        for col in (j + 2)..stop_col {
+        // Loop from J+2 to stop_col inclusive, weight 1 on last node
+        for col in (j + 2)..=stop_col {
             if col >= 0 {
-                locs.push((i as usize, col as usize, 2));
+                let weight = if col != stop_col { 2 } else { 1 };
+                locs.push((i as usize, col as usize, weight));
             }
-        }
-        // Add endpoint with weight 1
-        if stop_col > j + 1 && stop_col >= 0 {
-            locs.push((i as usize, stop_col as usize, 1));
         }
 
         // Center node at (I, J+1) - always at least weight 1
@@ -466,9 +463,12 @@ pub fn copyline_weighted_locations_triangular(
     }
 
     // Rightward segment: from vslot to hstop
-    // Length = (hstop - vslot) * spacing
+    // Julia: for j=J+2:stop where stop = J + col_s*(hstop-vslot) - 1
+    // Length = max((hstop - vslot) * spacing - 2, 0)
     if has_right {
-        let len = (line.hstop - line.vslot) * spacing;
+        let full_len = (line.hstop - line.vslot) * spacing;
+        // Julia starts at J+2 and ends at stop, so we skip 2 positions
+        let len = if full_len >= 2 { full_len - 2 } else { 0 };
         let offset = locs.len();
         for i in 0..len {
             locs.push((offset, 2 + i));
@@ -488,7 +488,7 @@ pub fn copyline_weighted_locations_triangular(
 }
 
 /// Calculate MIS overhead for a copy line in triangular mode.
-/// This matches Julia's `mis_overhead_copyline(TriangularWeighted(), ...)`.
+/// This uses the weight-sum formula that matches the actual grid construction.
 pub fn mis_overhead_copyline_triangular(line: &CopyLine, spacing: usize) -> i32 {
     let (_, weights) = copyline_weighted_locations_triangular(line, spacing);
     let sum: i32 = weights.iter().sum();

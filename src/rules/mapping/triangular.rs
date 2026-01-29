@@ -50,6 +50,14 @@ fn crossat_triangular(
     (row, col)
 }
 
+/// Cell type for source matrix pattern matching.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum SourceCell {
+    Empty,
+    Occupied,
+    Connected,
+}
+
 /// Trait for triangular lattice gadgets (simplified interface).
 ///
 /// Note: source_graph returns explicit edges (like Julia's simplegraph),
@@ -65,14 +73,45 @@ pub trait TriangularGadget {
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>);
     fn mis_overhead(&self) -> i32;
 
+    /// Returns 1-indexed node indices that should be Connected (matching Julia).
+    fn connected_nodes(&self) -> Vec<usize> {
+        vec![]
+    }
+
+    /// Returns source node weights. Default is weight 2 for all nodes.
+    fn source_weights(&self) -> Vec<i32> {
+        let (locs, _, _) = self.source_graph();
+        vec![2; locs.len()]
+    }
+
+    /// Returns mapped node weights. Default is weight 2 for all nodes.
+    fn mapped_weights(&self) -> Vec<i32> {
+        let (locs, _) = self.mapped_graph();
+        vec![2; locs.len()]
+    }
+
     /// Generate source matrix for pattern matching.
-    fn source_matrix(&self) -> Vec<Vec<bool>> {
+    /// Returns SourceCell::Connected for nodes in connected_nodes() when is_connected() is true.
+    fn source_matrix(&self) -> Vec<Vec<SourceCell>> {
         let (rows, cols) = self.size();
         let (locs, _, _) = self.source_graph();
-        let mut matrix = vec![vec![false; cols]; rows];
-        for (r, c) in locs {
-            if r > 0 && c > 0 && r <= rows && c <= cols {
-                matrix[r - 1][c - 1] = true;
+        let mut matrix = vec![vec![SourceCell::Empty; cols]; rows];
+
+        // Build set of connected node indices (1-indexed in Julia)
+        let connected_set: std::collections::HashSet<usize> = if self.is_connected() {
+            self.connected_nodes().into_iter().collect()
+        } else {
+            std::collections::HashSet::new()
+        };
+
+        for (idx, (r, c)) in locs.iter().enumerate() {
+            if *r > 0 && *c > 0 && *r <= rows && *c <= cols {
+                let cell_type = if connected_set.contains(&(idx + 1)) {
+                    SourceCell::Connected
+                } else {
+                    SourceCell::Occupied
+                };
+                matrix[r - 1][c - 1] = cell_type;
             }
         }
         matrix
@@ -164,6 +203,16 @@ impl TriangularGadget for TriCross<true> {
     fn mis_overhead(&self) -> i32 {
         1
     }
+
+    fn connected_nodes(&self) -> Vec<usize> {
+        // Julia: connected_nodes(::TriCross{true}) = [1,5]
+        vec![1, 5]
+    }
+
+    fn mapped_weights(&self) -> Vec<i32> {
+        // Julia: mw = [3,2,3,3,2,2,2,2,2,2,2]
+        vec![3, 2, 3, 3, 2, 2, 2, 2, 2, 2, 2]
+    }
 }
 
 impl TriangularGadget for TriCross<false> {
@@ -241,6 +290,11 @@ impl TriangularGadget for TriCross<false> {
 
     fn mis_overhead(&self) -> i32 {
         3
+    }
+
+    fn mapped_weights(&self) -> Vec<i32> {
+        // Julia: mw = [3,3,2,4,2,2,2,4,3,2,2,2,2,2,2,2]
+        vec![3, 3, 2, 4, 2, 2, 2, 4, 3, 2, 2, 2, 2, 2, 2, 2]
     }
 }
 
@@ -398,7 +452,23 @@ impl TriangularGadget for TriTConLeft {
     }
 
     fn mis_overhead(&self) -> i32 {
+        // Julia: mis_overhead(::TriTCon_left) = 4
         4
+    }
+
+    fn connected_nodes(&self) -> Vec<usize> {
+        // Julia: connected_nodes(::TriTCon_left) = [1, 2]
+        vec![1, 2]
+    }
+
+    fn source_weights(&self) -> Vec<i32> {
+        // Julia: sw = [2,1,2,2,2,2,2]
+        vec![2, 1, 2, 2, 2, 2, 2]
+    }
+
+    fn mapped_weights(&self) -> Vec<i32> {
+        // Julia: mw = [3,2,3,3,1,3,2,2,2,2,2]
+        vec![3, 2, 3, 3, 1, 3, 2, 2, 2, 2, 2]
     }
 }
 
@@ -511,6 +581,11 @@ impl TriangularGadget for TriTrivialTurnLeft {
     fn mis_overhead(&self) -> i32 {
         0
     }
+
+    fn mapped_weights(&self) -> Vec<i32> {
+        // Julia: m1 = [1, 2] for TrivialTurn, both nodes have weight 1
+        vec![1, 1]
+    }
 }
 
 /// Triangular trivial turn right gadget.
@@ -545,6 +620,11 @@ impl TriangularGadget for TriTrivialTurnRight {
 
     fn mis_overhead(&self) -> i32 {
         0
+    }
+
+    fn mapped_weights(&self) -> Vec<i32> {
+        // Julia: m1 = [1, 2] for TrivialTurn, both nodes have weight 1
+        vec![1, 1]
     }
 }
 
@@ -582,6 +662,11 @@ impl TriangularGadget for TriEndTurn {
 
     fn mis_overhead(&self) -> i32 {
         -2
+    }
+
+    fn mapped_weights(&self) -> Vec<i32> {
+        // Julia: m1 = [1] for EndTurn, first mapped node has weight 1
+        vec![1]
     }
 }
 
@@ -697,6 +782,11 @@ impl TriangularGadget for TriBranchFixB {
     fn mis_overhead(&self) -> i32 {
         -2
     }
+
+    fn mapped_weights(&self) -> Vec<i32> {
+        // Julia: m1 = [1] for BranchFixB, meaning first mapped node has weight 1
+        vec![1, 2]
+    }
 }
 
 /// Check if a triangular gadget pattern matches at position (i, j) in the grid.
@@ -707,6 +797,8 @@ fn pattern_matches_triangular<G: TriangularGadget>(
     i: usize,
     j: usize,
 ) -> bool {
+    use super::grid::CellState;
+
     let source = gadget.source_matrix();
     let (m, n) = gadget.size();
 
@@ -714,14 +806,29 @@ fn pattern_matches_triangular<G: TriangularGadget>(
         for c in 0..n {
             let grid_r = i + r;
             let grid_c = j + c;
-            let expected_occupied = source[r][c];
-            let actual_occupied = grid
-                .get(grid_r, grid_c)
-                .map(|cell| !cell.is_empty())
-                .unwrap_or(false);
+            let expected = source[r][c];
+            let actual = grid.get(grid_r, grid_c);
 
-            if expected_occupied != actual_occupied {
-                return false;
+            match expected {
+                SourceCell::Empty => {
+                    // Grid cell should be empty
+                    if actual.map(|c| !c.is_empty()).unwrap_or(false) {
+                        return false;
+                    }
+                }
+                SourceCell::Occupied => {
+                    // Grid cell should be occupied (but not necessarily connected)
+                    if !actual.map(|c| !c.is_empty()).unwrap_or(false) {
+                        return false;
+                    }
+                }
+                SourceCell::Connected => {
+                    // Grid cell should be Connected specifically
+                    match actual {
+                        Some(CellState::Connected { .. }) => {}
+                        _ => return false,
+                    }
+                }
             }
         }
     }
@@ -738,24 +845,24 @@ fn apply_triangular_gadget<G: TriangularGadget>(
     use super::grid::CellState;
 
     let source = gadget.source_matrix();
-    let mapped = gadget.mapped_matrix();
     let (m, n) = gadget.size();
 
-    // First, clear source pattern cells
+    // First, clear source pattern cells (any non-empty cell)
     for r in 0..m {
         for c in 0..n {
-            if source[r][c] {
+            if source[r][c] != SourceCell::Empty {
                 grid.set(i + r, j + c, CellState::Empty);
             }
         }
     }
 
-    // Then, add mapped pattern cells
-    for r in 0..m {
-        for c in 0..n {
-            if mapped[r][c] {
-                grid.add_node(i + r, j + c, 1);
-            }
+    // Then, add mapped pattern cells with proper weights
+    let (locs, _) = gadget.mapped_graph();
+    let weights = gadget.mapped_weights();
+    for (idx, (r, c)) in locs.iter().enumerate() {
+        if *r > 0 && *c > 0 && *r <= m && *c <= n {
+            let weight = weights.get(idx).copied().unwrap_or(2);
+            grid.add_node(i + r - 1, j + c - 1, weight);
         }
     }
 }
@@ -826,8 +933,11 @@ fn try_match_triangular_gadget(
     }
 
     // Try gadgets in order (matching Julia's triangular_crossing_ruleset)
-    try_gadget!(TriCross::<false>, 0);
+    // TriCross<true> must be tried BEFORE TriCross<false> because it's more specific
+    // (requires Connected cells). If we try TriCross<false> first, it will match
+    // even when there are Connected cells since it doesn't check for them.
     try_gadget!(TriCross::<true>, 1);
+    try_gadget!(TriCross::<false>, 0);
     try_gadget!(TriTConLeft, 2);
     try_gadget!(TriTConUp, 3);
     try_gadget!(TriTConDown, 4);
@@ -899,18 +1009,20 @@ pub fn map_graph_triangular_with_order(
     let copylines = create_copylines(num_vertices, edges, vertex_order);
 
     // Calculate grid dimensions
+    // Julia formula: N = (n-1)*col_spacing + 2 + 2*padding
+    //                M = nrow*row_spacing + 2 + 2*padding
+    // where nrow = max(hslot, vstop) and n = num_vertices
     let max_hslot = copylines.iter().map(|l| l.hslot).max().unwrap_or(1);
-    let max_vslot = copylines.iter().map(|l| l.vslot).max().unwrap_or(1);
-    let max_hstop = copylines.iter().map(|l| l.hstop).max().unwrap_or(1);
     let max_vstop = copylines.iter().map(|l| l.vstop).max().unwrap_or(1);
 
     let rows = max_hslot.max(max_vstop) * spacing + 2 + 2 * padding;
-    let cols = max_vslot.max(max_hstop) * spacing + 2 + 2 * padding;
+    // Use (num_vertices - 1) for cols, matching Julia's (n-1) formula
+    let cols = (num_vertices - 1) * spacing + 2 + 2 * padding;
 
     let mut grid = MappingGrid::with_padding(rows, cols, spacing, padding);
 
-    // Add copy line nodes using triangular-specific dense locations
-    // (includes endpoint node for proper crossings)
+    // Add copy line nodes using triangular dense locations
+    // (includes the endpoint node for triangular weighted mode)
     for line in &copylines {
         for (row, col, weight) in line.dense_locations_triangular(padding, spacing) {
             grid.add_node(row, col, weight as i32);
@@ -944,12 +1056,11 @@ pub fn map_graph_triangular_with_order(
     // Apply crossing gadgets (iterates ALL pairs, not just edges)
     let triangular_tape = apply_triangular_crossing_gadgets(&mut grid, &copylines, spacing, padding);
 
-    // Calculate MIS overhead from copylines.
-    // For unweighted mode (nodes have weight 1), use length(locs) / 2.
-    // This matches Julia's mis_overhead_copyline for Unweighted mode.
+    // Calculate MIS overhead from copylines using the dedicated function
+    // which matches Julia's mis_overhead_copyline(TriangularWeighted(), ...)
     let copyline_overhead: i32 = copylines
         .iter()
-        .map(|line| (line.dense_locations_triangular(padding, spacing).len() / 2) as i32)
+        .map(|line| super::copyline::mis_overhead_copyline_triangular(line, spacing))
         .sum();
 
     // Add gadget overhead
