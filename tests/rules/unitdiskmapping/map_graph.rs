@@ -319,6 +319,50 @@ fn test_mis_overhead_tutte() {
     );
 }
 
+/// Test map_config_back for standard graphs - verifies:
+/// 1. Extracted config is a valid independent set
+/// 2. Extracted config size equals original MIS size
+///
+/// NOTE: This test is currently ignored because map_config_back has a bug
+/// that causes it to return all 1s for graphs larger than triangle. The
+/// unapply_gadgets function incorrectly adds nodes to copyline locations,
+/// resulting in all vertices being marked as selected. See debug_bull.rs
+/// for detailed investigation.
+#[test]
+#[ignore = "map_config_back bug: unapply_gadgets incorrectly modifies copyline locations"]
+fn test_map_config_back_standard_graphs() {
+    let graph_names = ["bull", "diamond", "house", "petersen", "cubical"];
+
+    for name in graph_names {
+        let (n, edges) = smallgraph(name).unwrap();
+        let result = map_graph(n, &edges);
+
+        // Solve MIS on mapped graph
+        let grid_edges = result.grid_graph.edges().to_vec();
+        let grid_config = solve_mis_config(result.grid_graph.num_vertices(), &grid_edges);
+
+        // Extract original config
+        let original_config = result.map_config_back(&grid_config);
+
+        // Verify it's a valid independent set
+        assert!(
+            is_independent_set(&edges, &original_config),
+            "{}: Extracted config should be a valid independent set",
+            name
+        );
+
+        // Verify size matches original MIS
+        let original_mis = solve_mis(n, &edges);
+        let extracted_size = original_config.iter().filter(|&&x| x > 0).count();
+
+        assert_eq!(
+            extracted_size, original_mis,
+            "{}: Extracted config size {} should equal original MIS size {}",
+            name, extracted_size, original_mis
+        );
+    }
+}
+
 // === map_config_back_via_centers Tests ===
 
 #[test]
