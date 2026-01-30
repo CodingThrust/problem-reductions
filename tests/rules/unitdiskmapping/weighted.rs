@@ -603,7 +603,14 @@ fn test_weighted_map_config_back_standard_graphs() {
     use problemreductions::solvers::ILPSolver;
     use problemreductions::topology::{smallgraph, Graph};
 
-    let graph_names = ["bull", "diamond", "house", "petersen"];
+    // All standard graphs (excluding tutte/karate which are slow)
+    let graph_names = [
+        "bull", "chvatal", "cubical", "desargues", "diamond",
+        "dodecahedral", "frucht", "heawood", "house", "housex",
+        "icosahedral", "krackhardtkite", "moebiuskantor", "octahedral",
+        "pappus", "petersen", "sedgewickmaze", "tetrahedral",
+        "truncatedcube", "truncatedtetrahedron",
+    ];
 
     for name in graph_names {
         let (n, edges) = smallgraph(name).unwrap();

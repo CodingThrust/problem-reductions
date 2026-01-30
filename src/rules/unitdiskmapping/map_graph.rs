@@ -211,8 +211,10 @@ impl fmt::Display for MappingResult {
 /// Extract original vertex configurations from copyline locations.
 /// Julia: `map_config_copyback!(ug, c)`
 ///
-/// For each copyline, count selected nodes and subtract overhead:
-/// `res[vertex] = count - (len(locs) / 2)`
+/// For each copyline, count selected nodes handling doubled cells specially:
+/// - For doubled cells (weight=2): count 1 if value is 2, or if value is 1 and both neighbors are 0
+/// - For regular cells: just add the value
+/// - Result is `count - (len(locs) / 2)`
 ///
 /// This works after gadgets have been unapplied, so copyline locations
 /// are intact in the config matrix.
@@ -226,19 +228,46 @@ pub fn map_config_copyback(
 
     for line in lines {
         let locs = line.copyline_locations(padding, spacing);
-        let mut count = 0usize;
+        let n = locs.len();
+        let mut count = 0i32;
 
-        for &(row, col, _weight) in &locs {
-            if let Some(&val) = config.get(row).and_then(|r| r.get(col)) {
-                count += val;
+        for (iloc, &(row, col, weight)) in locs.iter().enumerate() {
+            let ci = config.get(row).and_then(|r| r.get(col)).copied().unwrap_or(0);
+
+            if weight == 2 {
+                // Doubled cell - handle specially like Julia
+                if ci == 2 {
+                    count += 1;
+                } else if ci == 1 {
+                    // Check if both neighbors are 0
+                    let prev_zero = if iloc > 0 {
+                        let (pr, pc, _) = locs[iloc - 1];
+                        config.get(pr).and_then(|r| r.get(pc)).copied().unwrap_or(0) == 0
+                    } else {
+                        true
+                    };
+                    let next_zero = if iloc + 1 < n {
+                        let (nr, nc, _) = locs[iloc + 1];
+                        config.get(nr).and_then(|r| r.get(nc)).copied().unwrap_or(0) == 0
+                    } else {
+                        true
+                    };
+                    if prev_zero && next_zero {
+                        count += 1;
+                    }
+                }
+                // ci == 0: count += 0 (nothing)
+            } else if weight >= 1 {
+                // Regular non-empty cell
+                count += ci as i32;
             }
+            // weight == 0 or empty: skip (error in Julia, we just skip)
         }
 
         // Subtract overhead: MIS overhead for copyline is len/2
-        let overhead = locs.len() / 2;
-        // The result should be 0 or 1 (binary) for a valid IS
-        // If count > overhead, vertex is selected
-        result[line.vertex] = if count > overhead { 1 } else { 0 };
+        let overhead = (n / 2) as i32;
+        // Result is count - overhead, clamped to non-negative
+        result[line.vertex] = (count - overhead).max(0) as usize;
     }
 
     result

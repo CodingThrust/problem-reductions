@@ -341,9 +341,17 @@ fn test_trace_centers_triangle() {
 #[test]
 fn test_triangular_map_config_back_standard_graphs() {
     use super::common::{is_independent_set, solve_weighted_mis_config};
+    use problemreductions::rules::unitdiskmapping::map_graph_triangular;
     use problemreductions::topology::Graph;
 
-    let graph_names = ["bull", "diamond", "house", "petersen"];
+    // All standard graphs (excluding tutte/karate which are slow)
+    let graph_names = [
+        "bull", "chvatal", "cubical", "desargues", "diamond",
+        "dodecahedral", "frucht", "heawood", "house", "housex",
+        "icosahedral", "krackhardtkite", "moebiuskantor", "octahedral",
+        "pappus", "petersen", "sedgewickmaze", "tetrahedral",
+        "truncatedcube", "truncatedtetrahedron",
+    ];
 
     for name in graph_names {
         let (n, edges) = smallgraph(name).unwrap();
