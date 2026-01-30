@@ -8,8 +8,8 @@ use super::pathdecomposition::{pathwidth, vertex_order_from_layout, PathDecompos
 use crate::topology::{GridGraph, GridNode, GridType};
 use serde::{Deserialize, Serialize};
 
-const TRIANGULAR_SPACING: usize = 6;
-const TRIANGULAR_PADDING: usize = 2;
+pub const TRIANGULAR_SPACING: usize = 6;
+pub const TRIANGULAR_PADDING: usize = 2;
 // Use radius 1.1 to match Julia's TRIANGULAR_UNIT_RADIUS
 // For triangular lattice, physical positions use sqrt(3)/2 scaling for y
 const TRIANGULAR_UNIT_RADIUS: f64 = 1.1;
@@ -46,8 +46,9 @@ fn crossat_triangular(
     let hslot = line_first.hslot;
     let max_vslot = line_second.vslot;
 
-    let row = (hslot - 1) * spacing + 2 + padding;
-    let col = (max_vslot - 1) * spacing + 1 + padding;
+    // 0-indexed coordinates (subtract 1 from Julia's 1-indexed formula)
+    let row = (hslot - 1) * spacing + 1 + padding;  // 0-indexed
+    let col = (max_vslot - 1) * spacing + padding;  // 0-indexed
 
     (row, col)
 }
@@ -853,7 +854,7 @@ impl TriangularGadget for TriBranchFixB {
 }
 
 /// Check if a triangular gadget pattern matches at position (i, j) in the grid.
-/// i, j are 0-indexed row/col offsets.
+/// i, j are 0-indexed row/col offsets (pattern top-left corner).
 #[allow(clippy::needless_range_loop)]
 fn pattern_matches_triangular<G: TriangularGadget>(
     gadget: &G,
@@ -900,6 +901,7 @@ fn pattern_matches_triangular<G: TriangularGadget>(
 }
 
 /// Apply a triangular gadget pattern at position (i, j).
+/// i, j are 0-indexed row/col offsets (pattern top-left corner).
 #[allow(clippy::needless_range_loop)]
 fn apply_triangular_gadget<G: TriangularGadget>(
     gadget: &G,
@@ -922,11 +924,13 @@ fn apply_triangular_gadget<G: TriangularGadget>(
     }
 
     // Then, add mapped pattern cells with proper weights
+    // locs are 1-indexed within the pattern's bounding box
     let (locs, _) = gadget.mapped_graph();
     let weights = gadget.mapped_weights();
     for (idx, (r, c)) in locs.iter().enumerate() {
         if *r > 0 && *c > 0 && *r <= m && *c <= n {
             let weight = weights.get(idx).copied().unwrap_or(2);
+            // Convert 1-indexed pattern pos to 0-indexed grid pos
             grid.add_node(i + r - 1, j + c - 1, weight);
         }
     }
@@ -1019,6 +1023,9 @@ fn try_match_triangular_gadget(
 }
 
 /// Get MIS overhead for a triangular tape entry.
+/// For triangular mode, crossing gadgets use their native overhead,
+/// but simplifiers (DanglingLeg) use weighted overhead = unweighted * 2.
+/// Julia: mis_overhead(w::WeightedGadget) = mis_overhead(w.gadget) * 2
 pub fn triangular_tape_entry_mis_overhead(entry: &TriangularTapeEntry) -> i32 {
     match entry.gadget_idx {
         0 => TriCross::<false>.mis_overhead(),
@@ -1034,8 +1041,8 @@ pub fn triangular_tape_entry_mis_overhead(entry: &TriangularTapeEntry) -> i32 {
         10 => TriBranchFix.mis_overhead(),
         11 => TriBranchFixB.mis_overhead(),
         12 => TriBranch.mis_overhead(),
-        // Simplifier gadgets (100+)
-        idx if idx >= 100 => -1, // DanglingLeg has overhead -1
+        // Simplifier gadgets (100+): weighted overhead = -1 * 2 = -2
+        idx if idx >= 100 => -2,
         _ => 0,
     }
 }
@@ -1393,16 +1400,13 @@ pub fn map_graph_triangular_with_order(
     }
 
     // Apply crossing gadgets (iterates ALL pairs, not just edges)
-    let triangular_tape = apply_triangular_crossing_gadgets(&mut grid, &copylines, spacing, padding);
+    let mut triangular_tape = apply_triangular_crossing_gadgets(&mut grid, &copylines, spacing, padding);
 
-    // NOTE: Simplifier gadgets (DanglingLeg) are NOT applied in our triangular mode
-    // because our copyline structure differs from Julia's Weighted mode.
-    // Julia's simplifier patterns assume a different grid layout where:
-    // 1. Nodes are placed on a square grid with unit disk connections
-    // 2. DanglingLeg patterns only appear after crossing gadgets create isolated chains
-    //
-    // Our triangular mode uses triangular gadgets and has weight-1 endpoints at copyline
-    // ends that would incorrectly match the DanglingLeg pattern.
+    // Apply simplifier gadgets (weighted DanglingLeg pattern)
+    // Julia's triangular mode uses: weighted.(default_simplifier_ruleset(UnWeighted()))
+    // which applies the weighted DanglingLeg pattern to reduce grid complexity.
+    let simplifier_tape = apply_triangular_simplifier_gadgets(&mut grid, 10);
+    triangular_tape.extend(simplifier_tape);
 
     // Calculate MIS overhead from copylines using the dedicated function
     // which matches Julia's mis_overhead_copyline(TriangularWeighted(), ...)
@@ -1411,7 +1415,7 @@ pub fn map_graph_triangular_with_order(
         .map(|line| super::copyline::mis_overhead_copyline_triangular(line, spacing))
         .sum();
 
-    // Add gadget overhead
+    // Add gadget overhead (crossing gadgets + simplifiers)
     let gadget_overhead: i32 = triangular_tape
         .iter()
         .map(triangular_tape_entry_mis_overhead)

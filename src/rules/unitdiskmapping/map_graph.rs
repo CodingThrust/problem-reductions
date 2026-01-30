@@ -12,8 +12,13 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 
-const DEFAULT_SPACING: usize = 4;
-const DEFAULT_PADDING: usize = 2;
+/// Default spacing for square lattice mapping.
+pub const SQUARE_SPACING: usize = 4;
+/// Default padding for square lattice mapping.
+pub const SQUARE_PADDING: usize = 2;
+
+const DEFAULT_SPACING: usize = SQUARE_SPACING;
+const DEFAULT_PADDING: usize = SQUARE_PADDING;
 const SQUARE_UNIT_RADIUS: f64 = 1.5;
 
 /// Result of mapping a graph to a grid graph.

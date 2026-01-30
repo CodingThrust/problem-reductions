@@ -58,13 +58,18 @@ pub use gadgets::{
     TapeEntry, TrivialTurn, Turn, WTurn, SquarePattern,
 };
 pub use grid::{CellState, MappingGrid};
-pub use map_graph::{embed_graph, map_graph, map_graph_with_method, map_graph_with_order, MappingResult};
+pub use map_graph::{
+    embed_graph, map_graph, map_graph_with_method, map_graph_with_order, MappingResult,
+    SQUARE_SPACING, SQUARE_PADDING,
+};
 pub use pathdecomposition::{pathwidth, Layout, PathDecompositionMethod};
 pub use triangular::{
-    apply_triangular_crossing_gadgets, map_graph_triangular, map_graph_triangular_with_method,
+    apply_triangular_crossing_gadgets, apply_triangular_simplifier_gadgets,
+    map_graph_triangular, map_graph_triangular_with_method,
     map_graph_triangular_with_order, triangular_tape_entry_mis_overhead, TriangularGadget,
     TriangularTapeEntry, TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown,
     TriTConLeft, TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
+    TRIANGULAR_SPACING, TRIANGULAR_PADDING,
 };
 pub use weighted::{
     map_weights, trace_centers, triangular_weighted_ruleset, WeightedGadget,

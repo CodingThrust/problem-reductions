@@ -90,9 +90,9 @@ impl CopyLine {
         let mut locs = Vec::new();
         let mut nline = 0usize;
 
-        // Center location (I, J) - matches Julia's center_location
-        let i = (spacing * (self.hslot - 1) + padding + 2) as isize;
-        let j = (spacing * (self.vslot - 1) + padding + 1) as isize;
+        // Center location (I, J) - 0-indexed (Julia uses 1-indexed, so we subtract 1)
+        let i = (spacing * (self.hslot - 1) + padding + 1) as isize;  // 0-indexed
+        let j = (spacing * (self.vslot - 1) + padding) as isize;      // 0-indexed
         let spacing = spacing as isize;
 
         // Grow up: from I down to start
@@ -151,9 +151,9 @@ impl CopyLine {
         let mut locs = Vec::new();
         let mut nline = 0usize;
 
-        // Center location (I, J) - matches Julia's center_location
-        let i = (spacing * (self.hslot - 1) + padding + 2) as isize;
-        let j = (spacing * (self.vslot - 1) + padding + 1) as isize;
+        // Center location (I, J) - 0-indexed (Julia uses 1-indexed, so we subtract 1)
+        let i = (spacing * (self.hslot - 1) + padding + 1) as isize;  // 0-indexed
+        let j = (spacing * (self.vslot - 1) + padding) as isize;      // 0-indexed
         let spacing = spacing as isize;
 
         // Grow up: from I down to start
