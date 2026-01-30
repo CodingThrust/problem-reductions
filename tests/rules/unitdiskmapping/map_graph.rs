@@ -283,6 +283,42 @@ fn test_mis_overhead_triangle() {
     );
 }
 
+#[test]
+fn test_mis_overhead_cubical() {
+    let (n, edges) = smallgraph("cubical").unwrap();
+    let result = map_graph(n, &edges);
+
+    let original_mis = solve_mis(n, &edges) as i32;
+    let grid_edges = result.grid_graph.edges().to_vec();
+    let mapped_mis = solve_mis(result.grid_graph.num_vertices(), &grid_edges) as i32;
+
+    let expected = original_mis + result.mis_overhead;
+
+    assert_eq!(
+        mapped_mis, expected,
+        "Cubical: mapped MIS {} should equal original {} + overhead {} = {}",
+        mapped_mis, original_mis, result.mis_overhead, expected
+    );
+}
+
+#[test]
+fn test_mis_overhead_tutte() {
+    let (n, edges) = smallgraph("tutte").unwrap();
+    let result = map_graph(n, &edges);
+
+    let original_mis = solve_mis(n, &edges) as i32;
+    let grid_edges = result.grid_graph.edges().to_vec();
+    let mapped_mis = solve_mis(result.grid_graph.num_vertices(), &grid_edges) as i32;
+
+    let expected = original_mis + result.mis_overhead;
+
+    assert_eq!(
+        mapped_mis, expected,
+        "Tutte: mapped MIS {} should equal original {} + overhead {} = {}",
+        mapped_mis, original_mis, result.mis_overhead, expected
+    );
+}
+
 // === map_config_back_via_centers Tests ===
 
 #[test]
