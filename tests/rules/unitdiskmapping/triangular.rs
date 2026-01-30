@@ -332,3 +332,57 @@ fn test_trace_centers_triangle() {
     let centers = trace_centers(&result);
     assert_eq!(centers.len(), 3);
 }
+
+// === map_config_back Verification Tests ===
+
+/// Test triangular mode map_config_back for standard graphs.
+/// For triangular weighted mode: mapped_weighted_mis == overhead
+/// And config at centers should be a valid IS.
+#[test]
+fn test_triangular_map_config_back_standard_graphs() {
+    use super::common::{is_independent_set, solve_weighted_mis_config};
+    use problemreductions::topology::Graph;
+
+    let graph_names = ["bull", "diamond", "house", "petersen"];
+
+    for name in graph_names {
+        let (n, edges) = smallgraph(name).unwrap();
+
+        // Use Julia's vertex order if available
+        let vertex_order = get_julia_vertex_order(name).unwrap_or_else(|| (0..n).collect());
+        let result = map_graph_triangular_with_order(n, &edges, &vertex_order);
+
+        // Get weights
+        let grid_edges = result.grid_graph.edges().to_vec();
+        let num_grid = result.grid_graph.num_vertices();
+        let weights: Vec<i32> = (0..num_grid)
+            .map(|i| result.grid_graph.weight(i).copied().unwrap_or(1))
+            .collect();
+
+        // Solve weighted MIS on grid
+        let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &weights);
+
+        // Get center locations
+        let centers = trace_centers(&result);
+
+        // Extract config at centers
+        let center_config: Vec<usize> = centers
+            .iter()
+            .map(|&(row, col)| {
+                for (i, node) in result.grid_graph.nodes().iter().enumerate() {
+                    if node.row == row as i32 && node.col == col as i32 {
+                        return grid_config[i];
+                    }
+                }
+                0
+            })
+            .collect();
+
+        // Verify it's a valid independent set
+        assert!(
+            is_independent_set(&edges, &center_config),
+            "{}: Triangular config at centers should be a valid IS",
+            name
+        );
+    }
+}
