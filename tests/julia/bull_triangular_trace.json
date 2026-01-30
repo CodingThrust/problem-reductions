@@ -93,6 +93,379 @@
   "mis_selected_count": 0,
   "original_config": [],
   "padding": 2,
+  "grid_nodes_copylines_only": [
+    {
+      "row": 4,
+      "col": 4,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 5,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 6,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 7,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 8,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 9,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 10,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 11,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 12,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 13,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 14,
+      "state": "C"
+    },
+    {
+      "row": 4,
+      "col": 22,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 23,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 24,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 25,
+      "state": "O"
+    },
+    {
+      "row": 4,
+      "col": 26,
+      "state": "C"
+    },
+    {
+      "row": 5,
+      "col": 15,
+      "state": "C"
+    },
+    {
+      "row": 5,
+      "col": 21,
+      "state": "O"
+    },
+    {
+      "row": 5,
+      "col": 22,
+      "state": "O"
+    },
+    {
+      "row": 5,
+      "col": 27,
+      "state": "C"
+    },
+    {
+      "row": 6,
+      "col": 15,
+      "state": "O"
+    },
+    {
+      "row": 6,
+      "col": 21,
+      "state": "O"
+    },
+    {
+      "row": 6,
+      "col": 27,
+      "state": "O"
+    },
+    {
+      "row": 7,
+      "col": 15,
+      "state": "O"
+    },
+    {
+      "row": 7,
+      "col": 21,
+      "state": "O"
+    },
+    {
+      "row": 7,
+      "col": 27,
+      "state": "O"
+    },
+    {
+      "row": 8,
+      "col": 15,
+      "state": "O"
+    },
+    {
+      "row": 8,
+      "col": 21,
+      "state": "O"
+    },
+    {
+      "row": 8,
+      "col": 27,
+      "state": "O"
+    },
+    {
+      "row": 9,
+      "col": 15,
+      "state": "O"
+    },
+    {
+      "row": 9,
+      "col": 21,
+      "state": "C"
+    },
+    {
+      "row": 9,
+      "col": 27,
+      "state": "O"
+    },
+    {
+      "row": 10,
+      "col": 10,
+      "state": "O"
+    },
+    {
+      "row": 10,
+      "col": 11,
+      "state": "O"
+    },
+    {
+      "row": 10,
+      "col": 12,
+      "state": "O"
+    },
+    {
+      "row": 10,
+      "col": 13,
+      "state": "O"
+    },
+    {
+      "row": 10,
+      "col": 14,
+      "state": "O"
+    },
+    {
+      "row": 10,
+      "col": 15,
+      "state": "D"
+    },
+    {
+      "row": 10,
+      "col": 16,
+      "state": "O"
+    },
+    {
+      "row": 10,
+      "col": 17,
+      "state": "O"
+    },
+    {
+      "row": 10,
+      "col": 18,
+      "state": "O"
+    },
+    {
+      "row": 10,
+      "col": 19,
+      "state": "O"
+    },
+    {
+      "row": 10,
+      "col": 20,
+      "state": "C"
+    },
+    {
+      "row": 10,
+      "col": 21,
+      "state": "O"
+    },
+    {
+      "row": 10,
+      "col": 27,
+      "state": "O"
+    },
+    {
+      "row": 10,
+      "col": 28,
+      "state": "O"
+    },
+    {
+      "row": 11,
+      "col": 15,
+      "state": "O"
+    },
+    {
+      "row": 11,
+      "col": 21,
+      "state": "O"
+    },
+    {
+      "row": 11,
+      "col": 27,
+      "state": "O"
+    },
+    {
+      "row": 11,
+      "col": 28,
+      "state": "O"
+    },
+    {
+      "row": 12,
+      "col": 15,
+      "state": "O"
+    },
+    {
+      "row": 12,
+      "col": 21,
+      "state": "O"
+    },
+    {
+      "row": 12,
+      "col": 27,
+      "state": "O"
+    },
+    {
+      "row": 13,
+      "col": 15,
+      "state": "O"
+    },
+    {
+      "row": 13,
+      "col": 21,
+      "state": "O"
+    },
+    {
+      "row": 13,
+      "col": 27,
+      "state": "O"
+    },
+    {
+      "row": 14,
+      "col": 15,
+      "state": "O"
+    },
+    {
+      "row": 14,
+      "col": 21,
+      "state": "O"
+    },
+    {
+      "row": 14,
+      "col": 27,
+      "state": "O"
+    },
+    {
+      "row": 15,
+      "col": 15,
+      "state": "O"
+    },
+    {
+      "row": 15,
+      "col": 21,
+      "state": "C"
+    },
+    {
+      "row": 15,
+      "col": 27,
+      "state": "C"
+    },
+    {
+      "row": 16,
+      "col": 15,
+      "state": "O"
+    },
+    {
+      "row": 16,
+      "col": 16,
+      "state": "O"
+    },
+    {
+      "row": 16,
+      "col": 17,
+      "state": "O"
+    },
+    {
+      "row": 16,
+      "col": 18,
+      "state": "O"
+    },
+    {
+      "row": 16,
+      "col": 19,
+      "state": "O"
+    },
+    {
+      "row": 16,
+      "col": 20,
+      "state": "C"
+    },
+    {
+      "row": 16,
+      "col": 21,
+      "state": "O"
+    },
+    {
+      "row": 16,
+      "col": 22,
+      "state": "O"
+    },
+    {
+      "row": 16,
+      "col": 23,
+      "state": "O"
+    },
+    {
+      "row": 16,
+      "col": 24,
+      "state": "O"
+    },
+    {
+      "row": 16,
+      "col": 25,
+      "state": "O"
+    },
+    {
+      "row": 16,
+      "col": 26,
+      "state": "C"
+    }
+  ],
+  "num_grid_nodes_copylines_only": 74,
   "mis_overhead": 65,
   "num_vertices": 5,
   "original_mis_size": 3.0,

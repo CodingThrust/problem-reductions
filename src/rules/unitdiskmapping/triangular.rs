@@ -855,6 +855,10 @@ impl TriangularGadget for TriBranchFixB {
 
 /// Check if a triangular gadget pattern matches at position (i, j) in the grid.
 /// i, j are 0-indexed row/col offsets (pattern top-left corner).
+///
+/// For weighted triangular mode, this also checks that weights match the expected
+/// source_weights from the gadget. This matches Julia's behavior where WeightedGadget
+/// source matrices include weights and match() uses == comparison.
 #[allow(clippy::needless_range_loop)]
 fn pattern_matches_triangular<G: TriangularGadget>(
     gadget: &G,
@@ -867,6 +871,7 @@ fn pattern_matches_triangular<G: TriangularGadget>(
     let source = gadget.source_matrix();
     let (m, n) = gadget.size();
 
+    // First pass: check cell states (empty/occupied/connected)
     for r in 0..m {
         for c in 0..n {
             let grid_r = i + r;
@@ -897,6 +902,27 @@ fn pattern_matches_triangular<G: TriangularGadget>(
             }
         }
     }
+
+    // Second pass: check weights for weighted triangular mode
+    // Julia's WeightedGadget stores source_weights and match() compares cells including weight
+    let (locs, _, _) = gadget.source_graph();
+    let weights = gadget.source_weights();
+
+    for (idx, (loc_r, loc_c)) in locs.iter().enumerate() {
+        // source_graph locations are 1-indexed, convert to grid position
+        let grid_r = i + loc_r - 1;
+        let grid_c = j + loc_c - 1;
+        let expected_weight = weights[idx];
+
+        if let Some(cell) = grid.get(grid_r, grid_c) {
+            if cell.weight() != expected_weight {
+                return false;
+            }
+        } else {
+            return false;
+        }
+    }
+
     true
 }
 

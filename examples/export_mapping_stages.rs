@@ -337,6 +337,75 @@ fn export_square(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_or
     )
 }
 
+fn export_weighted(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_order: &[usize]) -> MappingExport {
+    let spacing = SQUARE_SPACING;
+    let padding = SQUARE_PADDING;
+
+    let copylines = create_copylines(n, edges, vertex_order);
+
+    let max_hslot = copylines.iter().map(|l| l.hslot).max().unwrap_or(1);
+    let max_vstop = copylines.iter().map(|l| l.vstop).max().unwrap_or(1);
+    let rows = max_hslot.max(max_vstop) * spacing + 2 + 2 * padding;
+    let cols = (n - 1) * spacing + 2 + 2 * padding;
+
+    let mut grid = MappingGrid::with_padding(rows, cols, spacing, padding);
+    for line in &copylines {
+        for (row, col, _weight) in line.copyline_locations(padding, spacing) {
+            grid.add_node(row, col, 2);  // Weight 2 for weighted mode
+        }
+    }
+    let stage1_nodes = extract_grid_nodes(&grid);
+
+    for &(u, v) in edges {
+        let u_line = &copylines[u];
+        let v_line = &copylines[v];
+        let (smaller_line, larger_line) = if u_line.vslot < v_line.vslot {
+            (u_line, v_line)
+        } else {
+            (v_line, u_line)
+        };
+        let (row, col) = crossat_square(&copylines, smaller_line.vertex, larger_line.vertex, spacing, padding);
+        if col > 0 {
+            grid.connect(row, col - 1);
+        }
+        if row > 0 && grid.is_occupied(row - 1, col) {
+            grid.connect(row - 1, col);
+        } else {
+            grid.connect(row + 1, col);
+        }
+    }
+    let stage2_nodes = extract_grid_nodes(&grid);
+
+    let crossing_tape = apply_crossing_gadgets(&mut grid, &copylines);
+    let stage3_nodes = extract_grid_nodes(&grid);
+
+    let simplifier_tape = apply_simplifier_gadgets(&mut grid, 2);
+    let stage4_nodes = extract_grid_nodes(&grid);
+
+    // Weighted mode: overhead = unweighted_overhead * 2
+    let copyline_overhead: i32 = copylines.iter()
+        .map(|line| mis_overhead_copyline(line, spacing, padding) as i32 * 2)
+        .sum();
+    let crossing_overhead: i32 = crossing_tape.iter()
+        .map(|e| tape_entry_mis_overhead(e) * 2)
+        .sum();
+    let simplifier_overhead: i32 = simplifier_tape.iter()
+        .map(|e| tape_entry_mis_overhead(e) * 2)
+        .sum();
+
+    let copy_lines_export = export_copylines_square(&copylines, padding, spacing);
+    let crossing_tape_export = export_square_tape(&crossing_tape, 0);
+    let simplifier_tape_export = export_square_tape(&simplifier_tape, crossing_tape.len());
+
+    create_export(
+        graph_name, "Weighted", n, edges, vertex_order,
+        padding, spacing, rows, cols,
+        copy_lines_export, stage1_nodes, stage2_nodes, stage3_nodes, stage4_nodes,
+        crossing_tape_export, simplifier_tape_export,
+        copyline_overhead, crossing_overhead, simplifier_overhead,
+    )
+}
+
 fn crossat_square(
     copylines: &[CopyLine],
     v: usize,
@@ -477,8 +546,9 @@ fn main() {
         .unwrap_or_else(|| (0..n).collect());
 
     let (export, suffix) = match mode {
-        "square" | "unweighted" => (export_square(graph_name, n, &edges, &vertex_order), "_rust_square"),
-        _ => (export_triangular(graph_name, n, &edges, &vertex_order), "_rust_stages"),
+        "unweighted" | "square" => (export_square(graph_name, n, &edges, &vertex_order), "_rust_unweighted"),
+        "weighted" => (export_weighted(graph_name, n, &edges, &vertex_order), "_rust_weighted"),
+        "triangular" | _ => (export_triangular(graph_name, n, &edges, &vertex_order), "_rust_triangular"),
     };
 
     let output_path = format!("tests/julia/{}{}.json", graph_name, suffix);

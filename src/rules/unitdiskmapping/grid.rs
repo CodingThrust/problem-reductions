@@ -106,6 +106,10 @@ impl MappingGrid {
 
     /// Add a node at position.
     ///
+    /// For weighted mode (triangular), Julia's add_cell! asserts that when doubling,
+    /// the new weight equals the existing weight, and keeps that weight (doesn't add).
+    /// For unweighted mode, all weights are 1 so this doesn't matter.
+    ///
     /// Silently ignores out-of-bounds access.
     pub fn add_node(&mut self, row: usize, col: usize, weight: i32) {
         if row < self.rows && col < self.cols {
@@ -114,7 +118,15 @@ impl MappingGrid {
                     self.content[row][col] = CellState::Occupied { weight };
                 }
                 CellState::Occupied { weight: w } => {
-                    self.content[row][col] = CellState::Doubled { weight: w + weight };
+                    // Julia: @assert m[i,j].weight == node.weight; keeps same weight
+                    // For weighted mode, both should be equal; for unweighted mode, both are 1
+                    debug_assert!(
+                        w == weight,
+                        "When doubling, weights should match: {} != {}",
+                        w,
+                        weight
+                    );
+                    self.content[row][col] = CellState::Doubled { weight };
                 }
                 _ => {}
             }

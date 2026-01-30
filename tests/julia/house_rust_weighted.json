@@ -1,6 +1,6 @@
 {
   "graph_name": "house",
-  "mode": "UnWeighted",
+  "mode": "Weighted",
   "num_vertices": 5,
   "num_edges": 6,
   "edges": [
@@ -293,289 +293,289 @@
         {
           "row": 3,
           "col": 3,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 4,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 5,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 6,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 7,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 8,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 9,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 15,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 16,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 17,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 4,
           "col": 6,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 4,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 4,
           "col": 14,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 4,
           "col": 15,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 4,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 5,
           "col": 6,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 5,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 5,
           "col": 14,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 5,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 6,
           "col": 6,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 6,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 6,
           "col": 14,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 6,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 6,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 7,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 8,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 9,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "D"
         },
         {
           "row": 7,
           "col": 11,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 12,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 13,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 19,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 8,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 8,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 8,
           "col": 19,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 9,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 9,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 10,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 10,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 11,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 12,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 13,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 14,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 15,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 16,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 17,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         }
       ],
@@ -591,289 +591,289 @@
         {
           "row": 3,
           "col": 3,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 4,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 5,
-          "weight": 1,
+          "weight": 2,
           "state": "C"
         },
         {
           "row": 3,
           "col": 6,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 7,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 8,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 9,
-          "weight": 1,
+          "weight": 2,
           "state": "C"
         },
         {
           "row": 3,
           "col": 15,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 16,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 17,
-          "weight": 1,
+          "weight": 2,
           "state": "C"
         },
         {
           "row": 4,
           "col": 6,
-          "weight": 1,
+          "weight": 2,
           "state": "C"
         },
         {
           "row": 4,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "C"
         },
         {
           "row": 4,
           "col": 14,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 4,
           "col": 15,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 4,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "C"
         },
         {
           "row": 5,
           "col": 6,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 5,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 5,
           "col": 14,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 5,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 6,
           "col": 6,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 6,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "C"
         },
         {
           "row": 6,
           "col": 14,
-          "weight": 1,
+          "weight": 2,
           "state": "C"
         },
         {
           "row": 6,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 6,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 7,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 8,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 9,
-          "weight": 1,
+          "weight": 2,
           "state": "C"
         },
         {
           "row": 7,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "D"
         },
         {
           "row": 7,
           "col": 11,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 12,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 13,
-          "weight": 1,
+          "weight": 2,
           "state": "C"
         },
         {
           "row": 7,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 7,
           "col": 19,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 8,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 8,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 8,
           "col": 19,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 9,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 9,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 10,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 10,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "C"
         },
         {
           "row": 11,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 11,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 12,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 13,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 14,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 15,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 16,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 17,
-          "weight": 1,
+          "weight": 2,
           "state": "C"
         }
       ],
@@ -895,13 +895,13 @@
         {
           "row": 3,
           "col": 3,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 3,
           "col": 4,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
@@ -919,7 +919,7 @@
         {
           "row": 3,
           "col": 8,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
@@ -973,7 +973,7 @@
         {
           "row": 5,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
@@ -985,7 +985,7 @@
         {
           "row": 5,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
@@ -1039,7 +1039,7 @@
         {
           "row": 7,
           "col": 12,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
@@ -1099,25 +1099,25 @@
         {
           "row": 11,
           "col": 13,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 14,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 15,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 16,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
@@ -1157,7 +1157,7 @@
         {
           "row": 3,
           "col": 8,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
@@ -1211,7 +1211,7 @@
         {
           "row": 5,
           "col": 10,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
@@ -1223,7 +1223,7 @@
         {
           "row": 5,
           "col": 18,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
@@ -1277,7 +1277,7 @@
         {
           "row": 7,
           "col": 12,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
@@ -1337,25 +1337,25 @@
         {
           "row": 11,
           "col": 13,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 14,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 15,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
           "row": 11,
           "col": 16,
-          "weight": 1,
+          "weight": 2,
           "state": "O"
         },
         {
@@ -1464,8 +1464,8 @@
       "overhead": -1
     }
   ],
-  "copyline_overhead": 22,
-  "crossing_overhead": -5,
-  "simplifier_overhead": -1,
-  "total_overhead": 16
+  "copyline_overhead": 44,
+  "crossing_overhead": -10,
+  "simplifier_overhead": -2,
+  "total_overhead": 32
 }
