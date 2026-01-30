@@ -65,9 +65,9 @@
       "col": 3
     }
   ],
-  "overhead_check": null,
-  "mis_selected_count": 0,
-  "original_config": [],
+  "overhead_check": false,
+  "mis_selected_count": 11,
+  "original_config": [0, 0, 0, 0],
   "padding": 2,
   "grid_nodes_copylines_only": [
     {
@@ -431,9 +431,10 @@
       "index": 27
     }
   ],
-  "is_valid_is": null,
+  "is_valid_is": true,
   "grid_size": [18, 18],
-  "mapped_mis_size": null,
+  "mapped_mis_size": 22.0,
+  "num_grid_edges": 34,
   "num_tape_entries": 10,
   "grid_nodes_before_simplifiers": [
     {
@@ -593,8 +594,76 @@
     }
   ],
   "num_edges": 5,
-  "size_matches": null,
-  "mis_selected_positions": [],
+  "size_matches": false,
+  "mis_selected_weight": 22,
+  "mis_selected_positions": [
+    {
+      "node_index": 2,
+      "weight": 2,
+      "row": 3,
+      "col": 7
+    },
+    {
+      "node_index": 4,
+      "weight": 2,
+      "row": 6,
+      "col": 7
+    },
+    {
+      "node_index": 7,
+      "weight": 2,
+      "row": 4,
+      "col": 9
+    },
+    {
+      "node_index": 8,
+      "weight": 2,
+      "row": 8,
+      "col": 9
+    },
+    {
+      "node_index": 12,
+      "weight": 2,
+      "row": 6,
+      "col": 11
+    },
+    {
+      "node_index": 14,
+      "weight": 2,
+      "row": 8,
+      "col": 11
+    },
+    {
+      "node_index": 16,
+      "weight": 2,
+      "row": 10,
+      "col": 11
+    },
+    {
+      "node_index": 19,
+      "weight": 2,
+      "row": 8,
+      "col": 13
+    },
+    {
+      "node_index": 20,
+      "weight": 2,
+      "row": 12,
+      "col": 13
+    },
+    {
+      "node_index": 25,
+      "weight": 2,
+      "row": 10,
+      "col": 15
+    },
+    {
+      "node_index": 27,
+      "weight": 2,
+      "row": 8,
+      "col": 16
+    }
+  ],
   "copy_lines": [
     {
       "locations": [

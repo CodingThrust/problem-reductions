@@ -71,9 +71,9 @@
       "col": 5
     }
   ],
-  "overhead_check": null,
-  "mis_selected_count": 0,
-  "original_config": [],
+  "overhead_check": false,
+  "mis_selected_count": 18,
+  "original_config": [0, 1, 0, 0, 1],
   "padding": 2,
   "grid_nodes_copylines_only": [
     {
@@ -570,9 +570,10 @@
       "index": 40
     }
   ],
-  "is_valid_is": null,
+  "is_valid_is": true,
   "grid_size": [18, 22],
-  "mapped_mis_size": null,
+  "mapped_mis_size": 32.0,
+  "num_grid_edges": 55,
   "num_tape_entries": 11,
   "grid_nodes_before_simplifiers": [
     {
@@ -797,8 +798,118 @@
     }
   ],
   "num_edges": 5,
-  "size_matches": null,
-  "mis_selected_positions": [],
+  "size_matches": false,
+  "mis_selected_weight": 32,
+  "mis_selected_positions": [
+    {
+      "node_index": 1,
+      "weight": 1,
+      "row": 4,
+      "col": 8
+    },
+    {
+      "node_index": 4,
+      "weight": 2,
+      "row": 8,
+      "col": 9
+    },
+    {
+      "node_index": 5,
+      "weight": 1,
+      "row": 4,
+      "col": 10
+    },
+    {
+      "node_index": 9,
+      "weight": 2,
+      "row": 6,
+      "col": 11
+    },
+    {
+      "node_index": 11,
+      "weight": 2,
+      "row": 8,
+      "col": 11
+    },
+    {
+      "node_index": 13,
+      "weight": 2,
+      "row": 10,
+      "col": 11
+    },
+    {
+      "node_index": 17,
+      "weight": 2,
+      "row": 8,
+      "col": 13
+    },
+    {
+      "node_index": 18,
+      "weight": 2,
+      "row": 12,
+      "col": 13
+    },
+    {
+      "node_index": 22,
+      "weight": 2,
+      "row": 7,
+      "col": 15
+    },
+    {
+      "node_index": 23,
+      "weight": 2,
+      "row": 9,
+      "col": 15
+    },
+    {
+      "node_index": 25,
+      "weight": 1,
+      "row": 11,
+      "col": 15
+    },
+    {
+      "node_index": 26,
+      "weight": 2,
+      "row": 13,
+      "col": 15
+    },
+    {
+      "node_index": 27,
+      "weight": 2,
+      "row": 5,
+      "col": 16
+    },
+    {
+      "node_index": 31,
+      "weight": 2,
+      "row": 12,
+      "col": 17
+    },
+    {
+      "node_index": 32,
+      "weight": 1,
+      "row": 4,
+      "col": 18
+    },
+    {
+      "node_index": 35,
+      "weight": 2,
+      "row": 6,
+      "col": 19
+    },
+    {
+      "node_index": 37,
+      "weight": 2,
+      "row": 8,
+      "col": 19
+    },
+    {
+      "node_index": 39,
+      "weight": 2,
+      "row": 10,
+      "col": 19
+    }
+  ],
   "copy_lines": [
     {
       "locations": [
@@ -1052,5 +1163,5 @@
       "hstop": 5
     }
   ],
-  "mapped_back_size": 0
+  "mapped_back_size": 2
 }

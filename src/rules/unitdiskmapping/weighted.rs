@@ -265,6 +265,12 @@ pub fn trace_centers(result: &MappingResult) -> Vec<(usize, usize)> {
             10 => TriBranchFix.size(),
             11 => TriBranchFixB.size(),
             12 => TriBranch.size(),
+            // Simplifier gadgets: DanglingLeg rotations
+            // Base DanglingLeg has size (4, 3)
+            100 => (4, 3), // DanglingLeg down (no rotation)
+            101 => (4, 3), // DanglingLeg up (180° rotation, same size)
+            102 => (3, 4), // DanglingLeg right (90° clockwise, swapped)
+            103 => (3, 4), // DanglingLeg left (90° counterclockwise, swapped)
             _ => (0, 0),
         }
     }
@@ -325,95 +331,67 @@ pub fn trace_centers(result: &MappingResult) -> Vec<(usize, usize)> {
 /// Move a center through a specific gadget transformation.
 /// Returns the new global position if the gadget affects this center.
 ///
-/// The center location includes the (0, 1) offset from Julia's trace_centers,
-/// so it's at cross_location + (0, 1) within the gadget.
+/// Julia defines center movement for:
+/// 1. Triangular crossing gadgets (7-12): TriTurn, TriBranch, etc.
+/// 2. Simplifier gadgets (100-103): DanglingLeg rotations
+///
+/// Gadgets 0-6 (TriCross, TriTCon*, TriTrivialTurn*) have empty centers - no movement.
 fn move_center_for_gadget(
     gadget_idx: usize,
     local_pos: (usize, usize),
     gi: usize,
     gj: usize,
 ) -> Option<(usize, usize)> {
-    use super::triangular::TriangularGadget;
-    use super::triangular::{
-        TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown, TriTConLeft,
-        TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
+    // Get source_center and mapped_center for this gadget
+    let (source_center, mapped_center) = match gadget_idx {
+        // Triangular crossing gadgets (from triangular.jl:415-417)
+        // source_centers = [cross_location(T()) .+ (0, 1)]  # All have cross_location = (2, 2)
+        7 => ((2, 3), (1, 2)),   // TriEndTurn
+        8 => ((2, 3), (1, 2)),   // TriTurn
+        9 => ((2, 3), (2, 3)),   // TriWTurn (center stays at same position)
+        10 => ((2, 3), (3, 2)),  // TriBranchFix
+        11 => ((2, 3), (3, 2)),  // TriBranchFixB
+        12 => ((2, 3), (1, 2)),  // TriBranch
+
+        // Simplifier gadgets: DanglingLeg rotations (from simplifiers.jl:107-108)
+        // Base DanglingLeg: source_centers=[(2,2)], mapped_centers=[(4,2)]
+        // Size (4, 3). When rotated, centers transform accordingly.
+        //
+        // 100: DanglingLeg down (no rotation) - size (4, 3)
+        //      source_center = (2, 2), mapped_center = (4, 2)
+        100 => ((2, 2), (4, 2)),
+
+        // 101: DanglingLeg up (180° rotation) - size (4, 3)
+        //      Rotation 2: (r, c) -> (m+1-r, n+1-c) where (m,n)=(4,3)
+        //      source: (2, 2) -> (4+1-2, 3+1-2) = (3, 2)
+        //      mapped: (4, 2) -> (4+1-4, 3+1-2) = (1, 2)
+        101 => ((3, 2), (1, 2)),
+
+        // 102: DanglingLeg right (90° clockwise, rotation 1) - size (3, 4)
+        //      Rotation 1: (r, c) -> (c, m+1-r) where m=4 (original rows)
+        //      source: (2, 2) -> (2, 4+1-2) = (2, 3)
+        //      mapped: (4, 2) -> (2, 4+1-4) = (2, 1)
+        102 => ((2, 3), (2, 1)),
+
+        // 103: DanglingLeg left (90° counterclockwise, rotation 3) - size (3, 4)
+        //      Rotation 3: (r, c) -> (n+1-c, r) where n=3 (original cols)
+        //      source: (2, 2) -> (3+1-2, 2) = (2, 2)
+        //      mapped: (4, 2) -> (3+1-2, 4) = (2, 4)
+        103 => ((2, 2), (2, 4)),
+
+        // Gadgets 0-6 and unknown: no center movement
+        _ => return None,
     };
 
-    // The center is at cross_location + (0, 1) for most gadgets.
-    // We need to find where it maps to in the transformed pattern.
-    // The general rule is: center stays at same row, moves to column of nearest mapped node.
-
-    let (m, n, cross_loc) = match gadget_idx {
-        0 => (TriCross::<false>.size().0, TriCross::<false>.size().1, TriCross::<false>.cross_location()),
-        1 => (TriCross::<true>.size().0, TriCross::<true>.size().1, TriCross::<true>.cross_location()),
-        2 => (TriTConLeft.size().0, TriTConLeft.size().1, TriTConLeft.cross_location()),
-        3 => (TriTConUp.size().0, TriTConUp.size().1, TriTConUp.cross_location()),
-        4 => (TriTConDown.size().0, TriTConDown.size().1, TriTConDown.cross_location()),
-        5 => (TriTrivialTurnLeft.size().0, TriTrivialTurnLeft.size().1, TriTrivialTurnLeft.cross_location()),
-        6 => (TriTrivialTurnRight.size().0, TriTrivialTurnRight.size().1, TriTrivialTurnRight.cross_location()),
-        7 => (TriEndTurn.size().0, TriEndTurn.size().1, TriEndTurn.cross_location()),
-        8 => (TriTurn.size().0, TriTurn.size().1, TriTurn.cross_location()),
-        9 => (TriWTurn.size().0, TriWTurn.size().1, TriWTurn.cross_location()),
-        10 => (TriBranchFix.size().0, TriBranchFix.size().1, TriBranchFix.cross_location()),
-        11 => (TriBranchFixB.size().0, TriBranchFixB.size().1, TriBranchFixB.cross_location()),
-        12 => (TriBranch.size().0, TriBranch.size().1, TriBranch.cross_location()),
-        _ => return None, // Unknown gadget or simplifier
-    };
-
-    let (li, lj) = local_pos;
-
-    // Check bounds
-    if li < 1 || li > m || lj < 1 || lj > n {
-        return None;
-    }
-
-    // The center is expected to be at cross_location + (0, 1)
-    let expected_center = (cross_loc.0, cross_loc.1 + 1);
-
-    // For most gadgets, if the center is at the expected position,
-    // it maps to a specific location in the mapped pattern.
-    // The mapped center is typically at cross_location (the gadget's anchor point).
-    if local_pos == expected_center {
-        // Map center from cross_location + (0, 1) to cross_location + (0, 1) in mapped
-        // But if that position doesn't exist in mapped, use cross_location
-        let mapped_pos = match gadget_idx {
-            // TriCross<false>: center at (2, 4) maps to (2, 4) - stays same
-            0 => (cross_loc.0, cross_loc.1 + 1),
-            // TriCross<true>: center at (2, 3) maps to (2, 3) - stays same
-            1 => (cross_loc.0, cross_loc.1 + 1),
-            // TriTConLeft: center at (2, 3) maps to (2, 3)
-            2 => (cross_loc.0, cross_loc.1 + 1),
-            // TriTConUp: center at (2, 3) maps to (2, 3)
-            3 => (cross_loc.0, cross_loc.1 + 1),
-            // TriTConDown: center at (2, 3) maps to (3, 2) - moves to different position
-            4 => (cross_loc.0 + 1, cross_loc.1),
-            // TriTrivialTurnLeft: center at (2, 3) - but size is (2, 2), so this doesn't apply
-            5 => (cross_loc.0, cross_loc.1 + 1),
-            // TriTrivialTurnRight: center at (1, 3) - but size is (2, 2), so this doesn't apply
-            6 => (cross_loc.0 + 1, cross_loc.1 + 1),
-            // TriEndTurn: center at (2, 3) maps to (1, 2) - center moves to first node
-            7 => (1, 2),
-            // TriTurn: center at (3, 3) maps to (2, 3) - follows the turn
-            8 => (2, 3),
-            // TriWTurn: center at (2, 3) maps to (3, 3)
-            9 => (3, 3),
-            // TriBranchFix: center at (2, 3) maps to (2, 2) - straightens to column 2
-            10 => (cross_loc.0, cross_loc.1),
-            // TriBranchFixB: center at (2, 3) maps to (3, 2) - moves down
-            11 => (3, 2),
-            // TriBranch: center at (3, 3) maps to (2, 3)
-            12 => (2, 3),
-            _ => return None,
-        };
-        // Convert to global coordinates
-        return Some((gi + mapped_pos.0 - 1, gj + mapped_pos.1 - 1));
-    }
-
-    // Also check if center is at cross_location (without the +1 offset)
-    // This can happen if the offset wasn't applied or gadgets shifted things
-    if local_pos == cross_loc {
-        // Return cross_location in global coords
-        return Some((gi + cross_loc.0 - 1, gj + cross_loc.1 - 1));
+    // Check if local_pos matches source_center
+    if local_pos == source_center {
+        // Julia: return nodexy .+ mc .- sc
+        // global_new = global_old + (mapped_center - source_center)
+        let di = mapped_center.0 as isize - source_center.0 as isize;
+        let dj = mapped_center.1 as isize - source_center.1 as isize;
+        let new_i = (gi as isize + local_pos.0 as isize - 1 + di) as usize;
+        let new_j = (gj as isize + local_pos.1 as isize - 1 + dj) as usize;
+        return Some((new_i, new_j));
     }
 
     None

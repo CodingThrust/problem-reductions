@@ -181,8 +181,8 @@ fn main() {
     // Map to triangular lattice
     let triangular_result = map_graph_triangular(num_vertices, &petersen_edges);
 
-    // Create weighted triangular grid (radius 1.0 for triangular connectivity)
-    let triangular_weighted = make_weighted_grid(&triangular_result, GridType::Triangular { offset_even_cols: false }, 1.0, true);
+    // Create weighted triangular grid (radius 1.1 to match Julia's TRIANGULAR_UNIT_RADIUS)
+    let triangular_weighted = make_weighted_grid(&triangular_result, GridType::Triangular { offset_even_cols: false }, 1.1, true);
     println!(
         "Triangular weighted: {}x{}, {} nodes, overhead={}",
         triangular_weighted.grid_graph.size().0,

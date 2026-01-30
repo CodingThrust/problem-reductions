@@ -10,6 +10,7 @@
 mod common;
 mod copyline;
 mod gadgets;
+mod gadgets_ground_truth;
 mod julia_comparison;
 mod map_graph;
 mod triangular;

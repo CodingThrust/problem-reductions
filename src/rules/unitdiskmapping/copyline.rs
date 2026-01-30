@@ -43,14 +43,15 @@ impl CopyLine {
         }
     }
 
-    /// Get the center location of this copy line.
+    /// Get the center location of this copy line (0-indexed).
     pub fn center_location(&self, padding: usize, spacing: usize) -> (usize, usize) {
-        let row = spacing * (self.hslot - 1) + padding + 2;
-        let col = spacing * (self.vslot - 1) + padding + 1;
+        // 0-indexed: subtract 1 from Julia's 1-indexed formula
+        let row = spacing * (self.hslot - 1) + padding + 1;  // 0-indexed
+        let col = spacing * (self.vslot - 1) + padding;      // 0-indexed
         (row, col)
     }
 
-    /// Generate grid locations for this copy line.
+    /// Generate grid locations for this copy line (0-indexed).
     /// Returns Vec<(row, col, weight)> where weight indicates importance.
     ///
     /// The copy line forms an L-shape:
@@ -59,22 +60,22 @@ impl CopyLine {
     pub fn locations(&self, padding: usize, spacing: usize) -> Vec<(usize, usize, usize)> {
         let mut locs = Vec::new();
 
-        // The center column for this copy line's vertical segment
-        let col = spacing * (self.vslot - 1) + padding + 1;
+        // The center column for this copy line's vertical segment (0-indexed)
+        let col = spacing * (self.vslot - 1) + padding;  // 0-indexed
 
         // Vertical segment: from vstart to vstop
         for v in self.vstart..=self.vstop {
-            let row = spacing * (v - 1) + padding + 2;
+            let row = spacing * (v - 1) + padding + 1;  // 0-indexed
             // Weight is 1 for regular positions
             locs.push((row, col, 1));
         }
 
         // Horizontal segment: at hslot, from vslot+1 to hstop
-        let hrow = spacing * (self.hslot - 1) + padding + 2;
+        let hrow = spacing * (self.hslot - 1) + padding + 1;  // 0-indexed
         for h in (self.vslot + 1)..=self.hstop {
-            let hcol = spacing * (h - 1) + padding + 1;
+            let hcol = spacing * (h - 1) + padding;  // 0-indexed
             // Avoid duplicate at the corner (vslot, hslot)
-            if hcol != col || hrow != spacing * (self.hslot - 1) + padding + 2 {
+            if hcol != col || hrow != spacing * (self.hslot - 1) + padding + 1 {
                 locs.push((hrow, hcol, 1));
             }
         }
@@ -586,10 +587,10 @@ mod tests {
     fn test_copyline_center_location() {
         let line = CopyLine::new(0, 2, 3, 1, 3, 4);
         let (row, col) = line.center_location(1, 4);
-        // row = 4 * (3-1) + 1 + 2 = 8 + 3 = 11
-        // col = 4 * (2-1) + 1 + 1 = 4 + 2 = 6
-        assert_eq!(row, 11);
-        assert_eq!(col, 6);
+        // Julia 1-indexed: row = 4 * (3-1) + 1 + 2 = 11, col = 4 * (2-1) + 1 + 1 = 6
+        // Rust 0-indexed: row = 11 - 1 = 10, col = 6 - 1 = 5
+        assert_eq!(row, 10);
+        assert_eq!(col, 5);
     }
 
     #[test]
@@ -641,19 +642,14 @@ mod tests {
         let line = CopyLine::new(0, 1, 2, 1, 2, 2);
         let locs = line.locations(0, 2);
 
-        // With padding=0, spacing=2:
-        // Vertical segment at col = 2*(1-1) + 0 + 1 = 1
-        // vstart=1: row = 2*(1-1) + 0 + 2 = 2
-        // vstop=2: row = 2*(2-1) + 0 + 2 = 4
-        // So vertical segment covers (2, 1), (4, 1)
-
-        // Horizontal segment at hslot=2: row = 2*(2-1) + 0 + 2 = 4
-        // from vslot+1=2 to hstop=2: col = 2*(2-1) + 0 + 1 = 3
-        // So horizontal has (4, 3)
+        // With padding=0, spacing=2 (0-indexed output):
+        // Julia 1-indexed: col = 2*(1-1) + 0 + 1 = 1 -> Rust 0-indexed: col = 0
+        // Julia 1-indexed: row = 2*(2-1) + 0 + 2 = 4 -> Rust 0-indexed: row = 3
+        // Vertical segment covers rows around the center
 
         assert!(!locs.is_empty());
-        // Check that we have vertical positions
-        let has_vertical = locs.iter().any(|&(_r, c, _)| c == 1);
+        // Check that we have vertical positions (col = 0 in 0-indexed)
+        let has_vertical = locs.iter().any(|&(_r, c, _)| c == 0);
         assert!(has_vertical);
     }
 
@@ -686,17 +682,15 @@ mod tests {
         let line = CopyLine::new(0, 1, 2, 1, 2, 3);
         let locs = line.copyline_locations(2, 4);
 
-        // Center location: I = 4*(2-1) + 2 + 2 = 8, J = 4*(1-1) + 2 + 1 = 3
+        // Julia 1-indexed: I = 4*(2-1) + 2 + 2 = 8, J = 4*(1-1) + 2 + 1 = 3
+        // Rust 0-indexed: row = 7, col = 2
+        // Center node at (I, J+1) in Julia = (8, 4) -> Rust 0-indexed = (7, 3)
+        let has_center = locs.iter().any(|&(r, c, _)| r == 7 && c == 3);
+        assert!(has_center, "Center node at (7, 3) should be present. Locs: {:?}", locs);
 
-        // Verify center node is present at (I, J+1) = (8, 4)
-        let has_center = locs.iter().any(|&(r, c, _)| r == 8 && c == 4);
-        assert!(has_center, "Center node at (8, 4) should be present");
-
-        // All positions should be valid
+        // All positions should be valid (0-indexed, so >= 0)
         for &(row, col, weight) in &locs {
             assert!(weight >= 1, "Weight should be >= 1");
-            assert!(row > 0, "Row should be positive");
-            assert!(col > 0, "Col should be positive");
         }
 
         println!("Dense locations: {:?}", locs);

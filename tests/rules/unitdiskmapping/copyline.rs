@@ -39,10 +39,10 @@ fn test_copylines_have_valid_ranges() {
 fn test_copyline_center_location() {
     let line = CopyLine::new(0, 2, 3, 1, 3, 4);
     let (row, col) = line.center_location(1, 4);
-    // row = 4 * (3-1) + 1 + 2 = 8 + 3 = 11
-    // col = 4 * (2-1) + 1 + 1 = 4 + 2 = 6
-    assert_eq!(row, 11);
-    assert_eq!(col, 6);
+    // Rust 0-indexed: row = 4 * (3-1) + 1 + 2 - 1 = 10
+    // Rust 0-indexed: col = 4 * (2-1) + 1 + 1 - 1 = 5
+    assert_eq!(row, 10);
+    assert_eq!(col, 5);
 }
 
 #[test]
@@ -50,10 +50,10 @@ fn test_copyline_center_location_offset() {
     // Test with different padding and spacing
     let line = CopyLine::new(0, 1, 1, 1, 1, 2);
     let (row, col) = line.center_location(2, 4);
-    // row = 4 * (1-1) + 2 + 2 = 0 + 4 = 4
-    // col = 4 * (1-1) + 2 + 1 = 0 + 3 = 3
-    assert_eq!(row, 4);
-    assert_eq!(col, 3);
+    // Rust 0-indexed: row = 4 * (1-1) + 2 + 2 - 1 = 3
+    // Rust 0-indexed: col = 4 * (1-1) + 2 + 1 - 1 = 2
+    assert_eq!(row, 3);
+    assert_eq!(col, 2);
 }
 
 #[test]

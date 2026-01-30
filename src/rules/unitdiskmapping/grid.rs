@@ -338,10 +338,13 @@ mod tests {
             grid.get(2, 3),
             Some(&CellState::Occupied { weight: 5 })
         );
-        grid.add_node(2, 3, 3);
+        // Julia requires weights to match when doubling:
+        // @assert m[i,j].weight == node.weight
+        // Result keeps the same weight (not summed)
+        grid.add_node(2, 3, 5);
         assert_eq!(
             grid.get(2, 3),
-            Some(&CellState::Doubled { weight: 8 })
+            Some(&CellState::Doubled { weight: 5 })
         );
     }
 
@@ -389,10 +392,13 @@ mod tests {
     #[test]
     fn test_mapping_grid_cross_at() {
         let grid = MappingGrid::new(20, 20, 4);
-        // Julia's crossat uses larger position for col calculation
+        // Julia's crossat uses larger position for col calculation (1-indexed)
+        // Julia: row = (hslot - 1) * spacing + 2 + padding = 4 + 2 + 2 = 8
+        // Julia: col = (larger_vslot - 1) * spacing + 1 + padding = 8 + 1 + 2 = 11
+        // Rust 0-indexed: row = 8 - 1 = 7, col = 11 - 1 = 10
         let (row, col) = grid.cross_at(1, 3, 2);
-        assert_eq!(row, 4 + 2 + 2); // (hslot - 1) * spacing + 2 + padding
-        assert_eq!(col, (3 - 1) * 4 + 1 + 2); // (larger_vslot - 1) * spacing + 1 + padding
+        assert_eq!(row, 7); // 0-indexed
+        assert_eq!(col, 10); // 0-indexed
 
         let (row2, col2) = grid.cross_at(3, 1, 2);
         assert_eq!((row, col), (row2, col2));

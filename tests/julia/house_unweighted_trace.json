@@ -73,7 +73,7 @@
   ],
   "overhead_check": true,
   "mis_selected_count": 18,
-  "original_config": [1, 0, 0, 1, 0],
+  "original_config": [0, 1, 1, 0, 0],
   "padding": 2,
   "grid_nodes_copylines_only": [
     {
@@ -769,19 +769,14 @@
   "size_matches": true,
   "mis_selected_positions": [
     {
-      "node_index": 2,
-      "row": 3,
-      "col": 7
+      "node_index": 1,
+      "row": 4,
+      "col": 6
     },
     {
-      "node_index": 3,
-      "row": 5,
+      "node_index": 4,
+      "row": 6,
       "col": 7
-    },
-    {
-      "node_index": 6,
-      "row": 7,
-      "col": 8
     },
     {
       "node_index": 7,
@@ -789,9 +784,9 @@
       "col": 9
     },
     {
-      "node_index": 10,
+      "node_index": 8,
       "row": 8,
-      "col": 10
+      "col": 9
     },
     {
       "node_index": 11,
@@ -799,63 +794,68 @@
       "col": 11
     },
     {
-      "node_index": 16,
-      "row": 10,
+      "node_index": 13,
+      "row": 7,
       "col": 11
     },
     {
-      "node_index": 17,
-      "row": 8,
+      "node_index": 15,
+      "row": 9,
+      "col": 11
+    },
+    {
+      "node_index": 18,
+      "row": 11,
       "col": 12
     },
     {
-      "node_index": 20,
-      "row": 12,
+      "node_index": 19,
+      "row": 8,
       "col": 13
     },
     {
-      "node_index": 21,
-      "row": 8,
+      "node_index": 22,
+      "row": 12,
       "col": 14
     },
     {
-      "node_index": 23,
-      "row": 6,
-      "col": 15
-    },
-    {
-      "node_index": 25,
-      "row": 12,
-      "col": 15
-    },
-    {
-      "node_index": 28,
-      "row": 4,
-      "col": 17
-    },
-    {
-      "node_index": 29,
-      "row": 12,
-      "col": 17
-    },
-    {
-      "node_index": 32,
-      "row": 5,
-      "col": 19
-    },
-    {
-      "node_index": 34,
+      "node_index": 24,
       "row": 7,
+      "col": 15
+    },
+    {
+      "node_index": 26,
+      "row": 5,
+      "col": 16
+    },
+    {
+      "node_index": 27,
+      "row": 12,
+      "col": 16
+    },
+    {
+      "node_index": 30,
+      "row": 4,
+      "col": 18
+    },
+    {
+      "node_index": 31,
+      "row": 12,
+      "col": 18
+    },
+    {
+      "node_index": 33,
+      "row": 6,
       "col": 19
     },
     {
-      "node_index": 36,
-      "row": 9,
+      "node_index": 35,
+      "row": 8,
       "col": 19
     },
     {
-      "node_index": 38,
-      "row": 11,
+      "node_index": 37,
+      "row": 10,
       "col": 19
     }
   ],
