@@ -431,11 +431,12 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
   _Correctness._ ($arrow.r.double$) An IS in $G$ maps to selecting all copy line vertices for included vertices; crossing gadgets ensure no conflicts. ($arrow.l.double$) A grid MIS maps back to an IS by the copy line activity rule.
 ]
 
-*Example: Petersen Graph.* The Petersen graph ($n=10$, MIS$=4$) maps to a $30 times 42$ King's subgraph with 220 nodes and overhead $Delta = 88$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 88 = 92$. With triangular lattice encoding @nguyen2023, the same graph maps to a $42 times 60$ grid with 404 nodes and overhead $Delta = 384$, giving $"MIS"(G_"tri") = 4 + 384 = 388$.
+*Example: Petersen Graph.*#footnote[Generated using `cargo run --example export_petersen_mapping` from the accompanying code repository.] The Petersen graph ($n=10$, MIS$=4$) maps to a $30 times 42$ King's subgraph with 220 nodes and overhead $Delta = 88$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 88 = 92$. With triangular lattice encoding @nguyen2023, the same graph maps to a $42 times 60$ grid with 340 nodes and overhead $Delta = 384$, giving $"MIS"(G_"tri") = 4 + 384 = 388$.
 
 // Load JSON data
 #let petersen = json("petersen_source.json")
-#let square_mapping = json("petersen_square.json")
+#let square_weighted = json("petersen_square_weighted.json")
+#let square_unweighted = json("petersen_square_unweighted.json")
 #let triangular_mapping = json("petersen_triangular.json")
 
 // Draw Petersen graph with standard layout
@@ -541,12 +542,12 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
       (a) Petersen graph
     ],
     align(center + horizon)[
-      #draw-grid-cetz(square_mapping)
-      (b) King's subgraph
+      #draw-grid-cetz(square_weighted)
+      (b) King's subgraph (weighted)
     ],
     align(center + horizon)[
       #draw-triangular-cetz(triangular_mapping)
-      (c) Triangular lattice
+      (c) Triangular lattice (weighted)
     ],
   ),
   caption: [Unit disk mappings of the Petersen graph. Blue: weight 1, red: weight 2, green: weight 3.],

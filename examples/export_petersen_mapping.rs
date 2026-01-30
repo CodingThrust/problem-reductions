@@ -4,8 +4,9 @@
 //!
 //! Outputs:
 //! - docs/paper/petersen_source.json - The original Petersen graph
-//! - docs/paper/petersen_square.json - Mapping to square lattice (King's subgraph)
-//! - docs/paper/petersen_triangular.json - Mapping to triangular lattice
+//! - docs/paper/petersen_square_weighted.json - Weighted square lattice (King's subgraph)
+//! - docs/paper/petersen_square_unweighted.json - Unweighted square lattice
+//! - docs/paper/petersen_triangular.json - Weighted triangular lattice
 
 use problemreductions::rules::unitdiskmapping::{map_graph, map_graph_triangular, MappingResult};
 use problemreductions::topology::{Graph, GridGraph, GridNode, GridType};
@@ -22,23 +23,69 @@ struct SourceGraph {
     mis: usize,
 }
 
-/// Dense King's Subgraph output for visualization.
+/// Grid mapping output for visualization.
 #[derive(Serialize)]
-struct DenseKSG {
+struct GridMapping {
     grid_graph: GridGraph<i32>,
     mis_overhead: i32,
     padding: usize,
     spacing: usize,
+    weighted: bool,
 }
 
-/// Generate dense King's subgraph from copy lines.
-fn make_dense_ksg(result: &MappingResult, radius: f64) -> DenseKSG {
+/// Generate grid mapping from copy lines with weights.
+fn make_weighted_grid(result: &MappingResult, grid_type: GridType, radius: f64, triangular: bool) -> GridMapping {
     let mut all_nodes: Vec<GridNode<i32>> = Vec::new();
 
-    // Collect all dense locations from each copy line
+    // Collect all locations from each copy line with weights
     for line in &result.lines {
-        for (row, col, weight) in line.copyline_locations(result.padding, result.spacing) {
+        let locs = if triangular {
+            line.copyline_locations_triangular(result.padding, result.spacing)
+        } else {
+            line.copyline_locations(result.padding, result.spacing)
+        };
+        for (row, col, weight) in locs {
             all_nodes.push(GridNode::new(row as i32, col as i32, weight as i32));
+        }
+    }
+
+    // Remove duplicates (same position), keeping max weight
+    all_nodes.sort_by_key(|n| (n.row, n.col));
+    let mut deduped: Vec<GridNode<i32>> = Vec::new();
+    for node in all_nodes {
+        if let Some(last) = deduped.last_mut() {
+            if last.row == node.row && last.col == node.col {
+                last.weight = last.weight.max(node.weight);
+                continue;
+            }
+        }
+        deduped.push(node);
+    }
+
+    let grid_graph = GridGraph::new(grid_type, result.grid_graph.size(), deduped, radius);
+
+    GridMapping {
+        grid_graph,
+        mis_overhead: result.mis_overhead,
+        padding: result.padding,
+        spacing: result.spacing,
+        weighted: true,
+    }
+}
+
+/// Generate grid mapping from copy lines without weights (all weight=1).
+fn make_unweighted_grid(result: &MappingResult, grid_type: GridType, radius: f64, triangular: bool) -> GridMapping {
+    let mut all_nodes: Vec<GridNode<i32>> = Vec::new();
+
+    // Collect all locations from each copy line, ignoring weights
+    for line in &result.lines {
+        let locs = if triangular {
+            line.copyline_locations_triangular(result.padding, result.spacing)
+        } else {
+            line.copyline_locations(result.padding, result.spacing)
+        };
+        for (row, col, _weight) in locs {
+            all_nodes.push(GridNode::new(row as i32, col as i32, 1));
         }
     }
 
@@ -46,18 +93,14 @@ fn make_dense_ksg(result: &MappingResult, radius: f64) -> DenseKSG {
     all_nodes.sort_by_key(|n| (n.row, n.col));
     all_nodes.dedup_by_key(|n| (n.row, n.col));
 
-    let grid_graph = GridGraph::new(
-        GridType::Square,
-        result.grid_graph.size(),
-        all_nodes,
-        radius,
-    );
+    let grid_graph = GridGraph::new(grid_type, result.grid_graph.size(), all_nodes, radius);
 
-    DenseKSG {
+    GridMapping {
         grid_graph,
         mis_overhead: result.mis_overhead,
         padding: result.padding,
         spacing: result.spacing,
+        weighted: false,
     }
 }
 
@@ -111,57 +154,65 @@ fn main() {
     // Map to square lattice (King's subgraph)
     let square_result = map_graph(num_vertices, &petersen_edges);
 
-    // Print copy lines for debugging
-    println!("\nCopy lines (square):");
-    for line in &square_result.lines {
-        println!(
-            "  v{}: vslot={}, hslot={}, vstart={}, vstop={}, hstop={}",
-            line.vertex, line.vslot, line.hslot, line.vstart, line.vstop, line.hstop
-        );
-    }
-    println!();
-
-    // Create dense King's subgraph for visualization (radius 1.5 for 8-connectivity)
-    let dense_ksg = make_dense_ksg(&square_result, 1.5);
+    // Create weighted square grid (radius 1.5 for 8-connectivity)
+    let square_weighted = make_weighted_grid(&square_result, GridType::Square, 1.5, false);
     println!(
-        "King's subgraph: {}x{}, {} dense nodes, {} edges, overhead={}",
-        dense_ksg.grid_graph.size().0,
-        dense_ksg.grid_graph.size().1,
-        dense_ksg.grid_graph.num_vertices(),
-        dense_ksg.grid_graph.num_edges(),
-        dense_ksg.mis_overhead
+        "Square weighted: {}x{}, {} nodes, {} edges, overhead={}",
+        square_weighted.grid_graph.size().0,
+        square_weighted.grid_graph.size().1,
+        square_weighted.grid_graph.num_vertices(),
+        square_weighted.grid_graph.num_edges(),
+        square_weighted.mis_overhead
     );
-    write_json(&dense_ksg, Path::new("docs/paper/petersen_square.json"));
+    write_json(&square_weighted, Path::new("docs/paper/petersen_square_weighted.json"));
+
+    // Create unweighted square grid
+    let square_unweighted = make_unweighted_grid(&square_result, GridType::Square, 1.5, false);
+    println!(
+        "Square unweighted: {}x{}, {} nodes, {} edges, overhead={}",
+        square_unweighted.grid_graph.size().0,
+        square_unweighted.grid_graph.size().1,
+        square_unweighted.grid_graph.num_vertices(),
+        square_unweighted.grid_graph.num_edges(),
+        square_unweighted.mis_overhead
+    );
+    write_json(&square_unweighted, Path::new("docs/paper/petersen_square_unweighted.json"));
 
     // Map to triangular lattice
     let triangular_result = map_graph_triangular(num_vertices, &petersen_edges);
+
+    // Create weighted triangular grid (radius 1.0 for triangular connectivity)
+    let triangular_weighted = make_weighted_grid(&triangular_result, GridType::Triangular { offset_even_cols: false }, 1.0, true);
     println!(
-        "Triangular lattice: {}x{}, {} nodes, overhead={}",
-        triangular_result.grid_graph.size().0,
-        triangular_result.grid_graph.size().1,
-        triangular_result.grid_graph.num_vertices(),
-        triangular_result.mis_overhead
+        "Triangular weighted: {}x{}, {} nodes, overhead={}",
+        triangular_weighted.grid_graph.size().0,
+        triangular_weighted.grid_graph.size().1,
+        triangular_weighted.grid_graph.num_vertices(),
+        triangular_weighted.mis_overhead
     );
-    write_json(
-        &triangular_result,
-        Path::new("docs/paper/petersen_triangular.json"),
-    );
+    write_json(&triangular_weighted, Path::new("docs/paper/petersen_triangular.json"));
 
     println!("\nSummary:");
     println!("  Source: Petersen graph, n={}, MIS={}", num_vertices, petersen_mis);
     println!(
-        "  King's subgraph: {} nodes, {} edges, MIS = {} + {} = {}",
-        dense_ksg.grid_graph.num_vertices(),
-        dense_ksg.grid_graph.num_edges(),
+        "  Square weighted: {} nodes, MIS = {} + {} = {}",
+        square_weighted.grid_graph.num_vertices(),
         petersen_mis,
-        dense_ksg.mis_overhead,
-        petersen_mis as i32 + dense_ksg.mis_overhead
+        square_weighted.mis_overhead,
+        petersen_mis as i32 + square_weighted.mis_overhead
     );
     println!(
-        "  Triangular: {} nodes, MIS = {} + {} = {}",
-        triangular_result.grid_graph.num_vertices(),
+        "  Square unweighted: {} nodes, MIS = {} + {} = {}",
+        square_unweighted.grid_graph.num_vertices(),
         petersen_mis,
-        triangular_result.mis_overhead,
-        petersen_mis as i32 + triangular_result.mis_overhead
+        square_unweighted.mis_overhead,
+        petersen_mis as i32 + square_unweighted.mis_overhead
+    );
+    println!(
+        "  Triangular weighted: {} nodes, MIS = {} + {} = {}",
+        triangular_weighted.grid_graph.num_vertices(),
+        petersen_mis,
+        triangular_weighted.mis_overhead,
+        petersen_mis as i32 + triangular_weighted.mis_overhead
     );
 }
