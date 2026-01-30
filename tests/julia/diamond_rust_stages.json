@@ -314,287 +314,344 @@
         {
           "row": 3,
           "col": 3,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 4,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 5,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 6,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 7,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 9,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 10,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 11,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 12,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 13,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 21,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 8,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 14,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 21,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 5,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 5,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 5,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 6,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 6,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 6,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 7,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 7,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 7,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 9,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 10,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 11,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 12,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 13,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 14,
-          "weight": 4
+          "weight": 4,
+          "state": "D"
         },
         {
           "row": 9,
           "col": 15,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 16,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 17,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 18,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 19,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 10,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 10,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 11,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 11,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 12,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 12,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 13,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 13,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 14,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 14,
           "col": 20,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 15,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 16,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 17,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 18,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 19,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         }
       ],
       "num_nodes": 57,
@@ -609,287 +666,344 @@
         {
           "row": 3,
           "col": 3,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 4,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 5,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 6,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 7,
-          "weight": 2
+          "weight": 2,
+          "state": "C"
         },
         {
           "row": 3,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 9,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 10,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 11,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 12,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 13,
-          "weight": 1
+          "weight": 1,
+          "state": "C"
         },
         {
           "row": 3,
           "col": 21,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 8,
-          "weight": 1
+          "weight": 1,
+          "state": "C"
         },
         {
           "row": 4,
           "col": 14,
-          "weight": 1
+          "weight": 1,
+          "state": "C"
         },
         {
           "row": 4,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 21,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 5,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 5,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 5,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 6,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 6,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 6,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 7,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 7,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 7,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "C"
         },
         {
           "row": 8,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "C"
         },
         {
           "row": 9,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 9,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 10,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 11,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 12,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 13,
-          "weight": 2
+          "weight": 2,
+          "state": "C"
         },
         {
           "row": 9,
           "col": 14,
-          "weight": 4
+          "weight": 4,
+          "state": "D"
         },
         {
           "row": 9,
           "col": 15,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 16,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 17,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 18,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 19,
-          "weight": 1
+          "weight": 1,
+          "state": "C"
         },
         {
           "row": 9,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 10,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 10,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 11,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 11,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 12,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 12,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 13,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 13,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 14,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 14,
           "col": 20,
-          "weight": 1
+          "weight": 1,
+          "state": "C"
         },
         {
           "row": 15,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 15,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 16,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 17,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 18,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 19,
-          "weight": 1
+          "weight": 1,
+          "state": "C"
         }
       ],
       "num_nodes": 57,
@@ -904,307 +1018,368 @@
         {
           "row": 3,
           "col": 3,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 4,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 5,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 6,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 10,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 11,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 12,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 7,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 8,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 9,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 13,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 14,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 5,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 5,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 5,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 6,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 6,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 6,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 7,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 7,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 7,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 14,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 16,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 20,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 10,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 11,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 12,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 13,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 14,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 15,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 17,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 18,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 19,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 20,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 21,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 22,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 10,
           "col": 9,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 10,
           "col": 15,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 10,
           "col": 21,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 11,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 11,
           "col": 15,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 11,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 11,
           "col": 21,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 12,
           "col": 13,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 12,
           "col": 19,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 13,
           "col": 13,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 13,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 13,
           "col": 19,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 13,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 14,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 14,
           "col": 20,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 16,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 17,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 18,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 19,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 16,
           "col": 15,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         }
       ],
       "num_nodes": 61,
@@ -1219,297 +1394,356 @@
         {
           "row": 3,
           "col": 5,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 6,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 10,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 11,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 3,
           "col": 12,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 7,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 8,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 9,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 13,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 14,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 4,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 5,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 5,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 5,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 6,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 6,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 6,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 7,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 7,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 7,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 14,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 16,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 8,
           "col": 20,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 8,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 10,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 11,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 12,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 13,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 14,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 15,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 17,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 18,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 19,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 20,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 21,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 9,
           "col": 22,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 10,
           "col": 9,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 10,
           "col": 15,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 10,
           "col": 21,
-          "weight": 3
+          "weight": 3,
+          "state": "O"
         },
         {
           "row": 11,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 11,
           "col": 15,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 11,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 11,
           "col": 21,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 12,
           "col": 13,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 12,
           "col": 19,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 13,
           "col": 13,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 13,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 13,
           "col": 19,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 13,
           "col": 20,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 14,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 14,
           "col": 20,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 14,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 16,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 17,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 18,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         },
         {
           "row": 15,
           "col": 19,
-          "weight": 1
+          "weight": 1,
+          "state": "O"
         },
         {
           "row": 16,
           "col": 15,
-          "weight": 2
+          "weight": 2,
+          "state": "O"
         }
       ],
       "num_nodes": 59,

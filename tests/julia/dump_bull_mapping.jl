@@ -47,6 +47,14 @@ function dump_mapping_info(mode, g, name)
     res = map_graph(mode, g)
     mode_name = string(typeof(mode))
 
+    # Capture grid state at different stages for comparison
+    # Stage 1: After embed_graph (copylines only, includes Connected cells at crossings)
+    ug_copylines_only = UnitDiskMapping.embed_graph(mode, g)
+
+    # Stage 2: After crossing gadgets (before simplifiers)
+    ug_before_simplify = UnitDiskMapping.embed_graph(mode, g)
+    ug_before_simplify, crossing_tape = UnitDiskMapping.apply_crossing_gadgets!(mode, ug_before_simplify)
+
     info = Dict{String, Any}()
     info["graph_name"] = name
     info["mode"] = mode_name
@@ -61,7 +69,7 @@ function dump_mapping_info(mode, g, name)
     info["mis_overhead"] = res.mis_overhead
     info["num_grid_nodes"] = length(res.grid_graph.nodes)
 
-    # Grid nodes with positions and weights
+    # Grid nodes with positions and weights (AFTER simplifiers - final result)
     nodes_info = [Dict(
         "index" => i,
         "row" => node.loc[1],
@@ -69,6 +77,49 @@ function dump_mapping_info(mode, g, name)
         "weight" => node.weight isa Number ? node.weight : 1
     ) for (i, node) in enumerate(res.grid_graph.nodes)]
     info["grid_nodes"] = nodes_info
+
+    # Grid nodes BEFORE simplifiers (after copylines + crossing gadgets)
+    # Extract from ug_before_simplify.content which is a matrix of cells
+    # Include cell state: O=Occupied, D=Doubled, C=Connected
+    nodes_before_simplifiers = []
+    for i in 1:size(ug_before_simplify.content, 1)
+        for j in 1:size(ug_before_simplify.content, 2)
+            cell = ug_before_simplify.content[i, j]
+            if !isempty(cell)
+                state = if cell.doubled
+                    "D"
+                elseif cell.connected
+                    "C"
+                else
+                    "O"
+                end
+                push!(nodes_before_simplifiers, Dict("row" => i, "col" => j, "state" => state))
+            end
+        end
+    end
+    info["grid_nodes_before_simplifiers"] = nodes_before_simplifiers
+    info["num_grid_nodes_before_simplifiers"] = length(nodes_before_simplifiers)
+
+    # Grid nodes AFTER copylines only (before crossing gadgets)
+    # Include cell state: O=Occupied, D=Doubled, C=Connected
+    nodes_copylines_only = []
+    for i in 1:size(ug_copylines_only.content, 1)
+        for j in 1:size(ug_copylines_only.content, 2)
+            cell = ug_copylines_only.content[i, j]
+            if !isempty(cell)
+                state = if cell.doubled
+                    "D"
+                elseif cell.connected
+                    "C"
+                else
+                    "O"
+                end
+                push!(nodes_copylines_only, Dict("row" => i, "col" => j, "state" => state))
+            end
+        end
+    end
+    info["grid_nodes_copylines_only"] = nodes_copylines_only
+    info["num_grid_nodes_copylines_only"] = length(nodes_copylines_only)
 
     # Tape entries (mapping_history)
     tape_info = [Dict(
@@ -80,46 +131,71 @@ function dump_mapping_info(mode, g, name)
     info["tape"] = tape_info
     info["num_tape_entries"] = length(tape_info)
 
-    # Copy lines info
-    lines_info = [Dict(
-        "index" => i,
-        "vertex" => line.vertex,
-        "vslot" => line.vslot,
-        "hslot" => line.hslot,
-        "vstart" => line.vstart,
-        "vstop" => line.vstop,
-        "hstop" => line.hstop
-    ) for (i, line) in enumerate(res.lines)]
+    # Copy lines info with locations
+    spacing = res.spacing
+    lines_info = []
+    for (i, line) in enumerate(res.lines)
+        # Get copyline_locations for this line
+        locs = UnitDiskMapping.copyline_locations(UnitDiskMapping.nodetype(mode), line, res.padding, spacing)
+        locs_info = [Dict("row" => loc.loc[1], "col" => loc.loc[2]) for loc in locs]
+
+        push!(lines_info, Dict(
+            "index" => i,
+            "vertex" => line.vertex,
+            "vslot" => line.vslot,
+            "hslot" => line.hslot,
+            "vstart" => line.vstart,
+            "vstop" => line.vstop,
+            "hstop" => line.hstop,
+            "locations" => locs_info
+        ))
+    end
     info["copy_lines"] = lines_info
 
-    # Solve optimal MIS/WMIS using GenericTensorNetworks
-    gp = GenericTensorNetwork(IndependentSet(SimpleGraph(res.grid_graph));
-                              optimizer=TreeSA(ntrials=1, niters=10))
-    missize_map = solve(gp, SizeMax())[].n
-    missize_original = solve(GenericTensorNetwork(IndependentSet(g)), SizeMax())[].n
+    # Try to solve optimal MIS/WMIS using GenericTensorNetworks
+    # This may fail for weighted/triangular modes due to SimpleGraph conversion
+    try
+        gp = GenericTensorNetwork(IndependentSet(SimpleGraph(res.grid_graph));
+                                  optimizer=TreeSA(ntrials=1, niters=10))
+        missize_map = solve(gp, SizeMax())[].n
+        missize_original = solve(GenericTensorNetwork(IndependentSet(g)), SizeMax())[].n
 
-    info["original_mis_size"] = missize_original
-    info["mapped_mis_size"] = missize_map
-    info["overhead_check"] = res.mis_overhead + missize_original == missize_map
+        info["original_mis_size"] = missize_original
+        info["mapped_mis_size"] = missize_map
+        info["overhead_check"] = res.mis_overhead + missize_original == missize_map
 
-    # Get optimal MIS configuration
-    misconfig = solve(gp, SingleConfigMax())[].c
+        # Get optimal MIS configuration
+        misconfig = solve(gp, SingleConfigMax())[].c
 
-    # Selected positions in optimal MIS
-    selected_positions = [Dict(
-        "node_index" => i,
-        "row" => res.grid_graph.nodes[i].loc[1],
-        "col" => res.grid_graph.nodes[i].loc[2]
-    ) for i in 1:length(misconfig.data) if misconfig.data[i] > 0]
-    info["mis_selected_positions"] = selected_positions
-    info["mis_selected_count"] = length(selected_positions)
+        # Selected positions in optimal MIS
+        selected_positions = [Dict(
+            "node_index" => i,
+            "row" => res.grid_graph.nodes[i].loc[1],
+            "col" => res.grid_graph.nodes[i].loc[2]
+        ) for i in 1:length(misconfig.data) if misconfig.data[i] > 0]
+        info["mis_selected_positions"] = selected_positions
+        info["mis_selected_count"] = length(selected_positions)
 
-    # Map config back using the standard interface
-    original_configs = map_config_back(res, collect(misconfig.data))
-    info["original_config"] = collect(original_configs)
-    info["mapped_back_size"] = count(isone, original_configs)
-    info["is_valid_is"] = is_independent_set(g, original_configs)
-    info["size_matches"] = count(isone, original_configs) == missize_original
+        # Map config back using the standard interface
+        original_configs = map_config_back(res, collect(misconfig.data))
+        info["original_config"] = collect(original_configs)
+        info["mapped_back_size"] = count(isone, original_configs)
+        info["is_valid_is"] = is_independent_set(g, original_configs)
+        info["size_matches"] = count(isone, original_configs) == missize_original
+    catch e
+        # For weighted/triangular modes, skip MIS solving but still capture structure
+        println("  Note: Skipping MIS solving ($(typeof(e)))")
+        missize_original = solve(GenericTensorNetwork(IndependentSet(g)), SizeMax())[].n
+        info["original_mis_size"] = missize_original
+        info["mapped_mis_size"] = nothing
+        info["overhead_check"] = nothing
+        info["mis_selected_positions"] = []
+        info["mis_selected_count"] = 0
+        info["original_config"] = []
+        info["mapped_back_size"] = 0
+        info["is_valid_is"] = nothing
+        info["size_matches"] = nothing
+    end
 
     return info
 end

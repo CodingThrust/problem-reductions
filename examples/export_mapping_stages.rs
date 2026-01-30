@@ -23,6 +23,7 @@ struct GridNodeExport {
     row: i32,
     col: i32,
     weight: i32,
+    state: String,  // "O" = Occupied, "D" = Doubled, "C" = Connected
 }
 
 #[derive(Serialize)]
@@ -104,16 +105,24 @@ fn gadget_name(idx: usize) -> String {
 // The Typst script converts to 1-indexed for comparison with Julia.
 // DO NOT add +1 here - keep 0-indexed!
 fn extract_grid_nodes(grid: &MappingGrid) -> Vec<GridNodeExport> {
+    use problemreductions::rules::unitdiskmapping::CellState;
     let mut nodes = Vec::new();
     let (rows, cols) = grid.size();
     for r in 0..rows {
         for c in 0..cols {
             if let Some(cell) = grid.get(r, c) {
                 if !cell.is_empty() {
+                    let state = match cell {
+                        CellState::Occupied { .. } => "O",
+                        CellState::Doubled { .. } => "D",
+                        CellState::Connected { .. } => "C",
+                        CellState::Empty => ".",
+                    };
                     nodes.push(GridNodeExport {
                         row: r as i32,  // 0-indexed - DO NOT change!
                         col: c as i32,  // 0-indexed - DO NOT change!
                         weight: cell.weight(),
+                        state: state.to_string(),
                     });
                 }
             }
@@ -280,10 +289,17 @@ fn export_square(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_or
             (v_line, u_line)
         };
         let (row, col) = crossat_square(&copylines, smaller_line.vertex, larger_line.vertex, spacing, padding);
+        // Julia's connect logic: always mark (I, J-1), then check (I-1, J) or (I+1, J)
         if col > 0 {
             grid.connect(row, col - 1);
         }
-        grid.connect(row - 1, col);
+        // Julia: if !isempty(ug.content[I-1, J]) then mark (I-1, J) else mark (I+1, J)
+        // Check if there's a copyline node at (row-1, col) to determine direction
+        if row > 0 && grid.is_occupied(row - 1, col) {
+            grid.connect(row - 1, col);
+        } else {
+            grid.connect(row + 1, col);
+        }
     }
     let stage2_nodes = extract_grid_nodes(&grid);
 
@@ -335,8 +351,9 @@ fn crossat_square(
     let hslot = line_first.hslot;
     let max_vslot = line_second.vslot;
 
-    let row = (hslot - 1) * spacing + 1 + padding;
-    let col = (max_vslot - 1) * spacing + 1 + padding;
+    // 0-indexed coordinates (matches center_location formula)
+    let row = (hslot - 1) * spacing + 1 + padding;  // 0-indexed
+    let col = (max_vslot - 1) * spacing + padding;  // 0-indexed
     (row, col)
 }
 

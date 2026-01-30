@@ -29,6 +29,8 @@ struct JuliaTrace {
     copy_lines: Vec<CopyLineInfo>,
     #[serde(default)]
     tape: Vec<JuliaTapeEntry>,
+    #[serde(default)]
+    grid_nodes_copylines_only: Vec<GridNodeWithState>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -36,6 +38,13 @@ struct GridNode {
     row: i32,
     col: i32,
     weight: i32,
+}
+
+#[derive(Debug, Deserialize)]
+struct GridNodeWithState {
+    row: i32,
+    col: i32,
+    state: String,
 }
 
 #[derive(Debug, Deserialize)]
@@ -344,6 +353,121 @@ fn test_square_unweighted_house() {
 #[test]
 fn test_square_unweighted_petersen() {
     compare_square_unweighted("petersen");
+}
+
+// ============================================================================
+// Connected Cell Tests - Verify connect() marks cells correctly
+// ============================================================================
+
+/// Test that Connected cells are marked at the correct positions.
+/// This tests the fix for the bug where connect() was incorrectly implemented.
+/// Julia's connect_cell! converts plain Occupied cells to Connected at crossing points.
+fn compare_connected_cells(name: &str) {
+    use problemreductions::rules::unitdiskmapping::CellState;
+
+    let julia = load_julia_trace(name, "unweighted");
+    let edges = get_graph_edges(&julia);
+    let num_vertices = julia.num_vertices;
+
+    // Get Julia's Connected cell positions (convert 1-indexed to 0-indexed)
+    let julia_connected: HashSet<(i32, i32)> = julia.grid_nodes_copylines_only
+        .iter()
+        .filter(|n| n.state == "C")
+        .map(|n| (n.row - 1, n.col - 1))
+        .collect();
+
+    // Run Rust mapping and get Connected cells from the grid after applying connections
+    let rust_result = map_graph(num_vertices, &edges);
+
+    // Re-create the grid with connections to check Connected cell positions
+    let mut grid = problemreductions::rules::unitdiskmapping::MappingGrid::with_padding(
+        rust_result.grid_graph.size().0,
+        rust_result.grid_graph.size().1,
+        rust_result.spacing,
+        rust_result.padding,
+    );
+
+    // Add copyline nodes
+    for line in &rust_result.lines {
+        for (row, col, weight) in line.copyline_locations(rust_result.padding, rust_result.spacing) {
+            grid.add_node(row, col, weight as i32);
+        }
+    }
+
+    // Apply connections (this is what we're testing)
+    for &(u, v) in &edges {
+        let u_line = &rust_result.lines[u];
+        let v_line = &rust_result.lines[v];
+        let (smaller_line, larger_line) = if u_line.vslot < v_line.vslot {
+            (u_line, v_line)
+        } else {
+            (v_line, u_line)
+        };
+        let (row, col) = grid.cross_at(smaller_line.vslot, larger_line.vslot, smaller_line.hslot);
+        if col > 0 {
+            grid.connect(row, col - 1);
+        }
+        if row > 0 && grid.is_occupied(row - 1, col) {
+            grid.connect(row - 1, col);
+        } else {
+            grid.connect(row + 1, col);
+        }
+    }
+
+    // Collect Rust's Connected cell positions
+    let rust_connected: HashSet<(i32, i32)> = {
+        let (rows, cols) = grid.size();
+        let mut connected = HashSet::new();
+        for r in 0..rows {
+            for c in 0..cols {
+                if let Some(CellState::Connected { .. }) = grid.get(r, c) {
+                    connected.insert((r as i32, c as i32));
+                }
+            }
+        }
+        connected
+    };
+
+    println!("\n=== {} Connected Cells Test ===", name);
+    println!("Julia Connected: {} cells", julia_connected.len());
+    println!("Rust Connected: {} cells", rust_connected.len());
+
+    // Find differences
+    let julia_only: Vec<_> = julia_connected.difference(&rust_connected).collect();
+    let rust_only: Vec<_> = rust_connected.difference(&julia_connected).collect();
+
+    if !julia_only.is_empty() {
+        println!("Julia-only positions: {:?}", julia_only);
+    }
+    if !rust_only.is_empty() {
+        println!("Rust-only positions: {:?}", rust_only);
+    }
+
+    assert_eq!(julia_connected.len(), rust_connected.len(),
+        "{}: Connected cell count mismatch (Julia={}, Rust={})",
+        name, julia_connected.len(), rust_connected.len());
+    assert_eq!(julia_connected, rust_connected,
+        "{}: Connected cell positions don't match", name);
+}
+
+#[test]
+fn test_connected_cells_diamond() {
+    compare_connected_cells("diamond");
+}
+
+#[test]
+fn test_connected_cells_bull() {
+    compare_connected_cells("bull");
+}
+
+#[test]
+fn test_connected_cells_house() {
+    compare_connected_cells("house");
+}
+
+#[test]
+fn test_connected_cells_petersen() {
+    compare_connected_cells("petersen");
 }
 
 // ============================================================================

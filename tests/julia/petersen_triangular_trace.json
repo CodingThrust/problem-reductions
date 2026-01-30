@@ -2630,1619 +2630,2023 @@
   "grid_nodes_before_simplifiers": [
     {
       "row": 3,
-      "col": 41
+      "col": 41,
+      "state": "O"
     },
     {
       "row": 3,
-      "col": 53
+      "col": 53,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 4
+      "col": 4,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 5
+      "col": 5,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 6
+      "col": 6,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 7
+      "col": 7,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 8
+      "col": 8,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 9
+      "col": 9,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 10
+      "col": 10,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 11
+      "col": 11,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 12
+      "col": 12,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 13
+      "col": 13,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 15
+      "col": 15,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 17
+      "col": 17,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 18
+      "col": 18,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 19
+      "col": 19,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 23
+      "col": 23,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 24
+      "col": 24,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 25
+      "col": 25,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 26
+      "col": 26,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 28
+      "col": 28,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 29
+      "col": 29,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 30
+      "col": 30,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 40
+      "col": 40,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 42
+      "col": 42,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 43
+      "col": 43,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 52
+      "col": 52,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 54
+      "col": 54,
+      "state": "O"
     },
     {
       "row": 4,
-      "col": 55
+      "col": 55,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 14
+      "col": 14,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 15
+      "col": 15,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 16
+      "col": 16,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 20
+      "col": 20,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 22
+      "col": 22,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 40
+      "col": 40,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 44
+      "col": 44,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 45
+      "col": 45,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 52
+      "col": 52,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 56
+      "col": 56,
+      "state": "O"
     },
     {
       "row": 5,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 6,
-      "col": 15
+      "col": 15,
+      "state": "O"
     },
     {
       "row": 6,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 6,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 6,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 6,
-      "col": 45
+      "col": 45,
+      "state": "O"
     },
     {
       "row": 6,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 6,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 7,
-      "col": 15
+      "col": 15,
+      "state": "O"
     },
     {
       "row": 7,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 7,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 7,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 7,
-      "col": 45
+      "col": 45,
+      "state": "O"
     },
     {
       "row": 7,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 7,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 8,
-      "col": 15
+      "col": 15,
+      "state": "O"
     },
     {
       "row": 8,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 8,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 8,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 8,
-      "col": 45
+      "col": 45,
+      "state": "O"
     },
     {
       "row": 8,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 8,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 9,
-      "col": 15
+      "col": 15,
+      "state": "O"
     },
     {
       "row": 9,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 9,
-      "col": 23
+      "col": 23,
+      "state": "O"
     },
     {
       "row": 9,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 9,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 9,
-      "col": 45
+      "col": 45,
+      "state": "O"
     },
     {
       "row": 9,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 9,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 10
+      "col": 10,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 11
+      "col": 11,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 12
+      "col": 12,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 13
+      "col": 13,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 14
+      "col": 14,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 15
+      "col": 15,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 16
+      "col": 16,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 17
+      "col": 17,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 18
+      "col": 18,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 19
+      "col": 19,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 20
+      "col": 20,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 22
+      "col": 22,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 24
+      "col": 24,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 25
+      "col": 25,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 29
+      "col": 29,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 30
+      "col": 30,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 34
+      "col": 34,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 35
+      "col": 35,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 36
+      "col": 36,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 40
+      "col": 40,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 41
+      "col": 41,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 45
+      "col": 45,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 47
+      "col": 47,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 48
+      "col": 48,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 49
+      "col": 49,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 50
+      "col": 50,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 52
+      "col": 52,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 53
+      "col": 53,
+      "state": "O"
     },
     {
       "row": 10,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 13
+      "col": 13,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 14
+      "col": 14,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 15
+      "col": 15,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 16
+      "col": 16,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 22
+      "col": 22,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 26
+      "col": 26,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 28
+      "col": 28,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 34
+      "col": 34,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 40
+      "col": 40,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 46
+      "col": 46,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 52
+      "col": 52,
+      "state": "O"
     },
     {
       "row": 11,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 13
+      "col": 13,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 14
+      "col": 14,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 22
+      "col": 22,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 40
+      "col": 40,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 45
+      "col": 45,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 46
+      "col": 46,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 52
+      "col": 52,
+      "state": "O"
     },
     {
       "row": 12,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 13,
-      "col": 13
+      "col": 13,
+      "state": "O"
     },
     {
       "row": 13,
-      "col": 20
+      "col": 20,
+      "state": "O"
     },
     {
       "row": 13,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 13,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 13,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 13,
-      "col": 44
+      "col": 44,
+      "state": "O"
     },
     {
       "row": 13,
-      "col": 50
+      "col": 50,
+      "state": "O"
     },
     {
       "row": 13,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 14
+      "col": 14,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 15
+      "col": 15,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 20
+      "col": 20,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 44
+      "col": 44,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 45
+      "col": 45,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 50
+      "col": 50,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 14,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 15,
-      "col": 15
+      "col": 15,
+      "state": "O"
     },
     {
       "row": 15,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 15,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 15,
-      "col": 29
+      "col": 29,
+      "state": "O"
     },
     {
       "row": 15,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 15,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 15,
-      "col": 45
+      "col": 45,
+      "state": "O"
     },
     {
       "row": 15,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 15,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 15
+      "col": 15,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 17
+      "col": 17,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 18
+      "col": 18,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 19
+      "col": 19,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 20
+      "col": 20,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 22
+      "col": 22,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 23
+      "col": 23,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 24
+      "col": 24,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 25
+      "col": 25,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 26
+      "col": 26,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 28
+      "col": 28,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 30
+      "col": 30,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 34
+      "col": 34,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 35
+      "col": 35,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 36
+      "col": 36,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 40
+      "col": 40,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 41
+      "col": 41,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 42
+      "col": 42,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 43
+      "col": 43,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 44
+      "col": 44,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 16,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 16
+      "col": 16,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 19
+      "col": 19,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 20
+      "col": 20,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 22
+      "col": 22,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 28
+      "col": 28,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 34
+      "col": 34,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 40
+      "col": 40,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 17,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 18,
-      "col": 19
+      "col": 19,
+      "state": "O"
     },
     {
       "row": 18,
-      "col": 20
+      "col": 20,
+      "state": "O"
     },
     {
       "row": 18,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 18,
-      "col": 28
+      "col": 28,
+      "state": "O"
     },
     {
       "row": 18,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 18,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 18,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 18,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 18,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 18,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 19,
-      "col": 19
+      "col": 19,
+      "state": "O"
     },
     {
       "row": 19,
-      "col": 26
+      "col": 26,
+      "state": "O"
     },
     {
       "row": 19,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 19,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 19,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 19,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 20,
-      "col": 20
+      "col": 20,
+      "state": "O"
     },
     {
       "row": 20,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 20,
-      "col": 26
+      "col": 26,
+      "state": "O"
     },
     {
       "row": 20,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 20,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 20,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 20,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 20,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 20,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 20,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 21,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 21,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 21,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 21,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 21,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 21,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 21
+      "col": 21,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 23
+      "col": 23,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 24
+      "col": 24,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 25
+      "col": 25,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 26
+      "col": 26,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 28
+      "col": 28,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 29
+      "col": 29,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 30
+      "col": 30,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 34
+      "col": 34,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 35
+      "col": 35,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 36
+      "col": 36,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 40
+      "col": 40,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 41
+      "col": 41,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 42
+      "col": 42,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 43
+      "col": 43,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 44
+      "col": 44,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 45
+      "col": 45,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 46
+      "col": 46,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 47
+      "col": 47,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 48
+      "col": 48,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 49
+      "col": 49,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 50
+      "col": 50,
+      "state": "O"
     },
     {
       "row": 22,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 22
+      "col": 22,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 25
+      "col": 25,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 26
+      "col": 26,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 28
+      "col": 28,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 34
+      "col": 34,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 40
+      "col": 40,
+      "state": "O"
     },
     {
       "row": 23,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 24,
-      "col": 25
+      "col": 25,
+      "state": "O"
     },
     {
       "row": 24,
-      "col": 26
+      "col": 26,
+      "state": "O"
     },
     {
       "row": 24,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 24,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 24,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 24,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 24,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 25,
-      "col": 25
+      "col": 25,
+      "state": "O"
     },
     {
       "row": 25,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 25,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 25,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 26,
-      "col": 26
+      "col": 26,
+      "state": "O"
     },
     {
       "row": 26,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 26,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 26,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 26,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 26,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 26,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 27,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 27,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 27,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 27,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 27
+      "col": 27,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 29
+      "col": 29,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 30
+      "col": 30,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 34
+      "col": 34,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 35
+      "col": 35,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 36
+      "col": 36,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 40
+      "col": 40,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 41
+      "col": 41,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 42
+      "col": 42,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 43
+      "col": 43,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 44
+      "col": 44,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 45
+      "col": 45,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 46
+      "col": 46,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 47
+      "col": 47,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 48
+      "col": 48,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 49
+      "col": 49,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 50
+      "col": 50,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 52
+      "col": 52,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 53
+      "col": 53,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 54
+      "col": 54,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 55
+      "col": 55,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 56
+      "col": 56,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 58
+      "col": 58,
+      "state": "O"
     },
     {
       "row": 28,
-      "col": 59
+      "col": 59,
+      "state": "O"
     },
     {
       "row": 29,
-      "col": 28
+      "col": 28,
+      "state": "O"
     },
     {
       "row": 29,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 29,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 29,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 29,
-      "col": 34
+      "col": 34,
+      "state": "O"
     },
     {
       "row": 29,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 29,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 29,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 29,
-      "col": 40
+      "col": 40,
+      "state": "O"
     },
     {
       "row": 29,
-      "col": 58
+      "col": 58,
+      "state": "O"
     },
     {
       "row": 30,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 30,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 30,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 30,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 30,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 30,
-      "col": 58
+      "col": 58,
+      "state": "O"
     },
     {
       "row": 31,
-      "col": 31
+      "col": 31,
+      "state": "O"
     },
     {
       "row": 31,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 31,
-      "col": 56
+      "col": 56,
+      "state": "O"
     },
     {
       "row": 32,
-      "col": 32
+      "col": 32,
+      "state": "O"
     },
     {
       "row": 32,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 32,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 32,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 32,
-      "col": 56
+      "col": 56,
+      "state": "O"
     },
     {
       "row": 32,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 33,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 33,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 33,
-      "col": 57
+      "col": 57,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 33
+      "col": 33,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 35
+      "col": 35,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 36
+      "col": 36,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 37
+      "col": 37,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 38
+      "col": 38,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 39
+      "col": 39,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 40
+      "col": 40,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 41
+      "col": 41,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 42
+      "col": 42,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 43
+      "col": 43,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 44
+      "col": 44,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 45
+      "col": 45,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 46
+      "col": 46,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 47
+      "col": 47,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 48
+      "col": 48,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 49
+      "col": 49,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 50
+      "col": 50,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 51
+      "col": 51,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 52
+      "col": 52,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 53
+      "col": 53,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 54
+      "col": 54,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 55
+      "col": 55,
+      "state": "O"
     },
     {
       "row": 34,
-      "col": 56
+      "col": 56,
+      "state": "O"
     },
     {
       "row": 35,
-      "col": 34
+      "col": 34,
+      "state": "O"
     }
   ],
   "num_edges": 15,

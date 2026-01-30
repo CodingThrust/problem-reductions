@@ -123,10 +123,14 @@ impl MappingGrid {
 
     /// Mark a cell as connected.
     ///
+    /// Julia's connect_cell! converts a plain Occupied cell (MCell()) to a Connected cell.
+    /// It errors if the cell is NOT MCell() (i.e., doubled, empty, or already connected).
+    /// This matches that behavior - converts Occupied cells to Connected.
     /// Silently ignores out-of-bounds access.
     pub fn connect(&mut self, row: usize, col: usize) {
         if row < self.rows && col < self.cols {
             if let CellState::Occupied { weight } = self.content[row][col] {
+                // Julia: converts plain Occupied cell (MCell()) to Connected cell
                 self.content[row][col] = CellState::Connected { weight };
             }
         }

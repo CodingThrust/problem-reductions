@@ -17,10 +17,12 @@
 #let pos_key(r, c) = str(r) + "," + str(c)
 
 // Convert Julia 1-indexed nodes to 0-indexed (Rust is already 0-indexed)
+// Preserves state field if present (O=Occupied, D=Doubled, C=Connected)
 #let julia_to_0indexed(nodes) = nodes.map(n => (
   row: n.row - 1,
   col: n.col - 1,
-  weight: if "weight" in n { n.weight } else { 1 }
+  weight: if "weight" in n { n.weight } else { 1 },
+  state: if "state" in n { n.state } else { "O" }
 ))
 
 // Extract copyline nodes from Julia copy_lines (convert to 0-indexed)
@@ -38,8 +40,12 @@
   nodes
 }
 
+// Color for connected cells
+#let connected_color = rgb("#E91E63")  // Pink/Magenta for Connected
+
 // Draw grid with nodes - all positions are 0-indexed
 // triangular: if true, offset odd rows by 0.5 for triangular lattice
+// Shows Connected cells (state="C") with a different color (ring)
 #let draw_grid(nodes, grid_size, title, node_color: black, unit: 4pt, triangular: false) = {
   let rows = grid_size.at(0)
   let cols = grid_size.at(1)
@@ -67,15 +73,21 @@
       }
     }
 
-    // Draw filled nodes
+    // Draw filled nodes - Connected cells shown with different color
     for node in nodes {
       let r = node.row
       let c = node.col
       let w = if "weight" in node { node.weight } else { 1 }
+      let s = if "state" in node { node.state } else { "O" }
       let y = rows - r - 0.5
       let x = get_x(r, c)
       let radius = if w == 1 { 0.25 } else if w == 2 { 0.35 } else { 0.45 }
-      circle((x, y), radius: radius, fill: node_color, stroke: none)
+      // Connected cells shown with ring (stroke) instead of fill
+      if s == "C" {
+        circle((x, y), radius: radius, fill: none, stroke: 1.5pt + connected_color)
+      } else {
+        circle((x, y), radius: radius, fill: node_color, stroke: none)
+      }
     }
   })
 }
@@ -149,12 +161,18 @@
 // triangular: if true, use triangular lattice visualization (offset odd rows)
 #let compare_mode(name, mode, julia, rust, triangular: false) = {
   let grid_size = julia.grid_size
-  let julia_copylines = julia_copylines_to_nodes(julia.copy_lines)
+  // Use grid_nodes_copylines_only if available (has state: O, D, C), else fall back to copy_lines
+  let julia_copylines = if "grid_nodes_copylines_only" in julia {
+    julia_to_0indexed(julia.grid_nodes_copylines_only)
+  } else {
+    julia_copylines_to_nodes(julia.copy_lines)
+  }
   let julia_before_simp = julia_to_0indexed(julia.at("grid_nodes_before_simplifiers", default: julia.grid_nodes))
   let julia_final = julia_to_0indexed(julia.grid_nodes)
-  let rust_stage0 = rust.stages.at(0).grid_nodes
-  let rust_stage2 = rust.stages.at(2).grid_nodes
-  let rust_stage3 = rust.stages.at(3).grid_nodes
+  // Rust stages: 0=copylines only, 1=with connections, 2=after crossing, 3=after simplifiers
+  let rust_stage1 = rust.stages.at(1).grid_nodes  // with connections (matches Julia copylines_only)
+  let rust_stage2 = rust.stages.at(2).grid_nodes  // after crossing gadgets
+  let rust_stage3 = rust.stages.at(3).grid_nodes  // after simplifiers
 
   [
     = #name - #mode
@@ -172,13 +190,13 @@
       [Tape], [#julia.tape.len()], [#(rust.crossing_tape.len() + rust.simplifier_tape.len())],
     )
 
-    == Copylines Only
+    == Copylines with Connections
     #grid(
       columns: 3,
       gutter: 0.3em,
       draw_grid(julia_copylines, grid_size, "Julia", node_color: julia_color, triangular: triangular),
-      draw_grid(rust_stage0, grid_size, "Rust", node_color: rust_color, triangular: triangular),
-      draw_comparison(julia_copylines, rust_stage0, grid_size, "Diff", triangular: triangular),
+      draw_grid(rust_stage1, grid_size, "Rust", node_color: rust_color, triangular: triangular),
+      draw_comparison(julia_copylines, rust_stage1, grid_size, "Diff", triangular: triangular),
     )
 
     == After Crossing Gadgets
