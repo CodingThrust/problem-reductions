@@ -1,9 +1,11 @@
 //! Tests comparing Rust mapping output with Julia's UnitDiskMapping.jl traces.
 //!
-//! Note: Julia uses 1-indexed coordinates and vertices, Rust uses 0-indexed.
-//! This test converts Julia's 1-indexed coordinates to 0-indexed for comparison.
+//! Compares three modes:
+//! - UnWeighted (square lattice)
+//! - Weighted (square lattice with weights)
+//! - Triangular (triangular lattice with weights)
 
-use problemreductions::rules::unitdiskmapping::map_graph;
+use problemreductions::rules::unitdiskmapping::{map_graph, map_graph_triangular_with_order};
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::fs;
@@ -11,6 +13,7 @@ use std::fs;
 #[derive(Debug, Deserialize)]
 struct JuliaTrace {
     graph_name: String,
+    mode: String,
     num_vertices: usize,
     num_edges: usize,
     edges: Vec<(usize, usize)>,
@@ -19,10 +22,13 @@ struct JuliaTrace {
     num_grid_nodes_before_simplifiers: usize,
     mis_overhead: i32,
     original_mis_size: f64,
-    mapped_mis_size: f64,
+    #[serde(default)]
+    mapped_mis_size: Option<f64>,
     padding: usize,
     grid_nodes: Vec<GridNode>,
     copy_lines: Vec<CopyLineInfo>,
+    #[serde(default)]
+    tape: Vec<JuliaTapeEntry>,
 }
 
 #[derive(Debug, Deserialize)]
@@ -49,149 +55,317 @@ struct Location {
     col: i32,
 }
 
-fn load_julia_trace(name: &str) -> JuliaTrace {
-    let path = format!("tests/julia/{}_unweighted_trace.json", name);
-    let content = fs::read_to_string(&path).expect(&format!("Failed to read {}", path));
-    serde_json::from_str(&content).expect(&format!("Failed to parse {}", path))
+#[derive(Debug, Deserialize)]
+struct JuliaTapeEntry {
+    index: usize,
+    #[serde(rename = "type")]
+    gadget_type: String,
+    row: i32,
+    col: i32,
+}
+
+fn load_julia_trace(name: &str, mode: &str) -> JuliaTrace {
+    let path = format!("tests/julia/{}_{}_trace.json", name, mode);
+    let content = fs::read_to_string(&path).unwrap_or_else(|_| panic!("Failed to read {}", path));
+    serde_json::from_str(&content).unwrap_or_else(|e| panic!("Failed to parse {}: {}", path, e))
 }
 
 /// Get edges from Julia trace (converted from 1-indexed to 0-indexed)
 fn get_graph_edges(julia: &JuliaTrace) -> Vec<(usize, usize)> {
     julia.edges
         .iter()
-        .map(|(u, v)| (u - 1, v - 1))  // Convert from 1-indexed to 0-indexed
+        .map(|(u, v)| (u - 1, v - 1))
         .collect()
 }
 
-
-/// Compare Rust and Julia mapping results for a given graph.
-/// Julia uses 1-indexed coordinates, Rust uses 0-indexed.
-fn compare_mapping(name: &str) {
-    let julia = load_julia_trace(name);
+/// Compare Rust and Julia for square lattice (UnWeighted mode)
+fn compare_square_unweighted(name: &str) {
+    let julia = load_julia_trace(name, "unweighted");
     let edges = get_graph_edges(&julia);
     let num_vertices = julia.num_vertices;
 
-    // Run Rust mapping
     let rust_result = map_graph(num_vertices, &edges);
 
     // Collect Rust grid nodes from copyline_locations (0-indexed)
-    let mut rust_nodes: HashSet<(i32, i32)> = HashSet::new();
-    for line in &rust_result.lines {
-        for (row, col, _weight) in line.copyline_locations(rust_result.padding, rust_result.spacing) {
-            rust_nodes.insert((row as i32, col as i32));
-        }
-    }
-
-    // Collect Julia grid nodes (both use same 1-indexed coordinate system)
-    let julia_nodes: HashSet<(i32, i32)> = julia.grid_nodes
+    let rust_nodes: HashSet<(i32, i32)> = rust_result.lines
         .iter()
-        .map(|n| (n.row, n.col))
+        .flat_map(|line| {
+            line.copyline_locations(rust_result.padding, rust_result.spacing)
+                .into_iter()
+                .map(|(row, col, _)| (row as i32, col as i32))
+        })
         .collect();
 
-    // Also collect from copy_line locations (more accurate source)
-    let julia_copyline_nodes: HashSet<(i32, i32)> = julia.copy_lines
+    // Collect Julia copyline nodes (convert from 1-indexed to 0-indexed)
+    let julia_nodes: HashSet<(i32, i32)> = julia.copy_lines
         .iter()
-        .flat_map(|cl| cl.locations.iter().map(|loc| (loc.row, loc.col)))
+        .flat_map(|cl| cl.locations.iter().map(|loc| (loc.row - 1, loc.col - 1)))
         .collect();
 
-    println!("\n=== {} ===", name);
-    println!("Julia: {} vertices, {} edges", julia.num_vertices, julia.num_edges);
-    println!("Rust:  {} vertices, {} edges", num_vertices, edges.len());
+    println!("\n=== {} (square/unweighted) ===", name);
+    print_comparison(&julia, &rust_result.grid_graph.size(), rust_result.mis_overhead,
+                     &julia_nodes, &rust_nodes);
 
-    println!("\nGrid size:");
-    println!("  Julia: {:?}", julia.grid_size);
-    println!("  Rust:  {:?}", rust_result.grid_graph.size());
+    // Compare copy lines
+    compare_copy_lines(&julia.copy_lines, &rust_result.lines);
 
-    println!("\nGrid nodes:");
-    println!("  Julia (grid_nodes): {}", julia.num_grid_nodes);
-    println!("  Julia (from copylines): {}", julia_copyline_nodes.len());
-    println!("  Rust:  {}", rust_nodes.len());
+    // Assertions
+    assert_eq!(julia.grid_size, rust_result.grid_graph.size(),
+        "{} square: Grid size mismatch", name);
+    assert_eq!(julia.mis_overhead, rust_result.mis_overhead,
+        "{} square: MIS overhead mismatch", name);
+    assert_eq!(julia_nodes.len(), rust_nodes.len(),
+        "{} square: Node count mismatch (Julia={}, Rust={})", name, julia_nodes.len(), rust_nodes.len());
+    assert_eq!(julia_nodes, rust_nodes,
+        "{} square: Node positions don't match", name);
+}
 
-    println!("\nMIS overhead:");
-    println!("  Julia: {}", julia.mis_overhead);
-    println!("  Rust:  {}", rust_result.mis_overhead);
+/// Get MIS overhead for a Julia gadget type string (triangular/weighted mode)
+/// Values from Julia's UnitDiskMapping/src/triangular.jl lines 401-413
+/// For simplifiers: Julia uses mis_overhead(w::WeightedGadget) = mis_overhead(w.gadget) * 2
+fn julia_gadget_overhead(gadget_type: &str) -> i32 {
+    // Order matters - check more specific patterns first
+    if gadget_type.contains("TriCross{true") { 1 }
+    else if gadget_type.contains("TriCross{false") || gadget_type.contains("TriCross}") { 3 }
+    else if gadget_type.contains("TriWTurn") { 0 }
+    else if gadget_type.contains("TriBranchFixB") { -2 }
+    else if gadget_type.contains("TriBranchFix") { -2 }
+    else if gadget_type.contains("TriBranch") { 0 }
+    else if gadget_type.contains("TriEndTurn") { -2 }
+    else if gadget_type.contains("TriTrivialTurn") { 0 }
+    else if gadget_type.contains("TriTurn") { 0 }
+    else if gadget_type.contains("TriTCon_left") || gadget_type.contains("TriTCon_l") { 4 }
+    else if gadget_type.contains("TriTCon") { 0 }  // TriTCon_up, TriTCon_down
+    else if gadget_type.contains("DanglingLeg") { -2 }  // weighted overhead = -1 * 2
+    else { 0 }
+}
 
-    // Compare using Julia's copyline locations (more reliable)
-    let only_in_julia: Vec<_> = julia_copyline_nodes.difference(&rust_nodes).collect();
-    let only_in_rust: Vec<_> = rust_nodes.difference(&julia_copyline_nodes).collect();
-
-    if !only_in_julia.is_empty() {
-        println!("\nNodes only in Julia ({}):", only_in_julia.len());
-        let mut sorted: Vec<_> = only_in_julia.iter().copied().collect();
-        sorted.sort();
-        for &(r, c) in sorted.iter().take(10) {
-            println!("  ({}, {})", r, c);
-        }
-        if sorted.len() > 10 {
-            println!("  ... and {} more", sorted.len() - 10);
-        }
+/// Get MIS overhead for a Rust triangular gadget index (triangular/weighted mode)
+/// Must match Julia's values from triangular.jl
+/// For simplifiers: Julia uses mis_overhead(w::WeightedGadget) = mis_overhead(w.gadget) * 2
+fn rust_triangular_gadget_overhead(idx: usize) -> i32 {
+    match idx {
+        0 => 3,   // TriCross<false>
+        1 => 1,   // TriCross<true>
+        2 => 4,   // TriTConLeft
+        3 => 0,   // TriTConUp
+        4 => 0,   // TriTConDown
+        5 => 0,   // TriTrivialTurnLeft
+        6 => 0,   // TriTrivialTurnRight
+        7 => -2,  // TriEndTurn
+        8 => 0,   // TriTurn
+        9 => 0,   // TriWTurn
+        10 => -2, // TriBranchFix
+        11 => -2, // TriBranchFixB
+        12 => 0,  // TriBranch
+        idx if idx >= 100 => -2,  // DanglingLeg: weighted overhead = -1 * 2 = -2
+        _ => 0,
     }
+}
 
-    if !only_in_rust.is_empty() {
-        println!("\nNodes only in Rust ({}):", only_in_rust.len());
-        let mut sorted: Vec<_> = only_in_rust.iter().copied().collect();
-        sorted.sort();
-        for &(r, c) in sorted.iter().take(10) {
-            println!("  ({}, {})", r, c);
-        }
-        if sorted.len() > 10 {
-            println!("  ... and {} more", sorted.len() - 10);
-        }
-    }
+/// Calculate copyline MIS overhead for triangular mode (matches Julia formula)
+fn copyline_overhead_triangular(line: &problemreductions::rules::unitdiskmapping::CopyLine, spacing: usize) -> i32 {
+    let s = spacing as i32;
+    let vertical_up = (line.hslot as i32 - line.vstart as i32) * s;
+    let vertical_down = (line.vstop as i32 - line.hslot as i32) * s;
+    let horizontal = ((line.hstop as i32 - line.vslot as i32) * s - 2).max(0);
+    vertical_up + vertical_down + horizontal
+}
 
-    // Compare copy lines (adjusting for 1-indexed vertex in Julia)
-    println!("\nCopy lines comparison:");
-    for julia_line in &julia.copy_lines {
-        // Julia vertex is 1-indexed, convert to 0-indexed
-        let julia_vertex_0idx = julia_line.vertex - 1;
-        let rust_line = rust_result.lines.iter().find(|l| l.vertex == julia_vertex_0idx);
-        if let Some(rl) = rust_line {
-            let matches = rl.vslot == julia_line.vslot
-                && rl.hslot == julia_line.hslot
-                && rl.vstart == julia_line.vstart
-                && rl.vstop == julia_line.vstop
-                && rl.hstop == julia_line.hstop;
-            if !matches {
-                println!("  v{} (Julia v{}) MISMATCH:", julia_vertex_0idx, julia_line.vertex);
-                println!("    Julia: vslot={}, hslot={}, vstart={}, vstop={}, hstop={}",
-                    julia_line.vslot, julia_line.hslot, julia_line.vstart, julia_line.vstop, julia_line.hstop);
-                println!("    Rust:  vslot={}, hslot={}, vstart={}, vstop={}, hstop={}",
-                    rl.vslot, rl.hslot, rl.vstart, rl.vstop, rl.hstop);
-            } else {
-                println!("  v{} OK", julia_vertex_0idx);
-            }
+/// Extract vertex order from Julia's copy_lines (sorted by vslot)
+fn get_vertex_order(julia: &JuliaTrace) -> Vec<usize> {
+    let mut lines: Vec<_> = julia.copy_lines.iter().collect();
+    lines.sort_by_key(|l| l.vslot);
+    lines.iter().map(|l| l.vertex - 1).collect()  // Convert 1-indexed to 0-indexed
+}
+
+/// Compare Rust and Julia for triangular lattice
+fn compare_triangular(name: &str) {
+    let julia = load_julia_trace(name, "triangular");
+    let edges = get_graph_edges(&julia);
+    let num_vertices = julia.num_vertices;
+
+    // Extract Julia's vertex order from copy_lines
+    let vertex_order = get_vertex_order(&julia);
+    let rust_result = map_graph_triangular_with_order(num_vertices, &edges, &vertex_order);
+
+    // Collect Rust grid nodes from copyline_locations_triangular (0-indexed)
+    let rust_nodes: HashSet<(i32, i32)> = rust_result.lines
+        .iter()
+        .flat_map(|line| {
+            line.copyline_locations_triangular(rust_result.padding, rust_result.spacing)
+                .into_iter()
+                .map(|(row, col, _)| (row as i32, col as i32))
+        })
+        .collect();
+
+    // Collect Julia copyline nodes (convert from 1-indexed to 0-indexed)
+    let julia_nodes: HashSet<(i32, i32)> = julia.copy_lines
+        .iter()
+        .flat_map(|cl| cl.locations.iter().map(|loc| (loc.row - 1, loc.col - 1)))
+        .collect();
+
+    println!("\n=== {} (triangular) ===", name);
+    print_comparison(&julia, &rust_result.grid_graph.size(), rust_result.mis_overhead,
+                     &julia_nodes, &rust_nodes);
+
+    // Compare copy lines
+    compare_copy_lines(&julia.copy_lines, &rust_result.lines);
+
+    // Calculate and compare MIS overhead breakdown
+    let julia_copyline_overhead: i32 = julia.copy_lines.iter().map(|cl| {
+        let s = 6i32;
+        let vert_up = (cl.hslot as i32 - cl.vstart as i32) * s;
+        let vert_down = (cl.vstop as i32 - cl.hslot as i32) * s;
+        let horiz = ((cl.hstop as i32 - cl.vslot as i32) * s - 2).max(0);
+        vert_up + vert_down + horiz
+    }).sum();
+
+    let rust_copyline_overhead: i32 = rust_result.lines.iter()
+        .map(|l| copyline_overhead_triangular(l, rust_result.spacing))
+        .sum();
+
+    let julia_gadget_overhead_total: i32 = julia.tape.iter()
+        .map(|e| julia_gadget_overhead(&e.gadget_type))
+        .sum();
+
+    let rust_gadget_overhead_total: i32 = rust_result.tape.iter()
+        .map(|e| rust_triangular_gadget_overhead(e.pattern_idx))
+        .sum();
+
+    println!("\nMIS overhead breakdown:");
+    println!("  Copyline: Julia={}, Rust={}", julia_copyline_overhead, rust_copyline_overhead);
+    println!("  Gadgets:  Julia={}, Rust={}", julia_gadget_overhead_total, rust_gadget_overhead_total);
+    println!("  Total:    Julia={}, Rust={}",
+        julia_copyline_overhead + julia_gadget_overhead_total,
+        rust_copyline_overhead + rust_gadget_overhead_total);
+    println!("  Reported: Julia={}, Rust={}", julia.mis_overhead, rust_result.mis_overhead);
+
+    // Compare tape entries
+    println!("\nTape comparison (first 10 entries):");
+    println!("  Julia tape: {} entries", julia.tape.len());
+    println!("  Rust tape:  {} entries", rust_result.tape.len());
+    for (i, jt) in julia.tape.iter().take(10).enumerate() {
+        let j_oh = julia_gadget_overhead(&jt.gadget_type);
+        if let Some(rt) = rust_result.tape.get(i) {
+            let r_oh = rust_triangular_gadget_overhead(rt.pattern_idx);
+            let pos_match = jt.row == rt.row as i32 && jt.col == rt.col as i32;
+            println!("  {:2}. Julia: {} at ({},{}) oh={} | Rust: idx={} at ({},{}) oh={} [{}]",
+                i+1, &jt.gadget_type[..jt.gadget_type.len().min(40)], jt.row, jt.col, j_oh,
+                rt.pattern_idx, rt.row, rt.col, r_oh,
+                if pos_match && j_oh == r_oh { "OK" } else { "DIFF" });
         } else {
-            println!("  v{} (Julia v{}) missing in Rust!", julia_vertex_0idx, julia_line.vertex);
+            println!("  {:2}. Julia: {} at ({},{}) oh={} | Rust: MISSING",
+                i+1, &jt.gadget_type[..jt.gadget_type.len().min(40)], jt.row, jt.col, j_oh);
         }
     }
 
     // Assertions
     assert_eq!(julia.grid_size, rust_result.grid_graph.size(),
-        "{}: Grid size mismatch", name);
+        "{} triangular: Grid size mismatch", name);
+    assert_eq!(julia_copyline_overhead, rust_copyline_overhead,
+        "{} triangular: Copyline overhead mismatch", name);
+    assert_eq!(julia.tape.len(), rust_result.tape.len(),
+        "{} triangular: Tape length mismatch (Julia={}, Rust={})",
+        name, julia.tape.len(), rust_result.tape.len());
     assert_eq!(julia.mis_overhead, rust_result.mis_overhead,
-        "{}: MIS overhead mismatch", name);
-    assert_eq!(julia_copyline_nodes.len(), rust_nodes.len(),
-        "{}: Grid node count mismatch (Julia={}, Rust={})", name, julia_copyline_nodes.len(), rust_nodes.len());
-    assert!(only_in_julia.is_empty() && only_in_rust.is_empty(),
-        "{}: Grid node positions don't match", name);
+        "{} triangular: MIS overhead mismatch (Julia={}, Rust={})",
+        name, julia.mis_overhead, rust_result.mis_overhead);
+    assert_eq!(julia_nodes.len(), rust_nodes.len(),
+        "{} triangular: Node count mismatch (Julia={}, Rust={})", name, julia_nodes.len(), rust_nodes.len());
+    assert_eq!(julia_nodes, rust_nodes,
+        "{} triangular: Node positions don't match", name);
+}
+
+fn print_comparison(julia: &JuliaTrace, rust_size: &(usize, usize), rust_overhead: i32,
+                    julia_nodes: &HashSet<(i32, i32)>, rust_nodes: &HashSet<(i32, i32)>) {
+    println!("Julia: {} vertices, {} edges", julia.num_vertices, julia.num_edges);
+    println!("Grid size: Julia {:?}, Rust {:?}", julia.grid_size, rust_size);
+    println!("Nodes: Julia {}, Rust {}", julia_nodes.len(), rust_nodes.len());
+    println!("MIS overhead: Julia {}, Rust {}", julia.mis_overhead, rust_overhead);
+
+    let only_julia: Vec<_> = julia_nodes.difference(rust_nodes).collect();
+    let only_rust: Vec<_> = rust_nodes.difference(julia_nodes).collect();
+
+    if !only_julia.is_empty() {
+        println!("Nodes only in Julia ({}):", only_julia.len());
+        for &(r, c) in only_julia.iter().take(5) {
+            println!("  ({}, {})", r, c);
+        }
+    }
+    if !only_rust.is_empty() {
+        println!("Nodes only in Rust ({}):", only_rust.len());
+        for &(r, c) in only_rust.iter().take(5) {
+            println!("  ({}, {})", r, c);
+        }
+    }
+}
+
+fn compare_copy_lines(julia_lines: &[CopyLineInfo], rust_lines: &[problemreductions::rules::unitdiskmapping::CopyLine]) {
+    println!("Copy lines:");
+    for jl in julia_lines {
+        let julia_vertex_0idx = jl.vertex - 1;
+        if let Some(rl) = rust_lines.iter().find(|l| l.vertex == julia_vertex_0idx) {
+            let matches = rl.vslot == jl.vslot && rl.hslot == jl.hslot
+                && rl.vstart == jl.vstart && rl.vstop == jl.vstop && rl.hstop == jl.hstop;
+            if matches {
+                println!("  v{} OK", julia_vertex_0idx);
+            } else {
+                println!("  v{} MISMATCH: Julia({},{},{},{},{}) Rust({},{},{},{},{})",
+                    julia_vertex_0idx,
+                    jl.vslot, jl.hslot, jl.vstart, jl.vstop, jl.hstop,
+                    rl.vslot, rl.hslot, rl.vstart, rl.vstop, rl.hstop);
+            }
+        } else {
+            println!("  v{} missing in Rust!", julia_vertex_0idx);
+        }
+    }
+}
+
+// ============================================================================
+// Square Lattice (UnWeighted) Tests
+// ============================================================================
+
+#[test]
+fn test_square_unweighted_bull() {
+    compare_square_unweighted("bull");
 }
 
 #[test]
-fn test_julia_comparison_bull() {
-    compare_mapping("bull");
+fn test_square_unweighted_diamond() {
+    compare_square_unweighted("diamond");
 }
 
 #[test]
-fn test_julia_comparison_diamond() {
-    compare_mapping("diamond");
+fn test_square_unweighted_house() {
+    compare_square_unweighted("house");
 }
 
 #[test]
-fn test_julia_comparison_house() {
-    compare_mapping("house");
+fn test_square_unweighted_petersen() {
+    compare_square_unweighted("petersen");
+}
+
+// ============================================================================
+// Triangular Lattice Tests
+// ============================================================================
+
+#[test]
+fn test_triangular_bull() {
+    compare_triangular("bull");
 }
 
 #[test]
-fn test_julia_comparison_petersen() {
-    compare_mapping("petersen");
+fn test_triangular_diamond() {
+    compare_triangular("diamond");
+}
+
+#[test]
+fn test_triangular_house() {
+    compare_triangular("house");
+}
+
+#[test]
+fn test_triangular_petersen() {
+    compare_triangular("petersen");
 }

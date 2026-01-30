@@ -163,14 +163,18 @@ impl MappingGrid {
     /// Julia's crossat uses smaller position's hslot for row and larger position for col.
     ///
     /// Note: All slot parameters are 1-indexed (must be >= 1).
+    /// Returns 0-indexed (row, col) coordinates.
+    ///
+    /// Julia formula (1-indexed): (hslot-1)*spacing + 2 + padding, (vslot-1)*spacing + 1 + padding
+    /// Rust formula (0-indexed): subtract 1 from each coordinate
     pub fn cross_at(&self, v_slot: usize, w_slot: usize, h_slot: usize) -> (usize, usize) {
         debug_assert!(h_slot >= 1, "h_slot must be >= 1 (1-indexed)");
         debug_assert!(v_slot >= 1, "v_slot must be >= 1 (1-indexed)");
         debug_assert!(w_slot >= 1, "w_slot must be >= 1 (1-indexed)");
         let larger_slot = v_slot.max(w_slot);
-        // Use saturating_sub to prevent underflow in release mode (slots are 1-indexed)
-        let row = h_slot.saturating_sub(1) * self.spacing + 2 + self.padding;
-        let col = larger_slot.saturating_sub(1) * self.spacing + 1 + self.padding;
+        // 0-indexed coordinates (Julia's formula minus 1)
+        let row = (h_slot - 1) * self.spacing + 1 + self.padding;
+        let col = (larger_slot - 1) * self.spacing + self.padding;
         (row, col)
     }
 

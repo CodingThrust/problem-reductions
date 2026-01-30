@@ -213,6 +213,7 @@ pub fn map_config_back_pattern<P: Pattern>(
 }
 
 /// Check if a pattern matches at position (i, j) in the grid.
+/// Uses strict equality matching like Julia's Base.match.
 #[allow(clippy::needless_range_loop)]
 pub fn pattern_matches<P: Pattern>(pattern: &P, grid: &MappingGrid, i: usize, j: usize) -> bool {
     let source = pattern.source_matrix();

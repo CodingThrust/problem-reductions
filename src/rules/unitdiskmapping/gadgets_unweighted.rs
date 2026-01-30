@@ -917,33 +917,40 @@ pub fn crossing_ruleset_indices() -> Vec<usize> {
 }
 
 /// Apply all crossing gadgets to the grid.
+/// Follows Julia's algorithm: iterate over all (i,j) pairs and try all patterns.
+/// Note: Unlike the previous version, we don't skip based on crossat position
+/// because different (i,j) pairs with the same crossat can match different patterns
+/// at different positions (since each pattern has a different cross_location).
 pub fn apply_crossing_gadgets(
     grid: &mut MappingGrid,
     copylines: &[super::copyline::CopyLine],
 ) -> Vec<TapeEntry> {
-    use std::collections::HashSet;
-
     let mut tape = Vec::new();
-    let mut processed = HashSet::new();
     let n = copylines.len();
+
+    let debug = std::env::var("DEBUG_CROSSING").is_ok();
 
     for j in 0..n {
         for i in 0..n {
             let (cross_row, cross_col) = crossat(grid, copylines, i, j);
-            if processed.contains(&(cross_row, cross_col)) {
-                continue;
+            if debug {
+                eprintln!("Trying crossat ({}, {}) from copylines[{}][{}]", cross_row, cross_col, i, j);
             }
             if let Some((pattern_idx, row, col)) =
                 try_match_and_apply_crossing(grid, cross_row, cross_col)
             {
+                if debug {
+                    eprintln!("  -> Matched pattern {} at ({}, {})", pattern_idx, row, col);
+                }
                 tape.push(TapeEntry { pattern_idx, row, col });
-                processed.insert((cross_row, cross_col));
             }
         }
     }
     tape
 }
 
+/// Calculate crossing point for two copylines.
+/// Uses grid.cross_at() which implements Julia's crossat formula.
 fn crossat(
     grid: &MappingGrid,
     copylines: &[super::copyline::CopyLine],
@@ -960,13 +967,8 @@ fn crossat(
             } else {
                 (lw, lv)
             };
-            let hslot = line_first.hslot;
-            let max_vslot = line_second.vslot;
-            let spacing = grid.spacing();
-            let padding = grid.padding();
-            let row = (hslot - 1) * spacing + 2 + padding;
-            let col = (max_vslot - 1) * spacing + 1 + padding;
-            (row, col)
+            // Delegate to grid.cross_at() - single source of truth for crossat formula
+            grid.cross_at(line_first.vslot, line_second.vslot, line_first.hslot)
         }
         _ => (0, 0),
     }
@@ -994,13 +996,51 @@ fn try_match_and_apply_crossing(
         (12, Box::new(|| Box::new(ReflectedGadget::new(RotatedGadget::new(TCon, 1), Mirror::Y)))),
     ];
 
+    let debug = std::env::var("DEBUG_CROSSING").is_ok();
+
     for (idx, make_pattern) in patterns {
         let pattern = make_pattern();
         let cl = pattern.cross_location();
-        if cross_row >= cl.0 && cross_col >= cl.1 {
-            let x = cross_row - cl.0 + 1;
-            let y = cross_col - cl.1 + 1;
-            if pattern.pattern_matches_boxed(grid, x, y) {
+        // cross_row/cross_col are 0-indexed, cl is 1-indexed within gadget
+        // x = cross_row - (cl.0 - 1) = cross_row + 1 - cl.0, needs x >= 0
+        if cross_row + 1 >= cl.0 && cross_col + 1 >= cl.1 {
+            let x = cross_row + 1 - cl.0;
+            let y = cross_col + 1 - cl.1;
+            if debug && (cross_row == 3 && cross_col == 6) && idx == 7 {
+                eprintln!("    Pattern {} cross_loc={:?} -> trying at ({}, {})", idx, cl, x, y);
+                // Print the source_matrix directly
+                let source = pattern.source_matrix();
+                let (m, n) = pattern.size_boxed();
+                eprintln!("    Source matrix ({}x{}):", m, n);
+                for r in 0..m {
+                    let row_str: String = source[r].iter().map(|c| match c {
+                        PatternCell::Empty => '.',
+                        PatternCell::Occupied => 'O',
+                        PatternCell::Connected => 'C',
+                        PatternCell::Doubled => 'D',
+                    }).collect();
+                    eprintln!("      Row {}: {}", r, row_str);
+                }
+                eprintln!("    Grid at position ({}, {}):", x, y);
+                for r in 0..m {
+                    let row_str: String = (0..n).map(|c| {
+                        let gr = x + r;
+                        let gc = y + c;
+                        match safe_get_pattern_cell(grid, gr, gc) {
+                            PatternCell::Empty => '.',
+                            PatternCell::Occupied => 'O',
+                            PatternCell::Connected => 'C',
+                            PatternCell::Doubled => 'D',
+                        }
+                    }).collect();
+                    eprintln!("      Row {}: {}", r, row_str);
+                }
+            }
+            let matches = pattern.pattern_matches_boxed(grid, x, y);
+            if debug && (cross_row == 3 && cross_col == 6) && idx == 7 {
+                eprintln!("    Pattern {} at ({}, {}) -> matches={}", idx, x, y, matches);
+            }
+            if matches {
                 pattern.apply_gadget_boxed(grid, x, y);
                 return Some((idx, x, y));
             }
@@ -1063,7 +1103,15 @@ fn pattern_matches_boxed(pattern: &dyn PatternBoxed, grid: &MappingGrid, i: usiz
             let expected = source[r][c];
             let actual = safe_get_pattern_cell(grid, grid_r, grid_c);
 
-            if expected != actual {
+            // Connected cells in pattern match both Connected and Occupied in grid
+            // (Connected is just a marker for edge connection points)
+            let matches = match (expected, actual) {
+                (a, b) if a == b => true,
+                (PatternCell::Connected, PatternCell::Occupied) => true,
+                (PatternCell::Occupied, PatternCell::Connected) => true,
+                _ => false,
+            };
+            if !matches {
                 return false;
             }
         }
