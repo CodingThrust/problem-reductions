@@ -453,11 +453,11 @@ pub fn pathwidth(
     }
 }
 
-/// Get the vertex ordering from a layout (reversed for copy-line embedding).
+/// Get the vertex ordering from a layout for copy-line embedding.
 ///
-/// The copy-line embedding expects vertices in reverse order of the path decomposition.
+/// Returns vertices in the same order as the path decomposition, matching Julia's behavior.
 pub fn vertex_order_from_layout(layout: &Layout) -> Vec<usize> {
-    layout.vertices.iter().rev().copied().collect()
+    layout.vertices.iter().copied().collect()
 }
 
 #[cfg(test)]
@@ -580,7 +580,8 @@ mod tests {
             disconnected: vec![],
         };
         let order = vertex_order_from_layout(&layout);
-        assert_eq!(order, vec![2, 1, 0]);
+        // Returns vertices in same order as layout (matching Julia's behavior)
+        assert_eq!(order, vec![0, 1, 2]);
     }
 
     #[test]

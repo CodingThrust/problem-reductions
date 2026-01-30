@@ -86,12 +86,13 @@ impl<W: Clone> GridGraph<W> {
         let mut edges = Vec::new();
 
         // Compute all edges based on physical distance
+        // Use strict < to match Julia's unitdisk_graph which uses: dist² < radius²
         for i in 0..n {
             for j in (i + 1)..n {
                 let pos_i = Self::physical_position_static(grid_type, nodes[i].row, nodes[i].col);
                 let pos_j = Self::physical_position_static(grid_type, nodes[j].row, nodes[j].col);
                 let dist = Self::distance(&pos_i, &pos_j);
-                if dist <= radius {
+                if dist < radius {
                     edges.push((i, j));
                 }
             }
@@ -309,10 +310,11 @@ mod tests {
             GridNode::new(1, 0, 1),
             GridNode::new(0, 1, 1),
         ];
-        // With radius 1.0: (0,0)-(1,0) dist=1.0, (0,0)-(0,1) dist=1.0, (1,0)-(0,1) dist=sqrt(2)>1.0
-        let grid = GridGraph::new(GridType::Square, (2, 2), nodes, 1.0);
+        // With radius 1.1: (0,0)-(1,0) dist=1.0 < 1.1, (0,0)-(0,1) dist=1.0 < 1.1, (1,0)-(0,1) dist=sqrt(2)>1.1
+        // Using dist < radius (strict), so edges at exactly 1.0 are included with radius 1.1
+        let grid = GridGraph::new(GridType::Square, (2, 2), nodes, 1.1);
         assert_eq!(grid.num_vertices(), 3);
-        // Only nodes at (0,0)-(1,0) and (0,0)-(0,1) are within radius 1.0
+        // Only nodes at (0,0)-(1,0) and (0,0)-(0,1) are within radius 1.1
         assert_eq!(grid.edges().len(), 2);
     }
 
@@ -384,13 +386,16 @@ mod tests {
             GridNode::new(1, 0, 1),
             GridNode::new(2, 0, 1),
         ];
-        let grid = GridGraph::new(GridType::Square, (3, 1), nodes, 1.0);
+        // Use radius 1.1 since edges are created for dist < radius (strict)
+        // With radius 1.0, no edges at exact distance 1.0
+        // With radius 1.1, edges at distance 1.0 are included
+        let grid = GridGraph::new(GridType::Square, (3, 1), nodes, 1.1);
 
-        // Only edges within radius 1.0: (0,1) and (1,2)
+        // Only edges within radius 1.1: (0,1) and (1,2) with dist=1.0
         assert_eq!(grid.num_edges(), 2);
         assert!(grid.has_edge(0, 1));
         assert!(grid.has_edge(1, 2));
-        assert!(!grid.has_edge(0, 2));
+        assert!(!grid.has_edge(0, 2));  // dist=2.0 >= 1.1
     }
 
     #[test]
@@ -466,8 +471,9 @@ mod tests {
             GridNode::new(1, 0, 1),
             GridNode::new(0, 1, 1),
         ];
-        // With radius 1.0: only 2 edges (not including diagonal)
-        let grid = GridGraph::new(GridType::Square, (2, 2), nodes, 1.0);
+        // With radius 1.1: 2 edges at dist=1.0 (not including diagonal at sqrt(2)>1.1)
+        // Using dist < radius (strict), so edges at exactly 1.0 are included with radius 1.1
+        let grid = GridGraph::new(GridType::Square, (2, 2), nodes, 1.1);
 
         // Test Graph trait methods
         assert_eq!(Graph::num_vertices(&grid), 3);

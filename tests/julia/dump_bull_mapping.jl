@@ -152,22 +152,22 @@ function dump_mapping_info(mode, g, name)
     end
     info["copy_lines"] = lines_info
 
-    # Try to solve optimal MIS/WMIS using GenericTensorNetworks
-    # This may fail for weighted/triangular modes due to SimpleGraph conversion
-    try
+    # Solve optimal MIS/WMIS using GenericTensorNetworks
+    missize_original = solve(GenericTensorNetwork(IndependentSet(g)), SizeMax())[].n
+    info["original_mis_size"] = missize_original
+
+    # For weighted modes (Weighted, TriangularWeighted), solve weighted MIS
+    # For unweighted mode, solve standard MIS
+    if mode isa UnitDiskMapping.UnWeighted
+        # Unweighted: use SimpleGraph directly
         gp = GenericTensorNetwork(IndependentSet(SimpleGraph(res.grid_graph));
                                   optimizer=TreeSA(ntrials=1, niters=10))
         missize_map = solve(gp, SizeMax())[].n
-        missize_original = solve(GenericTensorNetwork(IndependentSet(g)), SizeMax())[].n
-
-        info["original_mis_size"] = missize_original
         info["mapped_mis_size"] = missize_map
         info["overhead_check"] = res.mis_overhead + missize_original == missize_map
 
         # Get optimal MIS configuration
         misconfig = solve(gp, SingleConfigMax())[].c
-
-        # Selected positions in optimal MIS
         selected_positions = [Dict(
             "node_index" => i,
             "row" => res.grid_graph.nodes[i].loc[1],
@@ -176,25 +176,78 @@ function dump_mapping_info(mode, g, name)
         info["mis_selected_positions"] = selected_positions
         info["mis_selected_count"] = length(selected_positions)
 
-        # Map config back using the standard interface
+        # Map config back
         original_configs = map_config_back(res, collect(misconfig.data))
         info["original_config"] = collect(original_configs)
         info["mapped_back_size"] = count(isone, original_configs)
         info["is_valid_is"] = is_independent_set(g, original_configs)
         info["size_matches"] = count(isone, original_configs) == missize_original
-    catch e
-        # For weighted/triangular modes, skip MIS solving but still capture structure
-        println("  Note: Skipping MIS solving ($(typeof(e)))")
-        missize_original = solve(GenericTensorNetwork(IndependentSet(g)), SizeMax())[].n
-        info["original_mis_size"] = missize_original
-        info["mapped_mis_size"] = nothing
-        info["overhead_check"] = nothing
-        info["mis_selected_positions"] = []
-        info["mis_selected_count"] = 0
-        info["original_config"] = []
-        info["mapped_back_size"] = 0
-        info["is_valid_is"] = nothing
-        info["size_matches"] = nothing
+    else
+        # Weighted modes: use unitdisk_graph to construct edges, then solve weighted MIS
+        try
+            # Get unit disk graph edges from grid positions
+            grid_graph = res.grid_graph
+            nodes = grid_graph.nodes
+            n_nodes = length(nodes)
+
+            # Construct SimpleGraph for topology
+            sg = SimpleGraph(n_nodes)
+            unit = mode isa UnitDiskMapping.TriangularWeighted ? 1.1 : 1.5
+            grid_type = mode isa UnitDiskMapping.TriangularWeighted ? TriangularGrid() : SquareGrid()
+
+            # Compute physical positions and add edges
+            physical_locs = [UnitDiskMapping.physical_position(node, grid_type) for node in nodes]
+            for i in 1:n_nodes
+                for j in i+1:n_nodes
+                    dist_sq = sum(abs2, physical_locs[i] .- physical_locs[j])
+                    if dist_sq < unit^2
+                        add_edge!(sg, i, j)
+                    end
+                end
+            end
+
+            # Get weights
+            weights = [node.weight for node in nodes]
+
+            # Solve weighted MIS
+            gp = GenericTensorNetwork(IndependentSet(sg, weights);
+                                      optimizer=TreeSA(ntrials=1, niters=10))
+            wmis_result = solve(gp, SizeMax())[]
+            missize_map = wmis_result.n
+
+            info["mapped_mis_size"] = missize_map
+            info["num_grid_edges"] = ne(sg)
+            info["overhead_check"] = res.mis_overhead + missize_original == missize_map
+
+            # Get optimal configuration
+            misconfig = solve(gp, SingleConfigMax())[].c
+            selected_positions = [Dict(
+                "node_index" => i,
+                "row" => nodes[i].loc[1],
+                "col" => nodes[i].loc[2],
+                "weight" => weights[i]
+            ) for i in 1:length(misconfig.data) if misconfig.data[i] > 0]
+            info["mis_selected_positions"] = selected_positions
+            info["mis_selected_count"] = length(selected_positions)
+            info["mis_selected_weight"] = sum(weights[i] for i in 1:length(misconfig.data) if misconfig.data[i] > 0; init=0)
+
+            # Map config back
+            original_configs = map_config_back(res, collect(misconfig.data))
+            info["original_config"] = collect(original_configs)
+            info["mapped_back_size"] = count(isone, original_configs)
+            info["is_valid_is"] = is_independent_set(g, original_configs)
+            info["size_matches"] = count(isone, original_configs) == missize_original
+        catch e
+            println("  Note: Error solving weighted MIS: $e")
+            info["mapped_mis_size"] = nothing
+            info["overhead_check"] = nothing
+            info["mis_selected_positions"] = []
+            info["mis_selected_count"] = 0
+            info["original_config"] = []
+            info["mapped_back_size"] = 0
+            info["is_valid_is"] = nothing
+            info["size_matches"] = nothing
+        end
     end
 
     return info

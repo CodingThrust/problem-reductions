@@ -5,7 +5,7 @@
 //! - Weighted (square lattice with weights)
 //! - Triangular (triangular lattice with weights)
 
-use problemreductions::rules::unitdiskmapping::{map_graph, map_graph_triangular_with_order};
+use problemreductions::rules::unitdiskmapping::{map_graph, map_graph_with_order, map_graph_triangular_with_order};
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::fs;
@@ -93,7 +93,9 @@ fn compare_square_unweighted(name: &str) {
     let edges = get_graph_edges(&julia);
     let num_vertices = julia.num_vertices;
 
-    let rust_result = map_graph(num_vertices, &edges);
+    // Use Julia's vertex order to ensure consistent mapping
+    let vertex_order = get_vertex_order(&julia);
+    let rust_result = map_graph_with_order(num_vertices, &edges, &vertex_order);
 
     // Collect Rust grid nodes from copyline_locations (0-indexed)
     let rust_nodes: HashSet<(i32, i32)> = rust_result.lines
@@ -376,8 +378,9 @@ fn compare_connected_cells(name: &str) {
         .map(|n| (n.row - 1, n.col - 1))
         .collect();
 
-    // Run Rust mapping and get Connected cells from the grid after applying connections
-    let rust_result = map_graph(num_vertices, &edges);
+    // Run Rust mapping with Julia's vertex order
+    let vertex_order = get_vertex_order(&julia);
+    let rust_result = map_graph_with_order(num_vertices, &edges, &vertex_order);
 
     // Re-create the grid with connections to check Connected cell positions
     let mut grid = problemreductions::rules::unitdiskmapping::MappingGrid::with_padding(

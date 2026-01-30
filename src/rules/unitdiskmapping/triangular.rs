@@ -1470,9 +1470,11 @@ pub fn map_graph_triangular_with_order(
         .collect();
 
     // Use Triangular grid type to match Julia's TriangularGrid()
-    // This applies proper physical position transformation for distance calculation
+    // Julia uses 1-indexed coords where odd cols get offset 0.5.
+    // Rust uses 0-indexed coords, so even cols (0,2,4...) correspond to Julia's odd cols (1,3,5...).
+    // Therefore, offset_even_cols=true gives the same offset pattern as Julia.
     let grid_graph = GridGraph::new(
-        GridType::Triangular { offset_even_cols: false },
+        GridType::Triangular { offset_even_cols: true },
         grid.size(),
         nodes,
         TRIANGULAR_UNIT_RADIUS,

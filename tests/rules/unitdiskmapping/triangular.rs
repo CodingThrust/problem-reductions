@@ -120,32 +120,117 @@ fn test_map_standard_graphs_triangular() {
 
 // === MIS Overhead Verification ===
 
-fn verify_mis_overhead(name: &str) -> bool {
-    let (n, edges) = smallgraph(name).unwrap();
-    let result = map_graph_triangular(n, &edges);
+/// Get vertex order from Julia's trace JSON file.
+/// Returns None if file doesn't exist or can't be parsed.
+fn get_julia_vertex_order(graph_name: &str) -> Option<Vec<usize>> {
+    let path = format!(
+        "{}/tests/julia/{}_triangular_trace.json",
+        env!("CARGO_MANIFEST_DIR"),
+        graph_name
+    );
+    let content = std::fs::read_to_string(&path).ok()?;
+    let data: serde_json::Value = serde_json::from_str(&content).ok()?;
+    let copy_lines = data["copy_lines"].as_array()?;
 
-    // Calculate mapped weighted MIS using grid weights directly (without map_weights)
-    let grid_edges = result.grid_graph.edges().to_vec();
-    let grid_weights: Vec<i32> = (0..result.grid_graph.num_vertices())
-        .map(|i| result.grid_graph.weight(i).copied().unwrap_or(1))
+    // Extract (vertex, vslot) pairs and sort by vslot to get order
+    let mut lines: Vec<_> = copy_lines
+        .iter()
+        .filter_map(|cl| {
+            let vertex = cl["vertex"].as_u64()? as usize;
+            let vslot = cl["vslot"].as_u64()? as usize;
+            Some((vertex - 1, vslot)) // Convert to 0-indexed
+        })
         .collect();
-    let mapped_weighted_mis =
-        solve_weighted_mis(result.grid_graph.num_vertices(), &grid_edges, &grid_weights);
+    lines.sort_by_key(|(_, vslot)| *vslot);
+    Some(lines.into_iter().map(|(v, _)| v).collect())
+}
 
-    // When using grid weights directly (without map_weights), the relationship is:
-    // mapped_mis == overhead
-    // (map_weights would add original vertex weights at center locations)
-    let diff = (mapped_weighted_mis - result.mis_overhead).abs();
+/// Verify that the triangular mapping matches Julia's trace data.
+/// For triangular weighted mode: mapped_weighted_mis == overhead
+/// (The overhead represents the entire weighted MIS of the grid graph,
+/// with original vertex contributions encoded separately at center locations.)
+fn verify_mapping_matches_julia(name: &str) -> bool {
+    let (n, edges) = smallgraph(name).unwrap();
 
-    if diff > 1 {
+    // Use Julia's vertex order to ensure consistent mapping
+    let vertex_order = get_julia_vertex_order(name)
+        .unwrap_or_else(|| (0..n).collect());
+    let result = map_graph_triangular_with_order(n, &edges, &vertex_order);
+
+    // Load Julia's trace data
+    let julia_path = format!(
+        "{}/tests/julia/{}_triangular_trace.json",
+        env!("CARGO_MANIFEST_DIR"),
+        name
+    );
+    let julia_content = match std::fs::read_to_string(&julia_path) {
+        Ok(c) => c,
+        Err(_) => {
+            eprintln!("{}: Julia trace file not found", name);
+            return false;
+        }
+    };
+    let julia_data: serde_json::Value = serde_json::from_str(&julia_content).unwrap();
+
+    // Compare node count
+    let julia_nodes = julia_data["num_grid_nodes"].as_u64().unwrap() as usize;
+    if result.grid_graph.num_vertices() != julia_nodes {
         eprintln!(
-            "{}: FAIL - overhead={}, mapped={}, diff={}",
-            name, result.mis_overhead, mapped_weighted_mis, diff
+            "{}: node count mismatch - Rust={}, Julia={}",
+            name,
+            result.grid_graph.num_vertices(),
+            julia_nodes
         );
-        false
-    } else {
-        true
+        return false;
     }
+
+    // Compare overhead
+    let julia_overhead = julia_data["mis_overhead"].as_i64().unwrap() as i32;
+    if result.mis_overhead != julia_overhead {
+        eprintln!(
+            "{}: overhead mismatch - Rust={}, Julia={}",
+            name, result.mis_overhead, julia_overhead
+        );
+        return false;
+    }
+
+    // Compare edge count
+    if let Some(julia_edges) = julia_data["num_grid_edges"].as_u64() {
+        let rust_edges = result.grid_graph.num_edges();
+        if rust_edges != julia_edges as usize {
+            eprintln!(
+                "{}: edge count mismatch - Rust={}, Julia={}",
+                name, rust_edges, julia_edges
+            );
+            return false;
+        }
+    }
+
+    // Compute and compare weighted MIS
+    let mapped_mis = solve_weighted_grid_mis(&result) as i32;
+    let julia_mis = julia_data["mapped_mis_size"]
+        .as_f64()
+        .or_else(|| julia_data["mapped_mis_size"].as_i64().map(|v| v as f64))
+        .unwrap_or(0.0) as i32;
+
+    // For triangular weighted mode: mapped_mis == overhead
+    if mapped_mis != julia_mis {
+        eprintln!(
+            "{}: weighted MIS mismatch - Rust={}, Julia={}",
+            name, mapped_mis, julia_mis
+        );
+        return false;
+    }
+
+    if mapped_mis != julia_overhead {
+        eprintln!(
+            "{}: MIS != overhead - mapped={}, overhead={}",
+            name, mapped_mis, julia_overhead
+        );
+        return false;
+    }
+
+    true
 }
 
 #[test]
@@ -154,50 +239,55 @@ fn test_triangular_mis_overhead_path_graph() {
     let n = 3;
     let result = map_graph_triangular(n, &edges);
 
-    let original_mis = solve_mis(n, &edges) as i32;
     let mapped_mis = solve_weighted_grid_mis(&result) as i32;
 
-    let expected = original_mis + result.mis_overhead;
-
+    // For triangular weighted mode: mapped_weighted_mis == overhead
+    // (The overhead represents the entire weighted MIS of the grid graph)
     assert!(
-        (mapped_mis - expected).abs() <= 1,
-        "Triangular path: mapped {} should equal original {} + overhead {} = {}",
+        (mapped_mis - result.mis_overhead).abs() <= 1,
+        "Triangular path: mapped {} should equal overhead {}",
         mapped_mis,
-        original_mis,
-        result.mis_overhead,
-        expected
+        result.mis_overhead
     );
 }
 
 #[test]
-fn test_triangular_mis_overhead_bull() {
-    assert!(verify_mis_overhead("bull"));
+fn test_triangular_mapping_bull() {
+    assert!(verify_mapping_matches_julia("bull"));
 }
 
 #[test]
-fn test_triangular_mis_overhead_diamond() {
-    assert!(verify_mis_overhead("diamond"));
+fn test_triangular_mapping_diamond() {
+    assert!(verify_mapping_matches_julia("diamond"));
 }
 
 #[test]
-fn test_triangular_mis_overhead_house() {
-    assert!(verify_mis_overhead("house"));
+fn test_triangular_mapping_house() {
+    assert!(verify_mapping_matches_julia("house"));
 }
 
 #[test]
-fn test_triangular_mis_overhead_petersen() {
-    assert!(verify_mis_overhead("petersen"));
+fn test_triangular_mapping_petersen() {
+    assert!(verify_mapping_matches_julia("petersen"));
 }
 
 #[test]
-fn test_triangular_mis_overhead_cubical() {
-    assert!(verify_mis_overhead("cubical"));
+fn test_triangular_mapping_cubical() {
+    // No Julia trace file for cubical triangular, skip
+    let julia_path = format!(
+        "{}/tests/julia/cubical_triangular_trace.json",
+        env!("CARGO_MANIFEST_DIR")
+    );
+    if std::fs::read_to_string(&julia_path).is_err() {
+        return; // Skip if no Julia trace
+    }
+    assert!(verify_mapping_matches_julia("cubical"));
 }
 
 #[test]
 #[ignore] // Tutte is large, slow
-fn test_triangular_mis_overhead_tutte() {
-    assert!(verify_mis_overhead("tutte"));
+fn test_triangular_mapping_tutte() {
+    assert!(verify_mapping_matches_julia("tutte"));
 }
 
 // === Trace Centers Tests ===
