@@ -220,7 +220,7 @@ pub fn map_config_copyback(
     let mut result = vec![0usize; lines.len()];
 
     for line in lines {
-        let locs = line.dense_locations(padding, spacing);
+        let locs = line.copyline_locations(padding, spacing);
         let mut count = 0usize;
 
         for &(row, col, _weight) in &locs {
@@ -356,7 +356,7 @@ fn embed_graph_internal(
 
     // Add copy line nodes using dense locations (all cells along the L-shape)
     for line in &copylines {
-        for (row, col, weight) in line.dense_locations(padding, spacing) {
+        for (row, col, weight) in line.copyline_locations(padding, spacing) {
             grid.add_node(row, col, weight as i32);
         }
     }
@@ -548,7 +548,7 @@ mod tests {
 
         println!("=== Copylines ===");
         for line in &copylines {
-            let locs = line.dense_locations(padding, spacing);
+            let locs = line.copyline_locations(padding, spacing);
             let overhead = locs.len() / 2;
             println!(
                 "  Line vertex={}: vslot={}, hslot={}, vstart={}, vstop={}, hstop={}, locs={}, overhead={}",
@@ -659,7 +659,7 @@ mod tests {
         let lines = vec![line];
 
         // Create config with some nodes selected
-        let locs = lines[0].dense_locations(2, 4);
+        let locs = lines[0].copyline_locations(2, 4);
         let (rows, cols) = (20, 20);
         let mut config = vec![vec![0; cols]; rows];
 
@@ -702,7 +702,7 @@ mod tests {
         let mut config = vec![vec![0; cols]; rows];
 
         // Select all nodes for vertex 0, none for vertex 1
-        let locs0 = lines[0].dense_locations(2, 4);
+        let locs0 = lines[0].copyline_locations(2, 4);
         for &(row, col, _) in &locs0 {
             if row < rows && col < cols {
                 config[row][col] = 1;
@@ -731,7 +731,7 @@ mod tests {
         };
         let lines = vec![line];
 
-        let locs = lines[0].dense_locations(2, 4);
+        let locs = lines[0].copyline_locations(2, 4);
         let (rows, cols) = (20, 20);
         let mut config = vec![vec![0; cols]; rows];
 

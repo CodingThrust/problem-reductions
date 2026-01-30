@@ -73,9 +73,9 @@ fn test_copyline_locations_basic() {
 }
 
 #[test]
-fn test_copyline_dense_locations() {
+fn test_copyline_copyline_locations() {
     let line = CopyLine::new(0, 1, 2, 1, 2, 3);
-    let locs = line.dense_locations(2, 4);
+    let locs = line.copyline_locations(2, 4);
 
     assert!(!locs.is_empty());
 
@@ -88,9 +88,9 @@ fn test_copyline_dense_locations() {
 }
 
 #[test]
-fn test_copyline_dense_locations_triangular() {
+fn test_copyline_copyline_locations_triangular() {
     let line = CopyLine::new(0, 1, 2, 1, 2, 3);
-    let locs = line.dense_locations_triangular(2, 6);
+    let locs = line.copyline_locations_triangular(2, 6);
 
     assert!(!locs.is_empty());
 
@@ -199,9 +199,9 @@ fn test_copyline_weights_positive() {
 }
 
 #[test]
-fn test_copyline_dense_locations_structure() {
+fn test_copyline_copyline_locations_structure() {
     let line = CopyLine::new(0, 2, 3, 1, 3, 5);
-    let dense = line.dense_locations(2, 4);
+    let dense = line.copyline_locations(2, 4);
 
     // Dense locations should have multiple nodes
     assert!(dense.len() > 1, "Dense should have multiple nodes");
@@ -221,7 +221,7 @@ fn test_copyline_triangular_spacing() {
 
     // Each copyline should produce valid triangular locations
     for line in &result.lines {
-        let locs = line.dense_locations_triangular(result.padding, result.spacing);
+        let locs = line.copyline_locations_triangular(result.padding, result.spacing);
         assert!(!locs.is_empty());
     }
 }

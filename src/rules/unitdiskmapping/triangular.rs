@@ -1363,7 +1363,7 @@ pub fn map_graph_triangular_with_order(
     // Add copy line nodes using triangular dense locations
     // (includes the endpoint node for triangular weighted mode)
     for line in &copylines {
-        for (row, col, weight) in line.dense_locations_triangular(padding, spacing) {
+        for (row, col, weight) in line.copyline_locations_triangular(padding, spacing) {
             grid.add_node(row, col, weight as i32);
         }
     }

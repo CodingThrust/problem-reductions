@@ -741,39 +741,55 @@ impl<G: Pattern> Pattern for ReflectedGadget<G> {
 // ============================================================================
 
 /// Dangling leg simplifier pattern.
+///
+/// Julia pattern:
+/// ```text
+/// Source:       Mapped:
+/// ⋅ ⋅ ⋅         ⋅ ⋅ ⋅
+/// ⋅ ● ⋅    =>   ⋅ ⋅ ⋅
+/// ⋅ ● ⋅         ⋅ ⋅ ⋅
+/// ⋅ ● ⋅         ⋅ ● ⋅
+/// ```
+/// Removes 2 nodes from a dangling chain, keeping only the endpoint.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub struct DanglingLeg;
 
 impl Pattern for DanglingLeg {
     fn size(&self) -> (usize, usize) { (4, 3) }
-    fn cross_location(&self) -> (usize, usize) { (2, 2) }
+    // Julia: cross_location = size .÷ 2 = (4÷2, 3÷2) = (2, 1)
+    fn cross_location(&self) -> (usize, usize) { (2, 1) }
     fn is_connected(&self) -> bool { false }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
-        let locs = vec![(1, 2), (2, 2), (3, 2), (4, 2)];
-        let edges = vec![(0, 1), (1, 2), (2, 3)];
-        let pins = vec![0, 3];
+        // Julia: 3 nodes at (2,2), (3,2), (4,2) - vertical chain in column 2
+        let locs = vec![(2, 2), (3, 2), (4, 2)];
+        let edges = vec![(0, 1), (1, 2)];
+        // Boundary node: only (4,2) is on boundary (row 4 = m for 4x3 pattern)
+        let pins = vec![2];
         (locs, edges, pins)
     }
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
-        let locs = vec![(1, 2), (4, 2)];
-        let pins = vec![0, 1];
+        // Julia: 1 node at (4,2) - the bottom endpoint
+        let locs = vec![(4, 2)];
+        let pins = vec![0];
         (locs, pins)
     }
 
     fn mis_overhead(&self) -> i32 { -1 }
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
-        [(0, 0), (2, 2), (3, 3), (1, 1)].into_iter().collect()
+        // Julia: Dict([0 => 0, 1 => 1])
+        [(0, 0), (1, 1)].into_iter().collect()
     }
 
     fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> {
+        // Julia: 0 => [[1,0,0], [0,1,0]], 1 => [[1,0,1]]
+        // Entry 0 (mapped node not selected): select node 0 OR node 1
+        // Entry 1 (mapped node selected): select nodes 0 and 2
         let mut map = HashMap::new();
-        map.insert(0, vec![vec![false, true, false, true], vec![false, false, true, true]]);
-        map.insert(1, vec![vec![true, false, true, false]]);
-        map.insert(2, vec![vec![false, true, false, false]]);
-        map.insert(3, vec![vec![true, false, true, false]]);
+        map.insert(0, vec![vec![true, false, false], vec![false, true, false]]);
+        map.insert(1, vec![vec![true, false, true]]);
         map
     }
 }

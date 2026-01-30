@@ -86,7 +86,7 @@ impl CopyLine {
     /// This matches UnitDiskMapping.jl's `copyline_locations` function.
     ///
     /// Returns Vec<(row, col, weight)> with nodes at every cell along the path.
-    pub fn dense_locations(&self, padding: usize, spacing: usize) -> Vec<(usize, usize, usize)> {
+    pub fn copyline_locations(&self, padding: usize, spacing: usize) -> Vec<(usize, usize, usize)> {
         let mut locs = Vec::new();
         let mut nline = 0usize;
 
@@ -145,9 +145,9 @@ impl CopyLine {
     /// Generate dense grid locations for triangular mode (includes endpoint node).
     /// This matches Julia's `copyline_locations(TriangularWeighted, ...)` formula.
     ///
-    /// The key difference from `dense_locations` is that the horizontal segment
+    /// The key difference from `copyline_locations` is that the horizontal segment
     /// extends one more cell to include the endpoint at `J + spacing * (hstop - vslot)`.
-    pub fn dense_locations_triangular(&self, padding: usize, spacing: usize) -> Vec<(usize, usize, usize)> {
+    pub fn copyline_locations_triangular(&self, padding: usize, spacing: usize) -> Vec<(usize, usize, usize)> {
         let mut locs = Vec::new();
         let mut nline = 0usize;
 
@@ -398,7 +398,7 @@ pub fn create_copylines(
 /// For unweighted mapping, the overhead is `length(locs) / 2` where locs
 /// are the dense copyline locations. This matches Julia's UnitDiskMapping.jl.
 pub fn mis_overhead_copyline(line: &CopyLine, spacing: usize, padding: usize) -> usize {
-    let locs = line.dense_locations(padding, spacing);
+    let locs = line.copyline_locations(padding, spacing);
     // Julia asserts length(locs) % 2 == 1, then returns length(locs) ÷ 2
     locs.len() / 2
 }
@@ -610,7 +610,7 @@ mod tests {
         let line = CopyLine::new(0, 1, 2, 1, 2, 3);
         let spacing = 4;
         let padding = 2;
-        let locs = line.dense_locations(padding, spacing);
+        let locs = line.copyline_locations(padding, spacing);
         let overhead = mis_overhead_copyline(&line, spacing, padding);
         // Julia formula for UnWeighted mode: length(locs) / 2
         assert_eq!(overhead, locs.len() / 2);
@@ -658,10 +658,10 @@ mod tests {
     }
 
     #[test]
-    fn test_dense_locations_simple() {
+    fn test_copyline_locations_simple() {
         // Simple L-shape: vslot=1, hslot=1, vstart=1, vstop=2, hstop=2
         let line = CopyLine::new(0, 1, 1, 1, 2, 2);
-        let locs = line.dense_locations(2, 4); // padding=2, spacing=4
+        let locs = line.copyline_locations(2, 4); // padding=2, spacing=4
 
         // Center: I = 4*(1-1) + 2 + 2 = 4, J = 4*(1-1) + 2 + 1 = 3
         // vstart=1, hslot=1: no "up" segment
@@ -680,11 +680,11 @@ mod tests {
     }
 
     #[test]
-    fn test_dense_locations_matches_julia() {
+    fn test_copyline_locations_matches_julia() {
         // Test case that can be verified against Julia's UnitDiskMapping
         // Using vslot=1, hslot=2, vstart=1, vstop=2, hstop=3, padding=2, spacing=4
         let line = CopyLine::new(0, 1, 2, 1, 2, 3);
-        let locs = line.dense_locations(2, 4);
+        let locs = line.copyline_locations(2, 4);
 
         // Center location: I = 4*(2-1) + 2 + 2 = 8, J = 4*(1-1) + 2 + 1 = 3
 
@@ -707,7 +707,7 @@ mod tests {
 
     #[test]
     fn test_mis_overhead_julia_cases() {
-        // Test cases using UnWeighted formula: length(dense_locations) / 2
+        // Test cases using UnWeighted formula: length(copyline_locations) / 2
         // Using vslot=5, hslot=5 as the base configuration
         let spacing = 4;
         let padding = 2;
@@ -726,7 +726,7 @@ mod tests {
 
         for (vstart, vstop, hstop) in test_cases {
             let line = CopyLine::new(1, 5, 5, vstart, vstop, hstop);
-            let locs = line.dense_locations(padding, spacing);
+            let locs = line.copyline_locations(padding, spacing);
             let overhead = mis_overhead_copyline(&line, spacing, padding);
 
             // UnWeighted formula: length(locs) / 2
@@ -832,8 +832,8 @@ mod tests {
     }
 
     #[test]
-    fn test_dense_locations_node_count() {
-        // For a copy line, dense_locations should produce nodes at every cell
+    fn test_copyline_locations_node_count() {
+        // For a copy line, copyline_locations should produce nodes at every cell
         // The number of nodes should be odd (ends + center)
         let spacing = 4;
 
@@ -847,7 +847,7 @@ mod tests {
         for (vslot, hslot, vstart, hstop) in test_cases {
             let vstop = hslot; // Simplified: vstop = hslot
             let line = CopyLine::new(0, vslot, hslot, vstart, vstop, hstop);
-            let locs = line.dense_locations(2, spacing);
+            let locs = line.copyline_locations(2, spacing);
 
             // Node count should be odd (property of copy line construction)
             // This is verified in Julia's test: @assert length(locs) % 2 == 1
