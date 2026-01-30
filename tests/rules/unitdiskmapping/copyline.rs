@@ -1,5 +1,6 @@
 //! Tests for copyline functionality (src/rules/mapping/copyline.rs).
 
+use super::common::solve_weighted_mis;
 use problemreductions::rules::unitdiskmapping::{map_graph, map_graph_triangular, CopyLine};
 
 #[test]
@@ -246,4 +247,95 @@ fn test_copyline_center_vs_locations() {
         center_col >= min_col && center_col <= max_col,
         "Center col should be within location bounds"
     );
+}
+
+/// Test that weighted MIS of copyline graph equals mis_overhead_copyline.
+/// This matches Julia's weighted.jl "copy lines" testset.
+///
+/// Julia's weighted formula for mis_overhead_copyline(Weighted(), line):
+///   (hslot - vstart) * spacing +
+///   (vstop - hslot) * spacing +
+///   max((hstop - vslot) * spacing - 2, 0)
+///
+/// Note: The degenerate case (5, 5, 5) where vstart=hslot=vstop and hstop=vslot
+/// is excluded because Julia's center weight is 0 while Rust's is min 1.
+#[test]
+fn test_copyline_weighted_mis_equals_overhead() {
+    // Test cases: (vstart, vstop, hstop) as i32 for arithmetic
+    // Note: Excluding (5, 5, 5) which is degenerate - only center node with
+    // Julia weight=0 vs Rust weight=1 (Rust uses nline.max(1) for center)
+    let test_cases: [(i32, i32, i32); 7] = [
+        (3, 7, 8),
+        (3, 5, 8),
+        (5, 9, 8),
+        (5, 5, 8),
+        (1, 7, 5),
+        (5, 8, 5),
+        (1, 5, 5),
+    ];
+
+    let padding: usize = 2;
+    let spacing: i32 = 4;
+
+    for (vstart, vstop, hstop) in test_cases {
+        // Create copyline with vslot=5, hslot=5 (matching Julia's test)
+        let line = CopyLine::new(0, 5, 5, vstart as usize, vstop as usize, hstop as usize);
+
+        // Get copyline locations with weights
+        let locs = line.copyline_locations(padding, spacing as usize);
+        let n = locs.len();
+
+        // Build graph matching Julia's weighted.jl:
+        // Julia loop: for i=1:length(locs)-1
+        //   if i==1 || locs[i-1].weight == 1  # starting point
+        //     add_edge!(g, length(locs), i)
+        //   else
+        //     add_edge!(g, i, i-1)
+        //
+        // Converting to 0-indexed Rust:
+        // Julia i=1..n-1 becomes Rust i=0..n-2
+        // Julia locs[i-1] at Julia i becomes locs[i-2] in 0-indexed when julia_i > 1
+        // Julia add_edge!(g, length(locs), i) = edge(n-1, i-1) in Rust
+        // Julia add_edge!(g, i, i-1) = edge(i-1, i-2) in Rust
+        let mut edges = Vec::new();
+        for julia_i in 1..n {
+            // julia_i represents Julia's 1-indexed i value
+            let is_start_point = if julia_i == 1 {
+                true // First iteration always connects to last node
+            } else {
+                // Julia's locs[i-1] when julia_i>1 is locs[julia_i-2] in 0-indexed Rust
+                locs[julia_i - 2].2 == 1
+            };
+
+            if is_start_point {
+                // Julia's add_edge!(g, length(locs), i) connects last node to current
+                // In 0-indexed: edge between (n-1) and (julia_i-1)
+                edges.push((n - 1, julia_i - 1));
+            } else {
+                // Julia's add_edge!(g, i, i-1) connects current to previous
+                // In 0-indexed: edge between (julia_i-1) and (julia_i-2)
+                edges.push((julia_i - 1, julia_i - 2));
+            }
+        }
+
+        let weights: Vec<i32> = locs.iter().map(|&(_, _, w)| w as i32).collect();
+
+        // Solve weighted MIS
+        let weighted_mis = solve_weighted_mis(n, &edges, &weights);
+
+        // Calculate expected value using Julia's weighted formula:
+        // mis_overhead_copyline(Weighted(), line) =
+        //   (hslot - vstart) * s + (vstop - hslot) * s + max((hstop - vslot) * s - 2, 0)
+        let hslot: i32 = 5;
+        let vslot: i32 = 5;
+        let expected = (hslot - vstart) * spacing
+            + (vstop - hslot) * spacing
+            + std::cmp::max((hstop - vslot) * spacing - 2, 0);
+
+        assert_eq!(
+            weighted_mis, expected,
+            "Copyline vstart={}, vstop={}, hstop={}: weighted MIS {} should equal overhead {}",
+            vstart, vstop, hstop, weighted_mis, expected
+        );
+    }
 }
