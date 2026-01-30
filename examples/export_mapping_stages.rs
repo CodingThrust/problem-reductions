@@ -178,16 +178,21 @@ fn get_vertex_order_from_julia(graph_name: &str) -> Option<Vec<usize>> {
 }
 
 fn square_gadget_name(idx: usize) -> String {
+    // Must match indices in gadgets_unweighted.rs tape_entry_mis_overhead
     match idx {
-        0 => "Cross".to_string(),
+        0 => "Cross<false>".to_string(),
         1 => "Turn".to_string(),
         2 => "WTurn".to_string(),
         3 => "Branch".to_string(),
         4 => "BranchFix".to_string(),
         5 => "TCon".to_string(),
         6 => "TrivialTurn".to_string(),
-        7 => "EndTurn".to_string(),
-        8 => "BranchFixB".to_string(),
+        7 => "RotatedTCon".to_string(),
+        8 => "ReflectedCross<true>".to_string(),
+        9 => "ReflectedTrivialTurn".to_string(),
+        10 => "BranchFixB".to_string(),
+        11 => "EndTurn".to_string(),
+        12 => "ReflectedRotatedTCon".to_string(),
         idx if idx >= 100 => format!("DanglingLeg_{}", idx - 100),
         _ => format!("Unknown_{}", idx),
     }
