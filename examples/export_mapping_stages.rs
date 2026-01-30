@@ -9,7 +9,8 @@
 
 use problemreductions::rules::unitdiskmapping::{
     create_copylines, apply_triangular_crossing_gadgets, apply_triangular_simplifier_gadgets,
-    apply_crossing_gadgets, apply_simplifier_gadgets,
+    apply_crossing_gadgets, apply_simplifier_gadgets, apply_weighted_crossing_gadgets,
+    apply_weighted_simplifier_gadgets,
     MappingGrid, CopyLine, triangular_tape_entry_mis_overhead, tape_entry_mis_overhead,
     TRIANGULAR_SPACING, TRIANGULAR_PADDING, SQUARE_SPACING, SQUARE_PADDING,
     mis_overhead_copyline_triangular, mis_overhead_copyline, TapeEntry, TriangularTapeEntry,
@@ -350,8 +351,8 @@ fn export_weighted(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_
 
     let mut grid = MappingGrid::with_padding(rows, cols, spacing, padding);
     for line in &copylines {
-        for (row, col, _weight) in line.copyline_locations(padding, spacing) {
-            grid.add_node(row, col, 2);  // Weight 2 for weighted mode
+        for (row, col, weight) in line.copyline_locations(padding, spacing) {
+            grid.add_node(row, col, weight as i32);  // Use actual weights from copyline (1 at endpoints, 2 elsewhere)
         }
     }
     let stage1_nodes = extract_grid_nodes(&grid);
@@ -376,10 +377,10 @@ fn export_weighted(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_
     }
     let stage2_nodes = extract_grid_nodes(&grid);
 
-    let crossing_tape = apply_crossing_gadgets(&mut grid, &copylines);
+    let crossing_tape = apply_weighted_crossing_gadgets(&mut grid, &copylines);
     let stage3_nodes = extract_grid_nodes(&grid);
 
-    let simplifier_tape = apply_simplifier_gadgets(&mut grid, 2);
+    let simplifier_tape = apply_weighted_simplifier_gadgets(&mut grid, 2);
     let stage4_nodes = extract_grid_nodes(&grid);
 
     // Weighted mode: overhead = unweighted_overhead * 2

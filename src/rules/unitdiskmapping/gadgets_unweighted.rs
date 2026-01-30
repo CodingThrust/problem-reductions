@@ -4,7 +4,7 @@
 //! unweighted mapping: Cross, Turn, WTurn, Branch, BranchFix, TCon, TrivialTurn,
 //! EndTurn, BranchFixB, DanglingLeg, and their rotated/reflected variants.
 
-use super::gadgets::{apply_gadget, map_config_back_pattern, pattern_matches, Pattern, PatternCell};
+use super::gadgets::{apply_gadget, apply_weighted_gadget, map_config_back_pattern, pattern_matches, Pattern, PatternCell};
 use super::grid::{CellState, MappingGrid};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -275,6 +275,11 @@ impl Pattern for Branch {
 
     fn mis_overhead(&self) -> i32 { -1 }
 
+    // Julia: sw[[4]] .= 3 (node 4 = 0-indexed 3 has weight 3)
+    fn source_weights(&self) -> Vec<i32> { vec![2, 2, 2, 3, 2, 2, 2, 2] }
+    // Julia: mw[[2]] .= 3 (mapped node 2 = 0-indexed 1 has weight 3)
+    fn mapped_weights(&self) -> Vec<i32> { vec![2, 3, 2, 2, 2, 2] }
+
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [
             (0, 0), (4, 0), (5, 5), (6, 6), (2, 0), (7, 7), (3, 3), (1, 0),
@@ -373,6 +378,11 @@ impl Pattern for TCon {
 
     fn mis_overhead(&self) -> i32 { 0 }
 
+    // Julia: sw[[2]] .= 1 (node 2 = 0-indexed 1 has weight 1)
+    fn source_weights(&self) -> Vec<i32> { vec![2, 1, 2, 2] }
+    // Julia: mw[[2]] .= 1 (mapped node 2 = 0-indexed 1 has weight 1)
+    fn mapped_weights(&self) -> Vec<i32> { vec![2, 1, 2, 2] }
+
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [
             (0, 0), (4, 0), (5, 5), (6, 6), (2, 2), (7, 7), (3, 3), (1, 0),
@@ -420,6 +430,11 @@ impl Pattern for TrivialTurn {
 
     fn mis_overhead(&self) -> i32 { 0 }
 
+    // Julia: sw[[1,2]] .= 1 (nodes 1,2 have weight 1)
+    fn source_weights(&self) -> Vec<i32> { vec![1, 1] }
+    // Julia: mw[[1,2]] .= 1 (mapped nodes 1,2 have weight 1)
+    fn mapped_weights(&self) -> Vec<i32> { vec![1, 1] }
+
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [(0, 0), (2, 2), (3, 3), (1, 1)].into_iter().collect()
     }
@@ -458,6 +473,11 @@ impl Pattern for EndTurn {
 
     fn mis_overhead(&self) -> i32 { -1 }
 
+    // Julia: sw[[3]] .= 1 (node 3 = 0-indexed 2 has weight 1)
+    fn source_weights(&self) -> Vec<i32> { vec![2, 2, 1] }
+    // Julia: mw[[1]] .= 1 (mapped node 1 = 0-indexed 0 has weight 1)
+    fn mapped_weights(&self) -> Vec<i32> { vec![1] }
+
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [(0, 0), (1, 1)].into_iter().collect()
     }
@@ -493,6 +513,11 @@ impl Pattern for BranchFixB {
     }
 
     fn mis_overhead(&self) -> i32 { -1 }
+
+    // Julia: sw[[1]] .= 1 (node 1 = 0-indexed 0 has weight 1)
+    fn source_weights(&self) -> Vec<i32> { vec![1, 2, 2, 2] }
+    // Julia: mw[[1]] .= 1 (mapped node 1 = 0-indexed 0 has weight 1)
+    fn mapped_weights(&self) -> Vec<i32> { vec![1, 2] }
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [(0, 0), (2, 2), (3, 3), (1, 1)].into_iter().collect()
@@ -616,6 +641,10 @@ impl<G: Pattern> Pattern for RotatedGadget<G> {
     fn mis_overhead(&self) -> i32 { self.gadget.mis_overhead() }
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> { self.gadget.mapped_entry_to_compact() }
     fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> { self.gadget.source_entry_to_configs() }
+
+    // Weights don't change with rotation - delegate to inner gadget
+    fn source_weights(&self) -> Vec<i32> { self.gadget.source_weights() }
+    fn mapped_weights(&self) -> Vec<i32> { self.gadget.mapped_weights() }
 }
 
 /// Mirror axis for reflection.
@@ -734,6 +763,10 @@ impl<G: Pattern> Pattern for ReflectedGadget<G> {
     fn mis_overhead(&self) -> i32 { self.gadget.mis_overhead() }
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> { self.gadget.mapped_entry_to_compact() }
     fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> { self.gadget.source_entry_to_configs() }
+
+    // Weights don't change with reflection - delegate to inner gadget
+    fn source_weights(&self) -> Vec<i32> { self.gadget.source_weights() }
+    fn mapped_weights(&self) -> Vec<i32> { self.gadget.mapped_weights() }
 }
 
 // ============================================================================
@@ -777,6 +810,11 @@ impl Pattern for DanglingLeg {
     }
 
     fn mis_overhead(&self) -> i32 { -1 }
+
+    // Julia: sw[[1]] .= 1 (node 1 = 0-indexed 0 has weight 1)
+    fn source_weights(&self) -> Vec<i32> { vec![1, 2, 2] }
+    // Julia: mw[[1]] .= 1 (mapped node 1 = 0-indexed 0 has weight 1)
+    fn mapped_weights(&self) -> Vec<i32> { vec![1] }
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         // Julia: Dict([0 => 0, 1 => 1])
@@ -1049,6 +1087,74 @@ fn try_match_and_apply_crossing(
     None
 }
 
+/// Apply crossing gadgets with proper weights for weighted mode.
+/// Uses apply_weighted_gadget which respects mapped_weights() for each gadget.
+pub fn apply_weighted_crossing_gadgets(
+    grid: &mut MappingGrid,
+    copylines: &[super::copyline::CopyLine],
+) -> Vec<TapeEntry> {
+    let mut tape = Vec::new();
+    let n = copylines.len();
+
+    let debug = std::env::var("DEBUG_CROSSING").is_ok();
+
+    for j in 0..n {
+        for i in 0..n {
+            let (cross_row, cross_col) = crossat(grid, copylines, i, j);
+            if debug {
+                eprintln!("Trying crossat ({}, {}) from copylines[{}][{}]", cross_row, cross_col, i, j);
+            }
+            if let Some((pattern_idx, row, col)) =
+                try_match_and_apply_weighted_crossing(grid, cross_row, cross_col)
+            {
+                if debug {
+                    eprintln!("  -> Matched pattern {} at ({}, {})", pattern_idx, row, col);
+                }
+                tape.push(TapeEntry { pattern_idx, row, col });
+            }
+        }
+    }
+    tape
+}
+
+fn try_match_and_apply_weighted_crossing(
+    grid: &mut MappingGrid,
+    cross_row: usize,
+    cross_col: usize,
+) -> Option<(usize, usize, usize)> {
+    // Try each pattern in order - same order as try_match_and_apply_crossing
+    let patterns: Vec<(usize, Box<dyn Fn() -> Box<dyn PatternBoxed>>)> = vec![
+        (0, Box::new(|| Box::new(Cross::<false>))),
+        (1, Box::new(|| Box::new(Turn))),
+        (2, Box::new(|| Box::new(WTurn))),
+        (3, Box::new(|| Box::new(Branch))),
+        (4, Box::new(|| Box::new(BranchFix))),
+        (5, Box::new(|| Box::new(TCon))),
+        (6, Box::new(|| Box::new(TrivialTurn))),
+        (7, Box::new(|| Box::new(RotatedGadget::new(TCon, 1)))),
+        (8, Box::new(|| Box::new(ReflectedGadget::new(Cross::<true>, Mirror::Y)))),
+        (9, Box::new(|| Box::new(ReflectedGadget::new(TrivialTurn, Mirror::Y)))),
+        (10, Box::new(|| Box::new(BranchFixB))),
+        (11, Box::new(|| Box::new(EndTurn))),
+        (12, Box::new(|| Box::new(ReflectedGadget::new(RotatedGadget::new(TCon, 1), Mirror::Y)))),
+    ];
+
+    for (idx, make_pattern) in patterns {
+        let pattern = make_pattern();
+        let cl = pattern.cross_location();
+        if cross_row + 1 >= cl.0 && cross_col + 1 >= cl.1 {
+            let x = cross_row + 1 - cl.0;
+            let y = cross_col + 1 - cl.1;
+            let matches = pattern.pattern_matches_boxed(grid, x, y);
+            if matches {
+                pattern.apply_weighted_gadget_boxed(grid, x, y);
+                return Some((idx, x, y));
+            }
+        }
+    }
+    None
+}
+
 /// Apply simplifier gadgets (DanglingLeg variants).
 /// `nrepeat` specifies the number of simplification passes.
 pub fn apply_simplifier_gadgets(grid: &mut MappingGrid, nrepeat: usize) -> Vec<TapeEntry> {
@@ -1076,6 +1182,75 @@ pub fn apply_simplifier_gadgets(grid: &mut MappingGrid, nrepeat: usize) -> Vec<T
     }
 
     tape
+}
+
+/// Apply weighted simplifier gadgets (DanglingLeg variants with weight checking).
+/// For weighted mode, DanglingLeg requires the center node to have weight 1.
+/// Julia's WeightedGadget{DanglingLeg}: source_centers = [(2,2)] means node at (2,2) has weight 1.
+pub fn apply_weighted_simplifier_gadgets(grid: &mut MappingGrid, nrepeat: usize) -> Vec<TapeEntry> {
+    let mut tape = Vec::new();
+    let (rows, cols) = grid.size();
+
+    let patterns = rotated_and_reflected_danglinleg();
+
+    for _ in 0..nrepeat {
+        for (pattern_idx, pattern) in patterns.iter().enumerate() {
+            for j in 0..cols {
+                for i in 0..rows {
+                    if pattern_matches_weighted(pattern.as_ref(), grid, i, j) {
+                        pattern.apply_weighted_gadget_boxed(grid, i, j);
+                        tape.push(TapeEntry {
+                            pattern_idx: 100 + pattern_idx,
+                            row: i,
+                            col: j,
+                        });
+                    }
+                }
+            }
+        }
+    }
+
+    tape
+}
+
+/// Check if a weighted DanglingLeg pattern matches.
+/// For weighted mode, the center node (at source_centers position) must have weight 1,
+/// and other nodes must have weight 2.
+fn pattern_matches_weighted(pattern: &dyn PatternBoxed, grid: &MappingGrid, i: usize, j: usize) -> bool {
+    // First check basic pattern match
+    if !pattern_matches_boxed(pattern, grid, i, j) {
+        return false;
+    }
+
+    // For weighted DanglingLeg, check that the center node has weight 1
+    // DanglingLeg source_centers = [(2,2)] (1-indexed), which is (1,1) 0-indexed in 4x3 pattern
+    // After rotation/reflection, the center position changes
+    let (locs, _, _) = pattern.source_graph_boxed();
+    // The first node in source_graph is at (2,2), which should have weight 1
+    // Node positions in source_graph are 1-indexed, convert to 0-indexed and add to (i,j)
+    if let Some((loc_r, loc_c)) = locs.first() {
+        let grid_r = i + loc_r - 1;
+        let grid_c = j + loc_c - 1;
+        if let Some(cell) = grid.get(grid_r, grid_c) {
+            // Center node must have weight 1
+            if cell.weight() != 1 {
+                return false;
+            }
+        }
+    }
+
+    // Check other nodes have weight 2
+    for (idx, (loc_r, loc_c)) in locs.iter().enumerate().skip(1) {
+        let grid_r = i + loc_r - 1;
+        let grid_c = j + loc_c - 1;
+        if let Some(cell) = grid.get(grid_r, grid_c) {
+            if cell.weight() != 2 {
+                return false;
+            }
+        }
+    }
+
+    true
 }
 
 fn rotated_and_reflected_danglinleg() -> Vec<Box<dyn PatternBoxed>> {
@@ -1156,14 +1331,22 @@ fn apply_gadget_boxed(pattern: &dyn PatternBoxed, grid: &mut MappingGrid, i: usi
     }
 }
 
+/// Apply a boxed gadget pattern at position (i, j) with proper weights.
+#[allow(dead_code)]
+fn apply_weighted_gadget_boxed_fn(pattern: &dyn PatternBoxed, grid: &mut MappingGrid, i: usize, j: usize) {
+    pattern.apply_weighted_gadget_boxed(grid, i, j);
+}
+
 /// Trait for boxed pattern operations.
 pub trait PatternBoxed {
     fn size_boxed(&self) -> (usize, usize);
     fn cross_location(&self) -> (usize, usize);
     fn source_matrix(&self) -> Vec<Vec<PatternCell>>;
     fn mapped_matrix(&self) -> Vec<Vec<PatternCell>>;
+    fn source_graph_boxed(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>);
     fn pattern_matches_boxed(&self, grid: &MappingGrid, i: usize, j: usize) -> bool;
     fn apply_gadget_boxed(&self, grid: &mut MappingGrid, i: usize, j: usize);
+    fn apply_weighted_gadget_boxed(&self, grid: &mut MappingGrid, i: usize, j: usize);
 }
 
 impl<P: Pattern> PatternBoxed for P {
@@ -1171,10 +1354,16 @@ impl<P: Pattern> PatternBoxed for P {
     fn cross_location(&self) -> (usize, usize) { Pattern::cross_location(self) }
     fn source_matrix(&self) -> Vec<Vec<PatternCell>> { Pattern::source_matrix(self) }
     fn mapped_matrix(&self) -> Vec<Vec<PatternCell>> { Pattern::mapped_matrix(self) }
+    fn source_graph_boxed(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+        Pattern::source_graph(self)
+    }
     fn pattern_matches_boxed(&self, grid: &MappingGrid, i: usize, j: usize) -> bool {
         pattern_matches(self, grid, i, j)
     }
     fn apply_gadget_boxed(&self, grid: &mut MappingGrid, i: usize, j: usize) {
         apply_gadget(self, grid, i, j);
+    }
+    fn apply_weighted_gadget_boxed(&self, grid: &mut MappingGrid, i: usize, j: usize) {
+        apply_weighted_gadget(self, grid, i, j);
     }
 }

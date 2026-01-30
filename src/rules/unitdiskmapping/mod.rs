@@ -52,10 +52,11 @@ pub use copyline::{
     mis_overhead_copyline_triangular, remove_order, CopyLine,
 };
 pub use gadgets::{
-    apply_crossing_gadgets, apply_gadget, apply_simplifier_gadgets, pattern_matches,
-    tape_entry_mis_overhead, unapply_gadget, Branch, BranchFix, BranchFixB, Cross, DanglingLeg,
-    EndTurn, Mirror, Pattern, PatternBoxed, PatternCell, ReflectedGadget, RotatedGadget, TCon,
-    TapeEntry, TrivialTurn, Turn, WTurn, SquarePattern,
+    apply_crossing_gadgets, apply_gadget, apply_simplifier_gadgets,
+    apply_weighted_crossing_gadgets, apply_weighted_gadget, apply_weighted_simplifier_gadgets,
+    pattern_matches, tape_entry_mis_overhead, unapply_gadget, Branch, BranchFix, BranchFixB, Cross,
+    DanglingLeg, EndTurn, Mirror, Pattern, PatternBoxed, PatternCell, ReflectedGadget, RotatedGadget,
+    TCon, TapeEntry, TrivialTurn, Turn, WTurn, SquarePattern,
 };
 pub use grid::{CellState, MappingGrid};
 pub use map_graph::{

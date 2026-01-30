@@ -95,11 +95,11 @@ fn test_map_weights_one() {
     let original_total: f64 = weights.iter().sum();
     let mapped_total: f64 = mapped.iter().sum();
 
-    // The mapped total should be base_total + original_total
-    // Allow 1.0 tolerance for rounding or center node lookup differences
-    assert!(
-        (mapped_total - (base_total + original_total)).abs() < 1.5,
-        "Mapped total {} should be close to base {} + original {} = {}",
+    // The mapped total should equal base_total + original_total exactly
+    assert_eq!(
+        mapped_total,
+        base_total + original_total,
+        "Mapped total {} should equal base {} + original {} = {}",
         mapped_total,
         base_total,
         original_total,
@@ -357,4 +357,228 @@ fn test_trace_centers_consistency_with_config_back() {
             cols
         );
     }
+}
+
+// === Square Weighted Mode Tests ===
+
+/// Test that square gadgets have correct source_weights matching Julia.
+/// Julia's weighted.jl specifies:
+/// - Default: all weights = 2
+/// - TrivialTurn: source nodes 1,2 → weight 1; mapped nodes 1,2 → weight 1
+/// - BranchFixB: source node 1 → weight 1; mapped node 1 → weight 1
+/// - EndTurn: source node 3 → weight 1; mapped node 1 → weight 1
+/// - TCon: source node 2 → weight 1; mapped node 2 → weight 1
+/// - Branch: source node 4 → weight 3; mapped node 2 → weight 3
+#[test]
+fn test_square_gadget_trivial_turn_weights() {
+    use problemreductions::rules::unitdiskmapping::TrivialTurn;
+    use problemreductions::rules::unitdiskmapping::Pattern;
+
+    let trivial_turn = TrivialTurn;
+    let source_weights = trivial_turn.source_weights();
+    let mapped_weights = trivial_turn.mapped_weights();
+
+    // TrivialTurn has 2 source nodes and 2 mapped nodes
+    assert_eq!(source_weights.len(), 2, "TrivialTurn should have 2 source nodes");
+    assert_eq!(mapped_weights.len(), 2, "TrivialTurn should have 2 mapped nodes");
+
+    // Julia: sw[[1,2]] .= 1 means nodes 1,2 (0-indexed: 0,1) have weight 1
+    assert_eq!(source_weights[0], 1, "TrivialTurn source node 0 should have weight 1");
+    assert_eq!(source_weights[1], 1, "TrivialTurn source node 1 should have weight 1");
+
+    // Julia: mw[[1,2]] .= 1 means mapped nodes 1,2 (0-indexed: 0,1) have weight 1
+    assert_eq!(mapped_weights[0], 1, "TrivialTurn mapped node 0 should have weight 1");
+    assert_eq!(mapped_weights[1], 1, "TrivialTurn mapped node 1 should have weight 1");
+}
+
+#[test]
+fn test_square_gadget_endturn_weights() {
+    use problemreductions::rules::unitdiskmapping::EndTurn;
+    use problemreductions::rules::unitdiskmapping::Pattern;
+
+    let endturn = EndTurn;
+    let source_weights = endturn.source_weights();
+    let mapped_weights = endturn.mapped_weights();
+
+    // EndTurn has 3 source nodes and 1 mapped node
+    assert_eq!(source_weights.len(), 3, "EndTurn should have 3 source nodes");
+    assert_eq!(mapped_weights.len(), 1, "EndTurn should have 1 mapped node");
+
+    // Julia: sw[[3]] .= 1 means node 3 (1-indexed) = node 2 (0-indexed) has weight 1
+    assert_eq!(source_weights[0], 2, "EndTurn source node 0 should have weight 2");
+    assert_eq!(source_weights[1], 2, "EndTurn source node 1 should have weight 2");
+    assert_eq!(source_weights[2], 1, "EndTurn source node 2 should have weight 1");
+
+    // Julia: mw[[1]] .= 1 means mapped node 1 (1-indexed) = node 0 (0-indexed) has weight 1
+    assert_eq!(mapped_weights[0], 1, "EndTurn mapped node 0 should have weight 1");
+}
+
+#[test]
+fn test_square_gadget_tcon_weights() {
+    use problemreductions::rules::unitdiskmapping::TCon;
+    use problemreductions::rules::unitdiskmapping::Pattern;
+
+    let tcon = TCon;
+    let source_weights = tcon.source_weights();
+    let mapped_weights = tcon.mapped_weights();
+
+    // TCon has 4 source nodes and 4 mapped nodes
+    assert_eq!(source_weights.len(), 4, "TCon should have 4 source nodes");
+    assert_eq!(mapped_weights.len(), 4, "TCon should have 4 mapped nodes");
+
+    // Julia: sw[[2]] .= 1 means node 2 (1-indexed) = node 1 (0-indexed) has weight 1
+    assert_eq!(source_weights[0], 2, "TCon source node 0 should have weight 2");
+    assert_eq!(source_weights[1], 1, "TCon source node 1 should have weight 1");
+    assert_eq!(source_weights[2], 2, "TCon source node 2 should have weight 2");
+    assert_eq!(source_weights[3], 2, "TCon source node 3 should have weight 2");
+
+    // Julia: mw[[2]] .= 1 means mapped node 2 (1-indexed) = node 1 (0-indexed) has weight 1
+    assert_eq!(mapped_weights[0], 2, "TCon mapped node 0 should have weight 2");
+    assert_eq!(mapped_weights[1], 1, "TCon mapped node 1 should have weight 1");
+    assert_eq!(mapped_weights[2], 2, "TCon mapped node 2 should have weight 2");
+    assert_eq!(mapped_weights[3], 2, "TCon mapped node 3 should have weight 2");
+}
+
+#[test]
+fn test_square_gadget_branchfixb_weights() {
+    use problemreductions::rules::unitdiskmapping::BranchFixB;
+    use problemreductions::rules::unitdiskmapping::Pattern;
+
+    let branchfixb = BranchFixB;
+    let source_weights = branchfixb.source_weights();
+    let mapped_weights = branchfixb.mapped_weights();
+
+    // BranchFixB has 4 source nodes and 2 mapped nodes
+    assert_eq!(source_weights.len(), 4, "BranchFixB should have 4 source nodes");
+    assert_eq!(mapped_weights.len(), 2, "BranchFixB should have 2 mapped nodes");
+
+    // Julia: sw[[1]] .= 1 means node 1 (1-indexed) = node 0 (0-indexed) has weight 1
+    assert_eq!(source_weights[0], 1, "BranchFixB source node 0 should have weight 1");
+
+    // Other nodes should be default weight 2
+    for (i, &w) in source_weights.iter().enumerate().skip(1) {
+        assert_eq!(w, 2, "BranchFixB source node {} should have weight 2", i);
+    }
+
+    // Julia: mw[[1]] .= 1 means mapped node 1 (1-indexed) = node 0 (0-indexed) has weight 1
+    assert_eq!(mapped_weights[0], 1, "BranchFixB mapped node 0 should have weight 1");
+    assert_eq!(mapped_weights[1], 2, "BranchFixB mapped node 1 should have weight 2");
+}
+
+#[test]
+fn test_square_gadget_branch_weights() {
+    use problemreductions::rules::unitdiskmapping::Branch;
+    use problemreductions::rules::unitdiskmapping::Pattern;
+
+    let branch = Branch;
+    let source_weights = branch.source_weights();
+    let mapped_weights = branch.mapped_weights();
+
+    // Branch has 8 source nodes and 6 mapped nodes
+    assert_eq!(source_weights.len(), 8, "Branch should have 8 source nodes");
+    assert_eq!(mapped_weights.len(), 6, "Branch should have 6 mapped nodes");
+
+    // Julia: sw[[4]] .= 3 means node 4 (1-indexed) = node 3 (0-indexed) has weight 3
+    for (i, &w) in source_weights.iter().enumerate() {
+        let expected = if i == 3 { 3 } else { 2 };
+        assert_eq!(w, expected, "Branch source node {} should have weight {}", i, expected);
+    }
+
+    // Julia: mw[[2]] .= 3 means mapped node 2 (1-indexed) = node 1 (0-indexed) has weight 3
+    for (i, &w) in mapped_weights.iter().enumerate() {
+        let expected = if i == 1 { 3 } else { 2 };
+        assert_eq!(w, expected, "Branch mapped node {} should have weight {}", i, expected);
+    }
+}
+
+#[test]
+fn test_square_gadget_default_weights_cross_false() {
+    use problemreductions::rules::unitdiskmapping::Cross;
+    use problemreductions::rules::unitdiskmapping::Pattern;
+
+    let cross = Cross::<false>;
+    for &w in &cross.source_weights() {
+        assert_eq!(w, 2, "Cross<false> source weights should all be 2");
+    }
+    for &w in &cross.mapped_weights() {
+        assert_eq!(w, 2, "Cross<false> mapped weights should all be 2");
+    }
+}
+
+#[test]
+fn test_square_gadget_default_weights_cross_true() {
+    use problemreductions::rules::unitdiskmapping::Cross;
+    use problemreductions::rules::unitdiskmapping::Pattern;
+
+    let cross = Cross::<true>;
+    for &w in &cross.source_weights() {
+        assert_eq!(w, 2, "Cross<true> source weights should all be 2");
+    }
+    for &w in &cross.mapped_weights() {
+        assert_eq!(w, 2, "Cross<true> mapped weights should all be 2");
+    }
+}
+
+#[test]
+fn test_square_gadget_default_weights_turn() {
+    use problemreductions::rules::unitdiskmapping::Turn;
+    use problemreductions::rules::unitdiskmapping::Pattern;
+
+    let turn = Turn;
+    for &w in &turn.source_weights() {
+        assert_eq!(w, 2, "Turn source weights should all be 2");
+    }
+    for &w in &turn.mapped_weights() {
+        assert_eq!(w, 2, "Turn mapped weights should all be 2");
+    }
+}
+
+#[test]
+fn test_square_gadget_default_weights_wturn() {
+    use problemreductions::rules::unitdiskmapping::WTurn;
+    use problemreductions::rules::unitdiskmapping::Pattern;
+
+    let wturn = WTurn;
+    for &w in &wturn.source_weights() {
+        assert_eq!(w, 2, "WTurn source weights should all be 2");
+    }
+    for &w in &wturn.mapped_weights() {
+        assert_eq!(w, 2, "WTurn mapped weights should all be 2");
+    }
+}
+
+#[test]
+fn test_square_gadget_default_weights_branchfix() {
+    use problemreductions::rules::unitdiskmapping::BranchFix;
+    use problemreductions::rules::unitdiskmapping::Pattern;
+
+    let branchfix = BranchFix;
+    for &w in &branchfix.source_weights() {
+        assert_eq!(w, 2, "BranchFix source weights should all be 2");
+    }
+    for &w in &branchfix.mapped_weights() {
+        assert_eq!(w, 2, "BranchFix mapped weights should all be 2");
+    }
+}
+
+#[test]
+fn test_square_danglinleg_weights() {
+    use problemreductions::rules::unitdiskmapping::DanglingLeg;
+    use problemreductions::rules::unitdiskmapping::Pattern;
+
+    let danglinleg = DanglingLeg;
+    let source_weights = danglinleg.source_weights();
+    let mapped_weights = danglinleg.mapped_weights();
+
+    // DanglingLeg has 3 source nodes and 1 mapped node
+    assert_eq!(source_weights.len(), 3, "DanglingLeg should have 3 source nodes");
+    assert_eq!(mapped_weights.len(), 1, "DanglingLeg should have 1 mapped node");
+
+    // Julia: sw[[1]] .= 1 means node 1 (0-indexed: 0) has weight 1, others default to 2
+    assert_eq!(source_weights[0], 1, "DanglingLeg source node 0 should have weight 1");
+    assert_eq!(source_weights[1], 2, "DanglingLeg source node 1 should have weight 2");
+    assert_eq!(source_weights[2], 2, "DanglingLeg source node 2 should have weight 2");
+
+    // Julia: mw[[1]] .= 1 means mapped node 1 (0-indexed: 0) has weight 1
+    assert_eq!(mapped_weights[0], 1, "DanglingLeg mapped node 0 should have weight 1");
 }

@@ -13,10 +13,10 @@ use std::collections::HashMap;
 
 // Re-export all gadget types from gadgets_unweighted (declared in mod.rs)
 pub use super::gadgets_unweighted::{
-    apply_crossing_gadgets, apply_simplifier_gadgets, crossing_ruleset_indices,
-    tape_entry_mis_overhead, Branch, BranchFix, BranchFixB, Cross, DanglingLeg, EndTurn, Mirror,
-    PatternBoxed, ReflectedGadget, RotatedGadget, SquarePattern, TCon, TapeEntry, TrivialTurn,
-    Turn, WTurn,
+    apply_crossing_gadgets, apply_simplifier_gadgets, apply_weighted_crossing_gadgets,
+    apply_weighted_simplifier_gadgets, crossing_ruleset_indices, tape_entry_mis_overhead, Branch,
+    BranchFix, BranchFixB, Cross, DanglingLeg, EndTurn, Mirror, PatternBoxed, ReflectedGadget,
+    RotatedGadget, SquarePattern, TCon, TapeEntry, TrivialTurn, Turn, WTurn,
 };
 
 /// Cell type in pattern matching.
@@ -62,6 +62,20 @@ pub trait Pattern: Clone + std::fmt::Debug {
 
     /// MIS overhead when applying this gadget.
     fn mis_overhead(&self) -> i32;
+
+    /// Weights for each node in source graph (for weighted mode).
+    /// Default: all nodes have weight 2 (Julia's default for weighted gadgets).
+    fn source_weights(&self) -> Vec<i32> {
+        let (locs, _, _) = self.source_graph();
+        vec![2; locs.len()]
+    }
+
+    /// Weights for each node in mapped graph (for weighted mode).
+    /// Default: all nodes have weight 2 (Julia's default for weighted gadgets).
+    fn mapped_weights(&self) -> Vec<i32> {
+        let (locs, _) = self.mapped_graph();
+        vec![2; locs.len()]
+    }
 
     /// Generate source matrix for pattern matching.
     fn source_matrix(&self) -> Vec<Vec<PatternCell>> {
@@ -291,6 +305,55 @@ pub fn apply_gadget<P: Pattern>(pattern: &P, grid: &mut MappingGrid, i: usize, j
             };
             grid.set(grid_r, grid_c, state);
         }
+    }
+}
+
+/// Apply a gadget pattern at position (i, j) with proper weights for weighted mode.
+/// Uses mapped_graph locations and mapped_weights for each node.
+#[allow(clippy::needless_range_loop)]
+pub fn apply_weighted_gadget<P: Pattern>(pattern: &P, grid: &mut MappingGrid, i: usize, j: usize) {
+    let (m, n) = pattern.size();
+    let (mapped_locs, _) = pattern.mapped_graph();
+    let mapped_weights = pattern.mapped_weights();
+
+    // First clear the gadget area
+    for r in 0..m {
+        for c in 0..n {
+            let grid_r = i + r;
+            let grid_c = j + c;
+            grid.set(grid_r, grid_c, CellState::Empty);
+        }
+    }
+
+    // Build a map of (row, col) -> accumulated weight for doubled nodes
+    let mut weight_map: HashMap<(usize, usize), i32> = HashMap::new();
+    for (idx, &(r, c)) in mapped_locs.iter().enumerate() {
+        let weight = mapped_weights.get(idx).copied().unwrap_or(2);
+        *weight_map.entry((r, c)).or_insert(0) += weight;
+    }
+
+    // Count occurrences to detect doubled nodes
+    let mut count_map: HashMap<(usize, usize), usize> = HashMap::new();
+    for &(r, c) in &mapped_locs {
+        *count_map.entry((r, c)).or_insert(0) += 1;
+    }
+
+    // Set cells with proper weights
+    for (&(r, c), &total_weight) in &weight_map {
+        let grid_r = i + r - 1; // Convert 1-indexed to 0-indexed
+        let grid_c = j + c - 1;
+        let count = count_map.get(&(r, c)).copied().unwrap_or(1);
+
+        let state = if count > 1 {
+            CellState::Doubled {
+                weight: total_weight,
+            }
+        } else {
+            CellState::Occupied {
+                weight: total_weight,
+            }
+        };
+        grid.set(grid_r, grid_c, state);
     }
 }
 
