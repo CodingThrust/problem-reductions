@@ -37,7 +37,7 @@ fn make_dense_ksg(result: &MappingResult, radius: f64) -> DenseKSG {
 
     // Collect all dense locations from each copy line
     for line in &result.lines {
-        for (row, col, weight) in line.dense_locations(result.padding, result.spacing) {
+        for (row, col, weight) in line.copyline_locations(result.padding, result.spacing) {
             all_nodes.push(GridNode::new(row as i32, col as i32, weight as i32));
         }
     }
