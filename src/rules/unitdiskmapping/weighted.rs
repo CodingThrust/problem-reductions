@@ -555,7 +555,7 @@ mod tests {
 
     #[test]
     fn test_trace_centers_basic() {
-        use crate::rules::mapping::map_graph_triangular;
+        use crate::rules::unitdiskmapping::map_graph_triangular;
 
         let edges = vec![(0, 1), (1, 2)];
         let result = map_graph_triangular(3, &edges);
@@ -572,7 +572,7 @@ mod tests {
 
     #[test]
     fn test_map_weights_basic() {
-        use crate::rules::mapping::map_graph_triangular;
+        use crate::rules::unitdiskmapping::map_graph_triangular;
         use crate::topology::Graph;
 
         let edges = vec![(0, 1), (1, 2)];
@@ -591,7 +591,7 @@ mod tests {
     #[test]
     #[should_panic(expected = "all weights must be in range")]
     fn test_map_weights_rejects_invalid() {
-        use crate::rules::mapping::map_graph_triangular;
+        use crate::rules::unitdiskmapping::map_graph_triangular;
 
         let edges = vec![(0, 1)];
         let result = map_graph_triangular(2, &edges);

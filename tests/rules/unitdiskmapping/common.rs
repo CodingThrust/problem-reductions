@@ -2,7 +2,7 @@
 
 use problemreductions::models::optimization::{ILP, LinearConstraint, ObjectiveSense};
 use problemreductions::models::IndependentSet;
-use problemreductions::rules::mapping::MappingResult;
+use problemreductions::rules::unitdiskmapping::MappingResult;
 use problemreductions::rules::{ReduceTo, ReductionResult};
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::Graph;

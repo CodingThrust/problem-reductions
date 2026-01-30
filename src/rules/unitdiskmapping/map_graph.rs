@@ -122,7 +122,7 @@ impl MappingResult {
     /// # Example
     ///
     /// ```
-    /// use problemreductions::rules::mapping::map_graph;
+    /// use problemreductions::rules::unitdiskmapping::map_graph;
     ///
     /// let edges = vec![(0, 1), (1, 2)];
     /// let result = map_graph(3, &edges);
@@ -224,14 +224,16 @@ pub fn map_config_copyback(
         let mut count = 0usize;
 
         for &(row, col, _weight) in &locs {
-            if let Some(val) = config.get(row).and_then(|r| r.get(col)) {
+            if let Some(&val) = config.get(row).and_then(|r| r.get(col)) {
                 count += val;
             }
         }
 
         // Subtract overhead: MIS overhead for copyline is len/2
         let overhead = locs.len() / 2;
-        result[line.vertex] = count.saturating_sub(overhead);
+        // The result should be 0 or 1 (binary) for a valid IS
+        // If count > overhead, vertex is selected
+        result[line.vertex] = if count > overhead { 1 } else { 0 };
     }
 
     result
@@ -419,7 +421,7 @@ pub fn map_graph(num_vertices: usize, edges: &[(usize, usize)]) -> MappingResult
 ///
 /// # Example
 /// ```
-/// use problemreductions::rules::mapping::{map_graph_with_method, PathDecompositionMethod};
+/// use problemreductions::rules::unitdiskmapping::{map_graph_with_method, PathDecompositionMethod};
 ///
 /// let edges = vec![(0, 1), (1, 2)];
 /// // Use greedy method for faster (but potentially suboptimal) results
@@ -671,9 +673,8 @@ mod tests {
         let result = map_config_copyback(&lines, 2, 4, &config);
 
         // count = len(locs), overhead = len/2
-        // result = count - overhead = len - len/2 = (len+1)/2 for odd len, len/2+1 for even
-        let expected = locs.len() - locs.len() / 2;
-        assert_eq!(result[0], expected);
+        // When all nodes selected: count > overhead, so result = 1
+        assert_eq!(result[0], 1);
     }
 
     #[test]
@@ -710,12 +711,10 @@ mod tests {
 
         let result = map_config_copyback(&lines, 2, 4, &config);
 
-        // Vertex 0: all selected
-        let expected0 = locs0.len() - locs0.len() / 2;
-        assert_eq!(result[0], expected0);
+        // Vertex 0: all selected, count > overhead, so result = 1
+        assert_eq!(result[0], 1);
 
-        // Vertex 1: none selected, count=0, overhead=len/2
-        // result = saturating_sub(0, overhead) = 0
+        // Vertex 1: none selected, count = 0 <= overhead, so result = 0
         assert_eq!(result[1], 0);
     }
 

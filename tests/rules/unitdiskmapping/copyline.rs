@@ -1,6 +1,6 @@
 //! Tests for copyline functionality (src/rules/mapping/copyline.rs).
 
-use problemreductions::rules::mapping::{map_graph, map_graph_triangular, CopyLine};
+use problemreductions::rules::unitdiskmapping::{map_graph, map_graph_triangular, CopyLine};
 
 #[test]
 fn test_copylines_have_valid_vertex_ids() {

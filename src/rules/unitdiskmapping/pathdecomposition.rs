@@ -425,7 +425,7 @@ impl PathDecompositionMethod {
 ///
 /// # Example
 /// ```
-/// use problemreductions::rules::mapping::pathdecomposition::{pathwidth, PathDecompositionMethod};
+/// use problemreductions::rules::unitdiskmapping::pathdecomposition::{pathwidth, PathDecompositionMethod};
 ///
 /// // Path graph: 0-1-2
 /// let edges = vec![(0, 1), (1, 2)];

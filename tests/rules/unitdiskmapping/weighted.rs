@@ -1,6 +1,6 @@
 //! Tests for weighted mode functionality (src/rules/mapping/weighted.rs).
 
-use problemreductions::rules::mapping::{
+use problemreductions::rules::unitdiskmapping::{
     map_graph_triangular, map_weights, trace_centers, CopyLine,
     copyline_weighted_locations_triangular,
 };
@@ -225,7 +225,7 @@ fn test_triangular_copyline_weight_invariant() {
 #[test]
 fn test_weighted_gadgets_weight_conservation() {
     // For each weighted gadget, verify weight sums are consistent with MIS properties
-    use problemreductions::rules::mapping::triangular_weighted_ruleset;
+    use problemreductions::rules::unitdiskmapping::triangular_weighted_ruleset;
 
     let ruleset = triangular_weighted_ruleset();
     for gadget in &ruleset {
@@ -254,7 +254,7 @@ fn test_weighted_gadgets_weight_conservation() {
 #[test]
 fn test_weighted_gadgets_positive_weights() {
     // All individual weights should be positive
-    use problemreductions::rules::mapping::triangular_weighted_ruleset;
+    use problemreductions::rules::unitdiskmapping::triangular_weighted_ruleset;
 
     let ruleset = triangular_weighted_ruleset();
     for gadget in &ruleset {
@@ -271,7 +271,7 @@ fn test_weighted_gadgets_positive_weights() {
 
 #[test]
 fn test_map_config_back_extracts_valid_is_triangular() {
-    use problemreductions::rules::mapping::map_graph_triangular;
+    use problemreductions::rules::unitdiskmapping::map_graph_triangular;
     use problemreductions::topology::{smallgraph, Graph};
 
     let (n, edges) = smallgraph("bull").unwrap();

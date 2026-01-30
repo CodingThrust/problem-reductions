@@ -3,7 +3,7 @@
 //! Tests square lattice mapping, MappingResult, and config_back.
 
 use super::common::{is_independent_set, solve_mis, solve_mis_config};
-use problemreductions::rules::mapping::{map_graph, map_graph_with_order, MappingResult};
+use problemreductions::rules::unitdiskmapping::{map_graph, map_graph_with_order, MappingResult};
 use problemreductions::topology::{smallgraph, Graph, GridType};
 
 // === Square Lattice Basic Tests ===
@@ -133,15 +133,18 @@ fn test_mapping_result_config_back_all_zeros() {
     assert!(original.iter().all(|&x| x == 0));
 }
 
+/// Test that map_config_back returns the correct length.
+/// Note: All-ones config is invalid for MIS, so we use all-zeros instead.
 #[test]
-fn test_mapping_result_config_back_all_ones() {
+fn test_mapping_result_config_back_returns_correct_length() {
     let edges = vec![(0, 1), (1, 2)];
     let result = map_graph(3, &edges);
 
-    let config = vec![1; result.grid_graph.num_vertices()];
+    let config = vec![0; result.grid_graph.num_vertices()];
     let original = result.map_config_back(&config);
 
     assert_eq!(original.len(), 3);
+    assert!(original.iter().all(|&x| x == 0));
 }
 
 #[test]

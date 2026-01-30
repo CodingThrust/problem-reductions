@@ -1,7 +1,7 @@
 //! Tests for gadget properties (src/rules/mapping/gadgets.rs and triangular gadgets).
 
 use super::common::{solve_weighted_mis, triangular_edges};
-use problemreductions::rules::mapping::{
+use problemreductions::rules::unitdiskmapping::{
     Branch, BranchFix, Cross, EndTurn, Pattern, TCon, TriBranch, TriBranchFix, TriBranchFixB, TriCross,
     TriEndTurn, TriTConDown, TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn,
     TriWTurn, TriangularGadget, TrivialTurn, Turn, WTurn, Weightable,

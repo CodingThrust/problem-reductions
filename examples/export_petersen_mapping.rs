@@ -7,7 +7,7 @@
 //! - docs/paper/petersen_square.json - Mapping to square lattice (King's subgraph)
 //! - docs/paper/petersen_triangular.json - Mapping to triangular lattice
 
-use problemreductions::rules::mapping::{map_graph, map_graph_triangular, MappingResult};
+use problemreductions::rules::unitdiskmapping::{map_graph, map_graph_triangular, MappingResult};
 use problemreductions::topology::{Graph, GridGraph, GridNode, GridType};
 use serde::Serialize;
 use std::fs;
@@ -110,6 +110,16 @@ fn main() {
 
     // Map to square lattice (King's subgraph)
     let square_result = map_graph(num_vertices, &petersen_edges);
+
+    // Print copy lines for debugging
+    println!("\nCopy lines (square):");
+    for line in &square_result.lines {
+        println!(
+            "  v{}: vslot={}, hslot={}, vstart={}, vstop={}, hstop={}",
+            line.vertex, line.vslot, line.hslot, line.vstart, line.vstop, line.hstop
+        );
+    }
+    println!();
 
     // Create dense King's subgraph for visualization (radius 1.5 for 8-connectivity)
     let dense_ksg = make_dense_ksg(&square_result, 1.5);

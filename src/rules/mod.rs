@@ -20,7 +20,7 @@ mod spinglass_qubo;
 mod vertexcovering_independentset;
 mod vertexcovering_setcovering;
 
-pub mod mapping;
+pub mod unitdiskmapping;
 
 #[cfg(feature = "ilp")]
 mod clique_ilp;

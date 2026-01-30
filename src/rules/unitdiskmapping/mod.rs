@@ -14,7 +14,7 @@
 //! # Example
 //!
 //! ```rust
-//! use problemreductions::rules::mapping::{map_graph, map_graph_triangular};
+//! use problemreductions::rules::unitdiskmapping::{map_graph, map_graph_triangular};
 //! use problemreductions::topology::Graph;
 //!
 //! // Map a triangle graph to a square lattice
@@ -40,6 +40,7 @@
 pub mod alpha_tensor;
 mod copyline;
 mod gadgets;
+mod gadgets_unweighted;
 mod grid;
 mod map_graph;
 pub mod pathdecomposition;
