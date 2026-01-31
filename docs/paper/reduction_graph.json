@@ -83,6 +83,11 @@
       "bidirectional": false
     },
     {
+      "source": "Coloring",
+      "target": "ILP",
+      "bidirectional": false
+    },
+    {
       "source": "Factoring",
       "target": "CircuitSAT",
       "bidirectional": false

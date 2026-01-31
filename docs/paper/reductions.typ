@@ -170,6 +170,10 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   Given $n$ binary variables $x_i in {0, 1}$, matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = bold(x)^top Q bold(x)$.
 ]
 
+#definition("Integer Linear Programming (ILP)")[
+  Given $n$ integer variables $bold(x) in ZZ^n$, constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x)$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$ and variable bounds.
+]
+
 == Satisfiability Problems
 
 #definition("SAT")[
@@ -332,6 +336,24 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 ]
 
 #theorem[
+  *(Coloring $arrow.r$ ILP)* The $k$-coloring problem reduces to binary ILP with $|V| dot k$ variables and $|V| + |E| dot k$ constraints.
+]
+
+#proof[
+  _Construction._ For graph $G = (V, E)$ with $k$ colors:
+
+  _Variables:_ Binary $x_(v,c) in {0, 1}$ for each vertex $v in V$ and color $c in {1, ..., k}$. Interpretation: $x_(v,c) = 1$ iff vertex $v$ has color $c$.
+
+  _Constraints:_ (1) Each vertex has exactly one color: $sum_(c=1)^k x_(v,c) = 1$ for all $v in V$. (2) Adjacent vertices have different colors: $x_(u,c) + x_(v,c) <= 1$ for all $(u, v) in E$ and $c in {1, ..., k}$.
+
+  _Objective:_ Feasibility problem (minimize 0).
+
+  _Correctness._ ($arrow.r.double$) A valid $k$-coloring assigns exactly one color per vertex with different colors on adjacent vertices; setting $x_(v,c) = 1$ for the assigned color satisfies all constraints. ($arrow.l.double$) Any feasible ILP solution has exactly one $x_(v,c) = 1$ per vertex; this defines a coloring, and constraint (2) ensures adjacent vertices differ.
+
+  _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$; assign color $c$ to $v$.
+]
+
+#theorem[
   *(Factoring $arrow.r$ ILP)* Integer factorization reduces to binary ILP using McCormick linearization with $O(m n)$ variables and constraints.
 ]
 
@@ -400,6 +422,7 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
     [CircuitSAT $arrow.r$ SpinGlass], [$O(|"gates"|)$], [@whitfield2012 @lucas2014],
     [Factoring $arrow.r$ CircuitSAT], [$O(m n)$], [Folklore],
     [SpinGlass $arrow.l.r$ MaxCut], [$O(n + |J|)$], [@barahona1982 @lucas2014],
+    table.cell(fill: gray)[Coloring $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| dot k + |E| dot k)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[Factoring $arrow.r$ ILP], table.cell(fill: gray)[$O(m n)$], table.cell(fill: gray)[—],
   ),
   caption: [Summary of reductions. Gray rows indicate trivial reductions.]

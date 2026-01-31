@@ -61,6 +61,9 @@ flowchart TD
     SG_f64 <--> QUBO
     SG_i32 <--> MaxCut
 
+    %% ILP reductions
+    Coloring --> ILP
+
     %% Styling
     style Factoring fill:#f9f,stroke:#333
     style CircuitSAT fill:#f9f,stroke:#333
@@ -129,6 +132,7 @@ println!("Types: {}, Reductions: {}", graph.num_types(), graph.num_reductions())
 | Satisfiability | DominatingSet | No |
 | CircuitSAT | SpinGlass&lt;i32&gt; | No |
 | Factoring | CircuitSAT | No |
+| Coloring | ILP | No |
 | Factoring | ILP | No |
 
 ## API

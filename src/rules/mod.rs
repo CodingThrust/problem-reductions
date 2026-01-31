@@ -23,6 +23,8 @@ mod vertexcovering_setcovering;
 #[cfg(feature = "ilp")]
 mod clique_ilp;
 #[cfg(feature = "ilp")]
+mod coloring_ilp;
+#[cfg(feature = "ilp")]
 mod dominatingset_ilp;
 #[cfg(feature = "ilp")]
 mod independentset_ilp;
@@ -57,6 +59,8 @@ pub use circuit_spinglass::{
 
 #[cfg(feature = "ilp")]
 pub use clique_ilp::ReductionCliqueToILP;
+#[cfg(feature = "ilp")]
+pub use coloring_ilp::ReductionColoringToILP;
 #[cfg(feature = "ilp")]
 pub use dominatingset_ilp::ReductionDSToILP;
 #[cfg(feature = "ilp")]
