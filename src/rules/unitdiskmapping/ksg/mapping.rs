@@ -288,7 +288,7 @@ pub fn map_config_copyback(
 }
 
 /// Unapply gadgets from tape in reverse order, converting mapped configs to source configs.
-pub fn unapply_gadgets(tape: &[KsgTapeEntry], config: &mut Vec<Vec<usize>>) {
+pub fn unapply_gadgets(tape: &[KsgTapeEntry], config: &mut [Vec<usize>]) {
     // Iterate tape in REVERSE order
     for entry in tape.iter().rev() {
         if let Some(pattern) = KsgPattern::from_tape_idx(entry.pattern_idx) {
@@ -298,7 +298,7 @@ pub fn unapply_gadgets(tape: &[KsgTapeEntry], config: &mut Vec<Vec<usize>>) {
 }
 
 /// Unapply weighted gadgets from tape in reverse order.
-pub fn unapply_weighted_gadgets(tape: &[WeightedKsgTapeEntry], config: &mut Vec<Vec<usize>>) {
+pub fn unapply_weighted_gadgets(tape: &[WeightedKsgTapeEntry], config: &mut [Vec<usize>]) {
     // Iterate tape in REVERSE order
     for entry in tape.iter().rev() {
         if let Some(pattern) = WeightedKsgPattern::from_tape_idx(entry.pattern_idx) {

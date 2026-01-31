@@ -461,7 +461,7 @@ pub fn pathwidth(
 ///
 /// Returns vertices in the same order as the path decomposition, matching Julia's behavior.
 pub fn vertex_order_from_layout(layout: &Layout) -> Vec<usize> {
-    layout.vertices.iter().copied().collect()
+    layout.vertices.to_vec()
 }
 
 #[cfg(test)]

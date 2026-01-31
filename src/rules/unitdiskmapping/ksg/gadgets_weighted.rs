@@ -4,11 +4,17 @@
 //! weighted mapping. Each weighted gadget implements the Pattern trait directly with
 //! actual weight methods, following Julia's formula: mis_overhead(weighted) = mis_overhead(unweighted) * 2.
 
-use super::super::traits::{apply_gadget, pattern_matches, Pattern, PatternCell};
 use super::super::grid::{CellState, MappingGrid};
+use super::super::traits::{apply_gadget, pattern_matches, Pattern, PatternCell};
 use super::gadgets::{KsgReflectedGadget, KsgRotatedGadget, Mirror};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+/// Type alias for weighted pattern factory function used in crossing gadget matching.
+type WeightedPatternFactory = Box<dyn Fn() -> Box<dyn WeightedKsgPatternBoxed>>;
+
+/// Type alias for source graph representation: (locations, pin_edges, source_pins).
+pub type SourceGraph = (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>);
 
 // ============================================================================
 // Weighted Crossing Gadgets
@@ -932,7 +938,7 @@ impl WeightedKsgPattern {
     }
 
     /// Apply map_config_back_pattern for this pattern.
-    pub fn map_config_back(&self, gi: usize, gj: usize, config: &mut Vec<Vec<usize>>) {
+    pub fn map_config_back(&self, gi: usize, gj: usize, config: &mut [Vec<usize>]) {
         match self {
             Self::CrossFalse(p) => map_config_back_pattern(p, gi, gj, config),
             Self::CrossTrue(p) => map_config_back_pattern(p, gi, gj, config),
@@ -998,7 +1004,7 @@ pub trait WeightedKsgPatternBoxed {
     fn cross_location(&self) -> (usize, usize);
     fn source_matrix(&self) -> Vec<Vec<PatternCell>>;
     fn mapped_matrix(&self) -> Vec<Vec<PatternCell>>;
-    fn source_graph_boxed(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>);
+    fn source_graph_boxed(&self) -> SourceGraph;
     fn mapped_graph_boxed(&self) -> (Vec<(usize, usize)>, Vec<usize>);
     fn source_weights_boxed(&self) -> Vec<i32>;
     fn mapped_weights_boxed(&self) -> Vec<i32>;
@@ -1020,7 +1026,7 @@ impl<P: Pattern> WeightedKsgPatternBoxed for P {
     fn mapped_matrix(&self) -> Vec<Vec<PatternCell>> {
         Pattern::mapped_matrix(self)
     }
-    fn source_graph_boxed(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+    fn source_graph_boxed(&self) -> SourceGraph {
         Pattern::source_graph(self)
     }
     fn mapped_graph_boxed(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
@@ -1157,7 +1163,7 @@ fn try_match_and_apply_weighted_crossing(
     cross_col: usize,
 ) -> Option<(usize, usize, usize)> {
     // Try each pattern in order
-    let patterns: Vec<(usize, Box<dyn Fn() -> Box<dyn WeightedKsgPatternBoxed>>)> = vec![
+    let patterns: Vec<(usize, WeightedPatternFactory)> = vec![
         (0, Box::new(|| Box::new(WeightedKsgCross::<false>))),
         (1, Box::new(|| Box::new(WeightedKsgTurn))),
         (2, Box::new(|| Box::new(WeightedKsgWTurn))),
@@ -1283,7 +1289,7 @@ pub fn map_config_back_pattern<P: Pattern>(
     pattern: &P,
     gi: usize,
     gj: usize,
-    config: &mut Vec<Vec<usize>>,
+    config: &mut [Vec<usize>],
 ) {
     let (m, n) = pattern.size();
     let (mapped_locs, mapped_pins) = pattern.mapped_graph();

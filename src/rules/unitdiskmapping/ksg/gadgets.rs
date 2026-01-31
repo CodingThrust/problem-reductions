@@ -4,10 +4,16 @@
 //! unweighted mapping: KsgCross, KsgTurn, KsgWTurn, KsgBranch, KsgBranchFix, KsgTCon,
 //! KsgTrivialTurn, KsgEndTurn, KsgBranchFixB, KsgDanglingLeg, and their rotated/reflected variants.
 
-use super::super::traits::{apply_gadget, pattern_matches, Pattern, PatternCell};
 use super::super::grid::{CellState, MappingGrid};
+use super::super::traits::{apply_gadget, pattern_matches, Pattern, PatternCell};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+/// Type alias for pattern factory function used in crossing gadget matching.
+type PatternFactory = Box<dyn Fn() -> Box<dyn KsgPatternBoxed>>;
+
+/// Type alias for source graph representation: (locations, pin_edges, source_pins).
+pub type SourceGraph = (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>);
 
 // ============================================================================
 // Crossing Gadgets - matching Julia's gadgets.jl exactly
@@ -1198,7 +1204,7 @@ impl KsgPattern {
     }
 
     /// Apply map_config_back_pattern for this pattern.
-    pub fn map_config_back(&self, gi: usize, gj: usize, config: &mut Vec<Vec<usize>>) {
+    pub fn map_config_back(&self, gi: usize, gj: usize, config: &mut [Vec<usize>]) {
         match self {
             Self::CrossFalse(p) => map_config_back_pattern(p, gi, gj, config),
             Self::CrossTrue(p) => map_config_back_pattern(p, gi, gj, config),
@@ -1334,7 +1340,7 @@ fn try_match_and_apply_crossing(
     cross_col: usize,
 ) -> Option<(usize, usize, usize)> {
     // Try each pattern in order
-    let patterns: Vec<(usize, Box<dyn Fn() -> Box<dyn KsgPatternBoxed>>)> = vec![
+    let patterns: Vec<(usize, PatternFactory)> = vec![
         (0, Box::new(|| Box::new(KsgCross::<false>))),
         (1, Box::new(|| Box::new(KsgTurn))),
         (2, Box::new(|| Box::new(KsgWTurn))),
@@ -1383,8 +1389,8 @@ fn try_match_and_apply_crossing(
                 let source = pattern.source_matrix();
                 let (m, n) = pattern.size_boxed();
                 eprintln!("    Source matrix ({}x{}):", m, n);
-                for r in 0..m {
-                    let row_str: String = source[r]
+                for (r, row) in source.iter().enumerate() {
+                    let row_str: String = row
                         .iter()
                         .map(|c| match c {
                             PatternCell::Empty => '.',
@@ -1471,7 +1477,7 @@ fn try_match_and_apply_weighted_crossing(
     cross_col: usize,
 ) -> Option<(usize, usize, usize)> {
     // Try each pattern in order - same order as try_match_and_apply_crossing
-    let patterns: Vec<(usize, Box<dyn Fn() -> Box<dyn KsgPatternBoxed>>)> = vec![
+    let patterns: Vec<(usize, PatternFactory)> = vec![
         (0, Box::new(|| Box::new(KsgCross::<false>))),
         (1, Box::new(|| Box::new(KsgTurn))),
         (2, Box::new(|| Box::new(KsgWTurn))),
@@ -1723,7 +1729,7 @@ pub trait KsgPatternBoxed {
     fn cross_location(&self) -> (usize, usize);
     fn source_matrix(&self) -> Vec<Vec<PatternCell>>;
     fn mapped_matrix(&self) -> Vec<Vec<PatternCell>>;
-    fn source_graph_boxed(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>);
+    fn source_graph_boxed(&self) -> SourceGraph;
     fn pattern_matches_boxed(&self, grid: &MappingGrid, i: usize, j: usize) -> bool;
     fn apply_gadget_boxed(&self, grid: &mut MappingGrid, i: usize, j: usize);
     fn apply_weighted_gadget_boxed(&self, grid: &mut MappingGrid, i: usize, j: usize);
@@ -1742,7 +1748,7 @@ impl<P: Pattern> KsgPatternBoxed for P {
     fn mapped_matrix(&self) -> Vec<Vec<PatternCell>> {
         Pattern::mapped_matrix(self)
     }
-    fn source_graph_boxed(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
+    fn source_graph_boxed(&self) -> SourceGraph {
         Pattern::source_graph(self)
     }
     fn pattern_matches_boxed(&self, grid: &MappingGrid, i: usize, j: usize) -> bool {
@@ -1810,7 +1816,7 @@ pub fn map_config_back_pattern<P: Pattern>(
     pattern: &P,
     gi: usize,
     gj: usize,
-    config: &mut Vec<Vec<usize>>,
+    config: &mut [Vec<usize>],
 ) {
     let (m, n) = pattern.size();
     let (mapped_locs, mapped_pins) = pattern.mapped_graph();
