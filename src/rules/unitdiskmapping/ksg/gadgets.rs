@@ -4,8 +4,8 @@
 //! unweighted mapping: KsgCross, KsgTurn, KsgWTurn, KsgBranch, KsgBranchFix, KsgTCon,
 //! KsgTrivialTurn, KsgEndTurn, KsgBranchFixB, KsgDanglingLeg, and their rotated/reflected variants.
 
+use super::super::gadgets::{apply_gadget, pattern_matches, Pattern, PatternCell};
 use super::super::grid::{CellState, MappingGrid};
-use super::super::traits::{apply_gadget, pattern_matches, Pattern, PatternCell};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 

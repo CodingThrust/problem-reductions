@@ -42,6 +42,7 @@ mod copyline;
 mod gadgets;
 mod gadgets_unweighted;
 mod grid;
+pub mod ksg;
 mod map_graph;
 pub mod pathdecomposition;
 mod triangular;
