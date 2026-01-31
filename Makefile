@@ -24,9 +24,9 @@ help:
 build:
 	cargo build --all-features
 
-# Run all tests
+# Run all tests (including ignored tests)
 test:
-	cargo test --all-features
+	cargo test --all-features -- --include-ignored
 
 # Format code
 fmt:
