@@ -78,17 +78,16 @@ impl ReductionResult for ReductionColoringToILP {
     /// The ILP solution has num_vertices * num_colors binary variables.
     /// For each vertex, we find which color has value 1.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let mut coloring = vec![0; self.num_vertices];
-        for v in 0..self.num_vertices {
-            for c in 0..self.num_colors {
-                let var_idx = self.var_index(v, c);
-                if var_idx < target_solution.len() && target_solution[var_idx] == 1 {
-                    coloring[v] = c;
-                    break;
-                }
-            }
-        }
-        coloring
+        (0..self.num_vertices)
+            .map(|v| {
+                (0..self.num_colors)
+                    .find(|&c| {
+                        let var_idx = self.var_index(v, c);
+                        var_idx < target_solution.len() && target_solution[var_idx] == 1
+                    })
+                    .unwrap_or(0)
+            })
+            .collect()
     }
 
     fn source_size(&self) -> ProblemSize {
