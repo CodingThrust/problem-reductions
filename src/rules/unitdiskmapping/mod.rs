@@ -3,39 +3,27 @@
 //! This module implements reductions from arbitrary graphs to unit disk grid graphs
 //! using the copy-line technique from UnitDiskMapping.jl.
 //!
-//! # Overview
+//! # Modules
 //!
-//! The mapping works by:
-//! 1. Creating "copy lines" for each vertex (L-shaped paths on the grid)
-//! 2. Resolving crossings using gadgets that preserve MIS properties
-//! 3. The resulting grid graph has the property that a MIS solution can be
-//!    mapped back to a MIS solution on the original graph
+//! - `ksg`: King's Subgraph (8-connected square grid) mapping
+//! - `triangular`: Triangular lattice mapping
 //!
 //! # Example
 //!
 //! ```rust
-//! use problemreductions::rules::unitdiskmapping::{map_graph, map_graph_triangular};
-//! use problemreductions::topology::Graph;
+//! use problemreductions::rules::unitdiskmapping::{ksg, triangular};
 //!
-//! // Map a triangle graph to a square lattice
 //! let edges = vec![(0, 1), (1, 2), (0, 2)];
-//! let result = map_graph(3, &edges);
 //!
-//! println!("Grid graph has {} vertices", result.grid_graph.num_vertices());
-//! println!("MIS overhead: {}", result.mis_overhead);
+//! // Map to King's Subgraph (unweighted)
+//! let result = ksg::map_unweighted(3, &edges);
 //!
-//! // Map the same graph to a triangular lattice
-//! let tri_result = map_graph_triangular(3, &edges);
-//! println!("Triangular grid has {} vertices", tri_result.grid_graph.num_vertices());
+//! // Map to King's Subgraph (weighted)
+//! let weighted_result = ksg::map_weighted(3, &edges);
+//!
+//! // Map to triangular lattice (weighted)
+//! let tri_result = triangular::map_weighted(3, &edges);
 //! ```
-//!
-//! # Submodules
-//!
-//! - `copyline`: Copy line creation and manipulation
-//! - `gadgets`: Crossing gadgets for resolving line intersections
-//! - `grid`: Grid representation and cell state management
-//! - `map_graph`: Main mapping functions for square lattices
-//! - `triangular`: Mapping functions for triangular lattices
 
 pub mod alpha_tensor;
 mod copyline;
@@ -45,35 +33,50 @@ mod grid;
 pub mod ksg;
 mod map_graph;
 pub mod pathdecomposition;
-mod triangular;
+mod traits;
+pub mod triangular;
 mod weighted;
 
-pub use copyline::{
-    copyline_weighted_locations_triangular, create_copylines, mis_overhead_copyline,
-    mis_overhead_copyline_triangular, remove_order, CopyLine,
-};
-pub use gadgets::{
-    apply_crossing_gadgets, apply_gadget, apply_simplifier_gadgets,
-    apply_weighted_crossing_gadgets, apply_weighted_gadget, apply_weighted_simplifier_gadgets,
-    pattern_matches, tape_entry_mis_overhead, unapply_gadget, Branch, BranchFix, BranchFixB, Cross,
-    DanglingLeg, EndTurn, Mirror, Pattern, PatternBoxed, PatternCell, ReflectedGadget, RotatedGadget,
-    TCon, TapeEntry, TrivialTurn, Turn, WTurn, SquarePattern,
-};
+// Re-export shared types
+pub use copyline::{create_copylines, mis_overhead_copyline, remove_order, CopyLine};
 pub use grid::{CellState, MappingGrid};
-pub use map_graph::{
-    embed_graph, map_graph, map_graph_with_method, map_graph_with_order, MappingResult,
-    SQUARE_SPACING, SQUARE_PADDING,
-};
 pub use pathdecomposition::{pathwidth, Layout, PathDecompositionMethod};
-pub use triangular::{
-    apply_triangular_crossing_gadgets, apply_triangular_simplifier_gadgets,
-    map_graph_triangular, map_graph_triangular_with_method,
-    map_graph_triangular_with_order, triangular_tape_entry_mis_overhead, TriangularGadget,
-    TriangularTapeEntry, TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown,
-    TriTConLeft, TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
-    TRIANGULAR_SPACING, TRIANGULAR_PADDING,
+pub use traits::{apply_gadget, pattern_matches, unapply_gadget, Pattern, PatternCell};
+
+// Re-export commonly used items from submodules for convenience
+pub use ksg::MappingResult;
+
+// ============================================================================
+// BACKWARD COMPATIBILITY EXPORTS (deprecated - use ksg:: and triangular:: instead)
+// ============================================================================
+
+// Old function names pointing to new locations
+pub use ksg::embed_graph;
+pub use ksg::map_unweighted as map_graph;
+pub use ksg::map_unweighted_with_method as map_graph_with_method;
+pub use ksg::map_unweighted_with_order as map_graph_with_order;
+pub use ksg::{PADDING as SQUARE_PADDING, SPACING as SQUARE_SPACING};
+
+pub use triangular::map_weighted as map_graph_triangular;
+pub use triangular::map_weighted_with_method as map_graph_triangular_with_method;
+pub use triangular::map_weighted_with_order as map_graph_triangular_with_order;
+pub use triangular::{PADDING as TRIANGULAR_PADDING, SPACING as TRIANGULAR_SPACING};
+
+// Old gadget names
+pub use ksg::{
+    KsgBranch as Branch, KsgBranchFix as BranchFix, KsgBranchFixB as BranchFixB,
+    KsgCross as Cross, KsgDanglingLeg as DanglingLeg, KsgEndTurn as EndTurn,
+    KsgPattern as SquarePattern, KsgReflectedGadget as ReflectedGadget,
+    KsgRotatedGadget as RotatedGadget, KsgTCon as TCon, KsgTapeEntry as TapeEntry,
+    KsgTrivialTurn as TrivialTurn, KsgTurn as Turn, KsgWTurn as WTurn, Mirror,
 };
-pub use weighted::{
-    map_weights, trace_centers, triangular_weighted_ruleset, WeightedGadget,
-    WeightedTriangularGadget, Weightable,
+
+pub use triangular::{
+    WeightedTriBranch as TriBranch, WeightedTriBranchFix as TriBranchFix,
+    WeightedTriBranchFixB as TriBranchFixB, WeightedTriCross as TriCross,
+    WeightedTriEndTurn as TriEndTurn, WeightedTriTConDown as TriTConDown,
+    WeightedTriTConLeft as TriTConLeft, WeightedTriTConUp as TriTConUp,
+    WeightedTriTapeEntry as TriangularTapeEntry, WeightedTriTrivialTurnLeft as TriTrivialTurnLeft,
+    WeightedTriTrivialTurnRight as TriTrivialTurnRight, WeightedTriTurn as TriTurn,
+    WeightedTriWTurn as TriWTurn, WeightedTriangularGadget as TriangularGadget,
 };
