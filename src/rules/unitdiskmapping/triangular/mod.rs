@@ -1,7 +1,45 @@
-//! Triangular lattice mapping support.
+//! Triangular lattice mapping module.
+//!
+//! Maps arbitrary graphs to weighted triangular lattice graphs.
+//!
+//! # Example
+//!
+//! ```rust,ignore
+//! use problemreductions::rules::unitdiskmapping::triangular;
+//!
+//! let edges = vec![(0, 1), (1, 2), (0, 2)];
+//!
+//! // Weighted triangular mapping
+//! let result = triangular::map_weighted(3, &edges);
+//! ```
 
 pub mod gadgets;
 pub mod mapping;
+
+// Re-export all public items from gadgets for convenient access
+pub use gadgets::{
+    apply_crossing_gadgets, apply_simplifier_gadgets, tape_entry_mis_overhead, SourceCell,
+    WeightedTriBranch, WeightedTriBranchFix, WeightedTriBranchFixB, WeightedTriCross,
+    WeightedTriEndTurn, WeightedTriTConDown, WeightedTriTConLeft, WeightedTriTConUp,
+    WeightedTriTapeEntry, WeightedTriTrivialTurnLeft, WeightedTriTrivialTurnRight,
+    WeightedTriTurn, WeightedTriWTurn, WeightedTriangularGadget,
+};
+
+// Re-export all public items from mapping for convenient access
+pub use mapping::{
+    map_weighted, map_weighted_with_method, map_weighted_with_order, map_weights, trace_centers,
+    weighted_ruleset,
+};
+
+/// Spacing between copy lines for triangular mapping.
+pub const SPACING: usize = 6;
+
+/// Padding around the grid for triangular mapping.
+pub const PADDING: usize = 2;
+
+// ============================================================================
+// Legacy exports for backward compatibility
+// ============================================================================
 
 use super::copyline::create_copylines;
 use super::gadgets::TapeEntry;
@@ -56,9 +94,9 @@ fn crossat_triangular(
     (row, col)
 }
 
-/// Cell type for source matrix pattern matching.
+/// Cell type for source matrix pattern matching (legacy).
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum SourceCell {
+pub enum LegacySourceCell {
     Empty,
     Occupied,
     Connected,
@@ -98,11 +136,11 @@ pub trait TriangularGadget {
     }
 
     /// Generate source matrix for pattern matching.
-    /// Returns SourceCell::Connected for nodes in connected_nodes() when is_connected() is true.
-    fn source_matrix(&self) -> Vec<Vec<SourceCell>> {
+    /// Returns LegacySourceCell::Connected for nodes in connected_nodes() when is_connected() is true.
+    fn source_matrix(&self) -> Vec<Vec<LegacySourceCell>> {
         let (rows, cols) = self.size();
         let (locs, _, _) = self.source_graph();
-        let mut matrix = vec![vec![SourceCell::Empty; cols]; rows];
+        let mut matrix = vec![vec![LegacySourceCell::Empty; cols]; rows];
 
         // Build set of connected node indices (1-indexed in Julia)
         let connected_set: std::collections::HashSet<usize> = if self.is_connected() {
@@ -114,9 +152,9 @@ pub trait TriangularGadget {
         for (idx, (r, c)) in locs.iter().enumerate() {
             if *r > 0 && *c > 0 && *r <= rows && *c <= cols {
                 let cell_type = if connected_set.contains(&(idx + 1)) {
-                    SourceCell::Connected
+                    LegacySourceCell::Connected
                 } else {
-                    SourceCell::Occupied
+                    LegacySourceCell::Occupied
                 };
                 matrix[r - 1][c - 1] = cell_type;
             }
@@ -979,19 +1017,19 @@ fn pattern_matches_triangular<G: TriangularGadget>(
             let actual = grid.get(grid_r, grid_c);
 
             match expected {
-                SourceCell::Empty => {
+                LegacySourceCell::Empty => {
                     // Grid cell should be empty
                     if actual.map(|c| !c.is_empty()).unwrap_or(false) {
                         return false;
                     }
                 }
-                SourceCell::Occupied => {
+                LegacySourceCell::Occupied => {
                     // Grid cell should be occupied (but not necessarily connected)
                     if !actual.map(|c| !c.is_empty()).unwrap_or(false) {
                         return false;
                     }
                 }
-                SourceCell::Connected => {
+                LegacySourceCell::Connected => {
                     // Grid cell should be Connected specifically
                     match actual {
                         Some(CellState::Connected { .. }) => {}
@@ -1042,7 +1080,7 @@ fn apply_triangular_gadget<G: TriangularGadget>(
     // First, clear source pattern cells (any non-empty cell)
     for r in 0..m {
         for c in 0..n {
-            if source[r][c] != SourceCell::Empty {
+            if source[r][c] != LegacySourceCell::Empty {
                 grid.set(i + r, j + c, CellState::Empty);
             }
         }
@@ -1239,12 +1277,6 @@ pub fn apply_triangular_simplifier_gadgets(
 }
 
 /// Try to apply DanglingLeg pattern going downward.
-/// Julia pattern (4 rows x 3 cols, 0-indexed at (i,j)):
-///   ⋅ ⋅ ⋅    <- row i: empty, empty, empty
-///   ⋅ o ⋅    <- row i+1: empty, occupied(w=1), empty  [dangling end]
-///   ⋅ @ ⋅    <- row i+2: empty, occupied(w=2), empty
-///   ⋅ @ ⋅    <- row i+3: empty, occupied(w=2), empty
-/// After: only node at (i+3, j+1) remains with weight 1
 #[allow(dead_code)]
 fn try_apply_dangling_leg_down(grid: &mut MappingGrid, i: usize, j: usize) -> bool {
     use super::grid::CellState;
@@ -1292,13 +1324,7 @@ fn try_apply_dangling_leg_down(grid: &mut MappingGrid, i: usize, j: usize) -> bo
     true
 }
 
-/// Try to apply DanglingLeg pattern going upward (180° rotation of down).
-/// Julia pattern (4 rows x 3 cols, 0-indexed at (i,j)):
-///   ⋅ @ ⋅    <- row i: empty, occupied(w=2), empty [base]
-///   ⋅ @ ⋅    <- row i+1: empty, occupied(w=2), empty
-///   ⋅ o ⋅    <- row i+2: empty, occupied(w=1), empty [dangling end]
-///   ⋅ ⋅ ⋅    <- row i+3: empty, empty, empty
-/// After: only node at (i, j+1) remains with weight 1
+/// Try to apply DanglingLeg pattern going upward.
 #[allow(dead_code)]
 fn try_apply_dangling_leg_up(grid: &mut MappingGrid, i: usize, j: usize) -> bool {
     use super::grid::CellState;
@@ -1344,12 +1370,7 @@ fn try_apply_dangling_leg_up(grid: &mut MappingGrid, i: usize, j: usize) -> bool
     true
 }
 
-/// Try to apply DanglingLeg pattern going right (90° rotation of down).
-/// Julia pattern (3 rows x 4 cols, 0-indexed at (i,j)):
-///   ⋅ ⋅ ⋅ ⋅    <- row i: all empty
-///   @ @ o ⋅    <- row i+1: occupied(w=2), occupied(w=2), occupied(w=1), empty
-///   ⋅ ⋅ ⋅ ⋅    <- row i+2: all empty
-/// After: only node at (i+1, j) remains with weight 1
+/// Try to apply DanglingLeg pattern going right.
 #[allow(dead_code)]
 fn try_apply_dangling_leg_right(grid: &mut MappingGrid, i: usize, j: usize) -> bool {
     use super::grid::CellState;
@@ -1398,12 +1419,7 @@ fn try_apply_dangling_leg_right(grid: &mut MappingGrid, i: usize, j: usize) -> b
     true
 }
 
-/// Try to apply DanglingLeg pattern going left (270° rotation of down).
-/// Julia pattern (3 rows x 4 cols, 0-indexed at (i,j)):
-///   ⋅ ⋅ ⋅ ⋅    <- row i: all empty
-///   ⋅ o @ @    <- row i+1: empty, occupied(w=1), occupied(w=2), occupied(w=2)
-///   ⋅ ⋅ ⋅ ⋅    <- row i+2: all empty
-/// After: only node at (i+1, j+3) remains with weight 1
+/// Try to apply DanglingLeg pattern going left.
 #[allow(dead_code)]
 fn try_apply_dangling_leg_left(grid: &mut MappingGrid, i: usize, j: usize) -> bool {
     use super::grid::CellState;
