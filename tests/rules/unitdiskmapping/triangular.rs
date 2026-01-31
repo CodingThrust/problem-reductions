@@ -125,7 +125,7 @@ fn test_map_standard_graphs_triangular() {
 /// Returns None if file doesn't exist or can't be parsed.
 fn get_julia_vertex_order(graph_name: &str) -> Option<Vec<usize>> {
     let path = format!(
-        "{}/tests/julia/{}_triangular_trace.json",
+        "{}/tests/data/{}_triangular_trace.json",
         env!("CARGO_MANIFEST_DIR"),
         graph_name
     );
@@ -159,7 +159,7 @@ fn verify_mapping_matches_julia(name: &str) -> bool {
 
     // Load Julia's trace data
     let julia_path = format!(
-        "{}/tests/julia/{}_triangular_trace.json",
+        "{}/tests/data/{}_triangular_trace.json",
         env!("CARGO_MANIFEST_DIR"),
         name
     );
@@ -275,7 +275,7 @@ fn test_triangular_mapping_petersen() {
 fn test_triangular_mapping_cubical() {
     // No Julia trace file for cubical triangular, skip
     let julia_path = format!(
-        "{}/tests/julia/cubical_triangular_trace.json",
+        "{}/tests/data/cubical_triangular_trace.json",
         env!("CARGO_MANIFEST_DIR")
     );
     if std::fs::read_to_string(&julia_path).is_err() {
@@ -289,7 +289,7 @@ fn test_triangular_mapping_cubical() {
 fn test_triangular_mapping_tutte() {
     // Skip if no Julia trace file exists
     let julia_path = format!(
-        "{}/tests/julia/tutte_triangular_trace.json",
+        "{}/tests/data/tutte_triangular_trace.json",
         env!("CARGO_MANIFEST_DIR")
     );
     if std::fs::read_to_string(&julia_path).is_err() {

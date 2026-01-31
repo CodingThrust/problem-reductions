@@ -21,35 +21,55 @@ struct JuliaTrace {
     num_edges: usize,
     edges: Vec<(usize, usize)>,
     grid_size: (usize, usize),
+    #[serde(default)]
     num_grid_nodes: usize,
+    #[serde(default)]
     num_grid_nodes_before_simplifiers: usize,
     mis_overhead: i32,
+    #[serde(default)]
     original_mis_size: f64,
     #[serde(default)]
     mapped_mis_size: Option<f64>,
     padding: usize,
-    grid_nodes: Vec<GridNode>,
+    #[serde(default)]
+    grid_nodes: Vec<CompactGridNode>,
     copy_lines: Vec<CopyLineInfo>,
     #[serde(default)]
-    tape: Vec<JuliaTapeEntry>,
+    tape: Vec<CompactTapeEntry>,
     #[serde(default)]
-    grid_nodes_copylines_only: Vec<GridNodeWithState>,
+    grid_nodes_copylines_only: Vec<CompactGridNodeWithState>,
 }
 
+/// Grid node in compact format: [row, col, weight]
 #[derive(Debug, Deserialize)]
+#[serde(from = "(i32, i32, i32)")]
 #[allow(dead_code)]
-struct GridNode {
+struct CompactGridNode {
     row: i32,
     col: i32,
     weight: i32,
 }
 
+impl From<(i32, i32, i32)> for CompactGridNode {
+    fn from((row, col, weight): (i32, i32, i32)) -> Self {
+        Self { row, col, weight }
+    }
+}
+
+/// Grid node with state in compact format: [row, col, state]
 #[derive(Debug, Deserialize)]
+#[serde(from = "(i32, i32, String)")]
 #[allow(dead_code)]
-struct GridNodeWithState {
+struct CompactGridNodeWithState {
     row: i32,
     col: i32,
     state: String,
+}
+
+impl From<(i32, i32, String)> for CompactGridNodeWithState {
+    fn from((row, col, state): (i32, i32, String)) -> Self {
+        Self { row, col, state }
+    }
 }
 
 #[derive(Debug, Deserialize)]
@@ -61,28 +81,34 @@ struct CopyLineInfo {
     vstart: usize,
     vstop: usize,
     hstop: usize,
-    locations: Vec<Location>,
+    /// Compact locations format: [[row, col], ...]
+    locs: Vec<(i32, i32)>,
 }
 
+/// Tape entry in compact format: [row, col, gadget_type, index]
 #[derive(Debug, Deserialize)]
+#[serde(from = "(i32, i32, String, usize)")]
 #[allow(dead_code)]
-struct Location {
+struct CompactTapeEntry {
     row: i32,
     col: i32,
-}
-
-#[derive(Debug, Deserialize)]
-#[allow(dead_code)]
-struct JuliaTapeEntry {
-    index: usize,
-    #[serde(rename = "type")]
     gadget_type: String,
-    row: i32,
-    col: i32,
+    index: usize,
+}
+
+impl From<(i32, i32, String, usize)> for CompactTapeEntry {
+    fn from((row, col, gadget_type, index): (i32, i32, String, usize)) -> Self {
+        Self {
+            row,
+            col,
+            gadget_type,
+            index,
+        }
+    }
 }
 
 fn load_julia_trace(name: &str, mode: &str) -> JuliaTrace {
-    let path = format!("tests/julia/{}_{}_trace.json", name, mode);
+    let path = format!("tests/data/{}_{}_trace.json", name, mode);
     let content = fs::read_to_string(&path).unwrap_or_else(|_| panic!("Failed to read {}", path));
     serde_json::from_str(&content).unwrap_or_else(|e| panic!("Failed to parse {}: {}", path, e))
 }
@@ -117,7 +143,7 @@ fn compare_square_unweighted(name: &str) {
     let julia_nodes: HashSet<(i32, i32)> = julia
         .copy_lines
         .iter()
-        .flat_map(|cl| cl.locations.iter().map(|loc| (loc.row - 1, loc.col - 1)))
+        .flat_map(|cl| cl.locs.iter().map(|(row, col)| (row - 1, col - 1)))
         .collect();
 
     println!("\n=== {} (square/unweighted) ===", name);
@@ -264,7 +290,7 @@ fn compare_triangular(name: &str) {
     let julia_nodes: HashSet<(i32, i32)> = julia
         .copy_lines
         .iter()
-        .flat_map(|cl| cl.locations.iter().map(|loc| (loc.row - 1, loc.col - 1)))
+        .flat_map(|cl| cl.locs.iter().map(|(row, col)| (row - 1, col - 1)))
         .collect();
 
     println!("\n=== {} (triangular) ===", name);
