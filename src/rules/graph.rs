@@ -576,8 +576,8 @@ impl ReductionGraph {
             }
         }
 
-        // Build nodes with categories
-        let nodes: Vec<NodeJson> = self
+        // Build nodes with categories, sorted by id for deterministic output
+        let mut nodes: Vec<NodeJson> = self
             .name_indices
             .keys()
             .map(|&name| {
@@ -589,9 +589,11 @@ impl ReductionGraph {
                 }
             })
             .collect();
+        nodes.sort_by(|a, b| a.id.cmp(&b.id));
 
         // Build edges (only include one direction for bidirectional edges)
-        let edges: Vec<EdgeJson> = edge_set
+        // Sort by (source, target) for deterministic output
+        let mut edges: Vec<EdgeJson> = edge_set
             .into_iter()
             .map(|((src, dst), bidirectional)| EdgeJson {
                 source: src.to_string(),
@@ -599,6 +601,7 @@ impl ReductionGraph {
                 bidirectional,
             })
             .collect();
+        edges.sort_by(|a, b| (&a.source, &a.target).cmp(&(&b.source, &b.target)));
 
         ReductionGraphJson { nodes, edges }
     }
