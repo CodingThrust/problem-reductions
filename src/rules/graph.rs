@@ -270,58 +270,28 @@ impl ReductionGraph {
         }
     }
 
+    #[allow(unused)]
     fn register_reductions(
-        graph: &mut DiGraph<&'static str, ReductionEdge>,
-        name_indices: &HashMap<&'static str, NodeIndex>,
+        _graph: &mut DiGraph<&'static str, ReductionEdge>,
+        _name_indices: &HashMap<&'static str, NodeIndex>,
     ) {
-        // Add an edge between two problem types by name (with default overhead).
-        // This is for backward compatibility with manually registered reductions.
-        macro_rules! add_edge {
-            ($src:expr => $dst:expr) => {
-                if let (Some(&src), Some(&dst)) = (name_indices.get($src), name_indices.get($dst)) {
-                    // Avoid duplicate edges
-                    if graph.find_edge(src, dst).is_none() {
-                        graph.add_edge(
-                            src,
-                            dst,
-                            ReductionEdge {
-                                source_graph: "SimpleGraph",
-                                target_graph: "SimpleGraph",
-                                overhead: ReductionOverhead::default(),
-                            },
-                        );
-                    }
-                }
-            };
-        }
-
-        // Graph problem reductions
-        add_edge!("IndependentSet" => "VertexCovering");
-        add_edge!("VertexCovering" => "IndependentSet");
-        add_edge!("IndependentSet" => "SetPacking");
-        add_edge!("SetPacking" => "IndependentSet");
-        add_edge!("VertexCovering" => "SetCovering");
-        add_edge!("Matching" => "SetPacking");
-
-        // Optimization reductions
-        add_edge!("SpinGlass" => "QUBO");
-        add_edge!("QUBO" => "SpinGlass");
-        add_edge!("MaxCut" => "SpinGlass");
-        add_edge!("SpinGlass" => "MaxCut");
-
-        // SAT-based reductions
-        add_edge!("Satisfiability" => "KSatisfiability");
-        add_edge!("KSatisfiability" => "Satisfiability");
-        add_edge!("Satisfiability" => "IndependentSet");
-        add_edge!("Satisfiability" => "Coloring");
-        add_edge!("Satisfiability" => "DominatingSet");
-
-        // Circuit reductions
-        add_edge!("CircuitSAT" => "SpinGlass");
-        add_edge!("Factoring" => "CircuitSAT");
-
-        // Note: ILP reductions are auto-discovered via inventory::submit!
-        // No manual add_edge! needed for reductions with inventory registration.
+        // All reductions are now auto-discovered via inventory::submit!
+        // This function is kept for potential future manual registrations
+        // that don't use the inventory pattern.
+        //
+        // Example usage:
+        // ```
+        // macro_rules! add_edge {
+        //     ($src:expr => $dst:expr) => {
+        //         if let (Some(&src), Some(&dst)) = (_name_indices.get($src), _name_indices.get($dst)) {
+        //             if _graph.find_edge(src, dst).is_none() {
+        //                 _graph.add_edge(src, dst, ReductionEdge::default());
+        //             }
+        //         }
+        //     };
+        // }
+        // add_edge!("SourceProblem" => "TargetProblem");
+        // ```
     }
 
     /// Check if `sub` is a subtype of `sup` (or equal).
