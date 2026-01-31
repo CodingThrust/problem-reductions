@@ -321,6 +321,7 @@ impl ReductionGraph {
         add_edge!("Factoring" => "CircuitSAT");
 
         // ILP reductions (for solver targets)
+        #[cfg(feature = "ilp")]
         add_edge!("Factoring" => "ILP");
     }
 

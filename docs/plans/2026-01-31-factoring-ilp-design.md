@@ -166,4 +166,4 @@ Per issue #3 requirements:
 
 - McCormick, G. P. (1976). Computability of global solutions to factorable nonconvex programs. Mathematical Programming.
 - Issue #3: Coding rules for AI agents
-- Existing implementation: `src/rules/coloring_ilp.rs` (pattern reference)
+- Existing implementation: `src/rules/vertexcovering_ilp.rs` (pattern reference)

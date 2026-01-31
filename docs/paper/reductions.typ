@@ -354,7 +354,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   _Solution extraction._ Read $p = sum_i p_i 2^i$ and $q = sum_j q_j 2^j$ from the binary variables.
 ]
 
-_Example: Factoring 15._ The following Rust code demonstrates the closed-loop reduction:
+_Example: Factoring 15._ The following Rust code demonstrates the closed-loop reduction (requires `ilp` feature: `cargo add problemreductions --features ilp`):
 
 ```rust
 use problemreductions::prelude::*;

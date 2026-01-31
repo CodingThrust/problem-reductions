@@ -34,7 +34,8 @@ inventory::submit! {
         source_graph: "Factoring",
         target_graph: "ILPMatrix",
         overhead_fn: || ReductionOverhead::new(vec![
-            // num_vars = m + n + m*n + (m+n) = 2(m+n) + m*n
+            // num_vars = m + n + m*n + num_carries where num_carries = max(m+n, target_bits)
+            // For feasible instances, target_bits <= m+n, so this is 2(m+n) + m*n
             ("num_vars", Polynomial {
                 terms: vec![
                     Monomial::var("num_bits_first").scale(2.0),
@@ -45,7 +46,8 @@ inventory::submit! {
                     },
                 ]
             }),
-            // num_constraints = 3*m*n + (m+n) + 1
+            // num_constraints = 3*m*n + num_bit_positions + 1
+            // For feasible instances (target_bits <= m+n), this is 3*m*n + (m+n) + 1
             ("num_constraints", Polynomial {
                 terms: vec![
                     Monomial {
@@ -154,7 +156,9 @@ impl ReduceTo<ILP> for Factoring {
         };
 
         // Number of bit positions to check: max(m+n, target_bits)
-        // This ensures we catch infeasible cases where target is too large
+        // For feasible instances, target_bits <= m+n (product of m-bit × n-bit has at most m+n bits).
+        // When target_bits > m+n, the ILP will be infeasible (target too large for given bit widths).
+        // Using max() here ensures proper infeasibility detection through the bit equations.
         let num_bit_positions = std::cmp::max(m + n, target_bits);
 
         // Total variables: m + n + m*n + num_bit_positions
@@ -241,8 +245,12 @@ impl ReduceTo<ILP> for Factoring {
             // Subtract 2 × carry_out
             terms.push((carry_var(k), -2.0));
 
-            // RHS is N_k (k-th bit of target)
-            let n_k = ((target >> k) & 1) as f64;
+            // RHS is N_k (k-th bit of target). For k >= 64, the bit is 0 for u64.
+            let n_k = if k < 64 {
+                ((target >> k) & 1) as f64
+            } else {
+                0.0
+            };
             constraints.push(LinearConstraint::eq(terms, n_k));
         }
 
