@@ -759,8 +759,29 @@ fn test_weighted_map_config_back_standard_graphs() {
             .map(|sol| sol.iter().map(|&x| if x > 0 { 1 } else { 0 }).collect())
             .unwrap_or_else(|| vec![0; num_grid]);
 
-        // Extract config at centers using map_config_back_via_centers
-        let center_config = result.map_config_back_via_centers(&grid_config);
+        // Use triangular-specific trace_centers (not the KSG version)
+        // Build position to node index map
+        let mut pos_to_idx: std::collections::HashMap<(usize, usize), usize> =
+            std::collections::HashMap::new();
+        for (idx, node) in result.grid_graph.nodes().iter().enumerate() {
+            if let (Ok(row), Ok(col)) = (usize::try_from(node.row), usize::try_from(node.col)) {
+                pos_to_idx.insert((row, col), idx);
+            }
+        }
+
+        // Get traced center locations using triangular-specific trace_centers
+        let centers = trace_centers(&result);
+
+        // Extract config at centers
+        let center_config: Vec<usize> = centers
+            .iter()
+            .map(|&(row, col)| {
+                pos_to_idx
+                    .get(&(row, col))
+                    .and_then(|&idx| grid_config.get(idx).copied())
+                    .unwrap_or(0)
+            })
+            .collect();
 
         // Verify it's a valid independent set
         assert!(
