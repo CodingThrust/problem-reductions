@@ -320,9 +320,8 @@ impl ReductionGraph {
         add_edge!("CircuitSAT" => "SpinGlass");
         add_edge!("Factoring" => "CircuitSAT");
 
-        // ILP reductions (for solver targets)
-        #[cfg(feature = "ilp")]
-        add_edge!("Factoring" => "ILP");
+        // Note: ILP reductions are auto-discovered via inventory::submit!
+        // No manual add_edge! needed for reductions with inventory registration.
     }
 
     /// Check if `sub` is a subtype of `sup` (or equal).
