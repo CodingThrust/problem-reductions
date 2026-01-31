@@ -5,8 +5,8 @@
 #let load_julia_unweighted(name) = json("../../tests/julia/" + name + "_unweighted_trace.json")
 #let load_julia_weighted(name) = json("../../tests/julia/" + name + "_weighted_trace.json")
 #let load_julia_triangular(name) = json("../../tests/julia/" + name + "_triangular_trace.json")
-#let load_rust_square(name) = json("../../tests/julia/" + name + "_rust_square.json")
-#let load_rust_triangular(name) = json("../../tests/julia/" + name + "_rust_stages.json")
+#let load_rust_square(name) = json("../../tests/julia/" + name + "_rust_unweighted.json")
+#let load_rust_triangular(name) = json("../../tests/julia/" + name + "_rust_triangular.json")
 
 // Color scheme
 #let julia_color = rgb("#2196F3")  // Blue

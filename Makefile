@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc mdbook paper clean coverage julia-export rust-export compare
+.PHONY: help build test fmt clippy doc mdbook paper clean coverage rust-export compare
 
 # Default target
 help:
@@ -16,9 +16,8 @@ help:
 	@echo "  coverage     - Generate coverage report (requires cargo-llvm-cov)"
 	@echo "  clean        - Clean build artifacts"
 	@echo "  check        - Quick check (fmt + clippy + test)"
-	@echo "  julia-export - Generate Julia mapping JSON exports"
 	@echo "  rust-export  - Generate Rust mapping JSON exports"
-	@echo "  compare      - Generate and compare Julia/Rust mapping exports"
+	@echo "  compare      - Generate and compare Rust mapping exports"
 
 # Build the project
 build:
@@ -66,10 +65,6 @@ clean:
 check: fmt-check clippy test
 	@echo "✅ All checks passed!"
 
-# Generate Julia mapping JSON exports (requires Julia with UnitDiskMapping)
-julia-export:
-	cd tests/julia && julia --project=. dump_bull_mapping.jl
-
 # Generate Rust mapping JSON exports for all graphs and modes
 GRAPHS := diamond bull house petersen
 MODES := unweighted weighted triangular
@@ -81,8 +76,8 @@ rust-export:
 		done; \
 	done
 
-# Generate both Julia and Rust exports and show comparison
-compare: julia-export rust-export
+# Generate Rust exports and show comparison
+compare: rust-export
 	@echo ""
 	@echo "=== Julia vs Rust Comparison ==="
 	@for graph in $(GRAPHS); do \
