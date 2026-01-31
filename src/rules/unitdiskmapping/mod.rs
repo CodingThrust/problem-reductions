@@ -90,6 +90,13 @@ pub use ksg::{
     weighted_tape_entry_mis_overhead, WeightedKsgTapeEntry,
 };
 
+// KSG weighted gadget types for testing
+pub use ksg::{
+    WeightedKsgBranch, WeightedKsgBranchFix, WeightedKsgBranchFixB, WeightedKsgCross,
+    WeightedKsgDanglingLeg, WeightedKsgEndTurn, WeightedKsgPattern, WeightedKsgTCon,
+    WeightedKsgTrivialTurn, WeightedKsgTurn, WeightedKsgWTurn,
+};
+
 // Triangular gadget application functions
 pub use triangular::{
     apply_crossing_gadgets as apply_triangular_crossing_gadgets,

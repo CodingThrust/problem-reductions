@@ -4,7 +4,9 @@ use super::common::{solve_weighted_mis, triangular_edges};
 use problemreductions::rules::unitdiskmapping::{
     Branch, BranchFix, Cross, EndTurn, Pattern, TCon, TriBranch, TriBranchFix, TriBranchFixB,
     TriCross, TriEndTurn, TriTConDown, TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn,
-    TriWTurn, TriangularGadget, TrivialTurn, Turn, WTurn,
+    TriWTurn, TriangularGadget, TrivialTurn, Turn, WTurn, WeightedKsgBranch, WeightedKsgBranchFix,
+    WeightedKsgBranchFixB, WeightedKsgCross, WeightedKsgDanglingLeg, WeightedKsgEndTurn,
+    WeightedKsgTCon, WeightedKsgTrivialTurn, WeightedKsgTurn, WeightedKsgWTurn,
 };
 
 // === Square Gadget Tests ===
@@ -363,4 +365,460 @@ fn test_all_triangular_weighted_gadgets_mis_equivalence() {
     test_gadget(TriWTurn, "TriWTurn");
     test_gadget(TriBranchFix, "TriBranchFix");
     test_gadget(TriBranchFixB, "TriBranchFixB");
+}
+
+// === KSG Weighted Gadget Tests ===
+
+/// Generate King's SubGraph (KSG) edges for square lattice.
+/// KSG includes both axis-aligned and diagonal neighbors within distance sqrt(2).
+fn ksg_edges(locs: &[(usize, usize)]) -> Vec<(usize, usize)> {
+    let mut edges = Vec::new();
+    for (i, &(r1, c1)) in locs.iter().enumerate() {
+        for (j, &(r2, c2)) in locs.iter().enumerate() {
+            if i < j {
+                let dr = (r1 as i32 - r2 as i32).abs();
+                let dc = (c1 as i32 - c2 as i32).abs();
+                // KSG: neighbors at distance <= sqrt(2) => dr,dc each <= 1
+                if dr <= 1 && dc <= 1 {
+                    edges.push((i, j));
+                }
+            }
+        }
+    }
+    edges
+}
+
+#[test]
+fn test_weighted_ksg_cross_connected_mis_equivalence() {
+    let gadget = WeightedKsgCross::<true>;
+    let (src_locs, src_edges, src_pins) = gadget.source_graph();
+    let (map_locs, map_pins) = gadget.mapped_graph();
+
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    for &p in &src_pins {
+        src_weights[p] -= 1;
+    }
+    for &p in &map_pins {
+        map_weights[p] -= 1;
+    }
+
+    let map_edges = ksg_edges(&map_locs);
+
+    let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+    let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+    let expected = gadget.mis_overhead();
+    let actual = map_mis - src_mis;
+
+    assert_eq!(
+        actual, expected,
+        "WeightedKsgCross<true>: expected overhead {}, got {} (src={}, map={})",
+        expected, actual, src_mis, map_mis
+    );
+}
+
+#[test]
+fn test_weighted_ksg_cross_disconnected_mis_equivalence() {
+    let gadget = WeightedKsgCross::<false>;
+    let (src_locs, src_edges, src_pins) = gadget.source_graph();
+    let (map_locs, map_pins) = gadget.mapped_graph();
+
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    for &p in &src_pins {
+        src_weights[p] -= 1;
+    }
+    for &p in &map_pins {
+        map_weights[p] -= 1;
+    }
+
+    let map_edges = ksg_edges(&map_locs);
+
+    let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+    let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+    let expected = gadget.mis_overhead();
+    let actual = map_mis - src_mis;
+
+    assert_eq!(
+        actual, expected,
+        "WeightedKsgCross<false>: expected overhead {}, got {} (src={}, map={})",
+        expected, actual, src_mis, map_mis
+    );
+}
+
+#[test]
+fn test_weighted_ksg_turn_mis_equivalence() {
+    let gadget = WeightedKsgTurn;
+    let (src_locs, src_edges, src_pins) = gadget.source_graph();
+    let (map_locs, map_pins) = gadget.mapped_graph();
+
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    for &p in &src_pins {
+        src_weights[p] -= 1;
+    }
+    for &p in &map_pins {
+        map_weights[p] -= 1;
+    }
+
+    let map_edges = ksg_edges(&map_locs);
+
+    let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+    let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+    let expected = gadget.mis_overhead();
+    let actual = map_mis - src_mis;
+
+    assert_eq!(
+        actual, expected,
+        "WeightedKsgTurn: expected overhead {}, got {} (src={}, map={})",
+        expected, actual, src_mis, map_mis
+    );
+}
+
+#[test]
+fn test_weighted_ksg_wturn_mis_equivalence() {
+    let gadget = WeightedKsgWTurn;
+    let (src_locs, src_edges, src_pins) = gadget.source_graph();
+    let (map_locs, map_pins) = gadget.mapped_graph();
+
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    for &p in &src_pins {
+        src_weights[p] -= 1;
+    }
+    for &p in &map_pins {
+        map_weights[p] -= 1;
+    }
+
+    let map_edges = ksg_edges(&map_locs);
+
+    let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+    let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+    let expected = gadget.mis_overhead();
+    let actual = map_mis - src_mis;
+
+    assert_eq!(
+        actual, expected,
+        "WeightedKsgWTurn: expected overhead {}, got {} (src={}, map={})",
+        expected, actual, src_mis, map_mis
+    );
+}
+
+#[test]
+fn test_weighted_ksg_branch_mis_equivalence() {
+    let gadget = WeightedKsgBranch;
+    let (src_locs, src_edges, src_pins) = gadget.source_graph();
+    let (map_locs, map_pins) = gadget.mapped_graph();
+
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    for &p in &src_pins {
+        src_weights[p] -= 1;
+    }
+    for &p in &map_pins {
+        map_weights[p] -= 1;
+    }
+
+    let map_edges = ksg_edges(&map_locs);
+
+    let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+    let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+    let expected = gadget.mis_overhead();
+    let actual = map_mis - src_mis;
+
+    assert_eq!(
+        actual, expected,
+        "WeightedKsgBranch: expected overhead {}, got {} (src={}, map={})",
+        expected, actual, src_mis, map_mis
+    );
+}
+
+#[test]
+fn test_weighted_ksg_branchfix_mis_equivalence() {
+    let gadget = WeightedKsgBranchFix;
+    let (src_locs, src_edges, src_pins) = gadget.source_graph();
+    let (map_locs, map_pins) = gadget.mapped_graph();
+
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    for &p in &src_pins {
+        src_weights[p] -= 1;
+    }
+    for &p in &map_pins {
+        map_weights[p] -= 1;
+    }
+
+    let map_edges = ksg_edges(&map_locs);
+
+    let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+    let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+    let expected = gadget.mis_overhead();
+    let actual = map_mis - src_mis;
+
+    assert_eq!(
+        actual, expected,
+        "WeightedKsgBranchFix: expected overhead {}, got {} (src={}, map={})",
+        expected, actual, src_mis, map_mis
+    );
+}
+
+#[test]
+fn test_weighted_ksg_tcon_mis_equivalence() {
+    let gadget = WeightedKsgTCon;
+    let (src_locs, src_edges, src_pins) = gadget.source_graph();
+    let (map_locs, map_pins) = gadget.mapped_graph();
+
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    for &p in &src_pins {
+        src_weights[p] -= 1;
+    }
+    for &p in &map_pins {
+        map_weights[p] -= 1;
+    }
+
+    let map_edges = ksg_edges(&map_locs);
+
+    let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+    let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+    let expected = gadget.mis_overhead();
+    let actual = map_mis - src_mis;
+
+    assert_eq!(
+        actual, expected,
+        "WeightedKsgTCon: expected overhead {}, got {} (src={}, map={})",
+        expected, actual, src_mis, map_mis
+    );
+}
+
+#[test]
+fn test_weighted_ksg_trivialturn_mis_equivalence() {
+    let gadget = WeightedKsgTrivialTurn;
+    let (src_locs, src_edges, src_pins) = gadget.source_graph();
+    let (map_locs, map_pins) = gadget.mapped_graph();
+
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    for &p in &src_pins {
+        src_weights[p] -= 1;
+    }
+    for &p in &map_pins {
+        map_weights[p] -= 1;
+    }
+
+    let map_edges = ksg_edges(&map_locs);
+
+    let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+    let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+    let expected = gadget.mis_overhead();
+    let actual = map_mis - src_mis;
+
+    assert_eq!(
+        actual, expected,
+        "WeightedKsgTrivialTurn: expected overhead {}, got {} (src={}, map={})",
+        expected, actual, src_mis, map_mis
+    );
+}
+
+#[test]
+fn test_weighted_ksg_endturn_mis_equivalence() {
+    let gadget = WeightedKsgEndTurn;
+    let (src_locs, src_edges, src_pins) = gadget.source_graph();
+    let (map_locs, map_pins) = gadget.mapped_graph();
+
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    for &p in &src_pins {
+        src_weights[p] -= 1;
+    }
+    for &p in &map_pins {
+        map_weights[p] -= 1;
+    }
+
+    let map_edges = ksg_edges(&map_locs);
+
+    let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+    let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+    let expected = gadget.mis_overhead();
+    let actual = map_mis - src_mis;
+
+    assert_eq!(
+        actual, expected,
+        "WeightedKsgEndTurn: expected overhead {}, got {} (src={}, map={})",
+        expected, actual, src_mis, map_mis
+    );
+}
+
+#[test]
+fn test_weighted_ksg_branchfixb_mis_equivalence() {
+    let gadget = WeightedKsgBranchFixB;
+    let (src_locs, src_edges, src_pins) = gadget.source_graph();
+    let (map_locs, map_pins) = gadget.mapped_graph();
+
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    for &p in &src_pins {
+        src_weights[p] -= 1;
+    }
+    for &p in &map_pins {
+        map_weights[p] -= 1;
+    }
+
+    let map_edges = ksg_edges(&map_locs);
+
+    let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+    let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+    let expected = gadget.mis_overhead();
+    let actual = map_mis - src_mis;
+
+    assert_eq!(
+        actual, expected,
+        "WeightedKsgBranchFixB: expected overhead {}, got {} (src={}, map={})",
+        expected, actual, src_mis, map_mis
+    );
+}
+
+#[test]
+fn test_weighted_ksg_danglinleg_mis_equivalence() {
+    let gadget = WeightedKsgDanglingLeg;
+    let (src_locs, src_edges, src_pins) = gadget.source_graph();
+    let (map_locs, map_pins) = gadget.mapped_graph();
+
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+    for &p in &src_pins {
+        src_weights[p] -= 1;
+    }
+    for &p in &map_pins {
+        map_weights[p] -= 1;
+    }
+
+    let map_edges = ksg_edges(&map_locs);
+
+    let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+    let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+    let expected = gadget.mis_overhead();
+    let actual = map_mis - src_mis;
+
+    assert_eq!(
+        actual, expected,
+        "WeightedKsgDanglingLeg: expected overhead {}, got {} (src={}, map={})",
+        expected, actual, src_mis, map_mis
+    );
+}
+
+/// Test all KSG weighted gadgets have valid graph structure
+#[test]
+fn test_all_ksg_weighted_gadgets_valid_structure() {
+    fn check_gadget<G: Pattern + Copy>(gadget: G, name: &str) {
+        let (src_locs, src_edges, src_pins) = gadget.source_graph();
+        let (map_locs, map_pins) = gadget.mapped_graph();
+        let src_weights = gadget.source_weights();
+        let map_weights = gadget.mapped_weights();
+
+        assert!(
+            !src_locs.is_empty(),
+            "{}: source should have locations",
+            name
+        );
+        assert!(
+            !map_locs.is_empty(),
+            "{}: mapped should have locations",
+            name
+        );
+        assert!(
+            src_edges.iter().all(|&(a, b)| a < src_locs.len() && b < src_locs.len()),
+            "{}: source edges should be valid",
+            name
+        );
+        assert!(
+            src_pins.iter().all(|&p| p < src_locs.len()),
+            "{}: source pins should be valid",
+            name
+        );
+        assert!(
+            map_pins.iter().all(|&p| p < map_locs.len()),
+            "{}: mapped pins should be valid",
+            name
+        );
+        assert_eq!(
+            src_weights.len(),
+            src_locs.len(),
+            "{}: source weights should match locations",
+            name
+        );
+        assert_eq!(
+            map_weights.len(),
+            map_locs.len(),
+            "{}: mapped weights should match locations",
+            name
+        );
+    }
+
+    check_gadget(WeightedKsgCross::<true>, "WeightedKsgCross<true>");
+    check_gadget(WeightedKsgCross::<false>, "WeightedKsgCross<false>");
+    check_gadget(WeightedKsgTurn, "WeightedKsgTurn");
+    check_gadget(WeightedKsgWTurn, "WeightedKsgWTurn");
+    check_gadget(WeightedKsgBranch, "WeightedKsgBranch");
+    check_gadget(WeightedKsgBranchFix, "WeightedKsgBranchFix");
+    check_gadget(WeightedKsgBranchFixB, "WeightedKsgBranchFixB");
+    check_gadget(WeightedKsgTCon, "WeightedKsgTCon");
+    check_gadget(WeightedKsgTrivialTurn, "WeightedKsgTrivialTurn");
+    check_gadget(WeightedKsgEndTurn, "WeightedKsgEndTurn");
+    check_gadget(WeightedKsgDanglingLeg, "WeightedKsgDanglingLeg");
+}
+
+/// Test all KSG weighted gadgets MIS equivalence in one test
+#[test]
+fn test_all_ksg_weighted_gadgets_mis_equivalence() {
+    fn test_gadget<G: Pattern + Copy>(gadget: G, name: &str) {
+        let (src_locs, src_edges, src_pins) = gadget.source_graph();
+        let (map_locs, map_pins) = gadget.mapped_graph();
+
+        let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+        let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
+        for &p in &src_pins {
+            src_weights[p] -= 1;
+        }
+        for &p in &map_pins {
+            map_weights[p] -= 1;
+        }
+
+        let map_edges = ksg_edges(&map_locs);
+
+        let src_mis = solve_weighted_mis(src_locs.len(), &src_edges, &src_weights);
+        let map_mis = solve_weighted_mis(map_locs.len(), &map_edges, &map_weights);
+
+        let expected = gadget.mis_overhead();
+        let actual = map_mis - src_mis;
+
+        assert_eq!(
+            actual, expected,
+            "{}: expected overhead {}, got {} (src={}, map={})",
+            name, expected, actual, src_mis, map_mis
+        );
+    }
+
+    test_gadget(WeightedKsgCross::<true>, "WeightedKsgCross<true>");
+    test_gadget(WeightedKsgCross::<false>, "WeightedKsgCross<false>");
+    test_gadget(WeightedKsgTurn, "WeightedKsgTurn");
+    test_gadget(WeightedKsgWTurn, "WeightedKsgWTurn");
+    test_gadget(WeightedKsgBranch, "WeightedKsgBranch");
+    test_gadget(WeightedKsgBranchFix, "WeightedKsgBranchFix");
+    test_gadget(WeightedKsgBranchFixB, "WeightedKsgBranchFixB");
+    test_gadget(WeightedKsgTCon, "WeightedKsgTCon");
+    test_gadget(WeightedKsgTrivialTurn, "WeightedKsgTrivialTurn");
+    test_gadget(WeightedKsgEndTurn, "WeightedKsgEndTurn");
+    test_gadget(WeightedKsgDanglingLeg, "WeightedKsgDanglingLeg");
 }
