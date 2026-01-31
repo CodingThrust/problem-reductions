@@ -1,5 +1,8 @@
 //! Triangular lattice mapping support.
 
+pub mod gadgets;
+pub mod mapping;
+
 use super::copyline::create_copylines;
 use super::gadgets::TapeEntry;
 use super::grid::MappingGrid;
@@ -47,8 +50,8 @@ fn crossat_triangular(
     let max_vslot = line_second.vslot;
 
     // 0-indexed coordinates (subtract 1 from Julia's 1-indexed formula)
-    let row = (hslot - 1) * spacing + 1 + padding;  // 0-indexed
-    let col = (max_vslot - 1) * spacing + padding;  // 0-indexed
+    let row = (hslot - 1) * spacing + 1 + padding; // 0-indexed
+    let col = (max_vslot - 1) * spacing + padding; // 0-indexed
 
     (row, col)
 }
@@ -160,12 +163,29 @@ impl TriangularGadget for TriCross<true> {
         // Julia: locs = Node.([(2,1), (2,2), (2,3), (2,4), (1,2), (2,2), (3,2), (4,2), (5,2), (6,2)])
         // Note: Julia has duplicate (2,2) at indices 2 and 6
         let locs = vec![
-            (2, 1), (2, 2), (2, 3), (2, 4), (1, 2), (2, 2), (3, 2), (4, 2), (5, 2), (6, 2),
+            (2, 1),
+            (2, 2),
+            (2, 3),
+            (2, 4),
+            (1, 2),
+            (2, 2),
+            (3, 2),
+            (4, 2),
+            (5, 2),
+            (6, 2),
         ];
         // Julia: g = simplegraph([(1,2), (2,3), (3,4), (5,6), (6,7), (7,8), (8,9), (9,10), (1,5)])
         // 0-indexed: [(0,1), (1,2), (2,3), (4,5), (5,6), (6,7), (7,8), (8,9), (0,4)]
         let edges = vec![
-            (0, 1), (1, 2), (2, 3), (4, 5), (5, 6), (6, 7), (7, 8), (8, 9), (0, 4),
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (4, 5),
+            (5, 6),
+            (6, 7),
+            (7, 8),
+            (8, 9),
+            (0, 4),
         ];
         // Julia: pins = [1,5,10,4] -> 0-indexed: [0,4,9,3]
         let pins = vec![0, 4, 9, 3];
@@ -175,7 +195,17 @@ impl TriangularGadget for TriCross<true> {
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
         // Julia: locs = Node.([(1,2), (2,1), (2,2), (2,3), (1,4), (3,3), (4,2), (4,3), (5,1), (6,1), (6,2)])
         let locs = vec![
-            (1, 2), (2, 1), (2, 2), (2, 3), (1, 4), (3, 3), (4, 2), (4, 3), (5, 1), (6, 1), (6, 2),
+            (1, 2),
+            (2, 1),
+            (2, 2),
+            (2, 3),
+            (1, 4),
+            (3, 3),
+            (4, 2),
+            (4, 3),
+            (5, 1),
+            (6, 1),
+            (6, 2),
         ];
         // Julia: pins = [2,1,11,5] -> 0-indexed: [1,0,10,4]
         let pins = vec![1, 0, 10, 4];
@@ -219,12 +249,32 @@ impl TriangularGadget for TriCross<false> {
         // Julia: locs = Node.([(2,2), (2,3), (2,4), (2,5), (2,6), (1,4), (2,4), (3,4), (4,4), (5,4), (6,4), (2,1)])
         // Note: Julia has duplicate (2,4) at indices 3 and 7
         let locs = vec![
-            (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (1, 4), (2, 4), (3, 4), (4, 4), (5, 4), (6, 4), (2, 1),
+            (2, 2),
+            (2, 3),
+            (2, 4),
+            (2, 5),
+            (2, 6),
+            (1, 4),
+            (2, 4),
+            (3, 4),
+            (4, 4),
+            (5, 4),
+            (6, 4),
+            (2, 1),
         ];
         // Julia: g = simplegraph([(1,2), (2,3), (3,4), (4,5), (6,7), (7,8), (8,9), (9,10), (10,11), (12,1)])
         // 0-indexed: [(0,1), (1,2), (2,3), (3,4), (5,6), (6,7), (7,8), (8,9), (9,10), (11,0)]
         let edges = vec![
-            (0, 1), (1, 2), (2, 3), (3, 4), (5, 6), (6, 7), (7, 8), (8, 9), (9, 10), (11, 0),
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 4),
+            (5, 6),
+            (6, 7),
+            (7, 8),
+            (8, 9),
+            (9, 10),
+            (11, 0),
         ];
         // Julia: pins = [12,6,11,5] -> 0-indexed: [11,5,10,4]
         let pins = vec![11, 5, 10, 4];
@@ -234,8 +284,22 @@ impl TriangularGadget for TriCross<false> {
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
         // Julia: locs = Node.([(1,4), (2,2), (2,3), (2,4), (2,5), (2,6), (3,2), (3,3), (3,4), (3,5), (4,2), (4,3), (5,2), (6,3), (6,4), (2,1)])
         let locs = vec![
-            (1, 4), (2, 2), (2, 3), (2, 4), (2, 5), (2, 6), (3, 2), (3, 3), (3, 4), (3, 5),
-            (4, 2), (4, 3), (5, 2), (6, 3), (6, 4), (2, 1),
+            (1, 4),
+            (2, 2),
+            (2, 3),
+            (2, 4),
+            (2, 5),
+            (2, 6),
+            (3, 2),
+            (3, 3),
+            (3, 4),
+            (3, 5),
+            (4, 2),
+            (4, 3),
+            (5, 2),
+            (6, 3),
+            (6, 4),
+            (2, 1),
         ];
         // Julia: pins = [16,1,15,6] -> 0-indexed: [15,0,14,5]
         let pins = vec![15, 0, 14, 5];
@@ -336,11 +400,28 @@ impl TriangularGadget for TriBranch {
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         // Julia: locs = Node.([(1,2),(2,2),(2,3),(2,4),(3,3),(3,2),(4,2),(5,2),(6,2)])
         let locs = vec![
-            (1, 2), (2, 2), (2, 3), (2, 4), (3, 3), (3, 2), (4, 2), (5, 2), (6, 2),
+            (1, 2),
+            (2, 2),
+            (2, 3),
+            (2, 4),
+            (3, 3),
+            (3, 2),
+            (4, 2),
+            (5, 2),
+            (6, 2),
         ];
         // Julia: g = simplegraph([(1,2), (2,3), (3, 4), (3,5), (5,6), (6,7), (7,8), (8,9)])
         // 0-indexed: [(0,1), (1,2), (2,3), (2,4), (4,5), (5,6), (6,7), (7,8)]
-        let edges = vec![(0, 1), (1, 2), (2, 3), (2, 4), (4, 5), (5, 6), (6, 7), (7, 8)];
+        let edges = vec![
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (2, 4),
+            (4, 5),
+            (5, 6),
+            (6, 7),
+            (7, 8),
+        ];
         // Julia: pins = [1, 4, 9] -> 0-indexed: [0, 3, 8]
         let pins = vec![0, 3, 8];
         (locs, edges, pins)
@@ -349,7 +430,15 @@ impl TriangularGadget for TriBranch {
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
         // Julia: locs = Node.([(1,2),(2,2),(2,4),(3,3),(4,2),(4,3),(5,1),(6,1),(6,2)])
         let locs = vec![
-            (1, 2), (2, 2), (2, 4), (3, 3), (4, 2), (4, 3), (5, 1), (6, 1), (6, 2),
+            (1, 2),
+            (2, 2),
+            (2, 4),
+            (3, 3),
+            (4, 2),
+            (4, 3),
+            (5, 1),
+            (6, 1),
+            (6, 2),
         ];
         // Julia: pins = [1,3,9] -> 0-indexed: [0,2,8]
         let pins = vec![0, 2, 8];
@@ -410,7 +499,17 @@ impl TriangularGadget for TriTConLeft {
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
         // Julia: locs = Node.([(1,2), (2,1), (2,2), (2,3), (2,4), (3,3), (4,2), (4,3), (5,1), (6,1), (6,2)])
         let locs = vec![
-            (1, 2), (2, 1), (2, 2), (2, 3), (2, 4), (3, 3), (4, 2), (4, 3), (5, 1), (6, 1), (6, 2),
+            (1, 2),
+            (2, 1),
+            (2, 2),
+            (2, 3),
+            (2, 4),
+            (3, 3),
+            (4, 2),
+            (4, 3),
+            (5, 1),
+            (6, 1),
+            (6, 2),
         ];
         // Julia: pins = [1,2,11] -> 0-indexed: [0,1,10]
         let pins = vec![0, 1, 10];
@@ -1103,7 +1202,7 @@ pub fn apply_triangular_simplifier_gadgets(
                 // Down pattern (4x3): needs i+3 < rows, j+2 < cols
                 if try_apply_dangling_leg_down(grid, i, j) {
                     tape.push(TriangularTapeEntry {
-                        gadget_idx: 100,  // DanglingLeg down
+                        gadget_idx: 100, // DanglingLeg down
                         row: i,
                         col: j,
                     });
@@ -1111,7 +1210,7 @@ pub fn apply_triangular_simplifier_gadgets(
                 // Up pattern (4x3): needs i+3 < rows, j+2 < cols
                 if try_apply_dangling_leg_up(grid, i, j) {
                     tape.push(TriangularTapeEntry {
-                        gadget_idx: 101,  // DanglingLeg up
+                        gadget_idx: 101, // DanglingLeg up
                         row: i,
                         col: j,
                     });
@@ -1119,7 +1218,7 @@ pub fn apply_triangular_simplifier_gadgets(
                 // Right pattern (3x4): needs i+2 < rows, j+3 < cols
                 if try_apply_dangling_leg_right(grid, i, j) {
                     tape.push(TriangularTapeEntry {
-                        gadget_idx: 102,  // DanglingLeg right
+                        gadget_idx: 102, // DanglingLeg right
                         row: i,
                         col: j,
                     });
@@ -1127,7 +1226,7 @@ pub fn apply_triangular_simplifier_gadgets(
                 // Left pattern (3x4): needs i+2 < rows, j+3 < cols
                 if try_apply_dangling_leg_left(grid, i, j) {
                     tape.push(TriangularTapeEntry {
-                        gadget_idx: 103,  // DanglingLeg left
+                        gadget_idx: 103, // DanglingLeg left
                         row: i,
                         col: j,
                     });
@@ -1158,9 +1257,7 @@ fn try_apply_dangling_leg_down(grid: &mut MappingGrid, i: usize, j: usize) -> bo
     }
 
     // Helper to check if cell at (row, col) is empty
-    let is_empty = |row: usize, col: usize| -> bool {
-        !grid.is_occupied(row, col)
-    };
+    let is_empty = |row: usize, col: usize| -> bool { !grid.is_occupied(row, col) };
 
     // Helper to check if cell has specific weight
     let has_weight = |row: usize, col: usize, w: i32| -> bool {
@@ -1213,9 +1310,7 @@ fn try_apply_dangling_leg_up(grid: &mut MappingGrid, i: usize, j: usize) -> bool
         return false;
     }
 
-    let is_empty = |row: usize, col: usize| -> bool {
-        !grid.is_occupied(row, col)
-    };
+    let is_empty = |row: usize, col: usize| -> bool { !grid.is_occupied(row, col) };
 
     let has_weight = |row: usize, col: usize, w: i32| -> bool {
         grid.get(row, col).is_some_and(|c| c.weight() == w)
@@ -1266,9 +1361,7 @@ fn try_apply_dangling_leg_right(grid: &mut MappingGrid, i: usize, j: usize) -> b
         return false;
     }
 
-    let is_empty = |row: usize, col: usize| -> bool {
-        !grid.is_occupied(row, col)
-    };
+    let is_empty = |row: usize, col: usize| -> bool { !grid.is_occupied(row, col) };
 
     let has_weight = |row: usize, col: usize, w: i32| -> bool {
         grid.get(row, col).is_some_and(|c| c.weight() == w)
@@ -1280,12 +1373,20 @@ fn try_apply_dangling_leg_right(grid: &mut MappingGrid, i: usize, j: usize) -> b
     }
 
     // Row i+1: occupied(w=2), occupied(w=2), occupied(w=1), empty
-    if !has_weight(i + 1, j, 2) || !has_weight(i + 1, j + 1, 2) || !has_weight(i + 1, j + 2, 1) || !is_empty(i + 1, j + 3) {
+    if !has_weight(i + 1, j, 2)
+        || !has_weight(i + 1, j + 1, 2)
+        || !has_weight(i + 1, j + 2, 1)
+        || !is_empty(i + 1, j + 3)
+    {
         return false;
     }
 
     // Row i+2: all 4 cells must be empty
-    if !is_empty(i + 2, j) || !is_empty(i + 2, j + 1) || !is_empty(i + 2, j + 2) || !is_empty(i + 2, j + 3) {
+    if !is_empty(i + 2, j)
+        || !is_empty(i + 2, j + 1)
+        || !is_empty(i + 2, j + 2)
+        || !is_empty(i + 2, j + 3)
+    {
         return false;
     }
 
@@ -1314,9 +1415,7 @@ fn try_apply_dangling_leg_left(grid: &mut MappingGrid, i: usize, j: usize) -> bo
         return false;
     }
 
-    let is_empty = |row: usize, col: usize| -> bool {
-        !grid.is_occupied(row, col)
-    };
+    let is_empty = |row: usize, col: usize| -> bool { !grid.is_occupied(row, col) };
 
     let has_weight = |row: usize, col: usize, w: i32| -> bool {
         grid.get(row, col).is_some_and(|c| c.weight() == w)
@@ -1328,12 +1427,20 @@ fn try_apply_dangling_leg_left(grid: &mut MappingGrid, i: usize, j: usize) -> bo
     }
 
     // Row i+1: empty, occupied(w=1), occupied(w=2), occupied(w=2)
-    if !is_empty(i + 1, j) || !has_weight(i + 1, j + 1, 1) || !has_weight(i + 1, j + 2, 2) || !has_weight(i + 1, j + 3, 2) {
+    if !is_empty(i + 1, j)
+        || !has_weight(i + 1, j + 1, 1)
+        || !has_weight(i + 1, j + 2, 2)
+        || !has_weight(i + 1, j + 3, 2)
+    {
         return false;
     }
 
     // Row i+2: all 4 cells must be empty
-    if !is_empty(i + 2, j) || !is_empty(i + 2, j + 1) || !is_empty(i + 2, j + 2) || !is_empty(i + 2, j + 3) {
+    if !is_empty(i + 2, j)
+        || !is_empty(i + 2, j + 1)
+        || !is_empty(i + 2, j + 2)
+        || !is_empty(i + 2, j + 3)
+    {
         return false;
     }
 
@@ -1412,7 +1519,13 @@ pub fn map_graph_triangular_with_order(
             (v_line, u_line)
         };
 
-        let (row, col) = crossat_triangular(&copylines, smaller_line.vertex, larger_line.vertex, spacing, padding);
+        let (row, col) = crossat_triangular(
+            &copylines,
+            smaller_line.vertex,
+            larger_line.vertex,
+            spacing,
+            padding,
+        );
 
         // Mark connected cells at crossing point
         if col > 0 {
@@ -1426,7 +1539,8 @@ pub fn map_graph_triangular_with_order(
     }
 
     // Apply crossing gadgets (iterates ALL pairs, not just edges)
-    let mut triangular_tape = apply_triangular_crossing_gadgets(&mut grid, &copylines, spacing, padding);
+    let mut triangular_tape =
+        apply_triangular_crossing_gadgets(&mut grid, &copylines, spacing, padding);
 
     // Apply simplifier gadgets (weighted DanglingLeg pattern)
     // Julia's triangular mode uses: weighted.(default_simplifier_ruleset(UnWeighted()))
@@ -1477,7 +1591,9 @@ pub fn map_graph_triangular_with_order(
     // Rust uses 0-indexed coords, so even cols (0,2,4...) correspond to Julia's odd cols (1,3,5...).
     // Therefore, offset_even_cols=true gives the same offset pattern as Julia.
     let grid_graph = GridGraph::new(
-        GridType::Triangular { offset_even_cols: true },
+        GridType::Triangular {
+            offset_even_cols: true,
+        },
         grid.size(),
         nodes,
         TRIANGULAR_UNIT_RADIUS,
