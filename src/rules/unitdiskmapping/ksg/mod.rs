@@ -5,6 +5,7 @@
 
 pub mod gadgets;
 pub mod gadgets_weighted;
+pub mod mapping;
 
 /// Spacing between copy lines for KSG mapping.
 pub const SPACING: usize = 4;
