@@ -64,6 +64,7 @@
   "VertexCovering": (-0.5, 2),
   "Matching": (-2, 2),
   "SpinGlass": (2.5, 2),
+  "ILP": (3.5, 1),
   // Row 3: Leaf nodes
   "SetPacking": (-1.5, 3),
   "SetCovering": (0.5, 3),
@@ -330,6 +331,53 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   _Solution extraction._ Without ancilla: identity. With ancilla: if $sigma_a = 1$, flip all spins before removing ancilla.
 ]
 
+#theorem[
+  *(Factoring $arrow.r$ ILP)* Integer factorization reduces to binary ILP using McCormick linearization with $O(m n)$ variables and constraints.
+]
+
+#proof[
+  _Construction._ For target $N$ with $m$-bit factor $p$ and $n$-bit factor $q$:
+
+  _Variables:_ Binary $p_i, q_j in {0,1}$ for factor bits; binary $z_(i j) in {0,1}$ for products $p_i dot q_j$; integer $c_k >= 0$ for carries at each bit position.
+
+  _Product linearization (McCormick):_ For each $z_(i j) = p_i dot q_j$:
+  $ z_(i j) <= p_i, quad z_(i j) <= q_j, quad z_(i j) >= p_i + q_j - 1 $
+
+  _Bit-position equations:_ For each bit position $k$:
+  $ sum_(i+j=k) z_(i j) + c_(k-1) = N_k + 2 c_k $
+  where $N_k$ is the $k$-th bit of $N$ and $c_(-1) = 0$.
+
+  _No overflow:_ $c_(m+n-1) = 0$.
+
+  _Correctness._ The McCormick constraints enforce $z_(i j) = p_i dot q_j$ for binary variables. The bit equations encode $p times q = N$ via carry propagation, matching array multiplier semantics.
+
+  _Solution extraction._ Read $p = sum_i p_i 2^i$ and $q = sum_j q_j 2^j$ from the binary variables.
+]
+
+_Example: Factoring 15._ The following Rust code demonstrates the closed-loop reduction (requires `ilp` feature: `cargo add problemreductions --features ilp`):
+
+```rust
+use problemreductions::prelude::*;
+
+// 1. Create factoring instance: find p (4-bit) × q (4-bit) = 15
+let problem = Factoring::new(4, 4, 15);
+
+// 2. Reduce to ILP
+let reduction = ReduceTo::<ILP>::reduce_to(&problem);
+let ilp = reduction.target_problem();
+
+// 3. Solve ILP
+let solver = ILPSolver::new();
+let ilp_solution = solver.solve(ilp).unwrap();
+
+// 4. Extract factoring solution
+let extracted = reduction.extract_solution(&ilp_solution);
+
+// 5. Verify: reads factors and confirms p × q = 15
+let (p, q) = problem.read_factors(&extracted);
+assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
+```
+
 = Summary <sec:summary>
 
 #let gray = rgb("#e8e8e8")
@@ -352,6 +400,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
     [CircuitSAT $arrow.r$ SpinGlass], [$O(|"gates"|)$], [@whitfield2012 @lucas2014],
     [Factoring $arrow.r$ CircuitSAT], [$O(m n)$], [Folklore],
     [SpinGlass $arrow.l.r$ MaxCut], [$O(n + |J|)$], [@barahona1982 @lucas2014],
+    table.cell(fill: gray)[Factoring $arrow.r$ ILP], table.cell(fill: gray)[$O(m n)$], table.cell(fill: gray)[—],
   ),
   caption: [Summary of reductions. Gray rows indicate trivial reductions.]
 ) <tab:summary>

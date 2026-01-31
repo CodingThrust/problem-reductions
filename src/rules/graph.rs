@@ -162,9 +162,6 @@ impl ReductionGraph {
             }
         }
 
-        // Also register manual reductions for backward compatibility
-        Self::register_reductions(&mut graph, &name_indices);
-
         Self {
             graph,
             name_indices,
@@ -260,6 +257,7 @@ impl ReductionGraph {
             SpinGlass<i32> => "SpinGlass",
             SpinGlass<f64> => "SpinGlass",
             QUBO<f64> => "QUBO",
+            ILP => "ILP",
             // Satisfiability problems
             Satisfiability<i32> => "Satisfiability",
             KSatisfiability<3, i32> => "KSatisfiability",
@@ -267,57 +265,6 @@ impl ReductionGraph {
             // Specialized
             Factoring => "Factoring",
         }
-    }
-
-    fn register_reductions(
-        graph: &mut DiGraph<&'static str, ReductionEdge>,
-        name_indices: &HashMap<&'static str, NodeIndex>,
-    ) {
-        // Add an edge between two problem types by name (with default overhead).
-        // This is for backward compatibility with manually registered reductions.
-        macro_rules! add_edge {
-            ($src:expr => $dst:expr) => {
-                if let (Some(&src), Some(&dst)) = (name_indices.get($src), name_indices.get($dst)) {
-                    // Avoid duplicate edges
-                    if graph.find_edge(src, dst).is_none() {
-                        graph.add_edge(
-                            src,
-                            dst,
-                            ReductionEdge {
-                                source_graph: "SimpleGraph",
-                                target_graph: "SimpleGraph",
-                                overhead: ReductionOverhead::default(),
-                            },
-                        );
-                    }
-                }
-            };
-        }
-
-        // Graph problem reductions
-        add_edge!("IndependentSet" => "VertexCovering");
-        add_edge!("VertexCovering" => "IndependentSet");
-        add_edge!("IndependentSet" => "SetPacking");
-        add_edge!("SetPacking" => "IndependentSet");
-        add_edge!("VertexCovering" => "SetCovering");
-        add_edge!("Matching" => "SetPacking");
-
-        // Optimization reductions
-        add_edge!("SpinGlass" => "QUBO");
-        add_edge!("QUBO" => "SpinGlass");
-        add_edge!("MaxCut" => "SpinGlass");
-        add_edge!("SpinGlass" => "MaxCut");
-
-        // SAT-based reductions
-        add_edge!("Satisfiability" => "KSatisfiability");
-        add_edge!("KSatisfiability" => "Satisfiability");
-        add_edge!("Satisfiability" => "IndependentSet");
-        add_edge!("Satisfiability" => "Coloring");
-        add_edge!("Satisfiability" => "DominatingSet");
-
-        // Circuit reductions
-        add_edge!("CircuitSAT" => "SpinGlass");
-        add_edge!("Factoring" => "CircuitSAT");
     }
 
     /// Check if `sub` is a subtype of `sup` (or equal).
@@ -571,8 +518,8 @@ impl ReductionGraph {
             }
         }
 
-        // Build nodes with categories
-        let nodes: Vec<NodeJson> = self
+        // Build nodes with categories, sorted by id for deterministic output
+        let mut nodes: Vec<NodeJson> = self
             .name_indices
             .keys()
             .map(|&name| {
@@ -584,9 +531,11 @@ impl ReductionGraph {
                 }
             })
             .collect();
+        nodes.sort_by(|a, b| a.id.cmp(&b.id));
 
         // Build edges (only include one direction for bidirectional edges)
-        let edges: Vec<EdgeJson> = edge_set
+        // Sort by (source, target) for deterministic output
+        let mut edges: Vec<EdgeJson> = edge_set
             .into_iter()
             .map(|((src, dst), bidirectional)| EdgeJson {
                 source: src.to_string(),
@@ -594,6 +543,7 @@ impl ReductionGraph {
                 bidirectional,
             })
             .collect();
+        edges.sort_by(|a, b| (&a.source, &a.target).cmp(&(&b.source, &b.target)));
 
         ReductionGraphJson { nodes, edges }
     }
@@ -624,7 +574,7 @@ impl ReductionGraph {
             "graph"
         } else if name.contains("SetPacking") || name.contains("SetCover") {
             "set"
-        } else if name.contains("SpinGlass") || name.contains("QUBO") {
+        } else if name.contains("SpinGlass") || name.contains("QUBO") || name.contains("ILP") {
             "optimization"
         } else if name.contains("Satisfiability") || name.contains("SAT") {
             "satisfiability"

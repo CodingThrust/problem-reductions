@@ -34,6 +34,8 @@ mod setcovering_ilp;
 mod setpacking_ilp;
 #[cfg(feature = "ilp")]
 mod vertexcovering_ilp;
+#[cfg(feature = "ilp")]
+mod factoring_ilp;
 
 pub use graph::{EdgeJson, NodeJson, ReductionEdge, ReductionGraph, ReductionGraphJson, ReductionPath};
 pub use traits::{ReduceTo, ReductionResult};
@@ -67,3 +69,5 @@ pub use setcovering_ilp::ReductionSCToILP;
 pub use setpacking_ilp::ReductionSPToILP;
 #[cfg(feature = "ilp")]
 pub use vertexcovering_ilp::ReductionVCToILP;
+#[cfg(feature = "ilp")]
+pub use factoring_ilp::ReductionFactoringToILP;
