@@ -162,9 +162,6 @@ impl ReductionGraph {
             }
         }
 
-        // Also register manual reductions for backward compatibility
-        Self::register_reductions(&mut graph, &name_indices);
-
         Self {
             graph,
             name_indices,
@@ -268,30 +265,6 @@ impl ReductionGraph {
             // Specialized
             Factoring => "Factoring",
         }
-    }
-
-    #[allow(unused)]
-    fn register_reductions(
-        _graph: &mut DiGraph<&'static str, ReductionEdge>,
-        _name_indices: &HashMap<&'static str, NodeIndex>,
-    ) {
-        // All reductions are now auto-discovered via inventory::submit!
-        // This function is kept for potential future manual registrations
-        // that don't use the inventory pattern.
-        //
-        // Example usage:
-        // ```
-        // macro_rules! add_edge {
-        //     ($src:expr => $dst:expr) => {
-        //         if let (Some(&src), Some(&dst)) = (_name_indices.get($src), _name_indices.get($dst)) {
-        //             if _graph.find_edge(src, dst).is_none() {
-        //                 _graph.add_edge(src, dst, ReductionEdge::default());
-        //             }
-        //         }
-        //     };
-        // }
-        // add_edge!("SourceProblem" => "TargetProblem");
-        // ```
     }
 
     /// Check if `sub` is a subtype of `sup` (or equal).
