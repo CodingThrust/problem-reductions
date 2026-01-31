@@ -6,7 +6,7 @@
 //! - Objective: Maximize the sum of weights of selected vertices
 
 use crate::models::graph::IndependentSet;
-use crate::models::optimization::{ILP, LinearConstraint, ObjectiveSense, VarBounds};
+use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 use crate::types::ProblemSize;
@@ -102,7 +102,11 @@ mod tests {
 
         // Check ILP structure
         assert_eq!(ilp.num_vars, 3, "Should have one variable per vertex");
-        assert_eq!(ilp.constraints.len(), 3, "Should have one constraint per edge");
+        assert_eq!(
+            ilp.constraints.len(),
+            3,
+            "Should have one constraint per edge"
+        );
         assert_eq!(ilp.sense, ObjectiveSense::Maximize, "Should maximize");
 
         // All variables should be binary
@@ -269,10 +273,8 @@ mod tests {
     #[test]
     fn test_complete_graph() {
         // Complete graph K4: max IS = 1
-        let problem = IndependentSet::<i32>::new(
-            4,
-            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-        );
+        let problem =
+            IndependentSet::<i32>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
         let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 

@@ -42,9 +42,9 @@ pub const PADDING: usize = 2;
 // ============================================================================
 
 use super::copyline::create_copylines;
-use super::gadgets::TapeEntry;
 use super::grid::MappingGrid;
-use super::map_graph::MappingResult;
+use super::ksg::mapping::MappingResult;
+use super::ksg::KsgTapeEntry as TapeEntry;
 use super::pathdecomposition::{pathwidth, vertex_order_from_layout, PathDecompositionMethod};
 use crate::topology::{GridGraph, GridNode, GridType};
 use serde::{Deserialize, Serialize};

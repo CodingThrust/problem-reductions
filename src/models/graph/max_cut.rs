@@ -104,7 +104,11 @@ impl<W: Clone + Default> MaxCut<W> {
 
     /// Create a MaxCut problem from edges without weights in tuple form.
     pub fn with_weights(num_vertices: usize, edges: Vec<(usize, usize)>, weights: Vec<W>) -> Self {
-        assert_eq!(edges.len(), weights.len(), "edges and weights must have same length");
+        assert_eq!(
+            edges.len(),
+            weights.len(),
+            "edges and weights must have same length"
+        );
         let mut graph = UnGraph::new_undirected();
         for _ in 0..num_vertices {
             graph.add_node(());
@@ -126,7 +130,13 @@ impl<W: Clone + Default> MaxCut<W> {
 
 impl<W> Problem for MaxCut<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     const NAME: &'static str = "MaxCut";
     type GraphType = SimpleGraph;

@@ -34,7 +34,12 @@ struct GridMapping {
 }
 
 /// Generate grid mapping from copy lines with weights.
-fn make_weighted_grid(result: &MappingResult, grid_type: GridType, radius: f64, triangular: bool) -> GridMapping {
+fn make_weighted_grid(
+    result: &MappingResult,
+    grid_type: GridType,
+    radius: f64,
+    triangular: bool,
+) -> GridMapping {
     let mut all_nodes: Vec<GridNode<i32>> = Vec::new();
 
     // Collect all locations from each copy line with weights
@@ -74,7 +79,12 @@ fn make_weighted_grid(result: &MappingResult, grid_type: GridType, radius: f64, 
 }
 
 /// Generate grid mapping from copy lines without weights (all weight=1).
-fn make_unweighted_grid(result: &MappingResult, grid_type: GridType, radius: f64, triangular: bool) -> GridMapping {
+fn make_unweighted_grid(
+    result: &MappingResult,
+    grid_type: GridType,
+    radius: f64,
+    triangular: bool,
+) -> GridMapping {
     let mut all_nodes: Vec<GridNode<i32>> = Vec::new();
 
     // Collect all locations from each copy line, ignoring weights
@@ -164,7 +174,10 @@ fn main() {
         square_weighted.grid_graph.num_edges(),
         square_weighted.mis_overhead
     );
-    write_json(&square_weighted, Path::new("docs/paper/petersen_square_weighted.json"));
+    write_json(
+        &square_weighted,
+        Path::new("docs/paper/petersen_square_weighted.json"),
+    );
 
     // Create unweighted square grid
     let square_unweighted = make_unweighted_grid(&square_result, GridType::Square, 1.5, false);
@@ -176,13 +189,23 @@ fn main() {
         square_unweighted.grid_graph.num_edges(),
         square_unweighted.mis_overhead
     );
-    write_json(&square_unweighted, Path::new("docs/paper/petersen_square_unweighted.json"));
+    write_json(
+        &square_unweighted,
+        Path::new("docs/paper/petersen_square_unweighted.json"),
+    );
 
     // Map to triangular lattice
     let triangular_result = map_graph_triangular(num_vertices, &petersen_edges);
 
     // Create weighted triangular grid (radius 1.1 to match Julia's TRIANGULAR_UNIT_RADIUS)
-    let triangular_weighted = make_weighted_grid(&triangular_result, GridType::Triangular { offset_even_cols: false }, 1.1, true);
+    let triangular_weighted = make_weighted_grid(
+        &triangular_result,
+        GridType::Triangular {
+            offset_even_cols: false,
+        },
+        1.1,
+        true,
+    );
     println!(
         "Triangular weighted: {}x{}, {} nodes, overhead={}",
         triangular_weighted.grid_graph.size().0,
@@ -190,10 +213,16 @@ fn main() {
         triangular_weighted.grid_graph.num_vertices(),
         triangular_weighted.mis_overhead
     );
-    write_json(&triangular_weighted, Path::new("docs/paper/petersen_triangular.json"));
+    write_json(
+        &triangular_weighted,
+        Path::new("docs/paper/petersen_triangular.json"),
+    );
 
     println!("\nSummary:");
-    println!("  Source: Petersen graph, n={}, MIS={}", num_vertices, petersen_mis);
+    println!(
+        "  Source: Petersen graph, n={}, MIS={}",
+        num_vertices, petersen_mis
+    );
     println!(
         "  Square weighted: {} nodes, MIS = {} + {} = {}",
         square_weighted.grid_graph.num_vertices(),

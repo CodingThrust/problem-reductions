@@ -186,8 +186,7 @@ mod tests {
     #[test]
     fn test_weighted_reduction() {
         // Test with weighted problems
-        let is_problem =
-            IndependentSet::with_weights(3, vec![(0, 1), (1, 2)], vec![10, 20, 30]);
+        let is_problem = IndependentSet::with_weights(3, vec![(0, 1), (1, 2)], vec![10, 20, 30]);
         let reduction = ReduceTo::<VertexCovering<i32>>::reduce_to(&is_problem);
         let vc_problem = reduction.target_problem();
 

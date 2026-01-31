@@ -153,8 +153,7 @@ fn verify_mapping_matches_julia(name: &str) -> bool {
     let (n, edges) = smallgraph(name).unwrap();
 
     // Use Julia's vertex order to ensure consistent mapping
-    let vertex_order = get_julia_vertex_order(name)
-        .unwrap_or_else(|| (0..n).collect());
+    let vertex_order = get_julia_vertex_order(name).unwrap_or_else(|| (0..n).collect());
     let result = map_graph_triangular_with_order(n, &edges, &vertex_order);
 
     // Load Julia's trace data
@@ -350,11 +349,26 @@ fn test_triangular_map_config_back_standard_graphs() {
 
     // All standard graphs (excluding tutte/karate which are slow)
     let graph_names = [
-        "bull", "chvatal", "cubical", "desargues", "diamond",
-        "dodecahedral", "frucht", "heawood", "house", "housex",
-        "icosahedral", "krackhardtkite", "moebiuskantor", "octahedral",
-        "pappus", "petersen", "sedgewickmaze", "tetrahedral",
-        "truncatedcube", "truncatedtetrahedron",
+        "bull",
+        "chvatal",
+        "cubical",
+        "desargues",
+        "diamond",
+        "dodecahedral",
+        "frucht",
+        "heawood",
+        "house",
+        "housex",
+        "icosahedral",
+        "krackhardtkite",
+        "moebiuskantor",
+        "octahedral",
+        "pappus",
+        "petersen",
+        "sedgewickmaze",
+        "tetrahedral",
+        "truncatedcube",
+        "truncatedtetrahedron",
     ];
 
     for name in graph_names {
@@ -371,7 +385,10 @@ fn test_triangular_map_config_back_standard_graphs() {
         let mapped_weights = map_weights(&result, &source_weights);
 
         // Multiply by 10 and round to get integer weights (like Julia)
-        let weights: Vec<i32> = mapped_weights.iter().map(|&w| (w * 10.0).round() as i32).collect();
+        let weights: Vec<i32> = mapped_weights
+            .iter()
+            .map(|&w| (w * 10.0).round() as i32)
+            .collect();
 
         let grid_edges = result.grid_graph.edges().to_vec();
         let num_grid = result.grid_graph.num_vertices();

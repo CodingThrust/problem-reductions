@@ -177,7 +177,10 @@ impl ReductionGraph {
 
         // Collect direct subtype relationships
         for entry in inventory::iter::<GraphSubtypeEntry> {
-            supertypes.entry(entry.subtype).or_default().insert(entry.supertype);
+            supertypes
+                .entry(entry.subtype)
+                .or_default()
+                .insert(entry.supertype);
         }
 
         // Compute transitive closure
@@ -1011,9 +1014,7 @@ mod tests {
 
         // Verify specific known unidirectional edge
         let factoring_circuit_unidir = json.edges.iter().any(|e| {
-            e.source.contains("Factoring")
-                && e.target.contains("CircuitSAT")
-                && !e.bidirectional
+            e.source.contains("Factoring") && e.target.contains("CircuitSAT") && !e.bidirectional
         });
         assert!(
             factoring_circuit_unidir,
@@ -1032,11 +1033,17 @@ mod tests {
         // UnitDiskGraph -> PlanarGraph -> SimpleGraph
         // BipartiteGraph -> SimpleGraph
         assert!(
-            hierarchy.get("UnitDiskGraph").map(|s| s.contains("SimpleGraph")).unwrap_or(false),
+            hierarchy
+                .get("UnitDiskGraph")
+                .map(|s| s.contains("SimpleGraph"))
+                .unwrap_or(false),
             "UnitDiskGraph should have SimpleGraph as supertype"
         );
         assert!(
-            hierarchy.get("PlanarGraph").map(|s| s.contains("SimpleGraph")).unwrap_or(false),
+            hierarchy
+                .get("PlanarGraph")
+                .map(|s| s.contains("SimpleGraph"))
+                .unwrap_or(false),
             "PlanarGraph should have SimpleGraph as supertype"
         );
     }

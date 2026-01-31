@@ -134,7 +134,13 @@ impl<W: Clone + Default> Matching<W> {
 
 impl<W> Problem for Matching<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     const NAME: &'static str = "Matching";
     type GraphType = SimpleGraph;
@@ -176,7 +182,13 @@ where
 
 impl<W> ConstraintSatisfactionProblem for Matching<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         let v2e = self.vertex_to_edges();
@@ -390,10 +402,8 @@ mod tests {
     #[test]
     fn test_perfect_matching() {
         // K4: can have perfect matching (2 edges covering all 4 vertices)
-        let problem = Matching::<i32>::unweighted(
-            4,
-            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-        );
+        let problem =
+            Matching::<i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);

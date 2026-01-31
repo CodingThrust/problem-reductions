@@ -5,7 +5,7 @@
 //! - Constraints: For each element e: sum_{j: e in set_j} x_j >= 1 (element must be covered)
 //! - Objective: Minimize the sum of weights of selected sets
 
-use crate::models::optimization::{ILP, LinearConstraint, ObjectiveSense, VarBounds};
+use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::models::set::SetCovering;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
@@ -218,7 +218,8 @@ mod tests {
 
     #[test]
     fn test_source_and_target_size() {
-        let problem = SetCovering::<i32>::new(5, vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]);
+        let problem =
+            SetCovering::<i32>::new(5, vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]);
         let reduction: ReductionSCToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
         let source_size = reduction.source_size();
@@ -285,7 +286,8 @@ mod tests {
     #[test]
     fn test_solve_reduced() {
         // Test the ILPSolver::solve_reduced method
-        let problem = SetCovering::<i32>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![0, 3]]);
+        let problem =
+            SetCovering::<i32>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![0, 3]]);
 
         let ilp_solver = ILPSolver::new();
         let solution = ilp_solver

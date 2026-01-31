@@ -72,7 +72,9 @@
 //! - **Perfect Matching**: Define on edge graph with exactly one selected
 
 use crate::graph_types::SimpleGraph as SimpleGraphMarker;
-use crate::registry::{ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata};
+use crate::registry::{
+    ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,
+};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};

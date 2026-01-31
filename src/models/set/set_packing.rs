@@ -108,7 +108,13 @@ impl<W: Clone + Default> SetPacking<W> {
 
 impl<W> Problem for SetPacking<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     const NAME: &'static str = "SetPacking";
     type GraphType = SimpleGraph;
@@ -145,7 +151,13 @@ where
 
 impl<W> ConstraintSatisfactionProblem for SetPacking<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         // For each pair of overlapping sets, at most one can be selected

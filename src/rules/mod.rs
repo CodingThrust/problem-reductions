@@ -2,13 +2,15 @@
 
 pub mod cost;
 pub mod registry;
-pub use cost::{CustomCost, Minimize, MinimizeLexicographic, MinimizeMax, MinimizeSteps, MinimizeWeighted, PathCostFn};
+pub use cost::{
+    CustomCost, Minimize, MinimizeLexicographic, MinimizeMax, MinimizeSteps, MinimizeWeighted,
+    PathCostFn,
+};
 pub use registry::{ReductionEntry, ReductionOverhead};
 
 mod circuit_spinglass;
-mod graph;
-mod traits;
 mod factoring_circuit;
+mod graph;
 mod independentset_setpacking;
 mod matching_setpacking;
 mod sat_coloring;
@@ -17,6 +19,7 @@ mod sat_independentset;
 mod sat_ksat;
 mod spinglass_maxcut;
 mod spinglass_qubo;
+mod traits;
 mod vertexcovering_independentset;
 mod vertexcovering_setcovering;
 
@@ -41,23 +44,25 @@ mod vertexcovering_ilp;
 #[cfg(feature = "ilp")]
 mod factoring_ilp;
 
-pub use graph::{EdgeJson, NodeJson, ReductionEdge, ReductionGraph, ReductionGraphJson, ReductionPath};
-pub use traits::{ReduceTo, ReductionResult};
+pub use circuit_spinglass::{
+    and_gadget, not_gadget, or_gadget, set0_gadget, set1_gadget, xor_gadget, LogicGadget,
+    ReductionCircuitToSG,
+};
+pub use factoring_circuit::ReductionFactoringToCircuit;
+pub use graph::{
+    EdgeJson, NodeJson, ReductionEdge, ReductionGraph, ReductionGraphJson, ReductionPath,
+};
 pub use independentset_setpacking::{ReductionISToSP, ReductionSPToIS};
 pub use matching_setpacking::ReductionMatchingToSP;
 pub use sat_coloring::ReductionSATToColoring;
 pub use sat_dominatingset::ReductionSATToDS;
 pub use sat_independentset::{BoolVar, ReductionSATToIS};
+pub use sat_ksat::{ReductionKSATToSAT, ReductionSATToKSAT};
 pub use spinglass_maxcut::{ReductionMaxCutToSG, ReductionSGToMaxCut};
 pub use spinglass_qubo::{ReductionQUBOToSG, ReductionSGToQUBO};
+pub use traits::{ReduceTo, ReductionResult};
 pub use vertexcovering_independentset::{ReductionISToVC, ReductionVCToIS};
 pub use vertexcovering_setcovering::ReductionVCToSC;
-pub use sat_ksat::{ReductionKSATToSAT, ReductionSATToKSAT};
-pub use factoring_circuit::ReductionFactoringToCircuit;
-pub use circuit_spinglass::{
-    LogicGadget, ReductionCircuitToSG,
-    and_gadget, or_gadget, not_gadget, xor_gadget, set0_gadget, set1_gadget,
-};
 
 #[cfg(feature = "ilp")]
 pub use clique_ilp::ReductionCliqueToILP;

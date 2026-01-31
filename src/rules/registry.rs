@@ -23,13 +23,14 @@ impl ReductionOverhead {
     /// from floating-point arithmetic imprecision, not intentional fractions.
     /// For problem sizes, rounding to nearest integer is the most intuitive behavior.
     pub fn evaluate_output_size(&self, input: &ProblemSize) -> ProblemSize {
-        let fields: Vec<_> = self.output_size.iter()
+        let fields: Vec<_> = self
+            .output_size
+            .iter()
             .map(|(name, poly)| (*name, poly.evaluate(input).round() as usize))
             .collect();
         ProblemSize::new(fields)
     }
 }
-
 
 /// A registered reduction entry for static inventory registration.
 /// Uses function pointer to lazily create the overhead (avoids static allocation issues).
@@ -74,16 +75,13 @@ mod tests {
 
     #[test]
     fn test_reduction_overhead_evaluate() {
-        let overhead = ReductionOverhead::new(vec![
-            ("n", poly!(3 * m)),
-            ("m", poly!(m^2)),
-        ]);
+        let overhead = ReductionOverhead::new(vec![("n", poly!(3 * m)), ("m", poly!(m ^ 2))]);
 
         let input = ProblemSize::new(vec![("m", 4)]);
         let output = overhead.evaluate_output_size(&input);
 
-        assert_eq!(output.get("n"), Some(12));  // 3 * 4
-        assert_eq!(output.get("m"), Some(16));  // 4^2
+        assert_eq!(output.get("n"), Some(12)); // 3 * 4
+        assert_eq!(output.get("m"), Some(16)); // 4^2
     }
 
     #[test]

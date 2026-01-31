@@ -71,45 +71,18 @@ impl MappingResult {
         unapply_gadgets(&self.tape, &mut config_2d);
 
         // Step 3: Extract vertex configs from copylines
-        map_config_copyback(&self.lines, self.padding, self.spacing, &config_2d, &self.doubled_cells)
+        map_config_copyback(
+            &self.lines,
+            self.padding,
+            self.spacing,
+            &config_2d,
+            &self.doubled_cells,
+        )
     }
 
-    /// Map a configuration back from grid to original graph using center locations.
-    ///
-    /// This follows Julia's approach: trace center locations through gadget transformations,
-    /// then read the config value at each vertex's final center location.
-    ///
-    /// # Arguments
-    /// * `grid_config` - Configuration on the grid graph (0 = not selected, 1 = selected)
-    ///
-    /// # Returns
-    /// A vector where `result[v]` is the config value for vertex `v` in the original graph.
-    pub fn map_config_back_via_centers(&self, grid_config: &[usize]) -> Vec<usize> {
-        use super::weighted::trace_centers;
-        use std::collections::HashMap;
-
-        // Build a position to node index map
-        let mut pos_to_idx: HashMap<(usize, usize), usize> = HashMap::new();
-        for (idx, node) in self.grid_graph.nodes().iter().enumerate() {
-            if let (Ok(row), Ok(col)) = (usize::try_from(node.row), usize::try_from(node.col)) {
-                pos_to_idx.insert((row, col), idx);
-            }
-        }
-
-        // Get traced center locations (after gadget transformations)
-        let centers = trace_centers(self);
-        let num_vertices = centers.len();
-        let mut result = vec![0usize; num_vertices];
-
-        // Read config at each center location
-        for (vertex, &(row, col)) in centers.iter().enumerate() {
-            if let Some(&node_idx) = pos_to_idx.get(&(row, col)) {
-                result[vertex] = grid_config.get(node_idx).copied().unwrap_or(0);
-            }
-        }
-
-        result
-    }
+    // NOTE: map_config_back_via_centers has been moved to ksg::MappingResult.
+    // This old implementation is kept for backward compatibility but deprecated.
+    // Use ksg::MappingResult::map_config_back instead.
 
     /// Print a configuration on the grid, highlighting selected nodes.
     ///
@@ -165,11 +138,20 @@ impl MappingResult {
         for r in 0..rows {
             let mut line = String::new();
             for c in 0..cols {
-                let is_selected = config.get(r).and_then(|row| row.get(c)).copied().unwrap_or(0) > 0;
+                let is_selected = config
+                    .get(r)
+                    .and_then(|row| row.get(c))
+                    .copied()
+                    .unwrap_or(0)
+                    > 0;
                 let has_node = pos_to_node.contains_key(&(r as i32, c as i32));
 
                 let s = if has_node {
-                    if is_selected { "●" } else { "○" }
+                    if is_selected {
+                        "●"
+                    } else {
+                        "○"
+                    }
                 } else if is_selected {
                     // Julia would error here, but we just ignore
                     "⋅"
@@ -236,7 +218,11 @@ pub fn map_config_copyback(
         let mut count = 0i32;
 
         for (iloc, &(row, col, weight)) in locs.iter().enumerate() {
-            let ci = config.get(row).and_then(|r| r.get(col)).copied().unwrap_or(0);
+            let ci = config
+                .get(row)
+                .and_then(|r| r.get(col))
+                .copied()
+                .unwrap_or(0);
 
             // Check if this cell is doubled in the grid (two copylines overlap here)
             if doubled_cells.contains(&(row, col)) {
@@ -620,7 +606,10 @@ mod tests {
         let crossing_tape = apply_crossing_gadgets(&mut grid, &copylines);
         println!("Crossing tape entries: {}", crossing_tape.len());
         for entry in &crossing_tape {
-            println!("  Tape: pattern_idx={}, pos=({}, {})", entry.pattern_idx, entry.row, entry.col);
+            println!(
+                "  Tape: pattern_idx={}, pos=({}, {})",
+                entry.pattern_idx, entry.row, entry.col
+            );
         }
         println!("Occupied cells: {}", grid.occupied_coords().len());
         for (row, col) in grid.occupied_coords() {

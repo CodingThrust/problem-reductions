@@ -2,9 +2,9 @@
 
 use super::common::{solve_weighted_mis, triangular_edges};
 use problemreductions::rules::unitdiskmapping::{
-    Branch, BranchFix, Cross, EndTurn, Pattern, TCon, TriBranch, TriBranchFix, TriBranchFixB, TriCross,
-    TriEndTurn, TriTConDown, TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn,
-    TriWTurn, TriangularGadget, TrivialTurn, Turn, WTurn, Weightable,
+    Branch, BranchFix, Cross, EndTurn, Pattern, TCon, TriBranch, TriBranchFix, TriBranchFixB,
+    TriCross, TriEndTurn, TriTConDown, TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn,
+    TriWTurn, TriangularGadget, TrivialTurn, Turn, WTurn,
 };
 
 // === Square Gadget Tests ===
@@ -197,13 +197,13 @@ fn test_triangular_gadgets_have_valid_pins() {
 
 #[test]
 fn test_triturn_mis_equivalence() {
+    // TriTurn is already weighted (WeightedTriTurn)
     let gadget = TriTurn;
-    let weighted = gadget.weighted();
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = weighted.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = weighted.mapped_weights().to_vec();
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -228,13 +228,13 @@ fn test_triturn_mis_equivalence() {
 
 #[test]
 fn test_tribranch_mis_equivalence() {
+    // TriBranch is already weighted (WeightedTriBranch)
     let gadget = TriBranch;
-    let weighted = gadget.weighted();
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = weighted.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = weighted.mapped_weights().to_vec();
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
     for &p in &src_pins {
         src_weights[p] -= 1;
     }
@@ -259,13 +259,13 @@ fn test_tribranch_mis_equivalence() {
 
 #[test]
 fn test_tricross_connected_weighted_mis_equivalence() {
+    // TriCross is already weighted (WeightedTriCross)
     let gadget = TriCross::<true>;
-    let weighted = gadget.weighted();
     let (source_locs, source_edges, source_pins) = gadget.source_graph();
     let (mapped_locs, mapped_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = weighted.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = weighted.mapped_weights().to_vec();
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
     for &p in &source_pins {
         src_weights[p] -= 1;
     }
@@ -290,13 +290,13 @@ fn test_tricross_connected_weighted_mis_equivalence() {
 
 #[test]
 fn test_tricross_disconnected_weighted_mis_equivalence() {
+    // TriCross is already weighted (WeightedTriCross)
     let gadget = TriCross::<false>;
-    let weighted = gadget.weighted();
     let (source_locs, source_edges, source_pins) = gadget.source_graph();
     let (mapped_locs, mapped_pins) = gadget.mapped_graph();
 
-    let mut src_weights: Vec<i32> = weighted.source_weights().to_vec();
-    let mut map_weights: Vec<i32> = weighted.mapped_weights().to_vec();
+    let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+    let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
     for &p in &source_pins {
         src_weights[p] -= 1;
     }
@@ -321,13 +321,14 @@ fn test_tricross_disconnected_weighted_mis_equivalence() {
 
 #[test]
 fn test_all_triangular_weighted_gadgets_mis_equivalence() {
-    fn test_gadget<G: TriangularGadget + Weightable + Copy>(gadget: G, name: &str) {
-        let weighted = gadget.weighted();
+    // Triangular gadgets are already weighted (WeightedTri* prefix)
+    // So we directly use their source_weights() and mapped_weights() methods
+    fn test_gadget<G: TriangularGadget + Copy>(gadget: G, name: &str) {
         let (src_locs, src_edges, src_pins) = gadget.source_graph();
         let (map_locs, map_pins) = gadget.mapped_graph();
 
-        let mut src_weights: Vec<i32> = weighted.source_weights().to_vec();
-        let mut map_weights: Vec<i32> = weighted.mapped_weights().to_vec();
+        let mut src_weights: Vec<i32> = gadget.source_weights().to_vec();
+        let mut map_weights: Vec<i32> = gadget.mapped_weights().to_vec();
         for &p in &src_pins {
             src_weights[p] -= 1;
         }

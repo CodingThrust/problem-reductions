@@ -7,7 +7,7 @@
 //! - Objective: Maximize the sum of weights of selected edges
 
 use crate::models::graph::Matching;
-use crate::models::optimization::{ILP, LinearConstraint, ObjectiveSense, VarBounds};
+use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::ProblemSize;
@@ -108,7 +108,11 @@ mod tests {
         // Check ILP structure
         assert_eq!(ilp.num_vars, 3, "Should have one variable per edge");
         // Each vertex has degree 2, so 3 constraints (one per vertex)
-        assert_eq!(ilp.constraints.len(), 3, "Should have one constraint per vertex");
+        assert_eq!(
+            ilp.constraints.len(),
+            3,
+            "Should have one constraint per vertex"
+        );
         assert_eq!(ilp.sense, ObjectiveSense::Maximize, "Should maximize");
 
         // All variables should be binary
@@ -269,10 +273,8 @@ mod tests {
     #[test]
     fn test_k4_perfect_matching() {
         // Complete graph K4: can have perfect matching (2 edges covering all 4 vertices)
-        let problem = Matching::<i32>::unweighted(
-            4,
-            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-        );
+        let problem =
+            Matching::<i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 

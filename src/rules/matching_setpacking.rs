@@ -172,10 +172,8 @@ mod tests {
     #[test]
     fn test_matching_to_setpacking_k4() {
         // Complete graph K4: can have perfect matching (2 edges covering all 4 vertices)
-        let matching = Matching::<i32>::unweighted(
-            4,
-            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-        );
+        let matching =
+            Matching::<i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
         let sp = reduction.target_problem();
 

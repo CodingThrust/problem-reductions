@@ -490,7 +490,11 @@ mod tests {
         }
 
         let factoring_sol = reduction.extract_solution(&sol);
-        assert_eq!(factoring_sol.len(), 4, "Should have 4 bits (2 for p, 2 for q)");
+        assert_eq!(
+            factoring_sol.len(),
+            4,
+            "Should have 4 bits (2 for p, 2 for q)"
+        );
 
         let (p, q) = factoring.read_factors(&factoring_sol);
         assert_eq!(p, 2, "p should be 2");
@@ -510,12 +514,7 @@ mod tests {
                 let is_valid_factorization = p * q == 7;
 
                 if is_valid_factorization {
-                    assert!(
-                        satisfies,
-                        "{}*{}=7 should satisfy the circuit",
-                        p,
-                        q
-                    );
+                    assert!(satisfies, "{}*{}=7 should satisfy the circuit", p, q);
                     // Check it's a trivial factorization (1*7 or 7*1)
                     assert!(
                         (p == 1 && q == 7) || (p == 7 && q == 1),
@@ -551,7 +550,11 @@ mod tests {
         }
 
         // Only 2*3 and 3*2 should satisfy (both give 6)
-        assert_eq!(valid_factorizations.len(), 2, "Should find exactly 2 factorizations of 6");
+        assert_eq!(
+            valid_factorizations.len(),
+            2,
+            "Should find exactly 2 factorizations of 6"
+        );
         assert!(valid_factorizations.contains(&(2, 3)), "Should find 2*3");
         assert!(valid_factorizations.contains(&(3, 2)), "Should find 3*2");
     }

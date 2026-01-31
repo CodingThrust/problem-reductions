@@ -9,6 +9,6 @@ mod ilp;
 mod qubo;
 mod spin_glass;
 
-pub use ilp::{Comparison, ILP, LinearConstraint, ObjectiveSense, VarBounds};
+pub use ilp::{Comparison, LinearConstraint, ObjectiveSense, VarBounds, ILP};
 pub use qubo::QUBO;
 pub use spin_glass::SpinGlass;

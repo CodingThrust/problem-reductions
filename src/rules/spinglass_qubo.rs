@@ -186,7 +186,11 @@ mod tests {
         // So [0,0] and [1,1] are optimal with value 0
         for sol in &qubo_solutions {
             let val = qubo.solution_size(sol).size;
-            assert!(val <= 0.0 + 1e-6, "Expected optimal value near 0, got {}", val);
+            assert!(
+                val <= 0.0 + 1e-6,
+                "Expected optimal value near 0, got {}",
+                val
+            );
         }
     }
 
@@ -247,7 +251,10 @@ mod tests {
 
         // Anti-ferromagnetic: opposite spins are optimal
         for sol in &solutions {
-            assert_ne!(sol[0], sol[1], "Antiferromagnetic should have opposite spins");
+            assert_ne!(
+                sol[0], sol[1],
+                "Antiferromagnetic should have opposite spins"
+            );
         }
     }
 

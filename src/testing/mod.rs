@@ -187,13 +187,7 @@ mod tests {
 
     #[test]
     fn test_graph_test_case_with_weights() {
-        let case = GraphTestCase::with_weights(
-            3,
-            vec![(0, 1)],
-            vec![1, 2, 3],
-            vec![0, 0, 1],
-            3,
-        );
+        let case = GraphTestCase::with_weights(3, vec![(0, 1)], vec![1, 2, 3], vec![0, 0, 1], 3);
         assert!(case.weights.is_some());
         assert_eq!(case.weights.as_ref().unwrap(), &vec![1, 2, 3]);
     }

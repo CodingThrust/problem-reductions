@@ -88,8 +88,11 @@ fn compute_mis_with_fixed_pins(
         .collect();
 
     // Build subgraph on free vertices
-    let vertex_map: std::collections::HashMap<usize, usize> =
-        free_vertices.iter().enumerate().map(|(i, &v)| (v, i)).collect();
+    let vertex_map: std::collections::HashMap<usize, usize> = free_vertices
+        .iter()
+        .enumerate()
+        .map(|(i, &v)| (v, i))
+        .collect();
 
     let sub_edges: Vec<(usize, usize)> = edges
         .iter()
@@ -184,11 +187,10 @@ pub fn mis_compactify(tensor: &mut [i32]) {
             continue;
         }
         for b in 0..n {
-            if a != b && tensor[b] != i32::MIN
-                && worse_than(a, b, tensor[a], tensor[b]) {
-                    tensor[a] = i32::MIN;
-                    break;
-                }
+            if a != b && tensor[b] != i32::MIN && worse_than(a, b, tensor[a], tensor[b]) {
+                tensor[a] = i32::MIN;
+                break;
+            }
         }
     }
 }
@@ -327,8 +329,16 @@ pub fn verify_triangular_gadget<G: super::triangular::TriangularGadget>(
     // Julia doesn't use mis_compactify for weighted gadgets - it just checks that
     // the maximum entries are in the same positions and differ by a constant.
     // Let's check the simpler condition first.
-    let src_max = *src_tensor.iter().filter(|&&x| x != i32::MIN).max().unwrap_or(&0);
-    let map_max = *map_tensor.iter().filter(|&&x| x != i32::MIN).max().unwrap_or(&0);
+    let src_max = *src_tensor
+        .iter()
+        .filter(|&&x| x != i32::MIN)
+        .max()
+        .unwrap_or(&0);
+    let map_max = *map_tensor
+        .iter()
+        .filter(|&&x| x != i32::MIN)
+        .max()
+        .unwrap_or(&0);
 
     // Check that positions where source == max match positions where mapped == max
     let src_max_mask: Vec<bool> = src_tensor.iter().map(|&x| x == src_max).collect();

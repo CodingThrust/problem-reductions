@@ -112,7 +112,13 @@ impl<W: Clone + Default> IndependentSet<W> {
 
 impl<W> Problem for IndependentSet<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     const NAME: &'static str = "IndependentSet";
     type GraphType = SimpleGraph;
@@ -152,7 +158,13 @@ where
 
 impl<W> ConstraintSatisfactionProblem for IndependentSet<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         // For each edge (u, v), at most one of u, v can be selected

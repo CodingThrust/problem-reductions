@@ -119,7 +119,13 @@ impl<W: Clone + Default> DominatingSet<W> {
 
 impl<W> Problem for DominatingSet<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     const NAME: &'static str = "DominatingSet";
     type GraphType = SimpleGraph;
@@ -159,7 +165,13 @@ where
 
 impl<W> ConstraintSatisfactionProblem for DominatingSet<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         // For each vertex v, at least one vertex in N[v] must be selected

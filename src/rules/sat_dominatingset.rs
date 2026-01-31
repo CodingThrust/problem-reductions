@@ -262,10 +262,8 @@ mod tests {
     #[test]
     fn test_unsatisfiable_formula() {
         // SAT: (x1) AND (NOT x1) - unsatisfiable
-        let sat = Satisfiability::<i32>::new(
-            1,
-            vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
-        );
+        let sat =
+            Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
         let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
         let ds_problem = reduction.target_problem();
 
@@ -305,9 +303,9 @@ mod tests {
         let sat = Satisfiability::<i32>::new(
             3,
             vec![
-                CNFClause::new(vec![1, 2, 3]),    // x1 OR x2 OR x3
-                CNFClause::new(vec![-1, -2, 3]),  // NOT x1 OR NOT x2 OR x3
-                CNFClause::new(vec![1, -2, -3]),  // x1 OR NOT x2 OR NOT x3
+                CNFClause::new(vec![1, 2, 3]),   // x1 OR x2 OR x3
+                CNFClause::new(vec![-1, -2, 3]), // NOT x1 OR NOT x2 OR x3
+                CNFClause::new(vec![1, -2, -3]), // x1 OR NOT x2 OR NOT x3
             ],
         );
 
@@ -334,7 +332,10 @@ mod tests {
                 break;
             }
         }
-        assert!(found_satisfying, "Should find a satisfying assignment for 3-SAT");
+        assert!(
+            found_satisfying,
+            "Should find a satisfying assignment for 3-SAT"
+        );
     }
 
     #[test]
@@ -461,16 +462,16 @@ mod tests {
                     }
                 }
             }
-            assert!(found_satisfying, "At least one DS solution should give a SAT solution");
+            assert!(
+                found_satisfying,
+                "At least one DS solution should give a SAT solution"
+            );
         }
     }
 
     #[test]
     fn test_accessors() {
-        let sat = Satisfiability::<i32>::new(
-            2,
-            vec![CNFClause::new(vec![1, -2])],
-        );
+        let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, -2])]);
         let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
 
         assert_eq!(reduction.num_literals(), 2);

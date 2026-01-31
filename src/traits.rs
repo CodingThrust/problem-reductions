@@ -1,7 +1,9 @@
 //! Core traits for problem definitions.
 
 use crate::graph_types::GraphMarker;
-use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, NumericWeight, ProblemSize, SolutionSize};
+use crate::types::{
+    EnergyMode, LocalConstraint, LocalSolutionSize, NumericWeight, ProblemSize, SolutionSize,
+};
 use num_traits::{Num, Zero};
 use std::ops::AddAssign;
 

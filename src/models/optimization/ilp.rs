@@ -246,11 +246,7 @@ impl ILP {
         objective: Vec<(usize, f64)>,
         sense: ObjectiveSense,
     ) -> Self {
-        assert_eq!(
-            bounds.len(),
-            num_vars,
-            "bounds length must match num_vars"
-        );
+        assert_eq!(bounds.len(), num_vars, "bounds length must match num_vars");
         Self {
             num_vars,
             bounds,
@@ -659,7 +655,7 @@ mod tests {
             3,
             vec![
                 LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0), // x0 + x1 <= 1
-                LinearConstraint::ge(vec![(2, 1.0)], 0.0),          // x2 >= 0
+                LinearConstraint::ge(vec![(2, 1.0)], 0.0),           // x2 >= 0
             ],
             vec![],
             ObjectiveSense::Minimize,

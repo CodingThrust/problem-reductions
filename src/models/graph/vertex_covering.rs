@@ -97,7 +97,13 @@ impl<W: Clone + Default> VertexCovering<W> {
 
 impl<W> Problem for VertexCovering<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     const NAME: &'static str = "VertexCovering";
     type GraphType = SimpleGraph;
@@ -137,7 +143,13 @@ where
 
 impl<W> ConstraintSatisfactionProblem for VertexCovering<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         // For each edge (u, v), at least one of u, v must be selected

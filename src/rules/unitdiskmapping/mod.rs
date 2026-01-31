@@ -80,3 +80,21 @@ pub use triangular::{
     WeightedTriTrivialTurnRight as TriTrivialTurnRight, WeightedTriTurn as TriTurn,
     WeightedTriWTurn as TriWTurn, WeightedTriangularGadget as TriangularGadget,
 };
+
+// Additional exports for weighted mode utilities
+pub use copyline::{copyline_weighted_locations_triangular, mis_overhead_copyline_triangular};
+pub use triangular::weighted_ruleset as triangular_weighted_ruleset;
+pub use weighted::{map_weights, trace_centers, Weightable};
+
+// KSG gadget application functions
+pub use ksg::{
+    apply_crossing_gadgets, apply_simplifier_gadgets, tape_entry_mis_overhead,
+    apply_weighted_crossing_gadgets, apply_weighted_simplifier_gadgets,
+};
+
+// Triangular gadget application functions
+pub use triangular::{
+    apply_crossing_gadgets as apply_triangular_crossing_gadgets,
+    apply_simplifier_gadgets as apply_triangular_simplifier_gadgets,
+    tape_entry_mis_overhead as triangular_tape_entry_mis_overhead,
+};

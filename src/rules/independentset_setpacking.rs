@@ -193,8 +193,7 @@ mod tests {
         // IS -> SP -> IS
         let reduction1 = ReduceTo::<SetPacking<i32>>::reduce_to(&original);
         let sp = reduction1.target_problem().clone();
-        let reduction2: ReductionSPToIS<i32> =
-            ReduceTo::<IndependentSet<i32>>::reduce_to(&sp);
+        let reduction2: ReductionSPToIS<i32> = ReduceTo::<IndependentSet<i32>>::reduce_to(&sp);
         let roundtrip = reduction2.target_problem();
 
         let roundtrip_solutions = solver.find_best(roundtrip);
@@ -207,8 +206,7 @@ mod tests {
 
     #[test]
     fn test_weighted_reduction() {
-        let is_problem =
-            IndependentSet::with_weights(3, vec![(0, 1), (1, 2)], vec![10, 20, 30]);
+        let is_problem = IndependentSet::with_weights(3, vec![(0, 1), (1, 2)], vec![10, 20, 30]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&is_problem);
         let sp_problem = reduction.target_problem();
 

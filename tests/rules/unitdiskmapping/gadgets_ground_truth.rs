@@ -5,11 +5,34 @@
 
 use problemreductions::rules::unitdiskmapping::{
     // Unweighted square gadgets
-    Branch, BranchFix, BranchFixB, Cross, DanglingLeg, EndTurn, Mirror, Pattern, ReflectedGadget,
-    RotatedGadget, TCon, TrivialTurn, Turn, WTurn,
+    Branch,
+    BranchFix,
+    BranchFixB,
+    Cross,
+    DanglingLeg,
+    EndTurn,
+    Mirror,
+    Pattern,
+    ReflectedGadget,
+    RotatedGadget,
+    TCon,
     // Triangular gadgets
-    TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown, TriTConLeft,
-    TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn, TriangularGadget,
+    TriBranch,
+    TriBranchFix,
+    TriBranchFixB,
+    TriCross,
+    TriEndTurn,
+    TriTConDown,
+    TriTConLeft,
+    TriTConUp,
+    TriTrivialTurnLeft,
+    TriTrivialTurnRight,
+    TriTurn,
+    TriWTurn,
+    TriangularGadget,
+    TrivialTurn,
+    Turn,
+    WTurn,
 };
 use serde::Deserialize;
 use std::collections::HashMap;
@@ -64,12 +87,7 @@ macro_rules! check_gadget {
         let e = $expected;
 
         // Check size
-        assert_eq!(
-            g.size(),
-            (e.size[0], e.size[1]),
-            "{}: size mismatch",
-            $name
-        );
+        assert_eq!(g.size(), (e.size[0], e.size[1]), "{}: size mismatch", $name);
 
         // Check cross_location
         assert_eq!(
@@ -133,12 +151,7 @@ macro_rules! check_weighted_gadget {
         let e = $expected;
 
         // Check size
-        assert_eq!(
-            g.size(),
-            (e.size[0], e.size[1]),
-            "{}: size mismatch",
-            $name
-        );
+        assert_eq!(g.size(), (e.size[0], e.size[1]), "{}: size mismatch", $name);
 
         // Check cross_location
         assert_eq!(
@@ -494,14 +507,44 @@ macro_rules! test_reflected {
 }
 
 // Cross<false> rotations
-test_rotated!(test_rotated_cross_false_rot1, Cross::<false>, 1, "Cross_false_rot1");
-test_rotated!(test_rotated_cross_false_rot2, Cross::<false>, 2, "Cross_false_rot2");
-test_rotated!(test_rotated_cross_false_rot3, Cross::<false>, 3, "Cross_false_rot3");
+test_rotated!(
+    test_rotated_cross_false_rot1,
+    Cross::<false>,
+    1,
+    "Cross_false_rot1"
+);
+test_rotated!(
+    test_rotated_cross_false_rot2,
+    Cross::<false>,
+    2,
+    "Cross_false_rot2"
+);
+test_rotated!(
+    test_rotated_cross_false_rot3,
+    Cross::<false>,
+    3,
+    "Cross_false_rot3"
+);
 
 // Cross<true> rotations
-test_rotated!(test_rotated_cross_true_rot1, Cross::<true>, 1, "Cross_true_rot1");
-test_rotated!(test_rotated_cross_true_rot2, Cross::<true>, 2, "Cross_true_rot2");
-test_rotated!(test_rotated_cross_true_rot3, Cross::<true>, 3, "Cross_true_rot3");
+test_rotated!(
+    test_rotated_cross_true_rot1,
+    Cross::<true>,
+    1,
+    "Cross_true_rot1"
+);
+test_rotated!(
+    test_rotated_cross_true_rot2,
+    Cross::<true>,
+    2,
+    "Cross_true_rot2"
+);
+test_rotated!(
+    test_rotated_cross_true_rot3,
+    Cross::<true>,
+    3,
+    "Cross_true_rot3"
+);
 
 // Turn rotations
 test_rotated!(test_rotated_turn_rot1, Turn, 1, "Turn_rot1");
@@ -524,9 +567,24 @@ test_rotated!(test_rotated_branchfix_rot2, BranchFix, 2, "BranchFix_rot2");
 test_rotated!(test_rotated_branchfix_rot3, BranchFix, 3, "BranchFix_rot3");
 
 // BranchFixB rotations
-test_rotated!(test_rotated_branchfixb_rot1, BranchFixB, 1, "BranchFixB_rot1");
-test_rotated!(test_rotated_branchfixb_rot2, BranchFixB, 2, "BranchFixB_rot2");
-test_rotated!(test_rotated_branchfixb_rot3, BranchFixB, 3, "BranchFixB_rot3");
+test_rotated!(
+    test_rotated_branchfixb_rot1,
+    BranchFixB,
+    1,
+    "BranchFixB_rot1"
+);
+test_rotated!(
+    test_rotated_branchfixb_rot2,
+    BranchFixB,
+    2,
+    "BranchFixB_rot2"
+);
+test_rotated!(
+    test_rotated_branchfixb_rot3,
+    BranchFixB,
+    3,
+    "BranchFixB_rot3"
+);
 
 // TCon rotations
 test_rotated!(test_rotated_tcon_rot1, TCon, 1, "TCon_rot1");
@@ -534,9 +592,24 @@ test_rotated!(test_rotated_tcon_rot2, TCon, 2, "TCon_rot2");
 test_rotated!(test_rotated_tcon_rot3, TCon, 3, "TCon_rot3");
 
 // TrivialTurn rotations
-test_rotated!(test_rotated_trivialturn_rot1, TrivialTurn, 1, "TrivialTurn_rot1");
-test_rotated!(test_rotated_trivialturn_rot2, TrivialTurn, 2, "TrivialTurn_rot2");
-test_rotated!(test_rotated_trivialturn_rot3, TrivialTurn, 3, "TrivialTurn_rot3");
+test_rotated!(
+    test_rotated_trivialturn_rot1,
+    TrivialTurn,
+    1,
+    "TrivialTurn_rot1"
+);
+test_rotated!(
+    test_rotated_trivialturn_rot2,
+    TrivialTurn,
+    2,
+    "TrivialTurn_rot2"
+);
+test_rotated!(
+    test_rotated_trivialturn_rot3,
+    TrivialTurn,
+    3,
+    "TrivialTurn_rot3"
+);
 
 // EndTurn rotations
 test_rotated!(test_rotated_endturn_rot1, EndTurn, 1, "EndTurn_rot1");
@@ -544,74 +617,269 @@ test_rotated!(test_rotated_endturn_rot2, EndTurn, 2, "EndTurn_rot2");
 test_rotated!(test_rotated_endturn_rot3, EndTurn, 3, "EndTurn_rot3");
 
 // DanglingLeg rotations
-test_rotated!(test_rotated_danglingleg_rot1, DanglingLeg, 1, "DanglingLeg_rot1");
-test_rotated!(test_rotated_danglingleg_rot2, DanglingLeg, 2, "DanglingLeg_rot2");
-test_rotated!(test_rotated_danglingleg_rot3, DanglingLeg, 3, "DanglingLeg_rot3");
+test_rotated!(
+    test_rotated_danglingleg_rot1,
+    DanglingLeg,
+    1,
+    "DanglingLeg_rot1"
+);
+test_rotated!(
+    test_rotated_danglingleg_rot2,
+    DanglingLeg,
+    2,
+    "DanglingLeg_rot2"
+);
+test_rotated!(
+    test_rotated_danglingleg_rot3,
+    DanglingLeg,
+    3,
+    "DanglingLeg_rot3"
+);
 
 // === Reflected Gadget Tests ===
 
 // Cross<false> reflections
-test_reflected!(test_reflected_cross_false_x, Cross::<false>, Mirror::X, "Cross_false_ref_x");
-test_reflected!(test_reflected_cross_false_y, Cross::<false>, Mirror::Y, "Cross_false_ref_y");
-test_reflected!(test_reflected_cross_false_diag, Cross::<false>, Mirror::Diag, "Cross_false_ref_diag");
-test_reflected!(test_reflected_cross_false_offdiag, Cross::<false>, Mirror::OffDiag, "Cross_false_ref_offdiag");
+test_reflected!(
+    test_reflected_cross_false_x,
+    Cross::<false>,
+    Mirror::X,
+    "Cross_false_ref_x"
+);
+test_reflected!(
+    test_reflected_cross_false_y,
+    Cross::<false>,
+    Mirror::Y,
+    "Cross_false_ref_y"
+);
+test_reflected!(
+    test_reflected_cross_false_diag,
+    Cross::<false>,
+    Mirror::Diag,
+    "Cross_false_ref_diag"
+);
+test_reflected!(
+    test_reflected_cross_false_offdiag,
+    Cross::<false>,
+    Mirror::OffDiag,
+    "Cross_false_ref_offdiag"
+);
 
 // Cross<true> reflections
-test_reflected!(test_reflected_cross_true_x, Cross::<true>, Mirror::X, "Cross_true_ref_x");
-test_reflected!(test_reflected_cross_true_y, Cross::<true>, Mirror::Y, "Cross_true_ref_y");
-test_reflected!(test_reflected_cross_true_diag, Cross::<true>, Mirror::Diag, "Cross_true_ref_diag");
-test_reflected!(test_reflected_cross_true_offdiag, Cross::<true>, Mirror::OffDiag, "Cross_true_ref_offdiag");
+test_reflected!(
+    test_reflected_cross_true_x,
+    Cross::<true>,
+    Mirror::X,
+    "Cross_true_ref_x"
+);
+test_reflected!(
+    test_reflected_cross_true_y,
+    Cross::<true>,
+    Mirror::Y,
+    "Cross_true_ref_y"
+);
+test_reflected!(
+    test_reflected_cross_true_diag,
+    Cross::<true>,
+    Mirror::Diag,
+    "Cross_true_ref_diag"
+);
+test_reflected!(
+    test_reflected_cross_true_offdiag,
+    Cross::<true>,
+    Mirror::OffDiag,
+    "Cross_true_ref_offdiag"
+);
 
 // Turn reflections
 test_reflected!(test_reflected_turn_x, Turn, Mirror::X, "Turn_ref_x");
 test_reflected!(test_reflected_turn_y, Turn, Mirror::Y, "Turn_ref_y");
-test_reflected!(test_reflected_turn_diag, Turn, Mirror::Diag, "Turn_ref_diag");
-test_reflected!(test_reflected_turn_offdiag, Turn, Mirror::OffDiag, "Turn_ref_offdiag");
+test_reflected!(
+    test_reflected_turn_diag,
+    Turn,
+    Mirror::Diag,
+    "Turn_ref_diag"
+);
+test_reflected!(
+    test_reflected_turn_offdiag,
+    Turn,
+    Mirror::OffDiag,
+    "Turn_ref_offdiag"
+);
 
 // WTurn reflections
 test_reflected!(test_reflected_wturn_x, WTurn, Mirror::X, "WTurn_ref_x");
 test_reflected!(test_reflected_wturn_y, WTurn, Mirror::Y, "WTurn_ref_y");
-test_reflected!(test_reflected_wturn_diag, WTurn, Mirror::Diag, "WTurn_ref_diag");
-test_reflected!(test_reflected_wturn_offdiag, WTurn, Mirror::OffDiag, "WTurn_ref_offdiag");
+test_reflected!(
+    test_reflected_wturn_diag,
+    WTurn,
+    Mirror::Diag,
+    "WTurn_ref_diag"
+);
+test_reflected!(
+    test_reflected_wturn_offdiag,
+    WTurn,
+    Mirror::OffDiag,
+    "WTurn_ref_offdiag"
+);
 
 // Branch reflections
 test_reflected!(test_reflected_branch_x, Branch, Mirror::X, "Branch_ref_x");
 test_reflected!(test_reflected_branch_y, Branch, Mirror::Y, "Branch_ref_y");
-test_reflected!(test_reflected_branch_diag, Branch, Mirror::Diag, "Branch_ref_diag");
-test_reflected!(test_reflected_branch_offdiag, Branch, Mirror::OffDiag, "Branch_ref_offdiag");
+test_reflected!(
+    test_reflected_branch_diag,
+    Branch,
+    Mirror::Diag,
+    "Branch_ref_diag"
+);
+test_reflected!(
+    test_reflected_branch_offdiag,
+    Branch,
+    Mirror::OffDiag,
+    "Branch_ref_offdiag"
+);
 
 // BranchFix reflections
-test_reflected!(test_reflected_branchfix_x, BranchFix, Mirror::X, "BranchFix_ref_x");
-test_reflected!(test_reflected_branchfix_y, BranchFix, Mirror::Y, "BranchFix_ref_y");
-test_reflected!(test_reflected_branchfix_diag, BranchFix, Mirror::Diag, "BranchFix_ref_diag");
-test_reflected!(test_reflected_branchfix_offdiag, BranchFix, Mirror::OffDiag, "BranchFix_ref_offdiag");
+test_reflected!(
+    test_reflected_branchfix_x,
+    BranchFix,
+    Mirror::X,
+    "BranchFix_ref_x"
+);
+test_reflected!(
+    test_reflected_branchfix_y,
+    BranchFix,
+    Mirror::Y,
+    "BranchFix_ref_y"
+);
+test_reflected!(
+    test_reflected_branchfix_diag,
+    BranchFix,
+    Mirror::Diag,
+    "BranchFix_ref_diag"
+);
+test_reflected!(
+    test_reflected_branchfix_offdiag,
+    BranchFix,
+    Mirror::OffDiag,
+    "BranchFix_ref_offdiag"
+);
 
 // BranchFixB reflections
-test_reflected!(test_reflected_branchfixb_x, BranchFixB, Mirror::X, "BranchFixB_ref_x");
-test_reflected!(test_reflected_branchfixb_y, BranchFixB, Mirror::Y, "BranchFixB_ref_y");
-test_reflected!(test_reflected_branchfixb_diag, BranchFixB, Mirror::Diag, "BranchFixB_ref_diag");
-test_reflected!(test_reflected_branchfixb_offdiag, BranchFixB, Mirror::OffDiag, "BranchFixB_ref_offdiag");
+test_reflected!(
+    test_reflected_branchfixb_x,
+    BranchFixB,
+    Mirror::X,
+    "BranchFixB_ref_x"
+);
+test_reflected!(
+    test_reflected_branchfixb_y,
+    BranchFixB,
+    Mirror::Y,
+    "BranchFixB_ref_y"
+);
+test_reflected!(
+    test_reflected_branchfixb_diag,
+    BranchFixB,
+    Mirror::Diag,
+    "BranchFixB_ref_diag"
+);
+test_reflected!(
+    test_reflected_branchfixb_offdiag,
+    BranchFixB,
+    Mirror::OffDiag,
+    "BranchFixB_ref_offdiag"
+);
 
 // TCon reflections
 test_reflected!(test_reflected_tcon_x, TCon, Mirror::X, "TCon_ref_x");
 test_reflected!(test_reflected_tcon_y, TCon, Mirror::Y, "TCon_ref_y");
-test_reflected!(test_reflected_tcon_diag, TCon, Mirror::Diag, "TCon_ref_diag");
-test_reflected!(test_reflected_tcon_offdiag, TCon, Mirror::OffDiag, "TCon_ref_offdiag");
+test_reflected!(
+    test_reflected_tcon_diag,
+    TCon,
+    Mirror::Diag,
+    "TCon_ref_diag"
+);
+test_reflected!(
+    test_reflected_tcon_offdiag,
+    TCon,
+    Mirror::OffDiag,
+    "TCon_ref_offdiag"
+);
 
 // TrivialTurn reflections
-test_reflected!(test_reflected_trivialturn_x, TrivialTurn, Mirror::X, "TrivialTurn_ref_x");
-test_reflected!(test_reflected_trivialturn_y, TrivialTurn, Mirror::Y, "TrivialTurn_ref_y");
-test_reflected!(test_reflected_trivialturn_diag, TrivialTurn, Mirror::Diag, "TrivialTurn_ref_diag");
-test_reflected!(test_reflected_trivialturn_offdiag, TrivialTurn, Mirror::OffDiag, "TrivialTurn_ref_offdiag");
+test_reflected!(
+    test_reflected_trivialturn_x,
+    TrivialTurn,
+    Mirror::X,
+    "TrivialTurn_ref_x"
+);
+test_reflected!(
+    test_reflected_trivialturn_y,
+    TrivialTurn,
+    Mirror::Y,
+    "TrivialTurn_ref_y"
+);
+test_reflected!(
+    test_reflected_trivialturn_diag,
+    TrivialTurn,
+    Mirror::Diag,
+    "TrivialTurn_ref_diag"
+);
+test_reflected!(
+    test_reflected_trivialturn_offdiag,
+    TrivialTurn,
+    Mirror::OffDiag,
+    "TrivialTurn_ref_offdiag"
+);
 
 // EndTurn reflections
-test_reflected!(test_reflected_endturn_x, EndTurn, Mirror::X, "EndTurn_ref_x");
-test_reflected!(test_reflected_endturn_y, EndTurn, Mirror::Y, "EndTurn_ref_y");
-test_reflected!(test_reflected_endturn_diag, EndTurn, Mirror::Diag, "EndTurn_ref_diag");
-test_reflected!(test_reflected_endturn_offdiag, EndTurn, Mirror::OffDiag, "EndTurn_ref_offdiag");
+test_reflected!(
+    test_reflected_endturn_x,
+    EndTurn,
+    Mirror::X,
+    "EndTurn_ref_x"
+);
+test_reflected!(
+    test_reflected_endturn_y,
+    EndTurn,
+    Mirror::Y,
+    "EndTurn_ref_y"
+);
+test_reflected!(
+    test_reflected_endturn_diag,
+    EndTurn,
+    Mirror::Diag,
+    "EndTurn_ref_diag"
+);
+test_reflected!(
+    test_reflected_endturn_offdiag,
+    EndTurn,
+    Mirror::OffDiag,
+    "EndTurn_ref_offdiag"
+);
 
 // DanglingLeg reflections
-test_reflected!(test_reflected_danglingleg_x, DanglingLeg, Mirror::X, "DanglingLeg_ref_x");
-test_reflected!(test_reflected_danglingleg_y, DanglingLeg, Mirror::Y, "DanglingLeg_ref_y");
-test_reflected!(test_reflected_danglingleg_diag, DanglingLeg, Mirror::Diag, "DanglingLeg_ref_diag");
-test_reflected!(test_reflected_danglingleg_offdiag, DanglingLeg, Mirror::OffDiag, "DanglingLeg_ref_offdiag");
+test_reflected!(
+    test_reflected_danglingleg_x,
+    DanglingLeg,
+    Mirror::X,
+    "DanglingLeg_ref_x"
+);
+test_reflected!(
+    test_reflected_danglingleg_y,
+    DanglingLeg,
+    Mirror::Y,
+    "DanglingLeg_ref_y"
+);
+test_reflected!(
+    test_reflected_danglingleg_diag,
+    DanglingLeg,
+    Mirror::Diag,
+    "DanglingLeg_ref_diag"
+);
+test_reflected!(
+    test_reflected_danglingleg_offdiag,
+    DanglingLeg,
+    Mirror::OffDiag,
+    "DanglingLeg_ref_offdiag"
+);

@@ -103,7 +103,11 @@ fn test_mapping_preserves_vertex_count() {
 
     let vertices: Vec<usize> = result.lines.iter().map(|l| l.vertex).collect();
     for v in 0..5 {
-        assert!(vertices.contains(&v), "Vertex {} not found in copy lines", v);
+        assert!(
+            vertices.contains(&v),
+            "Vertex {} not found in copy lines",
+            v
+        );
     }
 }
 
@@ -329,11 +333,26 @@ fn test_mis_overhead_tutte() {
 fn test_map_config_back_standard_graphs() {
     // All standard graphs from smallgraph (excluding tutte which is tested separately)
     let graph_names = [
-        "bull", "chvatal", "cubical", "desargues", "diamond",
-        "dodecahedral", "frucht", "heawood", "house", "housex",
-        "icosahedral", "krackhardtkite", "moebiuskantor", "octahedral",
-        "pappus", "petersen", "sedgewickmaze", "tetrahedral",
-        "truncatedcube", "truncatedtetrahedron",
+        "bull",
+        "chvatal",
+        "cubical",
+        "desargues",
+        "diamond",
+        "dodecahedral",
+        "frucht",
+        "heawood",
+        "house",
+        "housex",
+        "icosahedral",
+        "krackhardtkite",
+        "moebiuskantor",
+        "octahedral",
+        "pappus",
+        "petersen",
+        "sedgewickmaze",
+        "tetrahedral",
+        "truncatedcube",
+        "truncatedtetrahedron",
     ];
 
     for name in graph_names {

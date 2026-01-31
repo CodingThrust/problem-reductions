@@ -36,10 +36,18 @@ impl HyperGraph {
     pub fn new(num_vertices: usize, edges: Vec<Vec<usize>>) -> Self {
         for edge in &edges {
             for &v in edge {
-                assert!(v < num_vertices, "vertex index {} out of bounds (max {})", v, num_vertices - 1);
+                assert!(
+                    v < num_vertices,
+                    "vertex index {} out of bounds (max {})",
+                    v,
+                    num_vertices - 1
+                );
             }
         }
-        Self { num_vertices, edges }
+        Self {
+            num_vertices,
+            edges,
+        }
     }
 
     /// Create an empty hypergraph with no edges.
@@ -134,12 +142,7 @@ impl HyperGraph {
         if !self.is_regular_graph() {
             return None;
         }
-        Some(
-            self.edges
-                .iter()
-                .map(|e| (e[0], e[1]))
-                .collect()
-        )
+        Some(self.edges.iter().map(|e| (e[0], e[1])).collect())
     }
 }
 

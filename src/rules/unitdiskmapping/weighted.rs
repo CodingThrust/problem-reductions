@@ -1,6 +1,6 @@
 //! Weighted gadget support for triangular lattice mapping.
 
-use super::map_graph::MappingResult;
+use super::ksg::MappingResult;
 use super::triangular::{
     TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown, TriTConLeft,
     TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
@@ -65,28 +65,44 @@ impl Weightable for TriBranch {
 impl Weightable for TriCross<true> {
     fn weighted(self) -> WeightedGadget<Self> {
         use super::triangular::TriangularGadget;
-        WeightedGadget::new(self, TriCross::<true>.source_weights(), TriCross::<true>.mapped_weights())
+        WeightedGadget::new(
+            self,
+            TriCross::<true>.source_weights(),
+            TriCross::<true>.mapped_weights(),
+        )
     }
 }
 
 impl Weightable for TriCross<false> {
     fn weighted(self) -> WeightedGadget<Self> {
         use super::triangular::TriangularGadget;
-        WeightedGadget::new(self, TriCross::<false>.source_weights(), TriCross::<false>.mapped_weights())
+        WeightedGadget::new(
+            self,
+            TriCross::<false>.source_weights(),
+            TriCross::<false>.mapped_weights(),
+        )
     }
 }
 
 impl Weightable for TriTConLeft {
     fn weighted(self) -> WeightedGadget<Self> {
         use super::triangular::TriangularGadget;
-        WeightedGadget::new(self, TriTConLeft.source_weights(), TriTConLeft.mapped_weights())
+        WeightedGadget::new(
+            self,
+            TriTConLeft.source_weights(),
+            TriTConLeft.mapped_weights(),
+        )
     }
 }
 
 impl Weightable for TriTConDown {
     fn weighted(self) -> WeightedGadget<Self> {
         use super::triangular::TriangularGadget;
-        WeightedGadget::new(self, TriTConDown.source_weights(), TriTConDown.mapped_weights())
+        WeightedGadget::new(
+            self,
+            TriTConDown.source_weights(),
+            TriTConDown.mapped_weights(),
+        )
     }
 }
 
@@ -100,21 +116,33 @@ impl Weightable for TriTConUp {
 impl Weightable for TriTrivialTurnLeft {
     fn weighted(self) -> WeightedGadget<Self> {
         use super::triangular::TriangularGadget;
-        WeightedGadget::new(self, TriTrivialTurnLeft.source_weights(), TriTrivialTurnLeft.mapped_weights())
+        WeightedGadget::new(
+            self,
+            TriTrivialTurnLeft.source_weights(),
+            TriTrivialTurnLeft.mapped_weights(),
+        )
     }
 }
 
 impl Weightable for TriTrivialTurnRight {
     fn weighted(self) -> WeightedGadget<Self> {
         use super::triangular::TriangularGadget;
-        WeightedGadget::new(self, TriTrivialTurnRight.source_weights(), TriTrivialTurnRight.mapped_weights())
+        WeightedGadget::new(
+            self,
+            TriTrivialTurnRight.source_weights(),
+            TriTrivialTurnRight.mapped_weights(),
+        )
     }
 }
 
 impl Weightable for TriEndTurn {
     fn weighted(self) -> WeightedGadget<Self> {
         use super::triangular::TriangularGadget;
-        WeightedGadget::new(self, TriEndTurn.source_weights(), TriEndTurn.mapped_weights())
+        WeightedGadget::new(
+            self,
+            TriEndTurn.source_weights(),
+            TriEndTurn.mapped_weights(),
+        )
     }
 }
 
@@ -128,14 +156,22 @@ impl Weightable for TriWTurn {
 impl Weightable for TriBranchFix {
     fn weighted(self) -> WeightedGadget<Self> {
         use super::triangular::TriangularGadget;
-        WeightedGadget::new(self, TriBranchFix.source_weights(), TriBranchFix.mapped_weights())
+        WeightedGadget::new(
+            self,
+            TriBranchFix.source_weights(),
+            TriBranchFix.mapped_weights(),
+        )
     }
 }
 
 impl Weightable for TriBranchFixB {
     fn weighted(self) -> WeightedGadget<Self> {
         use super::triangular::TriangularGadget;
-        WeightedGadget::new(self, TriBranchFixB.source_weights(), TriBranchFixB.mapped_weights())
+        WeightedGadget::new(
+            self,
+            TriBranchFixB.source_weights(),
+            TriBranchFixB.mapped_weights(),
+        )
     }
 }
 
@@ -248,8 +284,8 @@ pub fn trace_centers(result: &MappingResult) -> Vec<(usize, usize)> {
     fn get_gadget_size(gadget_idx: usize) -> (usize, usize) {
         use super::triangular::TriangularGadget;
         use super::triangular::{
-            TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown,
-            TriTConLeft, TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
+            TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown, TriTConLeft,
+            TriTConUp, TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn,
         };
         match gadget_idx {
             0 => TriCross::<false>.size(),
@@ -350,12 +386,12 @@ fn move_center_for_gadget(
     //                   TriBranchFixB->(3,2), TriWTurn->(2,3), TriEndTurn->(1,2)
     let (source_center, mapped_center) = match gadget_idx {
         // Triangular crossing gadgets - all have cross_location=(2,2), source=(2,3)
-        7 => ((2, 3), (1, 2)),   // TriEndTurn
-        8 => ((2, 3), (1, 2)),   // TriTurn
-        9 => ((2, 3), (2, 3)),   // TriWTurn (center stays same)
-        10 => ((2, 3), (3, 2)),  // TriBranchFix
-        11 => ((2, 3), (3, 2)),  // TriBranchFixB
-        12 => ((2, 3), (1, 2)),  // TriBranch
+        7 => ((2, 3), (1, 2)),  // TriEndTurn
+        8 => ((2, 3), (1, 2)),  // TriTurn
+        9 => ((2, 3), (2, 3)),  // TriWTurn (center stays same)
+        10 => ((2, 3), (3, 2)), // TriBranchFix
+        11 => ((2, 3), (3, 2)), // TriBranchFixB
+        12 => ((2, 3), (1, 2)), // TriBranch
 
         // Simplifier gadgets: DanglingLeg rotations (from simplifiers.jl:107-108)
         // Base DanglingLeg: source_centers=[(2,2)], mapped_centers=[(4,2)]

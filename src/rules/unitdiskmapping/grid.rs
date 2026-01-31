@@ -8,9 +8,15 @@ use std::fmt;
 pub enum CellState {
     #[default]
     Empty,
-    Occupied { weight: i32 },
-    Doubled { weight: i32 },
-    Connected { weight: i32 },
+    Occupied {
+        weight: i32,
+    },
+    Doubled {
+        weight: i32,
+    },
+    Connected {
+        weight: i32,
+    },
 }
 
 impl CellState {
@@ -348,33 +354,21 @@ mod tests {
     fn test_mapping_grid_add_node_doubled() {
         let mut grid = MappingGrid::new(10, 10, 4);
         grid.add_node(2, 3, 5);
-        assert_eq!(
-            grid.get(2, 3),
-            Some(&CellState::Occupied { weight: 5 })
-        );
+        assert_eq!(grid.get(2, 3), Some(&CellState::Occupied { weight: 5 }));
         // Julia requires weights to match when doubling:
         // @assert m[i,j].weight == node.weight
         // Result keeps the same weight (not summed)
         grid.add_node(2, 3, 5);
-        assert_eq!(
-            grid.get(2, 3),
-            Some(&CellState::Doubled { weight: 5 })
-        );
+        assert_eq!(grid.get(2, 3), Some(&CellState::Doubled { weight: 5 }));
     }
 
     #[test]
     fn test_mapping_grid_connect() {
         let mut grid = MappingGrid::new(10, 10, 4);
         grid.add_node(3, 4, 7);
-        assert_eq!(
-            grid.get(3, 4),
-            Some(&CellState::Occupied { weight: 7 })
-        );
+        assert_eq!(grid.get(3, 4), Some(&CellState::Occupied { weight: 7 }));
         grid.connect(3, 4);
-        assert_eq!(
-            grid.get(3, 4),
-            Some(&CellState::Connected { weight: 7 })
-        );
+        assert_eq!(grid.get(3, 4), Some(&CellState::Connected { weight: 7 }));
     }
 
     #[test]

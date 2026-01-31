@@ -127,12 +127,7 @@ fn vsep_and_neighbors(
 /// Compute the updated vsep if vertex v is added to the layout.
 ///
 /// This is an efficient incremental computation that doesn't create a new layout.
-fn vsep_updated(
-    num_vertices: usize,
-    edges: &[(usize, usize)],
-    layout: &Layout,
-    v: usize,
-) -> usize {
+fn vsep_updated(num_vertices: usize, edges: &[(usize, usize)], layout: &Layout, v: usize) -> usize {
     // Build adjacency list
     let mut adj: Vec<HashSet<usize>> = vec![HashSet::new(); num_vertices];
     for &(u, w) in edges {
@@ -373,7 +368,13 @@ fn branch_and_bound_internal(
             for (_, v) in vsep_order {
                 if vsep_updated(num_vertices, edges, &p2, v) < best.vsep() {
                     let extended = extend(num_vertices, edges, &p2, v);
-                    let l3 = branch_and_bound_internal(num_vertices, edges, extended, best.clone(), visited);
+                    let l3 = branch_and_bound_internal(
+                        num_vertices,
+                        edges,
+                        extended,
+                        best.clone(),
+                        visited,
+                    );
                     if l3.vsep() < best.vsep() {
                         best = l3;
                     }
@@ -381,7 +382,10 @@ fn branch_and_bound_internal(
             }
 
             // Update visited table
-            visited.insert(p.vertices.clone(), !(best.vsep() < current && p.vsep() == best.vsep()));
+            visited.insert(
+                p.vertices.clone(),
+                !(best.vsep() < current && p.vsep() == best.vsep()),
+            );
         }
     }
 
@@ -588,9 +592,21 @@ mod tests {
     fn test_petersen_graph_pathwidth() {
         // Petersen graph edges
         let edges = vec![
-            (0, 1), (1, 2), (2, 3), (3, 4), (4, 0), // outer pentagon
-            (5, 7), (7, 9), (9, 6), (6, 8), (8, 5), // inner star
-            (0, 5), (1, 6), (2, 7), (3, 8), (4, 9), // connections
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 4),
+            (4, 0), // outer pentagon
+            (5, 7),
+            (7, 9),
+            (9, 6),
+            (6, 8),
+            (8, 5), // inner star
+            (0, 5),
+            (1, 6),
+            (2, 7),
+            (3, 8),
+            (4, 9), // connections
         ];
 
         let layout = pathwidth(10, &edges, PathDecompositionMethod::MinhThiTrick);

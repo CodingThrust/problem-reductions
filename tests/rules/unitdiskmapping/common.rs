@@ -1,6 +1,6 @@
 //! Common test utilities for mapping tests.
 
-use problemreductions::models::optimization::{ILP, LinearConstraint, ObjectiveSense};
+use problemreductions::models::optimization::{LinearConstraint, ObjectiveSense, ILP};
 use problemreductions::models::IndependentSet;
 use problemreductions::rules::unitdiskmapping::MappingResult;
 use problemreductions::rules::{ReduceTo, ReductionResult};
@@ -36,7 +36,10 @@ pub fn solve_mis_config(num_vertices: usize, edges: &[(usize, usize)]) -> Vec<us
     let reduction = <IndependentSet<i32> as ReduceTo<ILP>>::reduce_to(&problem);
     let solver = ILPSolver::new();
     if let Some(solution) = solver.solve(reduction.target_problem()) {
-        solution.iter().map(|&x| if x > 0 { 1 } else { 0 }).collect()
+        solution
+            .iter()
+            .map(|&x| if x > 0 { 1 } else { 0 })
+            .collect()
     } else {
         vec![0; num_vertices]
     }
@@ -77,7 +80,12 @@ pub fn solve_weighted_mis(num_vertices: usize, edges: &[(usize, usize)], weights
         .map(|(i, &w)| (i, w as f64))
         .collect();
 
-    let ilp = ILP::binary(num_vertices, constraints, objective, ObjectiveSense::Maximize);
+    let ilp = ILP::binary(
+        num_vertices,
+        constraints,
+        objective,
+        ObjectiveSense::Maximize,
+    );
 
     let solver = ILPSolver::new();
     if let Some(solution) = solver.solve(&ilp) {
@@ -109,11 +117,19 @@ pub fn solve_weighted_mis_config(
         .map(|(i, &w)| (i, w as f64))
         .collect();
 
-    let ilp = ILP::binary(num_vertices, constraints, objective, ObjectiveSense::Maximize);
+    let ilp = ILP::binary(
+        num_vertices,
+        constraints,
+        objective,
+        ObjectiveSense::Maximize,
+    );
 
     let solver = ILPSolver::new();
     if let Some(solution) = solver.solve(&ilp) {
-        solution.iter().map(|&x| if x > 0 { 1 } else { 0 }).collect()
+        solution
+            .iter()
+            .map(|&x| if x > 0 { 1 } else { 0 })
+            .collect()
     } else {
         vec![0; num_vertices]
     }

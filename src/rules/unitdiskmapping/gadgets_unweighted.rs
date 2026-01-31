@@ -4,7 +4,10 @@
 //! unweighted mapping: Cross, Turn, WTurn, Branch, BranchFix, TCon, TrivialTurn,
 //! EndTurn, BranchFixB, DanglingLeg, and their rotated/reflected variants.
 
-use super::gadgets::{apply_gadget, apply_weighted_gadget, map_config_back_pattern, pattern_matches, Pattern, PatternCell};
+use super::gadgets::{
+    apply_gadget, apply_weighted_gadget, map_config_back_pattern, pattern_matches, Pattern,
+    PatternCell,
+};
 use super::grid::{CellState, MappingGrid};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -60,9 +63,22 @@ impl Pattern for Cross<true> {
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [
-            (5, 5), (12, 12), (8, 0), (1, 0), (0, 0), (6, 6), (11, 11),
-            (9, 9), (14, 14), (3, 3), (7, 7), (4, 0), (13, 13), (15, 15),
-            (2, 0), (10, 10),
+            (5, 5),
+            (12, 12),
+            (8, 0),
+            (1, 0),
+            (0, 0),
+            (6, 6),
+            (11, 11),
+            (9, 9),
+            (14, 14),
+            (3, 3),
+            (7, 7),
+            (4, 0),
+            (13, 13),
+            (15, 15),
+            (2, 0),
+            (10, 10),
         ]
         .into_iter()
         .collect()
@@ -109,8 +125,15 @@ impl Pattern for Cross<false> {
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         let locs = vec![
-            (2, 1), (2, 2), (2, 3), (2, 4), (2, 5),
-            (1, 3), (2, 3), (3, 3), (4, 3),
+            (2, 1),
+            (2, 2),
+            (2, 3),
+            (2, 4),
+            (2, 5),
+            (1, 3),
+            (2, 3),
+            (3, 3),
+            (4, 3),
         ];
         let edges = vec![(0, 1), (1, 2), (2, 3), (3, 4), (5, 6), (6, 7), (7, 8)];
         let pins = vec![0, 5, 8, 4];
@@ -119,8 +142,16 @@ impl Pattern for Cross<false> {
 
     fn mapped_graph(&self) -> (Vec<(usize, usize)>, Vec<usize>) {
         let locs = vec![
-            (2, 1), (2, 2), (2, 3), (2, 4), (2, 5),
-            (1, 3), (3, 3), (4, 3), (3, 2), (3, 4),
+            (2, 1),
+            (2, 2),
+            (2, 3),
+            (2, 4),
+            (2, 5),
+            (1, 3),
+            (3, 3),
+            (4, 3),
+            (3, 2),
+            (3, 4),
         ];
         let pins = vec![0, 5, 7, 4];
         (locs, pins)
@@ -132,9 +163,22 @@ impl Pattern for Cross<false> {
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [
-            (5, 4), (12, 4), (8, 0), (1, 0), (0, 0), (6, 0), (11, 11),
-            (9, 9), (14, 2), (3, 2), (7, 2), (4, 4), (13, 13), (15, 11),
-            (2, 2), (10, 2),
+            (5, 4),
+            (12, 4),
+            (8, 0),
+            (1, 0),
+            (0, 0),
+            (6, 0),
+            (11, 11),
+            (9, 9),
+            (14, 2),
+            (3, 2),
+            (7, 2),
+            (4, 4),
+            (13, 13),
+            (15, 11),
+            (2, 2),
+            (10, 2),
         ]
         .into_iter()
         .collect()
@@ -142,18 +186,44 @@ impl Pattern for Cross<false> {
 
     fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> {
         let mut map = HashMap::new();
-        map.insert(0, vec![
-            vec![false, true, false, true, false, false, false, true, false],
-            vec![false, true, false, true, false, false, true, false, false],
-        ]);
-        map.insert(2, vec![vec![false, true, false, true, false, true, false, true, false]]);
-        map.insert(4, vec![vec![false, true, false, true, false, false, true, false, true]]);
-        map.insert(9, vec![
-            vec![true, false, true, false, true, false, false, true, false],
-            vec![true, false, true, false, true, false, true, false, false],
-        ]);
-        map.insert(11, vec![vec![true, false, true, false, true, true, false, true, false]]);
-        map.insert(13, vec![vec![true, false, true, false, true, false, true, false, true]]);
+        map.insert(
+            0,
+            vec![
+                vec![false, true, false, true, false, false, false, true, false],
+                vec![false, true, false, true, false, false, true, false, false],
+            ],
+        );
+        map.insert(
+            2,
+            vec![vec![
+                false, true, false, true, false, true, false, true, false,
+            ]],
+        );
+        map.insert(
+            4,
+            vec![vec![
+                false, true, false, true, false, false, true, false, true,
+            ]],
+        );
+        map.insert(
+            9,
+            vec![
+                vec![true, false, true, false, true, false, false, true, false],
+                vec![true, false, true, false, true, false, true, false, false],
+            ],
+        );
+        map.insert(
+            11,
+            vec![vec![
+                true, false, true, false, true, true, false, true, false,
+            ]],
+        );
+        map.insert(
+            13,
+            vec![vec![
+                true, false, true, false, true, false, true, false, true,
+            ]],
+        );
         for i in [1, 3, 5, 6, 7, 8, 10, 12, 14, 15] {
             map.entry(i).or_insert_with(Vec::new);
         }
@@ -166,9 +236,15 @@ impl Pattern for Cross<false> {
 pub struct Turn;
 
 impl Pattern for Turn {
-    fn size(&self) -> (usize, usize) { (4, 4) }
-    fn cross_location(&self) -> (usize, usize) { (3, 2) }
-    fn is_connected(&self) -> bool { false }
+    fn size(&self) -> (usize, usize) {
+        (4, 4)
+    }
+    fn cross_location(&self) -> (usize, usize) {
+        (3, 2)
+    }
+    fn is_connected(&self) -> bool {
+        false
+    }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         let locs = vec![(1, 2), (2, 2), (3, 2), (3, 3), (3, 4)];
@@ -183,7 +259,9 @@ impl Pattern for Turn {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 { -1 }
+    fn mis_overhead(&self) -> i32 {
+        -1
+    }
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [(0, 0), (2, 0), (3, 3), (1, 0)].into_iter().collect()
@@ -192,14 +270,20 @@ impl Pattern for Turn {
     fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> {
         let mut map = HashMap::new();
         map.insert(0, vec![vec![false, true, false, true, false]]);
-        map.insert(1, vec![
-            vec![true, false, true, false, false],
-            vec![true, false, false, true, false],
-        ]);
-        map.insert(2, vec![
-            vec![false, true, false, false, true],
-            vec![false, false, true, false, true],
-        ]);
+        map.insert(
+            1,
+            vec![
+                vec![true, false, true, false, false],
+                vec![true, false, false, true, false],
+            ],
+        );
+        map.insert(
+            2,
+            vec![
+                vec![false, true, false, false, true],
+                vec![false, false, true, false, true],
+            ],
+        );
         map.insert(3, vec![vec![true, false, true, false, true]]);
         map
     }
@@ -210,9 +294,15 @@ impl Pattern for Turn {
 pub struct WTurn;
 
 impl Pattern for WTurn {
-    fn size(&self) -> (usize, usize) { (4, 4) }
-    fn cross_location(&self) -> (usize, usize) { (2, 2) }
-    fn is_connected(&self) -> bool { false }
+    fn size(&self) -> (usize, usize) {
+        (4, 4)
+    }
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+    fn is_connected(&self) -> bool {
+        false
+    }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         let locs = vec![(2, 3), (2, 4), (3, 2), (3, 3), (4, 2)];
@@ -227,7 +317,9 @@ impl Pattern for WTurn {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 { -1 }
+    fn mis_overhead(&self) -> i32 {
+        -1
+    }
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [(0, 0), (2, 0), (3, 3), (1, 0)].into_iter().collect()
@@ -236,14 +328,20 @@ impl Pattern for WTurn {
     fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> {
         let mut map = HashMap::new();
         map.insert(0, vec![vec![true, false, true, false, false]]);
-        map.insert(1, vec![
-            vec![false, true, false, true, false],
-            vec![false, true, true, false, false],
-        ]);
-        map.insert(2, vec![
-            vec![false, false, false, true, true],
-            vec![true, false, false, false, true],
-        ]);
+        map.insert(
+            1,
+            vec![
+                vec![false, true, false, true, false],
+                vec![false, true, true, false, false],
+            ],
+        );
+        map.insert(
+            2,
+            vec![
+                vec![false, false, false, true, true],
+                vec![true, false, false, false, true],
+            ],
+        );
         map.insert(3, vec![vec![false, true, false, true, true]]);
         map
     }
@@ -254,13 +352,26 @@ impl Pattern for WTurn {
 pub struct Branch;
 
 impl Pattern for Branch {
-    fn size(&self) -> (usize, usize) { (5, 4) }
-    fn cross_location(&self) -> (usize, usize) { (3, 2) }
-    fn is_connected(&self) -> bool { false }
+    fn size(&self) -> (usize, usize) {
+        (5, 4)
+    }
+    fn cross_location(&self) -> (usize, usize) {
+        (3, 2)
+    }
+    fn is_connected(&self) -> bool {
+        false
+    }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         let locs = vec![
-            (1, 2), (2, 2), (3, 2), (3, 3), (3, 4), (4, 3), (4, 2), (5, 2),
+            (1, 2),
+            (2, 2),
+            (3, 2),
+            (3, 3),
+            (3, 4),
+            (4, 3),
+            (4, 2),
+            (5, 2),
         ];
         let edges = vec![(0, 1), (1, 2), (2, 3), (3, 4), (3, 5), (5, 6), (6, 7)];
         let pins = vec![0, 4, 7];
@@ -273,16 +384,29 @@ impl Pattern for Branch {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 { -1 }
+    fn mis_overhead(&self) -> i32 {
+        -1
+    }
 
     // Julia: sw[[4]] .= 3 (node 4 = 0-indexed 3 has weight 3)
-    fn source_weights(&self) -> Vec<i32> { vec![2, 2, 2, 3, 2, 2, 2, 2] }
+    fn source_weights(&self) -> Vec<i32> {
+        vec![2, 2, 2, 3, 2, 2, 2, 2]
+    }
     // Julia: mw[[2]] .= 3 (mapped node 2 = 0-indexed 1 has weight 3)
-    fn mapped_weights(&self) -> Vec<i32> { vec![2, 3, 2, 2, 2, 2] }
+    fn mapped_weights(&self) -> Vec<i32> {
+        vec![2, 3, 2, 2, 2, 2]
+    }
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [
-            (0, 0), (4, 0), (5, 5), (6, 6), (2, 0), (7, 7), (3, 3), (1, 0),
+            (0, 0),
+            (4, 0),
+            (5, 5),
+            (6, 6),
+            (2, 0),
+            (7, 7),
+            (3, 3),
+            (1, 0),
         ]
         .into_iter()
         .collect()
@@ -290,17 +414,32 @@ impl Pattern for Branch {
 
     fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> {
         let mut map = HashMap::new();
-        map.insert(0, vec![vec![false, true, false, true, false, false, true, false]]);
-        map.insert(3, vec![
-            vec![true, false, true, false, true, false, true, false],
-            vec![true, false, true, false, true, true, false, false],
-        ]);
-        map.insert(5, vec![vec![true, false, true, false, false, true, false, true]]);
-        map.insert(6, vec![
-            vec![false, false, true, false, true, true, false, true],
-            vec![false, true, false, false, true, true, false, true],
-        ]);
-        map.insert(7, vec![vec![true, false, true, false, true, true, false, true]]);
+        map.insert(
+            0,
+            vec![vec![false, true, false, true, false, false, true, false]],
+        );
+        map.insert(
+            3,
+            vec![
+                vec![true, false, true, false, true, false, true, false],
+                vec![true, false, true, false, true, true, false, false],
+            ],
+        );
+        map.insert(
+            5,
+            vec![vec![true, false, true, false, false, true, false, true]],
+        );
+        map.insert(
+            6,
+            vec![
+                vec![false, false, true, false, true, true, false, true],
+                vec![false, true, false, false, true, true, false, true],
+            ],
+        );
+        map.insert(
+            7,
+            vec![vec![true, false, true, false, true, true, false, true]],
+        );
         for i in [1, 2, 4] {
             map.insert(i, vec![]);
         }
@@ -313,9 +452,15 @@ impl Pattern for Branch {
 pub struct BranchFix;
 
 impl Pattern for BranchFix {
-    fn size(&self) -> (usize, usize) { (4, 4) }
-    fn cross_location(&self) -> (usize, usize) { (2, 2) }
-    fn is_connected(&self) -> bool { false }
+    fn size(&self) -> (usize, usize) {
+        (4, 4)
+    }
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+    fn is_connected(&self) -> bool {
+        false
+    }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         let locs = vec![(1, 2), (2, 2), (2, 3), (3, 3), (3, 2), (4, 2)];
@@ -330,7 +475,9 @@ impl Pattern for BranchFix {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 { -1 }
+    fn mis_overhead(&self) -> i32 {
+        -1
+    }
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [(0, 0), (2, 2), (3, 1), (1, 1)].into_iter().collect()
@@ -338,17 +485,23 @@ impl Pattern for BranchFix {
 
     fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> {
         let mut map = HashMap::new();
-        map.insert(0, vec![
-            vec![false, true, false, true, false, false],
-            vec![false, true, false, false, true, false],
-            vec![false, false, true, false, true, false],
-        ]);
+        map.insert(
+            0,
+            vec![
+                vec![false, true, false, true, false, false],
+                vec![false, true, false, false, true, false],
+                vec![false, false, true, false, true, false],
+            ],
+        );
         map.insert(1, vec![vec![true, false, true, false, true, false]]);
         map.insert(2, vec![vec![false, true, false, true, false, true]]);
-        map.insert(3, vec![
-            vec![true, false, false, true, false, true],
-            vec![true, false, true, false, false, true],
-        ]);
+        map.insert(
+            3,
+            vec![
+                vec![true, false, false, true, false, true],
+                vec![true, false, true, false, false, true],
+            ],
+        );
         map
     }
 }
@@ -358,10 +511,18 @@ impl Pattern for BranchFix {
 pub struct TCon;
 
 impl Pattern for TCon {
-    fn size(&self) -> (usize, usize) { (3, 4) }
-    fn cross_location(&self) -> (usize, usize) { (2, 2) }
-    fn is_connected(&self) -> bool { true }
-    fn connected_nodes(&self) -> Vec<usize> { vec![0, 1] }
+    fn size(&self) -> (usize, usize) {
+        (3, 4)
+    }
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+    fn is_connected(&self) -> bool {
+        true
+    }
+    fn connected_nodes(&self) -> Vec<usize> {
+        vec![0, 1]
+    }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         let locs = vec![(1, 2), (2, 1), (2, 2), (3, 2)];
@@ -376,16 +537,29 @@ impl Pattern for TCon {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 { 0 }
+    fn mis_overhead(&self) -> i32 {
+        0
+    }
 
     // Julia: sw[[2]] .= 1 (node 2 = 0-indexed 1 has weight 1)
-    fn source_weights(&self) -> Vec<i32> { vec![2, 1, 2, 2] }
+    fn source_weights(&self) -> Vec<i32> {
+        vec![2, 1, 2, 2]
+    }
     // Julia: mw[[2]] .= 1 (mapped node 2 = 0-indexed 1 has weight 1)
-    fn mapped_weights(&self) -> Vec<i32> { vec![2, 1, 2, 2] }
+    fn mapped_weights(&self) -> Vec<i32> {
+        vec![2, 1, 2, 2]
+    }
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [
-            (0, 0), (4, 0), (5, 5), (6, 6), (2, 2), (7, 7), (3, 3), (1, 0),
+            (0, 0),
+            (4, 0),
+            (5, 5),
+            (6, 6),
+            (2, 2),
+            (7, 7),
+            (3, 3),
+            (1, 0),
         ]
         .into_iter()
         .collect()
@@ -410,10 +584,18 @@ impl Pattern for TCon {
 pub struct TrivialTurn;
 
 impl Pattern for TrivialTurn {
-    fn size(&self) -> (usize, usize) { (2, 2) }
-    fn cross_location(&self) -> (usize, usize) { (2, 2) }
-    fn is_connected(&self) -> bool { true }
-    fn connected_nodes(&self) -> Vec<usize> { vec![0, 1] }
+    fn size(&self) -> (usize, usize) {
+        (2, 2)
+    }
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+    fn is_connected(&self) -> bool {
+        true
+    }
+    fn connected_nodes(&self) -> Vec<usize> {
+        vec![0, 1]
+    }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         let locs = vec![(1, 2), (2, 1)];
@@ -428,12 +610,18 @@ impl Pattern for TrivialTurn {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 { 0 }
+    fn mis_overhead(&self) -> i32 {
+        0
+    }
 
     // Julia: sw[[1,2]] .= 1 (nodes 1,2 have weight 1)
-    fn source_weights(&self) -> Vec<i32> { vec![1, 1] }
+    fn source_weights(&self) -> Vec<i32> {
+        vec![1, 1]
+    }
     // Julia: mw[[1,2]] .= 1 (mapped nodes 1,2 have weight 1)
-    fn mapped_weights(&self) -> Vec<i32> { vec![1, 1] }
+    fn mapped_weights(&self) -> Vec<i32> {
+        vec![1, 1]
+    }
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [(0, 0), (2, 2), (3, 3), (1, 1)].into_iter().collect()
@@ -454,9 +642,15 @@ impl Pattern for TrivialTurn {
 pub struct EndTurn;
 
 impl Pattern for EndTurn {
-    fn size(&self) -> (usize, usize) { (3, 4) }
-    fn cross_location(&self) -> (usize, usize) { (2, 2) }
-    fn is_connected(&self) -> bool { false }
+    fn size(&self) -> (usize, usize) {
+        (3, 4)
+    }
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+    fn is_connected(&self) -> bool {
+        false
+    }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         let locs = vec![(1, 2), (2, 2), (2, 3)];
@@ -471,12 +665,18 @@ impl Pattern for EndTurn {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 { -1 }
+    fn mis_overhead(&self) -> i32 {
+        -1
+    }
 
     // Julia: sw[[3]] .= 1 (node 3 = 0-indexed 2 has weight 1)
-    fn source_weights(&self) -> Vec<i32> { vec![2, 2, 1] }
+    fn source_weights(&self) -> Vec<i32> {
+        vec![2, 2, 1]
+    }
     // Julia: mw[[1]] .= 1 (mapped node 1 = 0-indexed 0 has weight 1)
-    fn mapped_weights(&self) -> Vec<i32> { vec![1] }
+    fn mapped_weights(&self) -> Vec<i32> {
+        vec![1]
+    }
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [(0, 0), (1, 1)].into_iter().collect()
@@ -495,9 +695,15 @@ impl Pattern for EndTurn {
 pub struct BranchFixB;
 
 impl Pattern for BranchFixB {
-    fn size(&self) -> (usize, usize) { (4, 4) }
-    fn cross_location(&self) -> (usize, usize) { (2, 2) }
-    fn is_connected(&self) -> bool { false }
+    fn size(&self) -> (usize, usize) {
+        (4, 4)
+    }
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 2)
+    }
+    fn is_connected(&self) -> bool {
+        false
+    }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         let locs = vec![(2, 3), (3, 2), (3, 3), (4, 2)];
@@ -512,12 +718,18 @@ impl Pattern for BranchFixB {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 { -1 }
+    fn mis_overhead(&self) -> i32 {
+        -1
+    }
 
     // Julia: sw[[1]] .= 1 (node 1 = 0-indexed 0 has weight 1)
-    fn source_weights(&self) -> Vec<i32> { vec![1, 2, 2, 2] }
+    fn source_weights(&self) -> Vec<i32> {
+        vec![1, 2, 2, 2]
+    }
     // Julia: mw[[1]] .= 1 (mapped node 1 = 0-indexed 0 has weight 1)
-    fn mapped_weights(&self) -> Vec<i32> { vec![1, 2] }
+    fn mapped_weights(&self) -> Vec<i32> {
+        vec![1, 2]
+    }
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         [(0, 0), (2, 2), (3, 3), (1, 1)].into_iter().collect()
@@ -525,7 +737,13 @@ impl Pattern for BranchFixB {
 
     fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> {
         let mut map = HashMap::new();
-        map.insert(0, vec![vec![false, false, true, false], vec![false, true, false, false]]);
+        map.insert(
+            0,
+            vec![
+                vec![false, false, true, false],
+                vec![false, true, false, false],
+            ],
+        );
         map.insert(1, vec![vec![true, true, false, false]]);
         map.insert(2, vec![vec![false, false, true, true]]);
         map.insert(3, vec![vec![true, false, false, true]]);
@@ -569,7 +787,11 @@ fn rotate_around_center(loc: (usize, usize), center: (usize, usize), n: usize) -
 impl<G: Pattern> Pattern for RotatedGadget<G> {
     fn size(&self) -> (usize, usize) {
         let (m, n) = self.gadget.size();
-        if self.n % 2 == 0 { (m, n) } else { (n, m) }
+        if self.n % 2 == 0 {
+            (m, n)
+        } else {
+            (n, m)
+        }
     }
 
     fn cross_location(&self) -> (usize, usize) {
@@ -585,12 +807,21 @@ impl<G: Pattern> Pattern for RotatedGadget<G> {
         let min_c = rotated_corners.iter().map(|c| c.1).min().unwrap();
         let offset_r = 1 - min_r;
         let offset_c = 1 - min_c;
-        ((rotated.0 + offset_r) as usize, (rotated.1 + offset_c) as usize)
+        (
+            (rotated.0 + offset_r) as usize,
+            (rotated.1 + offset_c) as usize,
+        )
     }
 
-    fn is_connected(&self) -> bool { self.gadget.is_connected() }
-    fn is_cross_gadget(&self) -> bool { self.gadget.is_cross_gadget() }
-    fn connected_nodes(&self) -> Vec<usize> { self.gadget.connected_nodes() }
+    fn is_connected(&self) -> bool {
+        self.gadget.is_connected()
+    }
+    fn is_cross_gadget(&self) -> bool {
+        self.gadget.is_cross_gadget()
+    }
+    fn connected_nodes(&self) -> Vec<usize> {
+        self.gadget.connected_nodes()
+    }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         let (locs, edges, pins) = self.gadget.source_graph();
@@ -609,7 +840,10 @@ impl<G: Pattern> Pattern for RotatedGadget<G> {
             .into_iter()
             .map(|loc| {
                 let rotated = rotate_around_center(loc, center, self.n);
-                ((rotated.0 + offset_r) as usize, (rotated.1 + offset_c) as usize)
+                (
+                    (rotated.0 + offset_r) as usize,
+                    (rotated.1 + offset_c) as usize,
+                )
             })
             .collect();
         (new_locs, edges, pins)
@@ -632,19 +866,32 @@ impl<G: Pattern> Pattern for RotatedGadget<G> {
             .into_iter()
             .map(|loc| {
                 let rotated = rotate_around_center(loc, center, self.n);
-                ((rotated.0 + offset_r) as usize, (rotated.1 + offset_c) as usize)
+                (
+                    (rotated.0 + offset_r) as usize,
+                    (rotated.1 + offset_c) as usize,
+                )
             })
             .collect();
         (new_locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 { self.gadget.mis_overhead() }
-    fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> { self.gadget.mapped_entry_to_compact() }
-    fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> { self.gadget.source_entry_to_configs() }
+    fn mis_overhead(&self) -> i32 {
+        self.gadget.mis_overhead()
+    }
+    fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
+        self.gadget.mapped_entry_to_compact()
+    }
+    fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> {
+        self.gadget.source_entry_to_configs()
+    }
 
     // Weights don't change with rotation - delegate to inner gadget
-    fn source_weights(&self) -> Vec<i32> { self.gadget.source_weights() }
-    fn mapped_weights(&self) -> Vec<i32> { self.gadget.mapped_weights() }
+    fn source_weights(&self) -> Vec<i32> {
+        self.gadget.source_weights()
+    }
+    fn mapped_weights(&self) -> Vec<i32> {
+        self.gadget.mapped_weights()
+    }
 }
 
 /// Mirror axis for reflection.
@@ -678,7 +925,11 @@ fn reflect(loc: (i32, i32), mirror: Mirror) -> (i32, i32) {
     }
 }
 
-fn reflect_around_center(loc: (usize, usize), center: (usize, usize), mirror: Mirror) -> (i32, i32) {
+fn reflect_around_center(
+    loc: (usize, usize),
+    center: (usize, usize),
+    mirror: Mirror,
+) -> (i32, i32) {
     let dx = loc.0 as i32 - center.0 as i32;
     let dy = loc.1 as i32 - center.1 as i32;
     let (nx, ny) = reflect((dx, dy), mirror);
@@ -707,12 +958,21 @@ impl<G: Pattern> Pattern for ReflectedGadget<G> {
         let min_c = reflected_corners.iter().map(|c| c.1).min().unwrap();
         let offset_r = 1 - min_r;
         let offset_c = 1 - min_c;
-        ((reflected.0 + offset_r) as usize, (reflected.1 + offset_c) as usize)
+        (
+            (reflected.0 + offset_r) as usize,
+            (reflected.1 + offset_c) as usize,
+        )
     }
 
-    fn is_connected(&self) -> bool { self.gadget.is_connected() }
-    fn is_cross_gadget(&self) -> bool { self.gadget.is_cross_gadget() }
-    fn connected_nodes(&self) -> Vec<usize> { self.gadget.connected_nodes() }
+    fn is_connected(&self) -> bool {
+        self.gadget.is_connected()
+    }
+    fn is_cross_gadget(&self) -> bool {
+        self.gadget.is_cross_gadget()
+    }
+    fn connected_nodes(&self) -> Vec<usize> {
+        self.gadget.connected_nodes()
+    }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         let (locs, edges, pins) = self.gadget.source_graph();
@@ -731,7 +991,10 @@ impl<G: Pattern> Pattern for ReflectedGadget<G> {
             .into_iter()
             .map(|loc| {
                 let reflected = reflect_around_center(loc, center, self.mirror);
-                ((reflected.0 + offset_r) as usize, (reflected.1 + offset_c) as usize)
+                (
+                    (reflected.0 + offset_r) as usize,
+                    (reflected.1 + offset_c) as usize,
+                )
             })
             .collect();
         (new_locs, edges, pins)
@@ -754,19 +1017,32 @@ impl<G: Pattern> Pattern for ReflectedGadget<G> {
             .into_iter()
             .map(|loc| {
                 let reflected = reflect_around_center(loc, center, self.mirror);
-                ((reflected.0 + offset_r) as usize, (reflected.1 + offset_c) as usize)
+                (
+                    (reflected.0 + offset_r) as usize,
+                    (reflected.1 + offset_c) as usize,
+                )
             })
             .collect();
         (new_locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 { self.gadget.mis_overhead() }
-    fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> { self.gadget.mapped_entry_to_compact() }
-    fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> { self.gadget.source_entry_to_configs() }
+    fn mis_overhead(&self) -> i32 {
+        self.gadget.mis_overhead()
+    }
+    fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
+        self.gadget.mapped_entry_to_compact()
+    }
+    fn source_entry_to_configs(&self) -> HashMap<usize, Vec<Vec<bool>>> {
+        self.gadget.source_entry_to_configs()
+    }
 
     // Weights don't change with reflection - delegate to inner gadget
-    fn source_weights(&self) -> Vec<i32> { self.gadget.source_weights() }
-    fn mapped_weights(&self) -> Vec<i32> { self.gadget.mapped_weights() }
+    fn source_weights(&self) -> Vec<i32> {
+        self.gadget.source_weights()
+    }
+    fn mapped_weights(&self) -> Vec<i32> {
+        self.gadget.mapped_weights()
+    }
 }
 
 // ============================================================================
@@ -788,10 +1064,16 @@ impl<G: Pattern> Pattern for ReflectedGadget<G> {
 pub struct DanglingLeg;
 
 impl Pattern for DanglingLeg {
-    fn size(&self) -> (usize, usize) { (4, 3) }
+    fn size(&self) -> (usize, usize) {
+        (4, 3)
+    }
     // Julia: cross_location = size .÷ 2 = (4÷2, 3÷2) = (2, 1)
-    fn cross_location(&self) -> (usize, usize) { (2, 1) }
-    fn is_connected(&self) -> bool { false }
+    fn cross_location(&self) -> (usize, usize) {
+        (2, 1)
+    }
+    fn is_connected(&self) -> bool {
+        false
+    }
 
     fn source_graph(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         // Julia: 3 nodes at (2,2), (3,2), (4,2) - vertical chain in column 2
@@ -809,12 +1091,18 @@ impl Pattern for DanglingLeg {
         (locs, pins)
     }
 
-    fn mis_overhead(&self) -> i32 { -1 }
+    fn mis_overhead(&self) -> i32 {
+        -1
+    }
 
     // Julia: sw[[1]] .= 1 (node 1 = 0-indexed 0 has weight 1)
-    fn source_weights(&self) -> Vec<i32> { vec![1, 2, 2] }
+    fn source_weights(&self) -> Vec<i32> {
+        vec![1, 2, 2]
+    }
     // Julia: mw[[1]] .= 1 (mapped node 1 = 0-indexed 0 has weight 1)
-    fn mapped_weights(&self) -> Vec<i32> { vec![1] }
+    fn mapped_weights(&self) -> Vec<i32> {
+        vec![1]
+    }
 
     fn mapped_entry_to_compact(&self) -> HashMap<usize, usize> {
         // Julia: Dict([0 => 0, 1 => 1])
@@ -873,17 +1161,38 @@ impl SquarePattern {
             5 => Some(Self::TCon(TCon)),
             6 => Some(Self::TrivialTurn(TrivialTurn)),
             7 => Some(Self::RotatedTCon1(RotatedGadget::new(TCon, 1))),
-            8 => Some(Self::ReflectedCrossTrue(ReflectedGadget::new(Cross::<true>, Mirror::Y))),
-            9 => Some(Self::ReflectedTrivialTurn(ReflectedGadget::new(TrivialTurn, Mirror::Y))),
+            8 => Some(Self::ReflectedCrossTrue(ReflectedGadget::new(
+                Cross::<true>,
+                Mirror::Y,
+            ))),
+            9 => Some(Self::ReflectedTrivialTurn(ReflectedGadget::new(
+                TrivialTurn,
+                Mirror::Y,
+            ))),
             10 => Some(Self::BranchFixB(BranchFixB)),
             11 => Some(Self::EndTurn(EndTurn)),
-            12 => Some(Self::ReflectedRotatedTCon1(ReflectedGadget::new(RotatedGadget::new(TCon, 1), Mirror::Y))),
+            12 => Some(Self::ReflectedRotatedTCon1(ReflectedGadget::new(
+                RotatedGadget::new(TCon, 1),
+                Mirror::Y,
+            ))),
             100 => Some(Self::DanglingLeg(DanglingLeg)),
             101 => Some(Self::DanglingLegRot1(RotatedGadget::new(DanglingLeg, 1))),
-            102 => Some(Self::DanglingLegRot2(RotatedGadget::new(RotatedGadget::new(DanglingLeg, 1), 1))),
-            103 => Some(Self::DanglingLegRot3(RotatedGadget::new(RotatedGadget::new(RotatedGadget::new(DanglingLeg, 1), 1), 1))),
-            104 => Some(Self::DanglingLegReflX(ReflectedGadget::new(DanglingLeg, Mirror::X))),
-            105 => Some(Self::DanglingLegReflY(ReflectedGadget::new(DanglingLeg, Mirror::Y))),
+            102 => Some(Self::DanglingLegRot2(RotatedGadget::new(
+                RotatedGadget::new(DanglingLeg, 1),
+                1,
+            ))),
+            103 => Some(Self::DanglingLegRot3(RotatedGadget::new(
+                RotatedGadget::new(RotatedGadget::new(DanglingLeg, 1), 1),
+                1,
+            ))),
+            104 => Some(Self::DanglingLegReflX(ReflectedGadget::new(
+                DanglingLeg,
+                Mirror::X,
+            ))),
+            105 => Some(Self::DanglingLegReflY(ReflectedGadget::new(
+                DanglingLeg,
+                Mirror::Y,
+            ))),
             _ => None,
         }
     }
@@ -972,7 +1281,10 @@ pub fn apply_crossing_gadgets(
         for i in 0..n {
             let (cross_row, cross_col) = crossat(grid, copylines, i, j);
             if debug {
-                eprintln!("Trying crossat ({}, {}) from copylines[{}][{}]", cross_row, cross_col, i, j);
+                eprintln!(
+                    "Trying crossat ({}, {}) from copylines[{}][{}]",
+                    cross_row, cross_col, i, j
+                );
             }
             if let Some((pattern_idx, row, col)) =
                 try_match_and_apply_crossing(grid, cross_row, cross_col)
@@ -980,7 +1292,11 @@ pub fn apply_crossing_gadgets(
                 if debug {
                     eprintln!("  -> Matched pattern {} at ({}, {})", pattern_idx, row, col);
                 }
-                tape.push(TapeEntry { pattern_idx, row, col });
+                tape.push(TapeEntry {
+                    pattern_idx,
+                    row,
+                    col,
+                });
             }
         }
     }
@@ -1027,11 +1343,20 @@ fn try_match_and_apply_crossing(
         (5, Box::new(|| Box::new(TCon))),
         (6, Box::new(|| Box::new(TrivialTurn))),
         (7, Box::new(|| Box::new(RotatedGadget::new(TCon, 1)))),
-        (8, Box::new(|| Box::new(ReflectedGadget::new(Cross::<true>, Mirror::Y)))),
-        (9, Box::new(|| Box::new(ReflectedGadget::new(TrivialTurn, Mirror::Y)))),
+        (
+            8,
+            Box::new(|| Box::new(ReflectedGadget::new(Cross::<true>, Mirror::Y))),
+        ),
+        (
+            9,
+            Box::new(|| Box::new(ReflectedGadget::new(TrivialTurn, Mirror::Y))),
+        ),
         (10, Box::new(|| Box::new(BranchFixB))),
         (11, Box::new(|| Box::new(EndTurn))),
-        (12, Box::new(|| Box::new(ReflectedGadget::new(RotatedGadget::new(TCon, 1), Mirror::Y)))),
+        (
+            12,
+            Box::new(|| Box::new(ReflectedGadget::new(RotatedGadget::new(TCon, 1), Mirror::Y))),
+        ),
     ];
 
     let debug = std::env::var("DEBUG_CROSSING").is_ok();
@@ -1045,38 +1370,49 @@ fn try_match_and_apply_crossing(
             let x = cross_row + 1 - cl.0;
             let y = cross_col + 1 - cl.1;
             if debug && (cross_row == 3 && cross_col == 6) && idx == 7 {
-                eprintln!("    Pattern {} cross_loc={:?} -> trying at ({}, {})", idx, cl, x, y);
+                eprintln!(
+                    "    Pattern {} cross_loc={:?} -> trying at ({}, {})",
+                    idx, cl, x, y
+                );
                 // Print the source_matrix directly
                 let source = pattern.source_matrix();
                 let (m, n) = pattern.size_boxed();
                 eprintln!("    Source matrix ({}x{}):", m, n);
                 for r in 0..m {
-                    let row_str: String = source[r].iter().map(|c| match c {
-                        PatternCell::Empty => '.',
-                        PatternCell::Occupied => 'O',
-                        PatternCell::Connected => 'C',
-                        PatternCell::Doubled => 'D',
-                    }).collect();
-                    eprintln!("      Row {}: {}", r, row_str);
-                }
-                eprintln!("    Grid at position ({}, {}):", x, y);
-                for r in 0..m {
-                    let row_str: String = (0..n).map(|c| {
-                        let gr = x + r;
-                        let gc = y + c;
-                        match safe_get_pattern_cell(grid, gr, gc) {
+                    let row_str: String = source[r]
+                        .iter()
+                        .map(|c| match c {
                             PatternCell::Empty => '.',
                             PatternCell::Occupied => 'O',
                             PatternCell::Connected => 'C',
                             PatternCell::Doubled => 'D',
-                        }
-                    }).collect();
+                        })
+                        .collect();
+                    eprintln!("      Row {}: {}", r, row_str);
+                }
+                eprintln!("    Grid at position ({}, {}):", x, y);
+                for r in 0..m {
+                    let row_str: String = (0..n)
+                        .map(|c| {
+                            let gr = x + r;
+                            let gc = y + c;
+                            match safe_get_pattern_cell(grid, gr, gc) {
+                                PatternCell::Empty => '.',
+                                PatternCell::Occupied => 'O',
+                                PatternCell::Connected => 'C',
+                                PatternCell::Doubled => 'D',
+                            }
+                        })
+                        .collect();
                     eprintln!("      Row {}: {}", r, row_str);
                 }
             }
             let matches = pattern.pattern_matches_boxed(grid, x, y);
             if debug && (cross_row == 3 && cross_col == 6) && idx == 7 {
-                eprintln!("    Pattern {} at ({}, {}) -> matches={}", idx, x, y, matches);
+                eprintln!(
+                    "    Pattern {} at ({}, {}) -> matches={}",
+                    idx, x, y, matches
+                );
             }
             if matches {
                 pattern.apply_gadget_boxed(grid, x, y);
@@ -1102,7 +1438,10 @@ pub fn apply_weighted_crossing_gadgets(
         for i in 0..n {
             let (cross_row, cross_col) = crossat(grid, copylines, i, j);
             if debug {
-                eprintln!("Trying crossat ({}, {}) from copylines[{}][{}]", cross_row, cross_col, i, j);
+                eprintln!(
+                    "Trying crossat ({}, {}) from copylines[{}][{}]",
+                    cross_row, cross_col, i, j
+                );
             }
             if let Some((pattern_idx, row, col)) =
                 try_match_and_apply_weighted_crossing(grid, cross_row, cross_col)
@@ -1110,7 +1449,11 @@ pub fn apply_weighted_crossing_gadgets(
                 if debug {
                     eprintln!("  -> Matched pattern {} at ({}, {})", pattern_idx, row, col);
                 }
-                tape.push(TapeEntry { pattern_idx, row, col });
+                tape.push(TapeEntry {
+                    pattern_idx,
+                    row,
+                    col,
+                });
             }
         }
     }
@@ -1132,11 +1475,20 @@ fn try_match_and_apply_weighted_crossing(
         (5, Box::new(|| Box::new(TCon))),
         (6, Box::new(|| Box::new(TrivialTurn))),
         (7, Box::new(|| Box::new(RotatedGadget::new(TCon, 1)))),
-        (8, Box::new(|| Box::new(ReflectedGadget::new(Cross::<true>, Mirror::Y)))),
-        (9, Box::new(|| Box::new(ReflectedGadget::new(TrivialTurn, Mirror::Y)))),
+        (
+            8,
+            Box::new(|| Box::new(ReflectedGadget::new(Cross::<true>, Mirror::Y))),
+        ),
+        (
+            9,
+            Box::new(|| Box::new(ReflectedGadget::new(TrivialTurn, Mirror::Y))),
+        ),
         (10, Box::new(|| Box::new(BranchFixB))),
         (11, Box::new(|| Box::new(EndTurn))),
-        (12, Box::new(|| Box::new(ReflectedGadget::new(RotatedGadget::new(TCon, 1), Mirror::Y)))),
+        (
+            12,
+            Box::new(|| Box::new(ReflectedGadget::new(RotatedGadget::new(TCon, 1), Mirror::Y))),
+        ),
     ];
 
     for (idx, make_pattern) in patterns {
@@ -1216,7 +1568,12 @@ pub fn apply_weighted_simplifier_gadgets(grid: &mut MappingGrid, nrepeat: usize)
 /// Check if a weighted DanglingLeg pattern matches.
 /// For weighted mode, the center node (at source_centers position) must have weight 1,
 /// and other nodes must have weight 2.
-fn pattern_matches_weighted(pattern: &dyn PatternBoxed, grid: &MappingGrid, i: usize, j: usize) -> bool {
+fn pattern_matches_weighted(
+    pattern: &dyn PatternBoxed,
+    grid: &MappingGrid,
+    i: usize,
+    j: usize,
+) -> bool {
     // First check basic pattern match
     if !pattern_matches_boxed(pattern, grid, i, j) {
         return false;
@@ -1266,7 +1623,12 @@ fn rotated_and_reflected_danglinleg() -> Vec<Box<dyn PatternBoxed>> {
 
 /// Check if a boxed pattern matches at position (i, j) in the grid.
 #[allow(clippy::needless_range_loop)]
-fn pattern_matches_boxed(pattern: &dyn PatternBoxed, grid: &MappingGrid, i: usize, j: usize) -> bool {
+fn pattern_matches_boxed(
+    pattern: &dyn PatternBoxed,
+    grid: &MappingGrid,
+    i: usize,
+    j: usize,
+) -> bool {
     let source = pattern.source_matrix();
     let (m, n) = pattern.size_boxed();
 
@@ -1333,7 +1695,12 @@ fn apply_gadget_boxed(pattern: &dyn PatternBoxed, grid: &mut MappingGrid, i: usi
 
 /// Apply a boxed gadget pattern at position (i, j) with proper weights.
 #[allow(dead_code)]
-fn apply_weighted_gadget_boxed_fn(pattern: &dyn PatternBoxed, grid: &mut MappingGrid, i: usize, j: usize) {
+fn apply_weighted_gadget_boxed_fn(
+    pattern: &dyn PatternBoxed,
+    grid: &mut MappingGrid,
+    i: usize,
+    j: usize,
+) {
     pattern.apply_weighted_gadget_boxed(grid, i, j);
 }
 
@@ -1350,10 +1717,18 @@ pub trait PatternBoxed {
 }
 
 impl<P: Pattern> PatternBoxed for P {
-    fn size_boxed(&self) -> (usize, usize) { self.size() }
-    fn cross_location(&self) -> (usize, usize) { Pattern::cross_location(self) }
-    fn source_matrix(&self) -> Vec<Vec<PatternCell>> { Pattern::source_matrix(self) }
-    fn mapped_matrix(&self) -> Vec<Vec<PatternCell>> { Pattern::mapped_matrix(self) }
+    fn size_boxed(&self) -> (usize, usize) {
+        self.size()
+    }
+    fn cross_location(&self) -> (usize, usize) {
+        Pattern::cross_location(self)
+    }
+    fn source_matrix(&self) -> Vec<Vec<PatternCell>> {
+        Pattern::source_matrix(self)
+    }
+    fn mapped_matrix(&self) -> Vec<Vec<PatternCell>> {
+        Pattern::mapped_matrix(self)
+    }
     fn source_graph_boxed(&self) -> (Vec<(usize, usize)>, Vec<(usize, usize)>, Vec<usize>) {
         Pattern::source_graph(self)
     }

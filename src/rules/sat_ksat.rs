@@ -138,8 +138,7 @@ macro_rules! impl_sat_to_ksat {
                 let mut next_var = (source_num_vars + 1) as i32; // 1-indexed
 
                 for clause in self.clauses() {
-                    next_var =
-                        add_clause_to_ksat($k, clause, &mut result_clauses, next_var);
+                    next_var = add_clause_to_ksat($k, clause, &mut result_clauses, next_var);
                 }
 
                 // Calculate total number of variables (original + ancillas)
@@ -323,8 +322,8 @@ mod tests {
         let sat = Satisfiability::<i32>::new(
             3,
             vec![
-                CNFClause::new(vec![1, 2]),          // Needs padding
-                CNFClause::new(vec![-1, 2, 3]),      // Already 3 literals
+                CNFClause::new(vec![1, 2]),         // Needs padding
+                CNFClause::new(vec![-1, 2, 3]),     // Already 3 literals
                 CNFClause::new(vec![1, -2, 3, -3]), // Needs splitting (tautology for testing)
             ],
         );
@@ -340,7 +339,9 @@ mod tests {
 
         // If SAT is satisfiable, K-SAT should be too
         let sat_satisfiable = sat_solutions.iter().any(|s| sat.solution_size(s).is_valid);
-        let ksat_satisfiable = ksat_solutions.iter().any(|s| ksat.solution_size(s).is_valid);
+        let ksat_satisfiable = ksat_solutions
+            .iter()
+            .any(|s| ksat.solution_size(s).is_valid);
 
         assert_eq!(sat_satisfiable, ksat_satisfiable);
 
@@ -434,9 +435,15 @@ mod tests {
         let final_solutions = solver.find_best(final_sat);
 
         // All should be satisfiable
-        assert!(orig_solutions.iter().any(|s| original_sat.solution_size(s).is_valid));
-        assert!(ksat_solutions.iter().any(|s| ksat.solution_size(s).is_valid));
-        assert!(final_solutions.iter().any(|s| final_sat.solution_size(s).is_valid));
+        assert!(orig_solutions
+            .iter()
+            .any(|s| original_sat.solution_size(s).is_valid));
+        assert!(ksat_solutions
+            .iter()
+            .any(|s| ksat.solution_size(s).is_valid));
+        assert!(final_solutions
+            .iter()
+            .any(|s| final_sat.solution_size(s).is_valid));
     }
 
     #[test]
@@ -444,8 +451,8 @@ mod tests {
         let sat = Satisfiability::<i32>::new(
             4,
             vec![
-                CNFClause::new(vec![1, 2]),       // Needs padding
-                CNFClause::new(vec![1, 2, 3, 4]), // Exact
+                CNFClause::new(vec![1, 2]),           // Needs padding
+                CNFClause::new(vec![1, 2, 3, 4]),     // Exact
                 CNFClause::new(vec![1, 2, 3, 4, -1]), // Needs splitting
             ],
         );
@@ -488,11 +495,11 @@ mod tests {
         let sat = Satisfiability::<i32>::new(
             5,
             vec![
-                CNFClause::new(vec![1]),                // 1 literal
-                CNFClause::new(vec![2, 3]),             // 2 literals
-                CNFClause::new(vec![1, 2, 3]),          // 3 literals
-                CNFClause::new(vec![1, 2, 3, 4]),       // 4 literals
-                CNFClause::new(vec![1, 2, 3, 4, 5]),    // 5 literals
+                CNFClause::new(vec![1]),             // 1 literal
+                CNFClause::new(vec![2, 3]),          // 2 literals
+                CNFClause::new(vec![1, 2, 3]),       // 3 literals
+                CNFClause::new(vec![1, 2, 3, 4]),    // 4 literals
+                CNFClause::new(vec![1, 2, 3, 4, 5]), // 5 literals
             ],
         );
 
@@ -510,17 +517,17 @@ mod tests {
         let ksat_solutions = solver.find_best(ksat);
 
         let sat_satisfiable = sat_solutions.iter().any(|s| sat.solution_size(s).is_valid);
-        let ksat_satisfiable = ksat_solutions.iter().any(|s| ksat.solution_size(s).is_valid);
+        let ksat_satisfiable = ksat_solutions
+            .iter()
+            .any(|s| ksat.solution_size(s).is_valid);
         assert_eq!(sat_satisfiable, ksat_satisfiable);
     }
 
     #[test]
     fn test_unsatisfiable_formula() {
         // (x) AND (-x) is unsatisfiable
-        let sat = Satisfiability::<i32>::new(
-            1,
-            vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
-        );
+        let sat =
+            Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
 
         let reduction = ReduceTo::<KSatisfiability<3, i32>>::reduce_to(&sat);
         let ksat = reduction.target_problem();
@@ -532,7 +539,9 @@ mod tests {
         let ksat_solutions = solver.find_best(ksat);
 
         let sat_satisfiable = sat_solutions.iter().any(|s| sat.solution_size(s).is_valid);
-        let ksat_satisfiable = ksat_solutions.iter().any(|s| ksat.solution_size(s).is_valid);
+        let ksat_satisfiable = ksat_solutions
+            .iter()
+            .any(|s| ksat.solution_size(s).is_valid);
 
         assert!(!sat_satisfiable);
         assert!(!ksat_satisfiable);

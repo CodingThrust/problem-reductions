@@ -4,9 +4,9 @@
 //! lattice grid graphs using the copy-line technique.
 
 use super::super::copyline::{create_copylines, CopyLine};
-use super::super::gadgets::TapeEntry;
 use super::super::grid::MappingGrid;
-use super::super::map_graph::MappingResult;
+use super::super::ksg::mapping::MappingResult;
+use super::super::ksg::KsgTapeEntry as TapeEntry;
 use super::super::pathdecomposition::{
     pathwidth, vertex_order_from_layout, PathDecompositionMethod,
 };

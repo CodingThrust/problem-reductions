@@ -81,7 +81,12 @@ impl<W: Clone> GridGraph<W> {
     /// * `size` - The size of the grid as (rows, cols)
     /// * `nodes` - The nodes in the graph with their coordinates and weights
     /// * `radius` - Maximum distance for an edge to exist
-    pub fn new(grid_type: GridType, size: (usize, usize), nodes: Vec<GridNode<W>>, radius: f64) -> Self {
+    pub fn new(
+        grid_type: GridType,
+        size: (usize, usize),
+        nodes: Vec<GridNode<W>>,
+        radius: f64,
+    ) -> Self {
         let n = nodes.len();
         let mut edges = Vec::new();
 
@@ -154,7 +159,11 @@ impl<W: Clone> GridGraph<W> {
             GridType::Triangular { offset_even_cols } => {
                 let y = col as f64 * (3.0_f64.sqrt() / 2.0);
                 let offset = if offset_even_cols {
-                    if col % 2 == 0 { 0.5 } else { 0.0 }
+                    if col % 2 == 0 {
+                        0.5
+                    } else {
+                        0.0
+                    }
                 } else if col % 2 != 0 {
                     0.5
                 } else {
@@ -180,7 +189,9 @@ impl<W: Clone> GridGraph<W> {
 
     /// Get the physical position of a node by index.
     pub fn node_position(&self, index: usize) -> Option<(f64, f64)> {
-        self.nodes.get(index).map(|n| self.physical_position(n.row, n.col))
+        self.nodes
+            .get(index)
+            .map(|n| self.physical_position(n.row, n.col))
     }
 }
 
@@ -325,7 +336,14 @@ mod tests {
             GridNode::new(1, 0, 1),
             GridNode::new(0, 1, 1),
         ];
-        let grid = GridGraph::new(GridType::Triangular { offset_even_cols: false }, (2, 2), nodes, 1.1);
+        let grid = GridGraph::new(
+            GridType::Triangular {
+                offset_even_cols: false,
+            },
+            (2, 2),
+            nodes,
+            1.1,
+        );
         assert_eq!(grid.num_vertices(), 3);
     }
 
@@ -348,7 +366,14 @@ mod tests {
     #[test]
     fn test_grid_graph_triangular_physical_position() {
         let nodes = vec![GridNode::new(0, 0, 1)];
-        let grid = GridGraph::new(GridType::Triangular { offset_even_cols: false }, (10, 10), nodes, 1.0);
+        let grid = GridGraph::new(
+            GridType::Triangular {
+                offset_even_cols: false,
+            },
+            (10, 10),
+            nodes,
+            1.0,
+        );
 
         // Col 0 (even), offset_even_cols = false -> no offset
         let pos0 = grid.physical_position(0, 0);
@@ -364,7 +389,14 @@ mod tests {
     #[test]
     fn test_grid_graph_triangular_offset_even() {
         let nodes = vec![GridNode::new(0, 0, 1)];
-        let grid = GridGraph::new(GridType::Triangular { offset_even_cols: true }, (10, 10), nodes, 1.0);
+        let grid = GridGraph::new(
+            GridType::Triangular {
+                offset_even_cols: true,
+            },
+            (10, 10),
+            nodes,
+            1.0,
+        );
 
         // Col 0 (even), offset_even_cols = true -> offset 0.5
         let pos0 = grid.physical_position(0, 0);
@@ -395,7 +427,7 @@ mod tests {
         assert_eq!(grid.num_edges(), 2);
         assert!(grid.has_edge(0, 1));
         assert!(grid.has_edge(1, 2));
-        assert!(!grid.has_edge(0, 2));  // dist=2.0 >= 1.1
+        assert!(!grid.has_edge(0, 2)); // dist=2.0 >= 1.1
     }
 
     #[test]
@@ -415,10 +447,7 @@ mod tests {
 
     #[test]
     fn test_grid_graph_accessors() {
-        let nodes = vec![
-            GridNode::new(0, 0, 10),
-            GridNode::new(1, 0, 20),
-        ];
+        let nodes = vec![GridNode::new(0, 0, 10), GridNode::new(1, 0, 20)];
         let grid = GridGraph::new(GridType::Square, (5, 5), nodes, 2.0);
 
         assert_eq!(grid.grid_type(), GridType::Square);
@@ -432,9 +461,7 @@ mod tests {
 
     #[test]
     fn test_grid_graph_node_position() {
-        let nodes = vec![
-            GridNode::new(2, 3, 1),
-        ];
+        let nodes = vec![GridNode::new(2, 3, 1)];
         let grid = GridGraph::new(GridType::Square, (10, 10), nodes, 1.0);
 
         let pos = grid.node_position(0);
@@ -444,10 +471,7 @@ mod tests {
 
     #[test]
     fn test_grid_graph_has_edge_symmetric() {
-        let nodes = vec![
-            GridNode::new(0, 0, 1),
-            GridNode::new(1, 0, 1),
-        ];
+        let nodes = vec![GridNode::new(0, 0, 1), GridNode::new(1, 0, 1)];
         let grid = GridGraph::new(GridType::Square, (2, 1), nodes, 1.5);
 
         assert!(grid.has_edge(0, 1));

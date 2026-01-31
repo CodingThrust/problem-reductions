@@ -5,7 +5,7 @@
 //! - Constraints: x_i + x_j <= 1 for each overlapping pair (i, j)
 //! - Objective: Maximize the sum of weights of selected sets
 
-use crate::models::optimization::{ILP, LinearConstraint, ObjectiveSense, VarBounds};
+use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::models::set::SetPacking;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;

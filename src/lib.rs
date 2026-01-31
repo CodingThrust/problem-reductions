@@ -93,8 +93,8 @@ pub mod prelude {
     pub use crate::registry::{
         ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,
     };
-    pub use crate::solvers::{BruteForce, Solver};
     pub use crate::rules::{ReduceTo, ReductionResult};
+    pub use crate::solvers::{BruteForce, Solver};
     pub use crate::traits::{csp_solution_size, ConstraintSatisfactionProblem, Problem};
     pub use crate::types::{
         EnergyMode, LocalConstraint, LocalSolutionSize, NumericWeight, ProblemSize, SolutionSize,

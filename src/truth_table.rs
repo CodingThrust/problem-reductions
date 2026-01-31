@@ -80,7 +80,10 @@ impl TruthTable {
         );
 
         let bits: BitVec = outputs.into_iter().collect();
-        Self { num_inputs, outputs: bits }
+        Self {
+            num_inputs,
+            outputs: bits,
+        }
     }
 
     /// Create a truth table from a function.
@@ -98,7 +101,10 @@ impl TruthTable {
             outputs.push(f(&input));
         }
 
-        Self { num_inputs, outputs }
+        Self {
+            num_inputs,
+            outputs,
+        }
     }
 
     /// Get the number of input variables.
@@ -150,7 +156,9 @@ impl TruthTable {
 
     /// Get the input configuration for a given row index.
     pub fn index_to_input(&self, index: usize) -> Vec<bool> {
-        (0..self.num_inputs).map(|j| (index >> j) & 1 == 1).collect()
+        (0..self.num_inputs)
+            .map(|j| (index >> j) & 1 == 1)
+            .collect()
     }
 
     /// Count the number of true outputs.
@@ -235,7 +243,10 @@ impl TruthTable {
     /// Combine two truth tables using AND.
     pub fn and_with(&self, other: &TruthTable) -> TruthTable {
         assert_eq!(self.num_inputs, other.num_inputs);
-        let outputs: BitVec = self.outputs.iter().zip(other.outputs.iter())
+        let outputs: BitVec = self
+            .outputs
+            .iter()
+            .zip(other.outputs.iter())
             .map(|(a, b)| *a && *b)
             .collect();
         TruthTable {
@@ -247,7 +258,10 @@ impl TruthTable {
     /// Combine two truth tables using OR.
     pub fn or_with(&self, other: &TruthTable) -> TruthTable {
         assert_eq!(self.num_inputs, other.num_inputs);
-        let outputs: BitVec = self.outputs.iter().zip(other.outputs.iter())
+        let outputs: BitVec = self
+            .outputs
+            .iter()
+            .zip(other.outputs.iter())
             .map(|(a, b)| *a || *b)
             .collect();
         TruthTable {
@@ -317,16 +331,15 @@ mod tests {
     fn test_implies() {
         let imp = TruthTable::implies();
         assert!(imp.evaluate(&[false, false])); // F -> F = T
-        assert!(imp.evaluate(&[false, true]));  // F -> T = T
+        assert!(imp.evaluate(&[false, true])); // F -> T = T
         assert!(!imp.evaluate(&[true, false])); // T -> F = F
-        assert!(imp.evaluate(&[true, true]));   // T -> T = T
+        assert!(imp.evaluate(&[true, true])); // T -> T = T
     }
 
     #[test]
     fn test_from_function() {
-        let majority = TruthTable::from_function(3, |input| {
-            input.iter().filter(|&&b| b).count() >= 2
-        });
+        let majority =
+            TruthTable::from_function(3, |input| input.iter().filter(|&&b| b).count() >= 2);
         assert!(!majority.evaluate(&[false, false, false]));
         assert!(!majority.evaluate(&[true, false, false]));
         assert!(majority.evaluate(&[true, true, false]));

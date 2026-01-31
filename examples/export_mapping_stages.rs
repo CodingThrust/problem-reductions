@@ -8,12 +8,12 @@
 //!           cargo run --example export_mapping_stages -- petersen triangular
 
 use problemreductions::rules::unitdiskmapping::{
-    create_copylines, apply_triangular_crossing_gadgets, apply_triangular_simplifier_gadgets,
-    apply_crossing_gadgets, apply_simplifier_gadgets, apply_weighted_crossing_gadgets,
-    apply_weighted_simplifier_gadgets,
-    MappingGrid, CopyLine, triangular_tape_entry_mis_overhead, tape_entry_mis_overhead,
-    TRIANGULAR_SPACING, TRIANGULAR_PADDING, SQUARE_SPACING, SQUARE_PADDING,
-    mis_overhead_copyline_triangular, mis_overhead_copyline, TapeEntry, TriangularTapeEntry,
+    apply_crossing_gadgets, apply_simplifier_gadgets, apply_triangular_crossing_gadgets,
+    apply_triangular_simplifier_gadgets, apply_weighted_crossing_gadgets,
+    apply_weighted_simplifier_gadgets, create_copylines, mis_overhead_copyline,
+    mis_overhead_copyline_triangular, tape_entry_mis_overhead, triangular_tape_entry_mis_overhead,
+    CopyLine, MappingGrid, TapeEntry, TriangularTapeEntry, SQUARE_PADDING, SQUARE_SPACING,
+    TRIANGULAR_PADDING, TRIANGULAR_SPACING,
 };
 use problemreductions::topology::smallgraph;
 use serde::Serialize;
@@ -24,7 +24,7 @@ struct GridNodeExport {
     row: i32,
     col: i32,
     weight: i32,
-    state: String,  // "O" = Occupied, "D" = Doubled, "C" = Connected
+    state: String, // "O" = Occupied, "D" = Doubled, "C" = Connected
 }
 
 #[derive(Serialize)]
@@ -120,8 +120,8 @@ fn extract_grid_nodes(grid: &MappingGrid) -> Vec<GridNodeExport> {
                         CellState::Empty => ".",
                     };
                     nodes.push(GridNodeExport {
-                        row: r as i32,  // 0-indexed - DO NOT change!
-                        col: c as i32,  // 0-indexed - DO NOT change!
+                        row: r as i32, // 0-indexed - DO NOT change!
+                        col: c as i32, // 0-indexed - DO NOT change!
                         weight: cell.weight(),
                         state: state.to_string(),
                     });
@@ -153,8 +153,8 @@ fn crossat_triangular(
     let max_vslot = line_second.vslot;
 
     // 0-indexed coordinates
-    let row = (hslot - 1) * spacing + 1 + padding;  // 0-indexed
-    let col = (max_vslot - 1) * spacing + padding;  // 0-indexed
+    let row = (hslot - 1) * spacing + 1 + padding; // 0-indexed
+    let col = (max_vslot - 1) * spacing + padding; // 0-indexed
     (row, col)
 }
 
@@ -163,11 +163,12 @@ fn get_vertex_order_from_julia(graph_name: &str) -> Option<Vec<usize>> {
     if let Ok(content) = fs::read_to_string(&path) {
         if let Ok(data) = serde_json::from_str::<serde_json::Value>(&content) {
             if let Some(copy_lines) = data["copy_lines"].as_array() {
-                let mut lines: Vec<_> = copy_lines.iter()
+                let mut lines: Vec<_> = copy_lines
+                    .iter()
                     .filter_map(|cl| {
                         let vertex = cl["vertex"].as_u64()? as usize;
                         let vslot = cl["vslot"].as_u64()? as usize;
-                        Some((vertex - 1, vslot))  // Convert to 0-indexed
+                        Some((vertex - 1, vslot)) // Convert to 0-indexed
                     })
                     .collect();
                 lines.sort_by_key(|(_, vslot)| *vslot);
@@ -199,7 +200,12 @@ fn square_gadget_name(idx: usize) -> String {
     }
 }
 
-fn export_triangular(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_order: &[usize]) -> MappingExport {
+fn export_triangular(
+    graph_name: &str,
+    n: usize,
+    edges: &[(usize, usize)],
+    vertex_order: &[usize],
+) -> MappingExport {
     let spacing = TRIANGULAR_SPACING;
     let padding = TRIANGULAR_PADDING;
 
@@ -226,7 +232,13 @@ fn export_triangular(graph_name: &str, n: usize, edges: &[(usize, usize)], verte
         } else {
             (v_line, u_line)
         };
-        let (row, col) = crossat_triangular(&copylines, smaller_line.vertex, larger_line.vertex, spacing, padding);
+        let (row, col) = crossat_triangular(
+            &copylines,
+            smaller_line.vertex,
+            larger_line.vertex,
+            spacing,
+            padding,
+        );
         if col > 0 {
             grid.connect(row, col - 1);
         }
@@ -244,13 +256,16 @@ fn export_triangular(graph_name: &str, n: usize, edges: &[(usize, usize)], verte
     let simplifier_tape = apply_triangular_simplifier_gadgets(&mut grid, 10);
     let stage4_nodes = extract_grid_nodes(&grid);
 
-    let copyline_overhead: i32 = copylines.iter()
+    let copyline_overhead: i32 = copylines
+        .iter()
         .map(|line| mis_overhead_copyline_triangular(line, spacing))
         .sum();
-    let crossing_overhead: i32 = crossing_tape.iter()
+    let crossing_overhead: i32 = crossing_tape
+        .iter()
         .map(triangular_tape_entry_mis_overhead)
         .sum();
-    let simplifier_overhead: i32 = simplifier_tape.iter()
+    let simplifier_overhead: i32 = simplifier_tape
+        .iter()
         .map(triangular_tape_entry_mis_overhead)
         .sum();
 
@@ -259,15 +274,34 @@ fn export_triangular(graph_name: &str, n: usize, edges: &[(usize, usize)], verte
     let simplifier_tape_export = export_triangular_tape(&simplifier_tape, crossing_tape.len());
 
     create_export(
-        graph_name, "TriangularWeighted", n, edges, vertex_order,
-        padding, spacing, rows, cols,
-        copy_lines_export, stage1_nodes, stage2_nodes, stage3_nodes, stage4_nodes,
-        crossing_tape_export, simplifier_tape_export,
-        copyline_overhead, crossing_overhead, simplifier_overhead,
+        graph_name,
+        "TriangularWeighted",
+        n,
+        edges,
+        vertex_order,
+        padding,
+        spacing,
+        rows,
+        cols,
+        copy_lines_export,
+        stage1_nodes,
+        stage2_nodes,
+        stage3_nodes,
+        stage4_nodes,
+        crossing_tape_export,
+        simplifier_tape_export,
+        copyline_overhead,
+        crossing_overhead,
+        simplifier_overhead,
     )
 }
 
-fn export_square(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_order: &[usize]) -> MappingExport {
+fn export_square(
+    graph_name: &str,
+    n: usize,
+    edges: &[(usize, usize)],
+    vertex_order: &[usize],
+) -> MappingExport {
     let spacing = SQUARE_SPACING;
     let padding = SQUARE_PADDING;
 
@@ -281,7 +315,7 @@ fn export_square(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_or
     let mut grid = MappingGrid::with_padding(rows, cols, spacing, padding);
     for line in &copylines {
         for (row, col, _weight) in line.copyline_locations(padding, spacing) {
-            grid.add_node(row, col, 1);  // All weight 1 for square unweighted
+            grid.add_node(row, col, 1); // All weight 1 for square unweighted
         }
     }
     let stage1_nodes = extract_grid_nodes(&grid);
@@ -294,7 +328,13 @@ fn export_square(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_or
         } else {
             (v_line, u_line)
         };
-        let (row, col) = crossat_square(&copylines, smaller_line.vertex, larger_line.vertex, spacing, padding);
+        let (row, col) = crossat_square(
+            &copylines,
+            smaller_line.vertex,
+            larger_line.vertex,
+            spacing,
+            padding,
+        );
         // Julia's connect logic: always mark (I, J-1), then check (I-1, J) or (I+1, J)
         if col > 0 {
             grid.connect(row, col - 1);
@@ -315,30 +355,46 @@ fn export_square(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_or
     let simplifier_tape = apply_simplifier_gadgets(&mut grid, 2);
     let stage4_nodes = extract_grid_nodes(&grid);
 
-    let copyline_overhead: i32 = copylines.iter()
+    let copyline_overhead: i32 = copylines
+        .iter()
         .map(|line| mis_overhead_copyline(line, spacing, padding) as i32)
         .sum();
-    let crossing_overhead: i32 = crossing_tape.iter()
-        .map(tape_entry_mis_overhead)
-        .sum();
-    let simplifier_overhead: i32 = simplifier_tape.iter()
-        .map(tape_entry_mis_overhead)
-        .sum();
+    let crossing_overhead: i32 = crossing_tape.iter().map(tape_entry_mis_overhead).sum();
+    let simplifier_overhead: i32 = simplifier_tape.iter().map(tape_entry_mis_overhead).sum();
 
     let copy_lines_export = export_copylines_square(&copylines, padding, spacing);
     let crossing_tape_export = export_square_tape(&crossing_tape, 0);
     let simplifier_tape_export = export_square_tape(&simplifier_tape, crossing_tape.len());
 
     create_export(
-        graph_name, "UnWeighted", n, edges, vertex_order,
-        padding, spacing, rows, cols,
-        copy_lines_export, stage1_nodes, stage2_nodes, stage3_nodes, stage4_nodes,
-        crossing_tape_export, simplifier_tape_export,
-        copyline_overhead, crossing_overhead, simplifier_overhead,
+        graph_name,
+        "UnWeighted",
+        n,
+        edges,
+        vertex_order,
+        padding,
+        spacing,
+        rows,
+        cols,
+        copy_lines_export,
+        stage1_nodes,
+        stage2_nodes,
+        stage3_nodes,
+        stage4_nodes,
+        crossing_tape_export,
+        simplifier_tape_export,
+        copyline_overhead,
+        crossing_overhead,
+        simplifier_overhead,
     )
 }
 
-fn export_weighted(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_order: &[usize]) -> MappingExport {
+fn export_weighted(
+    graph_name: &str,
+    n: usize,
+    edges: &[(usize, usize)],
+    vertex_order: &[usize],
+) -> MappingExport {
     let spacing = SQUARE_SPACING;
     let padding = SQUARE_PADDING;
 
@@ -352,7 +408,7 @@ fn export_weighted(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_
     let mut grid = MappingGrid::with_padding(rows, cols, spacing, padding);
     for line in &copylines {
         for (row, col, weight) in line.copyline_locations(padding, spacing) {
-            grid.add_node(row, col, weight as i32);  // Use actual weights from copyline (1 at endpoints, 2 elsewhere)
+            grid.add_node(row, col, weight as i32); // Use actual weights from copyline (1 at endpoints, 2 elsewhere)
         }
     }
     let stage1_nodes = extract_grid_nodes(&grid);
@@ -365,7 +421,13 @@ fn export_weighted(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_
         } else {
             (v_line, u_line)
         };
-        let (row, col) = crossat_square(&copylines, smaller_line.vertex, larger_line.vertex, spacing, padding);
+        let (row, col) = crossat_square(
+            &copylines,
+            smaller_line.vertex,
+            larger_line.vertex,
+            spacing,
+            padding,
+        );
         if col > 0 {
             grid.connect(row, col - 1);
         }
@@ -384,13 +446,16 @@ fn export_weighted(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_
     let stage4_nodes = extract_grid_nodes(&grid);
 
     // Weighted mode: overhead = unweighted_overhead * 2
-    let copyline_overhead: i32 = copylines.iter()
+    let copyline_overhead: i32 = copylines
+        .iter()
         .map(|line| mis_overhead_copyline(line, spacing, padding) as i32 * 2)
         .sum();
-    let crossing_overhead: i32 = crossing_tape.iter()
+    let crossing_overhead: i32 = crossing_tape
+        .iter()
         .map(|e| tape_entry_mis_overhead(e) * 2)
         .sum();
-    let simplifier_overhead: i32 = simplifier_tape.iter()
+    let simplifier_overhead: i32 = simplifier_tape
+        .iter()
         .map(|e| tape_entry_mis_overhead(e) * 2)
         .sum();
 
@@ -399,11 +464,25 @@ fn export_weighted(graph_name: &str, n: usize, edges: &[(usize, usize)], vertex_
     let simplifier_tape_export = export_square_tape(&simplifier_tape, crossing_tape.len());
 
     create_export(
-        graph_name, "Weighted", n, edges, vertex_order,
-        padding, spacing, rows, cols,
-        copy_lines_export, stage1_nodes, stage2_nodes, stage3_nodes, stage4_nodes,
-        crossing_tape_export, simplifier_tape_export,
-        copyline_overhead, crossing_overhead, simplifier_overhead,
+        graph_name,
+        "Weighted",
+        n,
+        edges,
+        vertex_order,
+        padding,
+        spacing,
+        rows,
+        cols,
+        copy_lines_export,
+        stage1_nodes,
+        stage2_nodes,
+        stage3_nodes,
+        stage4_nodes,
+        crossing_tape_export,
+        simplifier_tape_export,
+        copyline_overhead,
+        crossing_overhead,
+        simplifier_overhead,
     )
 }
 
@@ -427,85 +506,121 @@ fn crossat_square(
     let max_vslot = line_second.vslot;
 
     // 0-indexed coordinates (matches center_location formula)
-    let row = (hslot - 1) * spacing + 1 + padding;  // 0-indexed
-    let col = (max_vslot - 1) * spacing + padding;  // 0-indexed
+    let row = (hslot - 1) * spacing + 1 + padding; // 0-indexed
+    let col = (max_vslot - 1) * spacing + padding; // 0-indexed
     (row, col)
 }
 
 // IMPORTANT: Locations are 0-indexed. Vertex is 1-indexed for display only.
 // DO NOT add +1 to row/col - keep 0-indexed!
-fn export_copylines_triangular(copylines: &[CopyLine], padding: usize, spacing: usize) -> Vec<CopyLineExport> {
-    copylines.iter().map(|cl| {
-        let locs = cl.copyline_locations_triangular(padding, spacing);
-        CopyLineExport {
-            vertex: cl.vertex + 1,  // 1-indexed for display
-            vslot: cl.vslot,
-            hslot: cl.hslot,
-            vstart: cl.vstart,
-            vstop: cl.vstop,
-            hstop: cl.hstop,
-            locations: locs.iter().map(|(r, c, _)| LocationExport {
-                row: *r as i32,  // 0-indexed - DO NOT change!
-                col: *c as i32,  // 0-indexed - DO NOT change!
-            }).collect(),
-        }
-    }).collect()
+fn export_copylines_triangular(
+    copylines: &[CopyLine],
+    padding: usize,
+    spacing: usize,
+) -> Vec<CopyLineExport> {
+    copylines
+        .iter()
+        .map(|cl| {
+            let locs = cl.copyline_locations_triangular(padding, spacing);
+            CopyLineExport {
+                vertex: cl.vertex + 1, // 1-indexed for display
+                vslot: cl.vslot,
+                hslot: cl.hslot,
+                vstart: cl.vstart,
+                vstop: cl.vstop,
+                hstop: cl.hstop,
+                locations: locs
+                    .iter()
+                    .map(|(r, c, _)| LocationExport {
+                        row: *r as i32, // 0-indexed - DO NOT change!
+                        col: *c as i32, // 0-indexed - DO NOT change!
+                    })
+                    .collect(),
+            }
+        })
+        .collect()
 }
 
 // IMPORTANT: Locations are 0-indexed. DO NOT add +1 to row/col!
-fn export_copylines_square(copylines: &[CopyLine], padding: usize, spacing: usize) -> Vec<CopyLineExport> {
-    copylines.iter().map(|cl| {
-        let locs = cl.copyline_locations(padding, spacing);
-        CopyLineExport {
-            vertex: cl.vertex + 1,  // 1-indexed for display
-            vslot: cl.vslot,
-            hslot: cl.hslot,
-            vstart: cl.vstart,
-            vstop: cl.vstop,
-            hstop: cl.hstop,
-            locations: locs.iter().map(|(r, c, _)| LocationExport {
-                row: *r as i32,  // 0-indexed - DO NOT change!
-                col: *c as i32,  // 0-indexed - DO NOT change!
-            }).collect(),
-        }
-    }).collect()
+fn export_copylines_square(
+    copylines: &[CopyLine],
+    padding: usize,
+    spacing: usize,
+) -> Vec<CopyLineExport> {
+    copylines
+        .iter()
+        .map(|cl| {
+            let locs = cl.copyline_locations(padding, spacing);
+            CopyLineExport {
+                vertex: cl.vertex + 1, // 1-indexed for display
+                vslot: cl.vslot,
+                hslot: cl.hslot,
+                vstart: cl.vstart,
+                vstop: cl.vstop,
+                hstop: cl.hstop,
+                locations: locs
+                    .iter()
+                    .map(|(r, c, _)| LocationExport {
+                        row: *r as i32, // 0-indexed - DO NOT change!
+                        col: *c as i32, // 0-indexed - DO NOT change!
+                    })
+                    .collect(),
+            }
+        })
+        .collect()
 }
 
 // IMPORTANT: Tape positions are 0-indexed. DO NOT add +1 to row/col!
 fn export_triangular_tape(tape: &[TriangularTapeEntry], offset: usize) -> Vec<TapeEntryExport> {
-    tape.iter().enumerate()
+    tape.iter()
+        .enumerate()
         .map(|(i, e)| TapeEntryExport {
-            index: offset + i + 1,  // 1-indexed for display
+            index: offset + i + 1, // 1-indexed for display
             gadget_type: gadget_name(e.gadget_idx),
             gadget_idx: e.gadget_idx,
-            row: e.row,  // 0-indexed - DO NOT change!
-            col: e.col,  // 0-indexed - DO NOT change!
+            row: e.row, // 0-indexed - DO NOT change!
+            col: e.col, // 0-indexed - DO NOT change!
             overhead: triangular_tape_entry_mis_overhead(e),
-        }).collect()
+        })
+        .collect()
 }
 
 // IMPORTANT: Tape positions are 0-indexed. DO NOT add +1 to row/col!
 fn export_square_tape(tape: &[TapeEntry], offset: usize) -> Vec<TapeEntryExport> {
-    tape.iter().enumerate()
+    tape.iter()
+        .enumerate()
         .map(|(i, e)| TapeEntryExport {
-            index: offset + i + 1,  // 1-indexed for display
+            index: offset + i + 1, // 1-indexed for display
             gadget_type: square_gadget_name(e.pattern_idx),
             gadget_idx: e.pattern_idx,
-            row: e.row,  // 0-indexed - DO NOT change!
-            col: e.col,  // 0-indexed - DO NOT change!
+            row: e.row, // 0-indexed - DO NOT change!
+            col: e.col, // 0-indexed - DO NOT change!
             overhead: tape_entry_mis_overhead(e),
-        }).collect()
+        })
+        .collect()
 }
 
 #[allow(clippy::too_many_arguments)]
 fn create_export(
-    graph_name: &str, mode: &str, n: usize, edges: &[(usize, usize)], vertex_order: &[usize],
-    padding: usize, spacing: usize, rows: usize, cols: usize,
+    graph_name: &str,
+    mode: &str,
+    n: usize,
+    edges: &[(usize, usize)],
+    vertex_order: &[usize],
+    padding: usize,
+    spacing: usize,
+    rows: usize,
+    cols: usize,
     copy_lines: Vec<CopyLineExport>,
-    stage1: Vec<GridNodeExport>, stage2: Vec<GridNodeExport>,
-    stage3: Vec<GridNodeExport>, stage4: Vec<GridNodeExport>,
-    crossing_tape: Vec<TapeEntryExport>, simplifier_tape: Vec<TapeEntryExport>,
-    copyline_overhead: i32, crossing_overhead: i32, simplifier_overhead: i32,
+    stage1: Vec<GridNodeExport>,
+    stage2: Vec<GridNodeExport>,
+    stage3: Vec<GridNodeExport>,
+    stage4: Vec<GridNodeExport>,
+    crossing_tape: Vec<TapeEntryExport>,
+    simplifier_tape: Vec<TapeEntryExport>,
+    copyline_overhead: i32,
+    crossing_overhead: i32,
+    simplifier_overhead: i32,
 ) -> MappingExport {
     let mut export = MappingExport {
         graph_name: graph_name.to_string(),
@@ -518,10 +633,30 @@ fn create_export(
         spacing,
         copy_lines,
         stages: vec![
-            StageExport { name: "copylines_only".to_string(), grid_nodes: stage1, num_nodes: 0, grid_size: (rows, cols) },
-            StageExport { name: "with_connections".to_string(), grid_nodes: stage2, num_nodes: 0, grid_size: (rows, cols) },
-            StageExport { name: "after_crossing_gadgets".to_string(), grid_nodes: stage3, num_nodes: 0, grid_size: (rows, cols) },
-            StageExport { name: "after_simplifiers".to_string(), grid_nodes: stage4, num_nodes: 0, grid_size: (rows, cols) },
+            StageExport {
+                name: "copylines_only".to_string(),
+                grid_nodes: stage1,
+                num_nodes: 0,
+                grid_size: (rows, cols),
+            },
+            StageExport {
+                name: "with_connections".to_string(),
+                grid_nodes: stage2,
+                num_nodes: 0,
+                grid_size: (rows, cols),
+            },
+            StageExport {
+                name: "after_crossing_gadgets".to_string(),
+                grid_nodes: stage3,
+                num_nodes: 0,
+                grid_size: (rows, cols),
+            },
+            StageExport {
+                name: "after_simplifiers".to_string(),
+                grid_nodes: stage4,
+                num_nodes: 0,
+                grid_size: (rows, cols),
+            },
         ],
         crossing_tape,
         simplifier_tape,
@@ -543,13 +678,21 @@ fn main() {
 
     let (n, edges) = smallgraph(graph_name).expect("Unknown graph");
 
-    let vertex_order = get_vertex_order_from_julia(graph_name)
-        .unwrap_or_else(|| (0..n).collect());
+    let vertex_order = get_vertex_order_from_julia(graph_name).unwrap_or_else(|| (0..n).collect());
 
     let (export, suffix) = match mode {
-        "unweighted" | "square" => (export_square(graph_name, n, &edges, &vertex_order), "_rust_unweighted"),
-        "weighted" => (export_weighted(graph_name, n, &edges, &vertex_order), "_rust_weighted"),
-        "triangular" | _ => (export_triangular(graph_name, n, &edges, &vertex_order), "_rust_triangular"),
+        "unweighted" | "square" => (
+            export_square(graph_name, n, &edges, &vertex_order),
+            "_rust_unweighted",
+        ),
+        "weighted" => (
+            export_weighted(graph_name, n, &edges, &vertex_order),
+            "_rust_weighted",
+        ),
+        "triangular" | _ => (
+            export_triangular(graph_name, n, &edges, &vertex_order),
+            "_rust_triangular",
+        ),
     };
 
     let output_path = format!("tests/julia/{}{}.json", graph_name, suffix);
@@ -559,12 +702,24 @@ fn main() {
 
     println!("\n=== {} {} Mapping Summary ===", graph_name, export.mode);
     println!("Vertices: {}, Edges: {}", n, edges.len());
-    println!("Grid size: {}x{}", export.stages[0].grid_size.0, export.stages[0].grid_size.1);
+    println!(
+        "Grid size: {}x{}",
+        export.stages[0].grid_size.0, export.stages[0].grid_size.1
+    );
     println!("\nStages:");
     for stage in &export.stages {
         println!("  {}: {} nodes", stage.name, stage.num_nodes);
     }
-    println!("\nTape: {} crossing + {} simplifier", export.crossing_tape.len(), export.simplifier_tape.len());
-    println!("Overhead: copyline={} crossing={} simplifier={} total={}",
-        export.copyline_overhead, export.crossing_overhead, export.simplifier_overhead, export.total_overhead);
+    println!(
+        "\nTape: {} crossing + {} simplifier",
+        export.crossing_tape.len(),
+        export.simplifier_tape.len()
+    );
+    println!(
+        "Overhead: copyline={} crossing={} simplifier={} total={}",
+        export.copyline_overhead,
+        export.crossing_overhead,
+        export.simplifier_overhead,
+        export.total_overhead
+    );
 }

@@ -169,7 +169,11 @@ pub fn map_config_back_pattern<P: Pattern>(
         .map(|&(r, c)| {
             let row = gi + r - 1;
             let col = gj + c - 1;
-            config.get(row).and_then(|row_vec| row_vec.get(col)).copied().unwrap_or(0)
+            config
+                .get(row)
+                .and_then(|row_vec| row_vec.get(col))
+                .copied()
+                .unwrap_or(0)
         })
         .collect();
 
@@ -189,14 +193,26 @@ pub fn map_config_back_pattern<P: Pattern>(
     let d2 = pattern.source_entry_to_configs();
 
     let compact = d1.get(&bc).copied();
-    debug_assert!(compact.is_some(), "Boundary config {} not found in mapped_entry_to_compact", bc);
+    debug_assert!(
+        compact.is_some(),
+        "Boundary config {} not found in mapped_entry_to_compact",
+        bc
+    );
     let compact = compact.unwrap_or(0);
 
     let source_configs = d2.get(&compact).cloned();
-    debug_assert!(source_configs.is_some(), "Compact {} not found in source_entry_to_configs", compact);
+    debug_assert!(
+        source_configs.is_some(),
+        "Compact {} not found in source_entry_to_configs",
+        compact
+    );
     let source_configs = source_configs.unwrap_or_default();
 
-    debug_assert!(!source_configs.is_empty(), "Empty source configs for compact {}.", compact);
+    debug_assert!(
+        !source_configs.is_empty(),
+        "Empty source configs for compact {}.",
+        compact
+    );
     let new_config = if source_configs.is_empty() {
         vec![false; source_locs.len()]
     } else {
@@ -220,7 +236,11 @@ pub fn map_config_back_pattern<P: Pattern>(
         let col = gj + c - 1;
         if let Some(rv) = config.get_mut(row) {
             if let Some(cv) = rv.get_mut(col) {
-                *cv += if new_config.get(k).copied().unwrap_or(false) { 1 } else { 0 };
+                *cv += if new_config.get(k).copied().unwrap_or(false) {
+                    1
+                } else {
+                    0
+                };
             }
         }
     }

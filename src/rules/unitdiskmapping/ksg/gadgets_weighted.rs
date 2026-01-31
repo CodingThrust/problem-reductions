@@ -4,7 +4,7 @@
 //! weighted mapping. Each weighted gadget implements the Pattern trait directly with
 //! actual weight methods, following Julia's formula: mis_overhead(weighted) = mis_overhead(unweighted) * 2.
 
-use super::super::gadgets::{apply_gadget, pattern_matches, Pattern, PatternCell};
+use super::super::traits::{apply_gadget, pattern_matches, Pattern, PatternCell};
 use super::super::grid::{CellState, MappingGrid};
 use super::gadgets::{KsgReflectedGadget, KsgRotatedGadget, Mirror};
 use serde::{Deserialize, Serialize};
@@ -888,7 +888,10 @@ impl WeightedKsgPattern {
             4 => Some(Self::BranchFix(WeightedKsgBranchFix)),
             5 => Some(Self::TCon(WeightedKsgTCon)),
             6 => Some(Self::TrivialTurn(WeightedKsgTrivialTurn)),
-            7 => Some(Self::RotatedTCon1(KsgRotatedGadget::new(WeightedKsgTCon, 1))),
+            7 => Some(Self::RotatedTCon1(KsgRotatedGadget::new(
+                WeightedKsgTCon,
+                1,
+            ))),
             8 => Some(Self::ReflectedCrossTrue(KsgReflectedGadget::new(
                 WeightedKsgCross::<true>,
                 Mirror::Y,

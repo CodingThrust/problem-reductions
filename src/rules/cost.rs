@@ -24,7 +24,8 @@ pub struct MinimizeWeighted(pub Vec<(&'static str, f64)>);
 impl PathCostFn for MinimizeWeighted {
     fn edge_cost(&self, overhead: &ReductionOverhead, size: &ProblemSize) -> f64 {
         let output = overhead.evaluate_output_size(size);
-        self.0.iter()
+        self.0
+            .iter()
             .map(|(field, weight)| weight * output.get(field).unwrap_or(0) as f64)
             .sum()
     }
@@ -36,7 +37,8 @@ pub struct MinimizeMax(pub Vec<&'static str>);
 impl PathCostFn for MinimizeMax {
     fn edge_cost(&self, overhead: &ReductionOverhead, size: &ProblemSize) -> f64 {
         let output = overhead.evaluate_output_size(size);
-        self.0.iter()
+        self.0
+            .iter()
             .map(|field| output.get(field).unwrap_or(0) as f64)
             .fold(0.0, f64::max)
     }
@@ -94,7 +96,7 @@ mod tests {
         let size = ProblemSize::new(vec![("n", 10), ("m", 5)]);
         let overhead = test_overhead();
 
-        assert_eq!(cost_fn.edge_cost(&overhead, &size), 20.0);  // 2 * 10
+        assert_eq!(cost_fn.edge_cost(&overhead, &size), 20.0); // 2 * 10
     }
 
     #[test]
