@@ -6,13 +6,14 @@
 //! - Triangular (triangular lattice with weights)
 
 use problemreductions::rules::unitdiskmapping::{
-    map_graph, map_graph_triangular_with_order, map_graph_with_order,
+    map_graph_triangular_with_order, map_graph_with_order,
 };
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::fs;
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct JuliaTrace {
     graph_name: String,
     mode: String,
@@ -36,6 +37,7 @@ struct JuliaTrace {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct GridNode {
     row: i32,
     col: i32,
@@ -43,6 +45,7 @@ struct GridNode {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct GridNodeWithState {
     row: i32,
     col: i32,
@@ -50,6 +53,7 @@ struct GridNodeWithState {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct CopyLineInfo {
     vertex: usize,
     vslot: usize,
@@ -61,12 +65,14 @@ struct CopyLineInfo {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct Location {
     row: i32,
     col: i32,
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct JuliaTapeEntry {
     index: usize,
     #[serde(rename = "type")]

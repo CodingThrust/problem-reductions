@@ -431,7 +431,7 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
   _Correctness._ ($arrow.r.double$) An IS in $G$ maps to selecting all copy line vertices for included vertices; crossing gadgets ensure no conflicts. ($arrow.l.double$) A grid MIS maps back to an IS by the copy line activity rule.
 ]
 
-*Example: Petersen Graph.*#footnote[Generated using `cargo run --example export_petersen_mapping` from the accompanying code repository.] The Petersen graph ($n=10$, MIS$=4$) maps to a $30 times 42$ King's subgraph with 220 nodes and overhead $Delta = 88$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 88 = 92$. With triangular lattice encoding @nguyen2023, the same graph maps to a $42 times 60$ grid with 340 nodes and overhead $Delta = 384$, giving $"MIS"(G_"tri") = 4 + 384 = 388$.
+*Example: Petersen Graph.*#footnote[Generated using `cargo run --example export_petersen_mapping` from the accompanying code repository.] The Petersen graph ($n=10$, MIS$=4$) maps to a $30 times 42$ King's subgraph with 219 nodes and overhead $Delta = 89$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 89 = 93$. The weighted and unweighted KSG mappings share identical grid topology (same node positions and edges); only the vertex weights differ. With triangular lattice encoding @nguyen2023, the same graph maps to a $42 times 60$ grid with 395 nodes and overhead $Delta = 375$, giving $"MIS"(G_"tri") = 4 + 375 = 379$.
 
 // Load JSON data
 #let petersen = json("petersen_source.json")
@@ -498,18 +498,22 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
 })
 
 // Draw triangular lattice from JSON nodes - uses pre-computed edges
-// Use same (col, row) -> (x, y) convention as square grid for consistency
+// Matches Rust's GridGraph physical_position_static for Triangular with offset_even_cols=true:
+//   x = row + offset (where offset = 0.5 if col is even)
+//   y = col * sqrt(3)/2
 #let draw-triangular-cetz(data, cell-size: 0.2) = canvas(length: 1cm, {
   import draw: *
   let grid-data = data.grid_graph
 
   // Get node positions with triangular geometry for drawing
-  // Match square grid convention: x = col, y = row
-  // Triangular offset: shift x by 0.5 for odd rows
+  // Match Rust GridGraph::physical_position_static for Triangular:
+  //   x = row + 0.5 (if col is even, since offset_even_cols=true)
+  //   y = col * sqrt(3)/2
   let sqrt3_2 = calc.sqrt(3) / 2
   let grid-positions = grid-data.nodes.map(n => {
-    let x = n.col + 0.5 * calc.rem(n.row, 2)  // offset odd rows
-    let y = n.row * sqrt3_2
+    let offset = if calc.rem(n.col, 2) == 0 { 0.5 } else { 0.0 }
+    let x = n.row + offset
+    let y = n.col * sqrt3_2
     (x, y)
   })
   let weights = grid-data.nodes.map(n => n.weight)

@@ -27,11 +27,8 @@
 
 pub mod alpha_tensor;
 mod copyline;
-mod gadgets;
-mod gadgets_unweighted;
 mod grid;
 pub mod ksg;
-mod map_graph;
 pub mod pathdecomposition;
 mod traits;
 pub mod triangular;
@@ -90,6 +87,7 @@ pub use weighted::{map_weights, trace_centers, Weightable};
 pub use ksg::{
     apply_crossing_gadgets, apply_simplifier_gadgets, tape_entry_mis_overhead,
     apply_weighted_crossing_gadgets, apply_weighted_simplifier_gadgets,
+    weighted_tape_entry_mis_overhead, WeightedKsgTapeEntry,
 };
 
 // Triangular gadget application functions

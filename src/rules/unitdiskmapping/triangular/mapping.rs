@@ -70,6 +70,7 @@ fn crossat(
 /// # Example
 /// ```rust
 /// use problemreductions::rules::unitdiskmapping::triangular::mapping::map_weighted;
+/// use problemreductions::topology::Graph;
 ///
 /// let edges = vec![(0, 1), (1, 2)];
 /// let result = map_weighted(3, &edges);

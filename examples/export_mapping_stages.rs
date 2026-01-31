@@ -12,8 +12,8 @@ use problemreductions::rules::unitdiskmapping::{
     apply_triangular_simplifier_gadgets, apply_weighted_crossing_gadgets,
     apply_weighted_simplifier_gadgets, create_copylines, mis_overhead_copyline,
     mis_overhead_copyline_triangular, tape_entry_mis_overhead, triangular_tape_entry_mis_overhead,
-    CopyLine, MappingGrid, TapeEntry, TriangularTapeEntry, SQUARE_PADDING, SQUARE_SPACING,
-    TRIANGULAR_PADDING, TRIANGULAR_SPACING,
+    weighted_tape_entry_mis_overhead, CopyLine, MappingGrid, TapeEntry, TriangularTapeEntry,
+    WeightedKsgTapeEntry, SQUARE_PADDING, SQUARE_SPACING, TRIANGULAR_PADDING, TRIANGULAR_SPACING,
 };
 use problemreductions::topology::smallgraph;
 use serde::Serialize;
@@ -196,6 +196,27 @@ fn square_gadget_name(idx: usize) -> String {
         11 => "EndTurn".to_string(),
         12 => "ReflectedRotatedTCon".to_string(),
         idx if idx >= 100 => format!("DanglingLeg_{}", idx - 100),
+        _ => format!("Unknown_{}", idx),
+    }
+}
+
+fn weighted_square_gadget_name(idx: usize) -> String {
+    // Must match indices in ksg/gadgets_weighted.rs weighted_tape_entry_mis_overhead
+    match idx {
+        0 => "WeightedCross<false>".to_string(),
+        1 => "WeightedTurn".to_string(),
+        2 => "WeightedWTurn".to_string(),
+        3 => "WeightedBranch".to_string(),
+        4 => "WeightedBranchFix".to_string(),
+        5 => "WeightedTCon".to_string(),
+        6 => "WeightedTrivialTurn".to_string(),
+        7 => "RotatedWeightedTCon".to_string(),
+        8 => "ReflectedWeightedCross<true>".to_string(),
+        9 => "ReflectedWeightedTrivialTurn".to_string(),
+        10 => "WeightedBranchFixB".to_string(),
+        11 => "WeightedEndTurn".to_string(),
+        12 => "ReflectedRotatedWeightedTCon".to_string(),
+        idx if idx >= 100 => format!("WeightedDanglingLeg_{}", idx - 100),
         _ => format!("Unknown_{}", idx),
     }
 }
@@ -452,16 +473,17 @@ fn export_weighted(
         .sum();
     let crossing_overhead: i32 = crossing_tape
         .iter()
-        .map(|e| tape_entry_mis_overhead(e) * 2)
+        .map(|e| weighted_tape_entry_mis_overhead(e))
         .sum();
     let simplifier_overhead: i32 = simplifier_tape
         .iter()
-        .map(|e| tape_entry_mis_overhead(e) * 2)
+        .map(|e| weighted_tape_entry_mis_overhead(e))
         .sum();
 
     let copy_lines_export = export_copylines_square(&copylines, padding, spacing);
-    let crossing_tape_export = export_square_tape(&crossing_tape, 0);
-    let simplifier_tape_export = export_square_tape(&simplifier_tape, crossing_tape.len());
+    let crossing_tape_export = export_weighted_square_tape(&crossing_tape, 0);
+    let simplifier_tape_export =
+        export_weighted_square_tape(&simplifier_tape, crossing_tape.len());
 
     create_export(
         graph_name,
@@ -596,6 +618,24 @@ fn export_square_tape(tape: &[TapeEntry], offset: usize) -> Vec<TapeEntryExport>
             row: e.row, // 0-indexed - DO NOT change!
             col: e.col, // 0-indexed - DO NOT change!
             overhead: tape_entry_mis_overhead(e),
+        })
+        .collect()
+}
+
+// IMPORTANT: Tape positions are 0-indexed. DO NOT add +1 to row/col!
+fn export_weighted_square_tape(
+    tape: &[WeightedKsgTapeEntry],
+    offset: usize,
+) -> Vec<TapeEntryExport> {
+    tape.iter()
+        .enumerate()
+        .map(|(i, e)| TapeEntryExport {
+            index: offset + i + 1, // 1-indexed for display
+            gadget_type: weighted_square_gadget_name(e.pattern_idx),
+            gadget_idx: e.pattern_idx,
+            row: e.row, // 0-indexed - DO NOT change!
+            col: e.col, // 0-indexed - DO NOT change!
+            overhead: weighted_tape_entry_mis_overhead(e),
         })
         .collect()
 }

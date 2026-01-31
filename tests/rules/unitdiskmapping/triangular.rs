@@ -1,6 +1,6 @@
 //! Tests for triangular lattice mapping (src/rules/mapping/triangular.rs).
 
-use super::common::{solve_mis, solve_weighted_grid_mis, solve_weighted_mis};
+use super::common::solve_weighted_grid_mis;
 use problemreductions::rules::unitdiskmapping::{
     map_graph_triangular, map_graph_triangular_with_order, trace_centers, MappingResult,
 };

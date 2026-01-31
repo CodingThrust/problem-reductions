@@ -39,6 +39,7 @@ use std::collections::HashMap;
 use std::fs;
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct GadgetData {
     name: String,
     size: Vec<usize>,
@@ -59,6 +60,7 @@ struct GadgetData {
 }
 
 #[derive(Debug, Deserialize)]
+#[allow(dead_code)]
 struct GroundTruth {
     unweighted_square: Vec<GadgetData>,
     triangular: Vec<GadgetData>,

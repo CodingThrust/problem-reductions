@@ -700,7 +700,7 @@ mod tests {
         );
 
         // All positions should be valid (0-indexed, so >= 0)
-        for &(row, col, weight) in &locs {
+        for &(_row, _col, weight) in &locs {
             assert!(weight >= 1, "Weight should be >= 1");
         }
 
