@@ -1,8 +1,8 @@
 {
   "nodes": [
     {
-      "id": "MaxCut",
-      "label": "MaxCut",
+      "id": "IndependentSet",
+      "label": "IndependentSet",
       "category": "graph"
     },
     {
@@ -11,29 +11,14 @@
       "category": "graph"
     },
     {
-      "id": "SpinGlass",
-      "label": "SpinGlass",
-      "category": "optimization"
-    },
-    {
-      "id": "QUBO",
-      "label": "QUBO",
-      "category": "optimization"
-    },
-    {
-      "id": "IndependentSet",
-      "label": "IndependentSet",
+      "id": "VertexCovering",
+      "label": "VertexCovering",
       "category": "graph"
     },
     {
-      "id": "SetPacking",
-      "label": "SetPacking",
-      "category": "set"
-    },
-    {
-      "id": "Satisfiability",
-      "label": "Satisfiability",
-      "category": "satisfiability"
+      "id": "Matching",
+      "label": "Matching",
+      "category": "graph"
     },
     {
       "id": "Coloring",
@@ -41,9 +26,9 @@
       "category": "graph"
     },
     {
-      "id": "VertexCovering",
-      "label": "VertexCovering",
-      "category": "graph"
+      "id": "ILP",
+      "label": "ILP",
+      "category": "optimization"
     },
     {
       "id": "KSatisfiability",
@@ -56,25 +41,50 @@
       "category": "satisfiability"
     },
     {
+      "id": "SetCovering",
+      "label": "SetCovering",
+      "category": "set"
+    },
+    {
       "id": "Factoring",
       "label": "Factoring",
       "category": "specialized"
     },
     {
-      "id": "Matching",
-      "label": "Matching",
+      "id": "MaxCut",
+      "label": "MaxCut",
       "category": "graph"
     },
     {
-      "id": "SetCovering",
-      "label": "SetCovering",
+      "id": "SpinGlass",
+      "label": "SpinGlass",
+      "category": "optimization"
+    },
+    {
+      "id": "SetPacking",
+      "label": "SetPacking",
       "category": "set"
+    },
+    {
+      "id": "QUBO",
+      "label": "QUBO",
+      "category": "optimization"
+    },
+    {
+      "id": "Satisfiability",
+      "label": "Satisfiability",
+      "category": "satisfiability"
     }
   ],
   "edges": [
     {
-      "source": "CircuitSAT",
-      "target": "SpinGlass",
+      "source": "SetPacking",
+      "target": "IndependentSet",
+      "bidirectional": true
+    },
+    {
+      "source": "Satisfiability",
+      "target": "DominatingSet",
       "bidirectional": false
     },
     {
@@ -83,28 +93,18 @@
       "bidirectional": false
     },
     {
-      "source": "Satisfiability",
-      "target": "KSatisfiability",
-      "bidirectional": true
-    },
-    {
-      "source": "Factoring",
-      "target": "CircuitSAT",
+      "source": "CircuitSAT",
+      "target": "SpinGlass",
       "bidirectional": false
     },
     {
-      "source": "IndependentSet",
-      "target": "SetPacking",
-      "bidirectional": true
+      "source": "Satisfiability",
+      "target": "IndependentSet",
+      "bidirectional": false
     },
     {
       "source": "SpinGlass",
       "target": "QUBO",
-      "bidirectional": true
-    },
-    {
-      "source": "MaxCut",
-      "target": "SpinGlass",
       "bidirectional": true
     },
     {
@@ -114,23 +114,33 @@
     },
     {
       "source": "Satisfiability",
-      "target": "IndependentSet",
-      "bidirectional": false
-    },
-    {
-      "source": "Satisfiability",
       "target": "Coloring",
       "bidirectional": false
     },
     {
-      "source": "IndependentSet",
-      "target": "VertexCovering",
+      "source": "Factoring",
+      "target": "ILP",
+      "bidirectional": false
+    },
+    {
+      "source": "Factoring",
+      "target": "CircuitSAT",
+      "bidirectional": false
+    },
+    {
+      "source": "SpinGlass",
+      "target": "MaxCut",
       "bidirectional": true
     },
     {
-      "source": "Satisfiability",
-      "target": "DominatingSet",
-      "bidirectional": false
+      "source": "KSatisfiability",
+      "target": "Satisfiability",
+      "bidirectional": true
+    },
+    {
+      "source": "VertexCovering",
+      "target": "IndependentSet",
+      "bidirectional": true
     }
   ]
 }

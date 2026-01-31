@@ -37,10 +37,12 @@ flowchart TD
         SG_f64["SpinGlass&lt;f64&gt;"]
         QUBO["QUBO&lt;f64&gt;"]
         MaxCut["MaxCut&lt;i32&gt;"]
+        ILP["ILP"]
     end
 
     %% Factoring chain
     Factoring --> CircuitSAT
+    Factoring --> ILP
     CircuitSAT --> SG_i32
 
     %% SAT reductions
@@ -75,6 +77,7 @@ flowchart TD
     style SG_f64 fill:#ff9,stroke:#333
     style QUBO fill:#ff9,stroke:#333
     style MaxCut fill:#ff9,stroke:#333
+    style ILP fill:#ff9,stroke:#333
 ```
 
 ## Legend
@@ -126,6 +129,7 @@ println!("Types: {}, Reductions: {}", graph.num_types(), graph.num_reductions())
 | Satisfiability | DominatingSet | No |
 | CircuitSAT | SpinGlass&lt;i32&gt; | No |
 | Factoring | CircuitSAT | No |
+| Factoring | ILP | No |
 
 ## API
 

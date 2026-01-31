@@ -260,6 +260,7 @@ impl ReductionGraph {
             SpinGlass<i32> => "SpinGlass",
             SpinGlass<f64> => "SpinGlass",
             QUBO<f64> => "QUBO",
+            ILP => "ILP",
             // Satisfiability problems
             Satisfiability<i32> => "Satisfiability",
             KSatisfiability<3, i32> => "KSatisfiability",
@@ -318,6 +319,9 @@ impl ReductionGraph {
         // Circuit reductions
         add_edge!("CircuitSAT" => "SpinGlass");
         add_edge!("Factoring" => "CircuitSAT");
+
+        // ILP reductions (for solver targets)
+        add_edge!("Factoring" => "ILP");
     }
 
     /// Check if `sub` is a subtype of `sup` (or equal).
@@ -624,7 +628,7 @@ impl ReductionGraph {
             "graph"
         } else if name.contains("SetPacking") || name.contains("SetCover") {
             "set"
-        } else if name.contains("SpinGlass") || name.contains("QUBO") {
+        } else if name.contains("SpinGlass") || name.contains("QUBO") || name.contains("ILP") {
             "optimization"
         } else if name.contains("Satisfiability") || name.contains("SAT") {
             "satisfiability"
