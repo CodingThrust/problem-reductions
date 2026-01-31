@@ -9,9 +9,40 @@
 
 use crate::models::graph::Coloring;
 use crate::models::optimization::{ILP, LinearConstraint, ObjectiveSense, VarBounds};
+use crate::polynomial::{Monomial, Polynomial};
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 use crate::types::ProblemSize;
+
+// Register reduction in the inventory for automatic discovery
+inventory::submit! {
+    ReductionEntry {
+        source_name: "Coloring",
+        target_name: "ILP",
+        source_graph: "SimpleGraph",
+        target_graph: "ILPMatrix",
+        overhead_fn: || ReductionOverhead::new(vec![
+            // num_vars = num_vertices * num_colors
+            ("num_vars", Polynomial {
+                terms: vec![Monomial {
+                    coefficient: 1.0,
+                    variables: vec![("num_vertices", 1), ("num_colors", 1)],
+                }]
+            }),
+            // num_constraints = num_vertices + num_edges * num_colors
+            ("num_constraints", Polynomial {
+                terms: vec![
+                    Monomial::var("num_vertices"),
+                    Monomial {
+                        coefficient: 1.0,
+                        variables: vec![("num_edges", 1), ("num_colors", 1)],
+                    },
+                ]
+            }),
+        ]),
+    }
+}
 
 /// Result of reducing Coloring to ILP.
 ///
