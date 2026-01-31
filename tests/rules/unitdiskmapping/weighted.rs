@@ -585,18 +585,19 @@ fn test_square_danglinleg_weights() {
 
 // === Weighted map_config_back Full Verification Tests ===
 
-/// Test weighted mode map_config_back for standard graphs.
+/// Test weighted mode map_config_back_via_centers for standard graphs.
 /// Verifies:
 /// 1. Config at trace_centers is a valid IS
+/// 2. Config size equals original MIS size (proves it's maximum)
 ///
-/// Note: This uses triangular mode (map_graph_triangular) which is the weighted mode
-/// in Julia's terminology. We solve weighted MIS using the grid graph's NATIVE weights
-/// (from gadgets), not mapped source weights. The gadget weights enforce mutual exclusion
-/// for adjacent original vertices through their crossing structure.
+/// Note: This uses triangular mode with map_weights to add source weights (0.5)
+/// to center nodes on top of native gadget weights. This matches Julia's approach.
 #[test]
 fn test_weighted_map_config_back_standard_graphs() {
-    use super::common::{is_independent_set, solve_weighted_mis_config};
-    use problemreductions::rules::unitdiskmapping::{map_graph_triangular, trace_centers};
+    use super::common::{is_independent_set, solve_mis};
+    use problemreductions::models::optimization::{ILP, LinearConstraint, ObjectiveSense};
+    use problemreductions::rules::unitdiskmapping::{map_graph_triangular, map_weights};
+    use problemreductions::solvers::ILPSolver;
     use problemreductions::topology::{smallgraph, Graph};
 
     // All standard graphs (excluding tutte/karate which are slow)
@@ -612,37 +613,49 @@ fn test_weighted_map_config_back_standard_graphs() {
         let (n, edges) = smallgraph(name).unwrap();
         let result = map_graph_triangular(n, &edges);
 
-        // Get native weights from grid graph (gadget weights)
+        // Use map_weights to add source weights (0.5) to centers on top of native weights
+        let source_weights = vec![0.5; n];
+        let mapped_weights = map_weights(&result, &source_weights);
+
+        // Solve weighted MIS with mapped weights
         let grid_edges = result.grid_graph.edges().to_vec();
         let num_grid = result.grid_graph.num_vertices();
-        let native_weights: Vec<i32> = (0..num_grid)
-            .map(|i| result.grid_graph.weight(i).copied().unwrap_or(1))
-            .collect();
 
-        // Solve weighted MIS with native weights
-        let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &native_weights);
-
-        // Get center locations
-        let centers = trace_centers(&result);
-
-        // Extract config at centers
-        let center_config: Vec<usize> = centers
+        let constraints: Vec<LinearConstraint> = grid_edges
             .iter()
-            .map(|&(row, col)| {
-                for (i, node) in result.grid_graph.nodes().iter().enumerate() {
-                    if node.row == row as i32 && node.col == col as i32 {
-                        return grid_config[i];
-                    }
-                }
-                0
-            })
+            .map(|&(i, j)| LinearConstraint::le(vec![(i, 1.0), (j, 1.0)], 1.0))
             .collect();
+
+        let objective: Vec<(usize, f64)> = mapped_weights
+            .iter()
+            .enumerate()
+            .map(|(i, &w)| (i, w))
+            .collect();
+
+        let ilp = ILP::binary(num_grid, constraints, objective, ObjectiveSense::Maximize);
+        let solver = ILPSolver::new();
+        let grid_config: Vec<usize> = solver
+            .solve(&ilp)
+            .map(|sol| sol.iter().map(|&x| if x > 0 { 1 } else { 0 }).collect())
+            .unwrap_or_else(|| vec![0; num_grid]);
+
+        // Extract config at centers using map_config_back_via_centers
+        let center_config = result.map_config_back_via_centers(&grid_config);
 
         // Verify it's a valid independent set
         assert!(
             is_independent_set(&edges, &center_config),
             "{}: Config at centers should be a valid independent set",
             name
+        );
+
+        // Verify it's a maximum independent set
+        let original_mis = solve_mis(n, &edges);
+        let extracted_size = center_config.iter().filter(|&&x| x > 0).count();
+        assert_eq!(
+            extracted_size, original_mis,
+            "{}: Extracted config size {} should equal original MIS size {}",
+            name, extracted_size, original_mis
         );
     }
 }

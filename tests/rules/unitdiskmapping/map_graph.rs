@@ -321,6 +321,7 @@ fn test_mis_overhead_tutte() {
 
 /// Test map_config_back for ALL standard graphs - verifies:
 /// 1. Extracted config is a valid independent set
+/// 2. Extracted config size equals original MIS size (proves it's maximum)
 ///
 /// For unweighted mode, map_config_back uses gadget traceback (unapply_gadgets)
 /// followed by copyline extraction (map_config_copyback).
@@ -351,6 +352,15 @@ fn test_map_config_back_standard_graphs() {
             is_independent_set(&edges, &original_config),
             "{}: Extracted config should be a valid independent set",
             name
+        );
+
+        // Verify it's a maximum independent set
+        let original_mis = solve_mis(n, &edges);
+        let extracted_size = original_config.iter().filter(|&&x| x > 0).count();
+        assert_eq!(
+            extracted_size, original_mis,
+            "{}: Extracted config size {} should equal original MIS size {}",
+            name, extracted_size, original_mis
         );
     }
 }

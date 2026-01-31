@@ -175,6 +175,20 @@ impl MappingGrid {
         coords
     }
 
+    /// Get all doubled cell coordinates.
+    /// Returns a set of (row, col) for cells in the Doubled state.
+    pub fn doubled_cells(&self) -> std::collections::HashSet<(usize, usize)> {
+        let mut cells = std::collections::HashSet::new();
+        for r in 0..self.rows {
+            for c in 0..self.cols {
+                if matches!(self.content[r][c], CellState::Doubled { .. }) {
+                    cells.insert((r, c));
+                }
+            }
+        }
+        cells
+    }
+
     /// Get cross location for two vertices.
     /// Julia's crossat uses smaller position's hslot for row and larger position for col.
     ///

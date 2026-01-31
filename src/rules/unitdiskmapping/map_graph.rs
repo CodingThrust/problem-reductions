@@ -9,7 +9,7 @@ use super::grid::MappingGrid;
 use super::pathdecomposition::{pathwidth, vertex_order_from_layout, PathDecompositionMethod};
 use crate::topology::{GridGraph, GridNode, GridType};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 
 /// Default spacing for square lattice mapping.
@@ -36,6 +36,9 @@ pub struct MappingResult {
     pub mis_overhead: i32,
     /// Tape entries recording gadget applications (for unapply during solution extraction).
     pub tape: Vec<TapeEntry>,
+    /// Doubled cells (where two copy lines overlap) for map_config_back.
+    #[serde(default)]
+    pub doubled_cells: HashSet<(usize, usize)>,
 }
 
 impl MappingResult {
@@ -68,7 +71,7 @@ impl MappingResult {
         unapply_gadgets(&self.tape, &mut config_2d);
 
         // Step 3: Extract vertex configs from copylines
-        map_config_copyback(&self.lines, self.padding, self.spacing, &config_2d)
+        map_config_copyback(&self.lines, self.padding, self.spacing, &config_2d, &self.doubled_cells)
     }
 
     /// Map a configuration back from grid to original graph using center locations.
@@ -212,7 +215,7 @@ impl fmt::Display for MappingResult {
 /// Julia: `map_config_copyback!(ug, c)`
 ///
 /// For each copyline, count selected nodes handling doubled cells specially:
-/// - For doubled cells (weight=2): count 1 if value is 2, or if value is 1 and both neighbors are 0
+/// - For doubled cells (from grid state, not weight): count 1 if value is 2, or if value is 1 and both neighbors are 0
 /// - For regular cells: just add the value
 /// - Result is `count - (len(locs) / 2)`
 ///
@@ -223,6 +226,7 @@ pub fn map_config_copyback(
     padding: usize,
     spacing: usize,
     config: &[Vec<usize>],
+    doubled_cells: &HashSet<(usize, usize)>,
 ) -> Vec<usize> {
     let mut result = vec![0usize; lines.len()];
 
@@ -234,7 +238,8 @@ pub fn map_config_copyback(
         for (iloc, &(row, col, weight)) in locs.iter().enumerate() {
             let ci = config.get(row).and_then(|r| r.get(col)).copied().unwrap_or(0);
 
-            if weight == 2 {
+            // Check if this cell is doubled in the grid (two copylines overlap here)
+            if doubled_cells.contains(&(row, col)) {
                 // Doubled cell - handle specially like Julia
                 if ci == 2 {
                     count += 1;
@@ -488,6 +493,10 @@ pub fn map_graph_with_order(
     let (mut grid, copylines) = embed_graph_internal(num_vertices, edges, vertex_order)
         .expect("Failed to embed graph: num_vertices must be > 0");
 
+    // Extract doubled cells BEFORE applying gadgets
+    // Julia restores grid state with unapply!(gadget), but we just save it beforehand
+    let doubled_cells = grid.doubled_cells();
+
     // Apply crossing gadgets to resolve line intersections
     let crossing_tape = apply_crossing_gadgets(&mut grid, &copylines);
 
@@ -507,7 +516,6 @@ pub fn map_graph_with_order(
     // Add MIS overhead from gadgets
     let gadget_overhead: i32 = tape.iter().map(tape_entry_mis_overhead).sum();
     let mis_overhead = copyline_overhead + gadget_overhead;
-
 
     // Convert to GridGraph
     let nodes: Vec<GridNode<i32>> = grid
@@ -529,6 +537,7 @@ pub fn map_graph_with_order(
         spacing,
         mis_overhead,
         tape,
+        doubled_cells,
     }
 }
 
@@ -704,11 +713,15 @@ mod tests {
             }
         }
 
-        let result = map_config_copyback(&lines, 2, 4, &config);
+        let doubled_cells = HashSet::new();
+        let result = map_config_copyback(&lines, 2, 4, &config, &doubled_cells);
 
-        // count = len(locs), overhead = len/2
-        // When all nodes selected: count > overhead, so result = 1
-        assert_eq!(result[0], 1);
+        // count = len(locs) (all selected with ci=1), overhead = len/2
+        // result = count - overhead = n - n/2 ≈ n/2
+        let n = locs.len();
+        let overhead = n / 2;
+        let expected = n - overhead;
+        assert_eq!(result[0], expected);
     }
 
     #[test]
@@ -743,10 +756,13 @@ mod tests {
             }
         }
 
-        let result = map_config_copyback(&lines, 2, 4, &config);
+        let doubled_cells = HashSet::new();
+        let result = map_config_copyback(&lines, 2, 4, &config, &doubled_cells);
 
-        // Vertex 0: all selected, count > overhead, so result = 1
-        assert_eq!(result[0], 1);
+        // Vertex 0: all selected, result = n - n/2 ≈ n/2
+        let n0 = locs0.len();
+        let expected0 = n0 - (n0 / 2);
+        assert_eq!(result[0], expected0);
 
         // Vertex 1: none selected, count = 0 <= overhead, so result = 0
         assert_eq!(result[1], 0);
@@ -777,7 +793,8 @@ mod tests {
             }
         }
 
-        let result = map_config_copyback(&lines, 2, 4, &config);
+        let doubled_cells = HashSet::new();
+        let result = map_config_copyback(&lines, 2, 4, &config, &doubled_cells);
 
         // count = half, overhead = len/2
         // result = half - len/2 = 0 (since half == len/2)

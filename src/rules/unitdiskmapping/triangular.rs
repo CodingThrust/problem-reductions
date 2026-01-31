@@ -1458,6 +1458,9 @@ pub fn map_graph_triangular_with_order(
         })
         .collect();
 
+    // Extract doubled cells before converting to GridGraph
+    let doubled_cells = grid.doubled_cells();
+
     // Convert to GridGraph with triangular type
     let nodes: Vec<GridNode<i32>> = grid
         .occupied_coords()
@@ -1487,6 +1490,7 @@ pub fn map_graph_triangular_with_order(
         spacing,
         mis_overhead,
         tape,
+        doubled_cells,
     }
 }
 

@@ -335,13 +335,13 @@ fn test_trace_centers_triangle() {
 
 // === map_config_back Verification Tests ===
 
-/// Test triangular mode map_config_back for standard graphs.
-/// For triangular weighted mode: mapped_weighted_mis == overhead
-/// And config at centers should be a valid IS.
+/// Test triangular mode map_config_back_via_centers for standard graphs.
+/// Verifies:
+/// 1. Config at centers is a valid IS
+/// 2. Config size equals original MIS size (proves it's maximum)
 #[test]
 fn test_triangular_map_config_back_standard_graphs() {
-    use super::common::{is_independent_set, solve_weighted_mis_config};
-    use problemreductions::rules::unitdiskmapping::map_graph_triangular;
+    use super::common::{is_independent_set, solve_mis, solve_weighted_mis_config};
     use problemreductions::topology::Graph;
 
     // All standard graphs (excluding tutte/karate which are slow)
@@ -370,27 +370,23 @@ fn test_triangular_map_config_back_standard_graphs() {
         // Solve weighted MIS on grid
         let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &weights);
 
-        // Get center locations
-        let centers = trace_centers(&result);
-
-        // Extract config at centers
-        let center_config: Vec<usize> = centers
-            .iter()
-            .map(|&(row, col)| {
-                for (i, node) in result.grid_graph.nodes().iter().enumerate() {
-                    if node.row == row as i32 && node.col == col as i32 {
-                        return grid_config[i];
-                    }
-                }
-                0
-            })
-            .collect();
+        // Extract config at centers using map_config_back_via_centers
+        let center_config = result.map_config_back_via_centers(&grid_config);
 
         // Verify it's a valid independent set
         assert!(
             is_independent_set(&edges, &center_config),
             "{}: Triangular config at centers should be a valid IS",
             name
+        );
+
+        // Verify it's a maximum independent set
+        let original_mis = solve_mis(n, &edges);
+        let extracted_size = center_config.iter().filter(|&&x| x > 0).count();
+        assert_eq!(
+            extracted_size, original_mis,
+            "{}: Extracted config size {} should equal original MIS size {}",
+            name, extracted_size, original_mis
         );
     }
 }
