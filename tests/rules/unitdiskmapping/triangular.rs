@@ -336,12 +336,16 @@ fn test_trace_centers_triangle() {
 // === map_config_back Verification Tests ===
 
 /// Test triangular mode map_config_back_via_centers for standard graphs.
-/// Verifies:
-/// 1. Config at centers is a valid IS
-/// 2. Config size equals original MIS size (proves it's maximum)
+///
+/// Follows Julia's test approach:
+/// 1. Use source weights of 0.2 for each vertex
+/// 2. Call map_weights to add source weights at centers
+/// 3. Multiply by 10 for integer solver
+/// 4. Verify: config at centers is valid IS with correct size
 #[test]
 fn test_triangular_map_config_back_standard_graphs() {
     use super::common::{is_independent_set, solve_mis, solve_weighted_mis_config};
+    use problemreductions::rules::unitdiskmapping::map_weights;
     use problemreductions::topology::Graph;
 
     // All standard graphs (excluding tutte/karate which are slow)
@@ -360,12 +364,17 @@ fn test_triangular_map_config_back_standard_graphs() {
         let vertex_order = get_julia_vertex_order(name).unwrap_or_else(|| (0..n).collect());
         let result = map_graph_triangular_with_order(n, &edges, &vertex_order);
 
-        // Get weights
+        // Follow Julia's approach: source weights of 0.2 for each vertex
+        let source_weights: Vec<f64> = vec![0.2; n];
+
+        // map_weights adds source weights at center locations (like Julia)
+        let mapped_weights = map_weights(&result, &source_weights);
+
+        // Multiply by 10 and round to get integer weights (like Julia)
+        let weights: Vec<i32> = mapped_weights.iter().map(|&w| (w * 10.0).round() as i32).collect();
+
         let grid_edges = result.grid_graph.edges().to_vec();
         let num_grid = result.grid_graph.num_vertices();
-        let weights: Vec<i32> = (0..num_grid)
-            .map(|i| result.grid_graph.weight(i).copied().unwrap_or(1))
-            .collect();
 
         // Solve weighted MIS on grid
         let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &weights);
@@ -381,6 +390,9 @@ fn test_triangular_map_config_back_standard_graphs() {
         );
 
         // Verify it's a maximum independent set
+        // Julia test: count(isone, sc) ≈ (missize.n / 10) * 5
+        // With weights 0.2, original MIS value = count * 2 (after *10)
+        // So extracted count should equal original MIS size
         let original_mis = solve_mis(n, &edges);
         let extracted_size = center_config.iter().filter(|&&x| x > 0).count();
         assert_eq!(

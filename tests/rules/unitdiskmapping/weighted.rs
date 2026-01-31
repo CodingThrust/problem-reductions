@@ -590,7 +590,7 @@ fn test_square_danglinleg_weights() {
 /// 1. Config at trace_centers is a valid IS
 /// 2. Config size equals original MIS size (proves it's maximum)
 ///
-/// Note: This uses triangular mode with map_weights to add source weights (0.5)
+/// Note: This uses triangular mode with map_weights to add source weights (0.2)
 /// to center nodes on top of native gadget weights. This matches Julia's approach.
 #[test]
 fn test_weighted_map_config_back_standard_graphs() {
@@ -613,11 +613,13 @@ fn test_weighted_map_config_back_standard_graphs() {
         let (n, edges) = smallgraph(name).unwrap();
         let result = map_graph_triangular(n, &edges);
 
-        // Use map_weights to add source weights (0.5) to centers on top of native weights
-        let source_weights = vec![0.5; n];
+        // Follow Julia's approach: source weights of 0.2 for each vertex
+        let source_weights: Vec<f64> = vec![0.2; n];
+
+        // map_weights adds source weights at center locations (like Julia)
         let mapped_weights = map_weights(&result, &source_weights);
 
-        // Solve weighted MIS with mapped weights
+        // Solve weighted MIS with ILP
         let grid_edges = result.grid_graph.edges().to_vec();
         let num_grid = result.grid_graph.num_vertices();
 
