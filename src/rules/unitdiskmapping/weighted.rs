@@ -343,12 +343,16 @@ fn move_center_for_gadget(
     gj: usize,
 ) -> Option<(usize, usize)> {
     // Get source_center and mapped_center for this gadget
+    // From Julia triangular.jl line 415-417:
+    //   source_centers = [cross_location(T()) .+ (0, 1)]
+    //   All triangular gadgets have cross_location = (2, 2), so source = (2, 3)
+    //   mapped_centers: TriTurn->(1,2), TriBranch->(1,2), TriBranchFix->(3,2),
+    //                   TriBranchFixB->(3,2), TriWTurn->(2,3), TriEndTurn->(1,2)
     let (source_center, mapped_center) = match gadget_idx {
-        // Triangular crossing gadgets (from triangular.jl:415-417)
-        // source_centers = [cross_location(T()) .+ (0, 1)]  # All have cross_location = (2, 2)
+        // Triangular crossing gadgets - all have cross_location=(2,2), source=(2,3)
         7 => ((2, 3), (1, 2)),   // TriEndTurn
         8 => ((2, 3), (1, 2)),   // TriTurn
-        9 => ((2, 3), (2, 3)),   // TriWTurn (center stays at same position)
+        9 => ((2, 3), (2, 3)),   // TriWTurn (center stays same)
         10 => ((2, 3), (3, 2)),  // TriBranchFix
         11 => ((2, 3), (3, 2)),  // TriBranchFixB
         12 => ((2, 3), (1, 2)),  // TriBranch
