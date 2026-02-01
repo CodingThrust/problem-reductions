@@ -646,7 +646,7 @@ mod tests {
         let result = map_unweighted(3, &edges);
 
         assert!(result.grid_graph.num_vertices() > 0);
-        assert!(result.mis_overhead >= 0 || result.mis_overhead < 0); // Can be negative due to gadgets
+        // mis_overhead can be negative due to gadgets, so we just verify the function completes
     }
 
     #[test]

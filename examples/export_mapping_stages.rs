@@ -473,11 +473,11 @@ fn export_weighted(
         .sum();
     let crossing_overhead: i32 = crossing_tape
         .iter()
-        .map(|e| weighted_tape_entry_mis_overhead(e))
+        .map(weighted_tape_entry_mis_overhead)
         .sum();
     let simplifier_overhead: i32 = simplifier_tape
         .iter()
-        .map(|e| weighted_tape_entry_mis_overhead(e))
+        .map(weighted_tape_entry_mis_overhead)
         .sum();
 
     let copy_lines_export = export_copylines_square(&copylines, padding, spacing);
@@ -729,7 +729,7 @@ fn main() {
             export_weighted(graph_name, n, &edges, &vertex_order),
             "_rust_weighted",
         ),
-        "triangular" | _ => (
+        _ => (
             export_triangular(graph_name, n, &edges, &vertex_order),
             "_rust_triangular",
         ),

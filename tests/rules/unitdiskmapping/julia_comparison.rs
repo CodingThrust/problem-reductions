@@ -188,8 +188,10 @@ fn compare_square_unweighted(name: &str) {
 /// Get MIS overhead for a Julia gadget type string (triangular/weighted mode)
 /// Values from Julia's UnitDiskMapping/src/triangular.jl lines 401-413
 /// For simplifiers: Julia uses mis_overhead(w::WeightedGadget) = mis_overhead(w.gadget) * 2
+#[allow(clippy::if_same_then_else)]
 fn julia_gadget_overhead(gadget_type: &str) -> i32 {
     // Order matters - check more specific patterns first
+    // Some gadget types have the same overhead but must be checked in order
     if gadget_type.contains("TriCross{true") {
         1
     } else if gadget_type.contains("TriCross{false") || gadget_type.contains("TriCross}") {

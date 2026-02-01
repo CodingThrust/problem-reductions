@@ -29,20 +29,18 @@ fn test_create_copylines_single_vertex() {
 #[test]
 fn test_mis_overhead_copyline_basic() {
     let line = CopyLine::new(0, 2, 3, 1, 3, 4);
-    let overhead = mis_overhead_copyline(&line, 4, 2);
+    let _overhead = mis_overhead_copyline(&line, 4, 2);
 
-    // overhead should be non-negative
-    assert!(overhead >= 0);
+    // Function should not panic for valid inputs
 }
 
 #[test]
 fn test_mis_overhead_copyline_zero_hstop() {
     // Test edge case with minimal hstop
     let line = CopyLine::new(0, 1, 1, 1, 1, 1);
-    let overhead = mis_overhead_copyline(&line, 4, 2);
+    let _overhead = mis_overhead_copyline(&line, 4, 2);
 
-    // Should not panic
-    assert!(overhead >= 0);
+    // Function should not panic for edge case
 }
 
 #[test]
