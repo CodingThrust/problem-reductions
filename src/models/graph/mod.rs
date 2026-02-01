@@ -14,17 +14,33 @@
 //! New graph problems can be defined using the [`GraphProblem`] template by
 //! implementing the [`GraphConstraint`] trait:
 //!
-//! ```rust,ignore
+//! ```
 //! use problemreductions::models::graph::{GraphProblem, GraphConstraint};
+//! use problemreductions::types::EnergyMode;
+//! use problemreductions::registry::GraphSubcategory;
+//! use problemreductions::topology::SimpleGraph;
 //!
 //! // Define a new graph problem constraint
+//! #[derive(Clone)]
 //! struct MyConstraint;
+//!
 //! impl GraphConstraint for MyConstraint {
-//!     // ... implement required methods
+//!     const NAME: &'static str = "My Problem";
+//!     const DESCRIPTION: &'static str = "A custom graph problem";
+//!     const ENERGY_MODE: EnergyMode = EnergyMode::LargerSizeIsBetter;
+//!     const SUBCATEGORY: GraphSubcategory = GraphSubcategory::Independent;
+//!
+//!     fn edge_constraint_spec() -> [bool; 4] {
+//!         [true, true, true, false]
+//!     }
 //! }
 //!
-//! // Create a type alias for convenience
-//! type MyProblem<W = i32> = GraphProblem<MyConstraint, W>;
+//! // Create a type alias for convenience (defaults to SimpleGraph and i32)
+//! type MyProblem = GraphProblem<MyConstraint, SimpleGraph, i32>;
+//!
+//! // Use it
+//! let problem = MyProblem::new(3, vec![(0, 1)]);
+//! assert_eq!(problem.num_vertices(), 3);
 //! ```
 
 mod coloring;

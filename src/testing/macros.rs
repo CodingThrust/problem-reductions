@@ -11,12 +11,13 @@
 ///
 /// # Example
 ///
-/// ```rust,ignore
-/// use problemreductions::testing::graph_problem_tests;
+/// ```text
+/// // Macro usage example - users customize for their tests
+/// use problemreductions::graph_problem_tests;
 /// use problemreductions::models::graph::{IndependentSetT, IndependentSetConstraint};
 ///
 /// graph_problem_tests! {
-///     problem_type: IndependentSetT<i32>,
+///     problem_type: IndependentSetT,
 ///     constraint_type: IndependentSetConstraint,
 ///     test_cases: [
 ///         // (name, num_vertices, edges, valid_solution, expected_size, is_maximization)
@@ -137,11 +138,15 @@ macro_rules! graph_problem_tests {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```text
+/// // Macro usage example - users customize for their tests
+/// use problemreductions::complement_test;
+/// use problemreductions::prelude::{IndependentSet, VertexCovering};
+///
 /// complement_test! {
 ///     name: is_vc_complement,
-///     problem_a: IndependentSet<i32>,
-///     problem_b: VertexCovering<i32>,
+///     problem_a: IndependentSet,
+///     problem_b: VertexCovering,
 ///     test_graphs: [
 ///         (3, [(0, 1), (1, 2)]),
 ///         (4, [(0, 1), (1, 2), (2, 3), (0, 3)]),
@@ -204,9 +209,13 @@ macro_rules! complement_test {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```text
+/// // Macro usage example - users customize for their tests
+/// use problemreductions::quick_problem_test;
+/// use problemreductions::prelude::IndependentSet;
+///
 /// quick_problem_test!(
-///     IndependentSet<i32>,
+///     IndependentSet,
 ///     new(3, vec![(0, 1), (1, 2)]),
 ///     solution: [1, 0, 1],
 ///     expected_size: 2,

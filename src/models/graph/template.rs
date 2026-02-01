@@ -90,7 +90,12 @@ use std::ops::AddAssign;
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```
+/// use problemreductions::models::graph::GraphConstraint;
+/// use problemreductions::types::EnergyMode;
+/// use problemreductions::registry::GraphSubcategory;
+///
+/// #[derive(Clone)]
 /// pub struct IndependentSetConstraint;
 ///
 /// impl GraphConstraint for IndependentSetConstraint {
@@ -170,18 +175,19 @@ pub trait GraphConstraint: Clone + Send + Sync + 'static {
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```
 /// use problemreductions::topology::{SimpleGraph, UnitDiskGraph};
+/// use problemreductions::models::graph::{GraphProblem, IndependentSetConstraint};
 ///
 /// // Define Independent Set as a type alias (defaults to SimpleGraph)
 /// pub type IndependentSet<G = SimpleGraph, W = i32> = GraphProblem<IndependentSetConstraint, G, W>;
 ///
 /// // Create an instance with SimpleGraph (default)
-/// let problem = IndependentSet::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+/// let problem: IndependentSet = IndependentSet::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 ///
 /// // Create an instance with UnitDiskGraph for quantum hardware
 /// let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)], 1.5);
-/// let problem_udg = IndependentSet::<UnitDiskGraph>::from_graph(udg);
+/// let problem_udg: IndependentSet<UnitDiskGraph> = IndependentSet::from_graph(udg);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct GraphProblem<C: GraphConstraint, G: Graph = SimpleGraph, W = i32> {
@@ -490,16 +496,18 @@ impl GraphConstraint for CliqueConstraint {
 ///
 /// # Examples
 ///
-/// ```rust,ignore
+/// ```
 /// use problemreductions::models::graph::IndependentSetT;
-/// use problemreductions::topology::{SimpleGraph, UnitDiskGraph};
+/// use problemreductions::topology::UnitDiskGraph;
 ///
-/// // Default: SimpleGraph
-/// let is = IndependentSetT::new(4, vec![(0, 1), (1, 2)]);
+/// // Default: SimpleGraph with i32 weights
+/// let is: IndependentSetT = IndependentSetT::new(4, vec![(0, 1), (1, 2)]);
 ///
 /// // With UnitDiskGraph for quantum hardware
+/// let positions = vec![(0.0, 0.0), (1.0, 0.0), (2.0, 0.0)];
+/// let radius = 1.5;
 /// let udg = UnitDiskGraph::new(positions, radius);
-/// let is_udg = IndependentSetT::<UnitDiskGraph>::from_graph(udg);
+/// let is_udg: IndependentSetT<UnitDiskGraph> = IndependentSetT::from_graph(udg);
 /// ```
 pub type IndependentSetT<G = SimpleGraph, W = i32> = GraphProblem<IndependentSetConstraint, G, W>;
 

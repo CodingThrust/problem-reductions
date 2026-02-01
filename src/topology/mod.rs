@@ -10,16 +10,16 @@
 //!
 //! Following Julia's Graphs.jl pattern, problems are generic over graph type:
 //!
-//! ```rust,ignore
-//! // Problems work with any graph type
-//! pub struct IndependentSet<G: Graph = SimpleGraph, W = i32> {
-//!     graph: G,
-//!     weights: Vec<W>,
-//! }
+//! ```
+//! use problemreductions::topology::{Graph, SimpleGraph, UnitDiskGraph};
+//! use problemreductions::models::graph::IndependentSet;
 //!
-//! // Reductions can target specific topologies
-//! impl ReduceTo<IndependentSet<SimpleGraph>> for SAT { ... }
-//! impl ReduceTo<IndependentSet<UnitDiskGraph>> for SAT { ... }  // Different gadgets!
+//! // Problems work with any graph type - SimpleGraph by default
+//! let simple_graph_problem: IndependentSet = IndependentSet::new(3, vec![(0, 1)]);
+//! assert_eq!(simple_graph_problem.num_vertices(), 3);
+//!
+//! // Different graph topologies enable different reduction algorithms
+//! // (UnitDiskGraph example would require specific constructors)
 //! ```
 
 mod graph;

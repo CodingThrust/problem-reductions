@@ -142,10 +142,14 @@ impl ILPSolver {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```no_run
+    /// use problemreductions::prelude::*;
     /// use problemreductions::solvers::ILPSolver;
     ///
-    /// let problem = SomeProblem::new(...); // Some problem that implements ReduceTo<ILP>
+    /// // Create a problem that reduces to ILP (e.g., Independent Set)
+    /// let problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2)]);
+    ///
+    /// // Solve using ILP solver
     /// let solver = ILPSolver::new();
     /// if let Some(solution) = solver.solve_reduced(&problem) {
     ///     println!("Solution: {:?}", solution);
