@@ -506,4 +506,34 @@ mod tests {
         assert_eq!(grid.degree(1), 1);
         assert_eq!(grid.degree(2), 1);
     }
+
+    #[test]
+    fn test_grid_graph_display() {
+        let nodes = vec![GridNode::new(0, 0, 1), GridNode::new(1, 0, 2)];
+        let grid = GridGraph::new(GridType::Square, (2, 2), nodes, 2.0);
+
+        // Test Display trait
+        let display_str = format!("{}", grid);
+        assert!(!display_str.is_empty());
+    }
+
+    #[test]
+    fn test_grid_graph_format_empty() {
+        let nodes: Vec<GridNode<i32>> = vec![];
+        let grid = GridGraph::new(GridType::Square, (0, 0), nodes, 1.0);
+
+        // Empty grid should return "(empty grid graph)"
+        let formatted = grid.format_with_config(None, false);
+        assert_eq!(formatted, "(empty grid graph)");
+    }
+
+    #[test]
+    fn test_grid_graph_format_with_config() {
+        let nodes = vec![GridNode::new(0, 0, 1), GridNode::new(1, 0, 1)];
+        let grid = GridGraph::new(GridType::Square, (2, 2), nodes, 2.0);
+
+        // Test format with config
+        let formatted = grid.format_with_config(Some(&[1, 0]), false);
+        assert!(!formatted.is_empty());
+    }
 }

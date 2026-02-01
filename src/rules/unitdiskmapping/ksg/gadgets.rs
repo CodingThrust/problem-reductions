@@ -1281,23 +1281,12 @@ pub fn apply_crossing_gadgets(
     let mut tape = Vec::new();
     let n = copylines.len();
 
-    let debug = std::env::var("DEBUG_CROSSING").is_ok();
-
     for j in 0..n {
         for i in 0..n {
             let (cross_row, cross_col) = crossat(grid, copylines, i, j);
-            if debug {
-                eprintln!(
-                    "Trying crossat ({}, {}) from copylines[{}][{}]",
-                    cross_row, cross_col, i, j
-                );
-            }
             if let Some((pattern_idx, row, col)) =
                 try_match_and_apply_crossing(grid, cross_row, cross_col)
             {
-                if debug {
-                    eprintln!("  -> Matched pattern {} at ({}, {})", pattern_idx, row, col);
-                }
                 tape.push(KsgTapeEntry {
                     pattern_idx,
                     row,
@@ -1370,8 +1359,6 @@ fn try_match_and_apply_crossing(
         ),
     ];
 
-    let debug = std::env::var("DEBUG_CROSSING").is_ok();
-
     for (idx, make_pattern) in patterns {
         let pattern = make_pattern();
         let cl = pattern.cross_location();
@@ -1380,52 +1367,7 @@ fn try_match_and_apply_crossing(
         if cross_row + 1 >= cl.0 && cross_col + 1 >= cl.1 {
             let x = cross_row + 1 - cl.0;
             let y = cross_col + 1 - cl.1;
-            if debug && (cross_row == 3 && cross_col == 6) && idx == 7 {
-                eprintln!(
-                    "    Pattern {} cross_loc={:?} -> trying at ({}, {})",
-                    idx, cl, x, y
-                );
-                // Print the source_matrix directly
-                let source = pattern.source_matrix();
-                let (m, n) = pattern.size_boxed();
-                eprintln!("    Source matrix ({}x{}):", m, n);
-                for (r, row) in source.iter().enumerate() {
-                    let row_str: String = row
-                        .iter()
-                        .map(|c| match c {
-                            PatternCell::Empty => '.',
-                            PatternCell::Occupied => 'O',
-                            PatternCell::Connected => 'C',
-                            PatternCell::Doubled => 'D',
-                        })
-                        .collect();
-                    eprintln!("      Row {}: {}", r, row_str);
-                }
-                eprintln!("    Grid at position ({}, {}):", x, y);
-                for r in 0..m {
-                    let row_str: String = (0..n)
-                        .map(|c| {
-                            let gr = x + r;
-                            let gc = y + c;
-                            match safe_get_pattern_cell(grid, gr, gc) {
-                                PatternCell::Empty => '.',
-                                PatternCell::Occupied => 'O',
-                                PatternCell::Connected => 'C',
-                                PatternCell::Doubled => 'D',
-                            }
-                        })
-                        .collect();
-                    eprintln!("      Row {}: {}", r, row_str);
-                }
-            }
-            let matches = pattern.pattern_matches_boxed(grid, x, y);
-            if debug && (cross_row == 3 && cross_col == 6) && idx == 7 {
-                eprintln!(
-                    "    Pattern {} at ({}, {}) -> matches={}",
-                    idx, x, y, matches
-                );
-            }
-            if matches {
+            if pattern.pattern_matches_boxed(grid, x, y) {
                 pattern.apply_gadget_boxed(grid, x, y);
                 return Some((idx, x, y));
             }
@@ -1443,23 +1385,12 @@ pub fn apply_weighted_crossing_gadgets(
     let mut tape = Vec::new();
     let n = copylines.len();
 
-    let debug = std::env::var("DEBUG_CROSSING").is_ok();
-
     for j in 0..n {
         for i in 0..n {
             let (cross_row, cross_col) = crossat(grid, copylines, i, j);
-            if debug {
-                eprintln!(
-                    "Trying crossat ({}, {}) from copylines[{}][{}]",
-                    cross_row, cross_col, i, j
-                );
-            }
             if let Some((pattern_idx, row, col)) =
                 try_match_and_apply_weighted_crossing(grid, cross_row, cross_col)
             {
-                if debug {
-                    eprintln!("  -> Matched pattern {} at ({}, {})", pattern_idx, row, col);
-                }
                 tape.push(KsgTapeEntry {
                     pattern_idx,
                     row,

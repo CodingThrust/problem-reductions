@@ -40,7 +40,8 @@ pub use gadgets_weighted::{
 pub use mapping::{
     embed_graph, map_config_copyback, map_unweighted, map_unweighted_with_method,
     map_unweighted_with_order, map_weighted, map_weighted_with_method,
-    map_weighted_with_order, trace_centers, MappingResult,
+    map_weighted_with_order, trace_centers, unapply_gadgets, unapply_weighted_gadgets,
+    MappingResult,
 };
 
 /// Spacing between copy lines for KSG mapping.

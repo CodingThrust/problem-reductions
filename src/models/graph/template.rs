@@ -666,4 +666,49 @@ mod tests {
         assert_eq!(graph.num_vertices(), 4);
         assert_eq!(graph.num_edges(), 2);
     }
+
+    #[test]
+    fn test_is_edge_satisfied() {
+        // Test all four cases for IndependentSetConstraint
+        assert!(IndependentSetConstraint::is_edge_satisfied(false, false));
+        assert!(IndependentSetConstraint::is_edge_satisfied(false, true));
+        assert!(IndependentSetConstraint::is_edge_satisfied(true, false));
+        assert!(!IndependentSetConstraint::is_edge_satisfied(true, true));
+
+        // Test all four cases for VertexCoverConstraint
+        assert!(!VertexCoverConstraint::is_edge_satisfied(false, false));
+        assert!(VertexCoverConstraint::is_edge_satisfied(false, true));
+        assert!(VertexCoverConstraint::is_edge_satisfied(true, false));
+        assert!(VertexCoverConstraint::is_edge_satisfied(true, true));
+    }
+
+    #[test]
+    fn test_problem_info_aliases() {
+        let info = IndependentSetConstraint::problem_info();
+        assert!(info.aliases.contains(&"MIS"));
+        assert!(info.aliases.contains(&"MWIS"));
+
+        let vc_info = VertexCoverConstraint::problem_info();
+        assert!(vc_info.aliases.contains(&"VC"));
+    }
+
+    #[test]
+    fn test_from_graph_with_weights() {
+        let graph = SimpleGraph::new(3, vec![(0, 1)]);
+        let problem: IndependentSetT =
+            IndependentSetT::from_graph_with_weights(graph, vec![10, 20, 30]);
+        assert_eq!(problem.weights(), vec![10, 20, 30]);
+    }
+
+    #[test]
+    fn test_clique_constraint() {
+        let spec = CliqueConstraint::edge_constraint_spec();
+        assert!(spec[0]); // (0,0) OK
+        assert!(spec[1]); // (0,1) OK
+        assert!(spec[2]); // (1,0) OK
+        assert!(!spec[3]); // (1,1) invalid (on non-edges)
+
+        let cat = CliqueConstraint::category();
+        assert_eq!(cat.path(), "graph/independent");
+    }
 }

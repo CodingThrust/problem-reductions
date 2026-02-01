@@ -243,6 +243,32 @@ mod tests {
         // No edges in the intersection graph
         assert_eq!(is_problem.num_edges(), 0);
     }
+
+    #[test]
+    fn test_reduction_sizes() {
+        // Test source_size and target_size methods
+        let is_problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2)]);
+        let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&is_problem);
+
+        let source_size = reduction.source_size();
+        let target_size = reduction.target_size();
+
+        // Source and target sizes should have components
+        assert!(!source_size.components.is_empty());
+        assert!(!target_size.components.is_empty());
+
+        // Test SP to IS sizes
+        let sets = vec![vec![0, 1], vec![2, 3]];
+        let sp_problem = SetPacking::<i32>::new(sets);
+        let reduction2: ReductionSPToIS<i32> =
+            ReduceTo::<IndependentSet<i32>>::reduce_to(&sp_problem);
+
+        let source_size2 = reduction2.source_size();
+        let target_size2 = reduction2.target_size();
+
+        assert!(!source_size2.components.is_empty());
+        assert!(!target_size2.components.is_empty());
+    }
 }
 
 // Register reductions with inventory for auto-discovery

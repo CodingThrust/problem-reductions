@@ -231,6 +231,13 @@ mod tests {
     }
 
     #[test]
+    fn test_hypergraph_to_graph_edges_not_regular() {
+        // Hypergraph with a hyperedge of size 3 (not a regular graph)
+        let hg = HyperGraph::new(4, vec![vec![0, 1, 2]]);
+        assert!(hg.to_graph_edges().is_none());
+    }
+
+    #[test]
     fn test_hypergraph_get_edge() {
         let hg = HyperGraph::new(4, vec![vec![0, 1, 2], vec![2, 3]]);
         assert_eq!(hg.edge(0), Some(&vec![0, 1, 2]));

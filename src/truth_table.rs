@@ -456,4 +456,25 @@ mod tests {
         assert!(!nor.evaluate(&[false, true]));
         assert!(!nor.evaluate(&[true, true]));
     }
+
+    #[test]
+    fn test_serialization() {
+        let and = TruthTable::and(2);
+        let json = serde_json::to_string(&and).unwrap();
+        let deserialized: TruthTable = serde_json::from_str(&json).unwrap();
+        assert_eq!(and, deserialized);
+    }
+
+    #[test]
+    fn test_outputs() {
+        let and = TruthTable::and(2);
+        let outputs = and.outputs();
+        assert_eq!(outputs.len(), 4);
+    }
+
+    #[test]
+    fn test_num_inputs() {
+        let and = TruthTable::and(3);
+        assert_eq!(and.num_inputs(), 3);
+    }
 }

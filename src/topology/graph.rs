@@ -375,4 +375,21 @@ mod tests {
     fn test_simple_graph_invalid_edge() {
         SimpleGraph::new(3, vec![(0, 5)]);
     }
+
+    #[test]
+    fn test_simple_graph_cycle_small() {
+        // Test cycle with fewer than 3 vertices (should fall back to path)
+        let graph = SimpleGraph::cycle(2);
+        assert_eq!(graph.num_vertices(), 2);
+        assert_eq!(graph.num_edges(), 1); // Path: 0-1
+        assert!(graph.has_edge(0, 1));
+    }
+
+    #[test]
+    fn test_simple_graph_eq_different_sizes() {
+        // Test PartialEq when graphs have different sizes
+        let g1 = SimpleGraph::new(3, vec![(0, 1)]);
+        let g2 = SimpleGraph::new(4, vec![(0, 1)]); // Different vertex count
+        assert_ne!(g1, g2);
+    }
 }

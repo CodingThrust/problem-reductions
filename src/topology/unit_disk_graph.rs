@@ -333,4 +333,35 @@ mod tests {
         assert_eq!(edges.len(), 1);
         assert_eq!(edges[0], (0, 1));
     }
+
+    #[test]
+    fn test_udg_positions() {
+        let udg = UnitDiskGraph::new(vec![(1.0, 2.0), (3.0, 4.0)], 1.0);
+        let positions = udg.positions();
+        assert_eq!(positions.len(), 2);
+        assert_eq!(positions[0], (1.0, 2.0));
+        assert_eq!(positions[1], (3.0, 4.0));
+    }
+
+    #[test]
+    fn test_udg_vertex_distance_invalid() {
+        let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (1.0, 0.0)], 1.0);
+        assert_eq!(udg.vertex_distance(0, 5), None);
+        assert_eq!(udg.vertex_distance(5, 0), None);
+        assert_eq!(udg.vertex_distance(5, 6), None);
+    }
+
+    #[test]
+    fn test_udg_graph_trait() {
+        // Test the Graph trait implementation
+        let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (1.0, 0.0), (0.5, 0.5)], 1.0);
+        // Use Graph trait methods
+        assert_eq!(Graph::num_vertices(&udg), 3);
+        assert!(Graph::num_edges(&udg) > 0);
+        assert!(Graph::has_edge(&udg, 0, 1));
+        let edges = Graph::edges(&udg);
+        assert!(!edges.is_empty());
+        let neighbors = Graph::neighbors(&udg, 0);
+        assert!(neighbors.contains(&1));
+    }
 }

@@ -486,3 +486,69 @@ fn test_grid_graph_nodes_have_weights() {
         assert!(node.weight > 0, "Node weight should be positive");
     }
 }
+
+// === Tape Entry and Ruleset Tests ===
+
+use problemreductions::rules::unitdiskmapping::ksg::{
+    crossing_ruleset_indices, tape_entry_mis_overhead, KsgTapeEntry,
+};
+
+#[test]
+fn test_crossing_ruleset_indices() {
+    let indices = crossing_ruleset_indices();
+    assert_eq!(indices.len(), 13, "Should have 13 crossing patterns");
+    assert_eq!(indices[0], 0);
+    assert_eq!(indices[12], 12);
+}
+
+#[test]
+fn test_tape_entry_mis_overhead_crossing_patterns() {
+    // Test that all crossing patterns return valid MIS overhead values
+    // Pattern values: 0 = Cross<false>, 1 = Turn, 2 = WTurn, 3 = Branch,
+    //   4 = BranchFix, 5 = TCon, 6 = TrivialTurn, 7 = RotatedGadget(TCon, 1),
+    //   8 = ReflectedGadget(Cross<true>, Y), 9 = ReflectedGadget(TrivialTurn, Y),
+    //   10 = BranchFixB, 11 = EndTurn, 12 = ReflectedGadget(RotatedGadget(TCon, 1), Y)
+    for pattern_idx in 0..13 {
+        let entry = KsgTapeEntry {
+            pattern_idx,
+            row: 0,
+            col: 0,
+        };
+        let overhead = tape_entry_mis_overhead(&entry);
+        // All crossing gadgets should have overhead in range [-2, 1]
+        assert!(
+            (-2..=1).contains(&overhead),
+            "Pattern {} has unexpected overhead {}",
+            pattern_idx, overhead
+        );
+    }
+}
+
+#[test]
+fn test_tape_entry_mis_overhead_simplifier_patterns() {
+    // Simplifier patterns (DanglingLeg rotations) have indices 100-105
+    for pattern_idx in 100..=105 {
+        let entry = KsgTapeEntry {
+            pattern_idx,
+            row: 0,
+            col: 0,
+        };
+        let overhead = tape_entry_mis_overhead(&entry);
+        assert_eq!(
+            overhead, -1,
+            "DanglingLeg pattern {} should have overhead -1",
+            pattern_idx
+        );
+    }
+}
+
+#[test]
+fn test_tape_entry_mis_overhead_unknown_pattern() {
+    let entry = KsgTapeEntry {
+        pattern_idx: 999,
+        row: 0,
+        col: 0,
+    };
+    let overhead = tape_entry_mis_overhead(&entry);
+    assert_eq!(overhead, 0, "Unknown pattern should have overhead 0");
+}

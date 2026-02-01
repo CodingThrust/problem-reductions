@@ -273,6 +273,29 @@ mod tests {
         assert_eq!(solutions.len(), 1);
         assert_eq!(solutions[0], vec![0], "Should prefer x=0 (s=-1)");
     }
+
+    #[test]
+    fn test_reduction_sizes() {
+        // Test source_size and target_size methods
+        let qubo = QUBO::from_matrix(vec![vec![1.0, -2.0], vec![0.0, 1.0]]);
+        let reduction = ReduceTo::<SpinGlass<f64>>::reduce_to(&qubo);
+
+        let source_size = reduction.source_size();
+        let target_size = reduction.target_size();
+
+        assert!(!source_size.components.is_empty());
+        assert!(!target_size.components.is_empty());
+
+        // Test SG to QUBO sizes
+        let sg = SpinGlass::new(3, vec![((0, 1), -1.0)], vec![0.0, 0.0, 0.0]);
+        let reduction2 = ReduceTo::<QUBO<f64>>::reduce_to(&sg);
+
+        let source_size2 = reduction2.source_size();
+        let target_size2 = reduction2.target_size();
+
+        assert!(!source_size2.components.is_empty());
+        assert!(!target_size2.components.is_empty());
+    }
 }
 
 // Register reductions with inventory for auto-discovery

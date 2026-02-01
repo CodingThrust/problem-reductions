@@ -1,7 +1,49 @@
 //! Tests for copyline functionality (src/rules/mapping/copyline.rs).
 
 use super::common::solve_weighted_mis;
-use problemreductions::rules::unitdiskmapping::{map_graph, map_graph_triangular, CopyLine};
+use problemreductions::rules::unitdiskmapping::{
+    create_copylines, map_graph, map_graph_triangular, mis_overhead_copyline, CopyLine,
+};
+
+// === Edge Case Tests ===
+
+#[test]
+fn test_create_copylines_empty_graph() {
+    // Test with no edges
+    let edges: Vec<(usize, usize)> = vec![];
+    let order = vec![0, 1, 2];
+    let copylines = create_copylines(3, &edges, &order);
+
+    assert_eq!(copylines.len(), 3);
+}
+
+#[test]
+fn test_create_copylines_single_vertex() {
+    let edges: Vec<(usize, usize)> = vec![];
+    let order = vec![0];
+    let copylines = create_copylines(1, &edges, &order);
+
+    assert_eq!(copylines.len(), 1);
+}
+
+#[test]
+fn test_mis_overhead_copyline_basic() {
+    let line = CopyLine::new(0, 2, 3, 1, 3, 4);
+    let overhead = mis_overhead_copyline(&line, 4, 2);
+
+    // overhead should be non-negative
+    assert!(overhead >= 0);
+}
+
+#[test]
+fn test_mis_overhead_copyline_zero_hstop() {
+    // Test edge case with minimal hstop
+    let line = CopyLine::new(0, 1, 1, 1, 1, 1);
+    let overhead = mis_overhead_copyline(&line, 4, 2);
+
+    // Should not panic
+    assert!(overhead >= 0);
+}
 
 #[test]
 fn test_copylines_have_valid_vertex_ids() {

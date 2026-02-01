@@ -1106,23 +1106,12 @@ pub fn apply_weighted_crossing_gadgets(
     let mut tape = Vec::new();
     let n = copylines.len();
 
-    let debug = std::env::var("DEBUG_CROSSING").is_ok();
-
     for j in 0..n {
         for i in 0..n {
             let (cross_row, cross_col) = crossat(grid, copylines, i, j);
-            if debug {
-                eprintln!(
-                    "Trying crossat ({}, {}) from copylines[{}][{}]",
-                    cross_row, cross_col, i, j
-                );
-            }
             if let Some((pattern_idx, row, col)) =
                 try_match_and_apply_weighted_crossing(grid, cross_row, cross_col)
             {
-                if debug {
-                    eprintln!("  -> Matched pattern {} at ({}, {})", pattern_idx, row, col);
-                }
                 tape.push(WeightedKsgTapeEntry {
                     pattern_idx,
                     row,

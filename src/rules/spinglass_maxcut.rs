@@ -255,6 +255,29 @@ mod tests {
         let interactions = sg.interactions();
         assert_eq!(interactions.len(), 2);
     }
+
+    #[test]
+    fn test_reduction_sizes() {
+        // Test source_size and target_size methods
+        let mc = MaxCut::<i32>::unweighted(3, vec![(0, 1), (1, 2)]);
+        let reduction = ReduceTo::<SpinGlass<i32>>::reduce_to(&mc);
+
+        let source_size = reduction.source_size();
+        let target_size = reduction.target_size();
+
+        assert!(!source_size.components.is_empty());
+        assert!(!target_size.components.is_empty());
+
+        // Test SG to MaxCut sizes
+        let sg = SpinGlass::new(3, vec![((0, 1), 1)], vec![0, 0, 0]);
+        let reduction2 = ReduceTo::<MaxCut<i32>>::reduce_to(&sg);
+
+        let source_size2 = reduction2.source_size();
+        let target_size2 = reduction2.target_size();
+
+        assert!(!source_size2.components.is_empty());
+        assert!(!target_size2.components.is_empty());
+    }
 }
 
 // Register reductions with inventory for auto-discovery
