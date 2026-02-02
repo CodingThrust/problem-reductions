@@ -1,77 +1,27 @@
 // Problem Reductions: A Mathematical Reference
-
-#import "@preview/fletcher:0.5.8" as fletcher: diagram, node, edge
-#import "@preview/cetz:0.4.0": canvas, draw
+#import "reduction-diagram.typ": reduction-graph, graph-data
+#import "@preview/cetz:0.4.2": canvas, draw
+#import "@preview/ctheorems:1.1.3": thmbox, thmplain, thmproof, thmrules
 
 #set page(paper: "a4", margin: (x: 2cm, y: 2.5cm))
 #set text(font: "New Computer Modern", size: 10pt)
 #set par(justify: true)
 #set heading(numbering: "1.1")
 
-#let theorem-counter = counter("theorem")
+#show link: set text(blue)
 
-#let theorem(body) = block(
-  width: 100%,
-  inset: (x: 0em, y: 0.5em),
-  {
-    theorem-counter.step()
-    [*Theorem #context theorem-counter.display().* ]
-    body
-  }
-)
+// Set up theorem environments with ctheorems
+#show: thmrules.with(qed-symbol: $square$)
 
-#let proof(body) = block(
-  width: 100%,
-  inset: (x: 0em, y: 0.3em),
-  [_Proof._ #body #h(1fr) $square$]
-)
-
-#let definition(title, body) = block(
-  width: 100%,
-  inset: (x: 1em, y: 0.8em),
+#let theorem = thmplain("theorem", "Theorem").with(numbering: none)
+#let proof = thmproof("proof", "Proof")
+#let definition = thmbox(
+  "definition",
+  "Definition",
   fill: rgb("#f8f8f8"),
   stroke: (left: 2pt + rgb("#4a86e8")),
-  [*#title.* #body]
-)
-
-#let graph-data = json("reduction_graph.json")
-
-#let category-colors = (
-  "graph": rgb("#e0ffe0"),
-  "set": rgb("#ffe0e0"),
-  "optimization": rgb("#ffffd0"),
-  "satisfiability": rgb("#e0e0ff"),
-  "specialized": rgb("#ffe0f0"),
-  "other": rgb("#f0f0f0"),
-)
-
-#let get-color(category) = {
-  category-colors.at(category, default: rgb("#f0f0f0"))
-}
-
-// Optimized layout: SAT branch (left) + Physics branch (right)
-// Node IDs use base names without type parameters
-#let node-positions = (
-  // Row 0: Root nodes
-  "Satisfiability": (-1.5, 0),
-  "Factoring": (2.5, 0),
-  // Row 1: Direct children of roots
-  "KSatisfiability": (-2.5, 1),
-  "IndependentSet": (-0.5, 1),
-  "Coloring": (0.5, 1),
-  "DominatingSet": (-1.5, 1),
-  "CircuitSAT": (2.5, 1),
-  // Row 2: Next level
-  "VertexCovering": (-0.5, 2),
-  "Matching": (-2, 2),
-  "SpinGlass": (2.5, 2),
-  "ILP": (3.5, 1),
-  // Row 3: Leaf nodes
-  "SetPacking": (-1.5, 3),
-  "SetCovering": (0.5, 3),
-  "MaxCut": (1.5, 3),
-  "QUBO": (3.5, 3),
-  "GridGraph": (0.5, 2),
+  inset: (x: 1em, y: 0.8em),
+  base_level: 1,
 )
 
 #align(center)[
@@ -98,27 +48,7 @@ A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a po
 We use the following notation throughout. An _undirected graph_ $G = (V, E)$ consists of a vertex set $V$ and edge set $E subset.eq binom(V, 2)$. For a set $S$, $overline(S)$ or $V backslash S$ denotes its complement. We write $|S|$ for cardinality. For Boolean variables, $overline(x)$ denotes negation ($not x$). A _literal_ is a variable $x$ or its negation $overline(x)$. A _clause_ is a disjunction of literals. A formula in _conjunctive normal form_ (CNF) is a conjunction of clauses. We abbreviate Independent Set as IS, Vertex Cover as VC, and use $n$ for problem size, $m$ for number of clauses, and $k_j = |C_j|$ for clause size.
 
 #figure(
-  box(
-    width: 70%,
-    align(center,
-      diagram(
-        spacing: (18mm, 14mm),
-        node-stroke: 0.6pt,
-        edge-stroke: 0.6pt,
-        node-corner-radius: 2pt,
-        node-inset: 3pt,
-        ..graph-data.nodes.map(n => {
-          let color = get-color(n.category)
-          let pos = node-positions.at(n.id, default: (0, 0))
-          node(pos, text(size: 7pt)[#n.label], fill: color, name: label(n.id))
-        }),
-        ..graph-data.edges.map(e => {
-          let arrow = if e.bidirectional { "<|-|>" } else { "-|>" }
-          edge(label(e.source), label(e.target), arrow)
-        }),
-      )
-    )
-  ),
+  reduction-graph(width: 18mm, height: 14mm),
   caption: [Reduction graph. Colors: green (graph), red (set), yellow (optimization), blue (satisfiability), pink (specialized).]
 ) <fig:reduction-graph>
 
@@ -130,27 +60,47 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #definition("Independent Set (IS)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
-]
+
+  _Reduces to:_ Set Packing (@def:set-packing).
+
+  _Reduces from:_ Vertex Cover (@def:vertex-cover), SAT (@def:satisfiability), Set Packing (@def:set-packing).
+] <def:independent-set>
 
 #definition("Vertex Cover (VC)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
-]
+
+  _Reduces to:_ Independent Set (@def:independent-set), Set Covering (@def:set-covering).
+
+  _Reduces from:_ Independent Set (@def:independent-set).
+] <def:vertex-cover>
 
 #definition("Max-Cut")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find partition $(S, overline(S))$ maximizing $sum_((u,v) in E: u in S, v in overline(S)) w(u, v)$.
-]
+
+  _Reduces to:_ Spin Glass (@def:spin-glass).
+
+  _Reduces from:_ Spin Glass (@def:spin-glass).
+] <def:max-cut>
 
 #definition("Graph Coloring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
-]
+
+  _Reduces to:_ ILP (@def:ilp).
+
+  _Reduces from:_ SAT (@def:satisfiability).
+] <def:coloring>
 
 #definition("Dominating Set")[
   Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall v in V: v in S or exists u in S: (u, v) in E$.
-]
+
+  _Reduces from:_ SAT (@def:satisfiability).
+] <def:dominating-set>
 
 #definition("Matching")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
-]
+
+  _Reduces to:_ Set Packing (@def:set-packing).
+] <def:matching>
 
 #definition("Unit Disk Graph (Grid Graph)")[
   A graph $G = (V, E)$ where vertices $V$ are points on a 2D lattice and $(u, v) in E$ iff the Euclidean distance $d(u, v) <= r$ for some radius $r$. A _King's subgraph_ uses the King's graph lattice (8-connectivity square grid) with $r approx 1.5$.
@@ -160,50 +110,80 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #definition("Set Packing")[
   Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
-]
+
+  _Reduces to:_ Independent Set (@def:independent-set).
+
+  _Reduces from:_ Independent Set (@def:independent-set), Matching (@def:matching).
+] <def:set-packing>
 
 #definition("Set Covering")[
   Given universe $U$, collection $cal(S)$ with weights $w: cal(S) -> RR$, find $cal(C) subset.eq cal(S)$ minimizing $sum_(S in cal(C)) w(S)$ s.t. $union.big_(S in cal(C)) S = U$.
-]
+
+  _Reduces from:_ Vertex Cover (@def:vertex-cover).
+] <def:set-covering>
 
 == Optimization Problems
 
 #definition("Spin Glass (Ising Model)")[
   Given $n$ spin variables $s_i in {-1, +1}$, pairwise couplings $J_(i j) in RR$, and external fields $h_i in RR$, minimize the Hamiltonian (energy function): $H(bold(s)) = -sum_((i,j)) J_(i j) s_i s_j - sum_i h_i s_i$.
-]
+
+  _Reduces to:_ Max-Cut (@def:max-cut), QUBO (@def:qubo).
+
+  _Reduces from:_ Circuit-SAT (@def:circuit-sat), Max-Cut (@def:max-cut), QUBO (@def:qubo).
+] <def:spin-glass>
 
 #definition("QUBO")[
   Given $n$ binary variables $x_i in {0, 1}$, matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = bold(x)^top Q bold(x)$.
-]
+
+  _Reduces to:_ Spin Glass (@def:spin-glass).
+
+  _Reduces from:_ Spin Glass (@def:spin-glass).
+] <def:qubo>
 
 #definition("Integer Linear Programming (ILP)")[
   Given $n$ integer variables $bold(x) in ZZ^n$, constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x)$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$ and variable bounds.
-]
+
+  _Reduces from:_ Graph Coloring (@def:coloring), Factoring (@def:factoring).
+] <def:ilp>
 
 == Satisfiability Problems
 
 #definition("SAT")[
   Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 1$ (all clauses satisfied).
-]
 
-#definition("$k$-SAT")[
+  _Reduces to:_ Independent Set (@def:independent-set), Graph Coloring (@def:coloring), Dominating Set (@def:dominating-set), $k$-SAT (@def:k-sat).
+
+  _Reduces from:_ $k$-SAT (@def:k-sat).
+] <def:satisfiability>
+
+#definition([$k$-SAT])[
   SAT with exactly $k$ literals per clause.
-]
+
+  _Reduces to:_ SAT (@def:satisfiability).
+
+  _Reduces from:_ SAT (@def:satisfiability).
+] <def:k-sat>
 
 #definition("Circuit-SAT")[
   Given a Boolean circuit $C$ composed of logic gates (AND, OR, NOT, XOR) with $n$ input variables, find an input assignment $bold(x) in {0,1}^n$ such that $C(bold(x)) = 1$.
-]
+
+  _Reduces to:_ Spin Glass (@def:spin-glass).
+
+  _Reduces from:_ Factoring (@def:factoring).
+] <def:circuit-sat>
 
 #definition("Factoring")[
   Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
-]
+
+  _Reduces to:_ Circuit-SAT (@def:circuit-sat), ILP (@def:ilp).
+] <def:factoring>
 
 = Reductions <sec:reductions>
 
 == Trivial Reductions
 
 #theorem[
-  *(IS $arrow.l.r$ VC)* $S subset.eq V$ is independent iff $V backslash S$ is a vertex cover, with $|"IS"| + |"VC"| = |V|$.
+  *(IS $arrow.l.r$ VC)* $S subset.eq V$ is independent iff $V backslash S$ is a vertex cover, with $|"IS"| + |"VC"| = |V|$. [_Problems:_ @def:independent-set, @def:vertex-cover.]
 ]
 
 #proof[
@@ -211,7 +191,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 ]
 
 #theorem[
-  *(IS $arrow.r$ Set Packing)* Construct $U = E$, $S_v = {e in E : v in e}$, $w(S_v) = w(v)$. Then $I$ is independent iff ${S_v : v in I}$ is a packing.
+  *(IS $arrow.r$ Set Packing)* Construct $U = E$, $S_v = {e in E : v in e}$, $w(S_v) = w(v)$. Then $I$ is independent iff ${S_v : v in I}$ is a packing. [_Problems:_ @def:independent-set, @def:set-packing.]
 ]
 
 #proof[
@@ -219,15 +199,15 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 ]
 
 #theorem[
-  *(VC $arrow.r$ Set Covering)* Construct $U = {0, ..., |E|-1}$, $S_v = {i : e_i "incident to" v}$, $w(S_v) = w(v)$. Then $C$ is a cover iff ${S_v : v in C}$ covers $U$.
+  *(VC $arrow.r$ Set Covering)* Construct $U = {0, ..., |E|-1}$, $S_v = {i : e_i "incident to" v}$, $w(S_v) = w(v)$. Then $C$ is a cover iff ${S_v : v in C}$ covers $U$. [_Problems:_ @def:vertex-cover, @def:set-covering.]
 ]
 
 #theorem[
-  *(Matching $arrow.r$ Set Packing)* Construct $U = V$, $S_e = {u, v}$ for $e = (u,v)$, $w(S_e) = w(e)$. Then $M$ is a matching iff ${S_e : e in M}$ is a packing.
+  *(Matching $arrow.r$ Set Packing)* Construct $U = V$, $S_e = {u, v}$ for $e = (u,v)$, $w(S_e) = w(e)$. Then $M$ is a matching iff ${S_e : e in M}$ is a packing. [_Problems:_ @def:matching, @def:set-packing.]
 ]
 
 #theorem[
-  *(Spin Glass $arrow.l.r$ QUBO)* The substitution $s_i = 2x_i - 1$ yields $H_"SG"(bold(s)) = H_"QUBO"(bold(x)) + "const"$.
+  *(Spin Glass $arrow.l.r$ QUBO)* The substitution $s_i = 2x_i - 1$ yields $H_"SG"(bold(s)) = H_"QUBO"(bold(x)) + "const"$. [_Problems:_ @def:spin-glass, @def:qubo.]
 ]
 
 #proof[
@@ -237,7 +217,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 == Non-Trivial Reductions
 
 #theorem[
-  *(SAT $arrow.r$ IS)* @karp1972 Given CNF $phi$ with $m$ clauses, construct graph $G$ such that $phi$ is satisfiable iff $G$ has an IS of size $m$.
+  *(SAT $arrow.r$ IS)* @karp1972 Given CNF $phi$ with $m$ clauses, construct graph $G$ such that $phi$ is satisfiable iff $G$ has an IS of size $m$. [_Problems:_ @def:satisfiability, @def:independent-set.]
 ]
 
 #proof[
@@ -253,7 +233,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 ]
 
 #theorem[
-  *(SAT $arrow.r$ 3-Coloring)* @garey1979 Given CNF $phi$, construct graph $G$ such that $phi$ is satisfiable iff $G$ is 3-colorable.
+  *(SAT $arrow.r$ 3-Coloring)* @garey1979 Given CNF $phi$, construct graph $G$ such that $phi$ is satisfiable iff $G$ is 3-colorable. [_Problems:_ @def:satisfiability, @def:coloring.]
 ]
 
 #proof[
@@ -265,7 +245,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 ]
 
 #theorem[
-  *(SAT $arrow.r$ Dominating Set)* @garey1979 Given CNF $phi$ with $n$ variables and $m$ clauses, $phi$ is satisfiable iff the constructed graph has a dominating set of size $n$.
+  *(SAT $arrow.r$ Dominating Set)* @garey1979 Given CNF $phi$ with $n$ variables and $m$ clauses, $phi$ is satisfiable iff the constructed graph has a dominating set of size $n$. [_Problems:_ @def:satisfiability, @def:dominating-set.]
 ]
 
 #proof[
@@ -277,7 +257,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 ]
 
 #theorem[
-  *(SAT $arrow.l.r$ $k$-SAT)* @cook1971 @garey1979 Any SAT formula converts to $k$-SAT ($k >= 3$) preserving satisfiability.
+  *(SAT $arrow.l.r$ $k$-SAT)* @cook1971 @garey1979 Any SAT formula converts to $k$-SAT ($k >= 3$) preserving satisfiability. [_Problems:_ @def:satisfiability, @def:k-sat.]
 ]
 
 #proof[
@@ -290,7 +270,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 ]
 
 #theorem[
-  *(CircuitSAT $arrow.r$ Spin Glass)* @whitfield2012 @lucas2014 Each gate maps to a gadget whose ground states encode valid I/O.
+  *(CircuitSAT $arrow.r$ Spin Glass)* @whitfield2012 @lucas2014 Each gate maps to a gadget whose ground states encode valid I/O. [_Problems:_ @def:circuit-sat, @def:spin-glass.]
 ]
 
 #proof[
@@ -314,7 +294,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 ) <tab:gadgets>
 
 #theorem[
-  *(Factoring $arrow.r$ Circuit-SAT)* An array multiplier with output constrained to $N$ is satisfiable iff $N$ factors within bit bounds. _(Folklore; no canonical reference.)_
+  *(Factoring $arrow.r$ Circuit-SAT)* An array multiplier with output constrained to $N$ is satisfiable iff $N$ factors within bit bounds. _(Folklore; no canonical reference.)_ [_Problems:_ @def:factoring, @def:circuit-sat.]
 ]
 
 #proof[
@@ -330,7 +310,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 ]
 
 #theorem[
-  *(Spin Glass $arrow.l.r$ Max-Cut)* @barahona1982 @lucas2014 Ground states of Ising models correspond to maximum cuts.
+  *(Spin Glass $arrow.l.r$ Max-Cut)* @barahona1982 @lucas2014 Ground states of Ising models correspond to maximum cuts. [_Problems:_ @def:spin-glass, @def:max-cut.]
 ]
 
 #proof[
@@ -342,7 +322,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 ]
 
 #theorem[
-  *(Coloring $arrow.r$ ILP)* The $k$-coloring problem reduces to binary ILP with $|V| dot k$ variables and $|V| + |E| dot k$ constraints.
+  *(Coloring $arrow.r$ ILP)* The $k$-coloring problem reduces to binary ILP with $|V| dot k$ variables and $|V| + |E| dot k$ constraints. [_Problems:_ @def:coloring, @def:ilp.]
 ]
 
 #proof[
@@ -360,7 +340,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 ]
 
 #theorem[
-  *(Factoring $arrow.r$ ILP)* Integer factorization reduces to binary ILP using McCormick linearization with $O(m n)$ variables and constraints.
+  *(Factoring $arrow.r$ ILP)* Integer factorization reduces to binary ILP using McCormick linearization with $O(m n)$ variables and constraints. [_Problems:_ @def:factoring, @def:ilp.]
 ]
 
 #proof[
@@ -409,7 +389,7 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
 == Unit Disk Mapping
 
 #theorem[
-  *(IS $arrow.r$ GridGraph IS)* @nguyen2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a unit disk graph (King's subgraph) with at most quadratic overhead in the number of vertices.
+  *(IS $arrow.r$ GridGraph IS)* @nguyen2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a unit disk graph (King's subgraph) with at most quadratic overhead in the number of vertices. [_Problem:_ @def:independent-set.]
 ]
 
 #proof[

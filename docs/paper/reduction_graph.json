@@ -74,11 +74,6 @@
       "id": "VertexCovering",
       "label": "VertexCovering",
       "category": "graph"
-    },
-    {
-      "id": "GridGraph",
-      "label": "GridGraph",
-      "category": "graph"
     }
   ],
   "edges": [
@@ -150,11 +145,6 @@
     {
       "source": "VertexCovering",
       "target": "SetCovering",
-      "bidirectional": false
-    },
-    {
-      "source": "IndependentSet",
-      "target": "GridGraph",
       "bidirectional": false
     }
   ]
