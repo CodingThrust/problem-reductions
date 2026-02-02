@@ -3,8 +3,8 @@
 //! SAT is the problem of determining if there exists an assignment of
 //! Boolean variables that makes a given Boolean formula true.
 
-use crate::graph_types::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
+use crate::variant::short_type_name;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
 
@@ -184,8 +184,14 @@ where
         + 'static,
 {
     const NAME: &'static str = "Satisfiability";
-    type GraphType = SimpleGraph;
-    type Weight = W;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", short_type_name::<W>()),
+        ]
+    }
+
     type Size = W;
 
     fn num_variables(&self) -> usize {
