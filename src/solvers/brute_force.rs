@@ -178,7 +178,6 @@ impl BruteForceFloat for BruteForce {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph_types::SimpleGraph;
     use crate::types::{EnergyMode, ProblemSize};
 
     // Simple maximization problem: maximize sum of selected weights
@@ -189,8 +188,11 @@ mod tests {
 
     impl Problem for MaxSumProblem {
         const NAME: &'static str = "MaxSumProblem";
-        type GraphType = SimpleGraph;
-        type Weight = i32;
+
+        fn variant() -> Vec<(&'static str, &'static str)> {
+            vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        }
+
         type Size = i32;
 
         fn num_variables(&self) -> usize {
@@ -227,8 +229,11 @@ mod tests {
 
     impl Problem for MinSumProblem {
         const NAME: &'static str = "MinSumProblem";
-        type GraphType = SimpleGraph;
-        type Weight = i32;
+
+        fn variant() -> Vec<(&'static str, &'static str)> {
+            vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        }
+
         type Size = i32;
 
         fn num_variables(&self) -> usize {
@@ -265,8 +270,11 @@ mod tests {
 
     impl Problem for SelectAtMostOneProblem {
         const NAME: &'static str = "SelectAtMostOneProblem";
-        type GraphType = SimpleGraph;
-        type Weight = i32;
+
+        fn variant() -> Vec<(&'static str, &'static str)> {
+            vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        }
+
         type Size = i32;
 
         fn num_variables(&self) -> usize {
@@ -402,8 +410,11 @@ mod tests {
 
     impl Problem for FloatProblem {
         const NAME: &'static str = "FloatProblem";
-        type GraphType = SimpleGraph;
-        type Weight = f64;
+
+        fn variant() -> Vec<(&'static str, &'static str)> {
+            vec![("graph", "SimpleGraph"), ("weight", "f64")]
+        }
+
         type Size = f64;
 
         fn num_variables(&self) -> usize {
@@ -457,8 +468,11 @@ mod tests {
 
         impl Problem for NearlyEqualProblem {
             const NAME: &'static str = "NearlyEqualProblem";
-            type GraphType = SimpleGraph;
-            type Weight = f64;
+
+            fn variant() -> Vec<(&'static str, &'static str)> {
+                vec![("graph", "SimpleGraph"), ("weight", "f64")]
+            }
+
             type Size = f64;
 
             fn num_variables(&self) -> usize {
