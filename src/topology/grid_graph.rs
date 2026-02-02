@@ -153,18 +153,19 @@ impl<W: Clone> GridGraph<W> {
     }
 
     /// Static version of physical_position for use during construction.
+    #[allow(clippy::manual_is_multiple_of)] // i32 doesn't support is_multiple_of yet
     fn physical_position_static(grid_type: GridType, row: i32, col: i32) -> (f64, f64) {
         match grid_type {
             GridType::Square => (row as f64, col as f64),
             GridType::Triangular { offset_even_cols } => {
                 let y = col as f64 * (3.0_f64.sqrt() / 2.0);
                 let offset = if offset_even_cols {
-                    if col.is_multiple_of(2) {
+                    if col % 2 == 0 {
                         0.5
                     } else {
                         0.0
                     }
-                } else if !col.is_multiple_of(2) {
+                } else if col % 2 != 0 {
                     0.5
                 } else {
                     0.0
