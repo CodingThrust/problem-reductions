@@ -145,9 +145,9 @@ pub fn triangular_edges(locs: &[(usize, usize)], radius: f64) -> Vec<(usize, usi
         for (j, &(r2, c2)) in locs.iter().enumerate() {
             if i < j {
                 // Convert to physical triangular coordinates
-                let x1 = r1 as f64 + if c1 % 2 == 0 { 0.5 } else { 0.0 };
+                let x1 = r1 as f64 + if c1.is_multiple_of(2) { 0.5 } else { 0.0 };
                 let y1 = c1 as f64 * (3.0_f64.sqrt() / 2.0);
-                let x2 = r2 as f64 + if c2 % 2 == 0 { 0.5 } else { 0.0 };
+                let x2 = r2 as f64 + if c2.is_multiple_of(2) { 0.5 } else { 0.0 };
                 let y2 = c2 as f64 * (3.0_f64.sqrt() / 2.0);
 
                 let dist = ((x1 - x2).powi(2) + (y1 - y2).powi(2)).sqrt();

@@ -251,9 +251,9 @@ pub fn build_triangular_unit_disk_edges(locs: &[(usize, usize)]) -> Vec<(usize, 
             let (r2, c2) = locs[j];
 
             // Convert to physical coordinates
-            let x1 = r1 as f64 + if c1 % 2 == 0 { 0.5 } else { 0.0 };
+            let x1 = r1 as f64 + if c1.is_multiple_of(2) { 0.5 } else { 0.0 };
             let y1 = c1 as f64 * (3.0_f64.sqrt() / 2.0);
-            let x2 = r2 as f64 + if c2 % 2 == 0 { 0.5 } else { 0.0 };
+            let x2 = r2 as f64 + if c2.is_multiple_of(2) { 0.5 } else { 0.0 };
             let y2 = c2 as f64 * (3.0_f64.sqrt() / 2.0);
 
             // Use squared distance comparison (like Julia): dist^2 < radius^2

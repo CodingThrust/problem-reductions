@@ -229,7 +229,7 @@ impl TruthTable {
     /// Create an XNOR gate truth table.
     pub fn xnor(num_inputs: usize) -> Self {
         Self::from_function(num_inputs, |input| {
-            input.iter().filter(|&&b| b).count() % 2 == 0
+            input.iter().filter(|&&b| b).count().is_multiple_of(2)
         })
     }
 

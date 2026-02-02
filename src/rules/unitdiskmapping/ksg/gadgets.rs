@@ -790,7 +790,7 @@ fn rotate_around_center(loc: (usize, usize), center: (usize, usize), n: usize) -
 impl<G: Pattern> Pattern for KsgRotatedGadget<G> {
     fn size(&self) -> (usize, usize) {
         let (m, n) = self.gadget.size();
-        if self.n % 2 == 0 {
+        if self.n.is_multiple_of(2) {
             (m, n)
         } else {
             (n, m)

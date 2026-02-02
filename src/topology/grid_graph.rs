@@ -159,12 +159,12 @@ impl<W: Clone> GridGraph<W> {
             GridType::Triangular { offset_even_cols } => {
                 let y = col as f64 * (3.0_f64.sqrt() / 2.0);
                 let offset = if offset_even_cols {
-                    if col % 2 == 0 {
+                    if col.is_multiple_of(2) {
                         0.5
                     } else {
                         0.0
                     }
-                } else if col % 2 != 0 {
+                } else if !col.is_multiple_of(2) {
                     0.5
                 } else {
                     0.0
