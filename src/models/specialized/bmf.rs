@@ -4,7 +4,6 @@
 //! the boolean product B ⊙ C approximates A.
 //! The boolean product `(B ⊙ C)[i,j] = OR_k (B[i,k] AND C[k,j])`.
 
-use crate::graph_types::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -159,8 +158,14 @@ impl BMF {
 
 impl Problem for BMF {
     const NAME: &'static str = "BMF";
-    type GraphType = SimpleGraph;
-    type Weight = i32;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", "i32"),
+        ]
+    }
+
     type Size = i32;
 
     fn num_variables(&self) -> usize {

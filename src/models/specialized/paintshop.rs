@@ -5,7 +5,6 @@
 //! one color at its first occurrence and another at its second.
 //! The goal is to minimize color switches between adjacent positions.
 
-use crate::graph_types::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -143,8 +142,14 @@ impl PaintShop {
 
 impl Problem for PaintShop {
     const NAME: &'static str = "PaintShop";
-    type GraphType = SimpleGraph;
-    type Weight = i32;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", "i32"),
+        ]
+    }
+
     type Size = i32;
 
     fn num_variables(&self) -> usize {
