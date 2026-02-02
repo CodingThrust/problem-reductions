@@ -10,6 +10,9 @@
 
 use crate::models::graph::IndependentSet;
 use crate::models::satisfiability::Satisfiability;
+use crate::poly;
+use crate::reduction;
+use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 use crate::types::ProblemSize;
@@ -122,6 +125,15 @@ impl<W> ReductionSATToIS<W> {
     }
 }
 
+#[reduction(
+    target_graph = "SimpleGraph",
+    overhead = {
+        ReductionOverhead::new(vec![
+            ("num_vertices", poly!(7 * num_clauses)),
+            ("num_edges", poly!(21 * num_clauses)),
+        ])
+    }
+)]
 impl<W> ReduceTo<IndependentSet<W>> for Satisfiability<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
@@ -491,19 +503,3 @@ mod tests {
     }
 }
 
-// Register reduction with inventory for auto-discovery
-use crate::poly;
-use crate::rules::registry::{ReductionEntry, ReductionOverhead};
-
-inventory::submit! {
-    ReductionEntry {
-        source_name: "Satisfiability",
-        target_name: "IndependentSet",
-        source_graph: "CNF",
-        target_graph: "SimpleGraph",
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_vertices", poly!(7 * num_clauses)),
-            ("num_edges", poly!(21 * num_clauses)),
-        ]),
-    }
-}

@@ -1,8 +1,7 @@
 //! Core traits for problem definitions.
 
-use crate::graph_types::GraphMarker;
 use crate::types::{
-    EnergyMode, LocalConstraint, LocalSolutionSize, NumericWeight, ProblemSize, SolutionSize,
+    EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize,
 };
 use num_traits::{Num, Zero};
 use std::ops::AddAssign;
@@ -15,11 +14,10 @@ pub trait Problem: Clone {
     /// Base name of this problem type (e.g., "IndependentSet").
     const NAME: &'static str;
 
-    /// The graph type this problem operates on.
-    type GraphType: GraphMarker;
-
-    /// The weight type for this problem.
-    type Weight: NumericWeight;
+    /// Returns attributes describing this problem variant.
+    /// Each (key, value) pair describes a variant dimension.
+    /// Common keys: "graph", "weight"
+    fn variant() -> Vec<(&'static str, &'static str)>;
 
     /// The type used for objective/size values.
     type Size: Clone + PartialOrd + Num + Zero + AddAssign;
@@ -120,7 +118,6 @@ pub fn csp_solution_size<P: ConstraintSatisfactionProblem>(
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph_types::SimpleGraph;
 
     // A simple test problem: select binary variables to maximize sum of weights
     #[derive(Clone)]
@@ -130,8 +127,14 @@ mod tests {
 
     impl Problem for SimpleWeightedProblem {
         const NAME: &'static str = "SimpleWeightedProblem";
-        type GraphType = SimpleGraph;
-        type Weight = i32;
+
+        fn variant() -> Vec<(&'static str, &'static str)> {
+            vec![
+                ("graph", "SimpleGraph"),
+                ("weight", "i32"),
+            ]
+        }
+
         type Size = i32;
 
         fn num_variables(&self) -> usize {
@@ -168,8 +171,14 @@ mod tests {
 
     impl Problem for SimpleCsp {
         const NAME: &'static str = "SimpleCsp";
-        type GraphType = SimpleGraph;
-        type Weight = i32;
+
+        fn variant() -> Vec<(&'static str, &'static str)> {
+            vec![
+                ("graph", "SimpleGraph"),
+                ("weight", "i32"),
+            ]
+        }
+
         type Size = i32;
 
         fn num_variables(&self) -> usize {
@@ -223,6 +232,25 @@ mod tests {
         fn is_weighted(&self) -> bool {
             false
         }
+    }
+
+    #[test]
+    fn test_variant_for_test_problems() {
+        // Test that variant() works for test problems
+        let v = SimpleWeightedProblem::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "i32"));
+
+        let v = SimpleCsp::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "i32"));
+
+        let v = MultiFlavorProblem::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "i32"));
     }
 
     #[test]
@@ -450,8 +478,14 @@ mod tests {
 
     impl Problem for MultiFlavorProblem {
         const NAME: &'static str = "MultiFlavorProblem";
-        type GraphType = SimpleGraph;
-        type Weight = i32;
+
+        fn variant() -> Vec<(&'static str, &'static str)> {
+            vec![
+                ("graph", "SimpleGraph"),
+                ("weight", "i32"),
+            ]
+        }
+
         type Size = i32;
 
         fn num_variables(&self) -> usize {

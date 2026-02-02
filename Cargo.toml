@@ -1,3 +1,6 @@
+[workspace]
+members = [".", "problemreductions-macros"]
+
 [package]
 name = "problemreductions"
 version = "0.1.0"
@@ -23,6 +26,7 @@ good_lp = { version = "1.8", default-features = false, features = ["highs"], opt
 inventory = "0.3"
 ordered-float = "5.0"
 rand = "0.8"
+problemreductions-macros = { path = "problemreductions-macros" }
 
 [dev-dependencies]
 proptest = "1.0"

@@ -597,11 +597,21 @@ dependencies = [
  "num-traits",
  "ordered-float",
  "petgraph",
+ "problemreductions-macros",
  "proptest",
  "rand 0.8.5",
  "serde",
  "serde_json",
  "thiserror",
+]
+
+[[package]]
+name = "problemreductions-macros"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

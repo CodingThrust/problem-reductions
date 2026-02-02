@@ -8,6 +8,9 @@
 
 use crate::models::optimization::SpinGlass;
 use crate::models::specialized::{Assignment, BooleanExpr, BooleanOp, CircuitSAT};
+use crate::poly;
+use crate::reduction;
+use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 use crate::types::ProblemSize;
@@ -418,6 +421,15 @@ where
     }
 }
 
+#[reduction(
+    target_graph = "SimpleGraph",
+    overhead = {
+        ReductionOverhead::new(vec![
+            ("num_spins", poly!(num_assignments)),
+            ("num_interactions", poly!(num_assignments)),
+        ])
+    }
+)]
 impl<W> ReduceTo<SpinGlass<W>> for CircuitSAT<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
@@ -971,19 +983,3 @@ mod tests {
     }
 }
 
-// Register reduction with inventory for auto-discovery
-use crate::poly;
-use crate::rules::registry::{ReductionEntry, ReductionOverhead};
-
-inventory::submit! {
-    ReductionEntry {
-        source_name: "CircuitSAT",
-        target_name: "SpinGlass",
-        source_graph: "Circuit",
-        target_graph: "SpinGlassGraph",
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_spins", poly!(num_assignments)),
-            ("num_interactions", poly!(num_assignments)),
-        ]),
-    }
-}

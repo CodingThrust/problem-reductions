@@ -3,8 +3,8 @@
 //! The Set Packing problem asks for a maximum weight collection of
 //! pairwise disjoint sets.
 
-use crate::graph_types::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
+use crate::variant::short_type_name;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -117,8 +117,14 @@ where
         + 'static,
 {
     const NAME: &'static str = "SetPacking";
-    type GraphType = SimpleGraph;
-    type Weight = W;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", short_type_name::<W>()),
+        ]
+    }
+
     type Size = W;
 
     fn num_variables(&self) -> usize {

@@ -25,6 +25,48 @@ impl<T> NumericWeight for T where
 {
 }
 
+/// Marker type for unweighted problems.
+///
+/// Similar to Julia's `UnitWeight`, this type indicates that a problem
+/// has uniform weights (all equal to 1). Used in the variant metadata system
+/// to distinguish unweighted problem variants from weighted ones.
+///
+/// Note: This type is primarily used as a marker in the `variant()` method
+/// to indicate that a problem is unweighted. The actual weight type parameter
+/// in problem structs is typically `i32` or similar numeric type, with
+/// `"Unweighted"` appearing in the variant metadata.
+///
+/// # Example
+///
+/// ```
+/// use problemreductions::types::Unweighted;
+///
+/// // In variant metadata, "Unweighted" indicates uniform weights:
+/// // fn variant() -> Vec<(&'static str, &'static str)> {
+/// //     vec![("graph", "SimpleGraph"), ("weight", "Unweighted")]
+/// // }
+/// //
+/// // Weighted problems use the concrete type name:
+/// // fn variant() -> Vec<(&'static str, &'static str)> {
+/// //     vec![("graph", "SimpleGraph"), ("weight", "i32")]
+/// // }
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub struct Unweighted;
+
+impl Unweighted {
+    /// Returns 1 for any index (all weights are unit).
+    pub fn get(&self, _index: usize) -> i32 {
+        1
+    }
+}
+
+impl std::fmt::Display for Unweighted {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Unweighted")
+    }
+}
+
 /// Specifies whether larger or smaller objective values are better.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EnergyMode {
@@ -254,6 +296,26 @@ impl<T: Clone> LocalSolutionSize<T> {
 #[cfg(test)]
 mod tests {
     use super::*;
+
+    #[test]
+    fn test_unweighted() {
+        let uw = Unweighted;
+        // Test get() method
+        assert_eq!(uw.get(0), 1);
+        assert_eq!(uw.get(100), 1);
+        assert_eq!(uw.get(usize::MAX), 1);
+
+        // Test Display
+        assert_eq!(format!("{}", uw), "Unweighted");
+
+        // Test Clone, Copy, Default
+        let uw2 = uw;
+        let _uw3 = uw2; // Copy works (no clone needed)
+        let _uw4: Unweighted = Default::default();
+
+        // Test PartialEq
+        assert_eq!(Unweighted, Unweighted);
+    }
 
     #[test]
     fn test_energy_mode() {

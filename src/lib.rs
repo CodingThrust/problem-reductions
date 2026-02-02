@@ -74,6 +74,7 @@ pub mod topology;
 pub mod traits;
 pub mod truth_table;
 pub mod types;
+pub mod variant;
 
 /// Prelude module for convenient imports.
 pub mod prelude {
@@ -107,3 +108,6 @@ pub use registry::{ComplexityClass, ProblemCategory, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::{ConstraintSatisfactionProblem, Problem};
 pub use types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
+
+// Re-export proc macro for reduction registration
+pub use problemreductions_macros::reduction;

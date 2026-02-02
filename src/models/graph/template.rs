@@ -71,13 +71,13 @@
 //! - **Vertex Cover**: `[false, true, true, true]` - at least one selected
 //! - **Perfect Matching**: Define on edge graph with exactly one selected
 
-use crate::graph_types::SimpleGraph as SimpleGraphMarker;
 use crate::registry::{
     ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,
 };
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
+use crate::variant::short_type_name;
 use num_traits::{Num, Zero};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -319,8 +319,14 @@ where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     const NAME: &'static str = C::NAME;
-    type GraphType = SimpleGraphMarker;
-    type Weight = W;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", short_type_name::<W>()),
+        ]
+    }
+
     type Size = W;
 
     fn num_variables(&self) -> usize {
@@ -718,5 +724,36 @@ mod tests {
 
         let cat = CliqueConstraint::category();
         assert_eq!(cat.path(), "graph/independent");
+    }
+
+    #[test]
+    fn test_variant_for_graph_problem() {
+        use crate::traits::Problem;
+
+        // Test IndependentSetT variant
+        let v = IndependentSetT::<SimpleGraph, i32>::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "i32"));
+
+        // Test with f64 weight
+        let v = IndependentSetT::<SimpleGraph, f64>::variant();
+        assert_eq!(v[1], ("weight", "f64"));
+
+        // Test VertexCoverT variant
+        let v = VertexCoverT::<SimpleGraph, i32>::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+
+        // Test CliqueT variant
+        let v = CliqueT::<SimpleGraph, i32>::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+
+        // Test with UnitDiskGraph
+        let v = IndependentSetT::<UnitDiskGraph, i32>::variant();
+        assert_eq!(v.len(), 2);
+        // Note: variant() returns "SimpleGraph" as hardcoded, not the actual graph type
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
     }
 }

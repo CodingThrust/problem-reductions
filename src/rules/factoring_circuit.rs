@@ -8,6 +8,9 @@
 //! carry propagation, building up partial products row by row.
 
 use crate::models::specialized::{Assignment, BooleanExpr, Circuit, CircuitSAT, Factoring};
+use crate::poly;
+use crate::reduction;
+use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 use crate::types::ProblemSize;
@@ -186,6 +189,11 @@ fn build_multiplier_cell(
     (assignments, ancillas)
 }
 
+#[reduction(overhead = {
+    ReductionOverhead::new(vec![
+        ("num_gates", poly!(num_bits_first^2)),
+    ])
+})]
 impl ReduceTo<CircuitSAT<i32>> for Factoring {
     type Result = ReductionFactoringToCircuit;
 
@@ -576,18 +584,3 @@ mod tests {
     }
 }
 
-// Register reduction with inventory for auto-discovery
-use crate::poly;
-use crate::rules::registry::{ReductionEntry, ReductionOverhead};
-
-inventory::submit! {
-    ReductionEntry {
-        source_name: "Factoring",
-        target_name: "CircuitSAT",
-        source_graph: "Factoring",
-        target_graph: "Circuit",
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_gates", poly!(num_bits_first^2)),
-        ]),
-    }
-}

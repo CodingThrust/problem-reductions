@@ -39,10 +39,11 @@ pub struct ReductionEntry {
     pub source_name: &'static str,
     /// Base name of target problem (e.g., "VertexCovering").
     pub target_name: &'static str,
-    /// Graph type of source problem (e.g., "SimpleGraph").
-    pub source_graph: &'static str,
-    /// Graph type of target problem.
-    pub target_graph: &'static str,
+    /// Variant attributes for source problem as key-value pairs.
+    /// Common keys: "graph" (graph type), "weight" (weight type).
+    pub source_variant: &'static [(&'static str, &'static str)],
+    /// Variant attributes for target problem as key-value pairs.
+    pub target_variant: &'static [(&'static str, &'static str)],
     /// Function to create overhead information (lazy evaluation for static context).
     pub overhead_fn: fn() -> ReductionOverhead,
 }
@@ -52,6 +53,23 @@ impl ReductionEntry {
     pub fn overhead(&self) -> ReductionOverhead {
         (self.overhead_fn)()
     }
+
+    /// Check if this reduction involves only the base (unweighted) variants.
+    pub fn is_base_reduction(&self) -> bool {
+        let source_unweighted = self
+            .source_variant
+            .iter()
+            .find(|(k, _)| *k == "weight")
+            .map(|(_, v)| *v == "Unweighted")
+            .unwrap_or(true);
+        let target_unweighted = self
+            .target_variant
+            .iter()
+            .find(|(k, _)| *k == "weight")
+            .map(|(_, v)| *v == "Unweighted")
+            .unwrap_or(true);
+        source_unweighted && target_unweighted
+    }
 }
 
 impl std::fmt::Debug for ReductionEntry {
@@ -59,8 +77,8 @@ impl std::fmt::Debug for ReductionEntry {
         f.debug_struct("ReductionEntry")
             .field("source_name", &self.source_name)
             .field("target_name", &self.target_name)
-            .field("source_graph", &self.source_graph)
-            .field("target_graph", &self.target_graph)
+            .field("source_variant", &self.source_variant)
+            .field("target_variant", &self.target_variant)
             .field("overhead", &self.overhead())
             .finish()
     }
@@ -95,8 +113,8 @@ mod tests {
         let entry = ReductionEntry {
             source_name: "TestSource",
             target_name: "TestTarget",
-            source_graph: "SimpleGraph",
-            target_graph: "SimpleGraph",
+            source_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
+            target_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
             overhead_fn: || ReductionOverhead::new(vec![("n", poly!(2 * n))]),
         };
 
@@ -111,14 +129,75 @@ mod tests {
         let entry = ReductionEntry {
             source_name: "A",
             target_name: "B",
-            source_graph: "SimpleGraph",
-            target_graph: "SimpleGraph",
+            source_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
+            target_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
             overhead_fn: || ReductionOverhead::default(),
         };
 
         let debug_str = format!("{:?}", entry);
         assert!(debug_str.contains("A"));
         assert!(debug_str.contains("B"));
+    }
+
+    #[test]
+    fn test_is_base_reduction_unweighted() {
+        let entry = ReductionEntry {
+            source_name: "A",
+            target_name: "B",
+            source_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
+            target_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
+            overhead_fn: || ReductionOverhead::default(),
+        };
+        assert!(entry.is_base_reduction());
+    }
+
+    #[test]
+    fn test_is_base_reduction_source_weighted() {
+        let entry = ReductionEntry {
+            source_name: "A",
+            target_name: "B",
+            source_variant: &[("graph", "SimpleGraph"), ("weight", "i32")],
+            target_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
+            overhead_fn: || ReductionOverhead::default(),
+        };
+        assert!(!entry.is_base_reduction());
+    }
+
+    #[test]
+    fn test_is_base_reduction_target_weighted() {
+        let entry = ReductionEntry {
+            source_name: "A",
+            target_name: "B",
+            source_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
+            target_variant: &[("graph", "SimpleGraph"), ("weight", "f64")],
+            overhead_fn: || ReductionOverhead::default(),
+        };
+        assert!(!entry.is_base_reduction());
+    }
+
+    #[test]
+    fn test_is_base_reduction_both_weighted() {
+        let entry = ReductionEntry {
+            source_name: "A",
+            target_name: "B",
+            source_variant: &[("graph", "SimpleGraph"), ("weight", "i32")],
+            target_variant: &[("graph", "SimpleGraph"), ("weight", "f64")],
+            overhead_fn: || ReductionOverhead::default(),
+        };
+        assert!(!entry.is_base_reduction());
+    }
+
+    #[test]
+    fn test_is_base_reduction_no_weight_key() {
+        // If no weight key is present, assume unweighted (base)
+        let entry = ReductionEntry {
+            source_name: "A",
+            target_name: "B",
+            source_variant: &[("graph", "SimpleGraph")],
+            target_variant: &[("graph", "SimpleGraph")],
+            overhead_fn: || ReductionOverhead::default(),
+        };
+        assert!(entry.is_base_reduction());
     }
 
     #[test]

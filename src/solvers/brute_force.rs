@@ -178,7 +178,6 @@ impl BruteForceFloat for BruteForce {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::graph_types::SimpleGraph;
     use crate::types::{EnergyMode, ProblemSize};
 
     // Simple maximization problem: maximize sum of selected weights
@@ -189,8 +188,11 @@ mod tests {
 
     impl Problem for MaxSumProblem {
         const NAME: &'static str = "MaxSumProblem";
-        type GraphType = SimpleGraph;
-        type Weight = i32;
+
+        fn variant() -> Vec<(&'static str, &'static str)> {
+            vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        }
+
         type Size = i32;
 
         fn num_variables(&self) -> usize {
@@ -227,8 +229,11 @@ mod tests {
 
     impl Problem for MinSumProblem {
         const NAME: &'static str = "MinSumProblem";
-        type GraphType = SimpleGraph;
-        type Weight = i32;
+
+        fn variant() -> Vec<(&'static str, &'static str)> {
+            vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        }
+
         type Size = i32;
 
         fn num_variables(&self) -> usize {
@@ -265,8 +270,11 @@ mod tests {
 
     impl Problem for SelectAtMostOneProblem {
         const NAME: &'static str = "SelectAtMostOneProblem";
-        type GraphType = SimpleGraph;
-        type Weight = i32;
+
+        fn variant() -> Vec<(&'static str, &'static str)> {
+            vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        }
+
         type Size = i32;
 
         fn num_variables(&self) -> usize {
@@ -294,6 +302,25 @@ mod tests {
                 .sum();
             SolutionSize::new(sum, selected <= 1)
         }
+    }
+
+    #[test]
+    fn test_variant_for_test_problems() {
+        // Test that variant() works for all test problems
+        let v = MaxSumProblem::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "i32"));
+
+        let v = MinSumProblem::variant();
+        assert_eq!(v.len(), 2);
+
+        let v = SelectAtMostOneProblem::variant();
+        assert_eq!(v.len(), 2);
+
+        let v = FloatProblem::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[1], ("weight", "f64"));
     }
 
     #[test]
@@ -402,8 +429,11 @@ mod tests {
 
     impl Problem for FloatProblem {
         const NAME: &'static str = "FloatProblem";
-        type GraphType = SimpleGraph;
-        type Weight = f64;
+
+        fn variant() -> Vec<(&'static str, &'static str)> {
+            vec![("graph", "SimpleGraph"), ("weight", "f64")]
+        }
+
         type Size = f64;
 
         fn num_variables(&self) -> usize {
@@ -457,8 +487,11 @@ mod tests {
 
         impl Problem for NearlyEqualProblem {
             const NAME: &'static str = "NearlyEqualProblem";
-            type GraphType = SimpleGraph;
-            type Weight = f64;
+
+            fn variant() -> Vec<(&'static str, &'static str)> {
+                vec![("graph", "SimpleGraph"), ("weight", "f64")]
+            }
+
             type Size = f64;
 
             fn num_variables(&self) -> usize {
@@ -493,6 +526,12 @@ mod tests {
         let best = solver.find_best_float(&problem);
         // Both should be considered optimal due to tolerance
         assert_eq!(best.len(), 2);
+
+        // Test variant for NearlyEqualProblem
+        let v = NearlyEqualProblem::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "f64"));
     }
 
     #[test]
