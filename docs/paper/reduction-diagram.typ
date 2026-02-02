@@ -102,12 +102,36 @@
 // Filter to show only base problems in the main diagram
 #let base-nodes = graph-data.nodes.filter(n => is-base-problem(n))
 
-// Filter edges to only those between base problems
+// Collect unique base problem names
+#let base-names = base-nodes.map(n => n.name)
+
+// Filter edges to only those between base problem names (ignoring variants)
+// This allows us to show the high-level structure even though edges connect variant nodes
 #let base-edges = graph-data.edges.filter(e => {
-  let src-base = e.source.variant == (:) or e.source.variant.keys().len() == 0
-  let tgt-base = e.target.variant == (:) or e.target.variant.keys().len() == 0
-  src-base and tgt-base
+  base-names.contains(e.source.name) and base-names.contains(e.target.name)
 })
+
+// Deduplicate edges by (source-name, target-name) pair, keeping bidirectionality
+#let edge-key(e) = if e.source.name < e.target.name {
+  (e.source.name, e.target.name)
+} else {
+  (e.target.name, e.source.name)
+}
+
+// Group edges by their base names and merge bidirectionality
+#let edge-map = (:)
+#for e in base-edges {
+  let key = e.source.name + "->" + e.target.name
+  let rev-key = e.target.name + "->" + e.source.name
+  if rev-key in edge-map {
+    // Reverse edge exists, mark as bidirectional
+    edge-map.at(rev-key).bidirectional = true
+  } else if key not in edge-map {
+    edge-map.insert(key, (source: e.source.name, target: e.target.name, bidirectional: e.bidirectional))
+  }
+}
+
+#let deduped-edges = edge-map.values()
 
 #let reduction-graph(width: 18mm, height: 14mm) = diagram(
   spacing: (width, height),
@@ -122,10 +146,11 @@
     let node-id = build-node-id(n)
     node(pos, text(size: 7pt)[#node-label], fill: color, name: label(node-id))
   }),
-  ..base-edges.map(e => {
+  ..deduped-edges.map(e => {
     let arrow = if e.bidirectional { "<|-|>" } else { "-|>" }
-    let src-id = build-node-id(e.source)
-    let tgt-id = build-node-id(e.target)
-    edge(label(src-id), label(tgt-id), arrow)
+    // Use simple name as node ID since we're showing base problems
+    edge(label(e.source), label(e.target), arrow)
   }),
 )
+
+#reduction-graph()
