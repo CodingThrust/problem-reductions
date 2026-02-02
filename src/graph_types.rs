@@ -3,10 +3,7 @@
 use inventory;
 
 /// Marker trait for graph types.
-pub trait GraphMarker: 'static + Clone + Send + Sync {
-    /// The name of this graph type for runtime queries.
-    const NAME: &'static str;
-}
+pub trait GraphMarker: 'static + Clone + Send + Sync {}
 
 /// Compile-time subtype relationship between graph types.
 pub trait GraphSubtype<G: GraphMarker>: GraphMarker {}
@@ -18,33 +15,25 @@ impl<G: GraphMarker> GraphSubtype<G> for G {}
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SimpleGraph;
 
-impl GraphMarker for SimpleGraph {
-    const NAME: &'static str = "SimpleGraph";
-}
+impl GraphMarker for SimpleGraph {}
 
 /// Planar graph - can be drawn on a plane without edge crossings.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct PlanarGraph;
 
-impl GraphMarker for PlanarGraph {
-    const NAME: &'static str = "PlanarGraph";
-}
+impl GraphMarker for PlanarGraph {}
 
 /// Unit disk graph - vertices are points, edges connect points within unit distance.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct UnitDiskGraph;
 
-impl GraphMarker for UnitDiskGraph {
-    const NAME: &'static str = "UnitDiskGraph";
-}
+impl GraphMarker for UnitDiskGraph {}
 
 /// Bipartite graph - vertices can be partitioned into two sets with edges only between sets.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct BipartiteGraph;
 
-impl GraphMarker for BipartiteGraph {
-    const NAME: &'static str = "BipartiteGraph";
-}
+impl GraphMarker for BipartiteGraph {}
 
 /// Runtime registration of graph subtype relationships.
 pub struct GraphSubtypeEntry {
@@ -62,8 +51,8 @@ macro_rules! declare_graph_subtype {
 
         ::inventory::submit! {
             $crate::graph_types::GraphSubtypeEntry {
-                subtype: <$sub as $crate::graph_types::GraphMarker>::NAME,
-                supertype: <$sup as $crate::graph_types::GraphMarker>::NAME,
+                subtype: stringify!($sub),
+                supertype: stringify!($sup),
             }
         }
     };
@@ -80,14 +69,6 @@ declare_graph_subtype!(BipartiteGraph => SimpleGraph);
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    #[test]
-    fn test_graph_marker_names() {
-        assert_eq!(SimpleGraph::NAME, "SimpleGraph");
-        assert_eq!(PlanarGraph::NAME, "PlanarGraph");
-        assert_eq!(UnitDiskGraph::NAME, "UnitDiskGraph");
-        assert_eq!(BipartiteGraph::NAME, "BipartiteGraph");
-    }
 
     #[test]
     fn test_reflexive_subtype() {
