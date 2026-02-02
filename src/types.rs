@@ -25,6 +25,37 @@ impl<T> NumericWeight for T where
 {
 }
 
+/// Marker type for unweighted problems.
+///
+/// Similar to Julia's `UnitWeight`, this type indicates that a problem
+/// has uniform weights (all equal to 1). Used to distinguish unweighted
+/// problem variants from weighted ones in the type system.
+///
+/// # Example
+///
+/// ```
+/// use problemreductions::types::Unweighted;
+///
+/// // Problems can be parameterized by weight type:
+/// // - `IndependentSet<Unweighted>` - unweighted (default)
+/// // - `IndependentSet<i32>` - weighted with integer weights
+/// ```
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+pub struct Unweighted;
+
+impl Unweighted {
+    /// Returns 1 for any index (all weights are unit).
+    pub fn get(&self, _index: usize) -> i32 {
+        1
+    }
+}
+
+impl std::fmt::Display for Unweighted {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "Unweighted")
+    }
+}
+
 /// Specifies whether larger or smaller objective values are better.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EnergyMode {

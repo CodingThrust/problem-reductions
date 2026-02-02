@@ -558,6 +558,8 @@ inventory::submit! {
         target_name: "KSatisfiability",
         source_graph: "CNF",
         target_graph: "KCNF",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_clauses", poly!(num_clauses)),
             ("num_vars", poly!(num_vars)),
@@ -571,6 +573,8 @@ inventory::submit! {
         target_name: "Satisfiability",
         source_graph: "KCNF",
         target_graph: "CNF",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_clauses", poly!(num_clauses)),
             ("num_vars", poly!(num_vars)),

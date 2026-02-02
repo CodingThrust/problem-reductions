@@ -290,6 +290,8 @@ inventory::submit! {
         target_name: "SpinGlass",
         source_graph: "SimpleGraph",
         target_graph: "SpinGlassGraph",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_spins", poly!(num_vertices)),
             ("num_interactions", poly!(num_edges)),
@@ -303,6 +305,8 @@ inventory::submit! {
         target_name: "MaxCut",
         source_graph: "SpinGlassGraph",
         target_graph: "SimpleGraph",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_vertices", poly!(num_spins)),
             ("num_edges", poly!(num_interactions)),

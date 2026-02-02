@@ -10,6 +10,9 @@
 
 #show link: set text(blue)
 
+// Table of contents
+#outline(title: "Contents", indent: 1.5em, depth: 2)
+
 // Set up theorem environments with ctheorems
 #show: thmrules.with(qed-symbol: $square$)
 
@@ -64,6 +67,13 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   _Reduces to:_ Set Packing (@def:set-packing).
 
   _Reduces from:_ Vertex Cover (@def:vertex-cover), SAT (@def:satisfiability), Set Packing (@def:set-packing).
+
+  ```rust
+  pub struct IndependentSet<W = i32> {
+      graph: UnGraph<(), ()>,  // The underlying graph
+      weights: Vec<W>,         // Weights for each vertex
+  }
+  ```
 ] <def:independent-set>
 
 #definition("Vertex Cover (VC)")[
@@ -72,6 +82,13 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   _Reduces to:_ Independent Set (@def:independent-set), Set Covering (@def:set-covering).
 
   _Reduces from:_ Independent Set (@def:independent-set).
+
+  ```rust
+  pub struct VertexCovering<W = i32> {
+      graph: UnGraph<(), ()>,  // The underlying graph
+      weights: Vec<W>,         // Weights for each vertex
+  }
+  ```
 ] <def:vertex-cover>
 
 #definition("Max-Cut")[
@@ -80,6 +97,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   _Reduces to:_ Spin Glass (@def:spin-glass).
 
   _Reduces from:_ Spin Glass (@def:spin-glass).
+
+  ```rust
+  pub struct MaxCut<W = i32> {
+      graph: UnGraph<(), W>,  // Weighted graph (edge weights)
+  }
+  ```
 ] <def:max-cut>
 
 #definition("Graph Coloring")[
@@ -88,18 +111,40 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   _Reduces to:_ ILP (@def:ilp).
 
   _Reduces from:_ SAT (@def:satisfiability).
+
+  ```rust
+  pub struct Coloring {
+      num_colors: usize,       // Number of available colors (K)
+      graph: UnGraph<(), ()>,  // The underlying graph
+  }
+  ```
 ] <def:coloring>
 
 #definition("Dominating Set")[
   Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall v in V: v in S or exists u in S: (u, v) in E$.
 
   _Reduces from:_ SAT (@def:satisfiability).
+
+  ```rust
+  pub struct DominatingSet<W = i32> {
+      graph: UnGraph<(), ()>,  // The underlying graph
+      weights: Vec<W>,         // Weights for each vertex
+  }
+  ```
 ] <def:dominating-set>
 
 #definition("Matching")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
 
   _Reduces to:_ Set Packing (@def:set-packing).
+
+  ```rust
+  pub struct Matching<W = i32> {
+      num_vertices: usize,     // Number of vertices
+      graph: UnGraph<(), W>,   // Weighted graph
+      edge_weights: Vec<W>,    // Weights for each edge
+  }
+  ```
 ] <def:matching>
 
 #definition("Unit Disk Graph (Grid Graph)")[
@@ -114,12 +159,27 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   _Reduces to:_ Independent Set (@def:independent-set).
 
   _Reduces from:_ Independent Set (@def:independent-set), Matching (@def:matching).
+
+  ```rust
+  pub struct SetPacking<W = i32> {
+      sets: Vec<Vec<usize>>,  // Collection of sets
+      weights: Vec<W>,        // Weights for each set
+  }
+  ```
 ] <def:set-packing>
 
 #definition("Set Covering")[
   Given universe $U$, collection $cal(S)$ with weights $w: cal(S) -> RR$, find $cal(C) subset.eq cal(S)$ minimizing $sum_(S in cal(C)) w(S)$ s.t. $union.big_(S in cal(C)) S = U$.
 
   _Reduces from:_ Vertex Cover (@def:vertex-cover).
+
+  ```rust
+  pub struct SetCovering<W = i32> {
+      universe_size: usize,   // Size of the universe
+      sets: Vec<Vec<usize>>,  // Collection of sets
+      weights: Vec<W>,        // Weights for each set
+  }
+  ```
 ] <def:set-covering>
 
 == Optimization Problems
@@ -130,6 +190,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   _Reduces to:_ Max-Cut (@def:max-cut), QUBO (@def:qubo).
 
   _Reduces from:_ Circuit-SAT (@def:circuit-sat), Max-Cut (@def:max-cut), QUBO (@def:qubo).
+
+  ```rust
+  pub struct SpinGlass<W = f64> {
+      num_spins: usize,                    // Number of spins
+      interactions: Vec<((usize, usize), W)>,  // J_ij couplings
+      fields: Vec<W>,                      // h_i on-site fields
+  }
+  ```
 ] <def:spin-glass>
 
 #definition("QUBO")[
@@ -138,12 +206,36 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   _Reduces to:_ Spin Glass (@def:spin-glass).
 
   _Reduces from:_ Spin Glass (@def:spin-glass).
+
+  ```rust
+  pub struct QUBO<W = f64> {
+      num_vars: usize,         // Number of variables
+      matrix: Vec<Vec<W>>,     // Q matrix (upper triangular)
+  }
+  ```
 ] <def:qubo>
 
 #definition("Integer Linear Programming (ILP)")[
   Given $n$ integer variables $bold(x) in ZZ^n$, constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x)$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$ and variable bounds.
 
   _Reduces from:_ Graph Coloring (@def:coloring), Factoring (@def:factoring).
+
+  ```rust
+  pub struct ILP {
+      num_vars: usize,                  // Number of variables
+      bounds: Vec<VarBounds>,           // Bounds per variable
+      constraints: Vec<LinearConstraint>, // Linear constraints
+      objective: Vec<(usize, f64)>,     // Sparse objective
+      sense: ObjectiveSense,            // Maximize or Minimize
+  }
+
+  pub struct VarBounds { lower: Option<i64>, upper: Option<i64> }
+  pub struct LinearConstraint {
+      terms: Vec<(usize, f64)>,  // (var_index, coefficient)
+      cmp: Comparison,           // Le, Ge, or Eq
+      rhs: f64,
+  }
+  ```
 ] <def:ilp>
 
 == Satisfiability Problems
@@ -154,6 +246,18 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   _Reduces to:_ Independent Set (@def:independent-set), Graph Coloring (@def:coloring), Dominating Set (@def:dominating-set), $k$-SAT (@def:k-sat).
 
   _Reduces from:_ $k$-SAT (@def:k-sat).
+
+  ```rust
+  pub struct Satisfiability<W = i32> {
+      num_vars: usize,           // Number of variables
+      clauses: Vec<CNFClause>,   // Clauses in CNF
+      weights: Vec<W>,           // Weights per clause (MAX-SAT)
+  }
+
+  pub struct CNFClause {
+      literals: Vec<i32>,  // Signed: +i for x_i, -i for NOT x_i
+  }
+  ```
 ] <def:satisfiability>
 
 #definition([$k$-SAT])[
@@ -162,6 +266,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   _Reduces to:_ SAT (@def:satisfiability).
 
   _Reduces from:_ SAT (@def:satisfiability).
+
+  ```rust
+  pub struct KSatisfiability<const K: usize, W = i32> {
+      num_vars: usize,           // Number of variables
+      clauses: Vec<CNFClause>,   // Each clause has exactly K literals
+      weights: Vec<W>,           // Weights per clause
+  }
+  ```
 ] <def:k-sat>
 
 #definition("Circuit-SAT")[
@@ -170,12 +282,32 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   _Reduces to:_ Spin Glass (@def:spin-glass).
 
   _Reduces from:_ Factoring (@def:factoring).
+
+  ```rust
+  pub struct CircuitSAT<W = i32> {
+      circuit: Circuit,          // The boolean circuit
+      variables: Vec<String>,    // Variable names in order
+      weights: Vec<W>,           // Weights per assignment
+  }
+
+  pub struct Circuit { assignments: Vec<Assignment> }
+  pub struct Assignment { outputs: Vec<String>, expr: BooleanExpr }
+  pub enum BooleanOp { Var(String), Const(bool), Not(..), And(..), Or(..), Xor(..) }
+  ```
 ] <def:circuit-sat>
 
 #definition("Factoring")[
   Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
 
   _Reduces to:_ Circuit-SAT (@def:circuit-sat), ILP (@def:ilp).
+
+  ```rust
+  pub struct Factoring {
+      m: usize,      // Bits for first factor
+      n: usize,      // Bits for second factor
+      target: u64,   // The number to factor
+  }
+  ```
 ] <def:factoring>
 
 = Reductions <sec:reductions>
@@ -190,6 +322,18 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   ($arrow.r.double$) If $S$ is independent, for any $(u, v) in E$, at most one endpoint lies in $S$, so $V backslash S$ covers all edges. ($arrow.l.double$) If $C$ is a cover, for any $u, v in V backslash C$, $(u, v) in.not E$, so $V backslash C$ is independent.
 ]
 
+```rust
+// Minimal example: IS -> VC -> extract solution
+let is_problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+let result = ReduceTo::<VertexCovering<i32>>::reduce_to(&is_problem);
+let vc_problem = result.target_problem();
+
+let solver = BruteForce::new();
+let vc_solutions = solver.find_best(vc_problem);
+let is_solution = result.extract_solution(&vc_solutions[0]);
+assert!(is_problem.solution_size(&is_solution).is_valid);
+```
+
 #theorem[
   *(IS $arrow.r$ Set Packing)* Construct $U = E$, $S_v = {e in E : v in e}$, $w(S_v) = w(v)$. Then $I$ is independent iff ${S_v : v in I}$ is a packing. [_Problems:_ @def:independent-set, @def:set-packing.]
 ]
@@ -197,6 +341,18 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #proof[
   Independence implies disjoint incident edge sets; conversely, disjoint edge sets imply no shared edges.
 ]
+
+```rust
+// Minimal example: IS -> SetPacking -> extract solution
+let is_problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+let result = ReduceTo::<SetPacking<i32>>::reduce_to(&is_problem);
+let sp_problem = result.target_problem();
+
+let solver = BruteForce::new();
+let sp_solutions = solver.find_best(sp_problem);
+let is_solution = result.extract_solution(&sp_solutions[0]);
+assert!(is_problem.solution_size(&is_solution).is_valid);
+```
 
 #theorem[
   *(VC $arrow.r$ Set Covering)* Construct $U = {0, ..., |E|-1}$, $S_v = {i : e_i "incident to" v}$, $w(S_v) = w(v)$. Then $C$ is a cover iff ${S_v : v in C}$ covers $U$. [_Problems:_ @def:vertex-cover, @def:set-covering.]
@@ -213,6 +369,18 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #proof[
   Expanding $-sum_(i,j) J_(i j) (2x_i - 1)(2x_j - 1) - sum_i h_i (2x_i - 1)$ gives $Q_(i j) = -4J_(i j)$, $Q_(i i) = 2sum_j J_(i j) - 2h_i$.
 ]
+
+```rust
+// Minimal example: SpinGlass -> QUBO -> extract solution
+let sg = SpinGlass::new(2, vec![((0, 1), -1.0)], vec![0.5, -0.5]);
+let result = ReduceTo::<QUBO>::reduce_to(&sg);
+let qubo = result.target_problem();
+
+let solver = BruteForce::new();
+let qubo_solutions = solver.find_best(qubo);
+let sg_solution = result.extract_solution(&qubo_solutions[0]);
+assert_eq!(sg_solution.len(), 2);
+```
 
 == Non-Trivial Reductions
 
@@ -320,6 +488,18 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Solution extraction._ Without ancilla: identity. With ancilla: if $sigma_a = 1$, flip all spins before removing ancilla.
 ]
+
+```rust
+// Minimal example: SpinGlass -> MaxCut -> extract solution
+let sg = SpinGlass::new(3, vec![((0, 1), 1), ((1, 2), 1), ((0, 2), 1)], vec![0, 0, 0]);
+let result = ReduceTo::<MaxCut<i32>>::reduce_to(&sg);
+let maxcut = result.target_problem();
+
+let solver = BruteForce::new();
+let maxcut_solutions = solver.find_best(maxcut);
+let sg_solution = result.extract_solution(&maxcut_solutions[0]);
+assert_eq!(sg_solution.len(), 3);
+```
 
 #theorem[
   *(Coloring $arrow.r$ ILP)* The $k$-coloring problem reduces to binary ILP with $|V| dot k$ variables and $|V| + |E| dot k$ constraints. [_Problems:_ @def:coloring, @def:ilp.]

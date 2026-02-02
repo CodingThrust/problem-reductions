@@ -981,6 +981,8 @@ inventory::submit! {
         target_name: "SpinGlass",
         source_graph: "Circuit",
         target_graph: "SpinGlassGraph",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_spins", poly!(num_assignments)),
             ("num_interactions", poly!(num_assignments)),

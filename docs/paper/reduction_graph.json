@@ -3,77 +3,107 @@
     {
       "id": "CircuitSAT",
       "label": "CircuitSAT",
-      "category": "satisfiability"
+      "category": "satisfiability",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "Coloring",
       "label": "Coloring",
-      "category": "graph"
+      "category": "graph",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "DominatingSet",
       "label": "DominatingSet",
-      "category": "graph"
+      "category": "graph",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "Factoring",
       "label": "Factoring",
-      "category": "specialized"
+      "category": "specialized",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "ILP",
       "label": "ILP",
-      "category": "optimization"
+      "category": "optimization",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "IndependentSet",
       "label": "IndependentSet",
-      "category": "graph"
+      "category": "graph",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "KSatisfiability",
       "label": "KSatisfiability",
-      "category": "satisfiability"
+      "category": "satisfiability",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "Matching",
       "label": "Matching",
-      "category": "graph"
+      "category": "graph",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "MaxCut",
       "label": "MaxCut",
-      "category": "graph"
+      "category": "graph",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "QUBO",
       "label": "QUBO",
-      "category": "optimization"
+      "category": "optimization",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "Satisfiability",
       "label": "Satisfiability",
-      "category": "satisfiability"
+      "category": "satisfiability",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "SetCovering",
       "label": "SetCovering",
-      "category": "set"
+      "category": "set",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "SetPacking",
       "label": "SetPacking",
-      "category": "set"
+      "category": "set",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "SpinGlass",
       "label": "SpinGlass",
-      "category": "optimization"
+      "category": "optimization",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     },
     {
       "id": "VertexCovering",
       "label": "VertexCovering",
-      "category": "graph"
+      "category": "graph",
+      "graph_type": "SimpleGraph",
+      "weighted": false
     }
   ],
   "edges": [

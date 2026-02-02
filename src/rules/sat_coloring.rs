@@ -657,6 +657,8 @@ inventory::submit! {
         target_name: "Coloring",
         source_graph: "CNF",
         target_graph: "SimpleGraph",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_vertices", poly!(3 * num_vars)),
             ("num_colors", poly!(3)),

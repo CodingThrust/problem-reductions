@@ -501,6 +501,8 @@ inventory::submit! {
         target_name: "IndependentSet",
         source_graph: "CNF",
         target_graph: "SimpleGraph",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_vertices", poly!(7 * num_clauses)),
             ("num_edges", poly!(21 * num_clauses)),

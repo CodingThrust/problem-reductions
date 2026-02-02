@@ -22,6 +22,8 @@ inventory::submit! {
         target_name: "ILP",
         source_graph: "SimpleGraph",
         target_graph: "ILPMatrix",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             // num_vars = num_vertices * num_colors
             ("num_vars", Polynomial {

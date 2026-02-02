@@ -107,3 +107,6 @@ pub use registry::{ComplexityClass, ProblemCategory, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::{ConstraintSatisfactionProblem, Problem};
 pub use types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
+
+// Re-export proc macro for reduction registration
+pub use problemreductions_macros::reduction;

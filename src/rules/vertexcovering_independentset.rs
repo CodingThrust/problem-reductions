@@ -217,6 +217,8 @@ inventory::submit! {
         target_name: "VertexCovering",
         source_graph: "SimpleGraph",
         target_graph: "SimpleGraph",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_vertices", poly!(num_vertices)),
             ("num_edges", poly!(num_edges)),
@@ -230,6 +232,8 @@ inventory::submit! {
         target_name: "IndependentSet",
         source_graph: "SimpleGraph",
         target_graph: "SimpleGraph",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_vertices", poly!(num_vertices)),
             ("num_edges", poly!(num_edges)),

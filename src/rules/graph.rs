@@ -33,20 +33,27 @@ pub struct ReductionGraphJson {
 /// A node in the reduction graph JSON.
 #[derive(Debug, Clone, Serialize)]
 pub struct NodeJson {
-    /// Unique identifier for the node (base type name).
+    /// Unique identifier for the node (variant ID like "IndependentSet/GridGraph/Weighted").
     pub id: String,
     /// Display label for the node.
     pub label: String,
     /// Category of the problem (e.g., "graph", "set", "optimization", "satisfiability", "specialized").
     pub category: String,
+    /// Parent node ID (None for base problems, Some for variants).
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub parent: Option<String>,
+    /// Graph type (e.g., "SimpleGraph", "GridGraph").
+    pub graph_type: String,
+    /// Whether this is a weighted variant.
+    pub weighted: bool,
 }
 
 /// An edge in the reduction graph JSON.
 #[derive(Debug, Clone, Serialize)]
 pub struct EdgeJson {
-    /// Source node ID.
+    /// Source node ID (variant ID).
     pub source: String,
-    /// Target node ID.
+    /// Target node ID (variant ID).
     pub target: String,
     /// Whether the reverse reduction also exists.
     pub bidirectional: bool,
@@ -501,48 +508,97 @@ impl Default for ReductionGraph {
 
 impl ReductionGraph {
     /// Export the reduction graph as a JSON-serializable structure.
+    ///
+    /// This method generates nodes for each variant (graph type + weighted combination)
+    /// based on the registered reductions. Variant nodes are linked to their parent
+    /// base problem for hierarchical layout in diagrams.
     pub fn to_json(&self) -> ReductionGraphJson {
-        // Collect all edges first to determine bidirectionality
-        let mut edge_set: HashMap<(&str, &str), bool> = HashMap::new();
+        use crate::rules::registry::ReductionEntry;
 
-        for edge in self.graph.edge_indices() {
-            if let Some((src_idx, dst_idx)) = self.graph.edge_endpoints(edge) {
-                let src_name = self.graph[src_idx];
-                let dst_name = self.graph[dst_idx];
+        // Collect all unique variant IDs and their metadata
+        let mut variant_info: HashMap<String, (String, String, bool)> = HashMap::new(); // id -> (base_name, graph_type, weighted)
 
-                // Check if reverse edge exists
-                let reverse_key = (dst_name, src_name);
-                if edge_set.contains_key(&reverse_key) {
-                    // Mark the existing edge as bidirectional
-                    edge_set.insert(reverse_key, true);
-                } else {
-                    edge_set.insert((src_name, dst_name), false);
-                }
+        // First, add base nodes from the graph
+        for &name in self.name_indices.keys() {
+            let id = name.to_string();
+            if !variant_info.contains_key(&id) {
+                variant_info.insert(id, (name.to_string(), "SimpleGraph".to_string(), false));
             }
         }
 
-        // Build nodes with categories, sorted by id for deterministic output
-        let mut nodes: Vec<NodeJson> = self
-            .name_indices
-            .keys()
-            .map(|&name| {
-                let category = Self::categorize_type(name);
+        // Then, collect variants from reduction entries
+        for entry in inventory::iter::<ReductionEntry> {
+            let src_id = entry.source_variant_id();
+            let dst_id = entry.target_variant_id();
+
+            if !variant_info.contains_key(&src_id) {
+                variant_info.insert(
+                    src_id.clone(),
+                    (entry.source_name.to_string(), entry.source_graph.to_string(), entry.source_weighted),
+                );
+            }
+            if !variant_info.contains_key(&dst_id) {
+                variant_info.insert(
+                    dst_id.clone(),
+                    (entry.target_name.to_string(), entry.target_graph.to_string(), entry.target_weighted),
+                );
+            }
+        }
+
+        // Build nodes with categories
+        let mut nodes: Vec<NodeJson> = variant_info
+            .iter()
+            .map(|(id, (base_name, graph_type, weighted))| {
+                let category = Self::categorize_type(base_name);
+                // Determine if this is a variant (different from base)
+                let is_variant = id != base_name;
+                let parent = if is_variant {
+                    Some(base_name.clone())
+                } else {
+                    None
+                };
+                // Label: for base problems use base name, for variants use the suffix
+                let label = if is_variant {
+                    id.strip_prefix(&format!("{}/", base_name))
+                        .unwrap_or(id)
+                        .to_string()
+                } else {
+                    base_name.clone()
+                };
+
                 NodeJson {
-                    id: name.to_string(),
-                    label: name.to_string(), // Base name is already simplified
+                    id: id.clone(),
+                    label,
                     category: category.to_string(),
+                    parent,
+                    graph_type: graph_type.clone(),
+                    weighted: *weighted,
                 }
             })
             .collect();
         nodes.sort_by(|a, b| a.id.cmp(&b.id));
 
-        // Build edges (only include one direction for bidirectional edges)
-        // Sort by (source, target) for deterministic output
+        // Collect edges using variant IDs, checking for bidirectionality
+        let mut edge_set: HashMap<(String, String), bool> = HashMap::new();
+
+        for entry in inventory::iter::<ReductionEntry> {
+            let src_id = entry.source_variant_id();
+            let dst_id = entry.target_variant_id();
+
+            let reverse_key = (dst_id.clone(), src_id.clone());
+            if edge_set.contains_key(&reverse_key) {
+                edge_set.insert(reverse_key, true);
+            } else {
+                edge_set.insert((src_id, dst_id), false);
+            }
+        }
+
+        // Build edges
         let mut edges: Vec<EdgeJson> = edge_set
             .into_iter()
             .map(|((src, dst), bidirectional)| EdgeJson {
-                source: src.to_string(),
-                target: dst.to_string(),
+                source: src,
+                target: dst,
                 bidirectional,
             })
             .collect();

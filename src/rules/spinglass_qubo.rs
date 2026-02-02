@@ -308,6 +308,8 @@ inventory::submit! {
         target_name: "SpinGlass",
         source_graph: "QUBOMatrix",
         target_graph: "SpinGlassGraph",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_spins", poly!(num_vars)),
         ]),
@@ -320,6 +322,8 @@ inventory::submit! {
         target_name: "QUBO",
         source_graph: "SpinGlassGraph",
         target_graph: "QUBOMatrix",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_vars", poly!(num_spins)),
         ]),

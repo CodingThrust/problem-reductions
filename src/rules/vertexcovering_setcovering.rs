@@ -275,6 +275,8 @@ inventory::submit! {
         target_name: "SetCovering",
         source_graph: "SimpleGraph",
         target_graph: "SetSystem",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_sets", poly!(num_vertices)),
             ("num_elements", poly!(num_edges)),

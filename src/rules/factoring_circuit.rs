@@ -586,6 +586,8 @@ inventory::submit! {
         target_name: "CircuitSAT",
         source_graph: "Factoring",
         target_graph: "Circuit",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_gates", poly!(num_bits_first^2)),
         ]),

@@ -43,14 +43,64 @@ pub struct ReductionEntry {
     pub source_graph: &'static str,
     /// Graph type of target problem.
     pub target_graph: &'static str,
+    /// Whether source problem is weighted (vs Unweighted).
+    pub source_weighted: bool,
+    /// Whether target problem is weighted (vs Unweighted).
+    pub target_weighted: bool,
     /// Function to create overhead information (lazy evaluation for static context).
     pub overhead_fn: fn() -> ReductionOverhead,
+}
+
+impl ReductionEntry {
+    /// Generate the full variant ID for the source problem.
+    ///
+    /// Format: `ProblemName[/GraphType][/Weighted]`
+    /// - SimpleGraph, CNF, SetSystem are considered default and omitted
+    /// - Unweighted is default and omitted
+    pub fn source_variant_id(&self) -> String {
+        variant_id(self.source_name, self.source_graph, self.source_weighted)
+    }
+
+    /// Generate the full variant ID for the target problem.
+    pub fn target_variant_id(&self) -> String {
+        variant_id(self.target_name, self.target_graph, self.target_weighted)
+    }
+}
+
+/// Generate a variant ID from problem name, graph type, and weighted flag.
+fn variant_id(name: &str, graph: &str, weighted: bool) -> String {
+    let mut id = name.to_string();
+    // Skip default graph types
+    let default_graphs = [
+        "SimpleGraph",
+        "CNF",
+        "KCNF",
+        "SetSystem",
+        "QUBOMatrix",
+        "SpinGlassGraph",
+        "Circuit",
+        "Factoring",
+        "ILPMatrix",
+    ];
+    if !default_graphs.contains(&graph) {
+        id.push('/');
+        id.push_str(graph);
+    }
+    if weighted {
+        id.push_str("/Weighted");
+    }
+    id
 }
 
 impl ReductionEntry {
     /// Get the overhead by calling the function.
     pub fn overhead(&self) -> ReductionOverhead {
         (self.overhead_fn)()
+    }
+
+    /// Check if this reduction involves only the base (unweighted, SimpleGraph) variants.
+    pub fn is_base_reduction(&self) -> bool {
+        !self.source_weighted && !self.target_weighted
     }
 }
 
@@ -61,6 +111,8 @@ impl std::fmt::Debug for ReductionEntry {
             .field("target_name", &self.target_name)
             .field("source_graph", &self.source_graph)
             .field("target_graph", &self.target_graph)
+            .field("source_weighted", &self.source_weighted)
+            .field("target_weighted", &self.target_weighted)
             .field("overhead", &self.overhead())
             .finish()
     }
@@ -97,6 +149,8 @@ mod tests {
             target_name: "TestTarget",
             source_graph: "SimpleGraph",
             target_graph: "SimpleGraph",
+            source_weighted: false,
+            target_weighted: false,
             overhead_fn: || ReductionOverhead::new(vec![("n", poly!(2 * n))]),
         };
 
@@ -113,12 +167,54 @@ mod tests {
             target_name: "B",
             source_graph: "SimpleGraph",
             target_graph: "SimpleGraph",
+            source_weighted: false,
+            target_weighted: false,
             overhead_fn: || ReductionOverhead::default(),
         };
 
         let debug_str = format!("{:?}", entry);
         assert!(debug_str.contains("A"));
         assert!(debug_str.contains("B"));
+    }
+
+    #[test]
+    fn test_variant_id_base() {
+        // Base problem (SimpleGraph, unweighted) - no suffix
+        assert_eq!(variant_id("IndependentSet", "SimpleGraph", false), "IndependentSet");
+    }
+
+    #[test]
+    fn test_variant_id_graph() {
+        // Graph variant only
+        assert_eq!(variant_id("IndependentSet", "GridGraph", false), "IndependentSet/GridGraph");
+    }
+
+    #[test]
+    fn test_variant_id_weighted() {
+        // Weighted variant only
+        assert_eq!(variant_id("IndependentSet", "SimpleGraph", true), "IndependentSet/Weighted");
+    }
+
+    #[test]
+    fn test_variant_id_both() {
+        // Both graph and weighted
+        assert_eq!(variant_id("IndependentSet", "GridGraph", true), "IndependentSet/GridGraph/Weighted");
+    }
+
+    #[test]
+    fn test_entry_variant_ids() {
+        let entry = ReductionEntry {
+            source_name: "IndependentSet",
+            target_name: "IndependentSet",
+            source_graph: "SimpleGraph",
+            target_graph: "GridGraph",
+            source_weighted: false,
+            target_weighted: true,
+            overhead_fn: || ReductionOverhead::default(),
+        };
+
+        assert_eq!(entry.source_variant_id(), "IndependentSet");
+        assert_eq!(entry.target_variant_id(), "IndependentSet/GridGraph/Weighted");
     }
 
     #[test]

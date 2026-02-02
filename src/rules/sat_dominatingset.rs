@@ -519,6 +519,8 @@ inventory::submit! {
         target_name: "DominatingSet",
         source_graph: "CNF",
         target_graph: "SimpleGraph",
+        source_weighted: false,
+        target_weighted: false,
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_vertices", poly!(num_vars)),
             ("num_edges", poly!(num_clauses)),
