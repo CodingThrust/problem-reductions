@@ -38,7 +38,10 @@ use serde::{Deserialize, Serialize};
 ///     count
 /// }
 /// ```
-pub trait Graph: Clone + Send + Sync {
+pub trait Graph: Clone + Send + Sync + 'static {
+    /// The name of the graph type (e.g., "SimpleGraph", "GridGraph").
+    const NAME: &'static str;
+
     /// Returns the number of vertices in the graph.
     fn num_vertices(&self) -> usize;
 
@@ -196,6 +199,8 @@ impl SimpleGraph {
 }
 
 impl Graph for SimpleGraph {
+    const NAME: &'static str = "SimpleGraph";
+
     fn num_vertices(&self) -> usize {
         self.inner.node_count()
     }

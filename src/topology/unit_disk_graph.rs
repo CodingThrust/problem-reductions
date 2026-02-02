@@ -193,6 +193,8 @@ impl UnitDiskGraph {
 }
 
 impl Graph for UnitDiskGraph {
+    const NAME: &'static str = "UnitDiskGraph";
+
     fn num_vertices(&self) -> usize {
         self.positions.len()
     }

@@ -196,7 +196,9 @@ impl<W: Clone> GridGraph<W> {
     }
 }
 
-impl<W: Clone + Send + Sync> Graph for GridGraph<W> {
+impl<W: Clone + Send + Sync + 'static> Graph for GridGraph<W> {
+    const NAME: &'static str = "GridGraph";
+
     fn num_vertices(&self) -> usize {
         self.nodes.len()
     }
