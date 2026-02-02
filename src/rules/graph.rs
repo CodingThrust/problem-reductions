@@ -107,20 +107,24 @@ pub struct ReductionEdge {
 
 impl ReductionEdge {
     /// Get the graph type from the source variant, or "SimpleGraph" as default.
+    /// Empty strings are treated as missing and default to "SimpleGraph".
     pub fn source_graph(&self) -> &'static str {
         self.source_variant
             .iter()
             .find(|(k, _)| *k == "graph")
             .map(|(_, v)| *v)
+            .filter(|v| !v.is_empty())
             .unwrap_or("SimpleGraph")
     }
 
     /// Get the graph type from the target variant, or "SimpleGraph" as default.
+    /// Empty strings are treated as missing and default to "SimpleGraph".
     pub fn target_graph(&self) -> &'static str {
         self.target_variant
             .iter()
             .find(|(k, _)| *k == "graph")
             .map(|(_, v)| *v)
+            .filter(|v| !v.is_empty())
             .unwrap_or("SimpleGraph")
     }
 }
@@ -530,12 +534,20 @@ impl Default for ReductionGraph {
 
 impl ReductionGraph {
     /// Helper to convert a variant slice to a BTreeMap.
+    /// Normalizes empty "graph" values to "SimpleGraph" for consistency.
     fn variant_to_map(
         variant: &[(&'static str, &'static str)],
     ) -> std::collections::BTreeMap<String, String> {
         variant
             .iter()
-            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .map(|(k, v)| {
+                let value = if *k == "graph" && v.is_empty() {
+                    "SimpleGraph".to_string()
+                } else {
+                    v.to_string()
+                };
+                (k.to_string(), value)
+            })
             .collect()
     }
 

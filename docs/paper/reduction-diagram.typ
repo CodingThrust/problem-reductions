@@ -43,7 +43,8 @@
     if "graph" in n.variant and n.variant.graph != "" and n.variant.graph != "SimpleGraph" {
       suffix.push(n.variant.graph)
     }
-    if "weight" in n.variant and n.variant.weight != "" and n.variant.weight != "Unweighted" and n.variant.weight != "W" {
+    // Filter out Unweighted and single-letter generic type params (W, K, T, etc.)
+    if "weight" in n.variant and n.variant.weight != "" and n.variant.weight != "Unweighted" and n.variant.weight.len() != 1 {
       suffix.push(n.variant.weight)
     }
     if suffix.len() > 0 {

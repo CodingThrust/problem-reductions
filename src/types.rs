@@ -28,17 +28,28 @@ impl<T> NumericWeight for T where
 /// Marker type for unweighted problems.
 ///
 /// Similar to Julia's `UnitWeight`, this type indicates that a problem
-/// has uniform weights (all equal to 1). Used to distinguish unweighted
-/// problem variants from weighted ones in the type system.
+/// has uniform weights (all equal to 1). Used in the variant metadata system
+/// to distinguish unweighted problem variants from weighted ones.
+///
+/// Note: This type is primarily used as a marker in the `variant()` method
+/// to indicate that a problem is unweighted. The actual weight type parameter
+/// in problem structs is typically `i32` or similar numeric type, with
+/// `"Unweighted"` appearing in the variant metadata.
 ///
 /// # Example
 ///
 /// ```
 /// use problemreductions::types::Unweighted;
 ///
-/// // Problems can be parameterized by weight type:
-/// // - `IndependentSet<Unweighted>` - unweighted (default)
-/// // - `IndependentSet<i32>` - weighted with integer weights
+/// // In variant metadata, "Unweighted" indicates uniform weights:
+/// // fn variant() -> Vec<(&'static str, &'static str)> {
+/// //     vec![("graph", "SimpleGraph"), ("weight", "Unweighted")]
+/// // }
+/// //
+/// // Weighted problems use the concrete type name:
+/// // fn variant() -> Vec<(&'static str, &'static str)> {
+/// //     vec![("graph", "SimpleGraph"), ("weight", "i32")]
+/// // }
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
 pub struct Unweighted;

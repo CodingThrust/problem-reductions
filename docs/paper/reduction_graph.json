@@ -9,7 +9,7 @@
       "name": "CircuitSAT",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "W"
+        "weight": "Unweighted"
       },
       "category": "satisfiability"
     },
@@ -43,21 +43,13 @@
       "name": "DominatingSet",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "W"
+        "weight": "Unweighted"
       },
       "category": "graph"
     },
     {
       "name": "Factoring",
       "variant": {},
-      "category": "specialized"
-    },
-    {
-      "name": "Factoring",
-      "variant": {
-        "graph": "",
-        "weight": "Unweighted"
-      },
       "category": "specialized"
     },
     {
@@ -76,7 +68,7 @@
     {
       "name": "ILP",
       "variant": {
-        "graph": "",
+        "graph": "SimpleGraph",
         "weight": "Unweighted"
       },
       "category": "optimization"
@@ -90,7 +82,7 @@
       "name": "IndependentSet",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "W"
+        "weight": "Unweighted"
       },
       "category": "graph"
     },
@@ -102,20 +94,12 @@
     {
       "name": "KSatisfiability",
       "variant": {
-        "graph": "",
+        "graph": "SimpleGraph",
         "weight": "Unweighted"
       },
       "category": "satisfiability"
     },
     {
-      "name": "KSatisfiability",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "K"
-      },
-      "category": "satisfiability"
-    },
-    {
       "name": "Matching",
       "variant": {},
       "category": "graph"
@@ -124,7 +108,7 @@
       "name": "Matching",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "W"
+        "weight": "Unweighted"
       },
       "category": "graph"
     },
@@ -137,7 +121,7 @@
       "name": "MaxCut",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "W"
+        "weight": "Unweighted"
       },
       "category": "graph"
     },
@@ -162,20 +146,12 @@
     {
       "name": "Satisfiability",
       "variant": {
-        "graph": "",
+        "graph": "SimpleGraph",
         "weight": "Unweighted"
       },
       "category": "satisfiability"
     },
     {
-      "name": "Satisfiability",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "W"
-      },
-      "category": "satisfiability"
-    },
-    {
       "name": "SetCovering",
       "variant": {},
       "category": "set"
@@ -184,7 +160,7 @@
       "name": "SetCovering",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "W"
+        "weight": "Unweighted"
       },
       "category": "set"
     },
@@ -197,7 +173,7 @@
       "name": "SetPacking",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "W"
+        "weight": "Unweighted"
       },
       "category": "set"
     },
@@ -210,7 +186,7 @@
       "name": "SpinGlass",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "W"
+        "weight": "Unweighted"
       },
       "category": "optimization"
     },
@@ -231,7 +207,7 @@
       "name": "VertexCovering",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "W"
+        "weight": "Unweighted"
       },
       "category": "graph"
     }
@@ -242,14 +218,14 @@
         "name": "CircuitSAT",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "target": {
         "name": "SpinGlass",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "bidirectional": false
@@ -265,24 +241,7 @@
       "target": {
         "name": "ILP",
         "variant": {
-          "graph": "",
-          "weight": "Unweighted"
-        }
-      },
-      "bidirectional": false
-    },
-    {
-      "source": {
-        "name": "Factoring",
-        "variant": {
-          "graph": "",
-          "weight": "Unweighted"
-        }
-      },
-      "target": {
-        "name": "ILP",
-        "variant": {
-          "graph": "",
+          "graph": "SimpleGraph",
           "weight": "Unweighted"
         }
       },
@@ -307,17 +266,17 @@
     },
     {
       "source": {
-        "name": "KSatisfiability",
+        "name": "Factoring",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "K"
+          "weight": "Unweighted"
         }
       },
       "target": {
-        "name": "Satisfiability",
+        "name": "ILP",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "bidirectional": false
@@ -327,30 +286,13 @@
         "name": "Matching",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "target": {
         "name": "SetPacking",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
-        }
-      },
-      "bidirectional": false
-    },
-    {
-      "source": {
-        "name": "Satisfiability",
-        "variant": {
-          "graph": "",
-          "weight": "Unweighted"
-        }
-      },
-      "target": {
-        "name": "KSatisfiability",
-        "variant": {
-          "graph": "",
           "weight": "Unweighted"
         }
       },
@@ -361,7 +303,7 @@
         "name": "Satisfiability",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "target": {
@@ -378,14 +320,14 @@
         "name": "Satisfiability",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "target": {
         "name": "DominatingSet",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "bidirectional": false
@@ -395,31 +337,48 @@
         "name": "Satisfiability",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "target": {
         "name": "IndependentSet",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "bidirectional": false
     },
     {
       "source": {
+        "name": "Satisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "KSatisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "bidirectional": true
+    },
+    {
+      "source": {
         "name": "SetPacking",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "target": {
         "name": "IndependentSet",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "bidirectional": true
@@ -429,14 +388,14 @@
         "name": "SpinGlass",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "target": {
         "name": "MaxCut",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "bidirectional": true
@@ -463,14 +422,14 @@
         "name": "VertexCovering",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "target": {
         "name": "IndependentSet",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "bidirectional": true
@@ -480,14 +439,14 @@
         "name": "VertexCovering",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "target": {
         "name": "SetCovering",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "W"
+          "weight": "Unweighted"
         }
       },
       "bidirectional": false

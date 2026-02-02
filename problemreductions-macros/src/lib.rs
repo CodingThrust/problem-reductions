@@ -187,16 +187,24 @@ fn extract_weight_type(ty: &Type) -> Option<Type> {
     }
 }
 
-/// Get weight type name as a string for the variant
+/// Get weight type name as a string for the variant.
+/// Single-letter uppercase names are treated as generic type parameters
+/// and default to "Unweighted" since they're not concrete types.
 fn get_weight_name(ty: &Type) -> String {
     match ty {
         Type::Path(type_path) => {
-            type_path
+            let name = type_path
                 .path
                 .segments
                 .last()
                 .map(|s| s.ident.to_string())
-                .unwrap_or_else(|| "Unweighted".to_string())
+                .unwrap_or_else(|| "Unweighted".to_string());
+            // Treat single uppercase letters as generic params, default to Unweighted
+            if name.len() == 1 && name.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false) {
+                "Unweighted".to_string()
+            } else {
+                name
+            }
         }
         _ => "Unweighted".to_string(),
     }
