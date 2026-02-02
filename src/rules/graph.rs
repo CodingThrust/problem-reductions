@@ -33,28 +33,30 @@ pub struct ReductionGraphJson {
 /// A node in the reduction graph JSON.
 #[derive(Debug, Clone, Serialize)]
 pub struct NodeJson {
-    /// Unique identifier for the node (variant ID like "IndependentSet/GridGraph/Weighted").
-    pub id: String,
-    /// Display label for the node.
-    pub label: String,
+    /// Base problem name (e.g., "IndependentSet").
+    pub name: String,
+    /// Variant attributes as key-value pairs.
+    pub variant: std::collections::BTreeMap<String, String>,
     /// Category of the problem (e.g., "graph", "set", "optimization", "satisfiability", "specialized").
     pub category: String,
-    /// Parent node ID (None for base problems, Some for variants).
-    #[serde(skip_serializing_if = "Option::is_none")]
-    pub parent: Option<String>,
-    /// Graph type (e.g., "SimpleGraph", "GridGraph").
-    pub graph_type: String,
-    /// Whether this is a weighted variant.
-    pub weighted: bool,
+}
+
+/// Reference to a problem variant in an edge.
+#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
+pub struct VariantRef {
+    /// Base problem name.
+    pub name: String,
+    /// Variant attributes as key-value pairs.
+    pub variant: std::collections::BTreeMap<String, String>,
 }
 
 /// An edge in the reduction graph JSON.
 #[derive(Debug, Clone, Serialize)]
 pub struct EdgeJson {
-    /// Source node ID (variant ID).
-    pub source: String,
-    /// Target node ID (variant ID).
-    pub target: String,
+    /// Source problem variant.
+    pub source: VariantRef,
+    /// Target problem variant.
+    pub target: VariantRef,
     /// Whether the reverse reduction also exists.
     pub bidirectional: bool,
 }
@@ -95,12 +97,32 @@ impl ReductionPath {
 /// Edge data for a reduction.
 #[derive(Clone, Debug)]
 pub struct ReductionEdge {
-    /// Graph type of source problem (e.g., "SimpleGraph").
-    pub source_graph: &'static str,
-    /// Graph type of target problem.
-    pub target_graph: &'static str,
+    /// Source variant attributes as key-value pairs.
+    pub source_variant: &'static [(&'static str, &'static str)],
+    /// Target variant attributes as key-value pairs.
+    pub target_variant: &'static [(&'static str, &'static str)],
     /// Overhead information for cost calculations.
     pub overhead: ReductionOverhead,
+}
+
+impl ReductionEdge {
+    /// Get the graph type from the source variant, or "SimpleGraph" as default.
+    pub fn source_graph(&self) -> &'static str {
+        self.source_variant
+            .iter()
+            .find(|(k, _)| *k == "graph")
+            .map(|(_, v)| *v)
+            .unwrap_or("SimpleGraph")
+    }
+
+    /// Get the graph type from the target variant, or "SimpleGraph" as default.
+    pub fn target_graph(&self) -> &'static str {
+        self.target_variant
+            .iter()
+            .find(|(k, _)| *k == "graph")
+            .map(|(_, v)| *v)
+            .unwrap_or("SimpleGraph")
+    }
 }
 
 /// Runtime graph of all registered reductions.
@@ -161,8 +183,8 @@ impl ReductionGraph {
                     src,
                     dst,
                     ReductionEdge {
-                        source_graph: entry.source_graph,
-                        target_graph: entry.target_graph,
+                        source_variant: entry.source_variant,
+                        target_variant: entry.target_variant,
                         overhead: entry.overhead(),
                     },
                 );
@@ -358,7 +380,7 @@ impl ReductionGraph {
                 let next = edge_ref.target();
 
                 // Check set-theoretic applicability
-                if !self.rule_applicable(source.1, target.1, edge.source_graph, edge.target_graph) {
+                if !self.rule_applicable(source.1, target.1, edge.source_graph(), edge.target_graph()) {
                     continue;
                 }
 
@@ -507,89 +529,80 @@ impl Default for ReductionGraph {
 }
 
 impl ReductionGraph {
+    /// Helper to convert a variant slice to a BTreeMap.
+    fn variant_to_map(
+        variant: &[(&'static str, &'static str)],
+    ) -> std::collections::BTreeMap<String, String> {
+        variant
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+
+    /// Helper to create a VariantRef from name and variant slice.
+    fn make_variant_ref(
+        name: &str,
+        variant: &[(&'static str, &'static str)],
+    ) -> VariantRef {
+        VariantRef {
+            name: name.to_string(),
+            variant: Self::variant_to_map(variant),
+        }
+    }
+
     /// Export the reduction graph as a JSON-serializable structure.
     ///
-    /// This method generates nodes for each variant (graph type + weighted combination)
-    /// based on the registered reductions. Variant nodes are linked to their parent
-    /// base problem for hierarchical layout in diagrams.
+    /// This method generates nodes for each variant based on the registered reductions.
     pub fn to_json(&self) -> ReductionGraphJson {
         use crate::rules::registry::ReductionEntry;
 
-        // Collect all unique variant IDs and their metadata
-        let mut variant_info: HashMap<String, (String, String, bool)> = HashMap::new(); // id -> (base_name, graph_type, weighted)
+        // Collect all unique nodes (name + variant combination)
+        let mut node_set: HashSet<(String, std::collections::BTreeMap<String, String>)> =
+            HashSet::new();
 
         // First, add base nodes from the graph
         for &name in self.name_indices.keys() {
-            let id = name.to_string();
-            if !variant_info.contains_key(&id) {
-                variant_info.insert(id, (name.to_string(), "SimpleGraph".to_string(), false));
-            }
+            node_set.insert((name.to_string(), std::collections::BTreeMap::new()));
         }
 
         // Then, collect variants from reduction entries
         for entry in inventory::iter::<ReductionEntry> {
-            let src_id = entry.source_variant_id();
-            let dst_id = entry.target_variant_id();
-
-            if !variant_info.contains_key(&src_id) {
-                variant_info.insert(
-                    src_id.clone(),
-                    (entry.source_name.to_string(), entry.source_graph.to_string(), entry.source_weighted),
-                );
-            }
-            if !variant_info.contains_key(&dst_id) {
-                variant_info.insert(
-                    dst_id.clone(),
-                    (entry.target_name.to_string(), entry.target_graph.to_string(), entry.target_weighted),
-                );
-            }
+            node_set.insert((
+                entry.source_name.to_string(),
+                Self::variant_to_map(entry.source_variant),
+            ));
+            node_set.insert((
+                entry.target_name.to_string(),
+                Self::variant_to_map(entry.target_variant),
+            ));
         }
 
         // Build nodes with categories
-        let mut nodes: Vec<NodeJson> = variant_info
+        let mut nodes: Vec<NodeJson> = node_set
             .iter()
-            .map(|(id, (base_name, graph_type, weighted))| {
-                let category = Self::categorize_type(base_name);
-                // Determine if this is a variant (different from base)
-                let is_variant = id != base_name;
-                let parent = if is_variant {
-                    Some(base_name.clone())
-                } else {
-                    None
-                };
-                // Label: for base problems use base name, for variants use the suffix
-                let label = if is_variant {
-                    id.strip_prefix(&format!("{}/", base_name))
-                        .unwrap_or(id)
-                        .to_string()
-                } else {
-                    base_name.clone()
-                };
-
+            .map(|(name, variant)| {
+                let category = Self::categorize_type(name);
                 NodeJson {
-                    id: id.clone(),
-                    label,
+                    name: name.clone(),
+                    variant: variant.clone(),
                     category: category.to_string(),
-                    parent,
-                    graph_type: graph_type.clone(),
-                    weighted: *weighted,
                 }
             })
             .collect();
-        nodes.sort_by(|a, b| a.id.cmp(&b.id));
+        nodes.sort_by(|a, b| (&a.name, &a.variant).cmp(&(&b.name, &b.variant)));
 
-        // Collect edges using variant IDs, checking for bidirectionality
-        let mut edge_set: HashMap<(String, String), bool> = HashMap::new();
+        // Collect edges, checking for bidirectionality
+        let mut edge_set: HashMap<(VariantRef, VariantRef), bool> = HashMap::new();
 
         for entry in inventory::iter::<ReductionEntry> {
-            let src_id = entry.source_variant_id();
-            let dst_id = entry.target_variant_id();
+            let src_ref = Self::make_variant_ref(entry.source_name, entry.source_variant);
+            let dst_ref = Self::make_variant_ref(entry.target_name, entry.target_variant);
 
-            let reverse_key = (dst_id.clone(), src_id.clone());
+            let reverse_key = (dst_ref.clone(), src_ref.clone());
             if edge_set.contains_key(&reverse_key) {
                 edge_set.insert(reverse_key, true);
             } else {
-                edge_set.insert((src_id, dst_id), false);
+                edge_set.insert((src_ref, dst_ref), false);
             }
         }
 
@@ -602,7 +615,10 @@ impl ReductionGraph {
                 bidirectional,
             })
             .collect();
-        edges.sort_by(|a, b| (&a.source, &a.target).cmp(&(&b.source, &b.target)));
+        edges.sort_by(|a, b| {
+            (&a.source.name, &a.source.variant, &a.target.name, &a.target.variant)
+                .cmp(&(&b.source.name, &b.source.variant, &b.target.name, &b.target.variant))
+        });
 
         ReductionGraphJson { nodes, edges }
     }
@@ -775,7 +791,7 @@ mod tests {
 
         // Check nodes
         assert!(json.nodes.len() >= 10);
-        assert!(json.nodes.iter().any(|n| n.label == "IndependentSet"));
+        assert!(json.nodes.iter().any(|n| n.name == "IndependentSet"));
         assert!(json.nodes.iter().any(|n| n.category == "graph"));
         assert!(json.nodes.iter().any(|n| n.category == "optimization"));
 
@@ -784,8 +800,8 @@ mod tests {
 
         // Check that IS <-> VC is marked bidirectional
         let is_vc_edge = json.edges.iter().find(|e| {
-            (e.source.contains("IndependentSet") && e.target.contains("VertexCovering"))
-                || (e.source.contains("VertexCovering") && e.target.contains("IndependentSet"))
+            (e.source.name.contains("IndependentSet") && e.target.name.contains("VertexCovering"))
+                || (e.source.name.contains("VertexCovering") && e.target.name.contains("IndependentSet"))
         });
         assert!(is_vc_edge.is_some());
         assert!(is_vc_edge.unwrap().bidirectional);
@@ -1062,15 +1078,15 @@ mod tests {
 
         // Verify specific known bidirectional edges
         let is_vc_bidir = json.edges.iter().any(|e| {
-            (e.source.contains("IndependentSet") && e.target.contains("VertexCovering")
-                || e.source.contains("VertexCovering") && e.target.contains("IndependentSet"))
+            (e.source.name.contains("IndependentSet") && e.target.name.contains("VertexCovering")
+                || e.source.name.contains("VertexCovering") && e.target.name.contains("IndependentSet"))
                 && e.bidirectional
         });
         assert!(is_vc_bidir, "IS <-> VC should be bidirectional");
 
         // Verify specific known unidirectional edge
         let factoring_circuit_unidir = json.edges.iter().any(|e| {
-            e.source.contains("Factoring") && e.target.contains("CircuitSAT") && !e.bidirectional
+            e.source.name.contains("Factoring") && e.target.name.contains("CircuitSAT") && !e.bidirectional
         });
         assert!(
             factoring_circuit_unidir,
@@ -1211,11 +1227,11 @@ mod tests {
         let input_size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
 
         // Find multi-step path where all edges use compatible graph types
-        // IndependentSet (SimpleGraph) -> SetPacking (SetSystem) -> IndependentSet (SimpleGraph)
-        // This tests the algorithm can find multi-step paths with consistent graph types
+        // IndependentSet (SimpleGraph) -> SetPacking (SimpleGraph)
+        // This tests the algorithm can find paths with consistent graph types
         let path = graph.find_cheapest_path(
             ("IndependentSet", "SimpleGraph"),
-            ("SetPacking", "SetSystem"),
+            ("SetPacking", "SimpleGraph"),
             &input_size,
             &cost_fn,
         );
@@ -1277,12 +1293,25 @@ mod tests {
     #[test]
     fn test_reduction_edge_struct() {
         let edge = ReductionEdge {
-            source_graph: "PlanarGraph",
-            target_graph: "SimpleGraph",
+            source_variant: &[("graph", "PlanarGraph"), ("weight", "Unweighted")],
+            target_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
             overhead: ReductionOverhead::default(),
         };
 
-        assert_eq!(edge.source_graph, "PlanarGraph");
-        assert_eq!(edge.target_graph, "SimpleGraph");
+        assert_eq!(edge.source_graph(), "PlanarGraph");
+        assert_eq!(edge.target_graph(), "SimpleGraph");
+    }
+
+    #[test]
+    fn test_reduction_edge_default_graph() {
+        // When no "graph" key is present, default to SimpleGraph
+        let edge = ReductionEdge {
+            source_variant: &[("weight", "Unweighted")],
+            target_variant: &[],
+            overhead: ReductionOverhead::default(),
+        };
+
+        assert_eq!(edge.source_graph(), "SimpleGraph");
+        assert_eq!(edge.target_graph(), "SimpleGraph");
     }
 }
