@@ -152,12 +152,36 @@ mod tests {
     }
 
     #[test]
-    fn test_is_base_reduction_weighted() {
+    fn test_is_base_reduction_source_weighted() {
         let entry = ReductionEntry {
             source_name: "A",
             target_name: "B",
             source_variant: &[("graph", "SimpleGraph"), ("weight", "i32")],
             target_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
+            overhead_fn: || ReductionOverhead::default(),
+        };
+        assert!(!entry.is_base_reduction());
+    }
+
+    #[test]
+    fn test_is_base_reduction_target_weighted() {
+        let entry = ReductionEntry {
+            source_name: "A",
+            target_name: "B",
+            source_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
+            target_variant: &[("graph", "SimpleGraph"), ("weight", "f64")],
+            overhead_fn: || ReductionOverhead::default(),
+        };
+        assert!(!entry.is_base_reduction());
+    }
+
+    #[test]
+    fn test_is_base_reduction_both_weighted() {
+        let entry = ReductionEntry {
+            source_name: "A",
+            target_name: "B",
+            source_variant: &[("graph", "SimpleGraph"), ("weight", "i32")],
+            target_variant: &[("graph", "SimpleGraph"), ("weight", "f64")],
             overhead_fn: || ReductionOverhead::default(),
         };
         assert!(!entry.is_base_reduction());
