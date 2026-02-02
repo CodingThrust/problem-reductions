@@ -5,6 +5,9 @@
 
 use crate::models::graph::Matching;
 use crate::models::set::SetPacking;
+use crate::poly;
+use crate::reduction;
+use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::ProblemSize;
@@ -43,6 +46,15 @@ where
     }
 }
 
+#[reduction(
+    source_graph = "SimpleGraph",
+    overhead = {
+        ReductionOverhead::new(vec![
+            ("num_sets", poly!(num_edges)),
+            ("num_elements", poly!(num_vertices)),
+        ])
+    }
+)]
 impl<W> ReduceTo<SetPacking<W>> for Matching<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
@@ -260,21 +272,3 @@ mod tests {
     }
 }
 
-// Register reduction with inventory for auto-discovery
-use crate::poly;
-use crate::rules::registry::{ReductionEntry, ReductionOverhead};
-
-inventory::submit! {
-    ReductionEntry {
-        source_name: "Matching",
-        target_name: "SetPacking",
-        source_graph: "SimpleGraph",
-        target_graph: "SetSystem",
-        source_weighted: false,
-        target_weighted: false,
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_sets", poly!(num_edges)),
-            ("num_elements", poly!(num_vertices)),
-        ]),
-    }
-}

@@ -6,6 +6,9 @@
 //! Transformation: s = 2x - 1 (so x=0 → s=-1, x=1 → s=+1)
 
 use crate::models::optimization::{SpinGlass, QUBO};
+use crate::poly;
+use crate::reduction;
+use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 use crate::types::ProblemSize;
@@ -39,6 +42,14 @@ impl ReductionResult for ReductionQUBOToSG {
     }
 }
 
+#[reduction(
+    target_graph = "SimpleGraph",
+    overhead = {
+        ReductionOverhead::new(vec![
+            ("num_spins", poly!(num_vars)),
+        ])
+    }
+)]
 impl ReduceTo<SpinGlass<f64>> for QUBO<f64> {
     type Result = ReductionQUBOToSG;
 
@@ -121,6 +132,14 @@ impl ReductionResult for ReductionSGToQUBO {
     }
 }
 
+#[reduction(
+    source_graph = "SimpleGraph",
+    overhead = {
+        ReductionOverhead::new(vec![
+            ("num_vars", poly!(num_spins)),
+        ])
+    }
+)]
 impl ReduceTo<QUBO<f64>> for SpinGlass<f64> {
     type Result = ReductionSGToQUBO;
 
@@ -298,34 +317,3 @@ mod tests {
     }
 }
 
-// Register reductions with inventory for auto-discovery
-use crate::poly;
-use crate::rules::registry::{ReductionEntry, ReductionOverhead};
-
-inventory::submit! {
-    ReductionEntry {
-        source_name: "QUBO",
-        target_name: "SpinGlass",
-        source_graph: "QUBOMatrix",
-        target_graph: "SpinGlassGraph",
-        source_weighted: false,
-        target_weighted: false,
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_spins", poly!(num_vars)),
-        ]),
-    }
-}
-
-inventory::submit! {
-    ReductionEntry {
-        source_name: "SpinGlass",
-        target_name: "QUBO",
-        source_graph: "SpinGlassGraph",
-        target_graph: "QUBOMatrix",
-        source_weighted: false,
-        target_weighted: false,
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_spins)),
-        ]),
-    }
-}

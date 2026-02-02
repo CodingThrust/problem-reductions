@@ -3,6 +3,9 @@
 //! These problems are complements: a set S is an independent set iff V\S is a vertex cover.
 
 use crate::models::graph::{IndependentSet, VertexCovering};
+use crate::poly;
+use crate::reduction;
+use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 use crate::types::ProblemSize;
@@ -42,6 +45,16 @@ where
     }
 }
 
+#[reduction(
+    source_graph = "SimpleGraph",
+    target_graph = "SimpleGraph",
+    overhead = {
+        ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_vertices)),
+            ("num_edges", poly!(num_edges)),
+        ])
+    }
+)]
 impl<W> ReduceTo<VertexCovering<W>> for IndependentSet<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
@@ -93,6 +106,16 @@ where
     }
 }
 
+#[reduction(
+    source_graph = "SimpleGraph",
+    target_graph = "SimpleGraph",
+    overhead = {
+        ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_vertices)),
+            ("num_edges", poly!(num_edges)),
+        ])
+    }
+)]
 impl<W> ReduceTo<IndependentSet<W>> for VertexCovering<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
@@ -207,36 +230,3 @@ mod tests {
     }
 }
 
-// Register reductions with inventory for auto-discovery
-use crate::poly;
-use crate::rules::registry::{ReductionEntry, ReductionOverhead};
-
-inventory::submit! {
-    ReductionEntry {
-        source_name: "IndependentSet",
-        target_name: "VertexCovering",
-        source_graph: "SimpleGraph",
-        target_graph: "SimpleGraph",
-        source_weighted: false,
-        target_weighted: false,
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_vertices)),
-            ("num_edges", poly!(num_edges)),
-        ]),
-    }
-}
-
-inventory::submit! {
-    ReductionEntry {
-        source_name: "VertexCovering",
-        target_name: "IndependentSet",
-        source_graph: "SimpleGraph",
-        target_graph: "SimpleGraph",
-        source_weighted: false,
-        target_weighted: false,
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_vertices)),
-            ("num_edges", poly!(num_edges)),
-        ]),
-    }
-}

@@ -5,6 +5,9 @@
 
 use crate::models::graph::MaxCut;
 use crate::models::optimization::SpinGlass;
+use crate::poly;
+use crate::reduction;
+use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 use crate::types::ProblemSize;
@@ -42,6 +45,16 @@ where
     }
 }
 
+#[reduction(
+    source_graph = "SimpleGraph",
+    target_graph = "SimpleGraph",
+    overhead = {
+        ReductionOverhead::new(vec![
+            ("num_spins", poly!(num_vertices)),
+            ("num_interactions", poly!(num_edges)),
+        ])
+    }
+)]
 impl<W> ReduceTo<SpinGlass<W>> for MaxCut<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
@@ -132,6 +145,16 @@ where
     }
 }
 
+#[reduction(
+    source_graph = "SimpleGraph",
+    target_graph = "SimpleGraph",
+    overhead = {
+        ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_spins)),
+            ("num_edges", poly!(num_interactions)),
+        ])
+    }
+)]
 impl<W> ReduceTo<MaxCut<W>> for SpinGlass<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
@@ -280,36 +303,3 @@ mod tests {
     }
 }
 
-// Register reductions with inventory for auto-discovery
-use crate::poly;
-use crate::rules::registry::{ReductionEntry, ReductionOverhead};
-
-inventory::submit! {
-    ReductionEntry {
-        source_name: "MaxCut",
-        target_name: "SpinGlass",
-        source_graph: "SimpleGraph",
-        target_graph: "SpinGlassGraph",
-        source_weighted: false,
-        target_weighted: false,
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_spins", poly!(num_vertices)),
-            ("num_interactions", poly!(num_edges)),
-        ]),
-    }
-}
-
-inventory::submit! {
-    ReductionEntry {
-        source_name: "SpinGlass",
-        target_name: "MaxCut",
-        source_graph: "SpinGlassGraph",
-        target_graph: "SimpleGraph",
-        source_weighted: false,
-        target_weighted: false,
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_spins)),
-            ("num_edges", poly!(num_interactions)),
-        ]),
-    }
-}
