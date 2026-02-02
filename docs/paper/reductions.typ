@@ -73,6 +73,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       graph: UnGraph<(), ()>,  // The underlying graph
       weights: Vec<W>,         // Weights for each vertex
   }
+
+  impl<W: 'static> Problem for IndependentSet<W> {
+      const NAME: &'static str = "IndependentSet";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+      }
+      // ...
+  }
   ```
 ] <def:independent-set>
 
@@ -88,6 +96,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       graph: UnGraph<(), ()>,  // The underlying graph
       weights: Vec<W>,         // Weights for each vertex
   }
+
+  impl<W: 'static> Problem for VertexCovering<W> {
+      const NAME: &'static str = "VertexCovering";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+      }
+      // ...
+  }
   ```
 ] <def:vertex-cover>
 
@@ -101,6 +117,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   ```rust
   pub struct MaxCut<W = i32> {
       graph: UnGraph<(), W>,  // Weighted graph (edge weights)
+  }
+
+  impl<W: 'static> Problem for MaxCut<W> {
+      const NAME: &'static str = "MaxCut";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+      }
+      // ...
   }
   ```
 ] <def:max-cut>
@@ -117,6 +141,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       num_colors: usize,       // Number of available colors (K)
       graph: UnGraph<(), ()>,  // The underlying graph
   }
+
+  impl Problem for Coloring {
+      const NAME: &'static str = "Coloring";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", "Unweighted")]
+      }
+      // ...
+  }
   ```
 ] <def:coloring>
 
@@ -129,6 +161,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   pub struct DominatingSet<W = i32> {
       graph: UnGraph<(), ()>,  // The underlying graph
       weights: Vec<W>,         // Weights for each vertex
+  }
+
+  impl<W: 'static> Problem for DominatingSet<W> {
+      const NAME: &'static str = "DominatingSet";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+      }
+      // ...
   }
   ```
 ] <def:dominating-set>
@@ -143,6 +183,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       num_vertices: usize,     // Number of vertices
       graph: UnGraph<(), W>,   // Weighted graph
       edge_weights: Vec<W>,    // Weights for each edge
+  }
+
+  impl<W: 'static> Problem for Matching<W> {
+      const NAME: &'static str = "Matching";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+      }
+      // ...
   }
   ```
 ] <def:matching>
@@ -165,6 +213,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       sets: Vec<Vec<usize>>,  // Collection of sets
       weights: Vec<W>,        // Weights for each set
   }
+
+  impl<W: 'static> Problem for SetPacking<W> {
+      const NAME: &'static str = "SetPacking";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+      }
+      // ...
+  }
   ```
 ] <def:set-packing>
 
@@ -178,6 +234,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       universe_size: usize,   // Size of the universe
       sets: Vec<Vec<usize>>,  // Collection of sets
       weights: Vec<W>,        // Weights for each set
+  }
+
+  impl<W: 'static> Problem for SetCovering<W> {
+      const NAME: &'static str = "SetCovering";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+      }
+      // ...
   }
   ```
 ] <def:set-covering>
@@ -197,6 +261,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       interactions: Vec<((usize, usize), W)>,  // J_ij couplings
       fields: Vec<W>,                      // h_i on-site fields
   }
+
+  impl<W: 'static> Problem for SpinGlass<W> {
+      const NAME: &'static str = "SpinGlass";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+      }
+      // ...
+  }
   ```
 ] <def:spin-glass>
 
@@ -211,6 +283,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   pub struct QUBO<W = f64> {
       num_vars: usize,         // Number of variables
       matrix: Vec<Vec<W>>,     // Q matrix (upper triangular)
+  }
+
+  impl<W: 'static> Problem for QUBO<W> {
+      const NAME: &'static str = "QUBO";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+      }
+      // ...
   }
   ```
 ] <def:qubo>
@@ -235,6 +315,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       cmp: Comparison,           // Le, Ge, or Eq
       rhs: f64,
   }
+
+  impl Problem for ILP {
+      const NAME: &'static str = "ILP";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", "f64")]
+      }
+      // ...
+  }
   ```
 ] <def:ilp>
 
@@ -257,6 +345,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   pub struct CNFClause {
       literals: Vec<i32>,  // Signed: +i for x_i, -i for NOT x_i
   }
+
+  impl<W: 'static> Problem for Satisfiability<W> {
+      const NAME: &'static str = "Satisfiability";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+      }
+      // ...
+  }
   ```
 ] <def:satisfiability>
 
@@ -272,6 +368,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       num_vars: usize,           // Number of variables
       clauses: Vec<CNFClause>,   // Each clause has exactly K literals
       weights: Vec<W>,           // Weights per clause
+  }
+
+  impl<const K: usize, W: 'static> Problem for KSatisfiability<K, W> {
+      const NAME: &'static str = "KSatisfiability";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+      }
+      // ...
   }
   ```
 ] <def:k-sat>
@@ -293,6 +397,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   pub struct Circuit { assignments: Vec<Assignment> }
   pub struct Assignment { outputs: Vec<String>, expr: BooleanExpr }
   pub enum BooleanOp { Var(String), Const(bool), Not(..), And(..), Or(..), Xor(..) }
+
+  impl<W: 'static> Problem for CircuitSAT<W> {
+      const NAME: &'static str = "CircuitSAT";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+      }
+      // ...
+  }
   ```
 ] <def:circuit-sat>
 
@@ -306,6 +418,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       m: usize,      // Bits for first factor
       n: usize,      // Bits for second factor
       target: u64,   // The number to factor
+  }
+
+  impl Problem for Factoring {
+      const NAME: &'static str = "Factoring";
+      fn variant() -> Vec<(&'static str, &'static str)> {
+          vec![("graph", "SimpleGraph"), ("weight", "i32")]
+      }
+      // ...
   }
   ```
 ] <def:factoring>
