@@ -119,32 +119,15 @@ fn extract_type_name(ty: &Type) -> Option<String> {
     }
 }
 
-/// Check if a type parameter indicates "weighted" (i.e., not Unweighted)
-fn is_weighted_type(ty: &Type) -> bool {
-    match ty {
-        Type::Path(type_path) => {
-            let name = type_path
-                .path
-                .segments
-                .last()
-                .map(|s| s.ident.to_string())
-                .unwrap_or_default();
-            // If the type is "Unweighted", it's not weighted
-            // Otherwise, assume it's a weight type (i32, f64, etc.)
-            name != "Unweighted"
-        }
-        _ => true, // Assume weighted if we can't parse
-    }
-}
-
 /// Extract graph type from type parameters (second parameter if present)
 fn extract_graph_type(ty: &Type) -> Option<String> {
     match ty {
         Type::Path(type_path) => {
             let segment = type_path.path.segments.last()?;
             if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                // Look for a graph type - typically second parameter or named "G"
-                for (i, arg) in args.args.iter().enumerate() {
+                // Count only type arguments (skip const generics)
+                let mut type_arg_index = 0;
+                for arg in args.args.iter() {
                     if let GenericArgument::Type(inner_ty) = arg {
                         if let Type::Path(inner_path) = inner_ty {
                             let name = inner_path
@@ -152,24 +135,40 @@ fn extract_graph_type(ty: &Type) -> Option<String> {
                                 .segments
                                 .last()
                                 .map(|s| s.ident.to_string())?;
-                            // Common graph type names
+                            // Common graph type names - explicit matches
                             if name.ends_with("Graph") || name == "CNF" || name == "SetSystem" {
                                 return Some(name);
                             }
-                            // If it's the second parameter and not a weight type, assume graph
-                            if i == 1
-                                && !["i32", "i64", "f32", "f64", "Unweighted"].contains(&name.as_str())
+                            // If it's the second TYPE parameter and looks like a concrete graph type
+                            // (not a single-letter generic like W, T, G or a known weight type)
+                            if type_arg_index == 1
+                                && !is_weight_or_generic_param(&name)
                             {
                                 return Some(name);
                             }
                         }
+                        type_arg_index += 1;
                     }
+                    // Const generics (GenericArgument::Const) are skipped automatically
                 }
             }
             None
         }
         _ => None,
     }
+}
+
+/// Check if a type name looks like a weight type or a generic type parameter
+fn is_weight_or_generic_param(name: &str) -> bool {
+    // Known weight types
+    if ["i32", "i64", "f32", "f64", "Unweighted"].contains(&name) {
+        return true;
+    }
+    // Single uppercase letter - typically a generic type parameter (W, T, G, etc.)
+    if name.len() == 1 && name.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false) {
+        return true;
+    }
+    false
 }
 
 /// Extract weight type from first type parameter
@@ -185,6 +184,21 @@ fn extract_weight_type(ty: &Type) -> Option<Type> {
             None
         }
         _ => None,
+    }
+}
+
+/// Get weight type name as a string for the variant
+fn get_weight_name(ty: &Type) -> String {
+    match ty {
+        Type::Path(type_path) => {
+            type_path
+                .path
+                .segments
+                .last()
+                .map(|s| s.ident.to_string())
+                .unwrap_or_else(|| "Unweighted".to_string())
+        }
+        _ => "Unweighted".to_string(),
     }
 }
 
@@ -212,16 +226,20 @@ fn generate_reduction_entry(
     let target_name = extract_type_name(&target_type)
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
 
-    // Determine weighted status
-    let source_weighted = attrs.source_weighted.unwrap_or_else(|| {
+    // Determine weight type names
+    let source_weight_name = attrs.source_weighted.map(|w| {
+        if w { "i32".to_string() } else { "Unweighted".to_string() }
+    }).unwrap_or_else(|| {
         extract_weight_type(source_type)
-            .map(|t| is_weighted_type(&t))
-            .unwrap_or(false)
+            .map(|t| get_weight_name(&t))
+            .unwrap_or_else(|| "Unweighted".to_string())
     });
-    let target_weighted = attrs.target_weighted.unwrap_or_else(|| {
+    let target_weight_name = attrs.target_weighted.map(|w| {
+        if w { "i32".to_string() } else { "Unweighted".to_string() }
+    }).unwrap_or_else(|| {
         extract_weight_type(&target_type)
-            .map(|t| is_weighted_type(&t))
-            .unwrap_or(false)
+            .map(|t| get_weight_name(&t))
+            .unwrap_or_else(|| "Unweighted".to_string())
     });
 
     // Determine graph types
@@ -251,10 +269,8 @@ fn generate_reduction_entry(
             crate::rules::registry::ReductionEntry {
                 source_name: #source_name,
                 target_name: #target_name,
-                source_graph: #source_graph,
-                target_graph: #target_graph,
-                source_weighted: #source_weighted,
-                target_weighted: #target_weighted,
+                source_variant: &[("graph", #source_graph), ("weight", #source_weight_name)],
+                target_variant: &[("graph", #target_graph), ("weight", #target_weight_name)],
                 overhead_fn: || { #overhead },
             }
         }
