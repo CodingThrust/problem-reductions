@@ -74,6 +74,7 @@ pub mod topology;
 pub mod traits;
 pub mod truth_table;
 pub mod types;
+pub mod variant;
 
 /// Prelude module for convenient imports.
 pub mod prelude {
