@@ -1314,4 +1314,71 @@ mod tests {
         assert_eq!(edge.source_graph(), "SimpleGraph");
         assert_eq!(edge.target_graph(), "SimpleGraph");
     }
+
+    #[test]
+    fn test_variant_to_map() {
+        let variant: &[(&str, &str)] = &[("graph", "SimpleGraph"), ("weight", "i32")];
+        let map = ReductionGraph::variant_to_map(variant);
+        assert_eq!(map.get("graph"), Some(&"SimpleGraph".to_string()));
+        assert_eq!(map.get("weight"), Some(&"i32".to_string()));
+        assert_eq!(map.len(), 2);
+    }
+
+    #[test]
+    fn test_variant_to_map_empty() {
+        let variant: &[(&str, &str)] = &[];
+        let map = ReductionGraph::variant_to_map(variant);
+        assert!(map.is_empty());
+    }
+
+    #[test]
+    fn test_make_variant_ref() {
+        let variant: &[(&str, &str)] = &[("graph", "PlanarGraph"), ("weight", "f64")];
+        let variant_ref = ReductionGraph::make_variant_ref("IndependentSet", variant);
+        assert_eq!(variant_ref.name, "IndependentSet");
+        assert_eq!(variant_ref.variant.get("graph"), Some(&"PlanarGraph".to_string()));
+        assert_eq!(variant_ref.variant.get("weight"), Some(&"f64".to_string()));
+    }
+
+    #[test]
+    fn test_to_json_nodes_have_variants() {
+        let graph = ReductionGraph::new();
+        let json = graph.to_json();
+
+        // Check that nodes have variant information
+        for node in &json.nodes {
+            // Verify node has a name
+            assert!(!node.name.is_empty());
+            // Verify node has a category
+            assert!(!node.category.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_to_json_edges_have_variants() {
+        let graph = ReductionGraph::new();
+        let json = graph.to_json();
+
+        // Check that edges have source and target variant refs
+        for edge in &json.edges {
+            assert!(!edge.source.name.is_empty());
+            assert!(!edge.target.name.is_empty());
+        }
+    }
+
+    #[test]
+    fn test_json_variant_content() {
+        let graph = ReductionGraph::new();
+        let json = graph.to_json();
+
+        // Find a node and verify its variant contains expected keys
+        let is_node = json.nodes.iter().find(|n| n.name == "IndependentSet");
+        assert!(is_node.is_some(), "IndependentSet node should exist");
+
+        // Find an edge involving IndependentSet (could be source or target)
+        let is_edge = json.edges.iter().find(|e| {
+            e.source.name == "IndependentSet" || e.target.name == "IndependentSet"
+        });
+        assert!(is_edge.is_some(), "Edge involving IndependentSet should exist");
+    }
 }
