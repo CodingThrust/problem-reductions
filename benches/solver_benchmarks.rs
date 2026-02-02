@@ -88,12 +88,13 @@ fn bench_satisfiability(c: &mut Criterion) {
 }
 
 /// Benchmark SpinGlass on varying sizes.
+#[allow(clippy::manual_is_multiple_of)] // Type inference issues with is_multiple_of
 fn bench_spin_glass(c: &mut Criterion) {
     let mut group = c.benchmark_group("SpinGlass");
 
     for n in [4, 6, 8, 10].iter() {
         let interactions: Vec<((usize, usize), f64)> = (0..*n - 1)
-            .map(|i| ((i, i + 1), if i.is_multiple_of(2) { 1.0 } else { -1.0 }))
+            .map(|i| ((i, i + 1), if i % 2 == 0 { 1.0 } else { -1.0 }))
             .collect();
         let onsite: Vec<f64> = vec![0.1; *n];
         let problem = SpinGlass::new(*n, interactions, onsite);
