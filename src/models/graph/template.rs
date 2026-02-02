@@ -71,13 +71,13 @@
 //! - **Vertex Cover**: `[false, true, true, true]` - at least one selected
 //! - **Perfect Matching**: Define on edge graph with exactly one selected
 
-use crate::graph_types::SimpleGraph as SimpleGraphMarker;
 use crate::registry::{
     ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,
 };
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
+use crate::variant::short_type_name;
 use num_traits::{Num, Zero};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
@@ -319,8 +319,14 @@ where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     const NAME: &'static str = C::NAME;
-    type GraphType = SimpleGraphMarker;
-    type Weight = W;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", short_type_name::<W>()),
+        ]
+    }
+
     type Size = W;
 
     fn num_variables(&self) -> usize {
