@@ -235,6 +235,25 @@ mod tests {
     }
 
     #[test]
+    fn test_variant_for_test_problems() {
+        // Test that variant() works for test problems
+        let v = SimpleWeightedProblem::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "i32"));
+
+        let v = SimpleCsp::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "i32"));
+
+        let v = MultiFlavorProblem::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "i32"));
+    }
+
+    #[test]
     fn test_simple_problem() {
         let problem = SimpleWeightedProblem {
             weights: vec![1, 2, 3],
