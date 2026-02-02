@@ -725,4 +725,35 @@ mod tests {
         let cat = CliqueConstraint::category();
         assert_eq!(cat.path(), "graph/independent");
     }
+
+    #[test]
+    fn test_variant_for_graph_problem() {
+        use crate::traits::Problem;
+
+        // Test IndependentSetT variant
+        let v = IndependentSetT::<SimpleGraph, i32>::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "i32"));
+
+        // Test with f64 weight
+        let v = IndependentSetT::<SimpleGraph, f64>::variant();
+        assert_eq!(v[1], ("weight", "f64"));
+
+        // Test VertexCoverT variant
+        let v = VertexCoverT::<SimpleGraph, i32>::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+
+        // Test CliqueT variant
+        let v = CliqueT::<SimpleGraph, i32>::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+
+        // Test with UnitDiskGraph
+        let v = IndependentSetT::<UnitDiskGraph, i32>::variant();
+        assert_eq!(v.len(), 2);
+        // Note: variant() returns "SimpleGraph" as hardcoded, not the actual graph type
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+    }
 }

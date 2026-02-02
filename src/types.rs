@@ -287,6 +287,26 @@ mod tests {
     use super::*;
 
     #[test]
+    fn test_unweighted() {
+        let uw = Unweighted;
+        // Test get() method
+        assert_eq!(uw.get(0), 1);
+        assert_eq!(uw.get(100), 1);
+        assert_eq!(uw.get(usize::MAX), 1);
+
+        // Test Display
+        assert_eq!(format!("{}", uw), "Unweighted");
+
+        // Test Clone, Copy, Default
+        let uw2 = uw;
+        let _uw3 = uw2; // Copy works (no clone needed)
+        let _uw4: Unweighted = Default::default();
+
+        // Test PartialEq
+        assert_eq!(Unweighted, Unweighted);
+    }
+
+    #[test]
     fn test_energy_mode() {
         let max_mode = EnergyMode::LargerSizeIsBetter;
         let min_mode = EnergyMode::SmallerSizeIsBetter;

@@ -961,4 +961,12 @@ mod tests {
         // Config [1,1,1] => [1, 0, 6]
         assert_eq!(ilp.config_to_values(&[1, 1, 1]), vec![1, 0, 6]);
     }
+
+    #[test]
+    fn test_ilp_variant() {
+        let v = ILP::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "f64"));
+    }
 }

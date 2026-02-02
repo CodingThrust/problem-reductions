@@ -305,6 +305,25 @@ mod tests {
     }
 
     #[test]
+    fn test_variant_for_test_problems() {
+        // Test that variant() works for all test problems
+        let v = MaxSumProblem::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "i32"));
+
+        let v = MinSumProblem::variant();
+        assert_eq!(v.len(), 2);
+
+        let v = SelectAtMostOneProblem::variant();
+        assert_eq!(v.len(), 2);
+
+        let v = FloatProblem::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[1], ("weight", "f64"));
+    }
+
+    #[test]
     fn test_brute_force_maximization() {
         let problem = MaxSumProblem {
             weights: vec![1, 2, 3],
@@ -507,6 +526,12 @@ mod tests {
         let best = solver.find_best_float(&problem);
         // Both should be considered optimal due to tolerance
         assert_eq!(best.len(), 2);
+
+        // Test variant for NearlyEqualProblem
+        let v = NearlyEqualProblem::variant();
+        assert_eq!(v.len(), 2);
+        assert_eq!(v[0], ("graph", "SimpleGraph"));
+        assert_eq!(v[1], ("weight", "f64"));
     }
 
     #[test]
