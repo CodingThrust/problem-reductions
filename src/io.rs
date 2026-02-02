@@ -78,10 +78,7 @@ pub fn write_problem<T: Serialize, P: AsRef<Path>>(
 ///
 /// let problem: IndependentSet<i32> = read_problem("problem.json", FileFormat::Json).unwrap();
 /// ```
-pub fn read_problem<T: DeserializeOwned, P: AsRef<Path>>(
-    path: P,
-    format: FileFormat,
-) -> Result<T> {
+pub fn read_problem<T: DeserializeOwned, P: AsRef<Path>>(path: P, format: FileFormat) -> Result<T> {
     let file = File::open(path.as_ref())
         .map_err(|e| ProblemError::IoError(format!("Failed to open file: {}", e)))?;
     let reader = BufReader::new(file);

@@ -8,10 +8,22 @@ use std::fmt;
 /// Weight subsumption uses Rust's `From` trait:
 /// - `i32 → f64` is valid (From<i32> for f64 exists)
 /// - `f64 → i32` is invalid (no lossless conversion)
-pub trait NumericWeight: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static {}
+pub trait NumericWeight:
+    Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static
+{
+}
 
 // Blanket implementation for any type satisfying the bounds
-impl<T> NumericWeight for T where T: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static {}
+impl<T> NumericWeight for T where
+    T: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static
+{
+}
 
 /// Specifies whether larger or smaller objective values are better.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

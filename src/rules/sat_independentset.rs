@@ -234,10 +234,8 @@ mod tests {
     fn test_two_clause_sat_to_is() {
         // SAT: (x1) AND (NOT x1)
         // This is unsatisfiable
-        let sat = Satisfiability::<i32>::new(
-            1,
-            vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
-        );
+        let sat =
+            Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
         let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
         let is_problem = reduction.target_problem();
 
@@ -261,9 +259,9 @@ mod tests {
         let sat = Satisfiability::<i32>::new(
             2,
             vec![
-                CNFClause::new(vec![1, 2]),   // x1 OR x2
-                CNFClause::new(vec![-1, 2]),  // NOT x1 OR x2
-                CNFClause::new(vec![1, -2]),  // x1 OR NOT x2
+                CNFClause::new(vec![1, 2]),  // x1 OR x2
+                CNFClause::new(vec![-1, 2]), // NOT x1 OR x2
+                CNFClause::new(vec![1, -2]), // x1 OR NOT x2
             ],
         );
         let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
@@ -305,10 +303,8 @@ mod tests {
     #[test]
     fn test_unsatisfiable_formula() {
         // SAT: (x1) AND (NOT x1) - unsatisfiable
-        let sat = Satisfiability::<i32>::new(
-            1,
-            vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
-        );
+        let sat =
+            Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
         let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
         let is_problem = reduction.target_problem();
 
@@ -331,9 +327,9 @@ mod tests {
         let sat = Satisfiability::<i32>::new(
             3,
             vec![
-                CNFClause::new(vec![1, 2, 3]),     // x1 OR x2 OR x3
-                CNFClause::new(vec![-1, -2, 3]),   // NOT x1 OR NOT x2 OR x3
-                CNFClause::new(vec![1, -2, -3]),   // x1 OR NOT x2 OR NOT x3
+                CNFClause::new(vec![1, 2, 3]),   // x1 OR x2 OR x3
+                CNFClause::new(vec![-1, -2, 3]), // NOT x1 OR NOT x2 OR x3
+                CNFClause::new(vec![1, -2, -3]), // x1 OR NOT x2 OR NOT x3
             ],
         );
 
@@ -485,16 +481,13 @@ mod tests {
 
     #[test]
     fn test_literals_accessor() {
-        let sat = Satisfiability::<i32>::new(
-            2,
-            vec![CNFClause::new(vec![1, -2])],
-        );
+        let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, -2])]);
         let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
 
         let literals = reduction.literals();
         assert_eq!(literals.len(), 2);
         assert_eq!(literals[0], BoolVar::new(0, false)); // x1
-        assert_eq!(literals[1], BoolVar::new(1, true));  // NOT x2
+        assert_eq!(literals[1], BoolVar::new(1, true)); // NOT x2
     }
 }
 

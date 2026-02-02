@@ -73,7 +73,7 @@ macro_rules! declare_graph_subtype {
 // Note: All direct relationships must be declared explicitly for compile-time trait bounds.
 // Transitive closure is only computed at runtime in build_graph_hierarchy().
 declare_graph_subtype!(UnitDiskGraph => PlanarGraph);
-declare_graph_subtype!(UnitDiskGraph => SimpleGraph);  // Needed for compile-time GraphSubtype<SimpleGraph>
+declare_graph_subtype!(UnitDiskGraph => SimpleGraph); // Needed for compile-time GraphSubtype<SimpleGraph>
 declare_graph_subtype!(PlanarGraph => SimpleGraph);
 declare_graph_subtype!(BipartiteGraph => SimpleGraph);
 
@@ -107,12 +107,12 @@ mod tests {
         assert!(entries.len() >= 4);
 
         // Check specific relationships
-        assert!(entries.iter().any(|e|
-            e.subtype == "UnitDiskGraph" && e.supertype == "SimpleGraph"
-        ));
-        assert!(entries.iter().any(|e|
-            e.subtype == "PlanarGraph" && e.supertype == "SimpleGraph"
-        ));
+        assert!(entries
+            .iter()
+            .any(|e| e.subtype == "UnitDiskGraph" && e.supertype == "SimpleGraph"));
+        assert!(entries
+            .iter()
+            .any(|e| e.subtype == "PlanarGraph" && e.supertype == "SimpleGraph"));
     }
 
     #[test]
@@ -136,7 +136,7 @@ mod tests {
 
         // Test Copy (SimpleGraph implements Copy, so no need to clone)
         let g = SimpleGraph;
-        let _g2 = g;  // Copy
+        let _g2 = g; // Copy
         let g = SimpleGraph;
         let _g2 = g;
         let _g3 = g; // still usable

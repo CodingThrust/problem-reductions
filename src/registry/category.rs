@@ -387,4 +387,50 @@ mod tests {
         assert_eq!(SpecializedSubcategory::Game.name(), "game");
         assert_eq!(SpecializedSubcategory::Other.name(), "other");
     }
+
+    #[test]
+    fn test_all_category_paths() {
+        // Test ProblemCategory name() and subcategory_name() for all variants
+        let categories = [
+            ProblemCategory::Graph(GraphSubcategory::Coloring),
+            ProblemCategory::Satisfiability(SatisfiabilitySubcategory::Sat),
+            ProblemCategory::Set(SetSubcategory::Covering),
+            ProblemCategory::Optimization(OptimizationSubcategory::Quadratic),
+            ProblemCategory::Scheduling(SchedulingSubcategory::Machine),
+            ProblemCategory::Network(NetworkSubcategory::Flow),
+            ProblemCategory::String(StringSubcategory::Sequence),
+            ProblemCategory::Specialized(SpecializedSubcategory::Geometry),
+        ];
+
+        let expected_names = [
+            "graph",
+            "satisfiability",
+            "set",
+            "optimization",
+            "scheduling",
+            "network",
+            "string",
+            "specialized",
+        ];
+
+        let expected_subcategories = [
+            "coloring",
+            "sat",
+            "covering",
+            "quadratic",
+            "machine",
+            "flow",
+            "sequence",
+            "geometry",
+        ];
+
+        for (i, cat) in categories.iter().enumerate() {
+            assert_eq!(cat.name(), expected_names[i]);
+            assert_eq!(cat.subcategory_name(), expected_subcategories[i]);
+            assert!(!cat.path().is_empty());
+            // Test Display
+            let display = format!("{}", cat);
+            assert!(display.contains('/'));
+        }
+    }
 }

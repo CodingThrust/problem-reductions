@@ -112,7 +112,13 @@ impl<W: Clone + Default> SetCovering<W> {
 
 impl<W> Problem for SetCovering<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     const NAME: &'static str = "SetCovering";
     type GraphType = SimpleGraph;
@@ -155,7 +161,13 @@ where
 
 impl<W> ConstraintSatisfactionProblem for SetCovering<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         // For each element, at least one set containing it must be selected

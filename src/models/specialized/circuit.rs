@@ -269,7 +269,13 @@ impl<W> CircuitSAT<W> {
 
 impl<W> Problem for CircuitSAT<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     const NAME: &'static str = "CircuitSAT";
     type GraphType = SimpleGraph;

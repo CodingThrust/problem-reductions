@@ -193,8 +193,7 @@ mod tests {
         // IS -> SP -> IS
         let reduction1 = ReduceTo::<SetPacking<i32>>::reduce_to(&original);
         let sp = reduction1.target_problem().clone();
-        let reduction2: ReductionSPToIS<i32> =
-            ReduceTo::<IndependentSet<i32>>::reduce_to(&sp);
+        let reduction2: ReductionSPToIS<i32> = ReduceTo::<IndependentSet<i32>>::reduce_to(&sp);
         let roundtrip = reduction2.target_problem();
 
         let roundtrip_solutions = solver.find_best(roundtrip);
@@ -207,8 +206,7 @@ mod tests {
 
     #[test]
     fn test_weighted_reduction() {
-        let is_problem =
-            IndependentSet::with_weights(3, vec![(0, 1), (1, 2)], vec![10, 20, 30]);
+        let is_problem = IndependentSet::with_weights(3, vec![(0, 1), (1, 2)], vec![10, 20, 30]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&is_problem);
         let sp_problem = reduction.target_problem();
 
@@ -244,6 +242,32 @@ mod tests {
 
         // No edges in the intersection graph
         assert_eq!(is_problem.num_edges(), 0);
+    }
+
+    #[test]
+    fn test_reduction_sizes() {
+        // Test source_size and target_size methods
+        let is_problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2)]);
+        let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&is_problem);
+
+        let source_size = reduction.source_size();
+        let target_size = reduction.target_size();
+
+        // Source and target sizes should have components
+        assert!(!source_size.components.is_empty());
+        assert!(!target_size.components.is_empty());
+
+        // Test SP to IS sizes
+        let sets = vec![vec![0, 1], vec![2, 3]];
+        let sp_problem = SetPacking::<i32>::new(sets);
+        let reduction2: ReductionSPToIS<i32> =
+            ReduceTo::<IndependentSet<i32>>::reduce_to(&sp_problem);
+
+        let source_size2 = reduction2.source_size();
+        let target_size2 = reduction2.target_size();
+
+        assert!(!source_size2.components.is_empty());
+        assert!(!target_size2.components.is_empty());
     }
 }
 

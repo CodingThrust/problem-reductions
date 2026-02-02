@@ -35,10 +35,25 @@ pub trait ReductionResult: Clone {
 /// Trait for problems that can be reduced to target type T.
 ///
 /// # Example
-/// ```ignore
-/// let sat_problem = Satisfiability::new(...);
-/// let reduction = sat_problem.reduce_to::<IndependentSet<i32>>();
+/// ```text
+/// // Example showing reduction workflow
+/// use problemreductions::prelude::*;
+/// use problemreductions::rules::ReduceTo;
+///
+/// let sat_problem: Satisfiability = Satisfiability::new(
+///     3,  // 3 variables
+///     vec![
+///         CNFClause::new(vec![0, 1]),     // (x0 OR x1)
+///         CNFClause::new(vec![1, 2]),     // (x1 OR x2)
+///     ]
+/// );
+///
+/// // Reduce to Independent Set
+/// let reduction = sat_problem.reduce_to();
 /// let is_problem = reduction.target_problem();
+///
+/// // Solve and extract solutions
+/// let solver = BruteForce::new();
 /// let solutions = solver.find_best(is_problem);
 /// let sat_solutions: Vec<_> = solutions.iter()
 ///     .map(|s| reduction.extract_solution(s))

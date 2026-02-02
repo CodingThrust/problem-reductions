@@ -175,7 +175,13 @@ impl<W: Clone + Default> Satisfiability<W> {
 
 impl<W> Problem for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     const NAME: &'static str = "Satisfiability";
     type GraphType = SimpleGraph;
@@ -221,7 +227,13 @@ where
 
 impl<W> ConstraintSatisfactionProblem for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         // Each clause is a constraint
@@ -402,7 +414,11 @@ mod tests {
     fn test_count_satisfied() {
         let problem = Satisfiability::<i32>::new(
             2,
-            vec![CNFClause::new(vec![1]), CNFClause::new(vec![2]), CNFClause::new(vec![-1, -2])],
+            vec![
+                CNFClause::new(vec![1]),
+                CNFClause::new(vec![2]),
+                CNFClause::new(vec![-1, -2]),
+            ],
         );
 
         assert_eq!(problem.count_satisfied(&[true, true]), 2); // x1, x2 satisfied
@@ -486,7 +502,11 @@ mod tests {
 
         assert!(is_satisfying_assignment(3, &clauses, &[true, false, true]));
         assert!(is_satisfying_assignment(3, &clauses, &[false, true, false]));
-        assert!(!is_satisfying_assignment(3, &clauses, &[true, false, false]));
+        assert!(!is_satisfying_assignment(
+            3,
+            &clauses,
+            &[true, false, false]
+        ));
     }
 
     #[test]
@@ -515,10 +535,8 @@ mod tests {
     #[test]
     fn test_single_literal_clauses() {
         // Unit propagation scenario: x1 AND NOT x2
-        let problem = Satisfiability::<i32>::new(
-            2,
-            vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])],
-        );
+        let problem =
+            Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -570,11 +588,7 @@ mod tests {
 
     #[test]
     fn test_objectives() {
-        let problem = Satisfiability::with_weights(
-            2,
-            vec![CNFClause::new(vec![1, 2])],
-            vec![5],
-        );
+        let problem = Satisfiability::with_weights(2, vec![CNFClause::new(vec![1, 2])], vec![5]);
         let objectives = problem.objectives();
         assert_eq!(objectives.len(), 1);
     }

@@ -173,11 +173,7 @@ impl Problem for BMF {
     }
 
     fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("rows", self.m),
-            ("cols", self.n),
-            ("rank", self.k),
-        ])
+        ProblemSize::new(vec![("rows", self.m), ("cols", self.n), ("rank", self.k)])
     }
 
     fn energy_mode(&self) -> EnergyMode {
@@ -254,10 +250,7 @@ mod tests {
         let b = vec![vec![true], vec![true]];
         let c = vec![vec![true, true]];
         let product = BMF::boolean_product(&b, &c);
-        assert_eq!(
-            product,
-            vec![vec![true, true], vec![true, true]]
-        );
+        assert_eq!(product, vec![vec![true, true], vec![true, true]]);
     }
 
     #[test]
@@ -267,10 +260,7 @@ mod tests {
         let b = vec![vec![true, false], vec![false, true]];
         let c = vec![vec![true, false], vec![false, true]];
         let product = BMF::boolean_product(&b, &c);
-        assert_eq!(
-            product,
-            vec![vec![true, false], vec![false, true]]
-        );
+        assert_eq!(product, vec![vec![true, false], vec![false, true]]);
     }
 
     #[test]

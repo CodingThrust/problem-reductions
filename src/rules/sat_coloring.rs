@@ -140,7 +140,10 @@ impl SATColoringConstructor {
     /// For a single-literal clause, just set the literal to TRUE.
     /// For multi-literal clauses, build OR-gadgets recursively.
     fn add_clause(&mut self, literals: &[i32]) {
-        assert!(!literals.is_empty(), "Clause must have at least one literal");
+        assert!(
+            !literals.is_empty(),
+            "Clause must have at least one literal"
+        );
 
         let first_var = BoolVar::from_literal(literals[0]);
         let mut output_node = self.get_vertex(&first_var);
@@ -404,10 +407,8 @@ mod tests {
     #[test]
     fn test_unsatisfiable_formula() {
         // Unsatisfiable: (x1) AND (NOT x1)
-        let sat = Satisfiability::<i32>::new(
-            1,
-            vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])],
-        );
+        let sat =
+            Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
 
         let reduction = ReduceTo::<Coloring>::reduce_to(&sat);
         let coloring = reduction.target_problem();
@@ -508,9 +509,9 @@ mod tests {
         let sat = Satisfiability::<i32>::new(
             3,
             vec![
-                CNFClause::new(vec![1, 2]),     // x1 OR x2
-                CNFClause::new(vec![-1, 3]),    // NOT x1 OR x3
-                CNFClause::new(vec![-2, -3]),   // NOT x2 OR NOT x3
+                CNFClause::new(vec![1, 2]),   // x1 OR x2
+                CNFClause::new(vec![-1, 3]),  // NOT x1 OR x3
+                CNFClause::new(vec![-2, -3]), // NOT x2 OR NOT x3
             ],
         );
 
@@ -528,10 +529,8 @@ mod tests {
     #[test]
     fn test_single_literal_clauses() {
         // (x1) AND (x2) - both must be true
-        let sat = Satisfiability::<i32>::new(
-            2,
-            vec![CNFClause::new(vec![1]), CNFClause::new(vec![2])],
-        );
+        let sat =
+            Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![2])]);
 
         let reduction = ReduceTo::<Coloring>::reduce_to(&sat);
         let coloring = reduction.target_problem();

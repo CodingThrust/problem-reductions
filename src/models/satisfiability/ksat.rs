@@ -169,7 +169,13 @@ impl<const K: usize, W: Clone + Default> KSatisfiability<K, W> {
 
 impl<const K: usize, W> Problem for KSatisfiability<K, W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     const NAME: &'static str = "KSatisfiability";
     type GraphType = SimpleGraph;
@@ -213,7 +219,13 @@ where
 
 impl<const K: usize, W> ConstraintSatisfactionProblem for KSatisfiability<K, W>
 where
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         self.clauses
@@ -387,7 +399,8 @@ mod tests {
     #[test]
     fn test_ksat_allow_less() {
         // This should work - clause has 2 literals which is <= 3
-        let problem = KSatisfiability::<3, i32>::new_allow_less(2, vec![CNFClause::new(vec![1, 2])]);
+        let problem =
+            KSatisfiability::<3, i32>::new_allow_less(2, vec![CNFClause::new(vec![1, 2])]);
         assert_eq!(problem.num_clauses(), 1);
     }
 

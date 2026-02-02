@@ -1,6 +1,6 @@
 //! ILP solver implementation using HiGHS.
 
-use crate::models::optimization::{Comparison, ILP, ObjectiveSense};
+use crate::models::optimization::{Comparison, ObjectiveSense, ILP};
 use crate::rules::{ReduceTo, ReductionResult};
 use good_lp::{default_solver, variable, ProblemVariables, Solution, SolverModel, Variable};
 
@@ -142,10 +142,14 @@ impl ILPSolver {
     ///
     /// # Example
     ///
-    /// ```rust,ignore
+    /// ```no_run
+    /// use problemreductions::prelude::*;
     /// use problemreductions::solvers::ILPSolver;
     ///
-    /// let problem = SomeProblem::new(...); // Some problem that implements ReduceTo<ILP>
+    /// // Create a problem that reduces to ILP (e.g., Independent Set)
+    /// let problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2)]);
+    ///
+    /// // Solve using ILP solver
     /// let solver = ILPSolver::new();
     /// if let Some(solution) = solver.solve_reduced(&problem) {
     ///     println!("Solution: {:?}", solution);
@@ -377,7 +381,12 @@ mod tests {
     #[test]
     fn test_ilp_unconstrained() {
         // Maximize x0 + x1, no constraints, binary vars
-        let ilp = ILP::binary(2, vec![], vec![(0, 1.0), (1, 1.0)], ObjectiveSense::Maximize);
+        let ilp = ILP::binary(
+            2,
+            vec![],
+            vec![(0, 1.0), (1, 1.0)],
+            ObjectiveSense::Maximize,
+        );
 
         let solver = ILPSolver::new();
         let solution = solver.solve(&ilp).unwrap();

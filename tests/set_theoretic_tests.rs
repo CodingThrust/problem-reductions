@@ -1,6 +1,6 @@
 //! Integration tests for set-theoretic reduction path finding.
 
-use problemreductions::rules::{ReductionGraph, MinimizeSteps};
+use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::types::ProblemSize;
 
 #[test]
@@ -8,8 +8,14 @@ fn test_reduction_graph_discovers_registered_reductions() {
     let graph = ReductionGraph::new();
 
     // Should have discovered reductions from inventory
-    assert!(graph.num_types() >= 10, "Should have at least 10 problem types");
-    assert!(graph.num_reductions() >= 15, "Should have at least 15 reductions");
+    assert!(
+        graph.num_types() >= 10,
+        "Should have at least 10 problem types"
+    );
+    assert!(
+        graph.num_reductions() >= 15,
+        "Should have at least 15 reductions"
+    );
 
     // Specific reductions should exist
     assert!(graph.has_direct_reduction_by_name("IndependentSet", "VertexCovering"));
@@ -46,10 +52,16 @@ fn test_multi_step_path() {
     // Factoring -> CircuitSAT -> SpinGlass is a 2-step path
     let path = graph.find_shortest_path_by_name("Factoring", "SpinGlass");
 
-    assert!(path.is_some(), "Should find path from Factoring to SpinGlass");
+    assert!(
+        path.is_some(),
+        "Should find path from Factoring to SpinGlass"
+    );
     let path = path.unwrap();
     assert_eq!(path.len(), 2, "Should be a 2-step path");
-    assert_eq!(path.type_names, vec!["Factoring", "CircuitSAT", "SpinGlass"]);
+    assert_eq!(
+        path.type_names,
+        vec!["Factoring", "CircuitSAT", "SpinGlass"]
+    );
 }
 
 #[test]

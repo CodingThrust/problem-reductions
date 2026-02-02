@@ -1,6 +1,7 @@
 // Problem Reductions: A Mathematical Reference
 
 #import "@preview/fletcher:0.5.8" as fletcher: diagram, node, edge
+#import "@preview/cetz:0.4.0": canvas, draw
 
 #set page(paper: "a4", margin: (x: 2cm, y: 2.5cm))
 #set text(font: "New Computer Modern", size: 10pt)
@@ -70,6 +71,7 @@
   "SetCovering": (0.5, 3),
   "MaxCut": (1.5, 3),
   "QUBO": (3.5, 3),
+  "GridGraph": (0.5, 2),
 )
 
 #align(center)[
@@ -148,6 +150,10 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #definition("Matching")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
+]
+
+#definition("Unit Disk Graph (Grid Graph)")[
+  A graph $G = (V, E)$ where vertices $V$ are points on a 2D lattice and $(u, v) in E$ iff the Euclidean distance $d(u, v) <= r$ for some radius $r$. A _King's subgraph_ uses the King's graph lattice (8-connectivity square grid) with $r approx 1.5$.
 ]
 
 == Set Problems
@@ -400,6 +406,165 @@ let (p, q) = problem.read_factors(&extracted);
 assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
 ```
 
+== Unit Disk Mapping
+
+#theorem[
+  *(IS $arrow.r$ GridGraph IS)* @nguyen2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a unit disk graph (King's subgraph) with at most quadratic overhead in the number of vertices.
+]
+
+#proof[
+  _Construction (Copy-Line Method)._ Given $G = (V, E)$ with $n = |V|$:
+
+  1. _Vertex ordering:_ Compute a path decomposition of $G$ to obtain vertex order $(v_1, ..., v_n)$. The pathwidth determines the grid height.
+
+  2. _Copy lines:_ For each vertex $v_i$, create an L-shaped "copy line" on the grid:
+  $ "CopyLine"(v_i) = {(r, c_i) : r in [r_"start", r_"stop"]} union {(r_i, c) : c in [c_i, c_"stop"]} $
+  where positions are determined by the vertex order and edge structure.
+
+  3. _Crossing gadgets:_ When two copy lines cross (corresponding to an edge $(v_i, v_j) in E$), insert a crossing gadget that enforces: at most one of the two lines can be "active" (all vertices selected).
+
+  4. _MIS correspondence:_ Each copy line has MIS contribution $approx |"line"|/2$. The gadgets add overhead $Delta$ such that:
+  $ "MIS"(G_"grid") = "MIS"(G) + Delta $
+
+  _Solution extraction._ For each copy line, check if the majority of its vertices are in the grid MIS. Map back: $v_i in S$ iff copy line $i$ is active.
+
+  _Correctness._ ($arrow.r.double$) An IS in $G$ maps to selecting all copy line vertices for included vertices; crossing gadgets ensure no conflicts. ($arrow.l.double$) A grid MIS maps back to an IS by the copy line activity rule.
+]
+
+*Example: Petersen Graph.*#footnote[Generated using `cargo run --example export_petersen_mapping` from the accompanying code repository.] The Petersen graph ($n=10$, MIS$=4$) maps to a $30 times 42$ King's subgraph with 219 nodes and overhead $Delta = 89$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 89 = 93$. The weighted and unweighted KSG mappings share identical grid topology (same node positions and edges); only the vertex weights differ. With triangular lattice encoding @nguyen2023, the same graph maps to a $42 times 60$ grid with 395 nodes and overhead $Delta = 375$, giving $"MIS"(G_"tri") = 4 + 375 = 379$.
+
+// Load JSON data
+#let petersen = json("petersen_source.json")
+#let square_weighted = json("petersen_square_weighted.json")
+#let square_unweighted = json("petersen_square_unweighted.json")
+#let triangular_mapping = json("petersen_triangular.json")
+
+// Draw Petersen graph with standard layout
+#let draw-petersen-cetz(data) = canvas(length: 1cm, {
+  import draw: *
+  let r-outer = 1.2
+  let r-inner = 0.6
+
+  // Positions: outer pentagon (0-4), inner star (5-9)
+  let positions = ()
+  for i in range(5) {
+    let angle = 90deg - i * 72deg
+    positions.push((calc.cos(angle) * r-outer, calc.sin(angle) * r-outer))
+  }
+  for i in range(5) {
+    let angle = 90deg - i * 72deg
+    positions.push((calc.cos(angle) * r-inner, calc.sin(angle) * r-inner))
+  }
+
+  // Draw edges
+  for edge in data.edges {
+    let (u, v) = (edge.at(0), edge.at(1))
+    line(positions.at(u), positions.at(v), stroke: 0.6pt + gray)
+  }
+
+  // Draw nodes
+  for (k, pos) in positions.enumerate() {
+    circle(pos, radius: 0.12, fill: blue, stroke: none)
+  }
+})
+
+// Draw King's Subgraph from JSON nodes - uses pre-computed edges
+#let draw-grid-cetz(data, cell-size: 0.2) = canvas(length: 1cm, {
+  import draw: *
+  let grid-data = data.grid_graph
+
+  // Get node positions (col, row) for drawing
+  let grid-positions = grid-data.nodes.map(n => (n.col, n.row))
+  let weights = grid-data.nodes.map(n => n.weight)
+
+  // Use pre-computed edges from JSON
+  let edges = grid-data.edges
+
+  // Scale for drawing
+  let vertices = grid-positions.map(p => (p.at(0) * cell-size, -p.at(1) * cell-size))
+
+  // Draw edges
+  for edge in edges {
+    let (k, l) = (edge.at(0), edge.at(1))
+    line(vertices.at(k), vertices.at(l), stroke: 0.4pt + gray)
+  }
+
+  // Draw nodes with weight-based color
+  for (k, pos) in vertices.enumerate() {
+    let w = weights.at(k)
+    let color = if w == 1 { blue } else if w == 2 { red } else { green }
+    circle(pos, radius: 0.04, fill: color, stroke: none)
+  }
+})
+
+// Draw triangular lattice from JSON nodes - uses pre-computed edges
+// Matches Rust's GridGraph physical_position_static for Triangular with offset_even_cols=true:
+//   x = row + offset (where offset = 0.5 if col is even)
+//   y = col * sqrt(3)/2
+#let draw-triangular-cetz(data, cell-size: 0.2) = canvas(length: 1cm, {
+  import draw: *
+  let grid-data = data.grid_graph
+
+  // Get node positions with triangular geometry for drawing
+  // Match Rust GridGraph::physical_position_static for Triangular:
+  //   x = row + 0.5 (if col is even, since offset_even_cols=true)
+  //   y = col * sqrt(3)/2
+  let sqrt3_2 = calc.sqrt(3) / 2
+  let grid-positions = grid-data.nodes.map(n => {
+    let offset = if calc.rem(n.col, 2) == 0 { 0.5 } else { 0.0 }
+    let x = n.row + offset
+    let y = n.col * sqrt3_2
+    (x, y)
+  })
+  let weights = grid-data.nodes.map(n => n.weight)
+
+  // Use pre-computed edges from JSON
+  let edges = grid-data.edges
+
+  // Scale for drawing
+  let vertices = grid-positions.map(p => (p.at(0) * cell-size, -p.at(1) * cell-size))
+
+  // Draw edges
+  for edge in edges {
+    let (k, l) = (edge.at(0), edge.at(1))
+    line(vertices.at(k), vertices.at(l), stroke: 0.3pt + gray)
+  }
+
+  // Draw nodes with weight-based color
+  for (k, pos) in vertices.enumerate() {
+    let w = weights.at(k)
+    let color = if w == 1 { blue } else if w == 2 { red } else { green }
+    circle(pos, radius: 0.025, fill: color, stroke: none)
+  }
+})
+
+#figure(
+  grid(
+    columns: 3,
+    gutter: 1.5em,
+    align(center + horizon)[
+      #draw-petersen-cetz(petersen)
+      (a) Petersen graph
+    ],
+    align(center + horizon)[
+      #draw-grid-cetz(square_weighted)
+      (b) King's subgraph (weighted)
+    ],
+    align(center + horizon)[
+      #draw-triangular-cetz(triangular_mapping)
+      (c) Triangular lattice (weighted)
+    ],
+  ),
+  caption: [Unit disk mappings of the Petersen graph. Blue: weight 1, red: weight 2, green: weight 3.],
+) <fig:petersen-mapping>
+
+*Weighted Extension.* For MWIS, copy lines use weighted vertices (weights 1, 2, or 3). Source weights $< 1$ are added to designated "pin" vertices.
+
+*QUBO Mapping.* A QUBO problem $min bold(x)^top Q bold(x)$ maps to weighted MIS on a grid by:
+1. Creating copy lines for each variable
+2. Using XOR gadgets for couplings: $x_"out" = not(x_1 xor x_2)$
+3. Adding weights for linear and quadratic terms
+
 = Summary <sec:summary>
 
 #let gray = rgb("#e8e8e8")
@@ -424,6 +589,7 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
     [SpinGlass $arrow.l.r$ MaxCut], [$O(n + |J|)$], [@barahona1982 @lucas2014],
     table.cell(fill: gray)[Coloring $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| dot k + |E| dot k)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[Factoring $arrow.r$ ILP], table.cell(fill: gray)[$O(m n)$], table.cell(fill: gray)[—],
+    [IS $arrow.r$ GridGraph IS], [$O(n^2)$], [@nguyen2023],
   ),
   caption: [Summary of reductions. Gray rows indicate trivial reductions.]
 ) <tab:summary>

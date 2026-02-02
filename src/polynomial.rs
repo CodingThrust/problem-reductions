@@ -12,15 +12,24 @@ pub struct Monomial {
 
 impl Monomial {
     pub fn constant(c: f64) -> Self {
-        Self { coefficient: c, variables: vec![] }
+        Self {
+            coefficient: c,
+            variables: vec![],
+        }
     }
 
     pub fn var(name: &'static str) -> Self {
-        Self { coefficient: 1.0, variables: vec![(name, 1)] }
+        Self {
+            coefficient: 1.0,
+            variables: vec![(name, 1)],
+        }
     }
 
     pub fn var_pow(name: &'static str, exp: u8) -> Self {
-        Self { coefficient: 1.0, variables: vec![(name, exp)] }
+        Self {
+            coefficient: 1.0,
+            variables: vec![(name, exp)],
+        }
     }
 
     pub fn scale(mut self, c: f64) -> Self {
@@ -29,7 +38,9 @@ impl Monomial {
     }
 
     pub fn evaluate(&self, size: &ProblemSize) -> f64 {
-        let var_product: f64 = self.variables.iter()
+        let var_product: f64 = self
+            .variables
+            .iter()
             .map(|(name, exp)| {
                 let val = size.get(name).unwrap_or(0) as f64;
                 val.powi(*exp as i32)
@@ -51,15 +62,21 @@ impl Polynomial {
     }
 
     pub fn constant(c: f64) -> Self {
-        Self { terms: vec![Monomial::constant(c)] }
+        Self {
+            terms: vec![Monomial::constant(c)],
+        }
     }
 
     pub fn var(name: &'static str) -> Self {
-        Self { terms: vec![Monomial::var(name)] }
+        Self {
+            terms: vec![Monomial::var(name)],
+        }
     }
 
     pub fn var_pow(name: &'static str, exp: u8) -> Self {
-        Self { terms: vec![Monomial::var_pow(name, exp)] }
+        Self {
+            terms: vec![Monomial::var_pow(name, exp)],
+        }
     }
 
     pub fn scale(mut self, c: f64) -> Self {
@@ -136,21 +153,19 @@ mod tests {
     #[test]
     fn test_polynomial_add() {
         // 3n + 2m
-        let p = Polynomial::var("n").scale(3.0)
-            + Polynomial::var("m").scale(2.0);
+        let p = Polynomial::var("n").scale(3.0) + Polynomial::var("m").scale(2.0);
 
         let size = ProblemSize::new(vec![("n", 10), ("m", 5)]);
-        assert_eq!(p.evaluate(&size), 40.0);  // 3*10 + 2*5
+        assert_eq!(p.evaluate(&size), 40.0); // 3*10 + 2*5
     }
 
     #[test]
     fn test_polynomial_complex() {
         // n^2 + 3m
-        let p = Polynomial::var_pow("n", 2)
-            + Polynomial::var("m").scale(3.0);
+        let p = Polynomial::var_pow("n", 2) + Polynomial::var("m").scale(3.0);
 
         let size = ProblemSize::new(vec![("n", 4), ("m", 2)]);
-        assert_eq!(p.evaluate(&size), 22.0);  // 16 + 6
+        assert_eq!(p.evaluate(&size), 22.0); // 16 + 6
     }
 
     #[test]
@@ -158,9 +173,9 @@ mod tests {
         let size = ProblemSize::new(vec![("n", 5), ("m", 3)]);
 
         assert_eq!(poly!(n).evaluate(&size), 5.0);
-        assert_eq!(poly!(n^2).evaluate(&size), 25.0);
+        assert_eq!(poly!(n ^ 2).evaluate(&size), 25.0);
         assert_eq!(poly!(3 * n).evaluate(&size), 15.0);
-        assert_eq!(poly!(2 * m^2).evaluate(&size), 18.0);
+        assert_eq!(poly!(2 * m ^ 2).evaluate(&size), 18.0);
     }
 
     #[test]

@@ -81,10 +81,7 @@ impl PaintShop {
         }
 
         // Convert sequence to indices
-        let sequence_indices: Vec<usize> = sequence
-            .iter()
-            .map(|item| car_to_index[item])
-            .collect();
+        let sequence_indices: Vec<usize> = sequence.iter().map(|item| car_to_index[item]).collect();
 
         // Determine which positions are first occurrences
         let mut seen: HashSet<usize> = HashSet::new();

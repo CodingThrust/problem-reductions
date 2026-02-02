@@ -286,18 +286,14 @@ where
 
     /// Build the final SpinGlass.
     fn build(self) -> (SpinGlass<W>, HashMap<String, usize>) {
-        let interactions: Vec<((usize, usize), W)> =
-            self.interactions.into_iter().collect();
+        let interactions: Vec<((usize, usize), W)> = self.interactions.into_iter().collect();
         let sg = SpinGlass::new(self.num_spins, interactions, self.fields);
         (sg, self.variable_map)
     }
 }
 
 /// Process a boolean expression and return the spin index of its output.
-fn process_expression<W>(
-    expr: &BooleanExpr,
-    builder: &mut SpinGlassBuilder<W>,
-) -> usize
+fn process_expression<W>(expr: &BooleanExpr, builder: &mut SpinGlassBuilder<W>) -> usize
 where
     W: Clone + Default + Zero + AddAssign + From<i32>,
 {
@@ -305,11 +301,7 @@ where
         BooleanOp::Var(name) => builder.get_or_create_variable(name),
 
         BooleanOp::Const(value) => {
-            let gadget: LogicGadget<W> = if *value {
-                set1_gadget()
-            } else {
-                set0_gadget()
-            };
+            let gadget: LogicGadget<W> = if *value { set1_gadget() } else { set0_gadget() };
             let output_spin = builder.allocate_spin();
             let spin_map = vec![output_spin];
             builder.add_gadget(&gadget, &spin_map);
@@ -343,7 +335,10 @@ where
     W: Clone + Default + Zero + AddAssign + From<i32>,
     F: Fn() -> LogicGadget<W>,
 {
-    assert!(!args.is_empty(), "Binary gate must have at least one argument");
+    assert!(
+        !args.is_empty(),
+        "Binary gate must have at least one argument"
+    );
 
     if args.len() == 1 {
         // Single argument - just return its output
@@ -392,10 +387,8 @@ where
 }
 
 /// Process a circuit assignment.
-fn process_assignment<W>(
-    assignment: &Assignment,
-    builder: &mut SpinGlassBuilder<W>,
-) where
+fn process_assignment<W>(assignment: &Assignment, builder: &mut SpinGlassBuilder<W>)
+where
     W: Clone + Default + Zero + AddAssign + From<i32>,
 {
     // Process the expression to get the output spin
@@ -760,7 +753,11 @@ mod tests {
             .collect();
 
         // c should be 1
-        assert!(extracted.contains(&vec![1]), "Expected c=1 in {:?}", extracted);
+        assert!(
+            extracted.contains(&vec![1]),
+            "Expected c=1 in {:?}",
+            extracted
+        );
     }
 
     #[test]
@@ -783,7 +780,11 @@ mod tests {
             .collect();
 
         // c should be 0
-        assert!(extracted.contains(&vec![0]), "Expected c=0 in {:?}", extracted);
+        assert!(
+            extracted.contains(&vec![0]),
+            "Expected c=0 in {:?}",
+            extracted
+        );
     }
 
     #[test]

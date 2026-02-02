@@ -67,9 +67,7 @@ impl ComplexityClass {
     pub fn is_hard(&self) -> bool {
         matches!(
             self,
-            ComplexityClass::NpComplete
-                | ComplexityClass::NpHard
-                | ComplexityClass::PspaceComplete
+            ComplexityClass::NpComplete | ComplexityClass::NpHard | ComplexityClass::PspaceComplete
         )
     }
 }
@@ -291,8 +289,8 @@ mod tests {
 
     #[test]
     fn test_problem_info_versions() {
-        let decision_only = ProblemInfo::new("Decision Problem", "A yes/no problem")
-            .with_optimization(false);
+        let decision_only =
+            ProblemInfo::new("Decision Problem", "A yes/no problem").with_optimization(false);
         assert!(decision_only.decision_version);
         assert!(!decision_only.optimization_version);
 
