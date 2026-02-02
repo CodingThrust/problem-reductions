@@ -3,10 +3,10 @@
 //! The Dominating Set problem asks for a minimum weight subset of vertices
 //! such that every vertex is either in the set or adjacent to a vertex in the set.
 
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::variant::short_type_name;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use petgraph::graph::{NodeIndex, UnGraph};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -21,10 +21,11 @@ use std::collections::HashSet;
 ///
 /// ```
 /// use problemreductions::models::graph::DominatingSet;
+/// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Star graph: center dominates all
-/// let problem = DominatingSet::<i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+/// let problem = DominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_best(&problem);
@@ -33,26 +34,20 @@ use std::collections::HashSet;
 /// assert!(solutions.contains(&vec![1, 0, 0, 0]));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct DominatingSet<W = i32> {
+pub struct DominatingSet<G, W> {
     /// The underlying graph.
-    graph: UnGraph<(), ()>,
+    graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
 }
 
-impl<W: Clone + Default> DominatingSet<W> {
+impl<W: Clone + Default> DominatingSet<SimpleGraph, W> {
     /// Create a new Dominating Set problem with unit weights.
     pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self
     where
         W: From<i32>,
     {
-        let mut graph = UnGraph::new_undirected();
-        for _ in 0..num_vertices {
-            graph.add_node(());
-        }
-        for (u, v) in edges {
-            graph.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
-        }
+        let graph = SimpleGraph::new(num_vertices, edges);
         let weights = vec![W::from(1); num_vertices];
         Self { graph, weights }
     }
@@ -60,32 +55,55 @@ impl<W: Clone + Default> DominatingSet<W> {
     /// Create a new Dominating Set problem with custom weights.
     pub fn with_weights(num_vertices: usize, edges: Vec<(usize, usize)>, weights: Vec<W>) -> Self {
         assert_eq!(weights.len(), num_vertices);
-        let mut graph = UnGraph::new_undirected();
-        for _ in 0..num_vertices {
-            graph.add_node(());
-        }
-        for (u, v) in edges {
-            graph.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
-        }
+        let graph = SimpleGraph::new(num_vertices, edges);
         Self { graph, weights }
+    }
+}
+
+impl<G: Graph, W: Clone + Default> DominatingSet<G, W> {
+    /// Create a Dominating Set problem from a graph with custom weights.
+    pub fn from_graph(graph: G, weights: Vec<W>) -> Self {
+        assert_eq!(weights.len(), graph.num_vertices());
+        Self { graph, weights }
+    }
+
+    /// Create a Dominating Set problem from a graph with unit weights.
+    pub fn from_graph_unit_weights(graph: G) -> Self
+    where
+        W: From<i32>,
+    {
+        let weights = vec![W::from(1); graph.num_vertices()];
+        Self { graph, weights }
+    }
+
+    /// Get a reference to the underlying graph.
+    pub fn graph(&self) -> &G {
+        &self.graph
     }
 
     /// Get the number of vertices.
     pub fn num_vertices(&self) -> usize {
-        self.graph.node_count()
+        self.graph.num_vertices()
     }
 
     /// Get the number of edges.
     pub fn num_edges(&self) -> usize {
-        self.graph.edge_count()
+        self.graph.num_edges()
+    }
+
+    /// Get edges as a list of (u, v) pairs.
+    pub fn edges(&self) -> Vec<(usize, usize)> {
+        self.graph.edges()
+    }
+
+    /// Check if two vertices are adjacent.
+    pub fn has_edge(&self, u: usize, v: usize) -> bool {
+        self.graph.has_edge(u, v)
     }
 
     /// Get neighbors of a vertex.
     pub fn neighbors(&self, v: usize) -> Vec<usize> {
-        self.graph
-            .neighbors(NodeIndex::new(v))
-            .map(|n| n.index())
-            .collect()
+        self.graph.neighbors(v)
     }
 
     /// Get the closed neighborhood `N[v] = {v} ∪ N(v)`.
@@ -95,9 +113,14 @@ impl<W: Clone + Default> DominatingSet<W> {
         neighborhood
     }
 
+    /// Get a reference to the weights vector.
+    pub fn weights_ref(&self) -> &Vec<W> {
+        &self.weights
+    }
+
     /// Check if a set of vertices is a dominating set.
     fn is_dominating(&self, config: &[usize]) -> bool {
-        let n = self.graph.node_count();
+        let n = self.graph.num_vertices();
         let mut dominated = vec![false; n];
 
         for (v, &selected) in config.iter().enumerate() {
@@ -117,8 +140,9 @@ impl<W: Clone + Default> DominatingSet<W> {
     }
 }
 
-impl<W> Problem for DominatingSet<W>
+impl<G, W> Problem for DominatingSet<G, W>
 where
+    G: Graph,
     W: Clone
         + Default
         + PartialOrd
@@ -130,16 +154,13 @@ where
     const NAME: &'static str = "DominatingSet";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", short_type_name::<W>()),
-        ]
+        vec![("graph", G::NAME), ("weight", short_type_name::<W>())]
     }
 
     type Size = W;
 
     fn num_variables(&self) -> usize {
-        self.graph.node_count()
+        self.graph.num_vertices()
     }
 
     fn num_flavors(&self) -> usize {
@@ -148,8 +169,8 @@ where
 
     fn problem_size(&self) -> ProblemSize {
         ProblemSize::new(vec![
-            ("num_vertices", self.graph.node_count()),
-            ("num_edges", self.graph.edge_count()),
+            ("num_vertices", self.graph.num_vertices()),
+            ("num_edges", self.graph.num_edges()),
         ])
     }
 
@@ -169,8 +190,9 @@ where
     }
 }
 
-impl<W> ConstraintSatisfactionProblem for DominatingSet<W>
+impl<G, W> ConstraintSatisfactionProblem for DominatingSet<G, W>
 where
+    G: Graph,
     W: Clone
         + Default
         + PartialOrd
@@ -181,7 +203,7 @@ where
 {
     fn constraints(&self) -> Vec<LocalConstraint> {
         // For each vertex v, at least one vertex in N[v] must be selected
-        (0..self.graph.node_count())
+        (0..self.graph.num_vertices())
             .map(|v| {
                 let closed_nbhd: Vec<usize> = self.closed_neighborhood(v).into_iter().collect();
                 let num_vars = closed_nbhd.len();
@@ -259,20 +281,21 @@ mod tests {
 
     #[test]
     fn test_dominating_set_creation() {
-        let problem = DominatingSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         assert_eq!(problem.num_vertices(), 4);
         assert_eq!(problem.num_edges(), 3);
     }
 
     #[test]
     fn test_dominating_set_with_weights() {
-        let problem = DominatingSet::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
+        let problem =
+            DominatingSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
         assert_eq!(problem.weights(), vec![1, 2, 3]);
     }
 
     #[test]
     fn test_neighbors() {
-        let problem = DominatingSet::<i32>::new(4, vec![(0, 1), (0, 2), (1, 2)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (1, 2)]);
         let nbrs = problem.neighbors(0);
         assert!(nbrs.contains(&1));
         assert!(nbrs.contains(&2));
@@ -281,7 +304,7 @@ mod tests {
 
     #[test]
     fn test_closed_neighborhood() {
-        let problem = DominatingSet::<i32>::new(4, vec![(0, 1), (0, 2)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2)]);
         let cn = problem.closed_neighborhood(0);
         assert!(cn.contains(&0));
         assert!(cn.contains(&1));
@@ -292,7 +315,7 @@ mod tests {
     #[test]
     fn test_solution_size_valid() {
         // Star graph: center dominates all
-        let problem = DominatingSet::<i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
 
         // Select center
         let sol = problem.solution_size(&[1, 0, 0, 0]);
@@ -307,7 +330,7 @@ mod tests {
 
     #[test]
     fn test_solution_size_invalid() {
-        let problem = DominatingSet::<i32>::new(4, vec![(0, 1), (2, 3)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
 
         // Select none
         let sol = problem.solution_size(&[0, 0, 0, 0]);
@@ -321,7 +344,7 @@ mod tests {
     #[test]
     fn test_brute_force_star() {
         // Star graph: minimum dominating set is the center
-        let problem = DominatingSet::<i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -334,7 +357,8 @@ mod tests {
     #[test]
     fn test_brute_force_path() {
         // Path 0-1-2-3-4: need to dominate all 5 vertices
-        let problem = DominatingSet::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let problem =
+            DominatingSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -348,8 +372,11 @@ mod tests {
     #[test]
     fn test_brute_force_weighted() {
         // Star with heavy center
-        let problem =
-            DominatingSet::with_weights(4, vec![(0, 1), (0, 2), (0, 3)], vec![100, 1, 1, 1]);
+        let problem = DominatingSet::<SimpleGraph, i32>::with_weights(
+            4,
+            vec![(0, 1), (0, 2), (0, 3)],
+            vec![100, 1, 1, 1],
+        );
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -374,21 +401,21 @@ mod tests {
 
     #[test]
     fn test_constraints() {
-        let problem = DominatingSet::<i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
         let constraints = problem.constraints();
         assert_eq!(constraints.len(), 3); // One per vertex
     }
 
     #[test]
     fn test_energy_mode() {
-        let problem = DominatingSet::<i32>::new(2, vec![(0, 1)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(2, vec![(0, 1)]);
         assert!(problem.energy_mode().is_minimization());
     }
 
     #[test]
     fn test_isolated_vertex() {
         // Isolated vertex must be in dominating set
-        let problem = DominatingSet::<i32>::new(3, vec![(0, 1)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -401,7 +428,7 @@ mod tests {
 
     #[test]
     fn test_is_satisfied() {
-        let problem = DominatingSet::<i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
 
         assert!(problem.is_satisfied(&[1, 0, 0, 0])); // Center dominates all
         assert!(problem.is_satisfied(&[0, 1, 1, 1])); // Leaves dominate
@@ -410,14 +437,15 @@ mod tests {
 
     #[test]
     fn test_objectives() {
-        let problem = DominatingSet::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
+        let problem =
+            DominatingSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
         let objectives = problem.objectives();
         assert_eq!(objectives.len(), 3);
     }
 
     #[test]
     fn test_set_weights() {
-        let mut problem = DominatingSet::<i32>::new(3, vec![(0, 1)]);
+        let mut problem = DominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
         assert!(!problem.is_weighted()); // Initially uniform
         problem.set_weights(vec![1, 2, 3]);
         assert!(problem.is_weighted());
@@ -426,7 +454,7 @@ mod tests {
 
     #[test]
     fn test_is_weighted_empty() {
-        let problem = DominatingSet::<i32>::with_weights(0, vec![], vec![]);
+        let problem = DominatingSet::<SimpleGraph, i32>::with_weights(0, vec![], vec![]);
         assert!(!problem.is_weighted());
     }
 
@@ -437,9 +465,60 @@ mod tests {
 
     #[test]
     fn test_problem_size() {
-        let problem = DominatingSet::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3)]);
         let size = problem.problem_size();
         assert_eq!(size.get("num_vertices"), Some(5));
         assert_eq!(size.get("num_edges"), Some(3));
+    }
+
+    #[test]
+    fn test_from_graph() {
+        let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::from_graph(graph.clone(), vec![1, 2, 3]);
+        assert_eq!(problem.num_vertices(), 3);
+        assert_eq!(problem.weights(), vec![1, 2, 3]);
+
+        let problem2 = DominatingSet::<SimpleGraph, i32>::from_graph_unit_weights(graph);
+        assert_eq!(problem2.num_vertices(), 3);
+        assert_eq!(problem2.weights(), vec![1, 1, 1]);
+    }
+
+    #[test]
+    fn test_graph_accessor() {
+        let problem = DominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
+        let graph = problem.graph();
+        assert_eq!(graph.num_vertices(), 3);
+        assert_eq!(graph.num_edges(), 1);
+    }
+
+    #[test]
+    fn test_weights_ref() {
+        let problem =
+            DominatingSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
+        assert_eq!(problem.weights_ref(), &vec![5, 10, 15]);
+    }
+
+    #[test]
+    fn test_variant() {
+        let variant = DominatingSet::<SimpleGraph, i32>::variant();
+        assert_eq!(variant.len(), 2);
+        assert_eq!(variant[0], ("graph", "SimpleGraph"));
+        assert_eq!(variant[1], ("weight", "i32"));
+    }
+
+    #[test]
+    fn test_edges() {
+        let problem = DominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+        let edges = problem.edges();
+        assert_eq!(edges.len(), 2);
+    }
+
+    #[test]
+    fn test_has_edge() {
+        let problem = DominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+        assert!(problem.has_edge(0, 1));
+        assert!(problem.has_edge(1, 0)); // Undirected
+        assert!(problem.has_edge(1, 2));
+        assert!(!problem.has_edge(0, 2));
     }
 }
