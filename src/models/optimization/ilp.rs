@@ -3,7 +3,6 @@
 //! ILP optimizes a linear objective over integer variables subject to linear constraints.
 //! This is a fundamental "hub" problem that many other NP-hard problems can be reduced to.
 
-use crate::graph_types::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -327,8 +326,14 @@ impl ILP {
 
 impl Problem for ILP {
     const NAME: &'static str = "ILP";
-    type GraphType = SimpleGraph;
-    type Weight = f64;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", "f64"),
+        ]
+    }
+
     type Size = f64;
 
     fn num_variables(&self) -> usize {
