@@ -3,8 +3,8 @@
 //! The Dominating Set problem asks for a minimum weight subset of vertices
 //! such that every vertex is either in the set or adjacent to a vertex in the set.
 
-use crate::graph_types::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
+use crate::variant::short_type_name;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use petgraph::graph::{NodeIndex, UnGraph};
 use serde::{Deserialize, Serialize};
@@ -128,8 +128,14 @@ where
         + 'static,
 {
     const NAME: &'static str = "DominatingSet";
-    type GraphType = SimpleGraph;
-    type Weight = W;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", short_type_name::<W>()),
+        ]
+    }
+
     type Size = W;
 
     fn num_variables(&self) -> usize {

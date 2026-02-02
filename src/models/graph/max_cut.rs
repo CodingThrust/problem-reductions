@@ -3,8 +3,8 @@
 //! The Maximum Cut problem asks for a partition of vertices into two sets
 //! that maximizes the total weight of edges crossing the partition.
 
-use crate::graph_types::SimpleGraph;
 use crate::traits::Problem;
+use crate::variant::short_type_name;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use petgraph::graph::{NodeIndex, UnGraph};
 use petgraph::visit::EdgeRef;
@@ -139,8 +139,14 @@ where
         + 'static,
 {
     const NAME: &'static str = "MaxCut";
-    type GraphType = SimpleGraph;
-    type Weight = W;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", short_type_name::<W>()),
+        ]
+    }
+
     type Size = W;
 
     fn num_variables(&self) -> usize {

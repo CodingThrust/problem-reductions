@@ -3,8 +3,8 @@
 //! The Maximum Matching problem asks for a maximum weight set of edges
 //! such that no two edges share a vertex.
 
-use crate::graph_types::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
+use crate::variant::short_type_name;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use petgraph::graph::{NodeIndex, UnGraph};
 use petgraph::visit::EdgeRef;
@@ -143,8 +143,14 @@ where
         + 'static,
 {
     const NAME: &'static str = "Matching";
-    type GraphType = SimpleGraph;
-    type Weight = W;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", short_type_name::<W>()),
+        ]
+    }
+
     type Size = W;
 
     fn num_variables(&self) -> usize {

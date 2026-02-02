@@ -3,7 +3,6 @@
 //! The Maximal Independent Set problem asks for an independent set that
 //! cannot be extended by adding any other vertex.
 
-use crate::graph_types::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use petgraph::graph::{NodeIndex, UnGraph};
@@ -114,8 +113,14 @@ impl MaximalIS {
 
 impl Problem for MaximalIS {
     const NAME: &'static str = "MaximalIS";
-    type GraphType = SimpleGraph;
-    type Weight = i32;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", "i32"),
+        ]
+    }
+
     type Size = i32;
 
     fn num_variables(&self) -> usize {
