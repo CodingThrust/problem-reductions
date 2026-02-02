@@ -1,180 +1,495 @@
 {
   "nodes": [
     {
-      "id": "CircuitSAT",
-      "label": "CircuitSAT",
-      "category": "satisfiability",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "CircuitSAT",
+      "variant": {},
+      "category": "satisfiability"
     },
     {
-      "id": "Coloring",
-      "label": "Coloring",
-      "category": "graph",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "CircuitSAT",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "W"
+      },
+      "category": "satisfiability"
     },
     {
-      "id": "DominatingSet",
-      "label": "DominatingSet",
-      "category": "graph",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "CircuitSAT",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "satisfiability"
     },
     {
-      "id": "Factoring",
-      "label": "Factoring",
-      "category": "specialized",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "Coloring",
+      "variant": {},
+      "category": "graph"
     },
     {
-      "id": "ILP",
-      "label": "ILP",
-      "category": "optimization",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "Coloring",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "Unweighted"
+      },
+      "category": "graph"
     },
     {
-      "id": "IndependentSet",
-      "label": "IndependentSet",
-      "category": "graph",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "DominatingSet",
+      "variant": {},
+      "category": "graph"
     },
     {
-      "id": "KSatisfiability",
-      "label": "KSatisfiability",
-      "category": "satisfiability",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "DominatingSet",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "W"
+      },
+      "category": "graph"
     },
     {
-      "id": "Matching",
-      "label": "Matching",
-      "category": "graph",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "Factoring",
+      "variant": {},
+      "category": "specialized"
     },
     {
-      "id": "MaxCut",
-      "label": "MaxCut",
-      "category": "graph",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "Factoring",
+      "variant": {
+        "graph": "",
+        "weight": "Unweighted"
+      },
+      "category": "specialized"
     },
     {
-      "id": "QUBO",
-      "label": "QUBO",
-      "category": "optimization",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "Factoring",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "Unweighted"
+      },
+      "category": "specialized"
     },
     {
-      "id": "Satisfiability",
-      "label": "Satisfiability",
-      "category": "satisfiability",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "ILP",
+      "variant": {},
+      "category": "optimization"
     },
     {
-      "id": "SetCovering",
-      "label": "SetCovering",
-      "category": "set",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "ILP",
+      "variant": {
+        "graph": "",
+        "weight": "Unweighted"
+      },
+      "category": "optimization"
     },
     {
-      "id": "SetPacking",
-      "label": "SetPacking",
-      "category": "set",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "IndependentSet",
+      "variant": {},
+      "category": "graph"
     },
     {
-      "id": "SpinGlass",
-      "label": "SpinGlass",
-      "category": "optimization",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "IndependentSet",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "W"
+      },
+      "category": "graph"
     },
     {
-      "id": "VertexCovering",
-      "label": "VertexCovering",
-      "category": "graph",
-      "graph_type": "SimpleGraph",
-      "weighted": false
+      "name": "KSatisfiability",
+      "variant": {},
+      "category": "satisfiability"
+    },
+    {
+      "name": "KSatisfiability",
+      "variant": {
+        "graph": "",
+        "weight": "Unweighted"
+      },
+      "category": "satisfiability"
+    },
+    {
+      "name": "KSatisfiability",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "K"
+      },
+      "category": "satisfiability"
+    },
+    {
+      "name": "Matching",
+      "variant": {},
+      "category": "graph"
+    },
+    {
+      "name": "Matching",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "W"
+      },
+      "category": "graph"
+    },
+    {
+      "name": "MaxCut",
+      "variant": {},
+      "category": "graph"
+    },
+    {
+      "name": "MaxCut",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "W"
+      },
+      "category": "graph"
+    },
+    {
+      "name": "QUBO",
+      "variant": {},
+      "category": "optimization"
+    },
+    {
+      "name": "QUBO",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "f64"
+      },
+      "category": "optimization"
+    },
+    {
+      "name": "Satisfiability",
+      "variant": {},
+      "category": "satisfiability"
+    },
+    {
+      "name": "Satisfiability",
+      "variant": {
+        "graph": "",
+        "weight": "Unweighted"
+      },
+      "category": "satisfiability"
+    },
+    {
+      "name": "Satisfiability",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "W"
+      },
+      "category": "satisfiability"
+    },
+    {
+      "name": "SetCovering",
+      "variant": {},
+      "category": "set"
+    },
+    {
+      "name": "SetCovering",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "W"
+      },
+      "category": "set"
+    },
+    {
+      "name": "SetPacking",
+      "variant": {},
+      "category": "set"
+    },
+    {
+      "name": "SetPacking",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "W"
+      },
+      "category": "set"
+    },
+    {
+      "name": "SpinGlass",
+      "variant": {},
+      "category": "optimization"
+    },
+    {
+      "name": "SpinGlass",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "W"
+      },
+      "category": "optimization"
+    },
+    {
+      "name": "SpinGlass",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "f64"
+      },
+      "category": "optimization"
+    },
+    {
+      "name": "VertexCovering",
+      "variant": {},
+      "category": "graph"
+    },
+    {
+      "name": "VertexCovering",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "W"
+      },
+      "category": "graph"
     }
   ],
   "edges": [
     {
-      "source": "CircuitSAT",
-      "target": "SpinGlass",
+      "source": {
+        "name": "CircuitSAT",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "target": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
       "bidirectional": false
     },
     {
-      "source": "Coloring",
-      "target": "ILP",
+      "source": {
+        "name": "Coloring",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "",
+          "weight": "Unweighted"
+        }
+      },
       "bidirectional": false
     },
     {
-      "source": "Factoring",
-      "target": "CircuitSAT",
+      "source": {
+        "name": "Factoring",
+        "variant": {
+          "graph": "",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "",
+          "weight": "Unweighted"
+        }
+      },
       "bidirectional": false
     },
     {
-      "source": "Factoring",
-      "target": "ILP",
+      "source": {
+        "name": "Factoring",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "CircuitSAT",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
       "bidirectional": false
     },
     {
-      "source": "KSatisfiability",
-      "target": "Satisfiability",
+      "source": {
+        "name": "KSatisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "K"
+        }
+      },
+      "target": {
+        "name": "Satisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
+        "name": "Matching",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "target": {
+        "name": "SetPacking",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
+        "name": "Satisfiability",
+        "variant": {
+          "graph": "",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "KSatisfiability",
+        "variant": {
+          "graph": "",
+          "weight": "Unweighted"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
+        "name": "Satisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "target": {
+        "name": "Coloring",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
+        "name": "Satisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "target": {
+        "name": "DominatingSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
+        "name": "Satisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "target": {
+        "name": "IndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
+        "name": "SetPacking",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "target": {
+        "name": "IndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
       "bidirectional": true
     },
     {
-      "source": "Matching",
-      "target": "SetPacking",
-      "bidirectional": false
-    },
-    {
-      "source": "Satisfiability",
-      "target": "Coloring",
-      "bidirectional": false
-    },
-    {
-      "source": "Satisfiability",
-      "target": "DominatingSet",
-      "bidirectional": false
-    },
-    {
-      "source": "Satisfiability",
-      "target": "IndependentSet",
-      "bidirectional": false
-    },
-    {
-      "source": "SetPacking",
-      "target": "IndependentSet",
+      "source": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "target": {
+        "name": "MaxCut",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
       "bidirectional": true
     },
     {
-      "source": "SpinGlass",
-      "target": "MaxCut",
+      "source": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "target": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
       "bidirectional": true
     },
     {
-      "source": "SpinGlass",
-      "target": "QUBO",
+      "source": {
+        "name": "VertexCovering",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "target": {
+        "name": "IndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
       "bidirectional": true
     },
     {
-      "source": "VertexCovering",
-      "target": "IndependentSet",
-      "bidirectional": true
-    },
-    {
-      "source": "VertexCovering",
-      "target": "SetCovering",
+      "source": {
+        "name": "VertexCovering",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
+      "target": {
+        "name": "SetCovering",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "W"
+        }
+      },
       "bidirectional": false
     }
   ]
