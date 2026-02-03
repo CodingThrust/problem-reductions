@@ -6,6 +6,7 @@
 //! - Objective: Minimize the sum of weights of selected vertices
 
 use crate::models::graph::VertexCovering;
+use crate::topology::SimpleGraph;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
@@ -24,7 +25,7 @@ pub struct ReductionVCToILP {
 }
 
 impl ReductionResult for ReductionVCToILP {
-    type Source = VertexCovering<i32>;
+    type Source = VertexCovering<SimpleGraph, i32>;
     type Target = ILP;
 
     fn target_problem(&self) -> &ILP {
@@ -48,7 +49,7 @@ impl ReductionResult for ReductionVCToILP {
     }
 }
 
-impl ReduceTo<ILP> for VertexCovering<i32> {
+impl ReduceTo<ILP> for VertexCovering<SimpleGraph, i32> {
     type Result = ReductionVCToILP;
 
     fn reduce_to(&self) -> Self::Result {
@@ -96,7 +97,7 @@ mod tests {
     #[test]
     fn test_reduction_creates_valid_ilp() {
         // Triangle graph: 3 vertices, 3 edges
-        let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -140,7 +141,7 @@ mod tests {
     #[test]
     fn test_ilp_solution_equals_brute_force_triangle() {
         // Triangle graph: min VC = 2 vertices
-        let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -168,7 +169,7 @@ mod tests {
     #[test]
     fn test_ilp_solution_equals_brute_force_path() {
         // Path graph 0-1-2-3: min VC = 2 (e.g., {1, 2} or {0, 2} or {1, 3})
-        let problem = VertexCovering::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -221,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_solution_extraction() {
-        let problem = VertexCovering::<i32>::new(4, vec![(0, 1), (2, 3)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
         let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
         // Test that extraction works correctly (1:1 mapping)
@@ -236,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_source_and_target_size() {
-        let problem = VertexCovering::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
         let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
         let source_size = reduction.source_size();
@@ -252,7 +253,7 @@ mod tests {
     #[test]
     fn test_empty_graph() {
         // Graph with no edges: empty cover is valid
-        let problem = VertexCovering::<i32>::new(3, vec![]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![]);
         let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -274,7 +275,7 @@ mod tests {
     fn test_complete_graph() {
         // Complete graph K4: min VC = 3 (all but one vertex)
         let problem =
-            VertexCovering::<i32>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+            VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
         let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -292,7 +293,7 @@ mod tests {
     #[test]
     fn test_solve_reduced() {
         // Test the ILPSolver::solve_reduced method
-        let problem = VertexCovering::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         let ilp_solver = ILPSolver::new();
         let solution = ilp_solver
@@ -308,7 +309,7 @@ mod tests {
     fn test_bipartite_graph() {
         // Bipartite graph: 0-2, 0-3, 1-2, 1-3 (complete bipartite K_{2,2})
         // Min VC = 2 (either side of the bipartition)
-        let problem = VertexCovering::<i32>::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
         let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -328,7 +329,7 @@ mod tests {
     #[test]
     fn test_single_edge() {
         // Single edge: min VC = 1
-        let problem = VertexCovering::<i32>::new(2, vec![(0, 1)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(2, vec![(0, 1)]);
         let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -350,7 +351,7 @@ mod tests {
     fn test_star_graph() {
         // Star graph: center vertex 0 connected to all others
         // Min VC = 1 (just the center)
-        let problem = VertexCovering::<i32>::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]);
         let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 

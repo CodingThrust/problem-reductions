@@ -982,4 +982,3 @@ mod tests {
         assert!(sg.num_spins() >= 3); // At least c, x, y
     }
 }
-

@@ -482,8 +482,7 @@ fn export_weighted(
 
     let copy_lines_export = export_copylines_square(&copylines, padding, spacing);
     let crossing_tape_export = export_weighted_square_tape(&crossing_tape, 0);
-    let simplifier_tape_export =
-        export_weighted_square_tape(&simplifier_tape, crossing_tape.len());
+    let simplifier_tape_export = export_weighted_square_tape(&simplifier_tape, crossing_tape.len());
 
     create_export(
         graph_name,

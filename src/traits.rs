@@ -1,8 +1,6 @@
 //! Core traits for problem definitions.
 
-use crate::types::{
-    EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize,
-};
+use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use num_traits::{Num, Zero};
 use std::ops::AddAssign;
 
@@ -129,10 +127,7 @@ mod tests {
         const NAME: &'static str = "SimpleWeightedProblem";
 
         fn variant() -> Vec<(&'static str, &'static str)> {
-            vec![
-                ("graph", "SimpleGraph"),
-                ("weight", "i32"),
-            ]
+            vec![("graph", "SimpleGraph"), ("weight", "i32")]
         }
 
         type Size = i32;
@@ -173,10 +168,7 @@ mod tests {
         const NAME: &'static str = "SimpleCsp";
 
         fn variant() -> Vec<(&'static str, &'static str)> {
-            vec![
-                ("graph", "SimpleGraph"),
-                ("weight", "i32"),
-            ]
+            vec![("graph", "SimpleGraph"), ("weight", "i32")]
         }
 
         type Size = i32;
@@ -480,10 +472,7 @@ mod tests {
         const NAME: &'static str = "MultiFlavorProblem";
 
         fn variant() -> Vec<(&'static str, &'static str)> {
-            vec![
-                ("graph", "SimpleGraph"),
-                ("weight", "i32"),
-            ]
+            vec![("graph", "SimpleGraph"), ("weight", "i32")]
         }
 
         type Size = i32;

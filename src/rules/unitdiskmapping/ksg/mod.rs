@@ -24,24 +24,23 @@ pub mod mapping;
 // Re-export all public items for convenient access
 pub use gadgets::{
     apply_crossing_gadgets, apply_simplifier_gadgets, crossing_ruleset_indices,
-    tape_entry_mis_overhead, KsgBranch, KsgBranchFix, KsgBranchFixB, KsgCross,
-    KsgDanglingLeg, KsgEndTurn, KsgPattern, KsgPatternBoxed, KsgReflectedGadget,
-    KsgRotatedGadget, KsgTapeEntry, KsgTCon, KsgTrivialTurn, KsgTurn, KsgWTurn, Mirror,
+    tape_entry_mis_overhead, KsgBranch, KsgBranchFix, KsgBranchFixB, KsgCross, KsgDanglingLeg,
+    KsgEndTurn, KsgPattern, KsgPatternBoxed, KsgReflectedGadget, KsgRotatedGadget, KsgTCon,
+    KsgTapeEntry, KsgTrivialTurn, KsgTurn, KsgWTurn, Mirror,
 };
 
 pub use gadgets_weighted::{
     apply_weighted_crossing_gadgets, apply_weighted_simplifier_gadgets,
     weighted_tape_entry_mis_overhead, WeightedKsgBranch, WeightedKsgBranchFix,
     WeightedKsgBranchFixB, WeightedKsgCross, WeightedKsgDanglingLeg, WeightedKsgEndTurn,
-    WeightedKsgPattern, WeightedKsgTapeEntry, WeightedKsgTCon, WeightedKsgTrivialTurn,
+    WeightedKsgPattern, WeightedKsgTCon, WeightedKsgTapeEntry, WeightedKsgTrivialTurn,
     WeightedKsgTurn, WeightedKsgWTurn,
 };
 
 pub use mapping::{
     embed_graph, map_config_copyback, map_unweighted, map_unweighted_with_method,
-    map_unweighted_with_order, map_weighted, map_weighted_with_method,
-    map_weighted_with_order, trace_centers, unapply_gadgets, unapply_weighted_gadgets,
-    MappingResult,
+    map_unweighted_with_order, map_weighted, map_weighted_with_method, map_weighted_with_order,
+    trace_centers, unapply_gadgets, unapply_weighted_gadgets, MappingResult,
 };
 
 /// Spacing between copy lines for KSG mapping.

@@ -241,7 +241,8 @@ mod tests {
 
     #[test]
     fn test_source_and_target_size() {
-        let problem = Matching::<SimpleGraph, i32>::unweighted(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let problem =
+            Matching::<SimpleGraph, i32>::unweighted(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
         let source_size = reduction.source_size();
@@ -274,8 +275,10 @@ mod tests {
     #[test]
     fn test_k4_perfect_matching() {
         // Complete graph K4: can have perfect matching (2 edges covering all 4 vertices)
-        let problem =
-            Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(
+            4,
+            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+        );
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -317,7 +320,8 @@ mod tests {
     fn test_bipartite_graph() {
         // Bipartite graph: {0,1} and {2,3} with all cross edges
         // Max matching = 2 (one perfect matching)
-        let problem = Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
+        let problem =
+            Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 

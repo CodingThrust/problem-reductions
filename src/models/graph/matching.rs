@@ -5,8 +5,8 @@
 
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::variant::short_type_name;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
+use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -181,10 +181,7 @@ where
     const NAME: &'static str = "Matching";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", G::NAME),
-            ("weight", short_type_name::<W>()),
-        ]
+        vec![("graph", G::NAME), ("weight", short_type_name::<W>())]
     }
 
     type Size = W;

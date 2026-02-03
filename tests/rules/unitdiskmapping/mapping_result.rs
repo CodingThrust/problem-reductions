@@ -32,7 +32,10 @@ fn test_mapping_result_format_config() {
     let config: Vec<Vec<usize>> = vec![vec![0; cols]; rows];
 
     let formatted = result.format_config(&config);
-    assert!(!formatted.is_empty(), "Formatted config should not be empty");
+    assert!(
+        !formatted.is_empty(),
+        "Formatted config should not be empty"
+    );
     assert!(
         formatted.contains('o') || formatted.contains('.'),
         "Formatted config should contain cell markers"
@@ -69,7 +72,10 @@ fn test_mapping_result_format_config_flat() {
     let config: Vec<usize> = vec![0; num_nodes];
 
     let formatted = result.format_config_flat(&config);
-    assert!(!formatted.is_empty(), "Flat formatted config should not be empty");
+    assert!(
+        !formatted.is_empty(),
+        "Flat formatted config should not be empty"
+    );
 }
 
 #[test]
@@ -110,7 +116,10 @@ fn test_weighted_mapping_result_format_config() {
     let config: Vec<Vec<usize>> = vec![vec![0; cols]; rows];
 
     let formatted = result.format_config(&config);
-    assert!(!formatted.is_empty(), "Formatted config should not be empty");
+    assert!(
+        !formatted.is_empty(),
+        "Formatted config should not be empty"
+    );
 }
 
 // === Unapply Gadgets Tests ===

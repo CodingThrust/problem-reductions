@@ -4,8 +4,8 @@
 //! Common variants include 3-SAT (K=3) and 2-SAT (K=2).
 
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::variant::short_type_name;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
+use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 
 use super::CNFClause;
@@ -180,10 +180,7 @@ where
     const NAME: &'static str = "KSatisfiability";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", short_type_name::<W>()),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
     }
 
     type Size = W;

@@ -7,6 +7,7 @@
 //! - Objective: Minimize the sum of weights of selected vertices
 
 use crate::models::graph::DominatingSet;
+use crate::topology::SimpleGraph;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
@@ -26,7 +27,7 @@ pub struct ReductionDSToILP {
 }
 
 impl ReductionResult for ReductionDSToILP {
-    type Source = DominatingSet<i32>;
+    type Source = DominatingSet<SimpleGraph, i32>;
     type Target = ILP;
 
     fn target_problem(&self) -> &ILP {
@@ -50,7 +51,7 @@ impl ReductionResult for ReductionDSToILP {
     }
 }
 
-impl ReduceTo<ILP> for DominatingSet<i32> {
+impl ReduceTo<ILP> for DominatingSet<SimpleGraph, i32> {
     type Result = ReductionDSToILP;
 
     fn reduce_to(&self) -> Self::Result {
@@ -103,7 +104,7 @@ mod tests {
     #[test]
     fn test_reduction_creates_valid_ilp() {
         // Triangle graph: 3 vertices, 3 edges
-        let problem = DominatingSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -148,7 +149,7 @@ mod tests {
     fn test_ilp_solution_equals_brute_force_star() {
         // Star graph: center vertex 0 connected to all others
         // Minimum dominating set is just the center (weight 1)
-        let problem = DominatingSet::<i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
         let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -176,7 +177,7 @@ mod tests {
     #[test]
     fn test_ilp_solution_equals_brute_force_path() {
         // Path graph 0-1-2-3-4: min DS = 2 (e.g., vertices 1 and 3)
-        let problem = DominatingSet::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
         let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -228,7 +229,7 @@ mod tests {
 
     #[test]
     fn test_solution_extraction() {
-        let problem = DominatingSet::<i32>::new(4, vec![(0, 1), (2, 3)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
         let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
         // Test that extraction works correctly (1:1 mapping)
@@ -243,7 +244,7 @@ mod tests {
 
     #[test]
     fn test_source_and_target_size() {
-        let problem = DominatingSet::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
         let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
         let source_size = reduction.source_size();
@@ -259,7 +260,7 @@ mod tests {
     #[test]
     fn test_isolated_vertices() {
         // Graph with isolated vertex 2: it must be in the dominating set
-        let problem = DominatingSet::<i32>::new(3, vec![(0, 1)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
         let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -278,7 +279,7 @@ mod tests {
     fn test_complete_graph() {
         // Complete graph K4: min DS = 1 (any vertex dominates all)
         let problem =
-            DominatingSet::<i32>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+            DominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
         let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -294,7 +295,7 @@ mod tests {
     #[test]
     fn test_single_vertex() {
         // Single vertex with no edges: must be in dominating set
-        let problem = DominatingSet::<i32>::new(1, vec![]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(1, vec![]);
         let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -313,7 +314,7 @@ mod tests {
     fn test_cycle_graph() {
         // Cycle C5: 0-1-2-3-4-0
         // Minimum dominating set size = 2
-        let problem = DominatingSet::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
         let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 

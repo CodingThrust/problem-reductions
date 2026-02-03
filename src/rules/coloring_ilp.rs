@@ -8,7 +8,7 @@
 //! - Objective: None (feasibility problem, minimize 0)
 
 use crate::models::graph::Coloring;
-use crate::models::optimization::{ILP, LinearConstraint, ObjectiveSense, VarBounds};
+use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::polynomial::{Monomial, Polynomial};
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -118,7 +118,8 @@ impl ReduceTo<ILP> for Coloring {
         // Constraint 1: Each vertex has exactly one color
         // sum_c x_{v,c} = 1 for each vertex v
         for v in 0..num_vertices {
-            let terms: Vec<(usize, f64)> = (0..num_colors).map(|c| (var_index(v, c), 1.0)).collect();
+            let terms: Vec<(usize, f64)> =
+                (0..num_colors).map(|c| (var_index(v, c), 1.0)).collect();
             constraints.push(LinearConstraint::eq(terms, 1.0));
         }
 
@@ -168,7 +169,10 @@ mod tests {
 
         // Check ILP structure
         // num_vars = 3 vertices * 3 colors = 9
-        assert_eq!(ilp.num_vars, 9, "Should have 9 variables (3 vertices * 3 colors)");
+        assert_eq!(
+            ilp.num_vars, 9,
+            "Should have 9 variables (3 vertices * 3 colors)"
+        );
 
         // num_constraints = 3 (one per vertex for "exactly one color")
         //                 + 3 edges * 3 colors = 9 (edge constraints)
@@ -213,7 +217,10 @@ mod tests {
 
         // Solve with brute force on original problem
         let bf_solutions = bf.find_best(&problem);
-        assert!(!bf_solutions.is_empty(), "Brute force should find solutions");
+        assert!(
+            !bf_solutions.is_empty(),
+            "Brute force should find solutions"
+        );
 
         // Solve via ILP reduction
         let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -263,7 +270,10 @@ mod tests {
 
         // ILP should be infeasible
         let result = ilp_solver.solve(ilp);
-        assert!(result.is_none(), "Triangle with 2 colors should be infeasible");
+        assert!(
+            result.is_none(),
+            "Triangle with 2 colors should be infeasible"
+        );
     }
 
     #[test]
@@ -299,7 +309,7 @@ mod tests {
         assert_eq!(source_size.get("num_colors"), Some(3));
 
         assert_eq!(target_size.get("num_vars"), Some(15)); // 5 * 3
-        // constraints = 5 (vertex) + 4 * 3 (edge) = 17
+                                                           // constraints = 5 (vertex) + 4 * 3 (edge) = 17
         assert_eq!(target_size.get("num_constraints"), Some(17));
     }
 

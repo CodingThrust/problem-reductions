@@ -99,10 +99,7 @@ impl Problem for Coloring {
     const NAME: &'static str = "Coloring";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", "i32"),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
 
     type Size = i32;

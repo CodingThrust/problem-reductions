@@ -38,24 +38,24 @@ mod tests {
         use crate::traits::Problem;
 
         // Test IndependentSet variants
-        let v = IndependentSet::<i32>::variant();
+        let v = IndependentSet::<SimpleGraph, i32>::variant();
         assert_eq!(v.len(), 2);
         assert_eq!(v[0].0, "graph");
         assert_eq!(v[0].1, "SimpleGraph");
         assert_eq!(v[1].0, "weight");
         assert_eq!(v[1].1, "i32");
 
-        let v = IndependentSet::<f64>::variant();
+        let v = IndependentSet::<SimpleGraph, f64>::variant();
         assert_eq!(v[1].1, "f64");
 
         // Test VertexCovering
-        let v = VertexCovering::<i32>::variant();
+        let v = VertexCovering::<SimpleGraph, i32>::variant();
         assert_eq!(v.len(), 2);
         assert_eq!(v[0].1, "SimpleGraph");
         assert_eq!(v[1].1, "i32");
 
         // Test DominatingSet
-        let v = DominatingSet::<i32>::variant();
+        let v = DominatingSet::<SimpleGraph, i32>::variant();
         assert_eq!(v.len(), 2);
         assert_eq!(v[0].1, "SimpleGraph");
 
@@ -78,7 +78,7 @@ mod tests {
         assert_eq!(v[0].1, "SimpleGraph");
 
         // Test MaximalIS (no weight parameter)
-        let v = MaximalIS::variant();
+        let v = MaximalIS::<SimpleGraph, i32>::variant();
         assert_eq!(v.len(), 2);
         assert_eq!(v[0].1, "SimpleGraph");
 

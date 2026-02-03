@@ -21,8 +21,8 @@ pub use gadgets::{
     apply_crossing_gadgets, apply_simplifier_gadgets, tape_entry_mis_overhead, SourceCell,
     WeightedTriBranch, WeightedTriBranchFix, WeightedTriBranchFixB, WeightedTriCross,
     WeightedTriEndTurn, WeightedTriTConDown, WeightedTriTConLeft, WeightedTriTConUp,
-    WeightedTriTapeEntry, WeightedTriTrivialTurnLeft, WeightedTriTrivialTurnRight,
-    WeightedTriTurn, WeightedTriWTurn, WeightedTriangularGadget,
+    WeightedTriTapeEntry, WeightedTriTrivialTurnLeft, WeightedTriTrivialTurnRight, WeightedTriTurn,
+    WeightedTriWTurn, WeightedTriangularGadget,
 };
 
 // Re-export all public items from mapping for convenient access

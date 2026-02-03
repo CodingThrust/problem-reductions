@@ -184,10 +184,7 @@ impl Problem for BicliqueCover {
     const NAME: &'static str = "BicliqueCover";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", "i32"),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
 
     type Size = i32;

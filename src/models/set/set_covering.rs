@@ -4,8 +4,8 @@
 //! that covers all elements in the universe.
 
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::variant::short_type_name;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
+use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -123,10 +123,7 @@ where
     const NAME: &'static str = "SetCovering";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", short_type_name::<W>()),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
     }
 
     type Size = W;

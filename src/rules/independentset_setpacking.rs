@@ -4,6 +4,7 @@
 //! SetPacking → IS: Each set becomes a vertex; two vertices are adjacent if their sets overlap.
 
 use crate::models::graph::IndependentSet;
+use crate::topology::SimpleGraph;
 use crate::models::set::SetPacking;
 use crate::poly;
 use crate::reduction;
@@ -26,7 +27,7 @@ impl<W> ReductionResult for ReductionISToSP<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
-    type Source = IndependentSet<W>;
+    type Source = IndependentSet<SimpleGraph, W>;
     type Target = SetPacking<W>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -56,7 +57,7 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<SetPacking<W>> for IndependentSet<W>
+impl<W> ReduceTo<SetPacking<W>> for IndependentSet<SimpleGraph, W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
@@ -85,7 +86,7 @@ where
 /// Result of reducing SetPacking to IndependentSet.
 #[derive(Debug, Clone)]
 pub struct ReductionSPToIS<W> {
-    target: IndependentSet<W>,
+    target: IndependentSet<SimpleGraph, W>,
     source_size: ProblemSize,
 }
 
@@ -94,7 +95,7 @@ where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = SetPacking<W>;
-    type Target = IndependentSet<W>;
+    type Target = IndependentSet<SimpleGraph, W>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -123,7 +124,7 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<IndependentSet<W>> for SetPacking<W>
+impl<W> ReduceTo<IndependentSet<SimpleGraph, W>> for SetPacking<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
@@ -162,7 +163,7 @@ mod tests {
     #[test]
     fn test_is_to_setpacking() {
         // Triangle graph
-        let is_problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&is_problem);
         let sp_problem = reduction.target_problem();
 
@@ -192,7 +193,7 @@ mod tests {
         ];
         let sp_problem = SetPacking::<i32>::new(sets);
         let reduction: ReductionSPToIS<i32> =
-            ReduceTo::<IndependentSet<i32>>::reduce_to(&sp_problem);
+            ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sp_problem);
         let is_problem = reduction.target_problem();
 
         let solver = BruteForce::new();
@@ -207,14 +208,14 @@ mod tests {
 
     #[test]
     fn test_roundtrip_is_sp_is() {
-        let original = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let original = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
         let original_solutions = solver.find_best(&original);
 
         // IS -> SP -> IS
         let reduction1 = ReduceTo::<SetPacking<i32>>::reduce_to(&original);
         let sp = reduction1.target_problem().clone();
-        let reduction2: ReductionSPToIS<i32> = ReduceTo::<IndependentSet<i32>>::reduce_to(&sp);
+        let reduction2: ReductionSPToIS<i32> = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sp);
         let roundtrip = reduction2.target_problem();
 
         let roundtrip_solutions = solver.find_best(roundtrip);
@@ -238,7 +239,7 @@ mod tests {
     #[test]
     fn test_empty_graph() {
         // No edges means all sets are empty (or we need to handle it)
-        let is_problem = IndependentSet::<i32>::new(3, vec![]);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&is_problem);
         let sp_problem = reduction.target_problem();
 
@@ -258,7 +259,7 @@ mod tests {
         let sets = vec![vec![0], vec![1], vec![2]];
         let sp_problem = SetPacking::<i32>::new(sets);
         let reduction: ReductionSPToIS<i32> =
-            ReduceTo::<IndependentSet<i32>>::reduce_to(&sp_problem);
+            ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sp_problem);
         let is_problem = reduction.target_problem();
 
         // No edges in the intersection graph
@@ -268,7 +269,7 @@ mod tests {
     #[test]
     fn test_reduction_sizes() {
         // Test source_size and target_size methods
-        let is_problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2)]);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&is_problem);
 
         let source_size = reduction.source_size();
@@ -282,7 +283,7 @@ mod tests {
         let sets = vec![vec![0, 1], vec![2, 3]];
         let sp_problem = SetPacking::<i32>::new(sets);
         let reduction2: ReductionSPToIS<i32> =
-            ReduceTo::<IndependentSet<i32>>::reduce_to(&sp_problem);
+            ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sp_problem);
 
         let source_size2 = reduction2.source_size();
         let target_size2 = reduction2.target_size();
@@ -291,4 +292,3 @@ mod tests {
         assert!(!target_size2.components.is_empty());
     }
 }
-

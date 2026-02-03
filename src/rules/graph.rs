@@ -131,7 +131,7 @@ impl ReductionEdge {
 
 /// Runtime graph of all registered reductions.
 ///
-/// Uses type-erased names for the graph topology, so `MaxCut<i32>` and `MaxCut<f64>`
+/// Uses type-erased names for the graph topology, so `MaxCut<SimpleGraph, i32>` and `MaxCut<SimpleGraph, f64>`
 /// map to the same node "MaxCut". This allows finding reduction paths regardless
 /// of weight type parameters.
 ///
@@ -385,7 +385,12 @@ impl ReductionGraph {
                 let next = edge_ref.target();
 
                 // Check set-theoretic applicability
-                if !self.rule_applicable(source.1, target.1, edge.source_graph(), edge.target_graph()) {
+                if !self.rule_applicable(
+                    source.1,
+                    target.1,
+                    edge.source_graph(),
+                    edge.target_graph(),
+                ) {
                     continue;
                 }
 
@@ -430,7 +435,7 @@ impl ReductionGraph {
 
     /// Find all paths from source to target type.
     ///
-    /// Uses type-erased names, so `find_paths::<MaxCut<i32>, SpinGlass<f64>>()`
+    /// Uses type-erased names, so `find_paths::<MaxCut<SimpleGraph, i32>, SpinGlass<f64>>()`
     /// will find paths even though the weight types differ.
     pub fn find_paths<S: 'static, T: 'static>(&self) -> Vec<ReductionPath> {
         let src_name = match self.type_to_name.get(&TypeId::of::<S>()) {
@@ -553,10 +558,7 @@ impl ReductionGraph {
     }
 
     /// Helper to create a VariantRef from name and variant slice.
-    fn make_variant_ref(
-        name: &str,
-        variant: &[(&'static str, &'static str)],
-    ) -> VariantRef {
+    fn make_variant_ref(name: &str, variant: &[(&'static str, &'static str)]) -> VariantRef {
         VariantRef {
             name: name.to_string(),
             variant: Self::variant_to_map(variant),
@@ -629,8 +631,18 @@ impl ReductionGraph {
             })
             .collect();
         edges.sort_by(|a, b| {
-            (&a.source.name, &a.source.variant, &a.target.name, &a.target.variant)
-                .cmp(&(&b.source.name, &b.source.variant, &b.target.name, &b.target.variant))
+            (
+                &a.source.name,
+                &a.source.variant,
+                &a.target.name,
+                &a.target.variant,
+            )
+                .cmp(&(
+                    &b.source.name,
+                    &b.source.variant,
+                    &b.target.name,
+                    &b.target.variant,
+                ))
         });
 
         ReductionGraphJson { nodes, edges }
@@ -680,11 +692,12 @@ mod tests {
     use crate::models::graph::{IndependentSet, VertexCovering};
     use crate::models::set::SetPacking;
     use crate::rules::cost::MinimizeSteps;
+    use crate::topology::SimpleGraph;
 
     #[test]
     fn test_find_direct_path() {
         let graph = ReductionGraph::new();
-        let paths = graph.find_paths::<IndependentSet<i32>, VertexCovering<i32>>();
+        let paths = graph.find_paths::<IndependentSet<SimpleGraph, i32>, VertexCovering<SimpleGraph, i32>>();
         assert!(!paths.is_empty());
         assert_eq!(paths[0].type_names.len(), 2);
         assert_eq!(paths[0].len(), 1); // One reduction step
@@ -694,14 +707,14 @@ mod tests {
     fn test_find_indirect_path() {
         let graph = ReductionGraph::new();
         // IS -> VC -> IS -> SP or IS -> SP directly
-        let paths = graph.find_paths::<IndependentSet<i32>, SetPacking<i32>>();
+        let paths = graph.find_paths::<IndependentSet<SimpleGraph, i32>, SetPacking<i32>>();
         assert!(!paths.is_empty());
     }
 
     #[test]
     fn test_find_shortest_path() {
         let graph = ReductionGraph::new();
-        let path = graph.find_shortest_path::<IndependentSet<i32>, SetPacking<i32>>();
+        let path = graph.find_shortest_path::<IndependentSet<SimpleGraph, i32>, SetPacking<i32>>();
         assert!(path.is_some());
         let path = path.unwrap();
         assert_eq!(path.len(), 1); // Direct path exists
@@ -710,8 +723,8 @@ mod tests {
     #[test]
     fn test_has_direct_reduction() {
         let graph = ReductionGraph::new();
-        assert!(graph.has_direct_reduction::<IndependentSet<i32>, VertexCovering<i32>>());
-        assert!(graph.has_direct_reduction::<VertexCovering<i32>, IndependentSet<i32>>());
+        assert!(graph.has_direct_reduction::<IndependentSet<SimpleGraph, i32>, VertexCovering<SimpleGraph, i32>>());
+        assert!(graph.has_direct_reduction::<VertexCovering<SimpleGraph, i32>, IndependentSet<SimpleGraph, i32>>());
     }
 
     #[test]
@@ -719,7 +732,7 @@ mod tests {
         let graph = ReductionGraph::new();
         // No path between IndependentSet and QUBO (disconnected in graph topology)
         let paths =
-            graph.find_paths::<IndependentSet<i32>, crate::models::optimization::QUBO<f64>>();
+            graph.find_paths::<IndependentSet<SimpleGraph, i32>, crate::models::optimization::QUBO<f64>>();
         assert!(paths.is_empty());
     }
 
@@ -729,11 +742,11 @@ mod tests {
 
         // Different weight types should find the same path (type-erased)
         let paths_i32 = graph.find_paths::<
-            crate::models::graph::MaxCut<i32>,
+            crate::models::graph::MaxCut<SimpleGraph, i32>,
             crate::models::optimization::SpinGlass<i32>,
         >();
         let paths_f64 = graph.find_paths::<
-            crate::models::graph::MaxCut<f64>,
+            crate::models::graph::MaxCut<SimpleGraph, f64>,
             crate::models::optimization::SpinGlass<f64>,
         >();
 
@@ -776,7 +789,7 @@ mod tests {
     fn test_reduction_path_methods() {
         let graph = ReductionGraph::new();
         let path = graph
-            .find_shortest_path::<IndependentSet<i32>, VertexCovering<i32>>()
+            .find_shortest_path::<IndependentSet<SimpleGraph, i32>, VertexCovering<SimpleGraph, i32>>()
             .unwrap();
 
         assert!(!path.is_empty());
@@ -789,11 +802,11 @@ mod tests {
         let graph = ReductionGraph::new();
 
         // Forward path
-        let forward = graph.find_paths::<IndependentSet<i32>, VertexCovering<i32>>();
+        let forward = graph.find_paths::<IndependentSet<SimpleGraph, i32>, VertexCovering<SimpleGraph, i32>>();
         assert!(!forward.is_empty());
 
         // Backward path
-        let backward = graph.find_paths::<VertexCovering<i32>, IndependentSet<i32>>();
+        let backward = graph.find_paths::<VertexCovering<SimpleGraph, i32>, IndependentSet<SimpleGraph, i32>>();
         assert!(!backward.is_empty());
     }
 
@@ -814,7 +827,8 @@ mod tests {
         // Check that IS <-> VC is marked bidirectional
         let is_vc_edge = json.edges.iter().find(|e| {
             (e.source.name.contains("IndependentSet") && e.target.name.contains("VertexCovering"))
-                || (e.source.name.contains("VertexCovering") && e.target.name.contains("IndependentSet"))
+                || (e.source.name.contains("VertexCovering")
+                    && e.target.name.contains("IndependentSet"))
         });
         assert!(is_vc_edge.is_some());
         assert!(is_vc_edge.unwrap().bidirectional);
@@ -837,17 +851,17 @@ mod tests {
     fn test_categorize_type() {
         // Graph problems
         assert_eq!(
-            ReductionGraph::categorize_type("IndependentSet<i32>"),
+            ReductionGraph::categorize_type("IndependentSet<SimpleGraph, i32>"),
             "graph"
         );
         assert_eq!(
-            ReductionGraph::categorize_type("VertexCovering<i32>"),
+            ReductionGraph::categorize_type("VertexCovering<SimpleGraph, i32>"),
             "graph"
         );
-        assert_eq!(ReductionGraph::categorize_type("MaxCut<i32>"), "graph");
+        assert_eq!(ReductionGraph::categorize_type("MaxCut<SimpleGraph, i32>"), "graph");
         assert_eq!(ReductionGraph::categorize_type("Coloring"), "graph");
         assert_eq!(
-            ReductionGraph::categorize_type("DominatingSet<i32>"),
+            ReductionGraph::categorize_type("DominatingSet<SimpleGraph, i32>"),
             "graph"
         );
         assert_eq!(ReductionGraph::categorize_type("Matching<i32>"), "graph");
@@ -893,13 +907,13 @@ mod tests {
         let graph = ReductionGraph::new();
 
         // SAT -> IS
-        assert!(graph.has_direct_reduction::<Satisfiability<i32>, IndependentSet<i32>>());
+        assert!(graph.has_direct_reduction::<Satisfiability<i32>, IndependentSet<SimpleGraph, i32>>());
 
         // SAT -> Coloring
         assert!(graph.has_direct_reduction::<Satisfiability<i32>, Coloring>());
 
         // SAT -> DominatingSet
-        assert!(graph.has_direct_reduction::<Satisfiability<i32>, DominatingSet<i32>>());
+        assert!(graph.has_direct_reduction::<Satisfiability<i32>, DominatingSet<SimpleGraph, i32>>());
     }
 
     #[test]
@@ -936,8 +950,8 @@ mod tests {
         assert!(graph.has_direct_reduction::<QUBO<f64>, SpinGlass<f64>>());
 
         // MaxCut <-> SpinGlass (bidirectional)
-        assert!(graph.has_direct_reduction::<MaxCut<i32>, SpinGlass<f64>>());
-        assert!(graph.has_direct_reduction::<SpinGlass<f64>, MaxCut<i32>>());
+        assert!(graph.has_direct_reduction::<MaxCut<SimpleGraph, i32>, SpinGlass<f64>>());
+        assert!(graph.has_direct_reduction::<SpinGlass<f64>, MaxCut<SimpleGraph, i32>>());
     }
 
     #[test]
@@ -1029,10 +1043,10 @@ mod tests {
         let graph = ReductionGraph::new();
 
         // Source type not registered
-        assert!(!graph.has_direct_reduction::<UnregisteredType, IndependentSet<i32>>());
+        assert!(!graph.has_direct_reduction::<UnregisteredType, IndependentSet<SimpleGraph, i32>>());
 
         // Target type not registered
-        assert!(!graph.has_direct_reduction::<IndependentSet<i32>, UnregisteredType>());
+        assert!(!graph.has_direct_reduction::<IndependentSet<SimpleGraph, i32>, UnregisteredType>());
 
         // Both types not registered
         assert!(!graph.has_direct_reduction::<UnregisteredType, UnregisteredType>());
@@ -1043,7 +1057,7 @@ mod tests {
         struct UnregisteredType;
 
         let graph = ReductionGraph::new();
-        let paths = graph.find_paths::<UnregisteredType, IndependentSet<i32>>();
+        let paths = graph.find_paths::<UnregisteredType, IndependentSet<SimpleGraph, i32>>();
         assert!(paths.is_empty());
     }
 
@@ -1052,7 +1066,7 @@ mod tests {
         struct UnregisteredType;
 
         let graph = ReductionGraph::new();
-        let paths = graph.find_paths::<IndependentSet<i32>, UnregisteredType>();
+        let paths = graph.find_paths::<IndependentSet<SimpleGraph, i32>, UnregisteredType>();
         assert!(paths.is_empty());
     }
 
@@ -1061,7 +1075,7 @@ mod tests {
         struct UnregisteredType;
 
         let graph = ReductionGraph::new();
-        let path = graph.find_shortest_path::<UnregisteredType, IndependentSet<i32>>();
+        let path = graph.find_shortest_path::<UnregisteredType, IndependentSet<SimpleGraph, i32>>();
         assert!(path.is_none());
     }
 
@@ -1092,14 +1106,17 @@ mod tests {
         // Verify specific known bidirectional edges
         let is_vc_bidir = json.edges.iter().any(|e| {
             (e.source.name.contains("IndependentSet") && e.target.name.contains("VertexCovering")
-                || e.source.name.contains("VertexCovering") && e.target.name.contains("IndependentSet"))
+                || e.source.name.contains("VertexCovering")
+                    && e.target.name.contains("IndependentSet"))
                 && e.bidirectional
         });
         assert!(is_vc_bidir, "IS <-> VC should be bidirectional");
 
         // Verify specific known unidirectional edge
         let factoring_circuit_unidir = json.edges.iter().any(|e| {
-            e.source.name.contains("Factoring") && e.target.name.contains("CircuitSAT") && !e.bidirectional
+            e.source.name.contains("Factoring")
+                && e.target.name.contains("CircuitSAT")
+                && !e.bidirectional
         });
         assert!(
             factoring_circuit_unidir,
@@ -1349,7 +1366,10 @@ mod tests {
         let variant: &[(&str, &str)] = &[("graph", "PlanarGraph"), ("weight", "f64")];
         let variant_ref = ReductionGraph::make_variant_ref("IndependentSet", variant);
         assert_eq!(variant_ref.name, "IndependentSet");
-        assert_eq!(variant_ref.variant.get("graph"), Some(&"PlanarGraph".to_string()));
+        assert_eq!(
+            variant_ref.variant.get("graph"),
+            Some(&"PlanarGraph".to_string())
+        );
         assert_eq!(variant_ref.variant.get("weight"), Some(&"f64".to_string()));
     }
 
@@ -1389,9 +1409,13 @@ mod tests {
         assert!(is_node.is_some(), "IndependentSet node should exist");
 
         // Find an edge involving IndependentSet (could be source or target)
-        let is_edge = json.edges.iter().find(|e| {
-            e.source.name == "IndependentSet" || e.target.name == "IndependentSet"
-        });
-        assert!(is_edge.is_some(), "Edge involving IndependentSet should exist");
+        let is_edge = json
+            .edges
+            .iter()
+            .find(|e| e.source.name == "IndependentSet" || e.target.name == "IndependentSet");
+        assert!(
+            is_edge.is_some(),
+            "Edge involving IndependentSet should exist"
+        );
     }
 }

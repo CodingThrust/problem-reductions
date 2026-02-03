@@ -519,7 +519,8 @@ fn test_tape_entry_mis_overhead_crossing_patterns() {
         assert!(
             (-2..=1).contains(&overhead),
             "Pattern {} has unexpected overhead {}",
-            pattern_idx, overhead
+            pattern_idx,
+            overhead
         );
     }
 }

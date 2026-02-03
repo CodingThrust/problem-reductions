@@ -61,11 +61,11 @@ pub use triangular::{PADDING as TRIANGULAR_PADDING, SPACING as TRIANGULAR_SPACIN
 
 // Old gadget names
 pub use ksg::{
-    KsgBranch as Branch, KsgBranchFix as BranchFix, KsgBranchFixB as BranchFixB,
-    KsgCross as Cross, KsgDanglingLeg as DanglingLeg, KsgEndTurn as EndTurn,
-    KsgPattern as SquarePattern, KsgReflectedGadget as ReflectedGadget,
-    KsgRotatedGadget as RotatedGadget, KsgTCon as TCon, KsgTapeEntry as TapeEntry,
-    KsgTrivialTurn as TrivialTurn, KsgTurn as Turn, KsgWTurn as WTurn, Mirror,
+    KsgBranch as Branch, KsgBranchFix as BranchFix, KsgBranchFixB as BranchFixB, KsgCross as Cross,
+    KsgDanglingLeg as DanglingLeg, KsgEndTurn as EndTurn, KsgPattern as SquarePattern,
+    KsgReflectedGadget as ReflectedGadget, KsgRotatedGadget as RotatedGadget, KsgTCon as TCon,
+    KsgTapeEntry as TapeEntry, KsgTrivialTurn as TrivialTurn, KsgTurn as Turn, KsgWTurn as WTurn,
+    Mirror,
 };
 
 pub use triangular::{
@@ -85,9 +85,9 @@ pub use weighted::{map_weights, trace_centers, Weightable};
 
 // KSG gadget application functions
 pub use ksg::{
-    apply_crossing_gadgets, apply_simplifier_gadgets, tape_entry_mis_overhead,
-    apply_weighted_crossing_gadgets, apply_weighted_simplifier_gadgets,
-    weighted_tape_entry_mis_overhead, WeightedKsgTapeEntry,
+    apply_crossing_gadgets, apply_simplifier_gadgets, apply_weighted_crossing_gadgets,
+    apply_weighted_simplifier_gadgets, tape_entry_mis_overhead, weighted_tape_entry_mis_overhead,
+    WeightedKsgTapeEntry,
 };
 
 // KSG weighted gadget types for testing

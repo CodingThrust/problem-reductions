@@ -3,8 +3,8 @@
 //! QUBO minimizes a quadratic function over binary variables.
 
 use crate::traits::Problem;
-use crate::variant::short_type_name;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
+use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 
 /// The QUBO (Quadratic Unconstrained Binary Optimization) problem.
@@ -115,10 +115,7 @@ where
     const NAME: &'static str = "QUBO";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", short_type_name::<W>()),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
     }
 
     type Size = W;

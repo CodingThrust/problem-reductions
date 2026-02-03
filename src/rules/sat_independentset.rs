@@ -9,6 +9,7 @@
 //! where we pick exactly one literal from each clause.
 
 use crate::models::graph::IndependentSet;
+use crate::topology::SimpleGraph;
 use crate::models::satisfiability::Satisfiability;
 use crate::poly;
 use crate::reduction;
@@ -58,7 +59,7 @@ impl BoolVar {
 #[derive(Debug, Clone)]
 pub struct ReductionSATToIS<W> {
     /// The target IndependentSet problem.
-    target: IndependentSet<W>,
+    target: IndependentSet<SimpleGraph, W>,
     /// Mapping from vertex index to the literal it represents.
     literals: Vec<BoolVar>,
     /// The number of variables in the source SAT problem.
@@ -74,7 +75,7 @@ where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = Satisfiability<W>;
-    type Target = IndependentSet<W>;
+    type Target = IndependentSet<SimpleGraph, W>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -134,7 +135,7 @@ impl<W> ReductionSATToIS<W> {
         ])
     }
 )]
-impl<W> ReduceTo<IndependentSet<W>> for Satisfiability<W>
+impl<W> ReduceTo<IndependentSet<SimpleGraph, W>> for Satisfiability<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
@@ -233,7 +234,7 @@ mod tests {
     fn test_simple_sat_to_is() {
         // Simple SAT: (x1) - one clause with one literal
         let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1])]);
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
         let is_problem = reduction.target_problem();
 
         // Should have 1 vertex (one literal)
@@ -248,7 +249,7 @@ mod tests {
         // This is unsatisfiable
         let sat =
             Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
         let is_problem = reduction.target_problem();
 
         // Should have 2 vertices
@@ -276,7 +277,7 @@ mod tests {
                 CNFClause::new(vec![1, -2]), // x1 OR NOT x2
             ],
         );
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
         let is_problem = reduction.target_problem();
 
         // Should have 6 vertices (2 literals per clause, 3 clauses)
@@ -317,7 +318,7 @@ mod tests {
         // SAT: (x1) AND (NOT x1) - unsatisfiable
         let sat =
             Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
         let is_problem = reduction.target_problem();
 
         let solver = BruteForce::new();
@@ -345,7 +346,7 @@ mod tests {
             ],
         );
 
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
         let is_problem = reduction.target_problem();
 
         // Should have 9 vertices (3 literals per clause, 3 clauses)
@@ -370,7 +371,7 @@ mod tests {
     fn test_extract_solution_basic() {
         // Simple case: (x1 OR x2)
         let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, 2])]);
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
 
         // Select vertex 0 (literal x1)
         let is_sol = vec![1, 0];
@@ -387,7 +388,7 @@ mod tests {
     fn test_extract_solution_with_negation() {
         // (NOT x1) - selecting NOT x1 means x1 should be false
         let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![-1])]);
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
 
         let is_sol = vec![1];
         let sat_sol = reduction.extract_solution(&is_sol);
@@ -398,7 +399,7 @@ mod tests {
     fn test_clique_edges_in_clause() {
         // A clause with 3 literals should form a clique (3 edges)
         let sat = Satisfiability::<i32>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
         let is_problem = reduction.target_problem();
 
         // 3 vertices, 3 edges (complete graph K3)
@@ -419,7 +420,7 @@ mod tests {
                 CNFClause::new(vec![2]),
             ],
         );
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
         let is_problem = reduction.target_problem();
 
         assert_eq!(is_problem.num_vertices(), 3);
@@ -432,7 +433,7 @@ mod tests {
             3,
             vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
         );
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
 
         let source_size = reduction.source_size();
         let target_size = reduction.target_size();
@@ -446,7 +447,7 @@ mod tests {
     fn test_empty_sat() {
         // Empty SAT (trivially satisfiable)
         let sat = Satisfiability::<i32>::new(0, vec![]);
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
         let is_problem = reduction.target_problem();
 
         assert_eq!(is_problem.num_vertices(), 0);
@@ -467,7 +468,7 @@ mod tests {
         let direct_sat_solutions = sat_solver.find_best(&sat);
 
         // Solve via reduction
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
         let is_problem = reduction.target_problem();
         let is_solutions = sat_solver.find_best(is_problem);
 
@@ -494,7 +495,7 @@ mod tests {
     #[test]
     fn test_literals_accessor() {
         let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, -2])]);
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
 
         let literals = reduction.literals();
         assert_eq!(literals.len(), 2);
@@ -502,4 +503,3 @@ mod tests {
         assert_eq!(literals[1], BoolVar::new(1, true)); // NOT x2
     }
 }
-

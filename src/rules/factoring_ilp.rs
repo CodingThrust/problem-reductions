@@ -17,7 +17,7 @@
 //! 2. Bit-position sums: Σ_{i+j=k} z_ij + c_{k-1} = N_k + 2·c_k
 //! 3. No overflow: c_{m+n-1} = 0
 
-use crate::models::optimization::{ILP, LinearConstraint, ObjectiveSense, VarBounds};
+use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::models::specialized::Factoring;
 use crate::polynomial::{Monomial, Polynomial};
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
@@ -203,16 +203,10 @@ impl ReduceTo<ILP> for Factoring {
                 let q = q_var(j);
 
                 // z_ij - p_i ≤ 0
-                constraints.push(LinearConstraint::le(
-                    vec![(z, 1.0), (p, -1.0)],
-                    0.0,
-                ));
+                constraints.push(LinearConstraint::le(vec![(z, 1.0), (p, -1.0)], 0.0));
 
                 // z_ij - q_j ≤ 0
-                constraints.push(LinearConstraint::le(
-                    vec![(z, 1.0), (q, -1.0)],
-                    0.0,
-                ));
+                constraints.push(LinearConstraint::le(vec![(z, 1.0), (q, -1.0)], 0.0));
 
                 // z_ij - p_i - q_j ≥ -1
                 constraints.push(LinearConstraint::ge(

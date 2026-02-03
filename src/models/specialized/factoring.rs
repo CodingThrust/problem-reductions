@@ -98,10 +98,7 @@ impl Problem for Factoring {
     const NAME: &'static str = "Factoring";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", "i32"),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
 
     type Size = i32;

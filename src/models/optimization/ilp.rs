@@ -328,10 +328,7 @@ impl Problem for ILP {
     const NAME: &'static str = "ILP";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", "f64"),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", "f64")]
     }
 
     type Size = f64;

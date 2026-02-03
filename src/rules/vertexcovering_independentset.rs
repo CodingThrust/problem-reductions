@@ -3,6 +3,7 @@
 //! These problems are complements: a set S is an independent set iff V\S is a vertex cover.
 
 use crate::models::graph::{IndependentSet, VertexCovering};
+use crate::topology::SimpleGraph;
 use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
@@ -15,7 +16,7 @@ use std::ops::AddAssign;
 /// Result of reducing IndependentSet to VertexCovering.
 #[derive(Debug, Clone)]
 pub struct ReductionISToVC<W> {
-    target: VertexCovering<W>,
+    target: VertexCovering<SimpleGraph, W>,
     source_size: ProblemSize,
 }
 
@@ -23,8 +24,8 @@ impl<W> ReductionResult for ReductionISToVC<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
-    type Source = IndependentSet<W>;
-    type Target = VertexCovering<W>;
+    type Source = IndependentSet<SimpleGraph, W>;
+    type Target = VertexCovering<SimpleGraph, W>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -55,7 +56,7 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<VertexCovering<W>> for IndependentSet<W>
+impl<W> ReduceTo<VertexCovering<SimpleGraph, W>> for IndependentSet<SimpleGraph, W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
@@ -77,7 +78,7 @@ where
 /// Result of reducing VertexCovering to IndependentSet.
 #[derive(Debug, Clone)]
 pub struct ReductionVCToIS<W> {
-    target: IndependentSet<W>,
+    target: IndependentSet<SimpleGraph, W>,
     source_size: ProblemSize,
 }
 
@@ -85,8 +86,8 @@ impl<W> ReductionResult for ReductionVCToIS<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
-    type Source = VertexCovering<W>;
-    type Target = IndependentSet<W>;
+    type Source = VertexCovering<SimpleGraph, W>;
+    type Target = IndependentSet<SimpleGraph, W>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -116,7 +117,7 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<IndependentSet<W>> for VertexCovering<W>
+impl<W> ReduceTo<IndependentSet<SimpleGraph, W>> for VertexCovering<SimpleGraph, W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
@@ -143,8 +144,8 @@ mod tests {
     #[test]
     fn test_is_to_vc_reduction() {
         // Triangle graph: max IS = 1, min VC = 2
-        let is_problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-        let reduction = ReduceTo::<VertexCovering<i32>>::reduce_to(&is_problem);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let reduction = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&is_problem);
         let vc_problem = reduction.target_problem();
 
         // Solve the VC problem
@@ -167,8 +168,8 @@ mod tests {
     #[test]
     fn test_vc_to_is_reduction() {
         // Path graph 0-1-2: min VC = 1 (just vertex 1), max IS = 2 (vertices 0 and 2)
-        let vc_problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
-        let reduction = ReduceTo::<IndependentSet<i32>>::reduce_to(&vc_problem);
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+        let reduction = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&vc_problem);
         let is_problem = reduction.target_problem();
 
         let solver = BruteForce::new();
@@ -188,14 +189,14 @@ mod tests {
 
     #[test]
     fn test_roundtrip_is_vc_is() {
-        let original = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let original = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
         let original_solutions = solver.find_best(&original);
 
         // IS -> VC -> IS
-        let reduction1 = ReduceTo::<VertexCovering<i32>>::reduce_to(&original);
+        let reduction1 = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&original);
         let vc = reduction1.target_problem().clone();
-        let reduction2 = ReduceTo::<IndependentSet<i32>>::reduce_to(&vc);
+        let reduction2 = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&vc);
         let roundtrip = reduction2.target_problem();
 
         let roundtrip_solutions = solver.find_best(roundtrip);
@@ -210,7 +211,7 @@ mod tests {
     fn test_weighted_reduction() {
         // Test with weighted problems
         let is_problem = IndependentSet::with_weights(3, vec![(0, 1), (1, 2)], vec![10, 20, 30]);
-        let reduction = ReduceTo::<VertexCovering<i32>>::reduce_to(&is_problem);
+        let reduction = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&is_problem);
         let vc_problem = reduction.target_problem();
 
         // Weights should be preserved
@@ -219,8 +220,8 @@ mod tests {
 
     #[test]
     fn test_source_and_target_size() {
-        let is_problem = IndependentSet::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
-        let reduction = ReduceTo::<VertexCovering<i32>>::reduce_to(&is_problem);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let reduction = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&is_problem);
 
         let source_size = reduction.source_size();
         let target_size = reduction.target_size();
@@ -229,4 +230,3 @@ mod tests {
         assert_eq!(target_size.get("num_vertices"), Some(5));
     }
 }
-

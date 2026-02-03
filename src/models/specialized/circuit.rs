@@ -4,8 +4,8 @@
 //! The goal is to find variable assignments that satisfy the circuit constraints.
 
 use crate::traits::Problem;
-use crate::variant::short_type_name;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
+use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -280,10 +280,7 @@ where
     const NAME: &'static str = "CircuitSAT";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", short_type_name::<W>()),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
     }
 
     type Size = W;

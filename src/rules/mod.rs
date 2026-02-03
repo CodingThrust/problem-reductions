@@ -32,6 +32,8 @@ mod coloring_ilp;
 #[cfg(feature = "ilp")]
 mod dominatingset_ilp;
 #[cfg(feature = "ilp")]
+mod factoring_ilp;
+#[cfg(feature = "ilp")]
 mod independentset_ilp;
 #[cfg(feature = "ilp")]
 mod matching_ilp;
@@ -41,8 +43,6 @@ mod setcovering_ilp;
 mod setpacking_ilp;
 #[cfg(feature = "ilp")]
 mod vertexcovering_ilp;
-#[cfg(feature = "ilp")]
-mod factoring_ilp;
 
 pub use circuit_spinglass::{
     and_gadget, not_gadget, or_gadget, set0_gadget, set1_gadget, xor_gadget, LogicGadget,
@@ -71,6 +71,8 @@ pub use coloring_ilp::ReductionColoringToILP;
 #[cfg(feature = "ilp")]
 pub use dominatingset_ilp::ReductionDSToILP;
 #[cfg(feature = "ilp")]
+pub use factoring_ilp::ReductionFactoringToILP;
+#[cfg(feature = "ilp")]
 pub use independentset_ilp::ReductionISToILP;
 #[cfg(feature = "ilp")]
 pub use matching_ilp::ReductionMatchingToILP;
@@ -80,5 +82,3 @@ pub use setcovering_ilp::ReductionSCToILP;
 pub use setpacking_ilp::ReductionSPToILP;
 #[cfg(feature = "ilp")]
 pub use vertexcovering_ilp::ReductionVCToILP;
-#[cfg(feature = "ilp")]
-pub use factoring_ilp::ReductionFactoringToILP;

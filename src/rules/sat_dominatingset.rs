@@ -16,6 +16,7 @@
 
 use crate::models::graph::DominatingSet;
 use crate::models::satisfiability::Satisfiability;
+use crate::topology::SimpleGraph;
 use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
@@ -35,7 +36,7 @@ use std::ops::AddAssign;
 #[derive(Debug, Clone)]
 pub struct ReductionSATToDS<W> {
     /// The target DominatingSet problem.
-    target: DominatingSet<W>,
+    target: DominatingSet<SimpleGraph, W>,
     /// The number of variables in the source SAT problem.
     num_literals: usize,
     /// The number of clauses in the source SAT problem.
@@ -49,7 +50,7 @@ where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
     type Source = Satisfiability<W>;
-    type Target = DominatingSet<W>;
+    type Target = DominatingSet<SimpleGraph, W>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -138,7 +139,7 @@ impl<W> ReductionSATToDS<W> {
         ])
     }
 )]
-impl<W> ReduceTo<DominatingSet<W>> for Satisfiability<W>
+impl<W> ReduceTo<DominatingSet<SimpleGraph, W>> for Satisfiability<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
@@ -207,7 +208,7 @@ mod tests {
     fn test_simple_sat_to_ds() {
         // Simple SAT: (x1) - one variable, one clause
         let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1])]);
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
         let ds_problem = reduction.target_problem();
 
         // Should have 3 vertices (variable gadget) + 1 clause vertex = 4 vertices
@@ -223,7 +224,7 @@ mod tests {
     fn test_two_variable_sat_to_ds() {
         // SAT: (x1 OR x2)
         let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, 2])]);
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
         let ds_problem = reduction.target_problem();
 
         // 2 variables * 3 = 6 gadget vertices + 1 clause vertex = 7
@@ -247,7 +248,7 @@ mod tests {
                 CNFClause::new(vec![-1, 2]), // NOT x1 OR x2
             ],
         );
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
         let ds_problem = reduction.target_problem();
 
         // Solve the dominating set problem
@@ -276,7 +277,7 @@ mod tests {
         // SAT: (x1) AND (NOT x1) - unsatisfiable
         let sat =
             Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
         let ds_problem = reduction.target_problem();
 
         // Vertices: 3 (gadget) + 2 (clauses) = 5
@@ -321,7 +322,7 @@ mod tests {
             ],
         );
 
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
         let ds_problem = reduction.target_problem();
 
         // 3 variables * 3 = 9 gadget vertices + 3 clauses = 12
@@ -354,7 +355,7 @@ mod tests {
     fn test_extract_solution_positive_literal() {
         // (x1) - select positive literal
         let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1])]);
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
         // Solution: select vertex 0 (positive literal x1)
         // This dominates vertices 1, 2 (gadget) and vertex 3 (clause)
@@ -367,7 +368,7 @@ mod tests {
     fn test_extract_solution_negative_literal() {
         // (NOT x1) - select negative literal
         let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![-1])]);
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
         // Solution: select vertex 1 (negative literal NOT x1)
         // This dominates vertices 0, 2 (gadget) and vertex 3 (clause)
@@ -380,7 +381,7 @@ mod tests {
     fn test_extract_solution_dummy() {
         // (x1 OR x2) where only x1 matters
         let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1])]);
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
         // Select: vertex 0 (x1 positive) and vertex 5 (x2 dummy)
         // Vertex 0 dominates: itself, 1, 2, and clause 6
@@ -396,7 +397,7 @@ mod tests {
             3,
             vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
         );
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
         let source_size = reduction.source_size();
         let target_size = reduction.target_size();
@@ -411,7 +412,7 @@ mod tests {
     fn test_empty_sat() {
         // Empty SAT (trivially satisfiable)
         let sat = Satisfiability::<i32>::new(0, vec![]);
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
         let ds_problem = reduction.target_problem();
 
         assert_eq!(ds_problem.num_vertices(), 0);
@@ -424,7 +425,7 @@ mod tests {
     fn test_multiple_literals_same_variable() {
         // Clause with repeated variable: (x1 OR NOT x1) - tautology
         let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1, -1])]);
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
         let ds_problem = reduction.target_problem();
 
         // 3 gadget vertices + 1 clause vertex = 4
@@ -449,7 +450,7 @@ mod tests {
         let direct_sat_solutions = sat_solver.find_best(&sat);
 
         // Solve via reduction
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
         let ds_problem = reduction.target_problem();
         let ds_solutions = sat_solver.find_best(ds_problem);
 
@@ -484,7 +485,7 @@ mod tests {
     #[test]
     fn test_accessors() {
         let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, -2])]);
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
         assert_eq!(reduction.num_literals(), 2);
         assert_eq!(reduction.num_clauses(), 1);
@@ -494,7 +495,7 @@ mod tests {
     fn test_extract_solution_too_many_selected() {
         // Test that extract_solution handles invalid (non-minimal) dominating sets
         let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1])]);
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
         // Select all 4 vertices (more than num_literals=1)
         let ds_sol = vec![1, 1, 1, 1];
@@ -507,7 +508,7 @@ mod tests {
     fn test_negated_variable_connection() {
         // (NOT x1 OR NOT x2) - both negated
         let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![-1, -2])]);
-        let reduction = ReduceTo::<DominatingSet<i32>>::reduce_to(&sat);
+        let reduction = ReduceTo::<DominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
         let ds_problem = reduction.target_problem();
 
         // 2 * 3 = 6 gadget vertices + 1 clause = 7
@@ -520,4 +521,3 @@ mod tests {
         assert_eq!(ds_problem.num_edges(), 8);
     }
 }
-

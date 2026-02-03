@@ -6,6 +6,7 @@
 //! - Objective: Maximize the sum of weights of selected vertices
 
 use crate::models::graph::IndependentSet;
+use crate::topology::SimpleGraph;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
@@ -24,7 +25,7 @@ pub struct ReductionISToILP {
 }
 
 impl ReductionResult for ReductionISToILP {
-    type Source = IndependentSet<i32>;
+    type Source = IndependentSet<SimpleGraph, i32>;
     type Target = ILP;
 
     fn target_problem(&self) -> &ILP {
@@ -48,7 +49,7 @@ impl ReductionResult for ReductionISToILP {
     }
 }
 
-impl ReduceTo<ILP> for IndependentSet<i32> {
+impl ReduceTo<ILP> for IndependentSet<SimpleGraph, i32> {
     type Result = ReductionISToILP;
 
     fn reduce_to(&self) -> Self::Result {
@@ -96,7 +97,7 @@ mod tests {
     #[test]
     fn test_reduction_creates_valid_ilp() {
         // Triangle graph: 3 vertices, 3 edges
-        let problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -140,7 +141,7 @@ mod tests {
     #[test]
     fn test_ilp_solution_equals_brute_force_triangle() {
         // Triangle graph: max IS = 1 vertex
-        let problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -168,7 +169,7 @@ mod tests {
     #[test]
     fn test_ilp_solution_equals_brute_force_path() {
         // Path graph 0-1-2-3: max IS = 2 (e.g., {0, 2} or {1, 3} or {0, 3})
-        let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -221,7 +222,7 @@ mod tests {
 
     #[test]
     fn test_solution_extraction() {
-        let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (2, 3)]);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
         let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
         // Test that extraction works correctly (1:1 mapping)
@@ -236,7 +237,7 @@ mod tests {
 
     #[test]
     fn test_source_and_target_size() {
-        let problem = IndependentSet::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
         let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
         let source_size = reduction.source_size();
@@ -252,7 +253,7 @@ mod tests {
     #[test]
     fn test_empty_graph() {
         // Graph with no edges: all vertices can be selected
-        let problem = IndependentSet::<i32>::new(3, vec![]);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![]);
         let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -274,7 +275,7 @@ mod tests {
     fn test_complete_graph() {
         // Complete graph K4: max IS = 1
         let problem =
-            IndependentSet::<i32>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+            IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
         let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -292,7 +293,7 @@ mod tests {
     #[test]
     fn test_solve_reduced() {
         // Test the ILPSolver::solve_reduced method
-        let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         let ilp_solver = ILPSolver::new();
         let solution = ilp_solver
@@ -308,7 +309,7 @@ mod tests {
     fn test_bipartite_graph() {
         // Bipartite graph: 0-2, 0-3, 1-2, 1-3 (two independent sets: {0,1} and {2,3})
         // With equal weights, max IS = 2
-        let problem = IndependentSet::<i32>::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
         let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 

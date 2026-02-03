@@ -321,10 +321,7 @@ where
     const NAME: &'static str = C::NAME;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", short_type_name::<W>()),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
     }
 
     type Size = W;

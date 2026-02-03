@@ -10,9 +10,7 @@ use super::super::ksg::KsgTapeEntry as TapeEntry;
 use super::super::pathdecomposition::{
     pathwidth, vertex_order_from_layout, PathDecompositionMethod,
 };
-use super::gadgets::{
-    apply_crossing_gadgets, apply_simplifier_gadgets, tape_entry_mis_overhead,
-};
+use super::gadgets::{apply_crossing_gadgets, apply_simplifier_gadgets, tape_entry_mis_overhead};
 use crate::topology::{GridGraph, GridNode, GridType};
 
 /// Spacing between copy lines on triangular lattice.

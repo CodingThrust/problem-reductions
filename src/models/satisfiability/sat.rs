@@ -4,8 +4,8 @@
 //! Boolean variables that makes a given Boolean formula true.
 
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::variant::short_type_name;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
+use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 
 /// A clause in conjunctive normal form (CNF).
@@ -186,10 +186,7 @@ where
     const NAME: &'static str = "Satisfiability";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", short_type_name::<W>()),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
     }
 
     type Size = W;

@@ -4,6 +4,7 @@
 //! The universe is the set of all edges (labeled 0 to num_edges-1).
 
 use crate::models::graph::VertexCovering;
+use crate::topology::SimpleGraph;
 use crate::models::set::SetCovering;
 use crate::poly;
 use crate::reduction;
@@ -25,7 +26,7 @@ impl<W> ReductionResult for ReductionVCToSC<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
-    type Source = VertexCovering<W>;
+    type Source = VertexCovering<SimpleGraph, W>;
     type Target = SetCovering<W>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -56,7 +57,7 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<SetCovering<W>> for VertexCovering<W>
+impl<W> ReduceTo<SetCovering<W>> for VertexCovering<SimpleGraph, W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
@@ -101,7 +102,7 @@ mod tests {
         // Vertex 0 covers edge 0
         // Vertex 1 covers edges 0 and 1
         // Vertex 2 covers edge 1
-        let vc_problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
         let reduction = ReduceTo::<SetCovering<i32>>::reduce_to(&vc_problem);
         let sc_problem = reduction.target_problem();
 
@@ -121,7 +122,7 @@ mod tests {
     fn test_vc_to_sc_triangle() {
         // Triangle graph: 3 vertices, 3 edges
         // Edge indices: (0,1)->0, (1,2)->1, (0,2)->2
-        let vc_problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let reduction = ReduceTo::<SetCovering<i32>>::reduce_to(&vc_problem);
         let sc_problem = reduction.target_problem();
 
@@ -137,7 +138,7 @@ mod tests {
 
     #[test]
     fn test_vc_to_sc_solution_extraction() {
-        let vc_problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
         let reduction = ReduceTo::<SetCovering<i32>>::reduce_to(&vc_problem);
         let sc_problem = reduction.target_problem();
 
@@ -164,7 +165,7 @@ mod tests {
     #[test]
     fn test_vc_to_sc_optimality_preservation() {
         // Test that optimal solutions are preserved through reduction
-        let vc_problem = VertexCovering::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
 
         // Solve VC directly
@@ -207,7 +208,7 @@ mod tests {
     #[test]
     fn test_vc_to_sc_empty_graph() {
         // Graph with no edges
-        let vc_problem = VertexCovering::<i32>::new(3, vec![]);
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![]);
         let reduction = ReduceTo::<SetCovering<i32>>::reduce_to(&vc_problem);
         let sc_problem = reduction.target_problem();
 
@@ -222,7 +223,7 @@ mod tests {
 
     #[test]
     fn test_vc_to_sc_source_target_size() {
-        let vc_problem = VertexCovering::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
         let reduction = ReduceTo::<SetCovering<i32>>::reduce_to(&vc_problem);
 
         let source_size = reduction.source_size();
@@ -238,7 +239,7 @@ mod tests {
     fn test_vc_to_sc_star_graph() {
         // Star graph: center vertex 0 connected to all others
         // Edges: (0,1), (0,2), (0,3)
-        let vc_problem = VertexCovering::<i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
         let reduction = ReduceTo::<SetCovering<i32>>::reduce_to(&vc_problem);
         let sc_problem = reduction.target_problem();
 
@@ -258,7 +259,7 @@ mod tests {
     #[test]
     fn test_vc_to_sc_all_solutions_valid() {
         // Ensure all solutions extracted from SC are valid VC solutions
-        let vc_problem = VertexCovering::<i32>::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]);
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]);
         let reduction = ReduceTo::<SetCovering<i32>>::reduce_to(&vc_problem);
         let sc_problem = reduction.target_problem();
 
@@ -276,4 +277,3 @@ mod tests {
         }
     }
 }
-

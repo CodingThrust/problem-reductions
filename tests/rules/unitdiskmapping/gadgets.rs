@@ -739,7 +739,9 @@ fn test_all_ksg_weighted_gadgets_valid_structure() {
             name
         );
         assert!(
-            src_edges.iter().all(|&(a, b)| a < src_locs.len() && b < src_locs.len()),
+            src_edges
+                .iter()
+                .all(|&(a, b)| a < src_locs.len() && b < src_locs.len()),
             "{}: source edges should be valid",
             name
         );
@@ -1028,9 +1030,19 @@ fn test_all_triangular_gadgets_source_matrix() {
     fn check_matrix<G: TriangularGadget>(gadget: G, name: &str) {
         let matrix = gadget.source_matrix();
         let (rows, cols) = gadget.size();
-        assert_eq!(matrix.len(), rows, "{}: matrix rows should match size", name);
+        assert_eq!(
+            matrix.len(),
+            rows,
+            "{}: matrix rows should match size",
+            name
+        );
         if rows > 0 {
-            assert_eq!(matrix[0].len(), cols, "{}: matrix cols should match size", name);
+            assert_eq!(
+                matrix[0].len(),
+                cols,
+                "{}: matrix cols should match size",
+                name
+            );
         }
     }
 
@@ -1055,9 +1067,19 @@ fn test_all_triangular_gadgets_mapped_matrix() {
     fn check_matrix<G: TriangularGadget>(gadget: G, name: &str) {
         let matrix = gadget.mapped_matrix();
         let (rows, cols) = gadget.size();
-        assert_eq!(matrix.len(), rows, "{}: mapped matrix rows should match size", name);
+        assert_eq!(
+            matrix.len(),
+            rows,
+            "{}: mapped matrix rows should match size",
+            name
+        );
         if rows > 0 {
-            assert_eq!(matrix[0].len(), cols, "{}: mapped matrix cols should match size", name);
+            assert_eq!(
+                matrix[0].len(),
+                cols,
+                "{}: mapped matrix cols should match size",
+                name
+            );
         }
     }
 
@@ -1301,7 +1323,9 @@ fn test_all_rotations_valid_graphs() {
             assert!(!src_locs.is_empty(), "{} rot{}: empty source", name, n);
             assert!(!map_locs.is_empty(), "{} rot{}: empty mapped", name, n);
             assert!(
-                src_edges.iter().all(|&(a, b)| a < src_locs.len() && b < src_locs.len()),
+                src_edges
+                    .iter()
+                    .all(|&(a, b)| a < src_locs.len() && b < src_locs.len()),
                 "{} rot{}: invalid src edges",
                 name,
                 n
@@ -1338,7 +1362,9 @@ fn test_all_mirrors_valid_graphs() {
             assert!(!src_locs.is_empty(), "{} {:?}: empty source", name, mirror);
             assert!(!map_locs.is_empty(), "{} {:?}: empty mapped", name, mirror);
             assert!(
-                src_edges.iter().all(|&(a, b)| a < src_locs.len() && b < src_locs.len()),
+                src_edges
+                    .iter()
+                    .all(|&(a, b)| a < src_locs.len() && b < src_locs.len()),
                 "{} {:?}: invalid src edges",
                 name,
                 mirror
@@ -1407,16 +1433,28 @@ fn test_rotated_and_reflected_cross_false() {
     // But reflections may produce different locations in our representation
     let count = count_rotated_and_reflected(Cross::<false>);
     // Cross should have limited unique orientations due to symmetry
-    assert!(count > 0, "Cross<false> should have some unique orientations");
-    assert!(count <= 8, "Cross<false> should have at most 8 unique orientations");
+    assert!(
+        count > 0,
+        "Cross<false> should have some unique orientations"
+    );
+    assert!(
+        count <= 8,
+        "Cross<false> should have at most 8 unique orientations"
+    );
 }
 
 #[test]
 fn test_rotated_and_reflected_cross_true() {
     // Julia: @test length(rotated_and_reflected(Cross{true}())) == 4
     let count = count_rotated_and_reflected(Cross::<true>);
-    assert!(count > 0, "Cross<true> should have some unique orientations");
-    assert!(count <= 8, "Cross<true> should have at most 8 unique orientations");
+    assert!(
+        count > 0,
+        "Cross<true> should have some unique orientations"
+    );
+    assert!(
+        count <= 8,
+        "Cross<true> should have at most 8 unique orientations"
+    );
 }
 
 #[test]
@@ -1462,5 +1500,9 @@ fn test_danglingleg_mapped_locations() {
 fn test_danglingleg_mis_overhead() {
     let gadget = DanglingLeg;
     // DanglingLeg simplifies 3 nodes to 1, removing 2 from MIS
-    assert_eq!(gadget.mis_overhead(), -1, "DanglingLeg MIS overhead should be -1");
+    assert_eq!(
+        gadget.mis_overhead(),
+        -1,
+        "DanglingLeg MIS overhead should be -1"
+    );
 }

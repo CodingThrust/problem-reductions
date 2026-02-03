@@ -4,8 +4,8 @@
 //! pairwise disjoint sets.
 
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::variant::short_type_name;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
+use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -119,10 +119,7 @@ where
     const NAME: &'static str = "SetPacking";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", short_type_name::<W>()),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
     }
 
     type Size = W;
@@ -404,13 +401,14 @@ mod tests {
     fn test_relationship_to_independent_set() {
         // SetPacking on sets is equivalent to IndependentSet on the intersection graph
         use crate::models::graph::IndependentSet;
+        use crate::topology::SimpleGraph;
 
         let sets = vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]];
         let sp_problem = SetPacking::<i32>::new(sets.clone());
 
         // Build intersection graph
         let edges = sp_problem.overlapping_pairs();
-        let is_problem = IndependentSet::<i32>::new(sets.len(), edges);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(sets.len(), edges);
 
         let solver = BruteForce::new();
 

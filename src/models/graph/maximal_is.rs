@@ -329,8 +329,7 @@ mod tests {
 
     #[test]
     fn test_maximal_is_with_weights() {
-        let problem =
-            MaximalIS::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
+        let problem = MaximalIS::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
         assert_eq!(problem.weights(), vec![1, 2, 3]);
         assert!(problem.is_weighted());
     }

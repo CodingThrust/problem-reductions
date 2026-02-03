@@ -141,9 +141,7 @@ fn extract_graph_type(ty: &Type) -> Option<String> {
                             }
                             // If it's the second TYPE parameter and looks like a concrete graph type
                             // (not a single-letter generic like W, T, G or a known weight type)
-                            if type_arg_index == 1
-                                && !is_weight_or_generic_param(&name)
-                            {
+                            if type_arg_index == 1 && !is_weight_or_generic_param(&name) {
                                 return Some(name);
                             }
                         }
@@ -165,7 +163,13 @@ fn is_weight_or_generic_param(name: &str) -> bool {
         return true;
     }
     // Single uppercase letter - typically a generic type parameter (W, T, G, etc.)
-    if name.len() == 1 && name.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false) {
+    if name.len() == 1
+        && name
+            .chars()
+            .next()
+            .map(|c| c.is_ascii_uppercase())
+            .unwrap_or(false)
+    {
         return true;
     }
     false
@@ -200,7 +204,13 @@ fn get_weight_name(ty: &Type) -> String {
                 .map(|s| s.ident.to_string())
                 .unwrap_or_else(|| "Unweighted".to_string());
             // Treat single uppercase letters as generic params, default to Unweighted
-            if name.len() == 1 && name.chars().next().map(|c| c.is_ascii_uppercase()).unwrap_or(false) {
+            if name.len() == 1
+                && name
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_uppercase())
+                    .unwrap_or(false)
+            {
                 "Unweighted".to_string()
             } else {
                 name
@@ -235,20 +245,34 @@ fn generate_reduction_entry(
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
 
     // Determine weight type names
-    let source_weight_name = attrs.source_weighted.map(|w| {
-        if w { "i32".to_string() } else { "Unweighted".to_string() }
-    }).unwrap_or_else(|| {
-        extract_weight_type(source_type)
-            .map(|t| get_weight_name(&t))
-            .unwrap_or_else(|| "Unweighted".to_string())
-    });
-    let target_weight_name = attrs.target_weighted.map(|w| {
-        if w { "i32".to_string() } else { "Unweighted".to_string() }
-    }).unwrap_or_else(|| {
-        extract_weight_type(&target_type)
-            .map(|t| get_weight_name(&t))
-            .unwrap_or_else(|| "Unweighted".to_string())
-    });
+    let source_weight_name = attrs
+        .source_weighted
+        .map(|w| {
+            if w {
+                "i32".to_string()
+            } else {
+                "Unweighted".to_string()
+            }
+        })
+        .unwrap_or_else(|| {
+            extract_weight_type(source_type)
+                .map(|t| get_weight_name(&t))
+                .unwrap_or_else(|| "Unweighted".to_string())
+        });
+    let target_weight_name = attrs
+        .target_weighted
+        .map(|w| {
+            if w {
+                "i32".to_string()
+            } else {
+                "Unweighted".to_string()
+            }
+        })
+        .unwrap_or_else(|| {
+            extract_weight_type(&target_type)
+                .map(|t| get_weight_name(&t))
+                .unwrap_or_else(|| "Unweighted".to_string())
+        });
 
     // Determine graph types
     let source_graph = attrs
@@ -295,10 +319,7 @@ fn extract_target_from_trait(path: &Path) -> syn::Result<Type> {
         .ok_or_else(|| syn::Error::new_spanned(path, "Empty trait path"))?;
 
     if segment.ident != "ReduceTo" {
-        return Err(syn::Error::new_spanned(
-            segment,
-            "Expected ReduceTo trait",
-        ));
+        return Err(syn::Error::new_spanned(segment, "Expected ReduceTo trait"));
     }
 
     if let PathArguments::AngleBracketed(args) = &segment.arguments {

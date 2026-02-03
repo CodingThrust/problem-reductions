@@ -316,4 +316,3 @@ mod tests {
         assert!(!target_size2.components.is_empty());
     }
 }
-

@@ -144,10 +144,7 @@ impl Problem for PaintShop {
     const NAME: &'static str = "PaintShop";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", "i32"),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
 
     type Size = i32;

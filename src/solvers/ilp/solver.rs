@@ -147,7 +147,7 @@ impl ILPSolver {
     /// use problemreductions::solvers::ILPSolver;
     ///
     /// // Create a problem that reduces to ILP (e.g., Independent Set)
-    /// let problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2)]);
+    /// let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     ///
     /// // Solve using ILP solver
     /// let solver = ILPSolver::new();

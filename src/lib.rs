@@ -20,7 +20,7 @@
 //! use problemreductions::models::graph::IndependentSet;
 //!
 //! // Create an Independent Set problem on a triangle graph
-//! let problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+//! let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 //!
 //! // Solve with brute force
 //! let solver = BruteForce::new();

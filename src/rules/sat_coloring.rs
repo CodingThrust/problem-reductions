@@ -658,4 +658,3 @@ mod tests {
         assert_eq!(extracted2, vec![1]);
     }
 }
-

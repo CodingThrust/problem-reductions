@@ -3,8 +3,8 @@
 //! The Spin Glass problem minimizes the Ising Hamiltonian energy.
 
 use crate::traits::Problem;
-use crate::variant::short_type_name;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
+use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 
 /// The Spin Glass (Ising model) problem.
@@ -112,10 +112,7 @@ where
     const NAME: &'static str = "SpinGlass";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", short_type_name::<W>()),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
     }
 
     type Size = W;

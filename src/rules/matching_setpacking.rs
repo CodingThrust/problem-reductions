@@ -9,7 +9,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::Graph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::ProblemSize;
 use num_traits::{Num, Zero};
@@ -88,6 +88,7 @@ where
 mod tests {
     use super::*;
     use crate::solvers::{BruteForce, Solver};
+    use crate::topology::SimpleGraph;
 
     #[test]
     fn test_matching_to_setpacking_structure() {
@@ -153,7 +154,8 @@ mod tests {
     #[test]
     fn test_matching_to_setpacking_weighted() {
         // Weighted edges: heavy edge should win over multiple light edges
-        let matching = Matching::<SimpleGraph, i32>::new(4, vec![(0, 1, 100), (0, 2, 1), (1, 3, 1)]);
+        let matching =
+            Matching::<SimpleGraph, i32>::new(4, vec![(0, 1, 100), (0, 2, 1), (1, 3, 1)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
         let sp = reduction.target_problem();
 
