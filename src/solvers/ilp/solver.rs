@@ -145,6 +145,7 @@ impl ILPSolver {
     /// ```no_run
     /// use problemreductions::prelude::*;
     /// use problemreductions::solvers::ILPSolver;
+    /// use problemreductions::topology::SimpleGraph;
     ///
     /// // Create a problem that reduces to ILP (e.g., Independent Set)
     /// let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);

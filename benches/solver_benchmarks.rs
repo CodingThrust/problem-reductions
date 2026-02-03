@@ -2,6 +2,7 @@
 
 use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use problemreductions::models::graph::*;
+use problemreductions::topology::SimpleGraph;
 use problemreductions::models::optimization::*;
 use problemreductions::models::satisfiability::*;
 use problemreductions::models::set::*;
@@ -15,7 +16,7 @@ fn bench_independent_set(c: &mut Criterion) {
     for n in [4, 6, 8, 10].iter() {
         // Create a path graph with n vertices
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let problem = IndependentSet::<i32>::new(*n, edges);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(*n, edges);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
@@ -32,7 +33,7 @@ fn bench_vertex_covering(c: &mut Criterion) {
 
     for n in [4, 6, 8, 10].iter() {
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let problem = VertexCovering::<i32>::new(*n, edges);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(*n, edges);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
@@ -130,13 +131,13 @@ fn bench_set_covering(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark Coloring on varying graph sizes.
+/// Benchmark KColoring on varying graph sizes.
 fn bench_coloring(c: &mut Criterion) {
-    let mut group = c.benchmark_group("Coloring");
+    let mut group = c.benchmark_group("KColoring");
 
     for n in [3, 4, 5, 6].iter() {
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let problem = Coloring::new(*n, 3, edges);
+        let problem = KColoring::<3, SimpleGraph, i32>::new(*n, edges);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path_3colors", n), n, |b, _| {
@@ -192,7 +193,7 @@ fn bench_comparison(c: &mut Criterion) {
     let solver = BruteForce::new();
 
     // IndependentSet with 8 vertices
-    let is_problem = IndependentSet::<i32>::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]);
+    let is_problem = IndependentSet::<SimpleGraph, i32>::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]);
     group.bench_function("IndependentSet", |b| {
         b.iter(|| solver.find_best(black_box(&is_problem)))
     });

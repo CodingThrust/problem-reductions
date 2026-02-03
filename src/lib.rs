@@ -18,6 +18,7 @@
 //! ```rust
 //! use problemreductions::prelude::*;
 //! use problemreductions::models::graph::IndependentSet;
+//! use problemreductions::topology::SimpleGraph;
 //!
 //! // Create an Independent Set problem on a triangle graph
 //! let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
@@ -83,7 +84,7 @@ pub mod prelude {
     };
     pub use crate::error::{ProblemError, Result};
     pub use crate::models::graph::{
-        Coloring, DominatingSet, IndependentSet, Matching, MaxCut, MaximalIS, VertexCovering,
+        DominatingSet, IndependentSet, KColoring, Matching, MaxCut, MaximalIS, VertexCovering,
     };
     pub use crate::models::optimization::{
         Comparison, LinearConstraint, ObjectiveSense, SpinGlass, VarBounds, ILP, QUBO,
