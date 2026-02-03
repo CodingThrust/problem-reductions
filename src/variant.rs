@@ -65,11 +65,11 @@ mod tests {
         assert_eq!(v[0].1, "SimpleGraph");
 
         // Test MaxCut
-        let v = MaxCut::<i32>::variant();
+        let v = MaxCut::<SimpleGraph, i32>::variant();
         assert_eq!(v.len(), 2);
         assert_eq!(v[0].1, "SimpleGraph");
 
-        let v = MaxCut::<f64>::variant();
+        let v = MaxCut::<SimpleGraph, f64>::variant();
         assert_eq!(v[1].1, "f64");
 
         // Test Coloring (no weight parameter)
