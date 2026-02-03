@@ -3,11 +3,10 @@
 //! The Vertex Cover problem asks for a minimum weight subset of vertices
 //! such that every edge has at least one endpoint in the subset.
 
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::variant::short_type_name;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use petgraph::graph::{NodeIndex, UnGraph};
-use petgraph::visit::EdgeRef;
+use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 
 /// The Vertex Covering problem.
@@ -21,10 +20,11 @@ use serde::{Deserialize, Serialize};
 ///
 /// ```
 /// use problemreductions::models::graph::VertexCovering;
+/// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Create a path graph 0-1-2
-/// let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+/// let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
@@ -34,26 +34,20 @@ use serde::{Deserialize, Serialize};
 /// assert!(solutions.contains(&vec![0, 1, 0]));
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct VertexCovering<W = i32> {
+pub struct VertexCovering<G, W> {
     /// The underlying graph.
-    graph: UnGraph<(), ()>,
+    graph: G,
     /// Weights for each vertex.
     weights: Vec<W>,
 }
 
-impl<W: Clone + Default> VertexCovering<W> {
+impl<W: Clone + Default> VertexCovering<SimpleGraph, W> {
     /// Create a new Vertex Covering problem with unit weights.
     pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self
     where
         W: From<i32>,
     {
-        let mut graph = UnGraph::new_undirected();
-        for _ in 0..num_vertices {
-            graph.add_node(());
-        }
-        for (u, v) in edges {
-            graph.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
-        }
+        let graph = SimpleGraph::new(num_vertices, edges);
         let weights = vec![W::from(1); num_vertices];
         Self { graph, weights }
     }
@@ -61,32 +55,50 @@ impl<W: Clone + Default> VertexCovering<W> {
     /// Create a new Vertex Covering problem with custom weights.
     pub fn with_weights(num_vertices: usize, edges: Vec<(usize, usize)>, weights: Vec<W>) -> Self {
         assert_eq!(weights.len(), num_vertices);
-        let mut graph = UnGraph::new_undirected();
-        for _ in 0..num_vertices {
-            graph.add_node(());
-        }
-        for (u, v) in edges {
-            graph.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
-        }
+        let graph = SimpleGraph::new(num_vertices, edges);
         Self { graph, weights }
+    }
+}
+
+impl<G: Graph, W: Clone + Default> VertexCovering<G, W> {
+    /// Create a Vertex Covering problem from a graph with custom weights.
+    pub fn from_graph(graph: G, weights: Vec<W>) -> Self {
+        assert_eq!(weights.len(), graph.num_vertices());
+        Self { graph, weights }
+    }
+
+    /// Create a Vertex Covering problem from a graph with unit weights.
+    pub fn from_graph_unit_weights(graph: G) -> Self
+    where
+        W: From<i32>,
+    {
+        let weights = vec![W::from(1); graph.num_vertices()];
+        Self { graph, weights }
+    }
+
+    /// Get a reference to the underlying graph.
+    pub fn graph(&self) -> &G {
+        &self.graph
     }
 
     /// Get the number of vertices.
     pub fn num_vertices(&self) -> usize {
-        self.graph.node_count()
+        self.graph.num_vertices()
     }
 
     /// Get the number of edges.
     pub fn num_edges(&self) -> usize {
-        self.graph.edge_count()
+        self.graph.num_edges()
     }
 
     /// Get the edges as a list of (u, v) pairs.
     pub fn edges(&self) -> Vec<(usize, usize)> {
-        self.graph
-            .edge_references()
-            .map(|e| (e.source().index(), e.target().index()))
-            .collect()
+        self.graph.edges()
+    }
+
+    /// Check if two vertices are adjacent.
+    pub fn has_edge(&self, u: usize, v: usize) -> bool {
+        self.graph.has_edge(u, v)
     }
 
     /// Get a reference to the weights vector.
@@ -95,8 +107,9 @@ impl<W: Clone + Default> VertexCovering<W> {
     }
 }
 
-impl<W> Problem for VertexCovering<W>
+impl<G, W> Problem for VertexCovering<G, W>
 where
+    G: Graph,
     W: Clone
         + Default
         + PartialOrd
@@ -108,16 +121,13 @@ where
     const NAME: &'static str = "VertexCovering";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", short_type_name::<W>()),
-        ]
+        vec![("graph", G::NAME), ("weight", short_type_name::<W>())]
     }
 
     type Size = W;
 
     fn num_variables(&self) -> usize {
-        self.graph.node_count()
+        self.graph.num_vertices()
     }
 
     fn num_flavors(&self) -> usize {
@@ -126,8 +136,8 @@ where
 
     fn problem_size(&self) -> ProblemSize {
         ProblemSize::new(vec![
-            ("num_vertices", self.graph.node_count()),
-            ("num_edges", self.graph.edge_count()),
+            ("num_vertices", self.graph.num_vertices()),
+            ("num_edges", self.graph.num_edges()),
         ])
     }
 
@@ -147,8 +157,9 @@ where
     }
 }
 
-impl<W> ConstraintSatisfactionProblem for VertexCovering<W>
+impl<G, W> ConstraintSatisfactionProblem for VertexCovering<G, W>
 where
+    G: Graph,
     W: Clone
         + Default
         + PartialOrd
@@ -161,11 +172,12 @@ where
         // For each edge (u, v), at least one of u, v must be selected
         // Valid configs: (0,1), (1,0), (1,1) but not (0,0)
         self.graph
-            .edge_references()
-            .map(|e| {
+            .edges()
+            .into_iter()
+            .map(|(u, v)| {
                 LocalConstraint::new(
                     2,
-                    vec![e.source().index(), e.target().index()],
+                    vec![u, v],
                     vec![false, true, true, true], // (0,0), (0,1), (1,0), (1,1)
                 )
             })
@@ -200,10 +212,8 @@ where
 }
 
 /// Check if a configuration forms a valid vertex cover.
-fn is_vertex_cover_config(graph: &UnGraph<(), ()>, config: &[usize]) -> bool {
-    for edge in graph.edge_references() {
-        let u = edge.source().index();
-        let v = edge.target().index();
+fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
+    for (u, v) in graph.edges() {
         let u_covered = config.get(u).copied().unwrap_or(0) == 1;
         let v_covered = config.get(v).copied().unwrap_or(0) == 1;
         if !u_covered && !v_covered {
@@ -238,7 +248,7 @@ mod tests {
 
     #[test]
     fn test_vertex_cover_creation() {
-        let problem = VertexCovering::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         assert_eq!(problem.num_vertices(), 4);
         assert_eq!(problem.num_edges(), 3);
         assert_eq!(problem.num_variables(), 4);
@@ -247,14 +257,15 @@ mod tests {
 
     #[test]
     fn test_vertex_cover_with_weights() {
-        let problem = VertexCovering::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
+        let problem =
+            VertexCovering::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
         assert_eq!(problem.weights(), vec![1, 2, 3]);
         assert!(problem.is_weighted());
     }
 
     #[test]
     fn test_solution_size_valid() {
-        let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
         // Valid: select vertex 1 (covers both edges)
         let sol = problem.solution_size(&[0, 1, 0]);
@@ -269,7 +280,7 @@ mod tests {
 
     #[test]
     fn test_solution_size_invalid() {
-        let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
         // Invalid: no vertex selected
         let sol = problem.solution_size(&[0, 0, 0]);
@@ -283,7 +294,7 @@ mod tests {
     #[test]
     fn test_brute_force_path() {
         // Path graph 0-1-2: minimum vertex cover is {1}
-        let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -294,7 +305,7 @@ mod tests {
     #[test]
     fn test_brute_force_triangle() {
         // Triangle: minimum vertex cover has size 2
-        let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -309,7 +320,11 @@ mod tests {
     #[test]
     fn test_brute_force_weighted() {
         // Weighted: prefer selecting low-weight vertices
-        let problem = VertexCovering::with_weights(3, vec![(0, 1), (1, 2)], vec![100, 1, 100]);
+        let problem = VertexCovering::<SimpleGraph, i32>::with_weights(
+            3,
+            vec![(0, 1), (1, 2)],
+            vec![100, 1, 100],
+        );
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -336,20 +351,20 @@ mod tests {
 
     #[test]
     fn test_constraints() {
-        let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
         let constraints = problem.constraints();
         assert_eq!(constraints.len(), 2);
     }
 
     #[test]
     fn test_energy_mode() {
-        let problem = VertexCovering::<i32>::new(3, vec![(0, 1)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
         assert!(problem.energy_mode().is_minimization());
     }
 
     #[test]
     fn test_empty_graph() {
-        let problem = VertexCovering::<i32>::new(3, vec![]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -360,7 +375,7 @@ mod tests {
 
     #[test]
     fn test_single_edge() {
-        let problem = VertexCovering::<i32>::new(2, vec![(0, 1)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(2, vec![(0, 1)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -370,7 +385,7 @@ mod tests {
 
     #[test]
     fn test_is_satisfied() {
-        let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
         assert!(problem.is_satisfied(&[0, 1, 0])); // Valid cover
         assert!(problem.is_satisfied(&[1, 0, 1])); // Valid cover
@@ -384,8 +399,8 @@ mod tests {
         use crate::models::graph::IndependentSet;
 
         let edges = vec![(0, 1), (1, 2), (2, 3)];
-        let is_problem = IndependentSet::<i32>::new(4, edges.clone());
-        let vc_problem = VertexCovering::<i32>::new(4, edges);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(4, edges.clone());
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(4, edges);
 
         let solver = BruteForce::new();
 
@@ -399,14 +414,15 @@ mod tests {
 
     #[test]
     fn test_objectives() {
-        let problem = VertexCovering::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
+        let problem =
+            VertexCovering::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
         let objectives = problem.objectives();
         assert_eq!(objectives.len(), 3);
     }
 
     #[test]
     fn test_set_weights() {
-        let mut problem = VertexCovering::<i32>::new(3, vec![(0, 1)]);
+        let mut problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
         assert!(!problem.is_weighted()); // Initially uniform
         problem.set_weights(vec![1, 2, 3]);
         assert!(problem.is_weighted());
@@ -415,7 +431,7 @@ mod tests {
 
     #[test]
     fn test_is_weighted_empty() {
-        let problem = VertexCovering::<i32>::new(0, vec![]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(0, vec![]);
         assert!(!problem.is_weighted());
     }
 
@@ -423,5 +439,46 @@ mod tests {
     fn test_is_vertex_cover_wrong_len() {
         // Wrong length should return false
         assert!(!is_vertex_cover(3, &[(0, 1)], &[true, false]));
+    }
+
+    #[test]
+    fn test_from_graph() {
+        let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::from_graph_unit_weights(graph);
+        assert_eq!(problem.num_vertices(), 3);
+        assert_eq!(problem.num_edges(), 2);
+    }
+
+    #[test]
+    fn test_from_graph_with_weights() {
+        let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::from_graph(graph, vec![1, 2, 3]);
+        assert_eq!(problem.weights(), vec![1, 2, 3]);
+        assert!(problem.is_weighted());
+    }
+
+    #[test]
+    fn test_graph_accessor() {
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+        let graph = problem.graph();
+        assert_eq!(graph.num_vertices(), 3);
+        assert_eq!(graph.num_edges(), 2);
+    }
+
+    #[test]
+    fn test_has_edge() {
+        let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+        assert!(problem.has_edge(0, 1));
+        assert!(problem.has_edge(1, 0)); // Undirected
+        assert!(problem.has_edge(1, 2));
+        assert!(!problem.has_edge(0, 2));
+    }
+
+    #[test]
+    fn test_variant() {
+        let variant = VertexCovering::<SimpleGraph, i32>::variant();
+        assert_eq!(variant.len(), 2);
+        assert_eq!(variant[0], ("graph", "SimpleGraph"));
+        assert_eq!(variant[1], ("weight", "i32"));
     }
 }
