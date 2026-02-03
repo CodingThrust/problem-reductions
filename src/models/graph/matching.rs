@@ -3,11 +3,10 @@
 //! The Maximum Matching problem asks for a maximum weight set of edges
 //! such that no two edges share a vertex.
 
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::variant::short_type_name;
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use petgraph::graph::{NodeIndex, UnGraph};
-use petgraph::visit::EdgeRef;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -16,14 +15,20 @@ use std::collections::HashMap;
 /// Given a graph G = (V, E) with edge weights, find a maximum weight
 /// subset M ⊆ E such that no two edges in M share a vertex.
 ///
+/// # Type Parameters
+///
+/// * `G` - The graph type (e.g., `SimpleGraph`, `GridGraph`, `UnitDiskGraph`)
+/// * `W` - The weight type (e.g., `i32`, `f64`, `Unweighted`)
+///
 /// # Example
 ///
 /// ```
 /// use problemreductions::models::graph::Matching;
+/// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Path graph 0-1-2
-/// let problem = Matching::new(3, vec![(0, 1, 1), (1, 2, 1)]);
+/// let problem = Matching::<SimpleGraph, i32>::new(3, vec![(0, 1, 1), (1, 2, 1)]);
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_best(&problem);
@@ -34,33 +39,28 @@ use std::collections::HashMap;
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Matching<W = i32> {
-    /// Number of vertices.
-    num_vertices: usize,
-    /// The underlying weighted graph.
-    graph: UnGraph<(), W>,
+pub struct Matching<G, W> {
+    /// The underlying graph.
+    graph: G,
     /// Weights for each edge (in edge index order).
     edge_weights: Vec<W>,
 }
 
-impl<W: Clone + Default> Matching<W> {
+impl<W: Clone + Default> Matching<SimpleGraph, W> {
     /// Create a new Matching problem.
     ///
     /// # Arguments
     /// * `num_vertices` - Number of vertices
     /// * `edges` - List of weighted edges as (u, v, weight) triples
     pub fn new(num_vertices: usize, edges: Vec<(usize, usize, W)>) -> Self {
-        let mut graph = UnGraph::new_undirected();
-        for _ in 0..num_vertices {
-            graph.add_node(());
-        }
+        let mut edge_list = Vec::new();
         let mut edge_weights = Vec::new();
         for (u, v, w) in edges {
-            graph.add_edge(NodeIndex::new(u), NodeIndex::new(v), w.clone());
+            edge_list.push((u, v));
             edge_weights.push(w);
         }
+        let graph = SimpleGraph::new(num_vertices, edge_list);
         Self {
-            num_vertices,
             graph,
             edge_weights,
         }
@@ -76,46 +76,81 @@ impl<W: Clone + Default> Matching<W> {
             edges.into_iter().map(|(u, v)| (u, v, W::from(1))).collect(),
         )
     }
+}
+
+impl<G: Graph, W: Clone + Default> Matching<G, W> {
+    /// Create a Matching problem from a graph with given edge weights.
+    ///
+    /// # Arguments
+    /// * `graph` - The graph
+    /// * `edge_weights` - Weight for each edge (in graph.edges() order)
+    pub fn from_graph(graph: G, edge_weights: Vec<W>) -> Self {
+        assert_eq!(
+            edge_weights.len(),
+            graph.num_edges(),
+            "edge_weights length must match num_edges"
+        );
+        Self {
+            graph,
+            edge_weights,
+        }
+    }
+
+    /// Create a Matching problem from a graph with unit weights.
+    pub fn from_graph_unit_weights(graph: G) -> Self
+    where
+        W: From<i32>,
+    {
+        let edge_weights = vec![W::from(1); graph.num_edges()];
+        Self {
+            graph,
+            edge_weights,
+        }
+    }
+
+    /// Get a reference to the underlying graph.
+    pub fn graph(&self) -> &G {
+        &self.graph
+    }
 
     /// Get the number of vertices.
     pub fn num_vertices(&self) -> usize {
-        self.num_vertices
+        self.graph.num_vertices()
     }
 
     /// Get the number of edges.
     pub fn num_edges(&self) -> usize {
-        self.graph.edge_count()
+        self.graph.num_edges()
     }
 
     /// Get edge endpoints.
     pub fn edge_endpoints(&self, edge_idx: usize) -> Option<(usize, usize)> {
-        let edge_ref = self.graph.edge_references().nth(edge_idx)?;
-        Some((edge_ref.source().index(), edge_ref.target().index()))
+        self.graph.edges().get(edge_idx).copied()
     }
 
-    /// Get all edges with their endpoints.
+    /// Get all edges with their endpoints and weights.
     pub fn edges(&self) -> Vec<(usize, usize, W)> {
         self.graph
-            .edge_references()
-            .map(|e| (e.source().index(), e.target().index(), e.weight().clone()))
+            .edges()
+            .into_iter()
+            .zip(self.edge_weights.iter().cloned())
+            .map(|((u, v), w)| (u, v, w))
             .collect()
     }
 
     /// Build a map from vertices to incident edges.
     pub fn vertex_to_edges(&self) -> HashMap<usize, Vec<usize>> {
         let mut v2e: HashMap<usize, Vec<usize>> = HashMap::new();
-        for (idx, edge) in self.graph.edge_references().enumerate() {
-            let u = edge.source().index();
-            let v = edge.target().index();
-            v2e.entry(u).or_default().push(idx);
-            v2e.entry(v).or_default().push(idx);
+        for (idx, (u, v)) in self.graph.edges().iter().enumerate() {
+            v2e.entry(*u).or_default().push(idx);
+            v2e.entry(*v).or_default().push(idx);
         }
         v2e
     }
 
     /// Check if a configuration is a valid matching.
     fn is_valid_matching(&self, config: &[usize]) -> bool {
-        let mut vertex_used = vec![false; self.num_vertices];
+        let mut vertex_used = vec![false; self.graph.num_vertices()];
 
         for (idx, &selected) in config.iter().enumerate() {
             if selected == 1 {
@@ -132,8 +167,9 @@ impl<W: Clone + Default> Matching<W> {
     }
 }
 
-impl<W> Problem for Matching<W>
+impl<G, W> Problem for Matching<G, W>
 where
+    G: Graph,
     W: Clone
         + Default
         + PartialOrd
@@ -146,7 +182,7 @@ where
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("graph", "SimpleGraph"),
+            ("graph", G::NAME),
             ("weight", short_type_name::<W>()),
         ]
     }
@@ -154,7 +190,7 @@ where
     type Size = W;
 
     fn num_variables(&self) -> usize {
-        self.graph.edge_count() // Variables are edges
+        self.graph.num_edges() // Variables are edges
     }
 
     fn num_flavors(&self) -> usize {
@@ -163,8 +199,8 @@ where
 
     fn problem_size(&self) -> ProblemSize {
         ProblemSize::new(vec![
-            ("num_vertices", self.num_vertices),
-            ("num_edges", self.graph.edge_count()),
+            ("num_vertices", self.graph.num_vertices()),
+            ("num_edges", self.graph.num_edges()),
         ])
     }
 
@@ -186,8 +222,9 @@ where
     }
 }
 
-impl<W> ConstraintSatisfactionProblem for Matching<W>
+impl<G, W> ConstraintSatisfactionProblem for Matching<G, W>
 where
+    G: Graph,
     W: Clone
         + Default
         + PartialOrd
@@ -281,7 +318,7 @@ mod tests {
 
     #[test]
     fn test_matching_creation() {
-        let problem = Matching::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 3)]);
+        let problem = Matching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 3)]);
         assert_eq!(problem.num_vertices(), 4);
         assert_eq!(problem.num_edges(), 3);
         assert_eq!(problem.num_variables(), 3);
@@ -289,13 +326,13 @@ mod tests {
 
     #[test]
     fn test_matching_unweighted() {
-        let problem = Matching::<i32>::unweighted(3, vec![(0, 1), (1, 2)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
         assert_eq!(problem.num_edges(), 2);
     }
 
     #[test]
     fn test_edge_endpoints() {
-        let problem = Matching::new(3, vec![(0, 1, 1), (1, 2, 2)]);
+        let problem = Matching::<SimpleGraph, i32>::new(3, vec![(0, 1, 1), (1, 2, 2)]);
         assert_eq!(problem.edge_endpoints(0), Some((0, 1)));
         assert_eq!(problem.edge_endpoints(1), Some((1, 2)));
         assert_eq!(problem.edge_endpoints(2), None);
@@ -303,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_is_valid_matching() {
-        let problem = Matching::new(4, vec![(0, 1, 1), (1, 2, 1), (2, 3, 1)]);
+        let problem = Matching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 1), (2, 3, 1)]);
 
         // Valid: select edge 0 only
         assert!(problem.is_valid_matching(&[1, 0, 0]));
@@ -317,7 +354,7 @@ mod tests {
 
     #[test]
     fn test_solution_size() {
-        let problem = Matching::new(4, vec![(0, 1, 5), (1, 2, 10), (2, 3, 3)]);
+        let problem = Matching::<SimpleGraph, i32>::new(4, vec![(0, 1, 5), (1, 2, 10), (2, 3, 3)]);
 
         let sol = problem.solution_size(&[1, 0, 1]);
         assert!(sol.is_valid);
@@ -331,7 +368,7 @@ mod tests {
     #[test]
     fn test_brute_force_path() {
         // Path 0-1-2-3 with unit weights
-        let problem = Matching::<i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -344,7 +381,7 @@ mod tests {
 
     #[test]
     fn test_brute_force_triangle() {
-        let problem = Matching::<i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -358,7 +395,7 @@ mod tests {
     #[test]
     fn test_brute_force_weighted() {
         // Prefer heavy edge even if it excludes more edges
-        let problem = Matching::new(4, vec![(0, 1, 100), (0, 2, 1), (1, 3, 1)]);
+        let problem = Matching::<SimpleGraph, i32>::new(4, vec![(0, 1, 100), (0, 2, 1), (1, 3, 1)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -378,13 +415,13 @@ mod tests {
 
     #[test]
     fn test_energy_mode() {
-        let problem = Matching::<i32>::unweighted(2, vec![(0, 1)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(2, vec![(0, 1)]);
         assert!(problem.energy_mode().is_maximization());
     }
 
     #[test]
     fn test_empty_graph() {
-        let problem = Matching::<i32>::unweighted(3, vec![]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(3, vec![]);
         let sol = problem.solution_size(&[]);
         assert!(sol.is_valid);
         assert_eq!(sol.size, 0);
@@ -392,7 +429,7 @@ mod tests {
 
     #[test]
     fn test_constraints() {
-        let problem = Matching::<i32>::unweighted(3, vec![(0, 1), (1, 2)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
         let constraints = problem.constraints();
         // Vertex 1 has degree 2, so 1 constraint
         assert_eq!(constraints.len(), 1);
@@ -400,7 +437,7 @@ mod tests {
 
     #[test]
     fn test_edges() {
-        let problem = Matching::new(3, vec![(0, 1, 5), (1, 2, 10)]);
+        let problem = Matching::<SimpleGraph, i32>::new(3, vec![(0, 1, 5), (1, 2, 10)]);
         let edges = problem.edges();
         assert_eq!(edges.len(), 2);
     }
@@ -408,8 +445,10 @@ mod tests {
     #[test]
     fn test_perfect_matching() {
         // K4: can have perfect matching (2 edges covering all 4 vertices)
-        let problem =
-            Matching::<i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(
+            4,
+            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+        );
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -432,7 +471,7 @@ mod tests {
 
     #[test]
     fn test_is_satisfied() {
-        let problem = Matching::<i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         assert!(problem.is_satisfied(&[1, 0, 1])); // Valid matching
         assert!(problem.is_satisfied(&[0, 1, 0])); // Valid matching
@@ -441,14 +480,14 @@ mod tests {
 
     #[test]
     fn test_objectives() {
-        let problem = Matching::new(3, vec![(0, 1, 5), (1, 2, 10)]);
+        let problem = Matching::<SimpleGraph, i32>::new(3, vec![(0, 1, 5), (1, 2, 10)]);
         let objectives = problem.objectives();
         assert_eq!(objectives.len(), 2);
     }
 
     #[test]
     fn test_set_weights() {
-        let mut problem = Matching::<i32>::unweighted(3, vec![(0, 1), (1, 2)]);
+        let mut problem = Matching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
         assert!(!problem.is_weighted()); // Initially uniform
         problem.set_weights(vec![1, 2]);
         assert!(problem.is_weighted());
@@ -457,7 +496,7 @@ mod tests {
 
     #[test]
     fn test_is_weighted_empty() {
-        let problem = Matching::<i32>::unweighted(2, vec![]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(2, vec![]);
         assert!(!problem.is_weighted());
     }
 
@@ -475,9 +514,35 @@ mod tests {
 
     #[test]
     fn test_problem_size() {
-        let problem = Matching::<i32>::unweighted(5, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(5, vec![(0, 1), (1, 2), (2, 3)]);
         let size = problem.problem_size();
         assert_eq!(size.get("num_vertices"), Some(5));
         assert_eq!(size.get("num_edges"), Some(3));
+    }
+
+    #[test]
+    fn test_from_graph() {
+        let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+        let problem = Matching::<SimpleGraph, i32>::from_graph(graph, vec![5, 10]);
+        assert_eq!(problem.num_vertices(), 3);
+        assert_eq!(problem.num_edges(), 2);
+        assert_eq!(problem.weights(), vec![5, 10]);
+    }
+
+    #[test]
+    fn test_from_graph_unit_weights() {
+        let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+        let problem = Matching::<SimpleGraph, i32>::from_graph_unit_weights(graph);
+        assert_eq!(problem.num_vertices(), 3);
+        assert_eq!(problem.num_edges(), 2);
+        assert_eq!(problem.weights(), vec![1, 1]);
+    }
+
+    #[test]
+    fn test_graph_accessor() {
+        let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+        let problem = Matching::<SimpleGraph, i32>::from_graph_unit_weights(graph);
+        assert_eq!(problem.graph().num_vertices(), 3);
+        assert_eq!(problem.graph().num_edges(), 2);
     }
 }

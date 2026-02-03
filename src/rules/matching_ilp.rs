@@ -9,6 +9,7 @@
 use crate::models::graph::Matching;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::topology::SimpleGraph;
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::ProblemSize;
 
@@ -25,7 +26,7 @@ pub struct ReductionMatchingToILP {
 }
 
 impl ReductionResult for ReductionMatchingToILP {
-    type Source = Matching<i32>;
+    type Source = Matching<SimpleGraph, i32>;
     type Target = ILP;
 
     fn target_problem(&self) -> &ILP {
@@ -49,7 +50,7 @@ impl ReductionResult for ReductionMatchingToILP {
     }
 }
 
-impl ReduceTo<ILP> for Matching<i32> {
+impl ReduceTo<ILP> for Matching<SimpleGraph, i32> {
     type Result = ReductionMatchingToILP;
 
     fn reduce_to(&self) -> Self::Result {
@@ -101,7 +102,7 @@ mod tests {
     #[test]
     fn test_reduction_creates_valid_ilp() {
         // Triangle graph: 3 vertices, 3 edges
-        let problem = Matching::<i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -144,7 +145,7 @@ mod tests {
     #[test]
     fn test_ilp_solution_equals_brute_force_triangle() {
         // Triangle graph: max matching = 1 edge
-        let problem = Matching::<i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -172,7 +173,7 @@ mod tests {
     #[test]
     fn test_ilp_solution_equals_brute_force_path() {
         // Path graph 0-1-2-3: max matching = 2 (edges {0-1, 2-3})
-        let problem = Matching::<i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -225,7 +226,7 @@ mod tests {
 
     #[test]
     fn test_solution_extraction() {
-        let problem = Matching::<i32>::unweighted(4, vec![(0, 1), (2, 3)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (2, 3)]);
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
         // Test that extraction works correctly (1:1 mapping)
@@ -240,7 +241,7 @@ mod tests {
 
     #[test]
     fn test_source_and_target_size() {
-        let problem = Matching::<i32>::unweighted(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
         let source_size = reduction.source_size();
@@ -258,7 +259,7 @@ mod tests {
     #[test]
     fn test_empty_graph() {
         // Graph with no edges: empty matching
-        let problem = Matching::<i32>::unweighted(3, vec![]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(3, vec![]);
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -274,7 +275,7 @@ mod tests {
     fn test_k4_perfect_matching() {
         // Complete graph K4: can have perfect matching (2 edges covering all 4 vertices)
         let problem =
-            Matching::<i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+            Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -299,7 +300,7 @@ mod tests {
     fn test_star_graph() {
         // Star graph with center vertex 0 connected to 1, 2, 3
         // Max matching = 1 (only one edge can be selected)
-        let problem = Matching::<i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3)]);
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -316,7 +317,7 @@ mod tests {
     fn test_bipartite_graph() {
         // Bipartite graph: {0,1} and {2,3} with all cross edges
         // Max matching = 2 (one perfect matching)
-        let problem = Matching::<i32>::unweighted(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
         let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -332,7 +333,7 @@ mod tests {
     #[test]
     fn test_solve_reduced() {
         // Test the ILPSolver::solve_reduced method
-        let problem = Matching::<i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         let ilp_solver = ILPSolver::new();
         let solution = ilp_solver

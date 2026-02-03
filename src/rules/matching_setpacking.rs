@@ -9,6 +9,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::ProblemSize;
 use num_traits::{Num, Zero};
@@ -16,16 +17,18 @@ use std::ops::AddAssign;
 
 /// Result of reducing Matching to SetPacking.
 #[derive(Debug, Clone)]
-pub struct ReductionMatchingToSP<W> {
+pub struct ReductionMatchingToSP<G, W> {
     target: SetPacking<W>,
     source_size: ProblemSize,
+    _marker: std::marker::PhantomData<G>,
 }
 
-impl<W> ReductionResult for ReductionMatchingToSP<W>
+impl<G, W> ReductionResult for ReductionMatchingToSP<G, W>
 where
+    G: Graph,
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
 {
-    type Source = Matching<W>;
+    type Source = Matching<G, W>;
     type Target = SetPacking<W>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -55,11 +58,12 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<SetPacking<W>> for Matching<W>
+impl<G, W> ReduceTo<SetPacking<W>> for Matching<G, W>
 where
+    G: Graph,
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
-    type Result = ReductionMatchingToSP<W>;
+    type Result = ReductionMatchingToSP<G, W>;
 
     fn reduce_to(&self) -> Self::Result {
         let edges = self.edges();
@@ -75,6 +79,7 @@ where
         ReductionMatchingToSP {
             target,
             source_size: self.problem_size(),
+            _marker: std::marker::PhantomData,
         }
     }
 }
@@ -87,7 +92,7 @@ mod tests {
     #[test]
     fn test_matching_to_setpacking_structure() {
         // Path graph 0-1-2
-        let matching = Matching::<i32>::unweighted(3, vec![(0, 1), (1, 2)]);
+        let matching = Matching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
         let sp = reduction.target_problem();
 
@@ -103,7 +108,7 @@ mod tests {
     #[test]
     fn test_matching_to_setpacking_path() {
         // Path 0-1-2-3 with unit weights
-        let matching = Matching::<i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let matching = Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
         let sp = reduction.target_problem();
 
@@ -129,7 +134,7 @@ mod tests {
     #[test]
     fn test_matching_to_setpacking_triangle() {
         // Triangle graph
-        let matching = Matching::<i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let matching = Matching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
         let sp = reduction.target_problem();
 
@@ -148,7 +153,7 @@ mod tests {
     #[test]
     fn test_matching_to_setpacking_weighted() {
         // Weighted edges: heavy edge should win over multiple light edges
-        let matching = Matching::new(4, vec![(0, 1, 100), (0, 2, 1), (1, 3, 1)]);
+        let matching = Matching::<SimpleGraph, i32>::new(4, vec![(0, 1, 100), (0, 2, 1), (1, 3, 1)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
         let sp = reduction.target_problem();
 
@@ -169,7 +174,7 @@ mod tests {
 
     #[test]
     fn test_matching_to_setpacking_solution_extraction() {
-        let matching = Matching::<i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let matching = Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
 
         // Test solution extraction is 1:1
@@ -184,8 +189,10 @@ mod tests {
     #[test]
     fn test_matching_to_setpacking_k4() {
         // Complete graph K4: can have perfect matching (2 edges covering all 4 vertices)
-        let matching =
-            Matching::<i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+        let matching = Matching::<SimpleGraph, i32>::unweighted(
+            4,
+            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+        );
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
         let sp = reduction.target_problem();
 
@@ -203,7 +210,7 @@ mod tests {
     #[test]
     fn test_matching_to_setpacking_empty() {
         // Graph with no edges
-        let matching = Matching::<i32>::unweighted(3, vec![]);
+        let matching = Matching::<SimpleGraph, i32>::unweighted(3, vec![]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
         let sp = reduction.target_problem();
 
@@ -212,7 +219,7 @@ mod tests {
 
     #[test]
     fn test_matching_to_setpacking_single_edge() {
-        let matching = Matching::<i32>::unweighted(2, vec![(0, 1)]);
+        let matching = Matching::<SimpleGraph, i32>::unweighted(2, vec![(0, 1)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
         let sp = reduction.target_problem();
 
@@ -229,7 +236,7 @@ mod tests {
     #[test]
     fn test_matching_to_setpacking_disjoint_edges() {
         // Two disjoint edges: 0-1 and 2-3
-        let matching = Matching::<i32>::unweighted(4, vec![(0, 1), (2, 3)]);
+        let matching = Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (2, 3)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
         let sp = reduction.target_problem();
 
@@ -242,7 +249,7 @@ mod tests {
 
     #[test]
     fn test_reduction_sizes() {
-        let matching = Matching::<i32>::unweighted(5, vec![(0, 1), (1, 2), (2, 3)]);
+        let matching = Matching::<SimpleGraph, i32>::unweighted(5, vec![(0, 1), (1, 2), (2, 3)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
 
         let source_size = reduction.source_size();
@@ -256,7 +263,7 @@ mod tests {
     #[test]
     fn test_matching_to_setpacking_star() {
         // Star graph: center vertex 0 connected to 1, 2, 3
-        let matching = Matching::<i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3)]);
+        let matching = Matching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3)]);
         let reduction = ReduceTo::<SetPacking<i32>>::reduce_to(&matching);
         let sp = reduction.target_problem();
 
@@ -271,4 +278,3 @@ mod tests {
         assert_eq!(sp_solutions.len(), 3);
     }
 }
-

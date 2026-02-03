@@ -34,6 +34,7 @@ mod tests {
         use crate::models::satisfiability::{KSatisfiability, Satisfiability};
         use crate::models::set::{SetCovering, SetPacking};
         use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
+        use crate::topology::SimpleGraph;
         use crate::traits::Problem;
 
         // Test IndependentSet variants
@@ -59,7 +60,7 @@ mod tests {
         assert_eq!(v[0].1, "SimpleGraph");
 
         // Test Matching
-        let v = Matching::<i32>::variant();
+        let v = Matching::<SimpleGraph, i32>::variant();
         assert_eq!(v.len(), 2);
         assert_eq!(v[0].1, "SimpleGraph");
 

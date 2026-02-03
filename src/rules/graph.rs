@@ -273,18 +273,19 @@ impl ReductionGraph {
         use crate::models::satisfiability::*;
         use crate::models::set::*;
         use crate::models::specialized::*;
+        use crate::topology::SimpleGraph;
 
         // Register problem types - multiple concrete types can share a base name
         register! {
             // Graph problems
-            IndependentSet<i32> => "IndependentSet",
-            IndependentSet<f64> => "IndependentSet",
-            VertexCovering<i32> => "VertexCovering",
-            VertexCovering<f64> => "VertexCovering",
-            MaxCut<i32> => "MaxCut",
-            MaxCut<f64> => "MaxCut",
-            Matching<i32> => "Matching",
-            DominatingSet<i32> => "DominatingSet",
+            IndependentSet<SimpleGraph, i32> => "IndependentSet",
+            IndependentSet<SimpleGraph, f64> => "IndependentSet",
+            VertexCovering<SimpleGraph, i32> => "VertexCovering",
+            VertexCovering<SimpleGraph, f64> => "VertexCovering",
+            MaxCut<SimpleGraph, i32> => "MaxCut",
+            MaxCut<SimpleGraph, f64> => "MaxCut",
+            Matching<SimpleGraph, i32> => "Matching",
+            DominatingSet<SimpleGraph, i32> => "DominatingSet",
             Coloring => "Coloring",
             // Set problems
             SetPacking<i32> => "SetPacking",
