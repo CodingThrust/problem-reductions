@@ -15,9 +15,9 @@ use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Typ
 ///
 /// # Type Parameter Convention
 ///
-/// The macro extracts weight and graph type information from type parameters:
-/// - `Problem<W>` where `W` is a type parameter - weighted if W != Unweighted
-/// - `Problem<W, G>` where `G` is a graph type - extracts graph type name
+/// The macro extracts graph and weight type information from type parameters:
+/// - `Problem<G>` where `G` is a graph type - extracts graph type name
+/// - `Problem<G, W>` where `W` is a weight type - weighted if W != Unweighted
 ///
 /// # Example
 ///
@@ -119,35 +119,36 @@ fn extract_type_name(ty: &Type) -> Option<String> {
     }
 }
 
-/// Extract graph type from type parameters (second parameter if present)
+/// Extract graph type from type parameters (first parameter in `Problem<G, W>` order)
 fn extract_graph_type(ty: &Type) -> Option<String> {
     match ty {
         Type::Path(type_path) => {
             let segment = type_path.path.segments.last()?;
             if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                // Count only type arguments (skip const generics)
-                let mut type_arg_index = 0;
+                // Get the first type argument which is the graph type
                 for arg in args.args.iter() {
-                    if let GenericArgument::Type(inner_ty) = arg {
-                        if let Type::Path(inner_path) = inner_ty {
-                            let name = inner_path
-                                .path
-                                .segments
-                                .last()
-                                .map(|s| s.ident.to_string())?;
-                            // Common graph type names - explicit matches
-                            if name.ends_with("Graph") || name == "CNF" || name == "SetSystem" {
-                                return Some(name);
-                            }
-                            // If it's the second TYPE parameter and looks like a concrete graph type
-                            // (not a single-letter generic like W, T, G or a known weight type)
-                            if type_arg_index == 1 && !is_weight_or_generic_param(&name) {
-                                return Some(name);
-                            }
+                    if let GenericArgument::Type(Type::Path(inner_path)) = arg {
+                        let name = inner_path
+                            .path
+                            .segments
+                            .last()
+                            .map(|s| s.ident.to_string())?;
+                        // Skip generic params (single uppercase letter)
+                        if name.len() == 1
+                            && name
+                                .chars()
+                                .next()
+                                .map(|c| c.is_ascii_uppercase())
+                                .unwrap_or(false)
+                        {
+                            return None; // Generic param, let it default
                         }
-                        type_arg_index += 1;
+                        // Skip known weight types - for single-param problems like QUBO<W>
+                        if is_weight_type(&name) {
+                            return None; // Weight type in first position, not a graph type
+                        }
+                        return Some(name);
                     }
-                    // Const generics (GenericArgument::Const) are skipped automatically
                 }
             }
             None
@@ -156,36 +157,52 @@ fn extract_graph_type(ty: &Type) -> Option<String> {
     }
 }
 
-/// Check if a type name looks like a weight type or a generic type parameter
-fn is_weight_or_generic_param(name: &str) -> bool {
-    // Known weight types
-    if ["i32", "i64", "f32", "f64", "Unweighted"].contains(&name) {
-        return true;
-    }
-    // Single uppercase letter - typically a generic type parameter (W, T, G, etc.)
-    if name.len() == 1
-        && name
-            .chars()
-            .next()
-            .map(|c| c.is_ascii_uppercase())
-            .unwrap_or(false)
-    {
-        return true;
-    }
-    false
+/// Check if a type name is a known weight type
+fn is_weight_type(name: &str) -> bool {
+    ["i32", "i64", "f32", "f64", "Unweighted"].contains(&name)
 }
 
-/// Extract weight type from first type parameter
+/// Extract weight type from type parameters.
+/// For `Problem<G, W>` (two params): returns W (second param).
+/// For `Problem<W>` (single weight param): returns W (first param).
 fn extract_weight_type(ty: &Type) -> Option<Type> {
     match ty {
         Type::Path(type_path) => {
             let segment = type_path.path.segments.last()?;
             if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                if let Some(GenericArgument::Type(inner_ty)) = args.args.first() {
-                    return Some(inner_ty.clone());
+                let type_args: Vec<_> = args
+                    .args
+                    .iter()
+                    .filter_map(|arg| {
+                        if let GenericArgument::Type(t) = arg {
+                            Some(t)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                match type_args.len() {
+                    1 => {
+                        // Single param - check if it's a weight type
+                        let first = type_args[0];
+                        if let Type::Path(inner_path) = first {
+                            let name = inner_path.path.segments.last()?.ident.to_string();
+                            if is_weight_type(&name) {
+                                return Some(first.clone());
+                            }
+                        }
+                        None
+                    }
+                    2 => {
+                        // Two params: Problem<G, W> - return second
+                        Some(type_args[1].clone())
+                    }
+                    _ => None,
                 }
+            } else {
+                None
             }
-            None
         }
         _ => None,
     }
