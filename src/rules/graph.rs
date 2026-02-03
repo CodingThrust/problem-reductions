@@ -1,6 +1,6 @@
 //! Runtime reduction graph for discovering and executing reduction paths.
 //!
-//! The graph uses type-erased names (e.g., "SpinGlass" instead of "SpinGlass<i32>")
+//! The graph uses type-erased names (e.g., "SpinGlass" instead of "SpinGlass<SimpleGraph, i32>")
 //! for topology, allowing path finding regardless of weight type parameters.
 //!
 //! This module implements set-theoretic validation for path finding:
@@ -286,13 +286,13 @@ impl ReductionGraph {
             MaxCut<SimpleGraph, f64> => "MaxCut",
             Matching<SimpleGraph, i32> => "Matching",
             DominatingSet<SimpleGraph, i32> => "DominatingSet",
-            Coloring => "Coloring",
+            KColoring<3, SimpleGraph, i32> => "KColoring",
             // Set problems
             SetPacking<i32> => "SetPacking",
             SetCovering<i32> => "SetCovering",
             // Optimization problems
-            SpinGlass<i32> => "SpinGlass",
-            SpinGlass<f64> => "SpinGlass",
+            SpinGlass<SimpleGraph, i32> => "SpinGlass",
+            SpinGlass<SimpleGraph, f64> => "SpinGlass",
             QUBO<f64> => "QUBO",
             ILP => "ILP",
             // Satisfiability problems
@@ -435,7 +435,7 @@ impl ReductionGraph {
 
     /// Find all paths from source to target type.
     ///
-    /// Uses type-erased names, so `find_paths::<MaxCut<SimpleGraph, i32>, SpinGlass<f64>>()`
+    /// Uses type-erased names, so `find_paths::<MaxCut<SimpleGraph, i32>, SpinGlass<SimpleGraph, f64>>()`
     /// will find paths even though the weight types differ.
     pub fn find_paths<S: 'static, T: 'static>(&self) -> Vec<ReductionPath> {
         let src_name = match self.type_to_name.get(&TypeId::of::<S>()) {
@@ -743,11 +743,11 @@ mod tests {
         // Different weight types should find the same path (type-erased)
         let paths_i32 = graph.find_paths::<
             crate::models::graph::MaxCut<SimpleGraph, i32>,
-            crate::models::optimization::SpinGlass<i32>,
+            crate::models::optimization::SpinGlass<SimpleGraph, i32>,
         >();
         let paths_f64 = graph.find_paths::<
             crate::models::graph::MaxCut<SimpleGraph, f64>,
-            crate::models::optimization::SpinGlass<f64>,
+            crate::models::optimization::SpinGlass<SimpleGraph, f64>,
         >();
 
         // Both should find paths since we use type-erased names
@@ -859,7 +859,7 @@ mod tests {
             "graph"
         );
         assert_eq!(ReductionGraph::categorize_type("MaxCut<SimpleGraph, i32>"), "graph");
-        assert_eq!(ReductionGraph::categorize_type("Coloring"), "graph");
+        assert_eq!(ReductionGraph::categorize_type("KColoring"), "graph");
         assert_eq!(
             ReductionGraph::categorize_type("DominatingSet<SimpleGraph, i32>"),
             "graph"
@@ -872,7 +872,7 @@ mod tests {
 
         // Optimization
         assert_eq!(
-            ReductionGraph::categorize_type("SpinGlass<i32>"),
+            ReductionGraph::categorize_type("SpinGlass<SimpleGraph, i32>"),
             "optimization"
         );
         assert_eq!(ReductionGraph::categorize_type("QUBO<f64>"), "optimization");
@@ -900,7 +900,7 @@ mod tests {
 
     #[test]
     fn test_sat_based_reductions() {
-        use crate::models::graph::Coloring;
+        use crate::models::graph::KColoring;
         use crate::models::graph::DominatingSet;
         use crate::models::satisfiability::Satisfiability;
 
@@ -909,8 +909,8 @@ mod tests {
         // SAT -> IS
         assert!(graph.has_direct_reduction::<Satisfiability<i32>, IndependentSet<SimpleGraph, i32>>());
 
-        // SAT -> Coloring
-        assert!(graph.has_direct_reduction::<Satisfiability<i32>, Coloring>());
+        // SAT -> KColoring
+        assert!(graph.has_direct_reduction::<Satisfiability<i32>, KColoring<3, SimpleGraph, i32>>());
 
         // SAT -> DominatingSet
         assert!(graph.has_direct_reduction::<Satisfiability<i32>, DominatingSet<SimpleGraph, i32>>());
@@ -927,13 +927,13 @@ mod tests {
         assert!(graph.has_direct_reduction::<Factoring, CircuitSAT<i32>>());
 
         // CircuitSAT -> SpinGlass
-        assert!(graph.has_direct_reduction::<CircuitSAT<i32>, SpinGlass<f64>>());
+        assert!(graph.has_direct_reduction::<CircuitSAT<i32>, SpinGlass<SimpleGraph, f64>>());
 
         // Find path from Factoring to SpinGlass
-        let paths = graph.find_paths::<Factoring, SpinGlass<f64>>();
+        let paths = graph.find_paths::<Factoring, SpinGlass<SimpleGraph, f64>>();
         assert!(!paths.is_empty());
         let shortest = graph
-            .find_shortest_path::<Factoring, SpinGlass<f64>>()
+            .find_shortest_path::<Factoring, SpinGlass<SimpleGraph, f64>>()
             .unwrap();
         assert_eq!(shortest.len(), 2); // Factoring -> CircuitSAT -> SpinGlass
     }
@@ -946,12 +946,12 @@ mod tests {
         let graph = ReductionGraph::new();
 
         // SpinGlass <-> QUBO (bidirectional)
-        assert!(graph.has_direct_reduction::<SpinGlass<f64>, QUBO<f64>>());
-        assert!(graph.has_direct_reduction::<QUBO<f64>, SpinGlass<f64>>());
+        assert!(graph.has_direct_reduction::<SpinGlass<SimpleGraph, f64>, QUBO<f64>>());
+        assert!(graph.has_direct_reduction::<QUBO<f64>, SpinGlass<SimpleGraph, f64>>());
 
         // MaxCut <-> SpinGlass (bidirectional)
-        assert!(graph.has_direct_reduction::<MaxCut<SimpleGraph, i32>, SpinGlass<f64>>());
-        assert!(graph.has_direct_reduction::<SpinGlass<f64>, MaxCut<SimpleGraph, i32>>());
+        assert!(graph.has_direct_reduction::<MaxCut<SimpleGraph, i32>, SpinGlass<SimpleGraph, f64>>());
+        assert!(graph.has_direct_reduction::<SpinGlass<SimpleGraph, f64>, MaxCut<SimpleGraph, i32>>());
     }
 
     #[test]

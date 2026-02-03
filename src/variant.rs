@@ -2,6 +2,36 @@
 
 use std::any::type_name;
 
+/// Convert const generic usize to static str (for common values).
+///
+/// This is useful for including const generic parameters in problem variant IDs.
+/// For values 1-10, returns the string representation. For other values, returns "N".
+///
+/// # Example
+///
+/// ```
+/// use problemreductions::variant::const_usize_str;
+///
+/// assert_eq!(const_usize_str::<3>(), "3");
+/// assert_eq!(const_usize_str::<10>(), "10");
+/// assert_eq!(const_usize_str::<100>(), "N");
+/// ```
+pub const fn const_usize_str<const N: usize>() -> &'static str {
+    match N {
+        1 => "1",
+        2 => "2",
+        3 => "3",
+        4 => "4",
+        5 => "5",
+        6 => "6",
+        7 => "7",
+        8 => "8",
+        9 => "9",
+        10 => "10",
+        _ => "N",
+    }
+}
+
 /// Extract short type name from full path.
 /// e.g., "problemreductions::graph_types::SimpleGraph" -> "SimpleGraph"
 pub fn short_type_name<T: 'static>() -> &'static str {
@@ -26,9 +56,25 @@ mod tests {
     }
 
     #[test]
+    fn test_const_usize_str() {
+        assert_eq!(const_usize_str::<1>(), "1");
+        assert_eq!(const_usize_str::<2>(), "2");
+        assert_eq!(const_usize_str::<3>(), "3");
+        assert_eq!(const_usize_str::<4>(), "4");
+        assert_eq!(const_usize_str::<5>(), "5");
+        assert_eq!(const_usize_str::<6>(), "6");
+        assert_eq!(const_usize_str::<7>(), "7");
+        assert_eq!(const_usize_str::<8>(), "8");
+        assert_eq!(const_usize_str::<9>(), "9");
+        assert_eq!(const_usize_str::<10>(), "10");
+        assert_eq!(const_usize_str::<11>(), "N");
+        assert_eq!(const_usize_str::<100>(), "N");
+    }
+
+    #[test]
     fn test_variant_for_problems() {
         use crate::models::graph::{
-            Coloring, DominatingSet, IndependentSet, Matching, MaxCut, MaximalIS, VertexCovering,
+            DominatingSet, IndependentSet, KColoring, Matching, MaxCut, MaximalIS, VertexCovering,
         };
         use crate::models::optimization::{SpinGlass, QUBO};
         use crate::models::satisfiability::{KSatisfiability, Satisfiability};
@@ -72,10 +118,12 @@ mod tests {
         let v = MaxCut::<SimpleGraph, f64>::variant();
         assert_eq!(v[1].1, "f64");
 
-        // Test Coloring (no weight parameter)
-        let v = Coloring::variant();
-        assert_eq!(v.len(), 2);
-        assert_eq!(v[0].1, "SimpleGraph");
+        // Test KColoring (has K, graph, and weight parameters)
+        let v = KColoring::<3, SimpleGraph, i32>::variant();
+        assert_eq!(v.len(), 3);
+        assert_eq!(v[0], ("k", "3"));
+        assert_eq!(v[1], ("graph", "SimpleGraph"));
+        assert_eq!(v[2], ("weight", "i32"));
 
         // Test MaximalIS (no weight parameter)
         let v = MaximalIS::<SimpleGraph, i32>::variant();
@@ -99,11 +147,11 @@ mod tests {
         assert_eq!(v.len(), 2);
 
         // Test SpinGlass
-        let v = SpinGlass::<f64>::variant();
+        let v = SpinGlass::<SimpleGraph, f64>::variant();
         assert_eq!(v.len(), 2);
         assert_eq!(v[1].1, "f64");
 
-        let v = SpinGlass::<i32>::variant();
+        let v = SpinGlass::<SimpleGraph, i32>::variant();
         assert_eq!(v[1].1, "i32");
 
         // Test QUBO

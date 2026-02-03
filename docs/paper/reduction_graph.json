@@ -22,19 +22,6 @@
       "category": "satisfiability"
     },
     {
-      "name": "Coloring",
-      "variant": {},
-      "category": "graph"
-    },
-    {
-      "name": "Coloring",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "Unweighted"
-      },
-      "category": "graph"
-    },
-    {
       "name": "DominatingSet",
       "variant": {},
       "category": "graph"
@@ -83,6 +70,28 @@
       "variant": {
         "graph": "SimpleGraph",
         "weight": "Unweighted"
+      },
+      "category": "graph"
+    },
+    {
+      "name": "KColoring",
+      "variant": {},
+      "category": "graph"
+    },
+    {
+      "name": "KColoring",
+      "variant": {
+        "graph": "SimpleGraph",
+        "k": "N",
+        "weight": "i32"
+      },
+      "category": "graph"
+    },
+    {
+      "name": "KColoring",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
       },
       "category": "graph"
     },
@@ -232,23 +241,6 @@
     },
     {
       "source": {
-        "name": "Coloring",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "target": {
-        "name": "ILP",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "bidirectional": false
-    },
-    {
-      "source": {
         "name": "Factoring",
         "variant": {
           "graph": "SimpleGraph",
@@ -270,6 +262,24 @@
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
+        "name": "KColoring",
+        "variant": {
+          "graph": "SimpleGraph",
+          "k": "N",
+          "weight": "i32"
         }
       },
       "target": {
@@ -307,23 +317,6 @@
         }
       },
       "target": {
-        "name": "Coloring",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "bidirectional": false
-    },
-    {
-      "source": {
-        "name": "Satisfiability",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "target": {
         "name": "DominatingSet",
         "variant": {
           "graph": "SimpleGraph",
@@ -345,6 +338,23 @@
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
+        "name": "Satisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "KColoring",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
         }
       },
       "bidirectional": false

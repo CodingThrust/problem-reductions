@@ -1,7 +1,7 @@
 //! Reductions between SpinGlass and MaxCut problems.
 //!
-//! MaxCut → SpinGlass: Direct mapping, edge weights become J couplings.
-//! SpinGlass → MaxCut: Requires ancilla vertex for onsite terms.
+//! MaxCut -> SpinGlass: Direct mapping, edge weights become J couplings.
+//! SpinGlass -> MaxCut: Requires ancilla vertex for onsite terms.
 
 use crate::models::graph::MaxCut;
 use crate::models::optimization::SpinGlass;
@@ -18,7 +18,7 @@ use std::ops::AddAssign;
 /// Result of reducing MaxCut to SpinGlass.
 #[derive(Debug, Clone)]
 pub struct ReductionMaxCutToSG<W> {
-    target: SpinGlass<W>,
+    target: SpinGlass<SimpleGraph, W>,
     source_size: ProblemSize,
 }
 
@@ -27,7 +27,7 @@ where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Source = MaxCut<SimpleGraph, W>;
-    type Target = SpinGlass<W>;
+    type Target = SpinGlass<SimpleGraph, W>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -56,7 +56,7 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<SpinGlass<W>> for MaxCut<SimpleGraph, W>
+impl<W> ReduceTo<SpinGlass<SimpleGraph, W>> for MaxCut<SimpleGraph, W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
@@ -91,7 +91,7 @@ where
         // No onsite terms for pure MaxCut
         let onsite = vec![W::zero(); n];
 
-        let target = SpinGlass::new(n, interactions, onsite);
+        let target = SpinGlass::<SimpleGraph, W>::new(n, interactions, onsite);
 
         ReductionMaxCutToSG {
             target,
@@ -113,7 +113,7 @@ impl<W> ReductionResult for ReductionSGToMaxCut<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
-    type Source = SpinGlass<W>;
+    type Source = SpinGlass<SimpleGraph, W>;
     type Target = MaxCut<SimpleGraph, W>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -156,7 +156,7 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<MaxCut<SimpleGraph, W>> for SpinGlass<W>
+impl<W> ReduceTo<MaxCut<SimpleGraph, W>> for SpinGlass<SimpleGraph, W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
@@ -176,9 +176,9 @@ where
         let mut weights = Vec::new();
 
         // Add interaction edges
-        for &((i, j), ref w) in interactions {
+        for ((i, j), w) in interactions {
             edges.push((i, j));
-            weights.push(w.clone());
+            weights.push(w);
         }
 
         // Add onsite terms as edges to ancilla
@@ -212,7 +212,7 @@ mod tests {
     fn test_maxcut_to_spinglass() {
         // Simple triangle MaxCut
         let mc = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
-        let reduction = ReduceTo::<SpinGlass<i32>>::reduce_to(&mc);
+        let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&mc);
         let sg = reduction.target_problem();
 
         let solver = BruteForce::new();
@@ -224,7 +224,7 @@ mod tests {
     #[test]
     fn test_spinglass_to_maxcut_no_onsite() {
         // SpinGlass without onsite terms
-        let sg = SpinGlass::new(3, vec![((0, 1), 1), ((1, 2), 1)], vec![0, 0, 0]);
+        let sg = SpinGlass::<SimpleGraph, i32>::new(3, vec![((0, 1), 1), ((1, 2), 1)], vec![0, 0, 0]);
         let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
         let mc = reduction.target_problem();
 
@@ -235,7 +235,7 @@ mod tests {
     #[test]
     fn test_spinglass_to_maxcut_with_onsite() {
         // SpinGlass with onsite terms
-        let sg = SpinGlass::new(2, vec![((0, 1), 1)], vec![1, 0]);
+        let sg = SpinGlass::<SimpleGraph, i32>::new(2, vec![((0, 1), 1)], vec![1, 0]);
         let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
         let mc = reduction.target_problem();
 
@@ -245,7 +245,7 @@ mod tests {
 
     #[test]
     fn test_solution_extraction_no_ancilla() {
-        let sg = SpinGlass::new(2, vec![((0, 1), 1)], vec![0, 0]);
+        let sg = SpinGlass::<SimpleGraph, i32>::new(2, vec![((0, 1), 1)], vec![0, 0]);
         let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
 
         let mc_sol = vec![0, 1];
@@ -255,7 +255,7 @@ mod tests {
 
     #[test]
     fn test_solution_extraction_with_ancilla() {
-        let sg = SpinGlass::new(2, vec![((0, 1), 1)], vec![1, 0]);
+        let sg = SpinGlass::<SimpleGraph, i32>::new(2, vec![((0, 1), 1)], vec![1, 0]);
         let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
 
         // If ancilla is 0, don't flip
@@ -272,7 +272,7 @@ mod tests {
     #[test]
     fn test_weighted_maxcut() {
         let mc = MaxCut::<SimpleGraph, i32>::new(3, vec![(0, 1, 10), (1, 2, 20)]);
-        let reduction = ReduceTo::<SpinGlass<i32>>::reduce_to(&mc);
+        let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&mc);
         let sg = reduction.target_problem();
 
         // Verify interactions have correct weights
@@ -284,7 +284,7 @@ mod tests {
     fn test_reduction_sizes() {
         // Test source_size and target_size methods
         let mc = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
-        let reduction = ReduceTo::<SpinGlass<i32>>::reduce_to(&mc);
+        let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&mc);
 
         let source_size = reduction.source_size();
         let target_size = reduction.target_size();
@@ -293,7 +293,7 @@ mod tests {
         assert!(!target_size.components.is_empty());
 
         // Test SG to MaxCut sizes
-        let sg = SpinGlass::new(3, vec![((0, 1), 1)], vec![0, 0, 0]);
+        let sg = SpinGlass::<SimpleGraph, i32>::new(3, vec![((0, 1), 1)], vec![0, 0, 0]);
         let reduction2 = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
 
         let source_size2 = reduction2.source_size();

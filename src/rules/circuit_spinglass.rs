@@ -12,6 +12,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::ProblemSize;
 use num_traits::{Num, Zero};
@@ -29,7 +30,7 @@ use std::ops::AddAssign;
 #[derive(Debug, Clone)]
 pub struct LogicGadget<W> {
     /// The SpinGlass problem encoding the gate.
-    pub problem: SpinGlass<W>,
+    pub problem: SpinGlass<SimpleGraph, W>,
     /// Input spin indices (0-indexed within the gadget).
     pub inputs: Vec<usize>,
     /// Output spin indices (0-indexed within the gadget).
@@ -38,7 +39,7 @@ pub struct LogicGadget<W> {
 
 impl<W> LogicGadget<W> {
     /// Create a new logic gadget.
-    pub fn new(problem: SpinGlass<W>, inputs: Vec<usize>, outputs: Vec<usize>) -> Self {
+    pub fn new(problem: SpinGlass<SimpleGraph, W>, inputs: Vec<usize>, outputs: Vec<usize>) -> Self {
         Self {
             problem,
             inputs,
@@ -178,7 +179,7 @@ where
 #[derive(Debug, Clone)]
 pub struct ReductionCircuitToSG<W> {
     /// The target SpinGlass problem.
-    target: SpinGlass<W>,
+    target: SpinGlass<SimpleGraph, W>,
     /// Mapping from source variable names to spin indices.
     variable_map: HashMap<String, usize>,
     /// Source variable names in order.
@@ -192,7 +193,7 @@ where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {
     type Source = CircuitSAT<W>;
-    type Target = SpinGlass<W>;
+    type Target = SpinGlass<SimpleGraph, W>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -267,8 +268,8 @@ where
     fn add_gadget(&mut self, gadget: &LogicGadget<W>, spin_map: &[usize]) {
         // Add interactions
         for ((i, j), weight) in gadget.problem.interactions() {
-            let global_i = spin_map[*i];
-            let global_j = spin_map[*j];
+            let global_i = spin_map[i];
+            let global_j = spin_map[j];
             let key = if global_i < global_j {
                 (global_i, global_j)
             } else {
@@ -288,7 +289,7 @@ where
     }
 
     /// Build the final SpinGlass.
-    fn build(self) -> (SpinGlass<W>, HashMap<String, usize>) {
+    fn build(self) -> (SpinGlass<SimpleGraph, W>, HashMap<String, usize>) {
         let interactions: Vec<((usize, usize), W)> = self.interactions.into_iter().collect();
         let sg = SpinGlass::new(self.num_spins, interactions, self.fields);
         (sg, self.variable_map)
@@ -430,7 +431,7 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<SpinGlass<W>> for CircuitSAT<W>
+impl<W> ReduceTo<SpinGlass<SimpleGraph, W>> for CircuitSAT<W>
 where
     W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
 {

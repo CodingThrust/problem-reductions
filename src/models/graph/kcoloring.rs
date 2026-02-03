@@ -1,27 +1,35 @@
-//! Graph Coloring problem implementation.
+//! Graph K-Coloring problem implementation.
 //!
 //! The K-Coloring problem asks whether a graph can be colored with K colors
 //! such that no two adjacent vertices have the same color.
 
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use petgraph::graph::{NodeIndex, UnGraph};
-use petgraph::visit::EdgeRef;
+use crate::variant::{const_usize_str, short_type_name};
 use serde::{Deserialize, Serialize};
+use std::marker::PhantomData;
 
 /// The Graph K-Coloring problem.
 ///
 /// Given a graph G = (V, E) and K colors, find an assignment of colors
 /// to vertices such that no two adjacent vertices have the same color.
 ///
+/// # Type Parameters
+///
+/// * `K` - Number of colors (const generic)
+/// * `G` - Graph type (e.g., SimpleGraph, GridGraph)
+/// * `W` - Weight type (typically i32 for unweighted problems)
+///
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::graph::Coloring;
+/// use problemreductions::models::graph::KColoring;
+/// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Triangle graph needs at least 3 colors
-/// let problem = Coloring::new(3, 3, vec![(0, 1), (1, 2), (0, 2)]);
+/// let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_best(&problem);
@@ -32,59 +40,66 @@ use serde::{Deserialize, Serialize};
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Coloring {
-    /// Number of colors.
-    num_colors: usize,
+pub struct KColoring<const K: usize, G, W> {
     /// The underlying graph.
-    graph: UnGraph<(), ()>,
+    graph: G,
+    /// Phantom data for weight type.
+    #[serde(skip)]
+    _phantom: PhantomData<W>,
 }
 
-impl Coloring {
+impl<const K: usize, W: Clone + Default> KColoring<K, SimpleGraph, W> {
     /// Create a new K-Coloring problem.
     ///
     /// # Arguments
     /// * `num_vertices` - Number of vertices
-    /// * `num_colors` - Number of available colors (K)
     /// * `edges` - List of edges as (u, v) pairs
-    pub fn new(num_vertices: usize, num_colors: usize, edges: Vec<(usize, usize)>) -> Self {
-        let mut graph = UnGraph::new_undirected();
-        for _ in 0..num_vertices {
-            graph.add_node(());
+    pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self {
+        let graph = SimpleGraph::new(num_vertices, edges);
+        Self {
+            graph,
+            _phantom: PhantomData,
         }
-        for (u, v) in edges {
-            graph.add_edge(NodeIndex::new(u), NodeIndex::new(v), ());
+    }
+}
+
+impl<const K: usize, G: Graph, W: Clone + Default> KColoring<K, G, W> {
+    /// Create a K-Coloring problem from an existing graph.
+    pub fn from_graph(graph: G) -> Self {
+        Self {
+            graph,
+            _phantom: PhantomData,
         }
-        Self { num_colors, graph }
+    }
+
+    /// Get a reference to the underlying graph.
+    pub fn graph(&self) -> &G {
+        &self.graph
     }
 
     /// Get the number of vertices.
     pub fn num_vertices(&self) -> usize {
-        self.graph.node_count()
+        self.graph.num_vertices()
     }
 
     /// Get the number of edges.
     pub fn num_edges(&self) -> usize {
-        self.graph.edge_count()
+        self.graph.num_edges()
     }
 
     /// Get the number of colors.
     pub fn num_colors(&self) -> usize {
-        self.num_colors
+        K
     }
 
     /// Get the edges as a list of (u, v) pairs.
     pub fn edges(&self) -> Vec<(usize, usize)> {
-        self.graph
-            .edge_references()
-            .map(|e| (e.source().index(), e.target().index()))
-            .collect()
+        self.graph.edges()
     }
 
     /// Check if a coloring is valid.
     fn is_valid_coloring(&self, config: &[usize]) -> bool {
-        for edge in self.graph.edge_references() {
-            let u = edge.source().index();
-            let v = edge.target().index();
+        for (u, v) in self.graph.edges() {
             let color_u = config.get(u).copied().unwrap_or(0);
             let color_v = config.get(v).copied().unwrap_or(0);
             if color_u == color_v {
@@ -95,34 +110,42 @@ impl Coloring {
     }
 }
 
-impl Problem for Coloring {
-    const NAME: &'static str = "Coloring";
+impl<const K: usize, G, W> Problem for KColoring<K, G, W>
+where
+    G: Graph,
+    W: Clone + Default + 'static,
+{
+    const NAME: &'static str = "KColoring";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        vec![
+            ("k", const_usize_str::<K>()),
+            ("graph", G::NAME),
+            ("weight", short_type_name::<W>()),
+        ]
     }
 
     type Size = i32;
 
     fn num_variables(&self) -> usize {
-        self.graph.node_count()
+        self.graph.num_vertices()
     }
 
     fn num_flavors(&self) -> usize {
-        self.num_colors
+        K
     }
 
     fn problem_size(&self) -> ProblemSize {
         ProblemSize::new(vec![
-            ("num_vertices", self.graph.node_count()),
-            ("num_edges", self.graph.edge_count()),
-            ("num_colors", self.num_colors),
+            ("num_vertices", self.graph.num_vertices()),
+            ("num_edges", self.graph.num_edges()),
+            ("num_colors", K),
         ])
     }
 
     fn energy_mode(&self) -> EnergyMode {
         // For decision problem, we just want any valid coloring
-        // Size = 0 for valid, 1 for invalid (minimize)
+        // Size = 0 for valid, >0 for invalid (minimize)
         EnergyMode::SmallerSizeIsBetter
     }
 
@@ -130,9 +153,7 @@ impl Problem for Coloring {
         let is_valid = self.is_valid_coloring(config);
         // Count conflicts
         let mut conflicts = 0;
-        for edge in self.graph.edge_references() {
-            let u = edge.source().index();
-            let v = edge.target().index();
+        for (u, v) in self.graph.edges() {
             let color_u = config.get(u).copied().unwrap_or(0);
             let color_v = config.get(v).copied().unwrap_or(0);
             if color_u == color_v {
@@ -143,25 +164,26 @@ impl Problem for Coloring {
     }
 }
 
-impl ConstraintSatisfactionProblem for Coloring {
+impl<const K: usize, G, W> ConstraintSatisfactionProblem for KColoring<K, G, W>
+where
+    G: Graph,
+    W: Clone + Default + 'static,
+{
     fn constraints(&self) -> Vec<LocalConstraint> {
         // For each edge, the two endpoints must have different colors
         self.graph
-            .edge_references()
-            .map(|e| {
-                let u = e.source().index();
-                let v = e.target().index();
-                let k = self.num_colors;
-
+            .edges()
+            .iter()
+            .map(|&(u, v)| {
                 // Build spec: valid iff colors are different
-                let mut spec = vec![false; k * k];
-                for c1 in 0..k {
-                    for c2 in 0..k {
-                        spec[c1 * k + c2] = c1 != c2;
+                let mut spec = vec![false; K * K];
+                for c1 in 0..K {
+                    for c2 in 0..K {
+                        spec[c1 * K + c2] = c1 != c2;
                     }
                 }
 
-                LocalConstraint::new(k, vec![u, v], spec)
+                LocalConstraint::new(K, vec![u, v], spec)
             })
             .collect()
     }
@@ -211,8 +233,8 @@ mod tests {
     use crate::solvers::{BruteForce, Solver};
 
     #[test]
-    fn test_coloring_creation() {
-        let problem = Coloring::new(4, 3, vec![(0, 1), (1, 2), (2, 3)]);
+    fn test_kcoloring_creation() {
+        let problem = KColoring::<3, SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         assert_eq!(problem.num_vertices(), 4);
         assert_eq!(problem.num_edges(), 3);
         assert_eq!(problem.num_colors(), 3);
@@ -222,7 +244,7 @@ mod tests {
 
     #[test]
     fn test_solution_size_valid() {
-        let problem = Coloring::new(3, 3, vec![(0, 1), (1, 2)]);
+        let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
         // Valid: different colors on adjacent vertices
         let sol = problem.solution_size(&[0, 1, 0]);
@@ -236,7 +258,7 @@ mod tests {
 
     #[test]
     fn test_solution_size_invalid() {
-        let problem = Coloring::new(3, 3, vec![(0, 1), (1, 2)]);
+        let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
         // Invalid: adjacent vertices have same color
         let sol = problem.solution_size(&[0, 0, 1]);
@@ -251,7 +273,7 @@ mod tests {
     #[test]
     fn test_brute_force_path() {
         // Path graph can be 2-colored
-        let problem = Coloring::new(4, 2, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = KColoring::<2, SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -264,7 +286,7 @@ mod tests {
     #[test]
     fn test_brute_force_triangle() {
         // Triangle needs 3 colors
-        let problem = Coloring::new(3, 3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -280,7 +302,7 @@ mod tests {
     #[test]
     fn test_triangle_2_colors() {
         // Triangle cannot be 2-colored
-        let problem = Coloring::new(3, 2, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -293,14 +315,14 @@ mod tests {
 
     #[test]
     fn test_constraints() {
-        let problem = Coloring::new(3, 2, vec![(0, 1), (1, 2)]);
+        let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
         let constraints = problem.constraints();
         assert_eq!(constraints.len(), 2); // One per edge
     }
 
     #[test]
     fn test_energy_mode() {
-        let problem = Coloring::new(2, 2, vec![(0, 1)]);
+        let problem = KColoring::<2, SimpleGraph, i32>::new(2, vec![(0, 1)]);
         assert!(problem.energy_mode().is_minimization());
     }
 
@@ -318,7 +340,7 @@ mod tests {
 
     #[test]
     fn test_empty_graph() {
-        let problem = Coloring::new(3, 1, vec![]);
+        let problem = KColoring::<1, SimpleGraph, i32>::new(3, vec![]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -329,7 +351,10 @@ mod tests {
     #[test]
     fn test_complete_graph_k4() {
         // K4 needs 4 colors
-        let problem = Coloring::new(4, 4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+        let problem = KColoring::<4, SimpleGraph, i32>::new(
+            4,
+            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+        );
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -340,7 +365,7 @@ mod tests {
 
     #[test]
     fn test_is_satisfied() {
-        let problem = Coloring::new(3, 3, vec![(0, 1), (1, 2)]);
+        let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
         assert!(problem.is_satisfied(&[0, 1, 0]));
         assert!(problem.is_satisfied(&[0, 1, 2]));
@@ -349,7 +374,7 @@ mod tests {
 
     #[test]
     fn test_problem_size() {
-        let problem = Coloring::new(5, 3, vec![(0, 1), (1, 2)]);
+        let problem = KColoring::<3, SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2)]);
         let size = problem.problem_size();
         assert_eq!(size.get("num_vertices"), Some(5));
         assert_eq!(size.get("num_edges"), Some(2));
@@ -358,13 +383,13 @@ mod tests {
 
     #[test]
     fn test_csp_methods() {
-        let problem = Coloring::new(3, 2, vec![(0, 1)]);
+        let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1)]);
 
-        // Coloring has no objectives (pure CSP)
+        // KColoring has no objectives (pure CSP)
         let objectives = problem.objectives();
         assert!(objectives.is_empty());
 
-        // Coloring has no weights
+        // KColoring has no weights
         let weights: Vec<i32> = problem.weights();
         assert!(weights.is_empty());
 
@@ -374,9 +399,26 @@ mod tests {
 
     #[test]
     fn test_set_weights() {
-        let mut problem = Coloring::new(3, 2, vec![(0, 1)]);
-        // set_weights does nothing for Coloring
+        let mut problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1)]);
+        // set_weights does nothing for KColoring
         problem.set_weights(vec![1, 2, 3]);
         assert!(!problem.is_weighted());
+    }
+
+    #[test]
+    fn test_from_graph() {
+        let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+        let problem = KColoring::<3, SimpleGraph, i32>::from_graph(graph);
+        assert_eq!(problem.num_vertices(), 3);
+        assert_eq!(problem.num_edges(), 2);
+    }
+
+    #[test]
+    fn test_variant() {
+        let v = KColoring::<3, SimpleGraph, i32>::variant();
+        assert_eq!(v.len(), 3);
+        assert_eq!(v[0], ("k", "3"));
+        assert_eq!(v[1], ("graph", "SimpleGraph"));
+        assert_eq!(v[2], ("weight", "i32"));
     }
 }

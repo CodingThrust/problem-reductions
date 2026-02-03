@@ -1,4 +1,4 @@
-//! Reduction from Coloring to ILP (Integer Linear Programming).
+//! Reduction from KColoring to ILP (Integer Linear Programming).
 //!
 //! The Graph K-Coloring problem can be formulated as a binary ILP:
 //! - Variables: x_{v,c} for each vertex v and color c (binary, 1 if vertex v has color c)
@@ -7,20 +7,21 @@
 //!   2. Adjacent vertices have different colors: x_{u,c} + x_{v,c} <= 1 for each edge (u,v) and color c
 //! - Objective: None (feasibility problem, minimize 0)
 
-use crate::models::graph::Coloring;
+use crate::models::graph::KColoring;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::polynomial::{Monomial, Polynomial};
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::ProblemSize;
 
 // Register reduction in the inventory for automatic discovery
 inventory::submit! {
     ReductionEntry {
-        source_name: "Coloring",
+        source_name: "KColoring",
         target_name: "ILP",
-        source_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
+        source_variant: &[("k", "N"), ("graph", "SimpleGraph"), ("weight", "i32")],
         target_variant: &[("graph", ""), ("weight", "Unweighted")],
         overhead_fn: || ReductionOverhead::new(vec![
             // num_vars = num_vertices * num_colors
@@ -44,43 +45,47 @@ inventory::submit! {
     }
 }
 
-/// Result of reducing Coloring to ILP.
+/// Result of reducing KColoring to ILP.
 ///
 /// This reduction creates a binary ILP where:
 /// - Each (vertex, color) pair corresponds to a binary variable
 /// - Constraints ensure each vertex has exactly one color
 /// - Constraints ensure adjacent vertices have different colors
 #[derive(Debug, Clone)]
-pub struct ReductionColoringToILP {
+pub struct ReductionKColoringToILP<const K: usize, G, W> {
     target: ILP,
     source_size: ProblemSize,
     num_vertices: usize,
-    num_colors: usize,
+    _phantom: std::marker::PhantomData<(G, W)>,
 }
 
-impl ReductionColoringToILP {
+impl<const K: usize, G, W> ReductionKColoringToILP<K, G, W> {
     /// Get the variable index for vertex v with color c.
     fn var_index(&self, vertex: usize, color: usize) -> usize {
-        vertex * self.num_colors + color
+        vertex * K + color
     }
 }
 
-impl ReductionResult for ReductionColoringToILP {
-    type Source = Coloring;
+impl<const K: usize, G, W> ReductionResult for ReductionKColoringToILP<K, G, W>
+where
+    G: Graph,
+    W: Clone + Default + 'static,
+{
+    type Source = KColoring<K, G, W>;
     type Target = ILP;
 
     fn target_problem(&self) -> &ILP {
         &self.target
     }
 
-    /// Extract solution from ILP back to Coloring.
+    /// Extract solution from ILP back to KColoring.
     ///
-    /// The ILP solution has num_vertices * num_colors binary variables.
+    /// The ILP solution has num_vertices * K binary variables.
     /// For each vertex, we find which color has value 1.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         (0..self.num_vertices)
             .map(|v| {
-                (0..self.num_colors)
+                (0..K)
                     .find(|&c| {
                         let var_idx = self.var_index(v, c);
                         var_idx < target_solution.len() && target_solution[var_idx] == 1
@@ -99,16 +104,19 @@ impl ReductionResult for ReductionColoringToILP {
     }
 }
 
-impl ReduceTo<ILP> for Coloring {
-    type Result = ReductionColoringToILP;
+impl<const K: usize, G, W> ReduceTo<ILP> for KColoring<K, G, W>
+where
+    G: Graph,
+    W: Clone + Default + 'static,
+{
+    type Result = ReductionKColoringToILP<K, G, W>;
 
     fn reduce_to(&self) -> Self::Result {
         let num_vertices = self.num_vertices();
-        let num_colors = self.num_colors();
-        let num_vars = num_vertices * num_colors;
+        let num_vars = num_vertices * K;
 
         // Helper function to get variable index
-        let var_index = |v: usize, c: usize| -> usize { v * num_colors + c };
+        let var_index = |v: usize, c: usize| -> usize { v * K + c };
 
         // All variables are binary (0 or 1)
         let bounds = vec![VarBounds::binary(); num_vars];
@@ -118,15 +126,14 @@ impl ReduceTo<ILP> for Coloring {
         // Constraint 1: Each vertex has exactly one color
         // sum_c x_{v,c} = 1 for each vertex v
         for v in 0..num_vertices {
-            let terms: Vec<(usize, f64)> =
-                (0..num_colors).map(|c| (var_index(v, c), 1.0)).collect();
+            let terms: Vec<(usize, f64)> = (0..K).map(|c| (var_index(v, c), 1.0)).collect();
             constraints.push(LinearConstraint::eq(terms, 1.0));
         }
 
         // Constraint 2: Adjacent vertices have different colors
         // x_{u,c} + x_{v,c} <= 1 for each edge (u,v) and each color c
         for (u, v) in self.edges() {
-            for c in 0..num_colors {
+            for c in 0..K {
                 constraints.push(LinearConstraint::le(
                     vec![(var_index(u, c), 1.0), (var_index(v, c), 1.0)],
                     1.0,
@@ -146,14 +153,17 @@ impl ReduceTo<ILP> for Coloring {
             ObjectiveSense::Minimize,
         );
 
-        ReductionColoringToILP {
+        ReductionKColoringToILP {
             target,
             source_size: self.problem_size(),
             num_vertices,
-            num_colors,
+            _phantom: std::marker::PhantomData,
         }
     }
 }
+
+// Keep the old type alias for backwards compatibility
+pub type ReductionColoringToILP = ReductionKColoringToILP<3, SimpleGraph, i32>;
 
 #[cfg(test)]
 mod tests {
@@ -163,8 +173,8 @@ mod tests {
     #[test]
     fn test_reduction_creates_valid_ilp() {
         // Triangle graph with 3 colors
-        let problem = Coloring::new(3, 3, vec![(0, 1), (1, 2), (0, 2)]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
         // Check ILP structure
@@ -194,8 +204,8 @@ mod tests {
     #[test]
     fn test_reduction_path_graph() {
         // Path graph 0-1-2 with 2 colors (2-colorable)
-        let problem = Coloring::new(3, 2, vec![(0, 1), (1, 2)]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
         // num_vars = 3 * 2 = 6
@@ -208,8 +218,8 @@ mod tests {
     #[test]
     fn test_ilp_solution_equals_brute_force_triangle() {
         // Triangle needs 3 colors
-        let problem = Coloring::new(3, 3, vec![(0, 1), (1, 2), (0, 2)]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
         let bf = BruteForce::new();
@@ -239,8 +249,8 @@ mod tests {
     #[test]
     fn test_ilp_solution_equals_brute_force_path() {
         // Path graph 0-1-2-3 with 2 colors
-        let problem = Coloring::new(4, 2, vec![(0, 1), (1, 2), (2, 3)]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<2, SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
         let ilp_solver = ILPSolver::new();
@@ -262,8 +272,8 @@ mod tests {
     #[test]
     fn test_ilp_infeasible_triangle_2_colors() {
         // Triangle cannot be 2-colored
-        let problem = Coloring::new(3, 2, vec![(0, 1), (1, 2), (0, 2)]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
         let ilp_solver = ILPSolver::new();
@@ -278,8 +288,8 @@ mod tests {
 
     #[test]
     fn test_solution_extraction() {
-        let problem = Coloring::new(3, 3, vec![(0, 1)]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1)]);
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
 
         // ILP solution where:
         // vertex 0 has color 1 (x_{0,1} = 1)
@@ -298,8 +308,8 @@ mod tests {
 
     #[test]
     fn test_source_and_target_size() {
-        let problem = Coloring::new(5, 3, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<3, SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
 
         let source_size = reduction.source_size();
         let target_size = reduction.target_size();
@@ -316,8 +326,8 @@ mod tests {
     #[test]
     fn test_empty_graph() {
         // Graph with no edges: any coloring is valid
-        let problem = Coloring::new(3, 1, vec![]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<1, SimpleGraph, i32>::new(3, vec![]);
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
         // Should only have vertex constraints (each vertex = one color)
@@ -334,8 +344,11 @@ mod tests {
     #[test]
     fn test_complete_graph_k4() {
         // K4 needs 4 colors
-        let problem = Coloring::new(4, 4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<4, SimpleGraph, i32>::new(
+            4,
+            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+        );
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
         let ilp_solver = ILPSolver::new();
@@ -355,8 +368,11 @@ mod tests {
     #[test]
     fn test_complete_graph_k4_with_3_colors_infeasible() {
         // K4 cannot be 3-colored
-        let problem = Coloring::new(4, 3, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<3, SimpleGraph, i32>::new(
+            4,
+            vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+        );
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
         let ilp_solver = ILPSolver::new();
@@ -368,8 +384,8 @@ mod tests {
     fn test_bipartite_graph() {
         // Complete bipartite K_{2,2}: 0-2, 0-3, 1-2, 1-3
         // This is 2-colorable
-        let problem = Coloring::new(4, 2, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<2, SimpleGraph, i32>::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
         let ilp_solver = ILPSolver::new();
@@ -389,7 +405,7 @@ mod tests {
     #[test]
     fn test_solve_reduced() {
         // Test the ILPSolver::solve_reduced method
-        let problem = Coloring::new(4, 2, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = KColoring::<2, SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         let ilp_solver = ILPSolver::new();
         let solution = ilp_solver
@@ -403,8 +419,8 @@ mod tests {
     #[test]
     fn test_single_vertex() {
         // Single vertex graph: always 1-colorable
-        let problem = Coloring::new(1, 1, vec![]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<1, SimpleGraph, i32>::new(1, vec![]);
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
         assert_eq!(ilp.num_vars, 1);
@@ -420,8 +436,8 @@ mod tests {
     #[test]
     fn test_single_edge() {
         // Single edge: needs 2 colors
-        let problem = Coloring::new(2, 2, vec![(0, 1)]);
-        let reduction: ReductionColoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let problem = KColoring::<2, SimpleGraph, i32>::new(2, vec![(0, 1)]);
+        let reduction = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
         let ilp_solver = ILPSolver::new();

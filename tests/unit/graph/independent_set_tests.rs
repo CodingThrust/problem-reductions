@@ -2,10 +2,11 @@
 
 use problemreductions::models::graph::{is_independent_set, IndependentSet};
 use problemreductions::prelude::*;
+use problemreductions::topology::SimpleGraph;
 
 #[test]
 fn test_independent_set_creation() {
-    let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.num_variables(), 4);
@@ -21,13 +22,13 @@ fn test_independent_set_with_weights() {
 
 #[test]
 fn test_independent_set_unweighted() {
-    let problem = IndependentSet::<i32>::new(3, vec![(0, 1)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
     assert!(!problem.is_weighted());
 }
 
 #[test]
 fn test_has_edge() {
-    let problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     assert!(problem.has_edge(0, 1));
     assert!(problem.has_edge(1, 0)); // Undirected
     assert!(problem.has_edge(1, 2));
@@ -36,7 +37,7 @@ fn test_has_edge() {
 
 #[test]
 fn test_solution_size_valid() {
-    let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (2, 3)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
 
     // Valid: select 0 and 2 (not adjacent)
     let sol = problem.solution_size(&[1, 0, 1, 0]);
@@ -51,7 +52,7 @@ fn test_solution_size_valid() {
 
 #[test]
 fn test_solution_size_invalid() {
-    let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (2, 3)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
 
     // Invalid: 0 and 1 are adjacent
     let sol = problem.solution_size(&[1, 1, 0, 0]);
@@ -65,7 +66,7 @@ fn test_solution_size_invalid() {
 
 #[test]
 fn test_solution_size_empty() {
-    let problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     let sol = problem.solution_size(&[0, 0, 0]);
     assert!(sol.is_valid);
     assert_eq!(sol.size, 0);
@@ -88,7 +89,7 @@ fn test_weighted_solution() {
 
 #[test]
 fn test_constraints() {
-    let problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     let constraints = problem.constraints();
     assert_eq!(constraints.len(), 2); // One per edge
 }
@@ -103,7 +104,7 @@ fn test_objectives() {
 #[test]
 fn test_brute_force_triangle() {
     // Triangle graph: maximum IS has size 1
-    let problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -117,7 +118,7 @@ fn test_brute_force_triangle() {
 #[test]
 fn test_brute_force_path() {
     // Path graph 0-1-2-3: maximum IS = {0,2} or {1,3} or {0,3}
-    let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -162,7 +163,7 @@ fn test_is_independent_set_function() {
 
 #[test]
 fn test_problem_size() {
-    let problem = IndependentSet::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3)]);
     let size = problem.problem_size();
     assert_eq!(size.get("num_vertices"), Some(5));
     assert_eq!(size.get("num_edges"), Some(3));
@@ -170,13 +171,13 @@ fn test_problem_size() {
 
 #[test]
 fn test_energy_mode() {
-    let problem = IndependentSet::<i32>::new(3, vec![(0, 1)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
     assert!(problem.energy_mode().is_maximization());
 }
 
 #[test]
 fn test_edges() {
-    let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (2, 3)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
     let edges = problem.edges();
     assert_eq!(edges.len(), 2);
     assert!(edges.contains(&(0, 1)) || edges.contains(&(1, 0)));
@@ -185,14 +186,14 @@ fn test_edges() {
 
 #[test]
 fn test_set_weights() {
-    let mut problem = IndependentSet::<i32>::new(3, vec![(0, 1)]);
+    let mut problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
     problem.set_weights(vec![5, 10, 15]);
     assert_eq!(problem.weights(), vec![5, 10, 15]);
 }
 
 #[test]
 fn test_empty_graph() {
-    let problem = IndependentSet::<i32>::new(3, vec![]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -203,7 +204,7 @@ fn test_empty_graph() {
 
 #[test]
 fn test_is_satisfied() {
-    let problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
     assert!(problem.is_satisfied(&[1, 0, 1])); // Valid IS
     assert!(problem.is_satisfied(&[0, 1, 0])); // Valid IS

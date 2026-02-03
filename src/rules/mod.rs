@@ -67,7 +67,7 @@ pub use vertexcovering_setcovering::ReductionVCToSC;
 #[cfg(feature = "ilp")]
 pub use clique_ilp::ReductionCliqueToILP;
 #[cfg(feature = "ilp")]
-pub use coloring_ilp::ReductionColoringToILP;
+pub use coloring_ilp::{ReductionColoringToILP, ReductionKColoringToILP};
 #[cfg(feature = "ilp")]
 pub use dominatingset_ilp::ReductionDSToILP;
 #[cfg(feature = "ilp")]

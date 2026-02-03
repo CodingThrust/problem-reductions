@@ -6,6 +6,7 @@
 
 use problemreductions::models::graph::{IndependentSet, VertexCovering};
 use problemreductions::prelude::*;
+use problemreductions::topology::SimpleGraph;
 use proptest::prelude::*;
 use std::collections::HashSet;
 
@@ -28,8 +29,8 @@ proptest! {
     /// is a minimum vertex cover, and their sizes sum to n.
     #[test]
     fn independent_set_complement_is_vertex_cover((n, edges) in graph_strategy(8)) {
-        let is_problem = IndependentSet::<i32>::new(n, edges.clone());
-        let vc_problem = VertexCovering::<i32>::new(n, edges);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(n, edges.clone());
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(n, edges);
 
         let solver = BruteForce::new();
         let is_solutions = solver.find_best(&is_problem);
@@ -45,7 +46,7 @@ proptest! {
     /// Property: Any subset of a valid independent set is also a valid independent set.
     #[test]
     fn valid_solution_stays_valid_under_subset((n, edges) in graph_strategy(6)) {
-        let problem = IndependentSet::<i32>::new(n, edges);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(n, edges);
         let solver = BruteForce::new();
 
         for sol in solver.find_best(&problem) {
@@ -61,7 +62,7 @@ proptest! {
     /// Property: A vertex cover with additional vertices is still a valid cover.
     #[test]
     fn vertex_cover_superset_is_valid((n, edges) in graph_strategy(6)) {
-        let problem = VertexCovering::<i32>::new(n, edges);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(n, edges);
         let solver = BruteForce::new();
 
         for sol in solver.find_best(&problem) {
@@ -77,8 +78,8 @@ proptest! {
     /// Property: The complement of any valid independent set is a valid vertex cover.
     #[test]
     fn is_complement_is_vc((n, edges) in graph_strategy(7)) {
-        let is_problem = IndependentSet::<i32>::new(n, edges.clone());
-        let vc_problem = VertexCovering::<i32>::new(n, edges);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(n, edges.clone());
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(n, edges);
         let solver = BruteForce::new();
 
         // Get all valid independent sets (not just optimal)
@@ -93,7 +94,7 @@ proptest! {
     /// Property: Empty selection is always a valid (but possibly non-optimal) independent set.
     #[test]
     fn empty_is_always_valid_is((n, edges) in graph_strategy(10)) {
-        let problem = IndependentSet::<i32>::new(n, edges);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(n, edges);
         let empty = vec![0; n];
         prop_assert!(problem.solution_size(&empty).is_valid);
     }
@@ -102,7 +103,7 @@ proptest! {
     /// (when there is at least one vertex).
     #[test]
     fn full_is_always_valid_vc((n, edges) in graph_strategy(10)) {
-        let problem = VertexCovering::<i32>::new(n, edges);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(n, edges);
         let full = vec![1; n];
         prop_assert!(problem.solution_size(&full).is_valid);
     }
@@ -110,7 +111,7 @@ proptest! {
     /// Property: Solution size is non-negative for independent sets.
     #[test]
     fn is_size_non_negative((n, edges) in graph_strategy(8)) {
-        let problem = IndependentSet::<i32>::new(n, edges);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(n, edges);
         let solver = BruteForce::new();
 
         for sol in solver.find_best(&problem) {

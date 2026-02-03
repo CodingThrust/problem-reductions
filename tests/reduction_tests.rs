@@ -5,6 +5,7 @@
 
 use problemreductions::prelude::*;
 use problemreductions::rules::ReductionGraph;
+use problemreductions::topology::SimpleGraph;
 
 /// Tests for IndependentSet <-> VertexCovering reductions.
 mod is_vc_reductions {
@@ -13,10 +14,10 @@ mod is_vc_reductions {
     #[test]
     fn test_is_to_vc_basic() {
         // Triangle graph
-        let is_problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 
         // Reduce IS to VC
-        let result = ReduceTo::<VertexCovering<i32>>::reduce_to(&is_problem);
+        let result = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&is_problem);
         let vc_problem = result.target_problem();
 
         // Same graph structure
@@ -37,10 +38,10 @@ mod is_vc_reductions {
     #[test]
     fn test_vc_to_is_basic() {
         // Path graph
-        let vc_problem = VertexCovering::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         // Reduce VC to IS
-        let result = ReduceTo::<IndependentSet<i32>>::reduce_to(&vc_problem);
+        let result = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&vc_problem);
         let is_problem = result.target_problem();
 
         // Same graph structure
@@ -60,14 +61,14 @@ mod is_vc_reductions {
 
     #[test]
     fn test_is_vc_roundtrip() {
-        let original = IndependentSet::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let original = IndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
 
         // IS -> VC
-        let to_vc = ReduceTo::<VertexCovering<i32>>::reduce_to(&original);
+        let to_vc = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&original);
         let vc_problem = to_vc.target_problem();
 
         // VC -> IS
-        let back_to_is = ReduceTo::<IndependentSet<i32>>::reduce_to(vc_problem);
+        let back_to_is = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(vc_problem);
         let final_is = back_to_is.target_problem();
 
         // Should have same structure
@@ -90,7 +91,7 @@ mod is_vc_reductions {
     fn test_is_vc_weighted() {
         let is_problem = IndependentSet::with_weights(3, vec![(0, 1)], vec![10, 1, 5]);
 
-        let result = ReduceTo::<VertexCovering<i32>>::reduce_to(&is_problem);
+        let result = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&is_problem);
         let vc_problem = result.target_problem();
 
         // Weights should be preserved
@@ -103,8 +104,8 @@ mod is_vc_reductions {
         let edges = vec![(0, 1), (1, 2), (2, 3), (0, 3)];
         let n = 4;
 
-        let is_problem = IndependentSet::<i32>::new(n, edges.clone());
-        let vc_problem = VertexCovering::<i32>::new(n, edges);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(n, edges.clone());
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(n, edges);
 
         let solver = BruteForce::new();
 
@@ -126,7 +127,7 @@ mod is_sp_reductions {
     #[test]
     fn test_is_to_sp_basic() {
         // Triangle graph - each vertex's incident edges become a set
-        let is_problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 
         let result = ReduceTo::<SetPacking<i32>>::reduce_to(&is_problem);
         let sp_problem = result.target_problem();
@@ -150,7 +151,7 @@ mod is_sp_reductions {
         let sets = vec![vec![0, 1], vec![2, 3], vec![4]];
         let sp_problem = SetPacking::<i32>::new(sets);
 
-        let result = ReduceTo::<IndependentSet<i32>>::reduce_to(&sp_problem);
+        let result = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sp_problem);
         let is_problem = result.target_problem();
 
         // Should have an edge for each pair of overlapping sets (none here)
@@ -170,7 +171,7 @@ mod is_sp_reductions {
 
     #[test]
     fn test_is_sp_roundtrip() {
-        let original = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let original = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         // IS -> SP
         let to_sp = ReduceTo::<SetPacking<i32>>::reduce_to(&original);
@@ -202,7 +203,7 @@ mod sg_qubo_reductions {
     #[test]
     fn test_sg_to_qubo_basic() {
         // Simple 2-spin system
-        let sg = SpinGlass::new(2, vec![((0, 1), -1.0)], vec![0.5, -0.5]);
+        let sg = SpinGlass::<SimpleGraph, _>::new(2, vec![((0, 1), -1.0)], vec![0.5, -0.5]);
 
         let result = ReduceTo::<QUBO>::reduce_to(&sg);
         let qubo = result.target_problem();
@@ -223,7 +224,7 @@ mod sg_qubo_reductions {
         // QUBO::new takes linear terms and quadratic terms separately
         let qubo = QUBO::new(vec![1.0, -1.0], vec![((0, 1), 0.5)]);
 
-        let result = ReduceTo::<SpinGlass>::reduce_to(&qubo);
+        let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&qubo);
         let sg = result.target_problem();
 
         assert_eq!(sg.num_spins(), 2);
@@ -240,7 +241,7 @@ mod sg_qubo_reductions {
     #[test]
     fn test_sg_qubo_energy_preservation() {
         // The reduction should preserve optimal energy (up to constant)
-        let sg = SpinGlass::new(3, vec![((0, 1), -1.0), ((1, 2), 1.0)], vec![0.0, 0.0, 0.0]);
+        let sg = SpinGlass::<SimpleGraph, _>::new(3, vec![((0, 1), -1.0), ((1, 2), 1.0)], vec![0.0, 0.0, 0.0]);
 
         let result = ReduceTo::<QUBO>::reduce_to(&sg);
         let qubo = result.target_problem();
@@ -256,8 +257,8 @@ mod sg_qubo_reductions {
 
         // Convert solutions to spins for energy computation
         // SpinGlass::config_to_spins converts 0/1 configs to -1/+1 spins
-        let sg_spins = SpinGlass::<f64>::config_to_spins(&sg_solutions[0]);
-        let extracted_spins = SpinGlass::<f64>::config_to_spins(&extracted);
+        let sg_spins = SpinGlass::<SimpleGraph, f64>::config_to_spins(&sg_solutions[0]);
+        let extracted_spins = SpinGlass::<SimpleGraph, f64>::config_to_spins(&extracted);
 
         // Should be among optimal SG solutions (or equivalent)
         let sg_energy = sg.compute_energy(&sg_spins);
@@ -275,13 +276,13 @@ mod sg_maxcut_reductions {
     #[test]
     fn test_sg_to_maxcut_basic() {
         // Antiferromagnetic on triangle (frustrated)
-        let sg = SpinGlass::new(
+        let sg = SpinGlass::<SimpleGraph, _>::new(
             3,
             vec![((0, 1), 1), ((1, 2), 1), ((0, 2), 1)],
             vec![0, 0, 0],
         );
 
-        let result = ReduceTo::<MaxCut<i32>>::reduce_to(&sg);
+        let result = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
         let maxcut = result.target_problem();
 
         // Same number of vertices
@@ -300,7 +301,7 @@ mod sg_maxcut_reductions {
     fn test_maxcut_to_sg_basic() {
         let maxcut = MaxCut::new(3, vec![(0, 1, 2), (1, 2, 1), (0, 2, 3)]);
 
-        let result = ReduceTo::<SpinGlass<i32>>::reduce_to(&maxcut);
+        let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&maxcut);
         let sg = result.target_problem();
 
         // Same number of spins
@@ -318,13 +319,13 @@ mod sg_maxcut_reductions {
     #[test]
     fn test_sg_maxcut_optimal_correspondence() {
         // For pure antiferromagnetic SG (J > 0), optimal <-> max cut
-        let sg = SpinGlass::new(
+        let sg = SpinGlass::<SimpleGraph, _>::new(
             4,
             vec![((0, 1), 1), ((1, 2), 1), ((2, 3), 1), ((0, 3), 1)],
             vec![0, 0, 0, 0],
         );
 
-        let result = ReduceTo::<MaxCut<i32>>::reduce_to(&sg);
+        let result = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
         let maxcut = result.target_problem();
 
         let solver = BruteForce::new();
@@ -338,8 +339,8 @@ mod sg_maxcut_reductions {
 
         // Convert solutions to spins for energy computation
         // SpinGlass::config_to_spins converts 0/1 configs to -1/+1 spins
-        let direct_spins = SpinGlass::<i32>::config_to_spins(&sg_solutions[0]);
-        let extracted_spins = SpinGlass::<i32>::config_to_spins(&extracted);
+        let direct_spins = SpinGlass::<SimpleGraph, i32>::config_to_spins(&sg_solutions[0]);
+        let extracted_spins = SpinGlass::<SimpleGraph, i32>::config_to_spins(&extracted);
 
         // Should have same energy as directly solved SG
         let direct_energy = sg.compute_energy(&direct_spins);
@@ -357,18 +358,18 @@ mod reduction_graph_tests {
     fn test_direct_reduction_exists() {
         let graph = ReductionGraph::new();
 
-        assert!(graph.has_direct_reduction::<IndependentSet<i32>, VertexCovering<i32>>());
-        assert!(graph.has_direct_reduction::<VertexCovering<i32>, IndependentSet<i32>>());
-        assert!(graph.has_direct_reduction::<IndependentSet<i32>, SetPacking<i32>>());
-        assert!(graph.has_direct_reduction::<SpinGlass<f64>, QUBO<f64>>());
-        assert!(graph.has_direct_reduction::<SpinGlass<f64>, MaxCut<i32>>());
+        assert!(graph.has_direct_reduction::<IndependentSet<SimpleGraph, i32>, VertexCovering<SimpleGraph, i32>>());
+        assert!(graph.has_direct_reduction::<VertexCovering<SimpleGraph, i32>, IndependentSet<SimpleGraph, i32>>());
+        assert!(graph.has_direct_reduction::<IndependentSet<SimpleGraph, i32>, SetPacking<i32>>());
+        assert!(graph.has_direct_reduction::<SpinGlass<SimpleGraph, f64>, QUBO<f64>>());
+        assert!(graph.has_direct_reduction::<SpinGlass<SimpleGraph, f64>, MaxCut<SimpleGraph, i32>>());
     }
 
     #[test]
     fn test_find_direct_path() {
         let graph = ReductionGraph::new();
 
-        let paths = graph.find_paths::<IndependentSet<i32>, VertexCovering<i32>>();
+        let paths = graph.find_paths::<IndependentSet<SimpleGraph, i32>, VertexCovering<SimpleGraph, i32>>();
         assert!(!paths.is_empty());
         assert_eq!(paths[0].len(), 1); // One reduction step (direct)
     }
@@ -378,11 +379,11 @@ mod reduction_graph_tests {
         let graph = ReductionGraph::new();
 
         // SetPacking -> IndependentSet -> VertexCovering
-        let paths = graph.find_paths::<SetPacking<i32>, VertexCovering<i32>>();
+        let paths = graph.find_paths::<SetPacking<i32>, VertexCovering<SimpleGraph, i32>>();
         assert!(!paths.is_empty());
 
         // Should have a path of length 2 (indirect)
-        let shortest = graph.find_shortest_path::<SetPacking<i32>, VertexCovering<i32>>();
+        let shortest = graph.find_shortest_path::<SetPacking<i32>, VertexCovering<SimpleGraph, i32>>();
         assert!(shortest.is_some());
         assert_eq!(shortest.unwrap().len(), 2);
     }
@@ -402,15 +403,15 @@ mod reduction_graph_tests {
 
         // IS <-> VC is bidirectional
         assert!(!graph
-            .find_paths::<IndependentSet<i32>, VertexCovering<i32>>()
+            .find_paths::<IndependentSet<SimpleGraph, i32>, VertexCovering<SimpleGraph, i32>>()
             .is_empty());
         assert!(!graph
-            .find_paths::<VertexCovering<i32>, IndependentSet<i32>>()
+            .find_paths::<VertexCovering<SimpleGraph, i32>, IndependentSet<SimpleGraph, i32>>()
             .is_empty());
 
         // SG <-> QUBO is bidirectional
-        assert!(!graph.find_paths::<SpinGlass<f64>, QUBO<f64>>().is_empty());
-        assert!(!graph.find_paths::<QUBO<f64>, SpinGlass<f64>>().is_empty());
+        assert!(!graph.find_paths::<SpinGlass<SimpleGraph, f64>, QUBO<f64>>().is_empty());
+        assert!(!graph.find_paths::<QUBO<f64>, SpinGlass<SimpleGraph, f64>>().is_empty());
     }
 }
 
@@ -447,7 +448,7 @@ mod topology_tests {
 
         // Extract edges
         let edges = udg.edges().to_vec();
-        let is_problem = IndependentSet::<i32>::new(4, edges);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(4, edges);
 
         let solver = BruteForce::new();
         let solutions = solver.find_best(&is_problem);
@@ -513,20 +514,20 @@ mod io_tests {
 
     #[test]
     fn test_serialize_reduce_deserialize() {
-        let original = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let original = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         // Serialize
         let json = to_json(&original).unwrap();
 
         // Deserialize
-        let restored: IndependentSet<i32> = from_json(&json).unwrap();
+        let restored: IndependentSet<SimpleGraph, i32> = from_json(&json).unwrap();
 
         // Should have same structure
         assert_eq!(restored.num_vertices(), original.num_vertices());
         assert_eq!(restored.num_edges(), original.num_edges());
 
         // Reduce the restored problem
-        let result = ReduceTo::<VertexCovering<i32>>::reduce_to(&restored);
+        let result = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&restored);
         let vc = result.target_problem();
 
         assert_eq!(vc.num_vertices(), 4);
@@ -545,14 +546,14 @@ mod io_tests {
         let restored: QUBO = from_json(&json).unwrap();
 
         // Reduce to SG
-        let result = ReduceTo::<SpinGlass>::reduce_to(&restored);
+        let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&restored);
         let sg = result.target_problem();
 
         // Serialize the SG
         let sg_json = to_json(sg).unwrap();
 
         // Deserialize
-        let sg_restored: SpinGlass = from_json(&sg_json).unwrap();
+        let sg_restored: SpinGlass<SimpleGraph, f64> = from_json(&sg_json).unwrap();
 
         assert_eq!(sg_restored.num_spins(), 2);
     }
@@ -565,7 +566,7 @@ mod end_to_end {
     #[test]
     fn test_full_pipeline_is_vc_sp() {
         // Start with an IndependentSet problem
-        let is = IndependentSet::<i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4)]);
+        let is = IndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4)]);
 
         // Solve directly
         let solver = BruteForce::new();
@@ -573,7 +574,7 @@ mod end_to_end {
         let direct_size = is_solutions[0].iter().sum::<usize>();
 
         // Reduce to VC and solve
-        let to_vc = ReduceTo::<VertexCovering<i32>>::reduce_to(&is);
+        let to_vc = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&is);
         let vc = to_vc.target_problem();
         let vc_solutions = solver.find_best(vc);
         let vc_extracted = to_vc.extract_solution(&vc_solutions[0]);
@@ -594,7 +595,7 @@ mod end_to_end {
     #[test]
     fn test_full_pipeline_sg_maxcut() {
         // Start with SpinGlass (integer weights for MaxCut compatibility)
-        let sg = SpinGlass::new(
+        let sg = SpinGlass::<SimpleGraph, _>::new(
             4,
             vec![((0, 1), 1), ((1, 2), -1), ((2, 3), 1), ((0, 3), -1)],
             vec![0, 0, 0, 0],
@@ -609,7 +610,7 @@ mod end_to_end {
         let direct_energy = sg.compute_energy(&direct_spins);
 
         // Reduce to MaxCut and solve
-        let to_maxcut = ReduceTo::<MaxCut<i32>>::reduce_to(&sg);
+        let to_maxcut = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
         let maxcut = to_maxcut.target_problem();
         let maxcut_solutions = solver.find_best(maxcut);
         let maxcut_extracted = to_maxcut.extract_solution(&maxcut_solutions[0]);
@@ -629,11 +630,11 @@ mod end_to_end {
         let sp = SetPacking::<i32>::new(sets);
 
         // SP -> IS
-        let sp_to_is = ReduceTo::<IndependentSet<i32>>::reduce_to(&sp);
+        let sp_to_is = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sp);
         let is = sp_to_is.target_problem();
 
         // IS -> VC
-        let is_to_vc = ReduceTo::<VertexCovering<i32>>::reduce_to(is);
+        let is_to_vc = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(is);
         let vc = is_to_vc.target_problem();
 
         // Solve VC

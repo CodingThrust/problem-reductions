@@ -9,6 +9,7 @@ use problemreductions::models::satisfiability::*;
 use problemreductions::models::set::*;
 use problemreductions::models::specialized::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::SimpleGraph;
 
 /// Test that all problem types can be instantiated and solved.
 mod all_problems_solvable {
@@ -16,7 +17,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_independent_set_solvable() {
-        let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
@@ -27,7 +28,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_vertex_covering_solvable() {
-        let problem = VertexCovering::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
@@ -38,7 +39,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_max_cut_solvable() {
-        let problem = MaxCut::<i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
+        let problem = MaxCut::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
@@ -46,7 +47,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_coloring_solvable() {
-        let problem = Coloring::new(3, 3, vec![(0, 1), (1, 2)]);
+        let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
@@ -57,7 +58,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_dominating_set_solvable() {
-        let problem = DominatingSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = DominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
@@ -68,7 +69,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_maximal_is_solvable() {
-        let problem = MaximalIS::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = MaximalIS::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
@@ -79,7 +80,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_matching_solvable() {
-        let problem = Matching::<i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
+        let problem = Matching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
@@ -213,8 +214,8 @@ mod problem_relationships {
         let edges = vec![(0, 1), (1, 2), (2, 3), (0, 3)];
         let n = 4;
 
-        let is_problem = IndependentSet::<i32>::new(n, edges.clone());
-        let vc_problem = VertexCovering::<i32>::new(n, edges);
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(n, edges.clone());
+        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(n, edges);
 
         let solver = BruteForce::new();
         let is_solutions = solver.find_best(&is_problem);
@@ -233,8 +234,8 @@ mod problem_relationships {
         let edges = vec![(0, 1), (1, 2), (2, 3)];
         let n = 4;
 
-        let maximal_is = MaximalIS::new(n, edges.clone());
-        let is_problem = IndependentSet::<i32>::new(n, edges);
+        let maximal_is = MaximalIS::<SimpleGraph, i32>::new(n, edges.clone());
+        let is_problem = IndependentSet::<SimpleGraph, i32>::new(n, edges);
 
         let solver = BruteForce::new();
         let maximal_solutions = solver.find_best(&maximal_is);
@@ -312,7 +313,7 @@ mod edge_cases {
 
     #[test]
     fn test_empty_graph_independent_set() {
-        let problem = IndependentSet::<i32>::new(3, vec![]);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
 
@@ -324,7 +325,7 @@ mod edge_cases {
     fn test_complete_graph_independent_set() {
         // K4 - complete graph on 4 vertices
         let edges = vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
-        let problem = IndependentSet::<i32>::new(4, edges);
+        let problem = IndependentSet::<SimpleGraph, i32>::new(4, edges);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
 
@@ -376,7 +377,7 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_independent_set() {
-        let mut problem = IndependentSet::<i32>::new(3, vec![(0, 1)]);
+        let mut problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
         problem.set_weights(vec![10, 1, 1]);
 
         let solver = BruteForce::new();
@@ -394,7 +395,7 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_vertex_cover() {
-        let mut problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+        let mut problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
         problem.set_weights(vec![1, 10, 1]);
 
         let solver = BruteForce::new();
@@ -481,18 +482,18 @@ mod trait_consistency {
     #[test]
     fn test_all_problems_implement_trait_correctly() {
         check_problem_trait(
-            &IndependentSet::<i32>::new(3, vec![(0, 1)]),
+            &IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
             "IndependentSet",
         );
         check_problem_trait(
-            &VertexCovering::<i32>::new(3, vec![(0, 1)]),
+            &VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
             "VertexCovering",
         );
-        check_problem_trait(&MaxCut::<i32>::new(3, vec![(0, 1, 1)]), "MaxCut");
-        check_problem_trait(&Coloring::new(3, 3, vec![(0, 1)]), "Coloring");
-        check_problem_trait(&DominatingSet::<i32>::new(3, vec![(0, 1)]), "DominatingSet");
-        check_problem_trait(&MaximalIS::new(3, vec![(0, 1)]), "MaximalIS");
-        check_problem_trait(&Matching::<i32>::new(3, vec![(0, 1, 1)]), "Matching");
+        check_problem_trait(&MaxCut::<SimpleGraph, i32>::new(3, vec![(0, 1, 1)]), "MaxCut");
+        check_problem_trait(&KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1)]), "KColoring");
+        check_problem_trait(&DominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]), "DominatingSet");
+        check_problem_trait(&MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1)]), "MaximalIS");
+        check_problem_trait(&Matching::<SimpleGraph, i32>::new(3, vec![(0, 1, 1)]), "Matching");
         check_problem_trait(
             &Satisfiability::<i32>::new(3, vec![CNFClause::new(vec![1])]),
             "SAT",
@@ -519,10 +520,10 @@ mod trait_consistency {
     #[test]
     fn test_energy_modes() {
         // Minimization problems
-        assert!(VertexCovering::<i32>::new(2, vec![(0, 1)])
+        assert!(VertexCovering::<SimpleGraph, i32>::new(2, vec![(0, 1)])
             .energy_mode()
             .is_minimization());
-        assert!(DominatingSet::<i32>::new(2, vec![(0, 1)])
+        assert!(DominatingSet::<SimpleGraph, i32>::new(2, vec![(0, 1)])
             .energy_mode()
             .is_minimization());
         assert!(SetCovering::<i32>::new(2, vec![vec![0, 1]])
@@ -541,7 +542,7 @@ mod trait_consistency {
             .energy_mode()
             .is_minimization());
         assert!(Factoring::new(6, 2, 2).energy_mode().is_minimization());
-        assert!(Coloring::new(2, 2, vec![(0, 1)])
+        assert!(KColoring::<2, SimpleGraph, i32>::new(2, vec![(0, 1)])
             .energy_mode()
             .is_minimization());
         assert!(BicliqueCover::new(2, 2, vec![(0, 2)], 1)
@@ -549,16 +550,16 @@ mod trait_consistency {
             .is_minimization());
 
         // Maximization problems
-        assert!(IndependentSet::<i32>::new(2, vec![(0, 1)])
+        assert!(IndependentSet::<SimpleGraph, i32>::new(2, vec![(0, 1)])
             .energy_mode()
             .is_maximization());
-        assert!(MaximalIS::new(2, vec![(0, 1)])
+        assert!(MaximalIS::<SimpleGraph, i32>::new(2, vec![(0, 1)])
             .energy_mode()
             .is_maximization());
-        assert!(MaxCut::<i32>::new(2, vec![(0, 1, 1)])
+        assert!(MaxCut::<SimpleGraph, i32>::new(2, vec![(0, 1, 1)])
             .energy_mode()
             .is_maximization());
-        assert!(Matching::<i32>::new(2, vec![(0, 1, 1)])
+        assert!(Matching::<SimpleGraph, i32>::new(2, vec![(0, 1, 1)])
             .energy_mode()
             .is_maximization());
         assert!(SetPacking::<i32>::new(vec![vec![0]])

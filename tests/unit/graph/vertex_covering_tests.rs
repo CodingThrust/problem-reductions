@@ -2,10 +2,11 @@
 
 use problemreductions::models::graph::{is_vertex_cover, IndependentSet, VertexCovering};
 use problemreductions::prelude::*;
+use problemreductions::topology::SimpleGraph;
 
 #[test]
 fn test_vertex_cover_creation() {
-    let problem = VertexCovering::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.num_variables(), 4);
@@ -21,7 +22,7 @@ fn test_vertex_cover_with_weights() {
 
 #[test]
 fn test_solution_size_valid() {
-    let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
     // Valid: select vertex 1 (covers both edges)
     let sol = problem.solution_size(&[0, 1, 0]);
@@ -36,7 +37,7 @@ fn test_solution_size_valid() {
 
 #[test]
 fn test_solution_size_invalid() {
-    let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
     // Invalid: no vertex selected
     let sol = problem.solution_size(&[0, 0, 0]);
@@ -50,7 +51,7 @@ fn test_solution_size_invalid() {
 #[test]
 fn test_brute_force_path() {
     // Path graph 0-1-2: minimum vertex cover is {1}
-    let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -61,7 +62,7 @@ fn test_brute_force_path() {
 #[test]
 fn test_brute_force_triangle() {
     // Triangle: minimum vertex cover has size 2
-    let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -103,20 +104,20 @@ fn test_is_vertex_cover_function() {
 
 #[test]
 fn test_constraints() {
-    let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     let constraints = problem.constraints();
     assert_eq!(constraints.len(), 2);
 }
 
 #[test]
 fn test_energy_mode() {
-    let problem = VertexCovering::<i32>::new(3, vec![(0, 1)]);
+    let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
     assert!(problem.energy_mode().is_minimization());
 }
 
 #[test]
 fn test_empty_graph() {
-    let problem = VertexCovering::<i32>::new(3, vec![]);
+    let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -127,7 +128,7 @@ fn test_empty_graph() {
 
 #[test]
 fn test_single_edge() {
-    let problem = VertexCovering::<i32>::new(2, vec![(0, 1)]);
+    let problem = VertexCovering::<SimpleGraph, i32>::new(2, vec![(0, 1)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -137,7 +138,7 @@ fn test_single_edge() {
 
 #[test]
 fn test_is_satisfied() {
-    let problem = VertexCovering::<i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
     assert!(problem.is_satisfied(&[0, 1, 0])); // Valid cover
     assert!(problem.is_satisfied(&[1, 0, 1])); // Valid cover
@@ -149,8 +150,8 @@ fn test_is_satisfied() {
 fn test_complement_relationship() {
     // For a graph, if S is an independent set, then V\S is a vertex cover
     let edges = vec![(0, 1), (1, 2), (2, 3)];
-    let is_problem = IndependentSet::<i32>::new(4, edges.clone());
-    let vc_problem = VertexCovering::<i32>::new(4, edges);
+    let is_problem = IndependentSet::<SimpleGraph, i32>::new(4, edges.clone());
+    let vc_problem = VertexCovering::<SimpleGraph, i32>::new(4, edges);
 
     let solver = BruteForce::new();
 
@@ -171,7 +172,7 @@ fn test_objectives() {
 
 #[test]
 fn test_set_weights() {
-    let mut problem = VertexCovering::<i32>::new(3, vec![(0, 1)]);
+    let mut problem = VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
     assert!(!problem.is_weighted()); // Initially uniform
     problem.set_weights(vec![1, 2, 3]);
     assert!(problem.is_weighted());
@@ -180,7 +181,7 @@ fn test_set_weights() {
 
 #[test]
 fn test_is_weighted_empty() {
-    let problem = VertexCovering::<i32>::new(0, vec![]);
+    let problem = VertexCovering::<SimpleGraph, i32>::new(0, vec![]);
     assert!(!problem.is_weighted());
 }
 

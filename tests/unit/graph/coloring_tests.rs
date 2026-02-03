@@ -1,11 +1,12 @@
-//! Unit tests for the Graph Coloring problem.
+//! Unit tests for the Graph K-Coloring problem.
 
-use problemreductions::models::graph::{is_valid_coloring, Coloring};
+use problemreductions::models::graph::{is_valid_coloring, KColoring};
 use problemreductions::prelude::*;
+use problemreductions::topology::SimpleGraph;
 
 #[test]
-fn test_coloring_creation() {
-    let problem = Coloring::new(4, 3, vec![(0, 1), (1, 2), (2, 3)]);
+fn test_kcoloring_creation() {
+    let problem = KColoring::<3, SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.num_colors(), 3);
@@ -15,7 +16,7 @@ fn test_coloring_creation() {
 
 #[test]
 fn test_solution_size_valid() {
-    let problem = Coloring::new(3, 3, vec![(0, 1), (1, 2)]);
+    let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
     // Valid: different colors on adjacent vertices
     let sol = problem.solution_size(&[0, 1, 0]);
@@ -29,7 +30,7 @@ fn test_solution_size_valid() {
 
 #[test]
 fn test_solution_size_invalid() {
-    let problem = Coloring::new(3, 3, vec![(0, 1), (1, 2)]);
+    let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
     // Invalid: adjacent vertices have same color
     let sol = problem.solution_size(&[0, 0, 1]);
@@ -44,7 +45,7 @@ fn test_solution_size_invalid() {
 #[test]
 fn test_brute_force_path() {
     // Path graph can be 2-colored
-    let problem = Coloring::new(4, 2, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = KColoring::<2, SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -57,7 +58,7 @@ fn test_brute_force_path() {
 #[test]
 fn test_brute_force_triangle() {
     // Triangle needs 3 colors
-    let problem = Coloring::new(3, 3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -73,7 +74,7 @@ fn test_brute_force_triangle() {
 #[test]
 fn test_triangle_2_colors() {
     // Triangle cannot be 2-colored
-    let problem = Coloring::new(3, 2, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -86,14 +87,14 @@ fn test_triangle_2_colors() {
 
 #[test]
 fn test_constraints() {
-    let problem = Coloring::new(3, 2, vec![(0, 1), (1, 2)]);
+    let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     let constraints = problem.constraints();
     assert_eq!(constraints.len(), 2); // One per edge
 }
 
 #[test]
 fn test_energy_mode() {
-    let problem = Coloring::new(2, 2, vec![(0, 1)]);
+    let problem = KColoring::<2, SimpleGraph, i32>::new(2, vec![(0, 1)]);
     assert!(problem.energy_mode().is_minimization());
 }
 
@@ -111,7 +112,7 @@ fn test_is_valid_coloring_function() {
 
 #[test]
 fn test_empty_graph() {
-    let problem = Coloring::new(3, 1, vec![]);
+    let problem = KColoring::<1, SimpleGraph, i32>::new(3, vec![]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -122,7 +123,10 @@ fn test_empty_graph() {
 #[test]
 fn test_complete_graph_k4() {
     // K4 needs 4 colors
-    let problem = Coloring::new(4, 4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+    let problem = KColoring::<4, SimpleGraph, i32>::new(
+        4,
+        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+    );
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -133,7 +137,7 @@ fn test_complete_graph_k4() {
 
 #[test]
 fn test_is_satisfied() {
-    let problem = Coloring::new(3, 3, vec![(0, 1), (1, 2)]);
+    let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
     assert!(problem.is_satisfied(&[0, 1, 0]));
     assert!(problem.is_satisfied(&[0, 1, 2]));
@@ -142,7 +146,7 @@ fn test_is_satisfied() {
 
 #[test]
 fn test_problem_size() {
-    let problem = Coloring::new(5, 3, vec![(0, 1), (1, 2)]);
+    let problem = KColoring::<3, SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2)]);
     let size = problem.problem_size();
     assert_eq!(size.get("num_vertices"), Some(5));
     assert_eq!(size.get("num_edges"), Some(2));
@@ -151,13 +155,13 @@ fn test_problem_size() {
 
 #[test]
 fn test_csp_methods() {
-    let problem = Coloring::new(3, 2, vec![(0, 1)]);
+    let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1)]);
 
-    // Coloring has no objectives (pure CSP)
+    // KColoring has no objectives (pure CSP)
     let objectives = problem.objectives();
     assert!(objectives.is_empty());
 
-    // Coloring has no weights
+    // KColoring has no weights
     let weights: Vec<i32> = problem.weights();
     assert!(weights.is_empty());
 
@@ -167,8 +171,8 @@ fn test_csp_methods() {
 
 #[test]
 fn test_set_weights() {
-    let mut problem = Coloring::new(3, 2, vec![(0, 1)]);
-    // set_weights does nothing for Coloring
+    let mut problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1)]);
+    // set_weights does nothing for KColoring
     problem.set_weights(vec![1, 2, 3]);
     assert!(!problem.is_weighted());
 }

@@ -1,28 +1,29 @@
 //! Reductions between SpinGlass and QUBO problems.
 //!
-//! QUBO: minimize x^T Q x where x ∈ {0, 1}^n
-//! SpinGlass: minimize Σ J_ij s_i s_j + Σ h_i s_i where s ∈ {-1, +1}^n
+//! QUBO: minimize x^T Q x where x in {0, 1}^n
+//! SpinGlass: minimize sum J_ij s_i s_j + sum h_i s_i where s in {-1, +1}^n
 //!
-//! Transformation: s = 2x - 1 (so x=0 → s=-1, x=1 → s=+1)
+//! Transformation: s = 2x - 1 (so x=0 -> s=-1, x=1 -> s=+1)
 
 use crate::models::optimization::{SpinGlass, QUBO};
 use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::ProblemSize;
 
 /// Result of reducing QUBO to SpinGlass.
 #[derive(Debug, Clone)]
 pub struct ReductionQUBOToSG {
-    target: SpinGlass<f64>,
+    target: SpinGlass<SimpleGraph, f64>,
     source_size: ProblemSize,
 }
 
 impl ReductionResult for ReductionQUBOToSG {
     type Source = QUBO<f64>;
-    type Target = SpinGlass<f64>;
+    type Target = SpinGlass<SimpleGraph, f64>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -50,7 +51,7 @@ impl ReductionResult for ReductionQUBOToSG {
         ])
     }
 )]
-impl ReduceTo<SpinGlass<f64>> for QUBO<f64> {
+impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
     type Result = ReductionQUBOToSG;
 
     fn reduce_to(&self) -> Self::Result {
@@ -95,7 +96,7 @@ impl ReduceTo<SpinGlass<f64>> for QUBO<f64> {
             }
         }
 
-        let target = SpinGlass::new(n, interactions, onsite);
+        let target = SpinGlass::<SimpleGraph, f64>::new(n, interactions, onsite);
 
         ReductionQUBOToSG {
             target,
@@ -112,7 +113,7 @@ pub struct ReductionSGToQUBO {
 }
 
 impl ReductionResult for ReductionSGToQUBO {
-    type Source = SpinGlass<f64>;
+    type Source = SpinGlass<SimpleGraph, f64>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -140,7 +141,7 @@ impl ReductionResult for ReductionSGToQUBO {
         ])
     }
 )]
-impl ReduceTo<QUBO<f64>> for SpinGlass<f64> {
+impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
     type Result = ReductionSGToQUBO;
 
     fn reduce_to(&self) -> Self::Result {
@@ -155,7 +156,7 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<f64> {
         //                  = 4*J_ij*x_i*x_j - 2*J_ij*x_i - 2*J_ij*x_j + J_ij
         //
         // h_i * s_i = h_i * (2x_i - 1) = 2*h_i*x_i - h_i
-        for &((i, j), j_val) in self.interactions() {
+        for ((i, j), j_val) in self.interactions() {
             // Off-diagonal: 4 * J_ij
             matrix[i][j] += 4.0 * j_val;
             // Diagonal contributions: -2 * J_ij
@@ -188,7 +189,7 @@ mod tests {
         // Simple 2-variable QUBO: minimize x0 + x1 - 2*x0*x1
         // Optimal at x = [0, 0] (value 0) or x = [1, 1] (value 0)
         let qubo = QUBO::from_matrix(vec![vec![1.0, -2.0], vec![0.0, 1.0]]);
-        let reduction = ReduceTo::<SpinGlass<f64>>::reduce_to(&qubo);
+        let reduction = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&qubo);
         let sg = reduction.target_problem();
 
         let solver = BruteForce::new();
@@ -219,7 +220,7 @@ mod tests {
         // Energy: J_01 * s0 * s1 = -s0 * s1
         // Aligned spins give -1, anti-aligned give +1
         // Minimum is -1 at [0,0] or [1,1] (both give s=-1,-1 or s=+1,+1)
-        let sg = SpinGlass::new(2, vec![((0, 1), -1.0)], vec![0.0, 0.0]);
+        let sg = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), -1.0)], vec![0.0, 0.0]);
         let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sg);
         let qubo = reduction.target_problem();
 
@@ -240,7 +241,7 @@ mod tests {
         let _original_val = original.solution_size(&original_solutions[0]).size;
 
         // QUBO -> SG -> QUBO
-        let reduction1 = ReduceTo::<SpinGlass<f64>>::reduce_to(&original);
+        let reduction1 = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&original);
         let sg = reduction1.target_problem().clone();
         let reduction2 = ReduceTo::<QUBO<f64>>::reduce_to(&sg);
         let roundtrip = reduction2.target_problem();
@@ -261,7 +262,7 @@ mod tests {
     #[test]
     fn test_antiferromagnetic() {
         // Antiferromagnetic: J > 0, prefers anti-aligned spins
-        let sg = SpinGlass::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
+        let sg = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
         let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sg);
         let qubo = reduction.target_problem();
 
@@ -282,7 +283,7 @@ mod tests {
         // SpinGlass with only on-site field h_0 = 1
         // Energy = h_0 * s_0 = s_0
         // Minimum at s_0 = -1, i.e., x_0 = 0
-        let sg = SpinGlass::new(1, vec![], vec![1.0]);
+        let sg = SpinGlass::<SimpleGraph, f64>::new(1, vec![], vec![1.0]);
         let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sg);
         let qubo = reduction.target_problem();
 
@@ -297,7 +298,7 @@ mod tests {
     fn test_reduction_sizes() {
         // Test source_size and target_size methods
         let qubo = QUBO::from_matrix(vec![vec![1.0, -2.0], vec![0.0, 1.0]]);
-        let reduction = ReduceTo::<SpinGlass<f64>>::reduce_to(&qubo);
+        let reduction = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&qubo);
 
         let source_size = reduction.source_size();
         let target_size = reduction.target_size();
@@ -306,7 +307,7 @@ mod tests {
         assert!(!target_size.components.is_empty());
 
         // Test SG to QUBO sizes
-        let sg = SpinGlass::new(3, vec![((0, 1), -1.0)], vec![0.0, 0.0, 0.0]);
+        let sg = SpinGlass::<SimpleGraph, f64>::new(3, vec![((0, 1), -1.0)], vec![0.0, 0.0, 0.0]);
         let reduction2 = ReduceTo::<QUBO<f64>>::reduce_to(&sg);
 
         let source_size2 = reduction2.source_size();
