@@ -201,21 +201,33 @@ impl fmt::Display for ProblemInfo {
 /// Trait for problems that provide static metadata.
 ///
 /// Implement this trait to enable introspection and discovery for problem types.
-/// The [`GraphProblem`](crate::models::graph::GraphProblem) template automatically
-/// implements this trait based on the constraint type.
 ///
 /// # Example
 ///
 /// ```rust
-/// use problemreductions::registry::{ProblemMetadata, ProblemInfo, ProblemCategory};
-/// use problemreductions::models::graph::IndependentSetT;
-/// use problemreductions::topology::SimpleGraph;
+/// use problemreductions::registry::{
+///     ProblemMetadata, ProblemInfo, ProblemCategory,
+///     GraphSubcategory, ComplexityClass
+/// };
+///
+/// struct MyProblem;
+///
+/// impl ProblemMetadata for MyProblem {
+///     fn problem_info() -> ProblemInfo {
+///         ProblemInfo::new("My Problem", "Description")
+///             .with_complexity(ComplexityClass::NpComplete)
+///     }
+///
+///     fn category() -> ProblemCategory {
+///         ProblemCategory::Graph(GraphSubcategory::Independent)
+///     }
+/// }
 ///
 /// // Get problem metadata
-/// let info = IndependentSetT::<SimpleGraph, i32>::problem_info();
-/// assert_eq!(info.name, "Independent Set");
+/// let info = MyProblem::problem_info();
+/// assert_eq!(info.name, "My Problem");
 ///
-/// let category = IndependentSetT::<SimpleGraph, i32>::category();
+/// let category = MyProblem::category();
 /// assert_eq!(category.path(), "graph/independent");
 /// ```
 ///

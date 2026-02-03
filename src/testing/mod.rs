@@ -13,11 +13,12 @@
 //! ```text
 //! // Macro usage example - users customize for their tests
 //! use problemreductions::graph_problem_tests;
-//! use problemreductions::models::graph::{IndependentSetT, IndependentSetConstraint};
+//! use problemreductions::models::graph::IndependentSet;
+//! use problemreductions::topology::SimpleGraph;
 //!
 //! graph_problem_tests! {
-//!     problem_type: IndependentSetT,
-//!     constraint_type: IndependentSetConstraint,
+//!     problem_type: IndependentSet<SimpleGraph, i32>,
+//!     constraint_type: IndependentSet<SimpleGraph, i32>,
 //!     test_cases: [
 //!         // (name, num_vertices, edges, valid_solution, expected_size, is_maximization)
 //!         (triangle, 3, [(0, 1), (1, 2), (0, 2)], [1, 0, 0], 1, true),
@@ -40,12 +41,13 @@
 //! ```text
 //! // Macro usage example - users customize for their tests
 //! use problemreductions::complement_test;
-//! use problemreductions::models::graph::{IndependentSetT, VertexCoverT};
+//! use problemreductions::models::graph::{IndependentSet, VertexCovering};
+//! use problemreductions::topology::SimpleGraph;
 //!
 //! complement_test! {
 //!     name: test_is_vc_complement,
-//!     problem_a: IndependentSetT,
-//!     problem_b: VertexCoverT,
+//!     problem_a: IndependentSet<SimpleGraph, i32>,
+//!     problem_b: VertexCovering<SimpleGraph, i32>,
 //!     test_graphs: [
 //!         (3, [(0, 1), (1, 2)]),
 //!         (4, [(0, 1), (1, 2), (2, 3)]),

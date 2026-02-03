@@ -6,7 +6,7 @@
 //!   at most one can be in the clique
 //! - Objective: Maximize the sum of weights of selected vertices
 
-use crate::models::graph::CliqueT;
+use crate::models::graph::Clique;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
@@ -26,7 +26,7 @@ pub struct ReductionCliqueToILP {
 }
 
 impl ReductionResult for ReductionCliqueToILP {
-    type Source = CliqueT<SimpleGraph, i32>;
+    type Source = Clique<SimpleGraph, i32>;
     type Target = ILP;
 
     fn target_problem(&self) -> &ILP {
@@ -50,7 +50,7 @@ impl ReductionResult for ReductionCliqueToILP {
     }
 }
 
-impl ReduceTo<ILP> for CliqueT<SimpleGraph, i32> {
+impl ReduceTo<ILP> for Clique<SimpleGraph, i32> {
     type Result = ReductionCliqueToILP;
 
     fn reduce_to(&self) -> Self::Result {
@@ -101,7 +101,7 @@ mod tests {
 
     /// Check if a configuration represents a valid clique in the graph.
     /// A clique is valid if all selected vertices are pairwise adjacent.
-    fn is_valid_clique(problem: &CliqueT<SimpleGraph, i32>, config: &[usize]) -> bool {
+    fn is_valid_clique(problem: &Clique<SimpleGraph, i32>, config: &[usize]) -> bool {
         let selected: Vec<usize> = config
             .iter()
             .enumerate()
@@ -121,7 +121,7 @@ mod tests {
     }
 
     /// Compute the clique size (sum of weights of selected vertices).
-    fn clique_size(problem: &CliqueT<SimpleGraph, i32>, config: &[usize]) -> i32 {
+    fn clique_size(problem: &Clique<SimpleGraph, i32>, config: &[usize]) -> i32 {
         let weights = problem.weights();
         config
             .iter()
@@ -132,7 +132,7 @@ mod tests {
     }
 
     /// Find maximum clique size by brute force enumeration.
-    fn brute_force_max_clique(problem: &CliqueT<SimpleGraph, i32>) -> i32 {
+    fn brute_force_max_clique(problem: &Clique<SimpleGraph, i32>) -> i32 {
         let n = problem.num_vertices();
         let mut max_size = 0;
         for mask in 0..(1 << n) {
@@ -151,7 +151,7 @@ mod tests {
     fn test_reduction_creates_valid_ilp() {
         // Triangle graph: 3 vertices, 3 edges (complete graph K3)
         // All pairs are adjacent, so no constraints should be added
-        let problem: CliqueT<SimpleGraph, i32> = CliqueT::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem: Clique<SimpleGraph, i32> = Clique::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -173,7 +173,7 @@ mod tests {
     #[test]
     fn test_reduction_with_non_edges() {
         // Path graph 0-1-2: edges (0,1) and (1,2), non-edge (0,2)
-        let problem: CliqueT<SimpleGraph, i32> = CliqueT::new(3, vec![(0, 1), (1, 2)]);
+        let problem: Clique<SimpleGraph, i32> = Clique::new(3, vec![(0, 1), (1, 2)]);
         let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -188,8 +188,8 @@ mod tests {
 
     #[test]
     fn test_reduction_weighted() {
-        let problem: CliqueT<SimpleGraph, i32> =
-            CliqueT::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
+        let problem: Clique<SimpleGraph, i32> =
+            Clique::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
         let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -206,7 +206,7 @@ mod tests {
     #[test]
     fn test_ilp_solution_equals_brute_force_triangle() {
         // Triangle graph (K3): max clique = 3 vertices
-        let problem: CliqueT<SimpleGraph, i32> = CliqueT::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem: Clique<SimpleGraph, i32> = Clique::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -234,7 +234,7 @@ mod tests {
     #[test]
     fn test_ilp_solution_equals_brute_force_path() {
         // Path graph 0-1-2-3: max clique = 2 (any adjacent pair)
-        let problem: CliqueT<SimpleGraph, i32> = CliqueT::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem: Clique<SimpleGraph, i32> = Clique::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -261,8 +261,8 @@ mod tests {
         // Weights: [1, 100, 1]
         // Max clique by weight: {0, 1} (weight 101) or {1, 2} (weight 101), or just {1} (weight 100)
         // Since 0-1 and 1-2 are edges, both {0,1} and {1,2} are valid cliques
-        let problem: CliqueT<SimpleGraph, i32> =
-            CliqueT::with_weights(3, vec![(0, 1), (1, 2)], vec![1, 100, 1]);
+        let problem: Clique<SimpleGraph, i32> =
+            Clique::with_weights(3, vec![(0, 1), (1, 2)], vec![1, 100, 1]);
         let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -283,7 +283,7 @@ mod tests {
 
     #[test]
     fn test_solution_extraction() {
-        let problem: CliqueT<SimpleGraph, i32> = CliqueT::new(4, vec![(0, 1), (2, 3)]);
+        let problem: Clique<SimpleGraph, i32> = Clique::new(4, vec![(0, 1), (2, 3)]);
         let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
         // Test that extraction works correctly (1:1 mapping)
@@ -297,8 +297,8 @@ mod tests {
 
     #[test]
     fn test_source_and_target_size() {
-        let problem: CliqueT<SimpleGraph, i32> =
-            CliqueT::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let problem: Clique<SimpleGraph, i32> =
+            Clique::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
         let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
         let source_size = reduction.source_size();
@@ -315,7 +315,7 @@ mod tests {
     #[test]
     fn test_empty_graph() {
         // Graph with no edges: max clique = 1 (any single vertex)
-        let problem: CliqueT<SimpleGraph, i32> = CliqueT::new(3, vec![]);
+        let problem: Clique<SimpleGraph, i32> = Clique::new(3, vec![]);
         let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -336,8 +336,8 @@ mod tests {
     #[test]
     fn test_complete_graph() {
         // Complete graph K4: max clique = 4 (all vertices)
-        let problem: CliqueT<SimpleGraph, i32> =
-            CliqueT::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+        let problem: Clique<SimpleGraph, i32> =
+            Clique::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
         let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -359,8 +359,8 @@ mod tests {
     fn test_bipartite_graph() {
         // Bipartite graph: 0-2, 0-3, 1-2, 1-3 (two independent sets: {0,1} and {2,3})
         // Max clique = 2 (any edge, e.g., {0, 2})
-        let problem: CliqueT<SimpleGraph, i32> =
-            CliqueT::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
+        let problem: Clique<SimpleGraph, i32> =
+            Clique::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
         let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
@@ -380,7 +380,7 @@ mod tests {
     fn test_star_graph() {
         // Star graph: center 0 connected to 1, 2, 3
         // Max clique = 2 (center + any leaf)
-        let problem: CliqueT<SimpleGraph, i32> = CliqueT::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+        let problem: Clique<SimpleGraph, i32> = Clique::new(4, vec![(0, 1), (0, 2), (0, 3)]);
         let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 

@@ -1,6 +1,6 @@
 //! Testing macros for problem implementations.
 
-/// Generate standard tests for a graph problem using the template.
+/// Generate standard tests for a graph problem.
 ///
 /// This macro generates tests for:
 /// - Problem creation
@@ -14,11 +14,12 @@
 /// ```text
 /// // Macro usage example - users customize for their tests
 /// use problemreductions::graph_problem_tests;
-/// use problemreductions::models::graph::{IndependentSetT, IndependentSetConstraint};
+/// use problemreductions::models::graph::IndependentSet;
+/// use problemreductions::topology::SimpleGraph;
 ///
 /// graph_problem_tests! {
-///     problem_type: IndependentSetT,
-///     constraint_type: IndependentSetConstraint,
+///     problem_type: IndependentSet<SimpleGraph, i32>,
+///     constraint_type: IndependentSet<SimpleGraph, i32>,
 ///     test_cases: [
 ///         // (name, num_vertices, edges, valid_solution, expected_size, is_maximization)
 ///         (triangle, 3, [(0, 1), (1, 2), (0, 2)], [1, 0, 0], 1, true),
@@ -243,7 +244,6 @@ macro_rules! quick_problem_test {
 
 #[cfg(test)]
 mod tests {
-    use crate::models::graph::{IndependentSetT, VertexCoverT};
     use crate::prelude::*;
     use crate::topology::SimpleGraph;
 
@@ -251,7 +251,7 @@ mod tests {
     #[test]
     fn test_quick_problem_test_macro() {
         quick_problem_test!(
-            IndependentSetT<SimpleGraph, i32>,
+            IndependentSet<SimpleGraph, i32>,
             new(3, vec![(0, 1), (1, 2)]),
             solution: [1, 0, 1],
             expected_size: 2,
@@ -259,7 +259,7 @@ mod tests {
         );
 
         quick_problem_test!(
-            IndependentSetT<SimpleGraph, i32>,
+            IndependentSet<SimpleGraph, i32>,
             new(3, vec![(0, 1), (1, 2)]),
             solution: [1, 1, 0],
             expected_size: 2,
@@ -270,8 +270,8 @@ mod tests {
     // Test the complement_test macro
     complement_test! {
         name: test_is_vc_complement,
-        problem_a: IndependentSetT<SimpleGraph, i32>,
-        problem_b: VertexCoverT<SimpleGraph, i32>,
+        problem_a: IndependentSet<SimpleGraph, i32>,
+        problem_b: VertexCovering<SimpleGraph, i32>,
         test_graphs: [
             (3, [(0, 1), (1, 2)]),
             (4, [(0, 1), (1, 2), (2, 3), (0, 3)]),

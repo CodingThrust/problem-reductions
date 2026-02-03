@@ -29,18 +29,31 @@
 //! assert!(info.is_np_complete());
 //! ```
 //!
-//! # Using with Problems
+//! # Implementing for Custom Problems
 //!
-//! Problems that implement [`ProblemMetadata`] can be queried for their category and info:
+//! Problems can implement [`ProblemMetadata`] to provide introspection:
 //!
 //! ```rust
-//! use problemreductions::registry::ProblemMetadata;
-//! use problemreductions::models::graph::IndependentSetT;
-//! use problemreductions::topology::SimpleGraph;
+//! use problemreductions::registry::{
+//!     ProblemMetadata, ProblemInfo, ProblemCategory,
+//!     GraphSubcategory, ComplexityClass
+//! };
 //!
-//! let info = IndependentSetT::<SimpleGraph, i32>::problem_info();
-//! let category = IndependentSetT::<SimpleGraph, i32>::category();
+//! struct MyProblem;
 //!
+//! impl ProblemMetadata for MyProblem {
+//!     fn problem_info() -> ProblemInfo {
+//!         ProblemInfo::new("My Problem", "Description")
+//!             .with_complexity(ComplexityClass::NpComplete)
+//!     }
+//!
+//!     fn category() -> ProblemCategory {
+//!         ProblemCategory::Graph(GraphSubcategory::Independent)
+//!     }
+//! }
+//!
+//! let info = MyProblem::problem_info();
+//! let category = MyProblem::category();
 //! println!("Problem: {} ({})", info.name, category.path());
 //! ```
 

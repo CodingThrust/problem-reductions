@@ -84,7 +84,8 @@ pub mod prelude {
     };
     pub use crate::error::{ProblemError, Result};
     pub use crate::models::graph::{
-        DominatingSet, IndependentSet, KColoring, Matching, MaxCut, MaximalIS, VertexCovering,
+        Clique, DominatingSet, IndependentSet, KColoring, Matching, MaxCut, MaximalIS,
+        VertexCovering,
     };
     pub use crate::models::optimization::{
         Comparison, LinearConstraint, ObjectiveSense, SpinGlass, VarBounds, ILP, QUBO,
