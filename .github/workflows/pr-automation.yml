@@ -86,6 +86,7 @@ jobs:
         if: steps.pr.outputs.command == 'action'
         env:
           ANTHROPIC_API_KEY_SECRET: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
           # Use secret if set, otherwise use runner's env
           [ -n "$ANTHROPIC_API_KEY_SECRET" ] && export ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY_SECRET"
@@ -97,6 +98,9 @@ jobs:
           2. Implement each step in order
           3. Commit changes with descriptive messages
           4. Push changes: git push origin ${{ steps.pr.outputs.branch }}
+          5. Post a summary comment on the PR using:
+             gh pr comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body 'SUMMARY'
+             Replace SUMMARY with a brief markdown summary of what you did (files changed, features added, etc.)
           " 2>&1 | tee claude-output.txt
 
       - name: Fix review comments
@@ -124,6 +128,9 @@ jobs:
           2. Make the requested changes to the code
           3. Commit: git commit -am 'Address PR review feedback'
           4. Push: git push origin ${{ steps.pr.outputs.branch }}
+          5. Post a summary comment on the PR using:
+             gh pr comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body 'SUMMARY'
+             Replace SUMMARY with a brief markdown summary of what you fixed
           " 2>&1 | tee claude-output.txt
 
       - name: Debug test
