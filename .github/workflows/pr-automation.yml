@@ -1,0 +1,234 @@
+name: PR Automation
+
+on:
+  issue_comment:
+    types: [created]
+
+jobs:
+  execute:
+    # Only run on PR comments (not issue comments) from repo owner/collaborators
+    if: |
+      github.event.issue.pull_request &&
+      startsWith(github.event.comment.body, '[action]') ||
+      startsWith(github.event.comment.body, '[fix]') ||
+      startsWith(github.event.comment.body, '[debug]')
+
+    # Use self-hosted runner to run Claude on your local machine
+    # Change to 'ubuntu-latest' to run on GitHub-hosted runners instead
+    runs-on: self-hosted
+
+    permissions:
+      contents: write
+      pull-requests: write
+      issues: write
+
+    steps:
+      - name: Get PR details
+        id: pr
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const pr = await github.rest.pulls.get({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              pull_number: context.issue.number
+            });
+            core.setOutput('branch', pr.data.head.ref);
+            core.setOutput('sha', pr.data.head.sha);
+
+            // Determine command
+            const body = context.payload.comment.body;
+            let command = 'unknown';
+            if (body.startsWith('[action]')) command = 'action';
+            else if (body.startsWith('[fix]')) command = 'fix';
+            else if (body.startsWith('[debug]')) command = 'debug';
+            core.setOutput('command', command);
+
+      - name: Post queued comment
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '[queued] Job started in GitHub Actions...'
+            });
+
+      - name: Checkout PR branch
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ steps.pr.outputs.branch }}
+          fetch-depth: 0
+
+      - name: Setup Node.js (GitHub-hosted only)
+        if: ${{ !contains(runner.name, 'self-hosted') }}
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Install Claude Code CLI (GitHub-hosted only)
+        if: ${{ !contains(runner.name, 'self-hosted') }}
+        run: npm install -g @anthropic-ai/claude-code
+
+      - name: Find plan file
+        id: plan
+        if: steps.pr.outputs.command == 'action'
+        run: |
+          for f in PLAN.md plan.md .claude/plan.md docs/plan.md; do
+            if [ -f "$f" ]; then
+              echo "file=$f" >> $GITHUB_OUTPUT
+              exit 0
+            fi
+          done
+          # Check docs/plans/*.md
+          latest=$(ls -t docs/plans/*.md 2>/dev/null | head -1)
+          if [ -n "$latest" ]; then
+            echo "file=$latest" >> $GITHUB_OUTPUT
+            exit 0
+          fi
+          echo "file=" >> $GITHUB_OUTPUT
+
+      - name: Execute plan
+        if: steps.pr.outputs.command == 'action' && steps.plan.outputs.file != ''
+        id: execute
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: |
+          set +e
+          OUTPUT=$(claude --dangerously-skip-permissions --max-turns 100 -p "
+          Execute the plan in '${{ steps.plan.outputs.file }}'.
+
+          Instructions:
+          1. Read the plan file carefully
+          2. Implement each step in order
+          3. Commit changes with descriptive messages
+          4. Push changes: git push origin ${{ steps.pr.outputs.branch }}
+
+          Do NOT post comments to the PR.
+          " 2>&1)
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+
+          # Save output to file (for artifact)
+          echo "$OUTPUT" > claude-output.txt
+
+          # Save truncated output for comment
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" | tail -100 >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Handle missing plan
+        if: steps.pr.outputs.command == 'action' && steps.plan.outputs.file == ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: '[waiting] No plan file found. Please create one of: PLAN.md, plan.md, .claude/plan.md, docs/plan.md, or docs/plans/*.md'
+            });
+            core.setFailed('No plan file found');
+
+      - name: Fix review comments
+        if: steps.pr.outputs.command == 'fix'
+        id: fix
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+
+          # Fetch review comments
+          INLINE=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}/comments --jq '.[].body' 2>/dev/null || echo "")
+          REVIEWS=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}/reviews --jq '.[] | select(.body != "") | .body' 2>/dev/null || echo "")
+
+          OUTPUT=$(claude --dangerously-skip-permissions --max-turns 100 -p "
+          Address the PR review comments.
+
+          === Inline Review Comments ===
+          $INLINE
+
+          === PR Reviews ===
+          $REVIEWS
+
+          Instructions:
+          1. Read each comment and understand what change is requested
+          2. Make the requested changes to the code
+          3. Commit: git commit -am 'Address PR review feedback'
+          4. Push: git push origin ${{ steps.pr.outputs.branch }}
+
+          Do NOT post comments to the PR.
+          " 2>&1)
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" > claude-output.txt
+          echo "output<<EOF" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" | tail -100 >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
+      - name: Debug test
+        if: steps.pr.outputs.command == 'debug'
+        id: debug
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set +e
+          OUTPUT=$(claude --dangerously-skip-permissions --max-turns 5 -p "
+          This is a debug test. Post a comment to PR #${{ github.event.issue.number }} on repository ${{ github.repository }} with:
+          gh pr comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body '[pass] GitHub Actions pipeline test successful'
+          " 2>&1)
+          EXIT_CODE=$?
+          echo "exit_code=$EXIT_CODE" >> $GITHUB_OUTPUT
+          echo "$OUTPUT" > claude-output.txt
+
+      - name: Upload Claude output
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: claude-output
+          path: claude-output.txt
+          retention-days: 7
+
+      - name: Post success comment
+        if: success() && (steps.execute.outputs.exit_code == '0' || steps.fix.outputs.exit_code == '0')
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const command = '${{ steps.pr.outputs.command }}';
+            const msg = command === 'action' ? '[done] Plan execution completed.' : '[fixed] Review comments addressed.';
+            const output = `${{ steps.execute.outputs.output || steps.fix.outputs.output }}`;
+
+            let body = msg;
+            if (output) {
+              body += `\n\n<details><summary>Claude output (last 100 lines)</summary>\n\n\`\`\`\n${output}\n\`\`\`\n</details>`;
+            }
+            body += `\n\n[View full logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
+
+      - name: Post failure comment
+        if: failure() || steps.execute.outputs.exit_code != '0' && steps.execute.outputs.exit_code != '' || steps.fix.outputs.exit_code != '0' && steps.fix.outputs.exit_code != ''
+        uses: actions/github-script@v7
+        with:
+          script: |
+            const output = `${{ steps.execute.outputs.output || steps.fix.outputs.output }}`;
+            let body = '[failed] Job failed.';
+            if (output) {
+              body += `\n\n<details><summary>Claude output (last 100 lines)</summary>\n\n\`\`\`\n${output}\n\`\`\`\n</details>`;
+            }
+            body += `\n\n[View full logs](${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }})`;
+
+            await github.rest.issues.createComment({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              issue_number: context.issue.number,
+              body: body
+            });
