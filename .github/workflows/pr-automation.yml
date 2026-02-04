@@ -15,7 +15,7 @@ jobs:
 
     # Use self-hosted runner to run Claude on your local machine
     # Change to 'ubuntu-latest' to run on GitHub-hosted runners instead
-    runs-on: self-hosted
+    runs-on: ubuntu-latest
 
     permissions:
       contents: write
