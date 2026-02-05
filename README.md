@@ -89,6 +89,28 @@ cargo test --all-features
 cargo doc --all-features --no-deps --open
 ```
 
+## Contributing
+
+### Authorship Recognition
+
+**Contribute 10 non-trivial reduction rules and you will be automatically added to the author list of the paper.**
+
+### Using Claude Code (Recommended)
+
+1. Find or create a GitHub issue describing your contribution
+2. Run the issue-to-pr skill:
+   ```
+   /issue-to-pr <issue-number>
+   ```
+3. Brainstorm with Claude using `superpowers:brainstorming` to clarify requirements
+4. The skill creates a PR starting with `[action]`, which automatically triggers Claude CI to implement the plan
+
+### Manual Contribution
+
+1. Follow guides in `.claude/rules/` for adding reductions or models
+2. Run `make test clippy export-graph` before submitting
+3. Ensure >95% test coverage for new code
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
