@@ -28,8 +28,16 @@ jobs:
           curl -sSL https://github.com/rust-lang/mdBook/releases/download/v0.4.37/mdbook-v0.4.37-x86_64-unknown-linux-gnu.tar.gz | tar -xz -C "$HOME/bin"
           echo "$HOME/bin" >> $GITHUB_PATH
 
+      - name: Install Typst
+        run: |
+          curl -sSL https://github.com/typst/typst/releases/download/v0.12.0/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ
+          mv typst-x86_64-unknown-linux-musl/typst "$HOME/bin/"
+
       - name: Build mdBook
         run: mdbook build
+
+      - name: Build PDF
+        run: typst compile docs/paper/reductions.typ book/reductions.pdf
 
       - name: Build rustdoc
         run: cargo doc --no-deps

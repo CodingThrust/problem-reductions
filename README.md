@@ -3,22 +3,14 @@
 [![CI](https://github.com/CodingThrust/problem-reductions/actions/workflows/ci.yml/badge.svg)](https://github.com/CodingThrust/problem-reductions/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/CodingThrust/problem-reductions/graph/badge.svg?token=0CdEC8GHN0)](https://codecov.io/github/CodingThrust/problem-reductions)
 [![Documentation](https://github.com/CodingThrust/problem-reductions/actions/workflows/docs.yml/badge.svg)](https://codingthrust.github.io/problem-reductions/)
+[![PDF Manual](https://img.shields.io/badge/PDF-Manual-blue)](https://codingthrust.github.io/problem-reductions/reductions.pdf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Rust library for NP-hard problem definitions and reductions.
-
-## Features
-
-- **18+ Problem Types**: Implementations of classic NP-hard problems
-- **Type-Safe Reductions**: Compile-time verified problem transformations
-- **Graph Abstraction**: Generic `Graph` trait with `SimpleGraph` and `UnitDiskGraph` implementations
-- **Multiple Solvers**: BruteForce and ILP (HiGHS) solvers
-- **Topology Types**: HyperGraph and UnitDiskGraph for specialized constraints
-- **File I/O**: JSON serialization for all problem types
+A Rust library for NP-hard problem definitions and reductions. We aim to implement >100 NP-hard problems and reductions rule between them, under the help of AI.
 
 ## Installation
 
-Add to your `Cargo.toml`:
+Add to your `Cargo.toml` (not yet available):
 
 ```toml
 [dependencies]
@@ -29,40 +21,23 @@ problemreductions = "0.1"
 
 ```rust
 use problemreductions::prelude::*;
+use problemreductions::models::optimization::ILP;
 
-// Create an Independent Set problem
-let problem: IndependentSetT = IndependentSetT::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+// Create an Independent Set problem on a path graph
+let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
-// Solve with brute force
-let solver = BruteForce::new();
-let solutions = solver.find_best(&problem);
+// Reduce to Integer Linear Programming
+let reduction = ReduceTo::<ILP>::reduce_to(&problem);
+let ilp = reduction.target_problem();
 
-// Apply a reduction
-let result = ReduceTo::<VertexCoverT>::reduce_to(&problem);
-let vc = result.target_problem();
+// Solve with ILP solver (efficient for larger instances)
+let solver = ILPSolver::new();
+let ilp_solution = solver.solve(ilp).unwrap();
+
+// Extract solution back to original problem
+let solution = reduction.extract_solution(&ilp_solution);
+assert_eq!(solution.iter().sum::<usize>(), 2); // Max IS size is 2
 ```
-
-## Problem Types
-
-| Category | Problems |
-|----------|----------|
-| **Satisfiability** | SAT, K-SAT, CircuitSAT, Factoring |
-| **Graph** | IndependentSet, MaximalIS, VertexCovering, DominatingSet, Coloring, MaxCut, Matching |
-| **Set** | SetCovering, SetPacking |
-| **Optimization** | SpinGlass, QUBO |
-| **Specialized** | Paintshop, BicliqueCover, BMF |
-
-## Available Reductions
-
-- IndependentSet ↔ VertexCovering
-- IndependentSet ↔ SetPacking
-- SpinGlass ↔ QUBO
-- SpinGlass ↔ MaxCut
-
-## Documentation
-
-- [User Guide](https://CodingThrust.github.io/problem-reductions/)
-- [API Reference](https://docs.rs/problemreductions)
 
 ## Development
 
@@ -81,19 +56,11 @@ make clean     # Clean build artifacts
 make check     # Quick check before commit (fmt + clippy + test)
 ```
 
-### Using Cargo directly
-
-```bash
-cargo build --all-features
-cargo test --all-features
-cargo doc --all-features --no-deps --open
-```
-
 ## Contributing
 
 ### Authorship Recognition
 
-**Contribute 10 non-trivial reduction rules and you will be automatically added to the author list of the paper.**
+**Contribute 10 non-trivial reduction rules and you will be automatically added to the author list of the paper.** To facilitate the development, we provide the AI tools to help developers implement their *plans*. Developers still need to carefully design the test cases and verify the correctness of the reduction rules.
 
 ### Using Claude Code (Recommended)
 
@@ -104,12 +71,6 @@ cargo doc --all-features --no-deps --open
    ```
 3. Brainstorm with Claude using `superpowers:brainstorming` to clarify requirements
 4. The skill creates a PR starting with `[action]`, which automatically triggers Claude CI to implement the plan
-
-### Manual Contribution
-
-1. Follow guides in `.claude/rules/` for adding reductions or models
-2. Run `make test clippy export-graph` before submitting
-3. Ensure >95% test coverage for new code
 
 ## License
 
