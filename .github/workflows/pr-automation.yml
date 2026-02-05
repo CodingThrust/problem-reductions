@@ -3,22 +3,36 @@ name: PR Automation
 on:
   issue_comment:
     types: [created]
+  pull_request:
+    types: [opened]
 
 jobs:
-  execute:
-    # Only run on PR comments with recognized commands
+  # First job runs on GitHub-hosted runner to set pending status immediately
+  setup:
+    # Run on PR comments with commands OR PR creation with commands in body
     if: |
-      github.event.issue.pull_request &&
-      (startsWith(github.event.comment.body, '[action]') ||
-       startsWith(github.event.comment.body, '[fix]') ||
-       startsWith(github.event.comment.body, '[debug]'))
+      (github.event_name == 'issue_comment' &&
+       github.event.issue.pull_request &&
+       (startsWith(github.event.comment.body, '[action]') ||
+        startsWith(github.event.comment.body, '[fix]') ||
+        startsWith(github.event.comment.body, '[debug]'))) ||
+      (github.event_name == 'pull_request' &&
+       (contains(github.event.pull_request.body, '[action]') ||
+        contains(github.event.pull_request.body, '[fix]') ||
+        contains(github.event.pull_request.body, '[debug]')))
 
-    runs-on: ${{ vars.RUNNER_TYPE || 'ubuntu-latest' }}
+    runs-on: ubuntu-latest
 
     permissions:
-      contents: write
-      pull-requests: write
       statuses: write
+      pull-requests: read
+
+    outputs:
+      branch: ${{ steps.pr.outputs.branch }}
+      sha: ${{ steps.pr.outputs.sha }}
+      pr_number: ${{ steps.pr.outputs.pr_number }}
+      command: ${{ steps.pr.outputs.command }}
+      instructions: ${{ steps.pr.outputs.instructions }}
 
     steps:
       - name: Get PR details and set pending status
@@ -26,27 +40,60 @@ jobs:
         uses: actions/github-script@v7
         with:
           script: |
-            const pr = await github.rest.pulls.get({
-              owner: context.repo.owner,
-              repo: context.repo.repo,
-              pull_number: context.issue.number
-            });
-            const sha = pr.data.head.sha;
-            core.setOutput('branch', pr.data.head.ref);
-            core.setOutput('sha', sha);
+            let prData, body, prNumber;
 
-            const body = context.payload.comment.body;
+            if (context.eventName === 'pull_request') {
+              // PR creation event - data is directly available
+              prData = context.payload.pull_request;
+              body = prData.body || '';
+              prNumber = prData.number;
+            } else {
+              // Comment event - need to fetch PR data
+              const pr = await github.rest.pulls.get({
+                owner: context.repo.owner,
+                repo: context.repo.repo,
+                pull_number: context.issue.number
+              });
+              prData = pr.data;
+              body = context.payload.comment.body;
+              prNumber = context.issue.number;
+            }
+
+            const sha = prData.head.sha;
+            core.setOutput('branch', prData.head.ref);
+            core.setOutput('sha', sha);
+            core.setOutput('pr_number', prNumber);
+
+            // Extract command - for PR body, search anywhere; for comments, must start with command
             let command = 'unknown';
             let instructions = '';
-            if (body.startsWith('[action]')) {
-              command = 'action';
-              instructions = body.slice('[action]'.length).trim();
-            } else if (body.startsWith('[fix]')) {
-              command = 'fix';
-              instructions = body.slice('[fix]'.length).trim();
-            } else if (body.startsWith('[debug]')) {
-              command = 'debug';
+
+            if (context.eventName === 'pull_request') {
+              // For PR body, find command anywhere in text
+              if (body.includes('[action]')) {
+                command = 'action';
+                const match = body.match(/\[action\](.*?)(?=\[(?:action|fix|debug)\]|$)/s);
+                instructions = match ? match[1].trim() : '';
+              } else if (body.includes('[fix]')) {
+                command = 'fix';
+                const match = body.match(/\[fix\](.*?)(?=\[(?:action|fix|debug)\]|$)/s);
+                instructions = match ? match[1].trim() : '';
+              } else if (body.includes('[debug]')) {
+                command = 'debug';
+              }
+            } else {
+              // For comments, must start with command
+              if (body.startsWith('[action]')) {
+                command = 'action';
+                instructions = body.slice('[action]'.length).trim();
+              } else if (body.startsWith('[fix]')) {
+                command = 'fix';
+                instructions = body.slice('[fix]'.length).trim();
+              } else if (body.startsWith('[debug]')) {
+                command = 'debug';
+              }
             }
+
             core.setOutput('command', command);
             core.setOutput('instructions', instructions);
 
@@ -57,14 +104,38 @@ jobs:
               sha: sha,
               state: 'pending',
               context: `PR Automation / ${command}`,
-              description: 'Running...',
+              description: 'Waiting for runner...',
               target_url: `${process.env.GITHUB_SERVER_URL}/${context.repo.owner}/${context.repo.repo}/actions/runs/${context.runId}`
+            });
+
+  execute:
+    needs: setup
+    runs-on: ${{ vars.RUNNER_TYPE || 'ubuntu-latest' }}
+
+    permissions:
+      contents: write
+      pull-requests: write
+      statuses: write
+
+    steps:
+      - name: Update status to running
+        uses: actions/github-script@v7
+        with:
+          script: |
+            await github.rest.repos.createCommitStatus({
+              owner: context.repo.owner,
+              repo: context.repo.repo,
+              sha: '${{ needs.setup.outputs.sha }}',
+              state: 'pending',
+              context: 'PR Automation / ${{ needs.setup.outputs.command }}',
+              description: 'Running...',
+              target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
             });
 
       - name: Checkout PR branch
         uses: actions/checkout@v4
         with:
-          ref: ${{ steps.pr.outputs.branch }}
+          ref: ${{ needs.setup.outputs.branch }}
           fetch-depth: 0
 
       - name: Setup Node.js (GitHub-hosted only)
@@ -83,7 +154,7 @@ jobs:
 
       - name: Find plan file
         id: plan
-        if: steps.pr.outputs.command == 'action'
+        if: needs.setup.outputs.command == 'action'
         run: |
           for f in PLAN.md plan.md .claude/plan.md docs/plan.md; do
             [ -f "$f" ] && echo "file=$f" >> $GITHUB_OUTPUT && exit 0
@@ -93,14 +164,22 @@ jobs:
           echo "No plan file found" && exit 1
 
       - name: Execute plan
-        if: steps.pr.outputs.command == 'action'
+        if: needs.setup.outputs.command == 'action'
         env:
           ANTHROPIC_API_KEY_SECRET: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -eo pipefail
           # Use secret if set, otherwise use runner's env
           [ -n "$ANTHROPIC_API_KEY_SECRET" ] && export ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY_SECRET"
-          INSTRUCTIONS='${{ steps.pr.outputs.instructions }}'
+
+          # Check API key is available
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "Error: ANTHROPIC_API_KEY not set" | tee claude-output.txt
+            exit 1
+          fi
+
+          INSTRUCTIONS='${{ needs.setup.outputs.instructions }}'
           claude --dangerously-skip-permissions --max-turns 100 -p "
           Execute the plan in '${{ steps.plan.outputs.file }}'.
           ${INSTRUCTIONS:+
@@ -110,8 +189,8 @@ jobs:
           ## Process
           1. Read the plan file
           2. Use /subagent-driven-development to execute tasks
-          3. Push: git push origin ${{ steps.pr.outputs.branch }}
-          4. Post summary: gh pr comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body 'SUMMARY'
+          3. Push: git push origin ${{ needs.setup.outputs.branch }}
+          4. Post summary: gh pr comment ${{ needs.setup.outputs.pr_number }} --repo ${{ github.repository }} --body 'SUMMARY'
 
           ## Rules
           - Tests should be strong enough to catch regressions.
@@ -119,23 +198,36 @@ jobs:
           - Test failure must be reported.
           " 2>&1 | tee claude-output.txt
 
+          # Check for authentication errors in output
+          if grep -qiE "authenticat(e|ion)|unauthorized|forbidden|invalid.*key|api.*key.*invalid|API Error: 40[13]" claude-output.txt; then
+            echo "Error: Authentication failure detected"
+            exit 1
+          fi
+
       - name: Fix issues
-        if: steps.pr.outputs.command == 'fix'
+        if: needs.setup.outputs.command == 'fix'
         env:
           ANTHROPIC_API_KEY_SECRET: ${{ secrets.ANTHROPIC_API_KEY }}
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
+          set -eo pipefail
           # Use secret if set, otherwise use runner's env
           [ -n "$ANTHROPIC_API_KEY_SECRET" ] && export ANTHROPIC_API_KEY="$ANTHROPIC_API_KEY_SECRET"
 
+          # Check API key is available
+          if [ -z "$ANTHROPIC_API_KEY" ]; then
+            echo "Error: ANTHROPIC_API_KEY not set" | tee claude-output.txt
+            exit 1
+          fi
+
           # Gather all feedback sources
-          INLINE=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}/comments --jq '.[].body' 2>/dev/null || echo "")
-          REVIEWS=$(gh api repos/${{ github.repository }}/pulls/${{ github.event.issue.number }}/reviews --jq '.[] | select(.body != "") | .body' 2>/dev/null || echo "")
-          PR_COMMENTS=$(gh api repos/${{ github.repository }}/issues/${{ github.event.issue.number }}/comments --jq '.[].body' 2>/dev/null || echo "")
+          INLINE=$(gh api repos/${{ github.repository }}/pulls/${{ needs.setup.outputs.pr_number }}/comments --jq '.[].body' 2>/dev/null || echo "")
+          REVIEWS=$(gh api repos/${{ github.repository }}/pulls/${{ needs.setup.outputs.pr_number }}/reviews --jq '.[] | select(.body != "") | .body' 2>/dev/null || echo "")
+          PR_COMMENTS=$(gh api repos/${{ github.repository }}/issues/${{ needs.setup.outputs.pr_number }}/comments --jq '.[].body' 2>/dev/null || echo "")
 
           # Gather CI status
-          CI_STATUS=$(gh pr checks ${{ github.event.issue.number }} --repo ${{ github.repository }} 2>/dev/null || echo "")
-          FAILED_RUNS=$(gh run list --branch ${{ steps.pr.outputs.branch }} --status failure --limit 3 --json databaseId,name --jq '.[] | "\(.databaseId) \(.name)"' 2>/dev/null || echo "")
+          CI_STATUS=$(gh pr checks ${{ needs.setup.outputs.pr_number }} --repo ${{ github.repository }} 2>/dev/null || echo "")
+          FAILED_RUNS=$(gh run list --branch ${{ needs.setup.outputs.branch }} --status failure --limit 3 --json databaseId,name --jq '.[] | "\(.databaseId) \(.name)"' 2>/dev/null || echo "")
 
           # Get failed run logs if any
           CI_LOGS=""
@@ -145,7 +237,7 @@ jobs:
           $(gh run view $run_id --log-failed 2>/dev/null | tail -100 || echo 'Could not fetch logs')"
           done
 
-          INSTRUCTIONS='${{ steps.pr.outputs.instructions }}'
+          INSTRUCTIONS='${{ needs.setup.outputs.instructions }}'
           claude --dangerously-skip-permissions --max-turns 100 -p "
           Fix all issues with this PR: review comments AND CI failures.
           ${INSTRUCTIONS:+
@@ -172,16 +264,22 @@ jobs:
           2. Fix review comments and CI issues
           3. Run tests to verify: make test, cargo test, npm test, etc.
           4. Commit: git commit -am 'Fix review feedback and CI issues'
-          5. Push: git push origin ${{ steps.pr.outputs.branch }}
-          6. Post summary: gh pr comment ${{ github.event.issue.number }} --repo ${{ github.repository }} --body 'SUMMARY'
+          5. Push: git push origin ${{ needs.setup.outputs.branch }}
+          6. Post summary: gh pr comment ${{ needs.setup.outputs.pr_number }} --repo ${{ github.repository }} --body 'SUMMARY'
 
           ## Rules
           - All CI failures must be fixed.
           - All change requests must be either addressed or explained.
           " 2>&1 | tee claude-output.txt
 
+          # Check for authentication errors in output
+          if grep -qiE "authenticat(e|ion)|unauthorized|forbidden|invalid.*key|api.*key.*invalid|API Error: 40[13]" claude-output.txt; then
+            echo "Error: Authentication failure detected"
+            exit 1
+          fi
+
       - name: Debug test
-        if: steps.pr.outputs.command == 'debug'
+        if: needs.setup.outputs.command == 'debug'
         run: |
           echo "Debug test passed - workflow is working" | tee claude-output.txt
 
@@ -201,9 +299,9 @@ jobs:
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              sha: '${{ steps.pr.outputs.sha }}',
+              sha: '${{ needs.setup.outputs.sha }}',
               state: 'success',
-              context: 'PR Automation / ${{ steps.pr.outputs.command }}',
+              context: 'PR Automation / ${{ needs.setup.outputs.command }}',
               description: 'Completed successfully',
               target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
             });
@@ -216,9 +314,9 @@ jobs:
             await github.rest.repos.createCommitStatus({
               owner: context.repo.owner,
               repo: context.repo.repo,
-              sha: '${{ steps.pr.outputs.sha }}',
+              sha: '${{ needs.setup.outputs.sha }}',
               state: 'failure',
-              context: 'PR Automation / ${{ steps.pr.outputs.command }}',
+              context: 'PR Automation / ${{ needs.setup.outputs.command }}',
               description: 'Failed - check logs',
               target_url: '${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}'
             });
