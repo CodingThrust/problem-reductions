@@ -33,14 +33,12 @@
     (left-cx + 3, left-cy + 5),
     (left-cx + 5, left-cy - 1),
     (left-cx - 1, left-cy - 3),
-    (left-cx - 5, left-cy),
-    (left-cx + 1, left-cy + 1),
+    (left-cx - 5, left-cy - 1),
   )
 
   // Edges between inner nodes (showing a complex graph)
   let inner-edges = (
     (0, 1), (1, 2), (2, 3), (3, 4), (4, 0),
-    (0, 5), (1, 5), (2, 5), (3, 5), (4, 5),
   )
 
   for (i, pt) in inner-nodes.enumerate() {
@@ -52,8 +50,6 @@
   }
 
   // === Text below ===
-  content(
-    (50, 16),
-    text(fill: col-sat, size: 30pt)[100-Problem-Reductions]
-  )
+  content((12, 16), text(fill: col-sat.darken(20%), size: 24pt)[100])
+  content((45, 16), text(fill: col-sat, size: 30pt)[Problem-Reductions])
 })
