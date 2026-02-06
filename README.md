@@ -1,12 +1,12 @@
-# Problem Reductions
+![100-Problem-Reductions](docs/logo.svg)
 
 [![CI](https://github.com/CodingThrust/problem-reductions/actions/workflows/ci.yml/badge.svg)](https://github.com/CodingThrust/problem-reductions/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/CodingThrust/problem-reductions/graph/badge.svg?token=0CdEC8GHN0)](https://codecov.io/github/CodingThrust/problem-reductions)
-[![Documentation](https://github.com/CodingThrust/problem-reductions/actions/workflows/docs.yml/badge.svg)](https://codingthrust.github.io/problem-reductions/)
+[![Docs](https://img.shields.io/badge/Docs-API-green)](https://codingthrust.github.io/problem-reductions/)
 [![PDF Manual](https://img.shields.io/badge/PDF-Manual-blue)](https://codingthrust.github.io/problem-reductions/reductions.pdf)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A Rust library for NP-hard problem definitions and reductions. We aim to implement >100 NP-hard problems and reductions rule between them, under the help of AI.
+A Rust library for NP-hard problem definitions and reductions. We aim to implement >100 NP-hard problems and reductions rule between them, under the assistance of AI.
 
 ## Installation
 
@@ -39,7 +39,22 @@ let solution = reduction.extract_solution(&ilp_solution);
 assert_eq!(solution.iter().sum::<usize>(), 2); // Max IS size is 2
 ```
 
-## Development
+## Contributing
+
+### Authorship Recognition
+
+**Contribute 10 non-trivial reduction rules and you will be automatically added to the author list of the paper.** To facilitate the development, we provide the AI tools to help developers implement their *plans*. Developers still need to carefully design the test cases and verify the correctness of the reduction rules.
+
+**Step by step**
+
+1. Find or create a GitHub issue describing your proposal, which rule to add and how to test it. You may have some discussions with other developers to refine the proposal.
+2. Write a detailed plan in `docs/plans/issue-<number>-<slug>.md`.
+   - If you use [Claude Code](https://github.com/anthropics/claude-code), it is recommended to use the [issue-to-pr](.claude/skills/issue-to-pr.md) skill. The skill will invoke [superpowers:brainstorm](https://github.com/obra/superpowers) to help you write a detailed plan:
+        ```
+        /issue-to-pr <issue-number>
+        ```
+        Afterwards, the skill creates a PR starting with `[action]`, which automatically triggers Claude CI to implement the plan.
+    - Otherwise, you can write a detailed plan manually ([sample](docs/plans/2026-01-31-factoring-ilp-design.md)). Then create a PR manually. You can start implementing this plan on the CI machine by adding `[action]` at the start of the PR description or comments.
 
 ### Using Make
 
@@ -56,21 +71,6 @@ make clean     # Clean build artifacts
 make check     # Quick check before commit (fmt + clippy + test)
 ```
 
-## Contributing
-
-### Authorship Recognition
-
-**Contribute 10 non-trivial reduction rules and you will be automatically added to the author list of the paper.** To facilitate the development, we provide the AI tools to help developers implement their *plans*. Developers still need to carefully design the test cases and verify the correctness of the reduction rules.
-
-### Using Claude Code (Recommended)
-
-1. Find or create a GitHub issue describing your contribution
-2. Run the issue-to-pr skill:
-   ```
-   /issue-to-pr <issue-number>
-   ```
-3. Brainstorm with Claude using `superpowers:brainstorming` to clarify requirements
-4. The skill creates a PR starting with `[action]`, which automatically triggers Claude CI to implement the plan
 
 ## License
 
