@@ -30,7 +30,7 @@ jobs:
 
       - name: Install Typst
         run: |
-          curl -sSL https://github.com/typst/typst/releases/download/v0.12.0/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ
+          curl -sSL https://github.com/typst/typst/releases/download/v0.13.0/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ
           mv typst-x86_64-unknown-linux-musl/typst "$HOME/bin/"
 
       - name: Build mdBook
