@@ -68,5 +68,5 @@ pub trait ReduceTo<T: Problem>: Problem {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/traits.rs"]
+#[path = "../unit_tests/rules/traits.rs"]
 mod tests;

@@ -261,5 +261,5 @@ impl PartialEq for SimpleGraph {
 impl Eq for SimpleGraph {}
 
 #[cfg(test)]
-#[path = "../tests_unit/topology/graph.rs"]
+#[path = "../unit_tests/topology/graph.rs"]
 mod tests;

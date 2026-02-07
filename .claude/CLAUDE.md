@@ -26,7 +26,7 @@ make test clippy export-graph  # Must pass before PR
 - `src/traits.rs` - `Problem`, `ConstraintSatisfactionProblem` traits
 - `src/rules/traits.rs` - `ReduceTo<T>`, `ReductionResult` traits
 - `src/registry/` - Compile-time reduction metadata collection
-- `src/tests_unit/` - Unit test files (extracted from inline `mod tests` blocks via `#[path]`)
+- `src/unit_tests/` - Unit test files (extracted from inline `mod tests` blocks via `#[path]`)
 - `tests/main.rs` - User-facing integration tests only (modules in `tests/suites/`)
 
 ### Trait Hierarchy

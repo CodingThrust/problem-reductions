@@ -241,5 +241,5 @@ pub fn is_set_cover(universe_size: usize, sets: &[Vec<usize>], selected: &[bool]
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/set/set_covering.rs"]
+#[path = "../../unit_tests/models/set/set_covering.rs"]
 mod tests;

@@ -230,5 +230,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/optimization/spin_glass.rs"]
+#[path = "../../unit_tests/models/optimization/spin_glass.rs"]
 mod tests;

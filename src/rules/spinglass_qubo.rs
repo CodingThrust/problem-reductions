@@ -180,5 +180,5 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/spinglass_qubo.rs"]
+#[path = "../unit_tests/rules/spinglass_qubo.rs"]
 mod tests;

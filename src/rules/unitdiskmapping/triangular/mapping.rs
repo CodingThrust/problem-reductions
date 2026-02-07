@@ -292,5 +292,5 @@ pub fn map_weights(result: &MappingResult, source_weights: &[f64]) -> Vec<f64> {
 }
 
 #[cfg(test)]
-#[path = "../../../tests_unit/rules/unitdiskmapping/triangular/mapping.rs"]
+#[path = "../../../unit_tests/rules/unitdiskmapping/triangular/mapping.rs"]
 mod tests;

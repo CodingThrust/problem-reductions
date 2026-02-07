@@ -209,5 +209,5 @@ pub fn matrix_hamming_distance(a: &[Vec<bool>], b: &[Vec<bool>]) -> usize {
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/specialized/bmf.rs"]
+#[path = "../../unit_tests/models/specialized/bmf.rs"]
 mod tests;

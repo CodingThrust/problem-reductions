@@ -314,5 +314,5 @@ impl<W: Clone + fmt::Display> fmt::Display for GridGraph<W> {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/topology/grid_graph.rs"]
+#[path = "../unit_tests/topology/grid_graph.rs"]
 mod tests;

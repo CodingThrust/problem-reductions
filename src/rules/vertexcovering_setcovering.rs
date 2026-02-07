@@ -91,5 +91,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/vertexcovering_setcovering.rs"]
+#[path = "../unit_tests/rules/vertexcovering_setcovering.rs"]
 mod tests;

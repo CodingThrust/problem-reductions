@@ -108,11 +108,12 @@ fn test_brute_force_satisfiable() {
             CNFClause::new(vec![-1, -2]),
         ],
     );
-    let solver = BruteForce::new();
+    let solver = BruteForce::new().valid_only(false);
 
     let solutions = solver.find_best(&problem);
-    // This is unsatisfiable, so no valid solutions
-    // BruteForce will return configs with max satisfied clauses
+    // This is unsatisfiable, so no valid solutions exist
+    // BruteForce with valid_only=false returns configs with max satisfied clauses
+    assert!(!solutions.is_empty());
     for sol in &solutions {
         // Best we can do is satisfy 2 out of 3 clauses
         assert!(!problem.solution_size(sol).is_valid);

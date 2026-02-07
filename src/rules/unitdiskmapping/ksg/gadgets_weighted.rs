@@ -1368,5 +1368,5 @@ pub fn map_config_back_pattern<P: Pattern>(
 }
 
 #[cfg(test)]
-#[path = "../../../tests_unit/rules/unitdiskmapping/ksg/gadgets_weighted.rs"]
+#[path = "../../../unit_tests/rules/unitdiskmapping/ksg/gadgets_weighted.rs"]
 mod tests;

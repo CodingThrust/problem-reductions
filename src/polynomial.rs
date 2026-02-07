@@ -126,5 +126,5 @@ macro_rules! poly {
 }
 
 #[cfg(test)]
-#[path = "tests_unit/polynomial.rs"]
+#[path = "unit_tests/polynomial.rs"]
 mod tests;

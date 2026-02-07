@@ -108,5 +108,5 @@ pub fn bits_to_config(bits: &[bool]) -> Vec<usize> {
 }
 
 #[cfg(test)]
-#[path = "tests_unit/config.rs"]
+#[path = "unit_tests/config.rs"]
 mod tests;

@@ -173,5 +173,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/optimization/qubo.rs"]
+#[path = "../../unit_tests/models/optimization/qubo.rs"]
 mod tests;

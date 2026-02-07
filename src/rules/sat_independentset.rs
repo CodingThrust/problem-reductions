@@ -189,5 +189,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/sat_independentset.rs"]
+#[path = "../unit_tests/rules/sat_independentset.rs"]
 mod tests;

@@ -95,5 +95,5 @@ impl ReduceTo<ILP> for Clique<SimpleGraph, i32> {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/clique_ilp.rs"]
+#[path = "../unit_tests/rules/clique_ilp.rs"]
 mod tests;

@@ -525,5 +525,5 @@ pub fn mis_overhead_copyline_triangular(line: &CopyLine, spacing: usize) -> i32 
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/rules/unitdiskmapping/copyline.rs"]
+#[path = "../../unit_tests/rules/unitdiskmapping/copyline.rs"]
 mod tests;

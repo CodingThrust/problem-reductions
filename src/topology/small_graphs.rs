@@ -766,5 +766,5 @@ pub fn available_graphs() -> Vec<&'static str> {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/topology/small_graphs.rs"]
+#[path = "../unit_tests/topology/small_graphs.rs"]
 mod tests;

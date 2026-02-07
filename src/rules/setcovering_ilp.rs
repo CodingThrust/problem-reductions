@@ -98,5 +98,5 @@ impl ReduceTo<ILP> for SetCovering<i32> {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/setcovering_ilp.rs"]
+#[path = "../unit_tests/rules/setcovering_ilp.rs"]
 mod tests;

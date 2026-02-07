@@ -1627,5 +1627,5 @@ pub fn map_graph_triangular_with_order(
 }
 
 #[cfg(test)]
-#[path = "../../../tests_unit/rules/unitdiskmapping/triangular/mod.rs"]
+#[path = "../../../unit_tests/rules/unitdiskmapping/triangular/mod.rs"]
 mod tests;

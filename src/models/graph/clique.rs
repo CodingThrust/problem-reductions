@@ -297,5 +297,5 @@ pub fn is_clique(num_vertices: usize, edges: &[(usize, usize)], selected: &[bool
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/graph/clique.rs"]
+#[path = "../../unit_tests/models/graph/clique.rs"]
 mod tests;

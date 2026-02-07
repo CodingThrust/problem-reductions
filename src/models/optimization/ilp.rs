@@ -381,5 +381,5 @@ impl Problem for ILP {
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/optimization/ilp.rs"]
+#[path = "../../unit_tests/models/optimization/ilp.rs"]
 mod tests;

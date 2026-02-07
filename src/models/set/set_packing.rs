@@ -234,5 +234,5 @@ pub fn is_set_packing(sets: &[Vec<usize>], selected: &[bool]) -> bool {
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/set/set_packing.rs"]
+#[path = "../../unit_tests/models/set/set_packing.rs"]
 mod tests;

@@ -40,5 +40,5 @@ pub fn short_type_name<T: 'static>() -> &'static str {
 }
 
 #[cfg(test)]
-#[path = "tests_unit/variant.rs"]
+#[path = "unit_tests/variant.rs"]
 mod tests;

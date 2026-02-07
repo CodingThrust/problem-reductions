@@ -294,5 +294,5 @@ impl<T: Clone> LocalSolutionSize<T> {
 }
 
 #[cfg(test)]
-#[path = "tests_unit/types.rs"]
+#[path = "unit_tests/types.rs"]
 mod tests;

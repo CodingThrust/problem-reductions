@@ -265,5 +265,5 @@ pub fn is_independent_set(
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/graph/independent_set.rs"]
+#[path = "../../unit_tests/models/graph/independent_set.rs"]
 mod tests;

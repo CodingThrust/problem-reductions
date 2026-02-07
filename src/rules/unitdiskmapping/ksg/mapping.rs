@@ -624,5 +624,5 @@ pub fn map_weighted_with_order(
 }
 
 #[cfg(test)]
-#[path = "../../../tests_unit/rules/unitdiskmapping/ksg/mapping.rs"]
+#[path = "../../../unit_tests/rules/unitdiskmapping/ksg/mapping.rs"]
 mod tests;

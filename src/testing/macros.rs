@@ -243,5 +243,5 @@ macro_rules! quick_problem_test {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/testing/macros.rs"]
+#[path = "../unit_tests/testing/macros.rs"]
 mod tests;

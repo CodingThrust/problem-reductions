@@ -95,5 +95,5 @@ impl ReduceTo<ILP> for Matching<SimpleGraph, i32> {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/matching_ilp.rs"]
+#[path = "../unit_tests/rules/matching_ilp.rs"]
 mod tests;

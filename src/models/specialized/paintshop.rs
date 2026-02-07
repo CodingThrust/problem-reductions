@@ -181,5 +181,5 @@ pub fn count_paint_switches(coloring: &[usize]) -> usize {
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/specialized/paintshop.rs"]
+#[path = "../../unit_tests/models/specialized/paintshop.rs"]
 mod tests;

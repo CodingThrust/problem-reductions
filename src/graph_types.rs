@@ -67,5 +67,5 @@ declare_graph_subtype!(PlanarGraph => SimpleGraph);
 declare_graph_subtype!(BipartiteGraph => SimpleGraph);
 
 #[cfg(test)]
-#[path = "tests_unit/graph_types.rs"]
+#[path = "unit_tests/graph_types.rs"]
 mod tests;

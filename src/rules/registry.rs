@@ -87,5 +87,5 @@ impl std::fmt::Debug for ReductionEntry {
 inventory::collect!(ReductionEntry);
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/registry.rs"]
+#[path = "../unit_tests/rules/registry.rs"]
 mod tests;

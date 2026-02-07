@@ -275,5 +275,5 @@ pub fn is_dominating_set(num_vertices: usize, edges: &[(usize, usize)], selected
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/graph/dominating_set.rs"]
+#[path = "../../unit_tests/models/graph/dominating_set.rs"]
 mod tests;

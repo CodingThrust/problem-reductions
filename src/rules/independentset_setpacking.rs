@@ -156,5 +156,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/independentset_setpacking.rs"]
+#[path = "../unit_tests/rules/independentset_setpacking.rs"]
 mod tests;

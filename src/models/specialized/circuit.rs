@@ -329,5 +329,5 @@ pub fn is_circuit_satisfying(circuit: &Circuit, assignments: &HashMap<String, bo
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/specialized/circuit.rs"]
+#[path = "../../unit_tests/models/specialized/circuit.rs"]
 mod tests;

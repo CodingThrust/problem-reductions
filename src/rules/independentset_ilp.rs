@@ -90,5 +90,5 @@ impl ReduceTo<ILP> for IndependentSet<SimpleGraph, i32> {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/independentset_ilp.rs"]
+#[path = "../unit_tests/rules/independentset_ilp.rs"]
 mod tests;

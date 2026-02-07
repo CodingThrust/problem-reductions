@@ -145,5 +145,5 @@ pub fn is_factoring(target: u64, a: u64, b: u64) -> bool {
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/specialized/factoring.rs"]
+#[path = "../../unit_tests/models/specialized/factoring.rs"]
 mod tests;

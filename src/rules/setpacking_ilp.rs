@@ -89,5 +89,5 @@ impl ReduceTo<ILP> for SetPacking<i32> {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/setpacking_ilp.rs"]
+#[path = "../unit_tests/rules/setpacking_ilp.rs"]
 mod tests;

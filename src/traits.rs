@@ -114,5 +114,5 @@ pub fn csp_solution_size<P: ConstraintSatisfactionProblem>(
 }
 
 #[cfg(test)]
-#[path = "tests_unit/traits.rs"]
+#[path = "unit_tests/traits.rs"]
 mod tests;

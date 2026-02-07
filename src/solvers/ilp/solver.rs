@@ -167,5 +167,5 @@ impl ILPSolver {
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/solvers/ilp/solver.rs"]
+#[path = "../../unit_tests/solvers/ilp/solver.rs"]
 mod tests;

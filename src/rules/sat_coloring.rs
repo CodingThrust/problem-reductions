@@ -353,5 +353,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/sat_coloring.rs"]
+#[path = "../unit_tests/rules/sat_coloring.rs"]
 mod tests;

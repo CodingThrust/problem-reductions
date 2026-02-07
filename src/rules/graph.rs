@@ -687,5 +687,5 @@ impl ReductionGraph {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/graph.rs"]
+#[path = "../unit_tests/rules/graph.rs"]
 mod tests;

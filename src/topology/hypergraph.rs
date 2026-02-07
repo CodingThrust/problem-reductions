@@ -147,5 +147,5 @@ impl HyperGraph {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/topology/hypergraph.rs"]
+#[path = "../unit_tests/topology/hypergraph.rs"]
 mod tests;

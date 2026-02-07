@@ -90,5 +90,5 @@ impl ReduceTo<ILP> for VertexCovering<SimpleGraph, i32> {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/vertexcovering_ilp.rs"]
+#[path = "../unit_tests/rules/vertexcovering_ilp.rs"]
 mod tests;

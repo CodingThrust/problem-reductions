@@ -129,5 +129,5 @@ pub fn write_file<P: AsRef<Path>>(path: P, contents: &str) -> Result<()> {
 }
 
 #[cfg(test)]
-#[path = "tests_unit/io.rs"]
+#[path = "unit_tests/io.rs"]
 mod tests;

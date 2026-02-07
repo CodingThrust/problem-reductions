@@ -233,5 +233,5 @@ pub fn is_biclique_cover(
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/specialized/biclique_cover.rs"]
+#[path = "../../unit_tests/models/specialized/biclique_cover.rs"]
 mod tests;

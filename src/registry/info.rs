@@ -267,5 +267,5 @@ pub trait ProblemMetadata {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/registry/info.rs"]
+#[path = "../unit_tests/registry/info.rs"]
 mod tests;

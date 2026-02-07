@@ -79,5 +79,5 @@ impl<F: Fn(&ReductionOverhead, &ProblemSize) -> f64> PathCostFn for CustomCost<F
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/cost.rs"]
+#[path = "../unit_tests/rules/cost.rs"]
 mod tests;

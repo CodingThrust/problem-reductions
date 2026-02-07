@@ -115,17 +115,17 @@ pub use types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, Sol
 pub use problemreductions_macros::reduction;
 
 #[cfg(test)]
-#[path = "tests_unit/graph_models.rs"]
+#[path = "unit_tests/graph_models.rs"]
 mod test_graph_models;
 #[cfg(test)]
-#[path = "tests_unit/property.rs"]
+#[path = "unit_tests/property.rs"]
 mod test_property;
 #[cfg(test)]
-#[path = "tests_unit/reduction_graph.rs"]
+#[path = "unit_tests/reduction_graph.rs"]
 mod test_reduction_graph;
 #[cfg(test)]
-#[path = "tests_unit/trait_consistency.rs"]
+#[path = "unit_tests/trait_consistency.rs"]
 mod test_trait_consistency;
 #[cfg(test)]
-#[path = "tests_unit/unitdiskmapping_algorithms/mod.rs"]
+#[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
 mod test_unitdiskmapping_algorithms;

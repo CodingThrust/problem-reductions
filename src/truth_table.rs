@@ -281,5 +281,5 @@ impl TruthTable {
 }
 
 #[cfg(test)]
-#[path = "tests_unit/truth_table.rs"]
+#[path = "unit_tests/truth_table.rs"]
 mod tests;

@@ -199,5 +199,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/sat_dominatingset.rs"]
+#[path = "../unit_tests/rules/sat_dominatingset.rs"]
 mod tests;

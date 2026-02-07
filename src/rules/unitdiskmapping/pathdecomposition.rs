@@ -465,5 +465,5 @@ pub fn vertex_order_from_layout(layout: &Layout) -> Vec<usize> {
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/rules/unitdiskmapping/pathdecomposition.rs"]
+#[path = "../../unit_tests/rules/unitdiskmapping/pathdecomposition.rs"]
 mod tests;

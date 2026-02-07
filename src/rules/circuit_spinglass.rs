@@ -459,5 +459,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/circuit_spinglass.rs"]
+#[path = "../unit_tests/rules/circuit_spinglass.rs"]
 mod tests;

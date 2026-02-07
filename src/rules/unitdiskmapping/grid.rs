@@ -314,5 +314,5 @@ impl fmt::Display for MappingGrid {
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/rules/unitdiskmapping/grid.rs"]
+#[path = "../../unit_tests/rules/unitdiskmapping/grid.rs"]
 mod tests;

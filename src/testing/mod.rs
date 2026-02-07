@@ -181,5 +181,5 @@ impl SatTestCase {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/testing/mod.rs"]
+#[path = "../unit_tests/testing/mod.rs"]
 mod tests;

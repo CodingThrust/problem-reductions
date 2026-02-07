@@ -229,5 +229,5 @@ impl Graph for UnitDiskGraph {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/topology/unit_disk_graph.rs"]
+#[path = "../unit_tests/topology/unit_disk_graph.rs"]
 mod tests;

@@ -258,5 +258,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/graph/max_cut.rs"]
+#[path = "../../unit_tests/models/graph/max_cut.rs"]
 mod tests;

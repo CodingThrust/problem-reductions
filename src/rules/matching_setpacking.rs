@@ -85,5 +85,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/matching_setpacking.rs"]
+#[path = "../unit_tests/rules/matching_setpacking.rs"]
 mod tests;

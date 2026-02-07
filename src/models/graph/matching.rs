@@ -309,5 +309,5 @@ pub fn is_matching(num_vertices: usize, edges: &[(usize, usize)], selected: &[bo
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/graph/matching.rs"]
+#[path = "../../unit_tests/models/graph/matching.rs"]
 mod tests;

@@ -308,5 +308,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/satisfiability/ksat.rs"]
+#[path = "../../unit_tests/models/satisfiability/ksat.rs"]
 mod tests;

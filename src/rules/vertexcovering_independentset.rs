@@ -137,5 +137,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/vertexcovering_independentset.rs"]
+#[path = "../unit_tests/rules/vertexcovering_independentset.rs"]
 mod tests;

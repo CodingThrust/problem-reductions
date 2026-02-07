@@ -365,5 +365,5 @@ pub fn verify_triangular_gadget<G: super::triangular::TriangularGadget>(
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/rules/unitdiskmapping/alpha_tensor.rs"]
+#[path = "../../unit_tests/rules/unitdiskmapping/alpha_tensor.rs"]
 mod tests;

@@ -50,12 +50,12 @@ make coverage  # >95% for new code
 
 ## Test File Organization
 
-Unit tests live in `src/tests_unit/`, mirroring `src/` structure. Source files reference them via `#[path]`:
+Unit tests live in `src/unit_tests/`, mirroring `src/` structure. Source files reference them via `#[path]`:
 
 ```rust
 // In src/rules/foo_bar.rs:
 #[cfg(test)]
-#[path = "../tests_unit/rules/foo_bar.rs"]
+#[path = "../unit_tests/rules/foo_bar.rs"]
 mod tests;
 ```
 
@@ -67,4 +67,4 @@ Integration tests are consolidated into a single binary at `tests/main.rs`, with
 - Don't skip closed-loop tests for reductions
 - Don't test only happy paths - include edge cases
 - Don't ignore clippy warnings
-- Don't add inline `mod tests` blocks in `src/` — use `src/tests_unit/` with `#[path]`
+- Don't add inline `mod tests` blocks in `src/` — use `src/unit_tests/` with `#[path]`

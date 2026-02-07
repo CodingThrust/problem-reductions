@@ -275,5 +275,5 @@ impl ReduceTo<ILP> for Factoring {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/factoring_ilp.rs"]
+#[path = "../unit_tests/rules/factoring_ilp.rs"]
 mod tests;

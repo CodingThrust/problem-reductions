@@ -284,5 +284,5 @@ impl ReduceTo<CircuitSAT<i32>> for Factoring {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/factoring_circuit.rs"]
+#[path = "../unit_tests/rules/factoring_circuit.rs"]
 mod tests;

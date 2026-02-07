@@ -97,5 +97,5 @@ impl ReduceTo<ILP> for DominatingSet<SimpleGraph, i32> {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/dominatingset_ilp.rs"]
+#[path = "../unit_tests/rules/dominatingset_ilp.rs"]
 mod tests;

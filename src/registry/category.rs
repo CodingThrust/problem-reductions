@@ -322,5 +322,5 @@ impl SpecializedSubcategory {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/registry/category.rs"]
+#[path = "../unit_tests/registry/category.rs"]
 mod tests;

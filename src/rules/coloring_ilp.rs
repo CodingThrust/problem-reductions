@@ -166,5 +166,5 @@ where
 pub type ReductionColoringToILP = ReductionKColoringToILP<3, SimpleGraph, i32>;
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/coloring_ilp.rs"]
+#[path = "../unit_tests/rules/coloring_ilp.rs"]
 mod tests;

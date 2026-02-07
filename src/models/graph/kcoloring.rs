@@ -228,5 +228,5 @@ pub fn is_valid_coloring(
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/graph/kcoloring.rs"]
+#[path = "../../unit_tests/models/graph/kcoloring.rs"]
 mod tests;

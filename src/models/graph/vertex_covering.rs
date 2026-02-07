@@ -242,5 +242,5 @@ pub fn is_vertex_cover(num_vertices: usize, edges: &[(usize, usize)], selected: 
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/graph/vertex_covering.rs"]
+#[path = "../../unit_tests/models/graph/vertex_covering.rs"]
 mod tests;

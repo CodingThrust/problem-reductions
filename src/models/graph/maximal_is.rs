@@ -316,5 +316,5 @@ pub fn is_maximal_independent_set(
 }
 
 #[cfg(test)]
-#[path = "../../tests_unit/models/graph/maximal_is.rs"]
+#[path = "../../unit_tests/models/graph/maximal_is.rs"]
 mod tests;

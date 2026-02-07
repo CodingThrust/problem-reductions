@@ -176,5 +176,5 @@ impl BruteForceFloat for BruteForce {
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/solvers/brute_force.rs"]
+#[path = "../unit_tests/solvers/brute_force.rs"]
 mod tests;

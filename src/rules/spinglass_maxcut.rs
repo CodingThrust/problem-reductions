@@ -204,5 +204,5 @@ where
 }
 
 #[cfg(test)]
-#[path = "../tests_unit/rules/spinglass_maxcut.rs"]
+#[path = "../unit_tests/rules/spinglass_maxcut.rs"]
 mod tests;
