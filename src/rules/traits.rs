@@ -68,9 +68,5 @@ pub trait ReduceTo<T: Problem>: Problem {
 }
 
 #[cfg(test)]
-mod tests {
-    #[test]
-    fn test_traits_compile() {
-        // Traits should compile - actual tests in reduction implementations
-    }
-}
+#[path = "../tests_unit/rules/traits.rs"]
+mod tests;

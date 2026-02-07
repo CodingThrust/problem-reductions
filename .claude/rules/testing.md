@@ -48,7 +48,23 @@ make clippy    # No warnings
 make coverage  # >95% for new code
 ```
 
+## Test File Organization
+
+Unit tests live in `src/tests_unit/`, mirroring `src/` structure. Source files reference them via `#[path]`:
+
+```rust
+// In src/rules/foo_bar.rs:
+#[cfg(test)]
+#[path = "../tests_unit/rules/foo_bar.rs"]
+mod tests;
+```
+
+The `#[path]` is relative to the source file's directory. `use super::*` in the test file resolves to the parent module (same as inline tests).
+
+Integration tests are consolidated into a single binary at `tests/main.rs`, with test modules in `tests/suites/`.
+
 ## Anti-patterns
 - Don't skip closed-loop tests for reductions
 - Don't test only happy paths - include edge cases
 - Don't ignore clippy warnings
+- Don't add inline `mod tests` blocks in `src/` — use `src/tests_unit/` with `#[path]`
