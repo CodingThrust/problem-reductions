@@ -1,0 +1,1 @@
+{"problem":"ILP","source":{"num_variables":3,"objective":[1.0,2.0,3.0],"constraints_lhs":[[1.0,1.0,0.0],[0.0,1.0,1.0]],"constraints_rhs":[1.0,1.0],"constraint_signs":[-1,-1],"penalty":10.0},"qubo_matrix":[[-11.0,10.0,0.0],[10.0,-22.0,10.0],[0.0,10.0,-13.0]],"qubo_num_vars":3,"qubo_optimal":{"value":-24.0,"configs":[[1,0,1]]}}

@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc mdbook paper clean coverage rust-export compare
+.PHONY: help build test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata
 
 # Default target
 help:
@@ -18,6 +18,7 @@ help:
 	@echo "  check        - Quick check (fmt + clippy + test)"
 	@echo "  rust-export  - Generate Rust mapping JSON exports"
 	@echo "  compare      - Generate and compare Rust mapping exports"
+	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
 
 # Build the project
 build:
@@ -64,6 +65,10 @@ clean:
 # Quick check before commit
 check: fmt-check clippy test
 	@echo "✅ All checks passed!"
+
+# Regenerate QUBO test data from Python (requires uv)
+qubo-testdata:
+	cd scripts && uv run python generate_qubo_tests.py
 
 # Generate Rust mapping JSON exports for all graphs and modes
 GRAPHS := diamond bull house petersen
