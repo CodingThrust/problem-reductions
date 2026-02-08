@@ -72,6 +72,13 @@ make check     # Quick check before commit (fmt + clippy + test)
 ```
 
 
+## Related Projects
+
+- **[Karp](https://github.com/REA1/karp)** — A DSL (built on Racket) for writing and testing Karp reductions between NP-complete problems ([PLDI 2022 paper](https://dl.acm.org/doi/abs/10.1145/3519939.3523732)). Focused on education and proof verification rather than a solver pipeline.
+- **[Complexity Zoo](https://complexityzoo.net/)** — Comprehensive catalog of 550+ computational complexity classes (Scott Aaronson).
+- **[A Compendium of NP Optimization Problems](https://www.csc.kth.se/tcs/compendium/)** — Online catalog of NP optimization problems with approximability results (Crescenzi & Kann).
+- **Computers and Intractability** (Garey & Johnson, 1979) — The classic reference cataloging 300+ NP-complete problems with reductions. The most cited book in computer science.
+
 ## License
 
 MIT License - see [LICENSE](LICENSE) for details.
