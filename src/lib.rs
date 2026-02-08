@@ -113,3 +113,19 @@ pub use types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, Sol
 
 // Re-export proc macro for reduction registration
 pub use problemreductions_macros::reduction;
+
+#[cfg(test)]
+#[path = "unit_tests/graph_models.rs"]
+mod test_graph_models;
+#[cfg(test)]
+#[path = "unit_tests/property.rs"]
+mod test_property;
+#[cfg(test)]
+#[path = "unit_tests/reduction_graph.rs"]
+mod test_reduction_graph;
+#[cfg(test)]
+#[path = "unit_tests/trait_consistency.rs"]
+mod test_trait_consistency;
+#[cfg(test)]
+#[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
+mod test_unitdiskmapping_algorithms;
