@@ -15,8 +15,12 @@ pub struct ConfigIterator {
 impl ConfigIterator {
     /// Create a new configuration iterator.
     pub fn new(num_variables: usize, num_flavors: usize) -> Self {
-        let total_configs = num_flavors.pow(num_variables as u32);
-        let current = if num_variables == 0 || num_flavors == 0 {
+        let total_configs = if num_variables == 0 || num_flavors == 0 {
+            0
+        } else {
+            num_flavors.pow(num_variables as u32)
+        };
+        let current = if total_configs == 0 {
             None
         } else {
             Some(vec![0; num_variables])

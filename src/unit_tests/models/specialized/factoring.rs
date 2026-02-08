@@ -104,7 +104,7 @@ fn test_brute_force_prime() {
     let solutions = solver.find_best(&problem);
     let factor_pairs: Vec<_> = solutions.iter().map(|s| problem.read_factors(s)).collect();
 
-    // Should find (1,7) and (7,1)
+    // Should find at least one of (1,7) or (7,1)
     assert!(factor_pairs.contains(&(1, 7)) || factor_pairs.contains(&(7, 1)));
 }
 

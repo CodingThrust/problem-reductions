@@ -2,6 +2,7 @@ use super::*;
 use crate::models::graph::IndependentSet;
 use crate::topology::SimpleGraph;
 use std::fs;
+use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
 fn test_to_json() {
@@ -33,7 +34,9 @@ fn test_json_compact() {
 #[test]
 fn test_file_roundtrip() {
     let problem = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    let path = "/tmp/test_problem.json";
+    let ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = std::env::temp_dir().join(format!("test_problem_{ts}.json"));
+    let path = path.to_str().unwrap();
 
     // Write
     write_problem(&problem, path, FileFormat::Json).unwrap();
@@ -63,7 +66,9 @@ fn test_file_format_from_extension() {
 
 #[test]
 fn test_read_write_file() {
-    let path = "/tmp/test_io.txt";
+    let ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let path = std::env::temp_dir().join(format!("test_io_{ts}.txt"));
+    let path = path.to_str().unwrap();
     let contents = "Hello, World!";
 
     write_file(path, contents).unwrap();

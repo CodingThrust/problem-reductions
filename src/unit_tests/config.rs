@@ -34,7 +34,7 @@ fn test_config_iterator_ternary() {
 #[test]
 fn test_config_iterator_empty() {
     let iter = ConfigIterator::new(0, 2);
-    assert_eq!(iter.total(), 1);
+    assert_eq!(iter.total(), 0);
     let configs: Vec<_> = iter.collect();
     assert_eq!(configs.len(), 0); // Empty because num_variables is 0
 }
