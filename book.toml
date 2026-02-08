@@ -10,8 +10,8 @@ command = "mdbook-mermaid"
 
 [output.html]
 default-theme = "rust"
-git-repository-url = "https://github.com/liujinguo/problemreductions"
-edit-url-template = "https://github.com/liujinguo/problemreductions/edit/main/{path}"
+git-repository-url = "https://github.com/CodingThrust/problem-reductions"
+edit-url-template = "https://github.com/CodingThrust/problem-reductions/edit/main/{path}"
 additional-css = []
 additional-js = []
 no-section-label = false

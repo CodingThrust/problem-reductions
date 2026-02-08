@@ -49,13 +49,16 @@ jobs:
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: llvm-tools-preview
       - uses: Swatinem/rust-cache@v2
-      - name: Install tarpaulin
-        run: cargo install cargo-tarpaulin
+      - name: Install cargo-llvm-cov
+        uses: taiki-e/install-action@cargo-llvm-cov
       - name: Generate coverage
-        run: cargo tarpaulin --skip-clean --ignore-tests --out xml
-      - name: Upload to Codecov
+        run: cargo llvm-cov --all-features --workspace --lcov --output-path lcov.info
+      - name: Upload to codecov.io
         uses: codecov/codecov-action@v4
         with:
-          files: cobertura.xml
-          fail_ci_if_error: false
+          files: lcov.info
+          fail_ci_if_error: false  # Don't fail CI if upload fails
+          token: ${{ secrets.CODECOV_TOKEN }}

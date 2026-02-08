@@ -1,7 +1,11 @@
 # Rust
 /target/
+Cargo.lock
 **/*.rs.bk
 *.pdb
+
+# Developer-specific Claude Code settings
+.claude/settings.local.json
 
 # IDE
 .idea/

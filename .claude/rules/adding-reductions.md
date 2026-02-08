@@ -9,25 +9,18 @@ paths:
 Create `src/rules/<source>_<target>.rs`:
 
 ```rust
-// Register reduction for automatic discovery (adds edge + metadata)
-inventory::submit! {
-    ReductionEntry {
-        source_name: "SourceProblem",
-        target_name: "TargetProblem",
-        source_graph: "SourceProblem",
-        target_graph: "TargetProblem",
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_vars", Polynomial { terms: vec![...] }),
-            ("num_constraints", Polynomial { terms: vec![...] }),
-        ]),
-    }
-}
+use problemreductions::reduction;
 
-impl ReduceTo<TargetProblem> for SourceProblem {
+#[reduction(
+    overhead = { ReductionOverhead::new(vec![...]) }
+)]
+impl ReduceTo<TargetProblem<Unweighted>> for SourceProblem<Unweighted> {
     type Result = ReductionSourceToTarget;
     fn reduce_to(&self) -> Self::Result { ... }
 }
 ```
+
+The `#[reduction]` macro auto-generates the `inventory::submit!` call. Optional attributes: `source_graph`, `target_graph`, `source_weighted`, `target_weighted`.
 
 Register module in `src/rules/mod.rs`:
 ```rust
@@ -36,32 +29,13 @@ pub use source_target::ReductionSourceToTarget;
 ```
 
 ## 2. Closed-Loop Test (Required)
-```rust
-#[test]
-fn test_closed_loop() {
-    // 1. Create small instance A
-    let problem = SourceProblem::new(...);
 
-    // 2. Reduce A to B
-    let reduction = ReduceTo::<TargetProblem>::reduce_to(&problem);
-    let target = reduction.target_problem();
-
-    // 3. Solve B
-    let solver = TargetSolver::new();
-    let target_solution = solver.solve(target).unwrap();
-
-    // 4. Extract solution of A
-    let extracted = reduction.extract_solution(&target_solution);
-
-    // 5. Verify solution
-    assert!(problem.is_valid_solution(&extracted));
-}
-```
+See `rules/testing.md` for the full pattern. Test name: `test_<source>_to_<target>_closed_loop`.
 
 ## 3. Documentation
-Update `docs/paper/reductions.typ`:
+Update `docs/paper/reductions.typ` (see `rules/documentation.md` for the pattern):
 - Add theorem + proof sketch
-- Add code example (note feature requirements if any)
+- Add code example
 - Add to summary table with overhead and citation
 
 Citations must be verifiable. Use `[Folklore]` or `—` for trivial reductions.

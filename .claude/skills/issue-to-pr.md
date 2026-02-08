@@ -62,7 +62,7 @@ Do NOT skip brainstorming. Do NOT write a plan without user discussion.
 
 ### 4. Write Plan
 
-After brainstorming concludes, write plan to `docs/plans/issue-<number>-<slug>.md`:
+After brainstorming concludes, write plan to `issue-<number>-<slug>.md` in the repo root:
 
 ```markdown
 # <Title from brainstorming>
@@ -91,7 +91,7 @@ Issue: #<number>
 git checkout -b issue-<number>-<slug>
 
 # Stage only the plan file
-git add docs/plans/issue-<number>-<slug>.md
+git add issue-<number>-<slug>.md
 
 # Commit
 git commit -m "Add plan for #<number>: <title>"
