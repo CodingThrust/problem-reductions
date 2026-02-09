@@ -11,8 +11,10 @@ pub use registry::{ReductionEntry, ReductionOverhead};
 mod circuit_spinglass;
 mod factoring_circuit;
 mod graph;
+mod independentset_qubo;
 mod independentset_setpacking;
 mod matching_setpacking;
+mod maxcut_qubo;
 mod sat_coloring;
 mod sat_dominatingset;
 mod sat_independentset;
@@ -21,6 +23,7 @@ mod spinglass_maxcut;
 mod spinglass_qubo;
 mod traits;
 mod vertexcovering_independentset;
+mod vertexcovering_qubo;
 mod vertexcovering_setcovering;
 
 pub mod unitdiskmapping;
@@ -52,8 +55,10 @@ pub use factoring_circuit::ReductionFactoringToCircuit;
 pub use graph::{
     EdgeJson, NodeJson, ReductionEdge, ReductionGraph, ReductionGraphJson, ReductionPath,
 };
+pub use independentset_qubo::ReductionISToQUBO;
 pub use independentset_setpacking::{ReductionISToSP, ReductionSPToIS};
 pub use matching_setpacking::ReductionMatchingToSP;
+pub use maxcut_qubo::ReductionMaxCutToQUBO;
 pub use sat_coloring::ReductionSATToColoring;
 pub use sat_dominatingset::ReductionSATToDS;
 pub use sat_independentset::{BoolVar, ReductionSATToIS};
@@ -62,6 +67,7 @@ pub use spinglass_maxcut::{ReductionMaxCutToSG, ReductionSGToMaxCut};
 pub use spinglass_qubo::{ReductionQUBOToSG, ReductionSGToQUBO};
 pub use traits::{ReduceTo, ReductionResult};
 pub use vertexcovering_independentset::{ReductionISToVC, ReductionVCToIS};
+pub use vertexcovering_qubo::ReductionVCToQUBO;
 pub use vertexcovering_setcovering::ReductionVCToSC;
 
 #[cfg(feature = "ilp")]
