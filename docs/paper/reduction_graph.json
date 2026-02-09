@@ -159,14 +159,6 @@
       "category": "graph"
     },
     {
-      "name": "MaxCut",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "i32"
-      },
-      "category": "graph"
-    },
-    {
       "name": "QUBO",
       "variant": {},
       "category": "optimization"
@@ -420,23 +412,6 @@
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
-        }
-      },
-      "bidirectional": false
-    },
-    {
-      "source": {
-        "name": "MaxCut",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "i32"
-        }
-      },
-      "target": {
-        "name": "QUBO",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "f64"
         }
       },
       "bidirectional": false

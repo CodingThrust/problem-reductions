@@ -89,6 +89,72 @@ fn test_ilp_to_qubo_equality() {
 }
 
 #[test]
+fn test_ilp_to_qubo_ge_with_slack() {
+    // Ge constraint with slack_range > 1 to exercise slack variable code path.
+    // 3 vars: minimize x0 + x1 + x2
+    // s.t. x0 + x1 + x2 >= 1 (sum_a=3, b=1, slack_range=2, ns=ceil(log2(2))=1)
+    let ilp = ILP::binary(
+        3,
+        vec![LinearConstraint::ge(
+            vec![(0, 1.0), (1, 1.0), (2, 1.0)],
+            1.0,
+        )],
+        vec![(0, 1.0), (1, 1.0), (2, 1.0)],
+        ObjectiveSense::Minimize,
+    );
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp);
+    let qubo = reduction.target_problem();
+
+    // 3 original + ceil(log2(3))=2 slack = 5 QUBO variables
+    assert_eq!(qubo.num_variables(), 5);
+
+    let solver = BruteForce::new();
+    let qubo_solutions = solver.find_best(qubo);
+
+    for sol in &qubo_solutions {
+        let extracted = reduction.extract_solution(sol);
+        assert!(ilp.solution_size(&extracted).is_valid);
+    }
+
+    // Optimal: exactly one variable = 1
+    let best = reduction.extract_solution(&qubo_solutions[0]);
+    assert_eq!(best.iter().sum::<usize>(), 1);
+}
+
+#[test]
+fn test_ilp_to_qubo_le_with_slack() {
+    // Le constraint with rhs > 1 to exercise Le slack variable code path.
+    // 3 vars: maximize x0 + x1 + x2
+    // s.t. x0 + x1 + x2 <= 2 (slack_range=2, ns=ceil(log2(3))=2)
+    let ilp = ILP::binary(
+        3,
+        vec![LinearConstraint::le(
+            vec![(0, 1.0), (1, 1.0), (2, 1.0)],
+            2.0,
+        )],
+        vec![(0, 1.0), (1, 1.0), (2, 1.0)],
+        ObjectiveSense::Maximize,
+    );
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp);
+    let qubo = reduction.target_problem();
+
+    // 3 original + ceil(log2(3))=2 slack = 5 QUBO variables
+    assert_eq!(qubo.num_variables(), 5);
+
+    let solver = BruteForce::new();
+    let qubo_solutions = solver.find_best(qubo);
+
+    for sol in &qubo_solutions {
+        let extracted = reduction.extract_solution(sol);
+        assert!(ilp.solution_size(&extracted).is_valid);
+    }
+
+    // Optimal: exactly 2 of 3 variables = 1 (3 solutions)
+    let best = reduction.extract_solution(&qubo_solutions[0]);
+    assert_eq!(best.iter().sum::<usize>(), 2);
+}
+
+#[test]
 fn test_ilp_to_qubo_sizes() {
     let ilp = ILP::binary(
         3,

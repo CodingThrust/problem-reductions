@@ -41,6 +41,26 @@ fn test_kcoloring_to_qubo_path() {
 }
 
 #[test]
+fn test_kcoloring_to_qubo_reversed_edges() {
+    // Edge (2, 0) triggers the idx_v < idx_u swap branch (line 104).
+    // Path: 2-0-1 with reversed edge ordering
+    let kc = KColoring::<2, SimpleGraph, i32>::new(3, vec![(2, 0), (0, 1)]);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&kc);
+    let qubo = reduction.target_problem();
+
+    let solver = BruteForce::new();
+    let qubo_solutions = solver.find_best(qubo);
+
+    for sol in &qubo_solutions {
+        let extracted = reduction.extract_solution(sol);
+        assert!(kc.solution_size(&extracted).is_valid);
+    }
+
+    // Same as path graph: 2 valid 2-colorings
+    assert_eq!(qubo_solutions.len(), 2);
+}
+
+#[test]
 fn test_kcoloring_to_qubo_sizes() {
     let kc = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&kc);

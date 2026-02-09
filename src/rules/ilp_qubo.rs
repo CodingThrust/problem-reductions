@@ -79,22 +79,23 @@ impl ReduceTo<QUBO<f64>> for ILP {
             }
             b_vec[k] = constraint.rhs;
 
-            // Compute slack variable count
+            // Compute slack variable count: ceil(log2(slack_range + 1)) bits
+            // to represent integer values 0..slack_range with binary encoding.
             match constraint.cmp {
                 Comparison::Eq => {} // no slack needed
                 Comparison::Le => {
-                    // slack range = b_k (for binary variables, max sum is n)
+                    // Ax <= b → Ax + s = b, s ∈ {0, ..., floor(b)}
                     let slack_range = constraint.rhs;
                     if slack_range > 0.0 {
-                        slack_sizes[k] = (slack_range.log2().ceil() as usize).max(0);
+                        slack_sizes[k] = (slack_range + 1.0).log2().ceil() as usize;
                     }
                 }
                 Comparison::Ge => {
-                    // slack range = sum(a_k) - b_k
+                    // Ax >= b → Ax - s = b, s ∈ {0, ..., sum(a) - b}
                     let sum_a: f64 = constraint.terms.iter().map(|&(_, c)| c).sum();
                     let slack_range = sum_a - constraint.rhs;
                     if slack_range > 0.0 {
-                        slack_sizes[k] = (slack_range.log2().ceil() as usize).max(0);
+                        slack_sizes[k] = (slack_range + 1.0).log2().ceil() as usize;
                     }
                 }
             }
@@ -116,8 +117,8 @@ impl ReduceTo<QUBO<f64>> for ILP {
         for (k, &ns) in slack_sizes.iter().enumerate() {
             if ns > 0 {
                 let sign = match self.constraints[k].cmp {
-                    Comparison::Le => -1.0,
-                    Comparison::Ge => 1.0,
+                    Comparison::Le => 1.0,  // Ax + s = b
+                    Comparison::Ge => -1.0, // Ax - s = b
                     Comparison::Eq => 0.0,
                 };
                 for s in 0..ns {

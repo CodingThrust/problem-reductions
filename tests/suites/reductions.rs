@@ -538,47 +538,6 @@ mod qubo_reductions {
     }
 
     #[derive(Deserialize)]
-    struct MCToQuboData {
-        source: MCSource,
-        qubo_num_vars: usize,
-        qubo_optimal: QuboOptimal,
-    }
-
-    #[derive(Deserialize)]
-    struct MCSource {
-        num_vertices: usize,
-        edges: Vec<(usize, usize)>,
-    }
-
-    #[test]
-    fn test_maxcut_to_qubo_ground_truth() {
-        let json = std::fs::read_to_string("tests/data/qubo/maxcut_to_qubo.json").unwrap();
-        let data: MCToQuboData = serde_json::from_str(&json).unwrap();
-
-        let mc = MaxCut::<SimpleGraph, i32>::unweighted(
-            data.source.num_vertices,
-            data.source.edges,
-        );
-        let reduction = ReduceTo::<QUBO>::reduce_to(&mc);
-        let qubo = reduction.target_problem();
-
-        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
-
-        let solver = BruteForce::new();
-        let solutions = solver.find_best(qubo);
-
-        for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
-            assert!(mc.solution_size(&extracted).is_valid);
-        }
-
-        // Optimal cut value should match ground truth
-        let gt_cut = mc.solution_size(&data.qubo_optimal.configs[0]).size;
-        let our_cut = mc.solution_size(&reduction.extract_solution(&solutions[0])).size;
-        assert_eq!(our_cut, gt_cut);
-    }
-
-    #[derive(Deserialize)]
     struct ColoringToQuboData {
         source: ColoringSource,
         qubo_num_vars: usize,

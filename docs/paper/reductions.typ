@@ -110,7 +110,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Max-Cut")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find partition $(S, overline(S))$ maximizing $sum_((u,v) in E: u in S, v in overline(S)) w(u, v)$.
 
-  _Reduces to:_ Spin Glass (@def:spin-glass), QUBO (@def:qubo).
+  _Reduces to:_ Spin Glass (@def:spin-glass).
 
   _Reduces from:_ Spin Glass (@def:spin-glass).
 
@@ -277,7 +277,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Reduces to:_ Spin Glass (@def:spin-glass).
 
-  _Reduces from:_ Spin Glass (@def:spin-glass), Independent Set (@def:independent-set), Vertex Cover (@def:vertex-cover), Max-Cut (@def:max-cut), Graph Coloring (@def:coloring), Set Packing (@def:set-packing), $k$-SAT (@def:k-sat), ILP (@def:ilp).
+  _Reduces from:_ Spin Glass (@def:spin-glass), Independent Set (@def:independent-set), Vertex Cover (@def:vertex-cover), Graph Coloring (@def:coloring), Set Packing (@def:set-packing), $k$-SAT (@def:k-sat), ILP (@def:ilp).
 
   ```rust
   pub struct QUBO<W = f64> {
@@ -552,29 +552,6 @@ let solver = BruteForce::new();
 let solutions = solver.find_best(qubo);
 let vc_solution = result.extract_solution(&solutions[0]);
 assert!(vc.solution_size(&vc_solution).is_valid);
-```
-
-#theorem[
-  *(MaxCut $arrow.r$ QUBO)* Given $G = (V, E)$ with weights $w$, construct upper-triangular $Q$ with $Q_(i i) = -sum_(j:(i,j) in E) w_(i j)$ and $Q_(i j) = 2 w_(i j)$ for $(i,j) in E$ ($i < j$). No penalty is needed (the problem is unconstrained). [_Problems:_ @def:max-cut, @def:qubo.]
-]
-
-#proof[
-  _Construction._ The MaxCut objective is: maximize $"cut"(bold(x)) = sum_((i,j) in E) w_(i j) [x_i != x_j]$. For binary variables, $[x_i != x_j] = x_i(1-x_j) + (1-x_i)x_j = x_i + x_j - 2x_i x_j$. Converting to minimization:
-  $ f(bold(x)) = -"cut"(bold(x)) = -sum_((i,j) in E) w_(i j)(x_i + x_j) + 2 sum_((i,j) in E) w_(i j) x_i x_j $
-  Collecting terms: each vertex $i$ contributes $-sum_(j:(i,j) in E) w_(i j)$ to the diagonal, and each edge $(i,j)$ contributes $2 w_(i j)$ to the off-diagonal. No constraint penalty is needed because every binary assignment defines a valid cut.
-]
-
-```rust
-// Minimal example: MaxCut -> QUBO -> extract solution
-let mc = MaxCut::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
-let result = ReduceTo::<QUBO>::reduce_to(&mc);
-let qubo = result.target_problem();
-
-let solver = BruteForce::new();
-let solutions = solver.find_best(qubo);
-let mc_solution = result.extract_solution(&solutions[0]);
-let cut = mc.solution_size(&mc_solution).size;
-assert!(cut >= 4); // C4 max cut = 4
 ```
 
 #theorem[
@@ -1065,7 +1042,6 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
     table.cell(fill: gray)[QUBO $arrow.l.r$ SpinGlass], table.cell(fill: gray)[$O(n^2)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[IS $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[VC $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[MaxCut $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[KColoring $arrow.r$ QUBO], table.cell(fill: gray)[$O(n dot k)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[SetPacking $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[2-SAT $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[—],

@@ -1,4 +1,4 @@
-//! Demonstrates all 7 problem-to-QUBO reductions with practical stories.
+//! Demonstrates 6 problem-to-QUBO reductions with practical stories.
 //!
 //! Run with: `cargo run --example qubo_reductions --features ilp`
 
@@ -10,7 +10,6 @@ fn main() {
 
     demo_independent_set();
     demo_vertex_covering();
-    demo_max_cut();
     demo_coloring();
     demo_set_packing();
     demo_ksat();
@@ -79,48 +78,9 @@ fn demo_vertex_covering() {
     println!();
 }
 
-/// Network partitioning: split servers into two groups to maximize cross-links.
-fn demo_max_cut() {
-    println!("--- 3. MaxCut -> QUBO ---");
-    println!("Story: Split 4 servers into two data centers to maximize cross-links");
-    println!("       (for redundancy).\n");
-
-    // Cycle C4: 4 servers, 4 links
-    let mc = MaxCut::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
-    let reduction = ReduceTo::<QUBO>::reduce_to(&mc);
-    let qubo = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let solutions = solver.find_best(qubo);
-
-    println!("  QUBO variables: {}", qubo.num_variables());
-    println!("  Optimal solutions:");
-    for sol in &solutions {
-        let extracted = reduction.extract_solution(sol);
-        let dc_a: Vec<usize> = extracted
-            .iter()
-            .enumerate()
-            .filter(|(_, &x)| x == 0)
-            .map(|(i, _)| i)
-            .collect();
-        let dc_b: Vec<usize> = extracted
-            .iter()
-            .enumerate()
-            .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| i)
-            .collect();
-        let cut = mc.solution_size(&extracted).size;
-        println!(
-            "    DC-A: {:?}, DC-B: {:?} (cut = {} links)",
-            dc_a, dc_b, cut
-        );
-    }
-    println!();
-}
-
 /// Map coloring: color a triangle map with 3 colors so no neighbors share a color.
 fn demo_coloring() {
-    println!("--- 4. KColoring -> QUBO ---");
+    println!("--- 3. KColoring -> QUBO ---");
     println!("Story: Color 3 countries on a map with 3 colors so no neighbors match.\n");
 
     // Triangle K3: 3 countries, all share borders
@@ -147,7 +107,7 @@ fn demo_coloring() {
 
 /// Warehouse selection: pick maximum non-overlapping delivery zones.
 fn demo_set_packing() {
-    println!("--- 5. SetPacking -> QUBO ---");
+    println!("--- 4. SetPacking -> QUBO ---");
     println!("Story: Select delivery zones that don't overlap. Maximize coverage.\n");
 
     // 3 zones covering different areas
@@ -179,7 +139,7 @@ fn demo_set_packing() {
 
 /// Satisfiability: find a boolean assignment satisfying maximum clauses.
 fn demo_ksat() {
-    println!("--- 6. KSatisfiability(K=2) -> QUBO ---");
+    println!("--- 5. KSatisfiability(K=2) -> QUBO ---");
     println!("Story: Configure 3 switches (on/off) to satisfy maximum rules.\n");
 
     // 4 rules over 3 switches
@@ -215,7 +175,7 @@ fn demo_ksat() {
 
 /// Resource allocation: maximize value under budget constraints.
 fn demo_ilp() {
-    println!("--- 7. ILP (binary) -> QUBO ---");
+    println!("--- 6. ILP (binary) -> QUBO ---");
     println!("Story: Select projects to maximize profit under resource constraints.\n");
 
     // 3 projects: values 1, 2, 3

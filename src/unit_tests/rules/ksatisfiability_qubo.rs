@@ -67,6 +67,29 @@ fn test_ksatisfiability_to_qubo_contradiction() {
 }
 
 #[test]
+fn test_ksatisfiability_to_qubo_reversed_vars() {
+    // Clause (3, -1) has var_i=2 > var_j=0, triggering the swap branch (line 71).
+    // 3 vars, clauses: (x3 ∨ ¬x1), (x1 ∨ x2)
+    let ksat = KSatisfiability::<2, i32>::new(
+        3,
+        vec![
+            CNFClause::new(vec![3, -1]), // var 2 > var 0 → swap
+            CNFClause::new(vec![1, 2]),
+        ],
+    );
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat);
+    let qubo = reduction.target_problem();
+
+    let solver = BruteForce::new();
+    let qubo_solutions = solver.find_best(qubo);
+
+    for sol in &qubo_solutions {
+        let extracted = reduction.extract_solution(sol);
+        assert!(ksat.solution_size(&extracted).is_valid);
+    }
+}
+
+#[test]
 fn test_ksatisfiability_to_qubo_sizes() {
     let ksat = KSatisfiability::<2, i32>::new(
         3,

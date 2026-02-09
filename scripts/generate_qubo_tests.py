@@ -47,26 +47,6 @@ def save_test(name: str, data: dict, outdir: Path):
     print(f"  wrote {path} ({path.stat().st_size} bytes)")
 
 
-def generate_maxcut(outdir: Path):
-    """MaxCut on a small graph (4 nodes, 4 edges)."""
-    edges = [(0, 1), (1, 2), (2, 3), (0, 3)]
-    n_nodes = 4
-    g = qubogen.Graph(edges=np.array(edges), n_nodes=n_nodes)
-    Q = qubogen.qubo_max_cut(g)
-
-    qubo_result = brute_force_qubo(Q)
-
-    # MaxCut maximizes cut edges; QUBO minimizes, so optimal QUBO value
-    # corresponds to maximum cut (negated).
-    save_test("maxcut_to_qubo", {
-        "problem": "MaxCut",
-        "source": {"num_vertices": n_nodes, "edges": edges},
-        "qubo_matrix": Q.tolist(),
-        "qubo_num_vars": int(Q.shape[0]),
-        "qubo_optimal": qubo_result,
-    }, outdir)
-
-
 def generate_vertex_covering(outdir: Path):
     """Minimum Vertex Cover on a small graph (4 nodes, 5 edges)."""
     edges = [(0, 1), (1, 2), (2, 3), (0, 3), (0, 2)]
@@ -249,7 +229,6 @@ def main():
     outdir.mkdir(parents=True, exist_ok=True)
 
     print("Generating QUBO test datasets...")
-    generate_maxcut(outdir)
     generate_vertex_covering(outdir)
     generate_independent_set(outdir)
     generate_graph_coloring(outdir)

@@ -78,7 +78,7 @@ This project draws inspiration from the following packages:
 
 - **[ProblemReductions.jl](https://github.com/GiggleLiu/ProblemReductions.jl)** — Julia library for computational problem reductions. Our problem trait hierarchy, reduction interface (`ReduceTo`/`ReductionResult`), and graph-based reduction registry are directly inspired by this package.
 - **[UnitDiskMapping.jl](https://github.com/QuEraComputing/UnitDiskMapping.jl)** — Julia package for mapping problems to unit disk graphs. Our unit disk graph (King's subgraph / triangular lattice) reductions and the copy-line method are based on this implementation.
-- **[qubogen](https://github.com/tamuhey/qubogen)** — Python library for generating QUBO matrices from combinatorial problems. Our QUBO reduction formulas (MaxCut, Vertex Cover, Graph Coloring, Set Packing, Max-2-SAT, binary ILP) reference the implementations in this package.
+- **[qubogen](https://github.com/tamuhey/qubogen)** — Python library for generating QUBO matrices from combinatorial problems. Our QUBO reduction formulas (Vertex Cover, Graph Coloring, Set Packing, Max-2-SAT, binary ILP) reference the implementations in this package.
 
 ## Related Projects
 
