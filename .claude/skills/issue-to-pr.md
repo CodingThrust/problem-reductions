@@ -19,13 +19,15 @@ Convert a GitHub issue into an actionable PR with a plan that auto-triggers Clau
 digraph issue_to_pr {
     "Receive issue number" [shape=box];
     "Fetch issue with gh" [shape=box];
+    "Check the rules to follow" [shape=box];
     "Brainstorm with user" [shape=box];
     "Write plan file" [shape=box];
     "Create branch and PR" [shape=box];
     "PR triggers [action]" [shape=doublecircle];
 
     "Receive issue number" -> "Fetch issue with gh";
-    "Fetch issue with gh" -> "Brainstorm with user";
+    "Fetch issue with gh" -> "Check the rules to follow";
+    "Check the rules to follow" -> "Brainstorm with user";
     "Brainstorm with user" -> "Write plan file";
     "Write plan file" -> "Create branch and PR";
     "Create branch and PR" -> "PR triggers [action]";
@@ -53,36 +55,18 @@ Present issue summary to user.
 
 **REQUIRED:** Invoke `superpowers:brainstorming` skill with the issue context (if superpowers plugin is available). Otherwise, conduct a manual brainstorming discussion with the user.
 
-This ensures:
-- User intent is clarified
-- Multiple approaches are explored
-- Requirements are understood before planning
+Brainstorming must cover:
+- **User intent** — clarify what the issue is asking for
+- **Multiple approaches** — explore 2-3 different implementation strategies
+- **Implementation details** — discuss the mathematical formulation, data structures, variable mappings, constraint encodings, and any non-obvious design choices
+- **Existing patterns** — read reference implementations in the codebase (e.g., `spinglass_qubo.rs` for reductions) to understand the conventions
+- **Scope** — agree on which variants to implement (e.g., unweighted only, specific K values)
 
 Do NOT skip brainstorming. Do NOT write a plan without user discussion.
 
 ### 4. Write Plan
 
-After brainstorming concludes, write plan to `issue-<number>-<slug>.md` in the repo root:
-
-```markdown
-# <Title from brainstorming>
-
-Issue: #<number>
-
-## Context
-<Brief problem statement>
-
-## Approach
-<Chosen approach from brainstorming>
-
-## Tasks
-1. <Specific implementation task>
-2. <Another task>
-...
-
-## Acceptance Criteria
-- <Criteria from issue/brainstorming>
-```
+After brainstorming concludes, write plan to `docs/plans/YYYY-MM-DD-<slug>.md` using `superpowers:writing-plans`:
 
 ### 5. Create PR
 
@@ -90,8 +74,8 @@ Issue: #<number>
 # Create branch
 git checkout -b issue-<number>-<slug>
 
-# Stage only the plan file
-git add issue-<number>-<slug>.md
+# Stage the plan file
+git add docs/plans/<plan-file>.md
 
 # Commit
 git commit -m "Add plan for #<number>: <title>"
@@ -117,19 +101,19 @@ User: /issue-to-pr 42
 
 Claude: Let me fetch issue #42...
 
-[Fetches issue: "Add dark mode support"]
+[Fetches issue: "Add IndependentSet → QUBO reduction"]
 
-I'll use superpowers:brainstorming to explore this with you.
+I'll read the rules to follow in .claude/rules/adding-reductions.md and use superpowers:brainstorming to explore this with you.
 
 [Invokes brainstorming - discusses approaches, user preferences, scope]
 
-Based on our discussion, I'll create the plan...
+Based on our discussion, I'll create the plan with superpowers:writing-plans...
 
-[Writes docs/plans/issue-42-dark-mode.md]
+[Writes docs/plans/2026-02-09-independentset-to-qubo.md]
 [Creates branch, commits, pushes]
 [Creates PR with body starting with "[action]"]
 
-Created PR #45: Fix #42: Add dark mode support
+Created PR #45: Fix #42: Add IndependentSet → QUBO reduction
 The [action] trigger will automatically execute the plan.
 ```
 
@@ -139,5 +123,5 @@ The [action] trigger will automatically execute the plan.
 |---------|-----|
 | Skipping brainstorming | Always use superpowers:brainstorming (or manual discussion) first |
 | `[action]` not at start | PR body must BEGIN with `[action]` |
-| Including code in PR | Only commit the plan file |
+| Including implementation code in initial PR | First PR: plan only |
 | Generic plan | Use specifics from brainstorming |

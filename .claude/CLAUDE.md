@@ -10,6 +10,7 @@ make clippy        # Lint
 make export-graph  # Regenerate reduction graph
 make paper         # Build Typst paper
 make coverage      # Generate coverage report (>95% required)
+make qubo-testdata # Regenerate QUBO ground truth JSON
 ```
 
 ## Verify Changes
@@ -28,6 +29,9 @@ make test clippy export-graph  # Must pass before PR
 - `src/registry/` - Compile-time reduction metadata collection
 - `src/unit_tests/` - Unit test files (mirroring `src/` structure, referenced via `#[path]`)
 - `tests/main.rs` - Integration tests (modules in `tests/suites/`)
+- `tests/data/` - Ground truth JSON for integration tests
+- `scripts/` - Python test data generation scripts (managed with `uv`)
+- `docs/plans/` - Implementation plans
 
 ### Trait Hierarchy
 
