@@ -441,6 +441,371 @@ mod truth_table_tests {
     }
 }
 
+/// Tests for QUBO reductions against ground truth JSON.
+mod qubo_reductions {
+    use super::*;
+    use serde::Deserialize;
+
+    #[derive(Deserialize)]
+    #[allow(dead_code)]
+    struct QuboOptimal {
+        value: f64,
+        configs: Vec<Vec<usize>>,
+    }
+
+    #[derive(Deserialize)]
+    struct ISToQuboData {
+        source: ISSource,
+        qubo_num_vars: usize,
+        qubo_optimal: QuboOptimal,
+    }
+
+    #[derive(Deserialize)]
+    struct ISSource {
+        num_vertices: usize,
+        edges: Vec<(usize, usize)>,
+    }
+
+    #[test]
+    fn test_is_to_qubo_ground_truth() {
+        let json = std::fs::read_to_string("tests/data/qubo/independentset_to_qubo.json").unwrap();
+        let data: ISToQuboData = serde_json::from_str(&json).unwrap();
+
+        let is = IndependentSet::<SimpleGraph, i32>::new(
+            data.source.num_vertices,
+            data.source.edges,
+        );
+        let reduction = ReduceTo::<QUBO>::reduce_to(&is);
+        let qubo = reduction.target_problem();
+
+        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(qubo);
+
+        // All QUBO optimal solutions should extract to valid IS solutions
+        for sol in &solutions {
+            let extracted = reduction.extract_solution(sol);
+            assert!(is.solution_size(&extracted).is_valid);
+        }
+
+        // Optimal IS size should match ground truth
+        let gt_is_size: usize = data.qubo_optimal.configs[0].iter().sum();
+        let our_is_size: usize = reduction.extract_solution(&solutions[0]).iter().sum();
+        assert_eq!(our_is_size, gt_is_size);
+    }
+
+    #[derive(Deserialize)]
+    struct VCToQuboData {
+        source: VCSource,
+        qubo_num_vars: usize,
+        qubo_optimal: QuboOptimal,
+    }
+
+    #[derive(Deserialize)]
+    struct VCSource {
+        num_vertices: usize,
+        edges: Vec<(usize, usize)>,
+    }
+
+    #[test]
+    fn test_vc_to_qubo_ground_truth() {
+        let json =
+            std::fs::read_to_string("tests/data/qubo/vertexcovering_to_qubo.json").unwrap();
+        let data: VCToQuboData = serde_json::from_str(&json).unwrap();
+
+        let vc = VertexCovering::<SimpleGraph, i32>::new(
+            data.source.num_vertices,
+            data.source.edges,
+        );
+        let reduction = ReduceTo::<QUBO>::reduce_to(&vc);
+        let qubo = reduction.target_problem();
+
+        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(qubo);
+
+        for sol in &solutions {
+            let extracted = reduction.extract_solution(sol);
+            assert!(vc.solution_size(&extracted).is_valid);
+        }
+
+        // Optimal VC size should match ground truth
+        let gt_vc_size: usize = data.qubo_optimal.configs[0].iter().sum();
+        let our_vc_size: usize = reduction.extract_solution(&solutions[0]).iter().sum();
+        assert_eq!(our_vc_size, gt_vc_size);
+    }
+
+    #[derive(Deserialize)]
+    struct MCToQuboData {
+        source: MCSource,
+        qubo_num_vars: usize,
+        qubo_optimal: QuboOptimal,
+    }
+
+    #[derive(Deserialize)]
+    struct MCSource {
+        num_vertices: usize,
+        edges: Vec<(usize, usize)>,
+    }
+
+    #[test]
+    fn test_maxcut_to_qubo_ground_truth() {
+        let json = std::fs::read_to_string("tests/data/qubo/maxcut_to_qubo.json").unwrap();
+        let data: MCToQuboData = serde_json::from_str(&json).unwrap();
+
+        let mc = MaxCut::<SimpleGraph, i32>::unweighted(
+            data.source.num_vertices,
+            data.source.edges,
+        );
+        let reduction = ReduceTo::<QUBO>::reduce_to(&mc);
+        let qubo = reduction.target_problem();
+
+        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(qubo);
+
+        for sol in &solutions {
+            let extracted = reduction.extract_solution(sol);
+            assert!(mc.solution_size(&extracted).is_valid);
+        }
+
+        // Optimal cut value should match ground truth
+        let gt_cut = mc.solution_size(&data.qubo_optimal.configs[0]).size;
+        let our_cut = mc.solution_size(&reduction.extract_solution(&solutions[0])).size;
+        assert_eq!(our_cut, gt_cut);
+    }
+
+    #[derive(Deserialize)]
+    struct ColoringToQuboData {
+        source: ColoringSource,
+        qubo_num_vars: usize,
+        qubo_optimal: QuboOptimal,
+    }
+
+    #[derive(Deserialize)]
+    struct ColoringSource {
+        num_vertices: usize,
+        edges: Vec<(usize, usize)>,
+        num_colors: usize,
+    }
+
+    #[test]
+    fn test_coloring_to_qubo_ground_truth() {
+        let json = std::fs::read_to_string("tests/data/qubo/coloring_to_qubo.json").unwrap();
+        let data: ColoringToQuboData = serde_json::from_str(&json).unwrap();
+
+        assert_eq!(data.source.num_colors, 3);
+
+        let kc = KColoring::<3, SimpleGraph, i32>::new(
+            data.source.num_vertices,
+            data.source.edges,
+        );
+        let reduction = ReduceTo::<QUBO>::reduce_to(&kc);
+        let qubo = reduction.target_problem();
+
+        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(qubo);
+
+        for sol in &solutions {
+            let extracted = reduction.extract_solution(sol);
+            assert!(kc.solution_size(&extracted).is_valid);
+        }
+
+        // Same number of optimal colorings as ground truth
+        assert_eq!(solutions.len(), data.qubo_optimal.configs.len());
+    }
+
+    #[derive(Deserialize)]
+    struct SPToQuboData {
+        source: SPSource,
+        qubo_num_vars: usize,
+        qubo_optimal: QuboOptimal,
+    }
+
+    #[derive(Deserialize)]
+    struct SPSource {
+        sets: Vec<Vec<usize>>,
+        weights: Vec<f64>,
+    }
+
+    #[test]
+    fn test_setpacking_to_qubo_ground_truth() {
+        let json = std::fs::read_to_string("tests/data/qubo/setpacking_to_qubo.json").unwrap();
+        let data: SPToQuboData = serde_json::from_str(&json).unwrap();
+
+        let weights: Vec<i32> = data.source.weights.iter().map(|&w| w as i32).collect();
+        let sp = SetPacking::with_weights(data.source.sets, weights);
+        let reduction = ReduceTo::<QUBO>::reduce_to(&sp);
+        let qubo = reduction.target_problem();
+
+        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(qubo);
+
+        for sol in &solutions {
+            let extracted = reduction.extract_solution(sol);
+            assert!(sp.solution_size(&extracted).is_valid);
+        }
+
+        // Optimal packing should match ground truth
+        let gt_selected: usize = data.qubo_optimal.configs[0].iter().sum();
+        let our_selected: usize = reduction.extract_solution(&solutions[0]).iter().sum();
+        assert_eq!(our_selected, gt_selected);
+    }
+
+    #[derive(Deserialize)]
+    struct KSatToQuboData {
+        source: KSatSource,
+        qubo_num_vars: usize,
+        qubo_optimal: QuboOptimal,
+    }
+
+    #[derive(Deserialize)]
+    struct KSatSource {
+        num_variables: usize,
+        clauses: Vec<Vec<KSatLiteral>>,
+    }
+
+    #[derive(Deserialize)]
+    struct KSatLiteral {
+        variable: usize,
+        negated: bool,
+    }
+
+    #[test]
+    fn test_ksat_to_qubo_ground_truth() {
+        let json =
+            std::fs::read_to_string("tests/data/qubo/ksatisfiability_to_qubo.json").unwrap();
+        let data: KSatToQuboData = serde_json::from_str(&json).unwrap();
+
+        // Convert JSON clauses to CNFClause (1-indexed signed literals)
+        let clauses: Vec<CNFClause> = data
+            .source
+            .clauses
+            .iter()
+            .map(|lits| {
+                let signed: Vec<i32> = lits
+                    .iter()
+                    .map(|l| {
+                        let var = (l.variable + 1) as i32; // 0-indexed to 1-indexed
+                        if l.negated { -var } else { var }
+                    })
+                    .collect();
+                CNFClause::new(signed)
+            })
+            .collect();
+
+        let ksat = KSatisfiability::<2, i32>::new(data.source.num_variables, clauses);
+        let reduction = ReduceTo::<QUBO>::reduce_to(&ksat);
+        let qubo = reduction.target_problem();
+
+        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(qubo);
+
+        for sol in &solutions {
+            let extracted = reduction.extract_solution(sol);
+            assert!(ksat.solution_size(&extracted).is_valid);
+        }
+
+        // Verify extracted solution matches ground truth assignment
+        let gt_config = &data.qubo_optimal.configs[0];
+        let our_config = reduction.extract_solution(&solutions[0]);
+        assert_eq!(&our_config, gt_config);
+    }
+
+    #[cfg(feature = "ilp")]
+    #[derive(Deserialize)]
+    struct ILPToQuboData {
+        source: ILPSource,
+        qubo_num_vars: usize,
+        qubo_optimal: QuboOptimal,
+    }
+
+    #[cfg(feature = "ilp")]
+    #[derive(Deserialize)]
+    struct ILPSource {
+        num_variables: usize,
+        objective: Vec<f64>,
+        constraints_lhs: Vec<Vec<f64>>,
+        constraints_rhs: Vec<f64>,
+        constraint_signs: Vec<i32>,
+    }
+
+    #[cfg(feature = "ilp")]
+    #[test]
+    fn test_ilp_to_qubo_ground_truth() {
+        let json = std::fs::read_to_string("tests/data/qubo/ilp_to_qubo.json").unwrap();
+        let data: ILPToQuboData = serde_json::from_str(&json).unwrap();
+
+        // Build constraints from dense matrix
+        let constraints: Vec<LinearConstraint> = data
+            .source
+            .constraints_lhs
+            .iter()
+            .zip(data.source.constraints_rhs.iter())
+            .zip(data.source.constraint_signs.iter())
+            .map(|((row, &rhs), &sign)| {
+                let terms: Vec<(usize, f64)> = row
+                    .iter()
+                    .enumerate()
+                    .filter(|(_, &c)| c.abs() > 1e-15)
+                    .map(|(i, &c)| (i, c))
+                    .collect();
+                match sign {
+                    -1 => LinearConstraint::le(terms, rhs),
+                    0 => LinearConstraint::eq(terms, rhs),
+                    1 => LinearConstraint::ge(terms, rhs),
+                    _ => panic!("Invalid constraint sign: {}", sign),
+                }
+            })
+            .collect();
+
+        // Build objective (dense to sparse)
+        let objective: Vec<(usize, f64)> = data
+            .source
+            .objective
+            .iter()
+            .enumerate()
+            .filter(|(_, &c)| c.abs() > 1e-15)
+            .map(|(i, &c)| (i, c))
+            .collect();
+
+        // The qubogen formula maximizes, so this is a Maximize ILP
+        let ilp = ILP::binary(
+            data.source.num_variables,
+            constraints,
+            objective,
+            ObjectiveSense::Maximize,
+        );
+        let reduction = ReduceTo::<QUBO>::reduce_to(&ilp);
+        let qubo = reduction.target_problem();
+
+        // QUBO may have more variables (slack), but original count matches
+        assert!(qubo.num_variables() >= data.qubo_num_vars);
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_best(qubo);
+
+        for sol in &solutions {
+            let extracted = reduction.extract_solution(sol);
+            assert!(ilp.solution_size(&extracted).is_valid);
+        }
+
+        // Optimal assignment should match ground truth
+        let gt_config = &data.qubo_optimal.configs[0];
+        let our_config = reduction.extract_solution(&solutions[0]);
+        assert_eq!(&our_config, gt_config);
+    }
+}
+
 /// Tests for File I/O with reductions.
 mod io_tests {
     use super::*;
