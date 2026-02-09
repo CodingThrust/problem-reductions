@@ -34,6 +34,8 @@ pub mod unitdiskmapping;
 #[cfg(feature = "ilp")]
 mod clique_ilp;
 #[cfg(feature = "ilp")]
+mod ilp_qubo;
+#[cfg(feature = "ilp")]
 mod coloring_ilp;
 #[cfg(feature = "ilp")]
 mod dominatingset_ilp;
@@ -82,6 +84,8 @@ pub use clique_ilp::ReductionCliqueToILP;
 pub use coloring_ilp::{ReductionColoringToILP, ReductionKColoringToILP};
 #[cfg(feature = "ilp")]
 pub use dominatingset_ilp::ReductionDSToILP;
+#[cfg(feature = "ilp")]
+pub use ilp_qubo::ReductionILPToQUBO;
 #[cfg(feature = "ilp")]
 pub use factoring_ilp::ReductionFactoringToILP;
 #[cfg(feature = "ilp")]
