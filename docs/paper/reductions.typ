@@ -10,9 +10,6 @@
 
 #show link: set text(blue)
 
-// Table of contents
-#outline(title: "Contents", indent: 1.5em, depth: 2)
-
 // Set up theorem environments with ctheorems
 #show: thmrules.with(qed-symbol: $square$)
 
@@ -40,7 +37,11 @@
   *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problemreductions` library. For each reduction, we state theorems with constructive proofs that preserve solution structure.
 ]
 
-#v(1em)
+
+// Table of contents
+#outline(title: "Contents", indent: 1.5em, depth: 2)
+
+#pagebreak()
 
 = Introduction
 
@@ -73,14 +74,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       graph: UnGraph<(), ()>,  // The underlying graph
       weights: Vec<W>,         // Weights for each vertex
   }
-
-  impl<W: 'static> Problem for IndependentSet<W> {
-      const NAME: &'static str = "IndependentSet";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-      }
-      // ...
-  }
   ```
 ] <def:independent-set>
 
@@ -96,14 +89,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       graph: UnGraph<(), ()>,  // The underlying graph
       weights: Vec<W>,         // Weights for each vertex
   }
-
-  impl<W: 'static> Problem for VertexCovering<W> {
-      const NAME: &'static str = "VertexCovering";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-      }
-      // ...
-  }
   ```
 ] <def:vertex-cover>
 
@@ -117,14 +102,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   ```rust
   pub struct MaxCut<W = i32> {
       graph: UnGraph<(), W>,  // Weighted graph (edge weights)
-  }
-
-  impl<W: 'static> Problem for MaxCut<W> {
-      const NAME: &'static str = "MaxCut";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-      }
-      // ...
   }
   ```
 ] <def:max-cut>
@@ -141,14 +118,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       num_colors: usize,       // Number of available colors (K)
       graph: UnGraph<(), ()>,  // The underlying graph
   }
-
-  impl Problem for Coloring {
-      const NAME: &'static str = "Coloring";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", "Unweighted")]
-      }
-      // ...
-  }
   ```
 ] <def:coloring>
 
@@ -161,14 +130,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   pub struct DominatingSet<W = i32> {
       graph: UnGraph<(), ()>,  // The underlying graph
       weights: Vec<W>,         // Weights for each vertex
-  }
-
-  impl<W: 'static> Problem for DominatingSet<W> {
-      const NAME: &'static str = "DominatingSet";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-      }
-      // ...
   }
   ```
 ] <def:dominating-set>
@@ -183,14 +144,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       num_vertices: usize,     // Number of vertices
       graph: UnGraph<(), W>,   // Weighted graph
       edge_weights: Vec<W>,    // Weights for each edge
-  }
-
-  impl<W: 'static> Problem for Matching<W> {
-      const NAME: &'static str = "Matching";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-      }
-      // ...
   }
   ```
 ] <def:matching>
@@ -213,14 +166,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       sets: Vec<Vec<usize>>,  // Collection of sets
       weights: Vec<W>,        // Weights for each set
   }
-
-  impl<W: 'static> Problem for SetPacking<W> {
-      const NAME: &'static str = "SetPacking";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-      }
-      // ...
-  }
   ```
 ] <def:set-packing>
 
@@ -234,14 +179,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       universe_size: usize,   // Size of the universe
       sets: Vec<Vec<usize>>,  // Collection of sets
       weights: Vec<W>,        // Weights for each set
-  }
-
-  impl<W: 'static> Problem for SetCovering<W> {
-      const NAME: &'static str = "SetCovering";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-      }
-      // ...
   }
   ```
 ] <def:set-covering>
@@ -261,14 +198,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       interactions: Vec<((usize, usize), W)>,  // J_ij couplings
       fields: Vec<W>,                      // h_i on-site fields
   }
-
-  impl<W: 'static> Problem for SpinGlass<W> {
-      const NAME: &'static str = "SpinGlass";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-      }
-      // ...
-  }
   ```
 ] <def:spin-glass>
 
@@ -283,14 +212,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   pub struct QUBO<W = f64> {
       num_vars: usize,         // Number of variables
       matrix: Vec<Vec<W>>,     // Q matrix (upper triangular)
-  }
-
-  impl<W: 'static> Problem for QUBO<W> {
-      const NAME: &'static str = "QUBO";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-      }
-      // ...
   }
   ```
 ] <def:qubo>
@@ -317,14 +238,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       cmp: Comparison,           // Le, Ge, or Eq
       rhs: f64,
   }
-
-  impl Problem for ILP {
-      const NAME: &'static str = "ILP";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", "f64")]
-      }
-      // ...
-  }
   ```
 ] <def:ilp>
 
@@ -347,14 +260,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   pub struct CNFClause {
       literals: Vec<i32>,  // Signed: +i for x_i, -i for NOT x_i
   }
-
-  impl<W: 'static> Problem for Satisfiability<W> {
-      const NAME: &'static str = "Satisfiability";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-      }
-      // ...
-  }
   ```
 ] <def:satisfiability>
 
@@ -370,14 +275,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       num_vars: usize,           // Number of variables
       clauses: Vec<CNFClause>,   // Each clause has exactly K literals
       weights: Vec<W>,           // Weights per clause
-  }
-
-  impl<const K: usize, W: 'static> Problem for KSatisfiability<K, W> {
-      const NAME: &'static str = "KSatisfiability";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-      }
-      // ...
   }
   ```
 ] <def:k-sat>
@@ -395,18 +292,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       variables: Vec<String>,    // Variable names in order
       weights: Vec<W>,           // Weights per assignment
   }
-
-  pub struct Circuit { assignments: Vec<Assignment> }
-  pub struct Assignment { outputs: Vec<String>, expr: BooleanExpr }
-  pub enum BooleanOp { Var(String), Const(bool), Not(..), And(..), Or(..), Xor(..) }
-
-  impl<W: 'static> Problem for CircuitSAT<W> {
-      const NAME: &'static str = "CircuitSAT";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-      }
-      // ...
-  }
   ```
 ] <def:circuit-sat>
 
@@ -421,14 +306,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
       n: usize,      // Bits for second factor
       target: u64,   // The number to factor
   }
-
-  impl Problem for Factoring {
-      const NAME: &'static str = "Factoring";
-      fn variant() -> Vec<(&'static str, &'static str)> {
-          vec![("graph", "SimpleGraph"), ("weight", "i32")]
-      }
-      // ...
-  }
   ```
 ] <def:factoring>
 
@@ -438,7 +315,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #theorem[
   *(IS $arrow.l.r$ VC)* $S subset.eq V$ is independent iff $V backslash S$ is a vertex cover, with $|"IS"| + |"VC"| = |V|$. [_Problems:_ @def:independent-set, @def:vertex-cover.]
-]
+] <thm:is-vc>
 
 #proof[
   ($arrow.r.double$) If $S$ is independent, for any $(u, v) in E$, at most one endpoint lies in $S$, so $V backslash S$ covers all edges. ($arrow.l.double$) If $C$ is a cover, for any $u, v in V backslash C$, $(u, v) in.not E$, so $V backslash C$ is independent.
@@ -458,7 +335,7 @@ assert!(is_problem.solution_size(&is_solution).is_valid);
 
 #theorem[
   *(IS $arrow.r$ Set Packing)* Construct $U = E$, $S_v = {e in E : v in e}$, $w(S_v) = w(v)$. Then $I$ is independent iff ${S_v : v in I}$ is a packing. [_Problems:_ @def:independent-set, @def:set-packing.]
-]
+] <thm:is-to-setpacking>
 
 #proof[
   Independence implies disjoint incident edge sets; conversely, disjoint edge sets imply no shared edges.
@@ -478,15 +355,15 @@ assert!(is_problem.solution_size(&is_solution).is_valid);
 
 #theorem[
   *(VC $arrow.r$ Set Covering)* Construct $U = {0, ..., |E|-1}$, $S_v = {i : e_i "incident to" v}$, $w(S_v) = w(v)$. Then $C$ is a cover iff ${S_v : v in C}$ covers $U$. [_Problems:_ @def:vertex-cover, @def:set-covering.]
-]
+] <thm:vc-to-setcovering>
 
 #theorem[
   *(Matching $arrow.r$ Set Packing)* Construct $U = V$, $S_e = {u, v}$ for $e = (u,v)$, $w(S_e) = w(e)$. Then $M$ is a matching iff ${S_e : e in M}$ is a packing. [_Problems:_ @def:matching, @def:set-packing.]
-]
+] <thm:matching-to-setpacking>
 
 #theorem[
   *(Spin Glass $arrow.l.r$ QUBO)* The substitution $s_i = 2x_i - 1$ yields $H_"SG"(bold(s)) = H_"QUBO"(bold(x)) + "const"$. [_Problems:_ @def:spin-glass, @def:qubo.]
-]
+] <thm:spinglass-qubo>
 
 #proof[
   Expanding $-sum_(i,j) J_(i j) (2x_i - 1)(2x_j - 1) - sum_i h_i (2x_i - 1)$ gives $Q_(i j) = -4J_(i j)$, $Q_(i i) = 2sum_j J_(i j) - 2h_i$.
@@ -512,7 +389,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 #theorem[
   *(IS $arrow.r$ QUBO)* Given $G = (V, E)$ with weights $w$, construct upper-triangular $Q in RR^(n times n)$ with $Q_(i i) = -w_i$ and $Q_(i j) = P$ for $(i,j) in E$ ($i < j$), where $P = 1 + sum_i w_i$. Then minimizing $f(bold(x)) = sum_i Q_(i i) x_i + sum_(i<j) Q_(i j) x_i x_j$ is equivalent to maximizing the IS objective. [_Problems:_ @def:independent-set, @def:qubo.]
-]
+] <thm:is-to-qubo>
 
 #proof[
   _Construction._ The IS objective is: maximize $sum_i w_i x_i$ subject to $x_i x_j = 0$ for $(i,j) in E$. Applying the penalty method (@sec:penalty-method):
@@ -536,7 +413,7 @@ assert!(is.solution_size(&is_solution).is_valid);
 
 #theorem[
   *(VC $arrow.r$ QUBO)* Given $G = (V, E)$ with weights $w$, construct upper-triangular $Q$ with $Q_(i i) = w_i - P dot "deg"(i)$ and $Q_(i j) = P$ for $(i,j) in E$ ($i < j$), where $P = 1 + sum_i w_i$ and $"deg"(i)$ is the degree of vertex $i$. [_Problems:_ @def:vertex-cover, @def:qubo.]
-]
+] <thm:vc-to-qubo>
 
 #proof[
   _Construction._ The VC objective is: minimize $sum_i w_i x_i$ subject to $x_i + x_j >= 1$ for $(i,j) in E$. Applying the penalty method (@sec:penalty-method), the constraint $x_i + x_j >= 1$ is violated iff $x_i = x_j = 0$, with penalty $(1 - x_i)(1 - x_j)$:
@@ -559,7 +436,7 @@ assert!(vc.solution_size(&vc_solution).is_valid);
 
 #theorem[
   *(KColoring $arrow.r$ QUBO)* Given $G = (V, E)$ with $k$ colors, construct upper-triangular $Q in RR^(n k times n k)$ using one-hot encoding $x_(v,c) in {0,1}$ ($n k$ variables indexed by $v dot k + c$). [_Problems:_ @def:coloring, @def:qubo.]
-]
+] <thm:coloring-to-qubo>
 
 #proof[
   _Construction._ Applying the penalty method (@sec:penalty-method), the QUBO objective combines a one-hot constraint penalty and an edge conflict penalty:
@@ -590,7 +467,7 @@ assert_eq!(solutions.len(), 6); // 3! valid 3-colorings of K3
 
 #theorem[
   *(SetPacking $arrow.r$ QUBO)* Equivalent to IS on the intersection graph: $Q_(i i) = -w_i$ and $Q_(i j) = P$ for overlapping sets $i, j$ ($i < j$), where $P = 1 + sum_i w_i$. [_Problems:_ @def:set-packing, @def:qubo.]
-]
+] <thm:setpacking-to-qubo>
 
 #proof[
   Two sets conflict iff they share an element. The intersection graph has sets as vertices and edges between conflicting pairs. Applying the penalty method (@sec:penalty-method) yields the same QUBO as IS on this graph: diagonal rewards selection, off-diagonal penalizes overlap. Correctness follows from the IS→QUBO proof.
@@ -610,7 +487,7 @@ assert!(sp.solution_size(&sp_solution).is_valid);
 
 #theorem[
   *(2-SAT $arrow.r$ QUBO)* Given a Max-2-SAT instance with $m$ clauses over $n$ variables, construct upper-triangular $Q in RR^(n times n)$ where each clause $(ell_i or ell_j)$ contributes a penalty gadget encoding its unique falsifying assignment. [_Problems:_ @def:k-sat, @def:qubo.]
-]
+] <thm:ksat-to-qubo>
 
 #proof[
   _Construction._ Applying the penalty method (@sec:penalty-method), each 2-literal clause has exactly one falsifying assignment (both literals false). The penalty for that assignment is a quadratic function of $x_i, x_j$:
@@ -647,7 +524,7 @@ assert!(ksat.solution_size(&sat_solution).is_valid);
 
 #theorem[
   *(Binary ILP $arrow.r$ QUBO)* Given binary ILP: maximize $bold(c)^top bold(x)$ subject to $A bold(x) = bold(b)$, $bold(x) in {0,1}^n$, construct upper-triangular $Q = -"diag"(bold(c) + 2P bold(b)^top A) + P A^top A$ where $P = 1 + ||bold(c)||_1 + ||bold(b)||_1$. [_Problems:_ @def:ilp, @def:qubo.]
-]
+] <thm:ilp-to-qubo>
 
 #proof[
   _Step 1: Normalize constraints._ Convert inequalities to equalities using slack variables: $bold(a)_k^top bold(x) <= b_k$ becomes $bold(a)_k^top bold(x) + sum_(s=0)^(S_k - 1) 2^s y_(k,s) = b_k$ where $S_k = ceil(log_2 (b_k + 1))$ slack bits. For $>=$ constraints, the slack has a negative sign. The extended system is $A' bold(x)' = bold(b)$ with $bold(x)' = (bold(x), bold(y)) in {0,1}^(n')$. For minimization, negate $bold(c)$ to convert to maximization.
@@ -686,7 +563,7 @@ assert_eq!(ilp_solution, vec![1, 0, 1]); // obj = 4
 
 #theorem[
   *(SAT $arrow.r$ IS)* @karp1972 Given CNF $phi$ with $m$ clauses, construct graph $G$ such that $phi$ is satisfiable iff $G$ has an IS of size $m$. [_Problems:_ @def:satisfiability, @def:independent-set.]
-]
+] <thm:sat-to-is>
 
 #proof[
   _Construction._ For $phi = and.big_(j=1)^m C_j$ with $C_j = (ell_(j,1) or ... or ell_(j,k_j))$:
@@ -702,7 +579,7 @@ assert_eq!(ilp_solution, vec![1, 0, 1]); // obj = 4
 
 #theorem[
   *(SAT $arrow.r$ 3-Coloring)* @garey1979 Given CNF $phi$, construct graph $G$ such that $phi$ is satisfiable iff $G$ is 3-colorable. [_Problems:_ @def:satisfiability, @def:coloring.]
-]
+] <thm:sat-to-coloring>
 
 #proof[
   _Construction._ (1) Base triangle: TRUE, FALSE, AUX vertices with all pairs connected. (2) Variable gadget for $x_i$: vertices $"pos"_i$, $"neg"_i$ connected to each other and to AUX. (3) Clause gadget: for $(ell_1 or ... or ell_k)$, apply OR-gadgets iteratively producing output $o$, then connect $o$ to FALSE and AUX.
@@ -714,7 +591,7 @@ assert_eq!(ilp_solution, vec![1, 0, 1]); // obj = 4
 
 #theorem[
   *(SAT $arrow.r$ Dominating Set)* @garey1979 Given CNF $phi$ with $n$ variables and $m$ clauses, $phi$ is satisfiable iff the constructed graph has a dominating set of size $n$. [_Problems:_ @def:satisfiability, @def:dominating-set.]
-]
+] <thm:sat-to-dominatingset>
 
 #proof[
   _Construction._ (1) Variable triangle for $x_i$: vertices $"pos"_i = 3i$, $"neg"_i = 3i+1$, $"dum"_i = 3i+2$ forming a triangle. (2) Clause vertex $c_j = 3n+j$ connected to $"pos"_i$ if $x_i in C_j$, to $"neg"_i$ if $overline(x_i) in C_j$.
@@ -726,7 +603,7 @@ assert_eq!(ilp_solution, vec![1, 0, 1]); // obj = 4
 
 #theorem[
   *(SAT $arrow.l.r$ $k$-SAT)* @cook1971 @garey1979 Any SAT formula converts to $k$-SAT ($k >= 3$) preserving satisfiability. [_Problems:_ @def:satisfiability, @def:k-sat.]
-]
+] <thm:sat-ksat>
 
 #proof[
   _Small clauses ($|C| < k$):_ Pad $(ell_1 or ... or ell_r)$ with auxiliary $y$: $(ell_1 or ... or ell_r or y or overline(y) or ...)$ to length $k$.
@@ -739,7 +616,7 @@ assert_eq!(ilp_solution, vec![1, 0, 1]); // obj = 4
 
 #theorem[
   *(CircuitSAT $arrow.r$ Spin Glass)* @whitfield2012 @lucas2014 Each gate maps to a gadget whose ground states encode valid I/O. [_Problems:_ @def:circuit-sat, @def:spin-glass.]
-]
+] <thm:circuit-to-spinglass>
 
 #proof[
   _Spin mapping:_ $sigma in {0,1} arrow.bar s = 2sigma - 1 in {-1, +1}$.
@@ -763,7 +640,7 @@ assert_eq!(ilp_solution, vec![1, 0, 1]); // obj = 4
 
 #theorem[
   *(Factoring $arrow.r$ Circuit-SAT)* An array multiplier with output constrained to $N$ is satisfiable iff $N$ factors within bit bounds. _(Folklore; no canonical reference.)_ [_Problems:_ @def:factoring, @def:circuit-sat.]
-]
+] <thm:factoring-to-circuit>
 
 #proof[
   _Construction._ Build $m times n$ array multiplier for $p times q$:
@@ -779,7 +656,7 @@ assert_eq!(ilp_solution, vec![1, 0, 1]); // obj = 4
 
 #theorem[
   *(Spin Glass $arrow.l.r$ Max-Cut)* @barahona1982 @lucas2014 Ground states of Ising models correspond to maximum cuts. [_Problems:_ @def:spin-glass, @def:max-cut.]
-]
+] <thm:spinglass-maxcut>
 
 #proof[
   _MaxCut $arrow.r$ SpinGlass:_ Set $J_(i j) = w_(i j)$, $h_i = 0$. Maximizing cut equals minimizing $-sum J_(i j) s_i s_j$ since $s_i s_j = -1$ when $s_i != s_j$.
@@ -803,7 +680,7 @@ assert_eq!(sg_solution.len(), 3);
 
 #theorem[
   *(Coloring $arrow.r$ ILP)* The $k$-coloring problem reduces to binary ILP with $|V| dot k$ variables and $|V| + |E| dot k$ constraints. [_Problems:_ @def:coloring, @def:ilp.]
-]
+] <thm:coloring-to-ilp>
 
 #proof[
   _Construction._ For graph $G = (V, E)$ with $k$ colors:
@@ -821,7 +698,7 @@ assert_eq!(sg_solution.len(), 3);
 
 #theorem[
   *(Factoring $arrow.r$ ILP)* Integer factorization reduces to binary ILP using McCormick linearization with $O(m n)$ variables and constraints. [_Problems:_ @def:factoring, @def:ilp.]
-]
+] <thm:factoring-to-ilp>
 
 #proof[
   _Construction._ For target $N$ with $m$-bit factor $p$ and $n$-bit factor $q$:
@@ -870,7 +747,7 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
 
 #theorem[
   *(IS $arrow.r$ GridGraph IS)* @nguyen2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a unit disk graph (King's subgraph) with at most quadratic overhead in the number of vertices. [_Problem:_ @def:independent-set.]
-]
+] <thm:is-to-gridgraph>
 
 #proof[
   _Construction (Copy-Line Method)._ Given $G = (V, E)$ with $n = |V|$:
