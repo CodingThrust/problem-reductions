@@ -114,9 +114,26 @@ Create 28 example files in `examples/` directory with flat naming structure:
 //! - Target: [expected optimal value]
 //! - Reference: [cite pkgref source if applicable, e.g., "Based on qubogen test case"]
 //!
+//! ## Output
+//! Exports `docs/paper/examples/[source]_to_[target].json` for use in paper code blocks.
+//!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
 use problemreductions::prelude::*;
+use serde::Serialize;
+use std::fs;
+use std::path::Path;
+
+#[derive(Serialize)]
+struct ExampleData {
+    source_problem: String,
+    target_problem: String,
+    source_size: usize,
+    target_size: usize,
+    source_solution: Vec<usize>,
+    target_solution: Vec<usize>,
+    // Include problem-specific fields as needed
+}
 
 fn main() {
     // 1. Create source problem
@@ -152,12 +169,31 @@ fn main() {
     println!("Solution size: {:?}", size);
     assert!(size.is_valid);
     println!("\n✓ Reduction verified successfully");
+
+    // 7. Export to JSON for paper
+    let example_data = ExampleData {
+        source_problem: SourceProblem::NAME.to_string(),
+        target_problem: TargetProblem::NAME.to_string(),
+        source_size: source.num_variables(),
+        target_size: target.num_variables(),
+        source_solution: source_solution.clone(),
+        target_solution: target_solutions[0].clone(),
+        // Add problem-specific fields
+    };
+
+    let json = serde_json::to_string_pretty(&example_data).unwrap();
+    fs::create_dir_all("docs/paper/examples").unwrap();
+    let path = Path::new("docs/paper/examples/[source]_to_[target].json");
+    fs::write(path, json).unwrap();
+    println!("  Exported: {}", path.display());
 }
 ```
 
 #### File Manifest (28 files)
 
 **Note:** Unit Disk Mapping (IS → GridGraph IS) already has an example at `examples/export_petersen_mapping.rs`. We will link to it from the paper but not create a new example file.
+
+**Note:** Existing `examples/qubo_reductions.rs` will be split into 6 separate files following our naming convention. The original file can be deleted or kept as a tutorial (to be decided during implementation).
 
 **Trivial/Complement (6 files):**
 1. `reduction_is_to_vc.rs`
@@ -248,13 +284,21 @@ Use instances from reference packages for cross-verification and consistency:
   - For other reductions: link to new `examples/reduction_*.rs` files
 
 **Pass 4: Create example files**
-- Extract embedded examples to standalone files
+- Split existing `examples/qubo_reductions.rs` into 6 separate files:
+  - `reduction_is_to_qubo.rs`
+  - `reduction_vc_to_qubo.rs`
+  - `reduction_coloring_to_qubo.rs`
+  - `reduction_setpacking_to_qubo.rs`
+  - `reduction_ksatisfiability_to_qubo.rs`
+  - `reduction_ilp_to_qubo.rs`
+- Extract embedded examples from paper to standalone files
 - For each new example:
   - Check `pkgref/` for matching instances in reference packages
   - Use reference instances where available for cross-verification
   - Document source in docstring (e.g., "Based on qubogen test case")
   - Add detailed output showing problem transformation metrics
-- Each file: detailed docstring + closed-loop verification with metrics
+  - Export JSON to `docs/paper/examples/[source]_to_[target].json`
+- Each file: detailed docstring + closed-loop verification + JSON export
 
 **Pass 5: Verification**
 - All theorems labeled
@@ -269,7 +313,10 @@ Use instances from reference packages for cross-verification and consistency:
 - [ ] 28 theorems have labels and GitHub example links
 - [ ] Trivial reduction proofs explain variable mappings explicitly
 - [ ] 28 example files created with detailed docstrings
-- [ ] All examples use Petersen-scale instances (non-trivial)
+- [ ] All examples use reference package instances where applicable
+- [ ] All examples export JSON to `docs/paper/examples/`
+- [ ] `docs/paper/examples/` added to `.gitignore` (generated files)
+- [ ] Existing `qubo_reductions.rs` split into 6 separate files
 - [ ] `make paper` compiles successfully
 - [ ] All example files compile and run successfully
 
@@ -285,6 +332,11 @@ Use instances from reference packages for cross-verification and consistency:
 - **Docstrings**: Explain math and example instance, NOT reduction algorithm (kept in paper)
 - **Instance selection**: Prefer instances from reference packages (ProblemReductions.jl, UnitDiskMapping.jl, qubogen) for cross-verification
 - **Output style**: Inspired by UnitDiskMapping.jl - show problem transformation metrics and verification details
+- **JSON export**: Each example exports `docs/paper/examples/[source]_to_[target].json` containing:
+  - Problem names and sizes
+  - Source and target solutions
+  - Problem-specific data (graphs, matrices, formulas)
+  - Used for embedding code examples in the paper
 - **Separation of concerns**: Examples demonstrate mechanics, paper provides mathematical specification
 - **GitHub links**: Use path `/blob/main/examples/reduction_*.rs`
 - **Reference packages**: Located in `pkgref/` (gitignored, cloned for development reference)
