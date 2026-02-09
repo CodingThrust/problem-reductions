@@ -157,6 +157,8 @@ fn main() {
 
 #### File Manifest (28 files)
 
+**Note:** Unit Disk Mapping (IS → GridGraph IS) already has an example at `examples/export_petersen_mapping.rs`. We will link to it from the paper but not create a new example file.
+
 **Trivial/Complement (6 files):**
 1. `reduction_is_to_vc.rs`
 2. `reduction_vc_to_is.rs`
@@ -242,6 +244,8 @@ Use instances from reference packages for cross-verification and consistency:
 **Pass 3: Enhance theorem proofs**
 - Expand trivial reduction proofs with variable mapping
 - Add GitHub links after all theorems
+  - For Unit Disk Mapping (IS → GridGraph IS): link to existing `examples/export_petersen_mapping.rs`
+  - For other reductions: link to new `examples/reduction_*.rs` files
 
 **Pass 4: Create example files**
 - Extract embedded examples to standalone files
