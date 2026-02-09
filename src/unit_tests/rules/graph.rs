@@ -38,12 +38,13 @@ fn test_has_direct_reduction() {
 }
 
 #[test]
-fn test_no_path() {
+fn test_is_to_qubo_path() {
     let graph = ReductionGraph::new();
-    // No path between IndependentSet and QUBO (disconnected in graph topology)
-    let paths =
-        graph.find_paths::<IndependentSet<SimpleGraph, i32>, crate::models::optimization::QUBO<f64>>();
-    assert!(paths.is_empty());
+    // IS -> QUBO should now have a direct path
+    let path =
+        graph.find_shortest_path::<IndependentSet<SimpleGraph, i32>, crate::models::optimization::QUBO<f64>>();
+    assert!(path.is_some());
+    assert_eq!(path.unwrap().len(), 1); // Direct path
 }
 
 #[test]
@@ -70,13 +71,13 @@ fn test_type_erased_paths() {
 fn test_find_paths_by_name() {
     let graph = ReductionGraph::new();
 
-    let paths = graph.find_paths_by_name("MaxCut", "SpinGlass");
-    assert!(!paths.is_empty());
-    assert_eq!(paths[0].len(), 1); // Direct path
+    let shortest = graph.find_shortest_path_by_name("MaxCut", "SpinGlass");
+    assert!(shortest.is_some());
+    assert_eq!(shortest.unwrap().len(), 1); // Direct path
 
-    let paths = graph.find_paths_by_name("Factoring", "SpinGlass");
-    assert!(!paths.is_empty());
-    assert_eq!(paths[0].len(), 2); // Factoring -> CircuitSAT -> SpinGlass
+    let shortest = graph.find_shortest_path_by_name("Factoring", "SpinGlass");
+    assert!(shortest.is_some());
+    assert_eq!(shortest.unwrap().len(), 2); // Factoring -> CircuitSAT -> SpinGlass
 }
 
 #[test]
@@ -582,12 +583,12 @@ fn test_find_cheapest_path_multi_step() {
 }
 
 #[test]
-fn test_find_cheapest_path_no_path() {
+fn test_find_cheapest_path_is_to_qubo() {
     let graph = ReductionGraph::new();
     let cost_fn = MinimizeSteps;
     let input_size = ProblemSize::new(vec![("n", 10)]);
 
-    // No path from IndependentSet to QUBO
+    // Direct path from IndependentSet to QUBO
     let path = graph.find_cheapest_path(
         ("IndependentSet", "SimpleGraph"),
         ("QUBO", "SimpleGraph"),
@@ -595,7 +596,8 @@ fn test_find_cheapest_path_no_path() {
         &cost_fn,
     );
 
-    assert!(path.is_none());
+    assert!(path.is_some());
+    assert_eq!(path.unwrap().len(), 1); // Direct path
 }
 
 #[test]

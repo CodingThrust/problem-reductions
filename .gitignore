@@ -68,3 +68,6 @@ tarpaulin-report.html
 
 # Generated documents
 *.pdf
+
+# Reference packages (downloaded for comparison)
+pkgref/

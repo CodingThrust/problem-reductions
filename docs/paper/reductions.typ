@@ -64,7 +64,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Independent Set (IS)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
 
-  _Reduces to:_ Set Packing (@def:set-packing).
+  _Reduces to:_ Set Packing (@def:set-packing), QUBO (@def:qubo).
 
   _Reduces from:_ Vertex Cover (@def:vertex-cover), SAT (@def:satisfiability), Set Packing (@def:set-packing).
 
@@ -87,7 +87,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Vertex Cover (VC)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
 
-  _Reduces to:_ Independent Set (@def:independent-set), Set Covering (@def:set-covering).
+  _Reduces to:_ Independent Set (@def:independent-set), Set Covering (@def:set-covering), QUBO (@def:qubo).
 
   _Reduces from:_ Independent Set (@def:independent-set).
 
@@ -110,7 +110,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Max-Cut")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find partition $(S, overline(S))$ maximizing $sum_((u,v) in E: u in S, v in overline(S)) w(u, v)$.
 
-  _Reduces to:_ Spin Glass (@def:spin-glass).
+  _Reduces to:_ Spin Glass (@def:spin-glass), QUBO (@def:qubo).
 
   _Reduces from:_ Spin Glass (@def:spin-glass).
 
@@ -132,7 +132,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Graph Coloring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
 
-  _Reduces to:_ ILP (@def:ilp).
+  _Reduces to:_ ILP (@def:ilp), QUBO (@def:qubo).
 
   _Reduces from:_ SAT (@def:satisfiability).
 
@@ -204,7 +204,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Set Packing")[
   Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
 
-  _Reduces to:_ Independent Set (@def:independent-set).
+  _Reduces to:_ Independent Set (@def:independent-set), QUBO (@def:qubo).
 
   _Reduces from:_ Independent Set (@def:independent-set), Matching (@def:matching).
 
@@ -273,11 +273,11 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 ] <def:spin-glass>
 
 #definition("QUBO")[
-  Given $n$ binary variables $x_i in {0, 1}$, matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = bold(x)^top Q bold(x)$.
+  Given $n$ binary variables $x_i in {0, 1}$, upper-triangular matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables).
 
   _Reduces to:_ Spin Glass (@def:spin-glass).
 
-  _Reduces from:_ Spin Glass (@def:spin-glass).
+  _Reduces from:_ Spin Glass (@def:spin-glass), Independent Set (@def:independent-set), Vertex Cover (@def:vertex-cover), Max-Cut (@def:max-cut), Graph Coloring (@def:coloring), Set Packing (@def:set-packing), $k$-SAT (@def:k-sat), ILP (@def:ilp).
 
   ```rust
   pub struct QUBO<W = f64> {
@@ -297,6 +297,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #definition("Integer Linear Programming (ILP)")[
   Given $n$ integer variables $bold(x) in ZZ^n$, constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x)$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$ and variable bounds.
+
+  _Reduces to:_ QUBO (@def:qubo).
 
   _Reduces from:_ Graph Coloring (@def:coloring), Factoring (@def:factoring).
 
@@ -359,7 +361,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition([$k$-SAT])[
   SAT with exactly $k$ literals per clause.
 
-  _Reduces to:_ SAT (@def:satisfiability).
+  _Reduces to:_ SAT (@def:satisfiability), QUBO (@def:qubo).
 
   _Reduces from:_ SAT (@def:satisfiability).
 
@@ -500,6 +502,207 @@ let solver = BruteForce::new();
 let qubo_solutions = solver.find_best(qubo);
 let sg_solution = result.extract_solution(&qubo_solutions[0]);
 assert_eq!(sg_solution.len(), 2);
+```
+
+#theorem[
+  *(IS $arrow.r$ QUBO)* Given $G = (V, E)$ with weights $w$, construct upper-triangular $Q in RR^(n times n)$ with $Q_(i i) = -w_i$ and $Q_(i j) = P$ for $(i,j) in E$ ($i < j$), where $P = 1 + sum_i w_i$. Then minimizing $f(bold(x)) = sum_i Q_(i i) x_i + sum_(i<j) Q_(i j) x_i x_j$ is equivalent to maximizing the IS objective. [_Problems:_ @def:independent-set, @def:qubo.]
+]
+
+#proof[
+  _Construction._ The IS objective is: maximize $sum_i w_i x_i$ subject to $x_i x_j = 0$ for $(i,j) in E$. Using the penalty method, we convert this to the unconstrained minimization:
+  $ f(bold(x)) = -sum_i w_i x_i + P sum_((i,j) in E) x_i x_j $
+  Reading off the QUBO coefficients: diagonal $Q_(i i) = -w_i$ (linear terms), off-diagonal $Q_(i j) = P$ for edges $i < j$ (quadratic penalty).
+
+  _Correctness._ If $bold(x)$ has any adjacent pair $(x_i = 1, x_j = 1)$ with $(i,j) in E$, the penalty $P > sum_i w_i >= -sum_i Q_(i i) x_i$ exceeds the maximum objective gain, so $bold(x)$ is not a minimizer. Among independent sets ($x_i x_j = 0$ for all edges), $f(bold(x)) = -sum_(i in S) w_i$, minimized exactly when $S$ is a maximum-weight IS.
+]
+
+```rust
+// Minimal example: IS -> QUBO -> extract solution
+let is = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+let result = ReduceTo::<QUBO>::reduce_to(&is);
+let qubo = result.target_problem();
+
+let solver = BruteForce::new();
+let solutions = solver.find_best(qubo);
+let is_solution = result.extract_solution(&solutions[0]);
+assert!(is.solution_size(&is_solution).is_valid);
+```
+
+#theorem[
+  *(VC $arrow.r$ QUBO)* Given $G = (V, E)$ with weights $w$, construct upper-triangular $Q$ with $Q_(i i) = w_i - P dot "deg"(i)$ and $Q_(i j) = P$ for $(i,j) in E$ ($i < j$), where $P = 1 + sum_i w_i$ and $"deg"(i)$ is the degree of vertex $i$. [_Problems:_ @def:vertex-cover, @def:qubo.]
+]
+
+#proof[
+  _Construction._ The VC objective is: minimize $sum_i w_i x_i$ subject to $x_i + x_j >= 1$ for $(i,j) in E$. Using the penalty method:
+  $ f(bold(x)) = sum_i w_i x_i + P sum_((i,j) in E) (1 - x_i)(1 - x_j) $
+  Expanding the penalty term:
+  $ (1 - x_i)(1 - x_j) = 1 - x_i - x_j + x_i x_j $
+  Summing over all edges, each vertex $i$ appears in $"deg"(i)$ terms. The QUBO coefficients are: diagonal $Q_(i i) = w_i - P dot "deg"(i)$ (objective plus linear penalty), off-diagonal $Q_(i j) = P$ for edges. The constant term $P |E|$ does not affect the minimizer.
+
+  _Correctness._ An uncovered edge $(i,j)$ where $x_i = x_j = 0$ contributes penalty $P > sum_i w_i$, exceeding the maximum objective. Among valid covers, $(1-x_i)(1-x_j) = 0$ for all edges, so $f$ reduces to $sum_(i in C) w_i + "const"$.
+]
+
+```rust
+// Minimal example: VC -> QUBO -> extract solution
+let vc = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
+let result = ReduceTo::<QUBO>::reduce_to(&vc);
+let qubo = result.target_problem();
+
+let solver = BruteForce::new();
+let solutions = solver.find_best(qubo);
+let vc_solution = result.extract_solution(&solutions[0]);
+assert!(vc.solution_size(&vc_solution).is_valid);
+```
+
+#theorem[
+  *(MaxCut $arrow.r$ QUBO)* Given $G = (V, E)$ with weights $w$, construct upper-triangular $Q$ with $Q_(i i) = -sum_(j:(i,j) in E) w_(i j)$ and $Q_(i j) = 2 w_(i j)$ for $(i,j) in E$ ($i < j$). No penalty is needed (the problem is unconstrained). [_Problems:_ @def:max-cut, @def:qubo.]
+]
+
+#proof[
+  _Construction._ The MaxCut objective is: maximize $"cut"(bold(x)) = sum_((i,j) in E) w_(i j) [x_i != x_j]$. For binary variables, $[x_i != x_j] = x_i(1-x_j) + (1-x_i)x_j = x_i + x_j - 2x_i x_j$. Converting to minimization:
+  $ f(bold(x)) = -"cut"(bold(x)) = -sum_((i,j) in E) w_(i j)(x_i + x_j) + 2 sum_((i,j) in E) w_(i j) x_i x_j $
+  Collecting terms: each vertex $i$ contributes $-sum_(j:(i,j) in E) w_(i j)$ to the diagonal, and each edge $(i,j)$ contributes $2 w_(i j)$ to the off-diagonal. No constraint penalty is needed because every binary assignment defines a valid cut.
+]
+
+```rust
+// Minimal example: MaxCut -> QUBO -> extract solution
+let mc = MaxCut::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
+let result = ReduceTo::<QUBO>::reduce_to(&mc);
+let qubo = result.target_problem();
+
+let solver = BruteForce::new();
+let solutions = solver.find_best(qubo);
+let mc_solution = result.extract_solution(&solutions[0]);
+let cut = mc.solution_size(&mc_solution).size;
+assert!(cut >= 4); // C4 max cut = 4
+```
+
+#theorem[
+  *(KColoring $arrow.r$ QUBO)* Given $G = (V, E)$ with $k$ colors, construct upper-triangular $Q in RR^(n k times n k)$ using one-hot encoding $x_(v,c) in {0,1}$ ($n k$ variables indexed by $v dot k + c$). [_Problems:_ @def:coloring, @def:qubo.]
+]
+
+#proof[
+  _Construction._ The QUBO objective combines a one-hot constraint penalty and an edge conflict penalty:
+  $ f(bold(x)) = P_1 sum_(v in V) (1 - sum_(c=1)^k x_(v,c))^2 + P_2 sum_((u,v) in E) sum_(c=1)^k x_(u,c) x_(v,c) $
+
+  _One-hot expansion._ For each vertex $v$, using $x_(v,c)^2 = x_(v,c)$:
+  $ (1 - sum_c x_(v,c))^2 = 1 - 2 sum_c x_(v,c) + (sum_c x_(v,c))^2 = 1 - sum_c x_(v,c) + 2 sum_(c_1 < c_2) x_(v,c_1) x_(v,c_2) $
+  This yields diagonal $Q_(v k+c, v k+c) = -P_1$ and intra-vertex off-diagonal $Q_(v k+c_1, v k+c_2) = 2 P_1$ for $c_1 < c_2$.
+
+  _Edge penalty._ For each edge $(u,v)$ and color $c$, the term $P_2 x_(u,c) x_(v,c)$ contributes to $Q_(u k+c, v k+c) += P_2$ (with appropriate index ordering).
+
+  In our implementation, $P_1 = P = 1 + n$ and $P_2 = P\/2$. Since $P_1 > 0$, all minimizers satisfy the one-hot constraints. Among valid colorings, $f$ counts edge conflicts scaled by $P_2$, so minimizers minimize the number of same-color adjacent pairs.
+
+  _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$.
+]
+
+```rust
+// Minimal example: KColoring -> QUBO -> extract solution
+let kc = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+let result = ReduceTo::<QUBO>::reduce_to(&kc);
+let qubo = result.target_problem();
+
+let solver = BruteForce::new();
+let solutions = solver.find_best(qubo);
+let kc_solution = result.extract_solution(&solutions[0]);
+assert_eq!(solutions.len(), 6); // 3! valid 3-colorings of K3
+```
+
+#theorem[
+  *(SetPacking $arrow.r$ QUBO)* Equivalent to IS on the intersection graph: $Q_(i i) = -w_i$ and $Q_(i j) = P$ for overlapping sets $i, j$ ($i < j$), where $P = 1 + sum_i w_i$. [_Problems:_ @def:set-packing, @def:qubo.]
+]
+
+#proof[
+  Two sets conflict iff they share an element. The intersection graph has sets as vertices and edges between conflicting pairs. The QUBO is identical to IS on this graph: diagonal rewards selection, off-diagonal penalizes overlap. Correctness follows from the IS→QUBO proof.
+]
+
+```rust
+// Minimal example: SetPacking -> QUBO -> extract solution
+let sp = SetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3, 4]]);
+let result = ReduceTo::<QUBO>::reduce_to(&sp);
+let qubo = result.target_problem();
+
+let solver = BruteForce::new();
+let solutions = solver.find_best(qubo);
+let sp_solution = result.extract_solution(&solutions[0]);
+assert!(sp.solution_size(&sp_solution).is_valid);
+```
+
+#theorem[
+  *(2-SAT $arrow.r$ QUBO)* Given a Max-2-SAT instance with $m$ clauses over $n$ variables, construct upper-triangular $Q in RR^(n times n)$ where each clause $(ell_i or ell_j)$ contributes a penalty gadget encoding its unique falsifying assignment. [_Problems:_ @def:k-sat, @def:qubo.]
+]
+
+#proof[
+  _Construction._ A 2-literal clause has exactly one falsifying assignment (both literals false). The penalty for that assignment is a quadratic function of $x_i, x_j$:
+
+  #table(
+    columns: (auto, auto, auto, auto),
+    inset: 4pt,
+    align: left,
+    table.header([*Clause*], [*Falsified when*], [*Penalty*], [*QUBO contributions*]),
+    [$x_i or x_j$], [$x_i=0, x_j=0$], [$(1-x_i)(1-x_j)$], [$Q_(i i) -= 1, Q_(j j) -= 1, Q_(i j) += 1$],
+    [$overline(x_i) or x_j$], [$x_i=1, x_j=0$], [$x_i(1-x_j)$], [$Q_(i i) += 1, Q_(i j) -= 1$],
+    [$x_i or overline(x_j)$], [$x_i=0, x_j=1$], [$(1-x_i)x_j$], [$Q_(j j) += 1, Q_(i j) -= 1$],
+    [$overline(x_i) or overline(x_j)$], [$x_i=1, x_j=1$], [$x_i x_j$], [$Q_(i j) += 1$],
+  )
+
+  Summing over all clauses, $f(bold(x)) = sum_j "penalty"_j (bold(x))$ counts falsified clauses. Minimizers of $f$ maximize satisfied clauses.
+]
+
+```rust
+// Minimal example: 2-SAT -> QUBO -> extract solution
+let ksat = KSatisfiability::<2, i32>::new(3, vec![
+    CNFClause::new(vec![1, 2]),   // x1 OR x2
+    CNFClause::new(vec![-1, 3]),  // NOT x1 OR x3
+    CNFClause::new(vec![2, -3]),  // x2 OR NOT x3
+]);
+let result = ReduceTo::<QUBO>::reduce_to(&ksat);
+let qubo = result.target_problem();
+
+let solver = BruteForce::new();
+let solutions = solver.find_best(qubo);
+let sat_solution = result.extract_solution(&solutions[0]);
+assert!(ksat.solution_size(&sat_solution).is_valid);
+```
+
+#theorem[
+  *(Binary ILP $arrow.r$ QUBO)* Given binary ILP: maximize $bold(c)^top bold(x)$ subject to $A bold(x) = bold(b)$, $bold(x) in {0,1}^n$, construct upper-triangular $Q = -"diag"(bold(c) + 2P bold(b)^top A) + P A^top A$ where $P = 1 + ||bold(c)||_1 + ||bold(b)||_1$. [_Problems:_ @def:ilp, @def:qubo.]
+]
+
+#proof[
+  _Step 1: Normalize constraints._ Convert inequalities to equalities using slack variables: $bold(a)_k^top bold(x) <= b_k$ becomes $bold(a)_k^top bold(x) + sum_(s=0)^(S_k - 1) 2^s y_(k,s) = b_k$ where $S_k = ceil(log_2 b_k)$ slack bits. For $>=$ constraints, the slack has a negative sign. The extended system is $A' bold(x)' = bold(b)$ with $bold(x)' = (bold(x), bold(y)) in {0,1}^(n')$. For minimization, negate $bold(c)$ to convert to maximization.
+
+  _Step 2: QUBO construction._ Combine objective and penalty:
+  $ f(bold(x)') = -bold(c')^top bold(x)' + P sum_(k=1)^m (bold(a)'_k^(top) bold(x)' - b_k)^2 $
+  where $bold(c)' = (bold(c), bold(0))$. Expanding the quadratic penalty $sum_k (bold(a)'_k^(top) bold(x)' - b_k)^2$:
+  $ = sum_k [(bold(a)'_k^(top) bold(x)')^2 - 2 b_k (bold(a)'_k^(top) bold(x)') + b_k^2] $
+  $ = bold(x)'^(top) A'^(top) A' bold(x)' - 2 bold(b)^top A' bold(x)' + ||bold(b)||_2^2 $
+  Combining with $-bold(c')^top bold(x)'$ and dropping the constant $P||bold(b)||_2^2$:
+  $ Q = -"diag"(bold(c)' + 2P bold(b)^top A') + P A'^(top) A' $
+  The diagonal contains linear terms; the upper triangle of $A'^(top) A'$ gives quadratic terms (doubled for upper-triangular convention).
+
+  _Correctness._ Since $P > ||bold(c)||_1$, any constraint violation incurs penalty exceeding the maximum objective, so minimizers are feasible. Among feasible solutions, $f = -bold(c)^top bold(x) + "const"$, minimized by the optimum.
+
+  _Solution extraction._ Discard slack variables: return $bold(x)' [0..n]$.
+]
+
+```rust
+// Minimal example: binary ILP -> QUBO -> extract solution
+let ilp = ILP::binary(3,
+    vec![
+        LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0),
+        LinearConstraint::le(vec![(1, 1.0), (2, 1.0)], 1.0),
+    ],
+    vec![(0, 1.0), (1, 2.0), (2, 3.0)],
+    ObjectiveSense::Maximize,
+);
+let result = ReduceTo::<QUBO<f64>>::reduce_to(&ilp);
+let qubo = result.target_problem();
+
+let solver = BruteForce::new();
+let solutions = solver.find_best(qubo);
+let ilp_solution = result.extract_solution(&solutions[0]);
+assert_eq!(ilp_solution, vec![1, 0, 1]); // obj = 4
 ```
 
 == Non-Trivial Reductions
@@ -860,6 +1063,13 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
     table.cell(fill: gray)[Matching $arrow.r$ SetPacking], table.cell(fill: gray)[$O(|E|)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[VC $arrow.r$ SetCovering], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[QUBO $arrow.l.r$ SpinGlass], table.cell(fill: gray)[$O(n^2)$], table.cell(fill: gray)[—],
+    table.cell(fill: gray)[IS $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[—],
+    table.cell(fill: gray)[VC $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[—],
+    table.cell(fill: gray)[MaxCut $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[—],
+    table.cell(fill: gray)[KColoring $arrow.r$ QUBO], table.cell(fill: gray)[$O(n dot k)$], table.cell(fill: gray)[—],
+    table.cell(fill: gray)[SetPacking $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[—],
+    table.cell(fill: gray)[2-SAT $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[—],
+    table.cell(fill: gray)[Binary ILP $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[—],
     [SAT $arrow.r$ IS], [$O(sum_j |C_j|^2)$], [@karp1972],
     [SAT $arrow.r$ 3-Coloring], [$O(n + sum_j |C_j|)$], [@garey1979],
     [SAT $arrow.r$ DominatingSet], [$O(3n + m)$], [@garey1979],
