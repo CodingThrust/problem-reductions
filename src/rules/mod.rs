@@ -9,16 +9,19 @@ pub use cost::{
 pub use registry::{ReductionEntry, ReductionOverhead};
 
 mod circuit_spinglass;
+mod coloring_qubo;
 mod factoring_circuit;
 mod graph;
 mod independentset_qubo;
 mod independentset_setpacking;
+mod ksatisfiability_qubo;
 mod matching_setpacking;
 mod maxcut_qubo;
 mod sat_coloring;
 mod sat_dominatingset;
 mod sat_independentset;
 mod sat_ksat;
+mod setpacking_qubo;
 mod spinglass_maxcut;
 mod spinglass_qubo;
 mod traits;
@@ -55,11 +58,14 @@ pub use factoring_circuit::ReductionFactoringToCircuit;
 pub use graph::{
     EdgeJson, NodeJson, ReductionEdge, ReductionGraph, ReductionGraphJson, ReductionPath,
 };
+pub use coloring_qubo::ReductionKColoringToQUBO;
 pub use independentset_qubo::ReductionISToQUBO;
 pub use independentset_setpacking::{ReductionISToSP, ReductionSPToIS};
+pub use ksatisfiability_qubo::ReductionKSatToQUBO;
 pub use matching_setpacking::ReductionMatchingToSP;
 pub use maxcut_qubo::ReductionMaxCutToQUBO;
 pub use sat_coloring::ReductionSATToColoring;
+pub use setpacking_qubo::ReductionSPToQUBO;
 pub use sat_dominatingset::ReductionSATToDS;
 pub use sat_independentset::{BoolVar, ReductionSATToIS};
 pub use sat_ksat::{ReductionKSATToSAT, ReductionSATToKSAT};
