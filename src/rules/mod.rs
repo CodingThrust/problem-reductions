@@ -9,24 +9,31 @@ pub use cost::{
 pub use registry::{ReductionEntry, ReductionOverhead};
 
 mod circuit_spinglass;
+mod coloring_qubo;
 mod factoring_circuit;
 mod graph;
+mod independentset_qubo;
 mod independentset_setpacking;
+mod ksatisfiability_qubo;
 mod matching_setpacking;
 mod sat_coloring;
 mod sat_dominatingset;
 mod sat_independentset;
 mod sat_ksat;
+mod setpacking_qubo;
 mod spinglass_maxcut;
 mod spinglass_qubo;
 mod traits;
 mod vertexcovering_independentset;
+mod vertexcovering_qubo;
 mod vertexcovering_setcovering;
 
 pub mod unitdiskmapping;
 
 #[cfg(feature = "ilp")]
 mod clique_ilp;
+#[cfg(feature = "ilp")]
+mod ilp_qubo;
 #[cfg(feature = "ilp")]
 mod coloring_ilp;
 #[cfg(feature = "ilp")]
@@ -52,9 +59,13 @@ pub use factoring_circuit::ReductionFactoringToCircuit;
 pub use graph::{
     EdgeJson, NodeJson, ReductionEdge, ReductionGraph, ReductionGraphJson, ReductionPath,
 };
+pub use coloring_qubo::ReductionKColoringToQUBO;
+pub use independentset_qubo::ReductionISToQUBO;
 pub use independentset_setpacking::{ReductionISToSP, ReductionSPToIS};
+pub use ksatisfiability_qubo::ReductionKSatToQUBO;
 pub use matching_setpacking::ReductionMatchingToSP;
 pub use sat_coloring::ReductionSATToColoring;
+pub use setpacking_qubo::ReductionSPToQUBO;
 pub use sat_dominatingset::ReductionSATToDS;
 pub use sat_independentset::{BoolVar, ReductionSATToIS};
 pub use sat_ksat::{ReductionKSATToSAT, ReductionSATToKSAT};
@@ -62,6 +73,7 @@ pub use spinglass_maxcut::{ReductionMaxCutToSG, ReductionSGToMaxCut};
 pub use spinglass_qubo::{ReductionQUBOToSG, ReductionSGToQUBO};
 pub use traits::{ReduceTo, ReductionResult};
 pub use vertexcovering_independentset::{ReductionISToVC, ReductionVCToIS};
+pub use vertexcovering_qubo::ReductionVCToQUBO;
 pub use vertexcovering_setcovering::ReductionVCToSC;
 
 #[cfg(feature = "ilp")]
@@ -70,6 +82,8 @@ pub use clique_ilp::ReductionCliqueToILP;
 pub use coloring_ilp::{ReductionColoringToILP, ReductionKColoringToILP};
 #[cfg(feature = "ilp")]
 pub use dominatingset_ilp::ReductionDSToILP;
+#[cfg(feature = "ilp")]
+pub use ilp_qubo::ReductionILPToQUBO;
 #[cfg(feature = "ilp")]
 pub use factoring_ilp::ReductionFactoringToILP;
 #[cfg(feature = "ilp")]

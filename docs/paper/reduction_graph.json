@@ -74,6 +74,14 @@
       "category": "graph"
     },
     {
+      "name": "IndependentSet",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph"
+    },
+    {
       "name": "KColoring",
       "variant": {},
       "category": "graph"
@@ -91,6 +99,14 @@
       "name": "KColoring",
       "variant": {
         "graph": "SimpleGraph",
+        "weight": "Unweighted"
+      },
+      "category": "graph"
+    },
+    {
+      "name": "KColoring",
+      "variant": {
+        "graph": "SimpleGraph",
         "weight": "i32"
       },
       "category": "graph"
@@ -109,6 +125,14 @@
       "category": "satisfiability"
     },
     {
+      "name": "KSatisfiability",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "satisfiability"
+    },
+    {
       "name": "Matching",
       "variant": {},
       "category": "graph"
@@ -187,6 +211,14 @@
       "category": "set"
     },
     {
+      "name": "SetPacking",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "set"
+    },
+    {
       "name": "SpinGlass",
       "variant": {},
       "category": "optimization"
@@ -217,6 +249,14 @@
       "variant": {
         "graph": "SimpleGraph",
         "weight": "Unweighted"
+      },
+      "category": "graph"
+    },
+    {
+      "name": "VertexCovering",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
       },
       "category": "graph"
     }
@@ -275,6 +315,40 @@
     },
     {
       "source": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
+        "name": "IndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
         "name": "KColoring",
         "variant": {
           "graph": "SimpleGraph",
@@ -287,6 +361,40 @@
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
+        "name": "KColoring",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
+        "name": "KSatisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
         }
       },
       "bidirectional": false
@@ -395,6 +503,23 @@
     },
     {
       "source": {
+        "name": "SetPacking",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
         "name": "SpinGlass",
         "variant": {
           "graph": "SimpleGraph",
@@ -457,6 +582,23 @@
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
+        }
+      },
+      "bidirectional": false
+    },
+    {
+      "source": {
+        "name": "VertexCovering",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
         }
       },
       "bidirectional": false

@@ -38,11 +38,12 @@ quickcheck-tests.json
 /dist/
 /build/
 
-# Python (for pre-commit)
+# Python
 __pycache__/
 *.py[cod]
 *$py.class
 .Python
+.venv/
 venv/
 env/
 ENV/
@@ -67,3 +68,6 @@ tarpaulin-report.html
 
 # Generated documents
 *.pdf
+
+# Reference packages (downloaded for comparison)
+pkgref/

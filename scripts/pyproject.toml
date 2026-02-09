@@ -1,0 +1,9 @@
+[project]
+name = "scripts"
+version = "0.1.0"
+description = "Test data generation scripts for problem-reductions"
+requires-python = ">=3.12"
+dependencies = [
+    "numpy>=1.26,<2",
+    "qubogen>=0.1.1",
+]

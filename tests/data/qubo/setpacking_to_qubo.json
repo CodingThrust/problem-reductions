@@ -1,0 +1,1 @@
+{"problem":"SetPacking","source":{"sets":[[0,2],[1,2],[0,3]],"num_elements":4,"weights":[1.0,2.0,1.5],"penalty":8.0},"qubo_matrix":[[-1.0,4.0,4.0],[4.0,-2.0,0.0],[4.0,0.0,-1.5]],"qubo_num_vars":3,"qubo_optimal":{"value":-3.5,"configs":[[0,1,1]]}}
