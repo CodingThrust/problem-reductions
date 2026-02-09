@@ -13,17 +13,20 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
-use crate::types::ProblemSize;
+use crate::types::{NumericWeight, ProblemSize};
+
+use std::marker::PhantomData;
 
 /// Result of reducing SetPacking to QUBO.
 #[derive(Debug, Clone)]
-pub struct ReductionSPToQUBO {
+pub struct ReductionSPToQUBO<W> {
     target: QUBO<f64>,
     source_size: ProblemSize,
+    _phantom: PhantomData<W>,
 }
 
-impl ReductionResult for ReductionSPToQUBO {
-    type Source = SetPacking<i32>;
+impl<W: NumericWeight + Into<f64>> ReductionResult for ReductionSPToQUBO<W> {
+    type Source = SetPacking<W>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -44,22 +47,24 @@ impl ReductionResult for ReductionSPToQUBO {
 }
 
 #[reduction(
+    source_weighted = true,
     overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_sets))]) }
 )]
-impl ReduceTo<QUBO<f64>> for SetPacking<i32> {
-    type Result = ReductionSPToQUBO;
+impl<W: NumericWeight + Into<f64>> ReduceTo<QUBO<f64>> for SetPacking<W> {
+    type Result = ReductionSPToQUBO<W>;
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_sets();
         let weights = self.weights_ref();
-        let total_weight: f64 = weights.iter().map(|&w| w as f64).sum();
+        let total_weight: f64 = weights.iter().map(|w| w.clone().into()).sum();
         let penalty = 1.0 + total_weight;
 
         let mut matrix = vec![vec![0.0; n]; n];
 
         // Diagonal: -w_i
         for i in 0..n {
-            matrix[i][i] = -(weights[i] as f64);
+            let w: f64 = weights[i].clone().into();
+            matrix[i][i] = -w;
         }
 
         // Off-diagonal: P for overlapping pairs
@@ -71,6 +76,7 @@ impl ReduceTo<QUBO<f64>> for SetPacking<i32> {
         ReductionSPToQUBO {
             target: QUBO::from_matrix(matrix),
             source_size: self.problem_size(),
+            _phantom: PhantomData,
         }
     }
 }

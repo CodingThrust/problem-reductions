@@ -597,8 +597,7 @@ mod qubo_reductions {
         let json = std::fs::read_to_string("tests/data/qubo/setpacking_to_qubo.json").unwrap();
         let data: SPToQuboData = serde_json::from_str(&json).unwrap();
 
-        let weights: Vec<i32> = data.source.weights.iter().map(|&w| w as i32).collect();
-        let sp = SetPacking::with_weights(data.source.sets, weights);
+        let sp = SetPacking::with_weights(data.source.sets, data.source.weights);
         let reduction = ReduceTo::<QUBO>::reduce_to(&sp);
         let qubo = reduction.target_problem();
 

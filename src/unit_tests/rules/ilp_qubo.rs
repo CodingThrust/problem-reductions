@@ -92,7 +92,7 @@ fn test_ilp_to_qubo_equality() {
 fn test_ilp_to_qubo_ge_with_slack() {
     // Ge constraint with slack_range > 1 to exercise slack variable code path.
     // 3 vars: minimize x0 + x1 + x2
-    // s.t. x0 + x1 + x2 >= 1 (sum_a=3, b=1, slack_range=2, ns=ceil(log2(2))=1)
+    // s.t. x0 + x1 + x2 >= 1 (max_lhs=3, b=1, slack_range=2, ns=ceil(log2(3))=2)
     let ilp = ILP::binary(
         3,
         vec![LinearConstraint::ge(
@@ -125,7 +125,7 @@ fn test_ilp_to_qubo_ge_with_slack() {
 fn test_ilp_to_qubo_le_with_slack() {
     // Le constraint with rhs > 1 to exercise Le slack variable code path.
     // 3 vars: maximize x0 + x1 + x2
-    // s.t. x0 + x1 + x2 <= 2 (slack_range=2, ns=ceil(log2(3))=2)
+    // s.t. x0 + x1 + x2 <= 2 (min_lhs=0, b=2, slack_range=2, ns=ceil(log2(3))=2)
     let ilp = ILP::binary(
         3,
         vec![LinearConstraint::le(

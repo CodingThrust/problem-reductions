@@ -9,7 +9,6 @@ Usage:
 """
 
 import json
-import os
 from itertools import product
 from pathlib import Path
 
@@ -76,7 +75,6 @@ def generate_independent_set(outdir: Path):
     edges = [(0, 1), (1, 2), (2, 3), (0, 3)]
     n_nodes = 4
     penalty = 8.0
-    g = qubogen.Graph(edges=np.array(edges), n_nodes=n_nodes)
 
     # Independent set QUBO: maximize sum(x_i) s.t. x_i*x_j = 0 for edges
     # = minimize -sum(x_i) + P * sum_{(i,j)} x_i*x_j
