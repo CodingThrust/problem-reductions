@@ -504,12 +504,18 @@ let sg_solution = result.extract_solution(&qubo_solutions[0]);
 assert_eq!(sg_solution.len(), 2);
 ```
 
+== Penalty-Method QUBO Reductions <sec:penalty-method>
+
+The _penalty method_ @glover2019 @lucas2014 converts a constrained optimization problem into an unconstrained QUBO by adding quadratic penalty terms. Given an objective $"obj"(bold(x))$ to minimize and constraints $g_k (bold(x)) = 0$, construct:
+$ f(bold(x)) = "obj"(bold(x)) + P sum_k g_k (bold(x))^2 $
+where $P$ is a penalty weight large enough that any constraint violation costs more than the entire objective range. Since $g_k (bold(x))^2 >= 0$ with equality iff $g_k (bold(x)) = 0$, minimizers of $f$ are feasible and optimal for the original problem. Because binary variables satisfy $x_i^2 = x_i$, the resulting $f$ is a quadratic in $bold(x)$, i.e.\ a QUBO.
+
 #theorem[
   *(IS $arrow.r$ QUBO)* Given $G = (V, E)$ with weights $w$, construct upper-triangular $Q in RR^(n times n)$ with $Q_(i i) = -w_i$ and $Q_(i j) = P$ for $(i,j) in E$ ($i < j$), where $P = 1 + sum_i w_i$. Then minimizing $f(bold(x)) = sum_i Q_(i i) x_i + sum_(i<j) Q_(i j) x_i x_j$ is equivalent to maximizing the IS objective. [_Problems:_ @def:independent-set, @def:qubo.]
 ]
 
 #proof[
-  _Construction._ The IS objective is: maximize $sum_i w_i x_i$ subject to $x_i x_j = 0$ for $(i,j) in E$. Using the penalty method, we convert this to the unconstrained minimization:
+  _Construction._ The IS objective is: maximize $sum_i w_i x_i$ subject to $x_i x_j = 0$ for $(i,j) in E$. Applying the penalty method (@sec:penalty-method):
   $ f(bold(x)) = -sum_i w_i x_i + P sum_((i,j) in E) x_i x_j $
   Reading off the QUBO coefficients: diagonal $Q_(i i) = -w_i$ (linear terms), off-diagonal $Q_(i j) = P$ for edges $i < j$ (quadratic penalty).
 
@@ -533,13 +539,10 @@ assert!(is.solution_size(&is_solution).is_valid);
 ]
 
 #proof[
-  _Construction._ The VC objective is: minimize $sum_i w_i x_i$ subject to $x_i + x_j >= 1$ for $(i,j) in E$. Using the penalty method:
+  _Construction._ The VC objective is: minimize $sum_i w_i x_i$ subject to $x_i + x_j >= 1$ for $(i,j) in E$. Applying the penalty method (@sec:penalty-method), the constraint $x_i + x_j >= 1$ is violated iff $x_i = x_j = 0$, with penalty $(1 - x_i)(1 - x_j)$:
   $ f(bold(x)) = sum_i w_i x_i + P sum_((i,j) in E) (1 - x_i)(1 - x_j) $
-  Expanding the penalty term:
-  $ (1 - x_i)(1 - x_j) = 1 - x_i - x_j + x_i x_j $
-  Summing over all edges, each vertex $i$ appears in $"deg"(i)$ terms. The QUBO coefficients are: diagonal $Q_(i i) = w_i - P dot "deg"(i)$ (objective plus linear penalty), off-diagonal $Q_(i j) = P$ for edges. The constant term $P |E|$ does not affect the minimizer.
-
-  _Correctness._ An uncovered edge $(i,j)$ where $x_i = x_j = 0$ contributes penalty $P > sum_i w_i$, exceeding the maximum objective. Among valid covers, $(1-x_i)(1-x_j) = 0$ for all edges, so $f$ reduces to $sum_(i in C) w_i + "const"$.
+  Expanding: $(1 - x_i)(1 - x_j) = 1 - x_i - x_j + x_i x_j$.
+  Summing over all edges, each vertex $i$ appears in $"deg"(i)$ terms. The QUBO coefficients are: diagonal $Q_(i i) = w_i - P dot "deg"(i)$ (objective plus linear penalty), off-diagonal $Q_(i j) = P$ for edges. The constant $P |E|$ does not affect the minimizer.
 ]
 
 ```rust
@@ -559,16 +562,16 @@ assert!(vc.solution_size(&vc_solution).is_valid);
 ]
 
 #proof[
-  _Construction._ The QUBO objective combines a one-hot constraint penalty and an edge conflict penalty:
+  _Construction._ Applying the penalty method (@sec:penalty-method), the QUBO objective combines a one-hot constraint penalty and an edge conflict penalty:
   $ f(bold(x)) = P_1 sum_(v in V) (1 - sum_(c=1)^k x_(v,c))^2 + P_2 sum_((u,v) in E) sum_(c=1)^k x_(u,c) x_(v,c) $
 
   _One-hot expansion._ For each vertex $v$, using $x_(v,c)^2 = x_(v,c)$:
-  $ (1 - sum_c x_(v,c))^2 = 1 - 2 sum_c x_(v,c) + (sum_c x_(v,c))^2 = 1 - sum_c x_(v,c) + 2 sum_(c_1 < c_2) x_(v,c_1) x_(v,c_2) $
+  $ (1 - sum_c x_(v,c))^2 = 1 - sum_c x_(v,c) + 2 sum_(c_1 < c_2) x_(v,c_1) x_(v,c_2) $
   This yields diagonal $Q_(v k+c, v k+c) = -P_1$ and intra-vertex off-diagonal $Q_(v k+c_1, v k+c_2) = 2 P_1$ for $c_1 < c_2$.
 
   _Edge penalty._ For each edge $(u,v)$ and color $c$, the term $P_2 x_(u,c) x_(v,c)$ contributes to $Q_(u k+c, v k+c) += P_2$ (with appropriate index ordering).
 
-  In our implementation, $P_1 = P = 1 + n$ and $P_2 = P\/2$. Since $P_1 > 0$, all minimizers satisfy the one-hot constraints. Among valid colorings, $f$ counts edge conflicts scaled by $P_2$, so minimizers minimize the number of same-color adjacent pairs.
+  In our implementation, $P_1 = P = 1 + n$ and $P_2 = P\/2$.
 
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$.
 ]
@@ -590,7 +593,7 @@ assert_eq!(solutions.len(), 6); // 3! valid 3-colorings of K3
 ]
 
 #proof[
-  Two sets conflict iff they share an element. The intersection graph has sets as vertices and edges between conflicting pairs. The QUBO is identical to IS on this graph: diagonal rewards selection, off-diagonal penalizes overlap. Correctness follows from the IS→QUBO proof.
+  Two sets conflict iff they share an element. The intersection graph has sets as vertices and edges between conflicting pairs. Applying the penalty method (@sec:penalty-method) yields the same QUBO as IS on this graph: diagonal rewards selection, off-diagonal penalizes overlap. Correctness follows from the IS→QUBO proof.
 ]
 
 ```rust
@@ -610,7 +613,7 @@ assert!(sp.solution_size(&sp_solution).is_valid);
 ]
 
 #proof[
-  _Construction._ A 2-literal clause has exactly one falsifying assignment (both literals false). The penalty for that assignment is a quadratic function of $x_i, x_j$:
+  _Construction._ Applying the penalty method (@sec:penalty-method), each 2-literal clause has exactly one falsifying assignment (both literals false). The penalty for that assignment is a quadratic function of $x_i, x_j$:
 
   #table(
     columns: (auto, auto, auto, auto),
@@ -647,18 +650,15 @@ assert!(ksat.solution_size(&sat_solution).is_valid);
 ]
 
 #proof[
-  _Step 1: Normalize constraints._ Convert inequalities to equalities using slack variables: $bold(a)_k^top bold(x) <= b_k$ becomes $bold(a)_k^top bold(x) + sum_(s=0)^(S_k - 1) 2^s y_(k,s) = b_k$ where $S_k = ceil(log_2 b_k)$ slack bits. For $>=$ constraints, the slack has a negative sign. The extended system is $A' bold(x)' = bold(b)$ with $bold(x)' = (bold(x), bold(y)) in {0,1}^(n')$. For minimization, negate $bold(c)$ to convert to maximization.
+  _Step 1: Normalize constraints._ Convert inequalities to equalities using slack variables: $bold(a)_k^top bold(x) <= b_k$ becomes $bold(a)_k^top bold(x) + sum_(s=0)^(S_k - 1) 2^s y_(k,s) = b_k$ where $S_k = ceil(log_2 (b_k + 1))$ slack bits. For $>=$ constraints, the slack has a negative sign. The extended system is $A' bold(x)' = bold(b)$ with $bold(x)' = (bold(x), bold(y)) in {0,1}^(n')$. For minimization, negate $bold(c)$ to convert to maximization.
 
-  _Step 2: QUBO construction._ Combine objective and penalty:
+  _Step 2: QUBO construction._ Applying the penalty method (@sec:penalty-method), combine objective and penalty:
   $ f(bold(x)') = -bold(c')^top bold(x)' + P sum_(k=1)^m (bold(a)'_k^(top) bold(x)' - b_k)^2 $
-  where $bold(c)' = (bold(c), bold(0))$. Expanding the quadratic penalty $sum_k (bold(a)'_k^(top) bold(x)' - b_k)^2$:
-  $ = sum_k [(bold(a)'_k^(top) bold(x)')^2 - 2 b_k (bold(a)'_k^(top) bold(x)') + b_k^2] $
+  where $bold(c)' = (bold(c), bold(0))$. Expanding the quadratic penalty:
   $ = bold(x)'^(top) A'^(top) A' bold(x)' - 2 bold(b)^top A' bold(x)' + ||bold(b)||_2^2 $
-  Combining with $-bold(c')^top bold(x)'$ and dropping the constant $P||bold(b)||_2^2$:
+  Combining with $-bold(c')^top bold(x)'$ and dropping constants:
   $ Q = -"diag"(bold(c)' + 2P bold(b)^top A') + P A'^(top) A' $
   The diagonal contains linear terms; the upper triangle of $A'^(top) A'$ gives quadratic terms (doubled for upper-triangular convention).
-
-  _Correctness._ Since $P > ||bold(c)||_1$, any constraint violation incurs penalty exceeding the maximum objective, so minimizers are feasible. Among feasible solutions, $f = -bold(c)^top bold(x) + "const"$, minimized by the optimum.
 
   _Solution extraction._ Discard slack variables: return $bold(x)' [0..n]$.
 ]
@@ -1039,13 +1039,12 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
     table.cell(fill: gray)[IS $arrow.r$ SetPacking], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[Matching $arrow.r$ SetPacking], table.cell(fill: gray)[$O(|E|)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[VC $arrow.r$ SetCovering], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[QUBO $arrow.l.r$ SpinGlass], table.cell(fill: gray)[$O(n^2)$], table.cell(fill: gray)[@glover2019],
-    table.cell(fill: gray)[IS $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[@lucas2014 @glover2019],
-    table.cell(fill: gray)[VC $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[@lucas2014 @glover2019],
-    table.cell(fill: gray)[KColoring $arrow.r$ QUBO], table.cell(fill: gray)[$O(n dot k)$], table.cell(fill: gray)[@lucas2014 @glover2019],
-    table.cell(fill: gray)[SetPacking $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[@glover2019],
-    table.cell(fill: gray)[2-SAT $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[@glover2019],
-    table.cell(fill: gray)[Binary ILP $arrow.r$ QUBO], table.cell(fill: gray)[$O(n)$], table.cell(fill: gray)[@lucas2014 @glover2019],
+    [IS $arrow.r$ QUBO], [$O(n)$], [@lucas2014 @glover2019],
+    [VC $arrow.r$ QUBO], [$O(n)$], [@lucas2014 @glover2019],
+    [KColoring $arrow.r$ QUBO], [$O(n dot k)$], [@lucas2014 @glover2019],
+    [SetPacking $arrow.r$ QUBO], [$O(n)$], [@glover2019],
+    [2-SAT $arrow.r$ QUBO], [$O(n)$], [@glover2019],
+    [Binary ILP $arrow.r$ QUBO], [$O(n)$], [@lucas2014 @glover2019],
     [SAT $arrow.r$ IS], [$O(sum_j |C_j|^2)$], [@karp1972],
     [SAT $arrow.r$ 3-Coloring], [$O(n + sum_j |C_j|)$], [@garey1979],
     [SAT $arrow.r$ DominatingSet], [$O(3n + m)$], [@garey1979],
@@ -1057,7 +1056,7 @@ assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
     table.cell(fill: gray)[Factoring $arrow.r$ ILP], table.cell(fill: gray)[$O(m n)$], table.cell(fill: gray)[—],
     [IS $arrow.r$ GridGraph IS], [$O(n^2)$], [@nguyen2023],
   ),
-  caption: [Summary of reductions. Gray rows indicate trivial reductions.]
+  caption: [Summary of reductions. Gray rows indicate trivial (complement/isomorphism) reductions.]
 ) <tab:summary>
 
 #bibliography("references.bib", style: "ieee")
