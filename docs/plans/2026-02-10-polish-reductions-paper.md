@@ -105,36 +105,53 @@ Create 28 example files in `examples/` directory with flat naming structure:
 //!
 //! ## Mathematical Equivalence
 //! [Explain the mathematical relationship and why it works - 2-4 sentences]
+//! [Reference to the mathematical proof if helpful]
 //!
 //! ## This Example
 //! [Describe the specific instance used - graph structure, problem size, expected results]
-//! - Problem size: X vertices/variables
-//! - Expected [source] size: Y
-//! - Expected [target] size: Z
+//! - Instance: [e.g., "5-vertex graph from edges [(0,1), (1,2), ...]" or "Petersen graph"]
+//! - Source: [expected optimal value]
+//! - Target: [expected optimal value]
+//! - Reference: [cite pkgref source if applicable, e.g., "Based on qubogen test case"]
 //!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
 use problemreductions::prelude::*;
 
 fn main() {
-    // 1. Create source problem (Petersen-scale instance)
+    // 1. Create source problem
+    // Use instances from reference packages where available:
+    // - ProblemReductions.jl examples (Petersen graph, demo graphs)
+    // - qubogen test cases (small graphs with known solutions)
+    // - UnitDiskMapping.jl examples
     let source = SourceProblem::new(...);
 
     // 2. Reduce to target
     let reduction = ReduceTo::<TargetProblem>::reduce_to(&source);
     let target = reduction.target_problem();
 
-    // 3. Solve target problem
+    // 3. Print problem transformation metrics
+    println!("\n=== Problem Transformation ===");
+    println!("Source: {} with {} variables",
+             SourceProblem::NAME, source.num_variables());
+    println!("Target: {} with {} variables",
+             TargetProblem::NAME, target.num_variables());
+
+    // 4. Solve target problem
     let solver = BruteForce::new();
     let target_solutions = solver.find_best(target);
+    println!("\n=== Solution ===");
+    println!("Target solutions found: {}", target_solutions.len());
 
-    // 4. Extract source solution
+    // 5. Extract source solution
     let source_solution = reduction.extract_solution(&target_solutions[0]);
-
-    // 5. Verify solution
     println!("Source solution: {:?}", source_solution);
-    assert!(source.is_valid_solution(&source_solution));
-    println!("✓ Reduction verified");
+
+    // 6. Verify and print result
+    let size = source.solution_size(&source_solution);
+    println!("Solution size: {:?}", size);
+    assert!(size.is_valid);
+    println!("\n✓ Reduction verified successfully");
 }
 ```
 
@@ -180,7 +197,37 @@ fn main() {
 29. `reduction_circuit_to_spinglass.rs`
 30. `reduction_factoring_to_circuit.rs`
 
-### 4. Implementation Workflow
+### 4. Reference Package Integration
+
+Use instances from reference packages for cross-verification and consistency:
+
+**Available in `pkgref/` (cloned from GitHub):**
+
+1. **ProblemReductions.jl** (`pkgref/ProblemReductions.jl/examples/`)
+   - Petersen graph examples
+   - Factoring → Circuit → SpinGlass
+   - Educational narrative style
+
+2. **UnitDiskMapping.jl** (`pkgref/UnitDiskMapping.jl/examples/`)
+   - 5-vertex demo graph: edges `[(1,2), (2,4), (3,4), (1,3), (4,5), (1,5)]`
+   - Petersen graph mapping
+   - Comprehensive tutorial examples
+
+3. **qubogen** (`pkgref/qubogen/tests/`)
+   - Small test instances (5 nodes) with known QUBO matrices
+   - Graph coloring: 5 nodes, 3 colors
+   - Max-Cut, MVC, Set Packing test cases
+   - Max-2-SAT examples
+
+**Instance Selection Strategy:**
+
+- **Graph problems**: Use Petersen graph (10 vertices) or UnitDiskMapping's 5-vertex demo graph
+- **QUBO reductions**: Cross-reference with qubogen test cases where applicable
+- **SAT problems**: Small formulas (3-4 variables) with known solutions
+- **Factoring**: Use 6 = 2×3 from ProblemReductions.jl example
+- **Document reference source** in example docstring when using external instance
+
+### 5. Implementation Workflow
 
 **Pass 1: Add theorem labels**
 - Scan all `#theorem[...]` blocks in Section 3
@@ -198,8 +245,12 @@ fn main() {
 
 **Pass 4: Create example files**
 - Extract embedded examples to standalone files
-- Create remaining examples with Petersen-scale instances
-- Each file: docstring + closed-loop verification
+- For each new example:
+  - Check `pkgref/` for matching instances in reference packages
+  - Use reference instances where available for cross-verification
+  - Document source in docstring (e.g., "Based on qubogen test case")
+  - Add detailed output showing problem transformation metrics
+- Each file: detailed docstring + closed-loop verification with metrics
 
 **Pass 5: Verification**
 - All theorems labeled
@@ -227,7 +278,9 @@ fn main() {
 
 ## Notes
 
-- Docstrings explain math and example instance, NOT reduction algorithm (kept in paper)
-- Examples use minimal but non-trivial instances (Petersen graph scale preferred)
-- Separation of concerns: examples demonstrate, paper specifies
-- GitHub links use path: `/blob/main/examples/reduction_*.rs`
+- **Docstrings**: Explain math and example instance, NOT reduction algorithm (kept in paper)
+- **Instance selection**: Prefer instances from reference packages (ProblemReductions.jl, UnitDiskMapping.jl, qubogen) for cross-verification
+- **Output style**: Inspired by UnitDiskMapping.jl - show problem transformation metrics and verification details
+- **Separation of concerns**: Examples demonstrate mechanics, paper provides mathematical specification
+- **GitHub links**: Use path `/blob/main/examples/reduction_*.rs`
+- **Reference packages**: Located in `pkgref/` (gitignored, cloned for development reference)
