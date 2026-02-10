@@ -52,8 +52,8 @@ fn crossat(
 
 /// Map a graph to a weighted triangular lattice grid graph using optimal path decomposition.
 ///
-/// This is the main entry point for triangular lattice mapping. It uses the
-/// MinhThiTrick path decomposition method by default.
+/// This is the main entry point for triangular lattice mapping. It uses
+/// automatic path decomposition (exact for ≤30 vertices, greedy for larger).
 ///
 /// # Arguments
 /// * `num_vertices` - Number of vertices in the original graph
@@ -75,7 +75,7 @@ fn crossat(
 /// assert!(result.grid_graph.num_vertices() > 0);
 /// ```
 pub fn map_weighted(num_vertices: usize, edges: &[(usize, usize)]) -> MappingResult {
-    map_weighted_with_method(num_vertices, edges, PathDecompositionMethod::MinhThiTrick)
+    map_weighted_with_method(num_vertices, edges, PathDecompositionMethod::Auto)
 }
 
 /// Map a graph to weighted triangular lattice using a specific path decomposition method.

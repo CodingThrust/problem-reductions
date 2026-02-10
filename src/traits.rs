@@ -9,7 +9,7 @@ use std::ops::AddAssign;
 /// This trait defines the interface for computational problems that can be
 /// solved by enumeration or reduction to other problems.
 pub trait Problem: Clone {
-    /// Base name of this problem type (e.g., "IndependentSet").
+    /// Base name of this problem type (e.g., "MaximumIndependentSet").
     const NAME: &'static str;
 
     /// Returns attributes describing this problem variant.

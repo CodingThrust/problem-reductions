@@ -14,7 +14,7 @@ use crate::models::satisfiability::Satisfiability;
 use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
-use crate::rules::sat_independentset::BoolVar;
+use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 use crate::types::ProblemSize;

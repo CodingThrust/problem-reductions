@@ -5,7 +5,7 @@ use serde::Serialize;
 
 /// A registered problem schema entry for static inventory registration.
 pub struct ProblemSchemaEntry {
-    /// Problem name (e.g., "IndependentSet").
+    /// Problem name (e.g., "MaximumIndependentSet").
     pub name: &'static str,
     /// Category (e.g., "graph", "optimization").
     pub category: &'static str,

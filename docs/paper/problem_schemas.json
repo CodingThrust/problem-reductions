@@ -76,40 +76,6 @@
     ]
   },
   {
-    "name": "Clique",
-    "category": "graph",
-    "description": "Find maximum weight clique in a graph",
-    "fields": [
-      {
-        "name": "graph",
-        "type_name": "G",
-        "description": "The underlying graph G=(V,E)"
-      },
-      {
-        "name": "weights",
-        "type_name": "Vec<W>",
-        "description": "Vertex weights w: V -> R"
-      }
-    ]
-  },
-  {
-    "name": "DominatingSet",
-    "category": "graph",
-    "description": "Find minimum weight dominating set in a graph",
-    "fields": [
-      {
-        "name": "graph",
-        "type_name": "G",
-        "description": "The underlying graph G=(V,E)"
-      },
-      {
-        "name": "weights",
-        "type_name": "Vec<W>",
-        "description": "Vertex weights w: V -> R"
-      }
-    ]
-  },
-  {
     "name": "Factoring",
     "category": "specialized",
     "description": "Factor a composite integer into two factors",
@@ -164,23 +130,6 @@
     ]
   },
   {
-    "name": "IndependentSet",
-    "category": "graph",
-    "description": "Find maximum weight independent set in a graph",
-    "fields": [
-      {
-        "name": "graph",
-        "type_name": "G",
-        "description": "The underlying graph G=(V,E)"
-      },
-      {
-        "name": "weights",
-        "type_name": "Vec<W>",
-        "description": "Vertex weights w: V -> R"
-      }
-    ]
-  },
-  {
     "name": "KColoring",
     "category": "graph",
     "description": "Find valid k-coloring of a graph",
@@ -215,23 +164,6 @@
     ]
   },
   {
-    "name": "Matching",
-    "category": "graph",
-    "description": "Find maximum weight matching in a graph",
-    "fields": [
-      {
-        "name": "graph",
-        "type_name": "G",
-        "description": "The underlying graph G=(V,E)"
-      },
-      {
-        "name": "edge_weights",
-        "type_name": "Vec<W>",
-        "description": "Edge weights w: E -> R"
-      }
-    ]
-  },
-  {
     "name": "MaxCut",
     "category": "graph",
     "description": "Find maximum weight cut in a graph",
@@ -252,6 +184,130 @@
     "name": "MaximalIS",
     "category": "graph",
     "description": "Find maximum weight maximal independent set",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      }
+    ]
+  },
+  {
+    "name": "MaximumClique",
+    "category": "graph",
+    "description": "Find maximum weight clique in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      }
+    ]
+  },
+  {
+    "name": "MaximumIndependentSet",
+    "category": "graph",
+    "description": "Find maximum weight independent set in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      }
+    ]
+  },
+  {
+    "name": "MaximumMatching",
+    "category": "graph",
+    "description": "Find maximum weight matching in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge weights w: E -> R"
+      }
+    ]
+  },
+  {
+    "name": "MaximumSetPacking",
+    "category": "set",
+    "description": "Find maximum weight collection of disjoint sets",
+    "fields": [
+      {
+        "name": "sets",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Collection of sets over a universe"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Weight for each set"
+      }
+    ]
+  },
+  {
+    "name": "MinimumDominatingSet",
+    "category": "graph",
+    "description": "Find minimum weight dominating set in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      }
+    ]
+  },
+  {
+    "name": "MinimumSetCovering",
+    "category": "set",
+    "description": "Find minimum weight collection covering the universe",
+    "fields": [
+      {
+        "name": "universe_size",
+        "type_name": "usize",
+        "description": "Size of the universe U"
+      },
+      {
+        "name": "sets",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Collection of subsets of U"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Weight for each set"
+      }
+    ]
+  },
+  {
+    "name": "MinimumVertexCover",
+    "category": "graph",
+    "description": "Find minimum weight vertex cover in a graph",
     "fields": [
       {
         "name": "graph",
@@ -332,45 +388,6 @@
     ]
   },
   {
-    "name": "SetCovering",
-    "category": "set",
-    "description": "Find minimum weight collection covering the universe",
-    "fields": [
-      {
-        "name": "universe_size",
-        "type_name": "usize",
-        "description": "Size of the universe U"
-      },
-      {
-        "name": "sets",
-        "type_name": "Vec<Vec<usize>>",
-        "description": "Collection of subsets of U"
-      },
-      {
-        "name": "weights",
-        "type_name": "Vec<W>",
-        "description": "Weight for each set"
-      }
-    ]
-  },
-  {
-    "name": "SetPacking",
-    "category": "set",
-    "description": "Find maximum weight collection of disjoint sets",
-    "fields": [
-      {
-        "name": "sets",
-        "type_name": "Vec<Vec<usize>>",
-        "description": "Collection of sets over a universe"
-      },
-      {
-        "name": "weights",
-        "type_name": "Vec<W>",
-        "description": "Weight for each set"
-      }
-    ]
-  },
-  {
     "name": "SpinGlass",
     "category": "optimization",
     "description": "Minimize Ising Hamiltonian on a graph",
@@ -389,23 +406,6 @@
         "name": "fields",
         "type_name": "Vec<W>",
         "description": "On-site fields h_i"
-      }
-    ]
-  },
-  {
-    "name": "VertexCovering",
-    "category": "graph",
-    "description": "Find minimum weight vertex cover in a graph",
-    "fields": [
-      {
-        "name": "graph",
-        "type_name": "G",
-        "description": "The underlying graph G=(V,E)"
-      },
-      {
-        "name": "weights",
-        "type_name": "Vec<W>",
-        "description": "Vertex weights w: V -> R"
       }
     ]
   }

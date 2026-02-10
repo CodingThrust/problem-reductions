@@ -31,39 +31,39 @@ fn test_const_usize_str() {
 #[test]
 fn test_variant_for_problems() {
     use crate::models::graph::{
-        DominatingSet, IndependentSet, KColoring, Matching, MaxCut, MaximalIS, VertexCovering,
+        MinimumDominatingSet, MaximumIndependentSet, KColoring, MaximumMatching, MaxCut, MaximalIS, MinimumVertexCover,
     };
     use crate::models::optimization::{SpinGlass, QUBO};
     use crate::models::satisfiability::{KSatisfiability, Satisfiability};
-    use crate::models::set::{SetCovering, SetPacking};
+    use crate::models::set::{MinimumSetCovering, MaximumSetPacking};
     use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
     use crate::topology::SimpleGraph;
     use crate::traits::Problem;
 
-    // Test IndependentSet variants
-    let v = IndependentSet::<SimpleGraph, i32>::variant();
+    // Test MaximumIndependentSet variants
+    let v = MaximumIndependentSet::<SimpleGraph, i32>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].0, "graph");
     assert_eq!(v[0].1, "SimpleGraph");
     assert_eq!(v[1].0, "weight");
     assert_eq!(v[1].1, "i32");
 
-    let v = IndependentSet::<SimpleGraph, f64>::variant();
+    let v = MaximumIndependentSet::<SimpleGraph, f64>::variant();
     assert_eq!(v[1].1, "f64");
 
-    // Test VertexCovering
-    let v = VertexCovering::<SimpleGraph, i32>::variant();
+    // Test MinimumVertexCover
+    let v = MinimumVertexCover::<SimpleGraph, i32>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
     assert_eq!(v[1].1, "i32");
 
-    // Test DominatingSet
-    let v = DominatingSet::<SimpleGraph, i32>::variant();
+    // Test MinimumDominatingSet
+    let v = MinimumDominatingSet::<SimpleGraph, i32>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
-    // Test Matching
-    let v = Matching::<SimpleGraph, i32>::variant();
+    // Test MaximumMatching
+    let v = MaximumMatching::<SimpleGraph, i32>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
@@ -95,12 +95,12 @@ fn test_variant_for_problems() {
     let v = KSatisfiability::<3, i32>::variant();
     assert_eq!(v.len(), 2);
 
-    // Test SetPacking
-    let v = SetPacking::<i32>::variant();
+    // Test MaximumSetPacking
+    let v = MaximumSetPacking::<i32>::variant();
     assert_eq!(v.len(), 2);
 
-    // Test SetCovering
-    let v = SetCovering::<i32>::variant();
+    // Test MinimumSetCovering
+    let v = MinimumSetCovering::<i32>::variant();
     assert_eq!(v.len(), 2);
 
     // Test SpinGlass

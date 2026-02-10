@@ -9,14 +9,14 @@ use problemreductions::models::set::*;
 use problemreductions::models::specialized::*;
 use problemreductions::prelude::*;
 
-/// Benchmark IndependentSet on graphs of varying sizes.
+/// Benchmark MaximumIndependentSet on graphs of varying sizes.
 fn bench_independent_set(c: &mut Criterion) {
-    let mut group = c.benchmark_group("IndependentSet");
+    let mut group = c.benchmark_group("MaximumIndependentSet");
 
     for n in [4, 6, 8, 10].iter() {
         // Create a path graph with n vertices
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let problem = IndependentSet::<SimpleGraph, i32>::new(*n, edges);
+        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(*n, edges);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
@@ -27,13 +27,13 @@ fn bench_independent_set(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark VertexCovering on graphs of varying sizes.
+/// Benchmark MinimumVertexCover on graphs of varying sizes.
 fn bench_vertex_covering(c: &mut Criterion) {
-    let mut group = c.benchmark_group("VertexCovering");
+    let mut group = c.benchmark_group("MinimumVertexCover");
 
     for n in [4, 6, 8, 10].iter() {
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let problem = VertexCovering::<SimpleGraph, i32>::new(*n, edges);
+        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(*n, edges);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
@@ -109,16 +109,16 @@ fn bench_spin_glass(c: &mut Criterion) {
     group.finish();
 }
 
-/// Benchmark SetCovering on varying sizes.
+/// Benchmark MinimumSetCovering on varying sizes.
 fn bench_set_covering(c: &mut Criterion) {
-    let mut group = c.benchmark_group("SetCovering");
+    let mut group = c.benchmark_group("MinimumSetCovering");
 
     for num_sets in [4, 6, 8, 10].iter() {
         // Create overlapping sets
         let sets: Vec<Vec<usize>> = (0..*num_sets)
             .map(|i| vec![i, (i + 1) % *num_sets, (i + 2) % *num_sets])
             .collect();
-        let problem = SetCovering::<i32>::new(*num_sets, sets);
+        let problem = MinimumSetCovering::<i32>::new(*num_sets, sets);
         let solver = BruteForce::new();
 
         group.bench_with_input(
@@ -154,7 +154,7 @@ fn bench_matching(c: &mut Criterion) {
 
     for n in [4, 6, 8, 10].iter() {
         let edges: Vec<(usize, usize, i32)> = (0..*n - 1).map(|i| (i, i + 1, 1)).collect();
-        let problem = Matching::new(*n, edges);
+        let problem = MaximumMatching::new(*n, edges);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
@@ -192,9 +192,9 @@ fn bench_comparison(c: &mut Criterion) {
 
     let solver = BruteForce::new();
 
-    // IndependentSet with 8 vertices
-    let is_problem = IndependentSet::<SimpleGraph, i32>::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]);
-    group.bench_function("IndependentSet", |b| {
+    // MaximumIndependentSet with 8 vertices
+    let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]);
+    group.bench_function("MaximumIndependentSet", |b| {
         b.iter(|| solver.find_best(black_box(&is_problem)))
     });
 

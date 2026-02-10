@@ -214,7 +214,7 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
 
 ## Problem Variants
 
-Problems are parameterized by graph type `G` and weight type `W`. The base variant uses `SimpleGraph` and `Unweighted` (e.g., `IndependentSet`). Graph variants specify a different topology (e.g., `IndependentSet/GridGraph`), and weighted variants use numeric weights (e.g., `IndependentSet/Weighted`). Variants appear as separate nodes in the reduction graph when they have distinct reductions.
+Problems are parameterized by graph type `G` and weight type `W`. The base variant uses `SimpleGraph` and `Unweighted` (e.g., `MaximumIndependentSet`). Graph variants specify a different topology (e.g., `MaximumIndependentSet/GridGraph`), and weighted variants use numeric weights (e.g., `MaximumIndependentSet/Weighted`). Variants appear as separate nodes in the reduction graph when they have distinct reductions.
 
 The library supports four graph topologies:
 
@@ -229,7 +229,7 @@ The library supports four graph topologies:
 use problemreductions::prelude::*;
 
 // Create an Independent Set problem on a triangle graph
-let problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+let problem = MaximumIndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 
 // Solve with brute force
 let solver = BruteForce::new();

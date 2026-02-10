@@ -33,13 +33,13 @@ pub struct ReductionGraphJson {
 /// A node in the reduction graph JSON.
 #[derive(Debug, Clone, Serialize)]
 pub struct NodeJson {
-    /// Base problem name (e.g., "IndependentSet").
+    /// Base problem name (e.g., "MaximumIndependentSet").
     pub name: String,
     /// Variant attributes as key-value pairs.
     pub variant: std::collections::BTreeMap<String, String>,
     /// Category of the problem (e.g., "graph", "set", "optimization", "satisfiability", "specialized").
     pub category: String,
-    /// Relative rustdoc path (e.g., "models/graph/independent_set").
+    /// Relative rustdoc path (e.g., "models/graph/maximum_independent_set").
     pub doc_path: String,
 }
 
@@ -291,18 +291,18 @@ impl ReductionGraph {
         // Register problem types - multiple concrete types can share a base name
         register! {
             // Graph problems
-            IndependentSet<SimpleGraph, i32> => "IndependentSet",
-            IndependentSet<SimpleGraph, f64> => "IndependentSet",
-            VertexCovering<SimpleGraph, i32> => "VertexCovering",
-            VertexCovering<SimpleGraph, f64> => "VertexCovering",
+            MaximumIndependentSet<SimpleGraph, i32> => "MaximumIndependentSet",
+            MaximumIndependentSet<SimpleGraph, f64> => "MaximumIndependentSet",
+            MinimumVertexCover<SimpleGraph, i32> => "MinimumVertexCover",
+            MinimumVertexCover<SimpleGraph, f64> => "MinimumVertexCover",
             MaxCut<SimpleGraph, i32> => "MaxCut",
             MaxCut<SimpleGraph, f64> => "MaxCut",
-            Matching<SimpleGraph, i32> => "Matching",
-            DominatingSet<SimpleGraph, i32> => "DominatingSet",
+            MaximumMatching<SimpleGraph, i32> => "MaximumMatching",
+            MinimumDominatingSet<SimpleGraph, i32> => "MinimumDominatingSet",
             KColoring<3, SimpleGraph, i32> => "KColoring",
             // Set problems
-            SetPacking<i32> => "SetPacking",
-            SetCovering<i32> => "SetCovering",
+            MaximumSetPacking<i32> => "MaximumSetPacking",
+            MinimumSetCovering<i32> => "MinimumSetCovering",
             // Optimization problems
             SpinGlass<SimpleGraph, i32> => "SpinGlass",
             SpinGlass<SimpleGraph, f64> => "SpinGlass",
@@ -691,11 +691,11 @@ impl ReductionGraph {
     /// Maps name → actual Rust module location (which may differ from the visualization category).
     fn compute_doc_path(name: &str) -> String {
         let module = match name {
-            "IndependentSet" | "MaximalIS" | "VertexCovering" | "DominatingSet" | "KColoring"
-            | "Matching" | "MaxCut" | "Clique" => "graph",
+            "MaximumIndependentSet" | "MaximalIS" | "MinimumVertexCover" | "MinimumDominatingSet" | "KColoring"
+            | "MaximumMatching" | "MaxCut" | "MaximumClique" => "graph",
             "Satisfiability" | "KSatisfiability" => "satisfiability",
             "SpinGlass" | "QUBO" | "ILP" => "optimization",
-            "SetCovering" | "SetPacking" => "set",
+            "MinimumSetCovering" | "MaximumSetPacking" => "set",
             _ => "specialized",
         };
         format!("models/{module}/struct.{name}.html")
@@ -703,15 +703,16 @@ impl ReductionGraph {
 
     /// Categorize a type name into a problem category.
     fn categorize_type(name: &str) -> &'static str {
-        if name.contains("IndependentSet")
+        if name.contains("MaximumIndependentSet")
             || name.contains("VertexCover")
             || name.contains("MaxCut")
             || name.contains("Coloring")
-            || name.contains("DominatingSet")
-            || name.contains("Matching")
+            || name.contains("MinimumDominatingSet")
+            || name.contains("MaximumMatching")
+            || name.contains("MaximumClique")
         {
             "graph"
-        } else if name.contains("SetPacking") || name.contains("SetCover") {
+        } else if name.contains("MaximumSetPacking") || name.contains("SetCover") {
             "set"
         } else if name.contains("SpinGlass") || name.contains("QUBO") || name.contains("ILP") {
             "optimization"

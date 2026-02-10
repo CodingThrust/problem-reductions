@@ -6,7 +6,7 @@ use std::fmt;
 /// Marker trait for numeric weight types.
 ///
 /// Weight subsumption uses Rust's `From` trait:
-/// - `i32 → f64` is valid (From<i32> for f64 exists)
+/// - `i32 → f64` is valid (`From<i32>` for f64 exists)
 /// - `f64 → i32` is invalid (no lossless conversion)
 pub trait NumericWeight:
     Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static

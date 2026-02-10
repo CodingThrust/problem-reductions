@@ -17,7 +17,7 @@ use std::path::Path;
 /// One side (source or target) of a reduction.
 #[derive(Serialize, Clone, Debug)]
 pub struct ProblemSide {
-    /// Problem name matching `Problem::NAME` (e.g., `"IndependentSet"`).
+    /// Problem name matching `Problem::NAME` (e.g., `"MaximumIndependentSet"`).
     pub problem: String,
     /// Variant attributes (e.g., `{"graph": "SimpleGraph", "weight": "Unweighted"}`).
     pub variant: HashMap<String, String>,

@@ -19,7 +19,7 @@ fn test_collect_schemas_sorted_by_name() {
 fn test_collect_schemas_known_problems() {
     let schemas = collect_schemas();
     let names: Vec<&str> = schemas.iter().map(|s| s.name.as_str()).collect();
-    for expected in &["IndependentSet", "VertexCovering", "QUBO", "SpinGlass", "Satisfiability", "KColoring"] {
+    for expected in &["MaximumIndependentSet", "MinimumVertexCover", "QUBO", "SpinGlass", "Satisfiability", "KColoring"] {
         assert!(names.contains(expected), "Missing schema for {}", expected);
     }
 }
@@ -27,19 +27,19 @@ fn test_collect_schemas_known_problems() {
 #[test]
 fn test_schema_fields_populated() {
     let schemas = collect_schemas();
-    let is_schema = schemas.iter().find(|s| s.name == "IndependentSet").unwrap();
+    let is_schema = schemas.iter().find(|s| s.name == "MaximumIndependentSet").unwrap();
     assert_eq!(is_schema.category, "graph");
-    assert!(!is_schema.fields.is_empty(), "IndependentSet should have fields");
+    assert!(!is_schema.fields.is_empty(), "MaximumIndependentSet should have fields");
     let field_names: Vec<&str> = is_schema.fields.iter().map(|f| f.name.as_str()).collect();
-    assert!(field_names.contains(&"graph"), "IndependentSet should have 'graph' field");
-    assert!(field_names.contains(&"weights"), "IndependentSet should have 'weights' field");
+    assert!(field_names.contains(&"graph"), "MaximumIndependentSet should have 'graph' field");
+    assert!(field_names.contains(&"weights"), "MaximumIndependentSet should have 'weights' field");
 }
 
 #[test]
 fn test_schema_json_serialization() {
     let schemas = collect_schemas();
     let json = serde_json::to_string(&schemas).expect("Schemas should serialize to JSON");
-    assert!(json.contains("IndependentSet"));
+    assert!(json.contains("MaximumIndependentSet"));
     assert!(json.contains("graph"));
 }
 

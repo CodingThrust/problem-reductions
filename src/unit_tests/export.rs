@@ -92,7 +92,7 @@ fn test_variant_to_map_multiple() {
 #[test]
 fn test_lookup_overhead_known_reduction() {
     // IS -> VC is a known registered reduction
-    let result = lookup_overhead("IndependentSet", "VertexCovering");
+    let result = lookup_overhead("MaximumIndependentSet", "MinimumVertexCover");
     assert!(result.is_some());
 }
 
@@ -104,7 +104,7 @@ fn test_lookup_overhead_unknown_reduction() {
 
 #[test]
 fn test_lookup_overhead_or_empty_known() {
-    let overhead = lookup_overhead_or_empty("IndependentSet", "VertexCovering");
+    let overhead = lookup_overhead_or_empty("MaximumIndependentSet", "MinimumVertexCover");
     assert!(!overhead.output_size.is_empty());
 }
 
@@ -162,12 +162,12 @@ fn test_write_example_creates_files() {
 #[test]
 fn test_problem_side_serialization() {
     let side = ProblemSide {
-        problem: "IndependentSet".to_string(),
+        problem: "MaximumIndependentSet".to_string(),
         variant: variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]),
         instance: serde_json::json!({"num_vertices": 4, "edges": [[0, 1], [1, 2]]}),
     };
     let json = serde_json::to_value(&side).unwrap();
-    assert_eq!(json["problem"], "IndependentSet");
+    assert_eq!(json["problem"], "MaximumIndependentSet");
     assert!(json["variant"]["graph"] == "SimpleGraph");
     assert!(json["instance"]["num_vertices"] == 4);
 }

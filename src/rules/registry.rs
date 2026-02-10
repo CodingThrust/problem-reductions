@@ -35,9 +35,9 @@ impl ReductionOverhead {
 /// A registered reduction entry for static inventory registration.
 /// Uses function pointer to lazily create the overhead (avoids static allocation issues).
 pub struct ReductionEntry {
-    /// Base name of source problem (e.g., "IndependentSet").
+    /// Base name of source problem (e.g., "MaximumIndependentSet").
     pub source_name: &'static str,
-    /// Base name of target problem (e.g., "VertexCovering").
+    /// Base name of target problem (e.g., "MinimumVertexCover").
     pub target_name: &'static str,
     /// Variant attributes for source problem as key-value pairs.
     /// Common keys: "graph" (graph type), "weight" (weight type).

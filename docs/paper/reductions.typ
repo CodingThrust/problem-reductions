@@ -23,38 +23,17 @@
 
 #let problem-schemas = json("problem_schemas.json")
 
-// Problem name abbreviations for theorem labels
-#let name-abbrev = (
-  "IndependentSet": "is",
-  "VertexCovering": "vc",
-  "MaxCut": "maxcut",
-  "KColoring": "coloring",
-  "DominatingSet": "dominatingset",
-  "Matching": "matching",
-  "Clique": "clique",
-  "SetPacking": "setpacking",
-  "SetCovering": "setcovering",
-  "SpinGlass": "spinglass",
-  "QUBO": "qubo",
-  "ILP": "ilp",
-  "Satisfiability": "sat",
-  "KSatisfiability": "ksat",
-  "CircuitSAT": "circuit",
-  "Factoring": "factoring",
-  "GridGraph": "gridgraph",
-)
-
 // Problem display names for theorem headers
 #let display-name = (
-  "IndependentSet": "IS",
-  "VertexCovering": "VC",
+  "MaximumIndependentSet": "MIS",
+  "MinimumVertexCover": "MVC",
   "MaxCut": "Max-Cut",
   "KColoring": "Coloring",
-  "DominatingSet": "Dominating Set",
-  "Matching": "Matching",
-  "Clique": "Clique",
-  "SetPacking": "Set Packing",
-  "SetCovering": "Set Covering",
+  "MinimumDominatingSet": "Min Dominating Set",
+  "MaximumMatching": "Max Matching",
+  "MaximumClique": "Max Clique",
+  "MaximumSetPacking": "Max Set Packing",
+  "MinimumSetCovering": "Min Set Covering",
   "SpinGlass": "Spin Glass",
   "QUBO": "QUBO",
   "ILP": "ILP",
@@ -62,73 +41,33 @@
   "KSatisfiability": [$k$-SAT],
   "CircuitSAT": "CircuitSAT",
   "Factoring": "Factoring",
-  "GridGraph": "GridGraph IS",
+  "GridGraph": "GridGraph MIS",
 )
 
-// Problem name to definition label mapping
-#let def-label-map = (
-  "IndependentSet": "def:independent-set",
-  "VertexCovering": "def:vertex-cover",
-  "MaxCut": "def:max-cut",
-  "KColoring": "def:coloring",
-  "DominatingSet": "def:dominating-set",
-  "Matching": "def:matching",
-  "Clique": "def:clique",
-  "SetPacking": "def:set-packing",
-  "SetCovering": "def:set-covering",
-  "SpinGlass": "def:spin-glass",
-  "QUBO": "def:qubo",
-  "ILP": "def:ilp",
-  "Satisfiability": "def:satisfiability",
-  "KSatisfiability": "def:k-sat",
-  "CircuitSAT": "def:circuit-sat",
-  "Factoring": "def:factoring",
-  "GridGraph": "def:independent-set",
-)
+// Definition label: "def:<ProblemName>" — each definition block must have a matching label
 
 
-// Special case mappings where JSON direction differs from theorem label
-#let label-overrides = (
-  "SetPacking->IndependentSet": "thm:is-to-setpacking",
-  "VertexCovering->IndependentSet": "thm:is-to-vc",
-)
-
-// Generate theorem label from source/target names (canonical direction)
+// Generate theorem label from source/target names (uses full names for consistency)
 #let reduction-label(source, target) = {
-  // Check for override first
-  let key = source + "->" + target
-  if key in label-overrides {
-    return label(label-overrides.at(key))
-  }
-  let src = name-abbrev.at(source, default: lower(source))
-  let tgt = name-abbrev.at(target, default: lower(target))
-  label("thm:" + src + "-to-" + tgt)
+  label("thm:" + source + "-to-" + target)
 }
 
+// State for tracking which reduction rules are described in the paper
+#let covered-rules = state("covered-rules", ())
+
 // Extract reductions for a problem from graph-data (returns (name, label) pairs)
-// For bidirectional edges, uses the canonical (stored) direction for the label
 #let get-reductions-to(problem-name) = {
-  // Direct edges: source = problem-name
-  let direct = graph-data.edges
+  graph-data.edges
     .filter(e => e.source.name == problem-name)
     .map(e => (name: e.target.name, lbl: reduction-label(e.source.name, e.target.name)))
-  // Reverse of bidirectional edges: target = problem-name, bidirectional = true
-  let reverse = graph-data.edges
-    .filter(e => e.target.name == problem-name and e.bidirectional)
-    .map(e => (name: e.source.name, lbl: reduction-label(e.source.name, e.target.name)))
-  (direct + reverse).dedup(key: e => e.name)
+    .dedup(key: e => e.name)
 }
 
 #let get-reductions-from(problem-name) = {
-  // Direct edges: target = problem-name
-  let direct = graph-data.edges
+  graph-data.edges
     .filter(e => e.target.name == problem-name)
     .map(e => (name: e.source.name, lbl: reduction-label(e.source.name, e.target.name)))
-  // Reverse of bidirectional edges: source = problem-name, bidirectional = true
-  let reverse = graph-data.edges
-    .filter(e => e.source.name == problem-name and e.bidirectional)
-    .map(e => (name: e.target.name, lbl: reduction-label(e.source.name, e.target.name)))
-  (direct + reverse).dedup(key: e => e.name)
+    .dedup(key: e => e.name)
 }
 
 // Render a single reduction with link
@@ -179,22 +118,8 @@
   ]
 }
 
-// Extract primary variable count from an instance dict.
-#let instance-vars(inst) = {
-  if "num_variables" in inst { inst.num_variables }
-  else if "num_vertices" in inst { inst.num_vertices }
-  else if "num_vars" in inst { inst.num_vars }
-  else if "num_sets" in inst { inst.num_sets }
-  else if "num_spins" in inst { inst.num_spins }
-  else if "num_gates" in inst { inst.num_gates }
-  else if "num_bits_first" in inst and "num_bits_second" in inst { inst.num_bits_first + inst.num_bits_second }
-  else { 0 }
-}
-
 // Render a concrete example box from JSON data (unified schema)
 #let reduction-example(data, caption: none, body) = {
-  let src-vars = instance-vars(data.source.instance)
-  let tgt-vars = instance-vars(data.target.instance)
   block(
     width: 100%,
     inset: (x: 1em, y: 0.8em),
@@ -205,10 +130,9 @@
       text(weight: "bold")[Concrete Example: #caption]
       parbreak()
     }
-    *Source:* #data.source.problem with #src-vars variables
+    *Source:* #data.source.problem
     #h(1em)
-    *Target:* #data.target.problem with #tgt-vars variables \
-    *Overhead:* #if src-vars > 0 and tgt-vars > 0 [#calc.round(tgt-vars / src-vars, digits: 1)x variable growth] else [—]
+    *Target:* #data.target.problem
     #if body != none { parbreak(); body }
   ]
 }
@@ -224,15 +148,38 @@
   base_level: 1,
 )
 
-// Look up overhead for a reduction edge from graph-data
-#let get-overhead(source, target) = {
-  // Try forward direction
+// Problem definition wrapper: auto-adds schema, reductions list, and label
+#let problem-def(name, title, body) = {
+  [#definition(title)[
+    #body
+    #render-schema(name)
+    #render-reductions(name)
+  ]]
+}
+
+// Find edge in graph-data by source/target names
+#let find-edge(source, target) = {
   let edge = graph-data.edges.find(e => e.source.name == source and e.target.name == target)
-  // Try reverse (for bidirectional)
   if edge == none {
     edge = graph-data.edges.find(e => e.source.name == target and e.target.name == source)
   }
-  if edge != none and edge.overhead.len() > 0 { edge.overhead } else { none }
+  edge
+}
+
+// Build display name from a graph-data node (name + variant)
+#let variant-display(node) = {
+  let base = display-name.at(node.name)
+  if node.variant.len() == 0 { return base }
+  let parts = ()
+  if "graph" in node.variant and node.variant.graph != "SimpleGraph" {
+    parts.push(node.variant.graph)
+  }
+  if "weight" in node.variant {
+    if node.variant.weight == "i32" { parts.push("weighted") }
+    else if node.variant.weight == "f64" { parts.push("real-weighted") }
+  }
+  if "k" in node.variant { parts.push[$k$-ary] }
+  if parts.len() > 0 { [#base (#parts.join(", "))] } else { base }
 }
 
 // Format overhead fields as inline text
@@ -244,33 +191,33 @@
 // Unified function for reduction rules: theorem + proof + optional example
 #let reduction-rule(
   source, target,
-  bidirectional: false,
-  source-display: none,
-  target-display: none,
   example: none,
   example-caption: none,
   extra: none,
   theorem-body, proof-body,
 ) = {
-  let arrow = if bidirectional { sym.arrow.l.r } else { sym.arrow.r }
-  let src-disp = if source-display != none { source-display }
+  let arrow = sym.arrow.r
+  let edge = find-edge(source, target)
+  let src-disp = if edge != none { variant-display(edge.source) }
                  else { display-name.at(source) }
-  let tgt-disp = if target-display != none { target-display }
+  let tgt-disp = if edge != none { variant-display(edge.target) }
                  else { display-name.at(target) }
-  let src-def = def-label-map.at(source)
-  let tgt-def = def-label-map.at(target)
-  let problems = if src-def == tgt-def {
-    [_Problem:_ #ref(label(src-def)).]
-  } else {
-    [_Problems:_ #ref(label(src-def)), #ref(label(tgt-def)).]
-  }
-  let overhead = get-overhead(source, target)
-  let src-abbr = name-abbrev.at(source, default: lower(source))
-  let tgt-abbr = name-abbrev.at(target, default: lower(target))
-  let thm-lbl = label("thm:" + src-abbr + "-to-" + tgt-abbr)
+  let src-lbl = label("def:" + source)
+  let tgt-lbl = label("def:" + target)
+  let overhead = if edge != none and edge.overhead.len() > 0 { edge.overhead } else { none }
+  let thm-lbl = label("thm:" + source + "-to-" + target)
+
+  covered-rules.update(old => old + ((source, target),))
 
   [#theorem[
-    *(#src-disp #arrow #tgt-disp)* #theorem-body [#problems]
+    *(#src-disp #arrow #tgt-disp)* #theorem-body
+    #context {
+      let refs = ()
+      if query(src-lbl).len() > 0 { refs.push(ref(src-lbl)) }
+      if source != target and query(tgt-lbl).len() > 0 { refs.push(ref(tgt-lbl)) }
+      if refs.len() == 1 { [_Problem:_ #refs.at(0).] }
+      else if refs.len() > 1 { [_Problems:_ #refs.join(", ").] }
+    }
     #if overhead != none { linebreak(); format-overhead(overhead) }
   ] #thm-lbl]
 
@@ -307,177 +254,206 @@ A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a po
 
 == Notation
 
-We use the following notation throughout. An _undirected graph_ $G = (V, E)$ consists of a vertex set $V$ and edge set $E subset.eq binom(V, 2)$. For a set $S$, $overline(S)$ or $V backslash S$ denotes its complement. We write $|S|$ for cardinality. For Boolean variables, $overline(x)$ denotes negation ($not x$). A _literal_ is a variable $x$ or its negation $overline(x)$. A _clause_ is a disjunction of literals. A formula in _conjunctive normal form_ (CNF) is a conjunction of clauses. We abbreviate Independent Set as IS, Vertex Cover as VC, and use $n$ for problem size, $m$ for number of clauses, and $k_j = |C_j|$ for clause size.
+We use the following notation throughout. An _undirected graph_ $G = (V, E)$ consists of a vertex set $V$ and edge set $E subset.eq binom(V, 2)$. For a set $S$, $overline(S)$ or $V backslash S$ denotes its complement. We write $|S|$ for cardinality. A _clique_ in $G$ is a subset $K subset.eq V$ where every pair of distinct vertices is adjacent: $(u, v) in E$ for all distinct $u, v in K$. A _unit disk graph_ is a graph where vertices are points on a 2D lattice and $(u, v) in E$ iff $d(u, v) <= r$ for some radius $r$; a _King's subgraph_ uses the 8-connectivity square grid with $r approx 1.5$. For Boolean variables, $overline(x)$ denotes negation ($not x$). A _literal_ is a variable $x$ or its negation $overline(x)$. A _clause_ is a disjunction of literals. A formula in _conjunctive normal form_ (CNF) is a conjunction of clauses. We abbreviate Independent Set as IS, Vertex Cover as VC, and use $n$ for problem size, $m$ for number of clauses, and $k_j = |C_j|$ for clause size.
 
 = Problem Definitions <sec:problems>
+
+Each problem definition follows this structure:
+
+#block(
+  inset: (x: 1em, y: 0.8em),
+  fill: rgb("#f8f8f8"),
+  stroke: (left: 2pt + rgb("#4a86e8")),
+)[
+  *Definition N (Problem Name).* Formal problem statement defining input, constraints, and objective.
+
+  #block(
+    stroke: (left: 2pt + luma(180)),
+    inset: (left: 8pt),
+  )[
+    #set text(size: 9pt)
+    #table(
+      columns: (auto, 1fr),
+      inset: (x: 6pt, y: 3pt),
+      align: (left, left),
+      stroke: none,
+      table.header(text(fill: luma(30), raw("ProblemName"))),
+      table.hline(stroke: 0.3pt + luma(200)),
+      text(fill: luma(60), raw("field_name")), text(fill: luma(60), raw("Field description from JSON schema")),
+    )
+  ]
+
+  #set text(size: 9pt, fill: luma(60))
+  _Reduces to:_ ProblemA, ProblemB. \
+  _Reduces from:_ ProblemC.
+]
+
+The gray schema table shows the JSON field names used in the library's data structures. The reduction links at the bottom connect to the corresponding theorems in @sec:reductions.
+
+
 
 == Graph Problems
 
 In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| = n$ vertices and $|E|$ edges.
 
-#definition("Independent Set (IS)")[
+#problem-def("MaximumIndependentSet", "Independent Set (IS)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
-
-  #render-schema("IndependentSet")
-  #render-reductions("IndependentSet")
-] <def:independent-set>
-
-#definition("Vertex Cover (VC)")[
-  Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
-
-  #render-schema("VertexCovering")
-  #render-reductions("VertexCovering")
-] <def:vertex-cover>
-
-#definition("Max-Cut")[
-  Given $G = (V, E)$ with weights $w: E -> RR$, find partition $(S, overline(S))$ maximizing $sum_((u,v) in E: u in S, v in overline(S)) w(u, v)$.
-
-  #render-schema("MaxCut")
-  #render-reductions("MaxCut")
-] <def:max-cut>
-
-#definition("Graph Coloring")[
-  Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
-
-  #render-schema("KColoring")
-  #render-reductions("KColoring")
-] <def:coloring>
-
-#definition("Dominating Set")[
-  Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall v in V: v in S or exists u in S: (u, v) in E$.
-
-  #render-schema("DominatingSet")
-  #render-reductions("DominatingSet")
-] <def:dominating-set>
-
-#definition("Matching")[
-  Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
-
-  #render-schema("Matching")
-  #render-reductions("Matching")
-] <def:matching>
-
-#definition("Clique")[
-  Given a graph $G = (V, E)$ and an integer $k$, the *Clique* problem asks whether there exists a subset $K subset.eq V$ of size at least $k$ such that every pair of distinct vertices in $K$ is adjacent, i.e., $(u, v) in E$ for all distinct $u, v in K$.
-
-  #render-reductions("Clique")
-] <def:clique>
-
-#definition("Unit Disk Graph (Grid Graph)")[
-  A graph $G = (V, E)$ where vertices $V$ are points on a 2D lattice and $(u, v) in E$ iff the Euclidean distance $d(u, v) <= r$ for some radius $r$. A _King's subgraph_ uses the King's graph lattice (8-connectivity square grid) with $r approx 1.5$.
 ]
+
+#problem-def("MinimumVertexCover", "Vertex Cover (VC)")[
+  Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
+]
+
+#problem-def("MaxCut", "Max-Cut")[
+  Given $G = (V, E)$ with weights $w: E -> RR$, find partition $(S, overline(S))$ maximizing $sum_((u,v) in E: u in S, v in overline(S)) w(u, v)$.
+]
+
+#problem-def("KColoring", "Graph Coloring")[
+  Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
+]
+
+#problem-def("MinimumDominatingSet", "Dominating Set")[
+  Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall v in V: v in S or exists u in S: (u, v) in E$.
+]
+
+#problem-def("MaximumMatching", "Matching")[
+  Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
+]
+
+#problem-def("MaximumClique", "Maximum Clique")[
+  Given $G = (V, E)$, find $K subset.eq V$ maximizing $|K|$ such that all pairs in $K$ are adjacent: $forall u, v in K: (u, v) in E$. Equivalent to MIS on the complement graph $overline(G)$.
+]
+
 
 == Set Problems
 
-#definition("Set Packing")[
+#problem-def("MaximumSetPacking", "Set Packing")[
   Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
+]
 
-  #render-schema("SetPacking")
-  #render-reductions("SetPacking")
-] <def:set-packing>
-
-#definition("Set Covering")[
+#problem-def("MinimumSetCovering", "Set Covering")[
   Given universe $U$, collection $cal(S)$ with weights $w: cal(S) -> RR$, find $cal(C) subset.eq cal(S)$ minimizing $sum_(S in cal(C)) w(S)$ s.t. $union.big_(S in cal(C)) S = U$.
-
-  #render-schema("SetCovering")
-  #render-reductions("SetCovering")
-] <def:set-covering>
+]
 
 == Optimization Problems
 
-#definition("Spin Glass (Ising Model)")[
+#problem-def("SpinGlass", "Spin Glass (Ising Model)")[
   Given $n$ spin variables $s_i in {-1, +1}$, pairwise couplings $J_(i j) in RR$, and external fields $h_i in RR$, minimize the Hamiltonian (energy function): $H(bold(s)) = -sum_((i,j)) J_(i j) s_i s_j - sum_i h_i s_i$.
+]
 
-  #render-schema("SpinGlass")
-  #render-reductions("SpinGlass")
-] <def:spin-glass>
-
-#definition("QUBO")[
+#problem-def("QUBO", "QUBO")[
   Given $n$ binary variables $x_i in {0, 1}$, upper-triangular matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables).
+]
 
-  #render-schema("QUBO")
-  #render-reductions("QUBO")
-] <def:qubo>
-
-#definition("Integer Linear Programming (ILP)")[
+#problem-def("ILP", "Integer Linear Programming (ILP)")[
   Given $n$ integer variables $bold(x) in ZZ^n$, constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x)$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$ and variable bounds.
-
-  #render-schema("ILP")
-  #render-reductions("ILP")
-] <def:ilp>
+]
 
 == Satisfiability Problems
 
-#definition("SAT")[
+#problem-def("Satisfiability", "SAT")[
   Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 1$ (all clauses satisfied).
+]
 
-  #render-schema("Satisfiability")
-  #render-reductions("Satisfiability")
-] <def:satisfiability>
-
-#definition([$k$-SAT])[
+#problem-def("KSatisfiability", [$k$-SAT])[
   SAT with exactly $k$ literals per clause.
+]
 
-  #render-schema("KSatisfiability")
-  #render-reductions("KSatisfiability")
-] <def:k-sat>
-
-#definition("Circuit-SAT")[
+#problem-def("CircuitSAT", "Circuit-SAT")[
   Given a Boolean circuit $C$ composed of logic gates (AND, OR, NOT, XOR) with $n$ input variables, find an input assignment $bold(x) in {0,1}^n$ such that $C(bold(x)) = 1$.
+]
 
-  #render-schema("CircuitSAT")
-  #render-reductions("CircuitSAT")
-] <def:circuit-sat>
-
-#definition("Factoring")[
+#problem-def("Factoring", "Factoring")[
   Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
+]
 
-  #render-schema("Factoring")
-  #render-reductions("Factoring")
-] <def:factoring>
+// Completeness check: warn about problem types in JSON but missing from paper
+#{
+  let json-models = {
+    let names = graph-data.nodes.map(n => n.name)
+    let unique = ()
+    for n in names { if n not in unique { unique.push(n) } }
+    unique
+  }
+  let defined = display-name.keys()
+  let missing = json-models.filter(n => n not in defined)
+  if missing.len() > 0 {
+    block(width: 100%, inset: (x: 1em, y: 0.5em), fill: rgb("#fff3cd"), stroke: (left: 3pt + rgb("#ffc107")))[
+      #text(fill: rgb("#856404"), weight: "bold")[Warning: Missing problem definitions for:]
+      #text(fill: rgb("#856404"))[ #missing.join(", ")]
+    ]
+  }
+}
 
 = Reductions <sec:reductions>
 
+Each reduction theorem follows this structure:
+
+#block(
+  inset: (x: 1em, y: 0.8em),
+  fill: rgb("#f8f8f8"),
+)[
+  *Theorem N (Source $arrow.r$ Target).* Brief statement of the reduction's key insight. _Problem:_ Definition M. \
+  _Overhead:_ $O("complexity")$ — describes how the target instance size grows relative to the source.
+]
+
+#block(
+  inset: (x: 1em, y: 0.8em),
+)[
+  _Proof._ Detailed construction showing: (1) how to transform the source instance to target instance, (2) correctness argument, (3) variable mapping between problems, (4) solution extraction procedure. #h(1fr) $square$
+]
+
+#block(
+  width: 100%,
+  inset: (x: 1em, y: 0.8em),
+  fill: rgb("#f0f7ff"),
+  stroke: (left: 2pt + rgb("#4a86e8")),
+)[
+  *Concrete Example:* Description \
+  *Source:* SourceProblem #h(1em) *Target:* TargetProblem \
+  Additional details showing the transformation on a specific instance.
+]
+
+The theorem links back to problem definitions in @sec:problems. Concrete examples (when present) demonstrate the reduction on small instances with verifiable solutions.
+
 == Trivial Reductions
 
-#let is_vc = load-example("is_to_vc")
-#let is_vc_r = load-results("is_to_vc")
-#let is_vc_sol = is_vc_r.solutions.at(0)
-#reduction-rule("IndependentSet", "VertexCovering",
-  bidirectional: true,
-  example: "is_to_vc",
-  example-caption: [Path graph $P_4$: IS $arrow.l.r$ VC],
+#let mvc_mis = load-example("mvc_to_mis")
+#let mvc_mis_r = load-results("mvc_to_mis")
+#let mvc_mis_sol = mvc_mis_r.solutions.at(0)
+#reduction-rule("MinimumVertexCover", "MaximumIndependentSet",
+  example: "mvc_to_mis",
+  example-caption: [Path graph $P_4$: VC $arrow.l.r$ IS],
   extra: [
-    Source IS: $S = {#is_vc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #is_vc_sol.source_config.filter(x => x == 1).len()) #h(1em)
-    Target VC: $C = {#is_vc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #is_vc_sol.target_config.filter(x => x == 1).len()) \
-    $|"IS"| + |"VC"| = #instance-vars(is_vc.source.instance) = |V|$ #sym.checkmark
+    Source VC: $C = {#mvc_mis_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.source_config.filter(x => x == 1).len()) #h(1em)
+    Target IS: $S = {#mvc_mis_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.target_config.filter(x => x == 1).len()) \
+    $|"VC"| + |"IS"| = #mvc_mis.source.instance.num_vertices = |V|$ #sym.checkmark
   ],
 )[
   $S subset.eq V$ is independent iff $V backslash S$ is a vertex cover, with $|"IS"| + |"VC"| = |V|$.
 ][
-  ($arrow.r.double$) If $S$ is independent, for any $(u, v) in E$, at most one endpoint lies in $S$, so $V backslash S$ covers all edges. ($arrow.l.double$) If $C$ is a cover, for any $u, v in V backslash C$, $(u, v) in.not E$, so $V backslash C$ is independent. _Variable mapping:_ Given IS instance $(G, w)$, create VC instance $(G, w)$ with identical graph and weights. Solution extraction: for VC solution $C$, return $S = V backslash C$. The complement operation preserves optimality since $|S| + |C| = |V|$ is constant.
+  ($arrow.r.double$) If $C$ is a vertex cover, for any $u, v in V backslash C$, $(u, v) in.not E$, so $V backslash C$ is independent. ($arrow.l.double$) If $S$ is independent, for any $(u, v) in E$, at most one endpoint is in $S$, so $V backslash S$ covers all edges. _Variable mapping:_ Given VC instance $(G, w)$, create IS instance $(G, w)$ with identical graph and weights. Solution extraction: for IS solution $S$, return $C = V backslash S$. The complement operation preserves optimality since $|S| + |C| = |V|$ is constant.
 ]
 
-#reduction-rule("IndependentSet", "SetPacking")[
-  Construct $U = E$, $S_v = {e in E : v in e}$, $w(S_v) = w(v)$. Then $I$ is independent iff ${S_v : v in I}$ is a packing.
+#reduction-rule("MaximumSetPacking", "MaximumIndependentSet")[
+  Construct intersection graph $G' = (V', E')$ where $V' = cal(S)$ and $(S_i, S_j) in E'$ iff $S_i inter S_j != emptyset$, with $w(v_i) = w(S_i)$. Max packing $equiv$ Max IS on $G'$.
 ][
-  Independence implies disjoint incident edge sets; conversely, disjoint edge sets imply no shared edges. _Variable mapping:_ Universe $U = E$ (edges), sets $S_v = {e in E : v in e}$ (edges incident to vertex $v$), weights $w(S_v) = w(v)$. Solution extraction: for packing ${S_v : v in P}$, return IS $= P$ (the vertices whose sets were packed).
+  Overlapping sets become adjacent vertices; disjoint sets become non-adjacent. A packing (mutually disjoint) maps to an IS (mutually non-adjacent). _Variable mapping:_ Vertices $= {S_1, ..., S_m}$, edges $= {(S_i, S_j) : S_i inter S_j != emptyset}$, $w(v_i) = w(S_i)$. Solution extraction: for IS $I subset.eq V'$, return packing $cal(P) = {S_i : v_i in I}$.
 ]
 
-#reduction-rule("VertexCovering", "SetCovering")[
+#reduction-rule("MinimumVertexCover", "MinimumSetCovering")[
   Construct $U = {0, ..., |E|-1}$, $S_v = {i : e_i "incident to" v}$, $w(S_v) = w(v)$. Then $C$ is a cover iff ${S_v : v in C}$ covers $U$.
 ][
   Each vertex's edge set becomes a subset; the cover condition (every edge covered) maps to the covering condition (every universe element in some selected set). _Variable mapping:_ Universe $U = {0, ..., |E|-1}$ (edge indices), $S_v = {i : e_i "incident to" v}$, $w(S_v) = w(v)$. Solution extraction: for covering ${S_v : v in C}$, return VC $= C$.
 ]
 
-#reduction-rule("Matching", "SetPacking")[
+#reduction-rule("MaximumMatching", "MaximumSetPacking")[
   Construct $U = V$, $S_e = {u, v}$ for $e = (u,v)$, $w(S_e) = w(e)$. Then $M$ is a matching iff ${S_e : e in M}$ is a packing.
 ][
   Each edge becomes a set of its endpoints; disjoint edges have disjoint endpoint sets. _Variable mapping:_ Universe $U = V$ (vertices), $S_e = {u, v}$ for $e = (u,v)$, $w(S_e) = w(e)$. Solution extraction: for packing ${S_e : e in P}$, return matching $= P$ (the edges whose endpoint sets were packed).
 ]
 
 #reduction-rule("SpinGlass", "QUBO",
-  bidirectional: true,
   example: "spinglass_to_qubo",
   example-caption: [2-spin system with coupling $J_(01) = -1$, fields $h = (0.5, -0.5)$],
 )[
@@ -492,20 +468,20 @@ The _penalty method_ @glover2019 @lucas2014 converts a constrained optimization 
 $ f(bold(x)) = "obj"(bold(x)) + P sum_k g_k (bold(x))^2 $
 where $P$ is a penalty weight large enough that any constraint violation costs more than the entire objective range. Since $g_k (bold(x))^2 >= 0$ with equality iff $g_k (bold(x)) = 0$, minimizers of $f$ are feasible and optimal for the original problem. Because binary variables satisfy $x_i^2 = x_i$, the resulting $f$ is a quadratic in $bold(x)$, i.e.\ a QUBO.
 
-#let is_qubo = load-example("is_to_qubo")
-#let is_qubo_r = load-results("is_to_qubo")
-#reduction-rule("IndependentSet", "QUBO",
-  example: "is_to_qubo",
+#let mis_qubo = load-example("mis_to_qubo")
+#let mis_qubo_r = load-results("mis_to_qubo")
+#reduction-rule("MaximumIndependentSet", "QUBO",
+  example: "mis_to_qubo",
   example-caption: [IS on path $P_4$ to QUBO],
   extra: [
-    *Source edges:* $= {#is_qubo.source.instance.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}$ \
-    *QUBO matrix* ($Q in RR^(#is_qubo.target.instance.num_vars times #is_qubo.target.instance.num_vars)$):
-    $ Q = #math.mat(..is_qubo.target.instance.matrix.map(row => row.map(v => {
+    *Source edges:* $= {#mis_qubo.source.instance.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}$ \
+    *QUBO matrix* ($Q in RR^(#mis_qubo.target.instance.num_vars times #mis_qubo.target.instance.num_vars)$):
+    $ Q = #math.mat(..mis_qubo.target.instance.matrix.map(row => row.map(v => {
       let r = calc.round(v, digits: 0)
       [#r]
     }))) $
-    *Optimal IS* (size #is_qubo_r.solutions.at(0).source_config.filter(x => x == 1).len()):
-    #is_qubo_r.solutions.map(sol => {
+    *Optimal IS* (size #mis_qubo_r.solutions.at(0).source_config.filter(x => x == 1).len()):
+    #mis_qubo_r.solutions.map(sol => {
       let verts = sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i))
       $\{#verts.join(", ")\}$
     }).join(", ")
@@ -520,7 +496,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ If $bold(x)$ has any adjacent pair $(x_i = 1, x_j = 1)$ with $(i,j) in E$, the penalty $P > sum_i w_i >= -sum_i Q_(i i) x_i$ exceeds the maximum objective gain, so $bold(x)$ is not a minimizer. Among independent sets ($x_i x_j = 0$ for all edges), $f(bold(x)) = -sum_(i in S) w_i$, minimized exactly when $S$ is a maximum-weight IS.
 ]
 
-#reduction-rule("VertexCovering", "QUBO")[
+#reduction-rule("MinimumVertexCover", "QUBO")[
   Given $G = (V, E)$ with weights $w$, construct upper-triangular $Q$ with $Q_(i i) = w_i - P dot "deg"(i)$ and $Q_(i j) = P$ for $(i,j) in E$ ($i < j$), where $P = 1 + sum_i w_i$ and $"deg"(i)$ is the degree of vertex $i$.
 ][
   _Construction._ The VC objective is: minimize $sum_i w_i x_i$ subject to $x_i + x_j >= 1$ for $(i,j) in E$. Applying the penalty method (@sec:penalty-method), the constraint $x_i + x_j >= 1$ is violated iff $x_i = x_j = 0$, with penalty $(1 - x_i)(1 - x_j)$:
@@ -546,15 +522,13 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$.
 ]
 
-#reduction-rule("SetPacking", "QUBO")[
+#reduction-rule("MaximumSetPacking", "QUBO")[
   Equivalent to IS on the intersection graph: $Q_(i i) = -w_i$ and $Q_(i j) = P$ for overlapping sets $i, j$ ($i < j$), where $P = 1 + sum_i w_i$.
 ][
   Two sets conflict iff they share an element. The intersection graph has sets as vertices and edges between conflicting pairs. Applying the penalty method (@sec:penalty-method) yields the same QUBO as IS on this graph: diagonal rewards selection, off-diagonal penalizes overlap. Correctness follows from the IS→QUBO proof.
 ]
 
-#reduction-rule("KSatisfiability", "QUBO",
-  source-display: "2-SAT",
-)[
+#reduction-rule("KSatisfiability", "QUBO")[
   Given a Max-2-SAT instance with $m$ clauses over $n$ variables, construct upper-triangular $Q in RR^(n times n)$ where each clause $(ell_i or ell_j)$ contributes a penalty gadget encoding its unique falsifying assignment.
 ][
   _Construction._ Applying the penalty method (@sec:penalty-method), each 2-literal clause has exactly one falsifying assignment (both literals false). The penalty for that assignment is a quadratic function of $x_i, x_j$:
@@ -573,9 +547,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   Summing over all clauses, $f(bold(x)) = sum_j "penalty"_j (bold(x))$ counts falsified clauses. Minimizers of $f$ maximize satisfied clauses.
 ]
 
-#reduction-rule("ILP", "QUBO",
-  source-display: "Binary ILP",
-)[
+#reduction-rule("ILP", "QUBO")[
   Given binary ILP: maximize $bold(c)^top bold(x)$ subject to $A bold(x) = bold(b)$, $bold(x) in {0,1}^n$, construct upper-triangular $Q = -"diag"(bold(c) + 2P bold(b)^top A) + P A^top A$ where $P = 1 + ||bold(c)||_1 + ||bold(b)||_1$.
 ][
   _Step 1: Normalize constraints._ Convert inequalities to equalities using slack variables: $bold(a)_k^top bold(x) <= b_k$ becomes $bold(a)_k^top bold(x) + sum_(s=0)^(S_k - 1) 2^s y_(k,s) = b_k$ where $S_k = ceil(log_2 (b_k + 1))$ slack bits. For $>=$ constraints, the slack has a negative sign. The extended system is $A' bold(x)' = bold(b)$ with $bold(x)' = (bold(x), bold(y)) in {0,1}^(n')$. For minimization, negate $bold(c)$ to convert to maximization.
@@ -593,15 +565,15 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 == Non-Trivial Reductions
 
-#let sat_is = load-example("sat_to_is")
-#let sat_is_r = load-results("sat_to_is")
-#let sat_is_sol = sat_is_r.solutions.at(0)
-#reduction-rule("Satisfiability", "IndependentSet",
-  example: "sat_to_is",
+#let sat_mis = load-example("sat_to_mis")
+#let sat_mis_r = load-results("sat_to_mis")
+#let sat_mis_sol = sat_mis_r.solutions.at(0)
+#reduction-rule("Satisfiability", "MaximumIndependentSet",
+  example: "sat_to_mis",
   example-caption: [$phi = (x_1 or x_2) and (not x_1 or x_3) and (x_2 or not x_3)$],
   extra: [
-    SAT assignment: $x_1=#sat_is_sol.source_config.at(0), x_2=#sat_is_sol.source_config.at(1), x_3=#sat_is_sol.source_config.at(2)$ #h(1em)
-    IS graph: #sat_is.target.instance.num_vertices vertices, #sat_is.target.instance.num_edges edges (one vertex per literal occurrence)
+    SAT assignment: $x_1=#sat_mis_sol.source_config.at(0), x_2=#sat_mis_sol.source_config.at(1), x_3=#sat_mis_sol.source_config.at(2)$ #h(1em)
+    IS graph: #sat_mis.target.instance.num_vertices vertices, #sat_mis.target.instance.num_edges edges (one vertex per literal occurrence)
   ],
 )[
   @karp1972 Given CNF $phi$ with $m$ clauses, construct graph $G$ such that $phi$ is satisfiable iff $G$ has an IS of size $m$.
@@ -617,9 +589,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For $v_(j,i) in S$ with literal $x_k$: set $x_k = 1$; for $overline(x_k)$: set $x_k = 0$.
 ]
 
-#reduction-rule("Satisfiability", "KColoring",
-  target-display: "3-Coloring",
-)[
+#reduction-rule("Satisfiability", "KColoring")[
   @garey1979 Given CNF $phi$, construct graph $G$ such that $phi$ is satisfiable iff $G$ is 3-colorable.
 ][
   _Construction._ (1) Base triangle: TRUE, FALSE, AUX vertices with all pairs connected. (2) Variable gadget for $x_i$: vertices $"pos"_i$, $"neg"_i$ connected to each other and to AUX. (3) Clause gadget: for $(ell_1 or ... or ell_k)$, apply OR-gadgets iteratively producing output $o$, then connect $o$ to FALSE and AUX.
@@ -629,7 +599,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Set $x_i = 1$ iff $"color"("pos"_i) = "color"("TRUE")$.
 ]
 
-#reduction-rule("Satisfiability", "DominatingSet")[
+#reduction-rule("Satisfiability", "MinimumDominatingSet")[
   @garey1979 Given CNF $phi$ with $n$ variables and $m$ clauses, $phi$ is satisfiable iff the constructed graph has a dominating set of size $n$.
 ][
   _Construction._ (1) Variable triangle for $x_i$: vertices $"pos"_i = 3i$, $"neg"_i = 3i+1$, $"dum"_i = 3i+2$ forming a triangle. (2) Clause vertex $c_j = 3n+j$ connected to $"pos"_i$ if $x_i in C_j$, to $"neg"_i$ if $overline(x_i) in C_j$.
@@ -639,9 +609,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Set $x_i = 1$ if $"pos"_i$ selected; $x_i = 0$ if $"neg"_i$ selected.
 ]
 
-#reduction-rule("Satisfiability", "KSatisfiability",
-  bidirectional: true,
-)[
+#reduction-rule("Satisfiability", "KSatisfiability")[
   @cook1971 @garey1979 Any SAT formula converts to $k$-SAT ($k >= 3$) preserving satisfiability.
 ][
   _Small clauses ($|C| < k$):_ Pad $(ell_1 or ... or ell_r)$ with auxiliary $y$: $(ell_1 or ... or ell_r or y or overline(y) or ...)$ to length $k$.
@@ -688,9 +656,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ $p = sum_i p_i 2^(i-1)$, $q = sum_j q_j 2^(j-1)$.
 ]
 
-#reduction-rule("SpinGlass", "MaxCut",
-  bidirectional: true,
-)[
+#reduction-rule("SpinGlass", "MaxCut")[
   @barahona1982 @lucas2014 Ground states of Ising models correspond to maximum cuts.
 ][
   _MaxCut $arrow.r$ SpinGlass:_ Set $J_(i j) = w_(i j)$, $h_i = 0$. Maximizing cut equals minimizing $-sum J_(i j) s_i s_j$ since $s_i s_j = -1$ when $s_i != s_j$.
@@ -741,43 +707,43 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 The following reductions to Integer Linear Programming are straightforward formulations where problem constraints map directly to linear inequalities.
 
-#reduction-rule("IndependentSet", "ILP")[
+#reduction-rule("MaximumIndependentSet", "ILP")[
   The maximum-weight IS problem reduces to binary ILP with $|V|$ variables and $|E|$ constraints.
 ][
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v <= 1$ for each $(u, v) in E$. Objective: maximize $sum_v w_v x_v$. _Solution extraction:_ $S = {v : x_v = 1}$.
 ]
 
-#reduction-rule("VertexCovering", "ILP")[
+#reduction-rule("MinimumVertexCover", "ILP")[
   The minimum-weight VC problem reduces to binary ILP with $|V|$ variables and $|E|$ constraints.
 ][
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v >= 1$ for each $(u, v) in E$. Objective: minimize $sum_v w_v x_v$. _Solution extraction:_ $C = {v : x_v = 1}$.
 ]
 
-#reduction-rule("Matching", "ILP")[
+#reduction-rule("MaximumMatching", "ILP")[
   The maximum-weight matching reduces to binary ILP with $|E|$ variables and $|V|$ constraints.
 ][
   _Construction._ Variables: $x_e in {0, 1}$ for each $e in E$. Constraints: $sum_(e in.rev v) x_e <= 1$ for each $v in V$. Objective: maximize $sum_e w_e x_e$. _Solution extraction:_ $M = {e : x_e = 1}$.
 ]
 
-#reduction-rule("SetPacking", "ILP")[
+#reduction-rule("MaximumSetPacking", "ILP")[
   Set packing reduces to binary ILP with $|cal(S)|$ variables and at most $binom(|cal(S)|, 2)$ constraints.
 ][
   _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. Constraints: $x_i + x_j <= 1$ for each overlapping pair $S_i, S_j in cal(S)$ with $S_i inter S_j != emptyset$. Objective: maximize $sum_i w_i x_i$. _Solution extraction:_ $cal(P) = {S_i : x_i = 1}$.
 ]
 
-#reduction-rule("SetCovering", "ILP")[
+#reduction-rule("MinimumSetCovering", "ILP")[
   Set covering reduces to binary ILP with $|cal(S)|$ variables and $|U|$ constraints.
 ][
   _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. Constraints: $sum_(S_i in.rev u) x_i >= 1$ for each $u in U$. Objective: minimize $sum_i w_i x_i$. _Solution extraction:_ $cal(C) = {S_i : x_i = 1}$.
 ]
 
-#reduction-rule("DominatingSet", "ILP")[
+#reduction-rule("MinimumDominatingSet", "ILP")[
   Dominating set reduces to binary ILP with $|V|$ variables and $|V|$ constraints.
 ][
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_v + sum_(u in N(v)) x_u >= 1$ for each $v in V$ (each vertex dominated). Objective: minimize $sum_v w_v x_v$. _Solution extraction:_ $D = {v : x_v = 1}$.
 ]
 
-#reduction-rule("Clique", "ILP")[
+#reduction-rule("MaximumClique", "ILP")[
   Maximum clique reduces to binary ILP with $|V|$ variables and $O(|overline(E)|)$ constraints.
 ][
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v <= 1$ for each $(u, v) in.not E$ (non-edges). Objective: maximize $sum_v x_v$. Equivalently, IS on the complement graph. _Solution extraction:_ $K = {v : x_v = 1}$.
@@ -785,7 +751,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 == Unit Disk Mapping
 
-#reduction-rule("IndependentSet", "GridGraph")[
+#reduction-rule("MaximumIndependentSet", "GridGraph")[
   @nguyen2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a unit disk graph (King's subgraph) with at most quadratic overhead in the number of vertices.
 ][
   _Construction (Copy-Line Method)._ Given $G = (V, E)$ with $n = |V|$:
@@ -942,23 +908,52 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/export_petersen_mapping.rs")[`export_petersen_mapping.rs`].
 
+// Completeness check: warn about reduction rules in JSON but missing from paper
+#context {
+  let covered = covered-rules.get()
+  let json-edges = {
+    let edges = graph-data.edges.map(e => (e.source.name, e.target.name))
+    let unique = ()
+    for e in edges {
+      if unique.find(u => u.at(0) == e.at(0) and u.at(1) == e.at(1)) == none {
+        unique.push(e)
+      }
+    }
+    unique
+  }
+  let missing = json-edges.filter(e => {
+    covered.find(c =>
+      (c.at(0) == e.at(0) and c.at(1) == e.at(1)) or
+      (c.at(0) == e.at(1) and c.at(1) == e.at(0))
+    ) == none
+  })
+  if missing.len() > 0 {
+    block(width: 100%, inset: (x: 1em, y: 0.5em), fill: rgb("#fff3cd"), stroke: (left: 3pt + rgb("#ffc107")))[
+      #text(fill: rgb("#856404"), weight: "bold")[Warning: Missing reduction rules:] \
+      #for m in missing [
+        #text(fill: rgb("#856404"))[- #m.at(0) #sym.arrow.r #m.at(1)] \
+      ]
+    ]
+  }
+}
+
 == Resource Estimation from Examples
 
 The following table shows concrete variable overhead for example instances, generated from the reduction examples (`make examples`).
 
 #let example-files = (
-  "is_to_vc", "vc_to_is", "is_to_setpacking", "matching_to_setpacking",
-  "vc_to_setcovering",
+  "mis_to_mvc", "mvc_to_mis", "mis_to_msp", "mm_to_msp",
+  "mvc_to_msc",
   "maxcut_to_spinglass", "spinglass_to_maxcut",
   "spinglass_to_qubo", "qubo_to_spinglass",
-  "is_to_qubo", "vc_to_qubo", "coloring_to_qubo",
-  "setpacking_to_qubo", "ksatisfiability_to_qubo", "ilp_to_qubo",
-  "sat_to_is", "sat_to_coloring", "sat_to_dominatingset", "sat_to_ksat",
+  "mis_to_qubo", "mvc_to_qubo", "coloring_to_qubo",
+  "msp_to_qubo", "ksatisfiability_to_qubo", "ilp_to_qubo",
+  "sat_to_mis", "sat_to_coloring", "sat_to_mds", "sat_to_ksat",
   "circuit_to_spinglass", "factoring_to_circuit",
-  "is_to_ilp", "vc_to_ilp", "matching_to_ilp",
+  "mis_to_ilp", "mvc_to_ilp", "mm_to_ilp",
   "coloring_to_ilp", "factoring_to_ilp",
-  "setpacking_to_ilp", "setcovering_to_ilp",
-  "dominatingset_to_ilp", "clique_to_ilp",
+  "msp_to_ilp", "msc_to_ilp",
+  "mds_to_ilp", "mclique_to_ilp",
 )
 
 #let examples = example-files.map(n => {

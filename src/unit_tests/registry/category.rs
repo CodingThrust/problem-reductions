@@ -23,7 +23,7 @@ fn test_all_subcategories() {
     assert_eq!(GraphSubcategory::Paths.name(), "paths");
     assert_eq!(GraphSubcategory::Structure.name(), "structure");
     assert_eq!(GraphSubcategory::Trees.name(), "trees");
-    assert_eq!(GraphSubcategory::Matching.name(), "matching");
+    assert_eq!(GraphSubcategory::MaximumMatching.name(), "matching");
 
     // Satisfiability
     assert_eq!(SatisfiabilitySubcategory::Sat.name(), "sat");
@@ -34,7 +34,7 @@ fn test_all_subcategories() {
     assert_eq!(SetSubcategory::Covering.name(), "covering");
     assert_eq!(SetSubcategory::Packing.name(), "packing");
     assert_eq!(SetSubcategory::Partition.name(), "partition");
-    assert_eq!(SetSubcategory::Matching.name(), "matching");
+    assert_eq!(SetSubcategory::MaximumMatching.name(), "matching");
 
     // Optimization
     assert_eq!(OptimizationSubcategory::Quadratic.name(), "quadratic");
@@ -53,7 +53,7 @@ fn test_all_subcategories() {
 
     // String
     assert_eq!(StringSubcategory::Sequence.name(), "sequence");
-    assert_eq!(StringSubcategory::Matching.name(), "matching");
+    assert_eq!(StringSubcategory::MaximumMatching.name(), "matching");
     assert_eq!(StringSubcategory::Compression.name(), "compression");
 
     // Specialized

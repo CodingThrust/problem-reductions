@@ -1,7 +1,7 @@
 //! Common test utilities for mapping tests.
 
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, ILP};
-use crate::models::IndependentSet;
+use crate::models::MaximumIndependentSet;
 use crate::rules::unitdiskmapping::MappingResult;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::ILPSolver;
@@ -20,8 +20,8 @@ pub fn is_independent_set(edges: &[(usize, usize)], config: &[usize]) -> bool {
 /// Solve maximum independent set using ILP.
 /// Returns the size of the MIS.
 pub fn solve_mis(num_vertices: usize, edges: &[(usize, usize)]) -> usize {
-    let problem = IndependentSet::<SimpleGraph, i32>::new(num_vertices, edges.to_vec());
-    let reduction = <IndependentSet<SimpleGraph, i32> as ReduceTo<ILP>>::reduce_to(&problem);
+    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(num_vertices, edges.to_vec());
+    let reduction = <MaximumIndependentSet<SimpleGraph, i32> as ReduceTo<ILP>>::reduce_to(&problem);
     let solver = ILPSolver::new();
     if let Some(solution) = solver.solve(reduction.target_problem()) {
         solution.iter().filter(|&&x| x > 0).count()
@@ -32,8 +32,8 @@ pub fn solve_mis(num_vertices: usize, edges: &[(usize, usize)]) -> usize {
 
 /// Solve MIS and return the binary configuration.
 pub fn solve_mis_config(num_vertices: usize, edges: &[(usize, usize)]) -> Vec<usize> {
-    let problem = IndependentSet::<SimpleGraph, i32>::new(num_vertices, edges.to_vec());
-    let reduction = <IndependentSet<SimpleGraph, i32> as ReduceTo<ILP>>::reduce_to(&problem);
+    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(num_vertices, edges.to_vec());
+    let reduction = <MaximumIndependentSet<SimpleGraph, i32> as ReduceTo<ILP>>::reduce_to(&problem);
     let solver = ILPSolver::new();
     if let Some(solution) = solver.solve(reduction.target_problem()) {
         solution

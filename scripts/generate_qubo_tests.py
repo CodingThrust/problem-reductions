@@ -56,7 +56,7 @@ def generate_vertex_covering(outdir: Path):
 
     qubo_result = brute_force_qubo(Q)
 
-    save_test("vertexcovering_to_qubo", {
+    save_test("minimumvertexcover_to_qubo", {
         "problem": "VertexCovering",
         "source": {"num_vertices": n_nodes, "edges": edges, "penalty": penalty},
         "qubo_matrix": Q.tolist(),
@@ -86,7 +86,7 @@ def generate_independent_set(outdir: Path):
 
     qubo_result = brute_force_qubo(Q)
 
-    save_test("independentset_to_qubo", {
+    save_test("maximumindependentset_to_qubo", {
         "problem": "IndependentSet",
         "source": {"num_vertices": n_nodes, "edges": edges, "penalty": penalty},
         "qubo_matrix": Q.tolist(),
@@ -143,7 +143,7 @@ def generate_set_packing(outdir: Path):
 
     qubo_result = brute_force_qubo(Q)
 
-    save_test("setpacking_to_qubo", {
+    save_test("maximumsetpacking_to_qubo", {
         "problem": "SetPacking",
         "source": {
             "sets": sets,

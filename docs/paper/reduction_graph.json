@@ -25,21 +25,6 @@
       "doc_path": "models/specialized/struct.CircuitSAT.html"
     },
     {
-      "name": "DominatingSet",
-      "variant": {},
-      "category": "graph",
-      "doc_path": "models/graph/struct.DominatingSet.html"
-    },
-    {
-      "name": "DominatingSet",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "Unweighted"
-      },
-      "category": "graph",
-      "doc_path": "models/graph/struct.DominatingSet.html"
-    },
-    {
       "name": "Factoring",
       "variant": {},
       "category": "specialized",
@@ -68,30 +53,6 @@
       },
       "category": "optimization",
       "doc_path": "models/optimization/struct.ILP.html"
-    },
-    {
-      "name": "IndependentSet",
-      "variant": {},
-      "category": "graph",
-      "doc_path": "models/graph/struct.IndependentSet.html"
-    },
-    {
-      "name": "IndependentSet",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "Unweighted"
-      },
-      "category": "graph",
-      "doc_path": "models/graph/struct.IndependentSet.html"
-    },
-    {
-      "name": "IndependentSet",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "i32"
-      },
-      "category": "graph",
-      "doc_path": "models/graph/struct.IndependentSet.html"
     },
     {
       "name": "KColoring",
@@ -152,21 +113,6 @@
       "doc_path": "models/satisfiability/struct.KSatisfiability.html"
     },
     {
-      "name": "Matching",
-      "variant": {},
-      "category": "graph",
-      "doc_path": "models/graph/struct.Matching.html"
-    },
-    {
-      "name": "Matching",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "Unweighted"
-      },
-      "category": "graph",
-      "doc_path": "models/graph/struct.Matching.html"
-    },
-    {
       "name": "MaxCut",
       "variant": {},
       "category": "graph",
@@ -180,6 +126,123 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.MaxCut.html"
+    },
+    {
+      "name": "MaximumIndependentSet",
+      "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumIndependentSet.html"
+    },
+    {
+      "name": "MaximumIndependentSet",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "Unweighted"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumIndependentSet.html"
+    },
+    {
+      "name": "MaximumIndependentSet",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumIndependentSet.html"
+    },
+    {
+      "name": "MaximumMatching",
+      "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumMatching.html"
+    },
+    {
+      "name": "MaximumMatching",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "Unweighted"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumMatching.html"
+    },
+    {
+      "name": "MaximumSetPacking",
+      "variant": {},
+      "category": "set",
+      "doc_path": "models/set/struct.MaximumSetPacking.html"
+    },
+    {
+      "name": "MaximumSetPacking",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "Unweighted"
+      },
+      "category": "set",
+      "doc_path": "models/set/struct.MaximumSetPacking.html"
+    },
+    {
+      "name": "MaximumSetPacking",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "set",
+      "doc_path": "models/set/struct.MaximumSetPacking.html"
+    },
+    {
+      "name": "MinimumDominatingSet",
+      "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.MinimumDominatingSet.html"
+    },
+    {
+      "name": "MinimumDominatingSet",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "Unweighted"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MinimumDominatingSet.html"
+    },
+    {
+      "name": "MinimumSetCovering",
+      "variant": {},
+      "category": "set",
+      "doc_path": "models/set/struct.MinimumSetCovering.html"
+    },
+    {
+      "name": "MinimumSetCovering",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "Unweighted"
+      },
+      "category": "set",
+      "doc_path": "models/set/struct.MinimumSetCovering.html"
+    },
+    {
+      "name": "MinimumVertexCover",
+      "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.MinimumVertexCover.html"
+    },
+    {
+      "name": "MinimumVertexCover",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "Unweighted"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MinimumVertexCover.html"
+    },
+    {
+      "name": "MinimumVertexCover",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MinimumVertexCover.html"
     },
     {
       "name": "QUBO",
@@ -212,45 +275,6 @@
       "doc_path": "models/satisfiability/struct.Satisfiability.html"
     },
     {
-      "name": "SetCovering",
-      "variant": {},
-      "category": "set",
-      "doc_path": "models/set/struct.SetCovering.html"
-    },
-    {
-      "name": "SetCovering",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "Unweighted"
-      },
-      "category": "set",
-      "doc_path": "models/set/struct.SetCovering.html"
-    },
-    {
-      "name": "SetPacking",
-      "variant": {},
-      "category": "set",
-      "doc_path": "models/set/struct.SetPacking.html"
-    },
-    {
-      "name": "SetPacking",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "Unweighted"
-      },
-      "category": "set",
-      "doc_path": "models/set/struct.SetPacking.html"
-    },
-    {
-      "name": "SetPacking",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "i32"
-      },
-      "category": "set",
-      "doc_path": "models/set/struct.SetPacking.html"
-    },
-    {
       "name": "SpinGlass",
       "variant": {},
       "category": "optimization",
@@ -273,30 +297,6 @@
       },
       "category": "optimization",
       "doc_path": "models/optimization/struct.SpinGlass.html"
-    },
-    {
-      "name": "VertexCovering",
-      "variant": {},
-      "category": "graph",
-      "doc_path": "models/graph/struct.VertexCovering.html"
-    },
-    {
-      "name": "VertexCovering",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "Unweighted"
-      },
-      "category": "graph",
-      "doc_path": "models/graph/struct.VertexCovering.html"
-    },
-    {
-      "name": "VertexCovering",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "i32"
-      },
-      "category": "graph",
-      "doc_path": "models/graph/struct.VertexCovering.html"
     }
   ],
   "edges": [
@@ -402,29 +402,6 @@
     },
     {
       "source": {
-        "name": "IndependentSet",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "i32"
-        }
-      },
-      "target": {
-        "name": "QUBO",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "f64"
-        }
-      },
-      "bidirectional": false,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_vertices"
-        }
-      ]
-    },
-    {
-      "source": {
         "name": "KColoring",
         "variant": {
           "graph": "SimpleGraph",
@@ -499,14 +476,37 @@
     },
     {
       "source": {
-        "name": "Matching",
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
+        }
+      ]
+    },
+    {
+      "source": {
+        "name": "MaximumMatching",
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
         }
       },
       "target": {
-        "name": "SetPacking",
+        "name": "MaximumSetPacking",
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
@@ -526,41 +526,91 @@
     },
     {
       "source": {
-        "name": "Satisfiability",
+        "name": "MaximumSetPacking",
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
         }
       },
       "target": {
-        "name": "DominatingSet",
+        "name": "MaximumIndependentSet",
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false,
+      "bidirectional": true,
       "overhead": [
         {
           "field": "num_vertices",
-          "formula": "3 * num_vars + num_clauses"
+          "formula": "num_sets"
         },
         {
           "field": "num_edges",
-          "formula": "3 * num_vars + num_literals"
+          "formula": "num_sets"
         }
       ]
     },
     {
       "source": {
-        "name": "Satisfiability",
+        "name": "MaximumSetPacking",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_sets"
+        }
+      ]
+    },
+    {
+      "source": {
+        "name": "MinimumVertexCover",
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
         }
       },
       "target": {
-        "name": "IndependentSet",
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "bidirectional": true,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ]
+    },
+    {
+      "source": {
+        "name": "MinimumVertexCover",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MinimumSetCovering",
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
@@ -569,12 +619,35 @@
       "bidirectional": false,
       "overhead": [
         {
-          "field": "num_vertices",
-          "formula": "num_literals"
+          "field": "num_sets",
+          "formula": "num_vertices"
         },
         {
-          "field": "num_edges",
-          "formula": "num_literals^2"
+          "field": "num_elements",
+          "formula": "num_edges"
+        }
+      ]
+    },
+    {
+      "source": {
+        "name": "MinimumVertexCover",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
         }
       ]
     },
@@ -634,51 +707,55 @@
     },
     {
       "source": {
-        "name": "SetPacking",
+        "name": "Satisfiability",
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
         }
       },
       "target": {
-        "name": "IndependentSet",
+        "name": "MaximumIndependentSet",
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
-        }
-      },
-      "bidirectional": true,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_sets"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_sets"
-        }
-      ]
-    },
-    {
-      "source": {
-        "name": "SetPacking",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "i32"
-        }
-      },
-      "target": {
-        "name": "QUBO",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "f64"
         }
       },
       "bidirectional": false,
       "overhead": [
         {
-          "field": "num_vars",
-          "formula": "num_sets"
+          "field": "num_vertices",
+          "formula": "num_literals"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_literals^2"
+        }
+      ]
+    },
+    {
+      "source": {
+        "name": "Satisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MinimumDominatingSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "3 * num_vars + num_clauses"
+        },
+        {
+          "field": "num_edges",
+          "formula": "3 * num_vars + num_literals"
         }
       ]
     },
@@ -729,83 +806,6 @@
         {
           "field": "num_vars",
           "formula": "num_spins"
-        }
-      ]
-    },
-    {
-      "source": {
-        "name": "VertexCovering",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "target": {
-        "name": "IndependentSet",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "bidirectional": true,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ]
-    },
-    {
-      "source": {
-        "name": "VertexCovering",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "target": {
-        "name": "SetCovering",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "bidirectional": false,
-      "overhead": [
-        {
-          "field": "num_sets",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_elements",
-          "formula": "num_edges"
-        }
-      ]
-    },
-    {
-      "source": {
-        "name": "VertexCovering",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "i32"
-        }
-      },
-      "target": {
-        "name": "QUBO",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "f64"
-        }
-      },
-      "bidirectional": false,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_vertices"
         }
       ]
     }

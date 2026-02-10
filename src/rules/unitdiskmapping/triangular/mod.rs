@@ -1473,7 +1473,7 @@ fn try_apply_dangling_leg_left(grid: &mut MappingGrid, i: usize, j: usize) -> bo
 /// # Panics
 /// Panics if `num_vertices == 0`.
 pub fn map_graph_triangular(num_vertices: usize, edges: &[(usize, usize)]) -> MappingResult {
-    map_graph_triangular_with_method(num_vertices, edges, PathDecompositionMethod::MinhThiTrick)
+    map_graph_triangular_with_method(num_vertices, edges, PathDecompositionMethod::Auto)
 }
 
 /// Map a graph to triangular lattice using a specific path decomposition method.

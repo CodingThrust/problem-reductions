@@ -12,10 +12,10 @@
 //!
 //! ```
 //! use problemreductions::topology::{Graph, SimpleGraph, UnitDiskGraph};
-//! use problemreductions::models::graph::IndependentSet;
+//! use problemreductions::models::graph::MaximumIndependentSet;
 //!
 //! // Problems work with any graph type - SimpleGraph by default
-//! let simple_graph_problem: IndependentSet<SimpleGraph, i32> = IndependentSet::new(3, vec![(0, 1)]);
+//! let simple_graph_problem: MaximumIndependentSet<SimpleGraph, i32> = MaximumIndependentSet::new(3, vec![(0, 1)]);
 //! assert_eq!(simple_graph_problem.num_vertices(), 3);
 //!
 //! // Different graph topologies enable different reduction algorithms
