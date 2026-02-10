@@ -50,6 +50,49 @@
   "VertexCovering->IndependentSet": "thm:is-to-vc",
 )
 
+// Problem display names for theorem headers
+#let display-name = (
+  "IndependentSet": "IS",
+  "VertexCovering": "VC",
+  "MaxCut": "Max-Cut",
+  "KColoring": "Coloring",
+  "DominatingSet": "Dominating Set",
+  "Matching": "Matching",
+  "Clique": "Clique",
+  "SetPacking": "Set Packing",
+  "SetCovering": "Set Covering",
+  "SpinGlass": "Spin Glass",
+  "QUBO": "QUBO",
+  "ILP": "ILP",
+  "Satisfiability": "SAT",
+  "KSatisfiability": [$k$-SAT],
+  "CircuitSAT": "CircuitSAT",
+  "Factoring": "Factoring",
+  "GridGraph": "GridGraph IS",
+)
+
+// Problem name to definition label mapping
+#let def-label-map = (
+  "IndependentSet": "def:independent-set",
+  "VertexCovering": "def:vertex-cover",
+  "MaxCut": "def:max-cut",
+  "KColoring": "def:coloring",
+  "DominatingSet": "def:dominating-set",
+  "Matching": "def:matching",
+  "Clique": "def:clique",
+  "SetPacking": "def:set-packing",
+  "SetCovering": "def:set-covering",
+  "SpinGlass": "def:spin-glass",
+  "QUBO": "def:qubo",
+  "ILP": "def:ilp",
+  "Satisfiability": "def:satisfiability",
+  "KSatisfiability": "def:k-sat",
+  "CircuitSAT": "def:circuit-sat",
+  "Factoring": "def:factoring",
+  "GridGraph": "def:independent-set",
+)
+
+
 // Generate theorem label from source/target names (canonical direction)
 #let reduction-label(source, target) = {
   // Check for override first
@@ -176,6 +219,45 @@
   inset: (x: 1em, y: 0.8em),
   base_level: 1,
 )
+
+// Unified function for reduction rules: theorem + proof + optional example
+#let reduction-rule(
+  source, target,
+  bidirectional: false,
+  source-display: none,
+  target-display: none,
+  example: none,
+  example-caption: none,
+  extra: none,
+  theorem-body, proof-body,
+) = {
+  let arrow = if bidirectional { sym.arrow.l.r } else { sym.arrow.r }
+  let src-disp = if source-display != none { source-display }
+                 else { display-name.at(source) }
+  let tgt-disp = if target-display != none { target-display }
+                 else { display-name.at(target) }
+  let src-def = def-label-map.at(source)
+  let tgt-def = def-label-map.at(target)
+  let problems = if src-def == tgt-def {
+    [_Problem:_ #ref(label(src-def)).]
+  } else {
+    [_Problems:_ #ref(label(src-def)), #ref(label(tgt-def)).]
+  }
+  let src-abbr = name-abbrev.at(source, default: lower(source))
+  let tgt-abbr = name-abbrev.at(target, default: lower(target))
+  let thm-lbl = label("thm:" + src-abbr + "-to-" + tgt-abbr)
+
+  [#theorem[
+    *(#src-disp #arrow #tgt-disp)* #theorem-body [#problems]
+  ] #thm-lbl]
+
+  proof[#proof-body]
+
+  if example != none {
+    let data = load-example(example)
+    reduction-example(data, caption: example-caption)[#extra]
+  }
+}
 
 #align(center)[
   #text(size: 16pt, weight: "bold")[Problem Reductions: Models and Transformations]
@@ -335,57 +417,51 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 == Trivial Reductions
 
-#theorem[
-  *(IS $arrow.l.r$ VC)* $S subset.eq V$ is independent iff $V backslash S$ is a vertex cover, with $|"IS"| + |"VC"| = |V|$. [_Problems:_ @def:independent-set, @def:vertex-cover.]
-] <thm:is-to-vc>
-
-#proof[
-  ($arrow.r.double$) If $S$ is independent, for any $(u, v) in E$, at most one endpoint lies in $S$, so $V backslash S$ covers all edges. ($arrow.l.double$) If $C$ is a cover, for any $u, v in V backslash C$, $(u, v) in.not E$, so $V backslash C$ is independent. _Variable mapping:_ Given IS instance $(G, w)$, create VC instance $(G, w)$ with identical graph and weights. Solution extraction: for VC solution $C$, return $S = V backslash C$. The complement operation preserves optimality since $|S| + |C| = |V|$ is constant.
-]
-
 #let is_vc = load-example("is_to_vc")
 #let is_vc_r = load-results("is_to_vc")
 #let is_vc_sol = is_vc_r.solutions.at(0)
-#reduction-example(is_vc, caption: [Path graph $P_4$: IS $arrow.l.r$ VC])[
-  Source IS: $S = {#is_vc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #is_vc_sol.source_config.filter(x => x == 1).len()) #h(1em)
-  Target VC: $C = {#is_vc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #is_vc_sol.target_config.filter(x => x == 1).len()) \
-  $|"IS"| + |"VC"| = #instance-vars(is_vc.source.instance) = |V|$ #sym.checkmark
+#reduction-rule("IndependentSet", "VertexCovering",
+  bidirectional: true,
+  example: "is_to_vc",
+  example-caption: [Path graph $P_4$: IS $arrow.l.r$ VC],
+  extra: [
+    Source IS: $S = {#is_vc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #is_vc_sol.source_config.filter(x => x == 1).len()) #h(1em)
+    Target VC: $C = {#is_vc_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #is_vc_sol.target_config.filter(x => x == 1).len()) \
+    $|"IS"| + |"VC"| = #instance-vars(is_vc.source.instance) = |V|$ #sym.checkmark
+  ],
+)[
+  $S subset.eq V$ is independent iff $V backslash S$ is a vertex cover, with $|"IS"| + |"VC"| = |V|$.
+][
+  ($arrow.r.double$) If $S$ is independent, for any $(u, v) in E$, at most one endpoint lies in $S$, so $V backslash S$ covers all edges. ($arrow.l.double$) If $C$ is a cover, for any $u, v in V backslash C$, $(u, v) in.not E$, so $V backslash C$ is independent. _Variable mapping:_ Given IS instance $(G, w)$, create VC instance $(G, w)$ with identical graph and weights. Solution extraction: for VC solution $C$, return $S = V backslash C$. The complement operation preserves optimality since $|S| + |C| = |V|$ is constant.
 ]
 
-#theorem[
-  *(IS $arrow.r$ Set Packing)* Construct $U = E$, $S_v = {e in E : v in e}$, $w(S_v) = w(v)$. Then $I$ is independent iff ${S_v : v in I}$ is a packing. [_Problems:_ @def:independent-set, @def:set-packing.]
-] <thm:is-to-setpacking>
-
-#proof[
+#reduction-rule("IndependentSet", "SetPacking")[
+  Construct $U = E$, $S_v = {e in E : v in e}$, $w(S_v) = w(v)$. Then $I$ is independent iff ${S_v : v in I}$ is a packing.
+][
   Independence implies disjoint incident edge sets; conversely, disjoint edge sets imply no shared edges. _Variable mapping:_ Universe $U = E$ (edges), sets $S_v = {e in E : v in e}$ (edges incident to vertex $v$), weights $w(S_v) = w(v)$. Solution extraction: for packing ${S_v : v in P}$, return IS $= P$ (the vertices whose sets were packed).
 ]
 
-#theorem[
-  *(VC $arrow.r$ Set Covering)* Construct $U = {0, ..., |E|-1}$, $S_v = {i : e_i "incident to" v}$, $w(S_v) = w(v)$. Then $C$ is a cover iff ${S_v : v in C}$ covers $U$. [_Problems:_ @def:vertex-cover, @def:set-covering.]
-] <thm:vc-to-setcovering>
-
-#proof[
+#reduction-rule("VertexCovering", "SetCovering")[
+  Construct $U = {0, ..., |E|-1}$, $S_v = {i : e_i "incident to" v}$, $w(S_v) = w(v)$. Then $C$ is a cover iff ${S_v : v in C}$ covers $U$.
+][
   Each vertex's edge set becomes a subset; the cover condition (every edge covered) maps to the covering condition (every universe element in some selected set). _Variable mapping:_ Universe $U = {0, ..., |E|-1}$ (edge indices), $S_v = {i : e_i "incident to" v}$, $w(S_v) = w(v)$. Solution extraction: for covering ${S_v : v in C}$, return VC $= C$.
 ]
 
-#theorem[
-  *(Matching $arrow.r$ Set Packing)* Construct $U = V$, $S_e = {u, v}$ for $e = (u,v)$, $w(S_e) = w(e)$. Then $M$ is a matching iff ${S_e : e in M}$ is a packing. [_Problems:_ @def:matching, @def:set-packing.]
-] <thm:matching-to-setpacking>
-
-#proof[
+#reduction-rule("Matching", "SetPacking")[
+  Construct $U = V$, $S_e = {u, v}$ for $e = (u,v)$, $w(S_e) = w(e)$. Then $M$ is a matching iff ${S_e : e in M}$ is a packing.
+][
   Each edge becomes a set of its endpoints; disjoint edges have disjoint endpoint sets. _Variable mapping:_ Universe $U = V$ (vertices), $S_e = {u, v}$ for $e = (u,v)$, $w(S_e) = w(e)$. Solution extraction: for packing ${S_e : e in P}$, return matching $= P$ (the edges whose endpoint sets were packed).
 ]
 
-#theorem[
-  *(Spin Glass $arrow.l.r$ QUBO)* The substitution $s_i = 2x_i - 1$ yields $H_"SG"(bold(s)) = H_"QUBO"(bold(x)) + "const"$. [_Problems:_ @def:spin-glass, @def:qubo.]
-] <thm:spinglass-to-qubo>
-
-#proof[
+#reduction-rule("SpinGlass", "QUBO",
+  bidirectional: true,
+  example: "spinglass_to_qubo",
+  example-caption: [2-spin system with coupling $J_(01) = -1$, fields $h = (0.5, -0.5)$],
+)[
+  The substitution $s_i = 2x_i - 1$ yields $H_"SG"(bold(s)) = H_"QUBO"(bold(x)) + "const"$.
+][
   Expanding $-sum_(i,j) J_(i j) (2x_i - 1)(2x_j - 1) - sum_i h_i (2x_i - 1)$ gives $Q_(i j) = -4J_(i j)$, $Q_(i i) = 2sum_j J_(i j) - 2h_i$. _Variable mapping:_ Spin $s_i in {-1, +1}$ maps to binary $x_i in {0, 1}$ via $s_i = 2x_i - 1$. Solution extraction: for QUBO solution $bold(x)$, return spins $s_i = 2x_i - 1$. The reverse maps $x_i = (s_i + 1)/2$.
 ]
-
-#let sg_qubo = load-example("spinglass_to_qubo")
-#reduction-example(sg_qubo, caption: [2-spin system with coupling $J_(01) = -1$, fields $h = (0.5, -0.5)$])[]
 
 == Penalty-Method QUBO Reductions <sec:penalty-method>
 
@@ -393,11 +469,27 @@ The _penalty method_ @glover2019 @lucas2014 converts a constrained optimization 
 $ f(bold(x)) = "obj"(bold(x)) + P sum_k g_k (bold(x))^2 $
 where $P$ is a penalty weight large enough that any constraint violation costs more than the entire objective range. Since $g_k (bold(x))^2 >= 0$ with equality iff $g_k (bold(x)) = 0$, minimizers of $f$ are feasible and optimal for the original problem. Because binary variables satisfy $x_i^2 = x_i$, the resulting $f$ is a quadratic in $bold(x)$, i.e.\ a QUBO.
 
-#theorem[
-  *(IS $arrow.r$ QUBO)* Given $G = (V, E)$ with weights $w$, construct upper-triangular $Q in RR^(n times n)$ with $Q_(i i) = -w_i$ and $Q_(i j) = P$ for $(i,j) in E$ ($i < j$), where $P = 1 + sum_i w_i$. Then minimizing $f(bold(x)) = sum_i Q_(i i) x_i + sum_(i<j) Q_(i j) x_i x_j$ is equivalent to maximizing the IS objective. [_Problems:_ @def:independent-set, @def:qubo.]
-] <thm:is-to-qubo>
-
-#proof[
+#let is_qubo = load-example("is_to_qubo")
+#let is_qubo_r = load-results("is_to_qubo")
+#reduction-rule("IndependentSet", "QUBO",
+  example: "is_to_qubo",
+  example-caption: [IS on path $P_4$ to QUBO],
+  extra: [
+    *Source edges:* $= {#is_qubo.source.instance.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}$ \
+    *QUBO matrix* ($Q in RR^(#is_qubo.target.instance.num_vars times #is_qubo.target.instance.num_vars)$):
+    $ Q = #math.mat(..is_qubo.target.instance.matrix.map(row => row.map(v => {
+      let r = calc.round(v, digits: 0)
+      [#r]
+    }))) $
+    *Optimal IS* (size #is_qubo_r.solutions.at(0).source_config.filter(x => x == 1).len()):
+    #is_qubo_r.solutions.map(sol => {
+      let verts = sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i))
+      $\{#verts.join(", ")\}$
+    }).join(", ")
+  ],
+)[
+  Given $G = (V, E)$ with weights $w$, construct upper-triangular $Q in RR^(n times n)$ with $Q_(i i) = -w_i$ and $Q_(i j) = P$ for $(i,j) in E$ ($i < j$), where $P = 1 + sum_i w_i$. Then minimizing $f(bold(x)) = sum_i Q_(i i) x_i + sum_(i<j) Q_(i j) x_i x_j$ is equivalent to maximizing the IS objective.
+][
   _Construction._ The IS objective is: maximize $sum_i w_i x_i$ subject to $x_i x_j = 0$ for $(i,j) in E$. Applying the penalty method (@sec:penalty-method):
   $ f(bold(x)) = -sum_i w_i x_i + P sum_((i,j) in E) x_i x_j $
   Reading off the QUBO coefficients: diagonal $Q_(i i) = -w_i$ (linear terms), off-diagonal $Q_(i j) = P$ for edges $i < j$ (quadratic penalty).
@@ -405,45 +497,18 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ If $bold(x)$ has any adjacent pair $(x_i = 1, x_j = 1)$ with $(i,j) in E$, the penalty $P > sum_i w_i >= -sum_i Q_(i i) x_i$ exceeds the maximum objective gain, so $bold(x)$ is not a minimizer. Among independent sets ($x_i x_j = 0$ for all edges), $f(bold(x)) = -sum_(i in S) w_i$, minimized exactly when $S$ is a maximum-weight IS.
 ]
 
-#let is_qubo = load-example("is_to_qubo")
-#let is_qubo_r = load-results("is_to_qubo")
-#block(
-  width: 100%,
-  inset: (x: 1em, y: 0.8em),
-  fill: rgb("#f0f7ff"),
-  stroke: (left: 2pt + rgb("#4a86e8")),
-)[
-  #text(weight: "bold")[Concrete Example: IS on path $P_4$ to QUBO]
-  #parbreak()
-  *Source:* #is_qubo.source.problem with #is_qubo.source.instance.num_vertices vertices, edges $= {#is_qubo.source.instance.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}$ \
-  *QUBO matrix* ($Q in RR^(#is_qubo.target.instance.num_vars times #is_qubo.target.instance.num_vars)$):
-  $ Q = #math.mat(..is_qubo.target.instance.matrix.map(row => row.map(v => {
-    let r = calc.round(v, digits: 0)
-    [#r]
-  }))) $
-  *Optimal IS* (size #is_qubo_r.solutions.at(0).source_config.filter(x => x == 1).len()):
-  #is_qubo_r.solutions.map(sol => {
-    let verts = sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i))
-    $\{#verts.join(", ")\}$
-  }).join(", ")
-]
-
-#theorem[
-  *(VC $arrow.r$ QUBO)* Given $G = (V, E)$ with weights $w$, construct upper-triangular $Q$ with $Q_(i i) = w_i - P dot "deg"(i)$ and $Q_(i j) = P$ for $(i,j) in E$ ($i < j$), where $P = 1 + sum_i w_i$ and $"deg"(i)$ is the degree of vertex $i$. [_Problems:_ @def:vertex-cover, @def:qubo.]
-] <thm:vc-to-qubo>
-
-#proof[
+#reduction-rule("VertexCovering", "QUBO")[
+  Given $G = (V, E)$ with weights $w$, construct upper-triangular $Q$ with $Q_(i i) = w_i - P dot "deg"(i)$ and $Q_(i j) = P$ for $(i,j) in E$ ($i < j$), where $P = 1 + sum_i w_i$ and $"deg"(i)$ is the degree of vertex $i$.
+][
   _Construction._ The VC objective is: minimize $sum_i w_i x_i$ subject to $x_i + x_j >= 1$ for $(i,j) in E$. Applying the penalty method (@sec:penalty-method), the constraint $x_i + x_j >= 1$ is violated iff $x_i = x_j = 0$, with penalty $(1 - x_i)(1 - x_j)$:
   $ f(bold(x)) = sum_i w_i x_i + P sum_((i,j) in E) (1 - x_i)(1 - x_j) $
   Expanding: $(1 - x_i)(1 - x_j) = 1 - x_i - x_j + x_i x_j$.
   Summing over all edges, each vertex $i$ appears in $"deg"(i)$ terms. The QUBO coefficients are: diagonal $Q_(i i) = w_i - P dot "deg"(i)$ (objective plus linear penalty), off-diagonal $Q_(i j) = P$ for edges. The constant $P |E|$ does not affect the minimizer.
 ]
 
-#theorem[
-  *(KColoring $arrow.r$ QUBO)* Given $G = (V, E)$ with $k$ colors, construct upper-triangular $Q in RR^(n k times n k)$ using one-hot encoding $x_(v,c) in {0,1}$ ($n k$ variables indexed by $v dot k + c$). [_Problems:_ @def:coloring, @def:qubo.]
-] <thm:coloring-to-qubo>
-
-#proof[
+#reduction-rule("KColoring", "QUBO")[
+  Given $G = (V, E)$ with $k$ colors, construct upper-triangular $Q in RR^(n k times n k)$ using one-hot encoding $x_(v,c) in {0,1}$ ($n k$ variables indexed by $v dot k + c$).
+][
   _Construction._ Applying the penalty method (@sec:penalty-method), the QUBO objective combines a one-hot constraint penalty and an edge conflict penalty:
   $ f(bold(x)) = P_1 sum_(v in V) (1 - sum_(c=1)^k x_(v,c))^2 + P_2 sum_((u,v) in E) sum_(c=1)^k x_(u,c) x_(v,c) $
 
@@ -458,19 +523,17 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$.
 ]
 
-#theorem[
-  *(SetPacking $arrow.r$ QUBO)* Equivalent to IS on the intersection graph: $Q_(i i) = -w_i$ and $Q_(i j) = P$ for overlapping sets $i, j$ ($i < j$), where $P = 1 + sum_i w_i$. [_Problems:_ @def:set-packing, @def:qubo.]
-] <thm:setpacking-to-qubo>
-
-#proof[
+#reduction-rule("SetPacking", "QUBO")[
+  Equivalent to IS on the intersection graph: $Q_(i i) = -w_i$ and $Q_(i j) = P$ for overlapping sets $i, j$ ($i < j$), where $P = 1 + sum_i w_i$.
+][
   Two sets conflict iff they share an element. The intersection graph has sets as vertices and edges between conflicting pairs. Applying the penalty method (@sec:penalty-method) yields the same QUBO as IS on this graph: diagonal rewards selection, off-diagonal penalizes overlap. Correctness follows from the IS→QUBO proof.
 ]
 
-#theorem[
-  *(2-SAT $arrow.r$ QUBO)* Given a Max-2-SAT instance with $m$ clauses over $n$ variables, construct upper-triangular $Q in RR^(n times n)$ where each clause $(ell_i or ell_j)$ contributes a penalty gadget encoding its unique falsifying assignment. [_Problems:_ @def:k-sat, @def:qubo.]
-] <thm:ksat-to-qubo>
-
-#proof[
+#reduction-rule("KSatisfiability", "QUBO",
+  source-display: "2-SAT",
+)[
+  Given a Max-2-SAT instance with $m$ clauses over $n$ variables, construct upper-triangular $Q in RR^(n times n)$ where each clause $(ell_i or ell_j)$ contributes a penalty gadget encoding its unique falsifying assignment.
+][
   _Construction._ Applying the penalty method (@sec:penalty-method), each 2-literal clause has exactly one falsifying assignment (both literals false). The penalty for that assignment is a quadratic function of $x_i, x_j$:
 
   #table(
@@ -487,11 +550,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   Summing over all clauses, $f(bold(x)) = sum_j "penalty"_j (bold(x))$ counts falsified clauses. Minimizers of $f$ maximize satisfied clauses.
 ]
 
-#theorem[
-  *(Binary ILP $arrow.r$ QUBO)* Given binary ILP: maximize $bold(c)^top bold(x)$ subject to $A bold(x) = bold(b)$, $bold(x) in {0,1}^n$, construct upper-triangular $Q = -"diag"(bold(c) + 2P bold(b)^top A) + P A^top A$ where $P = 1 + ||bold(c)||_1 + ||bold(b)||_1$. [_Problems:_ @def:ilp, @def:qubo.]
-] <thm:ilp-to-qubo>
-
-#proof[
+#reduction-rule("ILP", "QUBO",
+  source-display: "Binary ILP",
+)[
+  Given binary ILP: maximize $bold(c)^top bold(x)$ subject to $A bold(x) = bold(b)$, $bold(x) in {0,1}^n$, construct upper-triangular $Q = -"diag"(bold(c) + 2P bold(b)^top A) + P A^top A$ where $P = 1 + ||bold(c)||_1 + ||bold(b)||_1$.
+][
   _Step 1: Normalize constraints._ Convert inequalities to equalities using slack variables: $bold(a)_k^top bold(x) <= b_k$ becomes $bold(a)_k^top bold(x) + sum_(s=0)^(S_k - 1) 2^s y_(k,s) = b_k$ where $S_k = ceil(log_2 (b_k + 1))$ slack bits. For $>=$ constraints, the slack has a negative sign. The extended system is $A' bold(x)' = bold(b)$ with $bold(x)' = (bold(x), bold(y)) in {0,1}^(n')$. For minimization, negate $bold(c)$ to convert to maximization.
 
   _Step 2: QUBO construction._ Applying the penalty method (@sec:penalty-method), combine objective and penalty:
@@ -507,11 +570,19 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 == Non-Trivial Reductions
 
-#theorem[
-  *(SAT $arrow.r$ IS)* @karp1972 Given CNF $phi$ with $m$ clauses, construct graph $G$ such that $phi$ is satisfiable iff $G$ has an IS of size $m$. [_Problems:_ @def:satisfiability, @def:independent-set.]
-] <thm:sat-to-is>
-
-#proof[
+#let sat_is = load-example("sat_to_is")
+#let sat_is_r = load-results("sat_to_is")
+#let sat_is_sol = sat_is_r.solutions.at(0)
+#reduction-rule("Satisfiability", "IndependentSet",
+  example: "sat_to_is",
+  example-caption: [$phi = (x_1 or x_2) and (not x_1 or x_3) and (x_2 or not x_3)$],
+  extra: [
+    SAT assignment: $x_1=#sat_is_sol.source_config.at(0), x_2=#sat_is_sol.source_config.at(1), x_3=#sat_is_sol.source_config.at(2)$ #h(1em)
+    IS graph: #sat_is.target.instance.num_vertices vertices, #sat_is.target.instance.num_edges edges (one vertex per literal occurrence)
+  ],
+)[
+  @karp1972 Given CNF $phi$ with $m$ clauses, construct graph $G$ such that $phi$ is satisfiable iff $G$ has an IS of size $m$.
+][
   _Construction._ For $phi = and.big_(j=1)^m C_j$ with $C_j = (ell_(j,1) or ... or ell_(j,k_j))$:
 
   _Vertices:_ For each literal $ell_(j,i)$ in clause $C_j$, create $v_(j,i)$. Total: $|V| = sum_j k_j$.
@@ -523,19 +594,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For $v_(j,i) in S$ with literal $x_k$: set $x_k = 1$; for $overline(x_k)$: set $x_k = 0$.
 ]
 
-#let sat_is = load-example("sat_to_is")
-#let sat_is_r = load-results("sat_to_is")
-#let sat_is_sol = sat_is_r.solutions.at(0)
-#reduction-example(sat_is, caption: [$phi = (x_1 or x_2) and (not x_1 or x_3) and (x_2 or not x_3)$])[
-  SAT assignment: $x_1=#sat_is_sol.source_config.at(0), x_2=#sat_is_sol.source_config.at(1), x_3=#sat_is_sol.source_config.at(2)$ #h(1em)
-  IS graph: #sat_is.target.instance.num_vertices vertices, #sat_is.target.instance.num_edges edges (one vertex per literal occurrence)
-]
-
-#theorem[
-  *(SAT $arrow.r$ 3-Coloring)* @garey1979 Given CNF $phi$, construct graph $G$ such that $phi$ is satisfiable iff $G$ is 3-colorable. [_Problems:_ @def:satisfiability, @def:coloring.]
-] <thm:sat-to-coloring>
-
-#proof[
+#reduction-rule("Satisfiability", "KColoring",
+  target-display: "3-Coloring",
+)[
+  @garey1979 Given CNF $phi$, construct graph $G$ such that $phi$ is satisfiable iff $G$ is 3-colorable.
+][
   _Construction._ (1) Base triangle: TRUE, FALSE, AUX vertices with all pairs connected. (2) Variable gadget for $x_i$: vertices $"pos"_i$, $"neg"_i$ connected to each other and to AUX. (3) Clause gadget: for $(ell_1 or ... or ell_k)$, apply OR-gadgets iteratively producing output $o$, then connect $o$ to FALSE and AUX.
 
   _OR-gadget$(a, b) arrow.bar o$:_ Five vertices encoding $o = a or b$: if both $a, b$ have FALSE color, $o$ cannot have TRUE color.
@@ -543,11 +606,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Set $x_i = 1$ iff $"color"("pos"_i) = "color"("TRUE")$.
 ]
 
-#theorem[
-  *(SAT $arrow.r$ Dominating Set)* @garey1979 Given CNF $phi$ with $n$ variables and $m$ clauses, $phi$ is satisfiable iff the constructed graph has a dominating set of size $n$. [_Problems:_ @def:satisfiability, @def:dominating-set.]
-] <thm:sat-to-dominatingset>
-
-#proof[
+#reduction-rule("Satisfiability", "DominatingSet")[
+  @garey1979 Given CNF $phi$ with $n$ variables and $m$ clauses, $phi$ is satisfiable iff the constructed graph has a dominating set of size $n$.
+][
   _Construction._ (1) Variable triangle for $x_i$: vertices $"pos"_i = 3i$, $"neg"_i = 3i+1$, $"dum"_i = 3i+2$ forming a triangle. (2) Clause vertex $c_j = 3n+j$ connected to $"pos"_i$ if $x_i in C_j$, to $"neg"_i$ if $overline(x_i) in C_j$.
 
   _Correctness._ Each triangle requires at least one vertex in any dominating set. Size-$n$ set must take exactly one per triangle, which dominates clause vertices iff corresponding literals satisfy all clauses.
@@ -555,11 +616,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Set $x_i = 1$ if $"pos"_i$ selected; $x_i = 0$ if $"neg"_i$ selected.
 ]
 
-#theorem[
-  *(SAT $arrow.l.r$ $k$-SAT)* @cook1971 @garey1979 Any SAT formula converts to $k$-SAT ($k >= 3$) preserving satisfiability. [_Problems:_ @def:satisfiability, @def:k-sat.]
-] <thm:sat-to-ksat>
-
-#proof[
+#reduction-rule("Satisfiability", "KSatisfiability",
+  bidirectional: true,
+)[
+  @cook1971 @garey1979 Any SAT formula converts to $k$-SAT ($k >= 3$) preserving satisfiability.
+][
   _Small clauses ($|C| < k$):_ Pad $(ell_1 or ... or ell_r)$ with auxiliary $y$: $(ell_1 or ... or ell_r or y or overline(y) or ...)$ to length $k$.
 
   _Large clauses ($|C| > k$):_ Split $(ell_1 or ... or ell_r)$ with auxiliaries $y_1, ..., y_(r-k)$:
@@ -568,11 +629,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ Original clause true $arrow.l.r$ auxiliary chain can propagate truth through new clauses.
 ]
 
-#theorem[
-  *(CircuitSAT $arrow.r$ Spin Glass)* @whitfield2012 @lucas2014 Each gate maps to a gadget whose ground states encode valid I/O. [_Problems:_ @def:circuit-sat, @def:spin-glass.]
-] <thm:circuit-to-spinglass>
-
-#proof[
+#reduction-rule("CircuitSAT", "SpinGlass")[
+  @whitfield2012 @lucas2014 Each gate maps to a gadget whose ground states encode valid I/O.
+][
   _Spin mapping:_ $sigma in {0,1} arrow.bar s = 2sigma - 1 in {-1, +1}$.
 
   _Gate gadgets_ (inputs 0,1; output 2; auxiliary 3 for XOR) are shown in @tab:gadgets. Allocate spins per variable, instantiate gadgets, sum Hamiltonians. Ground states correspond to satisfying assignments.
@@ -592,11 +651,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   caption: [Ising gadgets for logic gates. Ground states match truth tables.]
 ) <tab:gadgets>
 
-#theorem[
-  *(Factoring $arrow.r$ Circuit-SAT)* An array multiplier with output constrained to $N$ is satisfiable iff $N$ factors within bit bounds. _(Folklore; no canonical reference.)_ [_Problems:_ @def:factoring, @def:circuit-sat.]
-] <thm:factoring-to-circuit>
-
-#proof[
+#reduction-rule("Factoring", "CircuitSAT")[
+  An array multiplier with output constrained to $N$ is satisfiable iff $N$ factors within bit bounds. _(Folklore; no canonical reference.)_
+][
   _Construction._ Build $m times n$ array multiplier for $p times q$:
 
   _Full adder $(i,j)$:_ $s_(i,j) + 2c_(i,j) = (p_i and q_j) + s_"prev" + c_"prev"$ via:
@@ -608,11 +665,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ $p = sum_i p_i 2^(i-1)$, $q = sum_j q_j 2^(j-1)$.
 ]
 
-#theorem[
-  *(Spin Glass $arrow.l.r$ Max-Cut)* @barahona1982 @lucas2014 Ground states of Ising models correspond to maximum cuts. [_Problems:_ @def:spin-glass, @def:max-cut.]
-] <thm:spinglass-to-maxcut>
-
-#proof[
+#reduction-rule("SpinGlass", "MaxCut",
+  bidirectional: true,
+)[
+  @barahona1982 @lucas2014 Ground states of Ising models correspond to maximum cuts.
+][
   _MaxCut $arrow.r$ SpinGlass:_ Set $J_(i j) = w_(i j)$, $h_i = 0$. Maximizing cut equals minimizing $-sum J_(i j) s_i s_j$ since $s_i s_j = -1$ when $s_i != s_j$.
 
   _SpinGlass $arrow.r$ MaxCut:_ If $h_i = 0$: direct mapping $w_(i j) = J_(i j)$. Otherwise, add ancilla $a$ with $w_(i,a) = h_i$.
@@ -620,11 +677,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Without ancilla: identity. With ancilla: if $sigma_a = 1$, flip all spins before removing ancilla.
 ]
 
-#theorem[
-  *(Coloring $arrow.r$ ILP)* The $k$-coloring problem reduces to binary ILP with $|V| dot k$ variables and $|V| + |E| dot k$ constraints. [_Problems:_ @def:coloring, @def:ilp.]
-] <thm:coloring-to-ilp>
-
-#proof[
+#reduction-rule("KColoring", "ILP")[
+  The $k$-coloring problem reduces to binary ILP with $|V| dot k$ variables and $|V| + |E| dot k$ constraints.
+][
   _Construction._ For graph $G = (V, E)$ with $k$ colors:
 
   _Variables:_ Binary $x_(v,c) in {0, 1}$ for each vertex $v in V$ and color $c in {1, ..., k}$. Interpretation: $x_(v,c) = 1$ iff vertex $v$ has color $c$.
@@ -638,11 +693,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$; assign color $c$ to $v$.
 ]
 
-#theorem[
-  *(Factoring $arrow.r$ ILP)* Integer factorization reduces to binary ILP using McCormick linearization with $O(m n)$ variables and constraints. [_Problems:_ @def:factoring, @def:ilp.]
-] <thm:factoring-to-ilp>
-
-#proof[
+#reduction-rule("Factoring", "ILP")[
+  Integer factorization reduces to binary ILP using McCormick linearization with $O(m n)$ variables and constraints.
+][
   _Construction._ For target $N$ with $m$-bit factor $p$ and $n$-bit factor $q$:
 
   _Variables:_ Binary $p_i, q_j in {0,1}$ for factor bits; binary $z_(i j) in {0,1}$ for products $p_i dot q_j$; integer $c_k >= 0$ for carries at each bit position.
@@ -665,69 +718,53 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 The following reductions to Integer Linear Programming are straightforward formulations where problem constraints map directly to linear inequalities.
 
-#theorem[
-  *(IS $arrow.r$ ILP)* The maximum-weight IS problem reduces to binary ILP with $|V|$ variables and $|E|$ constraints. [_Problems:_ @def:independent-set, @def:ilp.]
-] <thm:is-to-ilp>
-
-#proof[
+#reduction-rule("IndependentSet", "ILP")[
+  The maximum-weight IS problem reduces to binary ILP with $|V|$ variables and $|E|$ constraints.
+][
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v <= 1$ for each $(u, v) in E$. Objective: maximize $sum_v w_v x_v$. _Solution extraction:_ $S = {v : x_v = 1}$.
 ]
 
-#theorem[
-  *(VC $arrow.r$ ILP)* The minimum-weight VC problem reduces to binary ILP with $|V|$ variables and $|E|$ constraints. [_Problems:_ @def:vertex-cover, @def:ilp.]
-] <thm:vc-to-ilp>
-
-#proof[
+#reduction-rule("VertexCovering", "ILP")[
+  The minimum-weight VC problem reduces to binary ILP with $|V|$ variables and $|E|$ constraints.
+][
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v >= 1$ for each $(u, v) in E$. Objective: minimize $sum_v w_v x_v$. _Solution extraction:_ $C = {v : x_v = 1}$.
 ]
 
-#theorem[
-  *(Matching $arrow.r$ ILP)* The maximum-weight matching reduces to binary ILP with $|E|$ variables and $|V|$ constraints. [_Problems:_ @def:matching, @def:ilp.]
-] <thm:matching-to-ilp>
-
-#proof[
+#reduction-rule("Matching", "ILP")[
+  The maximum-weight matching reduces to binary ILP with $|E|$ variables and $|V|$ constraints.
+][
   _Construction._ Variables: $x_e in {0, 1}$ for each $e in E$. Constraints: $sum_(e in.rev v) x_e <= 1$ for each $v in V$. Objective: maximize $sum_e w_e x_e$. _Solution extraction:_ $M = {e : x_e = 1}$.
 ]
 
-#theorem[
-  *(SetPacking $arrow.r$ ILP)* Set packing reduces to binary ILP with $|cal(S)|$ variables and at most $binom(|cal(S)|, 2)$ constraints. [_Problems:_ @def:set-packing, @def:ilp.]
-] <thm:setpacking-to-ilp>
-
-#proof[
+#reduction-rule("SetPacking", "ILP")[
+  Set packing reduces to binary ILP with $|cal(S)|$ variables and at most $binom(|cal(S)|, 2)$ constraints.
+][
   _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. Constraints: $x_i + x_j <= 1$ for each overlapping pair $S_i, S_j in cal(S)$ with $S_i inter S_j != emptyset$. Objective: maximize $sum_i w_i x_i$. _Solution extraction:_ $cal(P) = {S_i : x_i = 1}$.
 ]
 
-#theorem[
-  *(SetCovering $arrow.r$ ILP)* Set covering reduces to binary ILP with $|cal(S)|$ variables and $|U|$ constraints. [_Problems:_ @def:set-covering, @def:ilp.]
-] <thm:setcovering-to-ilp>
-
-#proof[
+#reduction-rule("SetCovering", "ILP")[
+  Set covering reduces to binary ILP with $|cal(S)|$ variables and $|U|$ constraints.
+][
   _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. Constraints: $sum_(S_i in.rev u) x_i >= 1$ for each $u in U$. Objective: minimize $sum_i w_i x_i$. _Solution extraction:_ $cal(C) = {S_i : x_i = 1}$.
 ]
 
-#theorem[
-  *(DominatingSet $arrow.r$ ILP)* Dominating set reduces to binary ILP with $|V|$ variables and $|V|$ constraints. [_Problems:_ @def:dominating-set, @def:ilp.]
-] <thm:dominatingset-to-ilp>
-
-#proof[
+#reduction-rule("DominatingSet", "ILP")[
+  Dominating set reduces to binary ILP with $|V|$ variables and $|V|$ constraints.
+][
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_v + sum_(u in N(v)) x_u >= 1$ for each $v in V$ (each vertex dominated). Objective: minimize $sum_v w_v x_v$. _Solution extraction:_ $D = {v : x_v = 1}$.
 ]
 
-#theorem[
-  *(Clique $arrow.r$ ILP)* Maximum clique reduces to binary ILP with $|V|$ variables and $O(|overline(E)|)$ constraints. [_Problems:_ @def:clique, @def:ilp.]
-] <thm:clique-to-ilp>
-
-#proof[
+#reduction-rule("Clique", "ILP")[
+  Maximum clique reduces to binary ILP with $|V|$ variables and $O(|overline(E)|)$ constraints.
+][
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v <= 1$ for each $(u, v) in.not E$ (non-edges). Objective: maximize $sum_v x_v$. Equivalently, IS on the complement graph. _Solution extraction:_ $K = {v : x_v = 1}$.
 ]
 
 == Unit Disk Mapping
 
-#theorem[
-  *(IS $arrow.r$ GridGraph IS)* @nguyen2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a unit disk graph (King's subgraph) with at most quadratic overhead in the number of vertices. [_Problem:_ @def:independent-set.]
-] <thm:is-to-gridgraph>
-
-#proof[
+#reduction-rule("IndependentSet", "GridGraph")[
+  @nguyen2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a unit disk graph (King's subgraph) with at most quadratic overhead in the number of vertices.
+][
   _Construction (Copy-Line Method)._ Given $G = (V, E)$ with $n = |V|$:
 
   1. _Vertex ordering:_ Compute a path decomposition of $G$ to obtain vertex order $(v_1, ..., v_n)$. The pathwidth determines the grid height.
