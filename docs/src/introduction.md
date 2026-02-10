@@ -6,6 +6,8 @@ A Rust library for reducing NP-hard problems.
 
 **problemreductions** provides implementations of various NP-hard computational problems and reduction rules between them. It is designed for algorithm research, education, and quantum optimization studies.
 
+For theoretical background and correctness proofs, see the [PDF manual](https://codingthrust.github.io/problem-reductions/reductions.pdf).
+
 ## Reduction Graph
 
 <div id="cy" style="width: 100%; height: 500px; border: 1px solid #ddd; border-radius: 4px; background: #fafafa;"></div>
@@ -23,7 +25,7 @@ A Rust library for reducing NP-hard problems.
   </div>
 </div>
 <div style="margin-top: 8px; font-family: sans-serif; font-size: 12px; color: #888;">
-  Click two nodes to find a reduction path. Double-click a node to view its docs. Scroll to zoom, drag to pan.
+  Click two nodes to find a reduction path. Double-click a node to view its API docs. Scroll to zoom, drag to pan.
 </div>
 <div id="tooltip" style="display:none; position:absolute; background:white; border:1px solid #ccc; padding:8px 12px; border-radius:4px; font-family:sans-serif; font-size:13px; box-shadow:0 2px 8px rgba(0,0,0,0.15); pointer-events:none; z-index:1000;"></div>
 
@@ -37,12 +39,6 @@ A Rust library for reducing NP-hard problems.
   var categoryBorders = {
     graph: '#4a8c4a', set: '#8c4a4a', optimization: '#8c8c4a',
     satisfiability: '#4a4a8c', specialized: '#8c4a6a'
-  };
-  var categoryToPage = {
-    graph: 'problems/graph.html', set: 'problems/set.html',
-    optimization: 'problems/optimization.html',
-    satisfiability: 'problems/satisfiability.html',
-    specialized: 'problems/specialized.html'
   };
 
   fetch('reductions/reduction_graph.json')
@@ -67,7 +63,7 @@ A Rust library for reducing NP-hard problems.
 
       var elements = [];
       baseNodes.forEach(function(n) {
-        elements.push({ data: { id: n.name, label: n.name, category: n.category || 'other' } });
+        elements.push({ data: { id: n.name, label: n.name, category: n.category || 'other', doc_path: n.doc_path || '' } });
       });
       Object.keys(edgeMap).forEach(function(k) {
         var e = edgeMap[k];
@@ -117,7 +113,7 @@ A Rust library for reducing NP-hard problems.
       var tooltip = document.getElementById('tooltip');
       cy.on('mouseover', 'node', function(evt) {
         var d = evt.target.data();
-        tooltip.innerHTML = '<strong>' + d.label + '</strong><br>Category: ' + d.category + '<br><em>Double-click to view docs</em>';
+        tooltip.innerHTML = '<strong>' + d.label + '</strong><br>Category: ' + d.category + '<br><em>Double-click to view API docs</em>';
         tooltip.style.display = 'block';
       });
       cy.on('mousemove', 'node', function(evt) {
@@ -128,11 +124,12 @@ A Rust library for reducing NP-hard problems.
       });
       cy.on('mouseout', 'node', function() { tooltip.style.display = 'none'; });
 
-      // Double-click to navigate to docs
+      // Double-click to navigate to rustdoc API page
       cy.on('dbltap', 'node', function(evt) {
         var d = evt.target.data();
-        var page = categoryToPage[d.category];
-        if (page) { window.location.href = page; }
+        if (d.doc_path) {
+          window.location.href = 'api/problemreductions/' + d.doc_path;
+        }
       });
 
       // Single-click path selection
@@ -175,6 +172,17 @@ A Rust library for reducing NP-hard problems.
 })();
 </script>
 
+## Problem Variants
+
+Problems are parameterized by graph type `G` and weight type `W`. The base variant uses `SimpleGraph` and `Unweighted` (e.g., `IndependentSet`). Graph variants specify a different topology (e.g., `IndependentSet/GridGraph`), and weighted variants use numeric weights (e.g., `IndependentSet/Weighted`). Variants appear as separate nodes in the reduction graph when they have distinct reductions.
+
+The library supports four graph topologies:
+
+- **SimpleGraph** — standard adjacency-based graph ([petgraph](https://docs.rs/petgraph))
+- **GridGraph** — vertices on a regular grid with nearest-neighbor edges
+- **UnitDiskGraph** — geometric graph where edges connect vertices within a distance threshold (for quantum hardware mapping)
+- **HyperGraph** — generalized edges connecting any number of vertices
+
 ## Quick Example
 
 ```rust
@@ -190,16 +198,6 @@ let solutions = solver.find_best(&problem);
 // Maximum independent set in a triangle has size 1
 assert!(solutions.iter().all(|s| s.iter().sum::<usize>() == 1));
 ```
-
-## Problem Categories
-
-| Category | Problems |
-|----------|----------|
-| **Satisfiability** | SAT, K-SAT, CircuitSAT, Factoring |
-| **Graph** | IndependentSet, VertexCovering, MaxCut, Coloring, DominatingSet, MaximalIS, Matching |
-| **Set** | SetCovering, SetPacking |
-| **Optimization** | SpinGlass, QUBO |
-| **Specialized** | Paintshop, BicliqueCover, BMF |
 
 ## License
 
