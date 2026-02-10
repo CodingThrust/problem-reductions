@@ -6,9 +6,9 @@
 //! Objective: minimize sum of w_v * x_v.
 //!
 //! ## This Example
-//! - Instance: Path graph P4 (4 vertices, 3 edges: 0-1-2-3)
-//! - Source MinimumDominatingSet: min dominating set size 2 (e.g., {1,2})
-//! - Target ILP: 4 binary variables, 4 domination constraints
+//! - Instance: Petersen graph (10 vertices, 15 edges), min dominating set size 3
+//! - Source MinimumDominatingSet: min dominating set size 3
+//! - Target ILP: 10 binary variables, 10 domination constraints
 //!
 //! ## Output
 //! Exports `docs/paper/examples/minimumdominatingset_to_ilp.json` and `minimumdominatingset_to_ilp.result.json`.
@@ -16,11 +16,13 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::solvers::BruteForceFloat;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    // 1. Create MinimumDominatingSet instance: path graph P4
-    let ds = MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    // 1. Create MinimumDominatingSet instance: Petersen graph
+    let (num_vertices, edges) = petersen();
+    let ds = MinimumDominatingSet::<SimpleGraph, i32>::new(num_vertices, edges.clone());
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&ds);
