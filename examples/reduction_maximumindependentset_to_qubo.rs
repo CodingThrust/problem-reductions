@@ -11,10 +11,10 @@
 //! independent set size while respecting adjacency constraints.
 //!
 //! ## This Example
-//! - Instance: Path graph P4 with 4 vertices and 3 edges (0-1-2-3)
-//! - Source: MaximumIndependentSet with maximum size 2 (e.g., {0,2} or {1,3})
-//! - QUBO variables: 4 (one per vertex)
-//! - Expected: Two optimal solutions of size 2: vertices {0,2} and {1,3}
+//! - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
+//! - Source: MaximumIndependentSet with maximum size 4
+//! - QUBO variables: 10 (one per vertex)
+//! - Expected: Optimal solutions of size 4
 //!
 //! ## Output
 //! Exports `docs/paper/examples/maximumindependentset_to_qubo.json` and `maximumindependentset_to_qubo.result.json`.
@@ -26,20 +26,21 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
     println!("=== Independent Set -> QUBO Reduction ===\n");
 
-    // Path graph P4: 0-1-2-3
-    let edges = vec![(0, 1), (1, 2), (2, 3)];
-    let is = MaximumIndependentSet::<SimpleGraph, i32>::new(4, edges.clone());
+    // Petersen graph: 10 vertices, 15 edges, 3-regular
+    let (num_vertices, edges) = petersen();
+    let is = MaximumIndependentSet::<SimpleGraph, i32>::new(num_vertices, edges.clone());
 
     // Reduce to QUBO
     let reduction = ReduceTo::<QUBO>::reduce_to(&is);
     let qubo = reduction.target_problem();
 
-    println!("Source: MaximumIndependentSet on path P4 (4 vertices, 3 edges)");
+    println!("Source: MaximumIndependentSet on Petersen graph (10 vertices, 15 edges)");
     println!("Target: QUBO with {} variables", qubo.num_variables());
     println!("Q matrix:");
     for row in qubo.matrix() {

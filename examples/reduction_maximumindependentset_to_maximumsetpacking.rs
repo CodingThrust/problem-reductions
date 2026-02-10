@@ -6,9 +6,9 @@
 //! incident edge sets, so IS maps to set packing with identical optimal value.
 //!
 //! ## This Example
-//! - Instance: Path graph P4 (4 vertices, 3 edges: (0,1), (1,2), (2,3))
-//! - Source IS: max size 2
-//! - Target MaximumSetPacking: max packing 2
+//! - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
+//! - Source IS: max size 4
+//! - Target MaximumSetPacking: max packing 4
 //!
 //! ## Output
 //! Exports `docs/paper/examples/maximumindependentset_to_maximumsetpacking.json` and `maximumindependentset_to_maximumsetpacking.result.json`.
@@ -17,17 +17,18 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
     println!("\n=== Independent Set -> Set Packing Reduction ===\n");
 
-    // Path graph P4: 0-1-2-3
-    let edges = vec![(0, 1), (1, 2), (2, 3)];
-    let source = MaximumIndependentSet::<SimpleGraph, i32>::new(4, edges.clone());
+    // Petersen graph: 10 vertices, 15 edges, 3-regular
+    let (num_vertices, edges) = petersen();
+    let source = MaximumIndependentSet::<SimpleGraph, i32>::new(num_vertices, edges.clone());
 
-    println!("Source: MaximumIndependentSet on P4");
-    println!("  Vertices: 4");
+    println!("Source: MaximumIndependentSet on Petersen graph");
+    println!("  Vertices: {}", num_vertices);
     println!("  Edges: {:?}", edges);
 
     // Reduce to MaximumSetPacking
@@ -75,8 +76,8 @@ fn main() {
     let source_size = source.solution_size(&source_sol);
     let target_size = target.solution_size(target_sol);
 
-    assert_eq!(source_size.size, 2, "IS on P4 has optimal size 2");
-    assert_eq!(target_size.size, 2, "MaximumSetPacking should also have size 2");
+    assert_eq!(source_size.size, 4, "IS on Petersen graph has optimal size 4");
+    assert_eq!(target_size.size, 4, "MaximumSetPacking should also have size 4");
 
     // Export JSON
     let overhead = lookup_overhead("MaximumIndependentSet", "MaximumSetPacking")
@@ -107,5 +108,5 @@ fn main() {
     let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
     write_example(name, &data, &results);
 
-    println!("\nDone: IS(P4) optimal=2 maps to MaximumSetPacking optimal=2");
+    println!("\nDone: IS(Petersen) optimal=4 maps to MaximumSetPacking optimal=4");
 }

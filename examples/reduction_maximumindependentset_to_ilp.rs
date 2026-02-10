@@ -6,9 +6,9 @@
 //! Objective: maximize sum of w_v * x_v.
 //!
 //! ## This Example
-//! - Instance: Path graph P4 (4 vertices, 3 edges: 0-1-2-3)
-//! - Source IS: max size 2 (e.g., {0,2}, {0,3}, {1,3})
-//! - Target ILP: 4 binary variables, 3 constraints
+//! - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
+//! - Source IS: max size 4
+//! - Target ILP: 10 binary variables, 15 constraints
 //!
 //! ## Output
 //! Exports `docs/paper/examples/maximumindependentset_to_ilp.json` and `maximumindependentset_to_ilp.result.json`.
@@ -16,12 +16,13 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::solvers::BruteForceFloat;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    // 1. Create IS instance: path graph P4
-    let edges = vec![(0, 1), (1, 2), (2, 3)];
-    let is = MaximumIndependentSet::<SimpleGraph, i32>::new(4, edges.clone());
+    // 1. Create IS instance: Petersen graph
+    let (num_vertices, edges) = petersen();
+    let is = MaximumIndependentSet::<SimpleGraph, i32>::new(num_vertices, edges.clone());
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&is);

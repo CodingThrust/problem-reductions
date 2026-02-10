@@ -5,9 +5,9 @@
 //! operation preserves optimality since |IS| + |VC| = |V| is constant.
 //!
 //! ## This Example
-//! - Instance: Path graph P4 (4 vertices, 3 edges)
-//! - Source IS: max size 2 (e.g., {0, 2} or {0, 3} or {1, 3})
-//! - Target VC: min size 2
+//! - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
+//! - Source IS: max size 4
+//! - Target VC: min size 6
 //!
 //! ## Output
 //! Exports `docs/paper/examples/maximumindependentset_to_minimumvertexcover.json` and `maximumindependentset_to_minimumvertexcover.result.json`.
@@ -16,12 +16,13 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    // 1. Create IS instance: path graph P4
-    let edges = vec![(0, 1), (1, 2), (2, 3)];
-    let is = MaximumIndependentSet::<SimpleGraph, i32>::new(4, edges.clone());
+    // 1. Create IS instance: Petersen graph
+    let (num_vertices, edges) = petersen();
+    let is = MaximumIndependentSet::<SimpleGraph, i32>::new(num_vertices, edges.clone());
 
     // 2. Reduce to VC
     let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is);
