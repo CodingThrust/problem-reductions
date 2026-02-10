@@ -11,10 +11,10 @@
 //! number of selected vertices while covering all edges.
 //!
 //! ## This Example
-//! - Instance: Cycle graph C4 with 4 vertices and 4 edges (0-1-2-3-0)
-//! - Source: MinimumVertexCover with minimum size 2
-//! - QUBO variables: 4 (one per vertex)
-//! - Expected: Optimal vertex covers of size 2 (e.g., {0,2} or {1,3})
+//! - Instance: Petersen graph (10 vertices, 15 edges), VC=6
+//! - Source: MinimumVertexCover with minimum size 6
+//! - QUBO variables: 10 (one per vertex)
+//! - Expected: Optimal vertex covers of size 6
 //!
 //! ## Output
 //! Exports `docs/paper/examples/minimumvertexcover_to_qubo.json` and `minimumvertexcover_to_qubo.result.json`.
@@ -26,20 +26,21 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
     println!("=== Vertex Covering -> QUBO Reduction ===\n");
 
-    // Cycle C4: 0-1-2-3-0
-    let edges = vec![(0, 1), (1, 2), (2, 3), (0, 3)];
-    let vc = MinimumVertexCover::<SimpleGraph, i32>::new(4, edges.clone());
+    // Petersen graph: 10 vertices, 15 edges, VC=6
+    let (num_vertices, edges) = petersen();
+    let vc = MinimumVertexCover::<SimpleGraph, i32>::new(num_vertices, edges.clone());
 
     // Reduce to QUBO
     let reduction = ReduceTo::<QUBO>::reduce_to(&vc);
     let qubo = reduction.target_problem();
 
-    println!("Source: MinimumVertexCover on cycle C4 (4 vertices, 4 edges)");
+    println!("Source: MinimumVertexCover on Petersen graph (10 vertices, 15 edges)");
     println!("Target: QUBO with {} variables", qubo.num_variables());
     println!("Q matrix:");
     for row in qubo.matrix() {
@@ -77,12 +78,12 @@ fn main() {
         });
     }
 
-    // All optimal solutions should have size 2
+    // All optimal solutions should have size 6
     assert!(
-        solutions.iter().all(|s| s.source_config.iter().filter(|&&x| x == 1).count() == 2),
-        "All optimal VC solutions on C4 should have size 2"
+        solutions.iter().all(|s| s.source_config.iter().filter(|&&x| x == 1).count() == 6),
+        "All optimal VC solutions on Petersen graph should have size 6"
     );
-    println!("\nVerification passed: all solutions are valid with size 2");
+    println!("\nVerification passed: all solutions are valid with size 6");
 
     // Export JSON
     let overhead = lookup_overhead("MinimumVertexCover", "QUBO")

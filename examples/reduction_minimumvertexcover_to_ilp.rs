@@ -6,9 +6,9 @@
 //! Objective: minimize sum of w_v * x_v.
 //!
 //! ## This Example
-//! - Instance: Cycle C4 (4 vertices, 4 edges: 0-1-2-3-0)
-//! - Source VC: min cover size 2
-//! - Target ILP: 4 binary variables, 4 constraints
+//! - Instance: Petersen graph (10 vertices, 15 edges), VC=6
+//! - Source VC: min cover size 6
+//! - Target ILP: 10 binary variables, 15 constraints
 //!
 //! ## Output
 //! Exports `docs/paper/examples/minimumvertexcover_to_ilp.json` and `minimumvertexcover_to_ilp.result.json`.
@@ -16,11 +16,13 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::solvers::BruteForceFloat;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    // 1. Create VC instance: cycle C4
-    let vc = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]);
+    // 1. Create VC instance: Petersen graph (10 vertices, 15 edges), VC=6
+    let (num_vertices, edges) = petersen();
+    let vc = MinimumVertexCover::<SimpleGraph, i32>::new(num_vertices, edges.clone());
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&vc);

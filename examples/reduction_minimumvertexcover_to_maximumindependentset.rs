@@ -6,9 +6,9 @@
 //! computes the complement: IS = V \ VC.
 //!
 //! ## This Example
-//! - Instance: Cycle C4 (4 vertices, 4 edges)
-//! - Source VC: min size 2
-//! - Target IS: max size 2
+//! - Instance: Petersen graph (10 vertices, 15 edges), VC=6
+//! - Source VC: min size 6
+//! - Target IS: max size 4
 //!
 //! ## Output
 //! Exports `docs/paper/examples/minimumvertexcover_to_maximumindependentset.json` and `minimumvertexcover_to_maximumindependentset.result.json`.
@@ -17,10 +17,13 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    let vc = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
+    // Petersen graph: 10 vertices, 15 edges, VC=6
+    let (num_vertices, edges) = petersen();
+    let vc = MinimumVertexCover::<SimpleGraph, i32>::new(num_vertices, edges.clone());
 
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&vc);
     let is = reduction.target_problem();
