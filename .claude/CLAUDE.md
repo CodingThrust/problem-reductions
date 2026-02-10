@@ -5,12 +5,21 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 
 ## Commands
 ```bash
-make test          # Run all tests
-make clippy        # Lint
-make export-graph  # Regenerate reduction graph
-make paper         # Build Typst paper
-make coverage      # Generate coverage report (>95% required)
-make qubo-testdata # Regenerate QUBO ground truth JSON
+make help           # Show all available targets
+make build          # Build the project
+make test           # Run all tests
+make fmt            # Format code with rustfmt
+make fmt-check      # Check code formatting
+make clippy         # Run clippy lints
+make doc            # Build mdBook documentation (includes reduction graph export)
+make mdbook         # Build and serve mdBook with live reload
+make paper          # Build Typst paper (runs examples + exports first)
+make coverage       # Generate coverage report (>95% required)
+make check          # Quick pre-commit check (fmt + clippy + test)
+make export-graph   # Regenerate reduction graph JSON
+make export-schemas # Regenerate problem schemas JSON
+make qubo-testdata  # Regenerate QUBO ground truth JSON
+make clean          # Clean build artifacts
 ```
 
 ## Verify Changes
