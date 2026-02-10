@@ -22,15 +22,9 @@ A Rust library for reducing NP-hard problems.
     <button id="clear-btn" style="display:none; margin-left:8px; padding:3px 10px; cursor:pointer; font-size:12px;" onclick="clearPath()">Clear</button>
   </div>
 </div>
-<details style="margin-top: 8px; font-family: sans-serif; font-size: 13px; color: #555;">
-<summary style="cursor: pointer; user-select: none;">How to interact</summary>
-<ul style="margin-top: 4px;">
-<li><b>Find reduction path:</b> Click a source node, then click a target node to highlight the shortest reduction path.</li>
-<li><b>View documentation:</b> Double-click a node to open its documentation page.</li>
-<li><b>Navigate:</b> Scroll to zoom, drag the background to pan.</li>
-<li><b>Reset:</b> Click the background or press the Clear button.</li>
-</ul>
-</details>
+<div style="margin-top: 8px; font-family: sans-serif; font-size: 12px; color: #888;">
+  Click two nodes to find a reduction path. Double-click a node to view its docs. Scroll to zoom, drag to pan.
+</div>
 <div id="tooltip" style="display:none; position:absolute; background:white; border:1px solid #ccc; padding:8px 12px; border-radius:4px; font-family:sans-serif; font-size:13px; box-shadow:0 2px 8px rgba(0,0,0,0.15); pointer-events:none; z-index:1000;"></div>
 
 <script src="https://unpkg.com/cytoscape@3/dist/cytoscape.min.js"></script>
@@ -129,8 +123,8 @@ A Rust library for reducing NP-hard problems.
       cy.on('mousemove', 'node', function(evt) {
         var pos = evt.renderedPosition || evt.position;
         var rect = document.getElementById('cy').getBoundingClientRect();
-        tooltip.style.left = (rect.left + pos.x + 15) + 'px';
-        tooltip.style.top = (rect.top + pos.y - 10) + 'px';
+        tooltip.style.left = (rect.left + window.scrollX + pos.x + 15) + 'px';
+        tooltip.style.top = (rect.top + window.scrollY + pos.y - 10) + 'px';
       });
       cy.on('mouseout', 'node', function() { tooltip.style.display = 'none'; });
 
