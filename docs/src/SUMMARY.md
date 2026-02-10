@@ -8,6 +8,10 @@
 - [Solvers](./solvers.md)
 - [File I/O](./io.md)
 
+# Reductions
+
+- [Reduction Graph](./reductions/graph.md)
+
 # Developer Guide
 
 - [API Reference](./api.md)
