@@ -157,6 +157,9 @@ fn test_to_json_string() {
     assert!(json_string.contains("MaximumIndependentSet"));
     assert!(json_string.contains("\"category\""));
     assert!(json_string.contains("\"overhead\""));
+
+    // The legacy "bidirectional" field must not be present
+    assert!(!json_string.contains("\"bidirectional\""), "JSON should not contain the removed 'bidirectional' field");
 }
 
 #[test]
