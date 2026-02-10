@@ -23,13 +23,17 @@
 
 #let problem-schemas = json("problem_schemas.json")
 
-// Render a problem's Rust struct from the JSON schema
-#let render-struct(name) = {
+// Render a problem's JSON schema as a field table
+#let render-schema(name) = {
   let schema = problem-schemas.find(s => s.name == name)
   if schema == none { return }
-  let s = schema
-  let fields = s.fields.map(f => "    " + f.name + ": " + f.type_name + ",").join("\n")
-  raw("pub struct " + name + " {\n" + fields + "\n}", lang: "rust", block: true)
+  table(
+    columns: (auto, auto, 1fr),
+    inset: 4pt,
+    align: left,
+    table.header([*Field*], [*Type*], [*Description*]),
+    ..schema.fields.map(f => (raw(f.name), raw(f.type_name), f.description)).flatten()
+  )
 }
 
 // Extract primary variable count from an instance dict.
@@ -113,67 +117,60 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Independent Set (IS)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
 
-  _Implemented reductions:_ IS→VC (@thm:is-to-vc), IS→SetPacking (@thm:is-to-setpacking), IS→QUBO (@thm:is-to-qubo), IS→ILP (@thm:is-to-ilp), IS→GridGraph IS (@thm:is-to-gridgraph), VC→IS (@thm:is-to-vc), SAT→IS (@thm:sat-to-is).
+  _Reduces to:_ VC (@thm:is-to-vc), SetPacking (@thm:is-to-setpacking), QUBO (@thm:is-to-qubo), ILP (@thm:is-to-ilp), GridGraph IS (@thm:is-to-gridgraph). \
+  _Reduces from:_ VC (@thm:is-to-vc), SAT (@thm:sat-to-is).
 
-  #render-struct("IndependentSet")
-
-  Where `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$, and `weights` stores vertex weights $w: V -> RR$ indexed by vertex ID. The solution is a subset $S subset.eq V$ represented as a `Vec<usize>` of vertex indices.
+  #render-schema("IndependentSet")
 ] <def:independent-set>
 
 #definition("Vertex Cover (VC)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
 
-  _Implemented reductions:_ VC→IS (@thm:is-to-vc), VC→SetCovering (@thm:vc-to-setcovering), VC→QUBO (@thm:vc-to-qubo), VC→ILP (@thm:vc-to-ilp), IS→VC (@thm:is-to-vc).
+  _Reduces to:_ IS (@thm:is-to-vc), SetCovering (@thm:vc-to-setcovering), QUBO (@thm:vc-to-qubo), ILP (@thm:vc-to-ilp). \
+  _Reduces from:_ IS (@thm:is-to-vc).
 
-  #render-struct("VertexCovering")
-
-  Where `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$, and `weights` stores vertex weights $w: V -> RR$ indexed by vertex ID. The solution is a subset $S subset.eq V$ represented as a `Vec<usize>` of vertex indices.
+  #render-schema("VertexCovering")
 ] <def:vertex-cover>
 
 #definition("Max-Cut")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find partition $(S, overline(S))$ maximizing $sum_((u,v) in E: u in S, v in overline(S)) w(u, v)$.
 
-  _Implemented reductions:_ MaxCut→SpinGlass (@thm:spinglass-maxcut), SpinGlass→MaxCut (@thm:spinglass-maxcut).
+  _Reduces to:_ SpinGlass (@thm:spinglass-maxcut). \
+  _Reduces from:_ SpinGlass (@thm:spinglass-maxcut).
 
-  #render-struct("MaxCut")
-
-  Where `graph` represents $G = (V, E)$, and `edge_weights` stores weights $w: E -> RR$ indexed by edge index. The solution is a partition $(S, overline(S))$ represented as a binary assignment `Vec<usize>` where 0/1 indicates partition membership.
+  #render-schema("MaxCut")
 ] <def:max-cut>
 
 #definition("Graph Coloring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
 
-  _Implemented reductions:_ Coloring→ILP (@thm:coloring-to-ilp), Coloring→QUBO (@thm:coloring-to-qubo), SAT→Coloring (@thm:sat-to-coloring).
+  _Reduces to:_ ILP (@thm:coloring-to-ilp), QUBO (@thm:coloring-to-qubo). \
+  _Reduces from:_ SAT (@thm:sat-to-coloring).
 
-  #render-struct("KColoring")
-
-  Where $k$ is a const generic parameter (not a struct field), and `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$. The solution is a color assignment $c: V -> {0, ..., k-1}$ represented as a `Vec<usize>` indexed by vertex.
+  #render-schema("KColoring")
 ] <def:coloring>
 
 #definition("Dominating Set")[
   Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall v in V: v in S or exists u in S: (u, v) in E$.
 
-  _Implemented reductions:_ DominatingSet→ILP (@thm:dominatingset-to-ilp), SAT→DominatingSet (@thm:sat-to-dominatingset).
+  _Reduces to:_ ILP (@thm:dominatingset-to-ilp). \
+  _Reduces from:_ SAT (@thm:sat-to-dominatingset).
 
-  #render-struct("DominatingSet")
-
-  Where `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$, and `weights` stores vertex weights $w: V -> RR$ indexed by vertex ID. The solution is a subset $S subset.eq V$ represented as a `Vec<usize>` of vertex indices.
+  #render-schema("DominatingSet")
 ] <def:dominating-set>
 
 #definition("Matching")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
 
-  _Implemented reductions:_ Matching→SetPacking (@thm:matching-to-setpacking), Matching→ILP (@thm:matching-to-ilp).
+  _Reduces to:_ SetPacking (@thm:matching-to-setpacking), ILP (@thm:matching-to-ilp).
 
-  #render-struct("Matching")
-
-  Where `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$, and `edge_weights` stores weights $w: E -> RR$ indexed by edge index. The solution is a subset $M subset.eq E$ represented as a `Vec<usize>` of edge indices.
+  #render-schema("Matching")
 ] <def:matching>
 
 #definition("Clique")[
   Given a graph $G = (V, E)$ and an integer $k$, the *Clique* problem asks whether there exists a subset $K subset.eq V$ of size at least $k$ such that every pair of distinct vertices in $K$ is adjacent, i.e., $(u, v) in E$ for all distinct $u, v in K$.
 
-  _Implemented reductions:_ Clique→ILP (@thm:clique-to-ilp).
+  _Reduces to:_ ILP (@thm:clique-to-ilp).
 ] <def:clique>
 
 #definition("Unit Disk Graph (Grid Graph)")[
@@ -185,21 +182,19 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Set Packing")[
   Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
 
-  _Implemented reductions:_ IS→SetPacking (@thm:is-to-setpacking), SetPacking→QUBO (@thm:setpacking-to-qubo), SetPacking→ILP (@thm:setpacking-to-ilp), Matching→SetPacking (@thm:matching-to-setpacking).
+  _Reduces to:_ QUBO (@thm:setpacking-to-qubo), ILP (@thm:setpacking-to-ilp). \
+  _Reduces from:_ IS (@thm:is-to-setpacking), Matching (@thm:matching-to-setpacking).
 
-  #render-struct("SetPacking")
-
-  Where `sets` represents the collection $cal(S) = {S_1, ..., S_m}$ where each `Vec<usize>` contains universe element indices, and `weights` stores set weights $w: cal(S) -> RR$ indexed by set index. The solution is a subset $cal(P) subset.eq cal(S)$ represented as a `Vec<usize>` of set indices.
+  #render-schema("SetPacking")
 ] <def:set-packing>
 
 #definition("Set Covering")[
   Given universe $U$, collection $cal(S)$ with weights $w: cal(S) -> RR$, find $cal(C) subset.eq cal(S)$ minimizing $sum_(S in cal(C)) w(S)$ s.t. $union.big_(S in cal(C)) S = U$.
 
-  _Implemented reductions:_ SetCovering→ILP (@thm:setcovering-to-ilp), VC→SetCovering (@thm:vc-to-setcovering).
+  _Reduces to:_ ILP (@thm:setcovering-to-ilp). \
+  _Reduces from:_ VC (@thm:vc-to-setcovering).
 
-  #render-struct("SetCovering")
-
-  Where `universe_size` is $|U|$, `sets` represents the collection $cal(S)$ where each `Vec<usize>` contains universe element indices, and `weights` stores set weights $w: cal(S) -> RR$ indexed by set index. The solution is a subset $cal(C) subset.eq cal(S)$ represented as a `Vec<usize>` of set indices.
+  #render-schema("SetCovering")
 ] <def:set-covering>
 
 == Optimization Problems
@@ -207,31 +202,28 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Spin Glass (Ising Model)")[
   Given $n$ spin variables $s_i in {-1, +1}$, pairwise couplings $J_(i j) in RR$, and external fields $h_i in RR$, minimize the Hamiltonian (energy function): $H(bold(s)) = -sum_((i,j)) J_(i j) s_i s_j - sum_i h_i s_i$.
 
-  _Implemented reductions:_ SpinGlass→MaxCut (@thm:spinglass-maxcut), SpinGlass→QUBO (@thm:spinglass-qubo), Circuit→SpinGlass (@thm:circuit-to-spinglass), MaxCut→SpinGlass (@thm:spinglass-maxcut), QUBO→SpinGlass (@thm:spinglass-qubo).
+  _Reduces to:_ MaxCut (@thm:spinglass-maxcut), QUBO (@thm:spinglass-qubo). \
+  _Reduces from:_ CircuitSAT (@thm:circuit-to-spinglass), MaxCut (@thm:spinglass-maxcut), QUBO (@thm:spinglass-qubo).
 
-  #render-struct("SpinGlass")
-
-  Where `graph` encodes the interaction topology, `couplings` stores pairwise couplings $J_(i j)$ as `Vec<W>` in `graph.edges()` order, and `fields` stores external fields $h_i$ as `Vec<W>` indexed by spin. The solution is a spin assignment $bold(s) in {-1, +1}^n$ encoded as `Vec<usize>` where 0 maps to $s=-1$ and 1 maps to $s=+1$.
+  #render-schema("SpinGlass")
 ] <def:spin-glass>
 
 #definition("QUBO")[
   Given $n$ binary variables $x_i in {0, 1}$, upper-triangular matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables).
 
-  _Implemented reductions:_ QUBO→SpinGlass (@thm:spinglass-qubo), IS→QUBO (@thm:is-to-qubo), VC→QUBO (@thm:vc-to-qubo), Coloring→QUBO (@thm:coloring-to-qubo), SetPacking→QUBO (@thm:setpacking-to-qubo), kSAT→QUBO (@thm:ksat-to-qubo), ILP→QUBO (@thm:ilp-to-qubo), SpinGlass→QUBO (@thm:spinglass-qubo).
+  _Reduces to:_ SpinGlass (@thm:spinglass-qubo). \
+  _Reduces from:_ IS (@thm:is-to-qubo), VC (@thm:vc-to-qubo), KColoring (@thm:coloring-to-qubo), SetPacking (@thm:setpacking-to-qubo), $k$-SAT (@thm:ksat-to-qubo), ILP (@thm:ilp-to-qubo), SpinGlass (@thm:spinglass-qubo).
 
-  #render-struct("QUBO")
-
-  Where `num_vars` is $n$, and `matrix` stores the upper-triangular $Q in RR^(n times n)$ as `Vec<Vec<W>>` where `matrix[i][j]` ($i <= j$) stores $Q_(i j)$. The solution is a binary assignment $bold(x) in {0, 1}^n$ represented as `Vec<usize>`.
+  #render-schema("QUBO")
 ] <def:qubo>
 
 #definition("Integer Linear Programming (ILP)")[
   Given $n$ integer variables $bold(x) in ZZ^n$, constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x)$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$ and variable bounds.
 
-  _Implemented reductions:_ ILP→QUBO (@thm:ilp-to-qubo), Coloring→ILP (@thm:coloring-to-ilp), Factoring→ILP (@thm:factoring-to-ilp), IS→ILP (@thm:is-to-ilp), VC→ILP (@thm:vc-to-ilp), Matching→ILP (@thm:matching-to-ilp), SetPacking→ILP (@thm:setpacking-to-ilp), SetCovering→ILP (@thm:setcovering-to-ilp), DominatingSet→ILP (@thm:dominatingset-to-ilp), Clique→ILP (@thm:clique-to-ilp).
+  _Reduces to:_ QUBO (@thm:ilp-to-qubo). \
+  _Reduces from:_ KColoring (@thm:coloring-to-ilp), Factoring (@thm:factoring-to-ilp), IS (@thm:is-to-ilp), VC (@thm:vc-to-ilp), Matching (@thm:matching-to-ilp), SetPacking (@thm:setpacking-to-ilp), SetCovering (@thm:setcovering-to-ilp), DominatingSet (@thm:dominatingset-to-ilp), Clique (@thm:clique-to-ilp).
 
-  #render-struct("ILP")
-
-  Where `num_vars` is $n$, `bounds` stores per-variable bounds $x_i in [l_i, u_i]$ as `Vec<VarBounds>`, `constraints` encodes $A bold(x) <= bold(b)$ as `Vec<LinearConstraint>`, `objective` is the sparse objective $bold(c)$ as `Vec<(usize, f64)>`, and `sense` specifies maximize or minimize. The solution is $bold(x) in ZZ^n$ represented as `Vec<usize>`.
+  #render-schema("ILP")
 ] <def:ilp>
 
 == Satisfiability Problems
@@ -239,41 +231,36 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("SAT")[
   Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 1$ (all clauses satisfied).
 
-  _Implemented reductions:_ SAT→IS (@thm:sat-to-is), SAT→Coloring (@thm:sat-to-coloring), SAT→DominatingSet (@thm:sat-to-dominatingset), SAT→kSAT (@thm:sat-ksat), kSAT→SAT (@thm:sat-ksat).
+  _Reduces to:_ IS (@thm:sat-to-is), KColoring (@thm:sat-to-coloring), DominatingSet (@thm:sat-to-dominatingset), $k$-SAT (@thm:sat-ksat). \
+  _Reduces from:_ $k$-SAT (@thm:sat-ksat).
 
-  #render-struct("Satisfiability")
-
-  Where `num_vars` is $n$, `clauses` stores CNF clauses $C_j$ as `Vec<CNFClause>`, and `weights` stores clause weights for MAX-SAT as `Vec<W>`. Each `CNFClause` has `literals: Vec<i32>` where $+i$ denotes $x_i$ and $-i$ denotes $not x_i$ (1-indexed). The solution is an assignment $bold(x) in {0, 1}^n$ represented as `Vec<usize>`.
+  #render-schema("Satisfiability")
 ] <def:satisfiability>
 
 #definition([$k$-SAT])[
   SAT with exactly $k$ literals per clause.
 
-  _Implemented reductions:_ kSAT→SAT (@thm:sat-ksat), kSAT→QUBO (@thm:ksat-to-qubo), SAT→kSAT (@thm:sat-ksat).
+  _Reduces to:_ SAT (@thm:sat-ksat), QUBO (@thm:ksat-to-qubo). \
+  _Reduces from:_ SAT (@thm:sat-ksat).
 
-  #render-struct("KSatisfiability")
-
-  Where `num_vars` is $n$, `clauses` stores clauses with exactly $k$ literals per clause as `Vec<CNFClause>`, and `weights` stores clause weights as `Vec<W>`. The solution is an assignment $bold(x) in {0, 1}^n$ represented as `Vec<usize>`.
+  #render-schema("KSatisfiability")
 ] <def:k-sat>
 
 #definition("Circuit-SAT")[
   Given a Boolean circuit $C$ composed of logic gates (AND, OR, NOT, XOR) with $n$ input variables, find an input assignment $bold(x) in {0,1}^n$ such that $C(bold(x)) = 1$.
 
-  _Implemented reductions:_ Circuit→SpinGlass (@thm:circuit-to-spinglass), Factoring→Circuit (@thm:factoring-to-circuit).
+  _Reduces to:_ SpinGlass (@thm:circuit-to-spinglass). \
+  _Reduces from:_ Factoring (@thm:factoring-to-circuit).
 
-  #render-struct("CircuitSAT")
-
-  Where `circuit` is the Boolean circuit of logic gates (AND, OR, NOT, XOR), `variables` stores input variable names as `Vec<String>`, and `weights` stores assignment weights as `Vec<W>`. The solution is an input assignment $bold(x) in {0,1}^n$ represented as `Vec<usize>`.
+  #render-schema("CircuitSAT")
 ] <def:circuit-sat>
 
 #definition("Factoring")[
   Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
 
-  _Implemented reductions:_ Factoring→Circuit (@thm:factoring-to-circuit), Factoring→ILP (@thm:factoring-to-ilp).
+  _Reduces to:_ CircuitSAT (@thm:factoring-to-circuit), ILP (@thm:factoring-to-ilp).
 
-  #render-struct("Factoring")
-
-  Where `m` is the number of bits for the first factor $p$, `n` is the number of bits for the second factor $q$, and `target` is the composite $N$ to factor. The solution is bit assignments for $p$ and $q$ represented as `Vec<usize>`.
+  #render-schema("Factoring")
 ] <def:factoring>
 
 = Reductions <sec:reductions>
@@ -287,20 +274,6 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #proof[
   ($arrow.r.double$) If $S$ is independent, for any $(u, v) in E$, at most one endpoint lies in $S$, so $V backslash S$ covers all edges. ($arrow.l.double$) If $C$ is a cover, for any $u, v in V backslash C$, $(u, v) in.not E$, so $V backslash C$ is independent. _Variable mapping:_ Given IS instance $(G, w)$, create VC instance $(G, w)$ with identical graph and weights. Solution extraction: for VC solution $C$, return $S = V backslash C$. The complement operation preserves optimality since $|S| + |C| = |V|$ is constant.
 ]
-
-```rust
-// Minimal example: IS -> VC -> extract solution
-let is_problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-let result = ReduceTo::<VertexCovering<i32>>::reduce_to(&is_problem);
-let vc_problem = result.target_problem();
-
-let solver = BruteForce::new();
-let vc_solutions = solver.find_best(vc_problem);
-let is_solution = result.extract_solution(&vc_solutions[0]);
-assert!(is_problem.solution_size(&is_solution).is_valid);
-```
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_is_to_vc.rs")[`reduction_is_to_vc.rs`].
 
 #let is_vc = load-example("is_to_vc")
 #let is_vc_r = load-results("is_to_vc")
@@ -319,20 +292,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   Independence implies disjoint incident edge sets; conversely, disjoint edge sets imply no shared edges. _Variable mapping:_ Universe $U = E$ (edges), sets $S_v = {e in E : v in e}$ (edges incident to vertex $v$), weights $w(S_v) = w(v)$. Solution extraction: for packing ${S_v : v in P}$, return IS $= P$ (the vertices whose sets were packed).
 ]
 
-```rust
-// Minimal example: IS -> SetPacking -> extract solution
-let is_problem = IndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-let result = ReduceTo::<SetPacking<i32>>::reduce_to(&is_problem);
-let sp_problem = result.target_problem();
-
-let solver = BruteForce::new();
-let sp_solutions = solver.find_best(sp_problem);
-let is_solution = result.extract_solution(&sp_solutions[0]);
-assert!(is_problem.solution_size(&is_solution).is_valid);
-```
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_is_to_setpacking.rs")[`reduction_is_to_setpacking.rs`].
-
 #theorem[
   *(VC $arrow.r$ Set Covering)* Construct $U = {0, ..., |E|-1}$, $S_v = {i : e_i "incident to" v}$, $w(S_v) = w(v)$. Then $C$ is a cover iff ${S_v : v in C}$ covers $U$. [_Problems:_ @def:vertex-cover, @def:set-covering.]
 ] <thm:vc-to-setcovering>
@@ -340,8 +299,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 #proof[
   Each vertex's edge set becomes a subset; the cover condition (every edge covered) maps to the covering condition (every universe element in some selected set). _Variable mapping:_ Universe $U = {0, ..., |E|-1}$ (edge indices), $S_v = {i : e_i "incident to" v}$, $w(S_v) = w(v)$. Solution extraction: for covering ${S_v : v in C}$, return VC $= C$.
 ]
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_vc_to_setcovering.rs")[`reduction_vc_to_setcovering.rs`].
 
 #theorem[
   *(Matching $arrow.r$ Set Packing)* Construct $U = V$, $S_e = {u, v}$ for $e = (u,v)$, $w(S_e) = w(e)$. Then $M$ is a matching iff ${S_e : e in M}$ is a packing. [_Problems:_ @def:matching, @def:set-packing.]
@@ -351,8 +308,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   Each edge becomes a set of its endpoints; disjoint edges have disjoint endpoint sets. _Variable mapping:_ Universe $U = V$ (vertices), $S_e = {u, v}$ for $e = (u,v)$, $w(S_e) = w(e)$. Solution extraction: for packing ${S_e : e in P}$, return matching $= P$ (the edges whose endpoint sets were packed).
 ]
 
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_matching_to_setpacking.rs")[`reduction_matching_to_setpacking.rs`].
-
 #theorem[
   *(Spin Glass $arrow.l.r$ QUBO)* The substitution $s_i = 2x_i - 1$ yields $H_"SG"(bold(s)) = H_"QUBO"(bold(x)) + "const"$. [_Problems:_ @def:spin-glass, @def:qubo.]
 ] <thm:spinglass-qubo>
@@ -360,20 +315,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 #proof[
   Expanding $-sum_(i,j) J_(i j) (2x_i - 1)(2x_j - 1) - sum_i h_i (2x_i - 1)$ gives $Q_(i j) = -4J_(i j)$, $Q_(i i) = 2sum_j J_(i j) - 2h_i$. _Variable mapping:_ Spin $s_i in {-1, +1}$ maps to binary $x_i in {0, 1}$ via $s_i = 2x_i - 1$. Solution extraction: for QUBO solution $bold(x)$, return spins $s_i = 2x_i - 1$. The reverse maps $x_i = (s_i + 1)/2$.
 ]
-
-```rust
-// Minimal example: SpinGlass -> QUBO -> extract solution
-let sg = SpinGlass::new(2, vec![((0, 1), -1.0)], vec![0.5, -0.5]);
-let result = ReduceTo::<QUBO>::reduce_to(&sg);
-let qubo = result.target_problem();
-
-let solver = BruteForce::new();
-let qubo_solutions = solver.find_best(qubo);
-let sg_solution = result.extract_solution(&qubo_solutions[0]);
-assert_eq!(sg_solution.len(), 2);
-```
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_spinglass_to_qubo.rs")[`reduction_spinglass_to_qubo.rs`].
 
 #let sg_qubo = load-example("spinglass_to_qubo")
 #reduction-example(sg_qubo, caption: [2-spin system with coupling $J_(01) = -1$, fields $h = (0.5, -0.5)$])[]
@@ -395,20 +336,6 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
   _Correctness._ If $bold(x)$ has any adjacent pair $(x_i = 1, x_j = 1)$ with $(i,j) in E$, the penalty $P > sum_i w_i >= -sum_i Q_(i i) x_i$ exceeds the maximum objective gain, so $bold(x)$ is not a minimizer. Among independent sets ($x_i x_j = 0$ for all edges), $f(bold(x)) = -sum_(i in S) w_i$, minimized exactly when $S$ is a maximum-weight IS.
 ]
-
-```rust
-// Minimal example: IS -> QUBO -> extract solution
-let is = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-let result = ReduceTo::<QUBO>::reduce_to(&is);
-let qubo = result.target_problem();
-
-let solver = BruteForce::new();
-let solutions = solver.find_best(qubo);
-let is_solution = result.extract_solution(&solutions[0]);
-assert!(is.solution_size(&is_solution).is_valid);
-```
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_is_to_qubo.rs")[`reduction_is_to_qubo.rs`].
 
 #let is_qubo = load-example("is_to_qubo")
 #let is_qubo_r = load-results("is_to_qubo")
@@ -444,20 +371,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   Summing over all edges, each vertex $i$ appears in $"deg"(i)$ terms. The QUBO coefficients are: diagonal $Q_(i i) = w_i - P dot "deg"(i)$ (objective plus linear penalty), off-diagonal $Q_(i j) = P$ for edges. The constant $P |E|$ does not affect the minimizer.
 ]
 
-```rust
-// Minimal example: VC -> QUBO -> extract solution
-let vc = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
-let result = ReduceTo::<QUBO>::reduce_to(&vc);
-let qubo = result.target_problem();
-
-let solver = BruteForce::new();
-let solutions = solver.find_best(qubo);
-let vc_solution = result.extract_solution(&solutions[0]);
-assert!(vc.solution_size(&vc_solution).is_valid);
-```
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_vc_to_qubo.rs")[`reduction_vc_to_qubo.rs`].
-
 #theorem[
   *(KColoring $arrow.r$ QUBO)* Given $G = (V, E)$ with $k$ colors, construct upper-triangular $Q in RR^(n k times n k)$ using one-hot encoding $x_(v,c) in {0,1}$ ($n k$ variables indexed by $v dot k + c$). [_Problems:_ @def:coloring, @def:qubo.]
 ] <thm:coloring-to-qubo>
@@ -477,20 +390,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$.
 ]
 
-```rust
-// Minimal example: KColoring -> QUBO -> extract solution
-let kc = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-let result = ReduceTo::<QUBO>::reduce_to(&kc);
-let qubo = result.target_problem();
-
-let solver = BruteForce::new();
-let solutions = solver.find_best(qubo);
-let kc_solution = result.extract_solution(&solutions[0]);
-assert_eq!(solutions.len(), 6); // 3! valid 3-colorings of K3
-```
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_coloring_to_qubo.rs")[`reduction_coloring_to_qubo.rs`].
-
 #theorem[
   *(SetPacking $arrow.r$ QUBO)* Equivalent to IS on the intersection graph: $Q_(i i) = -w_i$ and $Q_(i j) = P$ for overlapping sets $i, j$ ($i < j$), where $P = 1 + sum_i w_i$. [_Problems:_ @def:set-packing, @def:qubo.]
 ] <thm:setpacking-to-qubo>
@@ -498,20 +397,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 #proof[
   Two sets conflict iff they share an element. The intersection graph has sets as vertices and edges between conflicting pairs. Applying the penalty method (@sec:penalty-method) yields the same QUBO as IS on this graph: diagonal rewards selection, off-diagonal penalizes overlap. Correctness follows from the IS→QUBO proof.
 ]
-
-```rust
-// Minimal example: SetPacking -> QUBO -> extract solution
-let sp = SetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3, 4]]);
-let result = ReduceTo::<QUBO>::reduce_to(&sp);
-let qubo = result.target_problem();
-
-let solver = BruteForce::new();
-let solutions = solver.find_best(qubo);
-let sp_solution = result.extract_solution(&solutions[0]);
-assert!(sp.solution_size(&sp_solution).is_valid);
-```
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_setpacking_to_qubo.rs")[`reduction_setpacking_to_qubo.rs`].
 
 #theorem[
   *(2-SAT $arrow.r$ QUBO)* Given a Max-2-SAT instance with $m$ clauses over $n$ variables, construct upper-triangular $Q in RR^(n times n)$ where each clause $(ell_i or ell_j)$ contributes a penalty gadget encoding its unique falsifying assignment. [_Problems:_ @def:k-sat, @def:qubo.]
@@ -534,24 +419,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   Summing over all clauses, $f(bold(x)) = sum_j "penalty"_j (bold(x))$ counts falsified clauses. Minimizers of $f$ maximize satisfied clauses.
 ]
 
-```rust
-// Minimal example: 2-SAT -> QUBO -> extract solution
-let ksat = KSatisfiability::<2, i32>::new(3, vec![
-    CNFClause::new(vec![1, 2]),   // x1 OR x2
-    CNFClause::new(vec![-1, 3]),  // NOT x1 OR x3
-    CNFClause::new(vec![2, -3]),  // x2 OR NOT x3
-]);
-let result = ReduceTo::<QUBO>::reduce_to(&ksat);
-let qubo = result.target_problem();
-
-let solver = BruteForce::new();
-let solutions = solver.find_best(qubo);
-let sat_solution = result.extract_solution(&solutions[0]);
-assert!(ksat.solution_size(&sat_solution).is_valid);
-```
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_ksatisfiability_to_qubo.rs")[`reduction_ksatisfiability_to_qubo.rs`].
-
 #theorem[
   *(Binary ILP $arrow.r$ QUBO)* Given binary ILP: maximize $bold(c)^top bold(x)$ subject to $A bold(x) = bold(b)$, $bold(x) in {0,1}^n$, construct upper-triangular $Q = -"diag"(bold(c) + 2P bold(b)^top A) + P A^top A$ where $P = 1 + ||bold(c)||_1 + ||bold(b)||_1$. [_Problems:_ @def:ilp, @def:qubo.]
 ] <thm:ilp-to-qubo>
@@ -570,27 +437,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   _Solution extraction._ Discard slack variables: return $bold(x)' [0..n]$.
 ]
 
-```rust
-// Minimal example: binary ILP -> QUBO -> extract solution
-let ilp = ILP::binary(3,
-    vec![
-        LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0),
-        LinearConstraint::le(vec![(1, 1.0), (2, 1.0)], 1.0),
-    ],
-    vec![(0, 1.0), (1, 2.0), (2, 3.0)],
-    ObjectiveSense::Maximize,
-);
-let result = ReduceTo::<QUBO<f64>>::reduce_to(&ilp);
-let qubo = result.target_problem();
-
-let solver = BruteForce::new();
-let solutions = solver.find_best(qubo);
-let ilp_solution = result.extract_solution(&solutions[0]);
-assert_eq!(ilp_solution, vec![1, 0, 1]); // obj = 4
-```
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_ilp_to_qubo.rs")[`reduction_ilp_to_qubo.rs`].
-
 == Non-Trivial Reductions
 
 #theorem[
@@ -608,8 +454,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 
   _Solution extraction._ For $v_(j,i) in S$ with literal $x_k$: set $x_k = 1$; for $overline(x_k)$: set $x_k = 0$.
 ]
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_sat_to_is.rs")[`reduction_sat_to_is.rs`].
 
 #let sat_is = load-example("sat_to_is")
 #let sat_is_r = load-results("sat_to_is")
@@ -631,8 +475,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   _Solution extraction._ Set $x_i = 1$ iff $"color"("pos"_i) = "color"("TRUE")$.
 ]
 
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_sat_to_coloring.rs")[`reduction_sat_to_coloring.rs`].
-
 #theorem[
   *(SAT $arrow.r$ Dominating Set)* @garey1979 Given CNF $phi$ with $n$ variables and $m$ clauses, $phi$ is satisfiable iff the constructed graph has a dominating set of size $n$. [_Problems:_ @def:satisfiability, @def:dominating-set.]
 ] <thm:sat-to-dominatingset>
@@ -644,8 +486,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 
   _Solution extraction._ Set $x_i = 1$ if $"pos"_i$ selected; $x_i = 0$ if $"neg"_i$ selected.
 ]
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_sat_to_dominatingset.rs")[`reduction_sat_to_dominatingset.rs`].
 
 #theorem[
   *(SAT $arrow.l.r$ $k$-SAT)* @cook1971 @garey1979 Any SAT formula converts to $k$-SAT ($k >= 3$) preserving satisfiability. [_Problems:_ @def:satisfiability, @def:k-sat.]
@@ -659,8 +499,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 
   _Correctness._ Original clause true $arrow.l.r$ auxiliary chain can propagate truth through new clauses.
 ]
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_sat_to_ksat.rs")[`reduction_sat_to_ksat.rs`].
 
 #theorem[
   *(CircuitSAT $arrow.r$ Spin Glass)* @whitfield2012 @lucas2014 Each gate maps to a gadget whose ground states encode valid I/O. [_Problems:_ @def:circuit-sat, @def:spin-glass.]
@@ -686,8 +524,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   caption: [Ising gadgets for logic gates. Ground states match truth tables.]
 ) <tab:gadgets>
 
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_circuit_to_spinglass.rs")[`reduction_circuit_to_spinglass.rs`].
-
 #theorem[
   *(Factoring $arrow.r$ Circuit-SAT)* An array multiplier with output constrained to $N$ is satisfiable iff $N$ factors within bit bounds. _(Folklore; no canonical reference.)_ [_Problems:_ @def:factoring, @def:circuit-sat.]
 ] <thm:factoring-to-circuit>
@@ -704,8 +540,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   _Solution extraction._ $p = sum_i p_i 2^(i-1)$, $q = sum_j q_j 2^(j-1)$.
 ]
 
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_factoring_to_circuit.rs")[`reduction_factoring_to_circuit.rs`].
-
 #theorem[
   *(Spin Glass $arrow.l.r$ Max-Cut)* @barahona1982 @lucas2014 Ground states of Ising models correspond to maximum cuts. [_Problems:_ @def:spin-glass, @def:max-cut.]
 ] <thm:spinglass-maxcut>
@@ -717,20 +551,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 
   _Solution extraction._ Without ancilla: identity. With ancilla: if $sigma_a = 1$, flip all spins before removing ancilla.
 ]
-
-```rust
-// Minimal example: SpinGlass -> MaxCut -> extract solution
-let sg = SpinGlass::new(3, vec![((0, 1), 1), ((1, 2), 1), ((0, 2), 1)], vec![0, 0, 0]);
-let result = ReduceTo::<MaxCut<i32>>::reduce_to(&sg);
-let maxcut = result.target_problem();
-
-let solver = BruteForce::new();
-let maxcut_solutions = solver.find_best(maxcut);
-let sg_solution = result.extract_solution(&maxcut_solutions[0]);
-assert_eq!(sg_solution.len(), 3);
-```
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_spinglass_to_maxcut.rs")[`reduction_spinglass_to_maxcut.rs`].
 
 #theorem[
   *(Coloring $arrow.r$ ILP)* The $k$-coloring problem reduces to binary ILP with $|V| dot k$ variables and $|V| + |E| dot k$ constraints. [_Problems:_ @def:coloring, @def:ilp.]
@@ -749,8 +569,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 
   _Solution extraction._ For each vertex $v$, find $c$ with $x_(v,c) = 1$; assign color $c$ to $v$.
 ]
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_coloring_to_ilp.rs")[`reduction_coloring_to_ilp.rs`].
 
 #theorem[
   *(Factoring $arrow.r$ ILP)* Integer factorization reduces to binary ILP using McCormick linearization with $O(m n)$ variables and constraints. [_Problems:_ @def:factoring, @def:ilp.]
@@ -775,32 +593,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   _Solution extraction._ Read $p = sum_i p_i 2^i$ and $q = sum_j q_j 2^j$ from the binary variables.
 ]
 
-_Example: Factoring 15._ The following Rust code demonstrates the closed-loop reduction (requires `ilp` feature: `cargo add problemreductions --features ilp`):
-
-```rust
-use problemreductions::prelude::*;
-
-// 1. Create factoring instance: find p (4-bit) × q (4-bit) = 15
-let problem = Factoring::new(4, 4, 15);
-
-// 2. Reduce to ILP
-let reduction = ReduceTo::<ILP>::reduce_to(&problem);
-let ilp = reduction.target_problem();
-
-// 3. Solve ILP
-let solver = ILPSolver::new();
-let ilp_solution = solver.solve(ilp).unwrap();
-
-// 4. Extract factoring solution
-let extracted = reduction.extract_solution(&ilp_solution);
-
-// 5. Verify: reads factors and confirms p × q = 15
-let (p, q) = problem.read_factors(&extracted);
-assert_eq!(p * q, 15); // e.g., (3, 5) or (5, 3)
-```
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_factoring_to_ilp.rs")[`reduction_factoring_to_ilp.rs`].
-
 == ILP Formulations
 
 The following reductions to Integer Linear Programming are straightforward formulations where problem constraints map directly to linear inequalities.
@@ -813,8 +605,6 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v <= 1$ for each $(u, v) in E$. Objective: maximize $sum_v w_v x_v$. _Solution extraction:_ $S = {v : x_v = 1}$.
 ]
 
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_is_to_ilp.rs")[`reduction_is_to_ilp.rs`].
-
 #theorem[
   *(VC $arrow.r$ ILP)* The minimum-weight VC problem reduces to binary ILP with $|V|$ variables and $|E|$ constraints. [_Problems:_ @def:vertex-cover, @def:ilp.]
 ] <thm:vc-to-ilp>
@@ -822,8 +612,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 #proof[
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v >= 1$ for each $(u, v) in E$. Objective: minimize $sum_v w_v x_v$. _Solution extraction:_ $C = {v : x_v = 1}$.
 ]
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_vc_to_ilp.rs")[`reduction_vc_to_ilp.rs`].
 
 #theorem[
   *(Matching $arrow.r$ ILP)* The maximum-weight matching reduces to binary ILP with $|E|$ variables and $|V|$ constraints. [_Problems:_ @def:matching, @def:ilp.]
@@ -833,8 +621,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   _Construction._ Variables: $x_e in {0, 1}$ for each $e in E$. Constraints: $sum_(e in.rev v) x_e <= 1$ for each $v in V$. Objective: maximize $sum_e w_e x_e$. _Solution extraction:_ $M = {e : x_e = 1}$.
 ]
 
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_matching_to_ilp.rs")[`reduction_matching_to_ilp.rs`].
-
 #theorem[
   *(SetPacking $arrow.r$ ILP)* Set packing reduces to binary ILP with $|cal(S)|$ variables and at most $binom(|cal(S)|, 2)$ constraints. [_Problems:_ @def:set-packing, @def:ilp.]
 ] <thm:setpacking-to-ilp>
@@ -842,8 +628,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 #proof[
   _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. Constraints: $x_i + x_j <= 1$ for each overlapping pair $S_i, S_j in cal(S)$ with $S_i inter S_j != emptyset$. Objective: maximize $sum_i w_i x_i$. _Solution extraction:_ $cal(P) = {S_i : x_i = 1}$.
 ]
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_setpacking_to_ilp.rs")[`reduction_setpacking_to_ilp.rs`].
 
 #theorem[
   *(SetCovering $arrow.r$ ILP)* Set covering reduces to binary ILP with $|cal(S)|$ variables and $|U|$ constraints. [_Problems:_ @def:set-covering, @def:ilp.]
@@ -853,8 +637,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. Constraints: $sum_(S_i in.rev u) x_i >= 1$ for each $u in U$. Objective: minimize $sum_i w_i x_i$. _Solution extraction:_ $cal(C) = {S_i : x_i = 1}$.
 ]
 
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_setcovering_to_ilp.rs")[`reduction_setcovering_to_ilp.rs`].
-
 #theorem[
   *(DominatingSet $arrow.r$ ILP)* Dominating set reduces to binary ILP with $|V|$ variables and $|V|$ constraints. [_Problems:_ @def:dominating-set, @def:ilp.]
 ] <thm:dominatingset-to-ilp>
@@ -863,8 +645,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_v + sum_(u in N(v)) x_u >= 1$ for each $v in V$ (each vertex dominated). Objective: minimize $sum_v w_v x_v$. _Solution extraction:_ $D = {v : x_v = 1}$.
 ]
 
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_dominatingset_to_ilp.rs")[`reduction_dominatingset_to_ilp.rs`].
-
 #theorem[
   *(Clique $arrow.r$ ILP)* Maximum clique reduces to binary ILP with $|V|$ variables and $O(|overline(E)|)$ constraints. [_Problems:_ @def:clique, @def:ilp.]
 ] <thm:clique-to-ilp>
@@ -872,8 +652,6 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 #proof[
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v <= 1$ for each $(u, v) in.not E$ (non-edges). Objective: maximize $sum_v x_v$. Equivalently, IS on the complement graph. _Solution extraction:_ $K = {v : x_v = 1}$.
 ]
-
-See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_clique_to_ilp.rs")[`reduction_clique_to_ilp.rs`].
 
 == Unit Disk Mapping
 
