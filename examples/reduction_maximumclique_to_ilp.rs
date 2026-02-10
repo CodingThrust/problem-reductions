@@ -6,11 +6,10 @@
 //! Objective: maximize sum of w_v * x_v.
 //!
 //! ## This Example
-//! - Instance: 4-vertex graph with a triangle subgraph on {0,1,2} plus vertex 3
-//!   connected only to vertex 2. Edges: 0-1, 0-2, 1-2, 2-3.
-//! - Source MaximumClique: max clique is {0,1,2} (size 3)
-//! - Target ILP: 4 binary variables, 3 non-edge constraints
-//!   (non-edges: (0,3), (1,3))
+//! - Instance: Octahedron graph (K_{2,2,2}) with 6 vertices and 12 edges.
+//! - Source MaximumClique: max clique is size 3
+//! - Target ILP: 6 binary variables, 3 non-edge constraints
+//!   (non-edges: opposite vertex pairs (0,5), (1,4), (2,3))
 //!
 //! ## Output
 //! Exports `docs/paper/examples/maximumclique_to_ilp.json` and `maximumclique_to_ilp.result.json`.
@@ -18,11 +17,13 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::solvers::BruteForceFloat;
+use problemreductions::topology::small_graphs::octahedral;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    // 1. Create MaximumClique instance: 4 vertices, triangle {0,1,2} plus vertex 3 connected to 2
-    let clique = MaximumClique::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (1, 2), (2, 3)]);
+    // 1. Create MaximumClique instance: Octahedron (K_{2,2,2}), 6 vertices, 12 edges, clique number 3
+    let (num_vertices, edges) = octahedral();
+    let clique = MaximumClique::<SimpleGraph, i32>::new(num_vertices, edges.clone());
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&clique);
