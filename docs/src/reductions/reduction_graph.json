@@ -315,7 +315,17 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_spins",
+          "formula": "num_assignments"
+        },
+        {
+          "field": "num_interactions",
+          "formula": "num_assignments"
+        }
+      ]
     },
     {
       "source": {
@@ -332,7 +342,13 @@
           "weight": "i32"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_gates",
+          "formula": "num_bits_first * num_bits_second"
+        }
+      ]
     },
     {
       "source": {
@@ -349,7 +365,17 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "2 * num_bits_first + 2 * num_bits_second + num_bits_first * num_bits_second"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "3 * num_bits_first * num_bits_second + num_bits_first + num_bits_second + 1"
+        }
+      ]
     },
     {
       "source": {
@@ -366,7 +392,13 @@
           "weight": "f64"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vars"
+        }
+      ]
     },
     {
       "source": {
@@ -383,7 +415,13 @@
           "weight": "f64"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
+        }
+      ]
     },
     {
       "source": {
@@ -401,7 +439,17 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices * num_colors"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vertices + num_edges * num_colors"
+        }
+      ]
     },
     {
       "source": {
@@ -418,7 +466,13 @@
           "weight": "f64"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices * num_colors"
+        }
+      ]
     },
     {
       "source": {
@@ -435,7 +489,13 @@
           "weight": "f64"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vars"
+        }
+      ]
     },
     {
       "source": {
@@ -452,7 +512,17 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_sets",
+          "formula": "num_edges"
+        },
+        {
+          "field": "num_elements",
+          "formula": "num_vertices"
+        }
+      ]
     },
     {
       "source": {
@@ -469,7 +539,17 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "3 * num_vars + num_clauses"
+        },
+        {
+          "field": "num_edges",
+          "formula": "3 * num_vars + num_literals"
+        }
+      ]
     },
     {
       "source": {
@@ -486,7 +566,17 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_literals"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_literals^2"
+        }
+      ]
     },
     {
       "source": {
@@ -503,7 +593,17 @@
           "weight": "i32"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "2 * num_vars + 5 * num_literals - 5 * num_clauses + 3"
+        },
+        {
+          "field": "num_colors",
+          "formula": "3"
+        }
+      ]
     },
     {
       "source": {
@@ -520,7 +620,17 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": true
+      "bidirectional": true,
+      "overhead": [
+        {
+          "field": "num_clauses",
+          "formula": "num_clauses + num_literals"
+        },
+        {
+          "field": "num_vars",
+          "formula": "num_vars + num_literals"
+        }
+      ]
     },
     {
       "source": {
@@ -537,7 +647,17 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": true
+      "bidirectional": true,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_sets"
+        }
+      ]
     },
     {
       "source": {
@@ -554,7 +674,13 @@
           "weight": "f64"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_sets"
+        }
+      ]
     },
     {
       "source": {
@@ -571,7 +697,17 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": true
+      "bidirectional": true,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_spins"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_interactions"
+        }
+      ]
     },
     {
       "source": {
@@ -588,7 +724,13 @@
           "weight": "f64"
         }
       },
-      "bidirectional": true
+      "bidirectional": true,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_spins"
+        }
+      ]
     },
     {
       "source": {
@@ -605,7 +747,17 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": true
+      "bidirectional": true,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ]
     },
     {
       "source": {
@@ -622,7 +774,17 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_sets",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_elements",
+          "formula": "num_edges"
+        }
+      ]
     },
     {
       "source": {
@@ -639,7 +801,13 @@
           "weight": "f64"
         }
       },
-      "bidirectional": false
+      "bidirectional": false,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
+        }
+      ]
     }
   ]
 }

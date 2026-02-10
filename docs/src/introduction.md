@@ -57,7 +57,7 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
         var rev = e.target.name + '->' + e.source.name;
         if (edgeMap[rev]) { edgeMap[rev].bidirectional = true; }
         else if (!edgeMap[fwd]) {
-          edgeMap[fwd] = { source: e.source.name, target: e.target.name, bidirectional: e.bidirectional || false };
+          edgeMap[fwd] = { source: e.source.name, target: e.target.name, bidirectional: e.bidirectional || false, overhead: e.overhead || [] };
         }
       });
 
@@ -67,7 +67,7 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
       });
       Object.keys(edgeMap).forEach(function(k) {
         var e = edgeMap[k];
-        elements.push({ data: { id: k, source: e.source, target: e.target, bidirectional: e.bidirectional } });
+        elements.push({ data: { id: k, source: e.source, target: e.target, bidirectional: e.bidirectional, overhead: e.overhead } });
       });
 
       var cy = cytoscape({
@@ -88,7 +88,7 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
             'width': 2, 'line-color': '#999', 'target-arrow-color': '#999', 'target-arrow-shape': 'triangle',
             'source-arrow-color': '#999',
             'source-arrow-shape': function(ele) { return ele.data('bidirectional') ? 'triangle' : 'none'; },
-            'curve-style': 'bezier', 'arrow-scale': 0.8
+            'curve-style': 'bezier', 'arrow-scale': 0.8, 'cursor': 'pointer'
           }},
           { selector: '.highlighted', style: {
             'background-color': '#ff6b6b', 'border-color': '#cc0000', 'border-width': 3, 'z-index': 10
@@ -124,6 +124,26 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
       });
       cy.on('mouseout', 'node', function() { tooltip.style.display = 'none'; });
 
+      // Edge tooltip
+      cy.on('mouseover', 'edge', function(evt) {
+        var d = evt.target.data();
+        var arrow = d.bidirectional ? ' \u2194 ' : ' \u2192 ';
+        var html = '<strong>' + d.source + arrow + d.target + '</strong>';
+        if (d.overhead && d.overhead.length > 0) {
+          html += '<br>' + d.overhead.map(function(o) { return '<code>' + o.field + '</code> = <code>' + o.formula + '</code>'; }).join('<br>');
+        }
+        html += '<br><em>Click to highlight</em>';
+        tooltip.innerHTML = html;
+        tooltip.style.display = 'block';
+      });
+      cy.on('mousemove', 'edge', function(evt) {
+        var pos = evt.renderedPosition || evt.position;
+        var rect = document.getElementById('cy').getBoundingClientRect();
+        tooltip.style.left = (rect.left + window.scrollX + pos.x + 15) + 'px';
+        tooltip.style.top = (rect.top + window.scrollY + pos.y - 10) + 'px';
+      });
+      cy.on('mouseout', 'edge', function() { tooltip.style.display = 'none'; });
+
       // Double-click to navigate to rustdoc API page
       cy.on('dbltap', 'node', function(evt) {
         var d = evt.target.data();
@@ -158,6 +178,23 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
           clearBtn.style.display = 'inline';
           selectedNode = null;
         }
+      });
+
+      cy.on('tap', 'edge', function(evt) {
+        var edge = evt.target;
+        var d = edge.data();
+        cy.elements().removeClass('highlighted selected-node');
+        edge.addClass('highlighted');
+        edge.source().addClass('highlighted');
+        edge.target().addClass('highlighted');
+        var arrow = d.bidirectional ? ' \u2194 ' : ' \u2192 ';
+        var text = d.source + arrow + d.target;
+        if (d.overhead && d.overhead.length > 0) {
+          text += '  |  ' + d.overhead.map(function(o) { return o.field + ' = ' + o.formula; }).join(', ');
+        }
+        instructions.textContent = text;
+        clearBtn.style.display = 'inline';
+        selectedNode = null;
       });
 
       cy.on('tap', function(evt) { if (evt.target === cy) { clearPath(); } });
