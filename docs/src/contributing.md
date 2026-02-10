@@ -1,57 +1,33 @@
 # Contributing
 
-Contributions are welcome!
+Contributions are welcome! See [CLAUDE.md](./claude.md) for the full list of commands and architecture details.
 
-## Development Setup
+## Finding Issues
 
-```bash
-git clone https://github.com/liujinguo/problemreductions
-cd problemreductions
-cargo build
-cargo test
-```
+Browse [GitHub Issues](https://github.com/CodingThrust/problem-reductions/issues) to find tasks. Issues labeled `good first issue` are a great starting point.
 
-## Running Tests
+## Authorship Recognition
 
-```bash
-cargo test                    # Run all tests
-cargo test --test integration # Integration tests only
-cargo test --test reduction   # Reduction tests only
-```
+**Contribute 10 non-trivial reduction rules and you will be automatically added to the author list of the paper.**
 
-## Code Coverage
+## Workflow
 
-```bash
-cargo tarpaulin --skip-clean --ignore-tests
-```
+1. Find or create a GitHub issue describing your proposal.
+2. Write a detailed plan in `docs/plans/issue-<number>-<slug>.md`.
+3. Implement, test, and submit a PR.
 
-## Documentation
+If you use [Claude Code](https://github.com/anthropics/claude-code), the [`/issue-to-pr`](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/skills/issue-to-pr.md) skill automates the brainstorming, planning, and PR creation workflow.
 
-```bash
-cargo doc --open              # Rustdoc
-mdbook serve                  # mdBook (requires mdbook installed)
-```
+## Before Submitting
 
-## Adding a New Problem
+- `cargo fmt --all` — format code
+- `cargo clippy --all-targets --all-features -- -D warnings` — no warnings
+- `cargo test --all-features -- --include-ignored` — all tests pass
+- New code must have >95% test coverage
 
-1. Create file in `src/models/<category>/`
-2. Implement `Problem` trait
-3. Optionally implement `ConstraintSatisfactionProblem`
-4. Add tests
-5. Export in `mod.rs` and `prelude`
+## Adding Problems and Reductions
 
-## Adding a New Reduction
-
-1. Create file in `src/rules/`
-2. Implement `ReductionResult` for the result type
-3. Implement `ReduceTo<Target> for Source`
-4. Add edge in `ReductionGraph`
-5. Add tests
-6. Export in `mod.rs`
-
-## Code Style
-
-- Run `cargo fmt` before committing
-- Run `cargo clippy` and fix warnings
-- Add doc comments for public items
-- Include examples in documentation
+See the developer guides in `.claude/rules/`:
+- [`adding-models.md`](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-models.md) — how to add problem types
+- [`adding-reductions.md`](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-reductions.md) — how to add reduction rules
+- [`testing.md`](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/testing.md) — testing requirements and patterns

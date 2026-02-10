@@ -46,6 +46,7 @@ clippy:
 doc:
 	cargo run --example export_graph
 	cp docs/paper/reduction_graph.json docs/src/reductions/
+	cp .claude/CLAUDE.md docs/src/claude.md
 	mdbook build docs
 	cargo doc --all-features --no-deps
 	cp -r target/doc docs/book/api
@@ -54,6 +55,7 @@ doc:
 mdbook:
 	cargo run --example export_graph
 	cp docs/paper/reduction_graph.json docs/src/reductions/
+	cp .claude/CLAUDE.md docs/src/claude.md
 	cargo doc --all-features --no-deps
 	mdbook serve docs --open
 

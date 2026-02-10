@@ -74,3 +74,6 @@ pkgref/
 
 # Generated example outputs
 docs/paper/examples/
+
+# Auto-copied at build time from .claude/CLAUDE.md
+docs/src/claude.md
