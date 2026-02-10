@@ -58,7 +58,7 @@ assert_eq!(solution.iter().sum::<usize>(), 2); // Max IS size is 2
 
 ### Developer Commands
 
-Run `make help` to see all available targets. See `.claude/CLAUDE.md` for the full list.
+Run `make help` to see all available targets. See [CLAUDE.md](https://codingthrust.github.io/problem-reductions/claude.html) for the full command list and architecture details.
 
 ## Acknowledgments
 
