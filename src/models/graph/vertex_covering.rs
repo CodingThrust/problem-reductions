@@ -3,11 +3,24 @@
 //! The Vertex Cover problem asks for a minimum weight subset of vertices
 //! such that every edge has at least one endpoint in the subset.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "VertexCovering",
+        category: "graph",
+        description: "Find minimum weight vertex cover in a graph",
+        fields: &[
+            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
+            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
+        ],
+    }
+}
 
 /// The Vertex Covering problem.
 ///

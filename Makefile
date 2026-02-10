@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata
+.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas
 
 # Default target
 help:
@@ -19,6 +19,7 @@ help:
 	@echo "  rust-export  - Generate Rust mapping JSON exports"
 	@echo "  compare      - Generate and compare Rust mapping exports"
 	@echo "  examples     - Generate example JSON for paper"
+	@echo "  export-schemas - Export problem schemas to JSON"
 	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
 
 # Build the project
@@ -43,10 +44,20 @@ clippy:
 
 # Build mdBook documentation
 doc:
+	cargo run --example export_graph
+	cp docs/paper/reduction_graph.json docs/src/reductions/
 	mdbook build docs
+	cargo doc --all-features --no-deps
+	rm -rf docs/book/api
+	cp -r target/doc docs/book/api
 
 # Build and serve mdBook with live reload
 mdbook:
+	cargo run --example export_graph
+	cp docs/paper/reduction_graph.json docs/src/reductions/
+	cargo doc --all-features --no-deps
+	rm -rf docs/book/api
+	cp -r target/doc docs/book/api
 	mdbook serve docs --open
 
 # Generate all example JSON files for the paper
@@ -59,9 +70,14 @@ examples:
 	done
 	cargo run --all-features --example export_petersen_mapping
 
+# Export problem schemas to JSON
+export-schemas:
+	cargo run --example export_schemas
+
 # Build Typst paper (generates examples first)
 paper: examples
 	cargo run --example export_graph
+	cargo run --example export_schemas
 	cd docs/paper && typst compile reductions.typ reductions.pdf
 
 # Generate coverage report (requires: cargo install cargo-llvm-cov)

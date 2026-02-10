@@ -3,11 +3,25 @@
 //! The Set Covering problem asks for a minimum weight collection of sets
 //! that covers all elements in the universe.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "SetCovering",
+        category: "set",
+        description: "Find minimum weight collection covering the universe",
+        fields: &[
+            FieldInfo { name: "universe_size", type_name: "usize", description: "Size of the universe U" },
+            FieldInfo { name: "sets", type_name: "Vec<Vec<usize>>", description: "Collection of subsets of U" },
+            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Weight for each set" },
+        ],
+    }
+}
 
 /// The Set Covering problem.
 ///

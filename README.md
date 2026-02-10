@@ -56,21 +56,9 @@ assert_eq!(solution.iter().sum::<usize>(), 2); // Max IS size is 2
         Afterwards, the skill creates a PR starting with `[action]`, which automatically triggers Claude CI to implement the plan.
     - Otherwise, you can write a detailed plan manually ([sample](docs/plans/2026-01-31-factoring-ilp-design.md)). Then create a PR manually. You can start implementing this plan on the CI machine by adding `[action]` at the start of the PR description or comments.
 
-### Using Make
+### Developer Commands
 
-```bash
-make help      # Show all available targets
-make build     # Build the project
-make test      # Run all tests
-make fmt       # Format code with rustfmt
-make fmt-check # Check code formatting
-make clippy    # Run clippy lints
-make doc       # Build and open documentation
-make coverage  # Generate coverage report (requires cargo-llvm-cov)
-make clean     # Clean build artifacts
-make check     # Quick check before commit (fmt + clippy + test)
-```
-
+Run `make help` to see all available targets. See [CLAUDE.md](https://codingthrust.github.io/problem-reductions/claude.html) for the full command list and architecture details.
 
 ## Acknowledgments
 

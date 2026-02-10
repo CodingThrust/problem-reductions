@@ -3,10 +3,25 @@
 //! The Biclique Cover problem asks for the minimum number of bicliques
 //! (complete bipartite subgraphs) needed to cover all edges of a bipartite graph.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "BicliqueCover",
+        category: "specialized",
+        description: "Cover bipartite edges with k bicliques",
+        fields: &[
+            FieldInfo { name: "left_size", type_name: "usize", description: "Vertices in left partition" },
+            FieldInfo { name: "right_size", type_name: "usize", description: "Vertices in right partition" },
+            FieldInfo { name: "edges", type_name: "Vec<(usize, usize)>", description: "Bipartite edges" },
+            FieldInfo { name: "k", type_name: "usize", description: "Number of bicliques" },
+        ],
+    }
+}
 
 /// The Biclique Cover problem.
 ///

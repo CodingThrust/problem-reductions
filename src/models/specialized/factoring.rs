@@ -3,9 +3,23 @@
 //! The Factoring problem represents integer factorization as a computational problem.
 //! Given a number N, find two factors (a, b) such that a * b = N.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "Factoring",
+        category: "specialized",
+        description: "Factor a composite integer into two factors",
+        fields: &[
+            FieldInfo { name: "m", type_name: "usize", description: "Bits for first factor" },
+            FieldInfo { name: "n", type_name: "usize", description: "Bits for second factor" },
+            FieldInfo { name: "target", type_name: "u64", description: "Number to factor" },
+        ],
+    }
+}
 
 /// The Integer Factoring problem.
 ///

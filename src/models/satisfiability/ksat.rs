@@ -3,12 +3,26 @@
 //! K-SAT is a special case of SAT where each clause has exactly K literals.
 //! Common variants include 3-SAT (K=3) and 2-SAT (K=2).
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 
 use super::CNFClause;
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "KSatisfiability",
+        category: "satisfiability",
+        description: "SAT with exactly k literals per clause",
+        fields: &[
+            FieldInfo { name: "num_vars", type_name: "usize", description: "Number of Boolean variables" },
+            FieldInfo { name: "clauses", type_name: "Vec<CNFClause>", description: "Clauses each with exactly K literals" },
+            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Clause weights for MAX-K-SAT" },
+        ],
+    }
+}
 
 /// K-Satisfiability problem where each clause has exactly K literals.
 ///

@@ -3,9 +3,25 @@
 //! ILP optimizes a linear objective over integer variables subject to linear constraints.
 //! This is a fundamental "hub" problem that many other NP-hard problems can be reduced to.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "ILP",
+        category: "optimization",
+        description: "Optimize linear objective subject to linear constraints",
+        fields: &[
+            FieldInfo { name: "num_vars", type_name: "usize", description: "Number of integer variables" },
+            FieldInfo { name: "bounds", type_name: "Vec<VarBounds>", description: "Variable bounds" },
+            FieldInfo { name: "constraints", type_name: "Vec<LinearConstraint>", description: "Linear constraints" },
+            FieldInfo { name: "objective", type_name: "Vec<(usize, f64)>", description: "Sparse objective coefficients" },
+            FieldInfo { name: "sense", type_name: "ObjectiveSense", description: "Optimization direction" },
+        ],
+    }
+}
 
 /// Variable bounds (None = unbounded in that direction).
 ///

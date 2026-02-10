@@ -2,10 +2,23 @@
 //!
 //! QUBO minimizes a quadratic function over binary variables.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "QUBO",
+        category: "optimization",
+        description: "Minimize quadratic unconstrained binary objective",
+        fields: &[
+            FieldInfo { name: "num_vars", type_name: "usize", description: "Number of binary variables" },
+            FieldInfo { name: "matrix", type_name: "Vec<Vec<W>>", description: "Upper-triangular Q matrix" },
+        ],
+    }
+}
 
 /// The QUBO (Quadratic Unconstrained Binary Optimization) problem.
 ///

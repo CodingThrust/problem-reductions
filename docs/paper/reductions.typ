@@ -1,5 +1,5 @@
 // Problem Reductions: A Mathematical Reference
-#import "reduction-diagram.typ": reduction-graph, graph-data
+#let graph-data = json("reduction_graph.json")
 #import "@preview/cetz:0.4.2": canvas, draw
 #import "@preview/ctheorems:1.1.3": thmbox, thmplain, thmproof, thmrules
 
@@ -20,6 +20,17 @@
 
 // Load result JSON: { solutions: [{ source_config, target_config }, ...] }
 #let load-results(name) = json("examples/" + name + ".result.json")
+
+#let problem-schemas = json("problem_schemas.json")
+
+// Render a problem's Rust struct from the JSON schema
+#let render-struct(name) = {
+  let schema = problem-schemas.find(s => s.name == name)
+  if schema == none { return }
+  let s = schema
+  let fields = s.fields.map(f => "    " + f.name + ": " + f.type_name + ",").join("\n")
+  raw("pub struct " + name + " {\n" + fields + "\n}", lang: "rust", block: true)
+}
 
 // Extract primary variable count from an instance dict.
 #let instance-vars(inst) = {
@@ -87,16 +98,11 @@
 
 = Introduction
 
-A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. @fig:reduction-graph shows the #graph-data.edges.len() reductions connecting #graph-data.nodes.len() problem types.
+A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. The library implements #graph-data.edges.len() reductions connecting #graph-data.nodes.len() problem types.
 
 == Notation
 
 We use the following notation throughout. An _undirected graph_ $G = (V, E)$ consists of a vertex set $V$ and edge set $E subset.eq binom(V, 2)$. For a set $S$, $overline(S)$ or $V backslash S$ denotes its complement. We write $|S|$ for cardinality. For Boolean variables, $overline(x)$ denotes negation ($not x$). A _literal_ is a variable $x$ or its negation $overline(x)$. A _clause_ is a disjunction of literals. A formula in _conjunctive normal form_ (CNF) is a conjunction of clauses. We abbreviate Independent Set as IS, Vertex Cover as VC, and use $n$ for problem size, $m$ for number of clauses, and $k_j = |C_j|$ for clause size.
-
-#figure(
-  reduction-graph(width: 18mm, height: 14mm),
-  caption: [Reduction graph. Colors: green (graph), red (set), yellow (optimization), blue (satisfiability), pink (specialized).]
-) <fig:reduction-graph>
 
 = Problem Definitions <sec:problems>
 
@@ -109,12 +115,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ IS→VC (@thm:is-to-vc), IS→SetPacking (@thm:is-to-setpacking), IS→QUBO (@thm:is-to-qubo), IS→ILP (@thm:is-to-ilp), IS→GridGraph IS (@thm:is-to-gridgraph), VC→IS (@thm:is-to-vc), SAT→IS (@thm:sat-to-is).
 
-  ```rust
-  pub struct IndependentSet<W = i32> {
-      graph: UnGraph<(), ()>,
-      weights: Vec<W>,
-  }
-  ```
+  #render-struct("IndependentSet")
 
   Where `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$, and `weights` stores vertex weights $w: V -> RR$ indexed by vertex ID. The solution is a subset $S subset.eq V$ represented as a `Vec<usize>` of vertex indices.
 ] <def:independent-set>
@@ -124,12 +125,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ VC→IS (@thm:is-to-vc), VC→SetCovering (@thm:vc-to-setcovering), VC→QUBO (@thm:vc-to-qubo), VC→ILP (@thm:vc-to-ilp), IS→VC (@thm:is-to-vc).
 
-  ```rust
-  pub struct VertexCovering<W = i32> {
-      graph: UnGraph<(), ()>,
-      weights: Vec<W>,
-  }
-  ```
+  #render-struct("VertexCovering")
 
   Where `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$, and `weights` stores vertex weights $w: V -> RR$ indexed by vertex ID. The solution is a subset $S subset.eq V$ represented as a `Vec<usize>` of vertex indices.
 ] <def:vertex-cover>
@@ -139,13 +135,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ MaxCut→SpinGlass (@thm:spinglass-maxcut), SpinGlass→MaxCut (@thm:spinglass-maxcut).
 
-  ```rust
-  pub struct MaxCut<W = i32> {
-      graph: UnGraph<(), W>,
-  }
-  ```
+  #render-struct("MaxCut")
 
-  Where `graph` represents $G = (V, E)$ with edge weights $w: E -> RR$ stored in graph edge data. The solution is a partition $(S, overline(S))$ represented as a binary assignment `Vec<usize>` where 0/1 indicates partition membership.
+  Where `graph` represents $G = (V, E)$, and `edge_weights` stores weights $w: E -> RR$ indexed by edge index. The solution is a partition $(S, overline(S))$ represented as a binary assignment `Vec<usize>` where 0/1 indicates partition membership.
 ] <def:max-cut>
 
 #definition("Graph Coloring")[
@@ -153,14 +145,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ Coloring→ILP (@thm:coloring-to-ilp), Coloring→QUBO (@thm:coloring-to-qubo), SAT→Coloring (@thm:sat-to-coloring).
 
-  ```rust
-  pub struct Coloring {
-      num_colors: usize,
-      graph: UnGraph<(), ()>,
-  }
-  ```
+  #render-struct("KColoring")
 
-  Where `num_colors` is the number of colors $k$, and `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$. The solution is a color assignment $c: V -> {0, ..., k-1}$ represented as a `Vec<usize>` indexed by vertex.
+  Where $k$ is a const generic parameter (not a struct field), and `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$. The solution is a color assignment $c: V -> {0, ..., k-1}$ represented as a `Vec<usize>` indexed by vertex.
 ] <def:coloring>
 
 #definition("Dominating Set")[
@@ -168,12 +155,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ DominatingSet→ILP (@thm:dominatingset-to-ilp), SAT→DominatingSet (@thm:sat-to-dominatingset).
 
-  ```rust
-  pub struct DominatingSet<W = i32> {
-      graph: UnGraph<(), ()>,
-      weights: Vec<W>,
-  }
-  ```
+  #render-struct("DominatingSet")
 
   Where `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$, and `weights` stores vertex weights $w: V -> RR$ indexed by vertex ID. The solution is a subset $S subset.eq V$ represented as a `Vec<usize>` of vertex indices.
 ] <def:dominating-set>
@@ -183,15 +165,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ Matching→SetPacking (@thm:matching-to-setpacking), Matching→ILP (@thm:matching-to-ilp).
 
-  ```rust
-  pub struct Matching<W = i32> {
-      num_vertices: usize,
-      graph: UnGraph<(), W>,
-      edge_weights: Vec<W>,
-  }
-  ```
+  #render-struct("Matching")
 
-  Where `num_vertices` is $|V|$, `graph` represents $G = (V, E)$ with edge weights, and `edge_weights` stores weights $w: E -> RR$ indexed by edge index. The solution is a subset $M subset.eq E$ represented as a `Vec<usize>` of edge indices.
+  Where `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$, and `edge_weights` stores weights $w: E -> RR$ indexed by edge index. The solution is a subset $M subset.eq E$ represented as a `Vec<usize>` of edge indices.
 ] <def:matching>
 
 #definition("Clique")[
@@ -211,12 +187,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ IS→SetPacking (@thm:is-to-setpacking), SetPacking→QUBO (@thm:setpacking-to-qubo), SetPacking→ILP (@thm:setpacking-to-ilp), Matching→SetPacking (@thm:matching-to-setpacking).
 
-  ```rust
-  pub struct SetPacking<W = i32> {
-      sets: Vec<Vec<usize>>,
-      weights: Vec<W>,
-  }
-  ```
+  #render-struct("SetPacking")
 
   Where `sets` represents the collection $cal(S) = {S_1, ..., S_m}$ where each `Vec<usize>` contains universe element indices, and `weights` stores set weights $w: cal(S) -> RR$ indexed by set index. The solution is a subset $cal(P) subset.eq cal(S)$ represented as a `Vec<usize>` of set indices.
 ] <def:set-packing>
@@ -226,13 +197,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ SetCovering→ILP (@thm:setcovering-to-ilp), VC→SetCovering (@thm:vc-to-setcovering).
 
-  ```rust
-  pub struct SetCovering<W = i32> {
-      universe_size: usize,
-      sets: Vec<Vec<usize>>,
-      weights: Vec<W>,
-  }
-  ```
+  #render-struct("SetCovering")
 
   Where `universe_size` is $|U|$, `sets` represents the collection $cal(S)$ where each `Vec<usize>` contains universe element indices, and `weights` stores set weights $w: cal(S) -> RR$ indexed by set index. The solution is a subset $cal(C) subset.eq cal(S)$ represented as a `Vec<usize>` of set indices.
 ] <def:set-covering>
@@ -244,15 +209,9 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ SpinGlass→MaxCut (@thm:spinglass-maxcut), SpinGlass→QUBO (@thm:spinglass-qubo), Circuit→SpinGlass (@thm:circuit-to-spinglass), MaxCut→SpinGlass (@thm:spinglass-maxcut), QUBO→SpinGlass (@thm:spinglass-qubo).
 
-  ```rust
-  pub struct SpinGlass<W = f64> {
-      num_spins: usize,
-      interactions: Vec<((usize, usize), W)>,
-      fields: Vec<W>,
-  }
-  ```
+  #render-struct("SpinGlass")
 
-  Where `num_spins` is $n$, `interactions` stores pairwise couplings $J_(i j)$ as `Vec<((usize, usize), W)>`, and `fields` stores external fields $h_i$ as `Vec<W>` indexed by spin. The solution is a spin assignment $bold(s) in {-1, +1}^n$ encoded as `Vec<usize>` where 0 maps to $s=-1$ and 1 maps to $s=+1$.
+  Where `graph` encodes the interaction topology, `couplings` stores pairwise couplings $J_(i j)$ as `Vec<W>` in `graph.edges()` order, and `fields` stores external fields $h_i$ as `Vec<W>` indexed by spin. The solution is a spin assignment $bold(s) in {-1, +1}^n$ encoded as `Vec<usize>` where 0 maps to $s=-1$ and 1 maps to $s=+1$.
 ] <def:spin-glass>
 
 #definition("QUBO")[
@@ -260,12 +219,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ QUBO→SpinGlass (@thm:spinglass-qubo), IS→QUBO (@thm:is-to-qubo), VC→QUBO (@thm:vc-to-qubo), Coloring→QUBO (@thm:coloring-to-qubo), SetPacking→QUBO (@thm:setpacking-to-qubo), kSAT→QUBO (@thm:ksat-to-qubo), ILP→QUBO (@thm:ilp-to-qubo), SpinGlass→QUBO (@thm:spinglass-qubo).
 
-  ```rust
-  pub struct QUBO<W = f64> {
-      num_vars: usize,
-      matrix: Vec<Vec<W>>,
-  }
-  ```
+  #render-struct("QUBO")
 
   Where `num_vars` is $n$, and `matrix` stores the upper-triangular $Q in RR^(n times n)$ as `Vec<Vec<W>>` where `matrix[i][j]` ($i <= j$) stores $Q_(i j)$. The solution is a binary assignment $bold(x) in {0, 1}^n$ represented as `Vec<usize>`.
 ] <def:qubo>
@@ -275,22 +229,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ ILP→QUBO (@thm:ilp-to-qubo), Coloring→ILP (@thm:coloring-to-ilp), Factoring→ILP (@thm:factoring-to-ilp), IS→ILP (@thm:is-to-ilp), VC→ILP (@thm:vc-to-ilp), Matching→ILP (@thm:matching-to-ilp), SetPacking→ILP (@thm:setpacking-to-ilp), SetCovering→ILP (@thm:setcovering-to-ilp), DominatingSet→ILP (@thm:dominatingset-to-ilp), Clique→ILP (@thm:clique-to-ilp).
 
-  ```rust
-  pub struct ILP {
-      num_vars: usize,
-      bounds: Vec<VarBounds>,
-      constraints: Vec<LinearConstraint>,
-      objective: Vec<(usize, f64)>,
-      sense: ObjectiveSense,
-  }
-
-  pub struct VarBounds { lower: Option<i64>, upper: Option<i64> }
-  pub struct LinearConstraint {
-      terms: Vec<(usize, f64)>,
-      cmp: Comparison,
-      rhs: f64,
-  }
-  ```
+  #render-struct("ILP")
 
   Where `num_vars` is $n$, `bounds` stores per-variable bounds $x_i in [l_i, u_i]$ as `Vec<VarBounds>`, `constraints` encodes $A bold(x) <= bold(b)$ as `Vec<LinearConstraint>`, `objective` is the sparse objective $bold(c)$ as `Vec<(usize, f64)>`, and `sense` specifies maximize or minimize. The solution is $bold(x) in ZZ^n$ represented as `Vec<usize>`.
 ] <def:ilp>
@@ -302,17 +241,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ SAT→IS (@thm:sat-to-is), SAT→Coloring (@thm:sat-to-coloring), SAT→DominatingSet (@thm:sat-to-dominatingset), SAT→kSAT (@thm:sat-ksat), kSAT→SAT (@thm:sat-ksat).
 
-  ```rust
-  pub struct Satisfiability<W = i32> {
-      num_vars: usize,
-      clauses: Vec<CNFClause>,
-      weights: Vec<W>,
-  }
-
-  pub struct CNFClause {
-      literals: Vec<i32>,
-  }
-  ```
+  #render-struct("Satisfiability")
 
   Where `num_vars` is $n$, `clauses` stores CNF clauses $C_j$ as `Vec<CNFClause>`, and `weights` stores clause weights for MAX-SAT as `Vec<W>`. Each `CNFClause` has `literals: Vec<i32>` where $+i$ denotes $x_i$ and $-i$ denotes $not x_i$ (1-indexed). The solution is an assignment $bold(x) in {0, 1}^n$ represented as `Vec<usize>`.
 ] <def:satisfiability>
@@ -322,13 +251,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ kSAT→SAT (@thm:sat-ksat), kSAT→QUBO (@thm:ksat-to-qubo), SAT→kSAT (@thm:sat-ksat).
 
-  ```rust
-  pub struct KSatisfiability<const K: usize, W = i32> {
-      num_vars: usize,
-      clauses: Vec<CNFClause>,
-      weights: Vec<W>,
-  }
-  ```
+  #render-struct("KSatisfiability")
 
   Where `num_vars` is $n$, `clauses` stores clauses with exactly $k$ literals per clause as `Vec<CNFClause>`, and `weights` stores clause weights as `Vec<W>`. The solution is an assignment $bold(x) in {0, 1}^n$ represented as `Vec<usize>`.
 ] <def:k-sat>
@@ -338,13 +261,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ Circuit→SpinGlass (@thm:circuit-to-spinglass), Factoring→Circuit (@thm:factoring-to-circuit).
 
-  ```rust
-  pub struct CircuitSAT<W = i32> {
-      circuit: Circuit,
-      variables: Vec<String>,
-      weights: Vec<W>,
-  }
-  ```
+  #render-struct("CircuitSAT")
 
   Where `circuit` is the Boolean circuit of logic gates (AND, OR, NOT, XOR), `variables` stores input variable names as `Vec<String>`, and `weights` stores assignment weights as `Vec<W>`. The solution is an input assignment $bold(x) in {0,1}^n$ represented as `Vec<usize>`.
 ] <def:circuit-sat>
@@ -354,13 +271,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   _Implemented reductions:_ Factoring→Circuit (@thm:factoring-to-circuit), Factoring→ILP (@thm:factoring-to-ilp).
 
-  ```rust
-  pub struct Factoring {
-      m: usize,
-      n: usize,
-      target: u64,
-  }
-  ```
+  #render-struct("Factoring")
 
   Where `m` is the number of bits for the first factor $p$, `n` is the number of bits for the second factor $q$, and `target` is the composite $N$ to factor. The solution is bit assignments for $p$ and $q$ represented as `Vec<usize>`.
 ] <def:factoring>

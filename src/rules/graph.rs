@@ -39,6 +39,8 @@ pub struct NodeJson {
     pub variant: std::collections::BTreeMap<String, String>,
     /// Category of the problem (e.g., "graph", "set", "optimization", "satisfiability", "specialized").
     pub category: String,
+    /// Relative rustdoc path (e.g., "models/graph/independent_set").
+    pub doc_path: String,
 }
 
 /// Reference to a problem variant in an edge.
@@ -592,15 +594,17 @@ impl ReductionGraph {
             ));
         }
 
-        // Build nodes with categories
+        // Build nodes with categories and doc paths
         let mut nodes: Vec<NodeJson> = node_set
             .iter()
             .map(|(name, variant)| {
                 let category = Self::categorize_type(name);
+                let doc_path = Self::compute_doc_path(name);
                 NodeJson {
                     name: name.clone(),
                     variant: variant.clone(),
                     category: category.to_string(),
+                    doc_path,
                 }
             })
             .collect();
@@ -660,6 +664,20 @@ impl ReductionGraph {
             .to_json_string()
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         std::fs::write(path, json_string)
+    }
+
+    /// Compute the rustdoc path for a problem type.
+    /// Maps name → actual Rust module location (which may differ from the visualization category).
+    fn compute_doc_path(name: &str) -> String {
+        let module = match name {
+            "IndependentSet" | "MaximalIS" | "VertexCovering" | "DominatingSet" | "KColoring"
+            | "Matching" | "MaxCut" | "Clique" => "graph",
+            "Satisfiability" | "KSatisfiability" => "satisfiability",
+            "SpinGlass" | "QUBO" | "ILP" => "optimization",
+            "SetCovering" | "SetPacking" => "set",
+            _ => "specialized",
+        };
+        format!("models/{module}/struct.{name}.html")
     }
 
     /// Categorize a type name into a problem category.

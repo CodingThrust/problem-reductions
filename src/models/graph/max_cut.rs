@@ -3,11 +3,24 @@
 //! The Maximum Cut problem asks for a partition of vertices into two sets
 //! that maximizes the total weight of edges crossing the partition.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "MaxCut",
+        category: "graph",
+        description: "Find maximum weight cut in a graph",
+        fields: &[
+            FieldInfo { name: "graph", type_name: "G", description: "The graph with edge weights" },
+            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> R" },
+        ],
+    }
+}
 
 /// The Maximum Cut problem.
 ///

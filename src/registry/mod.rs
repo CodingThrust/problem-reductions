@@ -59,10 +59,12 @@
 
 mod category;
 mod info;
+mod schema;
 
 pub use category::{
     GraphSubcategory, NetworkSubcategory, OptimizationSubcategory, ProblemCategory,
     SatisfiabilitySubcategory, SchedulingSubcategory, SetSubcategory, SpecializedSubcategory,
     StringSubcategory,
 };
-pub use info::{ComplexityClass, ProblemInfo, ProblemMetadata};
+pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
+pub use schema::{collect_schemas, FieldInfoJson, ProblemSchemaEntry, ProblemSchemaJson};
