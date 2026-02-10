@@ -6,9 +6,9 @@
 //! edges connect complementary literals. phi is satisfiable iff G has IS of size m.
 //!
 //! ## This Example
-//! - Instance: phi = (x1 v x2) ^ (~x1 v x3) ^ (x2 v ~x3), 3 vars, 3 clauses
-//! - Source SAT: satisfiable (e.g., x1=1, x2=1, x3=1)
-//! - Target IS: size 3 (one vertex per clause)
+//! - Instance: 5-variable, 7-clause 3-SAT formula
+//! - Source SAT: satisfiable
+//! - Target IS: size 7 (one vertex per clause), 21 vertices total
 //!
 //! ## Output
 //! Exports `docs/paper/examples/satisfiability_to_maximumindependentset.json` and `satisfiability_to_maximumindependentset.result.json`.
@@ -18,20 +18,24 @@ use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    // 1. Create SAT instance: phi = (x1 v x2) ^ (~x1 v x3) ^ (x2 v ~x3)
-    //    3 variables, 3 clauses
+    // 1. Create SAT instance: 5-variable, 7-clause 3-SAT formula
     let sat = Satisfiability::<i32>::new(
-        3,
+        5,
         vec![
-            CNFClause::new(vec![1, 2]),   // x1 OR x2
-            CNFClause::new(vec![-1, 3]),  // NOT x1 OR x3
-            CNFClause::new(vec![2, -3]),  // x2 OR NOT x3
+            CNFClause::new(vec![1, 2, -3]),    // x1 v x2 v ~x3
+            CNFClause::new(vec![-1, 3, 4]),    // ~x1 v x3 v x4
+            CNFClause::new(vec![2, -4, 5]),    // x2 v ~x4 v x5
+            CNFClause::new(vec![-2, 3, -5]),   // ~x2 v x3 v ~x5
+            CNFClause::new(vec![1, -3, 5]),    // x1 v ~x3 v x5
+            CNFClause::new(vec![-1, -2, 4]),   // ~x1 v ~x2 v x4
+            CNFClause::new(vec![3, -4, -5]),   // x3 v ~x4 v ~x5
         ],
     );
 
     println!("=== SAT to Independent Set Reduction (Karp 1972) ===\n");
-    println!("Source SAT formula:");
-    println!("  (x1 v x2) ^ (~x1 v x3) ^ (x2 v ~x3)");
+    println!("Source SAT formula: 5-variable, 7-clause 3-SAT");
+    println!("  (x1 v x2 v ~x3) ^ (~x1 v x3 v x4) ^ (x2 v ~x4 v x5) ^");
+    println!("  (~x2 v x3 v ~x5) ^ (x1 v ~x3 v x5) ^ (~x1 v ~x2 v x4) ^ (x3 v ~x4 v ~x5)");
     println!("  {} variables, {} clauses", sat.num_vars(), sat.num_clauses());
 
     // 2. Reduce to Independent Set
@@ -59,8 +63,8 @@ fn main() {
     let sat_solution = reduction.extract_solution(&is_solutions[0]);
     println!("Extracted SAT solution: {:?}", sat_solution);
     println!(
-        "  Interpretation: x1={}, x2={}, x3={}",
-        sat_solution[0], sat_solution[1], sat_solution[2]
+        "  Interpretation: x1={}, x2={}, x3={}, x4={}, x5={}",
+        sat_solution[0], sat_solution[1], sat_solution[2], sat_solution[3], sat_solution[4]
     );
 
     let size = sat.solution_size(&sat_solution);

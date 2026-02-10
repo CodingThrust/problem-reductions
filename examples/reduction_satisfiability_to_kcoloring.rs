@@ -6,9 +6,11 @@
 //! phi is satisfiable iff the constructed graph is 3-colorable.
 //!
 //! ## This Example
-//! - Instance: phi = (x1 v x2), 2 vars, 1 clause
-//! - Source SAT: satisfiable
-//! - Target: 3-Coloring with larger graph
+//! - Instance: 5-variable, 3-clause SAT formula with unit clauses
+//!   (OR-gadgets add 5 vertices per extra literal per clause, making BruteForce
+//!   infeasible for multi-literal clauses; unit clauses keep it at 13 vertices)
+//! - Source SAT: satisfiable (x1=1, x3=0, x5=1, x2/x4 free)
+//! - Target: 3-Coloring with 13 vertices
 //!
 //! ## Output
 //! Exports `docs/paper/examples/satisfiability_to_kcoloring.json` and `satisfiability_to_kcoloring.result.json`.
@@ -18,18 +20,24 @@ use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    // 1. Create SAT instance: phi = (x1 v x2), 2 variables, 1 clause
+    // 1. Create SAT instance: 5-variable, 3-clause formula with unit clauses
+    //    The SAT→KColoring reduction creates OR-gadgets that add 5 vertices per literal
+    //    beyond the first in each clause. BruteForce on 3-coloring is O(3^n), so we use
+    //    unit clauses (1 literal each) to keep vertex count at 2*5+3 = 13 (3^13 ~ 1.6M).
     let sat = Satisfiability::<i32>::new(
-        2,
+        5,
         vec![
-            CNFClause::new(vec![1, 2]), // x1 OR x2
+            CNFClause::new(vec![1]),     // x1 (unit clause)
+            CNFClause::new(vec![-3]),    // ~x3 (unit clause)
+            CNFClause::new(vec![5]),     // x5 (unit clause)
         ],
     );
 
     println!("=== SAT to 3-Coloring Reduction (Garey & Johnson 1979) ===\n");
-    println!("Source SAT formula:");
-    println!("  (x1 v x2)");
+    println!("Source SAT formula: 5-variable, 3-clause SAT (unit clauses to fit BruteForce)");
+    println!("  (x1) ^ (~x3) ^ (x5)");
     println!("  {} variables, {} clauses", sat.num_vars(), sat.num_clauses());
+    println!("  (Unit clauses avoid OR-gadgets, keeping vertex count manageable for BruteForce)");
 
     // 2. Reduce to 3-Coloring
     //    SAT reduces to KColoring<3, SimpleGraph, i32>
@@ -57,8 +65,8 @@ fn main() {
     let sat_solution = reduction.extract_solution(&coloring_solutions[0]);
     println!("Extracted SAT solution: {:?}", sat_solution);
     println!(
-        "  Interpretation: x1={}, x2={}",
-        sat_solution[0], sat_solution[1]
+        "  Interpretation: x1={}, x2={}, x3={}, x4={}, x5={}",
+        sat_solution[0], sat_solution[1], sat_solution[2], sat_solution[3], sat_solution[4]
     );
 
     let size = sat.solution_size(&sat_solution);
