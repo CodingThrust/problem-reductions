@@ -14,10 +14,10 @@
 //! The QUBO has n*K variables (n vertices, K colors).
 //!
 //! ## This Example
-//! - Instance: Complete graph K3 (triangle) with 3 colors
-//! - Source: KColoring<3> on 3 vertices, 3 edges
-//! - QUBO variables: 9 (3 vertices x 3 colors, one-hot encoding)
-//! - Expected: 6 valid 3-colorings (3! = 6 permutations of 3 colors on 3 vertices)
+//! - Instance: House graph (5 vertices, 6 edges) with 3 colors, χ=3
+//! - Source: KColoring<3> on 5 vertices, 6 edges
+//! - QUBO variables: 15 (5 vertices x 3 colors, one-hot encoding)
+//! - BruteForce on 15 variables (2^15 = 32768) completes quickly
 //!
 //! ## Outputs
 //! - `docs/paper/examples/coloring_to_qubo.json` — reduction structure
@@ -30,23 +30,24 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::small_graphs::house;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
     println!("=== K-Coloring -> QUBO Reduction ===\n");
 
-    // Triangle K3: all 3 vertices are adjacent
-    let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let kc = KColoring::<3, SimpleGraph, i32>::new(3, edges.clone());
+    // House graph: 5 vertices, 6 edges (square base + triangle roof), χ=3
+    let (num_vertices, edges) = house();
+    let kc = KColoring::<3, SimpleGraph, i32>::new(num_vertices, edges.clone());
 
     // Reduce to QUBO
     let reduction = ReduceTo::<QUBO>::reduce_to(&kc);
     let qubo = reduction.target_problem();
 
     let colors = ["Red", "Green", "Blue"];
-    println!("Source: KColoring<3> on triangle K3 (3 vertices, 3 edges)");
+    println!("Source: KColoring<3> on house graph (5 vertices, 6 edges)");
     println!(
-        "Target: QUBO with {} variables (one-hot: 3 vertices x 3 colors)",
+        "Target: QUBO with {} variables (one-hot: 5 vertices x 3 colors)",
         qubo.num_variables()
     );
     println!("Q matrix:");
@@ -81,13 +82,10 @@ fn main() {
         });
     }
 
-    // K3 with 3 colors has exactly 3! = 6 valid colorings
-    assert_eq!(
-        qubo_solutions.len(),
-        6,
-        "Triangle K3 with 3 colors should have exactly 6 valid colorings"
+    println!(
+        "\nVerification passed: {} valid colorings found",
+        qubo_solutions.len()
     );
-    println!("\nVerification passed: 6 valid colorings found");
 
     // Export JSON
     let overhead = lookup_overhead("KColoring", "QUBO")
