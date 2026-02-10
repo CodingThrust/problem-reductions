@@ -3,11 +3,24 @@
 //! The Maximal Independent Set problem asks for an independent set that
 //! cannot be extended by adding any other vertex.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "MaximalIS",
+        category: "graph",
+        description: "Find maximum weight maximal independent set",
+        fields: &[
+            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
+            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
+        ],
+    }
+}
 
 /// The Maximal Independent Set problem.
 ///

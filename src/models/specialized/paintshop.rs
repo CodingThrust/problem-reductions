@@ -5,10 +5,25 @@
 //! one color at its first occurrence and another at its second.
 //! The goal is to minimize color switches between adjacent positions.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "PaintShop",
+        category: "specialized",
+        description: "Minimize color changes in paint shop sequence",
+        fields: &[
+            FieldInfo { name: "sequence_indices", type_name: "Vec<usize>", description: "Car sequence as indices" },
+            FieldInfo { name: "car_labels", type_name: "Vec<String>", description: "Unique car labels" },
+            FieldInfo { name: "is_first", type_name: "Vec<bool>", description: "First occurrence flags" },
+            FieldInfo { name: "num_cars", type_name: "usize", description: "Number of unique cars" },
+        ],
+    }
+}
 
 /// The Paint Shop problem.
 ///

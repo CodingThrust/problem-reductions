@@ -4,9 +4,24 @@
 //! the boolean product B ⊙ C approximates A.
 //! The boolean product `(B ⊙ C)[i,j] = OR_k (B[i,k] AND C[k,j])`.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "BMF",
+        category: "specialized",
+        description: "Boolean matrix factorization",
+        fields: &[
+            FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "Target boolean matrix A" },
+            FieldInfo { name: "m", type_name: "usize", description: "Number of rows" },
+            FieldInfo { name: "n", type_name: "usize", description: "Number of columns" },
+            FieldInfo { name: "k", type_name: "usize", description: "Factorization rank" },
+        ],
+    }
+}
 
 /// The Boolean Matrix Factorization problem.
 ///

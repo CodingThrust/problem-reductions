@@ -3,12 +3,25 @@
 //! The Dominating Set problem asks for a minimum weight subset of vertices
 //! such that every vertex is either in the set or adjacent to a vertex in the set.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "DominatingSet",
+        category: "graph",
+        description: "Find minimum weight dominating set in a graph",
+        fields: &[
+            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
+            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights w: V -> R" },
+        ],
+    }
+}
 
 /// The Dominating Set problem.
 ///

@@ -3,10 +3,24 @@
 //! SAT is the problem of determining if there exists an assignment of
 //! Boolean variables that makes a given Boolean formula true.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "Satisfiability",
+        category: "satisfiability",
+        description: "Find satisfying assignment for CNF formula",
+        fields: &[
+            FieldInfo { name: "num_vars", type_name: "usize", description: "Number of Boolean variables" },
+            FieldInfo { name: "clauses", type_name: "Vec<CNFClause>", description: "Clauses in conjunctive normal form" },
+            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Clause weights for MAX-SAT" },
+        ],
+    }
+}
 
 /// A clause in conjunctive normal form (CNF).
 ///

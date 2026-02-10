@@ -3,12 +3,24 @@
 //! The K-Coloring problem asks whether a graph can be colored with K colors
 //! such that no two adjacent vertices have the same color.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use crate::variant::{const_usize_str, short_type_name};
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "KColoring",
+        category: "graph",
+        description: "Find valid k-coloring of a graph",
+        fields: &[
+            FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
+        ],
+    }
+}
 
 /// The Graph K-Coloring problem.
 ///

@@ -3,11 +3,24 @@
 //! The Set Packing problem asks for a maximum weight collection of
 //! pairwise disjoint sets.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{ConstraintSatisfactionProblem, Problem};
 use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
 use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "SetPacking",
+        category: "set",
+        description: "Find maximum weight collection of disjoint sets",
+        fields: &[
+            FieldInfo { name: "sets", type_name: "Vec<Vec<usize>>", description: "Collection of sets over a universe" },
+            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Weight for each set" },
+        ],
+    }
+}
 
 /// The Set Packing problem.
 ///

@@ -2,11 +2,25 @@
 //!
 //! The Spin Glass problem minimizes the Ising Hamiltonian energy.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "SpinGlass",
+        category: "optimization",
+        description: "Minimize Ising Hamiltonian on a graph",
+        fields: &[
+            FieldInfo { name: "graph", type_name: "G", description: "The interaction graph" },
+            FieldInfo { name: "couplings", type_name: "Vec<W>", description: "Pairwise couplings J_ij" },
+            FieldInfo { name: "fields", type_name: "Vec<W>", description: "On-site fields h_i" },
+        ],
+    }
+}
 
 /// The Spin Glass (Ising model) problem.
 ///

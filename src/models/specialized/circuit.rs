@@ -3,11 +3,25 @@
 //! CircuitSAT represents a boolean circuit satisfiability problem.
 //! The goal is to find variable assignments that satisfy the circuit constraints.
 
+use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
 use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "CircuitSAT",
+        category: "satisfiability",
+        description: "Find satisfying input to a boolean circuit",
+        fields: &[
+            FieldInfo { name: "circuit", type_name: "Circuit", description: "The boolean circuit" },
+            FieldInfo { name: "variables", type_name: "Vec<String>", description: "Circuit variable names" },
+            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Assignment weights" },
+        ],
+    }
+}
 
 /// Boolean expression node types.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
