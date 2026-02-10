@@ -13,7 +13,7 @@
 //!   (non-edges: (0,3), (1,3))
 //!
 //! ## Output
-//! Exports `docs/paper/examples/mclique_to_ilp.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/maximumclique_to_ilp.json` and `maximumclique_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -88,5 +88,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("mclique_to_ilp", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

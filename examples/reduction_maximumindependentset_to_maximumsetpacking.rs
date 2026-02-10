@@ -11,7 +11,7 @@
 //! - Target MaximumSetPacking: max packing 2
 //!
 //! ## Output
-//! Exports `docs/paper/examples/mis_to_msp.json` and `is_to_setpacking.result.json`.
+//! Exports `docs/paper/examples/maximumindependentset_to_maximumsetpacking.json` and `maximumindependentset_to_maximumsetpacking.result.json`.
 //!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
@@ -104,7 +104,8 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("mis_to_msp", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 
     println!("\nDone: IS(P4) optimal=2 maps to MaximumSetPacking optimal=2");
 }

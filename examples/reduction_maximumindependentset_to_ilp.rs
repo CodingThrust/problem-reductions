@@ -11,7 +11,7 @@
 //! - Target ILP: 4 binary variables, 3 constraints
 //!
 //! ## Output
-//! Exports `docs/paper/examples/mis_to_ilp.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/maximumindependentset_to_ilp.json` and `maximumindependentset_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -87,5 +87,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("mis_to_ilp", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

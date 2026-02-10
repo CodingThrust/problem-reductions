@@ -915,7 +915,7 @@ impl WeightedTriangularGadget for WeightedTriBranchFixB {
 }
 
 // ============================================================================
-// Pattern MaximumMatching and Application Functions
+// Pattern Matching and Application Functions
 // ============================================================================
 
 /// Check if a weighted triangular gadget pattern matches at position (i, j) in the grid.

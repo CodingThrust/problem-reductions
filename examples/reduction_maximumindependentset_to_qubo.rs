@@ -16,9 +16,8 @@
 //! - QUBO variables: 4 (one per vertex)
 //! - Expected: Two optimal solutions of size 2: vertices {0,2} and {1,3}
 //!
-//! ## Outputs
-//! - `docs/paper/examples/mis_to_qubo.json` — reduction structure
-//! - `docs/paper/examples/mis_to_qubo.result.json` — solutions
+//! ## Output
+//! Exports `docs/paper/examples/maximumindependentset_to_qubo.json` and `maximumindependentset_to_qubo.result.json`.
 //!
 //! ## Usage
 //! ```bash
@@ -101,5 +100,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("mis_to_qubo", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

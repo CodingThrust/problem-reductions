@@ -16,7 +16,7 @@
 //! satisfying assignment.
 //!
 //! ## Output
-//! Exports `docs/paper/examples/factoring_to_circuit.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/factoring_to_circuitsat.json` and `factoring_to_circuitsat.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::models::specialized::Circuit;
@@ -189,5 +189,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("factoring_to_circuit", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

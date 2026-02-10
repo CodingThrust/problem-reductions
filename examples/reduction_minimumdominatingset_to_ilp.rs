@@ -11,7 +11,7 @@
 //! - Target ILP: 4 binary variables, 4 domination constraints
 //!
 //! ## Output
-//! Exports `docs/paper/examples/mds_to_ilp.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/minimumdominatingset_to_ilp.json` and `minimumdominatingset_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -86,5 +86,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("mds_to_ilp", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

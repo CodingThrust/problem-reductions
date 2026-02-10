@@ -11,7 +11,7 @@
 //! - Target IS: max size 2
 //!
 //! ## Output
-//! Exports `docs/paper/examples/mvc_to_mis.json` and `vc_to_is.result.json`.
+//! Exports `docs/paper/examples/minimumvertexcover_to_maximumindependentset.json` and `minimumvertexcover_to_maximumindependentset.result.json`.
 //!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
@@ -83,5 +83,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("mvc_to_mis", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

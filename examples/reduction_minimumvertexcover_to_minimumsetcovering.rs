@@ -11,7 +11,7 @@
 //! - Target MinimumSetCovering: min cover 2
 //!
 //! ## Output
-//! Exports `docs/paper/examples/mvc_to_msc.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/minimumvertexcover_to_minimumsetcovering.json` and `minimumvertexcover_to_minimumsetcovering.result.json`.
 //!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
@@ -106,7 +106,8 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("mvc_to_msc", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 
     println!("\nDone: VC(K3) optimal=2 maps to MinimumSetCovering optimal=2");
 }

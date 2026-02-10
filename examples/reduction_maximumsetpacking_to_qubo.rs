@@ -20,9 +20,8 @@
 //! - Expected: Optimal packing selects {A, C} (size 2), since A and C
 //!   do not overlap
 //!
-//! ## Outputs
-//! - `docs/paper/examples/msp_to_qubo.json` — reduction structure
-//! - `docs/paper/examples/msp_to_qubo.result.json` — solutions
+//! ## Output
+//! Exports `docs/paper/examples/maximumsetpacking_to_qubo.json` and `maximumsetpacking_to_qubo.result.json`.
 //!
 //! ## Usage
 //! ```bash
@@ -111,5 +110,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("msp_to_qubo", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

@@ -11,7 +11,7 @@
 //! - Target MaximumSetPacking: max packing 2
 //!
 //! ## Output
-//! Exports `docs/paper/examples/mm_to_msp.json` and `.result.json`.
+//! Exports `docs/paper/examples/maximummatching_to_maximumsetpacking.json` and `maximummatching_to_maximumsetpacking.result.json`.
 //!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
@@ -91,7 +91,8 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("mm_to_msp", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 
     println!("\nDone: MaximumMatching(P4) optimal=2 maps to MaximumSetPacking optimal=2");
 }

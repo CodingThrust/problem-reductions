@@ -11,7 +11,7 @@
 //! - Target: 3-Coloring with larger graph
 //!
 //! ## Output
-//! Exports `docs/paper/examples/sat_to_coloring.json` and `sat_to_coloring.result.json`.
+//! Exports `docs/paper/examples/satisfiability_to_kcoloring.json` and `satisfiability_to_kcoloring.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -114,5 +114,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("sat_to_coloring", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

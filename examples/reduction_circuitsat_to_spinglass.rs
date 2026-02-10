@@ -11,7 +11,7 @@
 //! - Target: SpinGlass
 //!
 //! ## Output
-//! Exports `docs/paper/examples/circuit_to_spinglass.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/circuitsat_to_spinglass.json` and `circuitsat_to_spinglass.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::models::specialized::{Assignment, BooleanExpr, Circuit};
@@ -121,5 +121,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("circuit_to_spinglass", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

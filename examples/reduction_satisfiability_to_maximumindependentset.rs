@@ -11,7 +11,7 @@
 //! - Target IS: size 3 (one vertex per clause)
 //!
 //! ## Output
-//! Exports `docs/paper/examples/sat_to_mis.json` and `sat_to_is.result.json`.
+//! Exports `docs/paper/examples/satisfiability_to_maximumindependentset.json` and `satisfiability_to_maximumindependentset.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -115,5 +115,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("sat_to_mis", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

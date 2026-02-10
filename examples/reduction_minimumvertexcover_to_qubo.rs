@@ -16,9 +16,8 @@
 //! - QUBO variables: 4 (one per vertex)
 //! - Expected: Optimal vertex covers of size 2 (e.g., {0,2} or {1,3})
 //!
-//! ## Outputs
-//! - `docs/paper/examples/mvc_to_qubo.json` — reduction structure
-//! - `docs/paper/examples/mvc_to_qubo.result.json` — solutions
+//! ## Output
+//! Exports `docs/paper/examples/minimumvertexcover_to_qubo.json` and `minimumvertexcover_to_qubo.result.json`.
 //!
 //! ## Usage
 //! ```bash
@@ -111,5 +110,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("mvc_to_qubo", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

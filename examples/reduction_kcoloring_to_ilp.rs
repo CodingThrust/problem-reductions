@@ -13,7 +13,7 @@
 //! - Target ILP: 9 binary variables (3 vertices * 3 colors), 12 constraints
 //!
 //! ## Output
-//! Exports `docs/paper/examples/coloring_to_ilp.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/kcoloring_to_ilp.json` and `kcoloring_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -89,5 +89,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("coloring_to_ilp", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

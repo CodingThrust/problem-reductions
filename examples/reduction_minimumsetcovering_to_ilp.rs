@@ -11,7 +11,7 @@
 //! - Target ILP: 3 binary variables, 3 element-coverage constraints
 //!
 //! ## Output
-//! Exports `docs/paper/examples/msc_to_ilp.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/minimumsetcovering_to_ilp.json` and `minimumsetcovering_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -92,5 +92,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("msc_to_ilp", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

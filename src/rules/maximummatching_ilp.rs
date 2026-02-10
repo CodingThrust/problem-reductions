@@ -1,6 +1,6 @@
 //! Reduction from MaximumMatching to ILP (Integer Linear Programming).
 //!
-//! The Maximum MaximumMatching problem can be formulated as a binary ILP:
+//! The Maximum Matching problem can be formulated as a binary ILP:
 //! - Variables: One binary variable per edge (0 = not selected, 1 = selected)
 //! - Constraints: For each vertex v, sum of incident edge variables <= 1
 //!   (at most one incident edge can be selected)

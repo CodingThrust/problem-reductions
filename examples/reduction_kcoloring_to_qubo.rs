@@ -115,5 +115,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("coloring_to_qubo", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

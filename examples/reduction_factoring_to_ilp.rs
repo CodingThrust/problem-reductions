@@ -81,5 +81,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("factoring_to_ilp", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

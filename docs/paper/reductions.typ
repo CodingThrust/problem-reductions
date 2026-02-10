@@ -127,7 +127,7 @@
     stroke: (left: 2pt + rgb("#4a86e8")),
   )[
     #if caption != none {
-      text(weight: "bold")[Concrete Example: #caption]
+      text(weight: "bold")[Example: #caption]
       parbreak()
     }
     *Source:* #data.source.problem
@@ -193,7 +193,7 @@
 // Unified function for reduction rules: theorem + proof + optional example
 #let reduction-rule(
   source, target,
-  example: none,
+  example: false,
   example-caption: none,
   extra: none,
   theorem-body, proof-body,
@@ -208,18 +208,22 @@
   let tgt-lbl = label("def:" + target)
   let overhead = if edge != none and edge.overhead.len() > 0 { edge.overhead } else { none }
   let thm-lbl = label("thm:" + source + "-to-" + target)
+  // Derive example filename from source/target: "Source" → "source", then "source_to_target"
+  let example-name = lower(source) + "_to_" + lower(target)
 
   covered-rules.update(old => old + ((source, target),))
 
-  [#theorem[
+  [
+    #v(1em)
+    #theorem[
     *(*#context { if query(src-lbl).len() > 0 { link(src-lbl)[#src-disp] } else [#src-disp] }* #arrow *#context { if query(tgt-lbl).len() > 0 { link(tgt-lbl)[#tgt-disp] } else [#tgt-disp] }*)* #theorem-body
     #if overhead != none { linebreak(); format-overhead(overhead) }
   ] #thm-lbl]
 
   proof[#proof-body]
 
-  if example != none {
-    let data = load-example(example)
+  if example {
+    let data = load-example(example-name)
     pad(left: 1.5em, reduction-example(data, caption: example-caption)[#extra])
   }
 }
@@ -382,42 +386,15 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 = Reductions <sec:reductions>
 
-Each reduction theorem follows this structure:
-
-#block(
-  inset: (x: 1em, y: 0.8em),
-  fill: rgb("#f8f8f8"),
-)[
-  *Theorem N (Source $arrow.r$ Target).* Brief statement of the reduction's key insight. _Problem:_ Definition M. \
-  _Overhead:_ $O("complexity")$ — describes how the target instance size grows relative to the source.
-]
-
-#block(
-  inset: (x: 1em, y: 0.8em),
-)[
-  _Proof._ Detailed construction showing: (1) how to transform the source instance to target instance, (2) correctness argument, (3) variable mapping between problems, (4) solution extraction procedure. #h(1fr) $square$
-]
-
-#block(
-  width: 100%,
-  inset: (x: 1em, y: 0.8em),
-  fill: rgb("#f0f7ff"),
-  stroke: (left: 2pt + rgb("#4a86e8")),
-)[
-  *Concrete Example:* Description \
-  *Source:* SourceProblem #h(1em) *Target:* TargetProblem \
-  Additional details showing the transformation on a specific instance.
-]
-
-The theorem links back to problem definitions in @sec:problems. Concrete examples (when present) demonstrate the reduction on small instances with verifiable solutions.
+Each reduction is presented as a *Rule* (with linked problem names and overhead from the graph data), followed by a *Proof* (construction, correctness, variable mapping, solution extraction), and optionally a *Concrete Example* (a small instance with verified solution). Problem names in the rule title link back to their definitions in @sec:problems.
 
 == Trivial Reductions
 
-#let mvc_mis = load-example("mvc_to_mis")
-#let mvc_mis_r = load-results("mvc_to_mis")
+#let mvc_mis = load-example("minimumvertexcover_to_maximumindependentset")
+#let mvc_mis_r = load-results("minimumvertexcover_to_maximumindependentset")
 #let mvc_mis_sol = mvc_mis_r.solutions.at(0)
 #reduction-rule("MinimumVertexCover", "MaximumIndependentSet",
-  example: "mvc_to_mis",
+  example: true,
   example-caption: [Path graph $P_4$: VC $arrow.l.r$ IS],
   extra: [
     Source VC: $C = {#mvc_mis_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.source_config.filter(x => x == 1).len()) #h(1em)
@@ -449,7 +426,7 @@ The theorem links back to problem definitions in @sec:problems. Concrete example
 ]
 
 #reduction-rule("SpinGlass", "QUBO",
-  example: "spinglass_to_qubo",
+  example: true,
   example-caption: [2-spin system with coupling $J_(01) = -1$, fields $h = (0.5, -0.5)$],
 )[
   The substitution $s_i = 2x_i - 1$ yields $H_"SG"(bold(s)) = H_"QUBO"(bold(x)) + "const"$.
@@ -463,10 +440,10 @@ The _penalty method_ @glover2019 @lucas2014 converts a constrained optimization 
 $ f(bold(x)) = "obj"(bold(x)) + P sum_k g_k (bold(x))^2 $
 where $P$ is a penalty weight large enough that any constraint violation costs more than the entire objective range. Since $g_k (bold(x))^2 >= 0$ with equality iff $g_k (bold(x)) = 0$, minimizers of $f$ are feasible and optimal for the original problem. Because binary variables satisfy $x_i^2 = x_i$, the resulting $f$ is a quadratic in $bold(x)$, i.e.\ a QUBO.
 
-#let mis_qubo = load-example("mis_to_qubo")
-#let mis_qubo_r = load-results("mis_to_qubo")
+#let mis_qubo = load-example("maximumindependentset_to_qubo")
+#let mis_qubo_r = load-results("maximumindependentset_to_qubo")
 #reduction-rule("MaximumIndependentSet", "QUBO",
-  example: "mis_to_qubo",
+  example: true,
   example-caption: [IS on path $P_4$ to QUBO],
   extra: [
     *Source edges:* $= {#mis_qubo.source.instance.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}$ \
@@ -560,11 +537,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 == Non-Trivial Reductions
 
-#let sat_mis = load-example("sat_to_mis")
-#let sat_mis_r = load-results("sat_to_mis")
+#let sat_mis = load-example("satisfiability_to_maximumindependentset")
+#let sat_mis_r = load-results("satisfiability_to_maximumindependentset")
 #let sat_mis_sol = sat_mis_r.solutions.at(0)
 #reduction-rule("Satisfiability", "MaximumIndependentSet",
-  example: "sat_to_mis",
+  example: true,
   example-caption: [$phi = (x_1 or x_2) and (not x_1 or x_3) and (x_2 or not x_3)$],
   extra: [
     SAT assignment: $x_1=#sat_mis_sol.source_config.at(0), x_2=#sat_mis_sol.source_config.at(1), x_3=#sat_mis_sol.source_config.at(2)$ #h(1em)
@@ -937,18 +914,19 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 The following table shows concrete variable overhead for example instances, generated from the reduction examples (`make examples`).
 
 #let example-files = (
-  "mis_to_mvc", "mvc_to_mis", "mis_to_msp", "mm_to_msp",
-  "mvc_to_msc",
+  "maximumindependentset_to_minimumvertexcover", "minimumvertexcover_to_maximumindependentset",
+  "maximumindependentset_to_maximumsetpacking", "maximummatching_to_maximumsetpacking",
+  "minimumvertexcover_to_minimumsetcovering",
   "maxcut_to_spinglass", "spinglass_to_maxcut",
   "spinglass_to_qubo", "qubo_to_spinglass",
-  "mis_to_qubo", "mvc_to_qubo", "coloring_to_qubo",
-  "msp_to_qubo", "ksatisfiability_to_qubo", "ilp_to_qubo",
-  "sat_to_mis", "sat_to_coloring", "sat_to_mds", "sat_to_ksat",
-  "circuit_to_spinglass", "factoring_to_circuit",
-  "mis_to_ilp", "mvc_to_ilp", "mm_to_ilp",
-  "coloring_to_ilp", "factoring_to_ilp",
-  "msp_to_ilp", "msc_to_ilp",
-  "mds_to_ilp", "mclique_to_ilp",
+  "maximumindependentset_to_qubo", "minimumvertexcover_to_qubo", "kcoloring_to_qubo",
+  "maximumsetpacking_to_qubo", "ksatisfiability_to_qubo", "ilp_to_qubo",
+  "satisfiability_to_maximumindependentset", "satisfiability_to_kcoloring", "satisfiability_to_minimumdominatingset", "satisfiability_to_ksatisfiability",
+  "circuitsat_to_spinglass", "factoring_to_circuitsat",
+  "maximumindependentset_to_ilp", "minimumvertexcover_to_ilp", "maximummatching_to_ilp",
+  "kcoloring_to_ilp", "factoring_to_ilp",
+  "maximumsetpacking_to_ilp", "minimumsetcovering_to_ilp",
+  "minimumdominatingset_to_ilp", "maximumclique_to_ilp",
 )
 
 #let examples = example-files.map(n => {

@@ -13,7 +13,7 @@
 //! - Target: 3-SAT with 3 literals per clause
 //!
 //! ## Output
-//! Exports `docs/paper/examples/sat_to_ksat.json` and `sat_to_ksat.result.json`.
+//! Exports `docs/paper/examples/satisfiability_to_ksatisfiability.json` and `satisfiability_to_ksatisfiability.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -125,5 +125,6 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    write_example("sat_to_ksat", &data, &results);
+    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    write_example(name, &data, &results);
 }

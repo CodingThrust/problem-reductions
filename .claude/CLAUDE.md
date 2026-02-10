@@ -16,7 +16,7 @@ make mdbook         # Build and serve mdBook with live reload
 make paper          # Build Typst paper (runs examples + exports first)
 make coverage       # Generate coverage report (>95% required)
 make check          # Quick pre-commit check (fmt + clippy + test)
-make export-graph   # Regenerate reduction graph JSON
+make rust-export    # Generate Rust mapping JSON exports
 make export-schemas # Regenerate problem schemas JSON
 make qubo-testdata  # Regenerate QUBO ground truth JSON
 make clean          # Clean build artifacts
@@ -24,7 +24,7 @@ make clean          # Clean build artifacts
 
 ## Verify Changes
 ```bash
-make test clippy export-graph  # Must pass before PR
+make test clippy  # Must pass before PR
 ```
 
 ## Architecture

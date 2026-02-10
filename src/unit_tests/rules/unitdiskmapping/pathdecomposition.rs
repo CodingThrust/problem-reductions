@@ -175,3 +175,22 @@ fn test_empty_graph() {
     assert_eq!(layout.vertices.len(), 5);
     assert_eq!(layout.vsep(), 0); // No edges means pathwidth 0
 }
+
+#[test]
+fn test_pathwidth_auto_small() {
+    // Small graph (≤30 vertices) → Auto selects MinhThiTrick
+    let edges = vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)];
+    let layout = pathwidth(5, &edges, PathDecompositionMethod::Auto);
+    assert_eq!(layout.vertices.len(), 5);
+    assert_eq!(layout.vsep(), 2); // Cycle C5 has pathwidth 2
+}
+
+#[test]
+fn test_pathwidth_auto_large() {
+    // Large graph (>30 vertices) → Auto selects Greedy
+    let n = 35;
+    let edges: Vec<(usize, usize)> = (0..n - 1).map(|i| (i, i + 1)).collect();
+    let layout = pathwidth(n, &edges, PathDecompositionMethod::Auto);
+    assert_eq!(layout.vertices.len(), n);
+    assert_eq!(layout.vsep(), 1); // Path graph has pathwidth 1
+}

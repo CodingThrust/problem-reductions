@@ -1,6 +1,6 @@
 //! MaximumMatching problem implementation.
 //!
-//! The Maximum MaximumMatching problem asks for a maximum weight set of edges
+//! The Maximum Matching problem asks for a maximum weight set of edges
 //! such that no two edges share a vertex.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
@@ -23,7 +23,7 @@ inventory::submit! {
     }
 }
 
-/// The Maximum MaximumMatching problem.
+/// The Maximum Matching problem.
 ///
 /// Given a graph G = (V, E) with edge weights, find a maximum weight
 /// subset M ⊆ E such that no two edges in M share a vertex.
