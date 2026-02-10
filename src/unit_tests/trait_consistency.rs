@@ -43,18 +43,18 @@ where
 #[test]
 fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
-        &IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
-        "IndependentSet",
+        &MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
+        "MaximumIndependentSet",
     );
     check_problem_trait(
-        &VertexCovering::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
-        "VertexCovering",
+        &MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
+        "MinimumVertexCover",
     );
     check_problem_trait(&MaxCut::<SimpleGraph, i32>::new(3, vec![(0, 1, 1)]), "MaxCut");
     check_problem_trait(&KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1)]), "KColoring");
-    check_problem_trait(&DominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]), "DominatingSet");
+    check_problem_trait(&MinimumDominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]), "MinimumDominatingSet");
     check_problem_trait(&MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1)]), "MaximalIS");
-    check_problem_trait(&Matching::<SimpleGraph, i32>::new(3, vec![(0, 1, 1)]), "Matching");
+    check_problem_trait(&MaximumMatching::<SimpleGraph, i32>::new(3, vec![(0, 1, 1)]), "MaximumMatching");
     check_problem_trait(
         &Satisfiability::<i32>::new(3, vec![CNFClause::new(vec![1])]),
         "SAT",
@@ -64,8 +64,8 @@ fn test_all_problems_implement_trait_correctly() {
         "SpinGlass",
     );
     check_problem_trait(&QUBO::from_matrix(vec![vec![1.0; 3]; 3]), "QUBO");
-    check_problem_trait(&SetCovering::<i32>::new(3, vec![vec![0, 1]]), "SetCovering");
-    check_problem_trait(&SetPacking::<i32>::new(vec![vec![0, 1]]), "SetPacking");
+    check_problem_trait(&MinimumSetCovering::<i32>::new(3, vec![vec![0, 1]]), "MinimumSetCovering");
+    check_problem_trait(&MaximumSetPacking::<i32>::new(vec![vec![0, 1]]), "MaximumSetPacking");
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
     check_problem_trait(&BMF::new(vec![vec![true]], 1), "BMF");
     check_problem_trait(&BicliqueCover::new(2, 2, vec![(0, 2)], 1), "BicliqueCover");
@@ -81,13 +81,13 @@ fn test_all_problems_implement_trait_correctly() {
 #[test]
 fn test_energy_modes() {
     // Minimization problems
-    assert!(VertexCovering::<SimpleGraph, i32>::new(2, vec![(0, 1)])
+    assert!(MinimumVertexCover::<SimpleGraph, i32>::new(2, vec![(0, 1)])
         .energy_mode()
         .is_minimization());
-    assert!(DominatingSet::<SimpleGraph, i32>::new(2, vec![(0, 1)])
+    assert!(MinimumDominatingSet::<SimpleGraph, i32>::new(2, vec![(0, 1)])
         .energy_mode()
         .is_minimization());
-    assert!(SetCovering::<i32>::new(2, vec![vec![0, 1]])
+    assert!(MinimumSetCovering::<i32>::new(2, vec![vec![0, 1]])
         .energy_mode()
         .is_minimization());
     assert!(PaintShop::new(vec!["a", "a"])
@@ -111,7 +111,7 @@ fn test_energy_modes() {
         .is_minimization());
 
     // Maximization problems
-    assert!(IndependentSet::<SimpleGraph, i32>::new(2, vec![(0, 1)])
+    assert!(MaximumIndependentSet::<SimpleGraph, i32>::new(2, vec![(0, 1)])
         .energy_mode()
         .is_maximization());
     assert!(MaximalIS::<SimpleGraph, i32>::new(2, vec![(0, 1)])
@@ -120,10 +120,10 @@ fn test_energy_modes() {
     assert!(MaxCut::<SimpleGraph, i32>::new(2, vec![(0, 1, 1)])
         .energy_mode()
         .is_maximization());
-    assert!(Matching::<SimpleGraph, i32>::new(2, vec![(0, 1, 1)])
+    assert!(MaximumMatching::<SimpleGraph, i32>::new(2, vec![(0, 1, 1)])
         .energy_mode()
         .is_maximization());
-    assert!(SetPacking::<i32>::new(vec![vec![0]])
+    assert!(MaximumSetPacking::<i32>::new(vec![vec![0]])
         .energy_mode()
         .is_maximization());
     assert!(Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1])])

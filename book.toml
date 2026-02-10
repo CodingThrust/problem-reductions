@@ -5,11 +5,8 @@ description = "A Rust library for reducing NP-hard problems"
 language = "en"
 src = "docs/src"
 
-[preprocessor.mermaid]
-command = "mdbook-mermaid"
-
 [output.html]
-default-theme = "rust"
+default-theme = "navy"
 git-repository-url = "https://github.com/CodingThrust/problem-reductions"
 edit-url-template = "https://github.com/CodingThrust/problem-reductions/edit/main/{path}"
 additional-css = []

@@ -4,7 +4,8 @@
 //! which are used to determine optimal vertex orderings for the copy-line embedding.
 //! The pathwidth of a graph determines the grid height needed for the embedding.
 //!
-//! Two methods are provided:
+//! Three methods are provided:
+//! - `Auto` (default): Exact for ≤30 vertices, greedy for larger
 //! - `Greedy`: Fast heuristic with random restarts
 //! - `MinhThiTrick`: Branch-and-bound algorithm for optimal pathwidth
 //!
@@ -402,8 +403,10 @@ pub enum PathDecompositionMethod {
     },
     /// Branch and bound method for optimal pathwidth.
     /// Named in memory of Minh-Thi Nguyen, one of the main developers.
-    #[default]
     MinhThiTrick,
+    /// Automatically select method: exact for small graphs (≤30 vertices), greedy for larger.
+    #[default]
+    Auto,
 }
 
 impl PathDecompositionMethod {
@@ -442,6 +445,16 @@ pub fn pathwidth(
     edges: &[(usize, usize)],
     method: PathDecompositionMethod,
 ) -> Layout {
+    let method = match method {
+        PathDecompositionMethod::Auto => {
+            if num_vertices > 30 {
+                PathDecompositionMethod::greedy()
+            } else {
+                PathDecompositionMethod::MinhThiTrick
+            }
+        }
+        other => other,
+    };
     match method {
         PathDecompositionMethod::Greedy { nrepeat } => {
             let mut best: Option<Layout> = None;
@@ -454,6 +467,7 @@ pub fn pathwidth(
             best.unwrap_or_else(|| Layout::empty(num_vertices))
         }
         PathDecompositionMethod::MinhThiTrick => branch_and_bound(num_vertices, edges),
+        PathDecompositionMethod::Auto => unreachable!(),
     }
 }
 

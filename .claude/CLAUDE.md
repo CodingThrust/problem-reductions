@@ -16,7 +16,7 @@ make mdbook         # Build and serve mdBook with live reload
 make paper          # Build Typst paper (runs examples + exports first)
 make coverage       # Generate coverage report (>95% required)
 make check          # Quick pre-commit check (fmt + clippy + test)
-make export-graph   # Regenerate reduction graph JSON
+make rust-export    # Generate Rust mapping JSON exports
 make export-schemas # Regenerate problem schemas JSON
 make qubo-testdata  # Regenerate QUBO ground truth JSON
 make clean          # Clean build artifacts
@@ -24,7 +24,7 @@ make clean          # Clean build artifacts
 
 ## Verify Changes
 ```bash
-make test clippy export-graph  # Must pass before PR
+make test clippy  # Must pass before PR
 ```
 
 ## Architecture
@@ -47,7 +47,7 @@ make test clippy export-graph  # Must pass before PR
 ```
 Problem (core trait - all problems must implement)
 │
-├── const NAME: &'static str           // Problem name, e.g., "IndependentSet"
+├── const NAME: &'static str           // Problem name, e.g., "MaximumIndependentSet"
 ├── type GraphType: GraphMarker        // Graph topology marker
 ├── type Weight: NumericWeight         // Weight type (i32, f64, Unweighted)
 ├── type Size                          // Objective value type
@@ -75,19 +75,32 @@ ConstraintSatisfactionProblem : Problem (extension for CSPs)
 - Graph types: SimpleGraph, GridGraph, UnitDiskGraph, Hypergraph
 - Weight types: `Unweighted` (marker), `i32`, `f64`
 
+### Problem Names
+Problem types use explicit optimization prefixes:
+- `MaximumIndependentSet`, `MaximumClique`, `MaximumMatching`, `MaximumSetPacking`
+- `MinimumVertexCover`, `MinimumDominatingSet`, `MinimumSetCovering`
+- No prefix: `MaxCut`, `SpinGlass`, `QUBO`, `ILP`, `Satisfiability`, `KSatisfiability`, `CircuitSAT`, `Factoring`, `MaximalIS`
+
 ### Problem Variant IDs
 Reduction graph nodes use variant IDs: `ProblemName[/GraphType][/Weighted]`
-- Base: `IndependentSet` (SimpleGraph, unweighted)
-- Graph variant: `IndependentSet/GridGraph`
-- Weighted variant: `IndependentSet/Weighted`
-- Both: `IndependentSet/GridGraph/Weighted`
+- Base: `MaximumIndependentSet` (SimpleGraph, unweighted)
+- Graph variant: `MaximumIndependentSet/GridGraph`
+- Weighted variant: `MaximumIndependentSet/Weighted`
+- Both: `MaximumIndependentSet/GridGraph/Weighted`
 
 ## Conventions
 
 ### File Naming
-- Reduction files: `src/rules/<source>_<target>.rs`
-- Model files: `src/models/<category>/<name>.rs`
+- Reduction files: `src/rules/<source>_<target>.rs` (e.g., `maximumindependentset_qubo.rs`)
+- Model files: `src/models/<category>/<name>.rs` (e.g., `maximum_independent_set.rs`)
+- Example files: `examples/reduction_<source>_to_<target>.rs`
 - Test naming: `test_<source>_to_<target>_closed_loop`
+
+### Paper (docs/paper/reductions.typ)
+- `problem-def(name, title, body)` — defines a problem with auto-generated schema, reductions list, and label `<def:ProblemName>`
+- `reduction-rule(source, target, ...)` — generates a theorem with label `<thm:Source-to-Target>` and registers in `covered-rules` state
+- Completeness warnings auto-check that all JSON graph nodes/edges are covered in the paper
+- `display-name` dict maps `ProblemName` to display text
 
 ## Contributing
 See `.claude/rules/` for detailed guides:

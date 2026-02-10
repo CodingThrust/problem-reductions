@@ -60,6 +60,7 @@ inventory::submit! {
                 ]
             }),
         ]),
+        module_path: module_path!(),
     }
 }
 

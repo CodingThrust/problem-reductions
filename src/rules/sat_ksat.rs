@@ -235,8 +235,9 @@ inventory::submit! {
         source_variant: &[("graph", ""), ("weight", "Unweighted")],
         target_variant: &[("graph", ""), ("weight", "Unweighted")],
         overhead_fn: || ReductionOverhead::new(vec![
-            ("num_clauses", poly!(num_clauses)),
-            ("num_vars", poly!(num_vars)),
+            ("num_clauses", poly!(num_clauses) + poly!(num_literals)),
+            ("num_vars", poly!(num_vars) + poly!(num_literals)),
         ]),
+        module_path: module_path!(),
     }
 }

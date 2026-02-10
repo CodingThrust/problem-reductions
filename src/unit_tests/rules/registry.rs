@@ -26,6 +26,7 @@ fn test_reduction_entry_overhead() {
         source_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
         target_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
         overhead_fn: || ReductionOverhead::new(vec![("n", poly!(2 * n))]),
+        module_path: "test::module",
     };
 
     let overhead = entry.overhead();
@@ -42,6 +43,7 @@ fn test_reduction_entry_debug() {
         source_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
         target_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
         overhead_fn: || ReductionOverhead::default(),
+        module_path: "test::module",
     };
 
     let debug_str = format!("{:?}", entry);
@@ -57,6 +59,7 @@ fn test_is_base_reduction_unweighted() {
         source_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
         target_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
         overhead_fn: || ReductionOverhead::default(),
+        module_path: "test::module",
     };
     assert!(entry.is_base_reduction());
 }
@@ -69,6 +72,7 @@ fn test_is_base_reduction_source_weighted() {
         source_variant: &[("graph", "SimpleGraph"), ("weight", "i32")],
         target_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
         overhead_fn: || ReductionOverhead::default(),
+        module_path: "test::module",
     };
     assert!(!entry.is_base_reduction());
 }
@@ -81,6 +85,7 @@ fn test_is_base_reduction_target_weighted() {
         source_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
         target_variant: &[("graph", "SimpleGraph"), ("weight", "f64")],
         overhead_fn: || ReductionOverhead::default(),
+        module_path: "test::module",
     };
     assert!(!entry.is_base_reduction());
 }
@@ -93,6 +98,7 @@ fn test_is_base_reduction_both_weighted() {
         source_variant: &[("graph", "SimpleGraph"), ("weight", "i32")],
         target_variant: &[("graph", "SimpleGraph"), ("weight", "f64")],
         overhead_fn: || ReductionOverhead::default(),
+        module_path: "test::module",
     };
     assert!(!entry.is_base_reduction());
 }
@@ -106,6 +112,7 @@ fn test_is_base_reduction_no_weight_key() {
         source_variant: &[("graph", "SimpleGraph")],
         target_variant: &[("graph", "SimpleGraph")],
         overhead_fn: || ReductionOverhead::default(),
+        module_path: "test::module",
     };
     assert!(entry.is_base_reduction());
 }
@@ -120,5 +127,5 @@ fn test_reduction_entries_registered() {
     // Check specific reductions exist
     assert!(entries
         .iter()
-        .any(|e| e.source_name == "IndependentSet" && e.target_name == "VertexCovering"));
+        .any(|e| e.source_name == "MaximumIndependentSet" && e.target_name == "MinimumVertexCover"));
 }

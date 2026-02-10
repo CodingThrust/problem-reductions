@@ -41,10 +41,10 @@ impl FileFormat {
 ///
 /// ```no_run
 /// use problemreductions::io::{write_problem, FileFormat};
-/// use problemreductions::models::graph::IndependentSet;
+/// use problemreductions::models::graph::MaximumIndependentSet;
 /// use problemreductions::topology::SimpleGraph;
 ///
-/// let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+/// let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 /// write_problem(&problem, "problem.json", FileFormat::Json).unwrap();
 /// ```
 pub fn write_problem<T: Serialize, P: AsRef<Path>>(
@@ -75,10 +75,10 @@ pub fn write_problem<T: Serialize, P: AsRef<Path>>(
 ///
 /// ```no_run
 /// use problemreductions::io::{read_problem, FileFormat};
-/// use problemreductions::models::graph::IndependentSet;
+/// use problemreductions::models::graph::MaximumIndependentSet;
 /// use problemreductions::topology::SimpleGraph;
 ///
-/// let problem: IndependentSet<SimpleGraph, i32> = read_problem("problem.json", FileFormat::Json).unwrap();
+/// let problem: MaximumIndependentSet<SimpleGraph, i32> = read_problem("problem.json", FileFormat::Json).unwrap();
 /// ```
 pub fn read_problem<T: DeserializeOwned, P: AsRef<Path>>(path: P, format: FileFormat) -> Result<T> {
     let file = File::open(path.as_ref())

@@ -6,17 +6,17 @@
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 
-/// Tests for IndependentSet <-> VertexCovering reductions.
+/// Tests for MaximumIndependentSet <-> MinimumVertexCover reductions.
 mod is_vc_reductions {
     use super::*;
 
     #[test]
     fn test_is_to_vc_basic() {
         // Triangle graph
-        let is_problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 
         // Reduce IS to VC
-        let result = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&is_problem);
+        let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is_problem);
         let vc_problem = result.target_problem();
 
         // Same graph structure
@@ -37,10 +37,10 @@ mod is_vc_reductions {
     #[test]
     fn test_vc_to_is_basic() {
         // Path graph
-        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         // Reduce VC to IS
-        let result = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&vc_problem);
+        let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&vc_problem);
         let is_problem = result.target_problem();
 
         // Same graph structure
@@ -60,14 +60,14 @@ mod is_vc_reductions {
 
     #[test]
     fn test_is_vc_roundtrip() {
-        let original = IndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let original = MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
 
         // IS -> VC
-        let to_vc = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&original);
+        let to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&original);
         let vc_problem = to_vc.target_problem();
 
         // VC -> IS
-        let back_to_is = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(vc_problem);
+        let back_to_is = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(vc_problem);
         let final_is = back_to_is.target_problem();
 
         // Should have same structure
@@ -88,9 +88,9 @@ mod is_vc_reductions {
 
     #[test]
     fn test_is_vc_weighted() {
-        let is_problem = IndependentSet::with_weights(3, vec![(0, 1)], vec![10, 1, 5]);
+        let is_problem = MaximumIndependentSet::with_weights(3, vec![(0, 1)], vec![10, 1, 5]);
 
-        let result = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&is_problem);
+        let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is_problem);
         let vc_problem = result.target_problem();
 
         // Weights should be preserved
@@ -103,8 +103,8 @@ mod is_vc_reductions {
         let edges = vec![(0, 1), (1, 2), (2, 3), (0, 3)];
         let n = 4;
 
-        let is_problem = IndependentSet::<SimpleGraph, i32>::new(n, edges.clone());
-        let vc_problem = VertexCovering::<SimpleGraph, i32>::new(n, edges);
+        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(n, edges.clone());
+        let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(n, edges);
 
         let solver = BruteForce::new();
 
@@ -119,16 +119,16 @@ mod is_vc_reductions {
     }
 }
 
-/// Tests for IndependentSet <-> SetPacking reductions.
+/// Tests for MaximumIndependentSet <-> MaximumSetPacking reductions.
 mod is_sp_reductions {
     use super::*;
 
     #[test]
     fn test_is_to_sp_basic() {
         // Triangle graph - each vertex's incident edges become a set
-        let is_problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 
-        let result = ReduceTo::<SetPacking<i32>>::reduce_to(&is_problem);
+        let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);
         let sp_problem = result.target_problem();
 
         // 3 sets (one per vertex)
@@ -148,9 +148,9 @@ mod is_sp_reductions {
     fn test_sp_to_is_basic() {
         // Disjoint sets pack perfectly
         let sets = vec![vec![0, 1], vec![2, 3], vec![4]];
-        let sp_problem = SetPacking::<i32>::new(sets);
+        let sp_problem = MaximumSetPacking::<i32>::new(sets);
 
-        let result = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sp_problem);
+        let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sp_problem);
         let is_problem = result.target_problem();
 
         // Should have an edge for each pair of overlapping sets (none here)
@@ -170,10 +170,10 @@ mod is_sp_reductions {
 
     #[test]
     fn test_is_sp_roundtrip() {
-        let original = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let original = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         // IS -> SP
-        let to_sp = ReduceTo::<SetPacking<i32>>::reduce_to(&original);
+        let to_sp = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&original);
         let sp_problem = to_sp.target_problem();
 
         // Solve SP
@@ -356,12 +356,12 @@ mod topology_tests {
 
     #[test]
     fn test_hypergraph_to_setpacking() {
-        // HyperGraph can be seen as a SetPacking problem
+        // HyperGraph can be seen as a MaximumSetPacking problem
         let hg = HyperGraph::new(5, vec![vec![0, 1, 2], vec![2, 3], vec![3, 4]]);
 
-        // Convert hyperedges to sets for SetPacking
+        // Convert hyperedges to sets for MaximumSetPacking
         let sets: Vec<Vec<usize>> = hg.edges().to_vec();
-        let sp = SetPacking::<i32>::new(sets);
+        let sp = MaximumSetPacking::<i32>::new(sets);
 
         let solver = BruteForce::new();
         let solutions = solver.find_best(&sp);
@@ -382,7 +382,7 @@ mod topology_tests {
 
         // Extract edges
         let edges = udg.edges().to_vec();
-        let is_problem = IndependentSet::<SimpleGraph, i32>::new(4, edges);
+        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, edges);
 
         let solver = BruteForce::new();
         let solutions = solver.find_best(&is_problem);
@@ -468,10 +468,10 @@ mod qubo_reductions {
 
     #[test]
     fn test_is_to_qubo_ground_truth() {
-        let json = std::fs::read_to_string("tests/data/qubo/independentset_to_qubo.json").unwrap();
+        let json = std::fs::read_to_string("tests/data/qubo/maximumindependentset_to_qubo.json").unwrap();
         let data: ISToQuboData = serde_json::from_str(&json).unwrap();
 
-        let is = IndependentSet::<SimpleGraph, i32>::new(
+        let is = MaximumIndependentSet::<SimpleGraph, i32>::new(
             data.source.num_vertices,
             data.source.edges,
         );
@@ -511,10 +511,10 @@ mod qubo_reductions {
     #[test]
     fn test_vc_to_qubo_ground_truth() {
         let json =
-            std::fs::read_to_string("tests/data/qubo/vertexcovering_to_qubo.json").unwrap();
+            std::fs::read_to_string("tests/data/qubo/minimumvertexcover_to_qubo.json").unwrap();
         let data: VCToQuboData = serde_json::from_str(&json).unwrap();
 
-        let vc = VertexCovering::<SimpleGraph, i32>::new(
+        let vc = MinimumVertexCover::<SimpleGraph, i32>::new(
             data.source.num_vertices,
             data.source.edges,
         );
@@ -594,10 +594,10 @@ mod qubo_reductions {
 
     #[test]
     fn test_setpacking_to_qubo_ground_truth() {
-        let json = std::fs::read_to_string("tests/data/qubo/setpacking_to_qubo.json").unwrap();
+        let json = std::fs::read_to_string("tests/data/qubo/maximumsetpacking_to_qubo.json").unwrap();
         let data: SPToQuboData = serde_json::from_str(&json).unwrap();
 
-        let sp = SetPacking::with_weights(data.source.sets, data.source.weights);
+        let sp = MaximumSetPacking::with_weights(data.source.sets, data.source.weights);
         let reduction = ReduceTo::<QUBO>::reduce_to(&sp);
         let qubo = reduction.target_problem();
 
@@ -771,20 +771,20 @@ mod io_tests {
 
     #[test]
     fn test_serialize_reduce_deserialize() {
-        let original = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let original = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         // Serialize
         let json = to_json(&original).unwrap();
 
         // Deserialize
-        let restored: IndependentSet<SimpleGraph, i32> = from_json(&json).unwrap();
+        let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json).unwrap();
 
         // Should have same structure
         assert_eq!(restored.num_vertices(), original.num_vertices());
         assert_eq!(restored.num_edges(), original.num_edges());
 
         // Reduce the restored problem
-        let result = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&restored);
+        let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&restored);
         let vc = result.target_problem();
 
         assert_eq!(vc.num_vertices(), 4);
@@ -822,8 +822,8 @@ mod end_to_end {
 
     #[test]
     fn test_full_pipeline_is_vc_sp() {
-        // Start with an IndependentSet problem
-        let is = IndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4)]);
+        // Start with an MaximumIndependentSet problem
+        let is = MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4)]);
 
         // Solve directly
         let solver = BruteForce::new();
@@ -831,14 +831,14 @@ mod end_to_end {
         let direct_size = is_solutions[0].iter().sum::<usize>();
 
         // Reduce to VC and solve
-        let to_vc = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(&is);
+        let to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is);
         let vc = to_vc.target_problem();
         let vc_solutions = solver.find_best(vc);
         let vc_extracted = to_vc.extract_solution(&vc_solutions[0]);
         let via_vc_size = vc_extracted.iter().sum::<usize>();
 
-        // Reduce to SetPacking and solve
-        let to_sp = ReduceTo::<SetPacking<i32>>::reduce_to(&is);
+        // Reduce to MaximumSetPacking and solve
+        let to_sp = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is);
         let sp = to_sp.target_problem();
         let sp_solutions = solver.find_best(sp);
         let sp_extracted = to_sp.extract_solution(&sp_solutions[0]);
@@ -882,16 +882,16 @@ mod end_to_end {
 
     #[test]
     fn test_chain_reduction_sp_is_vc() {
-        // SetPacking -> IndependentSet -> VertexCovering
+        // MaximumSetPacking -> MaximumIndependentSet -> MinimumVertexCover
         let sets = vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3]];
-        let sp = SetPacking::<i32>::new(sets);
+        let sp = MaximumSetPacking::<i32>::new(sets);
 
         // SP -> IS
-        let sp_to_is = ReduceTo::<IndependentSet<SimpleGraph, i32>>::reduce_to(&sp);
+        let sp_to_is = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sp);
         let is = sp_to_is.target_problem();
 
         // IS -> VC
-        let is_to_vc = ReduceTo::<VertexCovering<SimpleGraph, i32>>::reduce_to(is);
+        let is_to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(is);
         let vc = is_to_vc.target_problem();
 
         // Solve VC
@@ -902,7 +902,7 @@ mod end_to_end {
         let is_sol = is_to_vc.extract_solution(&vc_solutions[0]);
         let sp_sol = sp_to_is.extract_solution(&is_sol);
 
-        // Should be valid SetPacking
+        // Should be valid MaximumSetPacking
         assert!(sp.solution_size(&sp_sol).is_valid);
     }
 }

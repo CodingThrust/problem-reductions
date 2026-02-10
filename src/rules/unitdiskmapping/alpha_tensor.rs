@@ -205,7 +205,7 @@ fn worse_than(bs_a: usize, bs_b: usize, val_a: i32, val_b: i32) -> bool {
 
 /// Check if two tensors differ by a constant.
 ///
-/// Returns (is_equivalent, difference) where difference = t1[i] - t2[i] for valid entries.
+/// Returns (is_equivalent, difference) where difference = `t1[i] - t2[i]` for valid entries.
 /// Invalid entries (i32::MIN) in both tensors are skipped.
 /// If one is valid and other is invalid, returns false.
 pub fn is_diff_by_const(t1: &[i32], t2: &[i32]) -> (bool, i32) {

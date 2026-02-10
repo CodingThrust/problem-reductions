@@ -36,9 +36,9 @@ pub use my_problem::MyProblem;
 
 ## 3. Categories
 Place models in appropriate category:
-- `src/models/satisfiability/` - SAT, K-SAT, CircuitSAT
-- `src/models/graph/` - IndependentSet, VertexCovering, Coloring, etc.
-- `src/models/set/` - SetCovering, SetPacking
+- `src/models/satisfiability/` - Satisfiability, KSatisfiability, CircuitSAT
+- `src/models/graph/` - MaximumIndependentSet, MinimumVertexCover, KColoring, etc.
+- `src/models/set/` - MinimumSetCovering, MaximumSetPacking
 - `src/models/optimization/` - SpinGlass, QUBO, ILP
 
 ## 4. Required Traits
@@ -47,8 +47,11 @@ Place models in appropriate category:
 - `Problem` - Core trait with `num_variables()`, `problem_size()`, `is_valid_solution()`
 - Consider `ConstraintSatisfactionProblem` if applicable
 
-## 5. Documentation
-Document in `docs/paper/reductions.typ`
+## 5. Naming
+Use explicit optimization prefixes: `Maximum` for maximization, `Minimum` for minimization (e.g., `MaximumIndependentSet`, `MinimumVertexCover`).
+
+## 6. Documentation
+Document in `docs/paper/reductions.typ` using `#problem-def("ProblemName", "Display Title")[...]`
 
 ## Anti-patterns
 - Don't create models without JSON serialization support

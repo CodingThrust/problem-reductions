@@ -212,7 +212,7 @@ impl fmt::Display for ProblemInfo {
 pub struct FieldInfo {
     /// Field name as it appears in the Rust struct.
     pub name: &'static str,
-    /// Type name (e.g., "Vec<W>", "UnGraph<(), ()>").
+    /// Type name (e.g., `Vec<W>`, `UnGraph<(), ()>`).
     pub type_name: &'static str,
     /// Human-readable description of what this field represents.
     pub description: &'static str,

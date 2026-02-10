@@ -1,13 +1,13 @@
 use super::*;
-use crate::models::graph::{IndependentSet, VertexCovering};
-use crate::models::set::SetPacking;
+use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
+use crate::models::set::MaximumSetPacking;
 use crate::rules::cost::MinimizeSteps;
 use crate::topology::SimpleGraph;
 
 #[test]
 fn test_find_direct_path() {
     let graph = ReductionGraph::new();
-    let paths = graph.find_paths::<IndependentSet<SimpleGraph, i32>, VertexCovering<SimpleGraph, i32>>();
+    let paths = graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>();
     assert!(!paths.is_empty());
     assert_eq!(paths[0].type_names.len(), 2);
     assert_eq!(paths[0].len(), 1); // One reduction step
@@ -17,14 +17,14 @@ fn test_find_direct_path() {
 fn test_find_indirect_path() {
     let graph = ReductionGraph::new();
     // IS -> VC -> IS -> SP or IS -> SP directly
-    let paths = graph.find_paths::<IndependentSet<SimpleGraph, i32>, SetPacking<i32>>();
+    let paths = graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, MaximumSetPacking<i32>>();
     assert!(!paths.is_empty());
 }
 
 #[test]
 fn test_find_shortest_path() {
     let graph = ReductionGraph::new();
-    let path = graph.find_shortest_path::<IndependentSet<SimpleGraph, i32>, SetPacking<i32>>();
+    let path = graph.find_shortest_path::<MaximumIndependentSet<SimpleGraph, i32>, MaximumSetPacking<i32>>();
     assert!(path.is_some());
     let path = path.unwrap();
     assert_eq!(path.len(), 1); // Direct path exists
@@ -33,8 +33,8 @@ fn test_find_shortest_path() {
 #[test]
 fn test_has_direct_reduction() {
     let graph = ReductionGraph::new();
-    assert!(graph.has_direct_reduction::<IndependentSet<SimpleGraph, i32>, VertexCovering<SimpleGraph, i32>>());
-    assert!(graph.has_direct_reduction::<VertexCovering<SimpleGraph, i32>, IndependentSet<SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<MinimumVertexCover<SimpleGraph, i32>, MaximumIndependentSet<SimpleGraph, i32>>());
 }
 
 #[test]
@@ -42,7 +42,7 @@ fn test_is_to_qubo_path() {
     let graph = ReductionGraph::new();
     // IS -> QUBO should now have a direct path
     let path =
-        graph.find_shortest_path::<IndependentSet<SimpleGraph, i32>, crate::models::optimization::QUBO<f64>>();
+        graph.find_shortest_path::<MaximumIndependentSet<SimpleGraph, i32>, crate::models::optimization::QUBO<f64>>();
     assert!(path.is_some());
     assert_eq!(path.unwrap().len(), 1); // Direct path
 }
@@ -85,8 +85,8 @@ fn test_problem_types() {
     let graph = ReductionGraph::new();
     let types = graph.problem_types();
     assert!(types.len() >= 5);
-    assert!(types.iter().any(|t| t.contains("IndependentSet")));
-    assert!(types.iter().any(|t| t.contains("VertexCovering")));
+    assert!(types.iter().any(|t| t.contains("MaximumIndependentSet")));
+    assert!(types.iter().any(|t| t.contains("MinimumVertexCover")));
 }
 
 #[test]
@@ -100,12 +100,12 @@ fn test_graph_statistics() {
 fn test_reduction_path_methods() {
     let graph = ReductionGraph::new();
     let path = graph
-        .find_shortest_path::<IndependentSet<SimpleGraph, i32>, VertexCovering<SimpleGraph, i32>>()
+        .find_shortest_path::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>()
         .unwrap();
 
     assert!(!path.is_empty());
-    assert!(path.source().unwrap().contains("IndependentSet"));
-    assert!(path.target().unwrap().contains("VertexCovering"));
+    assert!(path.source().unwrap().contains("MaximumIndependentSet"));
+    assert!(path.target().unwrap().contains("MinimumVertexCover"));
 }
 
 #[test]
@@ -113,11 +113,11 @@ fn test_bidirectional_paths() {
     let graph = ReductionGraph::new();
 
     // Forward path
-    let forward = graph.find_paths::<IndependentSet<SimpleGraph, i32>, VertexCovering<SimpleGraph, i32>>();
+    let forward = graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>();
     assert!(!forward.is_empty());
 
     // Backward path
-    let backward = graph.find_paths::<VertexCovering<SimpleGraph, i32>, IndependentSet<SimpleGraph, i32>>();
+    let backward = graph.find_paths::<MinimumVertexCover<SimpleGraph, i32>, MaximumIndependentSet<SimpleGraph, i32>>();
     assert!(!backward.is_empty());
 }
 
@@ -128,7 +128,7 @@ fn test_to_json() {
 
     // Check nodes
     assert!(json.nodes.len() >= 10);
-    assert!(json.nodes.iter().any(|n| n.name == "IndependentSet"));
+    assert!(json.nodes.iter().any(|n| n.name == "MaximumIndependentSet"));
     assert!(json.nodes.iter().any(|n| n.category == "graph"));
     assert!(json.nodes.iter().any(|n| n.category == "optimization"));
 
@@ -137,9 +137,9 @@ fn test_to_json() {
 
     // Check that IS <-> VC is marked bidirectional
     let is_vc_edge = json.edges.iter().find(|e| {
-        (e.source.name.contains("IndependentSet") && e.target.name.contains("VertexCovering"))
-            || (e.source.name.contains("VertexCovering")
-                && e.target.name.contains("IndependentSet"))
+        (e.source.name.contains("MaximumIndependentSet") && e.target.name.contains("MinimumVertexCover"))
+            || (e.source.name.contains("MinimumVertexCover")
+                && e.target.name.contains("MaximumIndependentSet"))
     });
     assert!(is_vc_edge.is_some());
     assert!(is_vc_edge.unwrap().bidirectional);
@@ -153,7 +153,7 @@ fn test_to_json_string() {
     // Should be valid JSON
     assert!(json_string.contains("\"nodes\""));
     assert!(json_string.contains("\"edges\""));
-    assert!(json_string.contains("IndependentSet"));
+    assert!(json_string.contains("MaximumIndependentSet"));
     assert!(json_string.contains("\"category\""));
     assert!(json_string.contains("\"bidirectional\""));
 }
@@ -162,24 +162,24 @@ fn test_to_json_string() {
 fn test_categorize_type() {
     // Graph problems
     assert_eq!(
-        ReductionGraph::categorize_type("IndependentSet<SimpleGraph, i32>"),
+        ReductionGraph::categorize_type("MaximumIndependentSet<SimpleGraph, i32>"),
         "graph"
     );
     assert_eq!(
-        ReductionGraph::categorize_type("VertexCovering<SimpleGraph, i32>"),
+        ReductionGraph::categorize_type("MinimumVertexCover<SimpleGraph, i32>"),
         "graph"
     );
     assert_eq!(ReductionGraph::categorize_type("MaxCut<SimpleGraph, i32>"), "graph");
     assert_eq!(ReductionGraph::categorize_type("KColoring"), "graph");
     assert_eq!(
-        ReductionGraph::categorize_type("DominatingSet<SimpleGraph, i32>"),
+        ReductionGraph::categorize_type("MinimumDominatingSet<SimpleGraph, i32>"),
         "graph"
     );
-    assert_eq!(ReductionGraph::categorize_type("Matching<i32>"), "graph");
+    assert_eq!(ReductionGraph::categorize_type("MaximumMatching<i32>"), "graph");
 
     // Set problems
-    assert_eq!(ReductionGraph::categorize_type("SetPacking<i32>"), "set");
-    assert_eq!(ReductionGraph::categorize_type("SetCovering<i32>"), "set");
+    assert_eq!(ReductionGraph::categorize_type("MaximumSetPacking<i32>"), "set");
+    assert_eq!(ReductionGraph::categorize_type("MinimumSetCovering<i32>"), "set");
 
     // Optimization
     assert_eq!(
@@ -212,19 +212,19 @@ fn test_categorize_type() {
 #[test]
 fn test_sat_based_reductions() {
     use crate::models::graph::KColoring;
-    use crate::models::graph::DominatingSet;
+    use crate::models::graph::MinimumDominatingSet;
     use crate::models::satisfiability::Satisfiability;
 
     let graph = ReductionGraph::new();
 
     // SAT -> IS
-    assert!(graph.has_direct_reduction::<Satisfiability<i32>, IndependentSet<SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<Satisfiability<i32>, MaximumIndependentSet<SimpleGraph, i32>>());
 
     // SAT -> KColoring
     assert!(graph.has_direct_reduction::<Satisfiability<i32>, KColoring<3, SimpleGraph, i32>>());
 
-    // SAT -> DominatingSet
-    assert!(graph.has_direct_reduction::<Satisfiability<i32>, DominatingSet<SimpleGraph, i32>>());
+    // SAT -> MinimumDominatingSet
+    assert!(graph.has_direct_reduction::<Satisfiability<i32>, MinimumDominatingSet<SimpleGraph, i32>>());
 }
 
 #[test]
@@ -303,12 +303,12 @@ fn test_empty_path_source_target() {
 #[test]
 fn test_single_node_path() {
     let path = ReductionPath {
-        type_names: vec!["IndependentSet"],
+        type_names: vec!["MaximumIndependentSet"],
     };
     assert!(!path.is_empty());
     assert_eq!(path.len(), 0); // No reductions, just one type
-    assert_eq!(path.source(), Some("IndependentSet"));
-    assert_eq!(path.target(), Some("IndependentSet"));
+    assert_eq!(path.source(), Some("MaximumIndependentSet"));
+    assert_eq!(path.target(), Some("MaximumIndependentSet"));
 }
 
 #[test]
@@ -335,7 +335,7 @@ fn test_to_json_file() {
     let content = fs::read_to_string(&file_path).unwrap();
     assert!(content.contains("\"nodes\""));
     assert!(content.contains("\"edges\""));
-    assert!(content.contains("IndependentSet"));
+    assert!(content.contains("MaximumIndependentSet"));
 
     // Parse as generic JSON to verify validity
     let parsed: serde_json::Value = serde_json::from_str(&content).unwrap();
@@ -354,10 +354,10 @@ fn test_has_direct_reduction_unregistered_types() {
     let graph = ReductionGraph::new();
 
     // Source type not registered
-    assert!(!graph.has_direct_reduction::<UnregisteredType, IndependentSet<SimpleGraph, i32>>());
+    assert!(!graph.has_direct_reduction::<UnregisteredType, MaximumIndependentSet<SimpleGraph, i32>>());
 
     // Target type not registered
-    assert!(!graph.has_direct_reduction::<IndependentSet<SimpleGraph, i32>, UnregisteredType>());
+    assert!(!graph.has_direct_reduction::<MaximumIndependentSet<SimpleGraph, i32>, UnregisteredType>());
 
     // Both types not registered
     assert!(!graph.has_direct_reduction::<UnregisteredType, UnregisteredType>());
@@ -368,7 +368,7 @@ fn test_find_paths_unregistered_source() {
     struct UnregisteredType;
 
     let graph = ReductionGraph::new();
-    let paths = graph.find_paths::<UnregisteredType, IndependentSet<SimpleGraph, i32>>();
+    let paths = graph.find_paths::<UnregisteredType, MaximumIndependentSet<SimpleGraph, i32>>();
     assert!(paths.is_empty());
 }
 
@@ -377,7 +377,7 @@ fn test_find_paths_unregistered_target() {
     struct UnregisteredType;
 
     let graph = ReductionGraph::new();
-    let paths = graph.find_paths::<IndependentSet<SimpleGraph, i32>, UnregisteredType>();
+    let paths = graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, UnregisteredType>();
     assert!(paths.is_empty());
 }
 
@@ -386,7 +386,7 @@ fn test_find_shortest_path_no_path() {
     struct UnregisteredType;
 
     let graph = ReductionGraph::new();
-    let path = graph.find_shortest_path::<UnregisteredType, IndependentSet<SimpleGraph, i32>>();
+    let path = graph.find_shortest_path::<UnregisteredType, MaximumIndependentSet<SimpleGraph, i32>>();
     assert!(path.is_none());
 }
 
@@ -416,9 +416,9 @@ fn test_edge_bidirectionality_detection() {
 
     // Verify specific known bidirectional edges
     let is_vc_bidir = json.edges.iter().any(|e| {
-        (e.source.name.contains("IndependentSet") && e.target.name.contains("VertexCovering")
-            || e.source.name.contains("VertexCovering")
-                && e.target.name.contains("IndependentSet"))
+        (e.source.name.contains("MaximumIndependentSet") && e.target.name.contains("MinimumVertexCover")
+            || e.source.name.contains("MinimumVertexCover")
+                && e.target.name.contains("MaximumIndependentSet"))
             && e.bidirectional
     });
     assert!(is_vc_bidir, "IS <-> VC should be bidirectional");
@@ -548,10 +548,10 @@ fn test_find_cheapest_path_minimize_steps() {
     let cost_fn = MinimizeSteps;
     let input_size = ProblemSize::new(vec![("n", 10), ("m", 20)]);
 
-    // Find path from IndependentSet to VertexCovering on SimpleGraph
+    // Find path from MaximumIndependentSet to MinimumVertexCover on SimpleGraph
     let path = graph.find_cheapest_path(
-        ("IndependentSet", "SimpleGraph"),
-        ("VertexCovering", "SimpleGraph"),
+        ("MaximumIndependentSet", "SimpleGraph"),
+        ("MinimumVertexCover", "SimpleGraph"),
         &input_size,
         &cost_fn,
     );
@@ -568,18 +568,18 @@ fn test_find_cheapest_path_multi_step() {
     let input_size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
 
     // Find multi-step path where all edges use compatible graph types
-    // IndependentSet (SimpleGraph) -> SetPacking (SimpleGraph)
+    // MaximumIndependentSet (SimpleGraph) -> MaximumSetPacking (SimpleGraph)
     // This tests the algorithm can find paths with consistent graph types
     let path = graph.find_cheapest_path(
-        ("IndependentSet", "SimpleGraph"),
-        ("SetPacking", "SimpleGraph"),
+        ("MaximumIndependentSet", "SimpleGraph"),
+        ("MaximumSetPacking", "SimpleGraph"),
         &input_size,
         &cost_fn,
     );
 
     assert!(path.is_some());
     let path = path.unwrap();
-    assert_eq!(path.len(), 1); // Direct path: IndependentSet -> SetPacking
+    assert_eq!(path.len(), 1); // Direct path: MaximumIndependentSet -> MaximumSetPacking
 }
 
 #[test]
@@ -588,9 +588,9 @@ fn test_find_cheapest_path_is_to_qubo() {
     let cost_fn = MinimizeSteps;
     let input_size = ProblemSize::new(vec![("n", 10)]);
 
-    // Direct path from IndependentSet to QUBO
+    // Direct path from MaximumIndependentSet to QUBO
     let path = graph.find_cheapest_path(
-        ("IndependentSet", "SimpleGraph"),
+        ("MaximumIndependentSet", "SimpleGraph"),
         ("QUBO", "SimpleGraph"),
         &input_size,
         &cost_fn,
@@ -608,7 +608,7 @@ fn test_find_cheapest_path_unknown_source() {
 
     let path = graph.find_cheapest_path(
         ("UnknownProblem", "SimpleGraph"),
-        ("VertexCovering", "SimpleGraph"),
+        ("MinimumVertexCover", "SimpleGraph"),
         &input_size,
         &cost_fn,
     );
@@ -623,7 +623,7 @@ fn test_find_cheapest_path_unknown_target() {
     let input_size = ProblemSize::new(vec![("n", 10)]);
 
     let path = graph.find_cheapest_path(
-        ("IndependentSet", "SimpleGraph"),
+        ("MaximumIndependentSet", "SimpleGraph"),
         ("UnknownProblem", "SimpleGraph"),
         &input_size,
         &cost_fn,
@@ -676,8 +676,8 @@ fn test_variant_to_map_empty() {
 #[test]
 fn test_make_variant_ref() {
     let variant: &[(&str, &str)] = &[("graph", "PlanarGraph"), ("weight", "f64")];
-    let variant_ref = ReductionGraph::make_variant_ref("IndependentSet", variant);
-    assert_eq!(variant_ref.name, "IndependentSet");
+    let variant_ref = ReductionGraph::make_variant_ref("MaximumIndependentSet", variant);
+    assert_eq!(variant_ref.name, "MaximumIndependentSet");
     assert_eq!(
         variant_ref.variant.get("graph"),
         Some(&"PlanarGraph".to_string())
@@ -717,16 +717,16 @@ fn test_json_variant_content() {
     let json = graph.to_json();
 
     // Find a node and verify its variant contains expected keys
-    let is_node = json.nodes.iter().find(|n| n.name == "IndependentSet");
-    assert!(is_node.is_some(), "IndependentSet node should exist");
+    let is_node = json.nodes.iter().find(|n| n.name == "MaximumIndependentSet");
+    assert!(is_node.is_some(), "MaximumIndependentSet node should exist");
 
-    // Find an edge involving IndependentSet (could be source or target)
+    // Find an edge involving MaximumIndependentSet (could be source or target)
     let is_edge = json
         .edges
         .iter()
-        .find(|e| e.source.name == "IndependentSet" || e.target.name == "IndependentSet");
+        .find(|e| e.source.name == "MaximumIndependentSet" || e.target.name == "MaximumIndependentSet");
     assert!(
         is_edge.is_some(),
-        "Edge involving IndependentSet should exist"
+        "Edge involving MaximumIndependentSet should exist"
     );
 }

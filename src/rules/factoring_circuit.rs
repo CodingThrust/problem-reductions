@@ -191,7 +191,7 @@ fn build_multiplier_cell(
 
 #[reduction(overhead = {
     ReductionOverhead::new(vec![
-        ("num_gates", poly!(num_bits_first^2)),
+        ("num_gates", poly!(num_bits_first * num_bits_second)),
     ])
 })]
 impl ReduceTo<CircuitSAT<i32>> for Factoring {

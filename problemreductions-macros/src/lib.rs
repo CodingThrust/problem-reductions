@@ -321,6 +321,7 @@ fn generate_reduction_entry(
                 source_variant: &[("graph", #source_graph), ("weight", #source_weight_name)],
                 target_variant: &[("graph", #target_graph), ("weight", #target_weight_name)],
                 overhead_fn: || { #overhead },
+                module_path: module_path!(),
             }
         }
     };

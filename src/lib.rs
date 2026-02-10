@@ -17,11 +17,11 @@
 //!
 //! ```rust
 //! use problemreductions::prelude::*;
-//! use problemreductions::models::graph::IndependentSet;
+//! use problemreductions::models::graph::MaximumIndependentSet;
 //! use problemreductions::topology::SimpleGraph;
 //!
 //! // Create an Independent Set problem on a triangle graph
-//! let problem = IndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+//! let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 //!
 //! // Solve with brute force
 //! let solver = BruteForce::new();
@@ -40,21 +40,21 @@
 //! - Factoring: Integer factorization
 //!
 //! ### Graph Problems
-//! - IndependentSet: Maximum weight independent set
+//! - MaximumIndependentSet: Maximum weight independent set
 //! - MaximalIS: Maximal independent set
-//! - VertexCovering: Minimum weight vertex cover
-//! - DominatingSet: Minimum dominating set
+//! - MinimumVertexCover: Minimum weight vertex cover
+//! - MinimumDominatingSet: Minimum dominating set
 //! - Coloring: K-vertex coloring
 //!
 //! ### Set Problems
-//! - SetCovering: Minimum weight set cover
-//! - SetPacking: Maximum weight set packing
+//! - MinimumSetCovering: Minimum weight set cover
+//! - MaximumSetPacking: Maximum weight set packing
 //!
 //! ### Optimization Problems
 //! - MaxCut: Maximum cut on weighted graphs
 //! - SpinGlass: Ising model Hamiltonian
 //! - QUBO: Quadratic unconstrained binary optimization
-//! - Matching: Maximum weight matching
+//! - MaximumMatching: Maximum weight matching
 //!
 //! ### Specialized Problems
 //! - Paintshop: Minimize color switches
@@ -85,14 +85,14 @@ pub mod prelude {
     };
     pub use crate::error::{ProblemError, Result};
     pub use crate::models::graph::{
-        Clique, DominatingSet, IndependentSet, KColoring, Matching, MaxCut, MaximalIS,
-        VertexCovering,
+        MaximumClique, MinimumDominatingSet, MaximumIndependentSet, KColoring, MaximumMatching, MaxCut, MaximalIS,
+        MinimumVertexCover,
     };
     pub use crate::models::optimization::{
         Comparison, LinearConstraint, ObjectiveSense, SpinGlass, VarBounds, ILP, QUBO,
     };
     pub use crate::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
-    pub use crate::models::set::{SetCovering, SetPacking};
+    pub use crate::models::set::{MinimumSetCovering, MaximumSetPacking};
     pub use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
     pub use crate::registry::{
         ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,

@@ -158,6 +158,11 @@ impl<W: Clone + Default> Satisfiability<W> {
         self.clauses.len()
     }
 
+    /// Get the total number of literal occurrences across all clauses.
+    pub fn num_literals(&self) -> usize {
+        self.clauses.iter().map(|c| c.len()).sum()
+    }
+
     /// Get the clauses.
     pub fn clauses(&self) -> &[CNFClause] {
         &self.clauses
@@ -217,6 +222,7 @@ where
         ProblemSize::new(vec![
             ("num_vars", self.num_vars),
             ("num_clauses", self.clauses.len()),
+            ("num_literals", self.num_literals()),
         ])
     }
 

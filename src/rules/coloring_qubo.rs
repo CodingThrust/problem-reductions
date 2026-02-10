@@ -56,7 +56,7 @@ impl<const K: usize> ReductionResult for ReductionKColoringToQUBO<K> {
 
 #[reduction(
     source_graph = "SimpleGraph",
-    overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vertices))]) }
+    overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vertices * num_colors))]) }
 )]
 impl<const K: usize> ReduceTo<QUBO<f64>> for KColoring<K, SimpleGraph, i32> {
     type Result = ReductionKColoringToQUBO<K>;

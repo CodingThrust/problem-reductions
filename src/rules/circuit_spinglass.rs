@@ -108,8 +108,8 @@ where
 /// 2-variable SpinGlass: input at index 0; output at index 1.
 /// Ground states: (0,1), (1,0) corresponding to valid NOT.
 ///
-/// J = [1] for edge (0,1)
-/// h = [0, 0]
+/// J = \[1\] for edge (0,1)
+/// h = \[0, 0\]
 pub fn not_gadget<W>() -> LogicGadget<W>
 where
     W: Clone + Default + From<i32> + Zero,
@@ -150,7 +150,7 @@ where
 /// Create a SET0 gadget (constant false).
 ///
 /// 1-variable SpinGlass that prefers config 0 (spin -1 in Rust convention).
-/// h = [1] (negated from Julia's [-1] to account for different spin convention)
+/// h = \[1\] (negated from Julia's \[-1\] to account for different spin convention)
 pub fn set0_gadget<W>() -> LogicGadget<W>
 where
     W: Clone + Default + From<i32>,
@@ -164,7 +164,7 @@ where
 /// Create a SET1 gadget (constant true).
 ///
 /// 1-variable SpinGlass that prefers config 1 (spin +1 in Rust convention).
-/// h = [-1] (negated from Julia's [1] to account for different spin convention)
+/// h = \[-1\] (negated from Julia's \[1\] to account for different spin convention)
 pub fn set1_gadget<W>() -> LogicGadget<W>
 where
     W: Clone + Default + From<i32>,

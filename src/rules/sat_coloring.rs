@@ -14,7 +14,7 @@ use crate::models::satisfiability::Satisfiability;
 use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
-use crate::rules::sat_independentset::BoolVar;
+use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 use crate::types::ProblemSize;
@@ -319,7 +319,8 @@ impl<W> ReductionSATToColoring<W> {
     target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_vertices", poly!(3 * num_vars)),
+            // 2*num_vars + 3 (base) + 5*(num_literals - num_clauses) (OR gadgets)
+            ("num_vertices", poly!(2 * num_vars) + poly!(5 * num_literals) + poly!(num_clauses).scale(-5.0) + poly!(3)),
             ("num_colors", poly!(3)),
         ])
     }

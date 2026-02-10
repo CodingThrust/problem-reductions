@@ -35,9 +35,9 @@ impl ReductionOverhead {
 /// A registered reduction entry for static inventory registration.
 /// Uses function pointer to lazily create the overhead (avoids static allocation issues).
 pub struct ReductionEntry {
-    /// Base name of source problem (e.g., "IndependentSet").
+    /// Base name of source problem (e.g., "MaximumIndependentSet").
     pub source_name: &'static str,
-    /// Base name of target problem (e.g., "VertexCovering").
+    /// Base name of target problem (e.g., "MinimumVertexCover").
     pub target_name: &'static str,
     /// Variant attributes for source problem as key-value pairs.
     /// Common keys: "graph" (graph type), "weight" (weight type).
@@ -46,6 +46,8 @@ pub struct ReductionEntry {
     pub target_variant: &'static [(&'static str, &'static str)],
     /// Function to create overhead information (lazy evaluation for static context).
     pub overhead_fn: fn() -> ReductionOverhead,
+    /// Module path where the reduction is defined (from `module_path!()`).
+    pub module_path: &'static str,
 }
 
 impl ReductionEntry {
@@ -80,6 +82,7 @@ impl std::fmt::Debug for ReductionEntry {
             .field("source_variant", &self.source_variant)
             .field("target_variant", &self.target_variant)
             .field("overhead", &self.overhead())
+            .field("module_path", &self.module_path)
             .finish()
     }
 }

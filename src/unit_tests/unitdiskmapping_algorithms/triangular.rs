@@ -285,7 +285,6 @@ fn test_triangular_mapping_cubical() {
 }
 
 #[test]
-#[ignore] // Tutte is large, slow, and no Julia trace file
 fn test_triangular_mapping_tutte() {
     // Skip if no Julia trace file exists
     let julia_path = format!(

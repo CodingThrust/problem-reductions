@@ -445,15 +445,14 @@ pub fn embed_graph(
 // Unweighted Mapping Functions
 // ============================================================================
 
-/// Map a graph to a KSG grid graph using optimal path decomposition (MinhThiTrick).
+/// Map a graph to a KSG grid graph using automatic path decomposition.
 ///
-/// This uses the branch-and-bound algorithm to find the optimal vertex ordering
-/// that minimizes the grid size.
+/// Uses exact branch-and-bound for small graphs (≤30 vertices) and greedy for larger.
 pub fn map_unweighted(
     num_vertices: usize,
     edges: &[(usize, usize)],
 ) -> MappingResult<KsgTapeEntry> {
-    map_unweighted_with_method(num_vertices, edges, PathDecompositionMethod::MinhThiTrick)
+    map_unweighted_with_method(num_vertices, edges, PathDecompositionMethod::Auto)
 }
 
 /// Map a graph using a specific path decomposition method (unweighted).
@@ -544,7 +543,7 @@ pub fn map_weighted(
     num_vertices: usize,
     edges: &[(usize, usize)],
 ) -> MappingResult<WeightedKsgTapeEntry> {
-    map_weighted_with_method(num_vertices, edges, PathDecompositionMethod::MinhThiTrick)
+    map_weighted_with_method(num_vertices, edges, PathDecompositionMethod::Auto)
 }
 
 /// Map a graph using a specific path decomposition method (weighted).

@@ -5,8 +5,8 @@
 //! # Problem Categories
 //!
 //! - **Satisfiability**: SAT, K-SAT, CircuitSAT, Factoring
-//! - **Graph**: IndependentSet, MaximalIS, VertexCovering, DominatingSet, KColoring, Matching
-//! - **Set**: SetCovering, SetPacking
+//! - **Graph**: MaximumIndependentSet, MaximalIS, MinimumVertexCover, MinimumDominatingSet, KColoring, MaximumMatching
+//! - **Set**: MinimumSetCovering, MaximumSetPacking
 //! - **Optimization**: MaxCut, SpinGlass, QUBO
 //! - **Specialized**: Paintshop, BicliqueCover, BMF
 
@@ -18,9 +18,9 @@ pub mod specialized;
 
 // Re-export commonly used types
 pub use graph::{
-    DominatingSet, IndependentSet, KColoring, Matching, MaxCut, MaximalIS, VertexCovering,
+    MinimumDominatingSet, MaximumIndependentSet, KColoring, MaximumMatching, MaxCut, MaximalIS, MinimumVertexCover,
 };
 pub use optimization::{SpinGlass, QUBO};
 pub use satisfiability::{CNFClause, Satisfiability};
-pub use set::{SetCovering, SetPacking};
+pub use set::{MinimumSetCovering, MaximumSetPacking};
 pub use specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};

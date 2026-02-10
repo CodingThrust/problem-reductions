@@ -17,10 +17,10 @@ problemreductions = "0.1"
 use problemreductions::prelude::*;
 
 // Independent Set on a path graph
-let is = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+let is = MaximumIndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
 // Vertex Cover on the same graph
-let vc = VertexCovering::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+let vc = MinimumVertexCover::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
 // QUBO problem
 let qubo = QUBO::from_matrix(vec![
@@ -34,7 +34,7 @@ let qubo = QUBO::from_matrix(vec![
 ```rust
 use problemreductions::prelude::*;
 
-let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+let problem = MaximumIndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 let solver = BruteForce::new();
 let solutions = solver.find_best(&problem);
 
@@ -50,10 +50,10 @@ for sol in &solutions {
 use problemreductions::prelude::*;
 
 // Create an Independent Set problem
-let is = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2)]);
+let is = MaximumIndependentSet::<i32>::new(4, vec![(0, 1), (1, 2)]);
 
 // Reduce to Vertex Cover
-let result = ReduceTo::<VertexCovering<i32>>::reduce_to(&is);
+let result = ReduceTo::<MinimumVertexCover<i32>>::reduce_to(&is);
 let vc = result.target_problem();
 
 // Solve the reduced problem
@@ -69,17 +69,17 @@ let is_solution = result.extract_solution(&vc_solutions[0]);
 ```rust
 use problemreductions::prelude::*;
 
-let sp = SetPacking::<i32>::new(vec![
+let sp = MaximumSetPacking::<i32>::new(vec![
     vec![0, 1],
     vec![1, 2],
     vec![2, 3],
 ]);
 
-// SetPacking -> IndependentSet -> VertexCovering
-let sp_to_is = ReduceTo::<IndependentSet<i32>>::reduce_to(&sp);
+// MaximumSetPacking -> MaximumIndependentSet -> MinimumVertexCover
+let sp_to_is = ReduceTo::<MaximumIndependentSet<i32>>::reduce_to(&sp);
 let is = sp_to_is.target_problem();
 
-let is_to_vc = ReduceTo::<VertexCovering<i32>>::reduce_to(is);
+let is_to_vc = ReduceTo::<MinimumVertexCover<i32>>::reduce_to(is);
 let vc = is_to_vc.target_problem();
 
 // Solve and extract back through the chain
@@ -94,8 +94,8 @@ let sp_solution = sp_to_is.extract_solution(&is_solution);
 The reduction system is compile-time verified. Invalid reductions won't compile:
 
 ```rust,compile_fail
-// This won't compile - no reduction from QUBO to SetPacking
-let result = ReduceTo::<SetPacking<i32>>::reduce_to(&qubo);
+// This won't compile - no reduction from QUBO to MaximumSetPacking
+let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&qubo);
 ```
 
 ## Next Steps

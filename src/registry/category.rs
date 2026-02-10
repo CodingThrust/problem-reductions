@@ -11,11 +11,11 @@
 //! ├── Graph
 //! │   ├── Coloring      (3-Coloring, Chromatic Number)
 //! │   ├── Covering      (Vertex Cover, Dominating Set)
-//! │   ├── Independent   (Independent Set, Clique)
+//! │   ├── Independent   (Independent Set, MaximumClique)
 //! │   ├── Paths         (Hamiltonian Path, TSP)
 //! │   ├── Structure     (Graph Partition)
 //! │   ├── Trees         (Steiner Tree)
-//! │   └── Matching      (3D Matching)
+//! │   └── MaximumMatching      (3D MaximumMatching)
 //! ├── Satisfiability
 //! │   ├── Sat           (SAT, 3-SAT, Max-SAT)
 //! │   ├── Circuit       (Circuit SAT)
@@ -24,7 +24,7 @@
 //! │   ├── Covering      (Set Cover, Exact Cover)
 //! │   ├── Packing       (Bin Packing, Knapsack)
 //! │   ├── Partition     (Partition, Subset Sum)
-//! │   └── Matching      (Hitting Set)
+//! │   └── MaximumMatching      (Hitting Set)
 //! ├── Optimization
 //! │   ├── Quadratic     (QUBO, Max-Cut)
 //! │   ├── Linear        (ILP)
@@ -39,7 +39,7 @@
 //! │   └── Connectivity  (k-Connectivity)
 //! ├── String
 //! │   ├── Sequence      (Shortest Superstring)
-//! │   ├── Matching      (String Matching)
+//! │   ├── MaximumMatching      (String MaximumMatching)
 //! │   └── Compression   (Grammar Compression)
 //! └── Specialized
 //!     ├── Geometry      (Protein Folding)
@@ -142,8 +142,8 @@ pub enum GraphSubcategory {
     Structure,
     /// Tree problems (Steiner, spanning)
     Trees,
-    /// Matching problems
-    Matching,
+    /// MaximumMatching problems
+    MaximumMatching,
 }
 
 impl GraphSubcategory {
@@ -156,7 +156,7 @@ impl GraphSubcategory {
             GraphSubcategory::Paths => "paths",
             GraphSubcategory::Structure => "structure",
             GraphSubcategory::Trees => "trees",
-            GraphSubcategory::Matching => "matching",
+            GraphSubcategory::MaximumMatching => "matching",
         }
     }
 }
@@ -193,7 +193,7 @@ pub enum SetSubcategory {
     /// Partition and subset sum
     Partition,
     /// Set splitting and hitting set
-    Matching,
+    MaximumMatching,
 }
 
 impl SetSubcategory {
@@ -203,7 +203,7 @@ impl SetSubcategory {
             SetSubcategory::Covering => "covering",
             SetSubcategory::Packing => "packing",
             SetSubcategory::Partition => "partition",
-            SetSubcategory::Matching => "matching",
+            SetSubcategory::MaximumMatching => "matching",
         }
     }
 }
@@ -280,7 +280,7 @@ pub enum StringSubcategory {
     /// Sequence problems (superstring, subsequence)
     Sequence,
     /// String matching
-    Matching,
+    MaximumMatching,
     /// Compression problems
     Compression,
 }
@@ -290,7 +290,7 @@ impl StringSubcategory {
     pub fn name(&self) -> &'static str {
         match self {
             StringSubcategory::Sequence => "sequence",
-            StringSubcategory::Matching => "matching",
+            StringSubcategory::MaximumMatching => "matching",
             StringSubcategory::Compression => "compression",
         }
     }

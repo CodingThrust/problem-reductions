@@ -33,13 +33,13 @@ pub struct ReductionGraphJson {
 /// A node in the reduction graph JSON.
 #[derive(Debug, Clone, Serialize)]
 pub struct NodeJson {
-    /// Base problem name (e.g., "IndependentSet").
+    /// Base problem name (e.g., "MaximumIndependentSet").
     pub name: String,
     /// Variant attributes as key-value pairs.
     pub variant: std::collections::BTreeMap<String, String>,
     /// Category of the problem (e.g., "graph", "set", "optimization", "satisfiability", "specialized").
     pub category: String,
-    /// Relative rustdoc path (e.g., "models/graph/independent_set").
+    /// Relative rustdoc path (e.g., "models/graph/maximum_independent_set").
     pub doc_path: String,
 }
 
@@ -52,6 +52,15 @@ pub struct VariantRef {
     pub variant: std::collections::BTreeMap<String, String>,
 }
 
+/// A single output field in the reduction overhead.
+#[derive(Debug, Clone, Serialize)]
+pub struct OverheadFieldJson {
+    /// Output field name (e.g., "num_vars").
+    pub field: String,
+    /// Formula as a human-readable string (e.g., "num_vertices").
+    pub formula: String,
+}
+
 /// An edge in the reduction graph JSON.
 #[derive(Debug, Clone, Serialize)]
 pub struct EdgeJson {
@@ -61,6 +70,10 @@ pub struct EdgeJson {
     pub target: VariantRef,
     /// Whether the reverse reduction also exists.
     pub bidirectional: bool,
+    /// Reduction overhead: output size as polynomials of input size.
+    pub overhead: Vec<OverheadFieldJson>,
+    /// Relative rustdoc path for the reduction module.
+    pub doc_path: String,
 }
 
 /// A path through the reduction graph.
@@ -280,18 +293,18 @@ impl ReductionGraph {
         // Register problem types - multiple concrete types can share a base name
         register! {
             // Graph problems
-            IndependentSet<SimpleGraph, i32> => "IndependentSet",
-            IndependentSet<SimpleGraph, f64> => "IndependentSet",
-            VertexCovering<SimpleGraph, i32> => "VertexCovering",
-            VertexCovering<SimpleGraph, f64> => "VertexCovering",
+            MaximumIndependentSet<SimpleGraph, i32> => "MaximumIndependentSet",
+            MaximumIndependentSet<SimpleGraph, f64> => "MaximumIndependentSet",
+            MinimumVertexCover<SimpleGraph, i32> => "MinimumVertexCover",
+            MinimumVertexCover<SimpleGraph, f64> => "MinimumVertexCover",
             MaxCut<SimpleGraph, i32> => "MaxCut",
             MaxCut<SimpleGraph, f64> => "MaxCut",
-            Matching<SimpleGraph, i32> => "Matching",
-            DominatingSet<SimpleGraph, i32> => "DominatingSet",
+            MaximumMatching<SimpleGraph, i32> => "MaximumMatching",
+            MinimumDominatingSet<SimpleGraph, i32> => "MinimumDominatingSet",
             KColoring<3, SimpleGraph, i32> => "KColoring",
             // Set problems
-            SetPacking<i32> => "SetPacking",
-            SetCovering<i32> => "SetCovering",
+            MaximumSetPacking<i32> => "MaximumSetPacking",
+            MinimumSetCovering<i32> => "MinimumSetCovering",
             // Optimization problems
             SpinGlass<SimpleGraph, i32> => "SpinGlass",
             SpinGlass<SimpleGraph, f64> => "SpinGlass",
@@ -611,27 +624,39 @@ impl ReductionGraph {
         nodes.sort_by(|a, b| (&a.name, &a.variant).cmp(&(&b.name, &b.variant)));
 
         // Collect edges, checking for bidirectionality
-        let mut edge_set: HashMap<(VariantRef, VariantRef), bool> = HashMap::new();
+        let mut edge_set: HashMap<(VariantRef, VariantRef), (bool, ReductionOverhead, String)> =
+            HashMap::new();
 
         for entry in inventory::iter::<ReductionEntry> {
             let src_ref = Self::make_variant_ref(entry.source_name, entry.source_variant);
             let dst_ref = Self::make_variant_ref(entry.target_name, entry.target_variant);
+            let overhead = entry.overhead();
+            let doc_path = Self::module_path_to_doc_path(entry.module_path);
 
             let reverse_key = (dst_ref.clone(), src_ref.clone());
-            if edge_set.contains_key(&reverse_key) {
-                edge_set.insert(reverse_key, true);
+            if let Some(existing) = edge_set.get_mut(&reverse_key) {
+                existing.0 = true;
             } else {
-                edge_set.insert((src_ref, dst_ref), false);
+                edge_set.insert((src_ref, dst_ref), (false, overhead, doc_path));
             }
         }
 
         // Build edges
         let mut edges: Vec<EdgeJson> = edge_set
             .into_iter()
-            .map(|((src, dst), bidirectional)| EdgeJson {
+            .map(|((src, dst), (bidirectional, overhead, doc_path))| EdgeJson {
                 source: src,
                 target: dst,
                 bidirectional,
+                overhead: overhead
+                    .output_size
+                    .iter()
+                    .map(|(field, poly)| OverheadFieldJson {
+                        field: field.to_string(),
+                        formula: poly.to_string(),
+                    })
+                    .collect(),
+                doc_path,
             })
             .collect();
         edges.sort_by(|a, b| {
@@ -666,15 +691,25 @@ impl ReductionGraph {
         std::fs::write(path, json_string)
     }
 
+    /// Convert a module path to a rustdoc relative path.
+    ///
+    /// E.g., `"problemreductions::rules::spinglass_qubo"` → `"rules/spinglass_qubo/index.html"`.
+    fn module_path_to_doc_path(module_path: &str) -> String {
+        let stripped = module_path
+            .strip_prefix("problemreductions::")
+            .unwrap_or(module_path);
+        format!("{}/index.html", stripped.replace("::", "/"))
+    }
+
     /// Compute the rustdoc path for a problem type.
     /// Maps name → actual Rust module location (which may differ from the visualization category).
     fn compute_doc_path(name: &str) -> String {
         let module = match name {
-            "IndependentSet" | "MaximalIS" | "VertexCovering" | "DominatingSet" | "KColoring"
-            | "Matching" | "MaxCut" | "Clique" => "graph",
+            "MaximumIndependentSet" | "MaximalIS" | "MinimumVertexCover" | "MinimumDominatingSet" | "KColoring"
+            | "MaximumMatching" | "MaxCut" | "MaximumClique" => "graph",
             "Satisfiability" | "KSatisfiability" => "satisfiability",
             "SpinGlass" | "QUBO" | "ILP" => "optimization",
-            "SetCovering" | "SetPacking" => "set",
+            "MinimumSetCovering" | "MaximumSetPacking" => "set",
             _ => "specialized",
         };
         format!("models/{module}/struct.{name}.html")
@@ -682,15 +717,16 @@ impl ReductionGraph {
 
     /// Categorize a type name into a problem category.
     fn categorize_type(name: &str) -> &'static str {
-        if name.contains("IndependentSet")
+        if name.contains("MaximumIndependentSet")
             || name.contains("VertexCover")
             || name.contains("MaxCut")
             || name.contains("Coloring")
-            || name.contains("DominatingSet")
-            || name.contains("Matching")
+            || name.contains("MinimumDominatingSet")
+            || name.contains("MaximumMatching")
+            || name.contains("MaximumClique")
         {
             "graph"
-        } else if name.contains("SetPacking") || name.contains("SetCover") {
+        } else if name.contains("MaximumSetPacking") || name.contains("SetCover") {
             "set"
         } else if name.contains("SpinGlass") || name.contains("QUBO") || name.contains("ILP") {
             "optimization"
