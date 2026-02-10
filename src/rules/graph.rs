@@ -68,8 +68,6 @@ pub struct EdgeJson {
     pub source: VariantRef,
     /// Target problem variant.
     pub target: VariantRef,
-    /// Whether the reverse reduction also exists.
-    pub bidirectional: bool,
     /// Reduction overhead: output size as polynomials of input size.
     pub overhead: Vec<OverheadFieldJson>,
     /// Relative rustdoc path for the reduction module.
@@ -623,31 +621,27 @@ impl ReductionGraph {
             .collect();
         nodes.sort_by(|a, b| (&a.name, &a.variant).cmp(&(&b.name, &b.variant)));
 
-        // Collect edges, checking for bidirectionality
-        let mut edge_set: HashMap<(VariantRef, VariantRef), (bool, ReductionOverhead, String)> =
-            HashMap::new();
+        // Collect edges: each reduction is a separate directed edge
+        let mut edge_set: HashSet<(VariantRef, VariantRef)> = HashSet::new();
+        let mut edge_data: Vec<(VariantRef, VariantRef, ReductionOverhead, String)> = Vec::new();
 
         for entry in inventory::iter::<ReductionEntry> {
             let src_ref = Self::make_variant_ref(entry.source_name, entry.source_variant);
             let dst_ref = Self::make_variant_ref(entry.target_name, entry.target_variant);
-            let overhead = entry.overhead();
-            let doc_path = Self::module_path_to_doc_path(entry.module_path);
-
-            let reverse_key = (dst_ref.clone(), src_ref.clone());
-            if let Some(existing) = edge_set.get_mut(&reverse_key) {
-                existing.0 = true;
-            } else {
-                edge_set.insert((src_ref, dst_ref), (false, overhead, doc_path));
+            let key = (src_ref.clone(), dst_ref.clone());
+            if edge_set.insert(key) {
+                let overhead = entry.overhead();
+                let doc_path = Self::module_path_to_doc_path(entry.module_path);
+                edge_data.push((src_ref, dst_ref, overhead, doc_path));
             }
         }
 
         // Build edges
-        let mut edges: Vec<EdgeJson> = edge_set
+        let mut edges: Vec<EdgeJson> = edge_data
             .into_iter()
-            .map(|((src, dst), (bidirectional, overhead, doc_path))| EdgeJson {
+            .map(|(src, dst, overhead, doc_path)| EdgeJson {
                 source: src,
                 target: dst,
-                bidirectional,
                 overhead: overhead
                     .output_size
                     .iter()

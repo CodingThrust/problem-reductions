@@ -315,7 +315,6 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_spins",
@@ -343,7 +342,6 @@
           "weight": "i32"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_gates",
@@ -367,7 +365,6 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_vars",
@@ -395,7 +392,6 @@
           "weight": "f64"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_vars",
@@ -420,7 +416,6 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_vars",
@@ -448,7 +443,6 @@
           "weight": "f64"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_vars",
@@ -456,6 +450,33 @@
         }
       ],
       "doc_path": "rules/coloring_qubo/index.html"
+    },
+    {
+      "source": {
+        "name": "KSatisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "Satisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_clauses",
+          "formula": "num_clauses"
+        },
+        {
+          "field": "num_vars",
+          "formula": "num_vars"
+        }
+      ],
+      "doc_path": "rules/sat_ksat/index.html"
     },
     {
       "source": {
@@ -472,7 +493,6 @@
           "weight": "f64"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_vars",
@@ -480,6 +500,87 @@
         }
       ],
       "doc_path": "rules/ksatisfiability_qubo/index.html"
+    },
+    {
+      "source": {
+        "name": "MaxCut",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_spins",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_interactions",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/spinglass_maxcut/index.html"
+    },
+    {
+      "source": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MaximumSetPacking",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_sets",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_elements",
+          "formula": "num_vertices"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
+    },
+    {
+      "source": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MinimumVertexCover",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/minimumvertexcover_maximumindependentset/index.html"
     },
     {
       "source": {
@@ -496,7 +597,6 @@
           "weight": "f64"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_vars",
@@ -520,7 +620,6 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_sets",
@@ -548,7 +647,6 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": true,
       "overhead": [
         {
           "field": "num_vertices",
@@ -576,7 +674,6 @@
           "weight": "f64"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_vars",
@@ -600,7 +697,6 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": true,
       "overhead": [
         {
           "field": "num_vertices",
@@ -628,7 +724,6 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_sets",
@@ -656,7 +751,6 @@
           "weight": "f64"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_vars",
@@ -664,6 +758,29 @@
         }
       ],
       "doc_path": "rules/minimumvertexcover_qubo/index.html"
+    },
+    {
+      "source": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "target": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_spins",
+          "formula": "num_vars"
+        }
+      ],
+      "doc_path": "rules/spinglass_qubo/index.html"
     },
     {
       "source": {
@@ -680,7 +797,6 @@
           "weight": "i32"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_vertices",
@@ -708,7 +824,6 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": true,
       "overhead": [
         {
           "field": "num_clauses",
@@ -736,7 +851,6 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_vertices",
@@ -764,7 +878,6 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": false,
       "overhead": [
         {
           "field": "num_vertices",
@@ -792,7 +905,6 @@
           "weight": "Unweighted"
         }
       },
-      "bidirectional": true,
       "overhead": [
         {
           "field": "num_vertices",
@@ -820,7 +932,6 @@
           "weight": "f64"
         }
       },
-      "bidirectional": true,
       "overhead": [
         {
           "field": "num_vars",

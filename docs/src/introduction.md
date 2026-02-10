@@ -81,7 +81,7 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
         problems[n.name].children.push(n);
       });
 
-      // Build edges at variant level
+      // Build edges at variant level, detecting bidirectional pairs
       var edgeMap = {};
       data.edges.forEach(function(e) {
         var srcId = variantId(e.source.name, e.source.variant);
@@ -90,7 +90,7 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
         var rev = dstId + '->' + srcId;
         if (edgeMap[rev]) { edgeMap[rev].bidirectional = true; }
         else if (!edgeMap[fwd]) {
-          edgeMap[fwd] = { source: srcId, target: dstId, bidirectional: e.bidirectional || false, overhead: e.overhead || [], doc_path: e.doc_path || '' };
+          edgeMap[fwd] = { source: srcId, target: dstId, bidirectional: false, overhead: e.overhead || [], doc_path: e.doc_path || '' };
         }
       });
 
