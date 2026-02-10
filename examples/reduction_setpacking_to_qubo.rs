@@ -21,42 +21,16 @@
 //!   do not overlap
 //!
 //! ## Outputs
-//! - `docs/paper/examples/setpacking_to_qubo.json` - Serialized reduction data
+//! - `docs/paper/examples/setpacking_to_qubo.json` — reduction structure
+//! - `docs/paper/examples/setpacking_to_qubo.result.json` — solutions
 //!
 //! ## Usage
 //! ```bash
 //! cargo run --example reduction_setpacking_to_qubo
 //! ```
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-/// Serializable structure capturing the full reduction for paper export.
-#[derive(Serialize)]
-struct ExampleData {
-    name: String,
-    source_problem: String,
-    target_problem: String,
-    source_instance: SourceInstance,
-    qubo: QUBO,
-    optimal_solutions: Vec<SolutionEntry>,
-}
-
-#[derive(Serialize)]
-struct SourceInstance {
-    sets: Vec<Vec<usize>>,
-    set_names: Vec<String>,
-    description: String,
-}
-
-#[derive(Serialize)]
-struct SolutionEntry {
-    config: Vec<usize>,
-    selected_sets: Vec<String>,
-    packing_size: usize,
-}
 
 fn main() {
     println!("=== Set Packing -> QUBO Reduction ===\n");
@@ -67,7 +41,7 @@ fn main() {
         vec![1, 2],    // Set B
         vec![2, 3, 4], // Set C
     ];
-    let set_names = vec!["Set-A".to_string(), "Set-B".to_string(), "Set-C".to_string()];
+    let set_names = ["Set-A".to_string(), "Set-B".to_string(), "Set-C".to_string()];
     let sp = SetPacking::<i32>::new(sets.clone());
 
     // Reduce to QUBO
@@ -84,12 +58,12 @@ fn main() {
 
     // Solve QUBO with brute force
     let solver = BruteForce::new();
-    let solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_best(qubo);
 
     // Extract and verify solutions
     println!("\nOptimal solutions:");
-    let mut optimal_solutions = Vec::new();
-    for sol in &solutions {
+    let mut solutions = Vec::new();
+    for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
         let selected: Vec<String> = extracted
             .iter()
@@ -104,35 +78,38 @@ fn main() {
         let sol_size = sp.solution_size(&extracted);
         assert!(sol_size.is_valid, "Solution must be valid in source problem");
 
-        optimal_solutions.push(SolutionEntry {
-            config: extracted,
-            selected_sets: selected,
-            packing_size,
+        solutions.push(SolutionPair {
+            source_config: extracted,
+            target_config: sol.clone(),
         });
     }
 
     println!("\nVerification passed: all solutions are valid set packings");
 
     // Export JSON
-    let example_data = ExampleData {
-        name: "setpacking_to_qubo".to_string(),
-        source_problem: "SetPacking".to_string(),
-        target_problem: "QUBO".to_string(),
-        source_instance: SourceInstance {
-            sets,
-            set_names,
-            description: "3 sets over universe {0,1,2,3,4}: A={0,1}, B={1,2}, C={2,3,4}"
-                .to_string(),
+    let overhead = lookup_overhead("SetPacking", "QUBO")
+        .expect("SetPacking -> QUBO overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: SetPacking::<i32>::NAME.to_string(),
+            variant: variant_to_map(SetPacking::<i32>::variant()),
+            instance: serde_json::json!({
+                "num_sets": sp.num_sets(),
+                "sets": sp.sets(),
+            }),
         },
-        qubo: qubo.clone(),
-        optimal_solutions,
+        target: ProblemSide {
+            problem: QUBO::<f64>::NAME.to_string(),
+            variant: variant_to_map(QUBO::<f64>::variant()),
+            instance: serde_json::json!({
+                "num_vars": qubo.num_vars(),
+                "matrix": qubo.matrix(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
 
-    let output_path = Path::new("docs/paper/examples/setpacking_to_qubo.json");
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent).expect("Failed to create output directory");
-    }
-    let json = serde_json::to_string_pretty(&example_data).expect("Failed to serialize");
-    fs::write(output_path, json).expect("Failed to write JSON");
-    println!("Exported: {}", output_path.display());
+    let results = ResultData { solutions };
+    write_example("setpacking_to_qubo", &data, &results);
 }

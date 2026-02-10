@@ -18,25 +18,10 @@
 //! ## Output
 //! Exports `docs/paper/examples/factoring_to_circuit.json` for use in paper code blocks.
 
-use problemreductions::prelude::*;
+use problemreductions::export::*;
 use problemreductions::models::specialized::Circuit;
-use serde::Serialize;
+use problemreductions::prelude::*;
 use std::collections::HashMap;
-use std::fs;
-use std::path::Path;
-
-#[derive(Serialize)]
-struct ExampleData {
-    source_problem: String,
-    target_problem: String,
-    factoring_target: u64,
-    source_num_variables: usize,
-    target_num_variables: usize,
-    source_solution: Vec<usize>,
-    target_solution: Vec<usize>,
-    factor_a: u64,
-    factor_b: u64,
-}
 
 /// Simulate a circuit forward: given input variable values, compute all internal
 /// variable values by evaluating each assignment in order.
@@ -151,6 +136,7 @@ fn main() {
 
     // 5. Verify all factoring solutions can be simulated through the circuit
     println!("\nVerifying all {} factoring solutions through circuit:", factoring_solutions.len());
+    let mut solutions = Vec::new();
     for sol in &factoring_solutions {
         let (fa, fb) = factoring.read_factors(sol);
         let mut inputs: HashMap<String, bool> = HashMap::new();
@@ -168,25 +154,40 @@ fn main() {
         let sz = circuit_sat.solution_size(&config);
         println!("  {} * {} = {}: circuit satisfied = {}", fa, fb, fa * fb, sz.is_valid);
         assert!(sz.is_valid);
+
+        solutions.push(SolutionPair {
+            source_config: sol.clone(),
+            target_config: config,
+        });
     }
 
     println!("\nReduction verified successfully: {} = {} * {}", factoring.target(), a, b);
 
     // 6. Export JSON
-    let data = ExampleData {
-        source_problem: "Factoring".to_string(),
-        target_problem: "CircuitSAT".to_string(),
-        factoring_target: factoring.target(),
-        source_num_variables: factoring.num_variables(),
-        target_num_variables: circuit_sat.num_variables(),
-        source_solution: factoring_sol.clone(),
-        target_solution: circuit_config,
-        factor_a: a,
-        factor_b: b,
+    let overhead = lookup_overhead("Factoring", "CircuitSAT")
+        .expect("Factoring -> CircuitSAT overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: Factoring::NAME.to_string(),
+            variant: variant_to_map(Factoring::variant()),
+            instance: serde_json::json!({
+                "number": factoring.target(),
+                "num_bits_first": factoring.m(),
+                "num_bits_second": factoring.n(),
+            }),
+        },
+        target: ProblemSide {
+            problem: CircuitSAT::<i32>::NAME.to_string(),
+            variant: variant_to_map(CircuitSAT::<i32>::variant()),
+            instance: serde_json::json!({
+                "num_variables": circuit_sat.num_variables(),
+                "num_gates": circuit_sat.circuit().num_assignments(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
-    let json = serde_json::to_string_pretty(&data).unwrap();
-    fs::create_dir_all("docs/paper/examples").unwrap();
-    let path = Path::new("docs/paper/examples/factoring_to_circuit.json");
-    fs::write(path, &json).unwrap();
-    println!("  Exported: {}", path.display());
+
+    let results = ResultData { solutions };
+    write_example("factoring_to_circuit", &data, &results);
 }

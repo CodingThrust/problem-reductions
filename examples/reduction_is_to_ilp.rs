@@ -13,26 +13,15 @@
 //! ## Output
 //! Exports `docs/paper/examples/is_to_ilp.json` for use in paper code blocks.
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::solvers::BruteForceFloat;
 use problemreductions::topology::SimpleGraph;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-#[derive(Serialize)]
-struct ExampleData {
-    source_problem: String,
-    target_problem: String,
-    source_num_variables: usize,
-    target_num_variables: usize,
-    source_solution: Vec<usize>,
-    target_solution: Vec<usize>,
-}
 
 fn main() {
     // 1. Create IS instance: path graph P4
-    let is = IndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let edges = vec![(0, 1), (1, 2), (2, 3)];
+    let is = IndependentSet::<SimpleGraph, i32>::new(4, edges.clone());
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&is);
@@ -62,18 +51,41 @@ fn main() {
     assert!(size.is_valid);
     println!("\nReduction verified successfully");
 
-    // 7. Export JSON
-    let data = ExampleData {
-        source_problem: "IndependentSet".to_string(),
-        target_problem: "ILP".to_string(),
-        source_num_variables: is.num_variables(),
-        target_num_variables: ilp.num_vars,
-        source_solution: is_solution.clone(),
-        target_solution: ilp_solution.clone(),
+    // 7. Collect solutions and export JSON
+    let mut solutions = Vec::new();
+    for (target_config, _score) in &ilp_solutions {
+        let source_sol = reduction.extract_solution(target_config);
+        let s = is.solution_size(&source_sol);
+        assert!(s.is_valid);
+        solutions.push(SolutionPair {
+            source_config: source_sol,
+            target_config: target_config.clone(),
+        });
+    }
+
+    let overhead = lookup_overhead_or_empty("IndependentSet", "ILP");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: IndependentSet::<SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(IndependentSet::<SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vertices": is.num_vertices(),
+                "num_edges": is.num_edges(),
+                "edges": edges,
+            }),
+        },
+        target: ProblemSide {
+            problem: ILP::NAME.to_string(),
+            variant: variant_to_map(ILP::variant()),
+            instance: serde_json::json!({
+                "num_vars": ilp.num_vars,
+                "num_constraints": ilp.constraints.len(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
-    let json = serde_json::to_string_pretty(&data).unwrap();
-    fs::create_dir_all("docs/paper/examples").unwrap();
-    let path = Path::new("docs/paper/examples/is_to_ilp.json");
-    fs::write(path, &json).unwrap();
-    println!("  Exported: {}", path.display());
+
+    let results = ResultData { solutions };
+    write_example("is_to_ilp", &data, &results);
 }

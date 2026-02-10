@@ -17,22 +17,9 @@
 //! ## Output
 //! Exports `docs/paper/examples/factoring_to_ilp.json` for use in paper code blocks.
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::solvers::ILPSolver;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-#[derive(Serialize)]
-struct ExampleData {
-    source_problem: String,
-    target_problem: String,
-    source_num_variables: usize,
-    target_num_variables: usize,
-    source_solution: Vec<usize>,
-    target_solution: Vec<usize>,
-    factors: (u64, u64),
-}
 
 fn main() {
     // 1. Create Factoring instance: find p (4-bit) x q (4-bit) = 15
@@ -63,19 +50,36 @@ fn main() {
     assert_eq!(p * q, 15);
     println!("\nReduction verified successfully");
 
-    // 7. Export JSON
-    let data = ExampleData {
-        source_problem: "Factoring".to_string(),
-        target_problem: "ILP".to_string(),
-        source_num_variables: problem.num_variables(),
-        target_num_variables: ilp.num_vars,
-        source_solution: extracted.clone(),
-        target_solution: ilp_solution.clone(),
-        factors: (p, q),
+    // 7. Collect solutions and export JSON
+    let solutions = vec![SolutionPair {
+        source_config: extracted,
+        target_config: ilp_solution,
+    }];
+
+    let overhead = lookup_overhead("Factoring", "ILP")
+        .expect("Factoring -> ILP overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: Factoring::NAME.to_string(),
+            variant: variant_to_map(Factoring::variant()),
+            instance: serde_json::json!({
+                "number": problem.target(),
+                "num_bits_first": problem.m(),
+                "num_bits_second": problem.n(),
+            }),
+        },
+        target: ProblemSide {
+            problem: ILP::NAME.to_string(),
+            variant: variant_to_map(ILP::variant()),
+            instance: serde_json::json!({
+                "num_vars": ilp.num_vars,
+                "num_constraints": ilp.constraints.len(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
-    let json = serde_json::to_string_pretty(&data).unwrap();
-    fs::create_dir_all("docs/paper/examples").unwrap();
-    let path = Path::new("docs/paper/examples/factoring_to_ilp.json");
-    fs::write(path, &json).unwrap();
-    println!("  Exported: {}", path.display());
+
+    let results = ResultData { solutions };
+    write_example("factoring_to_ilp", &data, &results);
 }

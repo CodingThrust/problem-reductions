@@ -11,25 +11,13 @@
 //! - Target IS: max size 2
 //!
 //! ## Output
-//! Exports `docs/paper/examples/vc_to_is.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/vc_to_is.json` and `vc_to_is.result.json`.
 //!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-#[derive(Serialize)]
-struct ExampleData {
-    source_problem: String,
-    target_problem: String,
-    source_num_variables: usize,
-    target_num_variables: usize,
-    source_solution: Vec<usize>,
-    target_solution: Vec<usize>,
-}
 
 fn main() {
     let vc = VertexCovering::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]);
@@ -46,25 +34,54 @@ fn main() {
     println!("\n=== Solution ===");
     println!("Target solutions found: {}", is_solutions.len());
 
+    // Extract and verify solutions
+    let mut solutions = Vec::new();
+    for target_sol in &is_solutions {
+        let source_sol = reduction.extract_solution(target_sol);
+        let size = vc.solution_size(&source_sol);
+        assert!(size.is_valid);
+        solutions.push(SolutionPair {
+            source_config: source_sol.clone(),
+            target_config: target_sol.clone(),
+        });
+    }
+
     let vc_solution = reduction.extract_solution(&is_solutions[0]);
     println!("Source VC solution: {:?}", vc_solution);
 
     let size = vc.solution_size(&vc_solution);
     println!("Solution size: {:?}", size);
     assert!(size.is_valid);
-    println!("\n✓ Reduction verified successfully");
+    println!("\nReduction verified successfully");
 
-    let data = ExampleData {
-        source_problem: "VertexCovering".to_string(),
-        target_problem: "IndependentSet".to_string(),
-        source_num_variables: vc.num_variables(),
-        target_num_variables: is.num_variables(),
-        source_solution: vc_solution.clone(),
-        target_solution: is_solutions[0].clone(),
+    // Export JSON
+    let vc_edges = vc.edges();
+    let is_edges = is.edges();
+    let overhead = lookup_overhead("VertexCovering", "IndependentSet")
+        .expect("VertexCovering -> IndependentSet overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: VertexCovering::<SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(VertexCovering::<SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vertices": vc.num_vertices(),
+                "num_edges": vc.num_edges(),
+                "edges": vc_edges,
+            }),
+        },
+        target: ProblemSide {
+            problem: IndependentSet::<SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(IndependentSet::<SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vertices": is.num_vertices(),
+                "num_edges": is.num_edges(),
+                "edges": is_edges,
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
-    let json = serde_json::to_string_pretty(&data).unwrap();
-    fs::create_dir_all("docs/paper/examples").unwrap();
-    let path = Path::new("docs/paper/examples/vc_to_is.json");
-    fs::write(path, &json).unwrap();
-    println!("  Exported: {}", path.display());
+
+    let results = ResultData { solutions };
+    write_example("vc_to_is", &data, &results);
 }

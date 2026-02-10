@@ -22,44 +22,16 @@
 //!   maximizing satisfied clauses
 //!
 //! ## Outputs
-//! - `docs/paper/examples/ksatisfiability_to_qubo.json` - Serialized reduction data
+//! - `docs/paper/examples/ksatisfiability_to_qubo.json` — reduction structure
+//! - `docs/paper/examples/ksatisfiability_to_qubo.result.json` — solutions
 //!
 //! ## Usage
 //! ```bash
 //! cargo run --example reduction_ksatisfiability_to_qubo
 //! ```
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-/// Serializable structure capturing the full reduction for paper export.
-#[derive(Serialize)]
-struct ExampleData {
-    name: String,
-    source_problem: String,
-    target_problem: String,
-    source_instance: SourceInstance,
-    qubo: QUBO,
-    optimal_solutions: Vec<SolutionEntry>,
-}
-
-#[derive(Serialize)]
-struct SourceInstance {
-    num_variables: usize,
-    num_clauses: usize,
-    clauses: Vec<String>,
-    description: String,
-}
-
-#[derive(Serialize)]
-struct SolutionEntry {
-    config: Vec<usize>,
-    assignment: Vec<String>,
-    clauses_satisfied: i32,
-    total_clauses: usize,
-}
 
 fn main() {
     println!("=== K-Satisfiability (2-SAT) -> QUBO Reduction ===\n");
@@ -71,7 +43,7 @@ fn main() {
         CNFClause::new(vec![2, -3]),  // x2 OR NOT x3
         CNFClause::new(vec![-2, -3]), // NOT x2 OR NOT x3
     ];
-    let clause_strings = vec![
+    let clause_strings = [
         "x1 OR x2".to_string(),
         "NOT x1 OR x3".to_string(),
         "x2 OR NOT x3".to_string(),
@@ -96,13 +68,13 @@ fn main() {
 
     // Solve QUBO with brute force
     let solver = BruteForce::new();
-    let solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_best(qubo);
 
     // Extract and verify solutions
     println!("\nOptimal solutions:");
     let num_clauses = ksat.clauses().len();
-    let mut optimal_solutions = Vec::new();
-    for sol in &solutions {
+    let mut solutions = Vec::new();
+    for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
         let assignment: Vec<String> = extracted
             .iter()
@@ -116,37 +88,39 @@ fn main() {
             num_clauses
         );
 
-        optimal_solutions.push(SolutionEntry {
-            config: extracted,
-            assignment,
-            clauses_satisfied: satisfied,
-            total_clauses: num_clauses,
+        solutions.push(SolutionPair {
+            source_config: extracted,
+            target_config: sol.clone(),
         });
     }
 
     println!("\nVerification passed: all solutions maximize satisfied clauses");
 
     // Export JSON
-    let example_data = ExampleData {
-        name: "ksatisfiability_to_qubo".to_string(),
-        source_problem: "KSatisfiability<2>".to_string(),
-        target_problem: "QUBO".to_string(),
-        source_instance: SourceInstance {
-            num_variables: 3,
-            num_clauses,
-            clauses: clause_strings,
-            description:
-                "2-SAT: 3 variables, 4 clauses (x1|x2, !x1|x3, x2|!x3, !x2|!x3)".to_string(),
+    let overhead = lookup_overhead("KSatisfiability", "QUBO")
+        .expect("KSatisfiability -> QUBO overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: KSatisfiability::<2, i32>::NAME.to_string(),
+            variant: variant_to_map(KSatisfiability::<2, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vars": ksat.num_vars(),
+                "num_clauses": ksat.clauses().len(),
+                "k": 2,
+            }),
         },
-        qubo: qubo.clone(),
-        optimal_solutions,
+        target: ProblemSide {
+            problem: QUBO::<f64>::NAME.to_string(),
+            variant: variant_to_map(QUBO::<f64>::variant()),
+            instance: serde_json::json!({
+                "num_vars": qubo.num_vars(),
+                "matrix": qubo.matrix(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
 
-    let output_path = Path::new("docs/paper/examples/ksatisfiability_to_qubo.json");
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent).expect("Failed to create output directory");
-    }
-    let json = serde_json::to_string_pretty(&example_data).expect("Failed to serialize");
-    fs::write(output_path, json).expect("Failed to write JSON");
-    println!("Exported: {}", output_path.display());
+    let results = ResultData { solutions };
+    write_example("ksatisfiability_to_qubo", &data, &results);
 }

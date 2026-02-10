@@ -25,44 +25,16 @@
 //!   share resources)
 //!
 //! ## Outputs
-//! - `docs/paper/examples/ilp_to_qubo.json` - Serialized reduction data
+//! - `docs/paper/examples/ilp_to_qubo.json` — reduction structure
+//! - `docs/paper/examples/ilp_to_qubo.result.json` — solutions
 //!
 //! ## Usage
 //! ```bash
 //! cargo run --example reduction_ilp_to_qubo
 //! ```
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-/// Serializable structure capturing the full reduction for paper export.
-#[derive(Serialize)]
-struct ExampleData {
-    name: String,
-    source_problem: String,
-    target_problem: String,
-    source_instance: SourceInstance,
-    qubo: QUBO,
-    optimal_solutions: Vec<SolutionEntry>,
-}
-
-#[derive(Serialize)]
-struct SourceInstance {
-    num_variables: usize,
-    constraints: Vec<String>,
-    objective: String,
-    sense: String,
-    description: String,
-}
-
-#[derive(Serialize)]
-struct SolutionEntry {
-    config: Vec<usize>,
-    selected_projects: Vec<String>,
-    objective_value: f64,
-}
 
 fn main() {
     println!("=== ILP (Binary) -> QUBO Reduction ===\n");
@@ -99,12 +71,12 @@ fn main() {
 
     // Solve QUBO with brute force
     let solver = BruteForce::new();
-    let solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_best(qubo);
 
     // Extract and verify solutions
     println!("\nOptimal solutions:");
-    let mut optimal_solutions = Vec::new();
-    for sol in &solutions {
+    let mut solutions = Vec::new();
+    for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
         let selected: Vec<String> = extracted
             .iter()
@@ -122,39 +94,37 @@ fn main() {
         let sol_size = ilp.solution_size(&extracted);
         assert!(sol_size.is_valid, "Solution must be valid in source problem");
 
-        optimal_solutions.push(SolutionEntry {
-            config: extracted,
-            selected_projects: selected,
-            objective_value: value,
+        solutions.push(SolutionPair {
+            source_config: extracted,
+            target_config: sol.clone(),
         });
     }
 
     println!("\nVerification passed: all solutions are feasible and optimal");
 
     // Export JSON
-    let example_data = ExampleData {
-        name: "ilp_to_qubo".to_string(),
-        source_problem: "ILP (binary)".to_string(),
-        target_problem: "QUBO".to_string(),
-        source_instance: SourceInstance {
-            num_variables: 3,
-            constraints: vec![
-                "x0 + x1 <= 1 (shared team)".to_string(),
-                "x1 + x2 <= 1 (shared equipment)".to_string(),
-            ],
-            objective: "maximize 1*x0 + 2*x1 + 3*x2".to_string(),
-            sense: "Maximize".to_string(),
-            description: "3 projects, 2 resource constraints, maximize total value".to_string(),
+    let overhead = lookup_overhead("ILP", "QUBO")
+        .expect("ILP -> QUBO overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: ILP::NAME.to_string(),
+            variant: variant_to_map(ILP::variant()),
+            instance: serde_json::json!({
+                "num_vars": ilp.num_vars,
+            }),
         },
-        qubo: qubo.clone(),
-        optimal_solutions,
+        target: ProblemSide {
+            problem: QUBO::<f64>::NAME.to_string(),
+            variant: variant_to_map(QUBO::<f64>::variant()),
+            instance: serde_json::json!({
+                "num_vars": qubo.num_vars(),
+                "matrix": qubo.matrix(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
 
-    let output_path = Path::new("docs/paper/examples/ilp_to_qubo.json");
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent).expect("Failed to create output directory");
-    }
-    let json = serde_json::to_string_pretty(&example_data).expect("Failed to serialize");
-    fs::write(output_path, json).expect("Failed to write JSON");
-    println!("Exported: {}", output_path.display());
+    let results = ResultData { solutions };
+    write_example("ilp_to_qubo", &data, &results);
 }

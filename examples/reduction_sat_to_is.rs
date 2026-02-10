@@ -11,23 +11,11 @@
 //! - Target IS: size 3 (one vertex per clause)
 //!
 //! ## Output
-//! Exports `docs/paper/examples/sat_to_is.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/sat_to_is.json` and `sat_to_is.result.json`.
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-#[derive(Serialize)]
-struct ExampleData {
-    source_problem: String,
-    target_problem: String,
-    source_num_variables: usize,
-    target_num_variables: usize,
-    source_solution: Vec<usize>,
-    target_solution: Vec<usize>,
-}
 
 fn main() {
     // 1. Create SAT instance: phi = (x1 v x2) ^ (~x1 v x3) ^ (x2 v ~x3)
@@ -81,12 +69,17 @@ fn main() {
 
     // Verify all IS solutions map to valid SAT assignments
     let mut valid_count = 0;
+    let mut solutions = Vec::new();
     for is_sol in &is_solutions {
         let sat_sol = reduction.extract_solution(is_sol);
         let s = sat.solution_size(&sat_sol);
         if s.is_valid {
             valid_count += 1;
         }
+        solutions.push(SolutionPair {
+            source_config: sat_sol,
+            target_config: is_sol.clone(),
+        });
     }
     println!(
         "All {} IS solutions map to valid SAT assignments: {}",
@@ -98,17 +91,29 @@ fn main() {
     println!("\nReduction verified successfully");
 
     // 5. Export JSON
-    let data = ExampleData {
-        source_problem: "Satisfiability".to_string(),
-        target_problem: "IndependentSet".to_string(),
-        source_num_variables: sat.num_variables(),
-        target_num_variables: is.num_variables(),
-        source_solution: sat_solution,
-        target_solution: is_solutions[0].clone(),
+    let overhead = lookup_overhead("Satisfiability", "IndependentSet")
+        .expect("Satisfiability -> IndependentSet overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: Satisfiability::<i32>::NAME.to_string(),
+            variant: variant_to_map(Satisfiability::<i32>::variant()),
+            instance: serde_json::json!({
+                "num_vars": sat.num_vars(),
+                "num_clauses": sat.num_clauses(),
+            }),
+        },
+        target: ProblemSide {
+            problem: IndependentSet::<SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(IndependentSet::<SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vertices": is.num_vertices(),
+                "num_edges": is.num_edges(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
-    let json = serde_json::to_string_pretty(&data).unwrap();
-    fs::create_dir_all("docs/paper/examples").unwrap();
-    let path = Path::new("docs/paper/examples/sat_to_is.json");
-    fs::write(path, &json).unwrap();
-    println!("  Exported: {}", path.display());
+
+    let results = ResultData { solutions };
+    write_example("sat_to_is", &data, &results);
 }

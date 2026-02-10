@@ -17,43 +17,17 @@
 //! - Expected: Optimal vertex covers of size 2 (e.g., {0,2} or {1,3})
 //!
 //! ## Outputs
-//! - `docs/paper/examples/vc_to_qubo.json` - Serialized reduction data
+//! - `docs/paper/examples/vc_to_qubo.json` — reduction structure
+//! - `docs/paper/examples/vc_to_qubo.result.json` — solutions
 //!
 //! ## Usage
 //! ```bash
 //! cargo run --example reduction_vc_to_qubo
 //! ```
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-/// Serializable structure capturing the full reduction for paper export.
-#[derive(Serialize)]
-struct ExampleData {
-    name: String,
-    source_problem: String,
-    target_problem: String,
-    source_instance: SourceInstance,
-    qubo: QUBO,
-    optimal_solutions: Vec<SolutionEntry>,
-}
-
-#[derive(Serialize)]
-struct SourceInstance {
-    num_vertices: usize,
-    edges: Vec<(usize, usize)>,
-    description: String,
-}
-
-#[derive(Serialize)]
-struct SolutionEntry {
-    config: Vec<usize>,
-    selected_vertices: Vec<usize>,
-    size: usize,
-}
 
 fn main() {
     println!("=== Vertex Covering -> QUBO Reduction ===\n");
@@ -75,12 +49,12 @@ fn main() {
 
     // Solve QUBO with brute force
     let solver = BruteForce::new();
-    let solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_best(qubo);
 
     // Extract and verify solutions
     println!("\nOptimal solutions:");
-    let mut optimal_solutions = Vec::new();
-    for sol in &solutions {
+    let mut solutions = Vec::new();
+    for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
         let selected: Vec<usize> = extracted
             .iter()
@@ -98,39 +72,44 @@ fn main() {
         let sol_size = vc.solution_size(&extracted);
         assert!(sol_size.is_valid, "Solution must be valid in source problem");
 
-        optimal_solutions.push(SolutionEntry {
-            config: extracted,
-            selected_vertices: selected,
-            size,
+        solutions.push(SolutionPair {
+            source_config: extracted,
+            target_config: sol.clone(),
         });
     }
 
     // All optimal solutions should have size 2
     assert!(
-        optimal_solutions.iter().all(|s| s.size == 2),
+        solutions.iter().all(|s| s.source_config.iter().filter(|&&x| x == 1).count() == 2),
         "All optimal VC solutions on C4 should have size 2"
     );
     println!("\nVerification passed: all solutions are valid with size 2");
 
     // Export JSON
-    let example_data = ExampleData {
-        name: "vc_to_qubo".to_string(),
-        source_problem: "VertexCovering".to_string(),
-        target_problem: "QUBO".to_string(),
-        source_instance: SourceInstance {
-            num_vertices: 4,
-            edges,
-            description: "Cycle graph C4: 4 vertices, 4 edges (0-1-2-3-0)".to_string(),
+    let overhead = lookup_overhead("VertexCovering", "QUBO")
+        .expect("VertexCovering -> QUBO overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: VertexCovering::<SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(VertexCovering::<SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vertices": vc.num_vertices(),
+                "num_edges": vc.num_edges(),
+                "edges": edges,
+            }),
         },
-        qubo: qubo.clone(),
-        optimal_solutions,
+        target: ProblemSide {
+            problem: QUBO::<f64>::NAME.to_string(),
+            variant: variant_to_map(QUBO::<f64>::variant()),
+            instance: serde_json::json!({
+                "num_vars": qubo.num_vars(),
+                "matrix": qubo.matrix(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
 
-    let output_path = Path::new("docs/paper/examples/vc_to_qubo.json");
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent).expect("Failed to create output directory");
-    }
-    let json = serde_json::to_string_pretty(&example_data).expect("Failed to serialize");
-    fs::write(output_path, json).expect("Failed to write JSON");
-    println!("Exported: {}", output_path.display());
+    let results = ResultData { solutions };
+    write_example("vc_to_qubo", &data, &results);
 }

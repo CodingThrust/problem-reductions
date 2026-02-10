@@ -11,25 +11,13 @@
 //! - Target MaxCut: 3 vertices (direct mapping, no ancilla)
 //!
 //! ## Output
-//! Exports `docs/paper/examples/spinglass_to_maxcut.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/spinglass_to_maxcut.json` and `spinglass_to_maxcut.result.json`.
 //!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-#[derive(Serialize)]
-struct ExampleData {
-    source_problem: String,
-    target_problem: String,
-    source_num_variables: usize,
-    target_num_variables: usize,
-    source_solution: Vec<usize>,
-    target_solution: Vec<usize>,
-}
 
 fn main() {
     let sg = SpinGlass::<SimpleGraph, i32>::new(
@@ -50,25 +38,49 @@ fn main() {
     println!("\n=== Solution ===");
     println!("Target solutions found: {}", maxcut_solutions.len());
 
+    // Extract and verify solutions
+    let mut solutions = Vec::new();
+    for target_sol in &maxcut_solutions {
+        let source_sol = reduction.extract_solution(target_sol);
+        let size = sg.solution_size(&source_sol);
+        assert!(size.is_valid);
+        solutions.push(SolutionPair {
+            source_config: source_sol,
+            target_config: target_sol.clone(),
+        });
+    }
+
     let sg_solution = reduction.extract_solution(&maxcut_solutions[0]);
     println!("Source SpinGlass solution: {:?}", sg_solution);
 
     let size = sg.solution_size(&sg_solution);
     println!("Solution size: {:?}", size);
     assert!(size.is_valid);
-    println!("\n✓ Reduction verified successfully");
+    println!("\nReduction verified successfully");
 
-    let data = ExampleData {
-        source_problem: "SpinGlass".to_string(),
-        target_problem: "MaxCut".to_string(),
-        source_num_variables: sg.num_variables(),
-        target_num_variables: maxcut.num_variables(),
-        source_solution: sg_solution.clone(),
-        target_solution: maxcut_solutions[0].clone(),
+    // Export JSON
+    let overhead = lookup_overhead("SpinGlass", "MaxCut")
+        .expect("SpinGlass -> MaxCut overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: SpinGlass::<SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(SpinGlass::<SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_spins": sg.num_variables(),
+            }),
+        },
+        target: ProblemSide {
+            problem: MaxCut::<SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(MaxCut::<SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vertices": maxcut.num_vertices(),
+                "num_edges": maxcut.num_edges(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
-    let json = serde_json::to_string_pretty(&data).unwrap();
-    fs::create_dir_all("docs/paper/examples").unwrap();
-    let path = Path::new("docs/paper/examples/spinglass_to_maxcut.json");
-    fs::write(path, &json).unwrap();
-    println!("  Exported: {}", path.display());
+
+    let results = ResultData { solutions };
+    write_example("spinglass_to_maxcut", &data, &results);
 }

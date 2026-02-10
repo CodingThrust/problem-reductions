@@ -11,32 +11,22 @@
 //! - Target SpinGlass: 3 spins
 //!
 //! ## Output
-//! Exports `docs/paper/examples/qubo_to_spinglass.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/qubo_to_spinglass.json` and
+//! `docs/paper/examples/qubo_to_spinglass.result.json` for use in paper code blocks.
 //!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-#[derive(Serialize)]
-struct ExampleData {
-    source_problem: String,
-    target_problem: String,
-    source_num_variables: usize,
-    target_num_variables: usize,
-    source_solution: Vec<usize>,
-    target_solution: Vec<usize>,
-}
 
 fn main() {
-    let qubo = QUBO::from_matrix(vec![
+    let matrix = vec![
         vec![-1.0, 3.0, 0.0],
         vec![0.0, -2.0, 0.0],
         vec![0.0, 0.0, -1.0],
-    ]);
+    ];
+    let qubo = QUBO::from_matrix(matrix.clone());
 
     let reduction = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&qubo);
     let sg = reduction.target_problem();
@@ -56,19 +46,41 @@ fn main() {
     let size = qubo.solution_size(&qubo_solution);
     println!("Solution size: {:?}", size);
     assert!(size.is_valid);
-    println!("\n✓ Reduction verified successfully");
+    println!("\nReduction verified successfully");
 
-    let data = ExampleData {
-        source_problem: "QUBO".to_string(),
-        target_problem: "SpinGlass".to_string(),
-        source_num_variables: qubo.num_variables(),
-        target_num_variables: sg.num_variables(),
-        source_solution: qubo_solution.clone(),
-        target_solution: sg_solutions[0].clone(),
+    // Collect all solutions
+    let mut solutions = Vec::new();
+    for target_sol in &sg_solutions {
+        let source_sol = reduction.extract_solution(target_sol);
+        solutions.push(SolutionPair {
+            source_config: source_sol,
+            target_config: target_sol.clone(),
+        });
+    }
+
+    // Export JSON
+    let overhead = lookup_overhead("QUBO", "SpinGlass")
+        .expect("QUBO -> SpinGlass overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: QUBO::<f64>::NAME.to_string(),
+            variant: variant_to_map(QUBO::<f64>::variant()),
+            instance: serde_json::json!({
+                "num_vars": qubo.num_vars(),
+                "matrix": matrix,
+            }),
+        },
+        target: ProblemSide {
+            problem: SpinGlass::<SimpleGraph, f64>::NAME.to_string(),
+            variant: variant_to_map(SpinGlass::<SimpleGraph, f64>::variant()),
+            instance: serde_json::json!({
+                "num_spins": sg.num_variables(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
-    let json = serde_json::to_string_pretty(&data).unwrap();
-    fs::create_dir_all("docs/paper/examples").unwrap();
-    let path = Path::new("docs/paper/examples/qubo_to_spinglass.json");
-    fs::write(path, &json).unwrap();
-    println!("  Exported: {}", path.display());
+
+    let results = ResultData { solutions };
+    write_example("qubo_to_spinglass", &data, &results);
 }

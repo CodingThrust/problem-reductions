@@ -13,24 +13,10 @@
 //! - Target: 3-SAT with 3 literals per clause
 //!
 //! ## Output
-//! Exports `docs/paper/examples/sat_to_ksat.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/sat_to_ksat.json` and `sat_to_ksat.result.json`.
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-#[derive(Serialize)]
-struct ExampleData {
-    source_problem: String,
-    target_problem: String,
-    source_num_variables: usize,
-    target_num_variables: usize,
-    source_num_clauses: usize,
-    target_num_clauses: usize,
-    source_solution: Vec<usize>,
-    target_solution: Vec<usize>,
-}
 
 fn main() {
     // 1. Create SAT instance with varied clause sizes:
@@ -92,12 +78,17 @@ fn main() {
 
     // Verify all 3-SAT solutions map to valid SAT assignments
     let mut valid_count = 0;
+    let mut solutions = Vec::new();
     for ks_sol in &ksat_solutions {
         let sat_sol = reduction.extract_solution(ks_sol);
         let s = sat.solution_size(&sat_sol);
         if s.is_valid {
             valid_count += 1;
         }
+        solutions.push(SolutionPair {
+            source_config: sat_sol,
+            target_config: ks_sol.clone(),
+        });
     }
     println!(
         "All {} 3-SAT solutions map to valid SAT assignments: {}",
@@ -109,19 +100,30 @@ fn main() {
     println!("\nReduction verified successfully");
 
     // 5. Export JSON
-    let data = ExampleData {
-        source_problem: "Satisfiability".to_string(),
-        target_problem: "KSatisfiability<3>".to_string(),
-        source_num_variables: sat.num_variables(),
-        target_num_variables: ksat.num_variables(),
-        source_num_clauses: sat.num_clauses(),
-        target_num_clauses: ksat.num_clauses(),
-        source_solution: sat_solution,
-        target_solution: ksat_solutions[0].clone(),
+    let overhead = lookup_overhead("Satisfiability", "KSatisfiability")
+        .expect("Satisfiability -> KSatisfiability overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: Satisfiability::<i32>::NAME.to_string(),
+            variant: variant_to_map(Satisfiability::<i32>::variant()),
+            instance: serde_json::json!({
+                "num_vars": sat.num_vars(),
+                "num_clauses": sat.num_clauses(),
+            }),
+        },
+        target: ProblemSide {
+            problem: KSatisfiability::<3, i32>::NAME.to_string(),
+            variant: variant_to_map(KSatisfiability::<3, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vars": ksat.num_vars(),
+                "num_clauses": ksat.num_clauses(),
+                "k": 3,
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
-    let json = serde_json::to_string_pretty(&data).unwrap();
-    fs::create_dir_all("docs/paper/examples").unwrap();
-    let path = Path::new("docs/paper/examples/sat_to_ksat.json");
-    fs::write(path, &json).unwrap();
-    println!("  Exported: {}", path.display());
+
+    let results = ResultData { solutions };
+    write_example("sat_to_ksat", &data, &results);
 }

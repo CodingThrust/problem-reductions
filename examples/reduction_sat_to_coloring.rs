@@ -11,23 +11,11 @@
 //! - Target: 3-Coloring with larger graph
 //!
 //! ## Output
-//! Exports `docs/paper/examples/sat_to_coloring.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/sat_to_coloring.json` and `sat_to_coloring.result.json`.
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-#[derive(Serialize)]
-struct ExampleData {
-    source_problem: String,
-    target_problem: String,
-    source_num_variables: usize,
-    target_num_variables: usize,
-    source_solution: Vec<usize>,
-    target_solution: Vec<usize>,
-}
 
 fn main() {
     // 1. Create SAT instance: phi = (x1 v x2), 2 variables, 1 clause
@@ -79,12 +67,17 @@ fn main() {
 
     // Verify all coloring solutions map to valid SAT assignments
     let mut valid_count = 0;
+    let mut solutions = Vec::new();
     for col_sol in &coloring_solutions {
         let sat_sol = reduction.extract_solution(col_sol);
         let s = sat.solution_size(&sat_sol);
         if s.is_valid {
             valid_count += 1;
         }
+        solutions.push(SolutionPair {
+            source_config: sat_sol,
+            target_config: col_sol.clone(),
+        });
     }
     println!(
         "All {} coloring solutions map to valid SAT assignments: {}",
@@ -96,17 +89,30 @@ fn main() {
     println!("\nReduction verified successfully");
 
     // 5. Export JSON
-    let data = ExampleData {
-        source_problem: "Satisfiability".to_string(),
-        target_problem: "KColoring<3>".to_string(),
-        source_num_variables: sat.num_variables(),
-        target_num_variables: coloring.num_variables(),
-        source_solution: sat_solution,
-        target_solution: coloring_solutions[0].clone(),
+    let overhead = lookup_overhead("Satisfiability", "KColoring")
+        .expect("Satisfiability -> KColoring overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: Satisfiability::<i32>::NAME.to_string(),
+            variant: variant_to_map(Satisfiability::<i32>::variant()),
+            instance: serde_json::json!({
+                "num_vars": sat.num_vars(),
+                "num_clauses": sat.num_clauses(),
+            }),
+        },
+        target: ProblemSide {
+            problem: KColoring::<3, SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(KColoring::<3, SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vertices": coloring.num_vertices(),
+                "num_edges": coloring.num_edges(),
+                "num_colors": 3,
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
-    let json = serde_json::to_string_pretty(&data).unwrap();
-    fs::create_dir_all("docs/paper/examples").unwrap();
-    let path = Path::new("docs/paper/examples/sat_to_coloring.json");
-    fs::write(path, &json).unwrap();
-    println!("  Exported: {}", path.display());
+
+    let results = ResultData { solutions };
+    write_example("sat_to_coloring", &data, &results);
 }

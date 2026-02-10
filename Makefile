@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc mdbook paper clean coverage rust-export compare qubo-testdata
+.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata
 
 # Default target
 help:
@@ -18,6 +18,7 @@ help:
 	@echo "  check        - Quick check (fmt + clippy + test)"
 	@echo "  rust-export  - Generate Rust mapping JSON exports"
 	@echo "  compare      - Generate and compare Rust mapping exports"
+	@echo "  examples     - Generate example JSON for paper"
 	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
 
 # Build the project
@@ -48,8 +49,18 @@ doc:
 mdbook:
 	mdbook serve docs --open
 
-# Build Typst paper
-paper:
+# Generate all example JSON files for the paper
+REDUCTION_EXAMPLES := $(patsubst examples/%.rs,%,$(wildcard examples/reduction_*.rs))
+examples:
+	@mkdir -p docs/paper/examples
+	@for example in $(REDUCTION_EXAMPLES); do \
+		echo "Running $$example..."; \
+		cargo run --all-features --example $$example || exit 1; \
+	done
+	cargo run --all-features --example export_petersen_mapping
+
+# Build Typst paper (generates examples first)
+paper: examples
 	cargo run --example export_graph
 	cd docs/paper && typst compile reductions.typ reductions.pdf
 

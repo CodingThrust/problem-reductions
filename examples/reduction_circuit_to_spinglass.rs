@@ -13,22 +13,10 @@
 //! ## Output
 //! Exports `docs/paper/examples/circuit_to_spinglass.json` for use in paper code blocks.
 
-use problemreductions::prelude::*;
+use problemreductions::export::*;
 use problemreductions::models::specialized::{Assignment, BooleanExpr, Circuit};
+use problemreductions::prelude::*;
 use problemreductions::topology::{Graph, SimpleGraph};
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-#[derive(Serialize)]
-struct ExampleData {
-    source_problem: String,
-    target_problem: String,
-    source_num_variables: usize,
-    target_num_variables: usize,
-    source_solution: Vec<usize>,
-    target_solution: Vec<usize>,
-}
 
 fn main() {
     // 1. Create CircuitSAT instance: c = x AND y
@@ -76,8 +64,7 @@ fn main() {
     // 4. Extract and verify source solutions
     println!("\nAll extracted CircuitSAT solutions:");
     let mut valid_count = 0;
-    let mut first_valid_circuit_sol = None;
-    let mut first_valid_sg_sol = None;
+    let mut solutions = Vec::new();
     for sg_sol in &sg_solutions {
         let circuit_sol = reduction.extract_solution(sg_sol);
         let size = circuit_sat.solution_size(&circuit_sol);
@@ -95,10 +82,10 @@ fn main() {
         );
         if size.is_valid {
             valid_count += 1;
-            if first_valid_circuit_sol.is_none() {
-                first_valid_circuit_sol = Some(circuit_sol);
-                first_valid_sg_sol = Some(sg_sol.clone());
-            }
+            solutions.push(SolutionPair {
+                source_config: circuit_sol,
+                target_config: sg_sol.clone(),
+            });
         }
     }
     println!(
@@ -111,19 +98,28 @@ fn main() {
     println!("\nReduction verified successfully");
 
     // 5. Export JSON
-    let circuit_sol = first_valid_circuit_sol.unwrap();
-    let sg_sol = first_valid_sg_sol.unwrap();
-    let data = ExampleData {
-        source_problem: "CircuitSAT".to_string(),
-        target_problem: "SpinGlass".to_string(),
-        source_num_variables: circuit_sat.num_variables(),
-        target_num_variables: sg.num_spins(),
-        source_solution: circuit_sol,
-        target_solution: sg_sol,
+    let overhead = lookup_overhead("CircuitSAT", "SpinGlass")
+        .expect("CircuitSAT -> SpinGlass overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: CircuitSAT::<i32>::NAME.to_string(),
+            variant: variant_to_map(CircuitSAT::<i32>::variant()),
+            instance: serde_json::json!({
+                "num_gates": circuit_sat.circuit().num_assignments(),
+                "num_variables": circuit_sat.num_variables(),
+            }),
+        },
+        target: ProblemSide {
+            problem: SpinGlass::<SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(SpinGlass::<SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_spins": sg.num_variables(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
-    let json = serde_json::to_string_pretty(&data).unwrap();
-    fs::create_dir_all("docs/paper/examples").unwrap();
-    let path = Path::new("docs/paper/examples/circuit_to_spinglass.json");
-    fs::write(path, &json).unwrap();
-    println!("  Exported: {}", path.display());
+
+    let results = ResultData { solutions };
+    write_example("circuit_to_spinglass", &data, &results);
 }

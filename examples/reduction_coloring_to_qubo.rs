@@ -20,44 +20,17 @@
 //! - Expected: 6 valid 3-colorings (3! = 6 permutations of 3 colors on 3 vertices)
 //!
 //! ## Outputs
-//! - `docs/paper/examples/coloring_to_qubo.json` - Serialized reduction data
+//! - `docs/paper/examples/coloring_to_qubo.json` — reduction structure
+//! - `docs/paper/examples/coloring_to_qubo.result.json` — solutions
 //!
 //! ## Usage
 //! ```bash
 //! cargo run --example reduction_coloring_to_qubo
 //! ```
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-/// Serializable structure capturing the full reduction for paper export.
-#[derive(Serialize)]
-struct ExampleData {
-    name: String,
-    source_problem: String,
-    target_problem: String,
-    source_instance: SourceInstance,
-    qubo: QUBO,
-    num_valid_colorings: usize,
-    optimal_solutions: Vec<SolutionEntry>,
-}
-
-#[derive(Serialize)]
-struct SourceInstance {
-    num_vertices: usize,
-    num_colors: usize,
-    edges: Vec<(usize, usize)>,
-    description: String,
-}
-
-#[derive(Serialize)]
-struct SolutionEntry {
-    config: Vec<usize>,
-    coloring: Vec<String>,
-}
 
 fn main() {
     println!("=== K-Coloring -> QUBO Reduction ===\n");
@@ -84,12 +57,12 @@ fn main() {
 
     // Solve QUBO with brute force
     let solver = BruteForce::new();
-    let solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_best(qubo);
 
     // Extract and verify solutions
-    println!("\nValid 3-colorings: {}", solutions.len());
-    let mut optimal_solutions = Vec::new();
-    for sol in &solutions {
+    println!("\nValid 3-colorings: {}", qubo_solutions.len());
+    let mut solutions = Vec::new();
+    for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
         let coloring: Vec<String> = extracted
             .iter()
@@ -102,41 +75,45 @@ fn main() {
         let sol_size = kc.solution_size(&extracted);
         assert!(sol_size.is_valid, "Coloring must be valid in source problem");
 
-        optimal_solutions.push(SolutionEntry {
-            config: extracted,
-            coloring,
+        solutions.push(SolutionPair {
+            source_config: extracted,
+            target_config: sol.clone(),
         });
     }
 
     // K3 with 3 colors has exactly 3! = 6 valid colorings
     assert_eq!(
-        solutions.len(),
+        qubo_solutions.len(),
         6,
         "Triangle K3 with 3 colors should have exactly 6 valid colorings"
     );
     println!("\nVerification passed: 6 valid colorings found");
 
     // Export JSON
-    let example_data = ExampleData {
-        name: "coloring_to_qubo".to_string(),
-        source_problem: "KColoring<3>".to_string(),
-        target_problem: "QUBO".to_string(),
-        source_instance: SourceInstance {
-            num_vertices: 3,
-            num_colors: 3,
-            edges,
-            description: "Complete graph K3 (triangle): 3 vertices, 3 edges, 3 colors".to_string(),
+    let overhead = lookup_overhead("KColoring", "QUBO")
+        .expect("KColoring -> QUBO overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: KColoring::<3, SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(KColoring::<3, SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vertices": kc.num_vertices(),
+                "num_edges": kc.num_edges(),
+                "num_colors": 3,
+            }),
         },
-        qubo: qubo.clone(),
-        num_valid_colorings: solutions.len(),
-        optimal_solutions,
+        target: ProblemSide {
+            problem: QUBO::<f64>::NAME.to_string(),
+            variant: variant_to_map(QUBO::<f64>::variant()),
+            instance: serde_json::json!({
+                "num_vars": qubo.num_vars(),
+                "matrix": qubo.matrix(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
 
-    let output_path = Path::new("docs/paper/examples/coloring_to_qubo.json");
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent).expect("Failed to create output directory");
-    }
-    let json = serde_json::to_string_pretty(&example_data).expect("Failed to serialize");
-    fs::write(output_path, json).expect("Failed to write JSON");
-    println!("Exported: {}", output_path.display());
+    let results = ResultData { solutions };
+    write_example("coloring_to_qubo", &data, &results);
 }

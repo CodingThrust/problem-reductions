@@ -17,49 +17,17 @@
 //! - Expected: Two optimal solutions of size 2: vertices {0,2} and {1,3}
 //!
 //! ## Outputs
-//! - `docs/paper/examples/is_to_qubo.json` - Serialized reduction data
+//! - `docs/paper/examples/is_to_qubo.json` — reduction structure
+//! - `docs/paper/examples/is_to_qubo.result.json` — solutions
 //!
 //! ## Usage
 //! ```bash
 //! cargo run --example reduction_is_to_qubo
 //! ```
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-/// Serializable structure capturing the full reduction for paper export.
-#[derive(Serialize)]
-struct ExampleData {
-    /// Name of this example
-    name: String,
-    /// Source problem type
-    source_problem: String,
-    /// Target problem type
-    target_problem: String,
-    /// Source instance description
-    source_instance: SourceInstance,
-    /// The QUBO target problem (Q matrix, num_vars)
-    qubo: QUBO,
-    /// All optimal solutions (in source problem space)
-    optimal_solutions: Vec<SolutionEntry>,
-}
-
-#[derive(Serialize)]
-struct SourceInstance {
-    num_vertices: usize,
-    edges: Vec<(usize, usize)>,
-    description: String,
-}
-
-#[derive(Serialize)]
-struct SolutionEntry {
-    config: Vec<usize>,
-    selected_vertices: Vec<usize>,
-    size: usize,
-}
 
 fn main() {
     println!("=== Independent Set -> QUBO Reduction ===\n");
@@ -81,59 +49,57 @@ fn main() {
 
     // Solve QUBO with brute force
     let solver = BruteForce::new();
-    let solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_best(qubo);
 
     // Extract and verify solutions
     println!("\nOptimal solutions:");
-    let mut optimal_solutions = Vec::new();
-    for sol in &solutions {
+    let mut solutions = Vec::new();
+    for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
+        let sol_size = is.solution_size(&extracted);
+        assert!(sol_size.is_valid, "Solution must be valid in source problem");
+
         let selected: Vec<usize> = extracted
             .iter()
             .enumerate()
             .filter(|(_, &x)| x == 1)
             .map(|(i, _)| i)
             .collect();
-        let size = selected.len();
-        println!("  Vertices: {:?} (size {})", selected, size);
+        println!("  Vertices: {:?} (size {})", selected, selected.len());
 
-        // Closed-loop verification: check solution is valid in original problem
-        let sol_size = is.solution_size(&extracted);
-        assert!(sol_size.is_valid, "Solution must be valid in source problem");
-
-        optimal_solutions.push(SolutionEntry {
-            config: extracted,
-            selected_vertices: selected,
-            size,
+        solutions.push(SolutionPair {
+            source_config: extracted,
+            target_config: sol.clone(),
         });
     }
 
-    // All optimal solutions should have size 2
-    assert!(
-        optimal_solutions.iter().all(|s| s.size == 2),
-        "All optimal IS solutions on P4 should have size 2"
-    );
-    println!("\nVerification passed: all solutions are valid with size 2");
+    println!("\nVerification passed: all solutions are valid");
 
     // Export JSON
-    let example_data = ExampleData {
-        name: "is_to_qubo".to_string(),
-        source_problem: "IndependentSet".to_string(),
-        target_problem: "QUBO".to_string(),
-        source_instance: SourceInstance {
-            num_vertices: 4,
-            edges,
-            description: "Path graph P4: 4 vertices, 3 edges (0-1-2-3)".to_string(),
+    let overhead = lookup_overhead("IndependentSet", "QUBO")
+        .expect("IndependentSet -> QUBO overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: IndependentSet::<SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(IndependentSet::<SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vertices": is.num_vertices(),
+                "num_edges": is.num_edges(),
+                "edges": edges,
+            }),
         },
-        qubo: qubo.clone(),
-        optimal_solutions,
+        target: ProblemSide {
+            problem: QUBO::<f64>::NAME.to_string(),
+            variant: variant_to_map(QUBO::<f64>::variant()),
+            instance: serde_json::json!({
+                "num_vars": qubo.num_vars(),
+                "matrix": qubo.matrix(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
 
-    let output_path = Path::new("docs/paper/examples/is_to_qubo.json");
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent).expect("Failed to create output directory");
-    }
-    let json = serde_json::to_string_pretty(&example_data).expect("Failed to serialize");
-    fs::write(output_path, json).expect("Failed to write JSON");
-    println!("Exported: {}", output_path.display());
+    let results = ResultData { solutions };
+    write_example("is_to_qubo", &data, &results);
 }

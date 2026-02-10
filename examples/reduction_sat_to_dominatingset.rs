@@ -11,23 +11,12 @@
 //! - Target: Dominating set
 //!
 //! ## Output
-//! Exports `docs/paper/examples/sat_to_dominatingset.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/sat_to_dominatingset.json` and
+//! `docs/paper/examples/sat_to_dominatingset.result.json` for use in paper code blocks.
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-#[derive(Serialize)]
-struct ExampleData {
-    source_problem: String,
-    target_problem: String,
-    source_num_variables: usize,
-    target_num_variables: usize,
-    source_solution: Vec<usize>,
-    target_solution: Vec<usize>,
-}
 
 fn main() {
     // 1. Create SAT instance: phi = (x1 v x2) ^ (~x1 v x2), 2 vars, 2 clauses
@@ -98,29 +87,42 @@ fn main() {
 
     println!("\nReduction verified successfully");
 
-    // 5. Export JSON -- use a solution that maps to a valid SAT assignment
-    let mut best_sat_sol = vec![0usize; sat.num_variables()];
-    let mut best_ds_sol = ds_solutions[0].clone();
+    // 5. Collect all valid solutions
+    let mut solutions = Vec::new();
     for ds_sol in &ds_solutions {
         let sat_sol = reduction.extract_solution(ds_sol);
         if sat.solution_size(&sat_sol).is_valid {
-            best_sat_sol = sat_sol;
-            best_ds_sol = ds_sol.clone();
-            break;
+            solutions.push(SolutionPair {
+                source_config: sat_sol,
+                target_config: ds_sol.clone(),
+            });
         }
     }
 
-    let data = ExampleData {
-        source_problem: "Satisfiability".to_string(),
-        target_problem: "DominatingSet".to_string(),
-        source_num_variables: sat.num_variables(),
-        target_num_variables: ds.num_variables(),
-        source_solution: best_sat_sol,
-        target_solution: best_ds_sol,
+    // 6. Export JSON
+    let overhead = lookup_overhead("Satisfiability", "DominatingSet")
+        .expect("Satisfiability -> DominatingSet overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: Satisfiability::<i32>::NAME.to_string(),
+            variant: variant_to_map(Satisfiability::<i32>::variant()),
+            instance: serde_json::json!({
+                "num_vars": sat.num_vars(),
+                "num_clauses": sat.num_clauses(),
+            }),
+        },
+        target: ProblemSide {
+            problem: DominatingSet::<SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(DominatingSet::<SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vertices": ds.num_vertices(),
+                "num_edges": ds.num_edges(),
+            }),
+        },
+        overhead: overhead_to_json(&overhead),
     };
-    let json = serde_json::to_string_pretty(&data).unwrap();
-    fs::create_dir_all("docs/paper/examples").unwrap();
-    let path = Path::new("docs/paper/examples/sat_to_dominatingset.json");
-    fs::write(path, &json).unwrap();
-    println!("  Exported: {}", path.display());
+
+    let results = ResultData { solutions };
+    write_example("sat_to_dominatingset", &data, &results);
 }

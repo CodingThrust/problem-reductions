@@ -11,47 +11,13 @@
 //! - Target SetPacking: max packing 2
 //!
 //! ## Output
-//! Exports `docs/paper/examples/is_to_setpacking.json` for use in paper code blocks.
+//! Exports `docs/paper/examples/is_to_setpacking.json` and `is_to_setpacking.result.json`.
 //!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
+use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
-use serde::Serialize;
-use std::fs;
-use std::path::Path;
-
-/// JSON export structure for the IS to SetPacking reduction example.
-#[derive(Serialize)]
-struct ReductionExport {
-    reduction: String,
-    source: SourceExport,
-    target: TargetExport,
-    solution: SolutionExport,
-}
-
-#[derive(Serialize)]
-struct SourceExport {
-    problem: String,
-    num_vertices: usize,
-    num_edges: usize,
-    edges: Vec<(usize, usize)>,
-}
-
-#[derive(Serialize)]
-struct TargetExport {
-    problem: String,
-    num_sets: usize,
-    sets: Vec<Vec<usize>>,
-}
-
-#[derive(Serialize)]
-struct SolutionExport {
-    source_config: Vec<usize>,
-    source_size: i32,
-    target_config: Vec<usize>,
-    target_size: i32,
-}
 
 fn main() {
     println!("\n=== Independent Set -> Set Packing Reduction ===\n");
@@ -76,12 +42,13 @@ fn main() {
 
     // Solve the target problem
     let solver = BruteForce::new();
-    let solutions = solver.find_best(target);
+    let target_solutions = solver.find_best(target);
 
-    println!("\nBest target solutions: {}", solutions.len());
+    println!("\nBest target solutions: {}", target_solutions.len());
 
     // Extract and verify each solution
-    for (i, target_sol) in solutions.iter().enumerate() {
+    let mut solutions = Vec::new();
+    for (i, target_sol) in target_solutions.iter().enumerate() {
         let source_sol = reduction.extract_solution(target_sol);
         let source_size = source.solution_size(&source_sol);
         let target_size = target.solution_size(target_sol);
@@ -95,10 +62,15 @@ fn main() {
             source_size.is_valid,
             "Extracted source solution must be valid"
         );
+
+        solutions.push(SolutionPair {
+            source_config: source_sol,
+            target_config: target_sol.clone(),
+        });
     }
 
-    // Use the first solution for JSON export
-    let target_sol = &solutions[0];
+    // Use the first solution for additional assertions
+    let target_sol = &target_solutions[0];
     let source_sol = reduction.extract_solution(target_sol);
     let source_size = source.solution_size(&source_sol);
     let target_size = target.solution_size(target_sol);
@@ -107,34 +79,32 @@ fn main() {
     assert_eq!(target_size.size, 2, "SetPacking should also have size 2");
 
     // Export JSON
-    let export = ReductionExport {
-        reduction: "IndependentSet -> SetPacking".to_string(),
-        source: SourceExport {
-            problem: "IndependentSet".to_string(),
-            num_vertices: 4,
-            num_edges: edges.len(),
-            edges: edges.clone(),
+    let overhead = lookup_overhead("IndependentSet", "SetPacking")
+        .expect("IndependentSet -> SetPacking overhead not found");
+
+    let data = ReductionData {
+        source: ProblemSide {
+            problem: IndependentSet::<SimpleGraph, i32>::NAME.to_string(),
+            variant: variant_to_map(IndependentSet::<SimpleGraph, i32>::variant()),
+            instance: serde_json::json!({
+                "num_vertices": source.num_vertices(),
+                "num_edges": source.num_edges(),
+                "edges": edges,
+            }),
         },
-        target: TargetExport {
-            problem: "SetPacking".to_string(),
-            num_sets: target.num_sets(),
-            sets: target.sets().to_vec(),
+        target: ProblemSide {
+            problem: SetPacking::<i32>::NAME.to_string(),
+            variant: variant_to_map(SetPacking::<i32>::variant()),
+            instance: serde_json::json!({
+                "num_sets": target.num_sets(),
+                "sets": target.sets(),
+            }),
         },
-        solution: SolutionExport {
-            source_config: source_sol,
-            source_size: source_size.size,
-            target_config: target_sol.clone(),
-            target_size: target_size.size,
-        },
+        overhead: overhead_to_json(&overhead),
     };
 
-    let output_path = Path::new("docs/paper/examples/is_to_setpacking.json");
-    if let Some(parent) = output_path.parent() {
-        fs::create_dir_all(parent).expect("Failed to create output directory");
-    }
-    let json = serde_json::to_string_pretty(&export).expect("Failed to serialize");
-    fs::write(output_path, &json).expect("Failed to write JSON");
-    println!("\nExported: {}", output_path.display());
+    let results = ResultData { solutions };
+    write_example("is_to_setpacking", &data, &results);
 
     println!("\nDone: IS(P4) optimal=2 maps to SetPacking optimal=2");
 }
