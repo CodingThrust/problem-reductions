@@ -17,7 +17,6 @@ fn run_example(name: &str) {
 }
 
 #[test]
-#[ignore]
 fn test_all_reduction_examples() {
     let examples = [
         "reduction_circuit_to_spinglass",

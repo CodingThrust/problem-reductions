@@ -25,23 +25,23 @@
 
 // Problem display names for theorem headers
 #let display-name = (
-  "MaximumIndependentSet": "Maximum Independent Set",
-  "MinimumVertexCover": "Minimum Vertex Cover",
-  "MaxCut": "Max-Cut",
-  "KColoring": "Coloring",
-  "MinimumDominatingSet": "Min Dominating Set",
-  "MaximumMatching": "Max Matching",
-  "MaximumClique": "Max Clique",
-  "MaximumSetPacking": "Max Set Packing",
-  "MinimumSetCovering": "Min Set Covering",
-  "SpinGlass": "Spin Glass",
-  "QUBO": "QUBO",
-  "ILP": "ILP",
-  "Satisfiability": "SAT",
+  "MaximumIndependentSet": [Maximum Independent Set],
+  "MinimumVertexCover": [Minimum Vertex Cover],
+  "MaxCut": [Max-Cut],
+  "KColoring": [$k$-Coloring],
+  "MinimumDominatingSet": [Minimum Dominating Set],
+  "MaximumMatching": [Maximum Matching],
+  "MaximumClique": [Maximum Clique],
+  "MaximumSetPacking": [Maximum Set Packing],
+  "MinimumSetCovering": [Minimum Set Covering],
+  "SpinGlass": [Spin Glass],
+  "QUBO": [QUBO],
+  "ILP": [Integer Linear Programming],
+  "Satisfiability": [SAT],
   "KSatisfiability": [$k$-SAT],
-  "CircuitSAT": "CircuitSAT",
-  "Factoring": "Factoring",
-  "GridGraph": "GridGraph MIS",
+  "CircuitSAT": [CircuitSAT],
+  "Factoring": [Factoring],
+  "GridGraph": [GridGraph MIS],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -137,7 +137,7 @@
   ]
 }
 
-#let theorem = thmplain("theorem", "Theorem", base_level: 1)
+#let theorem = thmplain("theorem", [#h(-1.2em)Rule], base_level: 1)
 #let proof = thmproof("proof", "Proof")
 #let definition = thmbox(
   "definition",
@@ -220,7 +220,7 @@
 
   if example != none {
     let data = load-example(example)
-    reduction-example(data, caption: example-caption)[#extra]
+    pad(left: 1.5em, reduction-example(data, caption: example-caption)[#extra])
   }
 }
 
@@ -291,74 +291,74 @@ The gray schema table shows the JSON field names used in the library's data stru
 
 In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| = n$ vertices and $|E|$ edges.
 
-#problem-def("MaximumIndependentSet", "Independent Set (IS)")[
+#problem-def("MaximumIndependentSet")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
 ]
 
-#problem-def("MinimumVertexCover", "Vertex Cover (VC)")[
+#problem-def("MinimumVertexCover")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
 ]
 
-#problem-def("MaxCut", "Max-Cut")[
+#problem-def("MaxCut")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find partition $(S, overline(S))$ maximizing $sum_((u,v) in E: u in S, v in overline(S)) w(u, v)$.
 ]
 
-#problem-def("KColoring", "Graph Coloring")[
+#problem-def("KColoring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
 ]
 
-#problem-def("MinimumDominatingSet", "Dominating Set")[
+#problem-def("MinimumDominatingSet")[
   Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall v in V: v in S or exists u in S: (u, v) in E$.
 ]
 
-#problem-def("MaximumMatching", "Matching")[
+#problem-def("MaximumMatching")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
 ]
 
-#problem-def("MaximumClique", "Maximum Clique")[
+#problem-def("MaximumClique")[
   Given $G = (V, E)$, find $K subset.eq V$ maximizing $|K|$ such that all pairs in $K$ are adjacent: $forall u, v in K: (u, v) in E$. Equivalent to MIS on the complement graph $overline(G)$.
 ]
 
 
 == Set Problems
 
-#problem-def("MaximumSetPacking", "Set Packing")[
+#problem-def("MaximumSetPacking")[
   Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
 ]
 
-#problem-def("MinimumSetCovering", "Set Covering")[
+#problem-def("MinimumSetCovering")[
   Given universe $U$, collection $cal(S)$ with weights $w: cal(S) -> RR$, find $cal(C) subset.eq cal(S)$ minimizing $sum_(S in cal(C)) w(S)$ s.t. $union.big_(S in cal(C)) S = U$.
 ]
 
 == Optimization Problems
 
-#problem-def("SpinGlass", "Spin Glass (Ising Model)")[
+#problem-def("SpinGlass")[
   Given $n$ spin variables $s_i in {-1, +1}$, pairwise couplings $J_(i j) in RR$, and external fields $h_i in RR$, minimize the Hamiltonian (energy function): $H(bold(s)) = -sum_((i,j)) J_(i j) s_i s_j - sum_i h_i s_i$.
 ]
 
-#problem-def("QUBO", "QUBO")[
+#problem-def("QUBO")[
   Given $n$ binary variables $x_i in {0, 1}$, upper-triangular matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables).
 ]
 
-#problem-def("ILP", "Integer Linear Programming (ILP)")[
+#problem-def("ILP")[
   Given $n$ integer variables $bold(x) in ZZ^n$, constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x)$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$ and variable bounds.
 ]
 
 == Satisfiability Problems
 
-#problem-def("Satisfiability", "SAT")[
+#problem-def("Satisfiability")[
   Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 1$ (all clauses satisfied).
 ]
 
-#problem-def("KSatisfiability", [$k$-SAT])[
+#problem-def("KSatisfiability")[
   SAT with exactly $k$ literals per clause.
 ]
 
-#problem-def("CircuitSAT", "Circuit-SAT")[
+#problem-def("CircuitSAT")[
   Given a Boolean circuit $C$ composed of logic gates (AND, OR, NOT, XOR) with $n$ input variables, find an input assignment $bold(x) in {0,1}^n$ such that $C(bold(x)) = 1$.
 ]
 
-#problem-def("Factoring", "Factoring")[
+#problem-def("Factoring")[
   Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
 ]
 

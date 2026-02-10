@@ -25,7 +25,7 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
   </div>
 </div>
 <div style="margin-top: 8px; font-family: sans-serif; font-size: 12px; color: var(--fg); opacity: 0.6;">
-  Click two variant nodes to find a reduction path. Double-click a node or edge to view its API docs. Scroll to zoom, drag to pan.
+  Click two variant nodes to find a reduction path. Double-click a node for API docs, double-click an edge for source code. Scroll to zoom, drag to pan.
 </div>
 <div id="tooltip" style="display:none; position:absolute; background:var(--bg); color:var(--fg); border:1px solid var(--sidebar-bg); padding:8px 12px; border-radius:4px; font-family:sans-serif; font-size:13px; box-shadow:0 2px 8px rgba(0,0,0,0.15); pointer-events:none; z-index:1000;"></div>
 
@@ -54,14 +54,14 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
     if (graph !== 'SimpleGraph') parts.push(graph);
     if (weight !== 'Unweighted') parts.push('Weighted');
     extra.forEach(function(k) { parts.push(k + '=' + variant[k]); });
-    return parts.length > 0 ? parts.join(', ') : 'Unweighted';
+    return parts.length > 0 ? parts.join(', ') : 'base';
   }
 
-  function nodeDisplayName(node) {
-    if (node.isChild()) {
-      return node.parent().data('label') + ' (' + node.data('label') + ')';
-    }
-    return node.data('label');
+  function isBaseVariant(variant) {
+    var graph = variant.graph || 'SimpleGraph';
+    var weight = variant.weight || 'Unweighted';
+    var extra = Object.keys(variant).filter(function(k) { return k !== 'graph' && k !== 'weight'; });
+    return graph === 'SimpleGraph' && weight === 'Unweighted' && extra.length === 0;
   }
 
   fetch('reductions/reduction_graph.json')
@@ -72,27 +72,16 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
         return n.variant && Object.keys(n.variant).length > 0;
       });
 
-      // Collect unique parent problem names
-      var parents = {};
+      // Group by problem name
+      var problems = {};
       variantNodes.forEach(function(n) {
-        if (!parents[n.name]) parents[n.name] = { category: n.category, doc_path: n.doc_path };
+        if (!problems[n.name]) {
+          problems[n.name] = { category: n.category, doc_path: n.doc_path, children: [] };
+        }
+        problems[n.name].children.push(n);
       });
 
-      var elements = [];
-
-      // Parent compound nodes
-      Object.keys(parents).forEach(function(name) {
-        var p = parents[name];
-        elements.push({ data: { id: name, label: name, category: p.category, doc_path: p.doc_path } });
-      });
-
-      // Variant child nodes
-      variantNodes.forEach(function(n) {
-        var vid = variantId(n.name, n.variant);
-        elements.push({ data: { id: vid, label: variantLabel(n.variant), parent: n.name, category: n.category, doc_path: n.doc_path } });
-      });
-
-      // Edges connecting variant nodes
+      // Build edges at variant level
       var edgeMap = {};
       data.edges.forEach(function(e) {
         var srcId = variantId(e.source.name, e.source.variant);
@@ -104,9 +93,119 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
           edgeMap[fwd] = { source: srcId, target: dstId, bidirectional: e.bidirectional || false, overhead: e.overhead || [], doc_path: e.doc_path || '' };
         }
       });
+
+      // Precompute per-problem base/non-base split
+      var problemNames = Object.keys(problems);
+      var problemInfo = {};
+      problemNames.forEach(function(name) {
+        var info = problems[name];
+        var baseChild = null, nonBase = [];
+        info.children.forEach(function(child) {
+          if (isBaseVariant(child.variant)) baseChild = child;
+          else nonBase.push(child);
+        });
+        problemInfo[name] = { baseChild: baseChild, nonBase: nonBase };
+      });
+
+      // ── Step 1: Layout one node per problem using cose ──
+      var tempElements = [];
+      problemNames.forEach(function(name) {
+        var info = problems[name];
+        tempElements.push({
+          data: { id: name, label: name, category: info.category }
+        });
+      });
+      var tempEdgeSet = {};
+      data.edges.forEach(function(e) {
+        var key = e.source.name + '->' + e.target.name;
+        var rev = e.target.name + '->' + e.source.name;
+        if (!tempEdgeSet[key] && !tempEdgeSet[rev]) {
+          tempEdgeSet[key] = true;
+          tempElements.push({ data: { id: 'te_' + key, source: e.source.name, target: e.target.name } });
+        }
+      });
+
+      var tempCy = cytoscape({
+        container: document.getElementById('cy'),
+        elements: tempElements,
+        style: [
+          { selector: 'node', style: {
+            'label': 'data(label)', 'text-valign': 'center', 'text-halign': 'center',
+            'font-size': '11px', 'font-family': 'monospace',
+            'width': function(ele) { return Math.max(ele.data('label').length * 7 + 14, 60); },
+            'height': 28, 'shape': 'round-rectangle'
+          }},
+          { selector: 'edge', style: { 'width': 1, 'line-color': '#ddd', 'target-arrow-shape': 'none' } }
+        ],
+        layout: {
+          name: 'cose', animate: false,
+          nodeRepulsion: function() { return 16000; },
+          idealEdgeLength: function() { return 200; },
+          gravity: 0.15, numIter: 1000, padding: 40
+        }
+      });
+
+      var positions = {};
+      tempCy.nodes().forEach(function(n) {
+        positions[n.id()] = { x: n.position('x'), y: n.position('y') };
+      });
+      tempCy.destroy();
+
+      // ── Step 2: Place flat variant nodes near parent positions ──
+      var elements = [];
+      var variantOffsetY = 30;
+
+      problemNames.forEach(function(name) {
+        var info = problems[name];
+        var pi = problemInfo[name];
+        var pos = positions[name];
+
+        if (pi.baseChild) {
+          // Base variant at parent position, labeled with problem name
+          var baseId = variantId(name, pi.baseChild.variant);
+          elements.push({
+            data: { id: baseId, label: name, category: info.category, doc_path: info.doc_path },
+            position: { x: pos.x, y: pos.y }
+          });
+          // Non-base variants placed below
+          pi.nonBase.forEach(function(child, i) {
+            var vid = variantId(name, child.variant);
+            var vl = variantLabel(child.variant);
+            elements.push({
+              data: { id: vid, label: name + ' (' + vl + ')', category: child.category, doc_path: child.doc_path },
+              position: { x: pos.x, y: pos.y + (i + 1) * variantOffsetY }
+            });
+          });
+        } else if (pi.nonBase.length === 1) {
+          // Single non-base variant — place at parent position with just problem name
+          var child = pi.nonBase[0];
+          var vid = variantId(name, child.variant);
+          elements.push({
+            data: { id: vid, label: name, category: child.category, doc_path: child.doc_path },
+            position: { x: pos.x, y: pos.y }
+          });
+        } else {
+          // Multiple non-base variants, no base — first at parent, rest below
+          pi.nonBase.forEach(function(child, i) {
+            var vid = variantId(name, child.variant);
+            var vl = variantLabel(child.variant);
+            elements.push({
+              data: { id: vid, label: name + ' (' + vl + ')', category: child.category, doc_path: child.doc_path },
+              position: { x: pos.x, y: pos.y + i * variantOffsetY }
+            });
+          });
+        }
+      });
+
+      // ── Step 3: Connect edges ──
       Object.keys(edgeMap).forEach(function(k) {
         var e = edgeMap[k];
-        elements.push({ data: { id: k, source: e.source, target: e.target, bidirectional: e.bidirectional, overhead: e.overhead, doc_path: e.doc_path } });
+        elements.push({
+          data: {
+            id: k, source: e.source, target: e.target,
+            bidirectional: e.bidirectional, overhead: e.overhead, doc_path: e.doc_path
+          }
+        });
       });
 
       var cy = cytoscape({
@@ -115,61 +214,39 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
         style: [
           { selector: 'node', style: {
             'label': 'data(label)', 'text-valign': 'center', 'text-halign': 'center',
-            'font-size': '14px', 'font-family': 'monospace',
-            'width': function(ele) { return Math.max(ele.data('label').length * 9 + 20, 70); },
-            'height': 30, 'shape': 'round-rectangle',
+            'font-size': '10px', 'font-family': 'monospace',
+            'width': function(ele) { return Math.max(ele.data('label').length * 6.5 + 10, 50); },
+            'height': 24, 'shape': 'round-rectangle',
             'background-color': function(ele) { return categoryColors[ele.data('category')] || '#f0f0f0'; },
             'border-width': 1,
             'border-color': function(ele) { return categoryBorders[ele.data('category')] || '#999'; },
-            'text-wrap': 'none', 'padding': '4px', 'cursor': 'pointer'
-          }},
-          { selector: ':parent', style: {
-            'text-valign': 'top', 'text-halign': 'center',
-            'font-size': '16px', 'font-family': 'monospace', 'font-weight': 'bold',
-            'background-color': function(ele) { return categoryColors[ele.data('category')] || '#f0f0f0'; },
-            'background-opacity': 0.3,
-            'border-width': 1.5,
-            'border-color': function(ele) { return categoryBorders[ele.data('category')] || '#999'; },
-            'border-style': 'dashed',
-            'padding': '12px',
-            'shape': 'round-rectangle',
-            'text-margin-y': -6
+            'text-wrap': 'none', 'cursor': 'pointer'
           }},
           { selector: 'edge', style: {
-            'width': 2, 'line-color': '#888', 'target-arrow-color': '#888', 'target-arrow-shape': 'triangle',
-            'source-arrow-color': '#888',
+            'width': 1.5, 'line-color': '#999', 'target-arrow-color': '#999', 'target-arrow-shape': 'triangle',
+            'source-arrow-color': '#999',
             'source-arrow-shape': function(ele) { return ele.data('bidirectional') ? 'triangle' : 'none'; },
-            'curve-style': 'bezier', 'arrow-scale': 0.8, 'cursor': 'pointer'
+            'curve-style': 'bezier', 'arrow-scale': 0.7, 'cursor': 'pointer'
           }},
           { selector: '.highlighted', style: {
-            'background-color': '#ff6b6b', 'border-color': '#cc0000', 'border-width': 3, 'z-index': 10
+            'background-color': '#ff6b6b', 'border-color': '#cc0000', 'border-width': 2, 'z-index': 10
           }},
           { selector: 'edge.highlighted', style: {
-            'line-color': '#ff4444', 'target-arrow-color': '#ff4444', 'source-arrow-color': '#ff4444', 'width': 4, 'z-index': 10
+            'line-color': '#ff4444', 'target-arrow-color': '#ff4444', 'source-arrow-color': '#ff4444', 'width': 3, 'z-index': 10
           }},
           { selector: '.selected-node', style: {
-            'border-color': '#0066cc', 'border-width': 3, 'background-color': '#cce0ff'
+            'border-color': '#0066cc', 'border-width': 2, 'background-color': '#cce0ff'
           }}
         ],
-        layout: {
-          name: 'cose', animate: false,
-          nodeRepulsion: function() { return 12000; },
-          idealEdgeLength: function() { return 150; },
-          gravity: 0.25, numIter: 800, padding: 40
-        },
+        layout: { name: 'preset' },
         userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false
       });
 
-      // Tooltip
+      // Tooltip for nodes
       var tooltip = document.getElementById('tooltip');
       cy.on('mouseover', 'node', function(evt) {
-        var node = evt.target;
-        var d = node.data();
-        if (node.isParent()) {
-          tooltip.innerHTML = '<strong>' + d.label + '</strong><br>Category: ' + d.category + '<br><em>Double-click to view API docs</em>';
-        } else {
-          tooltip.innerHTML = '<strong>' + nodeDisplayName(node) + '</strong><br>Category: ' + d.category + '<br><em>Double-click to view API docs</em>';
-        }
+        var d = evt.target.data();
+        tooltip.innerHTML = '<strong>' + d.label + '</strong><br>Category: ' + d.category + '<br><em>Double-click to view API docs</em>';
         tooltip.style.display = 'block';
       });
       cy.on('mousemove', 'node', function(evt) {
@@ -182,16 +259,13 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
 
       // Edge tooltip
       cy.on('mouseover', 'edge', function(evt) {
-        var edge = evt.target;
-        var d = edge.data();
+        var d = evt.target.data();
         var arrow = d.bidirectional ? ' \u2194 ' : ' \u2192 ';
-        var srcName = nodeDisplayName(edge.source());
-        var dstName = nodeDisplayName(edge.target());
-        var html = '<strong>' + srcName + arrow + dstName + '</strong>';
+        var html = '<strong>' + evt.target.source().data('label') + arrow + evt.target.target().data('label') + '</strong>';
         if (d.overhead && d.overhead.length > 0) {
           html += '<br>' + d.overhead.map(function(o) { return '<code>' + o.field + '</code> = <code>' + o.formula + '</code>'; }).join('<br>');
         }
-        html += '<br><em>Click to highlight, double-click for docs</em>';
+        html += '<br><em>Click to highlight, double-click for source code</em>';
         tooltip.innerHTML = html;
         tooltip.style.display = 'block';
       });
@@ -203,32 +277,33 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
       });
       cy.on('mouseout', 'edge', function() { tooltip.style.display = 'none'; });
 
-      // Double-click to navigate to rustdoc API page
+      // Double-click node → rustdoc API page
       cy.on('dbltap', 'node', function(evt) {
         var d = evt.target.data();
         if (d.doc_path) {
           window.location.href = 'api/problemreductions/' + d.doc_path;
         }
       });
+      // Double-click edge → GitHub source code
       cy.on('dbltap', 'edge', function(evt) {
         var d = evt.target.data();
         if (d.doc_path) {
-          window.location.href = 'api/problemreductions/' + d.doc_path;
+          var module = d.doc_path.replace('/index.html', '');
+          window.open('https://github.com/CodingThrust/problem-reductions/blob/main/src/' + module + '.rs', '_blank');
         }
       });
 
-      // Single-click path selection (only on child variant nodes, not parents)
+      // Single-click path selection
       var selectedNode = null;
       var instructions = document.getElementById('instructions');
       var clearBtn = document.getElementById('clear-btn');
 
       cy.on('tap', 'node', function(evt) {
         var node = evt.target;
-        if (node.isParent()) return;
         if (!selectedNode) {
           selectedNode = node;
           node.addClass('selected-node');
-          instructions.textContent = 'Now click a target node to find path from ' + nodeDisplayName(node);
+          instructions.textContent = 'Now click a target node to find path from ' + node.data('label');
         } else if (node === selectedNode) {
           clearPath();
         } else {
@@ -237,9 +312,9 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
           cy.elements().removeClass('highlighted selected-node');
           if (path && path.length > 0) {
             path.addClass('highlighted');
-            instructions.textContent = 'Path: ' + path.nodes().map(function(n) { return nodeDisplayName(n); }).join(' \u2192 ');
+            instructions.textContent = 'Path: ' + path.nodes().map(function(n) { return n.data('label'); }).join(' \u2192 ');
           } else {
-            instructions.textContent = 'No path from ' + nodeDisplayName(selectedNode) + ' to ' + nodeDisplayName(node);
+            instructions.textContent = 'No path from ' + selectedNode.data('label') + ' to ' + node.data('label');
           }
           clearBtn.style.display = 'inline';
           selectedNode = null;
@@ -254,9 +329,7 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
         edge.source().addClass('highlighted');
         edge.target().addClass('highlighted');
         var arrow = d.bidirectional ? ' \u2194 ' : ' \u2192 ';
-        var srcName = nodeDisplayName(edge.source());
-        var dstName = nodeDisplayName(edge.target());
-        var text = srcName + arrow + dstName;
+        var text = edge.source().data('label') + arrow + edge.target().data('label');
         if (d.overhead && d.overhead.length > 0) {
           text += '  |  ' + d.overhead.map(function(o) { return o.field + ' = ' + o.formula; }).join(', ');
         }

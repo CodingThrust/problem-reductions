@@ -51,14 +51,18 @@ doc:
 	rm -rf docs/book/api
 	cp -r target/doc docs/book/api
 
-# Build and serve mdBook with live reload
+# Build and serve mdBook with API docs
 mdbook:
 	cargo run --example export_graph
 	cp docs/paper/reduction_graph.json docs/src/reductions/
 	cargo doc --all-features --no-deps
-	rm -rf docs/book/api
-	cp -r target/doc docs/book/api
-	mdbook serve docs --open
+	mdbook build
+	rm -rf book/api
+	cp -r target/doc book/api
+	@-fuser -k 3001/tcp 2>/dev/null || true
+	@echo "Serving at http://localhost:3001"
+	python3 -m http.server 3001 -d book &
+	@sleep 1 && xdg-open http://localhost:3001
 
 # Generate all example JSON files for the paper
 REDUCTION_EXAMPLES := $(patsubst examples/%.rs,%,$(wildcard examples/reduction_*.rs))
