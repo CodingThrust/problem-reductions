@@ -23,16 +23,112 @@
 
 #let problem-schemas = json("problem_schemas.json")
 
-// Render a problem's JSON schema as a field table
+// Problem name abbreviations for theorem labels
+#let name-abbrev = (
+  "IndependentSet": "is",
+  "VertexCovering": "vc",
+  "MaxCut": "maxcut",
+  "KColoring": "coloring",
+  "DominatingSet": "dominatingset",
+  "Matching": "matching",
+  "Clique": "clique",
+  "SetPacking": "setpacking",
+  "SetCovering": "setcovering",
+  "SpinGlass": "spinglass",
+  "QUBO": "qubo",
+  "ILP": "ilp",
+  "Satisfiability": "sat",
+  "KSatisfiability": "ksat",
+  "CircuitSAT": "circuit",
+  "Factoring": "factoring",
+  "GridGraph": "gridgraph",
+)
+
+// Special case mappings where JSON direction differs from theorem label
+#let label-overrides = (
+  "SetPacking->IndependentSet": "thm:is-to-setpacking",
+  "VertexCovering->IndependentSet": "thm:is-to-vc",
+)
+
+// Generate theorem label from source/target names (canonical direction)
+#let reduction-label(source, target) = {
+  // Check for override first
+  let key = source + "->" + target
+  if key in label-overrides {
+    return label(label-overrides.at(key))
+  }
+  let src = name-abbrev.at(source, default: lower(source))
+  let tgt = name-abbrev.at(target, default: lower(target))
+  label("thm:" + src + "-to-" + tgt)
+}
+
+// Extract reductions for a problem from graph-data (returns (name, label) pairs)
+// For bidirectional edges, uses the canonical (stored) direction for the label
+#let get-reductions-to(problem-name) = {
+  // Direct edges: source = problem-name
+  let direct = graph-data.edges
+    .filter(e => e.source.name == problem-name)
+    .map(e => (name: e.target.name, lbl: reduction-label(e.source.name, e.target.name)))
+  // Reverse of bidirectional edges: target = problem-name, bidirectional = true
+  let reverse = graph-data.edges
+    .filter(e => e.target.name == problem-name and e.bidirectional)
+    .map(e => (name: e.source.name, lbl: reduction-label(e.source.name, e.target.name)))
+  (direct + reverse).dedup(key: e => e.name)
+}
+
+#let get-reductions-from(problem-name) = {
+  // Direct edges: target = problem-name
+  let direct = graph-data.edges
+    .filter(e => e.target.name == problem-name)
+    .map(e => (name: e.source.name, lbl: reduction-label(e.source.name, e.target.name)))
+  // Reverse of bidirectional edges: source = problem-name, bidirectional = true
+  let reverse = graph-data.edges
+    .filter(e => e.source.name == problem-name and e.bidirectional)
+    .map(e => (name: e.target.name, lbl: reduction-label(e.source.name, e.target.name)))
+  (direct + reverse).dedup(key: e => e.name)
+}
+
+// Render a single reduction with link
+#let render-reduction-link(r) = {
+  link(r.lbl)[#r.name]
+}
+
+// Render the "Reduces to/from" lines for a problem
+#let render-reductions(problem-name) = {
+  let reduces-to = get-reductions-to(problem-name)
+  let reduces-from = get-reductions-from(problem-name)
+  if reduces-to.len() > 0 or reduces-from.len() > 0 {
+    block(above: 0.5em)[
+      #if reduces-to.len() > 0 [
+        - _Reduces to:_ #reduces-to.map(render-reduction-link).join(", "). \
+      ]
+      #if reduces-from.len() > 0 [
+        - _Reduces from:_ #reduces-from.map(render-reduction-link).join(", ").
+      ]
+    ]
+  }
+}
+
+// Render a problem's JSON schema as a field table (subtle styling)
 #let render-schema(name) = {
   let schema = problem-schemas.find(s => s.name == name)
   if schema == none { return }
+  set text(size: 9pt)
   table(
-    columns: (auto, auto, 1fr),
-    inset: 4pt,
-    align: left,
-    table.header([*Field*], [*Type*], [*Description*]),
-    ..schema.fields.map(f => (raw(f.name), raw(f.type_name), f.description)).flatten()
+    columns: (auto, 1fr),
+    inset: (x: 6pt, y: 3pt),
+    align: (left, left),
+    stroke: none,
+    table.hline(stroke: 0.3pt + luma(200)),
+    table.header(
+      text(fill: luma(100))[Field],
+      text(fill: luma(100))[Description],
+    ),
+    table.hline(stroke: 0.3pt + luma(200)),
+    ..schema.fields.map(f => (
+      text(fill: luma(60), raw(f.name)),
+      text(fill: luma(60), f.description)
+    )).flatten()
   )
 }
 
@@ -117,60 +213,49 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Independent Set (IS)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
 
-  _Reduces to:_ VC (@thm:is-to-vc), SetPacking (@thm:is-to-setpacking), QUBO (@thm:is-to-qubo), ILP (@thm:is-to-ilp), GridGraph IS (@thm:is-to-gridgraph). \
-  _Reduces from:_ VC (@thm:is-to-vc), SAT (@thm:sat-to-is).
-
+  #render-reductions("IndependentSet")
   #render-schema("IndependentSet")
 ] <def:independent-set>
 
 #definition("Vertex Cover (VC)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
 
-  _Reduces to:_ IS (@thm:is-to-vc), SetCovering (@thm:vc-to-setcovering), QUBO (@thm:vc-to-qubo), ILP (@thm:vc-to-ilp). \
-  _Reduces from:_ IS (@thm:is-to-vc).
-
+  #render-reductions("VertexCovering")
   #render-schema("VertexCovering")
 ] <def:vertex-cover>
 
 #definition("Max-Cut")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find partition $(S, overline(S))$ maximizing $sum_((u,v) in E: u in S, v in overline(S)) w(u, v)$.
 
-  _Reduces to:_ SpinGlass (@thm:spinglass-maxcut). \
-  _Reduces from:_ SpinGlass (@thm:spinglass-maxcut).
-
+  #render-reductions("MaxCut")
   #render-schema("MaxCut")
 ] <def:max-cut>
 
 #definition("Graph Coloring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
 
-  _Reduces to:_ ILP (@thm:coloring-to-ilp), QUBO (@thm:coloring-to-qubo). \
-  _Reduces from:_ SAT (@thm:sat-to-coloring).
-
+  #render-reductions("KColoring")
   #render-schema("KColoring")
 ] <def:coloring>
 
 #definition("Dominating Set")[
   Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall v in V: v in S or exists u in S: (u, v) in E$.
 
-  _Reduces to:_ ILP (@thm:dominatingset-to-ilp). \
-  _Reduces from:_ SAT (@thm:sat-to-dominatingset).
-
+  #render-reductions("DominatingSet")
   #render-schema("DominatingSet")
 ] <def:dominating-set>
 
 #definition("Matching")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
 
-  _Reduces to:_ SetPacking (@thm:matching-to-setpacking), ILP (@thm:matching-to-ilp).
-
+  #render-reductions("Matching")
   #render-schema("Matching")
 ] <def:matching>
 
 #definition("Clique")[
   Given a graph $G = (V, E)$ and an integer $k$, the *Clique* problem asks whether there exists a subset $K subset.eq V$ of size at least $k$ such that every pair of distinct vertices in $K$ is adjacent, i.e., $(u, v) in E$ for all distinct $u, v in K$.
 
-  _Reduces to:_ ILP (@thm:clique-to-ilp).
+  #render-reductions("Clique")
 ] <def:clique>
 
 #definition("Unit Disk Graph (Grid Graph)")[
@@ -182,18 +267,14 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Set Packing")[
   Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
 
-  _Reduces to:_ QUBO (@thm:setpacking-to-qubo), ILP (@thm:setpacking-to-ilp). \
-  _Reduces from:_ IS (@thm:is-to-setpacking), Matching (@thm:matching-to-setpacking).
-
+  #render-reductions("SetPacking")
   #render-schema("SetPacking")
 ] <def:set-packing>
 
 #definition("Set Covering")[
   Given universe $U$, collection $cal(S)$ with weights $w: cal(S) -> RR$, find $cal(C) subset.eq cal(S)$ minimizing $sum_(S in cal(C)) w(S)$ s.t. $union.big_(S in cal(C)) S = U$.
 
-  _Reduces to:_ ILP (@thm:setcovering-to-ilp). \
-  _Reduces from:_ VC (@thm:vc-to-setcovering).
-
+  #render-reductions("SetCovering")
   #render-schema("SetCovering")
 ] <def:set-covering>
 
@@ -202,27 +283,21 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Spin Glass (Ising Model)")[
   Given $n$ spin variables $s_i in {-1, +1}$, pairwise couplings $J_(i j) in RR$, and external fields $h_i in RR$, minimize the Hamiltonian (energy function): $H(bold(s)) = -sum_((i,j)) J_(i j) s_i s_j - sum_i h_i s_i$.
 
-  _Reduces to:_ MaxCut (@thm:spinglass-maxcut), QUBO (@thm:spinglass-qubo). \
-  _Reduces from:_ CircuitSAT (@thm:circuit-to-spinglass), MaxCut (@thm:spinglass-maxcut), QUBO (@thm:spinglass-qubo).
-
+  #render-reductions("SpinGlass")
   #render-schema("SpinGlass")
 ] <def:spin-glass>
 
 #definition("QUBO")[
   Given $n$ binary variables $x_i in {0, 1}$, upper-triangular matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables).
 
-  _Reduces to:_ SpinGlass (@thm:spinglass-qubo). \
-  _Reduces from:_ IS (@thm:is-to-qubo), VC (@thm:vc-to-qubo), KColoring (@thm:coloring-to-qubo), SetPacking (@thm:setpacking-to-qubo), $k$-SAT (@thm:ksat-to-qubo), ILP (@thm:ilp-to-qubo), SpinGlass (@thm:spinglass-qubo).
-
+  #render-reductions("QUBO")
   #render-schema("QUBO")
 ] <def:qubo>
 
 #definition("Integer Linear Programming (ILP)")[
   Given $n$ integer variables $bold(x) in ZZ^n$, constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x)$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$ and variable bounds.
 
-  _Reduces to:_ QUBO (@thm:ilp-to-qubo). \
-  _Reduces from:_ KColoring (@thm:coloring-to-ilp), Factoring (@thm:factoring-to-ilp), IS (@thm:is-to-ilp), VC (@thm:vc-to-ilp), Matching (@thm:matching-to-ilp), SetPacking (@thm:setpacking-to-ilp), SetCovering (@thm:setcovering-to-ilp), DominatingSet (@thm:dominatingset-to-ilp), Clique (@thm:clique-to-ilp).
-
+  #render-reductions("ILP")
   #render-schema("ILP")
 ] <def:ilp>
 
@@ -231,35 +306,28 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("SAT")[
   Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 1$ (all clauses satisfied).
 
-  _Reduces to:_ IS (@thm:sat-to-is), KColoring (@thm:sat-to-coloring), DominatingSet (@thm:sat-to-dominatingset), $k$-SAT (@thm:sat-ksat). \
-  _Reduces from:_ $k$-SAT (@thm:sat-ksat).
-
+  #render-reductions("Satisfiability")
   #render-schema("Satisfiability")
 ] <def:satisfiability>
 
 #definition([$k$-SAT])[
   SAT with exactly $k$ literals per clause.
 
-  _Reduces to:_ SAT (@thm:sat-ksat), QUBO (@thm:ksat-to-qubo). \
-  _Reduces from:_ SAT (@thm:sat-ksat).
-
+  #render-reductions("KSatisfiability")
   #render-schema("KSatisfiability")
 ] <def:k-sat>
 
 #definition("Circuit-SAT")[
   Given a Boolean circuit $C$ composed of logic gates (AND, OR, NOT, XOR) with $n$ input variables, find an input assignment $bold(x) in {0,1}^n$ such that $C(bold(x)) = 1$.
 
-  _Reduces to:_ SpinGlass (@thm:circuit-to-spinglass). \
-  _Reduces from:_ Factoring (@thm:factoring-to-circuit).
-
+  #render-reductions("CircuitSAT")
   #render-schema("CircuitSAT")
 ] <def:circuit-sat>
 
 #definition("Factoring")[
   Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
 
-  _Reduces to:_ CircuitSAT (@thm:factoring-to-circuit), ILP (@thm:factoring-to-ilp).
-
+  #render-reductions("Factoring")
   #render-schema("Factoring")
 ] <def:factoring>
 
@@ -310,7 +378,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #theorem[
   *(Spin Glass $arrow.l.r$ QUBO)* The substitution $s_i = 2x_i - 1$ yields $H_"SG"(bold(s)) = H_"QUBO"(bold(x)) + "const"$. [_Problems:_ @def:spin-glass, @def:qubo.]
-] <thm:spinglass-qubo>
+] <thm:spinglass-to-qubo>
 
 #proof[
   Expanding $-sum_(i,j) J_(i j) (2x_i - 1)(2x_j - 1) - sum_i h_i (2x_i - 1)$ gives $Q_(i j) = -4J_(i j)$, $Q_(i i) = 2sum_j J_(i j) - 2h_i$. _Variable mapping:_ Spin $s_i in {-1, +1}$ maps to binary $x_i in {0, 1}$ via $s_i = 2x_i - 1$. Solution extraction: for QUBO solution $bold(x)$, return spins $s_i = 2x_i - 1$. The reverse maps $x_i = (s_i + 1)/2$.
@@ -489,7 +557,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 #theorem[
   *(SAT $arrow.l.r$ $k$-SAT)* @cook1971 @garey1979 Any SAT formula converts to $k$-SAT ($k >= 3$) preserving satisfiability. [_Problems:_ @def:satisfiability, @def:k-sat.]
-] <thm:sat-ksat>
+] <thm:sat-to-ksat>
 
 #proof[
   _Small clauses ($|C| < k$):_ Pad $(ell_1 or ... or ell_r)$ with auxiliary $y$: $(ell_1 or ... or ell_r or y or overline(y) or ...)$ to length $k$.
@@ -542,7 +610,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 #theorem[
   *(Spin Glass $arrow.l.r$ Max-Cut)* @barahona1982 @lucas2014 Ground states of Ising models correspond to maximum cuts. [_Problems:_ @def:spin-glass, @def:max-cut.]
-] <thm:spinglass-maxcut>
+] <thm:spinglass-to-maxcut>
 
 #proof[
   _MaxCut $arrow.r$ SpinGlass:_ Set $J_(i j) = w_(i j)$, $h_i = 0$. Maximizing cut equals minimizing $-sum J_(i j) s_i s_j$ since $s_i s_j = -1$ when $s_i != s_j$.
@@ -837,30 +905,6 @@ The following table shows concrete variable overhead for example instances, gene
   let d = load-example(n)
   (name: n, data: d)
 })
-
-#figure(
-  table(
-    columns: (auto, auto, auto, auto, auto),
-    inset: 5pt,
-    align: (left, left, right, right, right),
-    table.header([*Reduction*], [*Instance*], [*Src Vars*], [*Tgt Vars*], [*Ratio*]),
-    ..examples.map(ex => {
-      let d = ex.data
-      let sv = instance-vars(d.source.instance)
-      let tv = instance-vars(d.target.instance)
-      let ratio = if sv > 0 { calc.round(tv / sv, digits: 1) } else { 0 }
-      let label = ex.name.replace("_to_", " $arrow.r$ ").replace("_", " ")
-      (
-        [#label],
-        [#d.source.problem $arrow.r$ #d.target.problem],
-        [#sv],
-        [#tv],
-        [#(ratio)x],
-      )
-    }).flatten()
-  ),
-  caption: [Concrete variable overhead for all example instances. Generated by `make examples`.]
-) <tab:resource-estimation>
 
 = Summary <sec:summary>
 
