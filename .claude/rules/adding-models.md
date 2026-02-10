@@ -5,55 +5,23 @@ paths:
 
 # Adding a Model (Problem Type)
 
-## 1. Define the Model
-Create `src/models/<category>/<name>.rs`:
+**Reference implementation:** `src/models/graph/kcoloring.rs`
 
-```rust
-use serde::{Deserialize, Serialize};
-use crate::traits::{Problem, ProblemSize};
+## Steps
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MyProblem<W> {
-    // Problem data fields
-    pub size: usize,
-    pub weights: Vec<W>,
-    // ...
-}
+1. **Create** `src/models/<category>/<name>.rs` — follow the reference for struct definition, `Problem` impl, and optionally `ConstraintSatisfactionProblem` impl.
+2. **Register** in `src/models/<category>/mod.rs`.
+3. **Add tests** in `src/unit_tests/models/<category>/<name>.rs` (linked via `#[path]`).
+4. **Document** in `docs/paper/reductions.typ`: add `display-name` entry and `#problem-def("Name")[definition...]`.
 
-impl<W: Clone> Problem for MyProblem<W> {
-    fn num_variables(&self) -> usize { ... }
-    fn problem_size(&self) -> ProblemSize { ... }
-    fn is_valid_solution(&self, solution: &[usize]) -> bool { ... }
-}
-```
+## Categories
 
-## 2. Register in Module
-Add to `src/models/<category>/mod.rs`:
-```rust
-mod my_problem;
-pub use my_problem::MyProblem;
-```
+- `src/models/satisfiability/` — Satisfiability, KSatisfiability, CircuitSAT
+- `src/models/graph/` — MaximumIndependentSet, MinimumVertexCover, KColoring, etc.
+- `src/models/set/` — MinimumSetCovering, MaximumSetPacking
+- `src/models/optimization/` — SpinGlass, QUBO, ILP
+- `src/models/specialized/` — Factoring
 
-## 3. Categories
-Place models in appropriate category:
-- `src/models/satisfiability/` - Satisfiability, KSatisfiability, CircuitSAT
-- `src/models/graph/` - MaximumIndependentSet, MinimumVertexCover, KColoring, etc.
-- `src/models/set/` - MinimumSetCovering, MaximumSetPacking
-- `src/models/optimization/` - SpinGlass, QUBO, ILP
+## Naming
 
-## 4. Required Traits
-- `Serialize`, `Deserialize` - JSON I/O support
-- `Clone`, `Debug` - Standard Rust traits
-- `Problem` - Core trait with `num_variables()`, `problem_size()`, `is_valid_solution()`
-- Consider `ConstraintSatisfactionProblem` if applicable
-
-## 5. Naming
 Use explicit optimization prefixes: `Maximum` for maximization, `Minimum` for minimization (e.g., `MaximumIndependentSet`, `MinimumVertexCover`).
-
-## 6. Documentation
-Document in `docs/paper/reductions.typ` using `#problem-def("ProblemName", "Display Title")[...]`
-
-## Anti-patterns
-- Don't create models without JSON serialization support
-- Don't forget to implement `is_valid_solution()` correctly
-- Don't use concrete types when generic `W` is appropriate

@@ -97,8 +97,9 @@ Reduction graph nodes use variant IDs: `ProblemName[/GraphType][/Weighted]`
 - Test naming: `test_<source>_to_<target>_closed_loop`
 
 ### Paper (docs/paper/reductions.typ)
-- `problem-def(name, title, body)` — defines a problem with auto-generated schema, reductions list, and label `<def:ProblemName>`
-- `reduction-rule(source, target, ...)` — generates a theorem with label `<thm:Source-to-Target>` and registers in `covered-rules` state
+- `problem-def(name)[body]` — defines a problem with auto-generated schema, reductions list, and label `<def:ProblemName>`. Title comes from `display-name` dict.
+- `reduction-rule(source, target, example: bool, ...)[rule][proof]` — generates a theorem with label `<thm:Source-to-Target>` and registers in `covered-rules` state. Overhead auto-derived from JSON edge data.
+- Every directed reduction needs its own `reduction-rule` entry
 - Completeness warnings auto-check that all JSON graph nodes/edges are covered in the paper
 - `display-name` dict maps `ProblemName` to display text
 

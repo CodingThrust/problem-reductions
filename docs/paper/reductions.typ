@@ -70,9 +70,12 @@
     .dedup(key: e => e.name)
 }
 
-// Render a single reduction with link
+// Render a single reduction with link (uses context to skip broken links gracefully)
 #let render-reduction-link(r) = {
-  link(r.lbl)[#r.name]
+  context {
+    if query(r.lbl).len() > 0 { link(r.lbl)[#r.name] }
+    else { r.name }
+  }
 }
 
 // Render the "Reduces to/from" lines for a problem
@@ -407,6 +410,18 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   ($arrow.r.double$) If $C$ is a vertex cover, for any $u, v in V backslash C$, $(u, v) in.not E$, so $V backslash C$ is independent. ($arrow.l.double$) If $S$ is independent, for any $(u, v) in E$, at most one endpoint is in $S$, so $V backslash S$ covers all edges. _Variable mapping:_ Given VC instance $(G, w)$, create IS instance $(G, w)$ with identical graph and weights. Solution extraction: for IS solution $S$, return $C = V backslash S$. The complement operation preserves optimality since $|S| + |C| = |V|$ is constant.
 ]
 
+#reduction-rule("MaximumIndependentSet", "MinimumVertexCover")[
+  The complement $C = V backslash S$ of an independent set is a vertex cover. Same graph and weights; reverse of VC $arrow.r$ IS.
+][
+  Identical to the reverse direction: $S$ is independent iff $V backslash S$ is a cover, with $|"IS"| + |"VC"| = |V|$. _Solution extraction:_ for VC solution $C$, return $S = V backslash C$.
+]
+
+#reduction-rule("MaximumIndependentSet", "MaximumSetPacking")[
+  Each vertex becomes a singleton set of its incident edges; non-adjacent vertices have disjoint edge sets. Reverse of Set Packing $arrow.r$ IS.
+][
+  _Variable mapping:_ Universe $U = E$ (edges), $S_v = {e in E : v in e}$, $w(S_v) = w(v)$. Independent vertices have no shared edges, so their edge sets are disjoint $arrow.r.double$ packing. _Solution extraction:_ for packing ${S_v : v in P}$, return IS $= P$.
+]
+
 #reduction-rule("MaximumSetPacking", "MaximumIndependentSet")[
   Construct intersection graph $G' = (V', E')$ where $V' = cal(S)$ and $(S_i, S_j) in E'$ iff $S_i inter S_j != emptyset$, with $w(v_i) = w(S_i)$. Max packing $equiv$ Max IS on $G'$.
 ][
@@ -423,6 +438,12 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   Construct $U = V$, $S_e = {u, v}$ for $e = (u,v)$, $w(S_e) = w(e)$. Then $M$ is a matching iff ${S_e : e in M}$ is a packing.
 ][
   Each edge becomes a set of its endpoints; disjoint edges have disjoint endpoint sets. _Variable mapping:_ Universe $U = V$ (vertices), $S_e = {u, v}$ for $e = (u,v)$, $w(S_e) = w(e)$. Solution extraction: for packing ${S_e : e in P}$, return matching $= P$ (the edges whose endpoint sets were packed).
+]
+
+#reduction-rule("QUBO", "SpinGlass")[
+  The inverse substitution $x_i = (s_i + 1)/2$ converts QUBO to Ising. Reverse of SpinGlass $arrow.r$ QUBO.
+][
+  Expanding $sum_(i,j) Q_(i j) (s_i+1)(s_j+1)/4$ gives $J_(i j) = -Q_(i j)/4$, $h_i = -(Q_(i i) + sum_j Q_(i j))/2$. _Solution extraction:_ $x_i = (s_i + 1)/2$.
 ]
 
 #reduction-rule("SpinGlass", "QUBO",
@@ -581,6 +602,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Set $x_i = 1$ if $"pos"_i$ selected; $x_i = 0$ if $"neg"_i$ selected.
 ]
 
+#reduction-rule("KSatisfiability", "Satisfiability")[
+  Every $k$-SAT instance is already a SAT instance (clauses happen to have exactly $k$ literals). The embedding is trivial.
+][
+  _Variable mapping:_ Identity — variables and clauses unchanged. _Solution extraction:_ identity.
+]
+
 #reduction-rule("Satisfiability", "KSatisfiability")[
   @cook1971 @garey1979 Any SAT formula converts to $k$-SAT ($k >= 3$) preserving satisfiability.
 ][
@@ -626,6 +653,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Output constraint:_ $M_k := "bit"_k(N)$ for $k = 1, ..., m+n$.
 
   _Solution extraction._ $p = sum_i p_i 2^(i-1)$, $q = sum_j q_j 2^(j-1)$.
+]
+
+#reduction-rule("MaxCut", "SpinGlass")[
+  @barahona1982 Set $J_(i j) = w_(i j)$, $h_i = 0$. Maximizing cut equals minimizing $-sum J_(i j) s_i s_j$.
+][
+  Opposite-partition vertices satisfy $s_i s_j = -1$, contributing $-J_(i j)(-1) = J_(i j)$ to the energy. _Variable mapping:_ $J_(i j) = w_(i j)$, $h_i = 0$, spins $s_i = 2 sigma_i - 1$ where $sigma_i in {0, 1}$ is the partition label. _Solution extraction:_ partition $= {i : s_i = +1}$.
 ]
 
 #reduction-rule("SpinGlass", "MaxCut")[
@@ -894,10 +927,7 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
     unique
   }
   let missing = json-edges.filter(e => {
-    covered.find(c =>
-      (c.at(0) == e.at(0) and c.at(1) == e.at(1)) or
-      (c.at(0) == e.at(1) and c.at(1) == e.at(0))
-    ) == none
+    covered.find(c => c.at(0) == e.at(0) and c.at(1) == e.at(1)) == none
   })
   if missing.len() > 0 {
     block(width: 100%, inset: (x: 1em, y: 0.5em), fill: rgb("#fff3cd"), stroke: (left: 3pt + rgb("#ffc107")))[

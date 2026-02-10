@@ -135,14 +135,15 @@ fn test_to_json() {
     // Check edges
     assert!(json.edges.len() >= 10);
 
-    // Check that IS <-> VC is marked bidirectional
-    let is_vc_edge = json.edges.iter().find(|e| {
-        (e.source.name.contains("MaximumIndependentSet") && e.target.name.contains("MinimumVertexCover"))
-            || (e.source.name.contains("MinimumVertexCover")
-                && e.target.name.contains("MaximumIndependentSet"))
+    // Check that IS -> VC and VC -> IS both exist as separate directed edges
+    let is_to_vc = json.edges.iter().any(|e| {
+        e.source.name == "MaximumIndependentSet" && e.target.name == "MinimumVertexCover"
     });
-    assert!(is_vc_edge.is_some());
-    assert!(is_vc_edge.unwrap().bidirectional);
+    let vc_to_is = json.edges.iter().any(|e| {
+        e.source.name == "MinimumVertexCover" && e.target.name == "MaximumIndependentSet"
+    });
+    assert!(is_to_vc, "Should have IS -> VC edge");
+    assert!(vc_to_is, "Should have VC -> IS edge");
 }
 
 #[test]
@@ -155,7 +156,10 @@ fn test_to_json_string() {
     assert!(json_string.contains("\"edges\""));
     assert!(json_string.contains("MaximumIndependentSet"));
     assert!(json_string.contains("\"category\""));
-    assert!(json_string.contains("\"bidirectional\""));
+    assert!(json_string.contains("\"overhead\""));
+
+    // The legacy "bidirectional" field must not be present
+    assert!(!json_string.contains("\"bidirectional\""), "JSON should not contain the removed 'bidirectional' field");
 }
 
 #[test]
@@ -402,36 +406,35 @@ fn test_categorize_circuit_as_specialized() {
 }
 
 #[test]
-fn test_edge_bidirectionality_detection() {
+fn test_directed_edge_pairs() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // Count bidirectional and unidirectional edges
-    let bidirectional_count = json.edges.iter().filter(|e| e.bidirectional).count();
-    let unidirectional_count = json.edges.iter().filter(|e| !e.bidirectional).count();
+    // IS <-> VC: both directions should exist as separate edges
+    let is_to_vc = json
+        .edges
+        .iter()
+        .any(|e| e.source.name == "MaximumIndependentSet" && e.target.name == "MinimumVertexCover");
+    let vc_to_is = json
+        .edges
+        .iter()
+        .any(|e| e.source.name == "MinimumVertexCover" && e.target.name == "MaximumIndependentSet");
+    assert!(is_to_vc, "Should have IS -> VC edge");
+    assert!(vc_to_is, "Should have VC -> IS edge");
 
-    // We should have both types
-    assert!(bidirectional_count > 0, "Should have bidirectional edges");
-    assert!(unidirectional_count > 0, "Should have unidirectional edges");
-
-    // Verify specific known bidirectional edges
-    let is_vc_bidir = json.edges.iter().any(|e| {
-        (e.source.name.contains("MaximumIndependentSet") && e.target.name.contains("MinimumVertexCover")
-            || e.source.name.contains("MinimumVertexCover")
-                && e.target.name.contains("MaximumIndependentSet"))
-            && e.bidirectional
-    });
-    assert!(is_vc_bidir, "IS <-> VC should be bidirectional");
-
-    // Verify specific known unidirectional edge
-    let factoring_circuit_unidir = json.edges.iter().any(|e| {
-        e.source.name.contains("Factoring")
-            && e.target.name.contains("CircuitSAT")
-            && !e.bidirectional
-    });
+    // Factoring -> CircuitSAT: only forward direction
+    let factoring_to_circuit = json
+        .edges
+        .iter()
+        .any(|e| e.source.name == "Factoring" && e.target.name == "CircuitSAT");
+    let circuit_to_factoring = json
+        .edges
+        .iter()
+        .any(|e| e.source.name == "CircuitSAT" && e.target.name == "Factoring");
+    assert!(factoring_to_circuit, "Should have Factoring -> CircuitSAT");
     assert!(
-        factoring_circuit_unidir,
-        "Factoring -> CircuitSAT should be unidirectional"
+        !circuit_to_factoring,
+        "Should NOT have CircuitSAT -> Factoring"
     );
 }
 
