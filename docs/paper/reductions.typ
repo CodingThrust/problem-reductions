@@ -44,12 +44,6 @@
   "GridGraph": "gridgraph",
 )
 
-// Special case mappings where JSON direction differs from theorem label
-#let label-overrides = (
-  "SetPacking->IndependentSet": "thm:is-to-setpacking",
-  "VertexCovering->IndependentSet": "thm:is-to-vc",
-)
-
 // Problem display names for theorem headers
 #let display-name = (
   "IndependentSet": "IS",
@@ -92,6 +86,12 @@
   "GridGraph": "def:independent-set",
 )
 
+
+// Special case mappings where JSON direction differs from theorem label
+#let label-overrides = (
+  "SetPacking->IndependentSet": "thm:is-to-setpacking",
+  "VertexCovering->IndependentSet": "thm:is-to-vc",
+)
 
 // Generate theorem label from source/target names (canonical direction)
 #let reduction-label(source, target) = {
@@ -945,7 +945,79 @@ The following table shows concrete variable overhead for example instances, gene
 
 = Summary <sec:summary>
 
-#let gray = rgb("#e8e8e8")
+// Metadata for each reduction: (overhead, references, is_trivial)
+#let reduction-meta = (
+  // Trivial reductions (gray)
+  "Matching->SetPacking": ([$O(|E|)$], [—], true),
+  "VertexCovering->SetCovering": ([$O(|V| + |E|)$], [—], true),
+  "SpinGlass->QUBO": ([$O(n^2)$], [—], true),
+  // QUBO reductions
+  "IndependentSet->QUBO": ([$O(n)$], [@lucas2014 @glover2019], false),
+  "VertexCovering->QUBO": ([$O(n)$], [@lucas2014 @glover2019], false),
+  "KColoring->QUBO": ([$O(n dot k)$], [@lucas2014 @glover2019], false),
+  "SetPacking->QUBO": ([$O(n)$], [@glover2019], false),
+  "KSatisfiability->QUBO": ([$O(n)$], [@glover2019], false),
+  "ILP->QUBO": ([$O(n)$], [@lucas2014 @glover2019], false),
+  // SAT reductions
+  "Satisfiability->IndependentSet": ([$O(sum_j |C_j|^2)$], [@karp1972], false),
+  "Satisfiability->KColoring": ([$O(n + sum_j |C_j|)$], [@garey1979], false),
+  "Satisfiability->DominatingSet": ([$O(3n + m)$], [@garey1979], false),
+  "Satisfiability->KSatisfiability": ([$O(sum_j |C_j|)$], [@cook1971 @garey1979], false),
+  // Circuit/Physics reductions
+  "CircuitSAT->SpinGlass": ([$O(|"gates"|)$], [@whitfield2012 @lucas2014], false),
+  "Factoring->CircuitSAT": ([$O(m n)$], [Folklore], false),
+  "SpinGlass->MaxCut": ([$O(n + |J|)$], [@barahona1982 @lucas2014], false),
+  // ILP reductions (trivial)
+  "KColoring->ILP": ([$O(|V| dot k + |E| dot k)$], [—], true),
+  "Factoring->ILP": ([$O(m n)$], [—], true),
+  "IndependentSet->ILP": ([$O(|V| + |E|)$], [—], true),
+  "VertexCovering->ILP": ([$O(|V| + |E|)$], [—], true),
+  "Matching->ILP": ([$O(|E| + |V|)$], [—], true),
+  "SetPacking->ILP": ([$O(|cal(S)|^2)$], [—], true),
+  "SetCovering->ILP": ([$O(|cal(S)| + |U|)$], [—], true),
+  "DominatingSet->ILP": ([$O(|V| + |E|)$], [—], true),
+  "Clique->ILP": ([$O(|V| + |overline(E)|)$], [—], true),
+  // Grid graph
+  "IndependentSet->GridGraph": ([$O(n^2)$], [@nguyen2023], false),
+)
+
+// Get unique edges from graph-data
+#let unique-edges = {
+  let seen = ()
+  let result = ()
+  for e in graph-data.edges {
+    let key = e.source.name + "->" + e.target.name
+    if key not in seen {
+      seen.push(key)
+      result.push((
+        source: e.source.name,
+        target: e.target.name,
+        bidir: e.bidirectional,
+        key: key,
+      ))
+    }
+  }
+  result
+}
+
+// Generate table row for an edge
+#let make-row(e) = {
+  let src-disp = display-name.at(e.source, default: e.source)
+  let tgt-disp = display-name.at(e.target, default: e.target)
+  let arrow = if e.bidir { $arrow.l.r$ } else { $arrow.r$ }
+  let meta = reduction-meta.at(e.key, default: ([?], [?], false))
+  let (overhead, refs, is-trivial) = meta
+  let gray = rgb("#e8e8e8")
+  if is-trivial {
+    (
+      table.cell(fill: gray)[#src-disp #arrow #tgt-disp],
+      table.cell(fill: gray)[#overhead],
+      table.cell(fill: gray)[#refs],
+    )
+  } else {
+    ([#src-disp #arrow #tgt-disp], [#overhead], [#refs])
+  }
+}
 
 #figure(
   table(
@@ -953,35 +1025,9 @@ The following table shows concrete variable overhead for example instances, gene
     inset: 5pt,
     align: left,
     table.header([*Reduction*], [*Overhead*], [*Reference*]),
-    table.cell(fill: gray)[IS $arrow.l.r$ VC], table.cell(fill: gray)[$O(|V|)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[IS $arrow.r$ SetPacking], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[Matching $arrow.r$ SetPacking], table.cell(fill: gray)[$O(|E|)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[VC $arrow.r$ SetCovering], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
-    [IS $arrow.r$ QUBO], [$O(n)$], [@lucas2014 @glover2019],
-    [VC $arrow.r$ QUBO], [$O(n)$], [@lucas2014 @glover2019],
-    [KColoring $arrow.r$ QUBO], [$O(n dot k)$], [@lucas2014 @glover2019],
-    [SetPacking $arrow.r$ QUBO], [$O(n)$], [@glover2019],
-    [2-SAT $arrow.r$ QUBO], [$O(n)$], [@glover2019],
-    [Binary ILP $arrow.r$ QUBO], [$O(n)$], [@lucas2014 @glover2019],
-    [SAT $arrow.r$ IS], [$O(sum_j |C_j|^2)$], [@karp1972],
-    [SAT $arrow.r$ 3-Coloring], [$O(n + sum_j |C_j|)$], [@garey1979],
-    [SAT $arrow.r$ DominatingSet], [$O(3n + m)$], [@garey1979],
-    [SAT $arrow.l.r$ $k$-SAT], [$O(sum_j |C_j|)$], [@cook1971 @garey1979],
-    [CircuitSAT $arrow.r$ SpinGlass], [$O(|"gates"|)$], [@whitfield2012 @lucas2014],
-    [Factoring $arrow.r$ CircuitSAT], [$O(m n)$], [Folklore],
-    [SpinGlass $arrow.l.r$ MaxCut], [$O(n + |J|)$], [@barahona1982 @lucas2014],
-    table.cell(fill: gray)[Coloring $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| dot k + |E| dot k)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[Factoring $arrow.r$ ILP], table.cell(fill: gray)[$O(m n)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[IS $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[VC $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[Matching $arrow.r$ ILP], table.cell(fill: gray)[$O(|E| + |V|)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[SetPacking $arrow.r$ ILP], table.cell(fill: gray)[$O(|cal(S)|^2)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[SetCovering $arrow.r$ ILP], table.cell(fill: gray)[$O(|cal(S)| + |U|)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[DominatingSet $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[Clique $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| + |overline(E)|)$], table.cell(fill: gray)[—],
-    [IS $arrow.r$ GridGraph IS], [$O(n^2)$], [@nguyen2023],
+    ..unique-edges.map(make-row).flatten()
   ),
-  caption: [Summary of reductions. Gray rows indicate trivial (complement/isomorphism) reductions.]
+  caption: [Summary of #unique-edges.len() reductions. Gray rows indicate trivial (complement/isomorphism) reductions.]
 ) <tab:summary>
 
 #bibliography("references.bib", style: "ieee")

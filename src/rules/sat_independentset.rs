@@ -130,8 +130,8 @@ impl<W> ReductionSATToIS<W> {
     target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_vertices", poly!(7 * num_clauses)),
-            ("num_edges", poly!(21 * num_clauses)),
+            ("num_vertices", poly!(num_literals)),
+            ("num_edges", poly!(num_literals ^ 2)),
         ])
     }
 )]

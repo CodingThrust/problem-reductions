@@ -52,6 +52,15 @@ pub struct VariantRef {
     pub variant: std::collections::BTreeMap<String, String>,
 }
 
+/// A single output field in the reduction overhead.
+#[derive(Debug, Clone, Serialize)]
+pub struct OverheadFieldJson {
+    /// Output field name (e.g., "num_vars").
+    pub field: String,
+    /// Formula as a human-readable string (e.g., "num_vertices").
+    pub formula: String,
+}
+
 /// An edge in the reduction graph JSON.
 #[derive(Debug, Clone, Serialize)]
 pub struct EdgeJson {
@@ -61,6 +70,8 @@ pub struct EdgeJson {
     pub target: VariantRef,
     /// Whether the reverse reduction also exists.
     pub bidirectional: bool,
+    /// Reduction overhead: output size as polynomials of input size.
+    pub overhead: Vec<OverheadFieldJson>,
 }
 
 /// A path through the reduction graph.
@@ -611,27 +622,37 @@ impl ReductionGraph {
         nodes.sort_by(|a, b| (&a.name, &a.variant).cmp(&(&b.name, &b.variant)));
 
         // Collect edges, checking for bidirectionality
-        let mut edge_set: HashMap<(VariantRef, VariantRef), bool> = HashMap::new();
+        let mut edge_set: HashMap<(VariantRef, VariantRef), (bool, ReductionOverhead)> =
+            HashMap::new();
 
         for entry in inventory::iter::<ReductionEntry> {
             let src_ref = Self::make_variant_ref(entry.source_name, entry.source_variant);
             let dst_ref = Self::make_variant_ref(entry.target_name, entry.target_variant);
+            let overhead = entry.overhead();
 
             let reverse_key = (dst_ref.clone(), src_ref.clone());
-            if edge_set.contains_key(&reverse_key) {
-                edge_set.insert(reverse_key, true);
+            if let Some(existing) = edge_set.get_mut(&reverse_key) {
+                existing.0 = true;
             } else {
-                edge_set.insert((src_ref, dst_ref), false);
+                edge_set.insert((src_ref, dst_ref), (false, overhead));
             }
         }
 
         // Build edges
         let mut edges: Vec<EdgeJson> = edge_set
             .into_iter()
-            .map(|((src, dst), bidirectional)| EdgeJson {
+            .map(|((src, dst), (bidirectional, overhead))| EdgeJson {
                 source: src,
                 target: dst,
                 bidirectional,
+                overhead: overhead
+                    .output_size
+                    .iter()
+                    .map(|(field, poly)| OverheadFieldJson {
+                        field: field.to_string(),
+                        formula: poly.to_string(),
+                    })
+                    .collect(),
             })
             .collect();
         edges.sort_by(|a, b| {
