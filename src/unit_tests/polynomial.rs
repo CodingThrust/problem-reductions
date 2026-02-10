@@ -1,5 +1,4 @@
 use super::*;
-use crate::poly;
 
 #[test]
 fn test_monomial_constant() {
