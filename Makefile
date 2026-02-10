@@ -44,10 +44,14 @@ clippy:
 
 # Build mdBook documentation
 doc:
+	cargo run --example export_graph
+	cp docs/paper/reduction_graph.json docs/src/reductions/
 	mdbook build docs
 
 # Build and serve mdBook with live reload
 mdbook:
+	cargo run --example export_graph
+	cp docs/paper/reduction_graph.json docs/src/reductions/
 	mdbook serve docs --open
 
 # Generate all example JSON files for the paper
