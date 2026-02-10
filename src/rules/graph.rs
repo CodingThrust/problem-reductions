@@ -72,6 +72,8 @@ pub struct EdgeJson {
     pub bidirectional: bool,
     /// Reduction overhead: output size as polynomials of input size.
     pub overhead: Vec<OverheadFieldJson>,
+    /// Relative rustdoc path for the reduction module.
+    pub doc_path: String,
 }
 
 /// A path through the reduction graph.
@@ -622,26 +624,27 @@ impl ReductionGraph {
         nodes.sort_by(|a, b| (&a.name, &a.variant).cmp(&(&b.name, &b.variant)));
 
         // Collect edges, checking for bidirectionality
-        let mut edge_set: HashMap<(VariantRef, VariantRef), (bool, ReductionOverhead)> =
+        let mut edge_set: HashMap<(VariantRef, VariantRef), (bool, ReductionOverhead, String)> =
             HashMap::new();
 
         for entry in inventory::iter::<ReductionEntry> {
             let src_ref = Self::make_variant_ref(entry.source_name, entry.source_variant);
             let dst_ref = Self::make_variant_ref(entry.target_name, entry.target_variant);
             let overhead = entry.overhead();
+            let doc_path = Self::module_path_to_doc_path(entry.module_path);
 
             let reverse_key = (dst_ref.clone(), src_ref.clone());
             if let Some(existing) = edge_set.get_mut(&reverse_key) {
                 existing.0 = true;
             } else {
-                edge_set.insert((src_ref, dst_ref), (false, overhead));
+                edge_set.insert((src_ref, dst_ref), (false, overhead, doc_path));
             }
         }
 
         // Build edges
         let mut edges: Vec<EdgeJson> = edge_set
             .into_iter()
-            .map(|((src, dst), (bidirectional, overhead))| EdgeJson {
+            .map(|((src, dst), (bidirectional, overhead, doc_path))| EdgeJson {
                 source: src,
                 target: dst,
                 bidirectional,
@@ -653,6 +656,7 @@ impl ReductionGraph {
                         formula: poly.to_string(),
                     })
                     .collect(),
+                doc_path,
             })
             .collect();
         edges.sort_by(|a, b| {
@@ -685,6 +689,16 @@ impl ReductionGraph {
             .to_json_string()
             .map_err(|e| std::io::Error::new(std::io::ErrorKind::InvalidData, e))?;
         std::fs::write(path, json_string)
+    }
+
+    /// Convert a module path to a rustdoc relative path.
+    ///
+    /// E.g., `"problemreductions::rules::spinglass_qubo"` → `"rules/spinglass_qubo/index.html"`.
+    fn module_path_to_doc_path(module_path: &str) -> String {
+        let stripped = module_path
+            .strip_prefix("problemreductions::")
+            .unwrap_or(module_path);
+        format!("{}/index.html", stripped.replace("::", "/"))
     }
 
     /// Compute the rustdoc path for a problem type.

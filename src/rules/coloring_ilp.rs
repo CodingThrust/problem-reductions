@@ -27,6 +27,7 @@ inventory::submit! {
             ("num_vars", poly!(num_vertices * num_colors)),
             ("num_constraints", poly!(num_vertices) + poly!(num_edges * num_colors)),
         ]),
+        module_path: module_path!(),
     }
 }
 

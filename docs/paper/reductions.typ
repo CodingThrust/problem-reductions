@@ -25,8 +25,8 @@
 
 // Problem display names for theorem headers
 #let display-name = (
-  "MaximumIndependentSet": "MIS",
-  "MinimumVertexCover": "MVC",
+  "MaximumIndependentSet": "Maximum Independent Set",
+  "MinimumVertexCover": "Minimum Vertex Cover",
   "MaxCut": "Max-Cut",
   "KColoring": "Coloring",
   "MinimumDominatingSet": "Min Dominating Set",
@@ -149,12 +149,14 @@
 )
 
 // Problem definition wrapper: auto-adds schema, reductions list, and label
-#let problem-def(name, title, body) = {
+#let problem-def(name, body) = {
+  let lbl = label("def:" + name)
+  let title = display-name.at(name)
   [#definition(title)[
     #body
     #render-schema(name)
     #render-reductions(name)
-  ]]
+  ] #lbl]
 }
 
 // Find edge in graph-data by source/target names
@@ -210,14 +212,7 @@
   covered-rules.update(old => old + ((source, target),))
 
   [#theorem[
-    *(#src-disp #arrow #tgt-disp)* #theorem-body
-    #context {
-      let refs = ()
-      if query(src-lbl).len() > 0 { refs.push(ref(src-lbl)) }
-      if source != target and query(tgt-lbl).len() > 0 { refs.push(ref(tgt-lbl)) }
-      if refs.len() == 1 { [_Problem:_ #refs.at(0).] }
-      else if refs.len() > 1 { [_Problems:_ #refs.join(", ").] }
-    }
+    *(*#context { if query(src-lbl).len() > 0 { link(src-lbl)[#src-disp] } else [#src-disp] }* #arrow *#context { if query(tgt-lbl).len() > 0 { link(tgt-lbl)[#tgt-disp] } else [#tgt-disp] }*)* #theorem-body
     #if overhead != none { linebreak(); format-overhead(overhead) }
   ] #thm-lbl]
 

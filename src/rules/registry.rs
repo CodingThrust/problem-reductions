@@ -46,6 +46,8 @@ pub struct ReductionEntry {
     pub target_variant: &'static [(&'static str, &'static str)],
     /// Function to create overhead information (lazy evaluation for static context).
     pub overhead_fn: fn() -> ReductionOverhead,
+    /// Module path where the reduction is defined (from `module_path!()`).
+    pub module_path: &'static str,
 }
 
 impl ReductionEntry {
@@ -80,6 +82,7 @@ impl std::fmt::Debug for ReductionEntry {
             .field("source_variant", &self.source_variant)
             .field("target_variant", &self.target_variant)
             .field("overhead", &self.overhead())
+            .field("module_path", &self.module_path)
             .finish()
     }
 }

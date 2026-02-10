@@ -325,7 +325,8 @@
           "field": "num_interactions",
           "formula": "num_assignments"
         }
-      ]
+      ],
+      "doc_path": "rules/circuit_spinglass/index.html"
     },
     {
       "source": {
@@ -348,7 +349,8 @@
           "field": "num_gates",
           "formula": "num_bits_first * num_bits_second"
         }
-      ]
+      ],
+      "doc_path": "rules/factoring_circuit/index.html"
     },
     {
       "source": {
@@ -375,7 +377,8 @@
           "field": "num_constraints",
           "formula": "3 * num_bits_first * num_bits_second + num_bits_first + num_bits_second + 1"
         }
-      ]
+      ],
+      "doc_path": "rules/factoring_ilp/index.html"
     },
     {
       "source": {
@@ -398,7 +401,8 @@
           "field": "num_vars",
           "formula": "num_vars"
         }
-      ]
+      ],
+      "doc_path": "rules/ilp_qubo/index.html"
     },
     {
       "source": {
@@ -426,7 +430,8 @@
           "field": "num_constraints",
           "formula": "num_vertices + num_edges * num_colors"
         }
-      ]
+      ],
+      "doc_path": "rules/coloring_ilp/index.html"
     },
     {
       "source": {
@@ -449,7 +454,8 @@
           "field": "num_vars",
           "formula": "num_vertices * num_colors"
         }
-      ]
+      ],
+      "doc_path": "rules/coloring_qubo/index.html"
     },
     {
       "source": {
@@ -472,7 +478,8 @@
           "field": "num_vars",
           "formula": "num_vars"
         }
-      ]
+      ],
+      "doc_path": "rules/ksatisfiability_qubo/index.html"
     },
     {
       "source": {
@@ -495,7 +502,8 @@
           "field": "num_vars",
           "formula": "num_vertices"
         }
-      ]
+      ],
+      "doc_path": "rules/maximumindependentset_qubo/index.html"
     },
     {
       "source": {
@@ -522,7 +530,8 @@
           "field": "num_elements",
           "formula": "num_vertices"
         }
-      ]
+      ],
+      "doc_path": "rules/maximummatching_maximumsetpacking/index.html"
     },
     {
       "source": {
@@ -549,7 +558,8 @@
           "field": "num_edges",
           "formula": "num_sets"
         }
-      ]
+      ],
+      "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
     },
     {
       "source": {
@@ -572,7 +582,8 @@
           "field": "num_vars",
           "formula": "num_sets"
         }
-      ]
+      ],
+      "doc_path": "rules/maximumsetpacking_qubo/index.html"
     },
     {
       "source": {
@@ -599,7 +610,8 @@
           "field": "num_edges",
           "formula": "num_edges"
         }
-      ]
+      ],
+      "doc_path": "rules/minimumvertexcover_maximumindependentset/index.html"
     },
     {
       "source": {
@@ -626,7 +638,8 @@
           "field": "num_elements",
           "formula": "num_edges"
         }
-      ]
+      ],
+      "doc_path": "rules/minimumvertexcover_minimumsetcovering/index.html"
     },
     {
       "source": {
@@ -649,7 +662,8 @@
           "field": "num_vars",
           "formula": "num_vertices"
         }
-      ]
+      ],
+      "doc_path": "rules/minimumvertexcover_qubo/index.html"
     },
     {
       "source": {
@@ -676,7 +690,8 @@
           "field": "num_colors",
           "formula": "3"
         }
-      ]
+      ],
+      "doc_path": "rules/sat_coloring/index.html"
     },
     {
       "source": {
@@ -703,7 +718,8 @@
           "field": "num_vars",
           "formula": "num_vars + num_literals"
         }
-      ]
+      ],
+      "doc_path": "rules/sat_ksat/index.html"
     },
     {
       "source": {
@@ -730,7 +746,8 @@
           "field": "num_edges",
           "formula": "num_literals^2"
         }
-      ]
+      ],
+      "doc_path": "rules/sat_maximumindependentset/index.html"
     },
     {
       "source": {
@@ -757,7 +774,8 @@
           "field": "num_edges",
           "formula": "3 * num_vars + num_literals"
         }
-      ]
+      ],
+      "doc_path": "rules/sat_minimumdominatingset/index.html"
     },
     {
       "source": {
@@ -784,7 +802,8 @@
           "field": "num_edges",
           "formula": "num_interactions"
         }
-      ]
+      ],
+      "doc_path": "rules/spinglass_maxcut/index.html"
     },
     {
       "source": {
@@ -807,7 +826,8 @@
           "field": "num_vars",
           "formula": "num_spins"
         }
-      ]
+      ],
+      "doc_path": "rules/spinglass_qubo/index.html"
     }
   ]
 }

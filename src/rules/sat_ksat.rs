@@ -238,5 +238,6 @@ inventory::submit! {
             ("num_clauses", poly!(num_clauses) + poly!(num_literals)),
             ("num_vars", poly!(num_vars) + poly!(num_literals)),
         ]),
+        module_path: module_path!(),
     }
 }

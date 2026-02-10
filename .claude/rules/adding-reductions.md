@@ -20,7 +20,7 @@ Before writing any Rust code, follow this workflow:
    # Example: generate QUBO test data
    cd scripts && uv run python generate_qubo_tests.py
    ```
-3. **Create a practical example** — design a small, explainable instance for `examples/` (e.g., "wireless tower placement" for IndependentSet, "map coloring" for Coloring). This example will also appear in the `docs/paper/reductions.typ`.
+3. **Create a practical example** — design a small, explainable instance for `examples/` (e.g., "wireless tower placement" for MaximumIndependentSet, "map coloring" for KColoring). This example will also appear in the `docs/paper/reductions.typ`.
 4. **Write the implementation plan** — save to `docs/plans/` using `superpowers:writing-plans`. The plan must include implementation details from the brainstorming session (formulas, penalty terms, matrix construction, variable indexing).
 
 ## 1. Implementation
@@ -84,9 +84,9 @@ Add a round-trip demo to `examples/` showing a practical, explainable instance:
 ## 4. Documentation
 
 Update `docs/paper/reductions.typ` (see `rules/documentation.md` for the pattern):
-- Add theorem + proof sketch
+- Add `reduction-rule("Source", "Target", ...)` theorem with proof sketch
 - Add Rust code example from the example program
-- Add to summary table with overhead and citation
+- Add `display-name` entry if the problem is new
 
 The goal is to 1. prove the correctness of the reduction to human beings. 2. provide a minimal working example to the readers.
 
