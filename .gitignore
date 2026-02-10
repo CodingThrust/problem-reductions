@@ -71,3 +71,6 @@ tarpaulin-report.html
 
 # Reference packages (downloaded for comparison)
 pkgref/
+
+# Generated example outputs
+docs/paper/examples/

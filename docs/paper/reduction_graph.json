@@ -418,6 +418,40 @@
     },
     {
       "source": {
+        "name": "MaxCut",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "bidirectional": true
+    },
+    {
+      "source": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "target": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "bidirectional": true
+    },
+    {
+      "source": {
         "name": "Satisfiability",
         "variant": {
           "graph": "SimpleGraph",
@@ -517,40 +551,6 @@
         }
       },
       "bidirectional": false
-    },
-    {
-      "source": {
-        "name": "SpinGlass",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "target": {
-        "name": "MaxCut",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "bidirectional": true
-    },
-    {
-      "source": {
-        "name": "SpinGlass",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "f64"
-        }
-      },
-      "target": {
-        "name": "QUBO",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "f64"
-        }
-      },
-      "bidirectional": true
     },
     {
       "source": {
