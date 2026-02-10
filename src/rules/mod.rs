@@ -62,7 +62,7 @@ pub use graph::{
 pub use coloring_qubo::ReductionKColoringToQUBO;
 pub use maximumindependentset_qubo::ReductionISToQUBO;
 pub use maximumindependentset_maximumsetpacking::{ReductionISToSP, ReductionSPToIS};
-pub use ksatisfiability_qubo::ReductionKSatToQUBO;
+pub use ksatisfiability_qubo::{ReductionKSatToQUBO, ReductionK3SatToQUBO};
 pub use maximummatching_maximumsetpacking::ReductionMatchingToSP;
 pub use sat_coloring::ReductionSATToColoring;
 pub use maximumsetpacking_qubo::ReductionSPToQUBO;
