@@ -142,11 +142,12 @@
   let reduces-from = get-reductions-from(problem-name)
   if reduces-to.len() > 0 or reduces-from.len() > 0 {
     block(above: 0.5em)[
+    #set text(size: 9pt)
       #if reduces-to.len() > 0 [
-        - _Reduces to:_ #reduces-to.map(render-reduction-link).join(", "). \
+        - Reduces to: #reduces-to.map(render-reduction-link).join(", "). \
       ]
       #if reduces-from.len() > 0 [
-        - _Reduces from:_ #reduces-from.map(render-reduction-link).join(", ").
+        - Reduces from: #reduces-from.map(render-reduction-link).join(", ").
       ]
     ]
   }
@@ -156,23 +157,26 @@
 #let render-schema(name) = {
   let schema = problem-schemas.find(s => s.name == name)
   if schema == none { return }
-  set text(size: 9pt)
-  table(
-    columns: (auto, 1fr),
-    inset: (x: 6pt, y: 3pt),
-    align: (left, left),
-    stroke: none,
-    table.hline(stroke: 0.3pt + luma(200)),
-    table.header(
-      text(fill: luma(100))[Field],
-      text(fill: luma(100))[Description],
-    ),
-    table.hline(stroke: 0.3pt + luma(200)),
-    ..schema.fields.map(f => (
-      text(fill: luma(60), raw(f.name)),
-      text(fill: luma(60), f.description)
-    )).flatten()
-  )
+  block(
+    stroke: (left: 2pt + luma(180)),
+    inset: (left: 8pt),
+  )[
+    #set text(size: 9pt)
+    #table(
+      columns: (auto, 1fr),
+      inset: (x: 2pt, y: 3pt),
+      align: (left, left),
+      stroke: none,
+      table.header(
+        text(fill: luma(30), raw(name)),
+      ),
+      table.hline(stroke: 0.3pt + luma(200)),
+      ..schema.fields.map(f => (
+        text(fill: luma(60), raw(f.name)),
+        text(fill: luma(60), raw(f.description))
+      )).flatten()
+    )
+  ]
 }
 
 // Extract primary variable count from an instance dict.
@@ -314,43 +318,43 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Independent Set (IS)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
 
-  #render-reductions("IndependentSet")
   #render-schema("IndependentSet")
+  #render-reductions("IndependentSet")
 ] <def:independent-set>
 
 #definition("Vertex Cover (VC)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
 
-  #render-reductions("VertexCovering")
   #render-schema("VertexCovering")
+  #render-reductions("VertexCovering")
 ] <def:vertex-cover>
 
 #definition("Max-Cut")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find partition $(S, overline(S))$ maximizing $sum_((u,v) in E: u in S, v in overline(S)) w(u, v)$.
 
-  #render-reductions("MaxCut")
   #render-schema("MaxCut")
+  #render-reductions("MaxCut")
 ] <def:max-cut>
 
 #definition("Graph Coloring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
 
-  #render-reductions("KColoring")
   #render-schema("KColoring")
+  #render-reductions("KColoring")
 ] <def:coloring>
 
 #definition("Dominating Set")[
   Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall v in V: v in S or exists u in S: (u, v) in E$.
 
-  #render-reductions("DominatingSet")
   #render-schema("DominatingSet")
+  #render-reductions("DominatingSet")
 ] <def:dominating-set>
 
 #definition("Matching")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
 
-  #render-reductions("Matching")
   #render-schema("Matching")
+  #render-reductions("Matching")
 ] <def:matching>
 
 #definition("Clique")[
@@ -368,15 +372,15 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Set Packing")[
   Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
 
-  #render-reductions("SetPacking")
   #render-schema("SetPacking")
+  #render-reductions("SetPacking")
 ] <def:set-packing>
 
 #definition("Set Covering")[
   Given universe $U$, collection $cal(S)$ with weights $w: cal(S) -> RR$, find $cal(C) subset.eq cal(S)$ minimizing $sum_(S in cal(C)) w(S)$ s.t. $union.big_(S in cal(C)) S = U$.
 
-  #render-reductions("SetCovering")
   #render-schema("SetCovering")
+  #render-reductions("SetCovering")
 ] <def:set-covering>
 
 == Optimization Problems
@@ -384,22 +388,22 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Spin Glass (Ising Model)")[
   Given $n$ spin variables $s_i in {-1, +1}$, pairwise couplings $J_(i j) in RR$, and external fields $h_i in RR$, minimize the Hamiltonian (energy function): $H(bold(s)) = -sum_((i,j)) J_(i j) s_i s_j - sum_i h_i s_i$.
 
-  #render-reductions("SpinGlass")
   #render-schema("SpinGlass")
+  #render-reductions("SpinGlass")
 ] <def:spin-glass>
 
 #definition("QUBO")[
   Given $n$ binary variables $x_i in {0, 1}$, upper-triangular matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables).
 
-  #render-reductions("QUBO")
   #render-schema("QUBO")
+  #render-reductions("QUBO")
 ] <def:qubo>
 
 #definition("Integer Linear Programming (ILP)")[
   Given $n$ integer variables $bold(x) in ZZ^n$, constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x)$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$ and variable bounds.
 
-  #render-reductions("ILP")
   #render-schema("ILP")
+  #render-reductions("ILP")
 ] <def:ilp>
 
 == Satisfiability Problems
@@ -407,29 +411,29 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("SAT")[
   Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 1$ (all clauses satisfied).
 
-  #render-reductions("Satisfiability")
   #render-schema("Satisfiability")
+  #render-reductions("Satisfiability")
 ] <def:satisfiability>
 
 #definition([$k$-SAT])[
   SAT with exactly $k$ literals per clause.
 
-  #render-reductions("KSatisfiability")
   #render-schema("KSatisfiability")
+  #render-reductions("KSatisfiability")
 ] <def:k-sat>
 
 #definition("Circuit-SAT")[
   Given a Boolean circuit $C$ composed of logic gates (AND, OR, NOT, XOR) with $n$ input variables, find an input assignment $bold(x) in {0,1}^n$ such that $C(bold(x)) = 1$.
 
-  #render-reductions("CircuitSAT")
   #render-schema("CircuitSAT")
+  #render-reductions("CircuitSAT")
 ] <def:circuit-sat>
 
 #definition("Factoring")[
   Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
 
-  #render-reductions("Factoring")
   #render-schema("Factoring")
+  #render-reductions("Factoring")
 ] <def:factoring>
 
 = Reductions <sec:reductions>
