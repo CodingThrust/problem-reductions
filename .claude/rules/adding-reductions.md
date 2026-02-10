@@ -15,13 +15,13 @@ Before writing any Rust code, follow this workflow:
    - Discuss implementation approach: penalty values, matrix construction, solution extraction
    - Read reference implementations in the codebase (e.g., `src/rules/spinglass_qubo.rs`) to understand conventions
    - Agree on scope (weighted vs unweighted, specific graph types, const generics)
+   - Which example to demonstrate in the examples/ folder.
 2. **Generate ground truth test data** — use an existing library (e.g., Python with qubogen, qubovert, or networkx) to create small instances, reduce them, brute-force solve both sides, and export as JSON to `tests/data/<target>/`. It is recommended to download the relevant package and check the existing tests to understand how to construct tests. To generate the test data, you can use the following command:
    ```bash
    # Example: generate QUBO test data
    cd scripts && uv run python generate_qubo_tests.py
    ```
-3. **Create a practical example** — design a small, explainable instance for `examples/` (e.g., "wireless tower placement" for MaximumIndependentSet, "map coloring" for KColoring). This example will also appear in the `docs/paper/reductions.typ`.
-4. **Write the implementation plan** — save to `docs/plans/` using `superpowers:writing-plans`. The plan must include implementation details from the brainstorming session (formulas, penalty terms, matrix construction, variable indexing).
+3. **Write the implementation plan** — save to `docs/plans/` using `superpowers:writing-plans`. The plan must include implementation details from the brainstorming session (formulas, penalty terms, matrix construction, variable indexing).
 
 ## 1. Implementation
 
@@ -77,9 +77,10 @@ pub use source_target::ReductionSourceToTarget;
 ## 3. Example Program
 
 Add a round-trip demo to `examples/` showing a practical, explainable instance:
-1. Create source problem with a real-world story
+1. Create source problem
 2. Reduce to target, solve, extract solution
 3. Print human-readable explanation
+4. Dump the reduction information to a json file
 
 ## 4. Documentation
 
@@ -94,7 +95,7 @@ Citations must be verifiable. Use `[Folklore]` or `—` for trivial reductions.
 
 ## 5. Regenerate Reduction Graph
 ```bash
-make export-graph
+cargo run --example export_graph
 ```
 
 ## Anti-patterns

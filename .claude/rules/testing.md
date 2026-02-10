@@ -4,9 +4,6 @@
 New code must have >95% test coverage.
 
 ```bash
-# Check coverage for specific module
-cargo tarpaulin --features ilp --skip-clean --ignore-tests -- <module_name>
-
 # Generate full HTML report
 make coverage
 ```
@@ -26,7 +23,7 @@ fn test_source_to_target_closed_loop() {
     let problem = SourceProblem::new(...);
 
     // 2. Reduce
-    let reduction = problem.reduce_to::<TargetProblem>();
+    let reduction = ReduceTo::<TargetProblem>::reduce_to(&problem);
     let target = reduction.target_problem();
 
     // 3. Solve target
@@ -36,7 +33,7 @@ fn test_source_to_target_closed_loop() {
     // 4. Extract and verify
     for sol in solutions {
         let extracted = reduction.extract_solution(&sol);
-        assert!(problem.is_valid_solution(&extracted));
+        assert!(problem.solution_size(&extracted).is_valid);
     }
 }
 ```

@@ -9,43 +9,53 @@ The technical paper (`docs/paper/reductions.typ`) must include:
 
 1. **Problem Definitions** — using `problem-def` wrapper
 2. **Reduction Theorems** — using `reduction-rule` function
-3. **Reduction Examples** — minimal working example showing reduce → solve → extract
+3. **Reduction Examples** — JSON data from `make examples`, rendered automatically
 
 ## Adding a Problem Definition
 
 ```typst
-#problem-def("MaximumIndependentSet", "Maximum Independent Set (MIS)")[
-  Mathematical definition...
+#problem-def("MaximumIndependentSet")[
+  Given $G = (V, E)$ with vertex weights $w: V -> RR$, find ...
 ]
 ```
 
 This auto-generates:
 - A label `<def:MaximumIndependentSet>` for cross-references
-- The problem's schema (fields from Rust struct)
-- The list of available reductions
+- The problem's schema (fields from JSON export)
+- The list of available reductions (from `reduction_graph.json` edges)
 
 Also add an entry to the `display-name` dictionary:
 ```typst
-"MaximumIndependentSet": "MIS",
+"MaximumIndependentSet": [Maximum Independent Set],
 ```
 
 ## Adding a Reduction Theorem
 
 ```typst
-#reduction-rule(
-  "MaximumIndependentSet", "QUBO",
-  example: "maximumindependentset_to_qubo",
-  overhead: (n: 0, m: 1),
+#reduction-rule("MaximumIndependentSet", "QUBO",
+  example: true,
+  example-caption: [IS on path $P_4$ to QUBO],
 )[
+  Rule statement...
+][
   Proof sketch...
 ]
 ```
+
+Parameters:
+- `source`, `target` — problem names (positional)
+- `example: bool` — if `true`, loads `examples/<source>_to_<target>.json` and `.result.json`
+- `example-caption: content` — caption for the example box
+- `extra: content` — additional content inside the example box
+- `theorem-body`, `proof-body` — the rule statement and proof (positional)
 
 This auto-generates:
 - A theorem label `<thm:MaximumIndependentSet-to-QUBO>`
 - References to source/target problem definitions (if they exist)
 - Registration in `covered-rules` state for completeness checking
-- The example code block from `examples/reduction_<example>.rs`
+- Overhead from `reduction_graph.json` edge data
+
+Every directed reduction in the graph needs its own `reduction-rule` entry.
 
 ## Completeness Warnings
 

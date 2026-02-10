@@ -10,20 +10,29 @@ Create `src/models/<category>/<name>.rs`:
 
 ```rust
 use serde::{Deserialize, Serialize};
-use crate::traits::{Problem, ProblemSize};
+use crate::traits::Problem;
+use crate::types::{EnergyMode, ProblemSize, SolutionSize};
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct MyProblem<W> {
-    // Problem data fields
-    pub size: usize,
-    pub weights: Vec<W>,
-    // ...
+pub struct MyProblem<G, W> {
+    graph: G,
+    weights: Vec<W>,
 }
 
-impl<W: Clone> Problem for MyProblem<W> {
-    fn num_variables(&self) -> usize { ... }
-    fn problem_size(&self) -> ProblemSize { ... }
-    fn is_valid_solution(&self, solution: &[usize]) -> bool { ... }
+impl<G: Graph, W: NumericWeight> Problem for MyProblem<G, W> {
+    const NAME: &'static str = "MyProblem";
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![("graph", G::NAME), ("weight", W::NAME)]
+    }
+    type Size = W;
+
+    fn num_variables(&self) -> usize { self.graph.num_vertices() }
+    fn num_flavors(&self) -> usize { 2 }
+    fn problem_size(&self) -> ProblemSize { ProblemSize::new(vec![("num_vertices", ...)]) }
+    fn energy_mode(&self) -> EnergyMode { EnergyMode::LargerSizeIsBetter }
+    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
+        // Compute objective value, check validity, return SolutionSize::new(value, is_valid)
+    }
 }
 ```
 
@@ -40,20 +49,22 @@ Place models in appropriate category:
 - `src/models/graph/` - MaximumIndependentSet, MinimumVertexCover, KColoring, etc.
 - `src/models/set/` - MinimumSetCovering, MaximumSetPacking
 - `src/models/optimization/` - SpinGlass, QUBO, ILP
+- `src/models/specialized/` - Factoring
 
 ## 4. Required Traits
 - `Serialize`, `Deserialize` - JSON I/O support
 - `Clone`, `Debug` - Standard Rust traits
-- `Problem` - Core trait with `num_variables()`, `problem_size()`, `is_valid_solution()`
-- Consider `ConstraintSatisfactionProblem` if applicable
+- `Problem` - Core trait (see template above for required methods)
+- Consider `ConstraintSatisfactionProblem` if applicable (adds `constraints()`, `objectives()`, `weights()`)
 
 ## 5. Naming
 Use explicit optimization prefixes: `Maximum` for maximization, `Minimum` for minimization (e.g., `MaximumIndependentSet`, `MinimumVertexCover`).
 
 ## 6. Documentation
-Document in `docs/paper/reductions.typ` using `#problem-def("ProblemName", "Display Title")[...]`
+- Add entry to `display-name` dict in `docs/paper/reductions.typ`
+- Add `#problem-def("ProblemName")[mathematical definition...]` in the paper
 
 ## Anti-patterns
 - Don't create models without JSON serialization support
-- Don't forget to implement `is_valid_solution()` correctly
-- Don't use concrete types when generic `W` is appropriate
+- Don't forget to implement `solution_size()` with correct validity checks
+- Don't use concrete types when generic `W` and `G` are appropriate
