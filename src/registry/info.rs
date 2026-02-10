@@ -126,6 +126,8 @@ pub struct ProblemInfo {
     pub canonical_reduction_from: Option<&'static str>,
     /// Wikipedia or reference URL.
     pub reference_url: Option<&'static str>,
+    /// Struct field descriptions for schema export.
+    pub fields: &'static [FieldInfo],
 }
 
 impl ProblemInfo {
@@ -140,6 +142,7 @@ impl ProblemInfo {
             optimization_version: true,
             canonical_reduction_from: None,
             reference_url: None,
+            fields: &[],
         }
     }
 
@@ -179,6 +182,12 @@ impl ProblemInfo {
         self
     }
 
+    /// Builder method to set struct field descriptions.
+    pub const fn with_fields(mut self, fields: &'static [FieldInfo]) -> Self {
+        self.fields = fields;
+        self
+    }
+
     /// Check if this problem is NP-complete.
     pub fn is_np_complete(&self) -> bool {
         self.complexity_class == ComplexityClass::NpComplete
@@ -196,6 +205,17 @@ impl fmt::Display for ProblemInfo {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         write!(f, "{} ({})", self.name, self.complexity_class)
     }
+}
+
+/// Description of a struct field for JSON schema export.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub struct FieldInfo {
+    /// Field name as it appears in the Rust struct.
+    pub name: &'static str,
+    /// Type name (e.g., "Vec<W>", "UnGraph<(), ()>").
+    pub type_name: &'static str,
+    /// Human-readable description of what this field represents.
+    pub description: &'static str,
 }
 
 /// Trait for problems that provide static metadata.
