@@ -1,5 +1,5 @@
 // Problem Reductions: A Mathematical Reference
-#import "reduction-diagram.typ": reduction-graph, graph-data
+#let graph-data = json("reduction_graph.json")
 #import "@preview/cetz:0.4.2": canvas, draw
 #import "@preview/ctheorems:1.1.3": thmbox, thmplain, thmproof, thmrules
 
@@ -98,16 +98,11 @@
 
 = Introduction
 
-A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. @fig:reduction-graph shows the #graph-data.edges.len() reductions connecting #graph-data.nodes.len() problem types.
+A _reduction_ from problem $A$ to problem $B$, denoted $A arrow.long B$, is a polynomial-time transformation of $A$-instances into $B$-instances such that: (1) the transformation runs in polynomial time, (2) solutions to $B$ can be efficiently mapped back to solutions of $A$, and (3) optimal solutions are preserved. The library implements #graph-data.edges.len() reductions connecting #graph-data.nodes.len() problem types.
 
 == Notation
 
 We use the following notation throughout. An _undirected graph_ $G = (V, E)$ consists of a vertex set $V$ and edge set $E subset.eq binom(V, 2)$. For a set $S$, $overline(S)$ or $V backslash S$ denotes its complement. We write $|S|$ for cardinality. For Boolean variables, $overline(x)$ denotes negation ($not x$). A _literal_ is a variable $x$ or its negation $overline(x)$. A _clause_ is a disjunction of literals. A formula in _conjunctive normal form_ (CNF) is a conjunction of clauses. We abbreviate Independent Set as IS, Vertex Cover as VC, and use $n$ for problem size, $m$ for number of clauses, and $k_j = |C_j|$ for clause size.
-
-#figure(
-  reduction-graph(width: 18mm, height: 14mm),
-  caption: [Reduction graph. Colors: green (graph), red (set), yellow (optimization), blue (satisfiability), pink (specialized).]
-) <fig:reduction-graph>
 
 = Problem Definitions <sec:problems>
 
