@@ -23,12 +23,13 @@
 
 // Extract primary variable count from an instance dict.
 #let instance-vars(inst) = {
-  if "num_vertices" in inst { inst.num_vertices }
+  if "num_variables" in inst { inst.num_variables }
+  else if "num_vertices" in inst { inst.num_vertices }
   else if "num_vars" in inst { inst.num_vars }
   else if "num_sets" in inst { inst.num_sets }
   else if "num_spins" in inst { inst.num_spins }
   else if "num_gates" in inst { inst.num_gates }
-  else if "num_bits_first" in inst { inst.num_bits_first }
+  else if "num_bits_first" in inst and "num_bits_second" in inst { inst.num_bits_first + inst.num_bits_second }
   else { 0 }
 }
 
@@ -49,7 +50,7 @@
     *Source:* #data.source.problem with #src-vars variables
     #h(1em)
     *Target:* #data.target.problem with #tgt-vars variables \
-    *Overhead:* #calc.round(tgt-vars / src-vars, digits: 1)x variable growth
+    *Overhead:* #if src-vars > 0 and tgt-vars > 0 [#calc.round(tgt-vars / src-vars, digits: 1)x variable growth] else [—]
     #if body != none { parbreak(); body }
   ]
 }
@@ -106,7 +107,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Independent Set (IS)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
 
-  _Implemented reductions:_ IS→VC (@thm:is-vc), IS↔SetPacking (@thm:is-to-setpacking), IS→QUBO (@thm:is-to-qubo), IS→ILP (@thm:is-to-ilp), IS→GridGraph IS (@thm:is-to-gridgraph), VC→IS (@thm:is-vc), SAT→IS (@thm:sat-to-is).
+  _Implemented reductions:_ IS→VC (@thm:is-to-vc), IS→SetPacking (@thm:is-to-setpacking), IS→QUBO (@thm:is-to-qubo), IS→ILP (@thm:is-to-ilp), IS→GridGraph IS (@thm:is-to-gridgraph), VC→IS (@thm:is-to-vc), SAT→IS (@thm:sat-to-is).
 
   ```rust
   pub struct IndependentSet<W = i32> {
@@ -121,7 +122,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Vertex Cover (VC)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
 
-  _Implemented reductions:_ VC→IS (@thm:is-vc), VC→SetCovering (@thm:vc-to-setcovering), VC→QUBO (@thm:vc-to-qubo), VC→ILP (@thm:vc-to-ilp), IS→VC (@thm:is-vc).
+  _Implemented reductions:_ VC→IS (@thm:is-to-vc), VC→SetCovering (@thm:vc-to-setcovering), VC→QUBO (@thm:vc-to-qubo), VC→ILP (@thm:vc-to-ilp), IS→VC (@thm:is-to-vc).
 
   ```rust
   pub struct VertexCovering<W = i32> {
@@ -208,7 +209,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Set Packing")[
   Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
 
-  _Implemented reductions:_ IS↔SetPacking (@thm:is-to-setpacking), SetPacking→QUBO (@thm:setpacking-to-qubo), SetPacking→ILP (@thm:setpacking-to-ilp), Matching→SetPacking (@thm:matching-to-setpacking).
+  _Implemented reductions:_ IS→SetPacking (@thm:is-to-setpacking), SetPacking→QUBO (@thm:setpacking-to-qubo), SetPacking→ILP (@thm:setpacking-to-ilp), Matching→SetPacking (@thm:matching-to-setpacking).
 
   ```rust
   pub struct SetPacking<W = i32> {
@@ -370,7 +371,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #theorem[
   *(IS $arrow.l.r$ VC)* $S subset.eq V$ is independent iff $V backslash S$ is a vertex cover, with $|"IS"| + |"VC"| = |V|$. [_Problems:_ @def:independent-set, @def:vertex-cover.]
-] <thm:is-vc>
+] <thm:is-to-vc>
 
 #proof[
   ($arrow.r.double$) If $S$ is independent, for any $(u, v) in E$, at most one endpoint lies in $S$, so $V backslash S$ covers all edges. ($arrow.l.double$) If $C$ is a cover, for any $u, v in V backslash C$, $(u, v) in.not E$, so $V backslash C$ is independent. _Variable mapping:_ Given IS instance $(G, w)$, create VC instance $(G, w)$ with identical graph and weights. Solution extraction: for VC solution $C$, return $S = V backslash C$. The complement operation preserves optimality since $|S| + |C| = |V|$ is constant.

@@ -125,3 +125,7 @@ pub fn write_example(name: &str, reduction: &ReductionData, results: &ResultData
     fs::write(&results_path, json).expect("Failed to write results JSON");
     println!("Exported: {}", results_path.display());
 }
+
+#[cfg(test)]
+#[path = "unit_tests/export.rs"]
+mod tests;
