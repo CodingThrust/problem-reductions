@@ -335,23 +335,6 @@
         "name": "IndependentSet",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "target": {
-        "name": "SetPacking",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "bidirectional": true
-    },
-    {
-      "source": {
-        "name": "IndependentSet",
-        "variant": {
-          "graph": "SimpleGraph",
           "weight": "i32"
         }
       },
@@ -528,6 +511,23 @@
       },
       "target": {
         "name": "KSatisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "bidirectional": true
+    },
+    {
+      "source": {
+        "name": "SetPacking",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "IndependentSet",
         "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"

@@ -90,7 +90,7 @@ fn main() {
             .collect();
         let size = selected.len();
         println!(
-            "  Camera positions: {:?} ({} cameras)",
+            "  Cover vertices: {:?} ({} vertices)",
             selected, size
         );
 

@@ -65,7 +65,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Independent Set (IS)")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
 
-  _Implemented reductions:_ IS→VC (@thm:is-vc), IS→SetPacking (@thm:is-to-setpacking), IS→QUBO (@thm:is-to-qubo), IS→ILP (@thm:is-to-ilp), IS→GridGraph IS (@thm:is-to-gridgraph), VC→IS (@thm:is-vc), SAT→IS (@thm:sat-to-is), SetPacking→IS (@thm:is-to-setpacking).
+  _Implemented reductions:_ IS→VC (@thm:is-vc), IS↔SetPacking (@thm:is-to-setpacking), IS→QUBO (@thm:is-to-qubo), IS→ILP (@thm:is-to-ilp), IS→GridGraph IS (@thm:is-to-gridgraph), VC→IS (@thm:is-vc), SAT→IS (@thm:sat-to-is).
 
   ```rust
   pub struct IndependentSet<W = i32> {
@@ -152,6 +152,12 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   Where `num_vertices` is $|V|$, `graph` represents $G = (V, E)$ with edge weights, and `edge_weights` stores weights $w: E -> RR$ indexed by edge index. The solution is a subset $M subset.eq E$ represented as a `Vec<usize>` of edge indices.
 ] <def:matching>
 
+#definition("Clique")[
+  Given a graph $G = (V, E)$ and an integer $k$, the *Clique* problem asks whether there exists a subset $K subset.eq V$ of size at least $k$ such that every pair of distinct vertices in $K$ is adjacent, i.e., $(u, v) in E$ for all distinct $u, v in K$.
+
+  _Implemented reductions:_ Clique→ILP (@thm:clique-to-ilp).
+] <def:clique>
+
 #definition("Unit Disk Graph (Grid Graph)")[
   A graph $G = (V, E)$ where vertices $V$ are points on a 2D lattice and $(u, v) in E$ iff the Euclidean distance $d(u, v) <= r$ for some radius $r$. A _King's subgraph_ uses the King's graph lattice (8-connectivity square grid) with $r approx 1.5$.
 ]
@@ -161,7 +167,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #definition("Set Packing")[
   Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
 
-  _Implemented reductions:_ SetPacking→IS (@thm:is-to-setpacking), SetPacking→QUBO (@thm:setpacking-to-qubo), SetPacking→ILP (@thm:setpacking-to-ilp), IS→SetPacking (@thm:is-to-setpacking), Matching→SetPacking (@thm:matching-to-setpacking).
+  _Implemented reductions:_ IS↔SetPacking (@thm:is-to-setpacking), SetPacking→QUBO (@thm:setpacking-to-qubo), SetPacking→ILP (@thm:setpacking-to-ilp), Matching→SetPacking (@thm:matching-to-setpacking).
 
   ```rust
   pub struct SetPacking<W = i32> {
@@ -834,11 +840,11 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_matching_to_ilp.rs")[`reduction_matching_to_ilp.rs`].
 
 #theorem[
-  *(SetPacking $arrow.r$ ILP)* Set packing reduces to binary ILP with $|cal(S)|$ variables and $|U|$ constraints. [_Problems:_ @def:set-packing, @def:ilp.]
+  *(SetPacking $arrow.r$ ILP)* Set packing reduces to binary ILP with $|cal(S)|$ variables and at most $binom(|cal(S)|, 2)$ constraints. [_Problems:_ @def:set-packing, @def:ilp.]
 ] <thm:setpacking-to-ilp>
 
 #proof[
-  _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. Constraints: $sum_(S_i in.rev u) x_i <= 1$ for each $u in U$. Objective: maximize $sum_i w_i x_i$. _Solution extraction:_ $cal(P) = {S_i : x_i = 1}$.
+  _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. Constraints: $x_i + x_j <= 1$ for each overlapping pair $S_i, S_j in cal(S)$ with $S_i inter S_j != emptyset$. Objective: maximize $sum_i w_i x_i$. _Solution extraction:_ $cal(P) = {S_i : x_i = 1}$.
 ]
 
 See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_setpacking_to_ilp.rs")[`reduction_setpacking_to_ilp.rs`].
@@ -864,7 +870,7 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples/reduction_dominatingset_to_ilp.rs")[`reduction_dominatingset_to_ilp.rs`].
 
 #theorem[
-  *(Clique $arrow.r$ ILP)* Maximum clique reduces to binary ILP with $|V|$ variables and $O(|overline(E)|)$ constraints. [_Problems:_ @def:independent-set, @def:ilp.]
+  *(Clique $arrow.r$ ILP)* Maximum clique reduces to binary ILP with $|V|$ variables and $O(|overline(E)|)$ constraints. [_Problems:_ @def:clique, @def:ilp.]
 ] <thm:clique-to-ilp>
 
 #proof[
@@ -1066,7 +1072,7 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
     table.cell(fill: gray)[IS $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[VC $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[Matching $arrow.r$ ILP], table.cell(fill: gray)[$O(|E| + |V|)$], table.cell(fill: gray)[—],
-    table.cell(fill: gray)[SetPacking $arrow.r$ ILP], table.cell(fill: gray)[$O(|cal(S)| + |U|)$], table.cell(fill: gray)[—],
+    table.cell(fill: gray)[SetPacking $arrow.r$ ILP], table.cell(fill: gray)[$O(|cal(S)|^2)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[SetCovering $arrow.r$ ILP], table.cell(fill: gray)[$O(|cal(S)| + |U|)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[DominatingSet $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| + |E|)$], table.cell(fill: gray)[—],
     table.cell(fill: gray)[Clique $arrow.r$ ILP], table.cell(fill: gray)[$O(|V| + |overline(E)|)$], table.cell(fill: gray)[—],
