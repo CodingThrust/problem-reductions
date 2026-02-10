@@ -6,10 +6,10 @@
 //! Objective: maximize sum of w_i * x_i.
 //!
 //! ## This Example
-//! - Instance: 3 sets: S0={0,1}, S1={1,2}, S2={2,3,4}
-//!   Overlapping pairs: (S0,S1) share element 1, (S1,S2) share element 2
-//! - Source MaximumSetPacking: max packing size 2 (S0 and S2 are disjoint)
-//! - Target ILP: 3 binary variables, 2 overlap constraints
+//! - Instance: 6 sets over universe {0,...,7}
+//!   - S0={0,1,2}, S1={2,3,4}, S2={4,5,6}, S3={6,7,0}, S4={1,3,5}, S5={0,4,7}
+//! - Source MaximumSetPacking: max packing size 2 (e.g., S0 and S2, or S1 and S3)
+//! - Target ILP: 6 binary variables, overlap constraints for each pair sharing elements
 //!
 //! ## Output
 //! Exports `docs/paper/examples/maximumsetpacking_to_ilp.json` and `maximumsetpacking_to_ilp.result.json`.
@@ -19,12 +19,16 @@ use problemreductions::prelude::*;
 use problemreductions::solvers::BruteForceFloat;
 
 fn main() {
-    // 1. Create MaximumSetPacking instance: 3 sets
-    let sp = MaximumSetPacking::<i32>::new(vec![
-        vec![0, 1],
-        vec![1, 2],
-        vec![2, 3, 4],
-    ]);
+    // 1. Create MaximumSetPacking instance: 6 sets over universe {0,...,7}
+    let sets = vec![
+        vec![0, 1, 2],    // S0
+        vec![2, 3, 4],    // S1 (overlaps S0 at 2)
+        vec![4, 5, 6],    // S2 (overlaps S1 at 4)
+        vec![6, 7, 0],    // S3 (overlaps S2 at 6, S0 at 0)
+        vec![1, 3, 5],    // S4 (overlaps S0, S1, S2)
+        vec![0, 4, 7],    // S5 (overlaps S0, S1, S3)
+    ];
+    let sp = MaximumSetPacking::<i32>::new(sets.clone());
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&sp);
@@ -32,7 +36,10 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: MaximumSetPacking with {} variables", sp.num_variables());
+    println!("Source: MaximumSetPacking with {} sets over universe {{0,...,7}}", sp.num_variables());
+    for (i, s) in sets.iter().enumerate() {
+        println!("  S{} = {:?}", i, s);
+    }
     println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
 
     // 4. Solve target ILP

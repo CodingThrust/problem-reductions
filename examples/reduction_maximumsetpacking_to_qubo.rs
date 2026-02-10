@@ -11,21 +11,22 @@
 //! non-overlapping sets.
 //!
 //! ## This Example
-//! - Instance: 3 sets over universe {0,1,2,3,4}
-//!   - Set A = {0, 1}
-//!   - Set B = {1, 2}
-//!   - Set C = {2, 3, 4}
-//! - Overlaps: A-B share element 1, B-C share element 2
-//! - QUBO variables: 3 (one per set)
-//! - Expected: Optimal packing selects {A, C} (size 2), since A and C
-//!   do not overlap
+//! - Instance: 6 sets over universe {0,...,7}
+//!   - S0 = {0, 1, 2}
+//!   - S1 = {2, 3, 4}   (overlaps S0 at 2)
+//!   - S2 = {4, 5, 6}   (overlaps S1 at 4)
+//!   - S3 = {6, 7, 0}   (overlaps S2 at 6, S0 at 0)
+//!   - S4 = {1, 3, 5}   (overlaps S0, S1, S2)
+//!   - S5 = {0, 4, 7}   (overlaps S0, S1, S3)
+//! - QUBO variables: 6 (one per set)
+//! - Expected: Optimal packing selects 2 disjoint sets (e.g., {S0, S2} or {S1, S3})
 //!
 //! ## Output
 //! Exports `docs/paper/examples/maximumsetpacking_to_qubo.json` and `maximumsetpacking_to_qubo.result.json`.
 //!
 //! ## Usage
 //! ```bash
-//! cargo run --example reduction_setpacking_to_qubo
+//! cargo run --example reduction_maximumsetpacking_to_qubo
 //! ```
 
 use problemreductions::export::*;
@@ -34,21 +35,25 @@ use problemreductions::prelude::*;
 fn main() {
     println!("=== Set Packing -> QUBO Reduction ===\n");
 
-    // 3 sets over universe {0,1,2,3,4}
+    // 6 sets over universe {0,...,7}
     let sets = vec![
-        vec![0, 1],    // Set A
-        vec![1, 2],    // Set B
-        vec![2, 3, 4], // Set C
+        vec![0, 1, 2],    // S0
+        vec![2, 3, 4],    // S1 (overlaps S0 at 2)
+        vec![4, 5, 6],    // S2 (overlaps S1 at 4)
+        vec![6, 7, 0],    // S3 (overlaps S2 at 6, S0 at 0)
+        vec![1, 3, 5],    // S4 (overlaps S0, S1, S2)
+        vec![0, 4, 7],    // S5 (overlaps S0, S1, S3)
     ];
-    let set_names = ["Set-A".to_string(), "Set-B".to_string(), "Set-C".to_string()];
     let sp = MaximumSetPacking::<i32>::new(sets.clone());
 
     // Reduce to QUBO
     let reduction = ReduceTo::<QUBO>::reduce_to(&sp);
     let qubo = reduction.target_problem();
 
-    println!("Source: MaximumSetPacking with 3 sets over universe {{0,1,2,3,4}}");
-    println!("  Set A = {{0, 1}}, Set B = {{1, 2}}, Set C = {{2, 3, 4}}");
+    println!("Source: MaximumSetPacking with 6 sets over universe {{0,...,7}}");
+    for (i, s) in sets.iter().enumerate() {
+        println!("  S{} = {:?}", i, s);
+    }
     println!("Target: QUBO with {} variables", qubo.num_variables());
     println!("Q matrix:");
     for row in qubo.matrix() {
@@ -64,14 +69,17 @@ fn main() {
     let mut solutions = Vec::new();
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        let selected: Vec<String> = extracted
+        let selected: Vec<usize> = extracted
             .iter()
             .enumerate()
             .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| set_names[i].clone())
+            .map(|(i, _)| i)
             .collect();
         let packing_size = selected.len();
-        println!("  Selected: {:?} (packing size {})", selected, packing_size);
+        println!(
+            "  Selected sets: {:?} (packing size {})",
+            selected, packing_size
+        );
 
         // Closed-loop verification: check solution is valid in original problem
         let sol_size = sp.solution_size(&extracted);

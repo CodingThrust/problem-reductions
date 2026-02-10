@@ -6,9 +6,10 @@
 //! Objective: minimize sum of w_i * x_i.
 //!
 //! ## This Example
-//! - Instance: Universe size 3, sets: S0={0,1}, S1={1,2}, S2={0,2}
-//! - Source MinimumSetCovering: min cover size 2 (any two sets cover all elements)
-//! - Target ILP: 3 binary variables, 3 element-coverage constraints
+//! - Instance: Universe size 8, 6 sets
+//!   - S0={0,1,2}, S1={2,3,4}, S2={4,5,6}, S3={6,7,0}, S4={1,3,5}, S5={0,4,7}
+//! - Source MinimumSetCovering: every element in {0,...,7} must be covered
+//! - Target ILP: 6 binary variables, 8 element-coverage constraints
 //!
 //! ## Output
 //! Exports `docs/paper/examples/minimumsetcovering_to_ilp.json` and `minimumsetcovering_to_ilp.result.json`.
@@ -18,15 +19,16 @@ use problemreductions::prelude::*;
 use problemreductions::solvers::BruteForceFloat;
 
 fn main() {
-    // 1. Create MinimumSetCovering instance: universe {0,1,2}, 3 sets
-    let sc = MinimumSetCovering::<i32>::new(
-        3,
-        vec![
-            vec![0, 1],
-            vec![1, 2],
-            vec![0, 2],
-        ],
-    );
+    // 1. Create MinimumSetCovering instance: universe {0,...,7}, 6 sets
+    let sets = vec![
+        vec![0, 1, 2],    // S0
+        vec![2, 3, 4],    // S1
+        vec![4, 5, 6],    // S2
+        vec![6, 7, 0],    // S3
+        vec![1, 3, 5],    // S4
+        vec![0, 4, 7],    // S5
+    ];
+    let sc = MinimumSetCovering::<i32>::new(8, sets.clone());
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&sc);
@@ -34,7 +36,10 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: MinimumSetCovering with {} variables", sc.num_variables());
+    println!("Source: MinimumSetCovering with {} sets over universe {{0,...,7}}", sc.num_variables());
+    for (i, s) in sets.iter().enumerate() {
+        println!("  S{} = {:?}", i, s);
+    }
     println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
 
     // 4. Solve target ILP
