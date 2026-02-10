@@ -14,7 +14,7 @@ fn main() {
         std::fs::create_dir_all(parent).expect("Failed to create output directory");
     }
 
-    let json = serde_json::to_string(&schemas).expect("Failed to serialize");
+    let json = serde_json::to_string_pretty(&schemas).expect("Failed to serialize");
     std::fs::write(output_path, &json).expect("Failed to write file");
     println!("Exported to: {}", output_path.display());
 }

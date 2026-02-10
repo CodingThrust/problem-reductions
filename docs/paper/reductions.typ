@@ -137,7 +137,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   #render-struct("MaxCut")
 
-  Where `graph` represents $G = (V, E)$ with edge weights $w: E -> RR$ stored in graph edge data. The solution is a partition $(S, overline(S))$ represented as a binary assignment `Vec<usize>` where 0/1 indicates partition membership.
+  Where `graph` represents $G = (V, E)$, and `edge_weights` stores weights $w: E -> RR$ indexed by edge index. The solution is a partition $(S, overline(S))$ represented as a binary assignment `Vec<usize>` where 0/1 indicates partition membership.
 ] <def:max-cut>
 
 #definition("Graph Coloring")[
@@ -147,7 +147,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   #render-struct("KColoring")
 
-  Where `num_colors` is the number of colors $k$, and `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$. The solution is a color assignment $c: V -> {0, ..., k-1}$ represented as a `Vec<usize>` indexed by vertex.
+  Where $k$ is a const generic parameter (not a struct field), and `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$. The solution is a color assignment $c: V -> {0, ..., k-1}$ represented as a `Vec<usize>` indexed by vertex.
 ] <def:coloring>
 
 #definition("Dominating Set")[
@@ -167,7 +167,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   #render-struct("Matching")
 
-  Where `num_vertices` is $|V|$, `graph` represents $G = (V, E)$ with edge weights, and `edge_weights` stores weights $w: E -> RR$ indexed by edge index. The solution is a subset $M subset.eq E$ represented as a `Vec<usize>` of edge indices.
+  Where `graph` represents $G = (V, E)$ with vertices indexed $0..n-1$, and `edge_weights` stores weights $w: E -> RR$ indexed by edge index. The solution is a subset $M subset.eq E$ represented as a `Vec<usize>` of edge indices.
 ] <def:matching>
 
 #definition("Clique")[
@@ -211,7 +211,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
   #render-struct("SpinGlass")
 
-  Where `num_spins` is $n$, `interactions` stores pairwise couplings $J_(i j)$ as `Vec<((usize, usize), W)>`, and `fields` stores external fields $h_i$ as `Vec<W>` indexed by spin. The solution is a spin assignment $bold(s) in {-1, +1}^n$ encoded as `Vec<usize>` where 0 maps to $s=-1$ and 1 maps to $s=+1$.
+  Where `graph` encodes the interaction topology, `couplings` stores pairwise couplings $J_(i j)$ as `Vec<W>` in `graph.edges()` order, and `fields` stores external fields $h_i$ as `Vec<W>` indexed by spin. The solution is a spin assignment $bold(s) in {-1, +1}^n$ encoded as `Vec<usize>` where 0 maps to $s=-1$ and 1 maps to $s=+1$.
 ] <def:spin-glass>
 
 #definition("QUBO")[

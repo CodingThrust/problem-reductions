@@ -48,6 +48,7 @@ doc:
 	cp docs/paper/reduction_graph.json docs/src/reductions/
 	mdbook build docs
 	cargo doc --all-features --no-deps
+	rm -rf docs/book/api
 	cp -r target/doc docs/book/api
 
 # Build and serve mdBook with live reload
@@ -55,6 +56,8 @@ mdbook:
 	cargo run --example export_graph
 	cp docs/paper/reduction_graph.json docs/src/reductions/
 	cargo doc --all-features --no-deps
+	rm -rf docs/book/api
+	cp -r target/doc docs/book/api
 	mdbook serve docs --open
 
 # Generate all example JSON files for the paper

@@ -41,3 +41,15 @@ fn test_problem_info_versions() {
     assert!(!opt_only.decision_version);
     assert!(opt_only.optimization_version);
 }
+
+#[test]
+fn test_problem_info_with_fields() {
+    const FIELDS: &[FieldInfo] = &[
+        FieldInfo { name: "graph", type_name: "G", description: "The graph" },
+        FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights" },
+    ];
+    let info = ProblemInfo::new("Test", "Test problem").with_fields(FIELDS);
+    assert_eq!(info.fields.len(), 2);
+    assert_eq!(info.fields[0].name, "graph");
+    assert_eq!(info.fields[1].type_name, "Vec<W>");
+}

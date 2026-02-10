@@ -1,1 +1,412 @@
-[{"name":"BMF","category":"specialized","description":"Boolean matrix factorization","fields":[{"name":"matrix","type_name":"Vec<Vec<bool>>","description":"Target boolean matrix A"},{"name":"m","type_name":"usize","description":"Number of rows"},{"name":"n","type_name":"usize","description":"Number of columns"},{"name":"k","type_name":"usize","description":"Factorization rank"}]},{"name":"BicliqueCover","category":"specialized","description":"Cover bipartite edges with k bicliques","fields":[{"name":"left_size","type_name":"usize","description":"Vertices in left partition"},{"name":"right_size","type_name":"usize","description":"Vertices in right partition"},{"name":"edges","type_name":"Vec<(usize, usize)>","description":"Bipartite edges"},{"name":"k","type_name":"usize","description":"Number of bicliques"}]},{"name":"CircuitSAT","category":"satisfiability","description":"Find satisfying input to a boolean circuit","fields":[{"name":"circuit","type_name":"Circuit","description":"The boolean circuit"},{"name":"variables","type_name":"Vec<String>","description":"Circuit variable names"},{"name":"weights","type_name":"Vec<W>","description":"Assignment weights"}]},{"name":"Clique","category":"graph","description":"Find maximum weight clique in a graph","fields":[{"name":"graph","type_name":"G","description":"The underlying graph G=(V,E)"},{"name":"weights","type_name":"Vec<W>","description":"Vertex weights w: V -> R"}]},{"name":"DominatingSet","category":"graph","description":"Find minimum weight dominating set in a graph","fields":[{"name":"graph","type_name":"G","description":"The underlying graph G=(V,E)"},{"name":"weights","type_name":"Vec<W>","description":"Vertex weights w: V -> R"}]},{"name":"Factoring","category":"specialized","description":"Factor a composite integer into two factors","fields":[{"name":"m","type_name":"usize","description":"Bits for first factor"},{"name":"n","type_name":"usize","description":"Bits for second factor"},{"name":"target","type_name":"u64","description":"Number to factor"}]},{"name":"ILP","category":"optimization","description":"Optimize linear objective subject to linear constraints","fields":[{"name":"num_vars","type_name":"usize","description":"Number of integer variables"},{"name":"bounds","type_name":"Vec<VarBounds>","description":"Variable bounds"},{"name":"constraints","type_name":"Vec<LinearConstraint>","description":"Linear constraints"},{"name":"objective","type_name":"Vec<(usize, f64)>","description":"Sparse objective coefficients"},{"name":"sense","type_name":"ObjectiveSense","description":"Optimization direction"}]},{"name":"IndependentSet","category":"graph","description":"Find maximum weight independent set in a graph","fields":[{"name":"graph","type_name":"G","description":"The underlying graph G=(V,E)"},{"name":"weights","type_name":"Vec<W>","description":"Vertex weights w: V -> R"}]},{"name":"KColoring","category":"graph","description":"Find valid k-coloring of a graph","fields":[{"name":"graph","type_name":"G","description":"The underlying graph G=(V,E)"}]},{"name":"KSatisfiability","category":"satisfiability","description":"SAT with exactly k literals per clause","fields":[{"name":"num_vars","type_name":"usize","description":"Number of Boolean variables"},{"name":"clauses","type_name":"Vec<CNFClause>","description":"Clauses each with exactly K literals"},{"name":"weights","type_name":"Vec<W>","description":"Clause weights for MAX-K-SAT"}]},{"name":"Matching","category":"graph","description":"Find maximum weight matching in a graph","fields":[{"name":"graph","type_name":"G","description":"The underlying graph G=(V,E)"},{"name":"edge_weights","type_name":"Vec<W>","description":"Edge weights w: E -> R"}]},{"name":"MaxCut","category":"graph","description":"Find maximum weight cut in a graph","fields":[{"name":"graph","type_name":"G","description":"The graph with edge weights"},{"name":"edge_weights","type_name":"Vec<W>","description":"Edge weights w: E -> R"}]},{"name":"MaximalIS","category":"graph","description":"Find maximum weight maximal independent set","fields":[{"name":"graph","type_name":"G","description":"The underlying graph G=(V,E)"},{"name":"weights","type_name":"Vec<W>","description":"Vertex weights w: V -> R"}]},{"name":"PaintShop","category":"specialized","description":"Minimize color changes in paint shop sequence","fields":[{"name":"sequence_indices","type_name":"Vec<usize>","description":"Car sequence as indices"},{"name":"car_labels","type_name":"Vec<String>","description":"Unique car labels"},{"name":"is_first","type_name":"Vec<bool>","description":"First occurrence flags"},{"name":"num_cars","type_name":"usize","description":"Number of unique cars"}]},{"name":"QUBO","category":"optimization","description":"Minimize quadratic unconstrained binary objective","fields":[{"name":"num_vars","type_name":"usize","description":"Number of binary variables"},{"name":"matrix","type_name":"Vec<Vec<W>>","description":"Upper-triangular Q matrix"}]},{"name":"Satisfiability","category":"satisfiability","description":"Find satisfying assignment for CNF formula","fields":[{"name":"num_vars","type_name":"usize","description":"Number of Boolean variables"},{"name":"clauses","type_name":"Vec<CNFClause>","description":"Clauses in conjunctive normal form"},{"name":"weights","type_name":"Vec<W>","description":"Clause weights for MAX-SAT"}]},{"name":"SetCovering","category":"set","description":"Find minimum weight collection covering the universe","fields":[{"name":"universe_size","type_name":"usize","description":"Size of the universe U"},{"name":"sets","type_name":"Vec<Vec<usize>>","description":"Collection of subsets of U"},{"name":"weights","type_name":"Vec<W>","description":"Weight for each set"}]},{"name":"SetPacking","category":"set","description":"Find maximum weight collection of disjoint sets","fields":[{"name":"sets","type_name":"Vec<Vec<usize>>","description":"Collection of sets over a universe"},{"name":"weights","type_name":"Vec<W>","description":"Weight for each set"}]},{"name":"SpinGlass","category":"optimization","description":"Minimize Ising Hamiltonian on a graph","fields":[{"name":"graph","type_name":"G","description":"The interaction graph"},{"name":"couplings","type_name":"Vec<W>","description":"Pairwise couplings J_ij"},{"name":"fields","type_name":"Vec<W>","description":"On-site fields h_i"}]},{"name":"VertexCovering","category":"graph","description":"Find minimum weight vertex cover in a graph","fields":[{"name":"graph","type_name":"G","description":"The underlying graph G=(V,E)"},{"name":"weights","type_name":"Vec<W>","description":"Vertex weights w: V -> R"}]}]
+[
+  {
+    "name": "BMF",
+    "category": "specialized",
+    "description": "Boolean matrix factorization",
+    "fields": [
+      {
+        "name": "matrix",
+        "type_name": "Vec<Vec<bool>>",
+        "description": "Target boolean matrix A"
+      },
+      {
+        "name": "m",
+        "type_name": "usize",
+        "description": "Number of rows"
+      },
+      {
+        "name": "n",
+        "type_name": "usize",
+        "description": "Number of columns"
+      },
+      {
+        "name": "k",
+        "type_name": "usize",
+        "description": "Factorization rank"
+      }
+    ]
+  },
+  {
+    "name": "BicliqueCover",
+    "category": "specialized",
+    "description": "Cover bipartite edges with k bicliques",
+    "fields": [
+      {
+        "name": "left_size",
+        "type_name": "usize",
+        "description": "Vertices in left partition"
+      },
+      {
+        "name": "right_size",
+        "type_name": "usize",
+        "description": "Vertices in right partition"
+      },
+      {
+        "name": "edges",
+        "type_name": "Vec<(usize, usize)>",
+        "description": "Bipartite edges"
+      },
+      {
+        "name": "k",
+        "type_name": "usize",
+        "description": "Number of bicliques"
+      }
+    ]
+  },
+  {
+    "name": "CircuitSAT",
+    "category": "satisfiability",
+    "description": "Find satisfying input to a boolean circuit",
+    "fields": [
+      {
+        "name": "circuit",
+        "type_name": "Circuit",
+        "description": "The boolean circuit"
+      },
+      {
+        "name": "variables",
+        "type_name": "Vec<String>",
+        "description": "Circuit variable names"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Assignment weights"
+      }
+    ]
+  },
+  {
+    "name": "Clique",
+    "category": "graph",
+    "description": "Find maximum weight clique in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      }
+    ]
+  },
+  {
+    "name": "DominatingSet",
+    "category": "graph",
+    "description": "Find minimum weight dominating set in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      }
+    ]
+  },
+  {
+    "name": "Factoring",
+    "category": "specialized",
+    "description": "Factor a composite integer into two factors",
+    "fields": [
+      {
+        "name": "m",
+        "type_name": "usize",
+        "description": "Bits for first factor"
+      },
+      {
+        "name": "n",
+        "type_name": "usize",
+        "description": "Bits for second factor"
+      },
+      {
+        "name": "target",
+        "type_name": "u64",
+        "description": "Number to factor"
+      }
+    ]
+  },
+  {
+    "name": "ILP",
+    "category": "optimization",
+    "description": "Optimize linear objective subject to linear constraints",
+    "fields": [
+      {
+        "name": "num_vars",
+        "type_name": "usize",
+        "description": "Number of integer variables"
+      },
+      {
+        "name": "bounds",
+        "type_name": "Vec<VarBounds>",
+        "description": "Variable bounds"
+      },
+      {
+        "name": "constraints",
+        "type_name": "Vec<LinearConstraint>",
+        "description": "Linear constraints"
+      },
+      {
+        "name": "objective",
+        "type_name": "Vec<(usize, f64)>",
+        "description": "Sparse objective coefficients"
+      },
+      {
+        "name": "sense",
+        "type_name": "ObjectiveSense",
+        "description": "Optimization direction"
+      }
+    ]
+  },
+  {
+    "name": "IndependentSet",
+    "category": "graph",
+    "description": "Find maximum weight independent set in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      }
+    ]
+  },
+  {
+    "name": "KColoring",
+    "category": "graph",
+    "description": "Find valid k-coloring of a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      }
+    ]
+  },
+  {
+    "name": "KSatisfiability",
+    "category": "satisfiability",
+    "description": "SAT with exactly k literals per clause",
+    "fields": [
+      {
+        "name": "num_vars",
+        "type_name": "usize",
+        "description": "Number of Boolean variables"
+      },
+      {
+        "name": "clauses",
+        "type_name": "Vec<CNFClause>",
+        "description": "Clauses each with exactly K literals"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Clause weights for MAX-K-SAT"
+      }
+    ]
+  },
+  {
+    "name": "Matching",
+    "category": "graph",
+    "description": "Find maximum weight matching in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge weights w: E -> R"
+      }
+    ]
+  },
+  {
+    "name": "MaxCut",
+    "category": "graph",
+    "description": "Find maximum weight cut in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The graph with edge weights"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge weights w: E -> R"
+      }
+    ]
+  },
+  {
+    "name": "MaximalIS",
+    "category": "graph",
+    "description": "Find maximum weight maximal independent set",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      }
+    ]
+  },
+  {
+    "name": "PaintShop",
+    "category": "specialized",
+    "description": "Minimize color changes in paint shop sequence",
+    "fields": [
+      {
+        "name": "sequence_indices",
+        "type_name": "Vec<usize>",
+        "description": "Car sequence as indices"
+      },
+      {
+        "name": "car_labels",
+        "type_name": "Vec<String>",
+        "description": "Unique car labels"
+      },
+      {
+        "name": "is_first",
+        "type_name": "Vec<bool>",
+        "description": "First occurrence flags"
+      },
+      {
+        "name": "num_cars",
+        "type_name": "usize",
+        "description": "Number of unique cars"
+      }
+    ]
+  },
+  {
+    "name": "QUBO",
+    "category": "optimization",
+    "description": "Minimize quadratic unconstrained binary objective",
+    "fields": [
+      {
+        "name": "num_vars",
+        "type_name": "usize",
+        "description": "Number of binary variables"
+      },
+      {
+        "name": "matrix",
+        "type_name": "Vec<Vec<W>>",
+        "description": "Upper-triangular Q matrix"
+      }
+    ]
+  },
+  {
+    "name": "Satisfiability",
+    "category": "satisfiability",
+    "description": "Find satisfying assignment for CNF formula",
+    "fields": [
+      {
+        "name": "num_vars",
+        "type_name": "usize",
+        "description": "Number of Boolean variables"
+      },
+      {
+        "name": "clauses",
+        "type_name": "Vec<CNFClause>",
+        "description": "Clauses in conjunctive normal form"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Clause weights for MAX-SAT"
+      }
+    ]
+  },
+  {
+    "name": "SetCovering",
+    "category": "set",
+    "description": "Find minimum weight collection covering the universe",
+    "fields": [
+      {
+        "name": "universe_size",
+        "type_name": "usize",
+        "description": "Size of the universe U"
+      },
+      {
+        "name": "sets",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Collection of subsets of U"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Weight for each set"
+      }
+    ]
+  },
+  {
+    "name": "SetPacking",
+    "category": "set",
+    "description": "Find maximum weight collection of disjoint sets",
+    "fields": [
+      {
+        "name": "sets",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Collection of sets over a universe"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Weight for each set"
+      }
+    ]
+  },
+  {
+    "name": "SpinGlass",
+    "category": "optimization",
+    "description": "Minimize Ising Hamiltonian on a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The interaction graph"
+      },
+      {
+        "name": "couplings",
+        "type_name": "Vec<W>",
+        "description": "Pairwise couplings J_ij"
+      },
+      {
+        "name": "fields",
+        "type_name": "Vec<W>",
+        "description": "On-site fields h_i"
+      }
+    ]
+  },
+  {
+    "name": "VertexCovering",
+    "category": "graph",
+    "description": "Find minimum weight vertex cover in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      }
+    ]
+  }
+]

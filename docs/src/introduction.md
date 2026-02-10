@@ -29,7 +29,7 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
 </div>
 <div id="tooltip" style="display:none; position:absolute; background:white; border:1px solid #ccc; padding:8px 12px; border-radius:4px; font-family:sans-serif; font-size:13px; box-shadow:0 2px 8px rgba(0,0,0,0.15); pointer-events:none; z-index:1000;"></div>
 
-<script src="https://unpkg.com/cytoscape@3/dist/cytoscape.min.js"></script>
+<script src="static/cytoscape.min.js"></script>
 <script>
 (function() {
   var categoryColors = {
@@ -42,7 +42,7 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
   };
 
   fetch('reductions/reduction_graph.json')
-    .then(function(r) { return r.json(); })
+    .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(data) {
       var baseNodes = data.nodes.filter(function(n) {
         return !n.variant || Object.keys(n.variant).length === 0;
@@ -168,6 +168,9 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
         instructions.textContent = 'Click a node to start path selection';
         clearBtn.style.display = 'none';
       };
+    })
+    .catch(function(err) {
+      document.getElementById('cy').innerHTML = '<p style="padding:1em;color:#c00;">Failed to load reduction graph: ' + err.message + '</p>';
     });
 })();
 </script>

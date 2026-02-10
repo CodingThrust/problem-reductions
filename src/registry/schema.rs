@@ -63,3 +63,7 @@ pub fn collect_schemas() -> Vec<ProblemSchemaJson> {
     schemas.sort_by(|a, b| a.name.cmp(&b.name));
     schemas
 }
+
+#[cfg(test)]
+#[path = "../unit_tests/registry/schema.rs"]
+mod tests;

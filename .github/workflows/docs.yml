@@ -33,14 +33,20 @@ jobs:
           curl -sSL https://github.com/typst/typst/releases/download/v0.14.0/typst-x86_64-unknown-linux-musl.tar.xz | tar -xJ
           mv typst-x86_64-unknown-linux-musl/typst "$HOME/bin/"
 
+      - name: Generate data
+        run: |
+          cargo run --example export_graph
+          cargo run --example export_schemas
+          cp docs/paper/reduction_graph.json docs/src/reductions/
+
       - name: Build mdBook
         run: mdbook build
 
-      - name: Build PDF
-        run: typst compile docs/paper/reductions.typ book/reductions.pdf
+      - name: Build examples and PDF
+        run: make examples && typst compile docs/paper/reductions.typ book/reductions.pdf
 
       - name: Build rustdoc
-        run: cargo doc --no-deps
+        run: cargo doc --all-features --no-deps
 
       - name: Combine documentation
         run: |
