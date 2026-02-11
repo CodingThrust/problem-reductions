@@ -11,5 +11,4 @@
 # Developer Guide
 
 - [API Reference](./api.md)
-- [Contributing](./contributing.md)
 - [CLAUDE.md](./claude.md)
