@@ -62,6 +62,7 @@
 //! - BMF: Boolean matrix factorization
 
 pub mod config;
+pub mod core;
 pub mod error;
 pub mod export;
 pub mod graph_types;
@@ -83,16 +84,20 @@ pub mod prelude {
     pub use crate::config::{
         bits_to_config, config_to_bits, config_to_index, index_to_config, ConfigIterator,
     };
+    pub use crate::core::{
+        Evaluation, ObjectiveDirection, ObjectiveValue, ProblemInstance, ProblemSpec, Reduction,
+        VariantDimension, VariantKey,
+    };
     pub use crate::error::{ProblemError, Result};
     pub use crate::models::graph::{
-        MaximumClique, MinimumDominatingSet, MaximumIndependentSet, KColoring, MaximumMatching, MaxCut, MaximalIS,
-        MinimumVertexCover,
+        KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
+        MinimumDominatingSet, MinimumVertexCover,
     };
     pub use crate::models::optimization::{
         Comparison, LinearConstraint, ObjectiveSense, SpinGlass, VarBounds, ILP, QUBO,
     };
     pub use crate::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
-    pub use crate::models::set::{MinimumSetCovering, MaximumSetPacking};
+    pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
     pub use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
     pub use crate::registry::{
         ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,
@@ -106,6 +111,10 @@ pub mod prelude {
 }
 
 // Re-export commonly used items at crate root
+pub use core::{
+    Assignment, Evaluation, ObjectiveDirection, ObjectiveValue, ProblemInstance, ProblemSpec,
+    Reduction, VariantDimension, VariantKey,
+};
 pub use error::{ProblemError, Result};
 pub use registry::{ComplexityClass, ProblemCategory, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
