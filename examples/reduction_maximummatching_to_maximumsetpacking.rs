@@ -6,9 +6,9 @@
 //! no shared elements) with the same weight.
 //!
 //! ## This Example
-//! - Instance: Path graph P4 (4 vertices, 3 edges) with unit weights
-//! - Source matching: max size 2 (e.g., edges {(0,1), (2,3)})
-//! - Target MaximumSetPacking: max packing 2
+//! - Instance: Petersen graph (10 vertices, 15 edges), perfect matching of size 5
+//! - Source matching: max size 5
+//! - Target MaximumSetPacking: max packing 5
 //!
 //! ## Output
 //! Exports `docs/paper/examples/maximummatching_to_maximumsetpacking.json` and `maximummatching_to_maximumsetpacking.result.json`.
@@ -17,17 +17,18 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
     println!("\n=== MaximumMatching -> Set Packing Reduction ===\n");
 
-    // Path graph P4: 0-1-2-3 with unit weights
-    let edges = vec![(0, 1), (1, 2), (2, 3)];
-    let source = MaximumMatching::<SimpleGraph, i32>::unweighted(4, edges.clone());
+    // Petersen graph with unit weights
+    let (num_vertices, edges) = petersen();
+    let source = MaximumMatching::<SimpleGraph, i32>::unweighted(num_vertices, edges.clone());
 
-    println!("Source: MaximumMatching on P4");
-    println!("  Vertices: 4");
+    println!("Source: MaximumMatching on Petersen graph");
+    println!("  Vertices: {}", num_vertices);
     println!("  Edges: {:?}", edges);
 
     // Reduce to MaximumSetPacking
@@ -94,5 +95,5 @@ fn main() {
     let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
     write_example(name, &data, &results);
 
-    println!("\nDone: MaximumMatching(P4) optimal=2 maps to MaximumSetPacking optimal=2");
+    println!("\nDone: MaximumMatching(Petersen) optimal=5 maps to MaximumSetPacking optimal=5");
 }

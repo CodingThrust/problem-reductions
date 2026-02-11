@@ -6,9 +6,9 @@
 //! satisfiable iff the graph has a dominating set of size n.
 //!
 //! ## This Example
-//! - Instance: phi = (x1 v x2) ^ (~x1 v x2), 2 vars, 2 clauses
-//! - Source SAT: satisfiable (e.g., x2=1)
-//! - Target: Dominating set
+//! - Instance: 5-variable, 7-clause 3-SAT formula
+//! - Source SAT: satisfiable
+//! - Target: Dominating set with 3*5 + 7 = 22 vertices
 //!
 //! ## Output
 //! Exports `docs/paper/examples/satisfiability_to_minimumdominatingset.json` and `satisfiability_to_minimumdominatingset.result.json`.
@@ -18,18 +18,24 @@ use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    // 1. Create SAT instance: phi = (x1 v x2) ^ (~x1 v x2), 2 vars, 2 clauses
+    // 1. Create SAT instance: 5-variable, 7-clause 3-SAT formula
     let sat = Satisfiability::<i32>::new(
-        2,
+        5,
         vec![
-            CNFClause::new(vec![1, 2]),  // x1 OR x2
-            CNFClause::new(vec![-1, 2]), // NOT x1 OR x2
+            CNFClause::new(vec![1, 2, -3]),    // x1 v x2 v ~x3
+            CNFClause::new(vec![-1, 3, 4]),    // ~x1 v x3 v x4
+            CNFClause::new(vec![2, -4, 5]),    // x2 v ~x4 v x5
+            CNFClause::new(vec![-2, 3, -5]),   // ~x2 v x3 v ~x5
+            CNFClause::new(vec![1, -3, 5]),    // x1 v ~x3 v x5
+            CNFClause::new(vec![-1, -2, 4]),   // ~x1 v ~x2 v x4
+            CNFClause::new(vec![3, -4, -5]),   // x3 v ~x4 v ~x5
         ],
     );
 
     println!("=== SAT to Dominating Set Reduction (Garey & Johnson 1979) ===\n");
-    println!("Source SAT formula:");
-    println!("  (x1 v x2) ^ (~x1 v x2)");
+    println!("Source SAT formula: 5-variable, 7-clause 3-SAT");
+    println!("  (x1 v x2 v ~x3) ^ (~x1 v x3 v x4) ^ (x2 v ~x4 v x5) ^");
+    println!("  (~x2 v x3 v ~x5) ^ (x1 v ~x3 v x5) ^ (~x1 v ~x2 v x4) ^ (x3 v ~x4 v ~x5)");
     println!("  {} variables, {} clauses", sat.num_vars(), sat.num_clauses());
 
     // 2. Reduce to Dominating Set
@@ -45,7 +51,7 @@ fn main() {
     );
     println!("  Variable gadgets: 3 vertices per variable (pos, neg, dummy) forming triangles");
     println!("  Clause vertices: 1 per clause, connected to relevant literal vertices");
-    println!("  Layout: vertices 0-5 are variable gadgets, vertices 6-7 are clause vertices");
+    println!("  Layout: vertices 0-14 are variable gadgets (5 triangles), vertices 15-21 are clause vertices");
 
     // 3. Solve the target DS problem
     let solver = BruteForce::new();
@@ -57,8 +63,8 @@ fn main() {
     let sat_solution = reduction.extract_solution(&ds_solutions[0]);
     println!("Extracted SAT solution: {:?}", sat_solution);
     println!(
-        "  Interpretation: x1={}, x2={}",
-        sat_solution[0], sat_solution[1]
+        "  Interpretation: x1={}, x2={}, x3={}, x4={}, x5={}",
+        sat_solution[0], sat_solution[1], sat_solution[2], sat_solution[3], sat_solution[4]
     );
 
     let size = sat.solution_size(&sat_solution);

@@ -6,9 +6,9 @@
 //! Objective: maximize sum of w_e * x_e.
 //!
 //! ## This Example
-//! - Instance: Path graph P4 (4 vertices, 3 edges: 0-1, 1-2, 2-3)
-//! - Source MaximumMatching: max matching size 2 (e.g., {0-1, 2-3})
-//! - Target ILP: 3 binary variables (one per edge), 4 vertex constraints
+//! - Instance: Petersen graph (10 vertices, 15 edges), perfect matching of size 5
+//! - Source MaximumMatching: max matching size 5
+//! - Target ILP: 15 binary variables (one per edge), 10 vertex constraints
 //!
 //! ## Output
 //! Exports `docs/paper/examples/maximummatching_to_ilp.json` and `maximummatching_to_ilp.result.json`.
@@ -16,12 +16,13 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::solvers::BruteForceFloat;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    // 1. Create MaximumMatching instance: path graph P4 with unit weights
-    let edges = vec![(0, 1), (1, 2), (2, 3)];
-    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(4, edges.clone());
+    // 1. Create MaximumMatching instance: Petersen graph with unit weights
+    let (num_vertices, edges) = petersen();
+    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(num_vertices, edges.clone());
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&matching);

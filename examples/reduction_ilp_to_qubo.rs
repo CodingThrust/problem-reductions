@@ -17,12 +17,14 @@
 //! solutions with better objective values.
 //!
 //! ## This Example
-//! - Instance: 3 binary projects with values [1, 2, 3]
-//!   - Constraint 1: x0 + x1 <= 1 (projects 0 and 1 share a team)
-//!   - Constraint 2: x1 + x2 <= 1 (projects 1 and 2 share equipment)
-//!   - Objective: maximize 1*x0 + 2*x1 + 3*x2
-//! - Expected: Select projects {0, 2} for total value 4 (x0 and x2 don't
-//!   share resources)
+//! - Instance: 6-variable binary knapsack problem
+//!   - Items with weights [3, 2, 5, 4, 2, 3] and values [10, 7, 12, 8, 6, 9]
+//!   - Constraint 1: 3x0 + 2x1 + 5x2 + 4x3 + 2x4 + 3x5 <= 10 (weight capacity)
+//!   - Constraint 2: x0 + x1 + x2 <= 2 (category A limit)
+//!   - Constraint 3: x3 + x4 + x5 <= 2 (category B limit)
+//!   - Objective: maximize 10x0 + 7x1 + 12x2 + 8x3 + 6x4 + 9x5
+//! - Expected: Select items that maximize total value while satisfying all
+//!   weight and category constraints
 //!
 //! ## Outputs
 //! - `docs/paper/examples/ilp_to_qubo.json` — reduction structure
@@ -39,35 +41,51 @@ use problemreductions::prelude::*;
 fn main() {
     println!("=== ILP (Binary) -> QUBO Reduction ===\n");
 
-    // 3 projects with values 1, 2, 3
-    // Constraint 1: x0 + x1 <= 1 (shared team)
-    // Constraint 2: x1 + x2 <= 1 (shared equipment)
+    // 6-variable binary knapsack problem
+    // Items with weights [3, 2, 5, 4, 2, 3] and values [10, 7, 12, 8, 6, 9]
+    // Constraint 1: knapsack weight capacity <= 10
+    // Constraint 2: category A items (x0, x1, x2) limited to 2
+    // Constraint 3: category B items (x3, x4, x5) limited to 2
     let ilp = ILP::binary(
-        3,
+        6,
         vec![
-            LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0),
-            LinearConstraint::le(vec![(1, 1.0), (2, 1.0)], 1.0),
+            // Knapsack weight constraint: 3x0 + 2x1 + 5x2 + 4x3 + 2x4 + 3x5 <= 10
+            LinearConstraint::le(
+                vec![(0, 3.0), (1, 2.0), (2, 5.0), (3, 4.0), (4, 2.0), (5, 3.0)],
+                10.0,
+            ),
+            // Category A limit: x0 + x1 + x2 <= 2
+            LinearConstraint::le(vec![(0, 1.0), (1, 1.0), (2, 1.0)], 2.0),
+            // Category B limit: x3 + x4 + x5 <= 2
+            LinearConstraint::le(vec![(3, 1.0), (4, 1.0), (5, 1.0)], 2.0),
         ],
-        vec![(0, 1.0), (1, 2.0), (2, 3.0)],
+        vec![(0, 10.0), (1, 7.0), (2, 12.0), (3, 8.0), (4, 6.0), (5, 9.0)],
         ObjectiveSense::Maximize,
     );
 
-    let project_names = ["Alpha", "Beta", "Gamma"];
+    let item_names = ["Item0", "Item1", "Item2", "Item3", "Item4", "Item5"];
+    let weights = [3, 2, 5, 4, 2, 3];
+    let values = [10, 7, 12, 8, 6, 9];
 
     // Reduce to QUBO
     let reduction = ReduceTo::<QUBO>::reduce_to(&ilp);
     let qubo = reduction.target_problem();
 
-    println!("Source: ILP (binary) with 3 variables, 2 constraints");
-    println!("  Objective: maximize 1*x0 + 2*x1 + 3*x2");
-    println!("  Constraint 1: x0 + x1 <= 1 (shared team)");
-    println!("  Constraint 2: x1 + x2 <= 1 (shared equipment)");
+    println!("Source: ILP (binary) with 6 variables, 3 constraints");
+    println!("  Objective: maximize 10x0 + 7x1 + 12x2 + 8x3 + 6x4 + 9x5");
+    println!("  Constraint 1: 3x0 + 2x1 + 5x2 + 4x3 + 2x4 + 3x5 <= 10 (weight capacity)");
+    println!("  Constraint 2: x0 + x1 + x2 <= 2 (category A limit)");
+    println!("  Constraint 3: x3 + x4 + x5 <= 2 (category B limit)");
     println!("Target: QUBO with {} variables", qubo.num_variables());
-    println!("Q matrix ({}x{}):", qubo.matrix().len(), qubo.matrix().len());
-    for row in qubo.matrix() {
-        let formatted: Vec<String> = row.iter().map(|v| format!("{:7.1}", v)).collect();
-        println!("  [{}]", formatted.join(", "));
-    }
+    println!(
+        "  (6 original + {} slack variables for inequality constraints)",
+        qubo.num_variables() - 6
+    );
+    println!(
+        "Q matrix size: {}x{}",
+        qubo.matrix().len(),
+        qubo.matrix().len()
+    );
 
     // Solve QUBO with brute force
     let solver = BruteForce::new();
@@ -82,17 +100,31 @@ fn main() {
             .iter()
             .enumerate()
             .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| project_names[i].to_string())
+            .map(|(i, _)| item_names[i].to_string())
             .collect();
-        let value = ilp.solution_size(&extracted).size;
+        let total_weight: i32 = extracted
+            .iter()
+            .enumerate()
+            .filter(|(_, &x)| x == 1)
+            .map(|(i, _)| weights[i])
+            .sum();
+        let total_value: i32 = extracted
+            .iter()
+            .enumerate()
+            .filter(|(_, &x)| x == 1)
+            .map(|(i, _)| values[i])
+            .sum();
         println!(
-            "  Selected projects: {:?} (total value: {:.0})",
-            selected, value
+            "  Selected items: {:?} (total weight: {}, total value: {})",
+            selected, total_weight, total_value
         );
 
         // Closed-loop verification: check solution is valid in original problem
         let sol_size = ilp.solution_size(&extracted);
-        assert!(sol_size.is_valid, "Solution must be valid in source problem");
+        assert!(
+            sol_size.is_valid,
+            "Solution must be valid in source problem"
+        );
 
         solutions.push(SolutionPair {
             source_config: extracted,
@@ -103,8 +135,7 @@ fn main() {
     println!("\nVerification passed: all solutions are feasible and optimal");
 
     // Export JSON
-    let overhead = lookup_overhead("ILP", "QUBO")
-        .expect("ILP -> QUBO overhead not found");
+    let overhead = lookup_overhead("ILP", "QUBO").expect("ILP -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

@@ -10,9 +10,9 @@
 //! Objective: feasibility (minimize 0).
 //!
 //! ## This Example
-//! - Instance: Factor 15 = 3 * 5 (m=4 bits, n=4 bits)
+//! - Instance: Factor 35 = 5 × 7 (m=3 bits, n=3 bits)
 //! - NOTE: Uses ILPSolver (not BruteForce) since the ILP has many variables
-//! - Target ILP: 4+4+16+8 = 32 variables
+//! - Target ILP: ~21 variables (factor bits + product bits + carries)
 //!
 //! ## Output
 //! Exports `docs/paper/examples/factoring_to_ilp.json` for use in paper code blocks.
@@ -22,8 +22,8 @@ use problemreductions::prelude::*;
 use problemreductions::solvers::ILPSolver;
 
 fn main() {
-    // 1. Create Factoring instance: find p (4-bit) x q (4-bit) = 15
-    let problem = Factoring::new(4, 4, 15);
+    // 1. Create Factoring instance: find p (3-bit) x q (3-bit) = 35
+    let problem = Factoring::new(3, 3, 35);
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
@@ -36,18 +36,18 @@ fn main() {
 
     // 4. Solve ILP using ILPSolver (too many variables for BruteForce)
     let solver = ILPSolver::new();
-    let ilp_solution = solver.solve(ilp).expect("ILP should be feasible for 15 = 3 * 5");
+    let ilp_solution = solver.solve(ilp).expect("ILP should be feasible for 35 = 5 * 7");
     println!("\n=== Solution ===");
-    println!("ILP solution found (first 8 vars): {:?}", &ilp_solution[..8]);
+    println!("ILP solution found (first 6 vars): {:?}", &ilp_solution[..6]);
 
     // 5. Extract factoring solution
     let extracted = reduction.extract_solution(&ilp_solution);
     println!("Source Factoring solution: {:?}", extracted);
 
-    // 6. Verify: read factors and confirm p * q = 15
+    // 6. Verify: read factors and confirm p * q = 35
     let (p, q) = problem.read_factors(&extracted);
     println!("Factors: {} x {} = {}", p, q, p * q);
-    assert_eq!(p * q, 15);
+    assert_eq!(p * q, 35);
     println!("\nReduction verified successfully");
 
     // 7. Collect solutions and export JSON

@@ -1,4 +1,4 @@
-# Improve Example Instances — Implementation Plan
+# Improve Example Instances — Implementation Plan (v2)
 
 > **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 

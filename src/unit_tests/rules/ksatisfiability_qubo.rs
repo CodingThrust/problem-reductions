@@ -102,3 +102,83 @@ fn test_ksatisfiability_to_qubo_sizes() {
     assert!(!source_size.components.is_empty());
     assert!(!target_size.components.is_empty());
 }
+
+#[test]
+fn test_k3satisfiability_to_qubo_closed_loop() {
+    // 3-SAT: 5 vars, 7 clauses
+    let ksat = KSatisfiability::<3, i32>::new(
+        5,
+        vec![
+            CNFClause::new(vec![1, 2, -3]),   // x1 ∨ x2 ∨ ¬x3
+            CNFClause::new(vec![-1, 3, 4]),   // ¬x1 ∨ x3 ∨ x4
+            CNFClause::new(vec![2, -4, 5]),   // x2 ∨ ¬x4 ∨ x5
+            CNFClause::new(vec![-2, 3, -5]),  // ¬x2 ∨ x3 ∨ ¬x5
+            CNFClause::new(vec![1, -3, 5]),   // x1 ∨ ¬x3 ∨ x5
+            CNFClause::new(vec![-1, -2, 4]),  // ¬x1 ∨ ¬x2 ∨ x4
+            CNFClause::new(vec![3, -4, -5]),  // x3 ∨ ¬x4 ∨ ¬x5
+        ],
+    );
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat);
+    let qubo = reduction.target_problem();
+
+    // QUBO should have 5 + 7 = 12 variables
+    assert_eq!(qubo.num_variables(), 12);
+
+    let solver = BruteForce::new();
+    let qubo_solutions = solver.find_best(qubo);
+
+    // Verify all extracted solutions maximize satisfied clauses
+    for sol in &qubo_solutions {
+        let extracted = reduction.extract_solution(sol);
+        assert_eq!(extracted.len(), 5);
+        let satisfied = ksat.solution_size(&extracted).size;
+        assert_eq!(satisfied, 7, "Expected all 7 clauses satisfied");
+    }
+}
+
+#[test]
+fn test_k3satisfiability_to_qubo_single_clause() {
+    // Single 3-SAT clause: (x1 ∨ x2 ∨ x3) — 7 satisfying assignments
+    let ksat = KSatisfiability::<3, i32>::new(
+        3,
+        vec![CNFClause::new(vec![1, 2, 3])],
+    );
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat);
+    let qubo = reduction.target_problem();
+
+    // 3 vars + 1 auxiliary = 4 total
+    assert_eq!(qubo.num_variables(), 4);
+
+    let solver = BruteForce::new();
+    let qubo_solutions = solver.find_best(qubo);
+
+    // All solutions should satisfy the single clause
+    for sol in &qubo_solutions {
+        let extracted = reduction.extract_solution(sol);
+        assert_eq!(extracted.len(), 3);
+        assert!(ksat.solution_size(&extracted).is_valid);
+    }
+    // 7 out of 8 assignments satisfy (x1 ∨ x2 ∨ x3)
+    assert_eq!(qubo_solutions.len(), 7);
+}
+
+#[test]
+fn test_k3satisfiability_to_qubo_all_negated() {
+    // All negated: (¬x1 ∨ ¬x2 ∨ ¬x3) — 7 satisfying assignments
+    let ksat = KSatisfiability::<3, i32>::new(
+        3,
+        vec![CNFClause::new(vec![-1, -2, -3])],
+    );
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat);
+    let qubo = reduction.target_problem();
+
+    let solver = BruteForce::new();
+    let qubo_solutions = solver.find_best(qubo);
+
+    for sol in &qubo_solutions {
+        let extracted = reduction.extract_solution(sol);
+        assert!(ksat.solution_size(&extracted).is_valid);
+    }
+    // 7 out of 8 assignments satisfy (¬x1 ∨ ¬x2 ∨ ¬x3)
+    assert_eq!(qubo_solutions.len(), 7);
+}

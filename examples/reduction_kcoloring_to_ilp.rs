@@ -8,21 +8,23 @@
 //! Objective: feasibility (minimize 0).
 //!
 //! ## This Example
-//! - Instance: Triangle K3 (3 vertices, 3 edges) with 3 colors
-//! - Source KColoring: feasible, each vertex gets a distinct color
-//! - Target ILP: 9 binary variables (3 vertices * 3 colors), 12 constraints
+//! - Instance: Petersen graph (10 vertices, 15 edges) with 3 colors, χ=3
+//! - Source KColoring: feasible, each vertex gets a color such that no adjacent vertices share a color
+//! - Target ILP: 30 binary variables (10 vertices * 3 colors), many constraints
 //!
 //! ## Output
 //! Exports `docs/paper/examples/kcoloring_to_ilp.json` and `kcoloring_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use problemreductions::solvers::BruteForceFloat;
+use problemreductions::solvers::ILPSolver;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    // 1. Create KColoring instance: triangle K3 with 3 colors
-    let coloring = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    // 1. Create KColoring instance: Petersen graph (10 vertices, 15 edges) with 3 colors, χ=3
+    let (num_vertices, edges) = petersen();
+    let coloring = KColoring::<3, SimpleGraph, i32>::new(num_vertices, edges.clone());
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&coloring);
@@ -33,17 +35,14 @@ fn main() {
     println!("Source: KColoring<3> with {} variables", coloring.num_variables());
     println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
 
-    // 4. Solve target ILP
-    let solver = BruteForce::new();
-    let ilp_solutions = solver.find_best_float(ilp);
+    // 4. Solve target ILP using HiGHS solver (BruteForce on 30 vars is too slow)
+    let solver = ILPSolver::new();
+    let ilp_solution = solver.solve(ilp).expect("ILP should be feasible");
     println!("\n=== Solution ===");
-    println!("ILP solutions found: {}", ilp_solutions.len());
-
-    let ilp_solution = &ilp_solutions[0].0;
     println!("ILP solution: {:?}", ilp_solution);
 
     // 5. Extract source solution
-    let coloring_solution = reduction.extract_solution(ilp_solution);
+    let coloring_solution = reduction.extract_solution(&ilp_solution);
     println!("Source Coloring solution: {:?}", coloring_solution);
 
     // 6. Verify
@@ -54,15 +53,13 @@ fn main() {
 
     // 7. Collect solutions and export JSON
     let mut solutions = Vec::new();
-    for (target_config, _score) in &ilp_solutions {
-        let source_sol = reduction.extract_solution(target_config);
-        let s = coloring.solution_size(&source_sol);
-        assert!(s.is_valid);
-        solutions.push(SolutionPair {
-            source_config: source_sol,
-            target_config: target_config.clone(),
-        });
-    }
+    let source_sol = reduction.extract_solution(&ilp_solution);
+    let s = coloring.solution_size(&source_sol);
+    assert!(s.is_valid);
+    solutions.push(SolutionPair {
+        source_config: source_sol,
+        target_config: ilp_solution,
+    });
 
     let overhead = lookup_overhead("KColoring", "ILP")
         .expect("KColoring -> ILP overhead not found");

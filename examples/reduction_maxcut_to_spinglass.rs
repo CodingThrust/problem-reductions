@@ -6,9 +6,9 @@
 //! energy -sum J_{ij} s_i s_j since s_i s_j = -1 when vertices are on opposite sides.
 //!
 //! ## This Example
-//! - Instance: Triangle K3 with unit edge weights
-//! - Source MaxCut: 3 vertices, 3 edges, max cut = 2
-//! - Target SpinGlass: 3 spins
+//! - Instance: Petersen graph (10 vertices, 15 edges) with unit edge weights
+//! - Source MaxCut: 10 vertices, 15 edges
+//! - Target SpinGlass: 10 spins
 //!
 //! ## Output
 //! Exports `docs/paper/examples/maxcut_to_spinglass.json` and `maxcut_to_spinglass.result.json`.
@@ -17,10 +17,12 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    let maxcut = MaxCut::<SimpleGraph, i32>::new(3, vec![(0, 1, 1), (1, 2, 1), (0, 2, 1)]);
+    let (num_vertices, edges) = petersen();
+    let maxcut = MaxCut::<SimpleGraph, i32>::unweighted(num_vertices, edges.clone());
 
     let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&maxcut);
     let sg = reduction.target_problem();

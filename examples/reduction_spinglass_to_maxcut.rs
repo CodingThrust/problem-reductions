@@ -6,9 +6,9 @@
 //! the Ising energy. When h_i != 0, an ancilla spin is added with w_{i,a} = h_i.
 //!
 //! ## This Example
-//! - Instance: 3-spin frustrated triangle (J_{01} = 1, J_{12} = 1, J_{02} = 1, h = 0)
-//! - Source SpinGlass: 3 spins, no external fields
-//! - Target MaxCut: 3 vertices (direct mapping, no ancilla)
+//! - Instance: Petersen graph with 10 spins, ±1 couplings, no external fields
+//! - Source SpinGlass: 10 spins on Petersen topology
+//! - Target MaxCut: 10 vertices (direct mapping, no ancilla)
 //!
 //! ## Output
 //! Exports `docs/paper/examples/spinglass_to_maxcut.json` and `spinglass_to_maxcut.result.json`.
@@ -17,14 +17,17 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    let sg = SpinGlass::<SimpleGraph, i32>::new(
-        3,
-        vec![((0, 1), 1), ((1, 2), 1), ((0, 2), 1)],
-        vec![0, 0, 0],
-    );
+    let (n, edges) = petersen();
+    let couplings: Vec<((usize, usize), i32)> = edges
+        .iter()
+        .enumerate()
+        .map(|(i, &(u, v))| ((u, v), if i % 2 == 0 { 1 } else { -1 }))
+        .collect();
+    let sg = SpinGlass::<SimpleGraph, i32>::new(n, couplings, vec![0; n]);
 
     let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
     let maxcut = reduction.target_problem();

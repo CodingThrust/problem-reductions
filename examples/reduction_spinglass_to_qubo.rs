@@ -6,11 +6,9 @@
 //! yields a QUBO objective Q(x) plus a constant offset.
 //!
 //! ## This Example
-//! - Instance: 3-spin antiferromagnetic chain with fields
-//!   - Couplings: J_{01} = -1.0, J_{12} = -1.0
-//!   - Fields: h = [0.5, -0.5, 0.5]
-//! - Source SpinGlass: 3 spins
-//! - Target QUBO: 3 binary variables
+//! - Instance: Petersen graph with 10 spins, 15 frustrated ±1 couplings, zero fields
+//! - Source SpinGlass: 10 spins on Petersen topology
+//! - Target QUBO: 10 binary variables
 //!
 //! ## Output
 //! Exports `docs/paper/examples/spinglass_to_qubo.json` and
@@ -20,14 +18,18 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    let sg = SpinGlass::<SimpleGraph, f64>::new(
-        3,
-        vec![((0, 1), -1.0), ((1, 2), -1.0)],
-        vec![0.5, -0.5, 0.5],
-    );
+    let (n, edges) = petersen();
+    // Alternating +/-1 couplings create frustration on odd cycles
+    let couplings: Vec<((usize, usize), f64)> = edges
+        .iter()
+        .enumerate()
+        .map(|(i, &(u, v))| ((u, v), if i % 2 == 0 { 1.0 } else { -1.0 }))
+        .collect();
+    let sg = SpinGlass::<SimpleGraph, f64>::new(n, couplings, vec![0.0; n]);
 
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sg);
     let qubo = reduction.target_problem();

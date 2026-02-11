@@ -6,9 +6,9 @@
 //! Q_{ij} = -4J_{ij} for off-diagonal and Q_{ii} = 2*sum_j J_{ij} - 2h_i for diagonal.
 //!
 //! ## This Example
-//! - Instance: 3-variable QUBO with diagonal [-1, -2, -1] and coupling Q_{01} = 3
-//! - Source QUBO: 3 binary variables
-//! - Target SpinGlass: 3 spins
+//! - Instance: 10-variable QUBO with Petersen connectivity
+//! - Source QUBO: 10 binary variables
+//! - Target SpinGlass: 10 spins
 //!
 //! ## Output
 //! Exports `docs/paper/examples/qubo_to_spinglass.json` and
@@ -18,14 +18,21 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
-    let matrix = vec![
-        vec![-1.0, 3.0, 0.0],
-        vec![0.0, -2.0, 0.0],
-        vec![0.0, 0.0, -1.0],
-    ];
+    let (n, edges) = petersen();
+    let mut matrix = vec![vec![0.0; n]; n];
+    // Diagonal: linear terms
+    for (i, row) in matrix.iter_mut().enumerate() {
+        row[i] = -1.0 + 0.2 * i as f64;
+    }
+    // Off-diagonal: quadratic terms on Petersen edges
+    for (idx, &(u, v)) in edges.iter().enumerate() {
+        let (i, j) = if u < v { (u, v) } else { (v, u) };
+        matrix[i][j] = if idx % 2 == 0 { 2.0 } else { -1.5 };
+    }
     let qubo = QUBO::from_matrix(matrix.clone());
 
     let reduction = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&qubo);

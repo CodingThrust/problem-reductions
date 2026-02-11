@@ -522,9 +522,9 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 ]
 
 #reduction-rule("KSatisfiability", "QUBO")[
-  Given a Max-2-SAT instance with $m$ clauses over $n$ variables, construct upper-triangular $Q in RR^(n times n)$ where each clause $(ell_i or ell_j)$ contributes a penalty gadget encoding its unique falsifying assignment.
+  Given a Max-$k$-SAT instance with $m$ clauses over $n$ variables, construct a QUBO that counts unsatisfied clauses. For $k = 2$, $Q in RR^(n times n)$ directly encodes quadratic penalties. For $k = 3$, Rosenberg quadratization introduces $m$ auxiliary variables, giving $Q in RR^((n+m) times (n+m))$.
 ][
-  _Construction._ Applying the penalty method (@sec:penalty-method), each 2-literal clause has exactly one falsifying assignment (both literals false). The penalty for that assignment is a quadratic function of $x_i, x_j$:
+  *Case $k = 2$.* Applying the penalty method (@sec:penalty-method), each 2-literal clause has exactly one falsifying assignment (both literals false). The penalty for that assignment is a quadratic function of $x_i, x_j$:
 
   #table(
     columns: (auto, auto, auto, auto),
@@ -538,6 +538,12 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   )
 
   Summing over all clauses, $f(bold(x)) = sum_j "penalty"_j (bold(x))$ counts falsified clauses. Minimizers of $f$ maximize satisfied clauses.
+
+  *Case $k = 3$ (Rosenberg quadratization).* For each clause $(ell_1 or ell_2 or ell_3)$, define complement variables $y_i = overline(ell_i)$ (so $y_i = x_i$ if the literal is negated, $y_i = 1 - x_i$ if positive). The clause is violated when $y_1 y_2 y_3 = 1$. This cubic penalty is reduced to quadratic form by introducing an auxiliary variable $a$ and the substitution $a = y_1 y_2$, enforced via a Rosenberg penalty with weight $M$:
+  $ H = a dot y_3 + M (y_1 y_2 - 2 y_1 a - 2 y_2 a + 3a) $
+  where $M = 2$ suffices. For any binary assignment, if $a = y_1 y_2$ the penalty term vanishes and $H = y_1 y_2 y_3$ counts the clause violation. If $a != y_1 y_2$, the penalty $M(dots.c) >= 1$ makes this suboptimal.
+
+  Each clause adds one auxiliary variable (indices $n, n+1, ..., n+m-1$), so the total QUBO has $n + m$ variables. Solution extraction discards auxiliary variables: return $bold(x)[0..n]$.
 ]
 
 #reduction-rule("ILP", "QUBO")[

@@ -6,9 +6,9 @@
 //! in the cover) maps to a set cover (every universe element in some set).
 //!
 //! ## This Example
-//! - Instance: Triangle K3 (3 vertices, 3 edges)
-//! - Source VC: min size 2
-//! - Target MinimumSetCovering: min cover 2
+//! - Instance: Petersen graph (10 vertices, 15 edges), VC=6
+//! - Source VC: min size 6
+//! - Target MinimumSetCovering: min cover 6
 //!
 //! ## Output
 //! Exports `docs/paper/examples/minimumvertexcover_to_minimumsetcovering.json` and `minimumvertexcover_to_minimumsetcovering.result.json`.
@@ -17,17 +17,18 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
     println!("\n=== Vertex Cover -> Set Covering Reduction ===\n");
 
-    // Triangle K3: 3 vertices, 3 edges
-    let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let source = MinimumVertexCover::<SimpleGraph, i32>::new(3, edges.clone());
+    // Petersen graph: 10 vertices, 15 edges, VC=6
+    let (num_vertices, edges) = petersen();
+    let source = MinimumVertexCover::<SimpleGraph, i32>::new(num_vertices, edges.clone());
 
-    println!("Source: MinimumVertexCover on K3");
-    println!("  Vertices: 3");
+    println!("Source: MinimumVertexCover on Petersen graph");
+    println!("  Vertices: {}", num_vertices);
     println!("  Edges: {:?}", edges);
 
     // Reduce to MinimumSetCovering
@@ -76,8 +77,8 @@ fn main() {
     let source_size = source.solution_size(&source_sol);
     let target_size = target.solution_size(target_sol);
 
-    assert_eq!(source_size.size, 2, "VC on K3 has optimal size 2");
-    assert_eq!(target_size.size, 2, "MinimumSetCovering should also have size 2");
+    assert_eq!(source_size.size, 6, "VC on Petersen has optimal size 6");
+    assert_eq!(target_size.size, 6, "MinimumSetCovering should also have size 6");
 
     // Export JSON
     let overhead = lookup_overhead("MinimumVertexCover", "MinimumSetCovering")
@@ -109,5 +110,5 @@ fn main() {
     let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
     write_example(name, &data, &results);
 
-    println!("\nDone: VC(K3) optimal=2 maps to MinimumSetCovering optimal=2");
+    println!("\nDone: VC(Petersen) optimal=6 maps to MinimumSetCovering optimal=6");
 }
