@@ -5,12 +5,12 @@
 //! iff N can be factored within the given bit bounds.
 //!
 //! ## This Example
-//! - Instance: Factor 6 = 2 * 3 (m=2 bits, n=2 bits)
+//! - Instance: Factor 35 = 5 × 7 (m=3 bits, n=3 bits)
 //! - Reference: Based on ProblemReductions.jl factoring example
-//! - Source: Factoring(2, 2, 6)
+//! - Source: Factoring(3, 3, 35)
 //! - Target: CircuitSAT
 //!
-//! We solve the source Factoring problem directly with BruteForce (only 4 binary
+//! We solve the source Factoring problem directly with BruteForce (only 6 binary
 //! variables), then verify the reduction produces a valid CircuitSAT encoding by
 //! simulating the circuit forward from a known factorization to build a complete
 //! satisfying assignment.
@@ -40,9 +40,9 @@ fn simulate_circuit(
 }
 
 fn main() {
-    // 1. Create Factoring instance: factor 6 with 2-bit factors
-    //    Possible: 2*3=6 or 3*2=6
-    let factoring = Factoring::new(2, 2, 6);
+    // 1. Create Factoring instance: factor 35 with 3-bit factors
+    //    Possible: 5*7=35 or 7*5=35
+    let factoring = Factoring::new(3, 3, 35);
 
     println!("=== Factoring to Circuit-SAT Reduction ===\n");
     println!(
@@ -58,7 +58,7 @@ fn main() {
         factoring.n()
     );
 
-    // 2. Solve the source Factoring problem directly (only 4 binary variables)
+    // 2. Solve the source Factoring problem directly (only 6 binary variables)
     let solver = BruteForce::new();
     let factoring_solutions = solver.find_best(&factoring);
     println!("\nFactoring solutions found: {}", factoring_solutions.len());
@@ -93,7 +93,7 @@ fn main() {
         a, b, a * b, factoring_sol
     );
 
-    // Set input variables: p1, p2 for first factor, q1, q2 for second factor
+    // Set input variables: p1..p3 for first factor, q1..q3 for second factor
     let mut input_values: HashMap<String, bool> = HashMap::new();
     for (i, &bit) in factoring_sol.iter().enumerate().take(factoring.m()) {
         input_values.insert(format!("p{}", i + 1), bit == 1);
@@ -161,7 +161,7 @@ fn main() {
         });
     }
 
-    println!("\nReduction verified successfully: {} = {} * {}", factoring.target(), a, b);
+    println!("\nReduction verified successfully: 35 = 5 * 7");
 
     // 6. Export JSON
     let overhead = lookup_overhead("Factoring", "CircuitSAT")
