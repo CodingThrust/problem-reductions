@@ -48,7 +48,7 @@ doc:
 	cargo run --example export_graph
 	cp docs/paper/reduction_graph.json docs/src/reductions/
 	mdbook build docs
-	cargo doc --all-features --no-deps
+	RUSTDOCFLAGS="--default-theme=dark" cargo doc --all-features --no-deps
 	rm -rf docs/book/api
 	cp -r target/doc docs/book/api
 
@@ -56,7 +56,7 @@ doc:
 mdbook:
 	cargo run --example export_graph
 	cp docs/paper/reduction_graph.json docs/src/reductions/
-	cargo doc --all-features --no-deps
+	RUSTDOCFLAGS="--default-theme=dark" cargo doc --all-features --no-deps
 	mdbook build
 	rm -rf book/api
 	cp -r target/doc book/api
