@@ -48,18 +48,15 @@ assert_eq!(solution.iter().sum::<usize>(), 2); // Max IS size is 2
 
 ### Authorship Recognition
 
-**Contribute 10 non-trivial reduction rules and you will be automatically added to the author list of the paper.** To facilitate the development, we provide the AI tools to help developers implement their *plans*. Developers still need to carefully design the test cases and verify the correctness of the reduction rules.
+**Contribute 10 non-trivial reduction rules and you will be automatically added to the author list of the paper.** AI tools handle the implementation — contributors focus on designing correct reductions and test cases.
 
-**Step by step**
+### How to Contribute
 
-1. Find or create a GitHub issue describing your proposal, which rule to add and how to test it. You may have some discussions with other developers to refine the proposal.
-2. Write a detailed plan in `docs/plans/issue-<number>-<slug>.md`.
-   - If you use [Claude Code](https://github.com/anthropics/claude-code), it is recommended to use the [issue-to-pr](.claude/skills/issue-to-pr.md) skill. The skill will invoke [superpowers:brainstorm](https://github.com/obra/superpowers) to help you write a detailed plan:
-        ```
-        /issue-to-pr <issue-number>
-        ```
-        Afterwards, the skill creates a PR starting with `[action]`, which automatically triggers Claude CI to implement the plan.
-    - Otherwise, you can write a detailed plan manually ([sample](docs/plans/2026-02-08-qubo-reductions-plan.md)). Then create a PR manually. You can start implementing this plan on the CI machine by adding `[action]` at the start of the PR description or comments.
+1. **Open an issue** using the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template. Fill in all sections — the templates guide you through the required information (definition, algorithm, size overhead, example instance, etc.).
+
+2. **Create a PR from the issue.** Two options:
+   - **With [Claude Code](https://github.com/anthropics/claude-code):** run `/issue-to-pr <issue-number>`. This verifies the issue is complete, researches the reference, writes an implementation plan, and creates a PR with `[action]` to trigger automated implementation.
+   - **Manually:** write a plan in `docs/plans/` ([sample](docs/plans/2026-02-08-qubo-reductions-plan.md)), create a PR, and add `[action]` at the start of the PR description to trigger Claude CI.
 
 ### Developer Commands
 
