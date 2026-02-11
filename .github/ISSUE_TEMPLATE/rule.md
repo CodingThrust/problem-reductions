@@ -1,33 +1,53 @@
 ---
 name: Rule
-about: Contributors to propose a new reduction rule
-title: "[Rule] Source problem to target problem"
+about: Propose a new reduction rule
+title: "[Rule] Source to Target"
 labels: rule
 assignees: ''
 
 ---
 
-Source problem: [source problem type name A, e.g. MaximumIndependentSet, find problems we already have here: https://codingthrust.github.io/problem-reductions/]
-Target problem: [target problem type name B]
+**Source:** <!-- e.g. MaximumIndependentSet. Browse existing problems: https://codingthrust.github.io/problem-reductions/ -->
+**Target:** <!-- e.g. QUBO -->
+**Reference:** <!-- URL, paper, or textbook citation for this reduction -->
 
-## Algorithm
-[
-You can show a detailed math decription here, it will be used  for coding implementation and the typst manual (for human) writing.
-]
+## Reduction Algorithm
 
-## Validation method
-[
-Proposed method for developing a test dataset (in json) to verify correctness. It is usually by round trip tests. e.g. map an instance A to B, solve B
-e.g.1
-Generate test dataset from an existing library: https://github.com/GiggleLiu/ProblemReductions.jl
-e.g.2
-- Source problem instance 1, expected target problem instance 1
-- Source problem instance 2, expected target problem instance 2
-]
+<!-- How to construct a Target instance from a Source instance.
 
-## Round trip example to show
-[
-The example shown in the typst manual, focus on human verifiability. It usually includes
-- a short description to what it is about
-- the proposed source problem instance
-]
+1. Define notation: list all symbols for the source instance (e.g. G=(V,E), n=|V|, m=|E|)
+   and the target instance (e.g. Q ∈ R^{n×n}).
+2. Variable mapping: how source variables map to target variables.
+3. Constraint/objective transformation: formulas, penalty terms, etc.
+
+Solution extraction follows from the variable mapping, no need to describe separately.
+-->
+
+## Size Overhead
+
+<!-- How large is the target instance as a polynomial of the source size?
+Use the symbols defined in the Reduction Algorithm above.
+Also provide the code-level metric name (from the problem's `problem_size()` method). -->
+
+| Target metric (code name) | Polynomial (using symbols above) |
+|----------------------------|----------------------------------|
+| <!-- e.g. num_vars --> | <!-- e.g. n = |V| --> |
+| <!-- e.g. num_edges --> | <!-- e.g. m = |E| --> |
+
+## Validation Method
+
+<!-- How to verify the reduction is correct beyond closed-loop testing?
+E.g.
+- Generate ground truth from ProblemReductions.jl: https://github.com/GiggleLiu/ProblemReductions.jl
+- Compare source/target instance pairs against known results
+- Use external solver to cross-check
+-->
+
+## Example Source Instance
+
+<!-- A small but non-trivial source instance for the paper illustration.
+Must be small enough for brute-force solving, but large enough to exercise the reduction meaningfully.
+Only provide the source — the example code auto-generates the target instance, solutions, and JSON.
+
+E.g. "Petersen graph: |V|=10, |E|=15, 3-regular"
+-->

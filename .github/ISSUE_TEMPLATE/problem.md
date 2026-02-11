@@ -1,26 +1,56 @@
 ---
 name: Problem
-about: Contributors to propose a new model problem
+about: Propose a new problem type
 title: "[Model] Problem name"
 labels: model
 assignees: ''
 
 ---
 
-## Description
-[Problem name, e.g. Maximum Independent Set]
+## Definition
 
-[Description, with clear annotation of information source. e.g. 
-Given a Graph G=(V,E), an independent set of vertices, i.e. a subset of V such that no two vertices in it are joined by an edge in E. To goal is to find the the independent set with maximum cardinality.
+**Name:** <!-- e.g. MaximumIndependentSet. Use Maximum/Minimum prefix for optimization problems -->
+**Category:** <!-- graph / satisfiability / set / optimization / specialized -->
+**Reference:** <!-- URL or citation for the formal definition -->
 
-Ref: https://www.csc.kth.se/~viggo/wwwcompendium/node34.html
-]
+<!-- Formal definition: input, feasibility constraints, and objective.
+Define all symbols (e.g. G, V, E, S, K) before using them.
+
+E.g. "Given an undirected graph G=(V,E) where V is the vertex set and E is the edge set,
+find S ⊆ V such that no two vertices in S are adjacent, maximizing |S|."
+-->
+
+## Variables
+
+<!-- How the problem maps to a configuration vector x = (x_0, ..., x_{n-1}).
+Use symbols defined above. -->
+
+- **Count:** <!-- e.g. n = |V| (one variable per vertex) -->
+- **Per-variable domain:** <!-- e.g. binary {0,1}, or {0,...,K-1} for K colors -->
+- **Meaning:** <!-- e.g. x_i = 1 if vertex i ∈ S (selected in independent set) -->
 
 ## Schema
-[JSON Schema description, e.g.
-Type name: MaximumIndependentSet
-Vartiants: Different graph topolofy, weighted or unweighted (implemented as type parameters)
-Fields:
-- `graph`, a graph description
-- `weights`, a vector of numbers, for weights on vertices
-]
+
+<!-- Describe the data fields that define a problem instance.
+Connect fields to the symbols defined above. -->
+
+**Type name:** <!-- e.g. MaximumIndependentSet -->
+**Variants:** <!-- e.g. graph topology (SimpleGraph, GridGraph, UnitDiskGraph), weighted or unweighted -->
+
+| Field | Type | Description |
+|-------|------|-------------|
+| <!-- e.g. graph --> | <!-- e.g. SimpleGraph --> | <!-- e.g. the graph G=(V,E) --> |
+| <!-- e.g. weights --> | <!-- e.g. Vec<W> --> | <!-- e.g. vertex weights w_i for each i ∈ V (weighted variant only) --> |
+
+## Complexity
+
+- **Decision complexity:** <!-- e.g. NP-complete, NP-hard, P, etc. -->
+- **Best known exact algorithm:** <!-- e.g. O(1.1996^n) by Xiao & Nagamochi (2017), where n = |V| -->
+- **Best known approximation:** <!-- e.g. no PTAS unless P=NP; or 2-approximation via greedy -->
+
+## Example Instance
+
+<!-- A small but non-trivial instance with known optimal solution, for testing and the paper.
+Should be large enough to exercise the problem's constraints meaningfully (avoid trivial cases like triangle graphs).
+E.g. "Petersen graph: |V|=10, |E|=15, 3-regular. Optimal IS size = 4."
+-->

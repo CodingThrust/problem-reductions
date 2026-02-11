@@ -20,15 +20,17 @@ digraph issue_to_pr {
     "Receive issue number" [shape=box];
     "Fetch issue with gh" [shape=box];
     "Check the rules to follow" [shape=box];
-    "Brainstorm with user" [shape=box];
+    "Verify completeness" [shape=box];
+    "Research references" [shape=box];
     "Write plan file" [shape=box];
     "Create branch and PR" [shape=box];
     "PR triggers [action]" [shape=doublecircle];
 
     "Receive issue number" -> "Fetch issue with gh";
     "Fetch issue with gh" -> "Check the rules to follow";
-    "Check the rules to follow" -> "Brainstorm with user";
-    "Brainstorm with user" -> "Write plan file";
+    "Check the rules to follow" -> "Verify completeness";
+    "Verify completeness" -> "Research references";
+    "Research references" -> "Write plan file";
     "Write plan file" -> "Create branch and PR";
     "Create branch and PR" -> "PR triggers [action]";
 }
@@ -51,24 +53,28 @@ gh issue view <number> --json title,body,labels,assignees
 
 Present issue summary to user.
 
-### 3. Brainstorm Solutions
+### 3. Verify Issue Completeness
 
-**REQUIRED:** Invoke `superpowers:brainstorming` skill with the issue context (if superpowers plugin is available). Otherwise, conduct a manual brainstorming discussion with the user.
+Check that the issue template is fully filled out:
+- For **[Model]** issues: Definition, Variables, Instance Data, Objective, Type Parameters, Example
+- For **[Rule]** issues: Source, Target, Reference, Reduction mapping, Solution Extraction, Size Overhead, Example
 
-Brainstorming must cover:
-- **User intent** — clarify what the issue is asking for
-- **Multiple approaches** — explore 2-3 different implementation strategies
-- **Implementation details** — discuss the mathematical formulation, data structures, variable mappings, constraint encodings, and any non-obvious design choices
-- **Existing patterns** — read reference implementations in the codebase (e.g., `spinglass_qubo.rs` for reductions) to understand the conventions
-- **Scope** — agree on which variants to implement (e.g., unweighted only, specific K values)
+If any section is missing or unclear, comment on the issue via `gh issue comment <number> --body "..."` asking the contributor to fill in the missing sections. Then stop and wait — do NOT proceed until the issue is complete.
 
-Do NOT skip brainstorming. Do NOT write a plan without user discussion.
+### 4. Research References
 
-### 4. Write Plan
+Use `WebSearch` and `WebFetch` to look up the reference URL provided in the issue. This helps:
+- Clarify the formal problem definition and notation
+- Understand the reduction algorithm in detail (variable mapping, penalty terms, proof of correctness)
+- Resolve any ambiguities in the issue description without bothering the contributor
 
-After brainstorming concludes, write plan to `docs/plans/YYYY-MM-DD-<slug>.md` using `superpowers:writing-plans`:
+If the reference is a paper or textbook, search for accessible summaries, lecture notes, or Wikipedia articles on the same reduction.
 
-### 5. Create PR
+### 5. Write Plan
+
+Write plan to `docs/plans/YYYY-MM-DD-<slug>.md` using `superpowers:writing-plans`:
+
+### 6. Create PR
 
 ```bash
 # Create branch
@@ -101,13 +107,10 @@ User: /issue-to-pr 42
 
 Claude: Let me fetch issue #42...
 
-[Fetches issue: "Add IndependentSet → QUBO reduction"]
+[Fetches issue: "[Rule] IndependentSet to QUBO"]
+[Verifies all template sections are filled out]
 
-I'll read the rules to follow in .claude/rules/adding-reductions.md and use superpowers:brainstorming to explore this with you.
-
-[Invokes brainstorming - discusses approaches, user preferences, scope]
-
-Based on our discussion, I'll create the plan with superpowers:writing-plans...
+All required info is present. I'll create the plan...
 
 [Writes docs/plans/2026-02-09-independentset-to-qubo.md]
 [Creates branch, commits, pushes]
@@ -121,7 +124,7 @@ The [action] trigger will automatically execute the plan.
 
 | Mistake | Fix |
 |---------|-----|
-| Skipping brainstorming | Always use superpowers:brainstorming (or manual discussion) first |
+| Issue template incomplete | Ask contributor to fill in missing sections before proceeding |
 | `[action]` not at start | PR body must BEGIN with `[action]` |
 | Including implementation code in initial PR | First PR: plan only |
-| Generic plan | Use specifics from brainstorming |
+| Generic plan | Use specifics from the issue |
