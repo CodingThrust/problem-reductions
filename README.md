@@ -8,7 +8,7 @@
 A Rust library for NP-hard problem definitions and reductions. We aim to implement >100 NP-hard problems and reductions rule between them, under the assistance of AI.
 
 This infrastructure aims to solve two problems:
-- Given a hard problem $A$, reduce it to the most vaible problem $B$, and solve it.
+- Given a hard problem $A$, reduce it to the most vaible problem $B$, to be solved efficiently with an external solver.
 - Given a solver $S$ for problem $B$, explore how efficient it can be used for solving other problems.
 
 Download [PDF manual](https://codingthrust.github.io/problem-reductions/reductions.pdf) for humans.
@@ -54,9 +54,11 @@ assert_eq!(solution.iter().sum::<usize>(), 2); // Max IS size is 2
 
 1. **Open an issue** using the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template. Fill in all sections — the templates guide you through the required information (definition, algorithm, size overhead, example instance, etc.).
 
-2. **Create a PR from the issue.** Two options:
-   - **With [Claude Code](https://github.com/anthropics/claude-code):** run `/issue-to-pr <issue-number>`. This verifies the issue is complete, researches the reference, writes an implementation plan, and creates a PR with `[action]` to trigger automated implementation.
-   - **Manually:** write a plan in `docs/plans/` ([sample](docs/plans/2026-02-08-qubo-reductions-plan.md)), create a PR, and add `[action]` at the start of the PR description to trigger Claude CI.
+2. Optionally, if you prefer to make a **concrete plan** or **implement yourself**, I will recommend you to use the [superpowers:brainstorming](https://github.com/obra/superpowers) skill to help you write a detailed plan. After making implementation plan, you can either implement the plan yourself or create a PR with prompt:
+   ```
+   Create a pull request starting with "[action]" in the description.
+   ```
+   to trigger automated implementation.
 
 ### Developer Commands
 
