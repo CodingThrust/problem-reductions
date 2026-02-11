@@ -496,7 +496,7 @@
       "overhead": [
         {
           "field": "num_vars",
-          "formula": "num_vars"
+          "formula": "num_vars + num_clauses"
         }
       ],
       "doc_path": "rules/ksatisfiability_qubo/index.html"

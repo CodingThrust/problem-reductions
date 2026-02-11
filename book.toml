@@ -9,7 +9,7 @@ src = "docs/src"
 default-theme = "navy"
 git-repository-url = "https://github.com/CodingThrust/problem-reductions"
 edit-url-template = "https://github.com/CodingThrust/problem-reductions/edit/main/{path}"
-additional-css = []
+additional-css = ["docs/src/static/theme-images.css"]
 additional-js = []
 no-section-label = false
 

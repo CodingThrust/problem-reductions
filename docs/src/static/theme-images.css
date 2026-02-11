@@ -1,0 +1,19 @@
+/* Switch between light/dark diagram variants based on mdBook theme */
+
+/* Hide dark images by default (light theme) */
+.theme-dark-only {
+  display: none;
+}
+
+/* Dark themes: hide light, show dark */
+.coal .theme-light-only,
+.navy .theme-light-only,
+.ayu .theme-light-only {
+  display: none;
+}
+
+.coal .theme-dark-only,
+.navy .theme-dark-only,
+.ayu .theme-dark-only {
+  display: initial;
+}

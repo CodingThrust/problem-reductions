@@ -4,7 +4,7 @@ A Rust library for reducing NP-hard problems.
 
 ## Overview
 
-**problemreductions** provides implementations of various computational hard problems and reduction rules between them. It is designed for algorithm research, education, and quantum optimization studies.
+**problemreductions** provides implementations of various computational hard problems and reduction rules between them. It is designed for algorithm research, education, and industry applications.
 
 For theoretical background and correctness proofs, see the [PDF manual](https://codingthrust.github.io/problem-reductions/reductions.pdf).
 
@@ -366,15 +366,26 @@ The library supports four graph topologies:
 
 ## Our vision
 
-In the past, computational complexity theorists focus mostly on the theory part, left the tedious implementation to developers. This `algorithm -> paper` mode causes many repeated efforts in algorithm implementation. Due to the lack of infrastructures, many fundamental issues can not be answered clearly, such as
-- What is the fastest algorithm for solving a problem?
-- Given an efficient solver, what are the potential high impact problems it can be used for?
+Historically, computational complexity theorists have focused on the theory, leaving the tedious implementation work to developers. This `algorithm → paper` pipeline causes much duplicated effort in algorithm implementation. Without the right infrastructure, fundamental questions remain difficult to answer:
+- What is the fastest known algorithm for solving a given problem?
+- Given an efficient solver, which high-impact problems can it reach via reductions?
 
-Imagine, if every problem in this world is connected as a directed reduction graph, such that given any pairs of problems, we can easily find the most efficient reduction path between them. We can create a high speed rail-way between any two problems. We will no longer have repeated efforts in solving problems that are essentially the "same". However, developing this software infrastructure is not easy.
+Imagine every computational problem in the world connected in a directed reduction graph, so that for any pair of problems we can find the most efficient reduction path between them — a high-speed railway linking any two problems. We would no longer duplicate effort solving problems that are essentially the "same." Building this infrastructure, however, is not easy.
 
-What if AI take over the implementation part, and complete the `algoirthm -> paper -> software` pipeline? Theorists can still focus on the theory part, and AI will do the heavy lifting. How is it possible? Can we trust AI's implementation? Our answer is, yes. Not only due to the fast evolving large language models brings new power, but also due to the fact that almost all reductions can be verified by running round-trip tests (`source -> target -> solution to target -> solution to source` must equal to `source -> solution to source`). We can easily verify the correctness of the reduction by checking round-trip reduction examples.
+What if AI could take over the implementation step, completing an `algorithm → paper → software` pipeline? Theorists would still focus on theory while AI does the heavy lifting. Can we trust AI-generated implementations? We believe so — not only because large language models are rapidly improving, but also because nearly all reductions can be verified with round-trip tests: `source → target → solution to target → solution to source` must equal `source → solution to source`. Correctness is checked automatically by running these round-trip examples.
 
-Our vision is to automate this test-driven development pipeline, and enable general public to contribute. Our software will be open sourced, forever, for at any physical location in the universe to every human being and AI agent.
+<div class="theme-light-only">
+
+![](static/workflow-loop.svg)
+
+</div>
+<div class="theme-dark-only">
+
+![](static/workflow-loop-dark.svg)
+
+</div>
+
+Our vision is to automate this test-driven development pipeline and enable the general public to contribute. This software will be open source, forever, available at any physical location in the universe to every human being and AI agent.
 
 ## License
 
