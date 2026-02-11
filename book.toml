@@ -20,6 +20,7 @@ level = 1
 [output.html.playground]
 editable = false
 copy-js = true
+runnable = false
 
 [output.html.search]
 enable = true

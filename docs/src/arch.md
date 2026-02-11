@@ -33,7 +33,7 @@ MaximumIndependentSet/Weighted  # weighted objective
 
 Evaluating a configuration returns both validity and objective value:
 
-```rust,ignore
+```rust
 let config = vec![1, 0, 1, 0];  // Variable assignments
 let result = problem.solution_size(&config);
 // result.is_valid: bool
