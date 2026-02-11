@@ -6,8 +6,11 @@
 //! of gadget Hamiltonians; ground states correspond to satisfying assignments.
 //!
 //! ## This Example
-//! - Instance: Simple AND gate circuit (c = x AND y)
-//! - Source: CircuitSAT with 2 inputs
+//! - Instance: 1-bit full adder circuit (a, b, cin -> sum, cout)
+//!   - sum = a XOR b XOR cin (via intermediate t = a XOR b)
+//!   - cout = (a AND b) OR (cin AND t)
+//!   - 5 gates (2 XOR, 2 AND, 1 OR), ~8 variables
+//! - Source: CircuitSAT with 3 inputs
 //! - Target: SpinGlass
 //!
 //! ## Output
@@ -19,18 +22,40 @@ use problemreductions::prelude::*;
 use problemreductions::topology::{Graph, SimpleGraph};
 
 fn main() {
-    // 1. Create CircuitSAT instance: c = x AND y
-    //    This is a simple circuit with one AND gate.
+    // 1. Create CircuitSAT instance: 1-bit full adder
+    //    sum = a XOR b XOR cin, cout = (a AND b) OR (cin AND (a XOR b))
+    //    Decomposed into 5 gates with intermediate variables t, ab, cin_t.
     let circuit = Circuit::new(vec![
+        // Intermediate: t = a XOR b
         Assignment::new(
-            vec!["c".to_string()],
-            BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+            vec!["t".to_string()],
+            BooleanExpr::xor(vec![BooleanExpr::var("a"), BooleanExpr::var("b")]),
+        ),
+        // sum = t XOR cin
+        Assignment::new(
+            vec!["sum".to_string()],
+            BooleanExpr::xor(vec![BooleanExpr::var("t"), BooleanExpr::var("cin")]),
+        ),
+        // ab = a AND b
+        Assignment::new(
+            vec!["ab".to_string()],
+            BooleanExpr::and(vec![BooleanExpr::var("a"), BooleanExpr::var("b")]),
+        ),
+        // cin_t = cin AND t
+        Assignment::new(
+            vec!["cin_t".to_string()],
+            BooleanExpr::and(vec![BooleanExpr::var("cin"), BooleanExpr::var("t")]),
+        ),
+        // cout = ab OR cin_t
+        Assignment::new(
+            vec!["cout".to_string()],
+            BooleanExpr::or(vec![BooleanExpr::var("ab"), BooleanExpr::var("cin_t")]),
         ),
     ]);
     let circuit_sat = CircuitSAT::<i32>::new(circuit);
 
     println!("=== Circuit-SAT to Spin Glass Reduction ===\n");
-    println!("Source circuit: c = x AND y");
+    println!("Source circuit: 1-bit full adder (a, b, cin -> sum, cout)");
     println!(
         "  {} variables: {:?}",
         circuit_sat.num_variables(),
@@ -51,9 +76,9 @@ fn main() {
         sg.num_spins(),
         sg.graph().num_edges()
     );
-    println!("  Each logic gate becomes a spin glass gadget.");
-    println!("  AND gadget: 3 spins with J=[1,-2,-2], h=[-1,-1,2]");
-    println!("  Ground states encode valid truth table entries.");
+    println!("  Each logic gate (AND, OR, XOR) becomes a spin glass gadget.");
+    println!("  Gadget ground states encode valid truth table entries.");
+    println!("  Full adder uses 5 gadgets for its 5 gate decomposition.");
 
     // 3. Solve the target SpinGlass problem
     let solver = BruteForce::new();
