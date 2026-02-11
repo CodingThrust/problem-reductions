@@ -54,7 +54,7 @@ assert_eq!(solution.iter().sum::<usize>(), 2); // Max IS size is 2
         /issue-to-pr <issue-number>
         ```
         Afterwards, the skill creates a PR starting with `[action]`, which automatically triggers Claude CI to implement the plan.
-    - Otherwise, you can write a detailed plan manually ([sample](docs/plans/2026-01-31-factoring-ilp-design.md)). Then create a PR manually. You can start implementing this plan on the CI machine by adding `[action]` at the start of the PR description or comments.
+    - Otherwise, you can write a detailed plan manually ([sample](docs/plans/2026-02-08-qubo-reductions-plan.md)). Then create a PR manually. You can start implementing this plan on the CI machine by adding `[action]` at the start of the PR description or comments.
 
 ### Developer Commands
 
