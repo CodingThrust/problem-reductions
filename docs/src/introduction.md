@@ -364,21 +364,17 @@ The library supports four graph topologies:
 - **UnitDiskGraph** — geometric graph where edges connect vertices within a distance threshold (for quantum hardware mapping)
 - **HyperGraph** — generalized edges connecting any number of vertices
 
-## Quick Example
+## Our vision
 
-```rust
-use problemreductions::prelude::*;
+In the past, computational complexity theorists focus mostly on the theory part, left the tedious implementation to developers. This `algorithm -> paper` mode causes many repeated efforts in algorithm implementation. Due to the lack of infrastructures, many fundamental issues can not be answered clearly, such as
+- What is the fastest algorithm for solving a problem?
+- Given an efficient solver, what are the potential high impact problems it can be used for?
 
-// Create an Independent Set problem on a triangle graph
-let problem = MaximumIndependentSet::<i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+Imagine, if every problem in this world is connected as a directed reduction graph, such that given any pairs of problems, we can easily find the most efficient reduction path between them. We can create a high speed rail-way between any two problems. We will no longer have repeated efforts in solving problems that are essentially the "same". However, developing this software infrastructure is not easy.
 
-// Solve with brute force
-let solver = BruteForce::new();
-let solutions = solver.find_best(&problem);
+What if AI take over the implementation part, and complete the `algoirthm -> paper -> software` pipeline? Theorists can still focus on the theory part, and AI will do the heavy lifting. How is it possible? Can we trust AI's implementation? Our answer is, yes. Not only due to the fast evolving large language models brings new power, but also due to the fact that almost all reductions can be verified by running round-trip tests (`source -> target -> solution to target -> solution to source` must equal to `source -> solution to source`). We can easily verify the correctness of the reduction by checking round-trip reduction examples.
 
-// Maximum independent set in a triangle has size 1
-assert!(solutions.iter().all(|s| s.iter().sum::<usize>() == 1));
-```
+Our vision is to automate this test-driven development pipeline, and enable general public to contribute. Our software will be open sourced, forever, for at any physical location in the universe to every human being and AI agent.
 
 ## License
 
