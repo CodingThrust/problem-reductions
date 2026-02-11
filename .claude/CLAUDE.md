@@ -20,6 +20,7 @@ make rust-export    # Generate Rust mapping JSON exports
 make export-schemas # Regenerate problem schemas JSON
 make qubo-testdata  # Regenerate QUBO ground truth JSON
 make clean          # Clean build artifacts
+make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 ```
 
 ## Verify Changes

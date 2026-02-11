@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas
+.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release
 
 # Default target
 help:
@@ -21,6 +21,7 @@ help:
 	@echo "  examples     - Generate example JSON for paper"
 	@echo "  export-schemas - Export problem schemas to JSON"
 	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
+	@echo "  release V=x.y.z - Tag and push a new release (triggers CI publish)"
 
 # Build the project
 build:
@@ -100,6 +101,22 @@ check: fmt-check clippy test
 # Regenerate QUBO test data from Python (requires uv)
 qubo-testdata:
 	cd scripts && uv run python generate_qubo_tests.py
+
+# Release a new version: make release V=0.2.0
+release:
+ifndef V
+	$(error Usage: make release V=x.y.z)
+endif
+	@echo "Releasing v$(V)..."
+	sed -i 's/^version = ".*"/version = "$(V)"/' Cargo.toml
+	sed -i 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
+	sed -i 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
+	cargo check
+	git add Cargo.toml problemreductions-macros/Cargo.toml
+	git commit -m "release: v$(V)"
+	git tag -a "v$(V)" -m "Release v$(V)"
+	git push origin main --tags
+	@echo "v$(V) pushed — CI will publish to crates.io"
 
 # Generate Rust mapping JSON exports for all graphs and modes
 GRAPHS := diamond bull house petersen
