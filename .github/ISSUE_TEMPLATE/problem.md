@@ -1,8 +1,8 @@
 ---
 name: Problem
-about: For contributors to propose a new model problem
-title: "[Model] The problem you want to introduce to this repo"
-labels: ''
+about: Contributors to propose a new model problem
+title: "[Model] Problem name"
+labels: model
 assignees: ''
 
 ---
