@@ -60,10 +60,10 @@ mdbook:
 	mdbook build
 	rm -rf book/api
 	cp -r target/doc book/api
-	@-fuser -k 3001/tcp 2>/dev/null || true
+	@-lsof -ti:3001 | xargs kill 2>/dev/null || true
 	@echo "Serving at http://localhost:3001"
 	python3 -m http.server 3001 -d book &
-	@sleep 1 && xdg-open http://localhost:3001
+	@sleep 1 && (command -v xdg-open >/dev/null && xdg-open http://localhost:3001 || open http://localhost:3001)
 
 # Generate all example JSON files for the paper
 REDUCTION_EXAMPLES := $(patsubst examples/%.rs,%,$(wildcard examples/reduction_*.rs))

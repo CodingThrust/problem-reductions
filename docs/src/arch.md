@@ -33,7 +33,7 @@ MaximumIndependentSet/Weighted  # weighted objective
 
 Evaluating a configuration returns both validity and objective value:
 
-```rust
+```rust,ignore
 let config = vec![1, 0, 1, 0];  // Variable assignments
 let result = problem.solution_size(&config);
 // result.is_valid: bool
@@ -150,7 +150,7 @@ Variant IDs follow the pattern `ProblemName[/GraphType][/Weighted]`:
 | `MaximumIndependentSet/Weighted` | Weighted objective |
 | `MaximumIndependentSet/GridGraph/Weighted` | Both |
 
-The graph is exported to [`reduction_graph.json`](reductions/reduction_graph.json) for visualization and documentation:
+The graph data is stored in [`reduction_graph.json`](reductions/reduction_graph.json):
 
 <details>
 <summary>Schema</summary>
