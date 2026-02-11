@@ -4,6 +4,7 @@ version = "0.1.0"
 edition = "2021"
 description = "Procedural macros for problemreductions"
 license = "MIT"
+repository = "https://github.com/CodingThrust/problem-reductions"
 
 [lib]
 proc-macro = true
