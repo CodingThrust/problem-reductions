@@ -353,17 +353,6 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
 })();
 </script>
 
-## Problem Variants
-
-Problems are parameterized by graph type `G` and weight type `W`. The base variant uses `SimpleGraph` and `Unweighted` (e.g., `MaximumIndependentSet`). Graph variants specify a different topology (e.g., `MaximumIndependentSet/GridGraph`), and weighted variants use numeric weights (e.g., `MaximumIndependentSet/Weighted`). Variants appear as separate nodes in the reduction graph when they have distinct reductions.
-
-The library supports four graph topologies:
-
-- **SimpleGraph** — standard adjacency-based graph ([petgraph](https://docs.rs/petgraph))
-- **GridGraph** — vertices on a regular grid with nearest-neighbor edges
-- **UnitDiskGraph** — geometric graph where edges connect vertices within a distance threshold (for quantum hardware mapping)
-- **HyperGraph** — generalized edges connecting any number of vertices
-
 ## Our vision
 
 Historically, computational complexity theorists have focused on the theory, leaving the tedious implementation work to developers. This `algorithm → paper` pipeline causes much duplicated effort in algorithm implementation. Without the right infrastructure, fundamental questions remain difficult to answer:

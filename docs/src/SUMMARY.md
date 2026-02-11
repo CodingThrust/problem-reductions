@@ -5,8 +5,7 @@
 # User Guide
 
 - [Getting Started](./getting-started.md)
-- [Solvers](./solvers.md)
-- [File I/O](./io.md)
+- [Architecture](./arch.md)
 
 # Developer Guide
 
