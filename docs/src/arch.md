@@ -150,21 +150,42 @@ Variant IDs follow the pattern `ProblemName[/GraphType][/Weighted]`:
 | `MaximumIndependentSet/Weighted` | Weighted objective |
 | `MaximumIndependentSet/GridGraph/Weighted` | Both |
 
-The graph is exported to `reduction_graph.json` for visualization and documentation:
+The graph is exported to [`reduction_graph.json`](reductions/reduction_graph.json) for visualization and documentation:
+
+<details>
+<summary>Schema</summary>
 
 ```json
 {
   "nodes": [
-    {"name": "Satisfiability", "variant": {}, "category": "satisfiability", "doc_path": "..."},
-    {"name": "MaximumIndependentSet", "variant": {"graph": "GridGraph"}, "category": "graph", "doc_path": "..."}
+    {
+      "name": "Satisfiability",
+      "variant": {},
+      "category": "satisfiability",
+      "doc_path": "..."
+    },
+    {
+      "name": "MaximumIndependentSet",
+      "variant": {"graph": "GridGraph"},
+      "category": "graph",
+      "doc_path": "..."
+    }
   ],
   "edges": [
-    {"source": {"name": "Satisfiability", "variant": {}}, "target": {"name": "MaximumIndependentSet", "variant": {}}}
+    {
+      "source": {"name": "Satisfiability", "variant": {}},
+      "target": {"name": "MaximumIndependentSet", "variant": {}}
+    }
   ]
 }
 ```
 
+</details>
+
 Problem schemas (`problem_schemas.json`) describe each problem's structure:
+
+<details>
+<summary><code>problem_schemas.json</code> schema</summary>
 
 ```json
 [
@@ -173,13 +194,27 @@ Problem schemas (`problem_schemas.json`) describe each problem's structure:
     "category": "satisfiability",
     "description": "Find satisfying assignment for CNF formula",
     "fields": [
-      {"name": "num_vars", "type_name": "usize", "description": "Number of Boolean variables"},
-      {"name": "clauses", "type_name": "Vec<CNFClause>", "description": "Clauses in conjunctive normal form"},
-      {"name": "weights", "type_name": "Vec<W>", "description": "Clause weights for MAX-SAT"}
+      {
+        "name": "num_vars",
+        "type_name": "usize",
+        "description": "Number of Boolean variables"
+      },
+      {
+        "name": "clauses",
+        "type_name": "Vec<CNFClause>",
+        "description": "Clauses in conjunctive normal form"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Clause weights for MAX-SAT"
+      }
     ]
   }
 ]
 ```
+
+</details>
 
 Use the interactive diagram in the [mdBook documentation](https://codingthrust.github.io/problem-reductions/) to explore available reductions.
 

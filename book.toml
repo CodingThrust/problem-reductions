@@ -9,8 +9,8 @@ src = "docs/src"
 default-theme = "navy"
 git-repository-url = "https://github.com/CodingThrust/problem-reductions"
 edit-url-template = "https://github.com/CodingThrust/problem-reductions/edit/main/{path}"
-additional-css = ["docs/src/static/theme-images.css"]
-additional-js = []
+additional-css = ["docs/src/static/theme-images.css", "docs/src/static/json-viewer.css"]
+additional-js = ["docs/src/static/json-viewer.js"]
 no-section-label = false
 
 [output.html.fold]
