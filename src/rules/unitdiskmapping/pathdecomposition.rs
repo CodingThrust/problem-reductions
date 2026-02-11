@@ -14,7 +14,7 @@
 //! Experimental evaluation of a branch and bound algorithm for computing pathwidth.
 //! <https://doi.org/10.1007/978-3-319-07959-2_5>
 
-use rand::seq::SliceRandom;
+use rand::seq::IndexedRandom;
 use std::collections::{HashMap, HashSet};
 
 /// A layout representing a partial path decomposition.
@@ -296,7 +296,7 @@ fn greedy_step(
         .map(|(i, _)| i)
         .collect();
 
-    let mut rng = rand::thread_rng();
+    let mut rng = rand::rng();
     let &chosen_idx = best_indices.as_slice().choose(&mut rng).unwrap();
 
     layouts.into_iter().nth(chosen_idx).unwrap()

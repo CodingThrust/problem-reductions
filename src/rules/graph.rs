@@ -474,8 +474,12 @@ impl ReductionGraph {
             None => return vec![],
         };
 
-        let paths: Vec<Vec<NodeIndex>> =
-            all_simple_paths(&self.graph, src_idx, dst_idx, 0, None).collect();
+        let paths: Vec<Vec<NodeIndex>> = all_simple_paths::<
+            Vec<NodeIndex>,
+            _,
+            std::hash::RandomState,
+        >(&self.graph, src_idx, dst_idx, 0, None)
+        .collect();
 
         paths
             .into_iter()

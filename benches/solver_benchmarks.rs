@@ -1,6 +1,7 @@
 //! Benchmarks for the BruteForce solver on various problem types.
 
-use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
+use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use std::hint::black_box;
 use problemreductions::models::graph::*;
 use problemreductions::topology::SimpleGraph;
 use problemreductions::models::optimization::*;
