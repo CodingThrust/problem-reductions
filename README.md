@@ -4,10 +4,14 @@
 [![CI](https://github.com/CodingThrust/problem-reductions/actions/workflows/ci.yml/badge.svg)](https://github.com/CodingThrust/problem-reductions/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/CodingThrust/problem-reductions/graph/badge.svg?token=0CdEC8GHN0)](https://codecov.io/github/CodingThrust/problem-reductions)
 [![Docs](https://img.shields.io/badge/Docs-API-green)](https://codingthrust.github.io/problem-reductions/)
-[![PDF Manual](https://img.shields.io/badge/PDF-Manual-blue)](https://codingthrust.github.io/problem-reductions/reductions.pdf)
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A Rust library for NP-hard problem definitions and reductions. We aim to implement >100 NP-hard problems and reductions rule between them, under the assistance of AI.
+
+This infrastructure aims to solve two problems:
+- Given a hard problem $A$, reduce it to the most vaible problem $B$, and solve it.
+- Given a solver $S$ for problem $B$, explore how efficient it can be used for solving other problems.
+
+Download [PDF manual](https://codingthrust.github.io/problem-reductions/reductions.pdf) for humans.
 
 ## Installation
 
