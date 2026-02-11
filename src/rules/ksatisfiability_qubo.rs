@@ -52,13 +52,13 @@ impl ReductionResult for ReductionKSatToQUBO {
 
 /// Result of reducing KSatisfiability<3> to QUBO.
 #[derive(Debug, Clone)]
-pub struct ReductionK3SatToQUBO {
+pub struct Reduction3SATToQUBO {
     target: QUBO<f64>,
     source_num_vars: usize,
     source_size: ProblemSize,
 }
 
-impl ReductionResult for ReductionK3SatToQUBO {
+impl ReductionResult for Reduction3SATToQUBO {
     type Source = KSatisfiability<3, i32>;
     type Target = QUBO<f64>;
 
@@ -332,13 +332,13 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<2, i32> {
     ]) }
 )]
 impl ReduceTo<QUBO<f64>> for KSatisfiability<3, i32> {
-    type Result = ReductionK3SatToQUBO;
+    type Result = Reduction3SATToQUBO;
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_vars();
         let matrix = build_qubo_matrix(n, self.clauses(), 3);
 
-        ReductionK3SatToQUBO {
+        Reduction3SATToQUBO {
             target: QUBO::from_matrix(matrix),
             source_num_vars: n,
             source_size: self.problem_size(),
