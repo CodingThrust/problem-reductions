@@ -1,8 +1,8 @@
 //! Boolean Matrix Factorization (BMF) problem implementation.
 //!
 //! Given a boolean matrix A, find matrices B and C such that
-//! the boolean product B ⊙ C approximates A.
-//! The boolean product `(B ⊙ C)[i,j] = OR_k (B[i,k] AND C[k,j])`.
+//! the boolean product B * C approximates A.
+//! The boolean product `(B * C)[i,j] = OR_k (B[i,k] AND C[k,j])`.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
@@ -25,11 +25,11 @@ inventory::submit! {
 
 /// The Boolean Matrix Factorization problem.
 ///
-/// Given an m×n boolean matrix A and rank k, find:
-/// - B: m×k boolean matrix
-/// - C: k×n boolean matrix
+/// Given an m x n boolean matrix A and rank k, find:
+/// - B: m x k boolean matrix
+/// - C: k x n boolean matrix
 ///
-/// Such that the Hamming distance between A and B⊙C is minimized.
+/// Such that the Hamming distance between A and B*C is minimized.
 ///
 /// # Example
 ///
@@ -55,7 +55,7 @@ inventory::submit! {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BMF {
-    /// The target matrix A (m×n).
+    /// The target matrix A (m x n).
     matrix: Vec<Vec<bool>>,
     /// Number of rows (m).
     m: usize,
@@ -69,7 +69,7 @@ impl BMF {
     /// Create a new BMF problem.
     ///
     /// # Arguments
-    /// * `matrix` - The target m×n boolean matrix
+    /// * `matrix` - The target m x n boolean matrix
     /// * `k` - The factorization rank
     pub fn new(matrix: Vec<Vec<bool>>, k: usize) -> Self {
         let m = matrix.len();
@@ -109,7 +109,7 @@ impl BMF {
     pub fn extract_factors(&self, config: &[usize]) -> (Vec<Vec<bool>>, Vec<Vec<bool>>) {
         let b_size = self.m * self.k;
 
-        // Extract B (m×k)
+        // Extract B (m x k)
         let b: Vec<Vec<bool>> = (0..self.m)
             .map(|i| {
                 (0..self.k)
@@ -118,7 +118,7 @@ impl BMF {
             })
             .collect();
 
-        // Extract C (k×n)
+        // Extract C (k x n)
         let c: Vec<Vec<bool>> = (0..self.k)
             .map(|i| {
                 (0..self.n)
@@ -130,9 +130,9 @@ impl BMF {
         (b, c)
     }
 
-    /// Compute the boolean product B ⊙ C.
+    /// Compute the boolean product B * C.
     ///
-    /// `(B ⊙ C)[i,j] = OR_k (B[i,k] AND C[k,j])`
+    /// `(B * C)[i,j] = OR_k (B[i,k] AND C[k,j])`
     pub fn boolean_product(b: &[Vec<bool>], c: &[Vec<bool>]) -> Vec<Vec<bool>> {
         let m = b.len();
         let n = if !c.is_empty() { c[0].len() } else { 0 };
@@ -181,7 +181,7 @@ impl Problem for BMF {
     type Size = i32;
 
     fn num_variables(&self) -> usize {
-        // B: m×k + C: k×n
+        // B: m x k + C: k x n
         self.m * self.k + self.k * self.n
     }
 
@@ -201,6 +201,30 @@ impl Problem for BMF {
         let distance = self.hamming_distance(config) as i32;
         let is_valid = distance == 0; // Valid if exact factorization
         SolutionSize::new(distance, is_valid)
+    }
+}
+
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl crate::traits::ProblemV2 for BMF {
+    const NAME: &'static str = "BMF";
+    type Metric = i32;
+
+    fn dims(&self) -> Vec<usize> {
+        // B: m*k + C: k*n binary variables
+        vec![2; self.m * self.k + self.k * self.n]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> i32 {
+        // Minimize Hamming distance between A and B*C.
+        // All configurations are valid -- the distance is the objective.
+        self.hamming_distance(config) as i32
+    }
+}
+
+impl crate::traits::OptimizationProblemV2 for BMF {
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Minimize
     }
 }
 

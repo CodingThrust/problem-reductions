@@ -430,7 +430,7 @@ fn test_batch_evaluation_with_multi_flavor() {
 
 // === ProblemV2 / OptimizationProblemV2 tests ===
 
-use crate::types::{Direction, Weights};
+use crate::types::Direction;
 
 #[derive(Clone)]
 struct TestSatProblem {

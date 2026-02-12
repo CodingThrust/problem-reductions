@@ -182,3 +182,33 @@ fn test_is_exact() {
     assert!(problem.is_exact(&[1, 1]));
     assert!(!problem.is_exact(&[0, 0]));
 }
+
+#[test]
+fn test_bmf_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // 2x2 identity matrix with rank 2
+    let matrix = vec![vec![true, false], vec![false, true]];
+    let problem = BMF::new(matrix, 2);
+
+    // dims: B(2*2) + C(2*2) = 8 binary variables
+    assert_eq!(problem.dims(), vec![2; 8]);
+
+    // Exact factorization: B = I, C = I
+    // Config: [1,0,0,1, 1,0,0,1]
+    assert_eq!(problem.evaluate(&[1, 0, 0, 1, 1, 0, 0, 1]), 0);
+
+    // All zeros -> product is all zeros, distance = 2
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0, 0, 0, 0]), 2);
+
+    // Direction is minimize
+    assert_eq!(problem.direction(), Direction::Minimize);
+
+    // Test with 1x1 matrix
+    let matrix = vec![vec![true]];
+    let problem = BMF::new(matrix, 1);
+    assert_eq!(problem.dims(), vec![2; 2]); // B(1*1) + C(1*1)
+    assert_eq!(problem.evaluate(&[1, 1]), 0); // Exact
+    assert_eq!(problem.evaluate(&[0, 0]), 1); // Distance 1
+}

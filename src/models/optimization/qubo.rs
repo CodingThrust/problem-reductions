@@ -185,6 +185,49 @@ where
     }
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl<W> crate::traits::ProblemV2 for QUBO<W>
+where
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + std::ops::Mul<Output = W>
+        + 'static,
+{
+    const NAME: &'static str = "QUBO";
+    type Metric = W;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> W {
+        self.evaluate(config)
+    }
+}
+
+impl<W> crate::traits::OptimizationProblemV2 for QUBO<W>
+where
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + std::ops::Mul<Output = W>
+        + 'static,
+{
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Minimize
+    }
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/optimization/qubo.rs"]
 mod tests;

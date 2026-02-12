@@ -149,3 +149,35 @@ fn test_empty_edges() {
     assert!(sol.is_valid); // No edges to cover
     assert_eq!(sol.size, 0);
 }
+
+#[test]
+fn test_biclique_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Single edge (0, 2) with k=1, 2 left + 2 right vertices
+    let problem = BicliqueCover::new(2, 2, vec![(0, 2)], 1);
+
+    // dims: 4 vertices * 1 biclique = 4 binary variables
+    assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
+
+    // Valid cover: vertex 0 and vertex 2 in biclique 0
+    // Config: [v0_b0=1, v1_b0=0, v2_b0=1, v3_b0=0]
+    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), 2);
+
+    // Invalid cover: only vertex 0, edge (0,2) not covered
+    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), i32::MAX);
+
+    // Valid cover with all vertices -> size 4
+    assert_eq!(problem.evaluate(&[1, 1, 1, 1]), 4);
+
+    // Empty config: no vertices in biclique, edge not covered
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), i32::MAX);
+
+    // Direction is minimize
+    assert_eq!(problem.direction(), Direction::Minimize);
+
+    // Test with no edges: any config is valid
+    let empty_problem = BicliqueCover::new(2, 2, vec![], 1);
+    assert_eq!(empty_problem.evaluate(&[0, 0, 0, 0]), 0);
+}

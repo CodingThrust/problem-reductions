@@ -340,6 +340,26 @@ where
     }
 }
 
+
+// === ProblemV2 implementation ===
+
+impl<W> crate::traits::ProblemV2 for Satisfiability<W>
+where
+    W: Clone + Default + 'static,
+{
+    const NAME: &'static str = "Satisfiability";
+    type Metric = bool;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> bool {
+        let assignment = Self::config_to_assignment(config);
+        self.is_satisfying(&assignment)
+    }
+}
+
 /// Check if an assignment satisfies a SAT formula.
 ///
 /// # Arguments

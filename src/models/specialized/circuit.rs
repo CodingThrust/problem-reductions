@@ -342,6 +342,24 @@ pub fn is_circuit_satisfying(circuit: &Circuit, assignments: &HashMap<String, bo
         .all(|a| a.is_satisfied(assignments))
 }
 
+// === ProblemV2 implementation ===
+
+impl<W> crate::traits::ProblemV2 for CircuitSAT<W>
+where
+    W: Clone + Default + 'static,
+{
+    const NAME: &'static str = "CircuitSAT";
+    type Metric = bool;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.variables.len()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> bool {
+        self.count_satisfied(config) == self.circuit.num_assignments()
+    }
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/specialized/circuit.rs"]
 mod tests;

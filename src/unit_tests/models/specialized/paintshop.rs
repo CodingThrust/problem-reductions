@@ -145,3 +145,26 @@ fn test_car_labels() {
     let problem = PaintShop::new(vec!["car1", "car2", "car1", "car2"]);
     assert_eq!(problem.car_labels().len(), 2);
 }
+
+#[test]
+fn test_paintshop_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
+
+    // dims: one binary variable per car
+    assert_eq!(problem.dims(), vec![2, 2]);
+
+    // Config [0, 0] -> coloring [0, 0, 1, 1] -> 1 switch
+    assert_eq!(problem.evaluate(&[0, 0]), 1);
+
+    // Config [0, 1] -> coloring [0, 1, 1, 0] -> 2 switches
+    assert_eq!(problem.evaluate(&[0, 1]), 2);
+
+    // Config [1, 1] -> coloring [1, 1, 0, 0] -> 1 switch
+    assert_eq!(problem.evaluate(&[1, 1]), 1);
+
+    // Direction is minimize
+    assert_eq!(problem.direction(), Direction::Minimize);
+}

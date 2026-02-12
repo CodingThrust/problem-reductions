@@ -158,6 +158,34 @@ pub fn is_factoring(target: u64, a: u64, b: u64) -> bool {
     a * b == target
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl crate::traits::ProblemV2 for Factoring {
+    const NAME: &'static str = "Factoring";
+    type Metric = i32;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.m + self.n]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> i32 {
+        let (a, b) = self.read_factors(config);
+        let product = a * b;
+        // Distance from target (0 means exact match)
+        if product > self.target {
+            (product - self.target) as i32
+        } else {
+            (self.target - product) as i32
+        }
+    }
+}
+
+impl crate::traits::OptimizationProblemV2 for Factoring {
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Minimize
+    }
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/specialized/factoring.rs"]
 mod tests;

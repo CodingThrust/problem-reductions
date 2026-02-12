@@ -191,3 +191,24 @@ fn test_variant() {
     assert_eq!(variant[0], ("graph", "SimpleGraph"));
     assert_eq!(variant[1], ("weight", "f64"));
 }
+
+#[test]
+fn test_spin_glass_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Two spins with antiferromagnetic coupling J_01 = 1
+    let p = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
+    assert_eq!(p.dims(), vec![2, 2]);
+
+    // config [0, 0] => spins [-1, -1]: H = 1 * (-1)*(-1) = 1
+    assert_eq!(ProblemV2::evaluate(&p, &[0, 0]), 1.0);
+    // config [1, 1] => spins [+1, +1]: H = 1 * 1*1 = 1
+    assert_eq!(ProblemV2::evaluate(&p, &[1, 1]), 1.0);
+    // config [0, 1] => spins [-1, +1]: H = 1 * (-1)*(1) = -1
+    assert_eq!(ProblemV2::evaluate(&p, &[0, 1]), -1.0);
+    // config [1, 0] => spins [+1, -1]: H = 1 * (1)*(-1) = -1
+    assert_eq!(ProblemV2::evaluate(&p, &[1, 0]), -1.0);
+
+    assert_eq!(p.direction(), Direction::Minimize);
+}

@@ -582,3 +582,46 @@ fn test_ilp_variant() {
     assert_eq!(v[0], ("graph", "SimpleGraph"));
     assert_eq!(v[1], ("weight", "f64"));
 }
+
+#[test]
+fn test_ilp_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Maximize x0 + 2*x1, s.t. x0 + x1 <= 1, binary
+    let ilp = ILP::binary(
+        2,
+        vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
+        vec![(0, 1.0), (1, 2.0)],
+        ObjectiveSense::Maximize,
+    );
+    assert_eq!(ilp.dims(), vec![2, 2]);
+
+    // [0, 0] -> feasible, obj = 0
+    assert_eq!(ProblemV2::evaluate(&ilp, &[0, 0]), 0.0);
+    // [0, 1] -> feasible, obj = 2
+    assert_eq!(ProblemV2::evaluate(&ilp, &[0, 1]), 2.0);
+    // [1, 0] -> feasible, obj = 1
+    assert_eq!(ProblemV2::evaluate(&ilp, &[1, 0]), 1.0);
+    // [1, 1] -> infeasible, returns f64::MIN for maximize
+    assert_eq!(ProblemV2::evaluate(&ilp, &[1, 1]), f64::MIN);
+
+    assert_eq!(ilp.direction(), Direction::Maximize);
+}
+
+#[test]
+fn test_ilp_problem_v2_minimize() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Minimize x0 + x1, no constraints, binary
+    let ilp = ILP::binary(
+        2,
+        vec![],
+        vec![(0, 1.0), (1, 1.0)],
+        ObjectiveSense::Minimize,
+    );
+    assert_eq!(ProblemV2::evaluate(&ilp, &[0, 0]), 0.0);
+    assert_eq!(ProblemV2::evaluate(&ilp, &[1, 1]), 2.0);
+    assert_eq!(ilp.direction(), Direction::Minimize);
+}

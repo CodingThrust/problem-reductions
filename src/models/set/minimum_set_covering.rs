@@ -254,6 +254,59 @@ pub fn is_set_cover(universe_size: usize, sets: &[Vec<usize>], selected: &[bool]
     (0..universe_size).all(|e| covered.contains(&e))
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl<W> crate::traits::ProblemV2 for MinimumSetCovering<W>
+where
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    const NAME: &'static str = "MinimumSetCovering";
+    type Metric = W;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.sets.len()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> W {
+        let covered = self.covered_elements(config);
+        let is_valid = covered.len() == self.universe_size
+            && (0..self.universe_size).all(|e| covered.contains(&e));
+        if !is_valid {
+            return W::max_value();
+        }
+        let mut total = W::zero();
+        for (i, &selected) in config.iter().enumerate() {
+            if selected == 1 {
+                total += self.weights[i].clone();
+            }
+        }
+        total
+    }
+}
+
+impl<W> crate::traits::OptimizationProblemV2 for MinimumSetCovering<W>
+where
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Minimize
+    }
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/set/minimum_set_covering.rs"]
 mod tests;

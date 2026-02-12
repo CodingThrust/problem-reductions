@@ -396,6 +396,40 @@ impl Problem for ILP {
     }
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl crate::traits::ProblemV2 for ILP {
+    const NAME: &'static str = "ILP";
+    type Metric = f64;
+
+    fn dims(&self) -> Vec<usize> {
+        self.bounds
+            .iter()
+            .map(|b| b.num_values().unwrap_or(2))
+            .collect()
+    }
+
+    fn evaluate(&self, config: &[usize]) -> f64 {
+        let values = self.config_to_values(config);
+        if !self.is_feasible(&values) {
+            return match self.sense {
+                ObjectiveSense::Maximize => f64::MIN,
+                ObjectiveSense::Minimize => f64::MAX,
+            };
+        }
+        self.evaluate_objective(&values)
+    }
+}
+
+impl crate::traits::OptimizationProblemV2 for ILP {
+    fn direction(&self) -> crate::types::Direction {
+        match self.sense {
+            ObjectiveSense::Maximize => crate::types::Direction::Maximize,
+            ObjectiveSense::Minimize => crate::types::Direction::Minimize,
+        }
+    }
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/optimization/ilp.rs"]
 mod tests;

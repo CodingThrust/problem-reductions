@@ -194,3 +194,22 @@ fn test_problem_size() {
     assert_eq!(size.get("universe_size"), Some(5));
     assert_eq!(size.get("num_sets"), Some(3));
 }
+
+#[test]
+fn test_set_covering_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Universe {0,1,2,3}, S0={0,1}, S1={2,3}
+    let p = MinimumSetCovering::<i32>::new(4, vec![vec![0, 1], vec![2, 3]]);
+    assert_eq!(p.dims(), vec![2, 2]);
+
+    // Select both -> covers all, weight=2
+    assert_eq!(ProblemV2::evaluate(&p, &[1, 1]), 2);
+    // Select only S0 -> doesn't cover {2,3}, invalid -> i32::MAX
+    assert_eq!(ProblemV2::evaluate(&p, &[1, 0]), i32::MAX);
+    // Select none -> doesn't cover anything -> i32::MAX
+    assert_eq!(ProblemV2::evaluate(&p, &[0, 0]), i32::MAX);
+
+    assert_eq!(p.direction(), Direction::Minimize);
+}

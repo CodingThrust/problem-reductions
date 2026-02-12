@@ -190,6 +190,28 @@ impl Problem for PaintShop {
     }
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl crate::traits::ProblemV2 for PaintShop {
+    const NAME: &'static str = "PaintShop";
+    type Metric = i32;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.num_cars]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> i32 {
+        // All configurations are valid (no hard constraints).
+        self.count_switches(config) as i32
+    }
+}
+
+impl crate::traits::OptimizationProblemV2 for PaintShop {
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Minimize
+    }
+}
+
 /// Count color switches in a painted sequence.
 pub fn count_paint_switches(coloring: &[usize]) -> usize {
     coloring.windows(2).filter(|w| w[0] != w[1]).count()

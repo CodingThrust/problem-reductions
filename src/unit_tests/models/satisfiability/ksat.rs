@@ -166,3 +166,45 @@ fn test_ksat_is_satisfied_csp() {
     assert!(problem.is_satisfied(&[1, 0, 0])); // x1=T, x2=F, x3=F
     assert!(!problem.is_satisfied(&[1, 1, 1])); // x1=T, x2=T, x3=T
 }
+
+#[test]
+fn test_ksat_problem_v2() {
+    use crate::traits::ProblemV2;
+
+    let p = KSatisfiability::<3, i32>::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, 2, 3]),
+            CNFClause::new(vec![-1, -2, -3]),
+        ],
+    );
+
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    assert!(p.evaluate(&[1, 0, 0]));
+    assert!(!p.evaluate(&[1, 1, 1]));
+    assert!(!p.evaluate(&[0, 0, 0]));
+    assert!(p.evaluate(&[1, 0, 1]));
+    assert_eq!(
+        <KSatisfiability<3, i32> as ProblemV2>::NAME,
+        "KSatisfiability"
+    );
+}
+
+#[test]
+fn test_ksat_problem_v2_2sat() {
+    use crate::traits::ProblemV2;
+
+    let p = KSatisfiability::<2, i32>::new(
+        2,
+        vec![
+            CNFClause::new(vec![1, 2]),
+            CNFClause::new(vec![-1, -2]),
+        ],
+    );
+
+    assert_eq!(p.dims(), vec![2, 2]);
+    assert!(p.evaluate(&[1, 0]));
+    assert!(p.evaluate(&[0, 1]));
+    assert!(!p.evaluate(&[1, 1]));
+    assert!(!p.evaluate(&[0, 0]));
+}

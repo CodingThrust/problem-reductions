@@ -246,6 +246,56 @@ pub fn is_set_packing(sets: &[Vec<usize>], selected: &[bool]) -> bool {
     is_valid_packing(sets, &config)
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl<W> crate::traits::ProblemV2 for MaximumSetPacking<W>
+where
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    const NAME: &'static str = "MaximumSetPacking";
+    type Metric = W;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.sets.len()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> W {
+        if !is_valid_packing(&self.sets, config) {
+            return W::min_value();
+        }
+        let mut total = W::zero();
+        for (i, &selected) in config.iter().enumerate() {
+            if selected == 1 {
+                total += self.weights[i].clone();
+            }
+        }
+        total
+    }
+}
+
+impl<W> crate::traits::OptimizationProblemV2 for MaximumSetPacking<W>
+where
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Maximize
+    }
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/set/maximum_set_packing.rs"]
 mod tests;

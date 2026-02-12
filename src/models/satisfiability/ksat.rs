@@ -321,6 +321,26 @@ where
     }
 }
 
+
+// === ProblemV2 implementation ===
+
+impl<const K: usize, W> crate::traits::ProblemV2 for KSatisfiability<K, W>
+where
+    W: Clone + Default + 'static,
+{
+    const NAME: &'static str = "KSatisfiability";
+    type Metric = bool;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> bool {
+        let assignment = Self::config_to_assignment(config);
+        self.is_satisfying(&assignment)
+    }
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/satisfiability/ksat.rs"]
 mod tests;

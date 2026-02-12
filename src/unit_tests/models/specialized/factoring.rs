@@ -150,3 +150,22 @@ fn test_factor_one() {
         assert_eq!(a * b, 1);
     }
 }
+
+#[test]
+fn test_factoring_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Factor 6 with 2-bit factors
+    let p = Factoring::new(2, 2, 6);
+    assert_eq!(p.dims(), vec![2, 2, 2, 2]);
+
+    // Bits [0,1, 1,1] = a=2, b=3, product=6, distance=0
+    assert_eq!(p.evaluate(&[0, 1, 1, 1]), 0);
+    // Bits [1,1, 0,1] = a=3, b=2, product=6, distance=0
+    assert_eq!(p.evaluate(&[1, 1, 0, 1]), 0);
+    // Bits [0,0, 0,0] = a=0, b=0, product=0, distance=6
+    assert_eq!(p.evaluate(&[0, 0, 0, 0]), 6);
+
+    assert_eq!(p.direction(), Direction::Minimize);
+}

@@ -134,3 +134,22 @@ fn test_get_out_of_bounds() {
     assert_eq!(problem.get(5, 5), None);
     assert_eq!(problem.get(0, 5), None);
 }
+
+#[test]
+fn test_qubo_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Simple 2-variable QUBO: Q = [[1, -2], [0, 1]]
+    // f(x) = x0 - 2*x0*x1 + x1
+    let q = vec![vec![1.0, -2.0], vec![0.0, 1.0]];
+    let p = QUBO::<f64>::from_matrix(q);
+    assert_eq!(p.dims(), vec![2, 2]);
+    // x = [0, 0]: f = 0
+    assert_eq!(ProblemV2::evaluate(&p, &[0, 0]), 0.0);
+    // x = [1, 1]: f = 1 - 2 + 1 = 0
+    assert_eq!(ProblemV2::evaluate(&p, &[1, 1]), 0.0);
+    // x = [1, 0]: f = 1
+    assert_eq!(ProblemV2::evaluate(&p, &[1, 0]), 1.0);
+    assert_eq!(p.direction(), Direction::Minimize);
+}

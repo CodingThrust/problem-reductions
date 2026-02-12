@@ -233,6 +233,31 @@ impl Problem for BicliqueCover {
     }
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl crate::traits::ProblemV2 for BicliqueCover {
+    const NAME: &'static str = "BicliqueCover";
+    type Metric = i32;
+
+    fn dims(&self) -> Vec<usize> {
+        // Each vertex has k binary variables (one per biclique)
+        vec![2; self.num_vertices() * self.k]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> i32 {
+        if !self.is_valid_cover(config) {
+            return i32::MAX;
+        }
+        self.total_biclique_size(config) as i32
+    }
+}
+
+impl crate::traits::OptimizationProblemV2 for BicliqueCover {
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Minimize
+    }
+}
+
 /// Check if a biclique configuration covers all edges.
 pub fn is_biclique_cover(
     edges: &[(usize, usize)],

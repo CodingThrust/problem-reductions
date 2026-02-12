@@ -218,3 +218,22 @@ fn test_problem_size() {
     let size = problem.problem_size();
     assert_eq!(size.get("num_sets"), Some(3));
 }
+
+#[test]
+fn test_set_packing_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // S0={0,1}, S1={1,2}, S2={3,4} — S0 and S1 overlap, S2 is disjoint from both
+    let p = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+
+    // Select S0 and S2 (disjoint) -> valid, weight=2
+    assert_eq!(ProblemV2::evaluate(&p, &[1, 0, 1]), 2);
+    // Select S0 and S1 (overlap) -> invalid, returns i32::MIN
+    assert_eq!(ProblemV2::evaluate(&p, &[1, 1, 0]), i32::MIN);
+    // Select none -> valid, weight=0
+    assert_eq!(ProblemV2::evaluate(&p, &[0, 0, 0]), 0);
+
+    assert_eq!(p.direction(), Direction::Maximize);
+}

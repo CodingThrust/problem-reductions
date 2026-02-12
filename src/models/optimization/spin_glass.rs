@@ -243,6 +243,54 @@ where
     }
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl<G, W> crate::traits::ProblemV2 for SpinGlass<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + std::ops::Mul<Output = W>
+        + From<i32>
+        + 'static,
+{
+    const NAME: &'static str = "SpinGlass";
+    type Metric = W;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> W {
+        let spins = Self::config_to_spins(config);
+        self.compute_energy(&spins)
+    }
+}
+
+impl<G, W> crate::traits::OptimizationProblemV2 for SpinGlass<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + std::ops::Mul<Output = W>
+        + From<i32>
+        + 'static,
+{
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Minimize
+    }
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/optimization/spin_glass.rs"]
 mod tests;

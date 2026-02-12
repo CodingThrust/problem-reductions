@@ -268,3 +268,25 @@ fn test_weighted_circuit_sat() {
     assert_eq!(sol.size, 10); // Only c=x satisfied
     assert!(!sol.is_valid);
 }
+
+#[test]
+fn test_circuit_sat_problem_v2() {
+    use crate::traits::ProblemV2;
+
+    // c = x AND y
+    let circuit = Circuit::new(vec![Assignment::new(
+        vec!["c".to_string()],
+        BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+    )]);
+    let p = CircuitSAT::<i32>::new(circuit);
+
+    // Variables sorted: c, x, y
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+
+    // c=1, x=1, y=1: c = 1 AND 1 = 1 => satisfied
+    assert!(p.evaluate(&[1, 1, 1]));
+    // c=0, x=0, y=0: c = 0 AND 0 = 0 => satisfied (c=0 matches)
+    assert!(p.evaluate(&[0, 0, 0]));
+    // c=1, x=1, y=0: c = 1 AND 0 = 0 != 1 => not satisfied
+    assert!(!p.evaluate(&[1, 1, 0]));
+}
