@@ -140,14 +140,14 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: std::collections::HashMap::new(),
+            variant: variant_to_map(ILP::variant()),
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
             }),
         },
         target: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: std::collections::HashMap::new(),
+            variant: variant_to_map(QUBO::<f64>::variant()),
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": qubo.matrix(),

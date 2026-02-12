@@ -137,7 +137,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: CircuitSAT::<i32>::NAME.to_string(),
-            variant: std::collections::HashMap::new(),
+            variant: variant_to_map(CircuitSAT::<i32>::variant()),
             instance: serde_json::json!({
                 "num_gates": circuit_sat.circuit().num_assignments(),
                 "num_variables": circuit_sat.num_variables(),
@@ -145,7 +145,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: SpinGlass::<SimpleGraph, i32>::NAME.to_string(),
-            variant: std::collections::HashMap::new(),
+            variant: variant_to_map(SpinGlass::<SimpleGraph, i32>::variant()),
             instance: serde_json::json!({
                 "num_spins": sg.num_variables(),
             }),

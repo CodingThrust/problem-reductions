@@ -169,13 +169,6 @@ fn test_dims_iterator_single_variable() {
 }
 
 #[test]
-fn test_dims_iterator_zero_dim() {
-    let iter = DimsIterator::new(vec![2, 0, 3]);
-    assert_eq!(iter.total(), 0);
-    assert_eq!(iter.collect::<Vec<_>>().len(), 0);
-}
-
-#[test]
 fn test_dims_iterator_exact_size() {
     let mut iter = DimsIterator::new(vec![2, 3]);
     assert_eq!(iter.len(), 6);

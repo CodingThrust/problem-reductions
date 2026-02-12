@@ -16,7 +16,6 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use std::collections::HashMap;
 
 pub fn run() {
     // 1. Create MinimumSetCovering instance: universe {0,...,7}, 6 sets
@@ -85,7 +84,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumSetCovering::<i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(MinimumSetCovering::<i32>::variant()),
             instance: serde_json::json!({
                 "num_sets": sc.num_sets(),
                 "sets": sc.sets(),
@@ -94,7 +93,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(ILP::variant()),
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

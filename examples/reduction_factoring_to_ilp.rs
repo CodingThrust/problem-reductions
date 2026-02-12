@@ -76,7 +76,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: Factoring::NAME.to_string(),
-            variant: std::collections::HashMap::new(),
+            variant: variant_to_map(Factoring::variant()),
             instance: serde_json::json!({
                 "number": problem.target(),
                 "num_bits_first": problem.m(),
@@ -85,7 +85,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: std::collections::HashMap::new(),
+            variant: variant_to_map(ILP::variant()),
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

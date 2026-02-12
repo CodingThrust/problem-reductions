@@ -15,8 +15,6 @@
 //
 // See docs/paper/reductions.typ for the full reduction specification.
 
-use std::collections::HashMap;
-
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
@@ -98,7 +96,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant()),
             instance: serde_json::json!({
                 "num_vertices": source.num_vertices(),
                 "num_edges": source.num_edges(),
@@ -107,7 +105,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: MinimumSetCovering::<i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(MinimumSetCovering::<i32>::variant()),
             instance: serde_json::json!({
                 "num_sets": target.num_sets(),
                 "sets": target.sets(),

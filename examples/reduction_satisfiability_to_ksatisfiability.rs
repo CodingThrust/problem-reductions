@@ -20,7 +20,6 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use std::collections::HashMap;
 
 pub fn run() {
     // 1. Create SAT instance with varied clause sizes to demonstrate padding and splitting:
@@ -130,7 +129,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: Satisfiability::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(Satisfiability::variant()),
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
                 "num_clauses": sat.num_clauses(),
@@ -138,7 +137,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: KSatisfiability::<3>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(KSatisfiability::<3>::variant()),
             instance: serde_json::json!({
                 "num_vars": ksat.num_vars(),
                 "num_clauses": ksat.num_clauses(),

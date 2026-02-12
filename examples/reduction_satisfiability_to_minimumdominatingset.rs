@@ -15,7 +15,6 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use std::collections::HashMap;
 use problemreductions::topology::SimpleGraph;
 
 pub fn run() {
@@ -125,7 +124,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: Satisfiability::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(Satisfiability::variant()),
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
                 "num_clauses": sat.num_clauses(),
@@ -133,7 +132,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: MinimumDominatingSet::<SimpleGraph, i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(MinimumDominatingSet::<SimpleGraph, i32>::variant()),
             instance: serde_json::json!({
                 "num_vertices": ds.num_vertices(),
                 "num_edges": ds.num_edges(),

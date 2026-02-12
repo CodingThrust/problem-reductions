@@ -76,7 +76,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: KColoring::<3, SimpleGraph, i32>::NAME.to_string(),
-            variant: std::collections::HashMap::new(),
+            variant: variant_to_map(KColoring::<3, SimpleGraph, i32>::variant()),
             instance: serde_json::json!({
                 "num_vertices": coloring.num_vertices(),
                 "num_edges": coloring.num_edges(),
@@ -85,7 +85,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: std::collections::HashMap::new(),
+            variant: variant_to_map(ILP::variant()),
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

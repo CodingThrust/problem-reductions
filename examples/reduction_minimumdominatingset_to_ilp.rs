@@ -17,7 +17,6 @@ use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
-use std::collections::HashMap;
 
 pub fn run() {
     // 1. Create MinimumDominatingSet instance: Petersen graph
@@ -78,7 +77,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumDominatingSet::<SimpleGraph, i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(MinimumDominatingSet::<SimpleGraph, i32>::variant()),
             instance: serde_json::json!({
                 "num_vertices": ds.num_vertices(),
                 "num_edges": ds.num_edges(),
@@ -87,7 +86,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(ILP::variant()),
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

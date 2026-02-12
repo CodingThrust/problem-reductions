@@ -16,8 +16,6 @@
 //
 // See docs/paper/reductions.typ for the full reduction specification.
 
-use std::collections::HashMap;
-
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
@@ -75,7 +73,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(QUBO::<f64>::variant()),
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": matrix,
@@ -83,7 +81,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: SpinGlass::<SimpleGraph, f64>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(SpinGlass::<SimpleGraph, f64>::variant()),
             instance: serde_json::json!({
                 "num_spins": sg.num_variables(),
             }),

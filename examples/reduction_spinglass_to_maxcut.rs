@@ -17,7 +17,6 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use std::collections::HashMap;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
@@ -71,14 +70,14 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: SpinGlass::<SimpleGraph, i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(SpinGlass::<SimpleGraph, i32>::variant()),
             instance: serde_json::json!({
                 "num_spins": sg.num_variables(),
             }),
         },
         target: ProblemSide {
             problem: MaxCut::<SimpleGraph, i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(MaxCut::<SimpleGraph, i32>::variant()),
             instance: serde_json::json!({
                 "num_vertices": maxcut.num_vertices(),
                 "num_edges": maxcut.num_edges(),

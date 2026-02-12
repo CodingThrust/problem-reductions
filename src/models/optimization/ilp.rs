@@ -333,7 +333,11 @@ impl Problem for ILP {
     fn dims(&self) -> Vec<usize> {
         self.bounds
             .iter()
-            .map(|b| b.num_values().unwrap_or(2))
+            .map(|b| {
+                b.num_values().expect(
+                    "ILP brute-force enumeration requires all variables to have finite bounds",
+                )
+            })
             .collect()
     }
 

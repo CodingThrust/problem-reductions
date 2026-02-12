@@ -63,7 +63,7 @@ fn test_vc_to_sc_solution_extraction() {
     for sol in &vc_solutions {
         // Check that the solution evaluates to a valid value (not i32::MAX for invalid)
         let eval = vc_problem.evaluate(sol);
-        assert!(eval .is_valid());
+        assert!(eval.is_valid());
     }
 
     // The minimum should be selecting just vertex 1 (covers both edges)

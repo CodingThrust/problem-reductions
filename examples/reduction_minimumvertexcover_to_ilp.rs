@@ -13,8 +13,6 @@
 // ## Output
 // Exports `docs/paper/examples/minimumvertexcover_to_ilp.json` and `minimumvertexcover_to_ilp.result.json`.
 
-use std::collections::HashMap;
-
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
@@ -79,7 +77,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant()),
             instance: serde_json::json!({
                 "num_vertices": vc.num_vertices(),
                 "num_edges": vc.num_edges(),
@@ -88,7 +86,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(ILP::variant()),
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

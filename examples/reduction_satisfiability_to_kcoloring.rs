@@ -15,8 +15,6 @@
 // ## Output
 // Exports `docs/paper/examples/satisfiability_to_kcoloring.json` and `satisfiability_to_kcoloring.result.json`.
 
-use std::collections::HashMap;
-
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
@@ -124,7 +122,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: Satisfiability::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(Satisfiability::variant()),
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
                 "num_clauses": sat.num_clauses(),
@@ -132,7 +130,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: KColoring::<3, SimpleGraph, i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(KColoring::<3, SimpleGraph, i32>::variant()),
             instance: serde_json::json!({
                 "num_vertices": coloring.num_vertices(),
                 "num_edges": coloring.num_edges(),

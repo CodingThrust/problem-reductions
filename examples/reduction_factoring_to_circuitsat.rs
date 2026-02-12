@@ -196,7 +196,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: Factoring::NAME.to_string(),
-            variant: std::collections::HashMap::new(),
+            variant: variant_to_map(Factoring::variant()),
             instance: serde_json::json!({
                 "number": factoring.target(),
                 "num_bits_first": factoring.m(),
@@ -205,7 +205,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: CircuitSAT::<i32>::NAME.to_string(),
-            variant: std::collections::HashMap::new(),
+            variant: variant_to_map(CircuitSAT::<i32>::variant()),
             instance: serde_json::json!({
                 "num_variables": circuit_sat.num_variables(),
                 "num_gates": circuit_sat.circuit().num_assignments(),

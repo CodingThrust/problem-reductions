@@ -31,7 +31,6 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use std::collections::HashMap;
 
 pub fn run() {
     println!("=== Set Packing -> QUBO Reduction ===\n");
@@ -104,7 +103,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MaximumSetPacking::<i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(MaximumSetPacking::<i32>::variant()),
             instance: serde_json::json!({
                 "num_sets": sp.num_sets(),
                 "sets": sp.sets(),
@@ -112,7 +111,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(QUBO::<f64>::variant()),
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": qubo.matrix(),

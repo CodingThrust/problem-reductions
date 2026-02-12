@@ -24,8 +24,6 @@
 // cargo run --example reduction_vc_to_qubo
 // ```
 
-use std::collections::HashMap;
-
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
@@ -97,7 +95,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant()),
             instance: serde_json::json!({
                 "num_vertices": vc.num_vertices(),
                 "num_edges": vc.num_edges(),
@@ -106,7 +104,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(QUBO::<f64>::variant()),
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": qubo.matrix(),

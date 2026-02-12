@@ -19,7 +19,6 @@ use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
-use std::collections::HashMap;
 
 pub fn run() {
     // Petersen graph: 10 vertices, 15 edges, VC=6
@@ -75,7 +74,7 @@ pub fn run() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant()),
             instance: serde_json::json!({
                 "num_vertices": vc.num_vertices(),
                 "num_edges": vc.num_edges(),
@@ -84,7 +83,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: MaximumIndependentSet::<SimpleGraph, i32>::NAME.to_string(),
-            variant: HashMap::new(),
+            variant: variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant()),
             instance: serde_json::json!({
                 "num_vertices": is.num_vertices(),
                 "num_edges": is.num_edges(),
