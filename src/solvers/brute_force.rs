@@ -1,9 +1,8 @@
 //! Brute force solver that enumerates all configurations.
 
-use crate::config::ConfigIterator;
+use crate::config::DimsIterator;
 use crate::solvers::Solver;
-use crate::traits::Problem;
-use crate::types::SolutionSize;
+use crate::traits::{OptimizationProblem, Problem};
 
 /// A brute force solver that enumerates all possible configurations.
 ///
@@ -15,8 +14,6 @@ pub struct BruteForce {
     pub atol: f64,
     /// Relative tolerance for comparing objective values.
     pub rtol: f64,
-    /// If true, only return valid solutions.
-    pub valid_only: bool,
 }
 
 impl Default for BruteForce {
@@ -24,7 +21,6 @@ impl Default for BruteForce {
         Self {
             atol: 1e-10,
             rtol: 1e-10,
-            valid_only: true,
         }
     }
 }
@@ -37,17 +33,7 @@ impl BruteForce {
 
     /// Create a brute force solver with custom tolerances.
     pub fn with_tolerance(atol: f64, rtol: f64) -> Self {
-        Self {
-            atol,
-            rtol,
-            valid_only: true,
-        }
-    }
-
-    /// Set whether to only return valid solutions.
-    pub fn valid_only(mut self, valid_only: bool) -> Self {
-        self.valid_only = valid_only;
-        self
+        Self { atol, rtol }
     }
 
     /// Check if two floating point values are approximately equal.
@@ -55,137 +41,12 @@ impl BruteForce {
         let diff = (a - b).abs();
         diff <= self.atol || diff <= self.rtol * b.abs().max(a.abs())
     }
-}
 
-impl Solver for BruteForce {
-    fn find_best<P: Problem>(&self, problem: &P) -> Vec<Vec<usize>> {
-        self.find_best_with_size(problem)
-            .into_iter()
-            .map(|(config, _)| config)
-            .collect()
-    }
-
-    fn find_best_with_size<P: Problem>(
-        &self,
-        problem: &P,
-    ) -> Vec<(Vec<usize>, SolutionSize<P::Size>)> {
-        let num_variables = problem.num_variables();
-        let num_flavors = problem.num_flavors();
-
-        if num_variables == 0 {
-            return vec![];
-        }
-
-        let iter = ConfigIterator::new(num_variables, num_flavors);
-        let energy_mode = problem.energy_mode();
-
-        let mut best_solutions: Vec<(Vec<usize>, SolutionSize<P::Size>)> = vec![];
-        let mut best_size: Option<P::Size> = None;
-
-        for config in iter {
-            let solution = problem.solution_size(&config);
-
-            // Skip invalid solutions if valid_only is true
-            if self.valid_only && !solution.is_valid {
-                continue;
-            }
-
-            let is_new_best = match &best_size {
-                None => true,
-                Some(current_best) => energy_mode.is_better(&solution.size, current_best),
-            };
-
-            if is_new_best {
-                best_size = Some(solution.size.clone());
-                best_solutions.clear();
-                best_solutions.push((config, solution));
-            } else if let Some(current_best) = &best_size {
-                // Check if equal to best (for collecting all optimal solutions)
-                if self.is_equal_size(&solution.size, current_best) {
-                    best_solutions.push((config, solution));
-                }
-            }
-        }
-
-        best_solutions
-    }
-}
-
-impl BruteForce {
-    /// Check if two sizes are equal (with tolerance for floating point).
-    #[allow(clippy::neg_cmp_op_on_partial_ord)]
-    fn is_equal_size<T: PartialOrd + Clone>(&self, a: &T, b: &T) -> bool {
-        // For exact types, use exact comparison via partial_cmp
-        // This works for integers and handles incomparable values correctly
-        matches!(a.partial_cmp(b), Some(std::cmp::Ordering::Equal))
-    }
-}
-
-/// Extension trait for floating point comparisons in brute force solver.
-pub trait BruteForceFloat {
-    /// Find best solutions with floating point tolerance.
-    fn find_best_float<P: Problem<Size = f64>>(
-        &self,
-        problem: &P,
-    ) -> Vec<(Vec<usize>, SolutionSize<f64>)>;
-}
-
-impl BruteForceFloat for BruteForce {
-    fn find_best_float<P: Problem<Size = f64>>(
-        &self,
-        problem: &P,
-    ) -> Vec<(Vec<usize>, SolutionSize<f64>)> {
-        let num_variables = problem.num_variables();
-        let num_flavors = problem.num_flavors();
-
-        if num_variables == 0 {
-            return vec![];
-        }
-
-        let iter = ConfigIterator::new(num_variables, num_flavors);
-        let energy_mode = problem.energy_mode();
-
-        let mut best_solutions: Vec<(Vec<usize>, SolutionSize<f64>)> = vec![];
-        let mut best_size: Option<f64> = None;
-
-        for config in iter {
-            let solution = problem.solution_size(&config);
-
-            if self.valid_only && !solution.is_valid {
-                continue;
-            }
-
-            let is_new_best = match &best_size {
-                None => true,
-                Some(current_best) => energy_mode.is_better(&solution.size, current_best),
-            };
-
-            if is_new_best {
-                best_size = Some(solution.size);
-                best_solutions.clear();
-                best_solutions.push((config, solution));
-            } else if let Some(current_best) = &best_size {
-                if self.approx_equal(solution.size, *current_best) {
-                    best_solutions.push((config, solution));
-                }
-            }
-        }
-
-        best_solutions
-    }
-}
-
-// === SolverV2 implementation ===
-
-use crate::config::DimsIterator;
-use crate::solvers::SolverV2;
-use crate::traits::{OptimizationProblemV2, ProblemV2};
-use crate::types::{Direction, NumericSize};
-
-impl SolverV2 for BruteForce {
-    fn find_best_v2<P: OptimizationProblemV2>(&self, problem: &P) -> Vec<Vec<usize>>
+    /// Internal: find all optimal solutions.
+    fn find_all_best<P>(&self, problem: &P) -> Vec<Vec<usize>>
     where
-        P::Metric: NumericSize,
+        P: OptimizationProblem,
+        P::Metric: Clone,
     {
         let dims = problem.dims();
         if dims.is_empty() {
@@ -193,53 +54,69 @@ impl SolverV2 for BruteForce {
         }
 
         let iter = DimsIterator::new(dims);
-        let direction = problem.direction();
-
         let mut best_solutions: Vec<Vec<usize>> = vec![];
         let mut best_metric: Option<P::Metric> = None;
 
         for config in iter {
             let metric = problem.evaluate(&config);
 
-            let is_new_best = match &best_metric {
-                None => true,
-                Some(current_best) => match direction {
-                    Direction::Maximize => metric > *current_best,
-                    Direction::Minimize => metric < *current_best,
-                },
+            let dominated = match &best_metric {
+                None => false,
+                Some(current_best) => problem.is_better(current_best, &metric),
             };
 
-            if is_new_best {
+            if dominated {
+                continue;
+            }
+
+            let dominates = match &best_metric {
+                None => true,
+                Some(current_best) => problem.is_better(&metric, current_best),
+            };
+
+            if dominates {
                 best_metric = Some(metric);
                 best_solutions.clear();
                 best_solutions.push(config);
-            } else if let Some(current_best) = &best_metric {
-                if self.is_equal_size(&metric, current_best) {
-                    best_solutions.push(config);
-                }
+            } else if best_metric.is_some() {
+                // Equal quality - add to solutions
+                best_solutions.push(config);
             }
         }
 
         best_solutions
     }
 
-    fn find_satisfying<P: ProblemV2<Metric = bool>>(&self, problem: &P) -> Option<Vec<usize>> {
-        let dims = problem.dims();
-        if dims.is_empty() {
-            return None;
-        }
-
-        DimsIterator::new(dims).find(|config| problem.evaluate(config))
-    }
-
-    fn find_all_satisfying<P: ProblemV2<Metric = bool>>(&self, problem: &P) -> Vec<Vec<usize>> {
+    /// Find all satisfying solutions (internal, used for testing).
+    pub(crate) fn find_all_satisfying<P: Problem<Metric = bool>>(
+        &self,
+        problem: &P,
+    ) -> Vec<Vec<usize>> {
         let dims = problem.dims();
         if dims.is_empty() {
             return vec![];
         }
+        DimsIterator::new(dims)
+            .filter(|config| problem.evaluate(config))
+            .collect()
+    }
+}
 
-        let iter = DimsIterator::new(dims);
-        iter.filter(|config| problem.evaluate(config)).collect()
+impl Solver for BruteForce {
+    fn find_best<P>(&self, problem: &P) -> Vec<Vec<usize>>
+    where
+        P: OptimizationProblem,
+        P::Metric: Clone,
+    {
+        self.find_all_best(problem)
+    }
+
+    fn find_satisfying<P: Problem<Metric = bool>>(&self, problem: &P) -> Option<Vec<usize>> {
+        let dims = problem.dims();
+        if dims.is_empty() {
+            return None;
+        }
+        DimsIterator::new(dims).find(|config| problem.evaluate(config))
     }
 }
 
