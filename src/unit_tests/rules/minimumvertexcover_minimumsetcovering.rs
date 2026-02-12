@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
-use crate::traits::ConstraintSatisfactionProblem;
 
 #[test]
 fn test_vc_to_sc_basic() {
@@ -44,6 +43,8 @@ fn test_vc_to_sc_triangle() {
 
 #[test]
 fn test_vc_to_sc_solution_extraction() {
+    use crate::traits::Problem;
+
     let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
     let sc_problem = reduction.target_problem();
@@ -60,7 +61,9 @@ fn test_vc_to_sc_solution_extraction() {
 
     // Verify extracted solutions are valid vertex covers
     for sol in &vc_solutions {
-        assert!(vc_problem.solution_size(sol).is_valid);
+        // Check that the solution evaluates to a valid value (not i32::MAX for invalid)
+        let eval = vc_problem.evaluate(sol);
+        assert!(eval .is_valid());
     }
 
     // The minimum should be selecting just vertex 1 (covers both edges)
@@ -98,8 +101,8 @@ fn test_vc_to_sc_weighted() {
     let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
     let sc_problem = reduction.target_problem();
 
-    // Weights should be preserved
-    assert_eq!(sc_problem.weights(), vec![10, 1, 10]);
+    // Weights should be preserved - access via weights_ref method on the problem
+    assert_eq!(*sc_problem.weights_ref(), vec![10, 1, 10]);
 
     // Solve both ways
     let solver = BruteForce::new();
@@ -128,21 +131,6 @@ fn test_vc_to_sc_empty_graph() {
 }
 
 #[test]
-fn test_vc_to_sc_source_target_size() {
-    let vc_problem =
-        MinimumVertexCover::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
-    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
-
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("num_vertices"), Some(5));
-    assert_eq!(source_size.get("num_edges"), Some(4));
-    assert_eq!(target_size.get("universe_size"), Some(4)); // edges become universe
-    assert_eq!(target_size.get("num_sets"), Some(5)); // vertices become sets
-}
-
-#[test]
 fn test_vc_to_sc_star_graph() {
     // Star graph: center vertex 0 connected to all others
     // Edges: (0,1), (0,2), (0,3)
@@ -165,6 +153,8 @@ fn test_vc_to_sc_star_graph() {
 
 #[test]
 fn test_vc_to_sc_all_solutions_valid() {
+    use crate::traits::Problem;
+
     // Ensure all solutions extracted from SC are valid VC solutions
     let vc_problem =
         MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]);
@@ -176,9 +166,9 @@ fn test_vc_to_sc_all_solutions_valid() {
 
     for sc_sol in &sc_solutions {
         let vc_sol = reduction.extract_solution(sc_sol);
-        let sol_size = vc_problem.solution_size(&vc_sol);
+        let eval = vc_problem.evaluate(&vc_sol);
         assert!(
-            sol_size.is_valid,
+            eval .is_valid(),
             "Extracted solution {:?} should be valid",
             vc_sol
         );

@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense};
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::Problem;
 
 #[test]
 fn test_ilp_to_qubo_closed_loop() {
@@ -24,7 +25,8 @@ fn test_ilp_to_qubo_closed_loop() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(ilp.solution_size(&extracted).is_valid);
+        let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
+        assert!(ilp.is_feasible(&values));
     }
 
     // Optimal should be [1, 0, 1]
@@ -51,7 +53,8 @@ fn test_ilp_to_qubo_minimize() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(ilp.solution_size(&extracted).is_valid);
+        let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
+        assert!(ilp.is_feasible(&values));
     }
 
     let best = reduction.extract_solution(&qubo_solutions[0]);
@@ -83,7 +86,8 @@ fn test_ilp_to_qubo_equality() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(ilp.solution_size(&extracted).is_valid);
+        let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
+        assert!(ilp.is_feasible(&values));
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 2);
     }
 }
@@ -113,7 +117,8 @@ fn test_ilp_to_qubo_ge_with_slack() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(ilp.solution_size(&extracted).is_valid);
+        let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
+        assert!(ilp.is_feasible(&values));
     }
 
     // Optimal: exactly one variable = 1
@@ -146,7 +151,8 @@ fn test_ilp_to_qubo_le_with_slack() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(ilp.solution_size(&extracted).is_valid);
+        let values: Vec<i64> = extracted.iter().map(|&x| x as i64).collect();
+        assert!(ilp.is_feasible(&values));
     }
 
     // Optimal: exactly 2 of 3 variables = 1 (3 solutions)
@@ -155,7 +161,7 @@ fn test_ilp_to_qubo_le_with_slack() {
 }
 
 #[test]
-fn test_ilp_to_qubo_sizes() {
+fn test_ilp_to_qubo_structure() {
     let ilp = ILP::binary(
         3,
         vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
@@ -163,9 +169,8 @@ fn test_ilp_to_qubo_sizes() {
         ObjectiveSense::Maximize,
     );
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp);
+    let qubo = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-    assert!(!source_size.components.is_empty());
-    assert!(!target_size.components.is_empty());
+    // Verify QUBO has appropriate structure
+    assert!(qubo.num_variables() >= ilp.num_vars);
 }

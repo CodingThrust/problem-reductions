@@ -6,6 +6,7 @@
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::prelude::*;
 use crate::topology::SimpleGraph;
+use crate::traits::Problem;
 use proptest::prelude::*;
 use proptest::strategy::ValueTree;
 use std::collections::HashSet;
@@ -64,7 +65,8 @@ proptest! {
             for i in 0..n {
                 let mut subset = sol.clone();
                 subset[i] = 0;
-                prop_assert!(problem.solution_size(&subset).is_valid);
+                // Valid configurations return is_valid() == true
+                prop_assert!(problem.evaluate(&subset).is_valid());
             }
         }
     }
@@ -80,7 +82,8 @@ proptest! {
             for i in 0..n {
                 let mut superset = sol.clone();
                 superset[i] = 1;
-                prop_assert!(problem.solution_size(&superset).is_valid);
+                // Valid configurations return is_valid() == true
+                prop_assert!(problem.evaluate(&superset).is_valid());
             }
         }
     }
@@ -96,7 +99,7 @@ proptest! {
         for sol in solver.find_best(&is_problem) {
             // The complement should be a valid vertex cover
             let complement: Vec<usize> = sol.iter().map(|&x| 1 - x).collect();
-            prop_assert!(vc_problem.solution_size(&complement).is_valid,
+            prop_assert!(vc_problem.evaluate(&complement).is_valid(),
                 "Complement of IS {:?} should be valid VC", sol);
         }
     }
@@ -106,7 +109,8 @@ proptest! {
     fn empty_is_always_valid_is((n, edges) in graph_strategy(10)) {
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(n, edges);
         let empty = vec![0; n];
-        prop_assert!(problem.solution_size(&empty).is_valid);
+        // Valid configuration returns is_valid() == true (0 for empty set)
+        prop_assert!(problem.evaluate(&empty).is_valid());
     }
 
     /// Property: Full selection is always a valid (but possibly non-optimal) vertex cover
@@ -115,7 +119,8 @@ proptest! {
     fn full_is_always_valid_vc((n, edges) in graph_strategy(10)) {
         let problem = MinimumVertexCover::<SimpleGraph, i32>::new(n, edges);
         let full = vec![1; n];
-        prop_assert!(problem.solution_size(&full).is_valid);
+        // Valid configuration returns is_valid() == true
+        prop_assert!(problem.evaluate(&full).is_valid());
     }
 
     /// Property: Solution size is non-negative for independent sets.
@@ -125,8 +130,12 @@ proptest! {
         let solver = BruteForce::new();
 
         for sol in solver.find_best(&problem) {
-            let size = problem.solution_size(&sol);
-            prop_assert!(size.size >= 0);
+            let metric = problem.evaluate(&sol);
+            // Valid solutions have non-negative size
+            prop_assert!(metric.is_valid());
+            if let crate::types::SolutionSize::Valid(size) = metric {
+                prop_assert!(size >= 0);
+            }
         }
     }
 }

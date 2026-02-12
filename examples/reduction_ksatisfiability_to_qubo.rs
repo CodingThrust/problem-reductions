@@ -98,7 +98,9 @@ fn main() {
                 }
             })
             .collect();
-        let satisfied = ksat.solution_size(&extracted).size;
+        // KSatisfiability is a maximization problem (maximize satisfied clauses)
+        // evaluate returns number of satisfied clauses directly
+        let satisfied = ksat.evaluate(&extracted);
         println!(
             "  Switches: [{}] -> {}/{} clauses satisfied",
             assignment.join(", "),

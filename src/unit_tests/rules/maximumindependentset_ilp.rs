@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::traits::Problem;
+use crate::types::SolutionSize;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -69,8 +71,7 @@ fn test_ilp_solution_equals_brute_force_triangle() {
     assert_eq!(ilp_size, 1);
 
     // Verify the ILP solution is valid for the original problem
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid, "Extracted solution should be valid");
+    assert!(problem.evaluate(&extracted).is_valid(), "Extracted solution should be valid");
 }
 
 #[test]
@@ -96,8 +97,7 @@ fn test_ilp_solution_equals_brute_force_path() {
     assert_eq!(ilp_size, 2);
 
     // Verify validity
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
+    assert!(problem.evaluate(&extracted).is_valid());
 }
 
 #[test]
@@ -114,14 +114,14 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let ilp_solver = ILPSolver::new();
 
     let bf_solutions = bf.find_best(&problem);
-    let bf_obj = problem.solution_size(&bf_solutions[0]).size;
+    let bf_obj = problem.evaluate(&bf_solutions[0]);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_obj = problem.solution_size(&extracted).size;
+    let ilp_obj = problem.evaluate(&extracted);
 
-    assert_eq!(bf_obj, 100);
-    assert_eq!(ilp_obj, 100);
+    assert_eq!(bf_obj, SolutionSize::Valid(100));
+    assert_eq!(ilp_obj, SolutionSize::Valid(100));
 
     // Verify the solution selects vertex 1
     assert_eq!(extracted, vec![0, 1, 0]);
@@ -138,24 +138,18 @@ fn test_solution_extraction() {
     assert_eq!(extracted, vec![1, 0, 0, 1]);
 
     // Verify this is a valid IS (0 and 3 are not adjacent)
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
+    assert!(problem.evaluate(&extracted).is_valid());
 }
 
 #[test]
-fn test_source_and_target_size() {
+fn test_ilp_structure() {
     let problem =
         MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let ilp = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("num_vertices"), Some(5));
-    assert_eq!(source_size.get("num_edges"), Some(4));
-
-    assert_eq!(target_size.get("num_vars"), Some(5));
-    assert_eq!(target_size.get("num_constraints"), Some(4));
+    assert_eq!(ilp.num_vars, 5);
+    assert_eq!(ilp.constraints.len(), 4);
 }
 
 #[test]
@@ -174,9 +168,8 @@ fn test_empty_graph() {
     // All vertices should be selected
     assert_eq!(extracted, vec![1, 1, 1]);
 
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
-    assert_eq!(sol_result.size, 3);
+    assert!(problem.evaluate(&extracted).is_valid());
+    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(3));
 }
 
 #[test]
@@ -195,9 +188,8 @@ fn test_complete_graph() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
 
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
-    assert_eq!(sol_result.size, 1);
+    assert!(problem.evaluate(&extracted).is_valid());
+    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
 }
 
 #[test]
@@ -210,9 +202,8 @@ fn test_solve_reduced() {
         .solve_reduced(&problem)
         .expect("solve_reduced should work");
 
-    let sol_result = problem.solution_size(&solution);
-    assert!(sol_result.is_valid);
-    assert_eq!(sol_result.size, 2);
+    assert!(problem.evaluate(&solution).is_valid());
+    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(2));
 }
 
 #[test]
@@ -228,9 +219,8 @@ fn test_bipartite_graph() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
 
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
-    assert_eq!(sol_result.size, 2);
+    assert!(problem.evaluate(&extracted).is_valid());
+    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(2));
 
     // Should select either {0, 1} or {2, 3}
     let sum: usize = extracted.iter().sum();

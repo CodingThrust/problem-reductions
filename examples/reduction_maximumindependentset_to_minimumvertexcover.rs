@@ -49,8 +49,9 @@ fn main() {
     let mut solutions = Vec::new();
     for target_sol in &vc_solutions {
         let source_sol = reduction.extract_solution(target_sol);
-        let size = is.solution_size(&source_sol);
-        assert!(size.is_valid);
+        let size = is.evaluate(&source_sol);
+        // MaximumIndependentSet is a maximization problem, infeasible configs return Invalid
+        assert!(size.is_valid());
         solutions.push(SolutionPair {
             source_config: source_sol,
             target_config: target_sol.clone(),

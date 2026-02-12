@@ -73,11 +73,8 @@ fn main() {
         println!("  {}", coloring.join(", "));
 
         // Closed-loop verification: check solution is valid in original problem
-        let sol_size = kc.solution_size(&extracted);
-        assert!(
-            sol_size.is_valid,
-            "Coloring must be valid in source problem"
-        );
+        let valid = kc.evaluate(&extracted);
+        assert!(valid, "Coloring must be valid in source problem");
 
         solutions.push(SolutionPair {
             source_config: extracted,

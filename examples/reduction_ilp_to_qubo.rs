@@ -120,9 +120,9 @@ fn main() {
         );
 
         // Closed-loop verification: check solution is valid in original problem
-        let sol_size = ilp.solution_size(&extracted);
+        let sol_size = ilp.evaluate(&extracted);
         assert!(
-            sol_size.is_valid,
+            sol_size > f64::MIN,
             "Solution must be valid in source problem"
         );
 
@@ -140,14 +140,14 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: variant_to_map(ILP::variant()),
+            variant: std::collections::HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
             }),
         },
         target: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: variant_to_map(QUBO::<f64>::variant()),
+            variant: std::collections::HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": qubo.matrix(),

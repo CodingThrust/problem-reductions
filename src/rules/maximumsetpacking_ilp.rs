@@ -8,8 +8,6 @@
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::models::set::MaximumSetPacking;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::Problem;
-use crate::types::ProblemSize;
 
 /// Result of reducing MaximumSetPacking to ILP.
 ///
@@ -20,7 +18,6 @@ use crate::types::ProblemSize;
 #[derive(Debug, Clone)]
 pub struct ReductionSPToILP {
     target: ILP,
-    source_size: ProblemSize,
 }
 
 impl ReductionResult for ReductionSPToILP {
@@ -37,14 +34,6 @@ impl ReductionResult for ReductionSPToILP {
     /// the solution extraction is simply copying the configuration.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -81,10 +70,7 @@ impl ReduceTo<ILP> for MaximumSetPacking<i32> {
             ObjectiveSense::Maximize,
         );
 
-        ReductionSPToILP {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionSPToILP { target }
     }
 }
 

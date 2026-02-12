@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::satisfiability::CNFClause;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::Problem;
 
 #[test]
 fn test_ksatisfiability_to_qubo_closed_loop() {
@@ -24,7 +25,7 @@ fn test_ksatisfiability_to_qubo_closed_loop() {
     // Verify all solutions satisfy all clauses
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(ksat.solution_size(&extracted).is_valid);
+        assert!(ksat.evaluate(&extracted));
     }
 }
 
@@ -40,7 +41,7 @@ fn test_ksatisfiability_to_qubo_simple() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(ksat.solution_size(&extracted).is_valid);
+        assert!(ksat.evaluate(&extracted));
     }
 }
 
@@ -85,22 +86,21 @@ fn test_ksatisfiability_to_qubo_reversed_vars() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(ksat.solution_size(&extracted).is_valid);
+        assert!(ksat.evaluate(&extracted));
     }
 }
 
 #[test]
-fn test_ksatisfiability_to_qubo_sizes() {
+fn test_ksatisfiability_to_qubo_structure() {
     let ksat = KSatisfiability::<2, i32>::new(
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat);
+    let qubo = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-    assert!(!source_size.components.is_empty());
-    assert!(!target_size.components.is_empty());
+    // QUBO should have at least the original variables
+    assert!(qubo.num_variables() >= ksat.num_vars());
 }
 
 #[test]
@@ -131,7 +131,8 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
         assert_eq!(extracted.len(), 5);
-        let satisfied = ksat.solution_size(&extracted).size;
+        let assignment: Vec<bool> = extracted.iter().map(|&v| v == 1).collect();
+        let satisfied = ksat.count_satisfied(&assignment);
         assert_eq!(satisfied, 7, "Expected all 7 clauses satisfied");
     }
 }
@@ -153,7 +154,7 @@ fn test_k3satisfiability_to_qubo_single_clause() {
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
         assert_eq!(extracted.len(), 3);
-        assert!(ksat.solution_size(&extracted).is_valid);
+        assert!(ksat.evaluate(&extracted));
     }
     // 7 out of 8 assignments satisfy (x1 ∨ x2 ∨ x3)
     assert_eq!(qubo_solutions.len(), 7);
@@ -171,7 +172,7 @@ fn test_k3satisfiability_to_qubo_all_negated() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(ksat.solution_size(&extracted).is_valid);
+        assert!(ksat.evaluate(&extracted));
     }
     // 7 out of 8 assignments satisfy (¬x1 ∨ ¬x2 ∨ ¬x3)
     assert_eq!(qubo_solutions.len(), 7);

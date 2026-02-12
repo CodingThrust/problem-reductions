@@ -6,8 +6,8 @@
 //! The goal is to minimize color switches between adjacent positions.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -155,44 +155,12 @@ impl PaintShop {
     }
 }
 
-impl Problem for PaintShop {
-    const NAME: &'static str = "PaintShop";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
-    }
-
-    type Size = i32;
-
-    fn num_variables(&self) -> usize {
-        self.num_cars
-    }
-
-    fn num_flavors(&self) -> usize {
-        2 // Binary: color 0 or color 1
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_cars", self.num_cars),
-            ("sequence_length", self.sequence_indices.len()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::SmallerSizeIsBetter // Minimize color switches
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let switches = self.count_switches(config) as i32;
-        // All configurations are valid (no hard constraints)
-        SolutionSize::valid(switches)
-    }
+/// Count color switches in a painted sequence.
+pub fn count_paint_switches(coloring: &[usize]) -> usize {
+    coloring.windows(2).filter(|w| w[0] != w[1]).count()
 }
 
-// === ProblemV2 / OptimizationProblemV2 implementations ===
-
-impl crate::traits::ProblemV2 for PaintShop {
+impl Problem for PaintShop {
     const NAME: &'static str = "PaintShop";
     type Metric = i32;
 
@@ -204,17 +172,23 @@ impl crate::traits::ProblemV2 for PaintShop {
         // All configurations are valid (no hard constraints).
         self.count_switches(config) as i32
     }
-}
 
-impl crate::traits::OptimizationProblemV2 for PaintShop {
-    fn direction(&self) -> crate::types::Direction {
-        crate::types::Direction::Minimize
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", "i32"),
+        ]
     }
 }
 
-/// Count color switches in a painted sequence.
-pub fn count_paint_switches(coloring: &[usize]) -> usize {
-    coloring.windows(2).filter(|w| w[0] != w[1]).count()
+impl OptimizationProblem for PaintShop {
+    fn direction(&self) -> Direction {
+        Direction::Minimize
+    }
+
+    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
+        a < b // Minimize
+    }
 }
 
 #[cfg(test)]

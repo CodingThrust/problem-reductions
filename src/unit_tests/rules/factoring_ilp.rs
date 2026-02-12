@@ -219,21 +219,16 @@ fn test_solution_extraction() {
 }
 
 #[test]
-fn test_source_and_target_size() {
+fn test_target_ilp_structure() {
     let problem = Factoring::new(3, 4, 12);
     let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
-
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("num_bits_first"), Some(3));
-    assert_eq!(source_size.get("num_bits_second"), Some(4));
+    let ilp = reduction.target_problem();
 
     // num_vars = 3 + 4 + 12 + 7 = 26
-    assert_eq!(target_size.get("num_vars"), Some(26));
+    assert_eq!(ilp.num_vars, 26);
 
     // num_constraints = 3*12 + 7 + 1 = 44
-    assert_eq!(target_size.get("num_constraints"), Some(44));
+    assert_eq!(ilp.constraints.len(), 44);
 }
 
 #[test]

@@ -16,9 +16,7 @@ use crate::rules::registry::ReductionOverhead;
 use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-use num_traits::{Num, Zero};
+use num_traits::{Bounded, Num, Zero};
 use std::collections::HashMap;
 use std::marker::PhantomData;
 use std::ops::AddAssign;
@@ -227,15 +225,13 @@ pub struct ReductionSATToColoring<W> {
     num_source_variables: usize,
     /// Number of clauses in the source SAT problem.
     num_clauses: usize,
-    /// Size of the source problem.
-    source_size: ProblemSize,
     /// Phantom data to tie this reduction to the source type's weight parameter.
     _phantom: PhantomData<W>,
 }
 
 impl<W> ReductionResult for ReductionSATToColoring<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = Satisfiability<W>;
     type Target = KColoring<3, SimpleGraph, i32>;
@@ -288,14 +284,6 @@ where
 
         assignment
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
 impl<W> ReductionSATToColoring<W> {
@@ -327,7 +315,7 @@ impl<W> ReductionSATToColoring<W> {
 )]
 impl<W> ReduceTo<KColoring<3, SimpleGraph, i32>> for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSATToColoring<W>;
 
@@ -347,7 +335,6 @@ where
             neg_vertices: constructor.neg_vertices,
             num_source_variables: self.num_vars(),
             num_clauses: self.num_clauses(),
-            source_size: self.problem_size(),
             _phantom: PhantomData,
         }
     }

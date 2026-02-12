@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::traits::Problem;
 
 #[test]
 fn test_sat_to_3sat_exact_size() {
@@ -113,27 +114,23 @@ fn test_sat_to_3sat_preserves_satisfiability() {
     let reduction = ReduceTo::<KSatisfiability<3, i32>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
-    // Solve both problems
+    // Solve both problems - use find_all_satisfying for satisfaction problems
     let solver = BruteForce::new();
 
-    let sat_solutions = solver.find_best(&sat);
-    let ksat_solutions = solver.find_best(ksat);
+    let sat_solutions = solver.find_all_satisfying(&sat);
+    let ksat_solutions = solver.find_all_satisfying(ksat);
 
     // If SAT is satisfiable, K-SAT should be too
-    let sat_satisfiable = sat_solutions.iter().any(|s| sat.solution_size(s).is_valid);
-    let ksat_satisfiable = ksat_solutions
-        .iter()
-        .any(|s| ksat.solution_size(s).is_valid);
+    let sat_satisfiable = !sat_solutions.is_empty();
+    let ksat_satisfiable = !ksat_solutions.is_empty();
 
     assert_eq!(sat_satisfiable, ksat_satisfiable);
 
     // Extract solutions should map back correctly
     if ksat_satisfiable {
         for ksat_sol in &ksat_solutions {
-            if ksat.solution_size(ksat_sol).is_valid {
-                let sat_sol = reduction.extract_solution(ksat_sol);
-                assert_eq!(sat_sol.len(), 3); // Original variable count
-            }
+            let sat_sol = reduction.extract_solution(ksat_sol);
+            assert_eq!(sat_sol.len(), 3); // Original variable count
         }
     }
 }
@@ -145,19 +142,17 @@ fn test_sat_to_3sat_solution_extraction() {
     let reduction = ReduceTo::<KSatisfiability<3, i32>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
-    // Solve K-SAT
+    // Solve K-SAT - use find_all_satisfying for satisfaction problems
     let solver = BruteForce::new();
-    let ksat_solutions = solver.find_best(ksat);
+    let ksat_solutions = solver.find_all_satisfying(ksat);
 
     // Extract and verify solutions
     for ksat_sol in &ksat_solutions {
-        if ksat.solution_size(ksat_sol).is_valid {
-            let sat_sol = reduction.extract_solution(ksat_sol);
-            // Should only have original 2 variables
-            assert_eq!(sat_sol.len(), 2);
-            // Should satisfy original problem
-            assert!(sat.solution_size(&sat_sol).is_valid);
-        }
+        let sat_sol = reduction.extract_solution(ksat_sol);
+        // Should only have original 2 variables
+        assert_eq!(sat_sol.len(), 2);
+        // Should satisfy original problem
+        assert!(sat.evaluate(&sat_sol));
     }
 }
 
@@ -209,23 +204,17 @@ fn test_roundtrip_sat_3sat_sat() {
     let to_sat = ReduceTo::<Satisfiability<i32>>::reduce_to(ksat);
     let final_sat = to_sat.target_problem();
 
-    // Solve all three
+    // Solve all three - use find_all_satisfying for satisfaction problems
     let solver = BruteForce::new();
 
-    let orig_solutions = solver.find_best(&original_sat);
-    let ksat_solutions = solver.find_best(ksat);
-    let final_solutions = solver.find_best(final_sat);
+    let orig_solutions = solver.find_all_satisfying(&original_sat);
+    let ksat_solutions = solver.find_all_satisfying(ksat);
+    let final_solutions = solver.find_all_satisfying(final_sat);
 
-    // All should be satisfiable
-    assert!(orig_solutions
-        .iter()
-        .any(|s| original_sat.solution_size(s).is_valid));
-    assert!(ksat_solutions
-        .iter()
-        .any(|s| ksat.solution_size(s).is_valid));
-    assert!(final_solutions
-        .iter()
-        .any(|s| final_sat.solution_size(s).is_valid));
+    // All should be satisfiable (have at least one solution)
+    assert!(!orig_solutions.is_empty());
+    assert!(!ksat_solutions.is_empty());
+    assert!(!final_solutions.is_empty());
 }
 
 #[test]
@@ -249,16 +238,15 @@ fn test_sat_to_4sat() {
 }
 
 #[test]
-fn test_problem_sizes() {
+fn test_ksat_structure() {
     let sat = Satisfiability::<i32>::new(3, vec![CNFClause::new(vec![1, 2, 3, 4])]);
 
     let reduction = ReduceTo::<KSatisfiability<3, i32>>::reduce_to(&sat);
+    let ksat = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("num_vars"), Some(3));
-    assert_eq!(target_size.get("k"), Some(3));
+    // K-SAT should preserve original variables plus auxiliary vars
+    // A 4-literal clause requires 1 auxiliary variable for Tseitin
+    assert_eq!(ksat.num_vars(), 3 + 1); // Original vars + 1 auxiliary for Tseitin
 }
 
 #[test]
@@ -293,15 +281,13 @@ fn test_mixed_clause_sizes() {
         assert_eq!(clause.len(), 3);
     }
 
-    // Verify satisfiability is preserved
+    // Verify satisfiability is preserved - use find_all_satisfying for satisfaction problems
     let solver = BruteForce::new();
-    let sat_solutions = solver.find_best(&sat);
-    let ksat_solutions = solver.find_best(ksat);
+    let sat_solutions = solver.find_all_satisfying(&sat);
+    let ksat_solutions = solver.find_all_satisfying(ksat);
 
-    let sat_satisfiable = sat_solutions.iter().any(|s| sat.solution_size(s).is_valid);
-    let ksat_satisfiable = ksat_solutions
-        .iter()
-        .any(|s| ksat.solution_size(s).is_valid);
+    let sat_satisfiable = !sat_solutions.is_empty();
+    let ksat_satisfiable = !ksat_solutions.is_empty();
     assert_eq!(sat_satisfiable, ksat_satisfiable);
 }
 
@@ -316,14 +302,12 @@ fn test_unsatisfiable_formula() {
 
     let solver = BruteForce::new();
 
-    // Both should be unsatisfiable
-    let sat_solutions = solver.find_best(&sat);
-    let ksat_solutions = solver.find_best(ksat);
+    // Both should be unsatisfiable - use find_all_satisfying for satisfaction problems
+    let sat_solutions = solver.find_all_satisfying(&sat);
+    let ksat_solutions = solver.find_all_satisfying(ksat);
 
-    let sat_satisfiable = sat_solutions.iter().any(|s| sat.solution_size(s).is_valid);
-    let ksat_satisfiable = ksat_solutions
-        .iter()
-        .any(|s| ksat.solution_size(s).is_valid);
+    let sat_satisfiable = !sat_solutions.is_empty();
+    let ksat_satisfiable = !ksat_solutions.is_empty();
 
     assert!(!sat_satisfiable);
     assert!(!ksat_satisfiable);

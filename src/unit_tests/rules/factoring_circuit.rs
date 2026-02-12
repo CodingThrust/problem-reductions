@@ -1,4 +1,5 @@
 use super::*;
+use crate::traits::Problem;
 use std::collections::HashMap;
 
 #[test]
@@ -178,17 +179,14 @@ fn test_factorization_21_satisfies_circuit() {
 }
 
 #[test]
-fn test_source_and_target_size() {
+fn test_target_problem_structure() {
     let factoring = Factoring::new(3, 4, 15);
     let reduction = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
+    let circuit = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("num_bits_first"), Some(3));
-    assert_eq!(source_size.get("num_bits_second"), Some(4));
-    assert!(target_size.get("num_variables").unwrap() > 0);
-    assert!(target_size.get("num_assignments").unwrap() > 0);
+    // Verify the circuit has variables and assignments
+    assert!(circuit.num_variables() > 0);
+    assert!(!circuit.circuit().assignments.is_empty());
 }
 
 #[test]

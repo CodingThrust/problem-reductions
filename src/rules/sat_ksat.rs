@@ -11,8 +11,6 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::Problem;
-use crate::types::ProblemSize;
 use num_traits::{Num, Zero};
 use std::ops::AddAssign;
 
@@ -26,8 +24,6 @@ pub struct ReductionSATToKSAT<const K: usize, W> {
     source_num_vars: usize,
     /// The target K-SAT problem.
     target: KSatisfiability<K, W>,
-    /// Size of the source problem.
-    source_size: ProblemSize,
 }
 
 impl<const K: usize, W> ReductionResult for ReductionSATToKSAT<K, W>
@@ -44,14 +40,6 @@ where
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         // Only return the original variables, discarding ancillas
         target_solution[..self.source_num_vars].to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -152,7 +140,6 @@ macro_rules! impl_sat_to_ksat {
                 ReductionSATToKSAT {
                     source_num_vars,
                     target,
-                    source_size: self.problem_size(),
                 }
             }
         }
@@ -171,8 +158,6 @@ impl_sat_to_ksat!(5);
 pub struct ReductionKSATToSAT<const K: usize, W> {
     /// The target SAT problem.
     target: Satisfiability<W>,
-    /// Size of the source problem.
-    source_size: ProblemSize,
 }
 
 impl<const K: usize, W> ReductionResult for ReductionKSATToSAT<K, W>
@@ -189,14 +174,6 @@ where
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         // Direct mapping - no transformation needed
         target_solution.to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -216,10 +193,7 @@ where
         let clauses = self.clauses().to_vec();
         let target = Satisfiability::new(self.num_vars(), clauses);
 
-        ReductionKSATToSAT {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionKSATToSAT { target }
     }
 }
 

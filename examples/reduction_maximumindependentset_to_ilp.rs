@@ -15,7 +15,6 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use problemreductions::solvers::BruteForceFloat;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
@@ -40,13 +39,13 @@ fn main() {
         ilp.constraints.len()
     );
 
-    // 4. Solve target ILP (uses BruteForceFloat since ILP has f64 objective)
+    // 4. Solve target ILP
     let solver = BruteForce::new();
-    let ilp_solutions = solver.find_best_float(ilp);
+    let ilp_solutions = solver.find_best(ilp);
     println!("\n=== Solution ===");
     println!("ILP solutions found: {}", ilp_solutions.len());
 
-    let ilp_solution = &ilp_solutions[0].0;
+    let ilp_solution = &ilp_solutions[0];
     println!("ILP solution: {:?}", ilp_solution);
 
     // 5. Extract source solution
@@ -54,17 +53,17 @@ fn main() {
     println!("Source IS solution: {:?}", is_solution);
 
     // 6. Verify
-    let size = is.solution_size(&is_solution);
-    println!("Solution valid: {}, size: {:?}", size.is_valid, size.size);
-    assert!(size.is_valid);
+    let size = is.evaluate(&is_solution);
+    println!("Solution size: {:?}", size);
+    assert!(size.is_valid()); // Valid solution
     println!("\nReduction verified successfully");
 
     // 7. Collect solutions and export JSON
     let mut solutions = Vec::new();
-    for (target_config, _score) in &ilp_solutions {
+    for target_config in &ilp_solutions {
         let source_sol = reduction.extract_solution(target_config);
-        let s = is.solution_size(&source_sol);
-        assert!(s.is_valid);
+        let s = is.evaluate(&source_sol);
+        assert!(s.is_valid()); // Valid solution
         solutions.push(SolutionPair {
             source_config: source_sol,
             target_config: target_config.clone(),

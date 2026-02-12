@@ -19,6 +19,7 @@ use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
+use std::collections::HashMap;
 
 fn main() {
     // Petersen graph: 10 vertices, 15 edges, VC=6
@@ -47,8 +48,9 @@ fn main() {
     let mut solutions = Vec::new();
     for target_sol in &is_solutions {
         let source_sol = reduction.extract_solution(target_sol);
-        let size = vc.solution_size(&source_sol);
-        assert!(size.is_valid);
+        let size = vc.evaluate(&source_sol);
+        // MinimumVertexCover is a minimization problem, infeasible configs return Invalid
+        assert!(size.is_valid());
         solutions.push(SolutionPair {
             source_config: source_sol.clone(),
             target_config: target_sol.clone(),
@@ -58,9 +60,10 @@ fn main() {
     let vc_solution = reduction.extract_solution(&is_solutions[0]);
     println!("Source VC solution: {:?}", vc_solution);
 
-    let size = vc.solution_size(&vc_solution);
+    let size = vc.evaluate(&vc_solution);
     println!("Solution size: {:?}", size);
-    assert!(size.is_valid);
+    // MinimumVertexCover is a minimization problem, infeasible configs return Invalid
+    assert!(size.is_valid());
     println!("\nReduction verified successfully");
 
     // Export JSON
@@ -72,7 +75,7 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vertices": vc.num_vertices(),
                 "num_edges": vc.num_edges(),
@@ -81,7 +84,7 @@ fn main() {
         },
         target: ProblemSide {
             problem: MaximumIndependentSet::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vertices": is.num_vertices(),
                 "num_edges": is.num_edges(),

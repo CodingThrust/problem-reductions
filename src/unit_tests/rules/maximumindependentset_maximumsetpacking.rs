@@ -110,27 +110,22 @@ fn test_disjoint_sets() {
 }
 
 #[test]
-fn test_reduction_sizes() {
-    // Test source_size and target_size methods
+fn test_reduction_structure() {
+    // Test IS to SP structure
     let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2)]);
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);
+    let sp = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
+    // SP should have same number of sets as vertices in IS
+    assert_eq!(sp.num_sets(), 4);
 
-    // Source and target sizes should have components
-    assert!(!source_size.components.is_empty());
-    assert!(!target_size.components.is_empty());
-
-    // Test SP to IS sizes
+    // Test SP to IS structure
     let sets = vec![vec![0, 1], vec![2, 3]];
     let sp_problem = MaximumSetPacking::<i32>::new(sets);
     let reduction2: ReductionSPToIS<i32> =
         ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sp_problem);
+    let is = reduction2.target_problem();
 
-    let source_size2 = reduction2.source_size();
-    let target_size2 = reduction2.target_size();
-
-    assert!(!source_size2.components.is_empty());
-    assert!(!target_size2.components.is_empty());
+    // IS should have same number of vertices as sets in SP
+    assert_eq!(is.num_vertices(), 2);
 }

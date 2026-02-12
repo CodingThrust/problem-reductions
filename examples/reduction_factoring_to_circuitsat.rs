@@ -127,10 +127,10 @@ fn main() {
         .collect();
 
     // Verify the circuit is satisfied
-    let circuit_size = circuit_sat.solution_size(&circuit_config);
-    println!("Circuit satisfied: {}", circuit_size.is_valid);
+    let circuit_satisfied = circuit_sat.evaluate(&circuit_config);
+    println!("Circuit satisfied: {}", circuit_satisfied);
     assert!(
-        circuit_size.is_valid,
+        circuit_satisfied,
         "Forward-simulated circuit assignment must satisfy all gates"
     );
 
@@ -171,15 +171,15 @@ fn main() {
                 }
             })
             .collect();
-        let sz = circuit_sat.solution_size(&config);
+        let satisfied = circuit_sat.evaluate(&config);
         println!(
             "  {} * {} = {}: circuit satisfied = {}",
             fa,
             fb,
             fa * fb,
-            sz.is_valid
+            satisfied
         );
-        assert!(sz.is_valid);
+        assert!(satisfied);
 
         solutions.push(SolutionPair {
             source_config: sol.clone(),
@@ -196,7 +196,7 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: Factoring::NAME.to_string(),
-            variant: variant_to_map(Factoring::variant()),
+            variant: std::collections::HashMap::new(),
             instance: serde_json::json!({
                 "number": factoring.target(),
                 "num_bits_first": factoring.m(),
@@ -205,7 +205,7 @@ fn main() {
         },
         target: ProblemSide {
             problem: CircuitSAT::<i32>::NAME.to_string(),
-            variant: variant_to_map(CircuitSAT::<i32>::variant()),
+            variant: std::collections::HashMap::new(),
             instance: serde_json::json!({
                 "num_variables": circuit_sat.num_variables(),
                 "num_gates": circuit_sat.circuit().num_assignments(),

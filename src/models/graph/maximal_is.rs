@@ -5,9 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -45,7 +44,7 @@ inventory::submit! {
 ///
 /// // Maximal independent sets: {0, 2} or {1}
 /// for sol in &solutions {
-///     assert!(problem.solution_size(sol).is_valid);
+///     assert!(problem.evaluate(sol).is_valid());
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -121,6 +120,29 @@ impl<G: Graph, W: Clone + Default> MaximalIS<G, W> {
         &self.weights
     }
 
+    /// Set new weights for the problem.
+    pub fn set_weights(&mut self, weights: Vec<W>) {
+        assert_eq!(weights.len(), self.graph.num_vertices());
+        self.weights = weights;
+    }
+
+    /// Get the weights for the problem.
+    pub fn weights(&self) -> Vec<W> {
+        self.weights.clone()
+    }
+
+    /// Check if the problem has non-uniform weights.
+    pub fn is_weighted(&self) -> bool
+    where
+        W: PartialEq,
+    {
+        if self.weights.is_empty() {
+            return false;
+        }
+        let first = &self.weights[0];
+        !self.weights.iter().all(|w| w == first)
+    }
+
     /// Check if a configuration is an independent set.
     fn is_independent(&self, config: &[usize]) -> bool {
         for (u, v) in self.graph.edges() {
@@ -165,153 +187,29 @@ where
     W: Clone
         + Default
         + PartialOrd
+        + Ord
         + num_traits::Num
         + num_traits::Zero
         + std::ops::AddAssign
         + 'static,
 {
     const NAME: &'static str = "MaximalIS";
+    type Metric = SolutionSize<W>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", G::NAME), ("weight", short_type_name::<W>())]
+        vec![
+            ("graph", crate::variant::short_type_name::<G>()),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
     }
-
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.graph.num_vertices()
-    }
-
-    fn num_flavors(&self) -> usize {
-        2
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vertices", self.graph.num_vertices()),
-            ("num_edges", self.graph.num_edges()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        // We want any maximal IS, so minimize "non-maximality"
-        // Size = number of vertices in the set (larger is better among valid)
-        EnergyMode::LargerSizeIsBetter
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let is_valid = self.is_maximal(config);
-        let mut total = W::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.weights[i].clone();
-            }
-        }
-        SolutionSize::new(total, is_valid)
-    }
-}
-
-impl<G, W> ConstraintSatisfactionProblem for MaximalIS<G, W>
-where
-    G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
-{
-    fn constraints(&self) -> Vec<LocalConstraint> {
-        let mut constraints = Vec::new();
-
-        // Independent set constraints: for each edge, at most one endpoint
-        for (u, v) in self.graph.edges() {
-            constraints.push(LocalConstraint::new(
-                2,
-                vec![u, v],
-                vec![true, true, true, false],
-            ));
-        }
-
-        // Maximality constraints: for each vertex v, either v is selected
-        // or at least one neighbor is selected
-        let n = self.graph.num_vertices();
-        for v in 0..n {
-            let neighbors = self.graph.neighbors(v);
-            let mut vars = vec![v];
-            vars.extend(neighbors);
-
-            let num_vars = vars.len();
-            let num_configs = 2usize.pow(num_vars as u32);
-
-            // Valid if: v is selected (first bit = 1) OR
-            //           at least one neighbor is selected (not all others are 0)
-            let spec: Vec<bool> = (0..num_configs)
-                .map(|config_idx| {
-                    let v_selected = (config_idx & 1) == 1;
-                    let any_neighbor_selected = (config_idx >> 1) > 0;
-                    v_selected || any_neighbor_selected
-                })
-                .collect();
-
-            constraints.push(LocalConstraint::new(2, vars, spec));
-        }
-
-        constraints
-    }
-
-    fn objectives(&self) -> Vec<LocalSolutionSize<Self::Size>> {
-        // Maximize the size of the independent set
-        self.weights
-            .iter()
-            .enumerate()
-            .map(|(i, w)| LocalSolutionSize::new(2, vec![i], vec![W::zero(), w.clone()]))
-            .collect()
-    }
-
-    fn weights(&self) -> Vec<Self::Size> {
-        self.weights.clone()
-    }
-
-    fn set_weights(&mut self, weights: Vec<Self::Size>) {
-        assert_eq!(weights.len(), self.num_variables());
-        self.weights = weights;
-    }
-
-    fn is_weighted(&self) -> bool {
-        if self.weights.is_empty() {
-            return false;
-        }
-        let first = &self.weights[0];
-        !self.weights.iter().all(|w| w == first)
-    }
-}
-
-// === ProblemV2 / OptimizationProblemV2 implementations ===
-
-impl<G, W> crate::traits::ProblemV2 for MaximalIS<G, W>
-where
-    G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + 'static,
-{
-    const NAME: &'static str = "MaximalIS";
-    type Metric = W;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> W {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
         if !self.is_maximal(config) {
-            return W::min_value();
+            return SolutionSize::Invalid;
         }
         let mut total = W::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -319,24 +217,28 @@ where
                 total += self.weights[i].clone();
             }
         }
-        total
+        SolutionSize::Valid(total)
     }
 }
 
-impl<G, W> crate::traits::OptimizationProblemV2 for MaximalIS<G, W>
+impl<G, W> OptimizationProblem for MaximalIS<G, W>
 where
     G: Graph,
     W: Clone
         + Default
         + PartialOrd
+        + Ord
         + num_traits::Num
         + num_traits::Zero
-        + num_traits::Bounded
         + std::ops::AddAssign
         + 'static,
 {
-    fn direction(&self) -> crate::types::Direction {
-        crate::types::Direction::Maximize
+    fn direction(&self) -> Direction {
+        Direction::Maximize
+    }
+
+    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
+        a.is_better(b, self.direction())
     }
 }
 

@@ -15,9 +15,9 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use problemreductions::solvers::BruteForceFloat;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
+use std::collections::HashMap;
 
 fn main() {
     // 1. Create MinimumDominatingSet instance: Petersen graph
@@ -42,11 +42,11 @@ fn main() {
 
     // 4. Solve target ILP
     let solver = BruteForce::new();
-    let ilp_solutions = solver.find_best_float(ilp);
+    let ilp_solutions = solver.find_best(ilp);
     println!("\n=== Solution ===");
     println!("ILP solutions found: {}", ilp_solutions.len());
 
-    let ilp_solution = &ilp_solutions[0].0;
+    let ilp_solution = &ilp_solutions[0];
     println!("ILP solution: {:?}", ilp_solution);
 
     // 5. Extract source solution
@@ -54,17 +54,19 @@ fn main() {
     println!("Source MinimumDominatingSet solution: {:?}", ds_solution);
 
     // 6. Verify
-    let size = ds.solution_size(&ds_solution);
-    println!("Solution valid: {}, size: {:?}", size.is_valid, size.size);
-    assert!(size.is_valid);
+    let size = ds.evaluate(&ds_solution);
+    // MinimumDominatingSet is a minimization problem, infeasible configs return Invalid
+    println!("Solution size: {:?}", size);
+    assert!(size.is_valid());
     println!("\nReduction verified successfully");
 
     // 7. Collect solutions and export JSON
     let mut solutions = Vec::new();
-    for (target_config, _score) in &ilp_solutions {
+    for target_config in &ilp_solutions {
         let source_sol = reduction.extract_solution(target_config);
-        let s = ds.solution_size(&source_sol);
-        assert!(s.is_valid);
+        let s = ds.evaluate(&source_sol);
+        // MinimumDominatingSet is a minimization problem, infeasible configs return Invalid
+        assert!(s.is_valid());
         solutions.push(SolutionPair {
             source_config: source_sol,
             target_config: target_config.clone(),
@@ -76,7 +78,7 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumDominatingSet::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MinimumDominatingSet::<SimpleGraph, i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vertices": ds.num_vertices(),
                 "num_edges": ds.num_edges(),
@@ -85,7 +87,7 @@ fn main() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: variant_to_map(ILP::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

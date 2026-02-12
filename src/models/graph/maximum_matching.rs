@@ -5,9 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -178,118 +177,23 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
         }
         true
     }
-}
 
-impl<G, W> Problem for MaximumMatching<G, W>
-where
-    G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
-{
-    const NAME: &'static str = "MaximumMatching";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", G::NAME), ("weight", short_type_name::<W>())]
-    }
-
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.graph.num_edges() // Variables are edges
-    }
-
-    fn num_flavors(&self) -> usize {
-        2 // Binary: edge in matching or not
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vertices", self.graph.num_vertices()),
-            ("num_edges", self.graph.num_edges()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::LargerSizeIsBetter // Maximize matching weight
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let is_valid = self.is_valid_matching(config);
-        let mut total = W::zero();
-        for (idx, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                if let Some(w) = self.edge_weights.get(idx) {
-                    total += w.clone();
-                }
-            }
-        }
-        SolutionSize::new(total, is_valid)
-    }
-}
-
-impl<G, W> ConstraintSatisfactionProblem for MaximumMatching<G, W>
-where
-    G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
-{
-    fn constraints(&self) -> Vec<LocalConstraint> {
-        let v2e = self.vertex_to_edges();
-        let mut constraints = Vec::new();
-
-        // For each vertex, at most one incident edge can be selected
-        for (_v, incident_edges) in v2e {
-            if incident_edges.len() < 2 {
-                continue; // No constraint needed for degree-0 or degree-1 vertices
-            }
-
-            let num_edges = incident_edges.len();
-            let num_configs = 2usize.pow(num_edges as u32);
-
-            // Valid if at most one edge is selected
-            let spec: Vec<bool> = (0..num_configs)
-                .map(|config_idx| {
-                    let count = (0..num_edges)
-                        .filter(|&i| (config_idx >> i) & 1 == 1)
-                        .count();
-                    count <= 1
-                })
-                .collect();
-
-            constraints.push(LocalConstraint::new(2, incident_edges, spec));
-        }
-
-        constraints
-    }
-
-    fn objectives(&self) -> Vec<LocalSolutionSize<Self::Size>> {
-        self.edge_weights
-            .iter()
-            .enumerate()
-            .map(|(i, w)| LocalSolutionSize::new(2, vec![i], vec![W::zero(), w.clone()]))
-            .collect()
-    }
-
-    fn weights(&self) -> Vec<Self::Size> {
-        self.edge_weights.clone()
-    }
-
-    fn set_weights(&mut self, weights: Vec<Self::Size>) {
-        assert_eq!(weights.len(), self.num_variables());
+    /// Set new weights for the problem.
+    pub fn set_weights(&mut self, weights: Vec<W>) {
+        assert_eq!(weights.len(), self.graph.num_edges());
         self.edge_weights = weights;
     }
 
-    fn is_weighted(&self) -> bool {
+    /// Get the weights for the problem.
+    pub fn weights(&self) -> Vec<W> {
+        self.edge_weights.clone()
+    }
+
+    /// Check if the problem has non-uniform weights.
+    pub fn is_weighted(&self) -> bool
+    where
+        W: PartialEq,
+    {
         if self.edge_weights.is_empty() {
             return false;
         }
@@ -298,30 +202,35 @@ where
     }
 }
 
-// === ProblemV2 / OptimizationProblemV2 implementations ===
-
-impl<G, W> crate::traits::ProblemV2 for MaximumMatching<G, W>
+impl<G, W> Problem for MaximumMatching<G, W>
 where
     G: Graph,
     W: Clone
         + Default
         + PartialOrd
+        + Ord
         + num_traits::Num
         + num_traits::Zero
-        + num_traits::Bounded
         + std::ops::AddAssign
         + 'static,
 {
     const NAME: &'static str = "MaximumMatching";
-    type Metric = W;
+    type Metric = SolutionSize<W>;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", crate::variant::short_type_name::<G>()),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
+    }
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> W {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
         if !self.is_valid_matching(config) {
-            return W::min_value();
+            return SolutionSize::Invalid;
         }
         let mut total = W::zero();
         for (idx, &selected) in config.iter().enumerate() {
@@ -331,24 +240,28 @@ where
                 }
             }
         }
-        total
+        SolutionSize::Valid(total)
     }
 }
 
-impl<G, W> crate::traits::OptimizationProblemV2 for MaximumMatching<G, W>
+impl<G, W> OptimizationProblem for MaximumMatching<G, W>
 where
     G: Graph,
     W: Clone
         + Default
         + PartialOrd
+        + Ord
         + num_traits::Num
         + num_traits::Zero
-        + num_traits::Bounded
         + std::ops::AddAssign
         + 'static,
 {
-    fn direction(&self) -> crate::types::Direction {
-        crate::types::Direction::Maximize
+    fn direction(&self) -> Direction {
+        Direction::Maximize
+    }
+
+    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
+        a.is_better(b, self.direction())
     }
 }
 

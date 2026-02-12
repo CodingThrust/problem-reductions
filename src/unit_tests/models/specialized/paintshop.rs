@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::Direction;
 
 #[test]
 fn test_paintshop_creation() {
@@ -7,7 +9,6 @@ fn test_paintshop_creation() {
     assert_eq!(problem.num_cars(), 2);
     assert_eq!(problem.sequence_len(), 4);
     assert_eq!(problem.num_variables(), 2);
-    assert_eq!(problem.num_flavors(), 2);
 }
 
 #[test]
@@ -46,16 +47,14 @@ fn test_count_switches() {
 }
 
 #[test]
-fn test_solution_size() {
+fn test_evaluate() {
     let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
 
-    let sol = problem.solution_size(&[0, 0]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 1);
+    // Config [0, 0] -> coloring [0, 0, 1, 1] -> 1 switch
+    assert_eq!(problem.evaluate(&[0, 0]), 1);
 
-    let sol = problem.solution_size(&[0, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 2);
+    // Config [0, 1] -> coloring [0, 1, 1, 0] -> 2 switches
+    assert_eq!(problem.evaluate(&[0, 1]), 2);
 }
 
 #[test]
@@ -93,17 +92,9 @@ fn test_count_paint_switches_function() {
 }
 
 #[test]
-fn test_energy_mode() {
+fn test_direction() {
     let problem = PaintShop::new(vec!["a", "a"]);
-    assert!(problem.energy_mode().is_minimization());
-}
-
-#[test]
-fn test_problem_size() {
-    let problem = PaintShop::new(vec!["a", "b", "c", "a", "b", "c"]);
-    let size = problem.problem_size();
-    assert_eq!(size.get("num_cars"), Some(3));
-    assert_eq!(size.get("sequence_length"), Some(6));
+    assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]
@@ -147,8 +138,8 @@ fn test_car_labels() {
 }
 
 #[test]
-fn test_paintshop_problem_v2() {
-    use crate::traits::{OptimizationProblemV2, ProblemV2};
+fn test_paintshop_problem() {
+    use crate::traits::{OptimizationProblem, Problem};
     use crate::types::Direction;
 
     let problem = PaintShop::new(vec!["a", "b", "a", "b"]);

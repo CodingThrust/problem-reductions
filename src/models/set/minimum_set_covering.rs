@@ -4,9 +4,8 @@
 //! that covers all elements in the universe.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -50,9 +49,9 @@ inventory::submit! {
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_best(&problem);
 ///
-/// // Verify solutions cover all elements
+/// // Verify solutions cover all elements (valid = not at MAX bound)
 /// for sol in solutions {
-///     assert!(problem.solution_size(&sol).is_valid);
+///     assert!(problem.evaluate(&sol) < i32::MAX);
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -110,6 +109,11 @@ impl<W: Clone + Default> MinimumSetCovering<W> {
         self.sets.get(index)
     }
 
+    /// Get a reference to the weights.
+    pub fn weights_ref(&self) -> &[W] {
+        &self.weights
+    }
+
     /// Check which elements are covered by selected sets.
     pub fn covered_elements(&self, config: &[usize]) -> HashSet<usize> {
         let mut covered = HashSet::new();
@@ -125,138 +129,6 @@ impl<W: Clone + Default> MinimumSetCovering<W> {
 }
 
 impl<W> Problem for MinimumSetCovering<W>
-where
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
-{
-    const NAME: &'static str = "MinimumSetCovering";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-    }
-
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.sets.len()
-    }
-
-    fn num_flavors(&self) -> usize {
-        2
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("universe_size", self.universe_size),
-            ("num_sets", self.sets.len()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::SmallerSizeIsBetter // Minimize total weight
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let covered = self.covered_elements(config);
-        let is_valid = covered.len() == self.universe_size
-            && (0..self.universe_size).all(|e| covered.contains(&e));
-
-        let mut total = W::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.weights[i].clone();
-            }
-        }
-        SolutionSize::new(total, is_valid)
-    }
-}
-
-impl<W> ConstraintSatisfactionProblem for MinimumSetCovering<W>
-where
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
-{
-    fn constraints(&self) -> Vec<LocalConstraint> {
-        // For each element, at least one set containing it must be selected
-        (0..self.universe_size)
-            .map(|element| {
-                // Find all sets containing this element
-                let containing_sets: Vec<usize> = self
-                    .sets
-                    .iter()
-                    .enumerate()
-                    .filter(|(_, set)| set.contains(&element))
-                    .map(|(i, _)| i)
-                    .collect();
-
-                // Create constraint: at least one must be selected
-                let num_vars = containing_sets.len();
-                let num_configs = 2usize.pow(num_vars as u32);
-
-                // All configs are valid except all-zeros
-                let mut spec = vec![true; num_configs];
-                spec[0] = false; // (0, 0, ..., 0) is invalid
-
-                LocalConstraint::new(2, containing_sets, spec)
-            })
-            .collect()
-    }
-
-    fn objectives(&self) -> Vec<LocalSolutionSize<Self::Size>> {
-        self.weights
-            .iter()
-            .enumerate()
-            .map(|(i, w)| LocalSolutionSize::new(2, vec![i], vec![W::zero(), w.clone()]))
-            .collect()
-    }
-
-    fn weights(&self) -> Vec<Self::Size> {
-        self.weights.clone()
-    }
-
-    fn set_weights(&mut self, weights: Vec<Self::Size>) {
-        assert_eq!(weights.len(), self.num_variables());
-        self.weights = weights;
-    }
-
-    fn is_weighted(&self) -> bool {
-        if self.weights.is_empty() {
-            return false;
-        }
-        let first = &self.weights[0];
-        !self.weights.iter().all(|w| w == first)
-    }
-}
-
-/// Check if a selection of sets forms a valid set cover.
-pub fn is_set_cover(universe_size: usize, sets: &[Vec<usize>], selected: &[bool]) -> bool {
-    if selected.len() != sets.len() {
-        return false;
-    }
-
-    let mut covered = HashSet::new();
-    for (i, &sel) in selected.iter().enumerate() {
-        if sel {
-            covered.extend(sets[i].iter().copied());
-        }
-    }
-
-    (0..universe_size).all(|e| covered.contains(&e))
-}
-
-// === ProblemV2 / OptimizationProblemV2 implementations ===
-
-impl<W> crate::traits::ProblemV2 for MinimumSetCovering<W>
 where
     W: Clone
         + Default
@@ -289,9 +161,16 @@ where
         }
         total
     }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
+    }
 }
 
-impl<W> crate::traits::OptimizationProblemV2 for MinimumSetCovering<W>
+impl<W> OptimizationProblem for MinimumSetCovering<W>
 where
     W: Clone
         + Default
@@ -302,9 +181,29 @@ where
         + std::ops::AddAssign
         + 'static,
 {
-    fn direction(&self) -> crate::types::Direction {
-        crate::types::Direction::Minimize
+    fn direction(&self) -> Direction {
+        Direction::Minimize
     }
+
+    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
+        a < b // Minimize
+    }
+}
+
+/// Check if a selection of sets forms a valid set cover.
+pub fn is_set_cover(universe_size: usize, sets: &[Vec<usize>], selected: &[bool]) -> bool {
+    if selected.len() != sets.len() {
+        return false;
+    }
+
+    let mut covered = HashSet::new();
+    for (i, &sel) in selected.iter().enumerate() {
+        if sel {
+            covered.extend(sets[i].iter().copied());
+        }
+    }
+
+    (0..universe_size).all(|e| covered.contains(&e))
 }
 
 #[cfg(test)]

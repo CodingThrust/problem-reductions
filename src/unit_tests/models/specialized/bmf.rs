@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::Direction;
 
 #[test]
 fn test_bmf_creation() {
@@ -70,21 +72,17 @@ fn test_hamming_distance() {
 }
 
 #[test]
-fn test_solution_size() {
+fn test_evaluate() {
     let matrix = vec![vec![true, false], vec![false, true]];
     let problem = BMF::new(matrix, 2);
 
-    // Exact factorization
+    // Exact factorization -> distance 0
     let config = vec![1, 0, 0, 1, 1, 0, 0, 1];
-    let sol = problem.solution_size(&config);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0);
+    assert_eq!(problem.evaluate(&config), 0);
 
-    // Non-exact
+    // Non-exact -> distance 2
     let config = vec![0, 0, 0, 0, 0, 0, 0, 0];
-    let sol = problem.solution_size(&config);
-    assert!(!sol.is_valid);
-    assert_eq!(sol.size, 2);
+    assert_eq!(problem.evaluate(&config), 2);
 }
 
 #[test]
@@ -96,9 +94,8 @@ fn test_brute_force_ones() {
 
     let solutions = solver.find_best(&problem);
     for sol in &solutions {
-        let sol_size = problem.solution_size(sol);
-        assert_eq!(sol_size.size, 0);
-        assert!(sol_size.is_valid);
+        // Exact factorization has distance 0
+        assert_eq!(problem.evaluate(sol), 0);
     }
 }
 
@@ -121,7 +118,7 @@ fn test_brute_force_insufficient_rank() {
     // Identity matrix with rank 1 cannot be exact
     let matrix = vec![vec![true, false], vec![false, true]];
     let problem = BMF::new(matrix, 1);
-    let solver = BruteForce::new().valid_only(false);
+    let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
     // Best approximation has distance > 0
@@ -149,20 +146,10 @@ fn test_matrix_hamming_distance_function() {
 }
 
 #[test]
-fn test_energy_mode() {
+fn test_direction() {
     let matrix = vec![vec![true]];
     let problem = BMF::new(matrix, 1);
-    assert!(problem.energy_mode().is_minimization());
-}
-
-#[test]
-fn test_problem_size() {
-    let matrix = vec![vec![true, false, true], vec![false, true, false]];
-    let problem = BMF::new(matrix, 2);
-    let size = problem.problem_size();
-    assert_eq!(size.get("rows"), Some(2));
-    assert_eq!(size.get("cols"), Some(3));
-    assert_eq!(size.get("rank"), Some(2));
+    assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]
@@ -170,9 +157,8 @@ fn test_empty_matrix() {
     let matrix: Vec<Vec<bool>> = vec![];
     let problem = BMF::new(matrix, 1);
     assert_eq!(problem.num_variables(), 0);
-    let sol = problem.solution_size(&[]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0);
+    // Empty matrix has distance 0
+    assert_eq!(problem.evaluate(&[]), 0);
 }
 
 #[test]
@@ -184,8 +170,8 @@ fn test_is_exact() {
 }
 
 #[test]
-fn test_bmf_problem_v2() {
-    use crate::traits::{OptimizationProblemV2, ProblemV2};
+fn test_bmf_problem() {
+    use crate::traits::{OptimizationProblem, Problem};
     use crate::types::Direction;
 
     // 2x2 identity matrix with rank 2

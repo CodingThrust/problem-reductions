@@ -15,6 +15,8 @@
 //! ## Output
 //! Exports `docs/paper/examples/satisfiability_to_kcoloring.json` and `satisfiability_to_kcoloring.result.json`.
 
+use std::collections::HashMap;
+
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
@@ -62,9 +64,18 @@ fn main() {
     println!("  Variable gadgets: pos_i and neg_i vertices connected to AUX");
     println!("  Clause gadgets: OR-gadgets forcing output to TRUE color");
 
-    // 3. Solve the target 3-Coloring problem
+    // 3. Solve the target 3-Coloring problem (satisfaction, not optimization)
     let solver = BruteForce::new();
-    let coloring_solutions = solver.find_best(coloring);
+    // Find all satisfying 3-colorings by iterating through configs
+    let dims = coloring.dims();
+    let all_configs: Vec<Vec<usize>> =
+        problemreductions::config::DimsIterator::new(dims).collect();
+    let coloring_solutions: Vec<&[usize]> = all_configs
+        .iter()
+        .filter(|config| coloring.evaluate(config))
+        .map(|v| v.as_slice())
+        .collect();
+    let _ = solver; // Silence unused warning
     println!("\n=== Solution ===");
     println!(
         "Target 3-Coloring solutions found: {}",
@@ -79,22 +90,22 @@ fn main() {
         sat_solution[0], sat_solution[1], sat_solution[2], sat_solution[3], sat_solution[4]
     );
 
-    let size = sat.solution_size(&sat_solution);
-    println!("SAT solution valid: {}", size.is_valid);
-    assert!(size.is_valid, "Extracted SAT solution must be valid");
+    let satisfied = sat.evaluate(&sat_solution);
+    println!("SAT solution valid: {}", satisfied);
+    assert!(satisfied, "Extracted SAT solution must be valid");
 
     // Verify all coloring solutions map to valid SAT assignments
     let mut valid_count = 0;
     let mut solutions = Vec::new();
     for col_sol in &coloring_solutions {
         let sat_sol = reduction.extract_solution(col_sol);
-        let s = sat.solution_size(&sat_sol);
-        if s.is_valid {
+        let s = sat.evaluate(&sat_sol);
+        if s {
             valid_count += 1;
         }
         solutions.push(SolutionPair {
             source_config: sat_sol,
-            target_config: col_sol.clone(),
+            target_config: col_sol.to_vec(),
         });
     }
     println!(
@@ -113,7 +124,7 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: Satisfiability::<i32>::NAME.to_string(),
-            variant: variant_to_map(Satisfiability::<i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
                 "num_clauses": sat.num_clauses(),
@@ -121,7 +132,7 @@ fn main() {
         },
         target: ProblemSide {
             problem: KColoring::<3, SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(KColoring::<3, SimpleGraph, i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vertices": coloring.num_vertices(),
                 "num_edges": coloring.num_edges(),

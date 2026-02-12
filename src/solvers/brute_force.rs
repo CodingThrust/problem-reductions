@@ -87,8 +87,10 @@ impl BruteForce {
         best_solutions
     }
 
-    /// Find all satisfying solutions (internal, used for testing).
-    pub(crate) fn find_all_satisfying<P: Problem<Metric = bool>>(
+    /// Find all satisfying solutions for constraint satisfaction problems.
+    ///
+    /// Returns all configurations where `problem.evaluate(config)` returns `true`.
+    pub fn find_all_satisfying<P: Problem<Metric = bool>>(
         &self,
         problem: &P,
     ) -> Vec<Vec<usize>> {

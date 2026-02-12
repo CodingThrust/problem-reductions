@@ -10,23 +10,20 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::Graph;
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::ProblemSize;
-use num_traits::{Num, Zero};
+use num_traits::{Bounded, Num, Zero};
 use std::ops::AddAssign;
 
 /// Result of reducing MaximumMatching to MaximumSetPacking.
 #[derive(Debug, Clone)]
 pub struct ReductionMatchingToSP<G, W> {
     target: MaximumSetPacking<W>,
-    source_size: ProblemSize,
     _marker: std::marker::PhantomData<G>,
 }
 
 impl<G, W> ReductionResult for ReductionMatchingToSP<G, W>
 where
     G: Graph,
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = MaximumMatching<G, W>;
     type Target = MaximumSetPacking<W>;
@@ -38,14 +35,6 @@ where
     /// Solutions map directly: edge i in MaximumMatching = set i in MaximumSetPacking.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -61,7 +50,7 @@ where
 impl<G, W> ReduceTo<MaximumSetPacking<W>> for MaximumMatching<G, W>
 where
     G: Graph,
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionMatchingToSP<G, W>;
 
@@ -78,7 +67,6 @@ where
 
         ReductionMatchingToSP {
             target,
-            source_size: self.problem_size(),
             _marker: std::marker::PhantomData,
         }
     }

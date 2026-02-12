@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::Direction;
 
 #[test]
 fn test_factoring_creation() {
@@ -8,7 +10,6 @@ fn test_factoring_creation() {
     assert_eq!(problem.n(), 3);
     assert_eq!(problem.target(), 15);
     assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.num_flavors(), 2);
 }
 
 #[test]
@@ -41,31 +42,23 @@ fn test_read_factors() {
 }
 
 #[test]
-fn test_solution_size_valid() {
+fn test_evaluate_valid() {
     let problem = Factoring::new(2, 2, 6);
-    // 2 * 3 = 6
-    let sol = problem.solution_size(&[0, 1, 1, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0); // Exact match
+    // 2 * 3 = 6 -> distance 0
+    assert_eq!(problem.evaluate(&[0, 1, 1, 1]), 0);
 
-    // 3 * 2 = 6
-    let sol = problem.solution_size(&[1, 1, 0, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0);
+    // 3 * 2 = 6 -> distance 0
+    assert_eq!(problem.evaluate(&[1, 1, 0, 1]), 0);
 }
 
 #[test]
-fn test_solution_size_invalid() {
+fn test_evaluate_invalid() {
     let problem = Factoring::new(2, 2, 6);
-    // 2 * 2 = 4 != 6
-    let sol = problem.solution_size(&[0, 1, 0, 1]);
-    assert!(!sol.is_valid);
-    assert_eq!(sol.size, 2); // Distance from 6
+    // 2 * 2 = 4 != 6 -> distance 2
+    assert_eq!(problem.evaluate(&[0, 1, 0, 1]), 2);
 
-    // 1 * 1 = 1 != 6
-    let sol = problem.solution_size(&[1, 0, 1, 0]);
-    assert!(!sol.is_valid);
-    assert_eq!(sol.size, 5); // Distance from 6
+    // 1 * 1 = 1 != 6 -> distance 5
+    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), 5);
 }
 
 #[test]
@@ -117,18 +110,9 @@ fn test_is_factoring_function() {
 }
 
 #[test]
-fn test_energy_mode() {
+fn test_direction() {
     let problem = Factoring::new(2, 2, 6);
-    assert!(problem.energy_mode().is_minimization());
-}
-
-#[test]
-fn test_problem_size() {
-    let problem = Factoring::new(3, 4, 12);
-    let size = problem.problem_size();
-    assert_eq!(size.get("num_bits_first"), Some(3));
-    assert_eq!(size.get("num_bits_second"), Some(4));
-    assert_eq!(size.get("target"), Some(12));
+    assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]
@@ -152,8 +136,8 @@ fn test_factor_one() {
 }
 
 #[test]
-fn test_factoring_problem_v2() {
-    use crate::traits::{OptimizationProblemV2, ProblemV2};
+fn test_factoring_problem() {
+    use crate::traits::{OptimizationProblem, Problem};
     use crate::types::Direction;
 
     // Factor 6 with 2-bit factors

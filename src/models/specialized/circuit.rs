@@ -5,8 +5,6 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -211,7 +209,7 @@ impl Circuit {
 ///
 /// let problem = CircuitSAT::<i32>::new(circuit);
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_satisfying(&problem);
 ///
 /// // Multiple satisfying assignments exist
 /// assert!(!solutions.is_empty());
@@ -281,59 +279,6 @@ impl<W> CircuitSAT<W> {
     }
 }
 
-impl<W> Problem for CircuitSAT<W>
-where
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
-{
-    const NAME: &'static str = "CircuitSAT";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-    }
-
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.variables.len()
-    }
-
-    fn num_flavors(&self) -> usize {
-        2 // Binary
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_variables", self.variables.len()),
-            ("num_assignments", self.circuit.num_assignments()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::LargerSizeIsBetter // Maximize satisfied assignments
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let assignments = self.config_to_assignments(config);
-        let mut total = W::zero();
-
-        for (i, assign) in self.circuit.assignments.iter().enumerate() {
-            if assign.is_satisfied(&assignments) {
-                total += self.weights[i].clone();
-            }
-        }
-
-        // Valid if all assignments are satisfied
-        let is_valid = self.count_satisfied(config) == self.circuit.num_assignments();
-        SolutionSize::new(total, is_valid)
-    }
-}
-
 /// Check if a circuit assignment is satisfying.
 pub fn is_circuit_satisfying(circuit: &Circuit, assignments: &HashMap<String, bool>) -> bool {
     circuit
@@ -342,9 +287,7 @@ pub fn is_circuit_satisfying(circuit: &Circuit, assignments: &HashMap<String, bo
         .all(|a| a.is_satisfied(assignments))
 }
 
-// === ProblemV2 implementation ===
-
-impl<W> crate::traits::ProblemV2 for CircuitSAT<W>
+impl<W> Problem for CircuitSAT<W>
 where
     W: Clone + Default + 'static,
 {
@@ -357,6 +300,13 @@ where
 
     fn evaluate(&self, config: &[usize]) -> bool {
         self.count_satisfied(config) == self.circuit.num_assignments()
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
     }
 }
 

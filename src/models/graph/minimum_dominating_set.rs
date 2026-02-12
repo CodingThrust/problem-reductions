@@ -5,9 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -131,6 +130,29 @@ impl<G: Graph, W: Clone + Default> MinimumDominatingSet<G, W> {
         &self.weights
     }
 
+    /// Set new weights for the problem.
+    pub fn set_weights(&mut self, weights: Vec<W>) {
+        assert_eq!(weights.len(), self.graph.num_vertices());
+        self.weights = weights;
+    }
+
+    /// Get the weights for the problem.
+    pub fn weights(&self) -> Vec<W> {
+        self.weights.clone()
+    }
+
+    /// Check if the problem has non-uniform weights.
+    pub fn is_weighted(&self) -> bool
+    where
+        W: PartialEq,
+    {
+        if self.weights.is_empty() {
+            return false;
+        }
+        let first = &self.weights[0];
+        !self.weights.iter().all(|w| w == first)
+    }
+
     /// Check if a set of vertices is a dominating set.
     fn is_dominating(&self, config: &[usize]) -> bool {
         let n = self.graph.num_vertices();
@@ -159,128 +181,29 @@ where
     W: Clone
         + Default
         + PartialOrd
+        + Ord
         + num_traits::Num
         + num_traits::Zero
         + std::ops::AddAssign
         + 'static,
 {
     const NAME: &'static str = "MinimumDominatingSet";
+    type Metric = SolutionSize<W>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", G::NAME), ("weight", short_type_name::<W>())]
+        vec![
+            ("graph", crate::variant::short_type_name::<G>()),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
     }
-
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.graph.num_vertices()
-    }
-
-    fn num_flavors(&self) -> usize {
-        2
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vertices", self.graph.num_vertices()),
-            ("num_edges", self.graph.num_edges()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::SmallerSizeIsBetter // Minimize total weight
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let is_valid = self.is_dominating(config);
-        let mut total = W::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.weights[i].clone();
-            }
-        }
-        SolutionSize::new(total, is_valid)
-    }
-}
-
-impl<G, W> ConstraintSatisfactionProblem for MinimumDominatingSet<G, W>
-where
-    G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
-{
-    fn constraints(&self) -> Vec<LocalConstraint> {
-        // For each vertex v, at least one vertex in N[v] must be selected
-        (0..self.graph.num_vertices())
-            .map(|v| {
-                let closed_nbhd: Vec<usize> = self.closed_neighborhood(v).into_iter().collect();
-                let num_vars = closed_nbhd.len();
-                let num_configs = 2usize.pow(num_vars as u32);
-
-                // All configs are valid except all-zeros
-                let mut spec = vec![true; num_configs];
-                spec[0] = false;
-
-                LocalConstraint::new(2, closed_nbhd, spec)
-            })
-            .collect()
-    }
-
-    fn objectives(&self) -> Vec<LocalSolutionSize<Self::Size>> {
-        self.weights
-            .iter()
-            .enumerate()
-            .map(|(i, w)| LocalSolutionSize::new(2, vec![i], vec![W::zero(), w.clone()]))
-            .collect()
-    }
-
-    fn weights(&self) -> Vec<Self::Size> {
-        self.weights.clone()
-    }
-
-    fn set_weights(&mut self, weights: Vec<Self::Size>) {
-        assert_eq!(weights.len(), self.num_variables());
-        self.weights = weights;
-    }
-
-    fn is_weighted(&self) -> bool {
-        if self.weights.is_empty() {
-            return false;
-        }
-        let first = &self.weights[0];
-        !self.weights.iter().all(|w| w == first)
-    }
-}
-
-// === ProblemV2 / OptimizationProblemV2 implementations ===
-
-impl<G, W> crate::traits::ProblemV2 for MinimumDominatingSet<G, W>
-where
-    G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + 'static,
-{
-    const NAME: &'static str = "MinimumDominatingSet";
-    type Metric = W;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> W {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
         if !self.is_dominating(config) {
-            return W::max_value();
+            return SolutionSize::Invalid;
         }
         let mut total = W::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -288,24 +211,28 @@ where
                 total += self.weights[i].clone();
             }
         }
-        total
+        SolutionSize::Valid(total)
     }
 }
 
-impl<G, W> crate::traits::OptimizationProblemV2 for MinimumDominatingSet<G, W>
+impl<G, W> OptimizationProblem for MinimumDominatingSet<G, W>
 where
     G: Graph,
     W: Clone
         + Default
         + PartialOrd
+        + Ord
         + num_traits::Num
         + num_traits::Zero
-        + num_traits::Bounded
         + std::ops::AddAssign
         + 'static,
 {
-    fn direction(&self) -> crate::types::Direction {
-        crate::types::Direction::Minimize
+    fn direction(&self) -> Direction {
+        Direction::Minimize
+    }
+
+    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
+        a.is_better(b, self.direction())
     }
 }
 

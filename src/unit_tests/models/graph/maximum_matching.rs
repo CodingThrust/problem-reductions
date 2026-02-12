@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 
 #[test]
 fn test_matching_creation() {
@@ -40,17 +42,15 @@ fn test_is_valid_matching() {
 }
 
 #[test]
-fn test_solution_size() {
+fn test_evaluate() {
     let problem =
         MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 5), (1, 2, 10), (2, 3, 3)]);
 
-    let sol = problem.solution_size(&[1, 0, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 8); // 5 + 3
+    // Valid matching: edges 0 and 2 (disjoint)
+    assert_eq!(Problem::evaluate(&problem, &[1, 0, 1]), SolutionSize::Valid(8)); // 5 + 3
 
-    let sol = problem.solution_size(&[0, 1, 0]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 10);
+    // Valid matching: edge 1 only
+    assert_eq!(Problem::evaluate(&problem, &[0, 1, 0]), SolutionSize::Valid(10));
 }
 
 #[test]
@@ -63,7 +63,7 @@ fn test_brute_force_path() {
     // Maximum matching has 2 edges: {0-1, 2-3}
     assert!(solutions.contains(&vec![1, 0, 1]));
     for sol in &solutions {
-        assert_eq!(problem.solution_size(sol).size, 2);
+        assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(2));
     }
 }
 
@@ -76,7 +76,8 @@ fn test_brute_force_triangle() {
     // Maximum matching has 1 edge (any of the 3)
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 1);
-        assert!(problem.solution_size(sol).is_valid);
+        // Verify it's a valid matching
+        assert!(Problem::evaluate(&problem, sol).is_valid());
     }
 }
 
@@ -103,25 +104,16 @@ fn test_is_matching_function() {
 }
 
 #[test]
-fn test_energy_mode() {
+fn test_direction() {
     let problem = MaximumMatching::<SimpleGraph, i32>::unweighted(2, vec![(0, 1)]);
-    assert!(problem.energy_mode().is_maximization());
+    assert_eq!(problem.direction(), Direction::Maximize);
 }
 
 #[test]
 fn test_empty_graph() {
     let problem = MaximumMatching::<SimpleGraph, i32>::unweighted(3, vec![]);
-    let sol = problem.solution_size(&[]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0);
-}
-
-#[test]
-fn test_constraints() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
-    let constraints = problem.constraints();
-    // Vertex 1 has degree 2, so 1 constraint
-    assert_eq!(constraints.len(), 1);
+    // Empty matching is valid with size 0
+    assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0));
 }
 
 #[test]
@@ -143,7 +135,7 @@ fn test_perfect_matching() {
     let solutions = solver.find_best(&problem);
     // Perfect matching has 2 edges
     for sol in &solutions {
-        assert_eq!(problem.solution_size(sol).size, 2);
+        assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(2));
         // Check it's a valid matching using 4 vertices
         let mut used = [false; 4];
         for (idx, &sel) in sol.iter().enumerate() {
@@ -159,34 +151,10 @@ fn test_perfect_matching() {
 }
 
 #[test]
-fn test_is_satisfied() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
-
-    assert!(problem.is_satisfied(&[1, 0, 1])); // Valid matching
-    assert!(problem.is_satisfied(&[0, 1, 0])); // Valid matching
-    assert!(!problem.is_satisfied(&[1, 1, 0])); // Share vertex 1
-}
-
-#[test]
-fn test_objectives() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::new(3, vec![(0, 1, 5), (1, 2, 10)]);
-    let objectives = problem.objectives();
-    assert_eq!(objectives.len(), 2);
-}
-
-#[test]
-fn test_set_weights() {
-    let mut problem = MaximumMatching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
-    assert!(!problem.is_weighted()); // Initially uniform
-    problem.set_weights(vec![1, 2]);
-    assert!(problem.is_weighted());
-    assert_eq!(problem.weights(), vec![1, 2]);
-}
-
-#[test]
-fn test_is_weighted_empty() {
+fn test_empty_sets() {
     let problem = MaximumMatching::<SimpleGraph, i32>::unweighted(2, vec![]);
-    assert!(!problem.is_weighted());
+    // Empty matching
+    assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0));
 }
 
 #[test]
@@ -199,14 +167,6 @@ fn test_is_matching_wrong_len() {
 fn test_is_matching_out_of_bounds() {
     let edges = vec![(0, 5)]; // Vertex 5 doesn't exist
     assert!(!is_matching(3, &edges, &[true]));
-}
-
-#[test]
-fn test_problem_size() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::unweighted(5, vec![(0, 1), (1, 2), (2, 3)]);
-    let size = problem.problem_size();
-    assert_eq!(size.get("num_vertices"), Some(5));
-    assert_eq!(size.get("num_edges"), Some(3));
 }
 
 #[test]
@@ -237,15 +197,12 @@ fn test_graph_accessor() {
 
 #[test]
 fn test_matching_problem_v2() {
-    use crate::traits::{OptimizationProblemV2, ProblemV2};
-    use crate::types::Direction;
-
     // Path graph 0-1-2 with edges (0,1) and (1,2)
     let p = MaximumMatching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
     assert_eq!(p.dims(), vec![2, 2]);
     // Valid matching: select edge 0 only
-    assert_eq!(p.evaluate(&[1, 0]), 1);
+    assert_eq!(Problem::evaluate(&p, &[1, 0]), SolutionSize::Valid(1));
     // Invalid matching: select both edges (vertex 1 shared)
-    assert_eq!(p.evaluate(&[1, 1]), i32::MIN);
+    assert_eq!(Problem::evaluate(&p, &[1, 1]), SolutionSize::Invalid);
     assert_eq!(p.direction(), Direction::Maximize);
 }

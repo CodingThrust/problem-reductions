@@ -15,6 +15,8 @@
 //!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
+use std::collections::HashMap;
+
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
@@ -52,16 +54,17 @@ fn main() {
     let mut solutions = Vec::new();
     for (i, target_sol) in target_solutions.iter().enumerate() {
         let source_sol = reduction.extract_solution(target_sol);
-        let source_size = source.solution_size(&source_sol);
-        let target_size = target.solution_size(target_sol);
+        let source_size = source.evaluate(&source_sol);
+        let target_size = target.evaluate(target_sol);
 
+        // Both are minimization problems, infeasible configs return Invalid
         println!(
-            "  Solution {}: target={:?} (size={}), source={:?} (size={}, valid={})",
-            i, target_sol, target_size.size, source_sol, source_size.size, source_size.is_valid
+            "  Solution {}: target={:?} (size={}), source={:?} (size={:?}, valid={})",
+            i, target_sol, target_size, source_sol, source_size, source_size.is_valid()
         );
 
         assert!(
-            source_size.is_valid,
+            source_size.is_valid(),
             "Extracted source solution must be valid"
         );
 
@@ -74,12 +77,16 @@ fn main() {
     // Use the first solution for verification
     let target_sol = &target_solutions[0];
     let source_sol = reduction.extract_solution(target_sol);
-    let source_size = source.solution_size(&source_sol);
-    let target_size = target.solution_size(target_sol);
+    let source_size = source.evaluate(&source_sol);
+    let target_size = target.evaluate(target_sol);
 
-    assert_eq!(source_size.size, 6, "VC on Petersen has optimal size 6");
     assert_eq!(
-        target_size.size, 6,
+        source_size,
+        problemreductions::types::SolutionSize::Valid(6),
+        "VC on Petersen has optimal size 6"
+    );
+    assert_eq!(
+        target_size, 6,
         "MinimumSetCovering should also have size 6"
     );
 
@@ -90,7 +97,7 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vertices": source.num_vertices(),
                 "num_edges": source.num_edges(),
@@ -99,7 +106,7 @@ fn main() {
         },
         target: ProblemSide {
             problem: MinimumSetCovering::<i32>::NAME.to_string(),
-            variant: variant_to_map(MinimumSetCovering::<i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_sets": target.num_sets(),
                 "sets": target.sets(),

@@ -13,9 +13,10 @@
 //! ## Output
 //! Exports `docs/paper/examples/minimumvertexcover_to_ilp.json` and `minimumvertexcover_to_ilp.result.json`.
 
+use std::collections::HashMap;
+
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use problemreductions::solvers::BruteForceFloat;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
@@ -42,11 +43,11 @@ fn main() {
 
     // 4. Solve target ILP
     let solver = BruteForce::new();
-    let ilp_solutions = solver.find_best_float(ilp);
+    let ilp_solutions = solver.find_best(ilp);
     println!("\n=== Solution ===");
     println!("ILP solutions found: {}", ilp_solutions.len());
 
-    let ilp_solution = &ilp_solutions[0].0;
+    let ilp_solution = &ilp_solutions[0];
     println!("ILP solution: {:?}", ilp_solution);
 
     // 5. Extract source solution
@@ -54,20 +55,22 @@ fn main() {
     println!("Source VC solution: {:?}", vc_solution);
 
     // 6. Verify
-    let size = vc.solution_size(&vc_solution);
-    println!("Solution valid: {}, size: {:?}", size.is_valid, size.size);
-    assert!(size.is_valid);
+    let size = vc.evaluate(&vc_solution);
+    // MinimumVertexCover is a minimization problem, infeasible configs return Invalid
+    println!("Solution size: {:?}", size);
+    assert!(size.is_valid());
     println!("\nReduction verified successfully");
 
     // 7. Collect solutions and export JSON
     let mut solutions = Vec::new();
-    for (target_config, _score) in &ilp_solutions {
+    for target_config in &ilp_solutions {
         let source_sol = reduction.extract_solution(target_config);
-        let s = vc.solution_size(&source_sol);
-        assert!(s.is_valid);
+        let s = vc.evaluate(&source_sol);
+        // MinimumVertexCover is a minimization problem, infeasible configs return Invalid
+        assert!(s.is_valid());
         solutions.push(SolutionPair {
             source_config: source_sol,
-            target_config: target_config.clone(),
+            target_config: target_config.to_vec(),
         });
     }
 
@@ -76,7 +79,7 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vertices": vc.num_vertices(),
                 "num_edges": vc.num_edges(),
@@ -85,7 +88,7 @@ fn main() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: variant_to_map(ILP::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

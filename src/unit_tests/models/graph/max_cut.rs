@@ -1,13 +1,15 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::types::SolutionSize;
 
 #[test]
 fn test_maxcut_creation() {
+    use crate::traits::Problem;
+
     let problem = MaxCut::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 3)]);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
-    assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.num_flavors(), 2);
+    assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
 }
 
 #[test]
@@ -17,51 +19,55 @@ fn test_maxcut_unweighted() {
 }
 
 #[test]
-fn test_solution_size() {
+fn test_evaluate() {
+    use crate::traits::Problem;
+
     let problem = MaxCut::<SimpleGraph, i32>::new(3, vec![(0, 1, 1), (1, 2, 2), (0, 2, 3)]);
 
     // All same partition: no cut
-    let sol = problem.solution_size(&[0, 0, 0]);
-    assert_eq!(sol.size, 0);
-    assert!(sol.is_valid);
+    assert_eq!(problem.evaluate(&[0, 0, 0]), SolutionSize::Valid(0));
 
     // 0 vs {1,2}: cuts edges 0-1 (1) and 0-2 (3) = 4
-    let sol = problem.solution_size(&[0, 1, 1]);
-    assert_eq!(sol.size, 4);
+    assert_eq!(problem.evaluate(&[0, 1, 1]), SolutionSize::Valid(4));
 
     // {0,2} vs {1}: cuts edges 0-1 (1) and 1-2 (2) = 3
-    let sol = problem.solution_size(&[0, 1, 0]);
-    assert_eq!(sol.size, 3);
+    assert_eq!(problem.evaluate(&[0, 1, 0]), SolutionSize::Valid(3));
 }
 
 #[test]
 fn test_brute_force_triangle() {
+    use crate::traits::Problem;
+
     // Triangle with unit weights: max cut is 2
     let problem = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
     for sol in &solutions {
-        let size = problem.solution_size(sol);
-        assert_eq!(size.size, 2);
+        let size = problem.evaluate(sol);
+        assert_eq!(size, SolutionSize::Valid(2));
     }
 }
 
 #[test]
 fn test_brute_force_path() {
+    use crate::traits::Problem;
+
     // Path 0-1-2: max cut is 2 (partition {0,2} vs {1})
     let problem = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
     for sol in &solutions {
-        let size = problem.solution_size(sol);
-        assert_eq!(size.size, 2);
+        let size = problem.evaluate(sol);
+        assert_eq!(size, SolutionSize::Valid(2));
     }
 }
 
 #[test]
 fn test_brute_force_weighted() {
+    use crate::traits::Problem;
+
     // Edge with weight 10 should always be cut
     let problem = MaxCut::<SimpleGraph, i32>::new(3, vec![(0, 1, 10), (1, 2, 1)]);
     let solver = BruteForce::new();
@@ -69,8 +75,8 @@ fn test_brute_force_weighted() {
     let solutions = solver.find_best(&problem);
     // Max is 11 (cut both edges) with partition like [0,1,0] or [1,0,1]
     for sol in &solutions {
-        let size = problem.solution_size(sol);
-        assert_eq!(size.size, 11);
+        let size = problem.evaluate(sol);
+        assert_eq!(size, SolutionSize::Valid(11));
     }
 }
 
@@ -104,13 +110,18 @@ fn test_edges() {
 }
 
 #[test]
-fn test_energy_mode() {
+fn test_direction() {
+    use crate::traits::OptimizationProblem;
+    use crate::types::Direction;
+
     let problem = MaxCut::<SimpleGraph, i32>::unweighted(2, vec![(0, 1)]);
-    assert!(problem.energy_mode().is_maximization());
+    assert_eq!(problem.direction(), Direction::Maximize);
 }
 
 #[test]
 fn test_empty_graph() {
+    use crate::traits::Problem;
+
     let problem = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![]);
     let solver = BruteForce::new();
 
@@ -118,12 +129,14 @@ fn test_empty_graph() {
     // Any partition gives cut size 0
     assert!(!solutions.is_empty());
     for sol in &solutions {
-        assert_eq!(problem.solution_size(sol).size, 0);
+        assert_eq!(problem.evaluate(sol), SolutionSize::Valid(0));
     }
 }
 
 #[test]
 fn test_single_edge() {
+    use crate::traits::Problem;
+
     let problem = MaxCut::<SimpleGraph, i32>::new(2, vec![(0, 1, 5)]);
     let solver = BruteForce::new();
 
@@ -131,12 +144,14 @@ fn test_single_edge() {
     // Putting vertices in different sets maximizes cut
     assert_eq!(solutions.len(), 2); // [0,1] and [1,0]
     for sol in &solutions {
-        assert_eq!(problem.solution_size(sol).size, 5);
+        assert_eq!(problem.evaluate(sol), SolutionSize::Valid(5));
     }
 }
 
 #[test]
 fn test_complete_graph_k4() {
+    use crate::traits::Problem;
+
     // K4: every partition cuts exactly 4 edges (balanced) or less
     let problem = MaxCut::<SimpleGraph, i32>::unweighted(
         4,
@@ -147,12 +162,14 @@ fn test_complete_graph_k4() {
     let solutions = solver.find_best(&problem);
     // Max cut in K4 is 4 (2-2 partition)
     for sol in &solutions {
-        assert_eq!(problem.solution_size(sol).size, 4);
+        assert_eq!(problem.evaluate(sol), SolutionSize::Valid(4));
     }
 }
 
 #[test]
 fn test_bipartite_graph() {
+    use crate::traits::Problem;
+
     // Complete bipartite K_{2,2}: max cut is all 4 edges
     let problem = MaxCut::<SimpleGraph, i32>::unweighted(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
     let solver = BruteForce::new();
@@ -160,18 +177,20 @@ fn test_bipartite_graph() {
     let solutions = solver.find_best(&problem);
     // Bipartite graph can achieve max cut = all edges
     for sol in &solutions {
-        assert_eq!(problem.solution_size(sol).size, 4);
+        assert_eq!(problem.evaluate(sol), SolutionSize::Valid(4));
     }
 }
 
 #[test]
 fn test_symmetry() {
+    use crate::traits::Problem;
+
     // Complementary partitions should give same cut
     let problem = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
 
-    let sol1 = problem.solution_size(&[0, 1, 1]);
-    let sol2 = problem.solution_size(&[1, 0, 0]); // complement
-    assert_eq!(sol1.size, sol2.size);
+    let sol1 = problem.evaluate(&[0, 1, 1]);
+    let sol2 = problem.evaluate(&[1, 0, 0]); // complement
+    assert_eq!(sol1, sol2);
 }
 
 #[test]
@@ -215,24 +234,16 @@ fn test_edge_weight_by_index() {
 }
 
 #[test]
-fn test_variant() {
-    let variant = MaxCut::<SimpleGraph, i32>::variant();
-    assert_eq!(variant.len(), 2);
-    assert_eq!(variant[0], ("graph", "SimpleGraph"));
-    assert_eq!(variant[1], ("weight", "i32"));
-}
-
-#[test]
-fn test_maxcut_problem_v2() {
-    use crate::traits::{OptimizationProblemV2, ProblemV2};
+fn test_maxcut_problem() {
+    use crate::traits::{OptimizationProblem, Problem};
     use crate::types::Direction;
 
     // Triangle with unit edge weights
     let p = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
     assert_eq!(p.dims(), vec![2, 2, 2]);
     // Partition {0} vs {1,2}: cuts edges (0,1) and (0,2), weight = 2
-    assert_eq!(p.evaluate(&[1, 0, 0]), 2);
+    assert_eq!(p.evaluate(&[1, 0, 0]), SolutionSize::Valid(2));
     // All same partition: no cut, weight = 0
-    assert_eq!(p.evaluate(&[0, 0, 0]), 0);
+    assert_eq!(p.evaluate(&[0, 0, 0]), SolutionSize::Valid(0));
     assert_eq!(p.direction(), Direction::Maximize);
 }

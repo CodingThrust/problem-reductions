@@ -4,9 +4,8 @@
 //! pairwise disjoint sets.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::Direction;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -45,9 +44,9 @@ inventory::submit! {
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_best(&problem);
 ///
-/// // Verify solutions are pairwise disjoint
+/// // Verify solutions are pairwise disjoint (valid = not at MIN bound)
 /// for sol in solutions {
-///     assert!(problem.solution_size(&sol).is_valid);
+///     assert!(problem.evaluate(&sol) > i32::MIN);
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -126,92 +125,55 @@ where
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
+        + num_traits::Bounded
         + std::ops::AddAssign
         + 'static,
 {
     const NAME: &'static str = "MaximumSetPacking";
+    type Metric = W;
 
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.sets.len()]
     }
 
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.sets.len()
-    }
-
-    fn num_flavors(&self) -> usize {
-        2
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![("num_sets", self.sets.len())])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::LargerSizeIsBetter // Maximize total weight
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let is_valid = is_valid_packing(&self.sets, config);
+    fn evaluate(&self, config: &[usize]) -> W {
+        if !is_valid_packing(&self.sets, config) {
+            return W::min_value();
+        }
         let mut total = W::zero();
         for (i, &selected) in config.iter().enumerate() {
             if selected == 1 {
                 total += self.weights[i].clone();
             }
         }
-        SolutionSize::new(total, is_valid)
+        total
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
     }
 }
 
-impl<W> ConstraintSatisfactionProblem for MaximumSetPacking<W>
+impl<W> OptimizationProblem for MaximumSetPacking<W>
 where
     W: Clone
         + Default
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
+        + num_traits::Bounded
         + std::ops::AddAssign
         + 'static,
 {
-    fn constraints(&self) -> Vec<LocalConstraint> {
-        // For each pair of overlapping sets, at most one can be selected
-        self.overlapping_pairs()
-            .into_iter()
-            .map(|(i, j)| {
-                LocalConstraint::new(
-                    2,
-                    vec![i, j],
-                    vec![true, true, true, false], // (0,0), (0,1), (1,0) OK; (1,1) invalid
-                )
-            })
-            .collect()
+    fn direction(&self) -> Direction {
+        Direction::Maximize
     }
 
-    fn objectives(&self) -> Vec<LocalSolutionSize<Self::Size>> {
-        self.weights
-            .iter()
-            .enumerate()
-            .map(|(i, w)| LocalSolutionSize::new(2, vec![i], vec![W::zero(), w.clone()]))
-            .collect()
-    }
-
-    fn weights(&self) -> Vec<Self::Size> {
-        self.weights.clone()
-    }
-
-    fn set_weights(&mut self, weights: Vec<Self::Size>) {
-        assert_eq!(weights.len(), self.num_variables());
-        self.weights = weights;
-    }
-
-    fn is_weighted(&self) -> bool {
-        if self.weights.is_empty() {
-            return false;
-        }
-        let first = &self.weights[0];
-        !self.weights.iter().all(|w| w == first)
+    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
+        a > b // Maximize
     }
 }
 
@@ -244,56 +206,6 @@ pub fn is_set_packing(sets: &[Vec<usize>], selected: &[bool]) -> bool {
 
     let config: Vec<usize> = selected.iter().map(|&b| if b { 1 } else { 0 }).collect();
     is_valid_packing(sets, &config)
-}
-
-// === ProblemV2 / OptimizationProblemV2 implementations ===
-
-impl<W> crate::traits::ProblemV2 for MaximumSetPacking<W>
-where
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + 'static,
-{
-    const NAME: &'static str = "MaximumSetPacking";
-    type Metric = W;
-
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.sets.len()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> W {
-        if !is_valid_packing(&self.sets, config) {
-            return W::min_value();
-        }
-        let mut total = W::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.weights[i].clone();
-            }
-        }
-        total
-    }
-}
-
-impl<W> crate::traits::OptimizationProblemV2 for MaximumSetPacking<W>
-where
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + 'static,
-{
-    fn direction(&self) -> crate::types::Direction {
-        crate::types::Direction::Maximize
-    }
 }
 
 #[cfg(test)]

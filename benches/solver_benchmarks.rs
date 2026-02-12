@@ -82,7 +82,7 @@ fn bench_satisfiability(c: &mut Criterion) {
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("3-sat", num_vars), num_vars, |b, _| {
-            b.iter(|| solver.find_best(black_box(&problem)))
+            b.iter(|| solver.find_all_satisfying(black_box(&problem)))
         });
     }
 
@@ -142,7 +142,7 @@ fn bench_coloring(c: &mut Criterion) {
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path_3colors", n), n, |b, _| {
-            b.iter(|| solver.find_best(black_box(&problem)))
+            b.iter(|| solver.find_all_satisfying(black_box(&problem)))
         });
     }
 
@@ -211,7 +211,7 @@ fn bench_comparison(c: &mut Criterion) {
         ],
     );
     group.bench_function("Satisfiability", |b| {
-        b.iter(|| solver.find_best(black_box(&sat_problem)))
+        b.iter(|| solver.find_all_satisfying(black_box(&sat_problem)))
     });
 
     // SpinGlass with 8 spins

@@ -74,7 +74,7 @@ pub use sat_maximumindependentset::{BoolVar, ReductionSATToIS};
 pub use sat_minimumdominatingset::ReductionSATToDS;
 pub use spinglass_maxcut::{ReductionMaxCutToSG, ReductionSGToMaxCut};
 pub use spinglass_qubo::{ReductionQUBOToSG, ReductionSGToQUBO};
-pub use traits::{ReduceTo, ReduceToV2, ReductionResult, ReductionResultV2};
+pub use traits::{ReduceTo, ReductionResult};
 
 #[cfg(feature = "ilp")]
 pub use coloring_ilp::{ReductionColoringToILP, ReductionKColoringToILP};

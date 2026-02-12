@@ -1,7 +1,6 @@
 //! Core traits for problem reductions.
 
 use crate::traits::Problem;
-use crate::types::ProblemSize;
 
 /// Result of reducing a source problem to a target problem.
 ///
@@ -24,12 +23,6 @@ pub trait ReductionResult: Clone {
     /// # Returns
     /// The corresponding solution in the source problem space
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize>;
-
-    /// Get the size of the source problem (for complexity analysis).
-    fn source_size(&self) -> ProblemSize;
-
-    /// Get the size of the target problem (for complexity analysis).
-    fn target_size(&self) -> ProblemSize;
 }
 
 /// Trait for problems that can be reduced to target type T.
@@ -64,24 +57,6 @@ pub trait ReduceTo<T: Problem>: Problem {
     type Result: ReductionResult<Source = Self, Target = T>;
 
     /// Reduce this problem to the target problem type.
-    fn reduce_to(&self) -> Self::Result;
-}
-
-// === V2 reduction traits (new simplified trait system) ===
-
-use crate::traits::ProblemV2;
-
-/// Simplified reduction result — just target problem and solution extraction.
-pub trait ReductionResultV2: Clone {
-    type Source: ProblemV2;
-    type Target: ProblemV2;
-    fn target_problem(&self) -> &Self::Target;
-    fn extract_solution(&self, target_config: &[usize]) -> Vec<usize>;
-}
-
-/// Simplified reduction trait.
-pub trait ReduceToV2<T: ProblemV2>: ProblemV2 {
-    type Result: ReductionResultV2<Source = Self, Target = T>;
     fn reduce_to(&self) -> Self::Result;
 }
 

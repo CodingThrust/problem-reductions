@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::satisfiability::CNFClause;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 
 #[test]
 fn test_constructor_basic_structure() {
@@ -70,21 +70,19 @@ fn test_unsatisfiable_formula() {
     let reduction = ReduceTo::<KColoring<3, SimpleGraph, i32>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
-    // Solve the coloring problem
+    // Solve the coloring problem - use find_all_satisfying since KColoring is a satisfaction problem
     let solver = BruteForce::new();
-    let solutions = solver.find_best(coloring);
+    let solutions = solver.find_all_satisfying(coloring);
 
     // For an unsatisfiable formula, the coloring should have no valid solutions
     // OR no valid coloring exists that extracts to a satisfying SAT assignment
     let mut found_satisfying = false;
     for sol in &solutions {
-        if coloring.solution_size(sol).is_valid {
-            let sat_sol = reduction.extract_solution(sol);
-            let assignment: Vec<bool> = sat_sol.iter().map(|&v| v == 1).collect();
-            if sat.is_satisfying(&assignment) {
-                found_satisfying = true;
-                break;
-            }
+        let sat_sol = reduction.extract_solution(sol);
+        let assignment: Vec<bool> = sat_sol.iter().map(|&v| v == 1).collect();
+        if sat.is_satisfying(&assignment) {
+            found_satisfying = true;
+            break;
         }
     }
 
@@ -120,20 +118,17 @@ fn test_three_literal_clause_structure() {
 }
 
 #[test]
-fn test_source_and_target_size() {
+fn test_coloring_structure() {
     let sat = Satisfiability::<i32>::new(
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
     let reduction = ReduceTo::<KColoring<3, SimpleGraph, i32>>::reduce_to(&sat);
+    let coloring = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("num_vars"), Some(3));
-    assert_eq!(source_size.get("num_clauses"), Some(2));
-    assert!(target_size.get("num_vertices").is_some());
-    assert!(target_size.get("num_colors").unwrap() == 3);
+    // Verify coloring has expected structure
+    assert!(coloring.num_vertices() > 0);
+    assert_eq!(coloring.num_colors(), 3);
 }
 
 #[test]
@@ -192,16 +187,14 @@ fn test_single_literal_clauses() {
     let coloring = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(coloring);
+    let solutions = solver.find_all_satisfying(coloring);
 
     let mut found_correct = false;
     for sol in &solutions {
-        if coloring.solution_size(sol).is_valid {
-            let sat_sol = reduction.extract_solution(sol);
-            if sat_sol == vec![1, 1] {
-                found_correct = true;
-                break;
-            }
+        let sat_sol = reduction.extract_solution(sol);
+        if sat_sol == vec![1, 1] {
+            found_correct = true;
+            break;
         }
     }
 

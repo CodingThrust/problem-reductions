@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::traits::Problem;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -68,8 +69,7 @@ fn test_ilp_solution_equals_brute_force_simple() {
     assert_eq!(ilp_size, 2);
 
     // Verify the ILP solution is valid for the original problem
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid, "Extracted solution should be valid");
+    assert!(problem.evaluate(&extracted) != i32::MAX, "Extracted solution should be valid");
 }
 
 #[test]
@@ -90,11 +90,11 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let ilp_solver = ILPSolver::new();
 
     let bf_solutions = bf.find_best(&problem);
-    let bf_obj = problem.solution_size(&bf_solutions[0]).size;
+    let bf_obj = problem.evaluate(&bf_solutions[0]);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_obj = problem.solution_size(&extracted).size;
+    let ilp_obj = problem.evaluate(&extracted);
 
     assert_eq!(bf_obj, 6);
     assert_eq!(ilp_obj, 6);
@@ -114,24 +114,18 @@ fn test_solution_extraction() {
     assert_eq!(extracted, vec![1, 1]);
 
     // Verify this is a valid set cover
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
+    assert!(problem.evaluate(&extracted) != i32::MAX);
 }
 
 #[test]
-fn test_source_and_target_size() {
+fn test_ilp_structure() {
     let problem =
         MinimumSetCovering::<i32>::new(5, vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]);
     let reduction: ReductionSCToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let ilp = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("universe_size"), Some(5));
-    assert_eq!(source_size.get("num_sets"), Some(4));
-
-    assert_eq!(target_size.get("num_vars"), Some(4));
-    assert_eq!(target_size.get("num_constraints"), Some(5));
+    assert_eq!(ilp.num_vars, 4);
+    assert_eq!(ilp.constraints.len(), 5);
 }
 
 #[test]
@@ -149,9 +143,8 @@ fn test_single_set_covers_all() {
     // First set alone covers everything with weight 1
     assert_eq!(extracted, vec![1, 0, 0, 0]);
 
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
-    assert_eq!(sol_result.size, 1);
+    assert!(problem.evaluate(&extracted) != i32::MAX);
+    assert_eq!(problem.evaluate(&extracted), 1);
 }
 
 #[test]
@@ -169,9 +162,8 @@ fn test_overlapping_sets() {
     // Need both sets to cover all elements
     assert_eq!(extracted, vec![1, 1]);
 
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
-    assert_eq!(sol_result.size, 2);
+    assert!(problem.evaluate(&extracted) != i32::MAX);
+    assert_eq!(problem.evaluate(&extracted), 2);
 }
 
 #[test]
@@ -196,9 +188,8 @@ fn test_solve_reduced() {
         .solve_reduced(&problem)
         .expect("solve_reduced should work");
 
-    let sol_result = problem.solution_size(&solution);
-    assert!(sol_result.is_valid);
-    assert_eq!(sol_result.size, 2);
+    assert!(problem.evaluate(&solution) != i32::MAX);
+    assert_eq!(problem.evaluate(&solution), 2);
 }
 
 #[test]

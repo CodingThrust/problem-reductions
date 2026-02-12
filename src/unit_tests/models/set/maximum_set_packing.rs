@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::Direction;
 
 #[test]
 fn test_set_packing_creation() {
@@ -11,8 +13,7 @@ fn test_set_packing_creation() {
 #[test]
 fn test_set_packing_with_weights() {
     let problem = MaximumSetPacking::with_weights(vec![vec![0, 1], vec![2, 3]], vec![5, 10]);
-    assert_eq!(problem.weights(), vec![5, 10]);
-    assert!(problem.is_weighted());
+    assert_eq!(problem.weights_ref(), &vec![5, 10]);
 }
 
 #[test]
@@ -35,27 +36,22 @@ fn test_overlapping_pairs() {
 }
 
 #[test]
-fn test_solution_size_valid() {
+fn test_evaluate_valid() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5]]);
 
     // All disjoint, can select all
-    let sol = problem.solution_size(&[1, 1, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 3);
+    assert_eq!(Problem::evaluate(&problem, &[1, 1, 1]), 3);
 
-    // Select none
-    let sol = problem.solution_size(&[0, 0, 0]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0);
+    // Select none - valid with size 0
+    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0]), 0);
 }
 
 #[test]
-fn test_solution_size_invalid() {
+fn test_evaluate_invalid() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
 
-    // Sets 0 and 1 overlap
-    let sol = problem.solution_size(&[1, 1, 0]);
-    assert!(!sol.is_valid);
+    // Sets 0 and 1 overlap - returns i32::MIN for maximization
+    assert_eq!(Problem::evaluate(&problem, &[1, 1, 0]), i32::MIN);
 }
 
 #[test]
@@ -68,7 +64,8 @@ fn test_brute_force_chain() {
     // Max is 2: select {0,1} and {2,3}
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 2);
-        assert!(problem.solution_size(sol).is_valid);
+        // Verify it's a valid packing
+        assert_ne!(Problem::evaluate(&problem, sol), i32::MIN);
     }
 }
 
@@ -98,17 +95,9 @@ fn test_is_set_packing_function() {
 }
 
 #[test]
-fn test_constraints() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
-    let constraints = problem.constraints();
-    // Only one overlapping pair
-    assert_eq!(constraints.len(), 1);
-}
-
-#[test]
-fn test_energy_mode() {
+fn test_direction() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1]]);
-    assert!(problem.energy_mode().is_maximization());
+    assert_eq!(problem.direction(), Direction::Maximize);
 }
 
 #[test]
@@ -136,20 +125,10 @@ fn test_all_overlapping() {
 }
 
 #[test]
-fn test_is_satisfied() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
-
-    assert!(problem.is_satisfied(&[1, 0, 1])); // Disjoint selection
-    assert!(problem.is_satisfied(&[0, 1, 1])); // Disjoint selection
-    assert!(!problem.is_satisfied(&[1, 1, 0])); // Overlapping selection
-}
-
-#[test]
 fn test_empty_sets() {
     let problem = MaximumSetPacking::<i32>::new(vec![]);
-    let sol = problem.solution_size(&[]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0);
+    // Empty packing is valid with size 0
+    assert_eq!(Problem::evaluate(&problem, &[]), 0);
 }
 
 #[test]
@@ -185,55 +164,23 @@ fn test_relationship_to_independent_set() {
 }
 
 #[test]
-fn test_objectives() {
-    let problem = MaximumSetPacking::with_weights(vec![vec![0, 1], vec![1, 2]], vec![5, 10]);
-    let objectives = problem.objectives();
-    assert_eq!(objectives.len(), 2);
-}
-
-#[test]
-fn test_set_weights() {
-    let mut problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2]]);
-    assert!(!problem.is_weighted()); // Initially uniform
-    problem.set_weights(vec![1, 2]);
-    assert!(problem.is_weighted());
-    assert_eq!(problem.weights(), vec![1, 2]);
-}
-
-#[test]
-fn test_is_weighted_empty() {
-    let problem = MaximumSetPacking::<i32>::new(vec![]);
-    assert!(!problem.is_weighted());
-}
-
-#[test]
 fn test_is_set_packing_wrong_len() {
     let sets = vec![vec![0, 1], vec![1, 2]];
     assert!(!is_set_packing(&sets, &[true])); // Wrong length
 }
 
 #[test]
-fn test_problem_size() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
-    let size = problem.problem_size();
-    assert_eq!(size.get("num_sets"), Some(3));
-}
-
-#[test]
-fn test_set_packing_problem_v2() {
-    use crate::traits::{OptimizationProblemV2, ProblemV2};
-    use crate::types::Direction;
-
-    // S0={0,1}, S1={1,2}, S2={3,4} — S0 and S1 overlap, S2 is disjoint from both
+fn test_set_packing_problem() {
+    // S0={0,1}, S1={1,2}, S2={3,4} -- S0 and S1 overlap, S2 is disjoint from both
     let p = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
     assert_eq!(p.dims(), vec![2, 2, 2]);
 
     // Select S0 and S2 (disjoint) -> valid, weight=2
-    assert_eq!(ProblemV2::evaluate(&p, &[1, 0, 1]), 2);
+    assert_eq!(Problem::evaluate(&p, &[1, 0, 1]), 2);
     // Select S0 and S1 (overlap) -> invalid, returns i32::MIN
-    assert_eq!(ProblemV2::evaluate(&p, &[1, 1, 0]), i32::MIN);
+    assert_eq!(Problem::evaluate(&p, &[1, 1, 0]), i32::MIN);
     // Select none -> valid, weight=0
-    assert_eq!(ProblemV2::evaluate(&p, &[0, 0, 0]), 0);
+    assert_eq!(Problem::evaluate(&p, &[0, 0, 0]), 0);
 
     assert_eq!(p.direction(), Direction::Maximize);
 }

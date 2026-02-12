@@ -15,14 +15,10 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-
 /// Result of reducing KColoring to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionKColoringToQUBO<const K: usize> {
     target: QUBO<f64>,
-    source_size: ProblemSize,
     num_vertices: usize,
 }
 
@@ -43,14 +39,6 @@ impl<const K: usize> ReductionResult for ReductionKColoringToQUBO<K> {
                     .unwrap_or(0)
             })
             .collect()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -109,7 +97,6 @@ impl<const K: usize> ReduceTo<QUBO<f64>> for KColoring<K, SimpleGraph, i32> {
 
         ReductionKColoringToQUBO {
             target: QUBO::from_matrix(matrix),
-            source_size: self.problem_size(),
             num_vertices: n,
         }
     }

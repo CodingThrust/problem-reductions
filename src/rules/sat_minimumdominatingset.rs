@@ -22,9 +22,7 @@ use crate::rules::registry::ReductionOverhead;
 use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-use num_traits::{Num, Zero};
+use num_traits::{Bounded, Num, Zero};
 use std::ops::AddAssign;
 
 /// Result of reducing Satisfiability to MinimumDominatingSet.
@@ -41,13 +39,11 @@ pub struct ReductionSATToDS<W> {
     num_literals: usize,
     /// The number of clauses in the source SAT problem.
     num_clauses: usize,
-    /// Size of the source problem.
-    source_size: ProblemSize,
 }
 
 impl<W> ReductionResult for ReductionSATToDS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = Satisfiability<W>;
     type Target = MinimumDominatingSet<SimpleGraph, W>;
@@ -108,14 +104,6 @@ where
 
         assignment
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
 impl<W> ReductionSATToDS<W> {
@@ -141,7 +129,7 @@ impl<W> ReductionSATToDS<W> {
 )]
 impl<W> ReduceTo<MinimumDominatingSet<SimpleGraph, W>> for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSATToDS<W>;
 
@@ -193,7 +181,6 @@ where
             target,
             num_literals: num_variables,
             num_clauses,
-            source_size: self.problem_size(),
         }
     }
 }

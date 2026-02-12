@@ -201,20 +201,15 @@ fn test_solution_extraction() {
 }
 
 #[test]
-fn test_source_and_target_size() {
+fn test_ilp_structure() {
     let problem: MaximumClique<SimpleGraph, i32> =
         MaximumClique::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let ilp = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("num_vertices"), Some(5));
-    assert_eq!(source_size.get("num_edges"), Some(4));
-
-    assert_eq!(target_size.get("num_vars"), Some(5));
+    assert_eq!(ilp.num_vars, 5);
     // Number of non-edges in a path of 5 vertices: C(5,2) - 4 = 10 - 4 = 6
-    assert_eq!(target_size.get("num_constraints"), Some(6));
+    assert_eq!(ilp.constraints.len(), 6);
 }
 
 #[test]

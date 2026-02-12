@@ -51,16 +51,16 @@ fn main() {
     let mut solutions = Vec::new();
     for (i, target_sol) in target_solutions.iter().enumerate() {
         let source_sol = reduction.extract_solution(target_sol);
-        let source_size = source.solution_size(&source_sol);
-        let target_size = target.solution_size(target_sol);
+        let source_size = source.evaluate(&source_sol);
+        let target_size = target.evaluate(target_sol);
 
         println!(
-            "  Solution {}: target={:?} (size={}), source={:?} (size={}, valid={})",
-            i, target_sol, target_size.size, source_sol, source_size.size, source_size.is_valid
+            "  Solution {}: target={:?} (size={:?}), source={:?} (size={:?}, valid={})",
+            i, target_sol, target_size, source_sol, source_size, source_size.is_valid()
         );
 
         assert!(
-            source_size.is_valid,
+            source_size.is_valid(),
             "Extracted source solution must be valid"
         );
 
@@ -73,15 +73,16 @@ fn main() {
     // Use the first solution for additional assertions
     let target_sol = &target_solutions[0];
     let source_sol = reduction.extract_solution(target_sol);
-    let source_size = source.solution_size(&source_sol);
-    let target_size = target.solution_size(target_sol);
+    let source_size = source.evaluate(&source_sol);
+    let target_size = target.evaluate(target_sol);
 
     assert_eq!(
-        source_size.size, 4,
+        source_size,
+        problemreductions::types::SolutionSize::Valid(4),
         "IS on Petersen graph has optimal size 4"
     );
     assert_eq!(
-        target_size.size, 4,
+        target_size, 4,
         "MaximumSetPacking should also have size 4"
     );
 

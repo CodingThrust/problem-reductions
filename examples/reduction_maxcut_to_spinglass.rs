@@ -40,8 +40,9 @@ fn main() {
     let mut solutions = Vec::new();
     for target_sol in &sg_solutions {
         let source_sol = reduction.extract_solution(target_sol);
-        let size = maxcut.solution_size(&source_sol);
-        assert!(size.is_valid);
+        let size = maxcut.evaluate(&source_sol);
+        // MaxCut is a maximization problem, infeasible configs return Invalid
+        assert!(size.is_valid());
         solutions.push(SolutionPair {
             source_config: source_sol,
             target_config: target_sol.clone(),
@@ -51,9 +52,10 @@ fn main() {
     let maxcut_solution = reduction.extract_solution(&sg_solutions[0]);
     println!("Source MaxCut solution: {:?}", maxcut_solution);
 
-    let size = maxcut.solution_size(&maxcut_solution);
+    let size = maxcut.evaluate(&maxcut_solution);
     println!("Solution size: {:?}", size);
-    assert!(size.is_valid);
+    // MaxCut is a maximization problem, infeasible configs return Invalid
+    assert!(size.is_valid());
     println!("\nReduction verified successfully");
 
     // Export JSON

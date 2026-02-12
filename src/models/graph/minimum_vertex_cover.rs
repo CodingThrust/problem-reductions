@@ -5,9 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -118,104 +117,23 @@ impl<G: Graph, W: Clone + Default> MinimumVertexCover<G, W> {
     pub fn weights_ref(&self) -> &Vec<W> {
         &self.weights
     }
-}
 
-impl<G, W> Problem for MinimumVertexCover<G, W>
-where
-    G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
-{
-    const NAME: &'static str = "MinimumVertexCover";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", G::NAME), ("weight", short_type_name::<W>())]
-    }
-
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.graph.num_vertices()
-    }
-
-    fn num_flavors(&self) -> usize {
-        2
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vertices", self.graph.num_vertices()),
-            ("num_edges", self.graph.num_edges()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::SmallerSizeIsBetter // Minimize total weight
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let is_valid = is_vertex_cover_config(&self.graph, config);
-        let mut total = W::zero();
-        for (i, &selected) in config.iter().enumerate() {
-            if selected == 1 {
-                total += self.weights[i].clone();
-            }
-        }
-        SolutionSize::new(total, is_valid)
-    }
-}
-
-impl<G, W> ConstraintSatisfactionProblem for MinimumVertexCover<G, W>
-where
-    G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
-{
-    fn constraints(&self) -> Vec<LocalConstraint> {
-        // For each edge (u, v), at least one of u, v must be selected
-        // Valid configs: (0,1), (1,0), (1,1) but not (0,0)
-        self.graph
-            .edges()
-            .into_iter()
-            .map(|(u, v)| {
-                LocalConstraint::new(
-                    2,
-                    vec![u, v],
-                    vec![false, true, true, true], // (0,0), (0,1), (1,0), (1,1)
-                )
-            })
-            .collect()
-    }
-
-    fn objectives(&self) -> Vec<LocalSolutionSize<Self::Size>> {
-        // Each vertex contributes its weight if selected (to be minimized)
-        self.weights
-            .iter()
-            .enumerate()
-            .map(|(i, w)| LocalSolutionSize::new(2, vec![i], vec![W::zero(), w.clone()]))
-            .collect()
-    }
-
-    fn weights(&self) -> Vec<Self::Size> {
-        self.weights.clone()
-    }
-
-    fn set_weights(&mut self, weights: Vec<Self::Size>) {
-        assert_eq!(weights.len(), self.num_variables());
+    /// Set new weights for the problem.
+    pub fn set_weights(&mut self, weights: Vec<W>) {
+        assert_eq!(weights.len(), self.graph.num_vertices());
         self.weights = weights;
     }
 
-    fn is_weighted(&self) -> bool {
+    /// Get the weights for the problem.
+    pub fn weights(&self) -> Vec<W> {
+        self.weights.clone()
+    }
+
+    /// Check if the problem has non-uniform weights.
+    pub fn is_weighted(&self) -> bool
+    where
+        W: PartialEq,
+    {
         if self.weights.is_empty() {
             return false;
         }
@@ -224,30 +142,35 @@ where
     }
 }
 
-// === ProblemV2 / OptimizationProblemV2 implementations ===
-
-impl<G, W> crate::traits::ProblemV2 for MinimumVertexCover<G, W>
+impl<G, W> Problem for MinimumVertexCover<G, W>
 where
     G: Graph,
     W: Clone
         + Default
         + PartialOrd
+        + Ord
         + num_traits::Num
         + num_traits::Zero
-        + num_traits::Bounded
         + std::ops::AddAssign
         + 'static,
 {
     const NAME: &'static str = "MinimumVertexCover";
-    type Metric = W;
+    type Metric = SolutionSize<W>;
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", crate::variant::short_type_name::<G>()),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
+    }
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> W {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
         if !is_vertex_cover_config(&self.graph, config) {
-            return W::max_value();
+            return SolutionSize::Invalid;
         }
         let mut total = W::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -255,24 +178,28 @@ where
                 total += self.weights[i].clone();
             }
         }
-        total
+        SolutionSize::Valid(total)
     }
 }
 
-impl<G, W> crate::traits::OptimizationProblemV2 for MinimumVertexCover<G, W>
+impl<G, W> OptimizationProblem for MinimumVertexCover<G, W>
 where
     G: Graph,
     W: Clone
         + Default
         + PartialOrd
+        + Ord
         + num_traits::Num
         + num_traits::Zero
-        + num_traits::Bounded
         + std::ops::AddAssign
         + 'static,
 {
-    fn direction(&self) -> crate::types::Direction {
-        crate::types::Direction::Minimize
+    fn direction(&self) -> Direction {
+        Direction::Minimize
+    }
+
+    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
+        a.is_better(b, self.direction())
     }
 }
 

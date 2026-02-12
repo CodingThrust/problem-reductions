@@ -1,7 +1,5 @@
 //! Core traits for problem definitions.
 
-use crate::types::Direction;
-
 /// Minimal problem trait — a problem is a function from configuration to metric.
 ///
 /// This trait defines the interface for computational problems that can be

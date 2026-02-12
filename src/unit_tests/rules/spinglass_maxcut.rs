@@ -74,24 +74,19 @@ fn test_weighted_maxcut() {
 }
 
 #[test]
-fn test_reduction_sizes() {
-    // Test source_size and target_size methods
+fn test_reduction_structure() {
+    // Test MaxCut to SpinGlass structure
     let mc = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
     let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&mc);
+    let sg = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
+    // SpinGlass should have same number of spins as vertices
+    assert_eq!(sg.num_spins(), 3);
 
-    assert!(!source_size.components.is_empty());
-    assert!(!target_size.components.is_empty());
+    // Test SpinGlass to MaxCut structure
+    let sg2 = SpinGlass::<SimpleGraph, i32>::new(3, vec![((0, 1), 1)], vec![0, 0, 0]);
+    let reduction2 = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg2);
+    let mc2 = reduction2.target_problem();
 
-    // Test SG to MaxCut sizes
-    let sg = SpinGlass::<SimpleGraph, i32>::new(3, vec![((0, 1), 1)], vec![0, 0, 0]);
-    let reduction2 = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
-
-    let source_size2 = reduction2.source_size();
-    let target_size2 = reduction2.target_size();
-
-    assert!(!source_size2.components.is_empty());
-    assert!(!target_size2.components.is_empty());
+    assert_eq!(mc2.num_vertices(), 3);
 }

@@ -1,6 +1,8 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
+use crate::traits::Problem;
+use crate::types::SolutionSize;
 
 #[test]
 fn test_matching_to_setpacking_structure() {
@@ -82,8 +84,8 @@ fn test_matching_to_setpacking_weighted() {
 
     // Verify through direct MaximumMatching solution
     let direct_solutions = solver.find_best(&matching);
-    assert_eq!(matching.solution_size(&sp_solutions[0]).size, 100);
-    assert_eq!(matching.solution_size(&direct_solutions[0]).size, 100);
+    assert_eq!(matching.evaluate(&sp_solutions[0]), SolutionSize::Valid(100));
+    assert_eq!(matching.evaluate(&direct_solutions[0]), SolutionSize::Valid(100));
 }
 
 #[test]
@@ -97,7 +99,7 @@ fn test_matching_to_setpacking_solution_extraction() {
     assert_eq!(matching_solution, vec![1, 0, 1]);
 
     // Verify the extracted solution is valid for original MaximumMatching
-    assert!(matching.solution_size(&matching_solution).is_valid);
+    assert!(matching.evaluate(&matching_solution).is_valid());
 }
 
 #[test]
@@ -162,16 +164,13 @@ fn test_matching_to_setpacking_disjoint_edges() {
 }
 
 #[test]
-fn test_reduction_sizes() {
+fn test_reduction_structure() {
     let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(5, vec![(0, 1), (1, 2), (2, 3)]);
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
+    let sp = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("num_vertices"), Some(5));
-    assert_eq!(source_size.get("num_edges"), Some(3));
-    assert_eq!(target_size.get("num_sets"), Some(3));
+    // SP should have same number of sets as edges in matching
+    assert_eq!(sp.num_sets(), 3);
 }
 
 #[test]

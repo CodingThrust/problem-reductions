@@ -95,20 +95,22 @@ fn main() {
     let mut solutions = Vec::new();
     for sg_sol in &sg_solutions {
         let circuit_sol = reduction.extract_solution(sg_sol);
-        let size = circuit_sat.solution_size(&circuit_sol);
+        let size = circuit_sat.evaluate(&circuit_sol);
         let var_names = circuit_sat.variable_names();
         let assignment_str: Vec<String> = var_names
             .iter()
             .zip(circuit_sol.iter())
             .map(|(name, &val)| format!("{}={}", name, val))
             .collect();
+        // CircuitSAT is a satisfaction problem (bool), so evaluate returns bool directly
+        // The bool IS the validity
         println!(
             "  SG config {:?} -> Circuit: [{}], valid: {}",
             sg_sol,
             assignment_str.join(", "),
-            size.is_valid
+            size
         );
-        if size.is_valid {
+        if size {
             valid_count += 1;
             solutions.push(SolutionPair {
                 source_config: circuit_sol,
@@ -135,7 +137,7 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: CircuitSAT::<i32>::NAME.to_string(),
-            variant: variant_to_map(CircuitSAT::<i32>::variant()),
+            variant: std::collections::HashMap::new(),
             instance: serde_json::json!({
                 "num_gates": circuit_sat.circuit().num_assignments(),
                 "num_variables": circuit_sat.num_variables(),
@@ -143,7 +145,7 @@ fn main() {
         },
         target: ProblemSide {
             problem: SpinGlass::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(SpinGlass::<SimpleGraph, i32>::variant()),
+            variant: std::collections::HashMap::new(),
             instance: serde_json::json!({
                 "num_spins": sg.num_variables(),
             }),

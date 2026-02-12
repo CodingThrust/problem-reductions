@@ -3,9 +3,8 @@
 //! QUBO minimizes a quadratic function over binary variables.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::Direction;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -114,47 +113,6 @@ impl<W: Clone + Default> QUBO<W> {
     }
 }
 
-impl<W> Problem for QUBO<W>
-where
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + std::ops::Mul<Output = W>
-        + 'static,
-{
-    const NAME: &'static str = "QUBO";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-    }
-
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.num_vars
-    }
-
-    fn num_flavors(&self) -> usize {
-        2 // Binary
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![("num_vars", self.num_vars)])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::SmallerSizeIsBetter // Minimize
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let value = self.evaluate(config);
-        SolutionSize::valid(value)
-    }
-}
-
 impl<W> QUBO<W>
 where
     W: Clone + num_traits::Zero + std::ops::AddAssign + std::ops::Mul<Output = W>,
@@ -185,9 +143,7 @@ where
     }
 }
 
-// === ProblemV2 / OptimizationProblemV2 implementations ===
-
-impl<W> crate::traits::ProblemV2 for QUBO<W>
+impl<W> Problem for QUBO<W>
 where
     W: Clone
         + Default
@@ -209,9 +165,16 @@ where
     fn evaluate(&self, config: &[usize]) -> W {
         self.evaluate(config)
     }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
+    }
 }
 
-impl<W> crate::traits::OptimizationProblemV2 for QUBO<W>
+impl<W> OptimizationProblem for QUBO<W>
 where
     W: Clone
         + Default
@@ -223,8 +186,12 @@ where
         + std::ops::Mul<Output = W>
         + 'static,
 {
-    fn direction(&self) -> crate::types::Direction {
-        crate::types::Direction::Minimize
+    fn direction(&self) -> Direction {
+        Direction::Minimize
+    }
+
+    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
+        a < b // Minimize
     }
 }
 

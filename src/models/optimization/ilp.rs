@@ -4,8 +4,8 @@
 //! This is a fundamental "hub" problem that many other NP-hard problems can be reduced to.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::Direction;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -184,24 +184,6 @@ pub enum ObjectiveSense {
     Minimize,
 }
 
-impl From<EnergyMode> for ObjectiveSense {
-    fn from(mode: EnergyMode) -> Self {
-        match mode {
-            EnergyMode::LargerSizeIsBetter => ObjectiveSense::Maximize,
-            EnergyMode::SmallerSizeIsBetter => ObjectiveSense::Minimize,
-        }
-    }
-}
-
-impl From<ObjectiveSense> for EnergyMode {
-    fn from(sense: ObjectiveSense) -> Self {
-        match sense {
-            ObjectiveSense::Maximize => EnergyMode::LargerSizeIsBetter,
-            ObjectiveSense::Minimize => EnergyMode::SmallerSizeIsBetter,
-        }
-    }
-}
-
 /// Integer Linear Programming (ILP) problem.
 ///
 /// An ILP consists of:
@@ -338,67 +320,14 @@ impl ILP {
             })
             .collect()
     }
+
+    /// Get the number of variables.
+    pub fn num_variables(&self) -> usize {
+        self.num_vars
+    }
 }
 
 impl Problem for ILP {
-    const NAME: &'static str = "ILP";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "f64")]
-    }
-
-    type Size = f64;
-
-    fn num_variables(&self) -> usize {
-        self.num_vars
-    }
-
-    fn num_flavors(&self) -> usize {
-        // Return the maximum number of values any variable can take.
-        // For unbounded variables, return usize::MAX.
-        self.bounds
-            .iter()
-            .map(|b| b.num_values().unwrap_or(usize::MAX))
-            .max()
-            .unwrap_or(2)
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vars", self.num_vars),
-            ("num_constraints", self.constraints.len()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        match self.sense {
-            ObjectiveSense::Maximize => EnergyMode::LargerSizeIsBetter,
-            ObjectiveSense::Minimize => EnergyMode::SmallerSizeIsBetter,
-        }
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<f64> {
-        // Convert config to actual integer values
-        let values = self.config_to_values(config);
-
-        // Check bounds validity
-        let bounds_ok = self.bounds_satisfied(&values);
-
-        // Check constraints satisfaction
-        let constraints_ok = self.constraints_satisfied(&values);
-
-        let is_valid = bounds_ok && constraints_ok;
-
-        // Compute objective value
-        let obj = self.evaluate_objective(&values);
-
-        SolutionSize::new(obj, is_valid)
-    }
-}
-
-// === ProblemV2 / OptimizationProblemV2 implementations ===
-
-impl crate::traits::ProblemV2 for ILP {
     const NAME: &'static str = "ILP";
     type Metric = f64;
 
@@ -419,13 +348,27 @@ impl crate::traits::ProblemV2 for ILP {
         }
         self.evaluate_objective(&values)
     }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", "f64"),
+        ]
+    }
 }
 
-impl crate::traits::OptimizationProblemV2 for ILP {
-    fn direction(&self) -> crate::types::Direction {
+impl OptimizationProblem for ILP {
+    fn direction(&self) -> Direction {
         match self.sense {
-            ObjectiveSense::Maximize => crate::types::Direction::Maximize,
-            ObjectiveSense::Minimize => crate::types::Direction::Minimize,
+            ObjectiveSense::Maximize => Direction::Maximize,
+            ObjectiveSense::Minimize => Direction::Minimize,
+        }
+    }
+
+    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
+        match self.direction() {
+            Direction::Maximize => a > b,
+            Direction::Minimize => a < b,
         }
     }
 }

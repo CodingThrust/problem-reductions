@@ -4,9 +4,7 @@
 //! Boolean variables that makes a given Boolean formula true.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -106,11 +104,11 @@ impl CNFClause {
 /// );
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_satisfying(&problem);
 ///
 /// // Verify solutions satisfy all clauses
 /// for sol in solutions {
-///     assert!(problem.solution_size(&sol).is_valid);
+///     assert!(problem.evaluate(&sol));
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -194,156 +192,6 @@ impl<W: Clone + Default> Satisfiability<W> {
 
 impl<W> Problem for Satisfiability<W>
 where
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
-{
-    const NAME: &'static str = "Satisfiability";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-    }
-
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.num_vars
-    }
-
-    fn num_flavors(&self) -> usize {
-        2 // Boolean
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vars", self.num_vars),
-            ("num_clauses", self.clauses.len()),
-            ("num_literals", self.num_literals()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        // For standard SAT, we maximize satisfied clauses (all must be satisfied)
-        // For MAX-SAT, we maximize weighted sum of satisfied clauses
-        EnergyMode::LargerSizeIsBetter
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let assignment = Self::config_to_assignment(config);
-        let is_valid = self.is_satisfying(&assignment);
-
-        // Compute weighted sum of satisfied clauses
-        let mut total = W::zero();
-        for (clause, weight) in self.clauses.iter().zip(&self.weights) {
-            if clause.is_satisfied(&assignment) {
-                total += weight.clone();
-            }
-        }
-
-        SolutionSize::new(total, is_valid)
-    }
-}
-
-impl<W> ConstraintSatisfactionProblem for Satisfiability<W>
-where
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
-{
-    fn constraints(&self) -> Vec<LocalConstraint> {
-        // Each clause is a constraint
-        self.clauses
-            .iter()
-            .map(|clause| {
-                let vars = clause.variables();
-                let num_configs = 2usize.pow(vars.len() as u32);
-
-                // Build spec: config is valid if clause is satisfied
-                let spec: Vec<bool> = (0..num_configs)
-                    .map(|config_idx| {
-                        // Convert config index to local assignment
-                        let local_assignment: Vec<bool> = (0..vars.len())
-                            .map(|i| (config_idx >> (vars.len() - 1 - i)) & 1 == 1)
-                            .collect();
-
-                        // Build full assignment for clause evaluation
-                        let mut full_assignment = vec![false; self.num_vars];
-                        for (i, &var) in vars.iter().enumerate() {
-                            full_assignment[var] = local_assignment[i];
-                        }
-
-                        clause.is_satisfied(&full_assignment)
-                    })
-                    .collect();
-
-                LocalConstraint::new(2, vars, spec)
-            })
-            .collect()
-    }
-
-    fn objectives(&self) -> Vec<LocalSolutionSize<Self::Size>> {
-        // For MAX-SAT, each clause contributes its weight if satisfied
-        self.clauses
-            .iter()
-            .zip(&self.weights)
-            .map(|(clause, weight)| {
-                let vars = clause.variables();
-                let num_configs = 2usize.pow(vars.len() as u32);
-
-                let spec: Vec<W> = (0..num_configs)
-                    .map(|config_idx| {
-                        let local_assignment: Vec<bool> = (0..vars.len())
-                            .map(|i| (config_idx >> (vars.len() - 1 - i)) & 1 == 1)
-                            .collect();
-
-                        let mut full_assignment = vec![false; self.num_vars];
-                        for (i, &var) in vars.iter().enumerate() {
-                            full_assignment[var] = local_assignment[i];
-                        }
-
-                        if clause.is_satisfied(&full_assignment) {
-                            weight.clone()
-                        } else {
-                            W::zero()
-                        }
-                    })
-                    .collect();
-
-                LocalSolutionSize::new(2, vars, spec)
-            })
-            .collect()
-    }
-
-    fn weights(&self) -> Vec<Self::Size> {
-        self.weights.clone()
-    }
-
-    fn set_weights(&mut self, weights: Vec<Self::Size>) {
-        assert_eq!(weights.len(), self.clauses.len());
-        self.weights = weights;
-    }
-
-    fn is_weighted(&self) -> bool {
-        if self.weights.is_empty() {
-            return false;
-        }
-        let first = &self.weights[0];
-        !self.weights.iter().all(|w| w == first)
-    }
-}
-
-// === ProblemV2 implementation ===
-
-impl<W> crate::traits::ProblemV2 for Satisfiability<W>
-where
     W: Clone + Default + 'static,
 {
     const NAME: &'static str = "Satisfiability";
@@ -356,6 +204,13 @@ where
     fn evaluate(&self, config: &[usize]) -> bool {
         let assignment = Self::config_to_assignment(config);
         self.is_satisfying(&assignment)
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
     }
 }
 

@@ -5,9 +5,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -46,6 +45,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MaxCut;
 /// use problemreductions::topology::SimpleGraph;
+/// use problemreductions::types::SolutionSize;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Create a triangle with unit weights
@@ -57,8 +57,8 @@ inventory::submit! {
 ///
 /// // Maximum cut in triangle is 2 (any partition cuts 2 edges)
 /// for sol in solutions {
-///     let size = problem.solution_size(&sol);
-///     assert_eq!(size.size, 2);
+///     let size = problem.evaluate(&sol);
+///     assert_eq!(size, SolutionSize::Valid(2));
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -196,42 +196,50 @@ where
     W: Clone
         + Default
         + PartialOrd
+        + Ord
         + num_traits::Num
         + num_traits::Zero
         + std::ops::AddAssign
         + 'static,
 {
     const NAME: &'static str = "MaxCut";
+    type Metric = SolutionSize<W>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", G::NAME), ("weight", short_type_name::<W>())]
+        vec![
+            ("graph", crate::variant::short_type_name::<G>()),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
     }
 
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.graph.num_vertices()
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
     }
 
-    fn num_flavors(&self) -> usize {
-        2 // Binary partition
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
+        // All cuts are valid, so always return Valid
+        SolutionSize::Valid(compute_cut_weight(&self.graph, &self.edge_weights, config))
+    }
+}
+
+impl<G, W> OptimizationProblem for MaxCut<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + Ord
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
+{
+    fn direction(&self) -> Direction {
+        Direction::Maximize
     }
 
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vertices", self.graph.num_vertices()),
-            ("num_edges", self.graph.num_edges()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::LargerSizeIsBetter // Maximize cut weight
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let cut_weight = compute_cut_weight(&self.graph, &self.edge_weights, config);
-        // MaxCut is always valid (any partition is allowed)
-        SolutionSize::valid(cut_weight)
+    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
+        a.is_better(b, self.direction())
     }
 }
 
@@ -268,49 +276,6 @@ where
         }
     }
     total
-}
-
-// === ProblemV2 / OptimizationProblemV2 implementations ===
-
-impl<G, W> crate::traits::ProblemV2 for MaxCut<G, W>
-where
-    G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + 'static,
-{
-    const NAME: &'static str = "MaxCut";
-    type Metric = W;
-
-    fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_vertices()]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> W {
-        compute_cut_weight(&self.graph, &self.edge_weights, config)
-    }
-}
-
-impl<G, W> crate::traits::OptimizationProblemV2 for MaxCut<G, W>
-where
-    G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + 'static,
-{
-    fn direction(&self) -> crate::types::Direction {
-        crate::types::Direction::Maximize
-    }
 }
 
 #[cfg(test)]

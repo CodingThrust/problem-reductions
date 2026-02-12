@@ -15,9 +15,7 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-use num_traits::{Num, Zero};
+use num_traits::{Bounded, Num, Zero};
 use std::ops::AddAssign;
 
 /// A literal in the SAT problem, representing a variable or its negation.
@@ -66,13 +64,11 @@ pub struct ReductionSATToIS<W> {
     num_source_variables: usize,
     /// The number of clauses in the source SAT problem.
     num_clauses: usize,
-    /// Size of the source problem.
-    source_size: ProblemSize,
 }
 
 impl<W> ReductionResult for ReductionSATToIS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = Satisfiability<W>;
     type Target = MaximumIndependentSet<SimpleGraph, W>;
@@ -104,14 +100,6 @@ where
         // They are already initialized to 0
         assignment
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
 impl<W> ReductionSATToIS<W> {
@@ -137,7 +125,7 @@ impl<W> ReductionSATToIS<W> {
 )]
 impl<W> ReduceTo<MaximumIndependentSet<SimpleGraph, W>> for Satisfiability<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSATToIS<W>;
 
@@ -183,7 +171,6 @@ where
             literals,
             num_source_variables: self.num_vars(),
             num_clauses: self.num_clauses(),
-            source_size: self.problem_size(),
         }
     }
 }

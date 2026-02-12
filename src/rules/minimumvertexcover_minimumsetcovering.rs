@@ -10,21 +10,18 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-use num_traits::{Num, Zero};
+use num_traits::{Bounded, Num, Zero};
 use std::ops::AddAssign;
 
 /// Result of reducing MinimumVertexCover to MinimumSetCovering.
 #[derive(Debug, Clone)]
 pub struct ReductionVCToSC<W> {
     target: MinimumSetCovering<W>,
-    source_size: ProblemSize,
 }
 
 impl<W> ReductionResult for ReductionVCToSC<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = MinimumVertexCover<SimpleGraph, W>;
     type Target = MinimumSetCovering<W>;
@@ -37,14 +34,6 @@ where
     /// Vertex i in VC corresponds to set i in SC.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -59,7 +48,7 @@ where
 )]
 impl<W> ReduceTo<MinimumSetCovering<W>> for MinimumVertexCover<SimpleGraph, W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionVCToSC<W>;
 
@@ -83,10 +72,7 @@ where
 
         let target = MinimumSetCovering::with_weights(num_edges, sets, self.weights_ref().clone());
 
-        ReductionVCToSC {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionVCToSC { target }
     }
 }
 

@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::Problem;
 
 #[test]
 fn test_qubo_to_spinglass() {
@@ -22,7 +23,7 @@ fn test_qubo_to_spinglass() {
     // Original QUBO at [0,0]: 0, at [1,1]: 1 + 1 - 2 = 0, at [0,1]: 1, at [1,0]: 1
     // So [0,0] and [1,1] are optimal with value 0
     for sol in &qubo_solutions {
-        let val = qubo.solution_size(sol).size;
+        let val = qubo.evaluate(sol);
         assert!(
             val <= 0.0 + 1e-6,
             "Expected optimal value near 0, got {}",
@@ -55,7 +56,7 @@ fn test_roundtrip_qubo_sg_qubo() {
     let original = QUBO::from_matrix(vec![vec![-1.0, 2.0], vec![0.0, -1.0]]);
     let solver = BruteForce::new();
     let original_solutions = solver.find_best(&original);
-    let _original_val = original.solution_size(&original_solutions[0]).size;
+    let _original_val = original.evaluate(&original_solutions[0]);
 
     // QUBO -> SG -> QUBO
     let reduction1 = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&original);
@@ -64,7 +65,7 @@ fn test_roundtrip_qubo_sg_qubo() {
     let roundtrip = reduction2.target_problem();
 
     let roundtrip_solutions = solver.find_best(roundtrip);
-    let _roundtrip_val = roundtrip.solution_size(&roundtrip_solutions[0]).size;
+    let _roundtrip_val = roundtrip.evaluate(&roundtrip_solutions[0]);
 
     // The solutions should have the same configuration
     // (optimal configs should match)
@@ -112,24 +113,19 @@ fn test_with_onsite_fields() {
 }
 
 #[test]
-fn test_reduction_sizes() {
-    // Test source_size and target_size methods
+fn test_reduction_structure() {
+    // Test QUBO to SpinGlass structure
     let qubo = QUBO::from_matrix(vec![vec![1.0, -2.0], vec![0.0, 1.0]]);
     let reduction = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&qubo);
+    let sg = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
+    // SpinGlass should have same number of spins as QUBO variables
+    assert_eq!(sg.num_spins(), 2);
 
-    assert!(!source_size.components.is_empty());
-    assert!(!target_size.components.is_empty());
+    // Test SpinGlass to QUBO structure
+    let sg2 = SpinGlass::<SimpleGraph, f64>::new(3, vec![((0, 1), -1.0)], vec![0.0, 0.0, 0.0]);
+    let reduction2 = ReduceTo::<QUBO<f64>>::reduce_to(&sg2);
+    let qubo2 = reduction2.target_problem();
 
-    // Test SG to QUBO sizes
-    let sg = SpinGlass::<SimpleGraph, f64>::new(3, vec![((0, 1), -1.0)], vec![0.0, 0.0, 0.0]);
-    let reduction2 = ReduceTo::<QUBO<f64>>::reduce_to(&sg);
-
-    let source_size2 = reduction2.source_size();
-    let target_size2 = reduction2.target_size();
-
-    assert!(!source_size2.components.is_empty());
-    assert!(!target_size2.components.is_empty());
+    assert_eq!(qubo2.num_variables(), 3);
 }

@@ -10,8 +10,6 @@ use crate::models::graph::MaximumClique;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::ProblemSize;
 
 /// Result of reducing MaximumClique to ILP.
 ///
@@ -22,7 +20,6 @@ use crate::types::ProblemSize;
 #[derive(Debug, Clone)]
 pub struct ReductionCliqueToILP {
     target: ILP,
-    source_size: ProblemSize,
 }
 
 impl ReductionResult for ReductionCliqueToILP {
@@ -39,14 +36,6 @@ impl ReductionResult for ReductionCliqueToILP {
     /// the solution extraction is simply copying the configuration.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -87,10 +76,7 @@ impl ReduceTo<ILP> for MaximumClique<SimpleGraph, i32> {
             ObjectiveSense::Maximize,
         );
 
-        ReductionCliqueToILP {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionCliqueToILP { target }
     }
 }
 

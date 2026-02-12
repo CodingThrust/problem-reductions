@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::specialized::Circuit;
 use crate::solvers::{BruteForce, Solver};
+use crate::types::NumericSizeBounds;
 
 /// Verify a gadget has the correct ground states.
 fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<usize>, Vec<usize>)])
@@ -14,7 +15,7 @@ where
         + From<i32>
         + std::ops::Mul<Output = W>
         + std::fmt::Debug
-        + 'static,
+        + NumericSizeBounds,
 {
     let solver = BruteForce::new();
     let solutions = solver.find_best(&gadget.problem);
@@ -484,12 +485,9 @@ fn test_reduction_result_methods() {
     let problem = CircuitSAT::<i32>::new(circuit);
     let reduction = problem.reduce_to();
 
-    // Test source_size and target_size
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert!(source_size.get("num_variables").is_some());
-    assert!(target_size.get("num_spins").is_some());
+    // Test target_problem and extract_solution work
+    let sg = reduction.target_problem();
+    assert!(sg.num_spins() >= 2); // At least c and x
 }
 
 #[test]

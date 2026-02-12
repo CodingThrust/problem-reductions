@@ -53,16 +53,18 @@ fn main() {
     println!("Source Coloring solution: {:?}", coloring_solution);
 
     // 6. Verify
-    let size = coloring.solution_size(&coloring_solution);
-    println!("Solution valid: {}, size: {:?}", size.is_valid, size.size);
-    assert!(size.is_valid);
+    // KColoring is a satisfaction problem (bool), so evaluate returns bool directly
+    let size = coloring.evaluate(&coloring_solution);
+    println!("Solution valid: {}", size);
+    assert!(size);
     println!("\nReduction verified successfully");
 
     // 7. Collect solutions and export JSON
     let mut solutions = Vec::new();
     let source_sol = reduction.extract_solution(&ilp_solution);
-    let s = coloring.solution_size(&source_sol);
-    assert!(s.is_valid);
+    // KColoring is a satisfaction problem (bool), so evaluate returns bool directly
+    let s = coloring.evaluate(&source_sol);
+    assert!(s);
     solutions.push(SolutionPair {
         source_config: source_sol,
         target_config: ilp_solution,
@@ -74,7 +76,7 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: KColoring::<3, SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(KColoring::<3, SimpleGraph, i32>::variant()),
+            variant: std::collections::HashMap::new(),
             instance: serde_json::json!({
                 "num_vertices": coloring.num_vertices(),
                 "num_edges": coloring.num_edges(),
@@ -83,7 +85,7 @@ fn main() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: variant_to_map(ILP::variant()),
+            variant: std::collections::HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

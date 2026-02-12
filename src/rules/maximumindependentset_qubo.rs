@@ -12,14 +12,10 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-
 /// Result of reducing MaximumIndependentSet to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionISToQUBO {
     target: QUBO<f64>,
-    source_size: ProblemSize,
 }
 
 impl ReductionResult for ReductionISToQUBO {
@@ -32,14 +28,6 @@ impl ReductionResult for ReductionISToQUBO {
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -68,7 +56,6 @@ impl ReduceTo<QUBO<f64>> for MaximumIndependentSet<SimpleGraph, i32> {
 
         ReductionISToQUBO {
             target: QUBO::from_matrix(matrix),
-            source_size: self.problem_size(),
         }
     }
 }

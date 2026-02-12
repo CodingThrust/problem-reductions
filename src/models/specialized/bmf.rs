@@ -5,8 +5,8 @@
 //! The boolean product `(B * C)[i,j] = OR_k (B[i,k] AND C[k,j])`.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::Direction;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -49,7 +49,7 @@ inventory::submit! {
 ///
 /// // Check the error
 /// for sol in &solutions {
-///     let error = problem.solution_size(sol).size;
+///     let error = problem.hamming_distance(sol);
 ///     println!("Hamming error: {}", error);
 /// }
 /// ```
@@ -171,63 +171,6 @@ impl BMF {
     }
 }
 
-impl Problem for BMF {
-    const NAME: &'static str = "BMF";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
-    }
-
-    type Size = i32;
-
-    fn num_variables(&self) -> usize {
-        // B: m x k + C: k x n
-        self.m * self.k + self.k * self.n
-    }
-
-    fn num_flavors(&self) -> usize {
-        2 // Binary
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![("rows", self.m), ("cols", self.n), ("rank", self.k)])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::SmallerSizeIsBetter // Minimize Hamming distance
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let distance = self.hamming_distance(config) as i32;
-        let is_valid = distance == 0; // Valid if exact factorization
-        SolutionSize::new(distance, is_valid)
-    }
-}
-
-// === ProblemV2 / OptimizationProblemV2 implementations ===
-
-impl crate::traits::ProblemV2 for BMF {
-    const NAME: &'static str = "BMF";
-    type Metric = i32;
-
-    fn dims(&self) -> Vec<usize> {
-        // B: m*k + C: k*n binary variables
-        vec![2; self.m * self.k + self.k * self.n]
-    }
-
-    fn evaluate(&self, config: &[usize]) -> i32 {
-        // Minimize Hamming distance between A and B*C.
-        // All configurations are valid -- the distance is the objective.
-        self.hamming_distance(config) as i32
-    }
-}
-
-impl crate::traits::OptimizationProblemV2 for BMF {
-    fn direction(&self) -> crate::types::Direction {
-        crate::types::Direction::Minimize
-    }
-}
-
 /// Compute the boolean matrix product.
 pub fn boolean_matrix_product(b: &[Vec<bool>], c: &[Vec<bool>]) -> Vec<Vec<bool>> {
     BMF::boolean_product(b, c)
@@ -245,6 +188,39 @@ pub fn matrix_hamming_distance(a: &[Vec<bool>], b: &[Vec<bool>]) -> usize {
                 .count()
         })
         .sum()
+}
+
+impl Problem for BMF {
+    const NAME: &'static str = "BMF";
+    type Metric = i32;
+
+    fn dims(&self) -> Vec<usize> {
+        // B: m*k + C: k*n binary variables
+        vec![2; self.m * self.k + self.k * self.n]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> i32 {
+        // Minimize Hamming distance between A and B*C.
+        // All configurations are valid -- the distance is the objective.
+        self.hamming_distance(config) as i32
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", "i32"),
+        ]
+    }
+}
+
+impl OptimizationProblem for BMF {
+    fn direction(&self) -> Direction {
+        Direction::Minimize
+    }
+
+    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
+        a < b // Minimize
+    }
 }
 
 #[cfg(test)]

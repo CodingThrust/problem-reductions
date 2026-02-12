@@ -10,21 +10,18 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-use num_traits::{Num, Zero};
+use num_traits::{Bounded, Num, Zero};
 use std::ops::AddAssign;
 
 /// Result of reducing MaxCut to SpinGlass.
 #[derive(Debug, Clone)]
 pub struct ReductionMaxCutToSG<W> {
     target: SpinGlass<SimpleGraph, W>,
-    source_size: ProblemSize,
 }
 
 impl<W> ReductionResult for ReductionMaxCutToSG<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Source = MaxCut<SimpleGraph, W>;
     type Target = SpinGlass<SimpleGraph, W>;
@@ -35,14 +32,6 @@ where
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -58,7 +47,7 @@ where
 )]
 impl<W> ReduceTo<SpinGlass<SimpleGraph, W>> for MaxCut<SimpleGraph, W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionMaxCutToSG<W>;
 
@@ -93,10 +82,7 @@ where
 
         let target = SpinGlass::<SimpleGraph, W>::new(n, interactions, onsite);
 
-        ReductionMaxCutToSG {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionMaxCutToSG { target }
     }
 }
 
@@ -104,14 +90,13 @@ where
 #[derive(Debug, Clone)]
 pub struct ReductionSGToMaxCut<W> {
     target: MaxCut<SimpleGraph, W>,
-    source_size: ProblemSize,
     /// Ancilla vertex index (None if no ancilla needed).
     ancilla: Option<usize>,
 }
 
 impl<W> ReductionResult for ReductionSGToMaxCut<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Source = SpinGlass<SimpleGraph, W>;
     type Target = MaxCut<SimpleGraph, W>;
@@ -136,14 +121,6 @@ where
             }
         }
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
 #[reduction(
@@ -158,7 +135,7 @@ where
 )]
 impl<W> ReduceTo<MaxCut<SimpleGraph, W>> for SpinGlass<SimpleGraph, W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSGToMaxCut<W>;
 
@@ -197,7 +174,6 @@ where
 
         ReductionSGToMaxCut {
             target,
-            source_size: self.problem_size(),
             ancilla: ancilla_idx,
         }
     }

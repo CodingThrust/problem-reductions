@@ -10,8 +10,6 @@ use crate::models::graph::MaximumMatching;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::ProblemSize;
 
 /// Result of reducing MaximumMatching to ILP.
 ///
@@ -22,7 +20,6 @@ use crate::types::ProblemSize;
 #[derive(Debug, Clone)]
 pub struct ReductionMatchingToILP {
     target: ILP,
-    source_size: ProblemSize,
 }
 
 impl ReductionResult for ReductionMatchingToILP {
@@ -40,21 +37,13 @@ impl ReductionResult for ReductionMatchingToILP {
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
 impl ReduceTo<ILP> for MaximumMatching<SimpleGraph, i32> {
     type Result = ReductionMatchingToILP;
 
     fn reduce_to(&self) -> Self::Result {
-        let num_vars = self.num_variables(); // Number of edges
+        let num_vars = self.num_edges(); // Number of edges
 
         // All variables are binary (0 or 1)
         let bounds = vec![VarBounds::binary(); num_vars];
@@ -87,10 +76,7 @@ impl ReduceTo<ILP> for MaximumMatching<SimpleGraph, i32> {
             ObjectiveSense::Maximize,
         );
 
-        ReductionMatchingToILP {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionMatchingToILP { target }
     }
 }
 

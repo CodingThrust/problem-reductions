@@ -242,6 +242,10 @@ pub trait ProblemV2: Clone {
     fn evaluate(&self, config: &[usize]) -> Self::Metric;
     /// Number of variables (derived from dims).
     fn num_variables(&self) -> usize { self.dims().len() }
+    /// Returns variant attributes derived from type parameters.
+    /// Used for generating variant IDs in the reduction graph schema.
+    /// Returns pairs like `[("graph", "SimpleGraph"), ("weight", "i32")]`.
+    fn variant() -> Vec<(&'static str, &'static str)>;
 }
 
 /// Extension for problems with a numeric objective to optimize.
@@ -695,16 +699,16 @@ git commit -m "refactor: replace macro heuristics with trait-bound inspection"
 Once all models, solvers, and reductions implement the V2 traits, perform the swap.
 
 **Files:**
-- Modify: `src/traits.rs` — rename `ProblemV2` -> `Problem`, `OptimizationProblemV2` -> `OptimizationProblem`, remove old `Problem` and `ConstraintSatisfactionProblem`
+- Modify: `src/traits.rs` — rename `ProblemV2` -> `Problem`, `OptimizationProblemV2` -> `OptimizationProblem`, remove old `Problem` and `ConstraintSatisfactionProblem`. **Keep `fn variant() -> Vec<(&'static str, &'static str)>` in the Problem trait** for schema/registry variant ID generation.
 - Modify: `src/rules/traits.rs` — rename `ReductionResultV2` -> `ReductionResult`, `ReduceToV2` -> `ReduceTo`, remove old traits
-- Modify: `src/types.rs` — remove `EnergyMode`, `SolutionSize`, `LocalConstraint`, `LocalSolutionSize`, `NumericWeight`, old `Unweighted`. Remove `csp_solution_size()`.
+- Modify: `src/types.rs` — remove `EnergyMode`, `SolutionSize`, `LocalConstraint`, `LocalSolutionSize`, `NumericWeight`, old `Unweighted`. Remove `csp_solution_size()`. **Add `NumericSizeBounds` trait** for bound-checking in solvers.
 - Modify: `src/lib.rs` — update prelude and re-exports
-- Modify: `src/variant.rs` — remove `short_type_name` and `const_usize_str` if no longer used
-- Modify: ALL model files — remove old `Problem` / `CSP` impls, keep only new impls
+- Modify: `src/variant.rs` — **KEEP** `short_type_name` and `const_usize_str` (still used by `Problem::variant()` impls)
+- Modify: ALL model files — remove old `Problem` / `CSP` impls, keep only new impls. **Each model must implement `fn variant()`** returning type parameter metadata.
 - Modify: ALL rule files — update to use new traits
 - Modify: ALL solver files — remove old `Solver` trait, keep `SolverV2` renamed to `Solver`
 - Modify: ALL test files — update imports
-- Modify: ALL example files — update to use new API
+- Modify: ALL example files — update to use new API (`solution_size` -> `evaluate`, keep `variant()` calls)
 
 **This is the largest task.** Break it into sub-steps:
 

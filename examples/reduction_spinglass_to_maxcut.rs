@@ -17,6 +17,7 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use std::collections::HashMap;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
@@ -45,8 +46,9 @@ fn main() {
     let mut solutions = Vec::new();
     for target_sol in &maxcut_solutions {
         let source_sol = reduction.extract_solution(target_sol);
-        let size = sg.solution_size(&source_sol);
-        assert!(size.is_valid);
+        let size = sg.evaluate(&source_sol);
+        // SpinGlass is a minimization problem, infeasible configs return i32::MAX
+        assert!(size < i32::MAX);
         solutions.push(SolutionPair {
             source_config: source_sol,
             target_config: target_sol.clone(),
@@ -56,9 +58,10 @@ fn main() {
     let sg_solution = reduction.extract_solution(&maxcut_solutions[0]);
     println!("Source SpinGlass solution: {:?}", sg_solution);
 
-    let size = sg.solution_size(&sg_solution);
-    println!("Solution size: {:?}", size);
-    assert!(size.is_valid);
+    let size = sg.evaluate(&sg_solution);
+    println!("Solution energy: {}", size);
+    // SpinGlass is a minimization problem, infeasible configs return i32::MAX
+    assert!(size < i32::MAX);
     println!("\nReduction verified successfully");
 
     // Export JSON
@@ -68,14 +71,14 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: SpinGlass::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(SpinGlass::<SimpleGraph, i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_spins": sg.num_variables(),
             }),
         },
         target: ProblemSide {
             problem: MaxCut::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MaxCut::<SimpleGraph, i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vertices": maxcut.num_vertices(),
                 "num_edges": maxcut.num_edges(),

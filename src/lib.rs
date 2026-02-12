@@ -99,18 +99,16 @@ pub mod prelude {
     };
     pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::solvers::{BruteForce, Solver};
-    pub use crate::traits::{csp_solution_size, ConstraintSatisfactionProblem, Problem};
-    pub use crate::types::{
-        EnergyMode, LocalConstraint, LocalSolutionSize, NumericWeight, ProblemSize, SolutionSize,
-    };
+    pub use crate::traits::{OptimizationProblem, Problem};
+    pub use crate::types::{Direction, NumericSize, NumericSizeBounds, NumericWeight, ProblemSize, SolutionSize, Unweighted, Weights};
 }
 
 // Re-export commonly used items at crate root
 pub use error::{ProblemError, Result};
 pub use registry::{ComplexityClass, ProblemCategory, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
-pub use traits::{ConstraintSatisfactionProblem, Problem};
-pub use types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
+pub use traits::{OptimizationProblem, Problem};
+pub use types::{Direction, NumericSize, NumericSizeBounds, ProblemSize, SolutionSize, Unweighted, Weights};
 
 // Re-export proc macro for reduction registration
 pub use problemreductions_macros::reduction;

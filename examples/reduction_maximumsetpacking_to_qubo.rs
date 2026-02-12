@@ -31,6 +31,7 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use std::collections::HashMap;
 
 fn main() {
     println!("=== Set Packing -> QUBO Reduction ===\n");
@@ -82,9 +83,10 @@ fn main() {
         );
 
         // Closed-loop verification: check solution is valid in original problem
-        let sol_size = sp.solution_size(&extracted);
+        // MaximumSetPacking is a maximization problem, infeasible configs return i32::MIN
+        let sol_size = sp.evaluate(&extracted);
         assert!(
-            sol_size.is_valid,
+            sol_size > i32::MIN,
             "Solution must be valid in source problem"
         );
 
@@ -103,7 +105,7 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MaximumSetPacking::<i32>::NAME.to_string(),
-            variant: variant_to_map(MaximumSetPacking::<i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_sets": sp.num_sets(),
                 "sets": sp.sets(),
@@ -111,7 +113,7 @@ fn main() {
         },
         target: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: variant_to_map(QUBO::<f64>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": qubo.matrix(),

@@ -8,21 +8,18 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-use num_traits::{Num, Zero};
+use num_traits::{Bounded, Num, Zero};
 use std::ops::AddAssign;
 
 /// Result of reducing MaximumIndependentSet to MinimumVertexCover.
 #[derive(Debug, Clone)]
 pub struct ReductionISToVC<W> {
     target: MinimumVertexCover<SimpleGraph, W>,
-    source_size: ProblemSize,
 }
 
 impl<W> ReductionResult for ReductionISToVC<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = MaximumIndependentSet<SimpleGraph, W>;
     type Target = MinimumVertexCover<SimpleGraph, W>;
@@ -35,14 +32,6 @@ where
     /// If v is in the independent set (1), it's NOT in the vertex cover (0).
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.iter().map(|&x| 1 - x).collect()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -58,7 +47,7 @@ where
 )]
 impl<W> ReduceTo<MinimumVertexCover<SimpleGraph, W>> for MaximumIndependentSet<SimpleGraph, W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionISToVC<W>;
 
@@ -68,10 +57,7 @@ where
             self.edges(),
             self.weights_ref().clone(),
         );
-        ReductionISToVC {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionISToVC { target }
     }
 }
 
@@ -79,12 +65,11 @@ where
 #[derive(Debug, Clone)]
 pub struct ReductionVCToIS<W> {
     target: MaximumIndependentSet<SimpleGraph, W>,
-    source_size: ProblemSize,
 }
 
 impl<W> ReductionResult for ReductionVCToIS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = MinimumVertexCover<SimpleGraph, W>;
     type Target = MaximumIndependentSet<SimpleGraph, W>;
@@ -96,14 +81,6 @@ where
     /// Solution extraction: complement the configuration.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.iter().map(|&x| 1 - x).collect()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -119,7 +96,7 @@ where
 )]
 impl<W> ReduceTo<MaximumIndependentSet<SimpleGraph, W>> for MinimumVertexCover<SimpleGraph, W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionVCToIS<W>;
 
@@ -129,10 +106,7 @@ where
             self.edges(),
             self.weights_ref().clone(),
         );
-        ReductionVCToIS {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionVCToIS { target }
     }
 }
 

@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
+use crate::traits::Problem;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -56,8 +57,8 @@ fn test_ilp_solution_equals_brute_force_triangle() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    // Solve with brute force on original problem
-    let bf_solutions = bf.find_best(&problem);
+    // Solve with brute force on original problem - use find_all_satisfying for satisfaction problems
+    let bf_solutions = bf.find_all_satisfying(&problem);
     assert!(
         !bf_solutions.is_empty(),
         "Brute force should find solutions"
@@ -68,8 +69,7 @@ fn test_ilp_solution_equals_brute_force_triangle() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     // Verify the extracted solution is valid for the original problem
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid, "Extracted solution should be valid");
+    assert!(problem.evaluate(&extracted), "Extracted solution should be valid");
 
     // All three vertices should have different colors
     assert_ne!(extracted[0], extracted[1]);
@@ -91,8 +91,7 @@ fn test_ilp_solution_equals_brute_force_path() {
     let extracted = reduction.extract_solution(&ilp_solution);
 
     // Verify validity
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid, "Extracted solution should be valid");
+    assert!(problem.evaluate(&extracted), "Extracted solution should be valid");
 
     // Check adjacent vertices have different colors
     assert_ne!(extracted[0], extracted[1]);
@@ -133,25 +132,19 @@ fn test_solution_extraction() {
     assert_eq!(extracted, vec![1, 2, 0]);
 
     // Verify this is a valid coloring (vertex 0 and 1 have different colors)
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
+    assert!(problem.evaluate(&extracted));
 }
 
 #[test]
-fn test_source_and_target_size() {
+fn test_ilp_structure() {
     let problem = KColoring::<3, SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
+    let ilp = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("num_vertices"), Some(5));
-    assert_eq!(source_size.get("num_edges"), Some(4));
-    assert_eq!(source_size.get("num_colors"), Some(3));
-
-    assert_eq!(target_size.get("num_vars"), Some(15)); // 5 * 3
-                                                       // constraints = 5 (vertex) + 4 * 3 (edge) = 17
-    assert_eq!(target_size.get("num_constraints"), Some(17));
+    // 5 vertices * 3 colors = 15 variables
+    assert_eq!(ilp.num_vars, 15);
+    // constraints = 5 (vertex) + 4 * 3 (edge) = 17
+    assert_eq!(ilp.constraints.len(), 17);
 }
 
 #[test]
@@ -168,8 +161,7 @@ fn test_empty_graph() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
 
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
+    assert!(problem.evaluate(&extracted));
 }
 
 #[test]
@@ -186,8 +178,7 @@ fn test_complete_graph_k4() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
 
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
+    assert!(problem.evaluate(&extracted));
 
     // All vertices should have different colors
     let mut colors: Vec<usize> = extracted.clone();
@@ -223,8 +214,7 @@ fn test_bipartite_graph() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
 
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
+    assert!(problem.evaluate(&extracted));
 
     // Vertices 0,1 should have same color, vertices 2,3 should have same color
     // And different from 0,1
@@ -243,8 +233,7 @@ fn test_solve_reduced() {
         .solve_reduced(&problem)
         .expect("solve_reduced should work");
 
-    let sol_result = problem.solution_size(&solution);
-    assert!(sol_result.is_valid);
+    assert!(problem.evaluate(&solution));
 }
 
 #[test]
@@ -275,7 +264,6 @@ fn test_single_edge() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
 
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
+    assert!(problem.evaluate(&extracted));
     assert_ne!(extracted[0], extracted[1]);
 }

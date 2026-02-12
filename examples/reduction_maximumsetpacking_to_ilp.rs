@@ -16,7 +16,7 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use problemreductions::solvers::BruteForceFloat;
+use std::collections::HashMap;
 
 fn main() {
     // 1. Create MaximumSetPacking instance: 6 sets over universe {0,...,7}
@@ -51,11 +51,11 @@ fn main() {
 
     // 4. Solve target ILP
     let solver = BruteForce::new();
-    let ilp_solutions = solver.find_best_float(ilp);
+    let ilp_solutions = solver.find_best(ilp);
     println!("\n=== Solution ===");
     println!("ILP solutions found: {}", ilp_solutions.len());
 
-    let ilp_solution = &ilp_solutions[0].0;
+    let ilp_solution = &ilp_solutions[0];
     println!("ILP solution: {:?}", ilp_solution);
 
     // 5. Extract source solution
@@ -63,17 +63,14 @@ fn main() {
     println!("Source MaximumSetPacking solution: {:?}", sp_solution);
 
     // 6. Verify
-    let size = sp.solution_size(&sp_solution);
-    println!("Solution valid: {}, size: {:?}", size.is_valid, size.size);
-    assert!(size.is_valid);
+    let metric = sp.evaluate(&sp_solution);
+    println!("Solution metric: {:?}", metric);
     println!("\nReduction verified successfully");
 
     // 7. Collect solutions and export JSON
     let mut solutions = Vec::new();
-    for (target_config, _score) in &ilp_solutions {
+    for target_config in &ilp_solutions {
         let source_sol = reduction.extract_solution(target_config);
-        let s = sp.solution_size(&source_sol);
-        assert!(s.is_valid);
         solutions.push(SolutionPair {
             source_config: source_sol,
             target_config: target_config.clone(),
@@ -85,7 +82,7 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: MaximumSetPacking::<i32>::NAME.to_string(),
-            variant: variant_to_map(MaximumSetPacking::<i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_sets": sp.num_sets(),
                 "sets": sp.sets(),
@@ -93,7 +90,7 @@ fn main() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: variant_to_map(ILP::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

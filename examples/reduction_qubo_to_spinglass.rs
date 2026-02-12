@@ -16,6 +16,8 @@
 //!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
+use std::collections::HashMap;
+
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
@@ -50,9 +52,10 @@ fn main() {
     let qubo_solution = reduction.extract_solution(&sg_solutions[0]);
     println!("Source QUBO solution: {:?}", qubo_solution);
 
-    let size = qubo.solution_size(&qubo_solution);
-    println!("Solution size: {:?}", size);
-    assert!(size.is_valid);
+    let size = qubo.evaluate(&qubo_solution);
+    println!("Solution energy: {}", size);
+    // QUBO is a minimization problem, infeasible configs return f64::MAX
+    assert!(size < f64::MAX);
     println!("\nReduction verified successfully");
 
     // Collect all solutions
@@ -72,7 +75,7 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: variant_to_map(QUBO::<f64>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": matrix,
@@ -80,7 +83,7 @@ fn main() {
         },
         target: ProblemSide {
             problem: SpinGlass::<SimpleGraph, f64>::NAME.to_string(),
-            variant: variant_to_map(SpinGlass::<SimpleGraph, f64>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_spins": sg.num_variables(),
             }),

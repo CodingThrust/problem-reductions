@@ -1,23 +1,26 @@
 use crate::prelude::*;
 use crate::topology::SimpleGraph;
+use crate::types::SolutionSize;
 
 // Test the quick_problem_test macro
 #[test]
 fn test_quick_problem_test_macro() {
+    // Test a valid solution
     quick_problem_test!(
         MaximumIndependentSet<SimpleGraph, i32>,
         new(3, vec![(0, 1), (1, 2)]),
         solution: [1, 0, 1],
-        expected_size: 2,
-        is_valid: true
+        expected_value: SolutionSize::Valid(2),
+        is_max: true
     );
 
+    // Test an invalid solution (adjacent vertices selected) -> returns Invalid
     quick_problem_test!(
         MaximumIndependentSet<SimpleGraph, i32>,
         new(3, vec![(0, 1), (1, 2)]),
         solution: [1, 1, 0],
-        expected_size: 2,
-        is_valid: false
+        expected_value: SolutionSize::Invalid,
+        is_max: true
     );
 }
 

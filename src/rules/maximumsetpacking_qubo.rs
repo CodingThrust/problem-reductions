@@ -12,8 +12,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::Problem;
-use crate::types::{NumericWeight, ProblemSize};
+use crate::types::NumericWeight;
 
 use std::marker::PhantomData;
 
@@ -21,11 +20,10 @@ use std::marker::PhantomData;
 #[derive(Debug, Clone)]
 pub struct ReductionSPToQUBO<W> {
     target: QUBO<f64>,
-    source_size: ProblemSize,
     _phantom: PhantomData<W>,
 }
 
-impl<W: NumericWeight + Into<f64>> ReductionResult for ReductionSPToQUBO<W> {
+impl<W: NumericWeight + num_traits::Bounded + Into<f64>> ReductionResult for ReductionSPToQUBO<W> {
     type Source = MaximumSetPacking<W>;
     type Target = QUBO<f64>;
 
@@ -36,21 +34,13 @@ impl<W: NumericWeight + Into<f64>> ReductionResult for ReductionSPToQUBO<W> {
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
 #[reduction(
     source_weighted = true,
     overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_sets))]) }
 )]
-impl<W: NumericWeight + Into<f64>> ReduceTo<QUBO<f64>> for MaximumSetPacking<W> {
+impl<W: NumericWeight + num_traits::Bounded + Into<f64>> ReduceTo<QUBO<f64>> for MaximumSetPacking<W> {
     type Result = ReductionSPToQUBO<W>;
 
     fn reduce_to(&self) -> Self::Result {
@@ -75,7 +65,6 @@ impl<W: NumericWeight + Into<f64>> ReduceTo<QUBO<f64>> for MaximumSetPacking<W> 
 
         ReductionSPToQUBO {
             target: QUBO::from_matrix(matrix),
-            source_size: self.problem_size(),
             _phantom: PhantomData,
         }
     }

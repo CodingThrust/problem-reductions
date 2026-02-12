@@ -236,19 +236,16 @@ fn test_complement_edges_across_clauses() {
 }
 
 #[test]
-fn test_source_and_target_size() {
+fn test_is_structure() {
     let sat = Satisfiability::<i32>::new(
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let is_problem = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("num_vars"), Some(3));
-    assert_eq!(source_size.get("num_clauses"), Some(2));
-    assert_eq!(target_size.get("num_vertices"), Some(4)); // 2 + 2 literals
+    // IS should have vertices for literals in clauses
+    assert_eq!(is_problem.num_vertices(), 4); // 2 + 2 literals
 }
 
 #[test]
@@ -271,11 +268,11 @@ fn test_sat_is_solution_correspondence() {
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
     );
 
-    // Solve SAT directly
+    // Solve SAT directly - use find_all_satisfying for satisfaction problems
     let sat_solver = BruteForce::new();
-    let direct_sat_solutions = sat_solver.find_best(&sat);
+    let direct_sat_solutions = sat_solver.find_all_satisfying(&sat);
 
-    // Solve via reduction
+    // Solve via reduction (IS is an optimization problem, so use find_best)
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
     let is_problem = reduction.target_problem();
     let is_solutions = sat_solver.find_best(is_problem);

@@ -80,14 +80,12 @@ fn test_weighted_reduction() {
 }
 
 #[test]
-fn test_source_and_target_size() {
+fn test_reduction_structure() {
     let is_problem =
         MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is_problem);
+    let vc = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("num_vertices"), Some(5));
-    assert_eq!(target_size.get("num_vertices"), Some(5));
+    // Same number of vertices in both problems
+    assert_eq!(vc.num_vertices(), 5);
 }

@@ -11,14 +11,11 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
-use crate::types::ProblemSize;
 
 /// Result of reducing QUBO to SpinGlass.
 #[derive(Debug, Clone)]
 pub struct ReductionQUBOToSG {
     target: SpinGlass<SimpleGraph, f64>,
-    source_size: ProblemSize,
 }
 
 impl ReductionResult for ReductionQUBOToSG {
@@ -32,14 +29,6 @@ impl ReductionResult for ReductionQUBOToSG {
     /// Solution maps directly (same binary encoding).
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -98,10 +87,7 @@ impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
 
         let target = SpinGlass::<SimpleGraph, f64>::new(n, interactions, onsite);
 
-        ReductionQUBOToSG {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionQUBOToSG { target }
     }
 }
 
@@ -109,7 +95,6 @@ impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
 #[derive(Debug, Clone)]
 pub struct ReductionSGToQUBO {
     target: QUBO<f64>,
-    source_size: ProblemSize,
 }
 
 impl ReductionResult for ReductionSGToQUBO {
@@ -122,14 +107,6 @@ impl ReductionResult for ReductionSGToQUBO {
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -172,10 +149,7 @@ impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {
 
         let target = QUBO::from_matrix(matrix);
 
-        ReductionSGToQUBO {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionSGToQUBO { target }
     }
 }
 

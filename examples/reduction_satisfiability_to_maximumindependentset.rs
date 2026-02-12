@@ -15,6 +15,7 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use std::collections::HashMap;
 use problemreductions::topology::SimpleGraph;
 
 fn main() {
@@ -74,17 +75,19 @@ fn main() {
         sat_solution[0], sat_solution[1], sat_solution[2], sat_solution[3], sat_solution[4]
     );
 
-    let size = sat.solution_size(&sat_solution);
-    println!("SAT solution valid: {}", size.is_valid);
-    assert!(size.is_valid, "Extracted SAT solution must be valid");
+    // Satisfiability is a satisfaction problem (bool), so evaluate returns bool directly
+    let size = sat.evaluate(&sat_solution);
+    println!("SAT solution valid: {}", size);
+    assert!(size, "Extracted SAT solution must be valid");
 
     // Verify all IS solutions map to valid SAT assignments
     let mut valid_count = 0;
     let mut solutions = Vec::new();
     for is_sol in &is_solutions {
         let sat_sol = reduction.extract_solution(is_sol);
-        let s = sat.solution_size(&sat_sol);
-        if s.is_valid {
+        // Satisfiability is a satisfaction problem (bool), so evaluate returns bool directly
+        let s = sat.evaluate(&sat_sol);
+        if s {
             valid_count += 1;
         }
         solutions.push(SolutionPair {
@@ -108,7 +111,7 @@ fn main() {
     let data = ReductionData {
         source: ProblemSide {
             problem: Satisfiability::<i32>::NAME.to_string(),
-            variant: variant_to_map(Satisfiability::<i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
                 "num_clauses": sat.num_clauses(),
@@ -116,7 +119,7 @@ fn main() {
         },
         target: ProblemSide {
             problem: MaximumIndependentSet::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant()),
+            variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vertices": is.num_vertices(),
                 "num_edges": is.num_edges(),

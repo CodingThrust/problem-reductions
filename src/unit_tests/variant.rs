@@ -31,8 +31,8 @@ fn test_const_usize_str() {
 #[test]
 fn test_variant_for_problems() {
     use crate::models::graph::{
-        KColoring, MaxCut, MaximalIS, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
-        MinimumVertexCover,
+        KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
+        MinimumDominatingSet, MinimumVertexCover,
     };
     use crate::models::optimization::{SpinGlass, QUBO};
     use crate::models::satisfiability::{KSatisfiability, Satisfiability};
@@ -49,8 +49,7 @@ fn test_variant_for_problems() {
     assert_eq!(v[1].0, "weight");
     assert_eq!(v[1].1, "i32");
 
-    let v = MaximumIndependentSet::<SimpleGraph, f64>::variant();
-    assert_eq!(v[1].1, "f64");
+    // Note: f64 variants removed because SolutionSize now requires Ord
 
     // Test MinimumVertexCover
     let v = MinimumVertexCover::<SimpleGraph, i32>::variant();
@@ -73,8 +72,7 @@ fn test_variant_for_problems() {
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
-    let v = MaxCut::<SimpleGraph, f64>::variant();
-    assert_eq!(v[1].1, "f64");
+    // Note: f64 variants removed because SolutionSize now requires Ord
 
     // Test KColoring (has K, graph, and weight parameters)
     let v = KColoring::<3, SimpleGraph, i32>::variant();
@@ -83,8 +81,13 @@ fn test_variant_for_problems() {
     assert_eq!(v[1], ("graph", "SimpleGraph"));
     assert_eq!(v[2], ("weight", "i32"));
 
-    // Test MaximalIS (no weight parameter)
+    // Test MaximalIS
     let v = MaximalIS::<SimpleGraph, i32>::variant();
+    assert_eq!(v.len(), 2);
+    assert_eq!(v[0].1, "SimpleGraph");
+
+    // Test MaximumClique
+    let v = MaximumClique::<SimpleGraph, i32>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 

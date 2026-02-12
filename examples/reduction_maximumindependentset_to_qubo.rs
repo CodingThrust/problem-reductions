@@ -56,9 +56,10 @@ fn main() {
     let mut solutions = Vec::new();
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        let sol_size = is.solution_size(&extracted);
+        // MaximumIndependentSet is a maximization problem, infeasible configs return Invalid
+        let sol_size = is.evaluate(&extracted);
         assert!(
-            sol_size.is_valid,
+            sol_size.is_valid(),
             "Solution must be valid in source problem"
         );
 

@@ -13,9 +13,7 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-use num_traits::{Num, Zero};
+use num_traits::{Bounded, Num, Zero};
 use std::collections::HashMap;
 use std::ops::AddAssign;
 
@@ -188,13 +186,11 @@ pub struct ReductionCircuitToSG<W> {
     variable_map: HashMap<String, usize>,
     /// Source variable names in order.
     source_variables: Vec<String>,
-    /// Source problem size.
-    source_size: ProblemSize,
 }
 
 impl<W> ReductionResult for ReductionCircuitToSG<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Source = CircuitSAT<W>;
     type Target = SpinGlass<SimpleGraph, W>;
@@ -213,14 +209,6 @@ where
                     .unwrap_or(0)
             })
             .collect()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -437,7 +425,7 @@ where
 )]
 impl<W> ReduceTo<SpinGlass<SimpleGraph, W>> for CircuitSAT<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionCircuitToSG<W>;
 
@@ -451,13 +439,11 @@ where
 
         let (target, variable_map) = builder.build();
         let source_variables = self.variable_names().to_vec();
-        let source_size = self.problem_size();
 
         ReductionCircuitToSG {
             target,
             variable_map,
             source_variables,
-            source_size,
         }
     }
 }

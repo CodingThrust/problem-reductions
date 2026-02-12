@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::Direction;
 
 #[test]
 fn test_biclique_cover_creation() {
@@ -60,18 +62,14 @@ fn test_is_valid_cover() {
 }
 
 #[test]
-fn test_solution_size() {
+fn test_evaluate() {
     let problem = BicliqueCover::new(2, 2, vec![(0, 2)], 1);
 
     // Valid cover with size 2
-    let sol = problem.solution_size(&[1, 0, 1, 0]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 2);
+    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), 2);
 
-    // Invalid cover
-    let sol = problem.solution_size(&[1, 0, 0, 0]);
-    assert!(!sol.is_valid);
-    assert_eq!(sol.size, 1);
+    // Invalid cover returns i32::MAX
+    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), i32::MAX);
 }
 
 #[test]
@@ -127,32 +125,21 @@ fn test_is_biclique_cover_function() {
 }
 
 #[test]
-fn test_energy_mode() {
+fn test_direction() {
     let problem = BicliqueCover::new(1, 1, vec![(0, 1)], 1);
-    assert!(problem.energy_mode().is_minimization());
-}
-
-#[test]
-fn test_problem_size() {
-    let problem = BicliqueCover::new(3, 4, vec![(0, 3), (1, 4)], 2);
-    let size = problem.problem_size();
-    assert_eq!(size.get("left_size"), Some(3));
-    assert_eq!(size.get("right_size"), Some(4));
-    assert_eq!(size.get("num_edges"), Some(2));
-    assert_eq!(size.get("k"), Some(2));
+    assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]
 fn test_empty_edges() {
     let problem = BicliqueCover::new(2, 2, vec![], 1);
-    let sol = problem.solution_size(&[0, 0, 0, 0]);
-    assert!(sol.is_valid); // No edges to cover
-    assert_eq!(sol.size, 0);
+    // No edges to cover -> valid with size 0
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), 0);
 }
 
 #[test]
-fn test_biclique_problem_v2() {
-    use crate::traits::{OptimizationProblemV2, ProblemV2};
+fn test_biclique_problem() {
+    use crate::traits::{OptimizationProblem, Problem};
     use crate::types::Direction;
 
     // Single edge (0, 2) with k=1, 2 left + 2 right vertices

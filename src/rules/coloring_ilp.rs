@@ -13,8 +13,6 @@ use crate::poly;
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::Problem;
-use crate::types::ProblemSize;
 
 // Register reduction in the inventory for automatic discovery
 inventory::submit! {
@@ -40,7 +38,6 @@ inventory::submit! {
 #[derive(Debug, Clone)]
 pub struct ReductionKColoringToILP<const K: usize, G, W> {
     target: ILP,
-    source_size: ProblemSize,
     num_vertices: usize,
     _phantom: std::marker::PhantomData<(G, W)>,
 }
@@ -55,7 +52,14 @@ impl<const K: usize, G, W> ReductionKColoringToILP<K, G, W> {
 impl<const K: usize, G, W> ReductionResult for ReductionKColoringToILP<K, G, W>
 where
     G: Graph,
-    W: Clone + Default + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
 {
     type Source = KColoring<K, G, W>;
     type Target = ILP;
@@ -80,20 +84,19 @@ where
             })
             .collect()
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
 impl<const K: usize, G, W> ReduceTo<ILP> for KColoring<K, G, W>
 where
     G: Graph,
-    W: Clone + Default + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
 {
     type Result = ReductionKColoringToILP<K, G, W>;
 
@@ -141,7 +144,6 @@ where
 
         ReductionKColoringToILP {
             target,
-            source_size: self.problem_size(),
             num_vertices,
             _phantom: std::marker::PhantomData,
         }
