@@ -153,7 +153,7 @@ impl<W: Clone> GridGraph<W> {
     }
 
     /// Static version of physical_position for use during construction.
-    #[allow(clippy::manual_is_multiple_of)] // i32 doesn't support is_multiple_of yet
+    #[allow(unknown_lints, clippy::manual_is_multiple_of)] // i32 doesn't support is_multiple_of yet
     fn physical_position_static(grid_type: GridType, row: i32, col: i32) -> (f64, f64) {
         match grid_type {
             GridType::Square => (row as f64, col as f64),

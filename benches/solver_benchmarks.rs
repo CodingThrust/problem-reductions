@@ -1,14 +1,14 @@
 //! Benchmarks for the BruteForce solver on various problem types.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use problemreductions::models::graph::*;
-use problemreductions::topology::SimpleGraph;
 use problemreductions::models::optimization::*;
 use problemreductions::models::satisfiability::*;
 use problemreductions::models::set::*;
 use problemreductions::models::specialized::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::SimpleGraph;
+use std::hint::black_box;
 
 /// Benchmark MaximumIndependentSet on graphs of varying sizes.
 fn bench_independent_set(c: &mut Criterion) {
@@ -90,7 +90,7 @@ fn bench_satisfiability(c: &mut Criterion) {
 }
 
 /// Benchmark SpinGlass on varying sizes.
-#[allow(clippy::manual_is_multiple_of)] // Type inference issues with is_multiple_of
+#[allow(unknown_lints, clippy::manual_is_multiple_of)] // Type inference issues with is_multiple_of
 fn bench_spin_glass(c: &mut Criterion) {
     let mut group = c.benchmark_group("SpinGlass");
 
@@ -194,7 +194,8 @@ fn bench_comparison(c: &mut Criterion) {
     let solver = BruteForce::new();
 
     // MaximumIndependentSet with 8 vertices
-    let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]);
+    let is_problem =
+        MaximumIndependentSet::<SimpleGraph, i32>::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]);
     group.bench_function("MaximumIndependentSet", |b| {
         b.iter(|| solver.find_best(black_box(&is_problem)))
     });
