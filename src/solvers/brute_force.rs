@@ -175,6 +175,83 @@ impl BruteForceFloat for BruteForce {
     }
 }
 
+// === SolverV2 implementation ===
+
+use crate::config::DimsIterator;
+use crate::solvers::SolverV2;
+use crate::traits::{OptimizationProblemV2, ProblemV2};
+use crate::types::{Direction, NumericSize};
+
+impl SolverV2 for BruteForce {
+    fn find_best_v2<P: OptimizationProblemV2>(
+        &self,
+        problem: &P,
+    ) -> Vec<Vec<usize>>
+    where
+        P::Metric: NumericSize,
+    {
+        let dims = problem.dims();
+        if dims.is_empty() {
+            return vec![];
+        }
+
+        let iter = DimsIterator::new(dims);
+        let direction = problem.direction();
+
+        let mut best_solutions: Vec<Vec<usize>> = vec![];
+        let mut best_metric: Option<P::Metric> = None;
+
+        for config in iter {
+            let metric = problem.evaluate(&config);
+
+            let is_new_best = match &best_metric {
+                None => true,
+                Some(current_best) => match direction {
+                    Direction::Maximize => metric > *current_best,
+                    Direction::Minimize => metric < *current_best,
+                },
+            };
+
+            if is_new_best {
+                best_metric = Some(metric);
+                best_solutions.clear();
+                best_solutions.push(config);
+            } else if let Some(current_best) = &best_metric {
+                if self.is_equal_size(&metric, current_best) {
+                    best_solutions.push(config);
+                }
+            }
+        }
+
+        best_solutions
+    }
+
+    fn find_satisfying<P: ProblemV2<Metric = bool>>(
+        &self,
+        problem: &P,
+    ) -> Option<Vec<usize>> {
+        let dims = problem.dims();
+        if dims.is_empty() {
+            return None;
+        }
+
+        DimsIterator::new(dims).find(|config| problem.evaluate(config))
+    }
+
+    fn find_all_satisfying<P: ProblemV2<Metric = bool>>(
+        &self,
+        problem: &P,
+    ) -> Vec<Vec<usize>> {
+        let dims = problem.dims();
+        if dims.is_empty() {
+            return vec![];
+        }
+
+        let iter = DimsIterator::new(dims);
+        iter.filter(|config| problem.evaluate(config)).collect()
+    }
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/solvers/brute_force.rs"]
 mod tests;

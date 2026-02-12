@@ -1,6 +1,221 @@
 use super::*;
 use crate::types::{EnergyMode, ProblemSize};
 
+// === SolverV2 tests ===
+
+use crate::solvers::SolverV2;
+use crate::types::Direction;
+
+// Simple maximization problem for V2
+#[derive(Clone)]
+struct MaxSumV2 {
+    weights: Vec<i32>,
+}
+
+impl crate::traits::ProblemV2 for MaxSumV2 {
+    const NAME: &'static str = "MaxSumV2";
+    type Metric = i32;
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.weights.len()]
+    }
+    fn evaluate(&self, config: &[usize]) -> i32 {
+        config
+            .iter()
+            .zip(&self.weights)
+            .map(|(&c, &w)| if c == 1 { w } else { 0 })
+            .sum()
+    }
+}
+
+impl crate::traits::OptimizationProblemV2 for MaxSumV2 {
+    fn direction(&self) -> Direction {
+        Direction::Maximize
+    }
+}
+
+// Simple minimization problem for V2
+#[derive(Clone)]
+struct MinSumV2 {
+    weights: Vec<i32>,
+}
+
+impl crate::traits::ProblemV2 for MinSumV2 {
+    const NAME: &'static str = "MinSumV2";
+    type Metric = i32;
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.weights.len()]
+    }
+    fn evaluate(&self, config: &[usize]) -> i32 {
+        config
+            .iter()
+            .zip(&self.weights)
+            .map(|(&c, &w)| if c == 1 { w } else { 0 })
+            .sum()
+    }
+}
+
+impl crate::traits::OptimizationProblemV2 for MinSumV2 {
+    fn direction(&self) -> Direction {
+        Direction::Minimize
+    }
+}
+
+// Satisfaction problem for V2 (Metric = bool)
+#[derive(Clone)]
+struct SatV2 {
+    num_vars: usize,
+    satisfying: Vec<Vec<usize>>,
+}
+
+impl crate::traits::ProblemV2 for SatV2 {
+    const NAME: &'static str = "SatV2";
+    type Metric = bool;
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+    fn evaluate(&self, config: &[usize]) -> bool {
+        self.satisfying.iter().any(|s| s == config)
+    }
+}
+
+#[test]
+fn test_solver_v2_maximization() {
+    let problem = MaxSumV2 {
+        weights: vec![1, 2, 3],
+    };
+    let solver = BruteForce::new();
+
+    let best = solver.find_best_v2(&problem);
+    assert_eq!(best.len(), 1);
+    assert_eq!(best[0], vec![1, 1, 1]); // Select all for max sum = 6
+}
+
+#[test]
+fn test_solver_v2_minimization() {
+    let problem = MinSumV2 {
+        weights: vec![1, 2, 3],
+    };
+    let solver = BruteForce::new();
+
+    let best = solver.find_best_v2(&problem);
+    assert_eq!(best.len(), 1);
+    assert_eq!(best[0], vec![0, 0, 0]); // Select none for min sum = 0
+}
+
+#[test]
+fn test_solver_v2_multiple_optimal() {
+    // Two variables with equal weights -> multiple optima
+    let problem = MaxSumV2 {
+        weights: vec![5, 5],
+    };
+    let solver = BruteForce::new();
+
+    let best = solver.find_best_v2(&problem);
+    assert_eq!(best.len(), 1);
+    assert_eq!(best[0], vec![1, 1]); // Only one optimal: select both = 10
+}
+
+#[test]
+fn test_solver_v2_empty() {
+    let problem = MaxSumV2 { weights: vec![] };
+    let solver = BruteForce::new();
+
+    let best = solver.find_best_v2(&problem);
+    assert!(best.is_empty());
+}
+
+#[test]
+fn test_solver_v2_find_satisfying() {
+    let problem = SatV2 {
+        num_vars: 2,
+        satisfying: vec![vec![1, 0], vec![0, 1]],
+    };
+    let solver = BruteForce::new();
+
+    let solution = solver.find_satisfying(&problem);
+    assert!(solution.is_some());
+    let sol = solution.unwrap();
+    assert!(problem.evaluate(&sol));
+}
+
+#[test]
+fn test_solver_v2_find_satisfying_unsat() {
+    let problem = SatV2 {
+        num_vars: 2,
+        satisfying: vec![], // No satisfying assignment
+    };
+    let solver = BruteForce::new();
+
+    let solution = solver.find_satisfying(&problem);
+    assert!(solution.is_none());
+}
+
+#[test]
+fn test_solver_v2_find_all_satisfying() {
+    let problem = SatV2 {
+        num_vars: 2,
+        satisfying: vec![vec![1, 0], vec![0, 1]],
+    };
+    let solver = BruteForce::new();
+
+    let solutions = solver.find_all_satisfying(&problem);
+    assert_eq!(solutions.len(), 2);
+    assert!(solutions.contains(&vec![1, 0]));
+    assert!(solutions.contains(&vec![0, 1]));
+}
+
+#[test]
+fn test_solver_v2_find_satisfying_empty() {
+    let problem = SatV2 {
+        num_vars: 0,
+        satisfying: vec![],
+    };
+    let solver = BruteForce::new();
+
+    assert!(solver.find_satisfying(&problem).is_none());
+    assert!(solver.find_all_satisfying(&problem).is_empty());
+}
+
+#[test]
+fn test_solver_v2_with_real_mis() {
+    use crate::models::graph::MaximumIndependentSet;
+    use crate::topology::SimpleGraph;
+    use crate::traits::ProblemV2;
+
+    // Triangle graph: MIS = 1
+    let problem =
+        MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let solver = BruteForce::new();
+
+    let best = solver.find_best_v2(&problem);
+    assert_eq!(best.len(), 3); // Three single-vertex solutions
+    for sol in &best {
+        assert_eq!(sol.iter().sum::<usize>(), 1);
+        assert_eq!(problem.evaluate(sol), 1);
+    }
+}
+
+#[test]
+fn test_solver_v2_with_real_sat() {
+    use crate::models::satisfiability::{CNFClause, Satisfiability};
+    use crate::traits::ProblemV2;
+
+    // (x1 OR x2) AND (NOT x1 OR NOT x2)
+    let problem = Satisfiability::<i32>::new(
+        2,
+        vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
+    );
+    let solver = BruteForce::new();
+
+    let solutions = solver.find_all_satisfying(&problem);
+    assert_eq!(solutions.len(), 2);
+    for sol in &solutions {
+        assert!(problem.evaluate(sol));
+    }
+}
+
+// End of SolverV2 tests
+
 // Simple maximization problem: maximize sum of selected weights
 #[derive(Clone)]
 struct MaxSumProblem {

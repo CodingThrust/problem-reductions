@@ -111,6 +111,83 @@ pub fn bits_to_config(bits: &[bool]) -> Vec<usize> {
     bits.iter().map(|&b| if b { 1 } else { 0 }).collect()
 }
 
+/// Iterator over all configurations for per-variable dimension sizes.
+///
+/// Unlike `ConfigIterator` which assumes uniform flavors, this supports
+/// different cardinalities per variable (e.g., `dims = [2, 3, 2]`).
+pub struct DimsIterator {
+    dims: Vec<usize>,
+    current: Option<Vec<usize>>,
+    total_configs: usize,
+    current_index: usize,
+}
+
+impl DimsIterator {
+    /// Create a new iterator from per-variable dimensions.
+    pub fn new(dims: Vec<usize>) -> Self {
+        let total_configs = if dims.is_empty() {
+            0
+        } else {
+            dims.iter().copied().try_fold(1usize, |acc, d| {
+                if d == 0 { None } else { acc.checked_mul(d) }
+            }).unwrap_or(0)
+        };
+        let current = if total_configs == 0 {
+            None
+        } else {
+            Some(vec![0; dims.len()])
+        };
+        Self {
+            dims,
+            current,
+            total_configs,
+            current_index: 0,
+        }
+    }
+
+    /// Returns the total number of configurations.
+    pub fn total(&self) -> usize {
+        self.total_configs
+    }
+}
+
+impl Iterator for DimsIterator {
+    type Item = Vec<usize>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.current.take()?;
+        let result = current.clone();
+
+        // Advance to next configuration
+        let mut next = current;
+        let mut carry = true;
+        for i in (0..self.dims.len()).rev() {
+            if carry {
+                next[i] += 1;
+                if next[i] >= self.dims[i] {
+                    next[i] = 0;
+                } else {
+                    carry = false;
+                }
+            }
+        }
+
+        self.current_index += 1;
+        if self.current_index < self.total_configs {
+            self.current = Some(next);
+        }
+
+        Some(result)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.total_configs - self.current_index;
+        (remaining, Some(remaining))
+    }
+}
+
+impl ExactSizeIterator for DimsIterator {}
+
 #[cfg(test)]
 #[path = "unit_tests/config.rs"]
 mod tests;
