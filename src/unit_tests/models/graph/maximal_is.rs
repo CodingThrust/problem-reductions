@@ -247,3 +247,18 @@ fn test_weighted_solution() {
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![0, 1, 0]);
 }
+
+#[test]
+fn test_maximal_is_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Path graph 0-1-2
+    let p = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    // Valid maximal IS: {0, 2} - independent and maximal
+    assert_eq!(p.evaluate(&[1, 0, 1]), 2);
+    // Not maximal: {0} alone - vertex 2 could be added
+    assert_eq!(p.evaluate(&[1, 0, 0]), i32::MIN);
+    assert_eq!(p.direction(), Direction::Maximize);
+}

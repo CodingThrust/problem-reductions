@@ -288,6 +288,58 @@ where
     }
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl<G, W> crate::traits::ProblemV2 for MaximalIS<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    const NAME: &'static str = "MaximalIS";
+    type Metric = W;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> W {
+        if !self.is_maximal(config) {
+            return W::min_value();
+        }
+        let mut total = W::zero();
+        for (i, &selected) in config.iter().enumerate() {
+            if selected == 1 {
+                total += self.weights[i].clone();
+            }
+        }
+        total
+    }
+}
+
+impl<G, W> crate::traits::OptimizationProblemV2 for MaximalIS<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Maximize
+    }
+}
+
 /// Check if a set is a maximal independent set.
 pub fn is_maximal_independent_set(
     num_vertices: usize,
