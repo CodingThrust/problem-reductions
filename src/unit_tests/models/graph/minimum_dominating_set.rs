@@ -243,3 +243,18 @@ fn test_has_edge() {
     assert!(problem.has_edge(1, 2));
     assert!(!problem.has_edge(0, 2));
 }
+
+#[test]
+fn test_mds_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Path graph 0-1-2
+    let p = MinimumDominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    // Valid DS: select vertex 1 (dominates all)
+    assert_eq!(p.evaluate(&[0, 1, 0]), 1);
+    // Invalid DS: select no vertices
+    assert_eq!(p.evaluate(&[0, 0, 0]), i32::MAX);
+    assert_eq!(p.direction(), Direction::Minimize);
+}

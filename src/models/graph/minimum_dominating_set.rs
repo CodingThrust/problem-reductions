@@ -257,6 +257,58 @@ where
     }
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl<G, W> crate::traits::ProblemV2 for MinimumDominatingSet<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    const NAME: &'static str = "MinimumDominatingSet";
+    type Metric = W;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> W {
+        if !self.is_dominating(config) {
+            return W::max_value();
+        }
+        let mut total = W::zero();
+        for (i, &selected) in config.iter().enumerate() {
+            if selected == 1 {
+                total += self.weights[i].clone();
+            }
+        }
+        total
+    }
+}
+
+impl<G, W> crate::traits::OptimizationProblemV2 for MinimumDominatingSet<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Minimize
+    }
+}
+
 /// Check if a set of vertices is a dominating set.
 pub fn is_dominating_set(num_vertices: usize, edges: &[(usize, usize)], selected: &[bool]) -> bool {
     if selected.len() != num_vertices {
