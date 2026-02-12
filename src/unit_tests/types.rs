@@ -131,3 +131,50 @@ fn test_vec_f64_weights_trait() {
     assert_eq!(w.weight(1), 2.5);
     assert_eq!(<Vec<f64> as Weights>::NAME, "Weighted<f64>");
 }
+
+#[test]
+fn test_is_better_maximize_valid_vs_valid() {
+    // For maximization: larger is better
+    let a = SolutionSize::Valid(10);
+    let b = SolutionSize::Valid(5);
+    assert!(a.is_better(&b, Direction::Maximize));
+    assert!(!b.is_better(&a, Direction::Maximize));
+}
+
+#[test]
+fn test_is_better_minimize_valid_vs_valid() {
+    // For minimization: smaller is better
+    let a = SolutionSize::Valid(5);
+    let b = SolutionSize::Valid(10);
+    assert!(a.is_better(&b, Direction::Minimize));
+    assert!(!b.is_better(&a, Direction::Minimize));
+}
+
+#[test]
+fn test_is_better_valid_vs_invalid() {
+    // Valid is always better than invalid
+    let valid = SolutionSize::Valid(0);
+    let invalid: SolutionSize<i32> = SolutionSize::Invalid;
+    assert!(valid.is_better(&invalid, Direction::Maximize));
+    assert!(valid.is_better(&invalid, Direction::Minimize));
+    assert!(!invalid.is_better(&valid, Direction::Maximize));
+    assert!(!invalid.is_better(&valid, Direction::Minimize));
+}
+
+#[test]
+fn test_is_better_invalid_vs_invalid() {
+    // Neither invalid is better
+    let a: SolutionSize<i32> = SolutionSize::Invalid;
+    let b: SolutionSize<i32> = SolutionSize::Invalid;
+    assert!(!a.is_better(&b, Direction::Maximize));
+    assert!(!a.is_better(&b, Direction::Minimize));
+}
+
+#[test]
+fn test_is_better_equal_valid() {
+    // Equal values: neither is better
+    let a = SolutionSize::Valid(5);
+    let b = SolutionSize::Valid(5);
+    assert!(!a.is_better(&b, Direction::Maximize));
+    assert!(!a.is_better(&b, Direction::Minimize));
+}

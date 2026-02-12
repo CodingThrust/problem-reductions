@@ -230,6 +230,26 @@ impl<T> SolutionSize<T> {
     }
 }
 
+impl<T: Ord> SolutionSize<T> {
+    /// Returns true if self is a better solution than other for the given direction.
+    ///
+    /// - For maximization: larger values are better
+    /// - For minimization: smaller values are better
+    /// - Valid solutions are always better than invalid ones
+    /// - Two invalid solutions are equally bad (neither is better)
+    pub fn is_better(&self, other: &Self, direction: Direction) -> bool {
+        match (self, other) {
+            (SolutionSize::Valid(a), SolutionSize::Valid(b)) => match direction {
+                Direction::Maximize => a > b,
+                Direction::Minimize => a < b,
+            },
+            (SolutionSize::Valid(_), SolutionSize::Invalid) => true,
+            (SolutionSize::Invalid, SolutionSize::Valid(_)) => false,
+            (SolutionSize::Invalid, SolutionSize::Invalid) => false,
+        }
+    }
+}
+
 /// Optimization direction.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Direction {
