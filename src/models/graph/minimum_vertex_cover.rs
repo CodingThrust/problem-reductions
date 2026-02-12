@@ -224,6 +224,58 @@ where
     }
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl<G, W> crate::traits::ProblemV2 for MinimumVertexCover<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    const NAME: &'static str = "MinimumVertexCover";
+    type Metric = W;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> W {
+        if !is_vertex_cover_config(&self.graph, config) {
+            return W::max_value();
+        }
+        let mut total = W::zero();
+        for (i, &selected) in config.iter().enumerate() {
+            if selected == 1 {
+                total += self.weights[i].clone();
+            }
+        }
+        total
+    }
+}
+
+impl<G, W> crate::traits::OptimizationProblemV2 for MinimumVertexCover<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Minimize
+    }
+}
+
 /// Check if a configuration forms a valid vertex cover.
 fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
     for (u, v) in graph.edges() {

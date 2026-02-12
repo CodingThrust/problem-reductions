@@ -230,6 +230,26 @@ fn test_has_edge() {
 }
 
 #[test]
+fn test_mvc_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    let p = MinimumVertexCover::<SimpleGraph, i32>::with_weights(
+        3,
+        vec![(0, 1), (1, 2), (0, 2)],
+        vec![1, 1, 1],
+    );
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    // Valid VC: select all vertices
+    assert_eq!(p.evaluate(&[1, 1, 1]), 3);
+    // Valid VC: select vertices 0 and 1 (covers all edges in triangle)
+    assert_eq!(p.evaluate(&[1, 1, 0]), 2);
+    // Invalid VC: select only vertex 0 (edge (1,2) not covered)
+    assert_eq!(p.evaluate(&[1, 0, 0]), i32::MAX);
+    assert_eq!(p.direction(), Direction::Minimize);
+}
+
+#[test]
 fn test_variant() {
     let variant = MinimumVertexCover::<SimpleGraph, i32>::variant();
     assert_eq!(variant.len(), 2);
