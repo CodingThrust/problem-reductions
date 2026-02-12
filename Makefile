@@ -47,7 +47,7 @@ clippy:
 # Build mdBook documentation
 doc:
 	cargo run --example export_graph
-	cp docs/paper/reduction_graph.json docs/src/reductions/
+	cargo run --example export_schemas
 	mdbook build docs
 	RUSTDOCFLAGS="--default-theme=dark" cargo doc --all-features --no-deps
 	rm -rf docs/book/api
@@ -56,7 +56,7 @@ doc:
 # Build and serve mdBook with API docs
 mdbook:
 	cargo run --example export_graph
-	cp docs/paper/reduction_graph.json docs/src/reductions/
+	cargo run --example export_schemas
 	RUSTDOCFLAGS="--default-theme=dark" cargo doc --all-features --no-deps
 	mdbook build
 	rm -rf book/api
@@ -84,7 +84,7 @@ export-schemas:
 paper: examples
 	cargo run --example export_graph
 	cargo run --example export_schemas
-	cd docs/paper && typst compile reductions.typ reductions.pdf
+	cd docs/paper && typst compile --root .. reductions.typ reductions.pdf
 
 # Generate coverage report (requires: cargo install cargo-llvm-cov)
 coverage:

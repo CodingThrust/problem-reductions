@@ -206,10 +206,7 @@ Variant IDs follow the pattern `ProblemName[/GraphType][/Weighted]`:
 | `MaximumIndependentSet/Weighted` | Weighted objective |
 | `MaximumIndependentSet/GridGraph/Weighted` | Both |
 
-The graph data is stored in [`reduction_graph.json`](reductions/reduction_graph.json):
-
-<details>
-<summary>Schema</summary>
+The graph data is stored in [`reduction_graph.json`](reductions/reduction_graph.json), it stores the reduction graph topology (nodes and edges):
 
 ```json
 {
@@ -289,8 +286,8 @@ impl ReduceTo<B> for A { /* ... */ }
 To regenerate the exports after adding rules or problems:
 
 ```bash
-cargo run --example export_graph    # writes docs/paper/reduction_graph.json
-cargo run --example export_schemas  # writes docs/paper/problem_schemas.json
+cargo run --example export_graph    # writes docs/src/reductions/reduction_graph.json
+cargo run --example export_schemas  # writes docs/src/reductions/problem_schemas.json
 ```
 
 ## Solvers

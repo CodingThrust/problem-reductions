@@ -13,8 +13,8 @@ fn main() {
     println!("  Problem types: {}", graph.num_types());
     println!("  Reductions: {}", graph.num_reductions());
 
-    // Export to JSON
-    let output_path = Path::new("docs/paper/reduction_graph.json");
+    // Export to JSON (single source for both mdBook and paper)
+    let output_path = Path::new("docs/src/reductions/reduction_graph.json");
 
     // Create parent directories if needed
     if let Some(parent) = output_path.parent() {
