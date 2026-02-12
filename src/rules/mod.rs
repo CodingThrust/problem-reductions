@@ -71,7 +71,7 @@ pub use sat_maximumindependentset::{BoolVar, ReductionSATToIS};
 pub use sat_ksat::{ReductionKSATToSAT, ReductionSATToKSAT};
 pub use spinglass_maxcut::{ReductionMaxCutToSG, ReductionSGToMaxCut};
 pub use spinglass_qubo::{ReductionQUBOToSG, ReductionSGToQUBO};
-pub use traits::{ReduceTo, ReductionResult};
+pub use traits::{ReduceTo, ReduceToV2, ReductionResult, ReductionResultV2};
 pub use minimumvertexcover_maximumindependentset::{ReductionISToVC, ReductionVCToIS};
 pub use minimumvertexcover_qubo::ReductionVCToQUBO;
 pub use minimumvertexcover_minimumsetcovering::ReductionVCToSC;
