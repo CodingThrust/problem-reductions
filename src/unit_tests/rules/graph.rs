@@ -17,14 +17,16 @@ fn test_find_direct_path() {
 fn test_find_indirect_path() {
     let graph = ReductionGraph::new();
     // IS -> VC -> IS -> SP or IS -> SP directly
-    let paths = graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, MaximumSetPacking<i32>>();
+    let paths =
+        graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, MaximumSetPacking<i32>>();
     assert!(!paths.is_empty());
 }
 
 #[test]
 fn test_find_shortest_path() {
     let graph = ReductionGraph::new();
-    let path = graph.find_shortest_path::<MaximumIndependentSet<SimpleGraph, i32>, MaximumSetPacking<i32>>();
+    let path = graph
+        .find_shortest_path::<MaximumIndependentSet<SimpleGraph, i32>, MaximumSetPacking<i32>>();
     assert!(path.is_some());
     let path = path.unwrap();
     assert_eq!(path.len(), 1); // Direct path exists
@@ -136,12 +138,14 @@ fn test_to_json() {
     assert!(json.edges.len() >= 10);
 
     // Check that IS -> VC and VC -> IS both exist as separate directed edges
-    let is_to_vc = json.edges.iter().any(|e| {
-        e.source.name == "MaximumIndependentSet" && e.target.name == "MinimumVertexCover"
-    });
-    let vc_to_is = json.edges.iter().any(|e| {
-        e.source.name == "MinimumVertexCover" && e.target.name == "MaximumIndependentSet"
-    });
+    let is_to_vc = json
+        .edges
+        .iter()
+        .any(|e| e.source.name == "MaximumIndependentSet" && e.target.name == "MinimumVertexCover");
+    let vc_to_is = json
+        .edges
+        .iter()
+        .any(|e| e.source.name == "MinimumVertexCover" && e.target.name == "MaximumIndependentSet");
     assert!(is_to_vc, "Should have IS -> VC edge");
     assert!(vc_to_is, "Should have VC -> IS edge");
 }
@@ -159,7 +163,10 @@ fn test_to_json_string() {
     assert!(json_string.contains("\"overhead\""));
 
     // The legacy "bidirectional" field must not be present
-    assert!(!json_string.contains("\"bidirectional\""), "JSON should not contain the removed 'bidirectional' field");
+    assert!(
+        !json_string.contains("\"bidirectional\""),
+        "JSON should not contain the removed 'bidirectional' field"
+    );
 }
 
 #[test]
@@ -173,17 +180,29 @@ fn test_categorize_type() {
         ReductionGraph::categorize_type("MinimumVertexCover<SimpleGraph, i32>"),
         "graph"
     );
-    assert_eq!(ReductionGraph::categorize_type("MaxCut<SimpleGraph, i32>"), "graph");
+    assert_eq!(
+        ReductionGraph::categorize_type("MaxCut<SimpleGraph, i32>"),
+        "graph"
+    );
     assert_eq!(ReductionGraph::categorize_type("KColoring"), "graph");
     assert_eq!(
         ReductionGraph::categorize_type("MinimumDominatingSet<SimpleGraph, i32>"),
         "graph"
     );
-    assert_eq!(ReductionGraph::categorize_type("MaximumMatching<i32>"), "graph");
+    assert_eq!(
+        ReductionGraph::categorize_type("MaximumMatching<i32>"),
+        "graph"
+    );
 
     // Set problems
-    assert_eq!(ReductionGraph::categorize_type("MaximumSetPacking<i32>"), "set");
-    assert_eq!(ReductionGraph::categorize_type("MinimumSetCovering<i32>"), "set");
+    assert_eq!(
+        ReductionGraph::categorize_type("MaximumSetPacking<i32>"),
+        "set"
+    );
+    assert_eq!(
+        ReductionGraph::categorize_type("MinimumSetCovering<i32>"),
+        "set"
+    );
 
     // Optimization
     assert_eq!(
@@ -222,13 +241,16 @@ fn test_sat_based_reductions() {
     let graph = ReductionGraph::new();
 
     // SAT -> IS
-    assert!(graph.has_direct_reduction::<Satisfiability<i32>, MaximumIndependentSet<SimpleGraph, i32>>());
+    assert!(graph
+        .has_direct_reduction::<Satisfiability<i32>, MaximumIndependentSet<SimpleGraph, i32>>());
 
     // SAT -> KColoring
     assert!(graph.has_direct_reduction::<Satisfiability<i32>, KColoring<3, SimpleGraph, i32>>());
 
     // SAT -> MinimumDominatingSet
-    assert!(graph.has_direct_reduction::<Satisfiability<i32>, MinimumDominatingSet<SimpleGraph, i32>>());
+    assert!(
+        graph.has_direct_reduction::<Satisfiability<i32>, MinimumDominatingSet<SimpleGraph, i32>>()
+    );
 }
 
 #[test]
@@ -358,10 +380,14 @@ fn test_has_direct_reduction_unregistered_types() {
     let graph = ReductionGraph::new();
 
     // Source type not registered
-    assert!(!graph.has_direct_reduction::<UnregisteredType, MaximumIndependentSet<SimpleGraph, i32>>());
+    assert!(
+        !graph.has_direct_reduction::<UnregisteredType, MaximumIndependentSet<SimpleGraph, i32>>()
+    );
 
     // Target type not registered
-    assert!(!graph.has_direct_reduction::<MaximumIndependentSet<SimpleGraph, i32>, UnregisteredType>());
+    assert!(
+        !graph.has_direct_reduction::<MaximumIndependentSet<SimpleGraph, i32>, UnregisteredType>()
+    );
 
     // Both types not registered
     assert!(!graph.has_direct_reduction::<UnregisteredType, UnregisteredType>());
@@ -390,7 +416,8 @@ fn test_find_shortest_path_no_path() {
     struct UnregisteredType;
 
     let graph = ReductionGraph::new();
-    let path = graph.find_shortest_path::<UnregisteredType, MaximumIndependentSet<SimpleGraph, i32>>();
+    let path =
+        graph.find_shortest_path::<UnregisteredType, MaximumIndependentSet<SimpleGraph, i32>>();
     assert!(path.is_none());
 }
 
@@ -720,14 +747,16 @@ fn test_json_variant_content() {
     let json = graph.to_json();
 
     // Find a node and verify its variant contains expected keys
-    let is_node = json.nodes.iter().find(|n| n.name == "MaximumIndependentSet");
+    let is_node = json
+        .nodes
+        .iter()
+        .find(|n| n.name == "MaximumIndependentSet");
     assert!(is_node.is_some(), "MaximumIndependentSet node should exist");
 
     // Find an edge involving MaximumIndependentSet (could be source or target)
-    let is_edge = json
-        .edges
-        .iter()
-        .find(|e| e.source.name == "MaximumIndependentSet" || e.target.name == "MaximumIndependentSet");
+    let is_edge = json.edges.iter().find(|e| {
+        e.source.name == "MaximumIndependentSet" || e.target.name == "MaximumIndependentSet"
+    });
     assert!(
         is_edge.is_some(),
         "Edge involving MaximumIndependentSet should exist"

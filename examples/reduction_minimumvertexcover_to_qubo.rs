@@ -63,14 +63,14 @@ fn main() {
             .map(|(i, _)| i)
             .collect();
         let size = selected.len();
-        println!(
-            "  Cover vertices: {:?} ({} vertices)",
-            selected, size
-        );
+        println!("  Cover vertices: {:?} ({} vertices)", selected, size);
 
         // Closed-loop verification: check solution is valid in original problem
         let sol_size = vc.solution_size(&extracted);
-        assert!(sol_size.is_valid, "Solution must be valid in source problem");
+        assert!(
+            sol_size.is_valid,
+            "Solution must be valid in source problem"
+        );
 
         solutions.push(SolutionPair {
             source_config: extracted,
@@ -80,7 +80,9 @@ fn main() {
 
     // All optimal solutions should have size 6
     assert!(
-        solutions.iter().all(|s| s.source_config.iter().filter(|&&x| x == 1).count() == 6),
+        solutions
+            .iter()
+            .all(|s| s.source_config.iter().filter(|&&x| x == 1).count() == 6),
         "All optimal VC solutions on Petersen graph should have size 6"
     );
     println!("\nVerification passed: all solutions are valid with size 6");

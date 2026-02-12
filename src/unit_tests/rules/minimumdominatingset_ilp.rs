@@ -77,7 +77,8 @@ fn test_ilp_solution_equals_brute_force_star() {
 #[test]
 fn test_ilp_solution_equals_brute_force_path() {
     // Path graph 0-1-2-3-4: min DS = 2 (e.g., vertices 1 and 3)
-    let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+    let problem =
+        MinimumDominatingSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -144,7 +145,8 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_source_and_target_size() {
-    let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+    let problem =
+        MinimumDominatingSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
     let source_size = reduction.source_size();
@@ -178,8 +180,10 @@ fn test_isolated_vertices() {
 #[test]
 fn test_complete_graph() {
     // Complete graph K4: min DS = 1 (any vertex dominates all)
-    let problem =
-        MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+    let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(
+        4,
+        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+    );
     let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -214,7 +218,10 @@ fn test_single_vertex() {
 fn test_cycle_graph() {
     // Cycle C5: 0-1-2-3-4-0
     // Minimum dominating set size = 2
-    let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]);
+    let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(
+        5,
+        vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
+    );
     let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 

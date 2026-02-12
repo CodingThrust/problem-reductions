@@ -57,7 +57,10 @@ fn main() {
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
         let sol_size = is.solution_size(&extracted);
-        assert!(sol_size.is_valid, "Solution must be valid in source problem");
+        assert!(
+            sol_size.is_valid,
+            "Solution must be valid in source problem"
+        );
 
         let selected: Vec<usize> = extracted
             .iter()

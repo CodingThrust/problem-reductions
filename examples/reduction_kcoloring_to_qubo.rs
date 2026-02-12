@@ -74,7 +74,10 @@ fn main() {
 
         // Closed-loop verification: check solution is valid in original problem
         let sol_size = kc.solution_size(&extracted);
-        assert!(sol_size.is_valid, "Coloring must be valid in source problem");
+        assert!(
+            sol_size.is_valid,
+            "Coloring must be valid in source problem"
+        );
 
         solutions.push(SolutionPair {
             source_config: extracted,
@@ -88,8 +91,8 @@ fn main() {
     );
 
     // Export JSON
-    let overhead = lookup_overhead("KColoring", "QUBO")
-        .expect("KColoring -> QUBO overhead not found");
+    let overhead =
+        lookup_overhead("KColoring", "QUBO").expect("KColoring -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

@@ -127,7 +127,8 @@ fn test_ilp_solution_equals_brute_force_weighted() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5], vec![6, 7]]);
+    let problem =
+        MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5], vec![6, 7]]);
     let reduction: ReductionSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
     // Test that extraction works correctly (1:1 mapping)
@@ -142,7 +143,8 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_source_and_target_size() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]);
+    let problem =
+        MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]);
     let reduction: ReductionSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
     let source_size = reduction.source_size();

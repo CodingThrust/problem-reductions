@@ -4,7 +4,7 @@
 //! and clearer separation of concerns.
 
 use crate::models::graph::{
-    is_independent_set, is_valid_coloring, is_vertex_cover, MaximumIndependentSet, KColoring,
+    is_independent_set, is_valid_coloring, is_vertex_cover, KColoring, MaximumIndependentSet,
     MinimumVertexCover,
 };
 use crate::prelude::*;
@@ -19,7 +19,8 @@ mod maximum_independent_set {
 
     #[test]
     fn test_creation() {
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         assert_eq!(problem.num_vertices(), 4);
         assert_eq!(problem.num_edges(), 3);
         assert_eq!(problem.num_variables(), 4);
@@ -117,7 +118,8 @@ mod maximum_independent_set {
     #[test]
     fn test_brute_force_triangle() {
         // Triangle graph: maximum IS has size 1
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -131,7 +133,8 @@ mod maximum_independent_set {
     #[test]
     fn test_brute_force_path() {
         // Path graph 0-1-2-3: maximum IS = {0,2} or {1,3} or {0,3}
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -176,7 +179,8 @@ mod maximum_independent_set {
 
     #[test]
     fn test_problem_size() {
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3)]);
         let size = problem.problem_size();
         assert_eq!(size.get("num_vertices"), Some(5));
         assert_eq!(size.get("num_edges"), Some(3));

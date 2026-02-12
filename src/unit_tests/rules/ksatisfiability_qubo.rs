@@ -109,13 +109,13 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
     let ksat = KSatisfiability::<3, i32>::new(
         5,
         vec![
-            CNFClause::new(vec![1, 2, -3]),   // x1 ∨ x2 ∨ ¬x3
-            CNFClause::new(vec![-1, 3, 4]),   // ¬x1 ∨ x3 ∨ x4
-            CNFClause::new(vec![2, -4, 5]),   // x2 ∨ ¬x4 ∨ x5
-            CNFClause::new(vec![-2, 3, -5]),  // ¬x2 ∨ x3 ∨ ¬x5
-            CNFClause::new(vec![1, -3, 5]),   // x1 ∨ ¬x3 ∨ x5
-            CNFClause::new(vec![-1, -2, 4]),  // ¬x1 ∨ ¬x2 ∨ x4
-            CNFClause::new(vec![3, -4, -5]),  // x3 ∨ ¬x4 ∨ ¬x5
+            CNFClause::new(vec![1, 2, -3]),  // x1 ∨ x2 ∨ ¬x3
+            CNFClause::new(vec![-1, 3, 4]),  // ¬x1 ∨ x3 ∨ x4
+            CNFClause::new(vec![2, -4, 5]),  // x2 ∨ ¬x4 ∨ x5
+            CNFClause::new(vec![-2, 3, -5]), // ¬x2 ∨ x3 ∨ ¬x5
+            CNFClause::new(vec![1, -3, 5]),  // x1 ∨ ¬x3 ∨ x5
+            CNFClause::new(vec![-1, -2, 4]), // ¬x1 ∨ ¬x2 ∨ x4
+            CNFClause::new(vec![3, -4, -5]), // x3 ∨ ¬x4 ∨ ¬x5
         ],
     );
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat);
@@ -139,10 +139,7 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
 #[test]
 fn test_k3satisfiability_to_qubo_single_clause() {
     // Single 3-SAT clause: (x1 ∨ x2 ∨ x3) — 7 satisfying assignments
-    let ksat = KSatisfiability::<3, i32>::new(
-        3,
-        vec![CNFClause::new(vec![1, 2, 3])],
-    );
+    let ksat = KSatisfiability::<3, i32>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat);
     let qubo = reduction.target_problem();
 
@@ -165,10 +162,7 @@ fn test_k3satisfiability_to_qubo_single_clause() {
 #[test]
 fn test_k3satisfiability_to_qubo_all_negated() {
     // All negated: (¬x1 ∨ ¬x2 ∨ ¬x3) — 7 satisfying assignments
-    let ksat = KSatisfiability::<3, i32>::new(
-        3,
-        vec![CNFClause::new(vec![-1, -2, -3])],
-    );
+    let ksat = KSatisfiability::<3, i32>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat);
     let qubo = reduction.target_problem();
 

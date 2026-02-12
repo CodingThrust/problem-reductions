@@ -91,16 +91,14 @@ fn test_ksat_with_weights() {
 #[test]
 fn test_ksat_allow_less() {
     // This should work - clause has 2 literals which is <= 3
-    let problem =
-        KSatisfiability::<3, i32>::new_allow_less(2, vec![CNFClause::new(vec![1, 2])]);
+    let problem = KSatisfiability::<3, i32>::new_allow_less(2, vec![CNFClause::new(vec![1, 2])]);
     assert_eq!(problem.num_clauses(), 1);
 }
 
 #[test]
 #[should_panic(expected = "Clause 0 has 4 literals, expected at most 3")]
 fn test_ksat_allow_less_too_many() {
-    let _ =
-        KSatisfiability::<3, i32>::new_allow_less(4, vec![CNFClause::new(vec![1, 2, 3, 4])]);
+    let _ = KSatisfiability::<3, i32>::new_allow_less(4, vec![CNFClause::new(vec![1, 2, 3, 4])]);
 }
 
 #[test]
@@ -196,10 +194,7 @@ fn test_ksat_problem_v2_2sat() {
 
     let p = KSatisfiability::<2, i32>::new(
         2,
-        vec![
-            CNFClause::new(vec![1, 2]),
-            CNFClause::new(vec![-1, -2]),
-        ],
+        vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
     );
 
     assert_eq!(p.dims(), vec![2, 2]);

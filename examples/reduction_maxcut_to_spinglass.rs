@@ -58,8 +58,8 @@ fn main() {
 
     // Export JSON
     let edges: Vec<(usize, usize, i32)> = maxcut.edges();
-    let overhead = lookup_overhead("MaxCut", "SpinGlass")
-        .expect("MaxCut -> SpinGlass overhead not found");
+    let overhead =
+        lookup_overhead("MaxCut", "SpinGlass").expect("MaxCut -> SpinGlass overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

@@ -285,7 +285,11 @@ fn add_3sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32], aux_var: usize
 /// For K=3, uses Rosenberg quadratization with one auxiliary variable per clause.
 ///
 /// Returns (matrix, num_source_vars) where matrix is (n + aux) x (n + aux).
-fn build_qubo_matrix(num_vars: usize, clauses: &[crate::models::satisfiability::CNFClause], k: usize) -> Vec<Vec<f64>> {
+fn build_qubo_matrix(
+    num_vars: usize,
+    clauses: &[crate::models::satisfiability::CNFClause],
+    k: usize,
+) -> Vec<Vec<f64>> {
     match k {
         2 => {
             let mut matrix = vec![vec![0.0; num_vars]; num_vars];

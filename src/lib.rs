@@ -85,14 +85,14 @@ pub mod prelude {
     };
     pub use crate::error::{ProblemError, Result};
     pub use crate::models::graph::{
-        MaximumClique, MinimumDominatingSet, MaximumIndependentSet, KColoring, MaximumMatching, MaxCut, MaximalIS,
-        MinimumVertexCover,
+        KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
+        MinimumDominatingSet, MinimumVertexCover,
     };
     pub use crate::models::optimization::{
         Comparison, LinearConstraint, ObjectiveSense, SpinGlass, VarBounds, ILP, QUBO,
     };
     pub use crate::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
-    pub use crate::models::set::{MinimumSetCovering, MaximumSetPacking};
+    pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
     pub use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
     pub use crate::registry::{
         ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,

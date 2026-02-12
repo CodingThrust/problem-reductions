@@ -4,7 +4,8 @@ use crate::solvers::{BruteForce, Solver};
 #[test]
 fn test_is_to_vc_reduction() {
     // Triangle graph: max IS = 1, min VC = 2
-    let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let is_problem =
+        MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is_problem);
     let vc_problem = reduction.target_problem();
 
@@ -80,7 +81,8 @@ fn test_weighted_reduction() {
 
 #[test]
 fn test_source_and_target_size() {
-    let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+    let is_problem =
+        MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is_problem);
 
     let source_size = reduction.source_size();

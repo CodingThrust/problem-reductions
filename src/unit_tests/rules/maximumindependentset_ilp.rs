@@ -144,7 +144,8 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_source_and_target_size() {
-    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+    let problem =
+        MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
     let source_size = reduction.source_size();
@@ -181,8 +182,10 @@ fn test_empty_graph() {
 #[test]
 fn test_complete_graph() {
     // Complete graph K4: max IS = 1
-    let problem =
-        MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(
+        4,
+        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+    );
     let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -216,7 +219,8 @@ fn test_solve_reduced() {
 fn test_bipartite_graph() {
     // Bipartite graph: 0-2, 0-3, 1-2, 1-3 (two independent sets: {0,1} and {2,3})
     // With equal weights, max IS = 2
-    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
+    let problem =
+        MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
     let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 

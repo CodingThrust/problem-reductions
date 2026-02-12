@@ -90,7 +90,10 @@ fn main() {
     println!("\n=== Forward Simulation Verification ===");
     println!(
         "Known factorization: {} * {} = {} (bits: {:?})",
-        a, b, a * b, factoring_sol
+        a,
+        b,
+        a * b,
+        factoring_sol
     );
 
     // Set input variables: p1..p3 for first factor, q1..q3 for second factor
@@ -98,7 +101,11 @@ fn main() {
     for (i, &bit) in factoring_sol.iter().enumerate().take(factoring.m()) {
         input_values.insert(format!("p{}", i + 1), bit == 1);
     }
-    for (i, &bit) in factoring_sol[factoring.m()..].iter().enumerate().take(factoring.n()) {
+    for (i, &bit) in factoring_sol[factoring.m()..]
+        .iter()
+        .enumerate()
+        .take(factoring.n())
+    {
         input_values.insert(format!("q{}", i + 1), bit == 1);
     }
     println!("Input variables: {:?}", input_values);
@@ -132,10 +139,17 @@ fn main() {
     println!("Extracted factoring solution: {:?}", extracted);
     let (ea, eb) = factoring.read_factors(&extracted);
     println!("Extracted factors: {} * {} = {}", ea, eb, ea * eb);
-    assert_eq!(ea * eb, factoring.target(), "Round-trip must preserve factorization");
+    assert_eq!(
+        ea * eb,
+        factoring.target(),
+        "Round-trip must preserve factorization"
+    );
 
     // 5. Verify all factoring solutions can be simulated through the circuit
-    println!("\nVerifying all {} factoring solutions through circuit:", factoring_solutions.len());
+    println!(
+        "\nVerifying all {} factoring solutions through circuit:",
+        factoring_solutions.len()
+    );
     let mut solutions = Vec::new();
     for sol in &factoring_solutions {
         let (fa, fb) = factoring.read_factors(sol);
@@ -149,10 +163,22 @@ fn main() {
         let vals = simulate_circuit(circuit_sat.circuit(), &inputs);
         let config: Vec<usize> = var_names
             .iter()
-            .map(|name| if *vals.get(name).unwrap_or(&false) { 1 } else { 0 })
+            .map(|name| {
+                if *vals.get(name).unwrap_or(&false) {
+                    1
+                } else {
+                    0
+                }
+            })
             .collect();
         let sz = circuit_sat.solution_size(&config);
-        println!("  {} * {} = {}: circuit satisfied = {}", fa, fb, fa * fb, sz.is_valid);
+        println!(
+            "  {} * {} = {}: circuit satisfied = {}",
+            fa,
+            fb,
+            fa * fb,
+            sz.is_valid
+        );
         assert!(sz.is_valid);
 
         solutions.push(SolutionPair {

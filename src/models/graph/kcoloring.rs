@@ -221,7 +221,13 @@ where
 impl<const K: usize, G, W> crate::traits::ProblemV2 for KColoring<K, G, W>
 where
     G: Graph,
-    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
 {
     const NAME: &'static str = "KColoring";
     type Metric = bool;

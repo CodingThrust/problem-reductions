@@ -78,7 +78,10 @@ fn main() {
     let target_size = target.solution_size(target_sol);
 
     assert_eq!(source_size.size, 6, "VC on Petersen has optimal size 6");
-    assert_eq!(target_size.size, 6, "MinimumSetCovering should also have size 6");
+    assert_eq!(
+        target_size.size, 6,
+        "MinimumSetCovering should also have size 6"
+    );
 
     // Export JSON
     let overhead = lookup_overhead("MinimumVertexCover", "MinimumSetCovering")

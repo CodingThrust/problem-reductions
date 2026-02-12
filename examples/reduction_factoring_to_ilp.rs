@@ -31,14 +31,28 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: Factoring with {} variables ({}+{} bits)", problem.num_variables(), problem.m(), problem.n());
-    println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
+    println!(
+        "Source: Factoring with {} variables ({}+{} bits)",
+        problem.num_variables(),
+        problem.m(),
+        problem.n()
+    );
+    println!(
+        "Target: ILP with {} variables, {} constraints",
+        ilp.num_vars,
+        ilp.constraints.len()
+    );
 
     // 4. Solve ILP using ILPSolver (too many variables for BruteForce)
     let solver = ILPSolver::new();
-    let ilp_solution = solver.solve(ilp).expect("ILP should be feasible for 35 = 5 * 7");
+    let ilp_solution = solver
+        .solve(ilp)
+        .expect("ILP should be feasible for 35 = 5 * 7");
     println!("\n=== Solution ===");
-    println!("ILP solution found (first 6 vars): {:?}", &ilp_solution[..6]);
+    println!(
+        "ILP solution found (first 6 vars): {:?}",
+        &ilp_solution[..6]
+    );
 
     // 5. Extract factoring solution
     let extracted = reduction.extract_solution(&ilp_solution);
@@ -56,8 +70,8 @@ fn main() {
         target_config: ilp_solution,
     }];
 
-    let overhead = lookup_overhead("Factoring", "ILP")
-        .expect("Factoring -> ILP overhead not found");
+    let overhead =
+        lookup_overhead("Factoring", "ILP").expect("Factoring -> ILP overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

@@ -30,8 +30,15 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: MinimumDominatingSet with {} variables", ds.num_variables());
-    println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
+    println!(
+        "Source: MinimumDominatingSet with {} variables",
+        ds.num_variables()
+    );
+    println!(
+        "Target: ILP with {} variables, {} constraints",
+        ilp.num_vars,
+        ilp.constraints.len()
+    );
 
     // 4. Solve target ILP
     let solver = BruteForce::new();

@@ -13,7 +13,8 @@ mod is_vc_reductions {
     #[test]
     fn test_is_to_vc_basic() {
         // Triangle graph
-        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let is_problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 
         // Reduce IS to VC
         let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is_problem);
@@ -37,7 +38,8 @@ mod is_vc_reductions {
     #[test]
     fn test_vc_to_is_basic() {
         // Path graph
-        let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let vc_problem =
+            MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         // Reduce VC to IS
         let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&vc_problem);
@@ -60,7 +62,8 @@ mod is_vc_reductions {
 
     #[test]
     fn test_is_vc_roundtrip() {
-        let original = MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let original =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
 
         // IS -> VC
         let to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&original);
@@ -126,7 +129,8 @@ mod is_sp_reductions {
     #[test]
     fn test_is_to_sp_basic() {
         // Triangle graph - each vertex's incident edges become a set
-        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let is_problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 
         let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);
         let sp_problem = result.target_problem();
@@ -170,7 +174,8 @@ mod is_sp_reductions {
 
     #[test]
     fn test_is_sp_roundtrip() {
-        let original = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let original =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         // IS -> SP
         let to_sp = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&original);
@@ -240,7 +245,11 @@ mod sg_qubo_reductions {
     #[test]
     fn test_sg_qubo_energy_preservation() {
         // The reduction should preserve optimal energy (up to constant)
-        let sg = SpinGlass::<SimpleGraph, _>::new(3, vec![((0, 1), -1.0), ((1, 2), 1.0)], vec![0.0, 0.0, 0.0]);
+        let sg = SpinGlass::<SimpleGraph, _>::new(
+            3,
+            vec![((0, 1), -1.0), ((1, 2), 1.0)],
+            vec![0.0, 0.0, 0.0],
+        );
 
         let result = ReduceTo::<QUBO>::reduce_to(&sg);
         let qubo = result.target_problem();
@@ -468,7 +477,8 @@ mod qubo_reductions {
 
     #[test]
     fn test_is_to_qubo_ground_truth() {
-        let json = std::fs::read_to_string("tests/data/qubo/maximumindependentset_to_qubo.json").unwrap();
+        let json =
+            std::fs::read_to_string("tests/data/qubo/maximumindependentset_to_qubo.json").unwrap();
         let data: ISToQuboData = serde_json::from_str(&json).unwrap();
 
         let is = MaximumIndependentSet::<SimpleGraph, i32>::new(
@@ -558,10 +568,7 @@ mod qubo_reductions {
 
         assert_eq!(data.source.num_colors, 3);
 
-        let kc = KColoring::<3, SimpleGraph, i32>::new(
-            data.source.num_vertices,
-            data.source.edges,
-        );
+        let kc = KColoring::<3, SimpleGraph, i32>::new(data.source.num_vertices, data.source.edges);
         let reduction = ReduceTo::<QUBO>::reduce_to(&kc);
         let qubo = reduction.target_problem();
 
@@ -594,7 +601,8 @@ mod qubo_reductions {
 
     #[test]
     fn test_setpacking_to_qubo_ground_truth() {
-        let json = std::fs::read_to_string("tests/data/qubo/maximumsetpacking_to_qubo.json").unwrap();
+        let json =
+            std::fs::read_to_string("tests/data/qubo/maximumsetpacking_to_qubo.json").unwrap();
         let data: SPToQuboData = serde_json::from_str(&json).unwrap();
 
         let sp = MaximumSetPacking::with_weights(data.source.sets, data.source.weights);
@@ -638,8 +646,7 @@ mod qubo_reductions {
 
     #[test]
     fn test_ksat_to_qubo_ground_truth() {
-        let json =
-            std::fs::read_to_string("tests/data/qubo/ksatisfiability_to_qubo.json").unwrap();
+        let json = std::fs::read_to_string("tests/data/qubo/ksatisfiability_to_qubo.json").unwrap();
         let data: KSatToQuboData = serde_json::from_str(&json).unwrap();
 
         // Convert JSON clauses to CNFClause (1-indexed signed literals)
@@ -652,7 +659,11 @@ mod qubo_reductions {
                     .iter()
                     .map(|l| {
                         let var = (l.variable + 1) as i32; // 0-indexed to 1-indexed
-                        if l.negated { -var } else { var }
+                        if l.negated {
+                            -var
+                        } else {
+                            var
+                        }
                     })
                     .collect();
                 CNFClause::new(signed)
@@ -771,7 +782,8 @@ mod io_tests {
 
     #[test]
     fn test_serialize_reduce_deserialize() {
-        let original = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let original =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         // Serialize
         let json = to_json(&original).unwrap();
@@ -823,7 +835,10 @@ mod end_to_end {
     #[test]
     fn test_full_pipeline_is_vc_sp() {
         // Start with an MaximumIndependentSet problem
-        let is = MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4)]);
+        let is = MaximumIndependentSet::<SimpleGraph, i32>::new(
+            5,
+            vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4)],
+        );
 
         // Solve directly
         let solver = BruteForce::new();

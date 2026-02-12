@@ -42,8 +42,7 @@ fn test_config_to_spins() {
 #[test]
 fn test_compute_energy() {
     // Two spins with J = 1 (ferromagnetic prefers aligned)
-    let problem =
-        SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
+    let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
 
     // Aligned spins: energy = J * s1 * s2 = 1 * 1 * 1 = 1 or 1 * (-1) * (-1) = 1
     assert_eq!(problem.compute_energy(&[1, 1]), 1.0);
@@ -67,8 +66,7 @@ fn test_compute_energy_with_fields() {
 
 #[test]
 fn test_solution_size() {
-    let problem =
-        SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
+    let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
 
     // config [0,0] -> spins [-1,-1] -> energy = 1
     let sol = problem.solution_size(&[0, 0]);
@@ -85,8 +83,7 @@ fn test_brute_force_ferromagnetic() {
     // Ferromagnetic: J > 0 prefers aligned spins to minimize energy
     // But wait, energy = J*s1*s2, so J>0 with aligned gives positive energy
     // For minimization, we want anti-aligned for J>0
-    let problem =
-        SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
+    let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -101,8 +98,7 @@ fn test_brute_force_ferromagnetic() {
 fn test_brute_force_antiferromagnetic() {
     // Antiferromagnetic: J < 0, energy = J*s1*s2
     // J<0 with aligned spins gives negative energy (good for minimization)
-    let problem =
-        SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), -1.0)], vec![0.0, 0.0]);
+    let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), -1.0)], vec![0.0, 0.0]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -177,8 +173,7 @@ fn test_from_graph_without_fields() {
 
 #[test]
 fn test_graph_accessor() {
-    let problem =
-        SpinGlass::<SimpleGraph, f64>::new(3, vec![((0, 1), 1.0)], vec![0.0, 0.0, 0.0]);
+    let problem = SpinGlass::<SimpleGraph, f64>::new(3, vec![((0, 1), 1.0)], vec![0.0, 0.0, 0.0]);
     let graph = problem.graph();
     assert_eq!(graph.num_vertices(), 3);
     assert_eq!(graph.num_edges(), 1);

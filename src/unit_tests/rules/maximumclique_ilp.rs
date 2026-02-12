@@ -53,7 +53,8 @@ fn brute_force_max_clique(problem: &MaximumClique<SimpleGraph, i32>) -> i32 {
 fn test_reduction_creates_valid_ilp() {
     // Triangle graph: 3 vertices, 3 edges (complete graph K3)
     // All pairs are adjacent, so no constraints should be added
-    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem: MaximumClique<SimpleGraph, i32> =
+        MaximumClique::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -108,7 +109,8 @@ fn test_reduction_weighted() {
 #[test]
 fn test_ilp_solution_equals_brute_force_triangle() {
     // Triangle graph (K3): max clique = 3 vertices
-    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem: MaximumClique<SimpleGraph, i32> =
+        MaximumClique::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -136,7 +138,8 @@ fn test_ilp_solution_equals_brute_force_triangle() {
 #[test]
 fn test_ilp_solution_equals_brute_force_path() {
     // Path graph 0-1-2-3: max clique = 2 (any adjacent pair)
-    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem: MaximumClique<SimpleGraph, i32> =
+        MaximumClique::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -282,7 +285,8 @@ fn test_bipartite_graph() {
 fn test_star_graph() {
     // Star graph: center 0 connected to 1, 2, 3
     // Max clique = 2 (center + any leaf)
-    let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+    let problem: MaximumClique<SimpleGraph, i32> =
+        MaximumClique::new(4, vec![(0, 1), (0, 2), (0, 3)]);
     let reduction: ReductionCliqueToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 

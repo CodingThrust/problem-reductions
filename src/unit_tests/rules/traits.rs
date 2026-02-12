@@ -3,8 +3,8 @@ fn test_traits_compile() {
     // Traits should compile - actual tests in reduction implementations
 }
 
+use crate::rules::traits::{ReduceToV2, ReductionResultV2};
 use crate::traits::ProblemV2;
-use crate::rules::traits::{ReductionResultV2, ReduceToV2};
 
 #[derive(Clone)]
 struct SourceProblem;

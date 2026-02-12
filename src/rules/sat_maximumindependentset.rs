@@ -9,12 +9,12 @@
 //! where we pick exactly one literal from each clause.
 
 use crate::models::graph::MaximumIndependentSet;
-use crate::topology::SimpleGraph;
 use crate::models::satisfiability::Satisfiability;
 use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::ProblemSize;
 use num_traits::{Num, Zero};

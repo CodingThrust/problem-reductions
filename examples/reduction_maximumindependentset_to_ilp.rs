@@ -30,8 +30,15 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: MaximumIndependentSet with {} variables", is.num_variables());
-    println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
+    println!(
+        "Source: MaximumIndependentSet with {} variables",
+        is.num_variables()
+    );
+    println!(
+        "Target: ILP with {} variables, {} constraints",
+        ilp.num_vars,
+        ilp.constraints.len()
+    );
 
     // 4. Solve target ILP (uses BruteForceFloat since ILP has f64 objective)
     let solver = BruteForce::new();

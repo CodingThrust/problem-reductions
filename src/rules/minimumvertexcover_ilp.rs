@@ -6,9 +6,9 @@
 //! - Objective: Minimize the sum of weights of selected vertices
 
 use crate::models::graph::MinimumVertexCover;
-use crate::topology::SimpleGraph;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::ProblemSize;
 

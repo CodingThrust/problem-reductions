@@ -66,8 +66,8 @@ fn main() {
     }
 
     // Export JSON
-    let overhead = lookup_overhead("QUBO", "SpinGlass")
-        .expect("QUBO -> SpinGlass overhead not found");
+    let overhead =
+        lookup_overhead("QUBO", "SpinGlass").expect("QUBO -> SpinGlass overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

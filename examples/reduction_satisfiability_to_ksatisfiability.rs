@@ -31,7 +31,7 @@ fn main() {
     let sat = Satisfiability::<i32>::new(
         5,
         vec![
-            CNFClause::new(vec![1]),              // 1 literal - will be padded
+            CNFClause::new(vec![1]),               // 1 literal - will be padded
             CNFClause::new(vec![2, -3]),           // 2 literals - will be padded
             CNFClause::new(vec![-1, 3, 4]),        // 3 literals - no change
             CNFClause::new(vec![2, -4, 5]),        // 3 literals - no change
@@ -44,7 +44,11 @@ fn main() {
     println!("Source SAT formula: 5-variable, 6-clause SAT with mixed clause sizes");
     println!("  (x1) ^ (x2 v ~x3) ^ (~x1 v x3 v x4) ^ (x2 v ~x4 v x5) ^");
     println!("  (x1 v ~x2 v x3 v ~x5) ^ (~x1 v x2 v ~x3 v x4 v x5)");
-    println!("  {} variables, {} clauses", sat.num_vars(), sat.num_clauses());
+    println!(
+        "  {} variables, {} clauses",
+        sat.num_vars(),
+        sat.num_clauses()
+    );
     println!("  Clause sizes: 1, 2, 3, 3, 4, 5 (demonstrates padding and splitting)");
 
     // 2. Reduce to 3-SAT (K=3)
@@ -52,13 +56,20 @@ fn main() {
     let ksat = reduction.target_problem();
 
     println!("\n=== Problem Transformation ===");
-    println!("Source: Satisfiability with {} variables, {} clauses", sat.num_vars(), sat.num_clauses());
+    println!(
+        "Source: Satisfiability with {} variables, {} clauses",
+        sat.num_vars(),
+        sat.num_clauses()
+    );
     println!(
         "Target: 3-SAT with {} variables, {} clauses",
         ksat.num_vars(),
         ksat.num_clauses()
     );
-    println!("  Additional variables: {} (ancilla/auxiliary)", ksat.num_vars() - sat.num_vars());
+    println!(
+        "  Additional variables: {} (ancilla/auxiliary)",
+        ksat.num_vars() - sat.num_vars()
+    );
     println!("  1-literal (x1) padded: (x1 v a v b) ^ (x1 v a v ~b) ^ ... ");
     println!("  2-literal (x2 v ~x3) padded similarly with auxiliary variables");
     println!("  4-literal (x1 v ~x2 v x3 v ~x5) split: two 3-literal clauses");

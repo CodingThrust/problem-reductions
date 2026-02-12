@@ -186,8 +186,7 @@ fn test_complex_formula_structure() {
 #[test]
 fn test_single_literal_clauses() {
     // (x1) AND (x2) - both must be true
-    let sat =
-        Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![2])]);
+    let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![2])]);
 
     let reduction = ReduceTo::<KColoring<3, SimpleGraph, i32>>::reduce_to(&sat);
     let coloring = reduction.target_problem();

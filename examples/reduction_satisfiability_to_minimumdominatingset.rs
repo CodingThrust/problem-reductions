@@ -22,13 +22,13 @@ fn main() {
     let sat = Satisfiability::<i32>::new(
         5,
         vec![
-            CNFClause::new(vec![1, 2, -3]),    // x1 v x2 v ~x3
-            CNFClause::new(vec![-1, 3, 4]),    // ~x1 v x3 v x4
-            CNFClause::new(vec![2, -4, 5]),    // x2 v ~x4 v x5
-            CNFClause::new(vec![-2, 3, -5]),   // ~x2 v x3 v ~x5
-            CNFClause::new(vec![1, -3, 5]),    // x1 v ~x3 v x5
-            CNFClause::new(vec![-1, -2, 4]),   // ~x1 v ~x2 v x4
-            CNFClause::new(vec![3, -4, -5]),   // x3 v ~x4 v ~x5
+            CNFClause::new(vec![1, 2, -3]),  // x1 v x2 v ~x3
+            CNFClause::new(vec![-1, 3, 4]),  // ~x1 v x3 v x4
+            CNFClause::new(vec![2, -4, 5]),  // x2 v ~x4 v x5
+            CNFClause::new(vec![-2, 3, -5]), // ~x2 v x3 v ~x5
+            CNFClause::new(vec![1, -3, 5]),  // x1 v ~x3 v x5
+            CNFClause::new(vec![-1, -2, 4]), // ~x1 v ~x2 v x4
+            CNFClause::new(vec![3, -4, -5]), // x3 v ~x4 v ~x5
         ],
     );
 
@@ -36,14 +36,21 @@ fn main() {
     println!("Source SAT formula: 5-variable, 7-clause 3-SAT");
     println!("  (x1 v x2 v ~x3) ^ (~x1 v x3 v x4) ^ (x2 v ~x4 v x5) ^");
     println!("  (~x2 v x3 v ~x5) ^ (x1 v ~x3 v x5) ^ (~x1 v ~x2 v x4) ^ (x3 v ~x4 v ~x5)");
-    println!("  {} variables, {} clauses", sat.num_vars(), sat.num_clauses());
+    println!(
+        "  {} variables, {} clauses",
+        sat.num_vars(),
+        sat.num_clauses()
+    );
 
     // 2. Reduce to Dominating Set
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
     let ds = reduction.target_problem();
 
     println!("\n=== Problem Transformation ===");
-    println!("Source: Satisfiability with {} variables", sat.num_variables());
+    println!(
+        "Source: Satisfiability with {} variables",
+        sat.num_variables()
+    );
     println!(
         "Target: MinimumDominatingSet with {} vertices, {} edges",
         ds.num_vertices(),
@@ -88,7 +95,10 @@ fn main() {
     // Note: Not all optimal DS solutions necessarily map back to valid SAT solutions
     // because some dominating sets may use dummy vertices. The important thing is that
     // at least one does, verifying the reduction's correctness.
-    assert!(valid_count > 0, "At least one DS solution must map to a valid SAT assignment");
+    assert!(
+        valid_count > 0,
+        "At least one DS solution must map to a valid SAT assignment"
+    );
 
     println!("\nReduction verified successfully");
 

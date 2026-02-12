@@ -32,8 +32,15 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: KColoring<3> with {} variables", coloring.num_variables());
-    println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
+    println!(
+        "Source: KColoring<3> with {} variables",
+        coloring.num_variables()
+    );
+    println!(
+        "Target: ILP with {} variables, {} constraints",
+        ilp.num_vars,
+        ilp.constraints.len()
+    );
 
     // 4. Solve target ILP using HiGHS solver (BruteForce on 30 vars is too slow)
     let solver = ILPSolver::new();
@@ -61,8 +68,8 @@ fn main() {
         target_config: ilp_solution,
     });
 
-    let overhead = lookup_overhead("KColoring", "ILP")
-        .expect("KColoring -> ILP overhead not found");
+    let overhead =
+        lookup_overhead("KColoring", "ILP").expect("KColoring -> ILP overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

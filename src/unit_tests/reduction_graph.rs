@@ -149,7 +149,8 @@ fn test_direct_reduction_exists() {
 
     assert!(graph.has_direct_reduction::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>());
     assert!(graph.has_direct_reduction::<MinimumVertexCover<SimpleGraph, i32>, MaximumIndependentSet<SimpleGraph, i32>>());
-    assert!(graph.has_direct_reduction::<MaximumIndependentSet<SimpleGraph, i32>, MaximumSetPacking<i32>>());
+    assert!(graph
+        .has_direct_reduction::<MaximumIndependentSet<SimpleGraph, i32>, MaximumSetPacking<i32>>());
     assert!(graph.has_direct_reduction::<SpinGlass<SimpleGraph, f64>, QUBO<f64>>());
     assert!(graph.has_direct_reduction::<SpinGlass<SimpleGraph, f64>, MaxCut<SimpleGraph, i32>>());
 }
@@ -171,7 +172,8 @@ fn test_find_indirect_path() {
     let paths = graph.find_paths::<MaximumSetPacking<i32>, MinimumVertexCover<SimpleGraph, i32>>();
     assert!(!paths.is_empty());
 
-    let shortest = graph.find_shortest_path::<MaximumSetPacking<i32>, MinimumVertexCover<SimpleGraph, i32>>();
+    let shortest =
+        graph.find_shortest_path::<MaximumSetPacking<i32>, MinimumVertexCover<SimpleGraph, i32>>();
     assert!(shortest.is_some());
     assert_eq!(shortest.unwrap().len(), 2);
 }
@@ -195,6 +197,10 @@ fn test_bidirectional_paths() {
         .find_paths::<MinimumVertexCover<SimpleGraph, i32>, MaximumIndependentSet<SimpleGraph, i32>>()
         .is_empty());
 
-    assert!(!graph.find_paths::<SpinGlass<SimpleGraph, f64>, QUBO<f64>>().is_empty());
-    assert!(!graph.find_paths::<QUBO<f64>, SpinGlass<SimpleGraph, f64>>().is_empty());
+    assert!(!graph
+        .find_paths::<SpinGlass<SimpleGraph, f64>, QUBO<f64>>()
+        .is_empty());
+    assert!(!graph
+        .find_paths::<QUBO<f64>, SpinGlass<SimpleGraph, f64>>()
+        .is_empty());
 }

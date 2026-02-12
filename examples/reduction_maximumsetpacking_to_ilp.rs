@@ -21,12 +21,12 @@ use problemreductions::solvers::BruteForceFloat;
 fn main() {
     // 1. Create MaximumSetPacking instance: 6 sets over universe {0,...,7}
     let sets = vec![
-        vec![0, 1, 2],    // S0
-        vec![2, 3, 4],    // S1 (overlaps S0 at 2)
-        vec![4, 5, 6],    // S2 (overlaps S1 at 4)
-        vec![6, 7, 0],    // S3 (overlaps S2 at 6, S0 at 0)
-        vec![1, 3, 5],    // S4 (overlaps S0, S1, S2)
-        vec![0, 4, 7],    // S5 (overlaps S0, S1, S3)
+        vec![0, 1, 2], // S0
+        vec![2, 3, 4], // S1 (overlaps S0 at 2)
+        vec![4, 5, 6], // S2 (overlaps S1 at 4)
+        vec![6, 7, 0], // S3 (overlaps S2 at 6, S0 at 0)
+        vec![1, 3, 5], // S4 (overlaps S0, S1, S2)
+        vec![0, 4, 7], // S5 (overlaps S0, S1, S3)
     ];
     let sp = MaximumSetPacking::<i32>::new(sets.clone());
 
@@ -36,11 +36,18 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: MaximumSetPacking with {} sets over universe {{0,...,7}}", sp.num_variables());
+    println!(
+        "Source: MaximumSetPacking with {} sets over universe {{0,...,7}}",
+        sp.num_variables()
+    );
     for (i, s) in sets.iter().enumerate() {
         println!("  S{} = {:?}", i, s);
     }
-    println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
+    println!(
+        "Target: ILP with {} variables, {} constraints",
+        ilp.num_vars,
+        ilp.constraints.len()
+    );
 
     // 4. Solve target ILP
     let solver = BruteForce::new();

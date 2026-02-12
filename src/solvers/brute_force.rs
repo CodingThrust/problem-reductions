@@ -183,10 +183,7 @@ use crate::traits::{OptimizationProblemV2, ProblemV2};
 use crate::types::{Direction, NumericSize};
 
 impl SolverV2 for BruteForce {
-    fn find_best_v2<P: OptimizationProblemV2>(
-        &self,
-        problem: &P,
-    ) -> Vec<Vec<usize>>
+    fn find_best_v2<P: OptimizationProblemV2>(&self, problem: &P) -> Vec<Vec<usize>>
     where
         P::Metric: NumericSize,
     {
@@ -226,10 +223,7 @@ impl SolverV2 for BruteForce {
         best_solutions
     }
 
-    fn find_satisfying<P: ProblemV2<Metric = bool>>(
-        &self,
-        problem: &P,
-    ) -> Option<Vec<usize>> {
+    fn find_satisfying<P: ProblemV2<Metric = bool>>(&self, problem: &P) -> Option<Vec<usize>> {
         let dims = problem.dims();
         if dims.is_empty() {
             return None;
@@ -238,10 +232,7 @@ impl SolverV2 for BruteForce {
         DimsIterator::new(dims).find(|config| problem.evaluate(config))
     }
 
-    fn find_all_satisfying<P: ProblemV2<Metric = bool>>(
-        &self,
-        problem: &P,
-    ) -> Vec<Vec<usize>> {
+    fn find_all_satisfying<P: ProblemV2<Metric = bool>>(&self, problem: &P) -> Vec<Vec<usize>> {
         let dims = problem.dims();
         if dims.is_empty() {
             return vec![];

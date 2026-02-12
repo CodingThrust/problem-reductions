@@ -129,7 +129,8 @@ fn test_vc_to_sc_empty_graph() {
 
 #[test]
 fn test_vc_to_sc_source_target_size() {
-    let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+    let vc_problem =
+        MinimumVertexCover::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
 
     let source_size = reduction.source_size();
@@ -165,7 +166,8 @@ fn test_vc_to_sc_star_graph() {
 #[test]
 fn test_vc_to_sc_all_solutions_valid() {
     // Ensure all solutions extracted from SC are valid VC solutions
-    let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]);
+    let vc_problem =
+        MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]);
     let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
     let sc_problem = reduction.target_problem();
 

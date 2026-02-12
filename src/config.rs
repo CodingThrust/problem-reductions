@@ -128,9 +128,19 @@ impl DimsIterator {
         let total_configs = if dims.is_empty() {
             0
         } else {
-            dims.iter().copied().try_fold(1usize, |acc, d| {
-                if d == 0 { None } else { acc.checked_mul(d) }
-            }).unwrap_or(0)
+            dims.iter()
+                .copied()
+                .try_fold(
+                    1usize,
+                    |acc, d| {
+                        if d == 0 {
+                            None
+                        } else {
+                            acc.checked_mul(d)
+                        }
+                    },
+                )
+                .unwrap_or(0)
         };
         let current = if total_configs == 0 {
             None

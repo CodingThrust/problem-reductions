@@ -321,7 +321,6 @@ where
     }
 }
 
-
 // === ProblemV2 implementation ===
 
 impl<const K: usize, W> crate::traits::ProblemV2 for KSatisfiability<K, W>

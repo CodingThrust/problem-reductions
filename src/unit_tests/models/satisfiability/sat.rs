@@ -316,10 +316,7 @@ fn test_sat_problem_v2() {
 
     let p = Satisfiability::<i32>::new(
         2,
-        vec![
-            CNFClause::new(vec![1, 2]),
-            CNFClause::new(vec![-1, 2]),
-        ],
+        vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 2])],
     );
 
     assert_eq!(p.dims(), vec![2, 2]);
@@ -344,10 +341,7 @@ fn test_sat_problem_v2_empty_formula() {
 fn test_sat_problem_v2_single_literal() {
     use crate::traits::ProblemV2;
 
-    let p = Satisfiability::<i32>::new(
-        2,
-        vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])],
-    );
+    let p = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])]);
     assert_eq!(p.dims(), vec![2, 2]);
     assert!(p.evaluate(&[1, 0]));
     assert!(!p.evaluate(&[0, 0]));

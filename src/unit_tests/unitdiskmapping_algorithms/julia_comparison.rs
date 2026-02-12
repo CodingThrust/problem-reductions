@@ -5,9 +5,7 @@
 //! - Weighted (square lattice with weights)
 //! - Triangular (triangular lattice with weights)
 
-use crate::rules::unitdiskmapping::{
-    map_graph_triangular_with_order, map_graph_with_order,
-};
+use crate::rules::unitdiskmapping::{map_graph_triangular_with_order, map_graph_with_order};
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::fs;

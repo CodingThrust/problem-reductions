@@ -12,8 +12,7 @@ fn test_clique_creation() {
 
 #[test]
 fn test_clique_with_weights() {
-    let problem =
-        MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
+    let problem = MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
     assert_eq!(problem.weights(), vec![1, 2, 3]);
     assert!(problem.is_weighted());
 }
@@ -74,8 +73,11 @@ fn test_solution_size_empty() {
 
 #[test]
 fn test_weighted_solution() {
-    let problem =
-        MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1), (1, 2), (0, 2)], vec![10, 20, 30]);
+    let problem = MaximumClique::<SimpleGraph, i32>::with_weights(
+        3,
+        vec![(0, 1), (1, 2), (0, 2)],
+        vec![10, 20, 30],
+    );
 
     // Select vertex 2 (weight 30)
     let sol = problem.solution_size(&[0, 0, 1]);
@@ -98,8 +100,7 @@ fn test_constraints() {
 
 #[test]
 fn test_objectives() {
-    let problem =
-        MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
+    let problem = MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
     let objectives = problem.objectives();
     assert_eq!(objectives.len(), 3); // One per vertex
 }
@@ -107,8 +108,7 @@ fn test_objectives() {
 #[test]
 fn test_brute_force_triangle() {
     // Triangle graph (K3): max clique is all 3 vertices
-    let problem =
-        MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -153,7 +153,11 @@ fn test_brute_force_weighted() {
 fn test_is_clique_function() {
     // Triangle
     assert!(is_clique(3, &[(0, 1), (1, 2), (0, 2)], &[true, true, true]));
-    assert!(is_clique(3, &[(0, 1), (1, 2), (0, 2)], &[true, true, false]));
+    assert!(is_clique(
+        3,
+        &[(0, 1), (1, 2), (0, 2)],
+        &[true, true, false]
+    ));
 
     // Path - not all pairs adjacent
     assert!(!is_clique(3, &[(0, 1), (1, 2)], &[true, false, true]));
@@ -245,8 +249,7 @@ fn test_variant() {
 
 #[test]
 fn test_weights_ref() {
-    let problem =
-        MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
+    let problem = MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
     assert_eq!(problem.weights_ref(), &vec![5, 10, 15]);
 }
 

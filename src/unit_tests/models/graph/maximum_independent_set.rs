@@ -104,8 +104,7 @@ fn test_objectives() {
 #[test]
 fn test_brute_force_triangle() {
     // Triangle graph: maximum IS has size 1
-    let problem =
-        MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -136,8 +135,11 @@ fn test_brute_force_path() {
 #[test]
 fn test_brute_force_weighted() {
     // Graph with weights: vertex 1 has high weight but is connected to both 0 and 2
-    let problem =
-        MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1), (1, 2)], vec![1, 100, 1]);
+    let problem = MaximumIndependentSet::<SimpleGraph, i32>::with_weights(
+        3,
+        vec![(0, 1), (1, 2)],
+        vec![1, 100, 1],
+    );
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -217,7 +219,8 @@ fn test_is_satisfied() {
 #[test]
 fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MaximumIndependentSet::<SimpleGraph, i32>::from_graph(graph.clone(), vec![1, 2, 3]);
+    let problem =
+        MaximumIndependentSet::<SimpleGraph, i32>::from_graph(graph.clone(), vec![1, 2, 3]);
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.weights(), vec![1, 2, 3]);
 }
@@ -277,10 +280,7 @@ fn test_mis_unweighted_v2() {
     use crate::traits::ProblemV2;
 
     // Unweighted MIS uses i32 weight type with unit weights
-    let p = MaximumIndependentSet::<SimpleGraph, i32>::new(
-        3,
-        vec![(0, 1), (1, 2), (0, 2)],
-    );
+    let p = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     assert_eq!(p.dims(), vec![2, 2, 2]);
     assert_eq!(p.evaluate(&[1, 0, 0]), 1);
     assert_eq!(p.evaluate(&[0, 0, 0]), 0);

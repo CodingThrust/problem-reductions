@@ -154,8 +154,7 @@ fn test_complete_graph_k4() {
 #[test]
 fn test_bipartite_graph() {
     // Complete bipartite K_{2,2}: max cut is all 4 edges
-    let problem =
-        MaxCut::<SimpleGraph, i32>::unweighted(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
+    let problem = MaxCut::<SimpleGraph, i32>::unweighted(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -203,8 +202,7 @@ fn test_graph_accessor() {
 
 #[test]
 fn test_with_weights() {
-    let problem =
-        MaxCut::<SimpleGraph, i32>::with_weights(3, vec![(0, 1), (1, 2)], vec![7, 3]);
+    let problem = MaxCut::<SimpleGraph, i32>::with_weights(3, vec![(0, 1), (1, 2)], vec![7, 3]);
     assert_eq!(problem.edge_weights(), vec![7, 3]);
 }
 

@@ -151,10 +151,7 @@ where
     const NAME: &'static str = "MaximumClique";
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", G::NAME),
-            ("weight", short_type_name::<W>()),
-        ]
+        vec![("graph", G::NAME), ("weight", short_type_name::<W>())]
     }
 
     type Size = W;

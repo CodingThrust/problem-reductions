@@ -22,13 +22,13 @@ fn main() {
     let sat = Satisfiability::<i32>::new(
         5,
         vec![
-            CNFClause::new(vec![1, 2, -3]),    // x1 v x2 v ~x3
-            CNFClause::new(vec![-1, 3, 4]),    // ~x1 v x3 v x4
-            CNFClause::new(vec![2, -4, 5]),    // x2 v ~x4 v x5
-            CNFClause::new(vec![-2, 3, -5]),   // ~x2 v x3 v ~x5
-            CNFClause::new(vec![1, -3, 5]),    // x1 v ~x3 v x5
-            CNFClause::new(vec![-1, -2, 4]),   // ~x1 v ~x2 v x4
-            CNFClause::new(vec![3, -4, -5]),   // x3 v ~x4 v ~x5
+            CNFClause::new(vec![1, 2, -3]),  // x1 v x2 v ~x3
+            CNFClause::new(vec![-1, 3, 4]),  // ~x1 v x3 v x4
+            CNFClause::new(vec![2, -4, 5]),  // x2 v ~x4 v x5
+            CNFClause::new(vec![-2, 3, -5]), // ~x2 v x3 v ~x5
+            CNFClause::new(vec![1, -3, 5]),  // x1 v ~x3 v x5
+            CNFClause::new(vec![-1, -2, 4]), // ~x1 v ~x2 v x4
+            CNFClause::new(vec![3, -4, -5]), // x3 v ~x4 v ~x5
         ],
     );
 
@@ -36,14 +36,21 @@ fn main() {
     println!("Source SAT formula: 5-variable, 7-clause 3-SAT");
     println!("  (x1 v x2 v ~x3) ^ (~x1 v x3 v x4) ^ (x2 v ~x4 v x5) ^");
     println!("  (~x2 v x3 v ~x5) ^ (x1 v ~x3 v x5) ^ (~x1 v ~x2 v x4) ^ (x3 v ~x4 v ~x5)");
-    println!("  {} variables, {} clauses", sat.num_vars(), sat.num_clauses());
+    println!(
+        "  {} variables, {} clauses",
+        sat.num_vars(),
+        sat.num_clauses()
+    );
 
     // 2. Reduce to Independent Set
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
     let is = reduction.target_problem();
 
     println!("\n=== Problem Transformation ===");
-    println!("Source: Satisfiability with {} variables", sat.num_variables());
+    println!(
+        "Source: Satisfiability with {} variables",
+        sat.num_variables()
+    );
     println!(
         "Target: MaximumIndependentSet with {} vertices, {} edges",
         is.num_vertices(),

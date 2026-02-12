@@ -21,12 +21,12 @@ use problemreductions::solvers::BruteForceFloat;
 fn main() {
     // 1. Create MinimumSetCovering instance: universe {0,...,7}, 6 sets
     let sets = vec![
-        vec![0, 1, 2],    // S0
-        vec![2, 3, 4],    // S1
-        vec![4, 5, 6],    // S2
-        vec![6, 7, 0],    // S3
-        vec![1, 3, 5],    // S4
-        vec![0, 4, 7],    // S5
+        vec![0, 1, 2], // S0
+        vec![2, 3, 4], // S1
+        vec![4, 5, 6], // S2
+        vec![6, 7, 0], // S3
+        vec![1, 3, 5], // S4
+        vec![0, 4, 7], // S5
     ];
     let sc = MinimumSetCovering::<i32>::new(8, sets.clone());
 
@@ -36,11 +36,18 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: MinimumSetCovering with {} sets over universe {{0,...,7}}", sc.num_variables());
+    println!(
+        "Source: MinimumSetCovering with {} sets over universe {{0,...,7}}",
+        sc.num_variables()
+    );
     for (i, s) in sets.iter().enumerate() {
         println!("  S{} = {:?}", i, s);
     }
-    println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
+    println!(
+        "Target: ILP with {} variables, {} constraints",
+        ilp.num_vars,
+        ilp.constraints.len()
+    );
 
     // 4. Solve target ILP
     let solver = BruteForce::new();

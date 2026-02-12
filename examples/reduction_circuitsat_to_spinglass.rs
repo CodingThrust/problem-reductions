@@ -84,7 +84,10 @@ fn main() {
     let solver = BruteForce::new();
     let sg_solutions = solver.find_best(sg);
     println!("\n=== Solution ===");
-    println!("Target SpinGlass ground states found: {}", sg_solutions.len());
+    println!(
+        "Target SpinGlass ground states found: {}",
+        sg_solutions.len()
+    );
 
     // 4. Extract and verify source solutions
     println!("\nAll extracted CircuitSAT solutions:");
@@ -118,7 +121,10 @@ fn main() {
         valid_count,
         sg_solutions.len()
     );
-    assert!(valid_count > 0, "At least one ground state must be a valid circuit assignment");
+    assert!(
+        valid_count > 0,
+        "At least one ground state must be a valid circuit assignment"
+    );
 
     println!("\nReduction verified successfully");
 

@@ -44,13 +44,13 @@ fn main() {
 
     // 7 clauses over 5 variables
     let clauses = vec![
-        CNFClause::new(vec![1, 2, -3]),   // x1 OR x2 OR NOT x3
-        CNFClause::new(vec![-1, 3, 4]),   // NOT x1 OR x3 OR x4
-        CNFClause::new(vec![2, -4, 5]),   // x2 OR NOT x4 OR x5
-        CNFClause::new(vec![-2, 3, -5]),  // NOT x2 OR x3 OR NOT x5
-        CNFClause::new(vec![1, -3, 5]),   // x1 OR NOT x3 OR x5
-        CNFClause::new(vec![-1, -2, 4]),  // NOT x1 OR NOT x2 OR x4
-        CNFClause::new(vec![3, -4, -5]),  // x3 OR NOT x4 OR NOT x5
+        CNFClause::new(vec![1, 2, -3]),  // x1 OR x2 OR NOT x3
+        CNFClause::new(vec![-1, 3, 4]),  // NOT x1 OR x3 OR x4
+        CNFClause::new(vec![2, -4, 5]),  // x2 OR NOT x4 OR x5
+        CNFClause::new(vec![-2, 3, -5]), // NOT x2 OR x3 OR NOT x5
+        CNFClause::new(vec![1, -3, 5]),  // x1 OR NOT x3 OR x5
+        CNFClause::new(vec![-1, -2, 4]), // NOT x1 OR NOT x2 OR x4
+        CNFClause::new(vec![3, -4, -5]), // x3 OR NOT x4 OR NOT x5
     ];
     let clause_strings = [
         "x1 OR x2 OR NOT x3".to_string(),
@@ -90,7 +90,13 @@ fn main() {
         let extracted = reduction.extract_solution(sol);
         let assignment: Vec<String> = extracted
             .iter()
-            .map(|&x| if x == 1 { "ON".to_string() } else { "OFF".to_string() })
+            .map(|&x| {
+                if x == 1 {
+                    "ON".to_string()
+                } else {
+                    "OFF".to_string()
+                }
+            })
             .collect();
         let satisfied = ksat.solution_size(&extracted).size;
         println!(

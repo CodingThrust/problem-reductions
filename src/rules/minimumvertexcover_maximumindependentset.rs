@@ -3,11 +3,11 @@
 //! These problems are complements: a set S is an independent set iff V\S is a vertex cover.
 
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
-use crate::topology::SimpleGraph;
 use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::ProblemSize;
 use num_traits::{Num, Zero};

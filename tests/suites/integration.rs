@@ -17,7 +17,8 @@ mod all_problems_solvable {
 
     #[test]
     fn test_independent_set_solvable() {
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
@@ -58,7 +59,8 @@ mod all_problems_solvable {
 
     #[test]
     fn test_dominating_set_solvable() {
-        let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem =
+            MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
@@ -80,7 +82,8 @@ mod all_problems_solvable {
 
     #[test]
     fn test_matching_solvable() {
-        let problem = MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
+        let problem =
+            MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
@@ -125,7 +128,8 @@ mod all_problems_solvable {
 
     #[test]
     fn test_set_covering_solvable() {
-        let problem = MinimumSetCovering::<i32>::new(5, vec![vec![0, 1, 2], vec![2, 3, 4], vec![0, 4]]);
+        let problem =
+            MinimumSetCovering::<i32>::new(5, vec![vec![0, 1, 2], vec![2, 3, 4], vec![0, 4]]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
@@ -136,7 +140,8 @@ mod all_problems_solvable {
 
     #[test]
     fn test_set_packing_solvable() {
-        let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![1, 2], vec![4]]);
+        let problem =
+            MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![1, 2], vec![4]]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());

@@ -4,7 +4,8 @@ use crate::solvers::{BruteForce, Solver};
 #[test]
 fn test_is_to_setpacking() {
     // Triangle graph
-    let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let is_problem =
+        MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);
     let sp_problem = reduction.target_problem();
 
@@ -56,7 +57,8 @@ fn test_roundtrip_is_sp_is() {
     // IS -> SP -> IS
     let reduction1 = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&original);
     let sp = reduction1.target_problem().clone();
-    let reduction2: ReductionSPToIS<i32> = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sp);
+    let reduction2: ReductionSPToIS<i32> =
+        ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sp);
     let roundtrip = reduction2.target_problem();
 
     let roundtrip_solutions = solver.find_best(roundtrip);

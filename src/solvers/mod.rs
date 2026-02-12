@@ -36,23 +36,13 @@ pub trait SolverV2 {
     /// Find best solution(s) for an optimization problem.
     ///
     /// Returns all configurations that achieve the optimal metric value.
-    fn find_best_v2<P: OptimizationProblemV2>(
-        &self,
-        problem: &P,
-    ) -> Vec<Vec<usize>>
+    fn find_best_v2<P: OptimizationProblemV2>(&self, problem: &P) -> Vec<Vec<usize>>
     where
         P::Metric: crate::types::NumericSize;
 
     /// Find any satisfying solution for a satisfaction problem (Metric = bool).
-    fn find_satisfying<P: ProblemV2<Metric = bool>>(
-        &self,
-        problem: &P,
-    ) -> Option<Vec<usize>>;
+    fn find_satisfying<P: ProblemV2<Metric = bool>>(&self, problem: &P) -> Option<Vec<usize>>;
 
     /// Find all satisfying solutions for a satisfaction problem (Metric = bool).
-    fn find_all_satisfying<P: ProblemV2<Metric = bool>>(
-        &self,
-        problem: &P,
-    ) -> Vec<Vec<usize>>;
+    fn find_all_satisfying<P: ProblemV2<Metric = bool>>(&self, problem: &P) -> Vec<Vec<usize>>;
 }
-

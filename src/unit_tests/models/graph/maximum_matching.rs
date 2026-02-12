@@ -3,7 +3,8 @@ use crate::solvers::{BruteForce, Solver};
 
 #[test]
 fn test_matching_creation() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 3)]);
+    let problem =
+        MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 3)]);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.num_variables(), 3);
@@ -25,7 +26,8 @@ fn test_edge_endpoints() {
 
 #[test]
 fn test_is_valid_matching() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 1), (2, 3, 1)]);
+    let problem =
+        MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 1), (2, 3, 1)]);
 
     // Valid: select edge 0 only
     assert!(problem.is_valid_matching(&[1, 0, 0]));
@@ -39,7 +41,8 @@ fn test_is_valid_matching() {
 
 #[test]
 fn test_solution_size() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 5), (1, 2, 10), (2, 3, 3)]);
+    let problem =
+        MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 5), (1, 2, 10), (2, 3, 3)]);
 
     let sol = problem.solution_size(&[1, 0, 1]);
     assert!(sol.is_valid);
@@ -80,7 +83,8 @@ fn test_brute_force_triangle() {
 #[test]
 fn test_brute_force_weighted() {
     // Prefer heavy edge even if it excludes more edges
-    let problem = MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 100), (0, 2, 1), (1, 3, 1)]);
+    let problem =
+        MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 100), (0, 2, 1), (1, 3, 1)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);

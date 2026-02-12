@@ -58,7 +58,10 @@ fn main() {
             "  Solution {}: target={:?} (size={}), source={:?} (size={}, valid={})",
             i, target_sol, target_size.size, source_sol, source_size.size, source_size.is_valid
         );
-        assert!(source_size.is_valid, "Extracted source solution must be valid");
+        assert!(
+            source_size.is_valid,
+            "Extracted source solution must be valid"
+        );
 
         solutions.push(SolutionPair {
             source_config: source_sol,

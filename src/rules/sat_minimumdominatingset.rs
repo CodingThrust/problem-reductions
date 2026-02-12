@@ -16,12 +16,12 @@
 
 use crate::models::graph::MinimumDominatingSet;
 use crate::models::satisfiability::Satisfiability;
-use crate::topology::SimpleGraph;
 use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::ProblemSize;
 use num_traits::{Num, Zero};

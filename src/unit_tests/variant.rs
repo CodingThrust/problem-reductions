@@ -31,11 +31,12 @@ fn test_const_usize_str() {
 #[test]
 fn test_variant_for_problems() {
     use crate::models::graph::{
-        MinimumDominatingSet, MaximumIndependentSet, KColoring, MaximumMatching, MaxCut, MaximalIS, MinimumVertexCover,
+        KColoring, MaxCut, MaximalIS, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
+        MinimumVertexCover,
     };
     use crate::models::optimization::{SpinGlass, QUBO};
     use crate::models::satisfiability::{KSatisfiability, Satisfiability};
-    use crate::models::set::{MinimumSetCovering, MaximumSetPacking};
+    use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
     use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
     use crate::topology::SimpleGraph;
     use crate::traits::Problem;

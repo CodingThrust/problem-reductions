@@ -77,8 +77,11 @@ fn test_brute_force_simple() {
 #[test]
 fn test_brute_force_weighted() {
     // Prefer lighter sets
-    let problem =
-        MinimumSetCovering::with_weights(3, vec![vec![0, 1, 2], vec![0, 1], vec![2]], vec![10, 3, 3]);
+    let problem = MinimumSetCovering::with_weights(
+        3,
+        vec![vec![0, 1, 2], vec![0, 1], vec![2]],
+        vec![10, 3, 3],
+    );
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);

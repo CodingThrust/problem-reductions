@@ -76,8 +76,14 @@ fn main() {
     let source_size = source.solution_size(&source_sol);
     let target_size = target.solution_size(target_sol);
 
-    assert_eq!(source_size.size, 4, "IS on Petersen graph has optimal size 4");
-    assert_eq!(target_size.size, 4, "MaximumSetPacking should also have size 4");
+    assert_eq!(
+        source_size.size, 4,
+        "IS on Petersen graph has optimal size 4"
+    );
+    assert_eq!(
+        target_size.size, 4,
+        "MaximumSetPacking should also have size 4"
+    );
 
     // Export JSON
     let overhead = lookup_overhead("MaximumIndependentSet", "MaximumSetPacking")

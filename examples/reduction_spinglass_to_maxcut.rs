@@ -62,8 +62,8 @@ fn main() {
     println!("\nReduction verified successfully");
 
     // Export JSON
-    let overhead = lookup_overhead("SpinGlass", "MaxCut")
-        .expect("SpinGlass -> MaxCut overhead not found");
+    let overhead =
+        lookup_overhead("SpinGlass", "MaxCut").expect("SpinGlass -> MaxCut overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

@@ -144,7 +144,8 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_source_and_target_size() {
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+    let problem =
+        MinimumVertexCover::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
     let source_size = reduction.source_size();
@@ -181,8 +182,10 @@ fn test_empty_graph() {
 #[test]
 fn test_complete_graph() {
     // Complete graph K4: min VC = 3 (all but one vertex)
-    let problem =
-        MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+    let problem = MinimumVertexCover::<SimpleGraph, i32>::new(
+        4,
+        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+    );
     let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -216,7 +219,8 @@ fn test_solve_reduced() {
 fn test_bipartite_graph() {
     // Bipartite graph: 0-2, 0-3, 1-2, 1-3 (complete bipartite K_{2,2})
     // Min VC = 2 (either side of the bipartition)
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
+    let problem =
+        MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
     let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -258,7 +262,8 @@ fn test_single_edge() {
 fn test_star_graph() {
     // Star graph: center vertex 0 connected to all others
     // Min VC = 1 (just the center)
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]);
+    let problem =
+        MinimumVertexCover::<SimpleGraph, i32>::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]);
     let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 

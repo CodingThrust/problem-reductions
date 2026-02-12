@@ -39,7 +39,11 @@ pub struct LogicGadget<W> {
 
 impl<W> LogicGadget<W> {
     /// Create a new logic gadget.
-    pub fn new(problem: SpinGlass<SimpleGraph, W>, inputs: Vec<usize>, outputs: Vec<usize>) -> Self {
+    pub fn new(
+        problem: SpinGlass<SimpleGraph, W>,
+        inputs: Vec<usize>,
+        outputs: Vec<usize>,
+    ) -> Self {
         Self {
             problem,
             inputs,

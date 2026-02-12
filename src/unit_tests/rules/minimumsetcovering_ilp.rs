@@ -78,8 +78,11 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     // Universe: {0,1,2}, Sets: S0={0,1,2}, S1={0,1}, S2={2}
     // Weights: [10, 3, 3]
     // Optimal: select S1 and S2 (weight 6) instead of S0 (weight 10)
-    let problem =
-        MinimumSetCovering::with_weights(3, vec![vec![0, 1, 2], vec![0, 1], vec![2]], vec![10, 3, 3]);
+    let problem = MinimumSetCovering::with_weights(
+        3,
+        vec![vec![0, 1, 2], vec![0, 1], vec![2]],
+        vec![10, 3, 3],
+    );
     let reduction: ReductionSCToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 

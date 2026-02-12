@@ -30,8 +30,14 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: MaximumIndependentSet with {} variables", is.num_variables());
-    println!("Target: MinimumVertexCover with {} variables", vc.num_variables());
+    println!(
+        "Source: MaximumIndependentSet with {} variables",
+        is.num_variables()
+    );
+    println!(
+        "Target: MinimumVertexCover with {} variables",
+        vc.num_variables()
+    );
 
     // 4. Solve target
     let solver = BruteForce::new();

@@ -340,7 +340,6 @@ where
     }
 }
 
-
 // === ProblemV2 implementation ===
 
 impl<W> crate::traits::ProblemV2 for Satisfiability<W>

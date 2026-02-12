@@ -183,8 +183,7 @@ fn test_solver_v2_with_real_mis() {
     use crate::traits::ProblemV2;
 
     // Triangle graph: MIS = 1
-    let problem =
-        MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
     let best = solver.find_best_v2(&problem);

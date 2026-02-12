@@ -196,7 +196,8 @@ fn test_problem_size() {
 #[test]
 fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumDominatingSet::<SimpleGraph, i32>::from_graph(graph.clone(), vec![1, 2, 3]);
+    let problem =
+        MinimumDominatingSet::<SimpleGraph, i32>::from_graph(graph.clone(), vec![1, 2, 3]);
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.weights(), vec![1, 2, 3]);
 

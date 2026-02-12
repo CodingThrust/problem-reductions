@@ -27,16 +27,20 @@ fn main() {
     let sat = Satisfiability::<i32>::new(
         5,
         vec![
-            CNFClause::new(vec![1]),     // x1 (unit clause)
-            CNFClause::new(vec![-3]),    // ~x3 (unit clause)
-            CNFClause::new(vec![5]),     // x5 (unit clause)
+            CNFClause::new(vec![1]),  // x1 (unit clause)
+            CNFClause::new(vec![-3]), // ~x3 (unit clause)
+            CNFClause::new(vec![5]),  // x5 (unit clause)
         ],
     );
 
     println!("=== SAT to 3-Coloring Reduction (Garey & Johnson 1979) ===\n");
     println!("Source SAT formula: 5-variable, 3-clause SAT (unit clauses to fit BruteForce)");
     println!("  (x1) ^ (~x3) ^ (x5)");
-    println!("  {} variables, {} clauses", sat.num_vars(), sat.num_clauses());
+    println!(
+        "  {} variables, {} clauses",
+        sat.num_vars(),
+        sat.num_clauses()
+    );
     println!("  (Unit clauses avoid OR-gadgets, keeping vertex count manageable for BruteForce)");
 
     // 2. Reduce to 3-Coloring
@@ -45,7 +49,10 @@ fn main() {
     let coloring = reduction.target_problem();
 
     println!("\n=== Problem Transformation ===");
-    println!("Source: Satisfiability with {} variables", sat.num_variables());
+    println!(
+        "Source: Satisfiability with {} variables",
+        sat.num_variables()
+    );
     println!(
         "Target: 3-Coloring with {} vertices, {} edges",
         coloring.num_vertices(),
@@ -59,7 +66,10 @@ fn main() {
     let solver = BruteForce::new();
     let coloring_solutions = solver.find_best(coloring);
     println!("\n=== Solution ===");
-    println!("Target 3-Coloring solutions found: {}", coloring_solutions.len());
+    println!(
+        "Target 3-Coloring solutions found: {}",
+        coloring_solutions.len()
+    );
 
     // 4. Extract and verify source solutions
     let sat_solution = reduction.extract_solution(&coloring_solutions[0]);

@@ -29,8 +29,14 @@ fn main() {
     let is = reduction.target_problem();
 
     println!("\n=== Problem Transformation ===");
-    println!("Source: MinimumVertexCover with {} variables", vc.num_variables());
-    println!("Target: MaximumIndependentSet with {} variables", is.num_variables());
+    println!(
+        "Source: MinimumVertexCover with {} variables",
+        vc.num_variables()
+    );
+    println!(
+        "Target: MaximumIndependentSet with {} variables",
+        is.num_variables()
+    );
 
     let solver = BruteForce::new();
     let is_solutions = solver.find_best(is);
