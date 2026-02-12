@@ -74,7 +74,7 @@ let sp_sol = r1.extract_solution(&is_sol);
 
 ## Solvers
 
-Two solvers are available:
+Two solvers for testing purposes are available:
 
 | Solver | Use Case | Notes |
 |--------|----------|-------|
@@ -94,17 +94,9 @@ problemreductions = { version = "0.1", features = ["ilp"] }
 
 The library exports machine-readable metadata useful for tooling and research:
 
-| File | Contents | Use Case |
-|------|----------|----------|
-| [`reduction_graph.json`](reductions/reduction_graph.json) | All problem variants and reduction edges | Visualization, path finding, research |
-| [`problem_schemas.json`](reductions/problem_schemas.json) | Field definitions for each problem type | Code generation, validation |
+- [reduction_graph.json](reductions/reduction_graph.json) lists all problem variants and reduction edges
+- [problem_schemas.json](reductions/problem_schemas.json) lists field definitions for each problem type
 
-Generate locally:
-
-```bash
-cargo run --example export_graph    # reduction_graph.json
-cargo run --example export_schemas  # problem_schemas.json
-```
 
 ## Next Steps
 
