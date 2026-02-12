@@ -113,6 +113,35 @@ pub fn csp_solution_size<P: ConstraintSatisfactionProblem>(
     SolutionSize::new(size, is_valid)
 }
 
+// === V2 traits (new simplified trait system) ===
+
+use crate::types::Direction;
+
+/// Minimal problem trait — a problem is a function from configuration to metric.
+pub trait ProblemV2: Clone {
+    /// Base name of this problem type.
+    const NAME: &'static str;
+    /// The evaluation metric type.
+    type Metric: Clone;
+    /// Configuration space dimensions. Each entry is the cardinality of that variable.
+    fn dims(&self) -> Vec<usize>;
+    /// Evaluate the problem on a configuration.
+    fn evaluate(&self, config: &[usize]) -> Self::Metric;
+    /// Number of variables (derived from dims).
+    fn num_variables(&self) -> usize {
+        self.dims().len()
+    }
+}
+
+/// Extension for problems with a numeric objective to optimize.
+pub trait OptimizationProblemV2: ProblemV2
+where
+    Self::Metric: crate::types::NumericSize,
+{
+    /// Whether to maximize or minimize the metric.
+    fn direction(&self) -> Direction;
+}
+
 #[cfg(test)]
 #[path = "unit_tests/traits.rs"]
 mod tests;

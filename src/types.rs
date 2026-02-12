@@ -129,6 +129,15 @@ impl std::fmt::Display for Unweighted {
     }
 }
 
+/// Optimization direction.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Direction {
+    /// Maximize the objective value.
+    Maximize,
+    /// Minimize the objective value.
+    Minimize,
+}
+
 /// Specifies whether larger or smaller objective values are better.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum EnergyMode {

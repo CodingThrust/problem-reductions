@@ -427,3 +427,70 @@ fn test_batch_evaluation_with_multi_flavor() {
     assert_eq!(results[2].size, 4);
     assert_eq!(results[3].size, 2);
 }
+
+// === ProblemV2 / OptimizationProblemV2 tests ===
+
+use crate::types::{Direction, Weights};
+
+#[derive(Clone)]
+struct TestSatProblem {
+    num_vars: usize,
+    satisfying: Vec<Vec<usize>>,
+}
+
+impl crate::traits::ProblemV2 for TestSatProblem {
+    const NAME: &'static str = "TestSat";
+    type Metric = bool;
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+    fn evaluate(&self, config: &[usize]) -> bool {
+        self.satisfying.iter().any(|s| s == config)
+    }
+}
+
+#[test]
+fn test_problem_v2_sat() {
+    let p = TestSatProblem {
+        num_vars: 2,
+        satisfying: vec![vec![1, 0], vec![0, 1]],
+    };
+    assert_eq!(p.dims(), vec![2, 2]);
+    assert!(p.evaluate(&[1, 0]));
+    assert!(!p.evaluate(&[0, 0]));
+}
+
+#[derive(Clone)]
+struct TestOptProblem {
+    weights: Vec<i32>,
+}
+
+impl crate::traits::ProblemV2 for TestOptProblem {
+    const NAME: &'static str = "TestOpt";
+    type Metric = i32;
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.weights.len()]
+    }
+    fn evaluate(&self, config: &[usize]) -> i32 {
+        config
+            .iter()
+            .enumerate()
+            .map(|(i, &v)| if v == 1 { self.weights[i] } else { 0 })
+            .sum()
+    }
+}
+
+impl crate::traits::OptimizationProblemV2 for TestOptProblem {
+    fn direction(&self) -> Direction {
+        Direction::Maximize
+    }
+}
+
+#[test]
+fn test_optimization_problem_v2() {
+    let p = TestOptProblem {
+        weights: vec![3, 1, 4],
+    };
+    assert_eq!(p.evaluate(&[1, 0, 1]), 7);
+    assert_eq!(p.direction(), Direction::Maximize);
+}
