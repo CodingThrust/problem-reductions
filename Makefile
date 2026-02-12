@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release
+.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan
 
 # Default target
 help:
@@ -22,6 +22,7 @@ help:
 	@echo "  export-schemas - Export problem schemas to JSON"
 	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
 	@echo "  release V=x.y.z - Tag and push a new release (triggers CI publish)"
+	@echo "  run-plan   - Execute a plan with Claude autorun (latest plan in docs/plans/)"
 
 # Build the project
 build:
@@ -146,3 +147,30 @@ compare: rust-export
 		echo "Julia: $$(jq '{nodes: .num_grid_nodes, overhead: .mis_overhead, tape: .num_tape_entries}' tests/data/$${graph}_triangular_trace.json)"; \
 		echo "Rust:  $$(jq '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/data/$${graph}_rust_triangular.json)"; \
 	done
+
+# Run a plan with Claude
+# Usage: make run-plan [INSTRUCTIONS="..."] [OUTPUT=output.log] [AGENT_TYPE=claude]
+# PLAN_FILE defaults to the most recently modified file in docs/plans/
+INSTRUCTIONS ?=
+OUTPUT ?= claude-output.log
+AGENT_TYPE ?= claude
+
+run-plan:
+	PLAN_FILE ?= $(shell ls -t docs/plans/*.md 2>/dev/null | head -1)
+	@NL=$$'\n'; \
+	BRANCH=$$(git branch --show-current); \
+	if [ "$(AGENT_TYPE)" = "claude" ]; then \
+		PROCESS="1. Read the plan file$${NL}2. Use /subagent-driven-development to execute tasks$${NL}3. Push: git push origin $$BRANCH$${NL}4. Post summary"; \
+	else \
+		PROCESS="1. Read the plan file$${NL}2. Execute the tasks step by step. For each task, implement and test before moving on.$${NL}3. Push: git push origin $$BRANCH$${NL}4. Post summary"; \
+	fi; \
+	PROMPT="Execute the plan in '$${PLAN_FILE}'."; \
+	if [ -n "$(INSTRUCTIONS)" ]; then \
+		PROMPT="$${PROMPT}$${NL}$${NL}## Additional Instructions$${NL}$(INSTRUCTIONS)"; \
+	fi; \
+	PROMPT="$${PROMPT}$${NL}$${NL}## Process$${NL}$${PROCESS}$${NL}$${NL}## Rules$${NL}- Tests should be strong enough to catch regressions.$${NL}- Do not modify tests to make them pass.$${NL}- Test failure must be reported."; \
+	echo "=== Prompt ===" && echo "$$PROMPT" && echo "===" ; \
+	claude --dangerously-skip-permissions \
+		--model claude-opus-4-6 \
+		--max-turns 500 \
+		-p "$$PROMPT" 2>&1 | tee "$(OUTPUT)"
