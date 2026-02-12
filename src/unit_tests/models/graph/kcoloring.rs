@@ -190,3 +190,16 @@ fn test_variant() {
     assert_eq!(v[1], ("graph", "SimpleGraph"));
     assert_eq!(v[2], ("weight", "i32"));
 }
+
+#[test]
+fn test_kcoloring_problem_v2() {
+    use crate::traits::ProblemV2;
+
+    // Triangle graph with 3 colors
+    let p = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    assert_eq!(p.dims(), vec![3, 3, 3]);
+    // Valid: each vertex different color
+    assert!(p.evaluate(&[0, 1, 2]));
+    // Invalid: vertices 0 and 1 same color
+    assert!(!p.evaluate(&[0, 0, 1]));
+}

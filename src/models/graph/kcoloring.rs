@@ -216,6 +216,25 @@ where
     }
 }
 
+// === ProblemV2 implementation ===
+
+impl<const K: usize, G, W> crate::traits::ProblemV2 for KColoring<K, G, W>
+where
+    G: Graph,
+    W: Clone + Default + PartialOrd + num_traits::Num + num_traits::Zero + std::ops::AddAssign + 'static,
+{
+    const NAME: &'static str = "KColoring";
+    type Metric = bool;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![K; self.graph.num_vertices()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> bool {
+        self.is_valid_coloring(config)
+    }
+}
+
 /// Check if a coloring is valid for a graph.
 pub fn is_valid_coloring(
     num_vertices: usize,
