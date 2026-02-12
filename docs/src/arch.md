@@ -1,5 +1,63 @@
 # Architecture
 
+This guide covers the library internals for contributors and developers extending the library.
+
+## Module Overview
+
+<div class="theme-light-only">
+
+![Module Overview](static/module-overview.svg)
+
+</div>
+<div class="theme-dark-only">
+
+![Module Overview](static/module-overview-dark.svg)
+
+</div>
+
+| Module | Purpose |
+|--------|---------|
+| `src/models/` | Problem type implementations (SAT, Graph, Set, Optimization) |
+| `src/rules/` | Reduction rules with `ReduceTo` implementations |
+| `src/registry/` | Compile-time reduction graph metadata |
+| `src/solvers/` | BruteForce and ILP solvers |
+| `src/traits.rs` | Core `Problem` and `OptimizationProblem` traits |
+| `src/types.rs` | Shared types (`SolutionSize`, `Direction`, `ProblemSize`) |
+
+## Trait Hierarchy
+
+<div class="theme-light-only">
+
+![Trait Hierarchy](static/trait-hierarchy.svg)
+
+</div>
+<div class="theme-dark-only">
+
+![Trait Hierarchy](static/trait-hierarchy-dark.svg)
+
+</div>
+
+Every problem implements `Problem`. Optimization problems additionally implement `OptimizationProblem`.
+
+```rust
+pub trait Problem: Clone {
+    const NAME: &'static str;          // e.g., "MaximumIndependentSet"
+    type Metric: Clone;                // SolutionSize<W> or bool
+    fn dims(&self) -> Vec<usize>;      // config space: [2, 2, 2] for 3 binary vars
+    fn evaluate(&self, config: &[usize]) -> Self::Metric;
+    fn variant() -> Vec<(&'static str, &'static str)>;
+}
+
+pub trait OptimizationProblem: Problem<Metric = SolutionSize<Self::Value>> {
+    type Value: PartialOrd + Clone;    // i32, f64, etc.
+    fn direction(&self) -> Direction;  // Maximize or Minimize
+}
+```
+
+**Key types:**
+- `SolutionSize<T>`: `Valid(T)` for feasible solutions, `Invalid` for constraint violations
+- `Direction`: `Maximize` or `Minimize`
+
 ## Problems
 
 Every computational problem implements the `Problem` trait. A problem defines:
@@ -35,9 +93,9 @@ Evaluating a configuration returns both validity and objective value:
 
 ```rust
 let config = vec![1, 0, 1, 0];  // Variable assignments
-let result = problem.solution_size(&config);
-// result.is_valid: bool
-// result.size: objective value
+let result = problem.evaluate(&config);
+// result.is_valid() -> bool
+// result.size() -> Option<&T>
 ```
 
 ### Implementation
@@ -47,12 +105,10 @@ Implement the `Problem` trait. Key methods:
 | Method | Purpose |
 |--------|---------|
 | `NAME` | Problem identifier (e.g., `"MaximumIndependentSet"`) |
+| `Metric` | Result type of evaluation (`SolutionSize<W>` or `bool`) |
+| `dims()` | Configuration space dimensions |
+| `evaluate()` | Evaluate a configuration |
 | `variant()` | Key-value pairs identifying this variant |
-| `num_variables()` | Number of unknowns |
-| `num_flavors()` | Values per variable (usually 2) |
-| `solution_size()` | Evaluate a configuration |
-
-For problems with explicit constraints, also implement `ConstraintSatisfactionProblem`.
 
 See [Adding Models](claude.md) for the full guide.
 
@@ -66,7 +122,7 @@ A **reduction** transforms one problem into another while preserving solutions. 
 
 ```rust
 // Reduce: MaximumIndependentSet → QUBO
-let reduction = problem.reduce_to::<QUBO<f64>>();
+let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&problem);
 let qubo = reduction.target_problem();
 
 // Solve the target
@@ -257,7 +313,7 @@ let with_size = solver.find_best_with_size(&problem); // With objective values
 Solvers work with reductions — solve the target problem, then extract:
 
 ```rust
-let reduction = problem.reduce_to::<QUBO<f64>>();
+let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&problem);
 let qubo_solutions = solver.find_best(reduction.target_problem());
 let original = reduction.extract_solution(&qubo_solutions[0]);
 ```
@@ -310,3 +366,31 @@ let restored: MaximumIndependentSet<i32> = from_json(&json)?;
 |--------|-------------|
 | `Json` | Pretty-printed |
 | `JsonCompact` | No whitespace |
+
+## Contributing
+
+### Recommended: Issue-Based Workflow
+
+The easiest way to contribute is through GitHub issues:
+
+1. **Open an issue** using the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template
+2. **Fill in all sections** — definition, algorithm, size overhead, example instance
+3. **AI handles implementation** — automated tools generate the code from your specification
+
+### Optional: Plan + Automated PR
+
+For more control over the implementation:
+
+1. Use `superpowers:brainstorming` to create a detailed plan
+2. Create a PR with `[action]` prefix in the description
+3. Automated implementation is triggered from your plan
+
+### Manual Implementation
+
+When automation isn't suitable:
+
+- **Adding a problem:** See [adding-models.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-models.md)
+- **Adding a reduction:** See [adding-reductions.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-reductions.md)
+- **Testing requirements:** See [testing.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/testing.md)
+
+Run `make test clippy` before submitting PRs.
