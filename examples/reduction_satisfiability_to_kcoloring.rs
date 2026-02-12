@@ -83,7 +83,7 @@ fn main() {
     );
 
     // 4. Extract and verify source solutions
-    let sat_solution = reduction.extract_solution(&coloring_solutions[0]);
+    let sat_solution = reduction.extract_solution(coloring_solutions[0]);
     println!("Extracted SAT solution: {:?}", sat_solution);
     println!(
         "  Interpretation: x1={}, x2={}, x3={}, x4={}, x5={}",

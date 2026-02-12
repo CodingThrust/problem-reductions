@@ -8,38 +8,13 @@ use crate::traits::{OptimizationProblem, Problem};
 ///
 /// This solver is exponential in the number of variables but guarantees
 /// finding all optimal solutions.
-#[derive(Debug, Clone)]
-pub struct BruteForce {
-    /// Absolute tolerance for comparing objective values.
-    pub atol: f64,
-    /// Relative tolerance for comparing objective values.
-    pub rtol: f64,
-}
-
-impl Default for BruteForce {
-    fn default() -> Self {
-        Self {
-            atol: 1e-10,
-            rtol: 1e-10,
-        }
-    }
-}
+#[derive(Debug, Clone, Default)]
+pub struct BruteForce;
 
 impl BruteForce {
-    /// Create a new brute force solver with default tolerances.
+    /// Create a new brute force solver.
     pub fn new() -> Self {
-        Self::default()
-    }
-
-    /// Create a brute force solver with custom tolerances.
-    pub fn with_tolerance(atol: f64, rtol: f64) -> Self {
-        Self { atol, rtol }
-    }
-
-    /// Check if two floating point values are approximately equal.
-    fn approx_equal(&self, a: f64, b: f64) -> bool {
-        let diff = (a - b).abs();
-        diff <= self.atol || diff <= self.rtol * b.abs().max(a.abs())
+        Self
     }
 
     /// Internal: find all optimal solutions.
