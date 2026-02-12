@@ -1,35 +1,35 @@
-//! # Independent Set to QUBO Reduction (Penalty Method)
-//!
-//! ## Mathematical Relationship
-//! The Maximum Independent Set (MIS) problem on a graph G = (V, E) is mapped to
-//! QUBO by constructing a penalty Hamiltonian:
-//!
-//!   H(x) = -sum_{i in V} x_i + P * sum_{(i,j) in E} x_i * x_j
-//!
-//! where P > 1 is a penalty weight ensuring no two adjacent vertices are both
-//! selected. The QUBO minimization finds configurations that maximize the
-//! independent set size while respecting adjacency constraints.
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
-//! - Source: MaximumIndependentSet with maximum size 4
-//! - QUBO variables: 10 (one per vertex)
-//! - Expected: Optimal solutions of size 4
-//!
-//! ## Output
-//! Exports `docs/paper/examples/maximumindependentset_to_qubo.json` and `maximumindependentset_to_qubo.result.json`.
-//!
-//! ## Usage
-//! ```bash
-//! cargo run --example reduction_is_to_qubo
-//! ```
+// # Independent Set to QUBO Reduction (Penalty Method)
+//
+// ## Mathematical Relationship
+// The Maximum Independent Set (MIS) problem on a graph G = (V, E) is mapped to
+// QUBO by constructing a penalty Hamiltonian:
+//
+//   H(x) = -sum_{i in V} x_i + P * sum_{(i,j) in E} x_i * x_j
+//
+// where P > 1 is a penalty weight ensuring no two adjacent vertices are both
+// selected. The QUBO minimization finds configurations that maximize the
+// independent set size while respecting adjacency constraints.
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
+// - Source: MaximumIndependentSet with maximum size 4
+// - QUBO variables: 10 (one per vertex)
+// - Expected: Optimal solutions of size 4
+//
+// ## Output
+// Exports `docs/paper/examples/maximumindependentset_to_qubo.json` and `maximumindependentset_to_qubo.result.json`.
+//
+// ## Usage
+// ```bash
+// cargo run --example reduction_is_to_qubo
+// ```
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     println!("=== Independent Set -> QUBO Reduction ===\n");
 
     // Petersen graph: 10 vertices, 15 edges, 3-regular
@@ -105,6 +105,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "maximumindependentset_to_qubo";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

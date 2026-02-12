@@ -19,12 +19,12 @@ fn test_ilp_solver_basic_maximize() {
     assert!(solution.is_some());
     let sol = solution.unwrap();
 
-    // Solution should be valid (not f64::MIN for maximization)
+    // Solution should be valid
     let result = ilp.evaluate(&sol);
-    assert!(result > f64::MIN, "ILP solution should be valid");
+    assert!(result.is_valid(), "ILP solution should be valid");
 
     // Optimal: x1=1, x0=0 => objective = 2
-    assert!((result - 2.0).abs() < 1e-9);
+    assert!((result.unwrap() - 2.0).abs() < 1e-9);
 }
 
 #[test]
@@ -43,12 +43,12 @@ fn test_ilp_solver_basic_minimize() {
     assert!(solution.is_some());
     let sol = solution.unwrap();
 
-    // Solution should be valid (not f64::MAX for minimization)
+    // Solution should be valid
     let result = ilp.evaluate(&sol);
-    assert!(result < f64::MAX, "ILP solution should be valid");
+    assert!(result.is_valid(), "ILP solution should be valid");
 
     // Optimal: one variable = 1, other = 0 => objective = 1
-    assert!((result - 1.0).abs() < 1e-9);
+    assert!((result.unwrap() - 1.0).abs() < 1e-9);
 }
 
 #[test]
@@ -73,8 +73,8 @@ fn test_ilp_solver_matches_brute_force() {
     let ilp_solution = ilp_solver.solve(&ilp).unwrap();
 
     // Both should find optimal value (2)
-    let bf_size = ilp.evaluate(&bf_solutions[0]);
-    let ilp_size = ilp.evaluate(&ilp_solution);
+    let bf_size = ilp.evaluate(&bf_solutions[0]).unwrap();
+    let ilp_size = ilp.evaluate(&ilp_solution).unwrap();
     assert!(
         (bf_size - ilp_size).abs() < 1e-9,
         "ILP should find optimal solution"
@@ -103,9 +103,9 @@ fn test_ilp_equality_constraint() {
     let solution = solver.solve(&ilp).unwrap();
 
     let result = ilp.evaluate(&solution);
-    assert!(result < f64::MAX); // valid
+    assert!(result.is_valid());
     // Optimal: x0=0, x1=1 => objective = 0
-    assert!((result - 0.0).abs() < 1e-9);
+    assert!((result.unwrap() - 0.0).abs() < 1e-9);
 }
 
 #[test]
@@ -125,10 +125,10 @@ fn test_ilp_non_binary_bounds() {
     let solution = solver.solve(&ilp).unwrap();
 
     let result = ilp.evaluate(&solution);
-    assert!(result > f64::MIN); // valid
+    assert!(result.is_valid());
     // Optimal: x0=2, x1=2 => 4 <= 4 valid, obj=4
     // or x0=3, x1=1 => 4 <= 4 valid, obj=4
-    assert!((result - 4.0).abs() < 1e-9);
+    assert!((result.unwrap() - 4.0).abs() < 1e-9);
 }
 
 #[test]
@@ -148,9 +148,9 @@ fn test_ilp_negative_lower_bounds() {
     let solution = solver.solve(&ilp).unwrap();
 
     let result = ilp.evaluate(&solution);
-    assert!(result > f64::MIN); // valid
+    assert!(result.is_valid());
     // Optimal: x0=2, x1=1 => objective = 3
-    assert!((result - 3.0).abs() < 1e-9);
+    assert!((result.unwrap() - 3.0).abs() < 1e-9);
 }
 
 #[test]
@@ -169,9 +169,9 @@ fn test_ilp_config_to_values_roundtrip() {
 
     // The solution should be valid
     let result = ilp.evaluate(&solution);
-    assert!(result > f64::MIN); // valid
+    assert!(result.is_valid());
     // Optimal: x0=2, x1=3 => objective = 5
-    assert!((result - 5.0).abs() < 1e-9);
+    assert!((result.unwrap() - 5.0).abs() < 1e-9);
 }
 
 #[test]
@@ -194,15 +194,15 @@ fn test_ilp_multiple_constraints() {
     let solution = solver.solve(&ilp).unwrap();
 
     let result = ilp.evaluate(&solution);
-    assert!(result > f64::MIN); // valid
+    assert!(result.is_valid());
 
     // Check against brute force
     let bf = BruteForce::new();
     let bf_solutions = bf.find_best(&ilp);
-    let bf_size = ilp.evaluate(&bf_solutions[0]);
+    let bf_size = ilp.evaluate(&bf_solutions[0]).unwrap();
 
     assert!(
-        (bf_size - result).abs() < 1e-9,
+        (bf_size - result.unwrap()).abs() < 1e-9,
         "ILP should match brute force"
     );
 }
@@ -221,9 +221,9 @@ fn test_ilp_unconstrained() {
     let solution = solver.solve(&ilp).unwrap();
 
     let result = ilp.evaluate(&solution);
-    assert!(result > f64::MIN); // valid
+    assert!(result.is_valid());
     // Optimal: both = 1
-    assert!((result - 2.0).abs() < 1e-9);
+    assert!((result.unwrap() - 2.0).abs() < 1e-9);
 }
 
 #[test]

@@ -22,8 +22,6 @@ use crate::rules::registry::ReductionOverhead;
 use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use num_traits::{Bounded, Num, Zero};
-use std::ops::AddAssign;
 
 /// Result of reducing Satisfiability to MinimumDominatingSet.
 ///
@@ -32,21 +30,18 @@ use std::ops::AddAssign;
 /// - The number of literals (variables) in the source SAT problem
 /// - The number of clauses in the source SAT problem
 #[derive(Debug, Clone)]
-pub struct ReductionSATToDS<W> {
+pub struct ReductionSATToDS {
     /// The target MinimumDominatingSet problem.
-    target: MinimumDominatingSet<SimpleGraph, W>,
+    target: MinimumDominatingSet<SimpleGraph, i32>,
     /// The number of variables in the source SAT problem.
     num_literals: usize,
     /// The number of clauses in the source SAT problem.
     num_clauses: usize,
 }
 
-impl<W> ReductionResult for ReductionSATToDS<W>
-where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
-{
-    type Source = Satisfiability<W>;
-    type Target = MinimumDominatingSet<SimpleGraph, W>;
+impl ReductionResult for ReductionSATToDS {
+    type Source = Satisfiability;
+    type Target = MinimumDominatingSet<SimpleGraph, i32>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -106,7 +101,7 @@ where
     }
 }
 
-impl<W> ReductionSATToDS<W> {
+impl ReductionSATToDS {
     /// Get the number of literals (variables) in the source SAT problem.
     pub fn num_literals(&self) -> usize {
         self.num_literals
@@ -119,7 +114,6 @@ impl<W> ReductionSATToDS<W> {
 }
 
 #[reduction(
-    target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_vertices", poly!(3 * num_vars) + poly!(num_clauses)),
@@ -127,11 +121,8 @@ impl<W> ReductionSATToDS<W> {
         ])
     }
 )]
-impl<W> ReduceTo<MinimumDominatingSet<SimpleGraph, W>> for Satisfiability<W>
-where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionSATToDS<W>;
+impl ReduceTo<MinimumDominatingSet<SimpleGraph, i32>> for Satisfiability {
+    type Result = ReductionSATToDS;
 
     fn reduce_to(&self) -> Self::Result {
         let num_variables = self.num_vars();

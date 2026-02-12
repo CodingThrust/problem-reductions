@@ -1,26 +1,26 @@
-//! # Max-Cut to Spin Glass Reduction
-//!
-//! ## Mathematical Equivalence
-//! Max-Cut maps to Ising by setting J_{ij} = w_{ij} and h_i = 0. Maximizing the
-//! cut value sum w_{ij} (for i,j on different sides) equals minimizing the Ising
-//! energy -sum J_{ij} s_i s_j since s_i s_j = -1 when vertices are on opposite sides.
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges) with unit edge weights
-//! - Source MaxCut: 10 vertices, 15 edges
-//! - Target SpinGlass: 10 spins
-//!
-//! ## Output
-//! Exports `docs/paper/examples/maxcut_to_spinglass.json` and `maxcut_to_spinglass.result.json`.
-//!
-//! See docs/paper/reductions.typ for the full reduction specification.
+// # Max-Cut to Spin Glass Reduction
+//
+// ## Mathematical Equivalence
+// Max-Cut maps to Ising by setting J_{ij} = w_{ij} and h_i = 0. Maximizing the
+// cut value sum w_{ij} (for i,j on different sides) equals minimizing the Ising
+// energy -sum J_{ij} s_i s_j since s_i s_j = -1 when vertices are on opposite sides.
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges) with unit edge weights
+// - Source MaxCut: 10 vertices, 15 edges
+// - Target SpinGlass: 10 spins
+//
+// ## Output
+// Exports `docs/paper/examples/maxcut_to_spinglass.json` and `maxcut_to_spinglass.result.json`.
+//
+// See docs/paper/reductions.typ for the full reduction specification.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     let (num_vertices, edges) = petersen();
     let maxcut = MaxCut::<SimpleGraph, i32>::unweighted(num_vertices, edges.clone());
 
@@ -84,6 +84,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "maxcut_to_spinglass";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

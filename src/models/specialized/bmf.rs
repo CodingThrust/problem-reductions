@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "BMF",
-        category: "specialized",
         description: "Boolean matrix factorization",
         fields: &[
             FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "Target boolean matrix A" },

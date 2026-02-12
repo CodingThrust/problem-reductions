@@ -1,24 +1,24 @@
-//! # Set Covering to ILP Reduction
-//!
-//! ## Mathematical Formulation
-//! Variables: x_i in {0,1} for each set S_i.
-//! Constraints: sum_{S_i containing e} x_i >= 1 for each element e in universe.
-//! Objective: minimize sum of w_i * x_i.
-//!
-//! ## This Example
-//! - Instance: Universe size 8, 6 sets
-//!   - S0={0,1,2}, S1={2,3,4}, S2={4,5,6}, S3={6,7,0}, S4={1,3,5}, S5={0,4,7}
-//! - Source MinimumSetCovering: every element in {0,...,7} must be covered
-//! - Target ILP: 6 binary variables, 8 element-coverage constraints
-//!
-//! ## Output
-//! Exports `docs/paper/examples/minimumsetcovering_to_ilp.json` and `minimumsetcovering_to_ilp.result.json`.
+// # Set Covering to ILP Reduction
+//
+// ## Mathematical Formulation
+// Variables: x_i in {0,1} for each set S_i.
+// Constraints: sum_{S_i containing e} x_i >= 1 for each element e in universe.
+// Objective: minimize sum of w_i * x_i.
+//
+// ## This Example
+// - Instance: Universe size 8, 6 sets
+//   - S0={0,1,2}, S1={2,3,4}, S2={4,5,6}, S3={6,7,0}, S4={1,3,5}, S5={0,4,7}
+// - Source MinimumSetCovering: every element in {0,...,7} must be covered
+// - Target ILP: 6 binary variables, 8 element-coverage constraints
+//
+// ## Output
+// Exports `docs/paper/examples/minimumsetcovering_to_ilp.json` and `minimumsetcovering_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use std::collections::HashMap;
 
-fn main() {
+pub fn run() {
     // 1. Create MinimumSetCovering instance: universe {0,...,7}, 6 sets
     let sets = vec![
         vec![0, 1, 2], // S0
@@ -104,6 +104,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "minimumsetcovering_to_ilp";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

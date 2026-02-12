@@ -26,7 +26,7 @@ pub struct ReductionKSatToQUBO {
 }
 
 impl ReductionResult for ReductionKSatToQUBO {
-    type Source = KSatisfiability<2, i32>;
+    type Source = KSatisfiability<2>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -46,7 +46,7 @@ pub struct Reduction3SATToQUBO {
 }
 
 impl ReductionResult for Reduction3SATToQUBO {
-    type Source = KSatisfiability<3, i32>;
+    type Source = KSatisfiability<3>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -294,7 +294,7 @@ fn build_qubo_matrix(
 #[reduction(
     overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vars))]) }
 )]
-impl ReduceTo<QUBO<f64>> for KSatisfiability<2, i32> {
+impl ReduceTo<QUBO<f64>> for KSatisfiability<2> {
     type Result = ReductionKSatToQUBO;
 
     fn reduce_to(&self) -> Self::Result {
@@ -313,7 +313,7 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<2, i32> {
         ("num_vars", poly!(num_vars) + poly!(num_clauses)),
     ]) }
 )]
-impl ReduceTo<QUBO<f64>> for KSatisfiability<3, i32> {
+impl ReduceTo<QUBO<f64>> for KSatisfiability<3> {
     type Result = Reduction3SATToQUBO;
 
     fn reduce_to(&self) -> Self::Result {

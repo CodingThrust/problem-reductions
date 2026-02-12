@@ -1,7 +1,9 @@
 //! Boolean Satisfiability (SAT) problem implementation.
 //!
 //! SAT is the problem of determining if there exists an assignment of
-//! Boolean variables that makes a given Boolean formula true.
+//! Boolean variables that makes a given Boolean formula true. This is
+//! the decision version - for the optimization variant (MAX-SAT), see
+//! the separate MaxSatisfiability type (if available).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::Problem;
@@ -10,12 +12,10 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "Satisfiability",
-        category: "satisfiability",
         description: "Find satisfying assignment for CNF formula",
         fields: &[
             FieldInfo { name: "num_vars", type_name: "usize", description: "Number of Boolean variables" },
             FieldInfo { name: "clauses", type_name: "Vec<CNFClause>", description: "Clauses in conjunctive normal form" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Clause weights for MAX-SAT" },
         ],
     }
 }
@@ -83,9 +83,7 @@ impl CNFClause {
 ///
 /// Given a Boolean formula in conjunctive normal form (CNF),
 /// determine if there exists an assignment that satisfies all clauses.
-///
-/// The problem can be weighted, where the goal is to maximize the
-/// total weight of satisfied clauses (MAX-SAT).
+/// This is the decision version of the problem.
 ///
 /// # Example
 ///
@@ -94,7 +92,7 @@ impl CNFClause {
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Formula: (x1 OR x2) AND (NOT x1 OR x3) AND (NOT x2 OR NOT x3)
-/// let problem = Satisfiability::<i32>::new(
+/// let problem = Satisfiability::new(
 ///     3,
 ///     vec![
 ///         CNFClause::new(vec![1, 2]),      // x1 OR x2
@@ -112,38 +110,17 @@ impl CNFClause {
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Satisfiability<W = i32> {
+pub struct Satisfiability {
     /// Number of variables.
     num_vars: usize,
     /// Clauses in CNF.
     clauses: Vec<CNFClause>,
-    /// Weights for each clause (for MAX-SAT).
-    weights: Vec<W>,
 }
 
-impl<W: Clone + Default> Satisfiability<W> {
-    /// Create a new SAT problem with unit weights.
-    pub fn new(num_vars: usize, clauses: Vec<CNFClause>) -> Self
-    where
-        W: From<i32>,
-    {
-        let num_clauses = clauses.len();
-        let weights = vec![W::from(1); num_clauses];
-        Self {
-            num_vars,
-            clauses,
-            weights,
-        }
-    }
-
-    /// Create a new weighted SAT problem (MAX-SAT).
-    pub fn with_weights(num_vars: usize, clauses: Vec<CNFClause>, weights: Vec<W>) -> Self {
-        assert_eq!(clauses.len(), weights.len());
-        Self {
-            num_vars,
-            clauses,
-            weights,
-        }
+impl Satisfiability {
+    /// Create a new SAT problem.
+    pub fn new(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
+        Self { num_vars, clauses }
     }
 
     /// Get the number of variables.
@@ -190,10 +167,7 @@ impl<W: Clone + Default> Satisfiability<W> {
     }
 }
 
-impl<W> Problem for Satisfiability<W>
-where
-    W: Clone + Default + 'static,
-{
+impl Problem for Satisfiability {
     const NAME: &'static str = "Satisfiability";
     type Metric = bool;
 
@@ -207,10 +181,7 @@ where
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", crate::variant::short_type_name::<W>()),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", "Unweighted")]
     }
 }
 

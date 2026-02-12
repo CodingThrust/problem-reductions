@@ -23,7 +23,7 @@ pub struct ReductionMatchingToSP<G, W> {
 impl<G, W> ReductionResult for ReductionMatchingToSP<G, W>
 where
     G: Graph,
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = MaximumMatching<G, W>;
     type Target = MaximumSetPacking<W>;
@@ -39,7 +39,6 @@ where
 }
 
 #[reduction(
-    source_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_sets", poly!(num_edges)),
@@ -50,7 +49,7 @@ where
 impl<G, W> ReduceTo<MaximumSetPacking<W>> for MaximumMatching<G, W>
 where
     G: Graph,
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionMatchingToSP<G, W>;
 

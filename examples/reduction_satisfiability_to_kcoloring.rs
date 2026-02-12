@@ -1,19 +1,19 @@
-//! # SAT to 3-Coloring Reduction (Garey & Johnson 1979)
-//!
-//! ## Mathematical Equivalence
-//! Creates a graph with a base triangle (TRUE, FALSE, AUX), variable gadgets
-//! (pos_i, neg_i connected to AUX), and clause gadgets using OR-gadgets.
-//! phi is satisfiable iff the constructed graph is 3-colorable.
-//!
-//! ## This Example
-//! - Instance: 5-variable, 3-clause SAT formula with unit clauses
-//!   (OR-gadgets add 5 vertices per extra literal per clause, making BruteForce
-//!   infeasible for multi-literal clauses; unit clauses keep it at 13 vertices)
-//! - Source SAT: satisfiable (x1=1, x3=0, x5=1, x2/x4 free)
-//! - Target: 3-Coloring with 13 vertices
-//!
-//! ## Output
-//! Exports `docs/paper/examples/satisfiability_to_kcoloring.json` and `satisfiability_to_kcoloring.result.json`.
+// # SAT to 3-Coloring Reduction (Garey & Johnson 1979)
+//
+// ## Mathematical Equivalence
+// Creates a graph with a base triangle (TRUE, FALSE, AUX), variable gadgets
+// (pos_i, neg_i connected to AUX), and clause gadgets using OR-gadgets.
+// phi is satisfiable iff the constructed graph is 3-colorable.
+//
+// ## This Example
+// - Instance: 5-variable, 3-clause SAT formula with unit clauses
+//   (OR-gadgets add 5 vertices per extra literal per clause, making BruteForce
+//   infeasible for multi-literal clauses; unit clauses keep it at 13 vertices)
+// - Source SAT: satisfiable (x1=1, x3=0, x5=1, x2/x4 free)
+// - Target: 3-Coloring with 13 vertices
+//
+// ## Output
+// Exports `docs/paper/examples/satisfiability_to_kcoloring.json` and `satisfiability_to_kcoloring.result.json`.
 
 use std::collections::HashMap;
 
@@ -21,12 +21,12 @@ use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     // 1. Create SAT instance: 5-variable, 3-clause formula with unit clauses
     //    The SAT→KColoring reduction creates OR-gadgets that add 5 vertices per literal
     //    beyond the first in each clause. BruteForce on 3-coloring is O(3^n), so we use
     //    unit clauses (1 literal each) to keep vertex count at 2*5+3 = 13 (3^13 ~ 1.6M).
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         5,
         vec![
             CNFClause::new(vec![1]),  // x1 (unit clause)
@@ -123,7 +123,7 @@ fn main() {
 
     let data = ReductionData {
         source: ProblemSide {
-            problem: Satisfiability::<i32>::NAME.to_string(),
+            problem: Satisfiability::NAME.to_string(),
             variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
@@ -143,6 +143,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "satisfiability_to_kcoloring";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

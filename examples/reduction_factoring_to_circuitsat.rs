@@ -1,22 +1,22 @@
-//! # Factoring to Circuit-SAT Reduction
-//!
-//! ## Mathematical Equivalence
-//! Builds an array multiplier circuit for p * q = N. The circuit is satisfiable
-//! iff N can be factored within the given bit bounds.
-//!
-//! ## This Example
-//! - Instance: Factor 35 = 5 × 7 (m=3 bits, n=3 bits)
-//! - Reference: Based on ProblemReductions.jl factoring example
-//! - Source: Factoring(3, 3, 35)
-//! - Target: CircuitSAT
-//!
-//! We solve the source Factoring problem directly with BruteForce (only 6 binary
-//! variables), then verify the reduction produces a valid CircuitSAT encoding by
-//! simulating the circuit forward from a known factorization to build a complete
-//! satisfying assignment.
-//!
-//! ## Output
-//! Exports `docs/paper/examples/factoring_to_circuitsat.json` and `factoring_to_circuitsat.result.json`.
+// # Factoring to Circuit-SAT Reduction
+//
+// ## Mathematical Equivalence
+// Builds an array multiplier circuit for p * q = N. The circuit is satisfiable
+// iff N can be factored within the given bit bounds.
+//
+// ## This Example
+// - Instance: Factor 35 = 5 × 7 (m=3 bits, n=3 bits)
+// - Reference: Based on ProblemReductions.jl factoring example
+// - Source: Factoring(3, 3, 35)
+// - Target: CircuitSAT
+//
+// We solve the source Factoring problem directly with BruteForce (only 6 binary
+// variables), then verify the reduction produces a valid CircuitSAT encoding by
+// simulating the circuit forward from a known factorization to build a complete
+// satisfying assignment.
+//
+// ## Output
+// Exports `docs/paper/examples/factoring_to_circuitsat.json` and `factoring_to_circuitsat.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::models::specialized::Circuit;
@@ -39,7 +39,7 @@ fn simulate_circuit(
     values
 }
 
-fn main() {
+pub fn run() {
     // 1. Create Factoring instance: factor 35 with 3-bit factors
     //    Possible: 5*7=35 or 7*5=35
     let factoring = Factoring::new(3, 3, 35);
@@ -215,6 +215,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "factoring_to_circuitsat";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

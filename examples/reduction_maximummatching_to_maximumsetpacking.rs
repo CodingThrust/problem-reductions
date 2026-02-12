@@ -1,19 +1,19 @@
-//! # MaximumMatching to Set Packing Reduction
-//!
-//! ## Mathematical Equivalence
-//! Each edge e = (u,v) becomes a set S_e = {u, v}. Universe U = V.
-//! A matching (edges with no shared vertices) maps to a packing (sets with
-//! no shared elements) with the same weight.
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges), perfect matching of size 5
-//! - Source matching: max size 5
-//! - Target MaximumSetPacking: max packing 5
-//!
-//! ## Output
-//! Exports `docs/paper/examples/maximummatching_to_maximumsetpacking.json` and `maximummatching_to_maximumsetpacking.result.json`.
-//!
-//! See docs/paper/reductions.typ for the full reduction specification.
+// # MaximumMatching to Set Packing Reduction
+//
+// ## Mathematical Equivalence
+// Each edge e = (u,v) becomes a set S_e = {u, v}. Universe U = V.
+// A matching (edges with no shared vertices) maps to a packing (sets with
+// no shared elements) with the same weight.
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges), perfect matching of size 5
+// - Source matching: max size 5
+// - Target MaximumSetPacking: max packing 5
+//
+// ## Output
+// Exports `docs/paper/examples/maximummatching_to_maximumsetpacking.json` and `maximummatching_to_maximumsetpacking.result.json`.
+//
+// See docs/paper/reductions.typ for the full reduction specification.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -21,7 +21,7 @@ use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 use std::collections::HashMap;
 
-fn main() {
+pub fn run() {
     println!("\n=== MaximumMatching -> Set Packing Reduction ===\n");
 
     // Petersen graph with unit weights
@@ -96,8 +96,12 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "maximummatching_to_maximumsetpacking";
     write_example(name, &data, &results);
 
     println!("\nDone: MaximumMatching(Petersen) optimal=5 maps to MaximumSetPacking optimal=5");
+}
+
+fn main() {
+    run()
 }

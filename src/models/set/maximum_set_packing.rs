@@ -12,7 +12,6 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumSetPacking",
-        category: "set",
         description: "Find maximum weight collection of disjoint sets",
         fields: &[
             FieldInfo { name: "sets", type_name: "Vec<Vec<usize>>", description: "Collection of sets over a universe" },

@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "SpinGlass",
-        category: "optimization",
         description: "Minimize Ising Hamiltonian on a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The interaction graph" },

@@ -5,7 +5,7 @@ use crate::solvers::{BruteForce, Solver};
 #[test]
 fn test_simple_sat_to_ds() {
     // Simple SAT: (x1) - one variable, one clause
-    let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1])]);
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
     let ds_problem = reduction.target_problem();
 
@@ -21,7 +21,7 @@ fn test_simple_sat_to_ds() {
 #[test]
 fn test_two_variable_sat_to_ds() {
     // SAT: (x1 OR x2)
-    let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, 2])]);
+    let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
     let ds_problem = reduction.target_problem();
 
@@ -39,7 +39,7 @@ fn test_two_variable_sat_to_ds() {
 fn test_satisfiable_formula() {
     // SAT: (x1 OR x2) AND (NOT x1 OR x2)
     // Satisfiable with x2 = true
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         2,
         vec![
             CNFClause::new(vec![1, 2]),  // x1 OR x2
@@ -74,7 +74,7 @@ fn test_satisfiable_formula() {
 fn test_unsatisfiable_formula() {
     // SAT: (x1) AND (NOT x1) - unsatisfiable
     let sat =
-        Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
+        Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
     let ds_problem = reduction.target_problem();
 
@@ -111,7 +111,7 @@ fn test_unsatisfiable_formula() {
 #[test]
 fn test_three_sat_example() {
     // 3-SAT: (x1 OR x2 OR x3) AND (NOT x1 OR NOT x2 OR x3) AND (x1 OR NOT x2 OR NOT x3)
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         3,
         vec![
             CNFClause::new(vec![1, 2, 3]),   // x1 OR x2 OR x3
@@ -152,7 +152,7 @@ fn test_three_sat_example() {
 #[test]
 fn test_extract_solution_positive_literal() {
     // (x1) - select positive literal
-    let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1])]);
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
     // Solution: select vertex 0 (positive literal x1)
@@ -165,7 +165,7 @@ fn test_extract_solution_positive_literal() {
 #[test]
 fn test_extract_solution_negative_literal() {
     // (NOT x1) - select negative literal
-    let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![-1])]);
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![-1])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
     // Solution: select vertex 1 (negative literal NOT x1)
@@ -178,7 +178,7 @@ fn test_extract_solution_negative_literal() {
 #[test]
 fn test_extract_solution_dummy() {
     // (x1 OR x2) where only x1 matters
-    let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1])]);
+    let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
     // Select: vertex 0 (x1 positive) and vertex 5 (x2 dummy)
@@ -191,7 +191,7 @@ fn test_extract_solution_dummy() {
 
 #[test]
 fn test_ds_structure() {
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
@@ -205,7 +205,7 @@ fn test_ds_structure() {
 #[test]
 fn test_empty_sat() {
     // Empty SAT (trivially satisfiable)
-    let sat = Satisfiability::<i32>::new(0, vec![]);
+    let sat = Satisfiability::new(0, vec![]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
     let ds_problem = reduction.target_problem();
 
@@ -218,7 +218,7 @@ fn test_empty_sat() {
 #[test]
 fn test_multiple_literals_same_variable() {
     // Clause with repeated variable: (x1 OR NOT x1) - tautology
-    let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1, -1])]);
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1, -1])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
     let ds_problem = reduction.target_problem();
 
@@ -234,7 +234,7 @@ fn test_multiple_literals_same_variable() {
 #[test]
 fn test_sat_ds_solution_correspondence() {
     // Comprehensive test: verify that solutions extracted from DS satisfy SAT
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         2,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
     );
@@ -275,7 +275,7 @@ fn test_sat_ds_solution_correspondence() {
 
 #[test]
 fn test_accessors() {
-    let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, -2])]);
+    let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
     assert_eq!(reduction.num_literals(), 2);
@@ -285,7 +285,7 @@ fn test_accessors() {
 #[test]
 fn test_extract_solution_too_many_selected() {
     // Test that extract_solution handles invalid (non-minimal) dominating sets
-    let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1])]);
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
 
     // Select all 4 vertices (more than num_literals=1)
@@ -298,7 +298,7 @@ fn test_extract_solution_too_many_selected() {
 #[test]
 fn test_negated_variable_connection() {
     // (NOT x1 OR NOT x2) - both negated
-    let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![-1, -2])]);
+    let sat = Satisfiability::new(2, vec![CNFClause::new(vec![-1, -2])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
     let ds_problem = reduction.target_problem();
 

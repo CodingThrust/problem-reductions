@@ -34,11 +34,11 @@ make test clippy  # Must pass before PR
 - `src/models/` - Problem implementations (SAT, Graph, Set, Optimization)
 - `src/rules/` - Reduction rules + inventory registration
 - `src/solvers/` - BruteForce solver, ILP solver (feature-gated)
-- `src/traits.rs` - `Problem`, `ConstraintSatisfactionProblem` traits
+- `src/traits.rs` - `Problem`, `OptimizationProblem` traits
 - `src/rules/traits.rs` - `ReduceTo<T>`, `ReductionResult` traits
 - `src/registry/` - Compile-time reduction metadata collection
 - `src/unit_tests/` - Unit test files (mirroring `src/` structure, referenced via `#[path]`)
-- `tests/main.rs` - Integration tests (modules in `tests/suites/`)
+- `tests/main.rs` - Integration tests (modules in `tests/suites/`); example tests use `include!` for direct invocation (no subprocess)
 - `tests/data/` - Ground truth JSON for integration tests
 - `scripts/` - Python test data generation scripts (managed with `uv`)
 - `docs/plans/` - Implementation plans
@@ -46,35 +46,38 @@ make test clippy  # Must pass before PR
 ### Trait Hierarchy
 
 ```
-Problem (core trait - all problems must implement)
+Problem (core trait — all problems must implement)
 │
-├── const NAME: &'static str           // Problem name, e.g., "MaximumIndependentSet"
-├── type GraphType: GraphMarker        // Graph topology marker
-├── type Weight: NumericWeight         // Weight type (i32, f64, Unweighted)
-├── type Size                          // Objective value type
-│
-├── fn num_variables(&self) -> usize
-├── fn num_flavors(&self) -> usize     // Usually 2 for binary problems
-├── fn problem_size(&self) -> ProblemSize
-├── fn energy_mode(&self) -> EnergyMode
-├── fn solution_size(&self, config) -> SolutionSize
-└── ... (default methods: variables, flavors, is_valid_config)
+├── const NAME: &'static str           // e.g., "MaximumIndependentSet"
+├── type Metric: Clone                 // SolutionSize<W> for optimization, bool for satisfaction
+├── fn dims(&self) -> Vec<usize>       // config space: [2, 2, 2] for 3 binary variables
+├── fn evaluate(&self, config) -> Metric
+├── fn variant() -> Vec<(&str, &str)>  // [("graph","SimpleGraph"), ("weight","i32")]
+└── fn num_variables(&self) -> usize   // default: dims().len()
 
-ConstraintSatisfactionProblem : Problem (extension for CSPs)
+OptimizationProblem : Problem (extension for problems with numeric objective)
 │
-├── fn constraints(&self) -> Vec<LocalConstraint>
-├── fn objectives(&self) -> Vec<LocalSolutionSize>
-├── fn weights(&self) -> Vec<Self::Size>
-├── fn set_weights(&mut self, weights)
-├── fn is_weighted(&self) -> bool
-└── ... (default methods: is_satisfied, compute_objective)
+├── fn direction(&self) -> Direction   // Maximize or Minimize
+├── fn is_better(&self, a, b) -> bool  // direction-aware comparison
+└── fn is_feasible(&self, metric) -> bool  // default: true
+```
+
+**Satisfaction problems** (e.g., `Satisfiability`) use `Metric = bool` and do not implement `OptimizationProblem`.
+
+**Optimization problems** (e.g., `MaximumIndependentSet`) use `Metric = SolutionSize<W>` where:
+```rust
+enum SolutionSize<T> { Valid(T), Invalid }  // Invalid = infeasible config
+enum Direction { Maximize, Minimize }
 ```
 
 ### Key Patterns
 - Problems parameterized by weight type `W` and graph type `G`
 - `ReductionResult` provides `target_problem()` and `extract_solution()`
+- `Solver::find_best()` for optimization problems, `Solver::find_satisfying()` for `Metric = bool`
 - Graph types: SimpleGraph, GridGraph, UnitDiskGraph, Hypergraph
 - Weight types: `Unweighted` (marker), `i32`, `f64`
+- Weight management via inherent methods (`weights()`, `set_weights()`, `is_weighted()`), not traits
+- `NumericSize` supertrait bundles common numeric bounds (`Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static`)
 
 ### Problem Names
 Problem types use explicit optimization prefixes:
@@ -94,7 +97,7 @@ Reduction graph nodes use variant IDs: `ProblemName[/GraphType][/Weighted]`
 ### File Naming
 - Reduction files: `src/rules/<source>_<target>.rs` (e.g., `maximumindependentset_qubo.rs`)
 - Model files: `src/models/<category>/<name>.rs` (e.g., `maximum_independent_set.rs`)
-- Example files: `examples/reduction_<source>_to_<target>.rs`
+- Example files: `examples/reduction_<source>_to_<target>.rs` (must have `pub fn run()` + `fn main() { run() }`)
 - Test naming: `test_<source>_to_<target>_closed_loop`
 
 ### Paper (docs/paper/reductions.typ)

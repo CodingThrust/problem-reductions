@@ -1,19 +1,19 @@
-//! # Vertex Cover to Set Covering Reduction
-//!
-//! ## Mathematical Equivalence
-//! Universe U = {0, ..., |E|-1} (edge indices). For each vertex v, set
-//! S_v = edges incident to v. A vertex cover (every edge has an endpoint
-//! in the cover) maps to a set cover (every universe element in some set).
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges), VC=6
-//! - Source VC: min size 6
-//! - Target MinimumSetCovering: min cover 6
-//!
-//! ## Output
-//! Exports `docs/paper/examples/minimumvertexcover_to_minimumsetcovering.json` and `minimumvertexcover_to_minimumsetcovering.result.json`.
-//!
-//! See docs/paper/reductions.typ for the full reduction specification.
+// # Vertex Cover to Set Covering Reduction
+//
+// ## Mathematical Equivalence
+// Universe U = {0, ..., |E|-1} (edge indices). For each vertex v, set
+// S_v = edges incident to v. A vertex cover (every edge has an endpoint
+// in the cover) maps to a set cover (every universe element in some set).
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges), VC=6
+// - Source VC: min size 6
+// - Target MinimumSetCovering: min cover 6
+//
+// ## Output
+// Exports `docs/paper/examples/minimumvertexcover_to_minimumsetcovering.json` and `minimumvertexcover_to_minimumsetcovering.result.json`.
+//
+// See docs/paper/reductions.typ for the full reduction specification.
 
 use std::collections::HashMap;
 
@@ -22,7 +22,7 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     println!("\n=== Vertex Cover -> Set Covering Reduction ===\n");
 
     // Petersen graph: 10 vertices, 15 edges, VC=6
@@ -117,8 +117,12 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "minimumvertexcover_to_minimumsetcovering";
     write_example(name, &data, &results);
 
     println!("\nDone: VC(Petersen) optimal=6 maps to MinimumSetCovering optimal=6");
+}
+
+fn main() {
+    run()
 }

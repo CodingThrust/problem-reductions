@@ -14,7 +14,6 @@ use std::collections::{HashMap, HashSet};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PaintShop",
-        category: "specialized",
         description: "Minimize color changes in paint shop sequence",
         fields: &[
             FieldInfo { name: "sequence_indices", type_name: "Vec<usize>", description: "Car sequence as indices" },

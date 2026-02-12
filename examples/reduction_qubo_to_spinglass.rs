@@ -1,20 +1,20 @@
-//! # QUBO to Spin Glass Reduction
-//!
-//! ## Mathematical Equivalence
-//! The reverse substitution x_i = (s_i + 1)/2 transforms binary QUBO variables
-//! back to Ising spins. The QUBO matrix Q maps to couplings J and fields h via
-//! Q_{ij} = -4J_{ij} for off-diagonal and Q_{ii} = 2*sum_j J_{ij} - 2h_i for diagonal.
-//!
-//! ## This Example
-//! - Instance: 10-variable QUBO with Petersen connectivity
-//! - Source QUBO: 10 binary variables
-//! - Target SpinGlass: 10 spins
-//!
-//! ## Output
-//! Exports `docs/paper/examples/qubo_to_spinglass.json` and
-//! `docs/paper/examples/qubo_to_spinglass.result.json` for use in paper code blocks.
-//!
-//! See docs/paper/reductions.typ for the full reduction specification.
+// # QUBO to Spin Glass Reduction
+//
+// ## Mathematical Equivalence
+// The reverse substitution x_i = (s_i + 1)/2 transforms binary QUBO variables
+// back to Ising spins. The QUBO matrix Q maps to couplings J and fields h via
+// Q_{ij} = -4J_{ij} for off-diagonal and Q_{ii} = 2*sum_j J_{ij} - 2h_i for diagonal.
+//
+// ## This Example
+// - Instance: 10-variable QUBO with Petersen connectivity
+// - Source QUBO: 10 binary variables
+// - Target SpinGlass: 10 spins
+//
+// ## Output
+// Exports `docs/paper/examples/qubo_to_spinglass.json` and
+// `docs/paper/examples/qubo_to_spinglass.result.json` for use in paper code blocks.
+//
+// See docs/paper/reductions.typ for the full reduction specification.
 
 use std::collections::HashMap;
 
@@ -23,7 +23,7 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     let (n, edges) = petersen();
     let mut matrix = vec![vec![0.0; n]; n];
     // Diagonal: linear terms
@@ -92,6 +92,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "qubo_to_spinglass";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

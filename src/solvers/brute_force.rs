@@ -23,17 +23,17 @@ impl BruteForce {
         P: OptimizationProblem,
         P::Metric: Clone,
     {
-        let dims = problem.dims();
-        if dims.is_empty() {
-            return vec![];
-        }
-
-        let iter = DimsIterator::new(dims);
+        let iter = DimsIterator::new(problem.dims());
         let mut best_solutions: Vec<Vec<usize>> = vec![];
         let mut best_metric: Option<P::Metric> = None;
 
         for config in iter {
             let metric = problem.evaluate(&config);
+
+            // Skip infeasible solutions
+            if !problem.is_feasible(&metric) {
+                continue;
+            }
 
             let dominated = match &best_metric {
                 None => false,
@@ -69,11 +69,7 @@ impl BruteForce {
         &self,
         problem: &P,
     ) -> Vec<Vec<usize>> {
-        let dims = problem.dims();
-        if dims.is_empty() {
-            return vec![];
-        }
-        DimsIterator::new(dims)
+        DimsIterator::new(problem.dims())
             .filter(|config| problem.evaluate(config))
             .collect()
     }
@@ -89,11 +85,7 @@ impl Solver for BruteForce {
     }
 
     fn find_satisfying<P: Problem<Metric = bool>>(&self, problem: &P) -> Option<Vec<usize>> {
-        let dims = problem.dims();
-        if dims.is_empty() {
-            return None;
-        }
-        DimsIterator::new(dims).find(|config| problem.evaluate(config))
+        DimsIterator::new(problem.dims()).find(|config| problem.evaluate(config))
     }
 }
 

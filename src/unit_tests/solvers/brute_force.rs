@@ -133,7 +133,7 @@ fn test_solver_empty() {
     let solver = BruteForce::new();
 
     let best = solver.find_best(&problem);
-    assert!(best.is_empty());
+    assert_eq!(best, vec![Vec::<usize>::new()]);
 }
 
 #[test]
@@ -177,15 +177,30 @@ fn test_solver_find_all_satisfying() {
 }
 
 #[test]
-fn test_solver_find_satisfying_empty() {
+fn test_solver_find_satisfying_empty_dims_satisfiable() {
+    let problem = SatProblem {
+        num_vars: 0,
+        satisfying: vec![vec![]],
+    };
+    let solver = BruteForce::new();
+
+    assert_eq!(solver.find_satisfying(&problem), Some(vec![]));
+    assert_eq!(
+        solver.find_all_satisfying(&problem),
+        vec![Vec::<usize>::new()]
+    );
+}
+
+#[test]
+fn test_solver_find_satisfying_empty_dims_unsat() {
     let problem = SatProblem {
         num_vars: 0,
         satisfying: vec![],
     };
     let solver = BruteForce::new();
 
-    assert!(solver.find_satisfying(&problem).is_none());
-    assert!(solver.find_all_satisfying(&problem).is_empty());
+    assert_eq!(solver.find_satisfying(&problem), None);
+    assert_eq!(solver.find_all_satisfying(&problem), Vec::<Vec<usize>>::new());
 }
 
 #[test]
@@ -212,7 +227,7 @@ fn test_solver_with_real_sat() {
     use crate::traits::Problem;
 
     // (x1 OR x2) AND (NOT x1 OR NOT x2)
-    let problem = Satisfiability::<i32>::new(
+    let problem = Satisfiability::new(
         2,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
     );

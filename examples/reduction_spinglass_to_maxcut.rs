@@ -1,19 +1,19 @@
-//! # Spin Glass to Max-Cut Reduction
-//!
-//! ## Mathematical Equivalence
-//! When external fields h_i = 0, the Ising Hamiltonian H = -sum J_{ij} s_i s_j maps
-//! directly to a Max-Cut problem: maximizing the cut value is equivalent to minimizing
-//! the Ising energy. When h_i != 0, an ancilla spin is added with w_{i,a} = h_i.
-//!
-//! ## This Example
-//! - Instance: Petersen graph with 10 spins, ±1 couplings, no external fields
-//! - Source SpinGlass: 10 spins on Petersen topology
-//! - Target MaxCut: 10 vertices (direct mapping, no ancilla)
-//!
-//! ## Output
-//! Exports `docs/paper/examples/spinglass_to_maxcut.json` and `spinglass_to_maxcut.result.json`.
-//!
-//! See docs/paper/reductions.typ for the full reduction specification.
+// # Spin Glass to Max-Cut Reduction
+//
+// ## Mathematical Equivalence
+// When external fields h_i = 0, the Ising Hamiltonian H = -sum J_{ij} s_i s_j maps
+// directly to a Max-Cut problem: maximizing the cut value is equivalent to minimizing
+// the Ising energy. When h_i != 0, an ancilla spin is added with w_{i,a} = h_i.
+//
+// ## This Example
+// - Instance: Petersen graph with 10 spins, ±1 couplings, no external fields
+// - Source SpinGlass: 10 spins on Petersen topology
+// - Target MaxCut: 10 vertices (direct mapping, no ancilla)
+//
+// ## Output
+// Exports `docs/paper/examples/spinglass_to_maxcut.json` and `spinglass_to_maxcut.result.json`.
+//
+// See docs/paper/reductions.typ for the full reduction specification.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     let (n, edges) = petersen();
     let couplings: Vec<((usize, usize), i32)> = edges
         .iter()
@@ -88,6 +88,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "spinglass_to_maxcut";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

@@ -10,7 +10,6 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "QUBO",
-        category: "optimization",
         description: "Minimize quadratic unconstrained binary objective",
         fields: &[
             FieldInfo { name: "num_vars", type_name: "usize", description: "Number of binary variables" },

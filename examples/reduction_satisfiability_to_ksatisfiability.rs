@@ -1,35 +1,35 @@
-//! # SAT to k-SAT Reduction (Cook-Levin)
-//!
-//! ## Mathematical Equivalence
-//! Small clauses (< k literals) are padded with auxiliary variables and their
-//! negations. Large clauses (> k literals) are split using auxiliary variables
-//! in a chain that preserves satisfiability.
-//!
-//! ## This Example
-//! - Instance: 5-variable, 6-clause SAT formula with mixed clause sizes (1, 2, 3, 3, 4, 5 literals)
-//!   - 1-literal clause: padded to 3
-//!   - 2-literal clause: padded to 3
-//!   - 3-literal clauses: no change
-//!   - 4-literal clause: split into two 3-literal clauses
-//!   - 5-literal clause: split into three 3-literal clauses
-//! - Source SAT: satisfiable
-//! - Target: 3-SAT with 3 literals per clause
-//!
-//! ## Output
-//! Exports `docs/paper/examples/satisfiability_to_ksatisfiability.json` and `satisfiability_to_ksatisfiability.result.json`.
+// # SAT to k-SAT Reduction (Cook-Levin)
+//
+// ## Mathematical Equivalence
+// Small clauses (< k literals) are padded with auxiliary variables and their
+// negations. Large clauses (> k literals) are split using auxiliary variables
+// in a chain that preserves satisfiability.
+//
+// ## This Example
+// - Instance: 5-variable, 6-clause SAT formula with mixed clause sizes (1, 2, 3, 3, 4, 5 literals)
+//   - 1-literal clause: padded to 3
+//   - 2-literal clause: padded to 3
+//   - 3-literal clauses: no change
+//   - 4-literal clause: split into two 3-literal clauses
+//   - 5-literal clause: split into three 3-literal clauses
+// - Source SAT: satisfiable
+// - Target: 3-SAT with 3 literals per clause
+//
+// ## Output
+// Exports `docs/paper/examples/satisfiability_to_ksatisfiability.json` and `satisfiability_to_ksatisfiability.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use std::collections::HashMap;
 
-fn main() {
+pub fn run() {
     // 1. Create SAT instance with varied clause sizes to demonstrate padding and splitting:
     //    - 1 literal: padded to 3
     //    - 2 literals: padded to 3
     //    - 3 literals: no change (already 3-SAT)
     //    - 4 literals: split into two 3-literal clauses
     //    - 5 literals: split into three 3-literal clauses
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         5,
         vec![
             CNFClause::new(vec![1]),               // 1 literal - will be padded
@@ -53,7 +53,7 @@ fn main() {
     println!("  Clause sizes: 1, 2, 3, 3, 4, 5 (demonstrates padding and splitting)");
 
     // 2. Reduce to 3-SAT (K=3)
-    let reduction = ReduceTo::<KSatisfiability<3, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     println!("\n=== Problem Transformation ===");
@@ -129,7 +129,7 @@ fn main() {
 
     let data = ReductionData {
         source: ProblemSide {
-            problem: Satisfiability::<i32>::NAME.to_string(),
+            problem: Satisfiability::NAME.to_string(),
             variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
@@ -137,7 +137,7 @@ fn main() {
             }),
         },
         target: ProblemSide {
-            problem: KSatisfiability::<3, i32>::NAME.to_string(),
+            problem: KSatisfiability::<3>::NAME.to_string(),
             variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": ksat.num_vars(),
@@ -149,6 +149,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "satisfiability_to_ksatisfiability";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

@@ -41,7 +41,7 @@ fn test_boolvar_complement() {
 #[test]
 fn test_simple_sat_to_is() {
     // Simple SAT: (x1) - one clause with one literal
-    let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1])]);
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
     let is_problem = reduction.target_problem();
 
@@ -56,7 +56,7 @@ fn test_two_clause_sat_to_is() {
     // SAT: (x1) AND (NOT x1)
     // This is unsatisfiable
     let sat =
-        Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
+        Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
     let is_problem = reduction.target_problem();
 
@@ -77,7 +77,7 @@ fn test_two_clause_sat_to_is() {
 fn test_satisfiable_formula() {
     // SAT: (x1 OR x2) AND (NOT x1 OR x2) AND (x1 OR NOT x2)
     // Satisfiable with x1=true, x2=true or x1=false, x2=true
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         2,
         vec![
             CNFClause::new(vec![1, 2]),  // x1 OR x2
@@ -125,7 +125,7 @@ fn test_satisfiable_formula() {
 fn test_unsatisfiable_formula() {
     // SAT: (x1) AND (NOT x1) - unsatisfiable
     let sat =
-        Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
+        Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
     let is_problem = reduction.target_problem();
 
@@ -145,7 +145,7 @@ fn test_unsatisfiable_formula() {
 #[test]
 fn test_three_sat_example() {
     // 3-SAT: (x1 OR x2 OR x3) AND (NOT x1 OR NOT x2 OR x3) AND (x1 OR NOT x2 OR NOT x3)
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         3,
         vec![
             CNFClause::new(vec![1, 2, 3]),   // x1 OR x2 OR x3
@@ -178,7 +178,7 @@ fn test_three_sat_example() {
 #[test]
 fn test_extract_solution_basic() {
     // Simple case: (x1 OR x2)
-    let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, 2])]);
+    let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
 
     // Select vertex 0 (literal x1)
@@ -195,7 +195,7 @@ fn test_extract_solution_basic() {
 #[test]
 fn test_extract_solution_with_negation() {
     // (NOT x1) - selecting NOT x1 means x1 should be false
-    let sat = Satisfiability::<i32>::new(1, vec![CNFClause::new(vec![-1])]);
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![-1])]);
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
 
     let is_sol = vec![1];
@@ -206,7 +206,7 @@ fn test_extract_solution_with_negation() {
 #[test]
 fn test_clique_edges_in_clause() {
     // A clause with 3 literals should form a clique (3 edges)
-    let sat = Satisfiability::<i32>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
+    let sat = Satisfiability::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
     let is_problem = reduction.target_problem();
 
@@ -220,7 +220,7 @@ fn test_complement_edges_across_clauses() {
     // (x1) AND (NOT x1) AND (x2) - three clauses
     // Vertices: 0 (x1), 1 (NOT x1), 2 (x2)
     // Edges: (0,1) for complement x1 and NOT x1
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         2,
         vec![
             CNFClause::new(vec![1]),
@@ -237,7 +237,7 @@ fn test_complement_edges_across_clauses() {
 
 #[test]
 fn test_is_structure() {
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
@@ -251,7 +251,7 @@ fn test_is_structure() {
 #[test]
 fn test_empty_sat() {
     // Empty SAT (trivially satisfiable)
-    let sat = Satisfiability::<i32>::new(0, vec![]);
+    let sat = Satisfiability::new(0, vec![]);
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
     let is_problem = reduction.target_problem();
 
@@ -263,7 +263,7 @@ fn test_empty_sat() {
 #[test]
 fn test_sat_is_solution_correspondence() {
     // Comprehensive test: solve both SAT and IS, compare solutions
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         2,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
     );
@@ -299,7 +299,7 @@ fn test_sat_is_solution_correspondence() {
 
 #[test]
 fn test_literals_accessor() {
-    let sat = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, -2])]);
+    let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
 
     let literals = reduction.literals();

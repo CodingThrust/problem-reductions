@@ -13,7 +13,6 @@ use std::collections::HashMap;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumMatching",
-        category: "graph",
         description: "Find maximum weight matching in a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
@@ -208,7 +207,6 @@ where
     W: Clone
         + Default
         + PartialOrd
-        + Ord
         + num_traits::Num
         + num_traits::Zero
         + std::ops::AddAssign
@@ -250,7 +248,6 @@ where
     W: Clone
         + Default
         + PartialOrd
-        + Ord
         + num_traits::Num
         + num_traits::Zero
         + std::ops::AddAssign
@@ -262,6 +259,10 @@ where
 
     fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
         a.is_better(b, self.direction())
+    }
+
+    fn is_feasible(&self, metric: &Self::Metric) -> bool {
+        metric.is_valid()
     }
 }
 

@@ -309,8 +309,8 @@ impl ReductionGraph {
             QUBO<f64> => "QUBO",
             ILP => "ILP",
             // Satisfiability problems
-            Satisfiability<i32> => "Satisfiability",
-            KSatisfiability<3, i32> => "KSatisfiability",
+            Satisfiability => "Satisfiability",
+            KSatisfiability<3> => "KSatisfiability",
             CircuitSAT<i32> => "CircuitSAT",
             // Specialized
             Factoring => "Factoring",

@@ -12,7 +12,6 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "BicliqueCover",
-        category: "specialized",
         description: "Cover bipartite edges with k bicliques",
         fields: &[
             FieldInfo { name: "left_size", type_name: "usize", description: "Vertices in left partition" },

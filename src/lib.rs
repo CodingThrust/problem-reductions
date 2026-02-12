@@ -94,9 +94,7 @@ pub mod prelude {
     pub use crate::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
     pub use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
-    pub use crate::registry::{
-        ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,
-    };
+    pub use crate::registry::{ComplexityClass, ProblemInfo, ProblemMetadata};
     pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::solvers::{BruteForce, Solver};
     pub use crate::traits::{OptimizationProblem, Problem};
@@ -105,7 +103,7 @@ pub mod prelude {
 
 // Re-export commonly used items at crate root
 pub use error::{ProblemError, Result};
-pub use registry::{ComplexityClass, ProblemCategory, ProblemInfo};
+pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::{OptimizationProblem, Problem};
 pub use types::{Direction, NumericSize, NumericSizeBounds, ProblemSize, SolutionSize, Unweighted, Weights};

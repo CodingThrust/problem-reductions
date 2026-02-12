@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "Factoring",
-        category: "specialized",
         description: "Factor a composite integer into two factors",
         fields: &[
             FieldInfo { name: "m", type_name: "usize", description: "Bits for first factor" },

@@ -5,13 +5,12 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ILP",
-        category: "optimization",
         description: "Optimize linear objective subject to linear constraints",
         fields: &[
             FieldInfo { name: "num_vars", type_name: "usize", description: "Number of integer variables" },
@@ -329,7 +328,7 @@ impl ILP {
 
 impl Problem for ILP {
     const NAME: &'static str = "ILP";
-    type Metric = f64;
+    type Metric = SolutionSize<f64>;
 
     fn dims(&self) -> Vec<usize> {
         self.bounds
@@ -338,15 +337,12 @@ impl Problem for ILP {
             .collect()
     }
 
-    fn evaluate(&self, config: &[usize]) -> f64 {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<f64> {
         let values = self.config_to_values(config);
         if !self.is_feasible(&values) {
-            return match self.sense {
-                ObjectiveSense::Maximize => f64::MIN,
-                ObjectiveSense::Minimize => f64::MAX,
-            };
+            return SolutionSize::Invalid;
         }
-        self.evaluate_objective(&values)
+        SolutionSize::Valid(self.evaluate_objective(&values))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -366,10 +362,11 @@ impl OptimizationProblem for ILP {
     }
 
     fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        match self.direction() {
-            Direction::Maximize => a > b,
-            Direction::Minimize => a < b,
-        }
+        a.is_better(b, self.direction())
+    }
+
+    fn is_feasible(&self, metric: &Self::Metric) -> bool {
+        metric.is_valid()
     }
 }
 

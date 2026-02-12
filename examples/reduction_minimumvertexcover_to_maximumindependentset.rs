@@ -1,19 +1,19 @@
-//! # Vertex Cover to Independent Set Reduction
-//!
-//! ## Mathematical Equivalence
-//! C ⊆ V is a vertex cover iff V \ C is an independent set. The reduction
-//! creates an identical graph with identical weights. Solution extraction
-//! computes the complement: IS = V \ VC.
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges), VC=6
-//! - Source VC: min size 6
-//! - Target IS: max size 4
-//!
-//! ## Output
-//! Exports `docs/paper/examples/minimumvertexcover_to_maximumindependentset.json` and `minimumvertexcover_to_maximumindependentset.result.json`.
-//!
-//! See docs/paper/reductions.typ for the full reduction specification.
+// # Vertex Cover to Independent Set Reduction
+//
+// ## Mathematical Equivalence
+// C ⊆ V is a vertex cover iff V \ C is an independent set. The reduction
+// creates an identical graph with identical weights. Solution extraction
+// computes the complement: IS = V \ VC.
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges), VC=6
+// - Source VC: min size 6
+// - Target IS: max size 4
+//
+// ## Output
+// Exports `docs/paper/examples/minimumvertexcover_to_maximumindependentset.json` and `minimumvertexcover_to_maximumindependentset.result.json`.
+//
+// See docs/paper/reductions.typ for the full reduction specification.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -21,7 +21,7 @@ use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 use std::collections::HashMap;
 
-fn main() {
+pub fn run() {
     // Petersen graph: 10 vertices, 15 edges, VC=6
     let (num_vertices, edges) = petersen();
     let vc = MinimumVertexCover::<SimpleGraph, i32>::new(num_vertices, edges.clone());
@@ -95,6 +95,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "minimumvertexcover_to_maximumindependentset";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

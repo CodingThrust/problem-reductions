@@ -53,7 +53,7 @@ fn test_all_problems_implement_trait_correctly() {
         "MaximumMatching",
     );
     check_problem_trait(
-        &Satisfiability::<i32>::new(3, vec![CNFClause::new(vec![1])]),
+        &Satisfiability::new(3, vec![CNFClause::new(vec![1])]),
         "SAT",
     );
     check_problem_trait(

@@ -92,11 +92,11 @@ fn test_variant_for_problems() {
     assert_eq!(v[0].1, "SimpleGraph");
 
     // Test Satisfiability
-    let v = Satisfiability::<i32>::variant();
+    let v = Satisfiability::variant();
     assert_eq!(v.len(), 2);
 
     // Test KSatisfiability
-    let v = KSatisfiability::<3, i32>::variant();
+    let v = KSatisfiability::<3>::variant();
     assert_eq!(v.len(), 2);
 
     // Test MaximumSetPacking

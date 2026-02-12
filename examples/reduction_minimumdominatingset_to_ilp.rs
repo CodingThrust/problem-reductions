@@ -1,17 +1,17 @@
-//! # Dominating Set to ILP Reduction
-//!
-//! ## Mathematical Formulation
-//! Variables: x_v in {0,1} for each vertex v.
-//! Constraints: x_v + sum_{u in N(v)} x_u >= 1 for each vertex v.
-//! Objective: minimize sum of w_v * x_v.
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges), min dominating set size 3
-//! - Source MinimumDominatingSet: min dominating set size 3
-//! - Target ILP: 10 binary variables, 10 domination constraints
-//!
-//! ## Output
-//! Exports `docs/paper/examples/minimumdominatingset_to_ilp.json` and `minimumdominatingset_to_ilp.result.json`.
+// # Dominating Set to ILP Reduction
+//
+// ## Mathematical Formulation
+// Variables: x_v in {0,1} for each vertex v.
+// Constraints: x_v + sum_{u in N(v)} x_u >= 1 for each vertex v.
+// Objective: minimize sum of w_v * x_v.
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges), min dominating set size 3
+// - Source MinimumDominatingSet: min dominating set size 3
+// - Target ILP: 10 binary variables, 10 domination constraints
+//
+// ## Output
+// Exports `docs/paper/examples/minimumdominatingset_to_ilp.json` and `minimumdominatingset_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -19,7 +19,7 @@ use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 use std::collections::HashMap;
 
-fn main() {
+pub fn run() {
     // 1. Create MinimumDominatingSet instance: Petersen graph
     let (num_vertices, edges) = petersen();
     let ds = MinimumDominatingSet::<SimpleGraph, i32>::new(num_vertices, edges.clone());
@@ -97,6 +97,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "minimumdominatingset_to_ilp";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

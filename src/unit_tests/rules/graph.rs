@@ -213,11 +213,11 @@ fn test_categorize_type() {
 
     // Satisfiability
     assert_eq!(
-        ReductionGraph::categorize_type("Satisfiability<i32>"),
+        ReductionGraph::categorize_type("Satisfiability"),
         "satisfiability"
     );
     assert_eq!(
-        ReductionGraph::categorize_type("KSatisfiability<3, i32>"),
+        ReductionGraph::categorize_type("KSatisfiability<3>"),
         "satisfiability"
     );
     assert_eq!(
@@ -242,14 +242,14 @@ fn test_sat_based_reductions() {
 
     // SAT -> IS
     assert!(graph
-        .has_direct_reduction::<Satisfiability<i32>, MaximumIndependentSet<SimpleGraph, i32>>());
+        .has_direct_reduction::<Satisfiability, MaximumIndependentSet<SimpleGraph, i32>>());
 
     // SAT -> KColoring
-    assert!(graph.has_direct_reduction::<Satisfiability<i32>, KColoring<3, SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<Satisfiability, KColoring<3, SimpleGraph, i32>>());
 
     // SAT -> MinimumDominatingSet
     assert!(
-        graph.has_direct_reduction::<Satisfiability<i32>, MinimumDominatingSet<SimpleGraph, i32>>()
+        graph.has_direct_reduction::<Satisfiability, MinimumDominatingSet<SimpleGraph, i32>>()
     );
 }
 
@@ -298,8 +298,8 @@ fn test_ksat_reductions() {
     let graph = ReductionGraph::new();
 
     // SAT <-> 3-SAT (bidirectional)
-    assert!(graph.has_direct_reduction::<Satisfiability<i32>, KSatisfiability<3, i32>>());
-    assert!(graph.has_direct_reduction::<KSatisfiability<3, i32>, Satisfiability<i32>>());
+    assert!(graph.has_direct_reduction::<Satisfiability, KSatisfiability<3>>());
+    assert!(graph.has_direct_reduction::<KSatisfiability<3>, Satisfiability>());
 }
 
 #[test]

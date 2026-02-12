@@ -670,7 +670,7 @@ mod qubo_reductions {
             })
             .collect();
 
-        let ksat = KSatisfiability::<2, i32>::new(data.source.num_variables, clauses);
+        let ksat = KSatisfiability::<2>::new(data.source.num_variables, clauses);
         let reduction = ReduceTo::<QUBO>::reduce_to(&ksat);
         let qubo = reduction.target_problem();
 
@@ -765,7 +765,7 @@ mod qubo_reductions {
 
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
-            assert!(ilp.evaluate(&extracted) > f64::MIN);
+            assert!(ilp.evaluate(&extracted).is_valid());
         }
 
         // Optimal assignment should match ground truth

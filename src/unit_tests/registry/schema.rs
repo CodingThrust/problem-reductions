@@ -47,7 +47,6 @@ fn test_schema_fields_populated() {
         .iter()
         .find(|s| s.name == "MaximumIndependentSet")
         .unwrap();
-    assert_eq!(is_schema.category, "graph");
     assert!(
         !is_schema.fields.is_empty(),
         "MaximumIndependentSet should have fields"

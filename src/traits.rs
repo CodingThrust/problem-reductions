@@ -31,6 +31,16 @@ pub trait OptimizationProblem: Problem {
 
     /// Returns true if metric `a` is better than metric `b` for this problem.
     fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool;
+
+    /// Returns true if the metric represents a feasible solution.
+    ///
+    /// Override this for problems that use SolutionSize or similar enums
+    /// where some configurations are infeasible.
+    fn is_feasible(&self, metric: &Self::Metric) -> bool {
+        // Default: all metrics are feasible (e.g., for MaxCut where all cuts are valid)
+        let _ = metric;
+        true
+    }
 }
 
 #[cfg(test)]

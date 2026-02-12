@@ -19,7 +19,7 @@ pub struct ReductionISToVC<W> {
 
 impl<W> ReductionResult for ReductionISToVC<W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = MaximumIndependentSet<SimpleGraph, W>;
     type Target = MinimumVertexCover<SimpleGraph, W>;
@@ -36,8 +36,6 @@ where
 }
 
 #[reduction(
-    source_graph = "SimpleGraph",
-    target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_vertices", poly!(num_vertices)),
@@ -47,7 +45,7 @@ where
 )]
 impl<W> ReduceTo<MinimumVertexCover<SimpleGraph, W>> for MaximumIndependentSet<SimpleGraph, W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionISToVC<W>;
 
@@ -69,7 +67,7 @@ pub struct ReductionVCToIS<W> {
 
 impl<W> ReductionResult for ReductionVCToIS<W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = MinimumVertexCover<SimpleGraph, W>;
     type Target = MaximumIndependentSet<SimpleGraph, W>;
@@ -85,8 +83,6 @@ where
 }
 
 #[reduction(
-    source_graph = "SimpleGraph",
-    target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_vertices", poly!(num_vertices)),
@@ -96,7 +92,7 @@ where
 )]
 impl<W> ReduceTo<MaximumIndependentSet<SimpleGraph, W>> for MinimumVertexCover<SimpleGraph, W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionVCToIS<W>;
 

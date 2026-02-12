@@ -34,7 +34,6 @@ impl ReductionResult for ReductionVCToQUBO {
 }
 
 #[reduction(
-    source_graph = "SimpleGraph",
     overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vertices))]) }
 )]
 impl ReduceTo<QUBO<f64>> for MinimumVertexCover<SimpleGraph, i32> {

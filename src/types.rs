@@ -230,19 +230,27 @@ impl<T> SolutionSize<T> {
     }
 }
 
-impl<T: Ord> SolutionSize<T> {
+impl<T: PartialOrd> SolutionSize<T> {
     /// Returns true if self is a better solution than other for the given direction.
     ///
     /// - For maximization: larger values are better
     /// - For minimization: smaller values are better
     /// - Valid solutions are always better than invalid ones
     /// - Two invalid solutions are equally bad (neither is better)
+    ///
+    /// # Panics
+    ///
+    /// Panics if comparing two valid values that are not comparable (e.g., NaN for f64).
     pub fn is_better(&self, other: &Self, direction: Direction) -> bool {
         match (self, other) {
-            (SolutionSize::Valid(a), SolutionSize::Valid(b)) => match direction {
-                Direction::Maximize => a > b,
-                Direction::Minimize => a < b,
-            },
+            (SolutionSize::Valid(a), SolutionSize::Valid(b)) => {
+                use std::cmp::Ordering;
+                let ord = a.partial_cmp(b).expect("cannot compare values (NaN?)");
+                match direction {
+                    Direction::Maximize => ord == Ordering::Greater,
+                    Direction::Minimize => ord == Ordering::Less,
+                }
+            }
             (SolutionSize::Valid(_), SolutionSize::Invalid) => true,
             (SolutionSize::Invalid, SolutionSize::Valid(_)) => false,
             (SolutionSize::Invalid, SolutionSize::Invalid) => false,

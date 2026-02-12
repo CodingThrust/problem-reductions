@@ -1,26 +1,26 @@
-//! # Independent Set to Set Packing Reduction
-//!
-//! ## Mathematical Equivalence
-//! For each vertex v, create a set S_v of edges incident to v. Universe U = E.
-//! Selecting vertex v means selecting S_v. Independent vertices have disjoint
-//! incident edge sets, so IS maps to set packing with identical optimal value.
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
-//! - Source IS: max size 4
-//! - Target MaximumSetPacking: max packing 4
-//!
-//! ## Output
-//! Exports `docs/paper/examples/maximumindependentset_to_maximumsetpacking.json` and `maximumindependentset_to_maximumsetpacking.result.json`.
-//!
-//! See docs/paper/reductions.typ for the full reduction specification.
+// # Independent Set to Set Packing Reduction
+//
+// ## Mathematical Equivalence
+// For each vertex v, create a set S_v of edges incident to v. Universe U = E.
+// Selecting vertex v means selecting S_v. Independent vertices have disjoint
+// incident edge sets, so IS maps to set packing with identical optimal value.
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
+// - Source IS: max size 4
+// - Target MaximumSetPacking: max packing 4
+//
+// ## Output
+// Exports `docs/paper/examples/maximumindependentset_to_maximumsetpacking.json` and `maximumindependentset_to_maximumsetpacking.result.json`.
+//
+// See docs/paper/reductions.typ for the full reduction specification.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     println!("\n=== Independent Set -> Set Packing Reduction ===\n");
 
     // Petersen graph: 10 vertices, 15 edges, 3-regular
@@ -112,8 +112,12 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "maximumindependentset_to_maximumsetpacking";
     write_example(name, &data, &results);
 
     println!("\nDone: IS(Petersen) optimal=4 maps to MaximumSetPacking optimal=4");
+}
+
+fn main() {
+    run()
 }

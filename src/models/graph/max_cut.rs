@@ -12,7 +12,6 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaxCut",
-        category: "graph",
         description: "Find maximum weight cut in a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The graph with edge weights" },
@@ -196,7 +195,6 @@ where
     W: Clone
         + Default
         + PartialOrd
-        + Ord
         + num_traits::Num
         + num_traits::Zero
         + std::ops::AddAssign
@@ -228,7 +226,6 @@ where
     W: Clone
         + Default
         + PartialOrd
-        + Ord
         + num_traits::Num
         + num_traits::Zero
         + std::ops::AddAssign

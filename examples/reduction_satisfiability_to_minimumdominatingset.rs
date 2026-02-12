@@ -1,26 +1,26 @@
-//! # SAT to Dominating Set Reduction (Garey & Johnson 1979)
-//!
-//! ## Mathematical Equivalence
-//! For each variable x_i, create a triangle (pos_i, neg_i, dummy_i). For each
-//! clause c_j, create a vertex connected to the literals it contains. phi is
-//! satisfiable iff the graph has a dominating set of size n.
-//!
-//! ## This Example
-//! - Instance: 5-variable, 7-clause 3-SAT formula
-//! - Source SAT: satisfiable
-//! - Target: Dominating set with 3*5 + 7 = 22 vertices
-//!
-//! ## Output
-//! Exports `docs/paper/examples/satisfiability_to_minimumdominatingset.json` and `satisfiability_to_minimumdominatingset.result.json`.
+// # SAT to Dominating Set Reduction (Garey & Johnson 1979)
+//
+// ## Mathematical Equivalence
+// For each variable x_i, create a triangle (pos_i, neg_i, dummy_i). For each
+// clause c_j, create a vertex connected to the literals it contains. phi is
+// satisfiable iff the graph has a dominating set of size n.
+//
+// ## This Example
+// - Instance: 5-variable, 7-clause 3-SAT formula
+// - Source SAT: satisfiable
+// - Target: Dominating set with 3*5 + 7 = 22 vertices
+//
+// ## Output
+// Exports `docs/paper/examples/satisfiability_to_minimumdominatingset.json` and `satisfiability_to_minimumdominatingset.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use std::collections::HashMap;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     // 1. Create SAT instance: 5-variable, 7-clause 3-SAT formula
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         5,
         vec![
             CNFClause::new(vec![1, 2, -3]),  // x1 v x2 v ~x3
@@ -124,7 +124,7 @@ fn main() {
 
     let data = ReductionData {
         source: ProblemSide {
-            problem: Satisfiability::<i32>::NAME.to_string(),
+            problem: Satisfiability::NAME.to_string(),
             variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
@@ -143,6 +143,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "satisfiability_to_minimumdominatingset";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

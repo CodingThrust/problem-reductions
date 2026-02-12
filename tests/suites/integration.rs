@@ -95,7 +95,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_satisfiability_solvable() {
-        let problem = Satisfiability::<i32>::new(
+        let problem = Satisfiability::new(
             3,
             vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
         );
@@ -266,7 +266,7 @@ mod problem_relationships {
     /// SAT clauses with all positive literals have the all-true assignment as solution.
     #[test]
     fn test_sat_positive_clauses() {
-        let problem = Satisfiability::<i32>::new(
+        let problem = Satisfiability::new(
             3,
             vec![
                 CNFClause::new(vec![1, 2]),
@@ -352,7 +352,7 @@ mod edge_cases {
 
     #[test]
     fn test_single_clause_sat() {
-        let problem = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, -2])]);
+        let problem = Satisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
         // Find satisfying configs
         let dims = problem.dims();
         let all_configs: Vec<Vec<usize>> = problemreductions::config::DimsIterator::new(dims.clone()).collect();
@@ -446,7 +446,7 @@ mod weighted_problems {
     #[test]
     fn test_unsatisfiable_sat() {
         // This formula is unsatisfiable: x1 AND NOT x1
-        let problem = Satisfiability::<i32>::new(
+        let problem = Satisfiability::new(
             2,
             vec![
                 CNFClause::new(vec![1]),  // x1

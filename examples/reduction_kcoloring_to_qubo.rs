@@ -1,39 +1,39 @@
-//! # K-Coloring to QUBO Reduction (Penalty Method)
-//!
-//! ## Mathematical Relationship
-//! The K-Coloring problem on a graph G = (V, E) with K colors is mapped to QUBO
-//! using a one-hot encoding. Each vertex i has K binary variables x_{i,c} for
-//! c = 0..K-1, with penalties enforcing:
-//!
-//! 1. One-hot constraint: each vertex gets exactly one color
-//!    P1 * sum_i (1 - sum_c x_{i,c})^2
-//!
-//! 2. Edge constraint: adjacent vertices get different colors
-//!    P2 * sum_{(i,j) in E} sum_c x_{i,c} * x_{j,c}
-//!
-//! The QUBO has n*K variables (n vertices, K colors).
-//!
-//! ## This Example
-//! - Instance: House graph (5 vertices, 6 edges) with 3 colors, χ=3
-//! - Source: KColoring<3> on 5 vertices, 6 edges
-//! - QUBO variables: 15 (5 vertices x 3 colors, one-hot encoding)
-//! - BruteForce on 15 variables (2^15 = 32768) completes quickly
-//!
-//! ## Outputs
-//! - `docs/paper/examples/coloring_to_qubo.json` — reduction structure
-//! - `docs/paper/examples/coloring_to_qubo.result.json` — solutions
-//!
-//! ## Usage
-//! ```bash
-//! cargo run --example reduction_coloring_to_qubo
-//! ```
+// # K-Coloring to QUBO Reduction (Penalty Method)
+//
+// ## Mathematical Relationship
+// The K-Coloring problem on a graph G = (V, E) with K colors is mapped to QUBO
+// using a one-hot encoding. Each vertex i has K binary variables x_{i,c} for
+// c = 0..K-1, with penalties enforcing:
+//
+// 1. One-hot constraint: each vertex gets exactly one color
+//    P1 * sum_i (1 - sum_c x_{i,c})^2
+//
+// 2. Edge constraint: adjacent vertices get different colors
+//    P2 * sum_{(i,j) in E} sum_c x_{i,c} * x_{j,c}
+//
+// The QUBO has n*K variables (n vertices, K colors).
+//
+// ## This Example
+// - Instance: House graph (5 vertices, 6 edges) with 3 colors, χ=3
+// - Source: KColoring<3> on 5 vertices, 6 edges
+// - QUBO variables: 15 (5 vertices x 3 colors, one-hot encoding)
+// - BruteForce on 15 variables (2^15 = 32768) completes quickly
+//
+// ## Outputs
+// - `docs/paper/examples/coloring_to_qubo.json` — reduction structure
+// - `docs/paper/examples/coloring_to_qubo.result.json` — solutions
+//
+// ## Usage
+// ```bash
+// cargo run --example reduction_coloring_to_qubo
+// ```
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::house;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     println!("=== K-Coloring -> QUBO Reduction ===\n");
 
     // House graph: 5 vertices, 6 edges (square base + triangle roof), χ=3
@@ -113,6 +113,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "kcoloring_to_qubo";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

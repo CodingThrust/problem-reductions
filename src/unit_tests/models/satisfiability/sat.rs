@@ -32,7 +32,7 @@ fn test_cnf_clause_negation() {
 
 #[test]
 fn test_sat_creation() {
-    let problem = Satisfiability::<i32>::new(
+    let problem = Satisfiability::new(
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
@@ -44,7 +44,7 @@ fn test_sat_creation() {
 #[test]
 fn test_is_satisfying() {
     // (x1 OR x2) AND (NOT x1 OR NOT x2)
-    let problem = Satisfiability::<i32>::new(
+    let problem = Satisfiability::new(
         2,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
     );
@@ -57,7 +57,7 @@ fn test_is_satisfying() {
 
 #[test]
 fn test_count_satisfied() {
-    let problem = Satisfiability::<i32>::new(
+    let problem = Satisfiability::new(
         2,
         vec![
             CNFClause::new(vec![1]),
@@ -73,7 +73,7 @@ fn test_count_satisfied() {
 
 #[test]
 fn test_evaluate() {
-    let problem = Satisfiability::<i32>::new(
+    let problem = Satisfiability::new(
         2,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
     );
@@ -88,7 +88,7 @@ fn test_evaluate() {
 #[test]
 fn test_brute_force_satisfiable() {
     // (x1) AND (x2) AND (NOT x1 OR NOT x2) - UNSAT
-    let problem = Satisfiability::<i32>::new(
+    let problem = Satisfiability::new(
         2,
         vec![
             CNFClause::new(vec![1]),
@@ -106,7 +106,7 @@ fn test_brute_force_satisfiable() {
 #[test]
 fn test_brute_force_simple_sat() {
     // (x1 OR x2) - many solutions
-    let problem = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, 2])]);
+    let problem = Satisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_satisfying(&problem);
@@ -132,16 +132,37 @@ fn test_is_satisfying_assignment() {
 
 #[test]
 fn test_empty_formula() {
-    let problem = Satisfiability::<i32>::new(2, vec![]);
+    let problem = Satisfiability::new(2, vec![]);
     // Empty formula is trivially satisfied
     assert!(problem.evaluate(&[0, 0]));
+}
+
+#[test]
+fn test_empty_formula_zero_vars_solver() {
+    let problem = Satisfiability::new(0, vec![]);
+    let solver = BruteForce::new();
+
+    assert_eq!(solver.find_satisfying(&problem), Some(vec![]));
+    assert_eq!(
+        solver.find_all_satisfying(&problem),
+        vec![Vec::<usize>::new()]
+    );
+}
+
+#[test]
+fn test_zero_vars_unsat_solver() {
+    let problem = Satisfiability::new(0, vec![CNFClause::new(vec![1])]);
+    let solver = BruteForce::new();
+
+    assert_eq!(solver.find_satisfying(&problem), None);
+    assert!(solver.find_all_satisfying(&problem).is_empty());
 }
 
 #[test]
 fn test_single_literal_clauses() {
     // Unit propagation scenario: x1 AND NOT x2
     let problem =
-        Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])]);
+        Satisfiability::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_satisfying(&problem);
@@ -151,7 +172,7 @@ fn test_single_literal_clauses() {
 
 #[test]
 fn test_get_clause() {
-    let problem = Satisfiability::<i32>::new(
+    let problem = Satisfiability::new(
         2,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1])],
     );
@@ -162,7 +183,7 @@ fn test_get_clause() {
 #[test]
 fn test_three_sat_example() {
     // (x1 OR x2 OR x3) AND (NOT x1 OR NOT x2 OR x3) AND (x1 OR NOT x2 OR NOT x3)
-    let problem = Satisfiability::<i32>::new(
+    let problem = Satisfiability::new(
         3,
         vec![
             CNFClause::new(vec![1, 2, 3]),
@@ -180,7 +201,7 @@ fn test_three_sat_example() {
 
 #[test]
 fn test_evaluate_csp() {
-    let problem = Satisfiability::<i32>::new(
+    let problem = Satisfiability::new(
         2,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
     );
@@ -204,7 +225,7 @@ fn test_is_satisfying_assignment_defaults() {
 
 #[test]
 fn test_num_variables() {
-    let problem = Satisfiability::<i32>::new(5, vec![CNFClause::new(vec![1])]);
+    let problem = Satisfiability::new(5, vec![CNFClause::new(vec![1])]);
     assert_eq!(problem.num_variables(), 5);
 }
 
@@ -226,7 +247,7 @@ fn test_clause_debug() {
 fn test_sat_problem() {
     use crate::traits::Problem;
 
-    let p = Satisfiability::<i32>::new(
+    let p = Satisfiability::new(
         2,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 2])],
     );
@@ -236,14 +257,14 @@ fn test_sat_problem() {
     assert!(!p.evaluate(&[1, 0]));
     assert!(p.evaluate(&[0, 1]));
     assert!(p.evaluate(&[1, 1]));
-    assert_eq!(<Satisfiability<i32> as Problem>::NAME, "Satisfiability");
+    assert_eq!(<Satisfiability as Problem>::NAME, "Satisfiability");
 }
 
 #[test]
 fn test_sat_problem_empty_formula() {
     use crate::traits::Problem;
 
-    let p = Satisfiability::<i32>::new(2, vec![]);
+    let p = Satisfiability::new(2, vec![]);
     assert_eq!(p.dims(), vec![2, 2]);
     assert!(p.evaluate(&[0, 0]));
     assert!(p.evaluate(&[1, 1]));
@@ -253,7 +274,7 @@ fn test_sat_problem_empty_formula() {
 fn test_sat_problem_single_literal() {
     use crate::traits::Problem;
 
-    let p = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])]);
+    let p = Satisfiability::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])]);
     assert_eq!(p.dims(), vec![2, 2]);
     assert!(p.evaluate(&[1, 0]));
     assert!(!p.evaluate(&[0, 0]));

@@ -1,26 +1,26 @@
-//! # SAT to Independent Set Reduction (Karp 1972)
-//!
-//! ## Mathematical Equivalence
-//! Given a CNF formula phi with m clauses, construct a graph G where each literal
-//! in each clause becomes a vertex. Intra-clause edges form cliques, cross-clause
-//! edges connect complementary literals. phi is satisfiable iff G has IS of size m.
-//!
-//! ## This Example
-//! - Instance: 5-variable, 7-clause 3-SAT formula
-//! - Source SAT: satisfiable
-//! - Target IS: size 7 (one vertex per clause), 21 vertices total
-//!
-//! ## Output
-//! Exports `docs/paper/examples/satisfiability_to_maximumindependentset.json` and `satisfiability_to_maximumindependentset.result.json`.
+// # SAT to Independent Set Reduction (Karp 1972)
+//
+// ## Mathematical Equivalence
+// Given a CNF formula phi with m clauses, construct a graph G where each literal
+// in each clause becomes a vertex. Intra-clause edges form cliques, cross-clause
+// edges connect complementary literals. phi is satisfiable iff G has IS of size m.
+//
+// ## This Example
+// - Instance: 5-variable, 7-clause 3-SAT formula
+// - Source SAT: satisfiable
+// - Target IS: size 7 (one vertex per clause), 21 vertices total
+//
+// ## Output
+// Exports `docs/paper/examples/satisfiability_to_maximumindependentset.json` and `satisfiability_to_maximumindependentset.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use std::collections::HashMap;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     // 1. Create SAT instance: 5-variable, 7-clause 3-SAT formula
-    let sat = Satisfiability::<i32>::new(
+    let sat = Satisfiability::new(
         5,
         vec![
             CNFClause::new(vec![1, 2, -3]),  // x1 v x2 v ~x3
@@ -110,7 +110,7 @@ fn main() {
 
     let data = ReductionData {
         source: ProblemSide {
-            problem: Satisfiability::<i32>::NAME.to_string(),
+            problem: Satisfiability::NAME.to_string(),
             variant: HashMap::new(),
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
@@ -129,6 +129,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "satisfiability_to_maximumindependentset";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

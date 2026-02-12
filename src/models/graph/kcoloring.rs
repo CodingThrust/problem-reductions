@@ -12,7 +12,6 @@ use std::marker::PhantomData;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "KColoring",
-        category: "graph",
         description: "Find valid k-coloring of a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },

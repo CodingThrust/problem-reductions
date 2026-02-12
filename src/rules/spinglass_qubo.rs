@@ -33,7 +33,6 @@ impl ReductionResult for ReductionQUBOToSG {
 }
 
 #[reduction(
-    target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_spins", poly!(num_vars)),
@@ -111,7 +110,6 @@ impl ReductionResult for ReductionSGToQUBO {
 }
 
 #[reduction(
-    source_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_vars", poly!(num_spins)),

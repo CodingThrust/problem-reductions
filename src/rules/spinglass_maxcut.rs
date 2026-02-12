@@ -21,7 +21,7 @@ pub struct ReductionMaxCutToSG<W> {
 
 impl<W> ReductionResult for ReductionMaxCutToSG<W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Source = MaxCut<SimpleGraph, W>;
     type Target = SpinGlass<SimpleGraph, W>;
@@ -36,8 +36,6 @@ where
 }
 
 #[reduction(
-    source_graph = "SimpleGraph",
-    target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_spins", poly!(num_vertices)),
@@ -47,7 +45,7 @@ where
 )]
 impl<W> ReduceTo<SpinGlass<SimpleGraph, W>> for MaxCut<SimpleGraph, W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionMaxCutToSG<W>;
 
@@ -96,7 +94,7 @@ pub struct ReductionSGToMaxCut<W> {
 
 impl<W> ReductionResult for ReductionSGToMaxCut<W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Source = SpinGlass<SimpleGraph, W>;
     type Target = MaxCut<SimpleGraph, W>;
@@ -124,8 +122,6 @@ where
 }
 
 #[reduction(
-    source_graph = "SimpleGraph",
-    target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_vertices", poly!(num_spins)),
@@ -135,7 +131,7 @@ where
 )]
 impl<W> ReduceTo<MaxCut<SimpleGraph, W>> for SpinGlass<SimpleGraph, W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSGToMaxCut<W>;
 

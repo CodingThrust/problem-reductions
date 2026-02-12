@@ -1,25 +1,25 @@
-//! # MaximumClique to ILP Reduction
-//!
-//! ## Mathematical Formulation
-//! Variables: x_v in {0,1} for each vertex v.
-//! Constraints: x_u + x_v <= 1 for each non-edge (u,v) not in E.
-//! Objective: maximize sum of w_v * x_v.
-//!
-//! ## This Example
-//! - Instance: Octahedron graph (K_{2,2,2}) with 6 vertices and 12 edges.
-//! - Source MaximumClique: max clique is size 3
-//! - Target ILP: 6 binary variables, 3 non-edge constraints
-//!   (non-edges: opposite vertex pairs (0,5), (1,4), (2,3))
-//!
-//! ## Output
-//! Exports `docs/paper/examples/maximumclique_to_ilp.json` and `maximumclique_to_ilp.result.json`.
+// # MaximumClique to ILP Reduction
+//
+// ## Mathematical Formulation
+// Variables: x_v in {0,1} for each vertex v.
+// Constraints: x_u + x_v <= 1 for each non-edge (u,v) not in E.
+// Objective: maximize sum of w_v * x_v.
+//
+// ## This Example
+// - Instance: Octahedron graph (K_{2,2,2}) with 6 vertices and 12 edges.
+// - Source MaximumClique: max clique is size 3
+// - Target ILP: 6 binary variables, 3 non-edge constraints
+//   (non-edges: opposite vertex pairs (0,5), (1,4), (2,3))
+//
+// ## Output
+// Exports `docs/paper/examples/maximumclique_to_ilp.json` and `maximumclique_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::octahedral;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     // 1. Create MaximumClique instance: Octahedron (K_{2,2,2}), 6 vertices, 12 edges, clique number 3
     let (num_vertices, edges) = octahedral();
     let clique = MaximumClique::<SimpleGraph, i32>::new(num_vertices, edges.clone());
@@ -95,6 +95,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "maximumclique_to_ilp";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

@@ -1,24 +1,24 @@
-//! # Set Packing to ILP Reduction
-//!
-//! ## Mathematical Formulation
-//! Variables: x_i in {0,1} for each set S_i.
-//! Constraints: x_i + x_j <= 1 for each overlapping pair (i,j).
-//! Objective: maximize sum of w_i * x_i.
-//!
-//! ## This Example
-//! - Instance: 6 sets over universe {0,...,7}
-//!   - S0={0,1,2}, S1={2,3,4}, S2={4,5,6}, S3={6,7,0}, S4={1,3,5}, S5={0,4,7}
-//! - Source MaximumSetPacking: max packing size 2 (e.g., S0 and S2, or S1 and S3)
-//! - Target ILP: 6 binary variables, overlap constraints for each pair sharing elements
-//!
-//! ## Output
-//! Exports `docs/paper/examples/maximumsetpacking_to_ilp.json` and `maximumsetpacking_to_ilp.result.json`.
+// # Set Packing to ILP Reduction
+//
+// ## Mathematical Formulation
+// Variables: x_i in {0,1} for each set S_i.
+// Constraints: x_i + x_j <= 1 for each overlapping pair (i,j).
+// Objective: maximize sum of w_i * x_i.
+//
+// ## This Example
+// - Instance: 6 sets over universe {0,...,7}
+//   - S0={0,1,2}, S1={2,3,4}, S2={4,5,6}, S3={6,7,0}, S4={1,3,5}, S5={0,4,7}
+// - Source MaximumSetPacking: max packing size 2 (e.g., S0 and S2, or S1 and S3)
+// - Target ILP: 6 binary variables, overlap constraints for each pair sharing elements
+//
+// ## Output
+// Exports `docs/paper/examples/maximumsetpacking_to_ilp.json` and `maximumsetpacking_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use std::collections::HashMap;
 
-fn main() {
+pub fn run() {
     // 1. Create MaximumSetPacking instance: 6 sets over universe {0,...,7}
     let sets = vec![
         vec![0, 1, 2], // S0
@@ -100,6 +100,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "maximumsetpacking_to_ilp";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

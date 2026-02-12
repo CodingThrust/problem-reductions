@@ -1,19 +1,19 @@
-//! # K-Coloring to ILP Reduction
-//!
-//! ## Mathematical Formulation
-//! Variables: x_{v,c} in {0,1} for each vertex v and color c.
-//! Constraints:
-//!   (1) sum_c x_{v,c} = 1 for each vertex v (exactly one color).
-//!   (2) x_{u,c} + x_{v,c} <= 1 for each edge (u,v) and color c (different colors on adjacent).
-//! Objective: feasibility (minimize 0).
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges) with 3 colors, χ=3
-//! - Source KColoring: feasible, each vertex gets a color such that no adjacent vertices share a color
-//! - Target ILP: 30 binary variables (10 vertices * 3 colors), many constraints
-//!
-//! ## Output
-//! Exports `docs/paper/examples/kcoloring_to_ilp.json` and `kcoloring_to_ilp.result.json`.
+// # K-Coloring to ILP Reduction
+//
+// ## Mathematical Formulation
+// Variables: x_{v,c} in {0,1} for each vertex v and color c.
+// Constraints:
+//   (1) sum_c x_{v,c} = 1 for each vertex v (exactly one color).
+//   (2) x_{u,c} + x_{v,c} <= 1 for each edge (u,v) and color c (different colors on adjacent).
+// Objective: feasibility (minimize 0).
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges) with 3 colors, χ=3
+// - Source KColoring: feasible, each vertex gets a color such that no adjacent vertices share a color
+// - Target ILP: 30 binary variables (10 vertices * 3 colors), many constraints
+//
+// ## Output
+// Exports `docs/paper/examples/kcoloring_to_ilp.json` and `kcoloring_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -21,7 +21,7 @@ use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     // 1. Create KColoring instance: Petersen graph (10 vertices, 15 edges) with 3 colors, χ=3
     let (num_vertices, edges) = petersen();
     let coloring = KColoring::<3, SimpleGraph, i32>::new(num_vertices, edges.clone());
@@ -95,6 +95,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "kcoloring_to_ilp";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

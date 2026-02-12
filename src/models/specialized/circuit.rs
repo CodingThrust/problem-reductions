@@ -11,7 +11,6 @@ use std::collections::HashMap;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "CircuitSAT",
-        category: "satisfiability",
         description: "Find satisfying input to a boolean circuit",
         fields: &[
             FieldInfo { name: "circuit", type_name: "Circuit", description: "The boolean circuit" },

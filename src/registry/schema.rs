@@ -7,8 +7,6 @@ use serde::Serialize;
 pub struct ProblemSchemaEntry {
     /// Problem name (e.g., "MaximumIndependentSet").
     pub name: &'static str,
-    /// Category (e.g., "graph", "optimization").
-    pub category: &'static str,
     /// Human-readable description.
     pub description: &'static str,
     /// Struct fields.
@@ -22,8 +20,6 @@ inventory::collect!(ProblemSchemaEntry);
 pub struct ProblemSchemaJson {
     /// Problem name.
     pub name: String,
-    /// Problem category.
-    pub category: String,
     /// Problem description.
     pub description: String,
     /// Struct fields.
@@ -47,7 +43,6 @@ pub fn collect_schemas() -> Vec<ProblemSchemaJson> {
         .into_iter()
         .map(|entry| ProblemSchemaJson {
             name: entry.name.to_string(),
-            category: entry.category.to_string(),
             description: entry.description.to_string(),
             fields: entry
                 .fields

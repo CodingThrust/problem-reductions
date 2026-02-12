@@ -12,7 +12,6 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumSetCovering",
-        category: "set",
         description: "Find minimum weight collection covering the universe",
         fields: &[
             FieldInfo { name: "universe_size", type_name: "usize", description: "Size of the universe U" },

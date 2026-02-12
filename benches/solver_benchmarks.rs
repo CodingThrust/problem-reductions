@@ -78,7 +78,7 @@ fn bench_satisfiability(c: &mut Criterion) {
             })
             .collect();
 
-        let problem = Satisfiability::<i32>::new(*num_vars, clauses);
+        let problem = Satisfiability::new(*num_vars, clauses);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("3-sat", num_vars), num_vars, |b, _| {
@@ -201,7 +201,7 @@ fn bench_comparison(c: &mut Criterion) {
     });
 
     // SAT with 8 variables
-    let sat_problem = Satisfiability::<i32>::new(
+    let sat_problem = Satisfiability::new(
         8,
         vec![
             CNFClause::new(vec![1, 2, 3]),

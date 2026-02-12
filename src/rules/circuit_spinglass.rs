@@ -415,7 +415,6 @@ where
 }
 
 #[reduction(
-    target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_spins", poly!(num_assignments)),

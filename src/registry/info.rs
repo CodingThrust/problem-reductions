@@ -20,7 +20,6 @@
 //! assert_eq!(info.all_names().len(), 3);
 //! ```
 
-use super::ProblemCategory;
 use std::fmt;
 
 /// Computational complexity class of a problem.
@@ -226,8 +225,7 @@ pub struct FieldInfo {
 ///
 /// ```rust
 /// use problemreductions::registry::{
-///     ProblemMetadata, ProblemInfo, ProblemCategory,
-///     GraphSubcategory, ComplexityClass
+///     ProblemMetadata, ProblemInfo, ComplexityClass
 /// };
 ///
 /// struct MyProblem;
@@ -237,40 +235,11 @@ pub struct FieldInfo {
 ///         ProblemInfo::new("My Problem", "Description")
 ///             .with_complexity(ComplexityClass::NpComplete)
 ///     }
-///
-///     fn category() -> ProblemCategory {
-///         ProblemCategory::Graph(GraphSubcategory::Independent)
-///     }
 /// }
 ///
 /// // Get problem metadata
 /// let info = MyProblem::problem_info();
 /// assert_eq!(info.name, "My Problem");
-///
-/// let category = MyProblem::category();
-/// assert_eq!(category.path(), "graph/independent");
-/// ```
-///
-/// # Implementing for Custom Problems
-///
-/// ```rust
-/// use problemreductions::registry::{
-///     ProblemMetadata, ProblemInfo, ProblemCategory,
-///     GraphSubcategory, ComplexityClass
-/// };
-///
-/// struct MyProblem;
-///
-/// impl ProblemMetadata for MyProblem {
-///     fn problem_info() -> ProblemInfo {
-///         ProblemInfo::new("My Problem", "Description of my problem")
-///             .with_complexity(ComplexityClass::NpComplete)
-///     }
-///
-///     fn category() -> ProblemCategory {
-///         ProblemCategory::Graph(GraphSubcategory::Independent)
-///     }
-/// }
 /// ```
 pub trait ProblemMetadata {
     /// Returns the problem info for this problem type.
@@ -278,12 +247,6 @@ pub trait ProblemMetadata {
     /// This includes the problem name, description, aliases, complexity class,
     /// and known reductions.
     fn problem_info() -> ProblemInfo;
-
-    /// Returns the problem category.
-    ///
-    /// This is a hierarchical classification like "graph/independent" or
-    /// "satisfiability/sat".
-    fn category() -> ProblemCategory;
 }
 
 #[cfg(test)]

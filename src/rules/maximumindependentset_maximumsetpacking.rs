@@ -22,7 +22,7 @@ pub struct ReductionISToSP<W> {
 
 impl<W> ReductionResult for ReductionISToSP<W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = MaximumIndependentSet<SimpleGraph, W>;
     type Target = MaximumSetPacking<W>;
@@ -38,7 +38,6 @@ where
 }
 
 #[reduction(
-    source_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_sets", poly!(num_vertices)),
@@ -48,7 +47,7 @@ where
 )]
 impl<W> ReduceTo<MaximumSetPacking<W>> for MaximumIndependentSet<SimpleGraph, W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionISToSP<W>;
 
@@ -77,7 +76,7 @@ pub struct ReductionSPToIS<W> {
 
 impl<W> ReductionResult for ReductionSPToIS<W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = MaximumSetPacking<W>;
     type Target = MaximumIndependentSet<SimpleGraph, W>;
@@ -93,7 +92,6 @@ where
 }
 
 #[reduction(
-    target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_vertices", poly!(num_sets)),
@@ -103,7 +101,7 @@ where
 )]
 impl<W> ReduceTo<MaximumIndependentSet<SimpleGraph, W>> for MaximumSetPacking<W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSPToIS<W>;
 

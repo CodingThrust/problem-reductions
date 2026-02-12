@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 
 // ============================================================
 // VarBounds tests
@@ -318,10 +318,10 @@ fn test_ilp_evaluate_valid() {
     );
 
     // Config [0, 1] means x0=0, x1=1 => obj = 2, valid
-    assert_eq!(Problem::evaluate(&ilp, &[0, 1]), 2.0);
+    assert_eq!(Problem::evaluate(&ilp, &[0, 1]), SolutionSize::Valid(2.0));
 
     // Config [1, 0] means x0=1, x1=0 => obj = 1, valid
-    assert_eq!(Problem::evaluate(&ilp, &[1, 0]), 1.0);
+    assert_eq!(Problem::evaluate(&ilp, &[1, 0]), SolutionSize::Valid(1.0));
 }
 
 #[test]
@@ -334,8 +334,8 @@ fn test_ilp_evaluate_invalid() {
         ObjectiveSense::Maximize,
     );
 
-    // Config [1, 1] means x0=1, x1=1 => invalid (1+1 > 1), returns f64::MIN for maximize
-    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), f64::MIN);
+    // Config [1, 1] means x0=1, x1=1 => invalid (1+1 > 1), returns Invalid
+    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), SolutionSize::Invalid);
 }
 
 #[test]
@@ -350,10 +350,10 @@ fn test_ilp_evaluate_with_offset_bounds() {
     );
 
     // Config [0, 0] maps to x0=1, x1=-1 => obj = 0
-    assert_eq!(Problem::evaluate(&ilp, &[0, 0]), 0.0);
+    assert_eq!(Problem::evaluate(&ilp, &[0, 0]), SolutionSize::Valid(0.0));
 
     // Config [2, 2] maps to x0=3, x1=1 => obj = 4
-    assert_eq!(Problem::evaluate(&ilp, &[2, 2]), 4.0);
+    assert_eq!(Problem::evaluate(&ilp, &[2, 2]), SolutionSize::Valid(4.0));
 }
 
 #[test]
@@ -390,7 +390,7 @@ fn test_ilp_brute_force_minimization() {
     // Optimal: x0=1,x1=0 or x0=0,x1=1 => objective = 1
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
-        assert_eq!(Problem::evaluate(&ilp, sol), 1.0);
+        assert_eq!(Problem::evaluate(&ilp, sol), SolutionSize::Valid(1.0));
     }
 }
 
@@ -410,13 +410,13 @@ fn test_ilp_brute_force_no_feasible() {
     let solver = BruteForce::new();
     let solutions = solver.find_best(&ilp);
 
-    // All solutions are infeasible (evaluate to f64::MAX for minimization)
-    // The brute force solver returns all "best" solutions, which are all infeasible
-    // since no config satisfies all constraints.
-    for sol in &solutions {
-        assert_eq!(Problem::evaluate(&ilp, sol), f64::MAX);
-        // Also verify using is_feasible
-        let values = ilp.config_to_values(sol);
+    // All solutions are infeasible - BruteForce should return empty list
+    assert!(solutions.is_empty(), "Expected no solutions for infeasible ILP");
+
+    // Verify all configs are indeed infeasible
+    for config in &[[0], [1]] {
+        assert_eq!(Problem::evaluate(&ilp, config), SolutionSize::Invalid);
+        let values = ilp.config_to_values(config);
         assert!(!ilp.is_feasible(&values));
     }
 }
@@ -515,13 +515,13 @@ fn test_ilp_problem() {
     assert_eq!(ilp.dims(), vec![2, 2]);
 
     // [0, 0] -> feasible, obj = 0
-    assert_eq!(Problem::evaluate(&ilp, &[0, 0]), 0.0);
+    assert_eq!(Problem::evaluate(&ilp, &[0, 0]), SolutionSize::Valid(0.0));
     // [0, 1] -> feasible, obj = 2
-    assert_eq!(Problem::evaluate(&ilp, &[0, 1]), 2.0);
+    assert_eq!(Problem::evaluate(&ilp, &[0, 1]), SolutionSize::Valid(2.0));
     // [1, 0] -> feasible, obj = 1
-    assert_eq!(Problem::evaluate(&ilp, &[1, 0]), 1.0);
-    // [1, 1] -> infeasible, returns f64::MIN for maximize
-    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), f64::MIN);
+    assert_eq!(Problem::evaluate(&ilp, &[1, 0]), SolutionSize::Valid(1.0));
+    // [1, 1] -> infeasible
+    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), SolutionSize::Invalid);
 
     assert_eq!(ilp.direction(), Direction::Maximize);
 }
@@ -535,7 +535,7 @@ fn test_ilp_problem_minimize() {
         vec![(0, 1.0), (1, 1.0)],
         ObjectiveSense::Minimize,
     );
-    assert_eq!(Problem::evaluate(&ilp, &[0, 0]), 0.0);
-    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), 2.0);
+    assert_eq!(Problem::evaluate(&ilp, &[0, 0]), SolutionSize::Valid(0.0));
+    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), SolutionSize::Valid(2.0));
     assert_eq!(ilp.direction(), Direction::Minimize);
 }

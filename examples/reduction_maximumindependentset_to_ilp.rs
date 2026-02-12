@@ -1,24 +1,24 @@
-//! # Independent Set to ILP Reduction
-//!
-//! ## Mathematical Formulation
-//! Variables: x_v in {0,1} for each vertex v.
-//! Constraints: x_u + x_v <= 1 for each edge (u,v).
-//! Objective: maximize sum of w_v * x_v.
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
-//! - Source IS: max size 4
-//! - Target ILP: 10 binary variables, 15 constraints
-//!
-//! ## Output
-//! Exports `docs/paper/examples/maximumindependentset_to_ilp.json` and `maximumindependentset_to_ilp.result.json`.
+// # Independent Set to ILP Reduction
+//
+// ## Mathematical Formulation
+// Variables: x_v in {0,1} for each vertex v.
+// Constraints: x_u + x_v <= 1 for each edge (u,v).
+// Objective: maximize sum of w_v * x_v.
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
+// - Source IS: max size 4
+// - Target ILP: 10 binary variables, 15 constraints
+//
+// ## Output
+// Exports `docs/paper/examples/maximumindependentset_to_ilp.json` and `maximumindependentset_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     // 1. Create IS instance: Petersen graph
     let (num_vertices, edges) = petersen();
     let is = MaximumIndependentSet::<SimpleGraph, i32>::new(num_vertices, edges.clone());
@@ -94,6 +94,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "maximumindependentset_to_ilp";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

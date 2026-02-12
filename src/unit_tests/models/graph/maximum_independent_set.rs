@@ -122,6 +122,20 @@ fn test_brute_force_weighted() {
 }
 
 #[test]
+fn test_brute_force_weighted_f64() {
+    let problem = MaximumIndependentSet::<SimpleGraph, f64>::with_weights(
+        3,
+        vec![(0, 1), (1, 2)],
+        vec![0.5, 2.0, 0.75],
+    );
+    let solver = BruteForce::new();
+
+    let solutions = solver.find_best(&problem);
+    assert_eq!(solutions, vec![vec![0, 1, 0]]);
+    assert_eq!(problem.evaluate(&solutions[0]), SolutionSize::Valid(2.0));
+}
+
+#[test]
 fn test_is_independent_set_function() {
     assert!(is_independent_set(3, &[(0, 1)], &[true, false, true]));
     assert!(is_independent_set(3, &[(0, 1)], &[false, true, true]));

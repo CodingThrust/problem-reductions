@@ -14,8 +14,15 @@ pub struct ConfigIterator {
 
 impl ConfigIterator {
     /// Create a new configuration iterator.
+    ///
+    /// For 0 variables, produces exactly one configuration (the empty config).
+    /// For 0 flavors with non-zero variables, produces no configurations.
     pub fn new(num_variables: usize, num_flavors: usize) -> Self {
-        let total_configs = if num_variables == 0 || num_flavors == 0 {
+        let total_configs = if num_variables == 0 {
+            // 0 variables means exactly 1 configuration: the empty config
+            1
+        } else if num_flavors == 0 {
+            // Non-zero variables with 0 flavors means no valid configs
             0
         } else {
             num_flavors.pow(num_variables as u32)
@@ -124,9 +131,13 @@ pub struct DimsIterator {
 
 impl DimsIterator {
     /// Create a new iterator from per-variable dimensions.
+    ///
+    /// For empty dims, produces exactly one configuration (the empty config).
+    /// If any dimension is 0, produces no configurations.
     pub fn new(dims: Vec<usize>) -> Self {
         let total_configs = if dims.is_empty() {
-            0
+            // No variables means exactly 1 configuration: the empty config
+            1
         } else {
             dims.iter()
                 .copied()

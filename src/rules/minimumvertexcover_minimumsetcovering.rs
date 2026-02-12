@@ -21,7 +21,7 @@ pub struct ReductionVCToSC<W> {
 
 impl<W> ReductionResult for ReductionVCToSC<W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = MinimumVertexCover<SimpleGraph, W>;
     type Target = MinimumSetCovering<W>;
@@ -38,7 +38,6 @@ where
 }
 
 #[reduction(
-    source_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_sets", poly!(num_vertices)),
@@ -48,7 +47,7 @@ where
 )]
 impl<W> ReduceTo<MinimumSetCovering<W>> for MinimumVertexCover<SimpleGraph, W>
 where
-    W: Clone + Default + PartialOrd + Ord + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionVCToSC<W>;
 
