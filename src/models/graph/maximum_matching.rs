@@ -298,6 +298,60 @@ where
     }
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl<G, W> crate::traits::ProblemV2 for MaximumMatching<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    const NAME: &'static str = "MaximumMatching";
+    type Metric = W;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> W {
+        if !self.is_valid_matching(config) {
+            return W::min_value();
+        }
+        let mut total = W::zero();
+        for (idx, &selected) in config.iter().enumerate() {
+            if selected == 1 {
+                if let Some(w) = self.edge_weights.get(idx) {
+                    total += w.clone();
+                }
+            }
+        }
+        total
+    }
+}
+
+impl<G, W> crate::traits::OptimizationProblemV2 for MaximumMatching<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Maximize
+    }
+}
+
 /// Check if a selection of edges forms a valid matching.
 pub fn is_matching(num_vertices: usize, edges: &[(usize, usize)], selected: &[bool]) -> bool {
     if selected.len() != edges.len() {

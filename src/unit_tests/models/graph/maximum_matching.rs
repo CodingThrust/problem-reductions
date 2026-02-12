@@ -230,3 +230,18 @@ fn test_graph_accessor() {
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.graph().num_edges(), 2);
 }
+
+#[test]
+fn test_matching_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Path graph 0-1-2 with edges (0,1) and (1,2)
+    let p = MaximumMatching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
+    assert_eq!(p.dims(), vec![2, 2]);
+    // Valid matching: select edge 0 only
+    assert_eq!(p.evaluate(&[1, 0]), 1);
+    // Invalid matching: select both edges (vertex 1 shared)
+    assert_eq!(p.evaluate(&[1, 1]), i32::MIN);
+    assert_eq!(p.direction(), Direction::Maximize);
+}
