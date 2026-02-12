@@ -7,7 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -161,15 +161,15 @@ pub fn count_paint_switches(coloring: &[usize]) -> usize {
 
 impl Problem for PaintShop {
     const NAME: &'static str = "PaintShop";
-    type Metric = i32;
+    type Metric = SolutionSize<i32>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_cars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> i32 {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
         // All configurations are valid (no hard constraints).
-        self.count_switches(config) as i32
+        SolutionSize::Valid(self.count_switches(config) as i32)
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -181,12 +181,10 @@ impl Problem for PaintShop {
 }
 
 impl OptimizationProblem for PaintShop {
+    type Value = i32;
+
     fn direction(&self) -> Direction {
         Direction::Minimize
-    }
-
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a < b // Minimize
     }
 }
 

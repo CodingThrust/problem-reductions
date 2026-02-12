@@ -65,7 +65,7 @@ pub fn run() {
     // 6. Verify
     let size = sc.evaluate(&sc_solution);
     println!("Solution size: {:?}", size);
-    assert!(size < i32::MAX); // Valid solution (minimization uses MAX for invalid)
+    assert!(size.is_valid()); // Valid solution
     println!("\nReduction verified successfully");
 
     // 7. Collect solutions and export JSON
@@ -73,7 +73,7 @@ pub fn run() {
     for target_config in &ilp_solutions {
         let source_sol = reduction.extract_solution(target_config);
         let s = sc.evaluate(&source_sol);
-        assert!(s < i32::MAX); // Valid solution
+        assert!(s.is_valid()); // Valid solution
         solutions.push(SolutionPair {
             source_config: source_sol,
             target_config: target_config.clone(),

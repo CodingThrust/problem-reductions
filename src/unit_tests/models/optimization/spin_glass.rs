@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 
 #[test]
 fn test_spin_glass_creation() {
@@ -71,10 +71,10 @@ fn test_evaluate() {
     let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
 
     // config [0,0] -> spins [-1,-1] -> energy = 1
-    assert_eq!(Problem::evaluate(&problem, &[0, 0]), 1.0);
+    assert_eq!(Problem::evaluate(&problem, &[0, 0]), SolutionSize::Valid(1.0));
 
     // config [0,1] -> spins [-1,1] -> energy = -1
-    assert_eq!(Problem::evaluate(&problem, &[0, 1]), -1.0);
+    assert_eq!(Problem::evaluate(&problem, &[0, 1]), SolutionSize::Valid(-1.0));
 }
 
 #[test]
@@ -89,7 +89,7 @@ fn test_brute_force_ferromagnetic() {
     // Minimum energy is -1 (anti-aligned)
     for sol in &solutions {
         assert_ne!(sol[0], sol[1]);
-        assert_eq!(Problem::evaluate(&problem, sol), -1.0);
+        assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(-1.0));
     }
 }
 
@@ -104,7 +104,7 @@ fn test_brute_force_antiferromagnetic() {
     // Minimum energy is -1 (aligned)
     for sol in &solutions {
         assert_eq!(sol[0], sol[1]);
-        assert_eq!(Problem::evaluate(&problem, sol), -1.0);
+        assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(-1.0));
     }
 }
 
@@ -134,7 +134,7 @@ fn test_triangle_frustration() {
     // Best we can do is satisfy 2 out of 3 interactions
     // Energy = -1 -1 + 1 = -1 (one frustrated)
     for sol in &solutions {
-        assert_eq!(Problem::evaluate(&problem, sol), -1.0);
+        assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(-1.0));
     }
 }
 
@@ -172,13 +172,13 @@ fn test_spin_glass_problem() {
     assert_eq!(p.dims(), vec![2, 2]);
 
     // config [0, 0] => spins [-1, -1]: H = 1 * (-1)*(-1) = 1
-    assert_eq!(Problem::evaluate(&p, &[0, 0]), 1.0);
+    assert_eq!(Problem::evaluate(&p, &[0, 0]), SolutionSize::Valid(1.0));
     // config [1, 1] => spins [+1, +1]: H = 1 * 1*1 = 1
-    assert_eq!(Problem::evaluate(&p, &[1, 1]), 1.0);
+    assert_eq!(Problem::evaluate(&p, &[1, 1]), SolutionSize::Valid(1.0));
     // config [0, 1] => spins [-1, +1]: H = 1 * (-1)*(1) = -1
-    assert_eq!(Problem::evaluate(&p, &[0, 1]), -1.0);
+    assert_eq!(Problem::evaluate(&p, &[0, 1]), SolutionSize::Valid(-1.0));
     // config [1, 0] => spins [+1, -1]: H = 1 * (1)*(-1) = -1
-    assert_eq!(Problem::evaluate(&p, &[1, 0]), -1.0);
+    assert_eq!(Problem::evaluate(&p, &[1, 0]), SolutionSize::Valid(-1.0));
 
     assert_eq!(p.direction(), Direction::Minimize);
 }

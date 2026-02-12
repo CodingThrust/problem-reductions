@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 
 #[test]
 fn test_biclique_cover_creation() {
@@ -66,10 +66,10 @@ fn test_evaluate() {
     let problem = BicliqueCover::new(2, 2, vec![(0, 2)], 1);
 
     // Valid cover with size 2
-    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), 2);
+    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), SolutionSize::Valid(2));
 
-    // Invalid cover returns i32::MAX
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), i32::MAX);
+    // Invalid cover returns Invalid
+    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), SolutionSize::Invalid);
 }
 
 #[test]
@@ -134,7 +134,7 @@ fn test_direction() {
 fn test_empty_edges() {
     let problem = BicliqueCover::new(2, 2, vec![], 1);
     // No edges to cover -> valid with size 0
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), 0);
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), SolutionSize::Valid(0));
 }
 
 #[test]
@@ -150,21 +150,21 @@ fn test_biclique_problem() {
 
     // Valid cover: vertex 0 and vertex 2 in biclique 0
     // Config: [v0_b0=1, v1_b0=0, v2_b0=1, v3_b0=0]
-    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), 2);
+    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), SolutionSize::Valid(2));
 
     // Invalid cover: only vertex 0, edge (0,2) not covered
-    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), i32::MAX);
+    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), SolutionSize::Invalid);
 
     // Valid cover with all vertices -> size 4
-    assert_eq!(problem.evaluate(&[1, 1, 1, 1]), 4);
+    assert_eq!(problem.evaluate(&[1, 1, 1, 1]), SolutionSize::Valid(4));
 
     // Empty config: no vertices in biclique, edge not covered
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), i32::MAX);
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), SolutionSize::Invalid);
 
     // Direction is minimize
     assert_eq!(problem.direction(), Direction::Minimize);
 
     // Test with no edges: any config is valid
     let empty_problem = BicliqueCover::new(2, 2, vec![], 1);
-    assert_eq!(empty_problem.evaluate(&[0, 0, 0, 0]), 0);
+    assert_eq!(empty_problem.evaluate(&[0, 0, 0, 0]), SolutionSize::Valid(0));
 }

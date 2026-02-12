@@ -83,10 +83,9 @@ pub fn run() {
         );
 
         // Closed-loop verification: check solution is valid in original problem
-        // MaximumSetPacking is a maximization problem, infeasible configs return i32::MIN
         let sol_size = sp.evaluate(&extracted);
         assert!(
-            sol_size > i32::MIN,
+            sol_size.is_valid(),
             "Solution must be valid in source problem"
         );
 

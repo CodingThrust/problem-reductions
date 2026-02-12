@@ -208,16 +208,10 @@ where
         + std::ops::AddAssign
         + 'static,
 {
+    type Value = W;
+
     fn direction(&self) -> Direction {
         Direction::Maximize
-    }
-
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a.is_better(b, self.direction())
-    }
-
-    fn is_feasible(&self, metric: &Self::Metric) -> bool {
-        metric.is_valid()
     }
 }
 

@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -191,17 +191,17 @@ pub fn matrix_hamming_distance(a: &[Vec<bool>], b: &[Vec<bool>]) -> usize {
 
 impl Problem for BMF {
     const NAME: &'static str = "BMF";
-    type Metric = i32;
+    type Metric = SolutionSize<i32>;
 
     fn dims(&self) -> Vec<usize> {
         // B: m*k + C: k*n binary variables
         vec![2; self.m * self.k + self.k * self.n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> i32 {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
         // Minimize Hamming distance between A and B*C.
         // All configurations are valid -- the distance is the objective.
-        self.hamming_distance(config) as i32
+        SolutionSize::Valid(self.hamming_distance(config) as i32)
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -213,12 +213,10 @@ impl Problem for BMF {
 }
 
 impl OptimizationProblem for BMF {
+    type Value = i32;
+
     fn direction(&self) -> Direction {
         Direction::Minimize
-    }
-
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a < b // Minimize
     }
 }
 

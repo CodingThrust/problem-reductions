@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 
 #[test]
 fn test_paintshop_creation() {
@@ -51,10 +51,10 @@ fn test_evaluate() {
     let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
 
     // Config [0, 0] -> coloring [0, 0, 1, 1] -> 1 switch
-    assert_eq!(problem.evaluate(&[0, 0]), 1);
+    assert_eq!(Problem::evaluate(&problem, &[0, 0]), SolutionSize::Valid(1));
 
     // Config [0, 1] -> coloring [0, 1, 1, 0] -> 2 switches
-    assert_eq!(problem.evaluate(&[0, 1]), 2);
+    assert_eq!(Problem::evaluate(&problem, &[0, 1]), SolutionSize::Valid(2));
 }
 
 #[test]
@@ -148,13 +148,13 @@ fn test_paintshop_problem() {
     assert_eq!(problem.dims(), vec![2, 2]);
 
     // Config [0, 0] -> coloring [0, 0, 1, 1] -> 1 switch
-    assert_eq!(problem.evaluate(&[0, 0]), 1);
+    assert_eq!(Problem::evaluate(&problem, &[0, 0]), SolutionSize::Valid(1));
 
     // Config [0, 1] -> coloring [0, 1, 1, 0] -> 2 switches
-    assert_eq!(problem.evaluate(&[0, 1]), 2);
+    assert_eq!(Problem::evaluate(&problem, &[0, 1]), SolutionSize::Valid(2));
 
     // Config [1, 1] -> coloring [1, 1, 0, 0] -> 1 switch
-    assert_eq!(problem.evaluate(&[1, 1]), 1);
+    assert_eq!(Problem::evaluate(&problem, &[1, 1]), SolutionSize::Valid(1));
 
     // Direction is minimize
     assert_eq!(problem.direction(), Direction::Minimize);

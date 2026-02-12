@@ -354,19 +354,13 @@ impl Problem for ILP {
 }
 
 impl OptimizationProblem for ILP {
+    type Value = f64;
+
     fn direction(&self) -> Direction {
         match self.sense {
             ObjectiveSense::Maximize => Direction::Maximize,
             ObjectiveSense::Minimize => Direction::Minimize,
         }
-    }
-
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a.is_better(b, self.direction())
-    }
-
-    fn is_feasible(&self, metric: &Self::Metric) -> bool {
-        metric.is_valid()
     }
 }
 

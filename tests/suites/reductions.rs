@@ -169,7 +169,7 @@ mod is_sp_reductions {
 
         // All sets can be packed (disjoint)
         assert_eq!(sp_solution.iter().sum::<usize>(), 3);
-        assert!(sp_problem.evaluate(&sp_solution) > i32::MIN);
+        assert!(sp_problem.evaluate(&sp_solution).is_valid());
     }
 
     #[test]
@@ -375,7 +375,7 @@ mod topology_tests {
         let solver = BruteForce::new();
         let solutions = solver.find_best(&sp);
 
-        assert!(sp.evaluate(&solutions[0]) > i32::MIN);
+        assert!(sp.evaluate(&solutions[0]).is_valid());
     }
 
     #[test]
@@ -616,7 +616,7 @@ mod qubo_reductions {
 
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
-            assert!(sp.evaluate(&extracted) > f64::MIN);
+            assert!(sp.evaluate(&extracted).is_valid());
         }
 
         // Optimal packing should match ground truth
@@ -918,6 +918,6 @@ mod end_to_end {
         let sp_sol = sp_to_is.extract_solution(&is_sol);
 
         // Should be valid MaximumSetPacking
-        assert!(sp.evaluate(&sp_sol) > i32::MIN);
+        assert!(sp.evaluate(&sp_sol).is_valid());
     }
 }

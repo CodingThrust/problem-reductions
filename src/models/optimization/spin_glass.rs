@@ -5,7 +5,7 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -209,15 +209,15 @@ where
         + 'static,
 {
     const NAME: &'static str = "SpinGlass";
-    type Metric = W;
+    type Metric = SolutionSize<W>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> W {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
         let spins = Self::config_to_spins(config);
-        self.compute_energy(&spins)
+        SolutionSize::Valid(self.compute_energy(&spins))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -242,12 +242,10 @@ where
         + From<i32>
         + 'static,
 {
+    type Value = W;
+
     fn direction(&self) -> Direction {
         Direction::Minimize
-    }
-
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a < b // Minimize
     }
 }
 

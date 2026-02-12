@@ -1,5 +1,5 @@
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 
 // === Problem trait tests ===
 
@@ -63,16 +63,18 @@ struct TestMaxProblem {
 
 impl Problem for TestMaxProblem {
     const NAME: &'static str = "TestMax";
-    type Metric = i32;
+    type Metric = SolutionSize<i32>;
     fn dims(&self) -> Vec<usize> {
         vec![2; self.weights.len()]
     }
-    fn evaluate(&self, config: &[usize]) -> i32 {
-        config
-            .iter()
-            .enumerate()
-            .map(|(i, &v)| if v == 1 { self.weights[i] } else { 0 })
-            .sum()
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+        SolutionSize::Valid(
+            config
+                .iter()
+                .enumerate()
+                .map(|(i, &v)| if v == 1 { self.weights[i] } else { 0 })
+                .sum(),
+        )
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
@@ -80,11 +82,9 @@ impl Problem for TestMaxProblem {
 }
 
 impl OptimizationProblem for TestMaxProblem {
+    type Value = i32;
     fn direction(&self) -> Direction {
         Direction::Maximize
-    }
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a > b
     }
 }
 
@@ -95,16 +95,18 @@ struct TestMinProblem {
 
 impl Problem for TestMinProblem {
     const NAME: &'static str = "TestMin";
-    type Metric = i32;
+    type Metric = SolutionSize<i32>;
     fn dims(&self) -> Vec<usize> {
         vec![2; self.costs.len()]
     }
-    fn evaluate(&self, config: &[usize]) -> i32 {
-        config
-            .iter()
-            .enumerate()
-            .map(|(i, &v)| if v == 1 { self.costs[i] } else { 0 })
-            .sum()
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+        SolutionSize::Valid(
+            config
+                .iter()
+                .enumerate()
+                .map(|(i, &v)| if v == 1 { self.costs[i] } else { 0 })
+                .sum(),
+        )
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
@@ -112,11 +114,9 @@ impl Problem for TestMinProblem {
 }
 
 impl OptimizationProblem for TestMinProblem {
+    type Value = i32;
     fn direction(&self) -> Direction {
         Direction::Minimize
-    }
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a < b
     }
 }
 
@@ -125,9 +125,9 @@ fn test_optimization_problem_maximize() {
     let p = TestMaxProblem {
         weights: vec![3, 1, 4],
     };
-    assert_eq!(p.evaluate(&[1, 0, 1]), 7);
-    assert_eq!(p.evaluate(&[0, 0, 0]), 0);
-    assert_eq!(p.evaluate(&[1, 1, 1]), 8);
+    assert_eq!(p.evaluate(&[1, 0, 1]), SolutionSize::Valid(7));
+    assert_eq!(p.evaluate(&[0, 0, 0]), SolutionSize::Valid(0));
+    assert_eq!(p.evaluate(&[1, 1, 1]), SolutionSize::Valid(8));
     assert_eq!(p.direction(), Direction::Maximize);
 }
 
@@ -136,9 +136,9 @@ fn test_optimization_problem_minimize() {
     let p = TestMinProblem {
         costs: vec![5, 2, 3],
     };
-    assert_eq!(p.evaluate(&[1, 0, 0]), 5);
-    assert_eq!(p.evaluate(&[0, 1, 1]), 5);
-    assert_eq!(p.evaluate(&[0, 0, 0]), 0);
+    assert_eq!(p.evaluate(&[1, 0, 0]), SolutionSize::Valid(5));
+    assert_eq!(p.evaluate(&[0, 1, 1]), SolutionSize::Valid(5));
+    assert_eq!(p.evaluate(&[0, 0, 0]), SolutionSize::Valid(0));
     assert_eq!(p.direction(), Direction::Minimize);
 }
 
@@ -194,16 +194,18 @@ struct FloatProblem {
 
 impl Problem for FloatProblem {
     const NAME: &'static str = "FloatProblem";
-    type Metric = f64;
+    type Metric = SolutionSize<f64>;
     fn dims(&self) -> Vec<usize> {
         vec![2; self.weights.len()]
     }
-    fn evaluate(&self, config: &[usize]) -> f64 {
-        config
-            .iter()
-            .enumerate()
-            .map(|(i, &v)| if v == 1 { self.weights[i] } else { 0.0 })
-            .sum()
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<f64> {
+        SolutionSize::Valid(
+            config
+                .iter()
+                .enumerate()
+                .map(|(i, &v)| if v == 1 { self.weights[i] } else { 0.0 })
+                .sum(),
+        )
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "f64")]
@@ -211,11 +213,9 @@ impl Problem for FloatProblem {
 }
 
 impl OptimizationProblem for FloatProblem {
+    type Value = f64;
     fn direction(&self) -> Direction {
         Direction::Maximize
-    }
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a > b
     }
 }
 
@@ -225,8 +225,8 @@ fn test_float_metric_problem() {
         weights: vec![1.5, 2.5, 3.0],
     };
     assert_eq!(p.dims(), vec![2, 2, 2]);
-    assert!((p.evaluate(&[1, 1, 0]) - 4.0).abs() < 1e-10);
-    assert!((p.evaluate(&[1, 1, 1]) - 7.0).abs() < 1e-10);
+    assert!((p.evaluate(&[1, 1, 0]).unwrap() - 4.0).abs() < 1e-10);
+    assert!((p.evaluate(&[1, 1, 1]).unwrap() - 7.0).abs() < 1e-10);
     assert_eq!(p.direction(), Direction::Maximize);
 }
 

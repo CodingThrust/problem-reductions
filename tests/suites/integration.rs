@@ -140,7 +140,7 @@ mod all_problems_solvable {
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.evaluate(sol) < i32::MAX);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
@@ -152,7 +152,7 @@ mod all_problems_solvable {
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.evaluate(sol) > i32::MIN);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
@@ -183,7 +183,7 @@ mod all_problems_solvable {
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.evaluate(sol) > i32::MIN);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
@@ -203,7 +203,7 @@ mod all_problems_solvable {
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.evaluate(sol) < i32::MAX);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
@@ -377,7 +377,7 @@ mod edge_cases {
 
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.evaluate(sol) > i32::MIN);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 

@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -210,18 +210,18 @@ pub fn is_biclique_cover(
 
 impl Problem for BicliqueCover {
     const NAME: &'static str = "BicliqueCover";
-    type Metric = i32;
+    type Metric = SolutionSize<i32>;
 
     fn dims(&self) -> Vec<usize> {
         // Each vertex has k binary variables (one per biclique)
         vec![2; self.num_vertices() * self.k]
     }
 
-    fn evaluate(&self, config: &[usize]) -> i32 {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
         if !self.is_valid_cover(config) {
-            return i32::MAX;
+            return SolutionSize::Invalid;
         }
-        self.total_biclique_size(config) as i32
+        SolutionSize::Valid(self.total_biclique_size(config) as i32)
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -233,12 +233,10 @@ impl Problem for BicliqueCover {
 }
 
 impl OptimizationProblem for BicliqueCover {
+    type Value = i32;
+
     fn direction(&self) -> Direction {
         Direction::Minimize
-    }
-
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a < b // Minimize
     }
 }
 

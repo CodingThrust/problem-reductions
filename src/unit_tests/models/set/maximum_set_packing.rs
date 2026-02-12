@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 
 #[test]
 fn test_set_packing_creation() {
@@ -40,18 +40,18 @@ fn test_evaluate_valid() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5]]);
 
     // All disjoint, can select all
-    assert_eq!(Problem::evaluate(&problem, &[1, 1, 1]), 3);
+    assert_eq!(Problem::evaluate(&problem, &[1, 1, 1]), SolutionSize::Valid(3));
 
     // Select none - valid with size 0
-    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0]), 0);
+    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0]), SolutionSize::Valid(0));
 }
 
 #[test]
 fn test_evaluate_invalid() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
 
-    // Sets 0 and 1 overlap - returns i32::MIN for maximization
-    assert_eq!(Problem::evaluate(&problem, &[1, 1, 0]), i32::MIN);
+    // Sets 0 and 1 overlap - returns Invalid
+    assert_eq!(Problem::evaluate(&problem, &[1, 1, 0]), SolutionSize::Invalid);
 }
 
 #[test]
@@ -65,7 +65,7 @@ fn test_brute_force_chain() {
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 2);
         // Verify it's a valid packing
-        assert_ne!(Problem::evaluate(&problem, sol), i32::MIN);
+        assert!(Problem::evaluate(&problem, sol).is_valid());
     }
 }
 
@@ -128,7 +128,7 @@ fn test_all_overlapping() {
 fn test_empty_sets() {
     let problem = MaximumSetPacking::<i32>::new(vec![]);
     // Empty packing is valid with size 0
-    assert_eq!(Problem::evaluate(&problem, &[]), 0);
+    assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0));
 }
 
 #[test]
@@ -176,11 +176,11 @@ fn test_set_packing_problem() {
     assert_eq!(p.dims(), vec![2, 2, 2]);
 
     // Select S0 and S2 (disjoint) -> valid, weight=2
-    assert_eq!(Problem::evaluate(&p, &[1, 0, 1]), 2);
-    // Select S0 and S1 (overlap) -> invalid, returns i32::MIN
-    assert_eq!(Problem::evaluate(&p, &[1, 1, 0]), i32::MIN);
+    assert_eq!(Problem::evaluate(&p, &[1, 0, 1]), SolutionSize::Valid(2));
+    // Select S0 and S1 (overlap) -> invalid
+    assert_eq!(Problem::evaluate(&p, &[1, 1, 0]), SolutionSize::Invalid);
     // Select none -> valid, weight=0
-    assert_eq!(Problem::evaluate(&p, &[0, 0, 0]), 0);
+    assert_eq!(Problem::evaluate(&p, &[0, 0, 0]), SolutionSize::Valid(0));
 
     assert_eq!(p.direction(), Direction::Maximize);
 }

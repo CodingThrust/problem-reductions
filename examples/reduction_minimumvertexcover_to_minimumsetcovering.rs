@@ -59,7 +59,7 @@ pub fn run() {
 
         // Both are minimization problems, infeasible configs return Invalid
         println!(
-            "  Solution {}: target={:?} (size={}), source={:?} (size={:?}, valid={})",
+            "  Solution {}: target={:?} (size={:?}), source={:?} (size={:?}, valid={})",
             i, target_sol, target_size, source_sol, source_size, source_size.is_valid()
         );
 
@@ -86,7 +86,8 @@ pub fn run() {
         "VC on Petersen has optimal size 6"
     );
     assert_eq!(
-        target_size, 6,
+        target_size,
+        problemreductions::types::SolutionSize::Valid(6),
         "MinimumSetCovering should also have size 6"
     );
 

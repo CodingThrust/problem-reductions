@@ -25,22 +25,15 @@ pub trait Problem: Clone {
 }
 
 /// Extension for problems with a numeric objective to optimize.
-pub trait OptimizationProblem: Problem {
+///
+/// The supertrait bound guarantees `Metric = SolutionSize<Self::Value>`,
+/// so the solver can call `metric.is_valid()` and `metric.is_better()`
+/// directly — no per-problem customization needed.
+pub trait OptimizationProblem: Problem<Metric = crate::types::SolutionSize<Self::Value>> {
+    /// The inner objective value type (e.g., `i32`, `f64`).
+    type Value: PartialOrd + Clone;
     /// Whether to maximize or minimize the metric.
     fn direction(&self) -> crate::types::Direction;
-
-    /// Returns true if metric `a` is better than metric `b` for this problem.
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool;
-
-    /// Returns true if the metric represents a feasible solution.
-    ///
-    /// Override this for problems that use SolutionSize or similar enums
-    /// where some configurations are infeasible.
-    fn is_feasible(&self, metric: &Self::Metric) -> bool {
-        // Default: all metrics are feasible (e.g., for MaxCut where all cuts are valid)
-        let _ = metric;
-        true
-    }
 }
 
 #[cfg(test)]

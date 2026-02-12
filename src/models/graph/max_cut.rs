@@ -216,7 +216,8 @@ where
 
     fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
         // All cuts are valid, so always return Valid
-        SolutionSize::Valid(compute_cut_weight(&self.graph, &self.edge_weights, config))
+        let partition: Vec<bool> = config.iter().map(|&c| c != 0).collect();
+        SolutionSize::Valid(cut_size(&self.graph, &self.edge_weights, &partition))
     }
 }
 
@@ -231,45 +232,28 @@ where
         + std::ops::AddAssign
         + 'static,
 {
+    type Value = W;
+
     fn direction(&self) -> Direction {
         Direction::Maximize
-    }
-
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a.is_better(b, self.direction())
     }
 }
 
 /// Compute the total weight of edges crossing the cut.
-fn compute_cut_weight<G, W>(graph: &G, edge_weights: &[W], config: &[usize]) -> W
+///
+/// # Arguments
+/// * `graph` - The graph structure
+/// * `edge_weights` - Weights for each edge (same order as `graph.edges()`)
+/// * `partition` - Boolean slice indicating which set each vertex belongs to
+pub fn cut_size<G, W>(graph: &G, edge_weights: &[W], partition: &[bool]) -> W
 where
     G: Graph,
     W: Clone + num_traits::Zero + std::ops::AddAssign,
 {
     let mut total = W::zero();
     for ((u, v), weight) in graph.edges().iter().zip(edge_weights.iter()) {
-        let u_side = config.get(*u).copied().unwrap_or(0);
-        let v_side = config.get(*v).copied().unwrap_or(0);
-        if u_side != v_side {
-            total += weight.clone();
-        }
-    }
-    total
-}
-
-/// Compute the cut size for a given partition.
-///
-/// # Arguments
-/// * `edges` - List of weighted edges as (u, v, weight) triples
-/// * `partition` - Boolean slice indicating which set each vertex belongs to
-pub fn cut_size<W>(edges: &[(usize, usize, W)], partition: &[bool]) -> W
-where
-    W: Clone + num_traits::Zero + std::ops::AddAssign,
-{
-    let mut total = W::zero();
-    for (u, v, w) in edges {
         if *u < partition.len() && *v < partition.len() && partition[*u] != partition[*v] {
-            total += w.clone();
+            total += weight.clone();
         }
     }
     total

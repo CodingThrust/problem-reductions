@@ -49,7 +49,7 @@ pub fn run() {
 
     let energy = sg.evaluate(&sg_solution);
     println!("Solution energy: {:?}", energy);
-    assert!(energy < f64::MAX); // Valid solution
+    assert!(energy.is_valid()); // Valid solution
     println!("\nReduction verified successfully");
 
     // Collect all solutions

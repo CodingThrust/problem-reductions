@@ -82,16 +82,18 @@ fn test_brute_force_weighted() {
 
 #[test]
 fn test_cut_size_function() {
-    let edges = vec![(0, 1, 1), (1, 2, 2), (0, 2, 3)];
+    use crate::topology::SimpleGraph;
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let weights = vec![1, 2, 3];
 
     // Partition {0} vs {1, 2}
-    assert_eq!(cut_size(&edges, &[false, true, true]), 4); // 1 + 3
+    assert_eq!(cut_size(&graph, &weights, &[false, true, true]), 4); // 1 + 3
 
     // Partition {0, 1} vs {2}
-    assert_eq!(cut_size(&edges, &[false, false, true]), 5); // 2 + 3
+    assert_eq!(cut_size(&graph, &weights, &[false, false, true]), 5); // 2 + 3
 
     // All same partition
-    assert_eq!(cut_size(&edges, &[false, false, false]), 0);
+    assert_eq!(cut_size(&graph, &weights, &[false, false, false]), 0);
 }
 
 #[test]

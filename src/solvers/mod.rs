@@ -18,10 +18,7 @@ pub trait Solver {
     ///
     /// Returns all configurations that achieve the optimal metric value.
     /// Returns empty vec if all configurations are invalid.
-    fn find_best<P>(&self, problem: &P) -> Vec<Vec<usize>>
-    where
-        P: OptimizationProblem,
-        P::Metric: Clone;
+    fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Vec<Vec<usize>>;
 
     /// Find any satisfying solution for a satisfaction problem (Metric = bool).
     fn find_satisfying<P: Problem<Metric = bool>>(&self, problem: &P) -> Option<Vec<usize>>;

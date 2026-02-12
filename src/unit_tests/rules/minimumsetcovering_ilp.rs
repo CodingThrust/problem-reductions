@@ -1,6 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, ILPSolver, Solver};
 use crate::traits::Problem;
+use crate::types::SolutionSize;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -69,7 +70,7 @@ fn test_ilp_solution_equals_brute_force_simple() {
     assert_eq!(ilp_size, 2);
 
     // Verify the ILP solution is valid for the original problem
-    assert!(problem.evaluate(&extracted) != i32::MAX, "Extracted solution should be valid");
+    assert!(problem.evaluate(&extracted).is_valid(), "Extracted solution should be valid");
 }
 
 #[test]
@@ -96,8 +97,8 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let extracted = reduction.extract_solution(&ilp_solution);
     let ilp_obj = problem.evaluate(&extracted);
 
-    assert_eq!(bf_obj, 6);
-    assert_eq!(ilp_obj, 6);
+    assert_eq!(bf_obj, SolutionSize::Valid(6));
+    assert_eq!(ilp_obj, SolutionSize::Valid(6));
 
     // Verify the solution selects S1 and S2
     assert_eq!(extracted, vec![0, 1, 1]);
@@ -114,7 +115,7 @@ fn test_solution_extraction() {
     assert_eq!(extracted, vec![1, 1]);
 
     // Verify this is a valid set cover
-    assert!(problem.evaluate(&extracted) != i32::MAX);
+    assert!(problem.evaluate(&extracted).is_valid());
 }
 
 #[test]
@@ -143,8 +144,8 @@ fn test_single_set_covers_all() {
     // First set alone covers everything with weight 1
     assert_eq!(extracted, vec![1, 0, 0, 0]);
 
-    assert!(problem.evaluate(&extracted) != i32::MAX);
-    assert_eq!(problem.evaluate(&extracted), 1);
+    assert!(problem.evaluate(&extracted).is_valid());
+    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
 }
 
 #[test]
@@ -162,8 +163,8 @@ fn test_overlapping_sets() {
     // Need both sets to cover all elements
     assert_eq!(extracted, vec![1, 1]);
 
-    assert!(problem.evaluate(&extracted) != i32::MAX);
-    assert_eq!(problem.evaluate(&extracted), 2);
+    assert!(problem.evaluate(&extracted).is_valid());
+    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(2));
 }
 
 #[test]
@@ -188,8 +189,8 @@ fn test_solve_reduced() {
         .solve_reduced(&problem)
         .expect("solve_reduced should work");
 
-    assert!(problem.evaluate(&solution) != i32::MAX);
-    assert_eq!(problem.evaluate(&solution), 2);
+    assert!(problem.evaluate(&solution).is_valid());
+    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(2));
 }
 
 #[test]

@@ -47,8 +47,8 @@ pub fn run() {
     for target_sol in &maxcut_solutions {
         let source_sol = reduction.extract_solution(target_sol);
         let size = sg.evaluate(&source_sol);
-        // SpinGlass is a minimization problem, infeasible configs return i32::MAX
-        assert!(size < i32::MAX);
+        // SpinGlass is unconstrained, all configs are valid
+        assert!(size.is_valid());
         solutions.push(SolutionPair {
             source_config: source_sol,
             target_config: target_sol.clone(),
@@ -59,9 +59,9 @@ pub fn run() {
     println!("Source SpinGlass solution: {:?}", sg_solution);
 
     let size = sg.evaluate(&sg_solution);
-    println!("Solution energy: {}", size);
-    // SpinGlass is a minimization problem, infeasible configs return i32::MAX
-    assert!(size < i32::MAX);
+    println!("Solution energy: {:?}", size);
+    // SpinGlass is unconstrained, all configs are valid
+    assert!(size.is_valid());
     println!("\nReduction verified successfully");
 
     // Export JSON

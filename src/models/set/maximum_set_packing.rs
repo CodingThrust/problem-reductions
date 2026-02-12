@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -43,9 +43,9 @@ inventory::submit! {
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_best(&problem);
 ///
-/// // Verify solutions are pairwise disjoint (valid = not at MIN bound)
+/// // Verify solutions are pairwise disjoint
 /// for sol in solutions {
-///     assert!(problem.evaluate(&sol) > i32::MIN);
+///     assert!(problem.evaluate(&sol).is_valid());
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -124,20 +124,19 @@ where
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
-        + num_traits::Bounded
         + std::ops::AddAssign
         + 'static,
 {
     const NAME: &'static str = "MaximumSetPacking";
-    type Metric = W;
+    type Metric = SolutionSize<W>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.sets.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> W {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
         if !is_valid_packing(&self.sets, config) {
-            return W::min_value();
+            return SolutionSize::Invalid;
         }
         let mut total = W::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -145,7 +144,7 @@ where
                 total += self.weights[i].clone();
             }
         }
-        total
+        SolutionSize::Valid(total)
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -163,16 +162,13 @@ where
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
-        + num_traits::Bounded
         + std::ops::AddAssign
         + 'static,
 {
+    type Value = W;
+
     fn direction(&self) -> Direction {
         Direction::Maximize
-    }
-
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a > b // Maximize
     }
 }
 

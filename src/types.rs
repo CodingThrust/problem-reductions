@@ -50,50 +50,6 @@ impl<T> NumericSize for T where
 {
 }
 
-/// Extension trait for checking bound values on numeric sizes.
-pub trait NumericSizeBounds: NumericSize {
-    /// Check if the value equals the minimum bound.
-    fn is_min_bound(&self) -> bool;
-    /// Check if the value equals the maximum bound.
-    fn is_max_bound(&self) -> bool;
-}
-
-impl NumericSizeBounds for i32 {
-    fn is_min_bound(&self) -> bool {
-        *self == i32::MIN
-    }
-    fn is_max_bound(&self) -> bool {
-        *self == i32::MAX
-    }
-}
-
-impl NumericSizeBounds for i64 {
-    fn is_min_bound(&self) -> bool {
-        *self == i64::MIN
-    }
-    fn is_max_bound(&self) -> bool {
-        *self == i64::MAX
-    }
-}
-
-impl NumericSizeBounds for f64 {
-    fn is_min_bound(&self) -> bool {
-        *self == f64::MIN
-    }
-    fn is_max_bound(&self) -> bool {
-        *self == f64::MAX
-    }
-}
-
-impl NumericSizeBounds for usize {
-    fn is_min_bound(&self) -> bool {
-        *self == usize::MIN
-    }
-    fn is_max_bound(&self) -> bool {
-        *self == usize::MAX
-    }
-}
-
 /// Trait for weight storage. Separates weight storage from objective value type.
 pub trait Weights: Clone + 'static {
     /// Name for variant metadata (e.g., "Unweighted", "Weighted<i32>").

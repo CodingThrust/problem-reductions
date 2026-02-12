@@ -98,7 +98,7 @@ pub mod prelude {
     pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::solvers::{BruteForce, Solver};
     pub use crate::traits::{OptimizationProblem, Problem};
-    pub use crate::types::{Direction, NumericSize, NumericSizeBounds, NumericWeight, ProblemSize, SolutionSize, Unweighted, Weights};
+    pub use crate::types::{Direction, NumericSize, NumericWeight, ProblemSize, SolutionSize, Unweighted, Weights};
 }
 
 // Re-export commonly used items at crate root
@@ -106,7 +106,7 @@ pub use error::{ProblemError, Result};
 pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::{OptimizationProblem, Problem};
-pub use types::{Direction, NumericSize, NumericSizeBounds, ProblemSize, SolutionSize, Unweighted, Weights};
+pub use types::{Direction, NumericSize, ProblemSize, SolutionSize, Unweighted, Weights};
 
 // Re-export proc macro for reduction registration
 pub use problemreductions_macros::reduction;

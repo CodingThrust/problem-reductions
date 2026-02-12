@@ -18,26 +18,23 @@ impl BruteForce {
     }
 
     /// Internal: find all optimal solutions.
-    fn find_all_best<P>(&self, problem: &P) -> Vec<Vec<usize>>
-    where
-        P: OptimizationProblem,
-        P::Metric: Clone,
-    {
+    fn find_all_best<P: OptimizationProblem>(&self, problem: &P) -> Vec<Vec<usize>> {
         let iter = DimsIterator::new(problem.dims());
+        let direction = problem.direction();
         let mut best_solutions: Vec<Vec<usize>> = vec![];
-        let mut best_metric: Option<P::Metric> = None;
+        let mut best_metric: Option<crate::types::SolutionSize<P::Value>> = None;
 
         for config in iter {
             let metric = problem.evaluate(&config);
 
             // Skip infeasible solutions
-            if !problem.is_feasible(&metric) {
+            if !metric.is_valid() {
                 continue;
             }
 
             let dominated = match &best_metric {
                 None => false,
-                Some(current_best) => problem.is_better(current_best, &metric),
+                Some(current_best) => current_best.is_better(&metric, direction),
             };
 
             if dominated {
@@ -46,7 +43,7 @@ impl BruteForce {
 
             let dominates = match &best_metric {
                 None => true,
-                Some(current_best) => problem.is_better(&metric, current_best),
+                Some(current_best) => metric.is_better(current_best, direction),
             };
 
             if dominates {
@@ -76,11 +73,7 @@ impl BruteForce {
 }
 
 impl Solver for BruteForce {
-    fn find_best<P>(&self, problem: &P) -> Vec<Vec<usize>>
-    where
-        P: OptimizationProblem,
-        P::Metric: Clone,
-    {
+    fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Vec<Vec<usize>> {
         self.find_all_best(problem)
     }
 

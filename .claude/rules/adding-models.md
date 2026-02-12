@@ -27,9 +27,10 @@ Every problem must implement `Problem` (see `src/traits.rs`). Key points:
 - **`fn variant()`** — graph and weight type metadata for the reduction registry
 
 Optimization problems additionally implement `OptimizationProblem` (see `src/traits.rs`):
+- **`type Value`** — the inner objective type (e.g., `i32`, `f64`, `W`)
 - **`fn direction()`** — `Direction::Maximize` or `Direction::Minimize`
-- **`fn is_better()`** — delegates to `SolutionSize::is_better()`
-- **`fn is_feasible()`** — delegates to `SolutionSize::is_valid()`
+
+The supertrait `Problem<Metric = SolutionSize<Self::Value>>` ensures the solver can call `metric.is_valid()` and `metric.is_better()` directly — no per-problem customization needed.
 
 Weight management (`weights()`, `set_weights()`, `is_weighted()`) goes on inherent `impl` blocks, not traits. See the reference implementation for the pattern.
 

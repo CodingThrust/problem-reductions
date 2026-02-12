@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::specialized::Circuit;
 use crate::solvers::{BruteForce, Solver};
-use crate::types::NumericSizeBounds;
+use crate::types::NumericSize;
 
 /// Verify a gadget has the correct ground states.
 fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<usize>, Vec<usize>)])
@@ -15,7 +15,7 @@ where
         + From<i32>
         + std::ops::Mul<Output = W>
         + std::fmt::Debug
-        + NumericSizeBounds,
+        + NumericSize,
 {
     let solver = BruteForce::new();
     let solutions = solver.find_best(&gadget.problem);

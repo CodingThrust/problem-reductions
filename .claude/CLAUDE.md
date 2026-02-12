@@ -55,11 +55,10 @@ Problem (core trait — all problems must implement)
 ├── fn variant() -> Vec<(&str, &str)>  // [("graph","SimpleGraph"), ("weight","i32")]
 └── fn num_variables(&self) -> usize   // default: dims().len()
 
-OptimizationProblem : Problem (extension for problems with numeric objective)
+OptimizationProblem : Problem<Metric = SolutionSize<Self::Value>> (extension for optimization)
 │
-├── fn direction(&self) -> Direction   // Maximize or Minimize
-├── fn is_better(&self, a, b) -> bool  // direction-aware comparison
-└── fn is_feasible(&self, metric) -> bool  // default: true
+├── type Value: PartialOrd + Clone     // inner objective type (i32, f64, etc.)
+└── fn direction(&self) -> Direction   // Maximize or Minimize
 ```
 
 **Satisfaction problems** (e.g., `Satisfiability`) use `Metric = bool` and do not implement `OptimizationProblem`.

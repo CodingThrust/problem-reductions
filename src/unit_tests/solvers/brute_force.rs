@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::Solver;
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 
 // Simple maximization problem
 #[derive(Clone)]
@@ -11,16 +11,18 @@ struct MaxSumOpt {
 
 impl Problem for MaxSumOpt {
     const NAME: &'static str = "MaxSumOpt";
-    type Metric = i32;
+    type Metric = SolutionSize<i32>;
     fn dims(&self) -> Vec<usize> {
         vec![2; self.weights.len()]
     }
-    fn evaluate(&self, config: &[usize]) -> i32 {
-        config
-            .iter()
-            .zip(&self.weights)
-            .map(|(&c, &w)| if c == 1 { w } else { 0 })
-            .sum()
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+        SolutionSize::Valid(
+            config
+                .iter()
+                .zip(&self.weights)
+                .map(|(&c, &w)| if c == 1 { w } else { 0 })
+                .sum(),
+        )
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
@@ -28,11 +30,9 @@ impl Problem for MaxSumOpt {
 }
 
 impl OptimizationProblem for MaxSumOpt {
+    type Value = i32;
     fn direction(&self) -> Direction {
         Direction::Maximize
-    }
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a > b
     }
 }
 
@@ -44,16 +44,18 @@ struct MinSumOpt {
 
 impl Problem for MinSumOpt {
     const NAME: &'static str = "MinSumOpt";
-    type Metric = i32;
+    type Metric = SolutionSize<i32>;
     fn dims(&self) -> Vec<usize> {
         vec![2; self.weights.len()]
     }
-    fn evaluate(&self, config: &[usize]) -> i32 {
-        config
-            .iter()
-            .zip(&self.weights)
-            .map(|(&c, &w)| if c == 1 { w } else { 0 })
-            .sum()
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+        SolutionSize::Valid(
+            config
+                .iter()
+                .zip(&self.weights)
+                .map(|(&c, &w)| if c == 1 { w } else { 0 })
+                .sum(),
+        )
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
@@ -61,11 +63,9 @@ impl Problem for MinSumOpt {
 }
 
 impl OptimizationProblem for MinSumOpt {
+    type Value = i32;
     fn direction(&self) -> Direction {
         Direction::Minimize
-    }
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a < b
     }
 }
 

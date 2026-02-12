@@ -16,7 +16,7 @@ fn test_setpacking_to_qubo_closed_loop() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(sp.evaluate(&extracted) != i32::MIN);
+        assert!(sp.evaluate(&extracted).is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 2);
     }
 }
@@ -33,7 +33,7 @@ fn test_setpacking_to_qubo_disjoint() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(sp.evaluate(&extracted) != i32::MIN);
+        assert!(sp.evaluate(&extracted).is_valid());
         // All 3 sets should be selected
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 3);
     }
@@ -51,7 +51,7 @@ fn test_setpacking_to_qubo_all_overlap() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(sp.evaluate(&extracted) != i32::MIN);
+        assert!(sp.evaluate(&extracted).is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 1);
     }
 }

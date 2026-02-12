@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -114,21 +114,22 @@ pub fn is_factoring(target: u64, a: u64, b: u64) -> bool {
 
 impl Problem for Factoring {
     const NAME: &'static str = "Factoring";
-    type Metric = i32;
+    type Metric = SolutionSize<i32>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.m + self.n]
     }
 
-    fn evaluate(&self, config: &[usize]) -> i32 {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
         let (a, b) = self.read_factors(config);
         let product = a * b;
         // Distance from target (0 means exact match)
-        if product > self.target {
+        let distance = if product > self.target {
             (product - self.target) as i32
         } else {
             (self.target - product) as i32
-        }
+        };
+        SolutionSize::Valid(distance)
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -140,12 +141,10 @@ impl Problem for Factoring {
 }
 
 impl OptimizationProblem for Factoring {
+    type Value = i32;
+
     fn direction(&self) -> Direction {
         Direction::Minimize
-    }
-
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a < b // Minimize
     }
 }
 

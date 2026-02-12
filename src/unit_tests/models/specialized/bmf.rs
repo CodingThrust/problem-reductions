@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 
 #[test]
 fn test_bmf_creation() {
@@ -78,11 +78,11 @@ fn test_evaluate() {
 
     // Exact factorization -> distance 0
     let config = vec![1, 0, 0, 1, 1, 0, 0, 1];
-    assert_eq!(problem.evaluate(&config), 0);
+    assert_eq!(Problem::evaluate(&problem, &config), SolutionSize::Valid(0));
 
     // Non-exact -> distance 2
     let config = vec![0, 0, 0, 0, 0, 0, 0, 0];
-    assert_eq!(problem.evaluate(&config), 2);
+    assert_eq!(Problem::evaluate(&problem, &config), SolutionSize::Valid(2));
 }
 
 #[test]
@@ -95,7 +95,7 @@ fn test_brute_force_ones() {
     let solutions = solver.find_best(&problem);
     for sol in &solutions {
         // Exact factorization has distance 0
-        assert_eq!(problem.evaluate(sol), 0);
+        assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(0));
     }
 }
 
@@ -158,7 +158,7 @@ fn test_empty_matrix() {
     let problem = BMF::new(matrix, 1);
     assert_eq!(problem.num_variables(), 0);
     // Empty matrix has distance 0
-    assert_eq!(problem.evaluate(&[]), 0);
+    assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0));
 }
 
 #[test]
@@ -183,10 +183,10 @@ fn test_bmf_problem() {
 
     // Exact factorization: B = I, C = I
     // Config: [1,0,0,1, 1,0,0,1]
-    assert_eq!(problem.evaluate(&[1, 0, 0, 1, 1, 0, 0, 1]), 0);
+    assert_eq!(Problem::evaluate(&problem, &[1, 0, 0, 1, 1, 0, 0, 1]), SolutionSize::Valid(0));
 
     // All zeros -> product is all zeros, distance = 2
-    assert_eq!(problem.evaluate(&[0, 0, 0, 0, 0, 0, 0, 0]), 2);
+    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0, 0, 0, 0, 0, 0]), SolutionSize::Valid(2));
 
     // Direction is minimize
     assert_eq!(problem.direction(), Direction::Minimize);
@@ -195,6 +195,6 @@ fn test_bmf_problem() {
     let matrix = vec![vec![true]];
     let problem = BMF::new(matrix, 1);
     assert_eq!(problem.dims(), vec![2; 2]); // B(1*1) + C(1*1)
-    assert_eq!(problem.evaluate(&[1, 1]), 0); // Exact
-    assert_eq!(problem.evaluate(&[0, 0]), 1); // Distance 1
+    assert_eq!(Problem::evaluate(&problem, &[1, 1]), SolutionSize::Valid(0)); // Exact
+    assert_eq!(Problem::evaluate(&problem, &[0, 0]), SolutionSize::Valid(1)); // Distance 1
 }

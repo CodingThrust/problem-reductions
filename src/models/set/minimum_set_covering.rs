@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -48,9 +48,9 @@ inventory::submit! {
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_best(&problem);
 ///
-/// // Verify solutions cover all elements (valid = not at MAX bound)
+/// // Verify solutions cover all elements
 /// for sol in solutions {
-///     assert!(problem.evaluate(&sol) < i32::MAX);
+///     assert!(problem.evaluate(&sol).is_valid());
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -134,23 +134,22 @@ where
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
-        + num_traits::Bounded
         + std::ops::AddAssign
         + 'static,
 {
     const NAME: &'static str = "MinimumSetCovering";
-    type Metric = W;
+    type Metric = SolutionSize<W>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.sets.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> W {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
         let covered = self.covered_elements(config);
         let is_valid = covered.len() == self.universe_size
             && (0..self.universe_size).all(|e| covered.contains(&e));
         if !is_valid {
-            return W::max_value();
+            return SolutionSize::Invalid;
         }
         let mut total = W::zero();
         for (i, &selected) in config.iter().enumerate() {
@@ -158,7 +157,7 @@ where
                 total += self.weights[i].clone();
             }
         }
-        total
+        SolutionSize::Valid(total)
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -176,16 +175,13 @@ where
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
-        + num_traits::Bounded
         + std::ops::AddAssign
         + 'static,
 {
+    type Value = W;
+
     fn direction(&self) -> Direction {
         Direction::Minimize
-    }
-
-    fn is_better(&self, a: &Self::Metric, b: &Self::Metric) -> bool {
-        a < b // Minimize
     }
 }
 

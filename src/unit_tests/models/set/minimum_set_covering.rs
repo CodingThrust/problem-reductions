@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::Direction;
+use crate::types::{Direction, SolutionSize};
 
 #[test]
 fn test_set_covering_creation() {
@@ -38,21 +38,21 @@ fn test_evaluate_valid() {
     let problem = MinimumSetCovering::<i32>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
 
     // Select first and third sets: covers {0,1} + {2,3} = {0,1,2,3}
-    assert_eq!(Problem::evaluate(&problem, &[1, 0, 1]), 2);
+    assert_eq!(Problem::evaluate(&problem, &[1, 0, 1]), SolutionSize::Valid(2));
 
     // Select all sets
-    assert_eq!(Problem::evaluate(&problem, &[1, 1, 1]), 3);
+    assert_eq!(Problem::evaluate(&problem, &[1, 1, 1]), SolutionSize::Valid(3));
 }
 
 #[test]
 fn test_evaluate_invalid() {
     let problem = MinimumSetCovering::<i32>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
 
-    // Select only first set: missing 2, 3 - returns i32::MAX for minimization
-    assert_eq!(Problem::evaluate(&problem, &[1, 0, 0]), i32::MAX);
+    // Select only first set: missing 2, 3 - returns Invalid
+    assert_eq!(Problem::evaluate(&problem, &[1, 0, 0]), SolutionSize::Invalid);
 
     // Select none
-    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0]), i32::MAX);
+    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0]), SolutionSize::Invalid);
 }
 
 #[test]
@@ -66,7 +66,7 @@ fn test_brute_force_simple() {
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 2);
         // Verify it's a valid cover
-        assert_ne!(Problem::evaluate(&problem, sol), i32::MAX);
+        assert!(Problem::evaluate(&problem, sol).is_valid());
     }
 }
 
@@ -138,7 +138,7 @@ fn test_overlapping_sets() {
 fn test_empty_universe() {
     let problem = MinimumSetCovering::<i32>::new(0, vec![]);
     // Empty universe is trivially covered with size 0
-    assert_eq!(Problem::evaluate(&problem, &[]), 0);
+    assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0));
 }
 
 #[test]
@@ -154,11 +154,11 @@ fn test_set_covering_problem() {
     assert_eq!(p.dims(), vec![2, 2]);
 
     // Select both -> covers all, weight=2
-    assert_eq!(Problem::evaluate(&p, &[1, 1]), 2);
-    // Select only S0 -> doesn't cover {2,3}, invalid -> i32::MAX
-    assert_eq!(Problem::evaluate(&p, &[1, 0]), i32::MAX);
-    // Select none -> doesn't cover anything -> i32::MAX
-    assert_eq!(Problem::evaluate(&p, &[0, 0]), i32::MAX);
+    assert_eq!(Problem::evaluate(&p, &[1, 1]), SolutionSize::Valid(2));
+    // Select only S0 -> doesn't cover {2,3}, invalid
+    assert_eq!(Problem::evaluate(&p, &[1, 0]), SolutionSize::Invalid);
+    // Select none -> doesn't cover anything -> invalid
+    assert_eq!(Problem::evaluate(&p, &[0, 0]), SolutionSize::Invalid);
 
     assert_eq!(p.direction(), Direction::Minimize);
 }
