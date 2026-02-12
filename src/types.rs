@@ -25,39 +25,101 @@ impl<T> NumericWeight for T where
 {
 }
 
+/// Bound for objective value types (i32, f64, etc.)
+pub trait NumericSize:
+    Clone
+    + Default
+    + PartialOrd
+    + num_traits::Num
+    + num_traits::Zero
+    + num_traits::Bounded
+    + std::ops::AddAssign
+    + 'static
+{
+}
+
+impl<T> NumericSize for T where
+    T: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static
+{
+}
+
+/// Trait for weight storage. Separates weight storage from objective value type.
+pub trait Weights: Clone + 'static {
+    /// Name for variant metadata (e.g., "Unweighted", "Weighted<i32>").
+    const NAME: &'static str;
+    /// The objective/metric type derived from these weights.
+    type Size: NumericSize;
+    /// Get the weight at a given index.
+    fn weight(&self, index: usize) -> Self::Size;
+    /// Number of weights.
+    fn len(&self) -> usize;
+    /// Whether the weight vector is empty.
+    fn is_empty(&self) -> bool {
+        self.len() == 0
+    }
+}
+
 /// Marker type for unweighted problems.
 ///
-/// Similar to Julia's `UnitWeight`, this type indicates that a problem
-/// has uniform weights (all equal to 1). Used in the variant metadata system
-/// to distinguish unweighted problem variants from weighted ones.
-///
-/// Note: This type is primarily used as a marker in the `variant()` method
-/// to indicate that a problem is unweighted. The actual weight type parameter
-/// in problem structs is typically `i32` or similar numeric type, with
-/// `"Unweighted"` appearing in the variant metadata.
+/// When constructed with `Unweighted(n)`, it represents `n` unit weights (all equal to 1).
+/// When constructed with `Unweighted` (the zero-sized default), it serves as a type marker.
 ///
 /// # Example
 ///
 /// ```
-/// use problemreductions::types::Unweighted;
+/// use problemreductions::types::{Unweighted, Weights};
 ///
-/// // In variant metadata, "Unweighted" indicates uniform weights:
-/// // fn variant() -> Vec<(&'static str, &'static str)> {
-/// //     vec![("graph", "SimpleGraph"), ("weight", "Unweighted")]
-/// // }
-/// //
-/// // Weighted problems use the concrete type name:
-/// // fn variant() -> Vec<(&'static str, &'static str)> {
-/// //     vec![("graph", "SimpleGraph"), ("weight", "i32")]
-/// // }
+/// let w = Unweighted(5);
+/// assert_eq!(w.len(), 5);
+/// assert_eq!(w.weight(0), 1);
 /// ```
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
-pub struct Unweighted;
+pub struct Unweighted(pub usize);
 
 impl Unweighted {
     /// Returns 1 for any index (all weights are unit).
     pub fn get(&self, _index: usize) -> i32 {
         1
+    }
+}
+
+impl Weights for Unweighted {
+    const NAME: &'static str = "Unweighted";
+    type Size = i32;
+    fn weight(&self, _index: usize) -> i32 {
+        1
+    }
+    fn len(&self) -> usize {
+        self.0
+    }
+}
+
+impl Weights for Vec<i32> {
+    const NAME: &'static str = "Weighted<i32>";
+    type Size = i32;
+    fn weight(&self, index: usize) -> i32 {
+        self[index]
+    }
+    fn len(&self) -> usize {
+        self.len()
+    }
+}
+
+impl Weights for Vec<f64> {
+    const NAME: &'static str = "Weighted<f64>";
+    type Size = f64;
+    fn weight(&self, index: usize) -> f64 {
+        self[index]
+    }
+    fn len(&self) -> usize {
+        self.len()
     }
 }
 

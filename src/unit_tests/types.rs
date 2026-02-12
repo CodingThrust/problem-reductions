@@ -2,7 +2,7 @@ use super::*;
 
 #[test]
 fn test_unweighted() {
-    let uw = Unweighted;
+    let uw = Unweighted(0);
     // Test get() method
     assert_eq!(uw.get(0), 1);
     assert_eq!(uw.get(100), 1);
@@ -17,7 +17,7 @@ fn test_unweighted() {
     let _uw4: Unweighted = Default::default();
 
     // Test PartialEq
-    assert_eq!(Unweighted, Unweighted);
+    assert_eq!(Unweighted(0), Unweighted(0));
 }
 
 #[test]
@@ -129,4 +129,38 @@ fn test_numeric_weight_impls() {
     assert_numeric_weight::<f64>();
     assert_numeric_weight::<i64>();
     assert_numeric_weight::<f32>();
+}
+
+#[test]
+fn test_numeric_size_blanket_impl() {
+    fn assert_numeric_size<T: NumericSize>() {}
+    assert_numeric_size::<i32>();
+    assert_numeric_size::<i64>();
+    assert_numeric_size::<f64>();
+}
+
+#[test]
+fn test_unweighted_weights_trait() {
+    let w = Unweighted(5);
+    assert_eq!(w.len(), 5);
+    assert_eq!(w.weight(0), 1);
+    assert_eq!(w.weight(4), 1);
+    assert_eq!(Unweighted::NAME, "Unweighted");
+}
+
+#[test]
+fn test_vec_i32_weights_trait() {
+    let w = vec![3, 1, 4];
+    assert_eq!(w.len(), 3);
+    assert_eq!(w.weight(0), 3);
+    assert_eq!(w.weight(2), 4);
+    assert_eq!(<Vec<i32> as Weights>::NAME, "Weighted<i32>");
+}
+
+#[test]
+fn test_vec_f64_weights_trait() {
+    let w = vec![1.5, 2.5];
+    assert_eq!(w.len(), 2);
+    assert_eq!(w.weight(1), 2.5);
+    assert_eq!(<Vec<f64> as Weights>::NAME, "Weighted<f64>");
 }
