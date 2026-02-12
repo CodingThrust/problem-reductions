@@ -270,6 +270,49 @@ where
     total
 }
 
+// === ProblemV2 / OptimizationProblemV2 implementations ===
+
+impl<G, W> crate::traits::ProblemV2 for MaxCut<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    const NAME: &'static str = "MaxCut";
+    type Metric = W;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> W {
+        compute_cut_weight(&self.graph, &self.edge_weights, config)
+    }
+}
+
+impl<G, W> crate::traits::OptimizationProblemV2 for MaxCut<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + 'static,
+{
+    fn direction(&self) -> crate::types::Direction {
+        crate::types::Direction::Maximize
+    }
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/max_cut.rs"]
 mod tests;

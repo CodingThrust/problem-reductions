@@ -223,3 +223,18 @@ fn test_variant() {
     assert_eq!(variant[0], ("graph", "SimpleGraph"));
     assert_eq!(variant[1], ("weight", "i32"));
 }
+
+#[test]
+fn test_maxcut_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Triangle with unit edge weights
+    let p = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    // Partition {0} vs {1,2}: cuts edges (0,1) and (0,2), weight = 2
+    assert_eq!(p.evaluate(&[1, 0, 0]), 2);
+    // All same partition: no cut, weight = 0
+    assert_eq!(p.evaluate(&[0, 0, 0]), 0);
+    assert_eq!(p.direction(), Direction::Maximize);
+}
