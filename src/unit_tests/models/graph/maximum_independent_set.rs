@@ -252,3 +252,36 @@ fn test_weights_ref() {
         MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
     assert_eq!(problem.weights_ref(), &vec![5, 10, 15]);
 }
+
+#[test]
+fn test_mis_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Triangle graph with explicit weights
+    let p = MaximumIndependentSet::<SimpleGraph, i32>::with_weights(
+        3,
+        vec![(0, 1), (1, 2), (0, 2)],
+        vec![1, 1, 1],
+    );
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    // Valid IS: select vertex 0 only
+    assert_eq!(p.evaluate(&[1, 0, 0]), 1);
+    // Invalid IS: select adjacent 0,1 -> should return i32::MIN (neg inf for integers)
+    assert_eq!(p.evaluate(&[1, 1, 0]), i32::MIN);
+    assert_eq!(p.direction(), Direction::Maximize);
+}
+
+#[test]
+fn test_mis_unweighted_v2() {
+    use crate::traits::ProblemV2;
+
+    // Unweighted MIS uses i32 weight type with unit weights
+    let p = MaximumIndependentSet::<SimpleGraph, i32>::new(
+        3,
+        vec![(0, 1), (1, 2), (0, 2)],
+    );
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    assert_eq!(p.evaluate(&[1, 0, 0]), 1);
+    assert_eq!(p.evaluate(&[0, 0, 0]), 0);
+}
