@@ -1,5 +1,9 @@
 # Getting Started
 
+## What This Library Does
+
+**problemreductions** transforms hard computational problems into forms that efficient solvers can handle. You define a problem, reduce it to another problem type (like QUBO or ILP), solve the reduced problem, and extract the solution back. The [interactive reduction graph](./introduction.html) shows all available problem types and transformations.
+
 ## Installation
 
 Add to your `Cargo.toml`:
@@ -9,97 +13,101 @@ Add to your `Cargo.toml`:
 problemreductions = "0.1"
 ```
 
-## Basic Usage
+## The Reduction Workflow
 
-### Creating a Problem
+The core workflow is: **create** a problem, **reduce** it to a target, **solve** the target, and **extract** the solution back.
 
-```rust
-use problemreductions::prelude::*;
+<div class="theme-light-only">
 
-// Independent Set on a path graph
-let is = MaximumIndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+![Reduction Workflow](static/reduction-workflow.svg)
 
-// Vertex Cover on the same graph
-let vc = MinimumVertexCover::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+</div>
+<div class="theme-dark-only">
 
-// QUBO problem
-let qubo = QUBO::from_matrix(vec![
-    vec![1.0, -2.0],
-    vec![0.0, 1.0],
-]);
-```
+![Reduction Workflow](static/reduction-workflow-dark.svg)
 
-### Solving a Problem
+</div>
+
+### Complete Example
 
 ```rust
 use problemreductions::prelude::*;
 
+// 1. Create: Independent Set on a path graph (4 vertices)
 let problem = MaximumIndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+
+// 2. Reduce: Transform to Minimum Vertex Cover
+let reduction = ReduceTo::<MinimumVertexCover<i32>>::reduce_to(&problem);
+let target = reduction.target_problem();
+
+// 3. Solve: Find optimal solution to the target problem
 let solver = BruteForce::new();
-let solutions = solver.find_best(&problem);
+let target_solutions = solver.find_best(target);
 
-println!("Found {} optimal solutions", solutions.len());
-for sol in &solutions {
-    println!("  Solution: {:?}", sol);
-}
-```
+// 4. Extract: Map solution back to original problem
+let solution = reduction.extract_solution(&target_solutions[0]);
 
-### Applying Reductions
-
-```rust
-use problemreductions::prelude::*;
-
-// Create an Independent Set problem
-let is = MaximumIndependentSet::<i32>::new(4, vec![(0, 1), (1, 2)]);
-
-// Reduce to Vertex Cover
-let result = ReduceTo::<MinimumVertexCover<i32>>::reduce_to(&is);
-let vc = result.target_problem();
-
-// Solve the reduced problem
-let solver = BruteForce::new();
-let vc_solutions = solver.find_best(vc);
-
-// Extract solution back to original problem
-let is_solution = result.extract_solution(&vc_solutions[0]);
+// Verify: solution is valid for the original problem
+let metric = problem.evaluate(&solution);
+assert!(metric.is_valid());
 ```
 
 ### Chaining Reductions
 
+Reductions can be chained. Each step preserves the solution mapping:
+
 ```rust
 use problemreductions::prelude::*;
 
-let sp = MaximumSetPacking::<i32>::new(vec![
-    vec![0, 1],
-    vec![1, 2],
-    vec![2, 3],
-]);
+// SetPacking -> IndependentSet -> VertexCover
+let sp = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
 
-// MaximumSetPacking -> MaximumIndependentSet -> MinimumVertexCover
-let sp_to_is = ReduceTo::<MaximumIndependentSet<i32>>::reduce_to(&sp);
-let is = sp_to_is.target_problem();
+let r1 = ReduceTo::<MaximumIndependentSet<i32>>::reduce_to(&sp);
+let r2 = ReduceTo::<MinimumVertexCover<i32>>::reduce_to(r1.target_problem());
 
-let is_to_vc = ReduceTo::<MinimumVertexCover<i32>>::reduce_to(is);
-let vc = is_to_vc.target_problem();
-
-// Solve and extract back through the chain
+// Solve final target, extract back through chain
 let solver = BruteForce::new();
-let vc_solutions = solver.find_best(vc);
-let is_solution = is_to_vc.extract_solution(&vc_solutions[0]);
-let sp_solution = sp_to_is.extract_solution(&is_solution);
+let vc_sol = solver.find_best(r2.target_problem());
+let is_sol = r2.extract_solution(&vc_sol[0]);
+let sp_sol = r1.extract_solution(&is_sol);
 ```
 
-### Type Safety
+## Solvers
 
-The reduction system is compile-time verified. Invalid reductions won't compile:
+Two solvers are available:
 
-```rust,compile_fail
-// This won't compile - no reduction from QUBO to MaximumSetPacking
-let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&qubo);
+| Solver | Use Case | Notes |
+|--------|----------|-------|
+| [`BruteForce`](api/problemreductions/solvers/struct.BruteForce.html) | Small instances (<20 variables) | Enumerates all configurations |
+| [`ILPSolver`](api/problemreductions/solvers/ilp/struct.ILPSolver.html) | Larger instances | Requires `ilp` feature flag |
+
+Enable ILP support:
+
+```toml
+[dependencies]
+problemreductions = { version = "0.1", features = ["ilp"] }
+```
+
+**Future:** Automated reduction path optimization will find the best route between any two connected problems.
+
+## JSON Resources
+
+The library exports machine-readable metadata useful for tooling and research:
+
+| File | Contents | Use Case |
+|------|----------|----------|
+| [`reduction_graph.json`](reductions/reduction_graph.json) | All problem variants and reduction edges | Visualization, path finding, research |
+| [`problem_schemas.json`](reductions/problem_schemas.json) | Field definitions for each problem type | Code generation, validation |
+
+Generate locally:
+
+```bash
+cargo run --example export_graph    # reduction_graph.json
+cargo run --example export_schemas  # problem_schemas.json
 ```
 
 ## Next Steps
 
 - Explore the [interactive reduction graph](./introduction.html) to discover available reductions
-- Browse the [API Reference](./api.md) for full documentation
-- Check out the [Solvers](./solvers.md) for different solving strategies
+- Read the [Architecture](./arch.md) guide for implementation details
+- Browse the [API Reference](./api.html) for full documentation
