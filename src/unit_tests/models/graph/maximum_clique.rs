@@ -269,3 +269,18 @@ fn test_complete_graph() {
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1, 1, 1, 1]); // All vertices form a clique
 }
+
+#[test]
+fn test_clique_problem_v2() {
+    use crate::traits::{OptimizationProblemV2, ProblemV2};
+    use crate::types::Direction;
+
+    // Triangle graph: all pairs connected
+    let p = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    // Valid clique: select all 3 vertices (triangle is a clique)
+    assert_eq!(p.evaluate(&[1, 1, 1]), 3);
+    // Valid clique: select just vertex 0
+    assert_eq!(p.evaluate(&[1, 0, 0]), 1);
+    assert_eq!(p.direction(), Direction::Maximize);
+}
