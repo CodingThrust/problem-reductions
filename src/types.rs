@@ -52,7 +52,7 @@ impl<T> NumericSize for T where
 
 /// Trait for weight storage. Separates weight storage from objective value type.
 pub trait Weights: Clone + 'static {
-    /// Name for variant metadata (e.g., "Unweighted", "Weighted<i32>").
+    /// Name for variant metadata (e.g., "Unweighted", "`Weighted<i32>`").
     const NAME: &'static str;
     /// The objective/metric type derived from these weights.
     type Size: NumericSize;

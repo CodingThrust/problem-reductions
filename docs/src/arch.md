@@ -233,8 +233,6 @@ The graph data is stored in [`reduction_graph.json`](reductions/reduction_graph.
 }
 ```
 
-</details>
-
 Problem schemas (`problem_schemas.json`) describe each problem's structure:
 
 <details>
@@ -372,15 +370,8 @@ The easiest way to contribute is through GitHub issues:
 
 1. **Open an issue** using the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template
 2. **Fill in all sections** — definition, algorithm, size overhead, example instance
-3. **AI handles implementation** — automated tools generate the code from your specification
-
-### Optional: Plan + Automated PR
-
-For more control over the implementation:
-
-1. Use `superpowers:brainstorming` to create a detailed plan
-2. Create a PR with `[action]` prefix in the description
-3. Automated implementation is triggered from your plan
+3. **Review AI generated code** — AI generates code and you can review and comment on the pull request.
+4. **Merge the pull request** — Once you are happy with the code, just ask maintainers' assistance to merge the pull request.
 
 ### Manual Implementation
 
