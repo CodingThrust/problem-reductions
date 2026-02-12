@@ -1,13 +1,14 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 
 #[test]
 fn test_independent_set_creation() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
-    assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.num_flavors(), 2);
+    assert_eq!(problem.dims().len(), 4);
 }
 
 #[test]
@@ -34,78 +35,49 @@ fn test_has_edge() {
 }
 
 #[test]
-fn test_solution_size_valid() {
+fn test_evaluate_valid() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
 
     // Valid: select 0 and 2 (not adjacent)
-    let sol = problem.solution_size(&[1, 0, 1, 0]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 2);
+    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), SolutionSize::Valid(2));
 
     // Valid: select 1 and 3 (not adjacent)
-    let sol = problem.solution_size(&[0, 1, 0, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 2);
+    assert_eq!(problem.evaluate(&[0, 1, 0, 1]), SolutionSize::Valid(2));
 }
 
 #[test]
-fn test_solution_size_invalid() {
+fn test_evaluate_invalid() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
 
-    // Invalid: 0 and 1 are adjacent
-    let sol = problem.solution_size(&[1, 1, 0, 0]);
-    assert!(!sol.is_valid);
-    assert_eq!(sol.size, 2);
+    // Invalid: 0 and 1 are adjacent -> returns Invalid
+    assert_eq!(problem.evaluate(&[1, 1, 0, 0]), SolutionSize::Invalid);
 
-    // Invalid: 2 and 3 are adjacent
-    let sol = problem.solution_size(&[0, 0, 1, 1]);
-    assert!(!sol.is_valid);
+    // Invalid: 2 and 3 are adjacent -> returns Invalid
+    assert_eq!(problem.evaluate(&[0, 0, 1, 1]), SolutionSize::Invalid);
 }
 
 #[test]
-fn test_solution_size_empty() {
+fn test_evaluate_empty() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let sol = problem.solution_size(&[0, 0, 0]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0);
+    assert_eq!(problem.evaluate(&[0, 0, 0]), SolutionSize::Valid(0));
 }
 
 #[test]
-fn test_weighted_solution() {
+fn test_weighted_evaluate() {
     let problem =
         MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![10, 20, 30]);
 
     // Select vertex 2 (weight 30)
-    let sol = problem.solution_size(&[0, 0, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 30);
+    assert_eq!(problem.evaluate(&[0, 0, 1]), SolutionSize::Valid(30));
 
     // Select vertices 0 and 2 (weights 10 + 30 = 40)
-    let sol = problem.solution_size(&[1, 0, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 40);
-}
-
-#[test]
-fn test_constraints() {
-    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let constraints = problem.constraints();
-    assert_eq!(constraints.len(), 2); // One per edge
-}
-
-#[test]
-fn test_objectives() {
-    let problem =
-        MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
-    let objectives = problem.objectives();
-    assert_eq!(objectives.len(), 3); // One per vertex
+    assert_eq!(problem.evaluate(&[1, 0, 1]), SolutionSize::Valid(40));
 }
 
 #[test]
 fn test_brute_force_triangle() {
     // Triangle graph: maximum IS has size 1
-    let problem =
-        MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -127,23 +99,40 @@ fn test_brute_force_path() {
     for sol in &solutions {
         let size: usize = sol.iter().sum();
         assert_eq!(size, 2);
-        // Verify it's valid
-        let sol_result = problem.solution_size(sol);
-        assert!(sol_result.is_valid);
+        // Verify it's valid (evaluate returns Valid)
+        let eval = problem.evaluate(sol);
+        assert!(eval.is_valid());
     }
 }
 
 #[test]
 fn test_brute_force_weighted() {
     // Graph with weights: vertex 1 has high weight but is connected to both 0 and 2
-    let problem =
-        MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1), (1, 2)], vec![1, 100, 1]);
+    let problem = MaximumIndependentSet::<SimpleGraph, i32>::with_weights(
+        3,
+        vec![(0, 1), (1, 2)],
+        vec![1, 100, 1],
+    );
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
     assert_eq!(solutions.len(), 1);
     // Should select vertex 1 (weight 100) over vertices 0+2 (weight 2)
     assert_eq!(solutions[0], vec![0, 1, 0]);
+}
+
+#[test]
+fn test_brute_force_weighted_f64() {
+    let problem = MaximumIndependentSet::<SimpleGraph, f64>::with_weights(
+        3,
+        vec![(0, 1), (1, 2)],
+        vec![0.5, 2.0, 0.75],
+    );
+    let solver = BruteForce::new();
+
+    let solutions = solver.find_best(&problem);
+    assert_eq!(solutions, vec![vec![0, 1, 0]]);
+    assert_eq!(problem.evaluate(&solutions[0]), SolutionSize::Valid(2.0));
 }
 
 #[test]
@@ -164,17 +153,9 @@ fn test_is_independent_set_function() {
 }
 
 #[test]
-fn test_problem_size() {
-    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3)]);
-    let size = problem.problem_size();
-    assert_eq!(size.get("num_vertices"), Some(5));
-    assert_eq!(size.get("num_edges"), Some(3));
-}
-
-#[test]
-fn test_energy_mode() {
+fn test_direction() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
-    assert!(problem.energy_mode().is_maximization());
+    assert_eq!(problem.direction(), Direction::Maximize);
 }
 
 #[test]
@@ -205,19 +186,10 @@ fn test_empty_graph() {
 }
 
 #[test]
-fn test_is_satisfied() {
-    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-
-    assert!(problem.is_satisfied(&[1, 0, 1])); // Valid IS
-    assert!(problem.is_satisfied(&[0, 1, 0])); // Valid IS
-    assert!(!problem.is_satisfied(&[1, 1, 0])); // Invalid: 0-1 adjacent
-    assert!(!problem.is_satisfied(&[0, 1, 1])); // Invalid: 1-2 adjacent
-}
-
-#[test]
 fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MaximumIndependentSet::<SimpleGraph, i32>::from_graph(graph.clone(), vec![1, 2, 3]);
+    let problem =
+        MaximumIndependentSet::<SimpleGraph, i32>::from_graph(graph.clone(), vec![1, 2, 3]);
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.weights(), vec![1, 2, 3]);
 }
@@ -239,16 +211,41 @@ fn test_graph_accessor() {
 }
 
 #[test]
-fn test_variant() {
-    let variant = MaximumIndependentSet::<SimpleGraph, i32>::variant();
-    assert_eq!(variant.len(), 2);
-    assert_eq!(variant[0], ("graph", "SimpleGraph"));
-    assert_eq!(variant[1], ("weight", "i32"));
-}
-
-#[test]
 fn test_weights_ref() {
     let problem =
         MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
     assert_eq!(problem.weights_ref(), &vec![5, 10, 15]);
+}
+
+#[test]
+fn test_mis_problem_trait() {
+    // Triangle graph with explicit weights
+    let p = MaximumIndependentSet::<SimpleGraph, i32>::with_weights(
+        3,
+        vec![(0, 1), (1, 2), (0, 2)],
+        vec![1, 1, 1],
+    );
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    // Valid IS: select vertex 0 only
+    assert_eq!(p.evaluate(&[1, 0, 0]), SolutionSize::Valid(1));
+    // Invalid IS: select adjacent 0,1 -> should return Invalid
+    assert_eq!(p.evaluate(&[1, 1, 0]), SolutionSize::Invalid);
+    assert_eq!(p.direction(), Direction::Maximize);
+}
+
+#[test]
+fn test_mis_unweighted() {
+    // Unweighted MIS uses i32 weight type with unit weights
+    let p = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    assert_eq!(p.evaluate(&[1, 0, 0]), SolutionSize::Valid(1));
+    assert_eq!(p.evaluate(&[0, 0, 0]), SolutionSize::Valid(0));
+}
+
+#[test]
+fn test_problem_name() {
+    assert_eq!(
+        <MaximumIndependentSet<SimpleGraph, i32> as Problem>::NAME,
+        "MaximumIndependentSet"
+    );
 }

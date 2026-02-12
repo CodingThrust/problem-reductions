@@ -17,12 +17,13 @@ mod all_problems_solvable {
 
     #[test]
     fn test_independent_set_solvable() {
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
@@ -33,7 +34,7 @@ mod all_problems_solvable {
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
@@ -49,21 +50,23 @@ mod all_problems_solvable {
     fn test_coloring_solvable() {
         let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
-        assert!(!solutions.is_empty());
-        for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+        // KColoring returns bool, so we can use find_all_satisfying
+        let satisfying = solver.find_all_satisfying(&problem);
+        assert!(!satisfying.is_empty());
+        for sol in &satisfying {
+            assert!(problem.evaluate(sol));
         }
     }
 
     #[test]
     fn test_dominating_set_solvable() {
-        let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem =
+            MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
@@ -74,32 +77,38 @@ mod all_problems_solvable {
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
     #[test]
     fn test_matching_solvable() {
-        let problem = MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
+        let problem =
+            MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
     #[test]
     fn test_satisfiability_solvable() {
-        let problem = Satisfiability::<i32>::new(
+        let problem = Satisfiability::new(
             3,
             vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
         );
-        let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
-        assert!(!solutions.is_empty());
-        for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+        // Satisfiability returns bool, find satisfying configs manually
+        let dims = problem.dims();
+        let all_configs: Vec<Vec<usize>> = problemreductions::config::DimsIterator::new(dims.clone()).collect();
+        let satisfying: Vec<Vec<usize>> = all_configs
+            .into_iter()
+            .filter(|config| problem.evaluate(config))
+            .collect();
+        assert!(!satisfying.is_empty());
+        for sol in &satisfying {
+            assert!(problem.evaluate(sol));
         }
     }
 
@@ -125,23 +134,25 @@ mod all_problems_solvable {
 
     #[test]
     fn test_set_covering_solvable() {
-        let problem = MinimumSetCovering::<i32>::new(5, vec![vec![0, 1, 2], vec![2, 3, 4], vec![0, 4]]);
+        let problem =
+            MinimumSetCovering::<i32>::new(5, vec![vec![0, 1, 2], vec![2, 3, 4], vec![0, 4]]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
     #[test]
     fn test_set_packing_solvable() {
-        let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![1, 2], vec![4]]);
+        let problem =
+            MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![1, 2], vec![4]]);
         let solver = BruteForce::new();
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
@@ -152,11 +163,16 @@ mod all_problems_solvable {
             BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
         )]);
         let problem = CircuitSAT::<i32>::new(circuit);
-        let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
-        assert!(!solutions.is_empty());
-        for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+        // CircuitSAT returns bool
+        let dims = problem.dims();
+        let all_configs: Vec<Vec<usize>> = problemreductions::config::DimsIterator::new(dims.clone()).collect();
+        let satisfying: Vec<Vec<usize>> = all_configs
+            .into_iter()
+            .filter(|config| problem.evaluate(config))
+            .collect();
+        assert!(!satisfying.is_empty());
+        for sol in &satisfying {
+            assert!(problem.evaluate(sol));
         }
     }
 
@@ -167,7 +183,7 @@ mod all_problems_solvable {
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
@@ -187,7 +203,7 @@ mod all_problems_solvable {
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
@@ -198,7 +214,8 @@ mod all_problems_solvable {
         let solutions = solver.find_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            // BMF minimizes Hamming distance, all configs are valid (no invalid marker)
+            let _ = problem.evaluate(sol);
         }
     }
 }
@@ -242,14 +259,14 @@ mod problem_relationships {
 
         // Every maximal IS is also a valid IS
         for sol in &maximal_solutions {
-            assert!(is_problem.solution_size(sol).is_valid);
+            assert!(is_problem.evaluate(sol).is_valid());
         }
     }
 
     /// SAT clauses with all positive literals have the all-true assignment as solution.
     #[test]
     fn test_sat_positive_clauses() {
-        let problem = Satisfiability::<i32>::new(
+        let problem = Satisfiability::new(
             3,
             vec![
                 CNFClause::new(vec![1, 2]),
@@ -260,7 +277,7 @@ mod problem_relationships {
 
         // All true should satisfy
         let all_true = vec![1, 1, 1];
-        assert!(problem.solution_size(&all_true).is_valid);
+        assert!(problem.evaluate(&all_true));
     }
 
     /// SpinGlass with all ferromagnetic (negative J) interactions prefers aligned spins.
@@ -335,14 +352,19 @@ mod edge_cases {
 
     #[test]
     fn test_single_clause_sat() {
-        let problem = Satisfiability::<i32>::new(2, vec![CNFClause::new(vec![1, -2])]);
-        let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let problem = Satisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
+        // Find satisfying configs
+        let dims = problem.dims();
+        let all_configs: Vec<Vec<usize>> = problemreductions::config::DimsIterator::new(dims.clone()).collect();
+        let satisfying: Vec<Vec<usize>> = all_configs
+            .into_iter()
+            .filter(|config| problem.evaluate(config))
+            .collect();
 
         // (x1 OR NOT x2) is satisfied by 3 of 4 assignments
-        assert!(!solutions.is_empty());
-        for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+        assert!(!satisfying.is_empty());
+        for sol in &satisfying {
+            assert!(problem.evaluate(sol));
         }
     }
 
@@ -355,8 +377,7 @@ mod edge_cases {
 
         assert!(!solutions.is_empty());
         for sol in &solutions {
-            let sol_size = problem.solution_size(sol);
-            assert!(sol_size.is_valid);
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
@@ -417,26 +438,31 @@ mod weighted_problems {
         let solutions = solver.find_best(&problem);
 
         // Maximum cut should include the heavy edge (0,1)
-        let cut_value = problem.solution_size(&solutions[0]).size;
-        assert!(cut_value >= 10);
+        let cut_value = problem.evaluate(&solutions[0]);
+        // cut_value should be >= 10
+        assert!(cut_value.is_valid() && cut_value.unwrap() >= 10);
     }
 
     #[test]
-    fn test_weighted_sat() {
-        let mut problem = Satisfiability::<i32>::new(
+    fn test_unsatisfiable_sat() {
+        // This formula is unsatisfiable: x1 AND NOT x1
+        let problem = Satisfiability::new(
             2,
             vec![
                 CNFClause::new(vec![1]),  // x1
                 CNFClause::new(vec![-1]), // NOT x1
             ],
         );
-        problem.set_weights(vec![10, 1]);
 
-        let solver = BruteForce::new().valid_only(false);
-        let solutions = solver.find_best(&problem);
+        // Find satisfying configs
+        let dims = problem.dims();
+        let all_configs: Vec<Vec<usize>> = problemreductions::config::DimsIterator::new(dims.clone()).collect();
+        let satisfying: Vec<Vec<usize>> = all_configs
+            .into_iter()
+            .filter(|config| problem.evaluate(config))
+            .collect();
 
-        // Can't satisfy both, but x1=true satisfies weight 10
-        let best_weight = problem.solution_size(&solutions[0]).size;
-        assert_eq!(best_weight, 10);
+        // Can't satisfy both - no solution satisfies all clauses
+        assert!(satisfying.is_empty());
     }
 }

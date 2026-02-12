@@ -13,7 +13,8 @@ mod is_vc_reductions {
     #[test]
     fn test_is_to_vc_basic() {
         // Triangle graph
-        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let is_problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 
         // Reduce IS to VC
         let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is_problem);
@@ -31,13 +32,14 @@ mod is_vc_reductions {
         let is_solution = result.extract_solution(&vc_solutions[0]);
 
         // Solution should be valid for original problem
-        assert!(is_problem.solution_size(&is_solution).is_valid);
+        assert!(is_problem.evaluate(&is_solution) .is_valid());
     }
 
     #[test]
     fn test_vc_to_is_basic() {
         // Path graph
-        let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let vc_problem =
+            MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         // Reduce VC to IS
         let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&vc_problem);
@@ -55,12 +57,13 @@ mod is_vc_reductions {
         let vc_solution = result.extract_solution(&is_solutions[0]);
 
         // Solution should be valid for original problem
-        assert!(vc_problem.solution_size(&vc_solution).is_valid);
+        assert!(vc_problem.evaluate(&vc_solution) .is_valid());
     }
 
     #[test]
     fn test_is_vc_roundtrip() {
-        let original = MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+        let original =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
 
         // IS -> VC
         let to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&original);
@@ -83,7 +86,7 @@ mod is_vc_reductions {
         let original_sol = to_vc.extract_solution(&intermediate_sol);
 
         // Should be valid
-        assert!(original.solution_size(&original_sol).is_valid);
+        assert!(original.evaluate(&original_sol) .is_valid());
     }
 
     #[test]
@@ -126,7 +129,8 @@ mod is_sp_reductions {
     #[test]
     fn test_is_to_sp_basic() {
         // Triangle graph - each vertex's incident edges become a set
-        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let is_problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 
         let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);
         let sp_problem = result.target_problem();
@@ -141,7 +145,7 @@ mod is_sp_reductions {
         // Extract to IS solution
         let is_solution = result.extract_solution(&sp_solutions[0]);
 
-        assert!(is_problem.solution_size(&is_solution).is_valid);
+        assert!(is_problem.evaluate(&is_solution) .is_valid());
     }
 
     #[test]
@@ -165,12 +169,13 @@ mod is_sp_reductions {
 
         // All sets can be packed (disjoint)
         assert_eq!(sp_solution.iter().sum::<usize>(), 3);
-        assert!(sp_problem.solution_size(&sp_solution).is_valid);
+        assert!(sp_problem.evaluate(&sp_solution).is_valid());
     }
 
     #[test]
     fn test_is_sp_roundtrip() {
-        let original = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let original =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         // IS -> SP
         let to_sp = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&original);
@@ -184,7 +189,7 @@ mod is_sp_reductions {
         let is_solution = to_sp.extract_solution(&sp_solutions[0]);
 
         // Valid for original
-        assert!(original.solution_size(&is_solution).is_valid);
+        assert!(original.evaluate(&is_solution) .is_valid());
 
         // Should match directly solving IS
         let direct_solutions = solver.find_best(&original);
@@ -240,7 +245,11 @@ mod sg_qubo_reductions {
     #[test]
     fn test_sg_qubo_energy_preservation() {
         // The reduction should preserve optimal energy (up to constant)
-        let sg = SpinGlass::<SimpleGraph, _>::new(3, vec![((0, 1), -1.0), ((1, 2), 1.0)], vec![0.0, 0.0, 0.0]);
+        let sg = SpinGlass::<SimpleGraph, _>::new(
+            3,
+            vec![((0, 1), -1.0), ((1, 2), 1.0)],
+            vec![0.0, 0.0, 0.0],
+        );
 
         let result = ReduceTo::<QUBO>::reduce_to(&sg);
         let qubo = result.target_problem();
@@ -366,7 +375,7 @@ mod topology_tests {
         let solver = BruteForce::new();
         let solutions = solver.find_best(&sp);
 
-        assert!(sp.solution_size(&solutions[0]).is_valid);
+        assert!(sp.evaluate(&solutions[0]).is_valid());
     }
 
     #[test]
@@ -468,7 +477,8 @@ mod qubo_reductions {
 
     #[test]
     fn test_is_to_qubo_ground_truth() {
-        let json = std::fs::read_to_string("tests/data/qubo/maximumindependentset_to_qubo.json").unwrap();
+        let json =
+            std::fs::read_to_string("tests/data/qubo/maximumindependentset_to_qubo.json").unwrap();
         let data: ISToQuboData = serde_json::from_str(&json).unwrap();
 
         let is = MaximumIndependentSet::<SimpleGraph, i32>::new(
@@ -486,7 +496,7 @@ mod qubo_reductions {
         // All QUBO optimal solutions should extract to valid IS solutions
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
-            assert!(is.solution_size(&extracted).is_valid);
+            assert!(is.evaluate(&extracted) .is_valid());
         }
 
         // Optimal IS size should match ground truth
@@ -528,7 +538,7 @@ mod qubo_reductions {
 
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
-            assert!(vc.solution_size(&extracted).is_valid);
+            assert!(vc.evaluate(&extracted) .is_valid());
         }
 
         // Optimal VC size should match ground truth
@@ -558,10 +568,7 @@ mod qubo_reductions {
 
         assert_eq!(data.source.num_colors, 3);
 
-        let kc = KColoring::<3, SimpleGraph, i32>::new(
-            data.source.num_vertices,
-            data.source.edges,
-        );
+        let kc = KColoring::<3, SimpleGraph, i32>::new(data.source.num_vertices, data.source.edges);
         let reduction = ReduceTo::<QUBO>::reduce_to(&kc);
         let qubo = reduction.target_problem();
 
@@ -572,7 +579,7 @@ mod qubo_reductions {
 
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
-            assert!(kc.solution_size(&extracted).is_valid);
+            assert!(kc.evaluate(&extracted));
         }
 
         // Same number of optimal colorings as ground truth
@@ -594,7 +601,8 @@ mod qubo_reductions {
 
     #[test]
     fn test_setpacking_to_qubo_ground_truth() {
-        let json = std::fs::read_to_string("tests/data/qubo/maximumsetpacking_to_qubo.json").unwrap();
+        let json =
+            std::fs::read_to_string("tests/data/qubo/maximumsetpacking_to_qubo.json").unwrap();
         let data: SPToQuboData = serde_json::from_str(&json).unwrap();
 
         let sp = MaximumSetPacking::with_weights(data.source.sets, data.source.weights);
@@ -608,7 +616,7 @@ mod qubo_reductions {
 
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
-            assert!(sp.solution_size(&extracted).is_valid);
+            assert!(sp.evaluate(&extracted).is_valid());
         }
 
         // Optimal packing should match ground truth
@@ -638,8 +646,7 @@ mod qubo_reductions {
 
     #[test]
     fn test_ksat_to_qubo_ground_truth() {
-        let json =
-            std::fs::read_to_string("tests/data/qubo/ksatisfiability_to_qubo.json").unwrap();
+        let json = std::fs::read_to_string("tests/data/qubo/ksatisfiability_to_qubo.json").unwrap();
         let data: KSatToQuboData = serde_json::from_str(&json).unwrap();
 
         // Convert JSON clauses to CNFClause (1-indexed signed literals)
@@ -652,14 +659,18 @@ mod qubo_reductions {
                     .iter()
                     .map(|l| {
                         let var = (l.variable + 1) as i32; // 0-indexed to 1-indexed
-                        if l.negated { -var } else { var }
+                        if l.negated {
+                            -var
+                        } else {
+                            var
+                        }
                     })
                     .collect();
                 CNFClause::new(signed)
             })
             .collect();
 
-        let ksat = KSatisfiability::<2, i32>::new(data.source.num_variables, clauses);
+        let ksat = KSatisfiability::<2>::new(data.source.num_variables, clauses);
         let reduction = ReduceTo::<QUBO>::reduce_to(&ksat);
         let qubo = reduction.target_problem();
 
@@ -670,7 +681,7 @@ mod qubo_reductions {
 
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
-            assert!(ksat.solution_size(&extracted).is_valid);
+            assert!(ksat.evaluate(&extracted));
         }
 
         // Verify extracted solution matches ground truth assignment
@@ -754,7 +765,7 @@ mod qubo_reductions {
 
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
-            assert!(ilp.solution_size(&extracted).is_valid);
+            assert!(ilp.evaluate(&extracted).is_valid());
         }
 
         // Optimal assignment should match ground truth
@@ -771,7 +782,8 @@ mod io_tests {
 
     #[test]
     fn test_serialize_reduce_deserialize() {
-        let original = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let original =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
         // Serialize
         let json = to_json(&original).unwrap();
@@ -823,7 +835,10 @@ mod end_to_end {
     #[test]
     fn test_full_pipeline_is_vc_sp() {
         // Start with an MaximumIndependentSet problem
-        let is = MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4)]);
+        let is = MaximumIndependentSet::<SimpleGraph, i32>::new(
+            5,
+            vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4)],
+        );
 
         // Solve directly
         let solver = BruteForce::new();
@@ -903,6 +918,6 @@ mod end_to_end {
         let sp_sol = sp_to_is.extract_solution(&is_sol);
 
         // Should be valid MaximumSetPacking
-        assert!(sp.solution_size(&sp_sol).is_valid);
+        assert!(sp.evaluate(&sp_sol).is_valid());
     }
 }

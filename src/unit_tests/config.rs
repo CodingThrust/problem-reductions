@@ -32,11 +32,22 @@ fn test_config_iterator_ternary() {
 }
 
 #[test]
-fn test_config_iterator_empty() {
+fn test_config_iterator_zero_variables() {
+    // 0 variables means exactly 1 configuration: the empty config
     let iter = ConfigIterator::new(0, 2);
+    assert_eq!(iter.total(), 1);
+    let configs: Vec<_> = iter.collect();
+    let expected: Vec<Vec<usize>> = vec![vec![]];
+    assert_eq!(configs, expected); // One config: the empty config
+}
+
+#[test]
+fn test_config_iterator_zero_flavors() {
+    // Non-zero variables with 0 flavors means no valid configs
+    let iter = ConfigIterator::new(3, 0);
     assert_eq!(iter.total(), 0);
     let configs: Vec<_> = iter.collect();
-    assert_eq!(configs.len(), 0); // Empty because num_variables is 0
+    assert!(configs.is_empty());
 }
 
 #[test]
@@ -101,4 +112,69 @@ fn test_exact_size_iterator() {
     iter.next();
     iter.next();
     assert_eq!(iter.len(), 5);
+}
+
+// === DimsIterator tests ===
+
+#[test]
+fn test_dims_iterator_uniform_binary() {
+    let iter = DimsIterator::new(vec![2, 2, 2]);
+    assert_eq!(iter.total(), 8);
+
+    let configs: Vec<_> = iter.collect();
+    assert_eq!(configs.len(), 8);
+    assert_eq!(configs[0], vec![0, 0, 0]);
+    assert_eq!(configs[7], vec![1, 1, 1]);
+}
+
+#[test]
+fn test_dims_iterator_mixed_dims() {
+    let iter = DimsIterator::new(vec![2, 3]);
+    assert_eq!(iter.total(), 6);
+
+    let configs: Vec<_> = iter.collect();
+    assert_eq!(configs.len(), 6);
+    assert_eq!(configs[0], vec![0, 0]);
+    assert_eq!(configs[1], vec![0, 1]);
+    assert_eq!(configs[2], vec![0, 2]);
+    assert_eq!(configs[3], vec![1, 0]);
+    assert_eq!(configs[4], vec![1, 1]);
+    assert_eq!(configs[5], vec![1, 2]);
+}
+
+#[test]
+fn test_dims_iterator_empty() {
+    // Empty dims means exactly 1 configuration: the empty config
+    let iter = DimsIterator::new(vec![]);
+    assert_eq!(iter.total(), 1);
+    let configs: Vec<_> = iter.collect();
+    let expected: Vec<Vec<usize>> = vec![vec![]];
+    assert_eq!(configs, expected); // One config: the empty config
+}
+
+#[test]
+fn test_dims_iterator_zero_dimension() {
+    // Any dimension being 0 means no valid configs
+    let iter = DimsIterator::new(vec![2, 0, 3]);
+    assert_eq!(iter.total(), 0);
+    assert!(iter.collect::<Vec<_>>().is_empty());
+}
+
+#[test]
+fn test_dims_iterator_single_variable() {
+    let iter = DimsIterator::new(vec![4]);
+    assert_eq!(iter.total(), 4);
+    let configs: Vec<_> = iter.collect();
+    assert_eq!(configs, vec![vec![0], vec![1], vec![2], vec![3]]);
+}
+
+#[test]
+fn test_dims_iterator_exact_size() {
+    let mut iter = DimsIterator::new(vec![2, 3]);
+    assert_eq!(iter.len(), 6);
+    iter.next();
+    assert_eq!(iter.len(), 5);
+    iter.next();
+    iter.next();
+    assert_eq!(iter.len(), 3);
 }

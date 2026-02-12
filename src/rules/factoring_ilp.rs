@@ -22,8 +22,6 @@ use crate::models::specialized::Factoring;
 use crate::polynomial::{Monomial, Polynomial};
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::Problem;
-use crate::types::ProblemSize;
 use std::cmp::min;
 
 // Register reduction in the inventory for automatic discovery
@@ -73,7 +71,6 @@ inventory::submit! {
 #[derive(Debug, Clone)]
 pub struct ReductionFactoringToILP {
     target: ILP,
-    source_size: ProblemSize,
     m: usize, // bits for first factor
     n: usize, // bits for second factor
 }
@@ -130,14 +127,6 @@ impl ReductionResult for ReductionFactoringToILP {
         let mut result = p_bits;
         result.extend(q_bits);
         result
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -268,7 +257,6 @@ impl ReduceTo<ILP> for Factoring {
 
         ReductionFactoringToILP {
             target: ilp,
-            source_size: self.problem_size(),
             m,
             n,
         }

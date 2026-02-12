@@ -11,31 +11,22 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-use num_traits::{Num, Zero};
-use std::ops::AddAssign;
 
 /// Result of reducing general SAT to K-SAT.
 ///
 /// This reduction transforms a SAT formula into an equisatisfiable K-SAT formula
 /// by introducing ancilla (auxiliary) variables.
 #[derive(Debug, Clone)]
-pub struct ReductionSATToKSAT<const K: usize, W> {
+pub struct ReductionSATToKSAT<const K: usize> {
     /// Number of original variables in the source problem.
     source_num_vars: usize,
     /// The target K-SAT problem.
-    target: KSatisfiability<K, W>,
-    /// Size of the source problem.
-    source_size: ProblemSize,
+    target: KSatisfiability<K>,
 }
 
-impl<const K: usize, W> ReductionResult for ReductionSATToKSAT<K, W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
-{
-    type Source = Satisfiability<W>;
-    type Target = KSatisfiability<K, W>;
+impl<const K: usize> ReductionResult for ReductionSATToKSAT<K> {
+    type Source = Satisfiability;
+    type Target = KSatisfiability<K>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -44,14 +35,6 @@ where
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         // Only return the original variables, discarding ancillas
         target_solution[..self.source_num_vars].to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -129,11 +112,8 @@ fn add_clause_to_ksat(
 /// the `ReduceTo` trait pattern used in this crate.
 macro_rules! impl_sat_to_ksat {
     ($k:expr) => {
-        impl<W> ReduceTo<KSatisfiability<$k, W>> for Satisfiability<W>
-        where
-            W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
-        {
-            type Result = ReductionSATToKSAT<$k, W>;
+        impl ReduceTo<KSatisfiability<$k>> for Satisfiability {
+            type Result = ReductionSATToKSAT<$k>;
 
             fn reduce_to(&self) -> Self::Result {
                 let source_num_vars = self.num_vars();
@@ -147,12 +127,11 @@ macro_rules! impl_sat_to_ksat {
                 // Calculate total number of variables (original + ancillas)
                 let total_vars = (next_var - 1) as usize;
 
-                let target = KSatisfiability::<$k, W>::new(total_vars, result_clauses);
+                let target = KSatisfiability::<$k>::new(total_vars, result_clauses);
 
                 ReductionSATToKSAT {
                     source_num_vars,
                     target,
-                    source_size: self.problem_size(),
                 }
             }
         }
@@ -168,19 +147,14 @@ impl_sat_to_ksat!(5);
 ///
 /// This is a trivial embedding since K-SAT is a special case of SAT.
 #[derive(Debug, Clone)]
-pub struct ReductionKSATToSAT<const K: usize, W> {
+pub struct ReductionKSATToSAT<const K: usize> {
     /// The target SAT problem.
-    target: Satisfiability<W>,
-    /// Size of the source problem.
-    source_size: ProblemSize,
+    target: Satisfiability,
 }
 
-impl<const K: usize, W> ReductionResult for ReductionKSATToSAT<K, W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
-{
-    type Source = KSatisfiability<K, W>;
-    type Target = Satisfiability<W>;
+impl<const K: usize> ReductionResult for ReductionKSATToSAT<K> {
+    type Source = KSatisfiability<K>;
+    type Target = Satisfiability;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -190,14 +164,6 @@ where
         // Direct mapping - no transformation needed
         target_solution.to_vec()
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
 #[reduction(overhead = {
@@ -206,20 +172,14 @@ where
         ("num_vars", poly!(num_vars)),
     ])
 })]
-impl<const K: usize, W> ReduceTo<Satisfiability<W>> for KSatisfiability<K, W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionKSATToSAT<K, W>;
+impl<const K: usize> ReduceTo<Satisfiability> for KSatisfiability<K> {
+    type Result = ReductionKSATToSAT<K>;
 
     fn reduce_to(&self) -> Self::Result {
         let clauses = self.clauses().to_vec();
         let target = Satisfiability::new(self.num_vars(), clauses);
 
-        ReductionKSATToSAT {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionKSATToSAT { target }
     }
 }
 

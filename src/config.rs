@@ -14,8 +14,15 @@ pub struct ConfigIterator {
 
 impl ConfigIterator {
     /// Create a new configuration iterator.
+    ///
+    /// For 0 variables, produces exactly one configuration (the empty config).
+    /// For 0 flavors with non-zero variables, produces no configurations.
     pub fn new(num_variables: usize, num_flavors: usize) -> Self {
-        let total_configs = if num_variables == 0 || num_flavors == 0 {
+        let total_configs = if num_variables == 0 {
+            // 0 variables means exactly 1 configuration: the empty config
+            1
+        } else if num_flavors == 0 {
+            // Non-zero variables with 0 flavors means no valid configs
             0
         } else {
             num_flavors.pow(num_variables as u32)
@@ -110,6 +117,97 @@ pub fn config_to_bits(config: &[usize]) -> Vec<bool> {
 pub fn bits_to_config(bits: &[bool]) -> Vec<usize> {
     bits.iter().map(|&b| if b { 1 } else { 0 }).collect()
 }
+
+/// Iterator over all configurations for per-variable dimension sizes.
+///
+/// Unlike `ConfigIterator` which assumes uniform flavors, this supports
+/// different cardinalities per variable (e.g., `dims = [2, 3, 2]`).
+pub struct DimsIterator {
+    dims: Vec<usize>,
+    current: Option<Vec<usize>>,
+    total_configs: usize,
+    current_index: usize,
+}
+
+impl DimsIterator {
+    /// Create a new iterator from per-variable dimensions.
+    ///
+    /// For empty dims, produces exactly one configuration (the empty config).
+    /// If any dimension is 0, produces no configurations.
+    pub fn new(dims: Vec<usize>) -> Self {
+        let total_configs = if dims.is_empty() {
+            // No variables means exactly 1 configuration: the empty config
+            1
+        } else {
+            dims.iter()
+                .copied()
+                .try_fold(
+                    1usize,
+                    |acc, d| {
+                        if d == 0 {
+                            None
+                        } else {
+                            acc.checked_mul(d)
+                        }
+                    },
+                )
+                .unwrap_or(0)
+        };
+        let current = if total_configs == 0 {
+            None
+        } else {
+            Some(vec![0; dims.len()])
+        };
+        Self {
+            dims,
+            current,
+            total_configs,
+            current_index: 0,
+        }
+    }
+
+    /// Returns the total number of configurations.
+    pub fn total(&self) -> usize {
+        self.total_configs
+    }
+}
+
+impl Iterator for DimsIterator {
+    type Item = Vec<usize>;
+
+    fn next(&mut self) -> Option<Self::Item> {
+        let current = self.current.take()?;
+        let result = current.clone();
+
+        // Advance to next configuration
+        let mut next = current;
+        let mut carry = true;
+        for i in (0..self.dims.len()).rev() {
+            if carry {
+                next[i] += 1;
+                if next[i] >= self.dims[i] {
+                    next[i] = 0;
+                } else {
+                    carry = false;
+                }
+            }
+        }
+
+        self.current_index += 1;
+        if self.current_index < self.total_configs {
+            self.current = Some(next);
+        }
+
+        Some(result)
+    }
+
+    fn size_hint(&self) -> (usize, Option<usize>) {
+        let remaining = self.total_configs - self.current_index;
+        (remaining, Some(remaining))
+    }
+}
+
+impl ExactSizeIterator for DimsIterator {}
 
 #[cfg(test)]
 #[path = "unit_tests/config.rs"]

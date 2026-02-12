@@ -1,27 +1,27 @@
-//! # Factoring to ILP Reduction
-//!
-//! ## Mathematical Formulation
-//! Uses McCormick linearization for binary products with carry propagation.
-//! Variables: p_i, q_j (factor bits), z_ij (product bits), c_k (carries).
-//! Constraints:
-//!   (1) McCormick: z_ij <= p_i, z_ij <= q_j, z_ij >= p_i + q_j - 1
-//!   (2) Bit equations: sum_{i+j=k} z_ij + c_{k-1} = N_k + 2*c_k
-//!   (3) No overflow: c_{m+n-1} = 0
-//! Objective: feasibility (minimize 0).
-//!
-//! ## This Example
-//! - Instance: Factor 35 = 5 × 7 (m=3 bits, n=3 bits)
-//! - NOTE: Uses ILPSolver (not BruteForce) since the ILP has many variables
-//! - Target ILP: ~21 variables (factor bits + product bits + carries)
-//!
-//! ## Output
-//! Exports `docs/paper/examples/factoring_to_ilp.json` for use in paper code blocks.
+// # Factoring to ILP Reduction
+//
+// ## Mathematical Formulation
+// Uses McCormick linearization for binary products with carry propagation.
+// Variables: p_i, q_j (factor bits), z_ij (product bits), c_k (carries).
+// Constraints:
+//   (1) McCormick: z_ij <= p_i, z_ij <= q_j, z_ij >= p_i + q_j - 1
+//   (2) Bit equations: sum_{i+j=k} z_ij + c_{k-1} = N_k + 2*c_k
+//   (3) No overflow: c_{m+n-1} = 0
+// Objective: feasibility (minimize 0).
+//
+// ## This Example
+// - Instance: Factor 35 = 5 × 7 (m=3 bits, n=3 bits)
+// - NOTE: Uses ILPSolver (not BruteForce) since the ILP has many variables
+// - Target ILP: ~21 variables (factor bits + product bits + carries)
+//
+// ## Output
+// Exports `docs/paper/examples/factoring_to_ilp.json` for use in paper code blocks.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::solvers::ILPSolver;
 
-fn main() {
+pub fn run() {
     // 1. Create Factoring instance: find p (3-bit) x q (3-bit) = 35
     let problem = Factoring::new(3, 3, 35);
 
@@ -31,14 +31,28 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: Factoring with {} variables ({}+{} bits)", problem.num_variables(), problem.m(), problem.n());
-    println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
+    println!(
+        "Source: Factoring with {} variables ({}+{} bits)",
+        problem.num_variables(),
+        problem.m(),
+        problem.n()
+    );
+    println!(
+        "Target: ILP with {} variables, {} constraints",
+        ilp.num_vars,
+        ilp.constraints.len()
+    );
 
     // 4. Solve ILP using ILPSolver (too many variables for BruteForce)
     let solver = ILPSolver::new();
-    let ilp_solution = solver.solve(ilp).expect("ILP should be feasible for 35 = 5 * 7");
+    let ilp_solution = solver
+        .solve(ilp)
+        .expect("ILP should be feasible for 35 = 5 * 7");
     println!("\n=== Solution ===");
-    println!("ILP solution found (first 6 vars): {:?}", &ilp_solution[..6]);
+    println!(
+        "ILP solution found (first 6 vars): {:?}",
+        &ilp_solution[..6]
+    );
 
     // 5. Extract factoring solution
     let extracted = reduction.extract_solution(&ilp_solution);
@@ -56,8 +70,8 @@ fn main() {
         target_config: ilp_solution,
     }];
 
-    let overhead = lookup_overhead("Factoring", "ILP")
-        .expect("Factoring -> ILP overhead not found");
+    let overhead =
+        lookup_overhead("Factoring", "ILP").expect("Factoring -> ILP overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
@@ -81,6 +95,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "factoring_to_ilp";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

@@ -104,15 +104,6 @@
       "doc_path": "models/satisfiability/struct.KSatisfiability.html"
     },
     {
-      "name": "KSatisfiability",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "i32"
-      },
-      "category": "satisfiability",
-      "doc_path": "models/satisfiability/struct.KSatisfiability.html"
-    },
-    {
       "name": "MaxCut",
       "variant": {},
       "category": "graph",
@@ -200,7 +191,7 @@
       "name": "MinimumDominatingSet",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "Unweighted"
+        "weight": "i32"
       },
       "category": "graph",
       "doc_path": "models/graph/struct.MinimumDominatingSet.html"
@@ -460,6 +451,29 @@
         }
       },
       "target": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vars + num_clauses"
+        }
+      ],
+      "doc_path": "rules/ksatisfiability_qubo/index.html"
+    },
+    {
+      "source": {
+        "name": "KSatisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
         "name": "Satisfiability",
         "variant": {
           "graph": "SimpleGraph",
@@ -477,29 +491,6 @@
         }
       ],
       "doc_path": "rules/sat_ksat/index.html"
-    },
-    {
-      "source": {
-        "name": "KSatisfiability",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "i32"
-        }
-      },
-      "target": {
-        "name": "QUBO",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "f64"
-        }
-      },
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_vars + num_clauses"
-        }
-      ],
-      "doc_path": "rules/ksatisfiability_qubo/index.html"
     },
     {
       "source": {
@@ -848,7 +839,7 @@
         "name": "MaximumIndependentSet",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "i32"
         }
       },
       "overhead": [
@@ -875,7 +866,7 @@
         "name": "MinimumDominatingSet",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "i32"
         }
       },
       "overhead": [

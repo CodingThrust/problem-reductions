@@ -12,9 +12,6 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-
 /// Result of reducing Factoring to CircuitSAT.
 ///
 /// This struct contains:
@@ -32,8 +29,6 @@ pub struct ReductionFactoringToCircuit {
     q_vars: Vec<String>,
     /// Variable names for the product (bit positions).
     m_vars: Vec<String>,
-    /// Size of the source problem.
-    source_size: ProblemSize,
 }
 
 impl ReductionResult for ReductionFactoringToCircuit {
@@ -76,14 +71,6 @@ impl ReductionResult for ReductionFactoringToCircuit {
         let mut result = p_bits;
         result.extend(q_bits);
         result
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -278,7 +265,6 @@ impl ReduceTo<CircuitSAT<i32>> for Factoring {
             p_vars,
             q_vars,
             m_vars,
-            source_size: self.problem_size(),
         }
     }
 }

@@ -4,15 +4,13 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "SpinGlass",
-        category: "optimization",
         description: "Minimize Ising Hamiltonian on a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The interaction graph" },
@@ -169,53 +167,6 @@ impl<G: Graph, W: Clone + Default> SpinGlass<G, W> {
     }
 }
 
-impl<G, W> Problem for SpinGlass<G, W>
-where
-    G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + std::ops::Mul<Output = W>
-        + From<i32>
-        + 'static,
-{
-    const NAME: &'static str = "SpinGlass";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", G::NAME), ("weight", short_type_name::<W>())]
-    }
-
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.graph.num_vertices()
-    }
-
-    fn num_flavors(&self) -> usize {
-        2 // Binary: 0 -> -1 spin, 1 -> +1 spin
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_spins", self.graph.num_vertices()),
-            ("num_interactions", self.graph.num_edges()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::SmallerSizeIsBetter // Minimize energy
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let spins = Self::config_to_spins(config);
-        let energy = self.compute_energy(&spins);
-        SolutionSize::valid(energy)
-    }
-}
-
 impl<G, W> SpinGlass<G, W>
 where
     G: Graph,
@@ -240,6 +191,61 @@ where
         }
 
         energy
+    }
+}
+
+impl<G, W> Problem for SpinGlass<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + std::ops::Mul<Output = W>
+        + From<i32>
+        + 'static,
+{
+    const NAME: &'static str = "SpinGlass";
+    type Metric = SolutionSize<W>;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
+        let spins = Self::config_to_spins(config);
+        SolutionSize::Valid(self.compute_energy(&spins))
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", crate::variant::short_type_name::<G>()),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
+    }
+}
+
+impl<G, W> OptimizationProblem for SpinGlass<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + std::ops::Mul<Output = W>
+        + From<i32>
+        + 'static,
+{
+    type Value = W;
+
+    fn direction(&self) -> Direction {
+        Direction::Minimize
     }
 }
 

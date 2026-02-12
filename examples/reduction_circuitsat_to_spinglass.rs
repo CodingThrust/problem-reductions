@@ -1,27 +1,27 @@
-//! # Circuit-SAT to Spin Glass Reduction
-//!
-//! ## Mathematical Equivalence
-//! Each logic gate (AND, OR, NOT, XOR) maps to a spin glass gadget whose ground
-//! states encode valid input-output combinations. The full circuit becomes a sum
-//! of gadget Hamiltonians; ground states correspond to satisfying assignments.
-//!
-//! ## This Example
-//! - Instance: 1-bit full adder circuit (a, b, cin -> sum, cout)
-//!   - sum = a XOR b XOR cin (via intermediate t = a XOR b)
-//!   - cout = (a AND b) OR (cin AND t)
-//!   - 5 gates (2 XOR, 2 AND, 1 OR), ~8 variables
-//! - Source: CircuitSAT with 3 inputs
-//! - Target: SpinGlass
-//!
-//! ## Output
-//! Exports `docs/paper/examples/circuitsat_to_spinglass.json` and `circuitsat_to_spinglass.result.json`.
+// # Circuit-SAT to Spin Glass Reduction
+//
+// ## Mathematical Equivalence
+// Each logic gate (AND, OR, NOT, XOR) maps to a spin glass gadget whose ground
+// states encode valid input-output combinations. The full circuit becomes a sum
+// of gadget Hamiltonians; ground states correspond to satisfying assignments.
+//
+// ## This Example
+// - Instance: 1-bit full adder circuit (a, b, cin -> sum, cout)
+//   - sum = a XOR b XOR cin (via intermediate t = a XOR b)
+//   - cout = (a AND b) OR (cin AND t)
+//   - 5 gates (2 XOR, 2 AND, 1 OR), ~8 variables
+// - Source: CircuitSAT with 3 inputs
+// - Target: SpinGlass
+//
+// ## Output
+// Exports `docs/paper/examples/circuitsat_to_spinglass.json` and `circuitsat_to_spinglass.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::models::specialized::{Assignment, BooleanExpr, Circuit};
 use problemreductions::prelude::*;
 use problemreductions::topology::{Graph, SimpleGraph};
 
-fn main() {
+pub fn run() {
     // 1. Create CircuitSAT instance: 1-bit full adder
     //    sum = a XOR b XOR cin, cout = (a AND b) OR (cin AND (a XOR b))
     //    Decomposed into 5 gates with intermediate variables t, ab, cin_t.
@@ -84,7 +84,10 @@ fn main() {
     let solver = BruteForce::new();
     let sg_solutions = solver.find_best(sg);
     println!("\n=== Solution ===");
-    println!("Target SpinGlass ground states found: {}", sg_solutions.len());
+    println!(
+        "Target SpinGlass ground states found: {}",
+        sg_solutions.len()
+    );
 
     // 4. Extract and verify source solutions
     println!("\nAll extracted CircuitSAT solutions:");
@@ -92,20 +95,22 @@ fn main() {
     let mut solutions = Vec::new();
     for sg_sol in &sg_solutions {
         let circuit_sol = reduction.extract_solution(sg_sol);
-        let size = circuit_sat.solution_size(&circuit_sol);
+        let size = circuit_sat.evaluate(&circuit_sol);
         let var_names = circuit_sat.variable_names();
         let assignment_str: Vec<String> = var_names
             .iter()
             .zip(circuit_sol.iter())
             .map(|(name, &val)| format!("{}={}", name, val))
             .collect();
+        // CircuitSAT is a satisfaction problem (bool), so evaluate returns bool directly
+        // The bool IS the validity
         println!(
             "  SG config {:?} -> Circuit: [{}], valid: {}",
             sg_sol,
             assignment_str.join(", "),
-            size.is_valid
+            size
         );
-        if size.is_valid {
+        if size {
             valid_count += 1;
             solutions.push(SolutionPair {
                 source_config: circuit_sol,
@@ -118,7 +123,10 @@ fn main() {
         valid_count,
         sg_solutions.len()
     );
-    assert!(valid_count > 0, "At least one ground state must be a valid circuit assignment");
+    assert!(
+        valid_count > 0,
+        "At least one ground state must be a valid circuit assignment"
+    );
 
     println!("\nReduction verified successfully");
 
@@ -146,6 +154,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "circuitsat_to_spinglass";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

@@ -309,8 +309,8 @@ impl ReductionGraph {
             QUBO<f64> => "QUBO",
             ILP => "ILP",
             // Satisfiability problems
-            Satisfiability<i32> => "Satisfiability",
-            KSatisfiability<3, i32> => "KSatisfiability",
+            Satisfiability => "Satisfiability",
+            KSatisfiability<3> => "KSatisfiability",
             CircuitSAT<i32> => "CircuitSAT",
             // Specialized
             Factoring => "Factoring",
@@ -703,8 +703,14 @@ impl ReductionGraph {
     /// Maps name → actual Rust module location (which may differ from the visualization category).
     fn compute_doc_path(name: &str) -> String {
         let module = match name {
-            "MaximumIndependentSet" | "MaximalIS" | "MinimumVertexCover" | "MinimumDominatingSet" | "KColoring"
-            | "MaximumMatching" | "MaxCut" | "MaximumClique" => "graph",
+            "MaximumIndependentSet"
+            | "MaximalIS"
+            | "MinimumVertexCover"
+            | "MinimumDominatingSet"
+            | "KColoring"
+            | "MaximumMatching"
+            | "MaxCut"
+            | "MaximumClique" => "graph",
             "Satisfiability" | "KSatisfiability" => "satisfiability",
             "SpinGlass" | "QUBO" | "ILP" => "optimization",
             "MinimumSetCovering" | "MaximumSetPacking" => "set",

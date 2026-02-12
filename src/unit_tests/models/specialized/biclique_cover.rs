@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 
 #[test]
 fn test_biclique_cover_creation() {
@@ -60,18 +62,14 @@ fn test_is_valid_cover() {
 }
 
 #[test]
-fn test_solution_size() {
+fn test_evaluate() {
     let problem = BicliqueCover::new(2, 2, vec![(0, 2)], 1);
 
     // Valid cover with size 2
-    let sol = problem.solution_size(&[1, 0, 1, 0]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 2);
+    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), SolutionSize::Valid(2));
 
-    // Invalid cover
-    let sol = problem.solution_size(&[1, 0, 0, 0]);
-    assert!(!sol.is_valid);
-    assert_eq!(sol.size, 1);
+    // Invalid cover returns Invalid
+    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), SolutionSize::Invalid);
 }
 
 #[test]
@@ -127,25 +125,46 @@ fn test_is_biclique_cover_function() {
 }
 
 #[test]
-fn test_energy_mode() {
+fn test_direction() {
     let problem = BicliqueCover::new(1, 1, vec![(0, 1)], 1);
-    assert!(problem.energy_mode().is_minimization());
-}
-
-#[test]
-fn test_problem_size() {
-    let problem = BicliqueCover::new(3, 4, vec![(0, 3), (1, 4)], 2);
-    let size = problem.problem_size();
-    assert_eq!(size.get("left_size"), Some(3));
-    assert_eq!(size.get("right_size"), Some(4));
-    assert_eq!(size.get("num_edges"), Some(2));
-    assert_eq!(size.get("k"), Some(2));
+    assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]
 fn test_empty_edges() {
     let problem = BicliqueCover::new(2, 2, vec![], 1);
-    let sol = problem.solution_size(&[0, 0, 0, 0]);
-    assert!(sol.is_valid); // No edges to cover
-    assert_eq!(sol.size, 0);
+    // No edges to cover -> valid with size 0
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), SolutionSize::Valid(0));
+}
+
+#[test]
+fn test_biclique_problem() {
+    use crate::traits::{OptimizationProblem, Problem};
+    use crate::types::Direction;
+
+    // Single edge (0, 2) with k=1, 2 left + 2 right vertices
+    let problem = BicliqueCover::new(2, 2, vec![(0, 2)], 1);
+
+    // dims: 4 vertices * 1 biclique = 4 binary variables
+    assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
+
+    // Valid cover: vertex 0 and vertex 2 in biclique 0
+    // Config: [v0_b0=1, v1_b0=0, v2_b0=1, v3_b0=0]
+    assert_eq!(problem.evaluate(&[1, 0, 1, 0]), SolutionSize::Valid(2));
+
+    // Invalid cover: only vertex 0, edge (0,2) not covered
+    assert_eq!(problem.evaluate(&[1, 0, 0, 0]), SolutionSize::Invalid);
+
+    // Valid cover with all vertices -> size 4
+    assert_eq!(problem.evaluate(&[1, 1, 1, 1]), SolutionSize::Valid(4));
+
+    // Empty config: no vertices in biclique, edge not covered
+    assert_eq!(problem.evaluate(&[0, 0, 0, 0]), SolutionSize::Invalid);
+
+    // Direction is minimize
+    assert_eq!(problem.direction(), Direction::Minimize);
+
+    // Test with no edges: any config is valid
+    let empty_problem = BicliqueCover::new(2, 2, vec![], 1);
+    assert_eq!(empty_problem.evaluate(&[0, 0, 0, 0]), SolutionSize::Valid(0));
 }

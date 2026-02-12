@@ -125,7 +125,10 @@ fn test_reduction_entries_registered() {
     assert!(entries.len() >= 10);
 
     // Check specific reductions exist
-    assert!(entries
-        .iter()
-        .any(|e| e.source_name == "MaximumIndependentSet" && e.target_name == "MinimumVertexCover"));
+    assert!(
+        entries
+            .iter()
+            .any(|e| e.source_name == "MaximumIndependentSet"
+                && e.target_name == "MinimumVertexCover")
+    );
 }

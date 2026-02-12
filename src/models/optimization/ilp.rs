@@ -4,14 +4,13 @@
 //! This is a fundamental "hub" problem that many other NP-hard problems can be reduced to.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ILP",
-        category: "optimization",
         description: "Optimize linear objective subject to linear constraints",
         fields: &[
             FieldInfo { name: "num_vars", type_name: "usize", description: "Number of integer variables" },
@@ -184,24 +183,6 @@ pub enum ObjectiveSense {
     Minimize,
 }
 
-impl From<EnergyMode> for ObjectiveSense {
-    fn from(mode: EnergyMode) -> Self {
-        match mode {
-            EnergyMode::LargerSizeIsBetter => ObjectiveSense::Maximize,
-            EnergyMode::SmallerSizeIsBetter => ObjectiveSense::Minimize,
-        }
-    }
-}
-
-impl From<ObjectiveSense> for EnergyMode {
-    fn from(sense: ObjectiveSense) -> Self {
-        match sense {
-            ObjectiveSense::Maximize => EnergyMode::LargerSizeIsBetter,
-            ObjectiveSense::Minimize => EnergyMode::SmallerSizeIsBetter,
-        }
-    }
-}
-
 /// Integer Linear Programming (ILP) problem.
 ///
 /// An ILP consists of:
@@ -338,61 +319,52 @@ impl ILP {
             })
             .collect()
     }
+
+    /// Get the number of variables.
+    pub fn num_variables(&self) -> usize {
+        self.num_vars
+    }
 }
 
 impl Problem for ILP {
     const NAME: &'static str = "ILP";
+    type Metric = SolutionSize<f64>;
 
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "f64")]
-    }
-
-    type Size = f64;
-
-    fn num_variables(&self) -> usize {
-        self.num_vars
-    }
-
-    fn num_flavors(&self) -> usize {
-        // Return the maximum number of values any variable can take.
-        // For unbounded variables, return usize::MAX.
+    fn dims(&self) -> Vec<usize> {
         self.bounds
             .iter()
-            .map(|b| b.num_values().unwrap_or(usize::MAX))
-            .max()
-            .unwrap_or(2)
+            .map(|b| {
+                b.num_values().expect(
+                    "ILP brute-force enumeration requires all variables to have finite bounds",
+                )
+            })
+            .collect()
     }
 
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vars", self.num_vars),
-            ("num_constraints", self.constraints.len()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        match self.sense {
-            ObjectiveSense::Maximize => EnergyMode::LargerSizeIsBetter,
-            ObjectiveSense::Minimize => EnergyMode::SmallerSizeIsBetter,
-        }
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<f64> {
-        // Convert config to actual integer values
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<f64> {
         let values = self.config_to_values(config);
+        if !self.is_feasible(&values) {
+            return SolutionSize::Invalid;
+        }
+        SolutionSize::Valid(self.evaluate_objective(&values))
+    }
 
-        // Check bounds validity
-        let bounds_ok = self.bounds_satisfied(&values);
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", "f64"),
+        ]
+    }
+}
 
-        // Check constraints satisfaction
-        let constraints_ok = self.constraints_satisfied(&values);
+impl OptimizationProblem for ILP {
+    type Value = f64;
 
-        let is_valid = bounds_ok && constraints_ok;
-
-        // Compute objective value
-        let obj = self.evaluate_objective(&values);
-
-        SolutionSize::new(obj, is_valid)
+    fn direction(&self) -> Direction {
+        match self.sense {
+            ObjectiveSense::Maximize => Direction::Maximize,
+            ObjectiveSense::Minimize => Direction::Minimize,
+        }
     }
 }
 

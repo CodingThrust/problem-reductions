@@ -466,9 +466,7 @@ fn test_apply_and_unapply_gadget() {
 
 #[test]
 fn test_apply_gadget_at_various_positions() {
-    use crate::rules::unitdiskmapping::{
-        apply_gadget, CellState, MappingGrid, Pattern, Turn,
-    };
+    use crate::rules::unitdiskmapping::{apply_gadget, CellState, MappingGrid, Pattern, Turn};
 
     let mut grid = MappingGrid::new(20, 20, 4);
     let turn = Turn;

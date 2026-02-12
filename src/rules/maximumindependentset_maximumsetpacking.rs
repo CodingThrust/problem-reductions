@@ -4,15 +4,13 @@
 //! MaximumSetPacking → IS: Each set becomes a vertex; two vertices are adjacent if their sets overlap.
 
 use crate::models::graph::MaximumIndependentSet;
-use crate::topology::SimpleGraph;
 use crate::models::set::MaximumSetPacking;
 use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-use num_traits::{Num, Zero};
+use crate::topology::SimpleGraph;
+use num_traits::{Bounded, Num, Zero};
 use std::collections::HashSet;
 use std::ops::AddAssign;
 
@@ -20,12 +18,11 @@ use std::ops::AddAssign;
 #[derive(Debug, Clone)]
 pub struct ReductionISToSP<W> {
     target: MaximumSetPacking<W>,
-    source_size: ProblemSize,
 }
 
 impl<W> ReductionResult for ReductionISToSP<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = MaximumIndependentSet<SimpleGraph, W>;
     type Target = MaximumSetPacking<W>;
@@ -38,18 +35,9 @@ where
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
 #[reduction(
-    source_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_sets", poly!(num_vertices)),
@@ -59,7 +47,7 @@ where
 )]
 impl<W> ReduceTo<MaximumSetPacking<W>> for MaximumIndependentSet<SimpleGraph, W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionISToSP<W>;
 
@@ -76,10 +64,7 @@ where
 
         let target = MaximumSetPacking::with_weights(sets, self.weights_ref().clone());
 
-        ReductionISToSP {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionISToSP { target }
     }
 }
 
@@ -87,12 +72,11 @@ where
 #[derive(Debug, Clone)]
 pub struct ReductionSPToIS<W> {
     target: MaximumIndependentSet<SimpleGraph, W>,
-    source_size: ProblemSize,
 }
 
 impl<W> ReductionResult for ReductionSPToIS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
 {
     type Source = MaximumSetPacking<W>;
     type Target = MaximumIndependentSet<SimpleGraph, W>;
@@ -105,18 +89,9 @@ where
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
 #[reduction(
-    target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_vertices", poly!(num_sets)),
@@ -126,7 +101,7 @@ where
 )]
 impl<W> ReduceTo<MaximumIndependentSet<SimpleGraph, W>> for MaximumSetPacking<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
+    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
 {
     type Result = ReductionSPToIS<W>;
 
@@ -148,10 +123,7 @@ where
 
         let target = MaximumIndependentSet::with_weights(n, edges, self.weights_ref().clone());
 
-        ReductionSPToIS {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionSPToIS { target }
     }
 }
 

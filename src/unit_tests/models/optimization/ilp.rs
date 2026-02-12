@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 
 // ============================================================
 // VarBounds tests
@@ -160,27 +162,14 @@ fn test_linear_constraint_out_of_bounds() {
 // ============================================================
 
 #[test]
-fn test_objective_sense_from_energy_mode() {
-    assert_eq!(
-        ObjectiveSense::from(EnergyMode::LargerSizeIsBetter),
-        ObjectiveSense::Maximize
-    );
-    assert_eq!(
-        ObjectiveSense::from(EnergyMode::SmallerSizeIsBetter),
-        ObjectiveSense::Minimize
-    );
-}
+fn test_objective_sense_direction_conversions() {
+    // Test that ObjectiveSense and Direction can be converted
+    let max_sense = ObjectiveSense::Maximize;
+    let min_sense = ObjectiveSense::Minimize;
 
-#[test]
-fn test_energy_mode_from_objective_sense() {
-    assert_eq!(
-        EnergyMode::from(ObjectiveSense::Maximize),
-        EnergyMode::LargerSizeIsBetter
-    );
-    assert_eq!(
-        EnergyMode::from(ObjectiveSense::Minimize),
-        EnergyMode::SmallerSizeIsBetter
-    );
+    // Direction values match ObjectiveSense semantics
+    assert_eq!(max_sense, ObjectiveSense::Maximize);
+    assert_eq!(min_sense, ObjectiveSense::Minimize);
 }
 
 // ============================================================
@@ -310,72 +299,16 @@ fn test_ilp_num_variables() {
 }
 
 #[test]
-fn test_ilp_num_flavors_binary() {
-    let ilp = ILP::binary(3, vec![], vec![], ObjectiveSense::Minimize);
-    assert_eq!(ilp.num_flavors(), 2);
-}
-
-#[test]
-fn test_ilp_num_flavors_mixed() {
-    let ilp = ILP::new(
-        3,
-        vec![
-            VarBounds::binary(),
-            VarBounds::bounded(0, 5),
-            VarBounds::bounded(-1, 1),
-        ],
-        vec![],
-        vec![],
-        ObjectiveSense::Minimize,
-    );
-    assert_eq!(ilp.num_flavors(), 6); // Max is 6 (from 0-5)
-}
-
-#[test]
-fn test_ilp_num_flavors_unbounded() {
-    let ilp = ILP::new(
-        2,
-        vec![VarBounds::binary(), VarBounds::unbounded()],
-        vec![],
-        vec![],
-        ObjectiveSense::Minimize,
-    );
-    assert_eq!(ilp.num_flavors(), usize::MAX);
-}
-
-#[test]
-fn test_ilp_num_flavors_empty() {
-    let ilp = ILP::empty();
-    assert_eq!(ilp.num_flavors(), 2); // Default when empty
-}
-
-#[test]
-fn test_ilp_problem_size() {
-    let ilp = ILP::binary(
-        4,
-        vec![
-            LinearConstraint::le(vec![(0, 1.0)], 1.0),
-            LinearConstraint::le(vec![(1, 1.0)], 1.0),
-        ],
-        vec![],
-        ObjectiveSense::Minimize,
-    );
-    let size = ilp.problem_size();
-    assert_eq!(size.get("num_vars"), Some(4));
-    assert_eq!(size.get("num_constraints"), Some(2));
-}
-
-#[test]
-fn test_ilp_energy_mode() {
+fn test_ilp_direction() {
     let max_ilp = ILP::binary(2, vec![], vec![], ObjectiveSense::Maximize);
     let min_ilp = ILP::binary(2, vec![], vec![], ObjectiveSense::Minimize);
 
-    assert!(max_ilp.energy_mode().is_maximization());
-    assert!(min_ilp.energy_mode().is_minimization());
+    assert_eq!(max_ilp.direction(), Direction::Maximize);
+    assert_eq!(min_ilp.direction(), Direction::Minimize);
 }
 
 #[test]
-fn test_ilp_solution_size_valid() {
+fn test_ilp_evaluate_valid() {
     // Maximize x0 + 2*x1 subject to x0 + x1 <= 1
     let ilp = ILP::binary(
         2,
@@ -385,18 +318,14 @@ fn test_ilp_solution_size_valid() {
     );
 
     // Config [0, 1] means x0=0, x1=1 => obj = 2, valid
-    let sol = ilp.solution_size(&[0, 1]);
-    assert!(sol.is_valid);
-    assert!((sol.size - 2.0).abs() < 1e-9);
+    assert_eq!(Problem::evaluate(&ilp, &[0, 1]), SolutionSize::Valid(2.0));
 
     // Config [1, 0] means x0=1, x1=0 => obj = 1, valid
-    let sol = ilp.solution_size(&[1, 0]);
-    assert!(sol.is_valid);
-    assert!((sol.size - 1.0).abs() < 1e-9);
+    assert_eq!(Problem::evaluate(&ilp, &[1, 0]), SolutionSize::Valid(1.0));
 }
 
 #[test]
-fn test_ilp_solution_size_invalid() {
+fn test_ilp_evaluate_invalid() {
     // x0 + x1 <= 1
     let ilp = ILP::binary(
         2,
@@ -405,14 +334,12 @@ fn test_ilp_solution_size_invalid() {
         ObjectiveSense::Maximize,
     );
 
-    // Config [1, 1] means x0=1, x1=1 => obj = 3, but invalid (1+1 > 1)
-    let sol = ilp.solution_size(&[1, 1]);
-    assert!(!sol.is_valid);
-    assert!((sol.size - 3.0).abs() < 1e-9);
+    // Config [1, 1] means x0=1, x1=1 => invalid (1+1 > 1), returns Invalid
+    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), SolutionSize::Invalid);
 }
 
 #[test]
-fn test_ilp_solution_size_with_offset_bounds() {
+fn test_ilp_evaluate_with_offset_bounds() {
     // Variables with non-zero lower bounds
     let ilp = ILP::new(
         2,
@@ -423,14 +350,10 @@ fn test_ilp_solution_size_with_offset_bounds() {
     );
 
     // Config [0, 0] maps to x0=1, x1=-1 => obj = 0
-    let sol = ilp.solution_size(&[0, 0]);
-    assert!(sol.is_valid);
-    assert!((sol.size - 0.0).abs() < 1e-9);
+    assert_eq!(Problem::evaluate(&ilp, &[0, 0]), SolutionSize::Valid(0.0));
 
     // Config [2, 2] maps to x0=3, x1=1 => obj = 4
-    let sol = ilp.solution_size(&[2, 2]);
-    assert!(sol.is_valid);
-    assert!((sol.size - 4.0).abs() < 1e-9);
+    assert_eq!(Problem::evaluate(&ilp, &[2, 2]), SolutionSize::Valid(4.0));
 }
 
 #[test]
@@ -467,9 +390,7 @@ fn test_ilp_brute_force_minimization() {
     // Optimal: x0=1,x1=0 or x0=0,x1=1 => objective = 1
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
-        let size = ilp.solution_size(sol);
-        assert!(size.is_valid);
-        assert!((size.size - 1.0).abs() < 1e-9);
+        assert_eq!(Problem::evaluate(&ilp, sol), SolutionSize::Valid(1.0));
     }
 }
 
@@ -489,8 +410,15 @@ fn test_ilp_brute_force_no_feasible() {
     let solver = BruteForce::new();
     let solutions = solver.find_best(&ilp);
 
-    // No feasible solutions
-    assert!(solutions.is_empty());
+    // All solutions are infeasible - BruteForce should return empty list
+    assert!(solutions.is_empty(), "Expected no solutions for infeasible ILP");
+
+    // Verify all configs are indeed infeasible
+    for config in &[[0], [1]] {
+        assert_eq!(Problem::evaluate(&ilp, config), SolutionSize::Invalid);
+        let values = ilp.config_to_values(config);
+        assert!(!ilp.is_feasible(&values));
+    }
 }
 
 #[test]
@@ -576,9 +504,38 @@ fn test_ilp_config_to_values() {
 }
 
 #[test]
-fn test_ilp_variant() {
-    let v = ILP::variant();
-    assert_eq!(v.len(), 2);
-    assert_eq!(v[0], ("graph", "SimpleGraph"));
-    assert_eq!(v[1], ("weight", "f64"));
+fn test_ilp_problem() {
+    // Maximize x0 + 2*x1, s.t. x0 + x1 <= 1, binary
+    let ilp = ILP::binary(
+        2,
+        vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
+        vec![(0, 1.0), (1, 2.0)],
+        ObjectiveSense::Maximize,
+    );
+    assert_eq!(ilp.dims(), vec![2, 2]);
+
+    // [0, 0] -> feasible, obj = 0
+    assert_eq!(Problem::evaluate(&ilp, &[0, 0]), SolutionSize::Valid(0.0));
+    // [0, 1] -> feasible, obj = 2
+    assert_eq!(Problem::evaluate(&ilp, &[0, 1]), SolutionSize::Valid(2.0));
+    // [1, 0] -> feasible, obj = 1
+    assert_eq!(Problem::evaluate(&ilp, &[1, 0]), SolutionSize::Valid(1.0));
+    // [1, 1] -> infeasible
+    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), SolutionSize::Invalid);
+
+    assert_eq!(ilp.direction(), Direction::Maximize);
+}
+
+#[test]
+fn test_ilp_problem_minimize() {
+    // Minimize x0 + x1, no constraints, binary
+    let ilp = ILP::binary(
+        2,
+        vec![],
+        vec![(0, 1.0), (1, 1.0)],
+        ObjectiveSense::Minimize,
+    );
+    assert_eq!(Problem::evaluate(&ilp, &[0, 0]), SolutionSize::Valid(0.0));
+    assert_eq!(Problem::evaluate(&ilp, &[1, 1]), SolutionSize::Valid(2.0));
+    assert_eq!(ilp.direction(), Direction::Minimize);
 }

@@ -8,8 +8,6 @@
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::models::set::MinimumSetCovering;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::ProblemSize;
 
 /// Result of reducing MinimumSetCovering to ILP.
 ///
@@ -20,7 +18,6 @@ use crate::types::ProblemSize;
 #[derive(Debug, Clone)]
 pub struct ReductionSCToILP {
     target: ILP,
-    source_size: ProblemSize,
 }
 
 impl ReductionResult for ReductionSCToILP {
@@ -37,14 +34,6 @@ impl ReductionResult for ReductionSCToILP {
     /// the solution extraction is simply copying the configuration.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -76,7 +65,7 @@ impl ReduceTo<ILP> for MinimumSetCovering<i32> {
 
         // Objective: minimize sum of w_i * x_i (weighted sum of selected sets)
         let objective: Vec<(usize, f64)> = self
-            .weights()
+            .weights_ref()
             .iter()
             .enumerate()
             .map(|(i, &w)| (i, w as f64))
@@ -90,10 +79,7 @@ impl ReduceTo<ILP> for MinimumSetCovering<i32> {
             ObjectiveSense::Minimize,
         );
 
-        ReductionSCToILP {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionSCToILP { target }
     }
 }
 

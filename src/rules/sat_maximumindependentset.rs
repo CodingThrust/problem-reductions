@@ -9,16 +9,12 @@
 //! where we pick exactly one literal from each clause.
 
 use crate::models::graph::MaximumIndependentSet;
-use crate::topology::SimpleGraph;
 use crate::models::satisfiability::Satisfiability;
 use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-use num_traits::{Num, Zero};
-use std::ops::AddAssign;
+use crate::topology::SimpleGraph;
 
 /// A literal in the SAT problem, representing a variable or its negation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -57,25 +53,20 @@ impl BoolVar {
 /// - The list of source variable indices
 /// - The number of clauses in the original SAT problem
 #[derive(Debug, Clone)]
-pub struct ReductionSATToIS<W> {
+pub struct ReductionSATToIS {
     /// The target MaximumIndependentSet problem.
-    target: MaximumIndependentSet<SimpleGraph, W>,
+    target: MaximumIndependentSet<SimpleGraph, i32>,
     /// Mapping from vertex index to the literal it represents.
     literals: Vec<BoolVar>,
     /// The number of variables in the source SAT problem.
     num_source_variables: usize,
     /// The number of clauses in the source SAT problem.
     num_clauses: usize,
-    /// Size of the source problem.
-    source_size: ProblemSize,
 }
 
-impl<W> ReductionResult for ReductionSATToIS<W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
-{
-    type Source = Satisfiability<W>;
-    type Target = MaximumIndependentSet<SimpleGraph, W>;
+impl ReductionResult for ReductionSATToIS {
+    type Source = Satisfiability;
+    type Target = MaximumIndependentSet<SimpleGraph, i32>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -104,17 +95,9 @@ where
         // They are already initialized to 0
         assignment
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
-impl<W> ReductionSATToIS<W> {
+impl ReductionSATToIS {
     /// Get the number of clauses in the source SAT problem.
     pub fn num_clauses(&self) -> usize {
         self.num_clauses
@@ -127,7 +110,6 @@ impl<W> ReductionSATToIS<W> {
 }
 
 #[reduction(
-    target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             ("num_vertices", poly!(num_literals)),
@@ -135,11 +117,8 @@ impl<W> ReductionSATToIS<W> {
         ])
     }
 )]
-impl<W> ReduceTo<MaximumIndependentSet<SimpleGraph, W>> for Satisfiability<W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionSATToIS<W>;
+impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for Satisfiability {
+    type Result = ReductionSATToIS;
 
     fn reduce_to(&self) -> Self::Result {
         let mut literals: Vec<BoolVar> = Vec::new();
@@ -183,7 +162,6 @@ where
             literals,
             num_source_variables: self.num_vars(),
             num_clauses: self.num_clauses(),
-            source_size: self.problem_size(),
         }
     }
 }

@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 
 #[test]
 fn test_dominating_set_creation() {
@@ -35,32 +37,26 @@ fn test_closed_neighborhood() {
 }
 
 #[test]
-fn test_solution_size_valid() {
+fn test_evaluate_valid() {
     // Star graph: center dominates all
     let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
 
     // Select center
-    let sol = problem.solution_size(&[1, 0, 0, 0]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 1);
+    assert_eq!(Problem::evaluate(&problem, &[1, 0, 0, 0]), SolutionSize::Valid(1));
 
     // Select all leaves
-    let sol = problem.solution_size(&[0, 1, 1, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 3);
+    assert_eq!(Problem::evaluate(&problem, &[0, 1, 1, 1]), SolutionSize::Valid(3));
 }
 
 #[test]
-fn test_solution_size_invalid() {
+fn test_evaluate_invalid() {
     let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
 
-    // Select none
-    let sol = problem.solution_size(&[0, 0, 0, 0]);
-    assert!(!sol.is_valid);
+    // Select none - returns Invalid for minimization
+    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0, 0]), SolutionSize::Invalid);
 
     // Select only vertex 0 (doesn't dominate 2, 3)
-    let sol = problem.solution_size(&[1, 0, 0, 0]);
-    assert!(!sol.is_valid);
+    assert_eq!(Problem::evaluate(&problem, &[1, 0, 0, 0]), SolutionSize::Invalid);
 }
 
 #[test]
@@ -72,7 +68,7 @@ fn test_brute_force_star() {
     let solutions = solver.find_best(&problem);
     assert!(solutions.contains(&vec![1, 0, 0, 0]));
     for sol in &solutions {
-        assert_eq!(problem.solution_size(sol).size, 1);
+        assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(1));
     }
 }
 
@@ -86,8 +82,9 @@ fn test_brute_force_path() {
     let solutions = solver.find_best(&problem);
     // Minimum is 2 (e.g., vertices 1 and 3)
     for sol in &solutions {
-        assert_eq!(problem.solution_size(sol).size, 2);
-        assert!(problem.solution_size(sol).is_valid);
+        assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(2));
+        // Verify it's a valid dominating set
+        assert!(Problem::evaluate(&problem, sol).is_valid());
     }
 }
 
@@ -122,16 +119,9 @@ fn test_is_dominating_set_function() {
 }
 
 #[test]
-fn test_constraints() {
-    let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let constraints = problem.constraints();
-    assert_eq!(constraints.len(), 3); // One per vertex
-}
-
-#[test]
-fn test_energy_mode() {
+fn test_direction() {
     let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(2, vec![(0, 1)]);
-    assert!(problem.energy_mode().is_minimization());
+    assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]
@@ -144,40 +134,9 @@ fn test_isolated_vertex() {
     // Vertex 2 is isolated, must be selected
     for sol in &solutions {
         assert_eq!(sol[2], 1);
-        assert!(problem.solution_size(sol).is_valid);
+        // Verify it's a valid dominating set
+        assert!(Problem::evaluate(&problem, sol).is_valid());
     }
-}
-
-#[test]
-fn test_is_satisfied() {
-    let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
-
-    assert!(problem.is_satisfied(&[1, 0, 0, 0])); // Center dominates all
-    assert!(problem.is_satisfied(&[0, 1, 1, 1])); // Leaves dominate
-    assert!(!problem.is_satisfied(&[0, 1, 0, 0])); // Missing 2 and 3
-}
-
-#[test]
-fn test_objectives() {
-    let problem =
-        MinimumDominatingSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
-    let objectives = problem.objectives();
-    assert_eq!(objectives.len(), 3);
-}
-
-#[test]
-fn test_set_weights() {
-    let mut problem = MinimumDominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
-    assert!(!problem.is_weighted()); // Initially uniform
-    problem.set_weights(vec![1, 2, 3]);
-    assert!(problem.is_weighted());
-    assert_eq!(problem.weights(), vec![1, 2, 3]);
-}
-
-#[test]
-fn test_is_weighted_empty() {
-    let problem = MinimumDominatingSet::<SimpleGraph, i32>::with_weights(0, vec![], vec![]);
-    assert!(!problem.is_weighted());
 }
 
 #[test]
@@ -186,17 +145,10 @@ fn test_is_dominating_set_wrong_len() {
 }
 
 #[test]
-fn test_problem_size() {
-    let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3)]);
-    let size = problem.problem_size();
-    assert_eq!(size.get("num_vertices"), Some(5));
-    assert_eq!(size.get("num_edges"), Some(3));
-}
-
-#[test]
 fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumDominatingSet::<SimpleGraph, i32>::from_graph(graph.clone(), vec![1, 2, 3]);
+    let problem =
+        MinimumDominatingSet::<SimpleGraph, i32>::from_graph(graph.clone(), vec![1, 2, 3]);
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.weights(), vec![1, 2, 3]);
 
@@ -221,14 +173,6 @@ fn test_weights_ref() {
 }
 
 #[test]
-fn test_variant() {
-    let variant = MinimumDominatingSet::<SimpleGraph, i32>::variant();
-    assert_eq!(variant.len(), 2);
-    assert_eq!(variant[0], ("graph", "SimpleGraph"));
-    assert_eq!(variant[1], ("weight", "i32"));
-}
-
-#[test]
 fn test_edges() {
     let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     let edges = problem.edges();
@@ -242,4 +186,16 @@ fn test_has_edge() {
     assert!(problem.has_edge(1, 0)); // Undirected
     assert!(problem.has_edge(1, 2));
     assert!(!problem.has_edge(0, 2));
+}
+
+#[test]
+fn test_mds_problem_v2() {
+    // Path graph 0-1-2
+    let p = MinimumDominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    // Valid DS: select vertex 1 (dominates all)
+    assert_eq!(Problem::evaluate(&p, &[0, 1, 0]), SolutionSize::Valid(1));
+    // Invalid DS: select no vertices
+    assert_eq!(Problem::evaluate(&p, &[0, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(p.direction(), Direction::Minimize);
 }

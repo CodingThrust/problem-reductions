@@ -18,9 +18,10 @@ pub mod specialized;
 
 // Re-export commonly used types
 pub use graph::{
-    MinimumDominatingSet, MaximumIndependentSet, KColoring, MaximumMatching, MaxCut, MaximalIS, MinimumVertexCover,
+    KColoring, MaxCut, MaximalIS, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
+    MinimumVertexCover,
 };
 pub use optimization::{SpinGlass, QUBO};
 pub use satisfiability::{CNFClause, Satisfiability};
-pub use set::{MinimumSetCovering, MaximumSetPacking};
+pub use set::{MaximumSetPacking, MinimumSetCovering};
 pub use specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};

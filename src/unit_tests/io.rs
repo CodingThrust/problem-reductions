@@ -34,7 +34,10 @@ fn test_json_compact() {
 #[test]
 fn test_file_roundtrip() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    let ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
     let path = std::env::temp_dir().join(format!("test_problem_{ts}.json"));
     let path = path.to_str().unwrap();
 
@@ -42,7 +45,8 @@ fn test_file_roundtrip() {
     write_problem(&problem, path, FileFormat::Json).unwrap();
 
     // Read back
-    let restored: MaximumIndependentSet<SimpleGraph, i32> = read_problem(path, FileFormat::Json).unwrap();
+    let restored: MaximumIndependentSet<SimpleGraph, i32> =
+        read_problem(path, FileFormat::Json).unwrap();
     assert_eq!(restored.num_vertices(), 4);
     assert_eq!(restored.num_edges(), 3);
 
@@ -66,7 +70,10 @@ fn test_file_format_from_extension() {
 
 #[test]
 fn test_read_write_file() {
-    let ts = SystemTime::now().duration_since(UNIX_EPOCH).unwrap().as_nanos();
+    let ts = SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos();
     let path = std::env::temp_dir().join(format!("test_io_{ts}.txt"));
     let path = path.to_str().unwrap();
     let contents = "Hello, World!";

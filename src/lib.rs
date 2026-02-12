@@ -85,32 +85,28 @@ pub mod prelude {
     };
     pub use crate::error::{ProblemError, Result};
     pub use crate::models::graph::{
-        MaximumClique, MinimumDominatingSet, MaximumIndependentSet, KColoring, MaximumMatching, MaxCut, MaximalIS,
-        MinimumVertexCover,
+        KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
+        MinimumDominatingSet, MinimumVertexCover,
     };
     pub use crate::models::optimization::{
         Comparison, LinearConstraint, ObjectiveSense, SpinGlass, VarBounds, ILP, QUBO,
     };
     pub use crate::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
-    pub use crate::models::set::{MinimumSetCovering, MaximumSetPacking};
+    pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
     pub use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
-    pub use crate::registry::{
-        ComplexityClass, GraphSubcategory, ProblemCategory, ProblemInfo, ProblemMetadata,
-    };
+    pub use crate::registry::{ComplexityClass, ProblemInfo, ProblemMetadata};
     pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::solvers::{BruteForce, Solver};
-    pub use crate::traits::{csp_solution_size, ConstraintSatisfactionProblem, Problem};
-    pub use crate::types::{
-        EnergyMode, LocalConstraint, LocalSolutionSize, NumericWeight, ProblemSize, SolutionSize,
-    };
+    pub use crate::traits::{OptimizationProblem, Problem};
+    pub use crate::types::{Direction, NumericSize, NumericWeight, ProblemSize, SolutionSize, Unweighted, Weights};
 }
 
 // Re-export commonly used items at crate root
 pub use error::{ProblemError, Result};
-pub use registry::{ComplexityClass, ProblemCategory, ProblemInfo};
+pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
-pub use traits::{ConstraintSatisfactionProblem, Problem};
-pub use types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
+pub use traits::{OptimizationProblem, Problem};
+pub use types::{Direction, NumericSize, ProblemSize, SolutionSize, Unweighted, Weights};
 
 // Re-export proc macro for reduction registration
 pub use problemreductions_macros::reduction;

@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 
 #[test]
 fn test_factoring_creation() {
@@ -8,7 +10,6 @@ fn test_factoring_creation() {
     assert_eq!(problem.n(), 3);
     assert_eq!(problem.target(), 15);
     assert_eq!(problem.num_variables(), 6);
-    assert_eq!(problem.num_flavors(), 2);
 }
 
 #[test]
@@ -41,31 +42,23 @@ fn test_read_factors() {
 }
 
 #[test]
-fn test_solution_size_valid() {
+fn test_evaluate_valid() {
     let problem = Factoring::new(2, 2, 6);
-    // 2 * 3 = 6
-    let sol = problem.solution_size(&[0, 1, 1, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0); // Exact match
+    // 2 * 3 = 6 -> distance 0
+    assert_eq!(Problem::evaluate(&problem, &[0, 1, 1, 1]), SolutionSize::Valid(0));
 
-    // 3 * 2 = 6
-    let sol = problem.solution_size(&[1, 1, 0, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0);
+    // 3 * 2 = 6 -> distance 0
+    assert_eq!(Problem::evaluate(&problem, &[1, 1, 0, 1]), SolutionSize::Valid(0));
 }
 
 #[test]
-fn test_solution_size_invalid() {
+fn test_evaluate_invalid() {
     let problem = Factoring::new(2, 2, 6);
-    // 2 * 2 = 4 != 6
-    let sol = problem.solution_size(&[0, 1, 0, 1]);
-    assert!(!sol.is_valid);
-    assert_eq!(sol.size, 2); // Distance from 6
+    // 2 * 2 = 4 != 6 -> distance 2
+    assert_eq!(Problem::evaluate(&problem, &[0, 1, 0, 1]), SolutionSize::Valid(2));
 
-    // 1 * 1 = 1 != 6
-    let sol = problem.solution_size(&[1, 0, 1, 0]);
-    assert!(!sol.is_valid);
-    assert_eq!(sol.size, 5); // Distance from 6
+    // 1 * 1 = 1 != 6 -> distance 5
+    assert_eq!(Problem::evaluate(&problem, &[1, 0, 1, 0]), SolutionSize::Valid(5));
 }
 
 #[test]
@@ -117,18 +110,9 @@ fn test_is_factoring_function() {
 }
 
 #[test]
-fn test_energy_mode() {
+fn test_direction() {
     let problem = Factoring::new(2, 2, 6);
-    assert!(problem.energy_mode().is_minimization());
-}
-
-#[test]
-fn test_problem_size() {
-    let problem = Factoring::new(3, 4, 12);
-    let size = problem.problem_size();
-    assert_eq!(size.get("num_bits_first"), Some(3));
-    assert_eq!(size.get("num_bits_second"), Some(4));
-    assert_eq!(size.get("target"), Some(12));
+    assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]
@@ -149,4 +133,23 @@ fn test_factor_one() {
         let (a, b) = problem.read_factors(sol);
         assert_eq!(a * b, 1);
     }
+}
+
+#[test]
+fn test_factoring_problem() {
+    use crate::traits::{OptimizationProblem, Problem};
+    use crate::types::Direction;
+
+    // Factor 6 with 2-bit factors
+    let p = Factoring::new(2, 2, 6);
+    assert_eq!(p.dims(), vec![2, 2, 2, 2]);
+
+    // Bits [0,1, 1,1] = a=2, b=3, product=6, distance=0
+    assert_eq!(Problem::evaluate(&p, &[0, 1, 1, 1]), SolutionSize::Valid(0));
+    // Bits [1,1, 0,1] = a=3, b=2, product=6, distance=0
+    assert_eq!(Problem::evaluate(&p, &[1, 1, 0, 1]), SolutionSize::Valid(0));
+    // Bits [0,0, 0,0] = a=0, b=0, product=0, distance=6
+    assert_eq!(Problem::evaluate(&p, &[0, 0, 0, 0]), SolutionSize::Valid(6));
+
+    assert_eq!(p.direction(), Direction::Minimize);
 }

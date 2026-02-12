@@ -1,12 +1,9 @@
 //! Problem registry and metadata types.
 //!
-//! This module provides types for problem classification, introspection, and discovery.
-//! It enables organizing 100+ NP-complete problems into a hierarchical category system
-//! and provides rich metadata for each problem type.
+//! This module provides types for problem introspection and discovery.
 //!
 //! # Overview
 //!
-//! - [`ProblemCategory`] - Hierarchical categorization (e.g., `graph/independent`)
 //! - [`ProblemInfo`] - Rich metadata (name, description, complexity, reductions)
 //! - [`ProblemMetadata`] - Trait for problems to provide their own metadata
 //! - [`ComplexityClass`] - Computational complexity classification
@@ -14,11 +11,7 @@
 //! # Example
 //!
 //! ```rust
-//! use problemreductions::registry::{ProblemCategory, GraphSubcategory, ProblemInfo, ComplexityClass};
-//!
-//! // Create a category path
-//! let category = ProblemCategory::Graph(GraphSubcategory::Independent);
-//! assert_eq!(category.path(), "graph/independent");
+//! use problemreductions::registry::{ProblemInfo, ComplexityClass};
 //!
 //! // Create problem metadata
 //! let info = ProblemInfo::new("Independent Set", "Find maximum non-adjacent vertices")
@@ -35,8 +28,7 @@
 //!
 //! ```rust
 //! use problemreductions::registry::{
-//!     ProblemMetadata, ProblemInfo, ProblemCategory,
-//!     GraphSubcategory, ComplexityClass
+//!     ProblemMetadata, ProblemInfo, ComplexityClass
 //! };
 //!
 //! struct MyProblem;
@@ -46,25 +38,14 @@
 //!         ProblemInfo::new("My Problem", "Description")
 //!             .with_complexity(ComplexityClass::NpComplete)
 //!     }
-//!
-//!     fn category() -> ProblemCategory {
-//!         ProblemCategory::Graph(GraphSubcategory::Independent)
-//!     }
 //! }
 //!
 //! let info = MyProblem::problem_info();
-//! let category = MyProblem::category();
-//! println!("Problem: {} ({})", info.name, category.path());
+//! println!("Problem: {}", info.name);
 //! ```
 
-mod category;
 mod info;
 mod schema;
 
-pub use category::{
-    GraphSubcategory, NetworkSubcategory, OptimizationSubcategory, ProblemCategory,
-    SatisfiabilitySubcategory, SchedulingSubcategory, SetSubcategory, SpecializedSubcategory,
-    StringSubcategory,
-};
 pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
 pub use schema::{collect_schemas, FieldInfoJson, ProblemSchemaEntry, ProblemSchemaJson};

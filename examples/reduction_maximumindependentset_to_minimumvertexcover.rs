@@ -1,25 +1,25 @@
-//! # Independent Set to Vertex Cover Reduction
-//!
-//! ## Mathematical Equivalence
-//! S ⊆ V is an independent set iff V \ S is a vertex cover. The complement
-//! operation preserves optimality since |IS| + |VC| = |V| is constant.
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
-//! - Source IS: max size 4
-//! - Target VC: min size 6
-//!
-//! ## Output
-//! Exports `docs/paper/examples/maximumindependentset_to_minimumvertexcover.json` and `maximumindependentset_to_minimumvertexcover.result.json`.
-//!
-//! See docs/paper/reductions.typ for the full reduction specification.
+// # Independent Set to Vertex Cover Reduction
+//
+// ## Mathematical Equivalence
+// S ⊆ V is an independent set iff V \ S is a vertex cover. The complement
+// operation preserves optimality since |IS| + |VC| = |V| is constant.
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
+// - Source IS: max size 4
+// - Target VC: min size 6
+//
+// ## Output
+// Exports `docs/paper/examples/maximumindependentset_to_minimumvertexcover.json` and `maximumindependentset_to_minimumvertexcover.result.json`.
+//
+// See docs/paper/reductions.typ for the full reduction specification.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     // 1. Create IS instance: Petersen graph
     let (num_vertices, edges) = petersen();
     let is = MaximumIndependentSet::<SimpleGraph, i32>::new(num_vertices, edges.clone());
@@ -30,8 +30,14 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: MaximumIndependentSet with {} variables", is.num_variables());
-    println!("Target: MinimumVertexCover with {} variables", vc.num_variables());
+    println!(
+        "Source: MaximumIndependentSet with {} variables",
+        is.num_variables()
+    );
+    println!(
+        "Target: MinimumVertexCover with {} variables",
+        vc.num_variables()
+    );
 
     // 4. Solve target
     let solver = BruteForce::new();
@@ -43,8 +49,9 @@ fn main() {
     let mut solutions = Vec::new();
     for target_sol in &vc_solutions {
         let source_sol = reduction.extract_solution(target_sol);
-        let size = is.solution_size(&source_sol);
-        assert!(size.is_valid);
+        let size = is.evaluate(&source_sol);
+        // MaximumIndependentSet is a maximization problem, infeasible configs return Invalid
+        assert!(size.is_valid());
         solutions.push(SolutionPair {
             source_config: source_sol,
             target_config: target_sol.clone(),
@@ -80,6 +87,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "maximumindependentset_to_minimumvertexcover";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

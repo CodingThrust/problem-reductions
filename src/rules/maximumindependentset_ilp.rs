@@ -6,11 +6,9 @@
 //! - Objective: Maximize the sum of weights of selected vertices
 
 use crate::models::graph::MaximumIndependentSet;
-use crate::topology::SimpleGraph;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::Problem;
-use crate::types::ProblemSize;
+use crate::topology::SimpleGraph;
 
 /// Result of reducing MaximumIndependentSet to ILP.
 ///
@@ -21,7 +19,6 @@ use crate::types::ProblemSize;
 #[derive(Debug, Clone)]
 pub struct ReductionISToILP {
     target: ILP,
-    source_size: ProblemSize,
 }
 
 impl ReductionResult for ReductionISToILP {
@@ -38,14 +35,6 @@ impl ReductionResult for ReductionISToILP {
     /// the solution extraction is simply copying the configuration.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -82,10 +71,7 @@ impl ReduceTo<ILP> for MaximumIndependentSet<SimpleGraph, i32> {
             ObjectiveSense::Maximize,
         );
 
-        ReductionISToILP {
-            target,
-            source_size: self.problem_size(),
-        }
+        ReductionISToILP { target }
     }
 }
 

@@ -1,26 +1,25 @@
-//! # MaximumClique to ILP Reduction
-//!
-//! ## Mathematical Formulation
-//! Variables: x_v in {0,1} for each vertex v.
-//! Constraints: x_u + x_v <= 1 for each non-edge (u,v) not in E.
-//! Objective: maximize sum of w_v * x_v.
-//!
-//! ## This Example
-//! - Instance: Octahedron graph (K_{2,2,2}) with 6 vertices and 12 edges.
-//! - Source MaximumClique: max clique is size 3
-//! - Target ILP: 6 binary variables, 3 non-edge constraints
-//!   (non-edges: opposite vertex pairs (0,5), (1,4), (2,3))
-//!
-//! ## Output
-//! Exports `docs/paper/examples/maximumclique_to_ilp.json` and `maximumclique_to_ilp.result.json`.
+// # MaximumClique to ILP Reduction
+//
+// ## Mathematical Formulation
+// Variables: x_v in {0,1} for each vertex v.
+// Constraints: x_u + x_v <= 1 for each non-edge (u,v) not in E.
+// Objective: maximize sum of w_v * x_v.
+//
+// ## This Example
+// - Instance: Octahedron graph (K_{2,2,2}) with 6 vertices and 12 edges.
+// - Source MaximumClique: max clique is size 3
+// - Target ILP: 6 binary variables, 3 non-edge constraints
+//   (non-edges: opposite vertex pairs (0,5), (1,4), (2,3))
+//
+// ## Output
+// Exports `docs/paper/examples/maximumclique_to_ilp.json` and `maximumclique_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use problemreductions::solvers::BruteForceFloat;
 use problemreductions::topology::small_graphs::octahedral;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     // 1. Create MaximumClique instance: Octahedron (K_{2,2,2}), 6 vertices, 12 edges, clique number 3
     let (num_vertices, edges) = octahedral();
     let clique = MaximumClique::<SimpleGraph, i32>::new(num_vertices, edges.clone());
@@ -31,16 +30,23 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: MaximumClique with {} variables", clique.num_variables());
-    println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
+    println!(
+        "Source: MaximumClique with {} variables",
+        clique.num_variables()
+    );
+    println!(
+        "Target: ILP with {} variables, {} constraints",
+        ilp.num_vars,
+        ilp.constraints.len()
+    );
 
     // 4. Solve target ILP
     let solver = BruteForce::new();
-    let ilp_solutions = solver.find_best_float(ilp);
+    let ilp_solutions = solver.find_best(ilp);
     println!("\n=== Solution ===");
     println!("ILP solutions found: {}", ilp_solutions.len());
 
-    let ilp_solution = &ilp_solutions[0].0;
+    let ilp_solution = &ilp_solutions[0];
     println!("ILP solution: {:?}", ilp_solution);
 
     // 5. Extract source solution
@@ -48,17 +54,17 @@ fn main() {
     println!("Source MaximumClique solution: {:?}", clique_solution);
 
     // 6. Verify
-    let size = clique.solution_size(&clique_solution);
-    println!("Solution valid: {}, size: {:?}", size.is_valid, size.size);
-    assert!(size.is_valid);
+    let size = clique.evaluate(&clique_solution);
+    println!("Solution size: {:?}", size);
+    assert!(size.is_valid()); // Valid solution
     println!("\nReduction verified successfully");
 
     // 7. Collect solutions and export JSON
     let mut solutions = Vec::new();
-    for (target_config, _score) in &ilp_solutions {
+    for target_config in &ilp_solutions {
         let source_sol = reduction.extract_solution(target_config);
-        let s = clique.solution_size(&source_sol);
-        assert!(s.is_valid);
+        let s = clique.evaluate(&source_sol);
+        assert!(s.is_valid()); // Valid solution
         solutions.push(SolutionPair {
             source_config: source_sol,
             target_config: target_config.clone(),
@@ -89,6 +95,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "maximumclique_to_ilp";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

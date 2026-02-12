@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 
 #[test]
 fn test_vertex_cover_creation() {
@@ -7,7 +9,6 @@ fn test_vertex_cover_creation() {
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.num_flavors(), 2);
 }
 
 #[test]
@@ -15,35 +16,28 @@ fn test_vertex_cover_with_weights() {
     let problem =
         MinimumVertexCover::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
     assert_eq!(problem.weights(), vec![1, 2, 3]);
-    assert!(problem.is_weighted());
 }
 
 #[test]
-fn test_solution_size_valid() {
+fn test_evaluate_valid() {
     let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
     // Valid: select vertex 1 (covers both edges)
-    let sol = problem.solution_size(&[0, 1, 0]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 1);
+    assert_eq!(Problem::evaluate(&problem, &[0, 1, 0]), SolutionSize::Valid(1));
 
     // Valid: select all vertices
-    let sol = problem.solution_size(&[1, 1, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 3);
+    assert_eq!(Problem::evaluate(&problem, &[1, 1, 1]), SolutionSize::Valid(3));
 }
 
 #[test]
-fn test_solution_size_invalid() {
+fn test_evaluate_invalid() {
     let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
-    // Invalid: no vertex selected
-    let sol = problem.solution_size(&[0, 0, 0]);
-    assert!(!sol.is_valid);
+    // Invalid: no vertex selected - returns Invalid for minimization
+    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0]), SolutionSize::Invalid);
 
     // Invalid: only vertex 0 selected (edge 1-2 not covered)
-    let sol = problem.solution_size(&[1, 0, 0]);
-    assert!(!sol.is_valid);
+    assert_eq!(Problem::evaluate(&problem, &[1, 0, 0]), SolutionSize::Invalid);
 }
 
 #[test]
@@ -68,7 +62,8 @@ fn test_brute_force_triangle() {
     assert_eq!(solutions.len(), 3);
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 2);
-        assert!(problem.solution_size(sol).is_valid);
+        // Verify it's a valid cover by checking evaluate returns Valid
+        assert!(Problem::evaluate(&problem, sol).is_valid());
     }
 }
 
@@ -105,16 +100,9 @@ fn test_is_vertex_cover_function() {
 }
 
 #[test]
-fn test_constraints() {
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let constraints = problem.constraints();
-    assert_eq!(constraints.len(), 2);
-}
-
-#[test]
-fn test_energy_mode() {
+fn test_direction() {
     let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
-    assert!(problem.energy_mode().is_minimization());
+    assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]
@@ -139,16 +127,6 @@ fn test_single_edge() {
 }
 
 #[test]
-fn test_is_satisfied() {
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-
-    assert!(problem.is_satisfied(&[0, 1, 0])); // Valid cover
-    assert!(problem.is_satisfied(&[1, 0, 1])); // Valid cover
-    assert!(!problem.is_satisfied(&[1, 0, 0])); // Edge 1-2 uncovered
-    assert!(!problem.is_satisfied(&[0, 0, 1])); // Edge 0-1 uncovered
-}
-
-#[test]
 fn test_complement_relationship() {
     // For a graph, if S is an independent set, then V\S is a vertex cover
     use crate::models::graph::MaximumIndependentSet;
@@ -163,31 +141,9 @@ fn test_complement_relationship() {
     for is_sol in &is_solutions {
         // Complement should be a valid vertex cover
         let vc_config: Vec<usize> = is_sol.iter().map(|&x| 1 - x).collect();
-        assert!(vc_problem.solution_size(&vc_config).is_valid);
+        // Valid cover should return Valid
+        assert!(Problem::evaluate(&vc_problem, &vc_config).is_valid());
     }
-}
-
-#[test]
-fn test_objectives() {
-    let problem =
-        MinimumVertexCover::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
-    let objectives = problem.objectives();
-    assert_eq!(objectives.len(), 3);
-}
-
-#[test]
-fn test_set_weights() {
-    let mut problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
-    assert!(!problem.is_weighted()); // Initially uniform
-    problem.set_weights(vec![1, 2, 3]);
-    assert!(problem.is_weighted());
-    assert_eq!(problem.weights(), vec![1, 2, 3]);
-}
-
-#[test]
-fn test_is_weighted_empty() {
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::new(0, vec![]);
-    assert!(!problem.is_weighted());
 }
 
 #[test]
@@ -209,7 +165,6 @@ fn test_from_graph_with_weights() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumVertexCover::<SimpleGraph, i32>::from_graph(graph, vec![1, 2, 3]);
     assert_eq!(problem.weights(), vec![1, 2, 3]);
-    assert!(problem.is_weighted());
 }
 
 #[test]
@@ -230,9 +185,18 @@ fn test_has_edge() {
 }
 
 #[test]
-fn test_variant() {
-    let variant = MinimumVertexCover::<SimpleGraph, i32>::variant();
-    assert_eq!(variant.len(), 2);
-    assert_eq!(variant[0], ("graph", "SimpleGraph"));
-    assert_eq!(variant[1], ("weight", "i32"));
+fn test_mvc_problem_v2() {
+    let p = MinimumVertexCover::<SimpleGraph, i32>::with_weights(
+        3,
+        vec![(0, 1), (1, 2), (0, 2)],
+        vec![1, 1, 1],
+    );
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    // Valid VC: select all vertices
+    assert_eq!(Problem::evaluate(&p, &[1, 1, 1]), SolutionSize::Valid(3));
+    // Valid VC: select vertices 0 and 1 (covers all edges in triangle)
+    assert_eq!(Problem::evaluate(&p, &[1, 1, 0]), SolutionSize::Valid(2));
+    // Invalid VC: select only vertex 0 (edge (1,2) not covered)
+    assert_eq!(Problem::evaluate(&p, &[1, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(p.direction(), Direction::Minimize);
 }

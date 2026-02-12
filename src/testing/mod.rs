@@ -18,9 +18,8 @@
 //!
 //! graph_problem_tests! {
 //!     problem_type: MaximumIndependentSet<SimpleGraph, i32>,
-//!     constraint_type: MaximumIndependentSet<SimpleGraph, i32>,
 //!     test_cases: [
-//!         // (name, num_vertices, edges, valid_solution, expected_size, is_maximization)
+//!         // (name, num_vertices, edges, valid_solution, expected_value, is_maximization)
 //!         (triangle, 3, [(0, 1), (1, 2), (0, 2)], [1, 0, 0], 1, true),
 //!         (path, 3, [(0, 1), (1, 2)], [1, 0, 1], 2, true),
 //!     ]
@@ -29,9 +28,8 @@
 //!
 //! This generates tests for:
 //! - Problem creation and metadata
-//! - Solution validity and size computation
-//! - Energy mode (maximization vs minimization)
-//! - CSP interface (constraints, objectives)
+//! - Solution evaluation
+//! - Direction (maximization vs minimization)
 //! - Brute force solving (for small instances)
 //!
 //! ## `complement_test!`
@@ -64,12 +62,13 @@
 //! use problemreductions::quick_problem_test;
 //! use problemreductions::prelude::MaximumIndependentSet;
 //!
+//! // Test a valid solution (is_max=true means maximization problem)
 //! quick_problem_test!(
 //!     MaximumIndependentSet,
 //!     new(3, vec![(0, 1)]),
 //!     solution: [0, 0, 1],
-//!     expected_size: 1,
-//!     is_valid: true
+//!     expected_value: 1,
+//!     is_max: true
 //! );
 //! ```
 //!

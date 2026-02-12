@@ -13,14 +13,11 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
-use crate::types::ProblemSize;
 
 /// Result of reducing MinimumVertexCover to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionVCToQUBO {
     target: QUBO<f64>,
-    source_size: ProblemSize,
 }
 
 impl ReductionResult for ReductionVCToQUBO {
@@ -34,18 +31,9 @@ impl ReductionResult for ReductionVCToQUBO {
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
 #[reduction(
-    source_graph = "SimpleGraph",
     overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vertices))]) }
 )]
 impl ReduceTo<QUBO<f64>> for MinimumVertexCover<SimpleGraph, i32> {
@@ -80,7 +68,6 @@ impl ReduceTo<QUBO<f64>> for MinimumVertexCover<SimpleGraph, i32> {
 
         ReductionVCToQUBO {
             target: QUBO::from_matrix(matrix),
-            source_size: self.problem_size(),
         }
     }
 }

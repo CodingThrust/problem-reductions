@@ -1,32 +1,31 @@
-//! # Set Covering to ILP Reduction
-//!
-//! ## Mathematical Formulation
-//! Variables: x_i in {0,1} for each set S_i.
-//! Constraints: sum_{S_i containing e} x_i >= 1 for each element e in universe.
-//! Objective: minimize sum of w_i * x_i.
-//!
-//! ## This Example
-//! - Instance: Universe size 8, 6 sets
-//!   - S0={0,1,2}, S1={2,3,4}, S2={4,5,6}, S3={6,7,0}, S4={1,3,5}, S5={0,4,7}
-//! - Source MinimumSetCovering: every element in {0,...,7} must be covered
-//! - Target ILP: 6 binary variables, 8 element-coverage constraints
-//!
-//! ## Output
-//! Exports `docs/paper/examples/minimumsetcovering_to_ilp.json` and `minimumsetcovering_to_ilp.result.json`.
+// # Set Covering to ILP Reduction
+//
+// ## Mathematical Formulation
+// Variables: x_i in {0,1} for each set S_i.
+// Constraints: sum_{S_i containing e} x_i >= 1 for each element e in universe.
+// Objective: minimize sum of w_i * x_i.
+//
+// ## This Example
+// - Instance: Universe size 8, 6 sets
+//   - S0={0,1,2}, S1={2,3,4}, S2={4,5,6}, S3={6,7,0}, S4={1,3,5}, S5={0,4,7}
+// - Source MinimumSetCovering: every element in {0,...,7} must be covered
+// - Target ILP: 6 binary variables, 8 element-coverage constraints
+//
+// ## Output
+// Exports `docs/paper/examples/minimumsetcovering_to_ilp.json` and `minimumsetcovering_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use problemreductions::solvers::BruteForceFloat;
 
-fn main() {
+pub fn run() {
     // 1. Create MinimumSetCovering instance: universe {0,...,7}, 6 sets
     let sets = vec![
-        vec![0, 1, 2],    // S0
-        vec![2, 3, 4],    // S1
-        vec![4, 5, 6],    // S2
-        vec![6, 7, 0],    // S3
-        vec![1, 3, 5],    // S4
-        vec![0, 4, 7],    // S5
+        vec![0, 1, 2], // S0
+        vec![2, 3, 4], // S1
+        vec![4, 5, 6], // S2
+        vec![6, 7, 0], // S3
+        vec![1, 3, 5], // S4
+        vec![0, 4, 7], // S5
     ];
     let sc = MinimumSetCovering::<i32>::new(8, sets.clone());
 
@@ -36,19 +35,26 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: MinimumSetCovering with {} sets over universe {{0,...,7}}", sc.num_variables());
+    println!(
+        "Source: MinimumSetCovering with {} sets over universe {{0,...,7}}",
+        sc.num_variables()
+    );
     for (i, s) in sets.iter().enumerate() {
         println!("  S{} = {:?}", i, s);
     }
-    println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
+    println!(
+        "Target: ILP with {} variables, {} constraints",
+        ilp.num_vars,
+        ilp.constraints.len()
+    );
 
     // 4. Solve target ILP
     let solver = BruteForce::new();
-    let ilp_solutions = solver.find_best_float(ilp);
+    let ilp_solutions = solver.find_best(ilp);
     println!("\n=== Solution ===");
     println!("ILP solutions found: {}", ilp_solutions.len());
 
-    let ilp_solution = &ilp_solutions[0].0;
+    let ilp_solution = &ilp_solutions[0];
     println!("ILP solution: {:?}", ilp_solution);
 
     // 5. Extract source solution
@@ -56,17 +62,17 @@ fn main() {
     println!("Source MinimumSetCovering solution: {:?}", sc_solution);
 
     // 6. Verify
-    let size = sc.solution_size(&sc_solution);
-    println!("Solution valid: {}, size: {:?}", size.is_valid, size.size);
-    assert!(size.is_valid);
+    let size = sc.evaluate(&sc_solution);
+    println!("Solution size: {:?}", size);
+    assert!(size.is_valid()); // Valid solution
     println!("\nReduction verified successfully");
 
     // 7. Collect solutions and export JSON
     let mut solutions = Vec::new();
-    for (target_config, _score) in &ilp_solutions {
+    for target_config in &ilp_solutions {
         let source_sol = reduction.extract_solution(target_config);
-        let s = sc.solution_size(&source_sol);
-        assert!(s.is_valid);
+        let s = sc.evaluate(&source_sol);
+        assert!(s.is_valid()); // Valid solution
         solutions.push(SolutionPair {
             source_config: source_sol,
             target_config: target_config.clone(),
@@ -97,6 +103,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "minimumsetcovering_to_ilp";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

@@ -1,44 +1,44 @@
-//! # Integer Linear Programming (Binary) to QUBO Reduction (Penalty Method)
-//!
-//! ## Mathematical Relationship
-//! A binary ILP problem:
-//!
-//!   maximize   c^T x
-//!   subject to A x <= b
-//!              x_i in {0, 1}
-//!
-//! is mapped to QUBO by introducing slack variables to convert inequality
-//! constraints into equalities, then penalizing constraint violations:
-//!
-//!   H(x, s) = -c^T x + P * sum_j (a_j^T x + s_j - b_j)^2
-//!
-//! where s_j are slack variables encoded in binary. The penalty P is chosen
-//! large enough to ensure feasibility is always preferred over infeasible
-//! solutions with better objective values.
-//!
-//! ## This Example
-//! - Instance: 6-variable binary knapsack problem
-//!   - Items with weights [3, 2, 5, 4, 2, 3] and values [10, 7, 12, 8, 6, 9]
-//!   - Constraint 1: 3x0 + 2x1 + 5x2 + 4x3 + 2x4 + 3x5 <= 10 (weight capacity)
-//!   - Constraint 2: x0 + x1 + x2 <= 2 (category A limit)
-//!   - Constraint 3: x3 + x4 + x5 <= 2 (category B limit)
-//!   - Objective: maximize 10x0 + 7x1 + 12x2 + 8x3 + 6x4 + 9x5
-//! - Expected: Select items that maximize total value while satisfying all
-//!   weight and category constraints
-//!
-//! ## Outputs
-//! - `docs/paper/examples/ilp_to_qubo.json` — reduction structure
-//! - `docs/paper/examples/ilp_to_qubo.result.json` — solutions
-//!
-//! ## Usage
-//! ```bash
-//! cargo run --example reduction_ilp_to_qubo
-//! ```
+// # Integer Linear Programming (Binary) to QUBO Reduction (Penalty Method)
+//
+// ## Mathematical Relationship
+// A binary ILP problem:
+//
+//   maximize   c^T x
+//   subject to A x <= b
+//              x_i in {0, 1}
+//
+// is mapped to QUBO by introducing slack variables to convert inequality
+// constraints into equalities, then penalizing constraint violations:
+//
+//   H(x, s) = -c^T x + P * sum_j (a_j^T x + s_j - b_j)^2
+//
+// where s_j are slack variables encoded in binary. The penalty P is chosen
+// large enough to ensure feasibility is always preferred over infeasible
+// solutions with better objective values.
+//
+// ## This Example
+// - Instance: 6-variable binary knapsack problem
+//   - Items with weights [3, 2, 5, 4, 2, 3] and values [10, 7, 12, 8, 6, 9]
+//   - Constraint 1: 3x0 + 2x1 + 5x2 + 4x3 + 2x4 + 3x5 <= 10 (weight capacity)
+//   - Constraint 2: x0 + x1 + x2 <= 2 (category A limit)
+//   - Constraint 3: x3 + x4 + x5 <= 2 (category B limit)
+//   - Objective: maximize 10x0 + 7x1 + 12x2 + 8x3 + 6x4 + 9x5
+// - Expected: Select items that maximize total value while satisfying all
+//   weight and category constraints
+//
+// ## Outputs
+// - `docs/paper/examples/ilp_to_qubo.json` — reduction structure
+// - `docs/paper/examples/ilp_to_qubo.result.json` — solutions
+//
+// ## Usage
+// ```bash
+// cargo run --example reduction_ilp_to_qubo
+// ```
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 
-fn main() {
+pub fn run() {
     println!("=== ILP (Binary) -> QUBO Reduction ===\n");
 
     // 6-variable binary knapsack problem
@@ -120,9 +120,9 @@ fn main() {
         );
 
         // Closed-loop verification: check solution is valid in original problem
-        let sol_size = ilp.solution_size(&extracted);
+        let sol_size = ilp.evaluate(&extracted);
         assert!(
-            sol_size.is_valid,
+            sol_size.is_valid(),
             "Solution must be valid in source problem"
         );
 
@@ -157,6 +157,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "ilp_to_qubo";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

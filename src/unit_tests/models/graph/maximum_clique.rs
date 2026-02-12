@@ -1,19 +1,20 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::types::SolutionSize;
 
 #[test]
 fn test_clique_creation() {
+    use crate::traits::Problem;
+
     let problem = MaximumClique::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
-    assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.num_flavors(), 2);
+    assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
 }
 
 #[test]
 fn test_clique_with_weights() {
-    let problem =
-        MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
+    let problem = MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
     assert_eq!(problem.weights(), vec![1, 2, 3]);
     assert!(problem.is_weighted());
 }
@@ -34,81 +35,63 @@ fn test_has_edge() {
 }
 
 #[test]
-fn test_solution_size_valid() {
+fn test_evaluate_valid() {
+    use crate::traits::Problem;
+
     // Complete graph K3 (triangle)
     let problem = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 
     // Valid: all three form a clique
-    let sol = problem.solution_size(&[1, 1, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 3);
+    assert_eq!(problem.evaluate(&[1, 1, 1]), SolutionSize::Valid(3));
 
     // Valid: any pair
-    let sol = problem.solution_size(&[1, 1, 0]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 2);
+    assert_eq!(problem.evaluate(&[1, 1, 0]), SolutionSize::Valid(2));
 }
 
 #[test]
-fn test_solution_size_invalid() {
+fn test_evaluate_invalid() {
+    use crate::traits::Problem;
+
     // Path graph: 0-1-2 (no edge between 0 and 2)
     let problem = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
-    // Invalid: 0 and 2 are not adjacent
-    let sol = problem.solution_size(&[1, 0, 1]);
-    assert!(!sol.is_valid);
-    assert_eq!(sol.size, 2);
+    // Invalid: 0 and 2 are not adjacent - returns Invalid
+    assert_eq!(problem.evaluate(&[1, 0, 1]), SolutionSize::Invalid);
 
     // Invalid: all three selected but not a clique
-    let sol = problem.solution_size(&[1, 1, 1]);
-    assert!(!sol.is_valid);
+    assert_eq!(problem.evaluate(&[1, 1, 1]), SolutionSize::Invalid);
 }
 
 #[test]
-fn test_solution_size_empty() {
+fn test_evaluate_empty() {
+    use crate::traits::Problem;
+
     let problem = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let sol = problem.solution_size(&[0, 0, 0]);
-    assert!(sol.is_valid); // Empty set is a valid clique
-    assert_eq!(sol.size, 0);
+    // Empty set is a valid clique with size 0
+    assert_eq!(problem.evaluate(&[0, 0, 0]), SolutionSize::Valid(0));
 }
 
 #[test]
 fn test_weighted_solution() {
-    let problem =
-        MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1), (1, 2), (0, 2)], vec![10, 20, 30]);
+    use crate::traits::Problem;
+
+    let problem = MaximumClique::<SimpleGraph, i32>::with_weights(
+        3,
+        vec![(0, 1), (1, 2), (0, 2)],
+        vec![10, 20, 30],
+    );
 
     // Select vertex 2 (weight 30)
-    let sol = problem.solution_size(&[0, 0, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 30);
+    assert_eq!(problem.evaluate(&[0, 0, 1]), SolutionSize::Valid(30));
 
     // Select all three (weights 10 + 20 + 30 = 60)
-    let sol = problem.solution_size(&[1, 1, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 60);
-}
-
-#[test]
-fn test_constraints() {
-    // Path graph: 0-1-2 (non-edge between 0 and 2)
-    let problem = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let constraints = problem.constraints();
-    assert_eq!(constraints.len(), 1); // One constraint for non-edge (0, 2)
-}
-
-#[test]
-fn test_objectives() {
-    let problem =
-        MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
-    let objectives = problem.objectives();
-    assert_eq!(objectives.len(), 3); // One per vertex
+    assert_eq!(problem.evaluate(&[1, 1, 1]), SolutionSize::Valid(60));
 }
 
 #[test]
 fn test_brute_force_triangle() {
     // Triangle graph (K3): max clique is all 3 vertices
-    let problem =
-        MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_best(&problem);
@@ -118,6 +101,8 @@ fn test_brute_force_triangle() {
 
 #[test]
 fn test_brute_force_path() {
+    use crate::traits::Problem;
+
     // Path graph 0-1-2: max clique is any adjacent pair
     let problem = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     let solver = BruteForce::new();
@@ -128,13 +113,14 @@ fn test_brute_force_path() {
         let size: usize = sol.iter().sum();
         assert_eq!(size, 2);
         // Verify it's valid
-        let sol_result = problem.solution_size(sol);
-        assert!(sol_result.is_valid);
+        assert!(problem.evaluate(sol).is_valid());
     }
 }
 
 #[test]
 fn test_brute_force_weighted() {
+    use crate::traits::Problem;
+
     // Path with weights: vertex 1 has high weight
     let problem =
         MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1), (1, 2)], vec![1, 100, 1]);
@@ -144,8 +130,7 @@ fn test_brute_force_weighted() {
     // Should select {0, 1} (weight 101) or {1, 2} (weight 101)
     assert!(solutions.len() == 2);
     for sol in &solutions {
-        assert!(problem.solution_size(sol).is_valid);
-        assert_eq!(problem.solution_size(sol).size, 101);
+        assert_eq!(problem.evaluate(sol), SolutionSize::Valid(101));
     }
 }
 
@@ -153,7 +138,11 @@ fn test_brute_force_weighted() {
 fn test_is_clique_function() {
     // Triangle
     assert!(is_clique(3, &[(0, 1), (1, 2), (0, 2)], &[true, true, true]));
-    assert!(is_clique(3, &[(0, 1), (1, 2), (0, 2)], &[true, true, false]));
+    assert!(is_clique(
+        3,
+        &[(0, 1), (1, 2), (0, 2)],
+        &[true, true, false]
+    ));
 
     // Path - not all pairs adjacent
     assert!(!is_clique(3, &[(0, 1), (1, 2)], &[true, false, true]));
@@ -161,17 +150,12 @@ fn test_is_clique_function() {
 }
 
 #[test]
-fn test_problem_size() {
-    let problem = MaximumClique::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3)]);
-    let size = problem.problem_size();
-    assert_eq!(size.get("num_vertices"), Some(5));
-    assert_eq!(size.get("num_edges"), Some(3));
-}
+fn test_direction() {
+    use crate::traits::OptimizationProblem;
+    use crate::types::Direction;
 
-#[test]
-fn test_energy_mode() {
     let problem = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
-    assert!(problem.energy_mode().is_maximization());
+    assert_eq!(problem.direction(), Direction::Maximize);
 }
 
 #[test]
@@ -203,12 +187,16 @@ fn test_empty_graph() {
 }
 
 #[test]
-fn test_is_satisfied() {
+fn test_is_clique_method() {
+    use crate::traits::Problem;
+
     let problem = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
-    assert!(problem.is_satisfied(&[1, 1, 0])); // Valid clique
-    assert!(problem.is_satisfied(&[0, 1, 1])); // Valid clique
-    assert!(!problem.is_satisfied(&[1, 0, 1])); // Invalid: 0-2 not adjacent
+    // Valid clique - returns Valid
+    assert!(problem.evaluate(&[1, 1, 0]).is_valid());
+    assert!(problem.evaluate(&[0, 1, 1]).is_valid());
+    // Invalid: 0-2 not adjacent - returns Invalid
+    assert_eq!(problem.evaluate(&[1, 0, 1]), SolutionSize::Invalid);
 }
 
 #[test]
@@ -236,17 +224,8 @@ fn test_graph_accessor() {
 }
 
 #[test]
-fn test_variant() {
-    let variant = MaximumClique::<SimpleGraph, i32>::variant();
-    assert_eq!(variant.len(), 2);
-    assert_eq!(variant[0], ("graph", "SimpleGraph"));
-    assert_eq!(variant[1], ("weight", "i32"));
-}
-
-#[test]
 fn test_weights_ref() {
-    let problem =
-        MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
+    let problem = MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
     assert_eq!(problem.weights_ref(), &vec![5, 10, 15]);
 }
 
@@ -268,4 +247,19 @@ fn test_complete_graph() {
     let solutions = solver.find_best(&problem);
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1, 1, 1, 1]); // All vertices form a clique
+}
+
+#[test]
+fn test_clique_problem() {
+    use crate::traits::{OptimizationProblem, Problem};
+    use crate::types::Direction;
+
+    // Triangle graph: all pairs connected
+    let p = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    assert_eq!(p.dims(), vec![2, 2, 2]);
+    // Valid clique: select all 3 vertices (triangle is a clique)
+    assert_eq!(p.evaluate(&[1, 1, 1]), SolutionSize::Valid(3));
+    // Valid clique: select just vertex 0
+    assert_eq!(p.evaluate(&[1, 0, 0]), SolutionSize::Valid(1));
+    assert_eq!(p.direction(), Direction::Maximize);
 }

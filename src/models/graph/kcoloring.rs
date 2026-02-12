@@ -5,16 +5,13 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use crate::variant::{const_usize_str, short_type_name};
+use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
 use std::marker::PhantomData;
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "KColoring",
-        category: "graph",
         description: "Find valid k-coloring of a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
@@ -44,11 +41,11 @@ inventory::submit! {
 /// let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_satisfying(&problem);
 ///
 /// // Verify all solutions are valid colorings
 /// for sol in &solutions {
-///     assert!(problem.solution_size(sol).is_valid);
+///     assert!(problem.evaluate(sol));
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -128,91 +125,22 @@ where
     W: Clone + Default + 'static,
 {
     const NAME: &'static str = "KColoring";
+    type Metric = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("k", const_usize_str::<K>()),
-            ("graph", G::NAME),
-            ("weight", short_type_name::<W>()),
+            ("k", crate::variant::const_usize_str::<K>()),
+            ("graph", crate::variant::short_type_name::<G>()),
+            ("weight", crate::variant::short_type_name::<W>()),
         ]
     }
 
-    type Size = i32;
-
-    fn num_variables(&self) -> usize {
-        self.graph.num_vertices()
+    fn dims(&self) -> Vec<usize> {
+        vec![K; self.graph.num_vertices()]
     }
 
-    fn num_flavors(&self) -> usize {
-        K
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vertices", self.graph.num_vertices()),
-            ("num_edges", self.graph.num_edges()),
-            ("num_colors", K),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        // For decision problem, we just want any valid coloring
-        // Size = 0 for valid, >0 for invalid (minimize)
-        EnergyMode::SmallerSizeIsBetter
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let is_valid = self.is_valid_coloring(config);
-        // Count conflicts
-        let mut conflicts = 0;
-        for (u, v) in self.graph.edges() {
-            let color_u = config.get(u).copied().unwrap_or(0);
-            let color_v = config.get(v).copied().unwrap_or(0);
-            if color_u == color_v {
-                conflicts += 1;
-            }
-        }
-        SolutionSize::new(conflicts, is_valid)
-    }
-}
-
-impl<const K: usize, G, W> ConstraintSatisfactionProblem for KColoring<K, G, W>
-where
-    G: Graph,
-    W: Clone + Default + 'static,
-{
-    fn constraints(&self) -> Vec<LocalConstraint> {
-        // For each edge, the two endpoints must have different colors
-        self.graph
-            .edges()
-            .iter()
-            .map(|&(u, v)| {
-                // Build spec: valid iff colors are different
-                let mut spec = vec![false; K * K];
-                for c1 in 0..K {
-                    for c2 in 0..K {
-                        spec[c1 * K + c2] = c1 != c2;
-                    }
-                }
-
-                LocalConstraint::new(K, vec![u, v], spec)
-            })
-            .collect()
-    }
-
-    fn objectives(&self) -> Vec<LocalSolutionSize<Self::Size>> {
-        // No objectives - this is a pure constraint satisfaction problem
-        vec![]
-    }
-
-    fn weights(&self) -> Vec<Self::Size> {
-        vec![]
-    }
-
-    fn set_weights(&mut self, _weights: Vec<Self::Size>) {}
-
-    fn is_weighted(&self) -> bool {
-        false
+    fn evaluate(&self, config: &[usize]) -> bool {
+        self.is_valid_coloring(config)
     }
 }
 

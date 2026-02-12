@@ -1,7 +1,6 @@
 [
   {
     "name": "BMF",
-    "category": "specialized",
     "description": "Boolean matrix factorization",
     "fields": [
       {
@@ -28,7 +27,6 @@
   },
   {
     "name": "BicliqueCover",
-    "category": "specialized",
     "description": "Cover bipartite edges with k bicliques",
     "fields": [
       {
@@ -55,7 +53,6 @@
   },
   {
     "name": "CircuitSAT",
-    "category": "satisfiability",
     "description": "Find satisfying input to a boolean circuit",
     "fields": [
       {
@@ -77,7 +74,6 @@
   },
   {
     "name": "Factoring",
-    "category": "specialized",
     "description": "Factor a composite integer into two factors",
     "fields": [
       {
@@ -99,7 +95,6 @@
   },
   {
     "name": "ILP",
-    "category": "optimization",
     "description": "Optimize linear objective subject to linear constraints",
     "fields": [
       {
@@ -131,7 +126,6 @@
   },
   {
     "name": "KColoring",
-    "category": "graph",
     "description": "Find valid k-coloring of a graph",
     "fields": [
       {
@@ -143,7 +137,6 @@
   },
   {
     "name": "KSatisfiability",
-    "category": "satisfiability",
     "description": "SAT with exactly k literals per clause",
     "fields": [
       {
@@ -155,17 +148,11 @@
         "name": "clauses",
         "type_name": "Vec<CNFClause>",
         "description": "Clauses each with exactly K literals"
-      },
-      {
-        "name": "weights",
-        "type_name": "Vec<W>",
-        "description": "Clause weights for MAX-K-SAT"
       }
     ]
   },
   {
     "name": "MaxCut",
-    "category": "graph",
     "description": "Find maximum weight cut in a graph",
     "fields": [
       {
@@ -182,7 +169,6 @@
   },
   {
     "name": "MaximalIS",
-    "category": "graph",
     "description": "Find maximum weight maximal independent set",
     "fields": [
       {
@@ -199,7 +185,6 @@
   },
   {
     "name": "MaximumClique",
-    "category": "graph",
     "description": "Find maximum weight clique in a graph",
     "fields": [
       {
@@ -216,7 +201,6 @@
   },
   {
     "name": "MaximumIndependentSet",
-    "category": "graph",
     "description": "Find maximum weight independent set in a graph",
     "fields": [
       {
@@ -233,7 +217,6 @@
   },
   {
     "name": "MaximumMatching",
-    "category": "graph",
     "description": "Find maximum weight matching in a graph",
     "fields": [
       {
@@ -250,7 +233,6 @@
   },
   {
     "name": "MaximumSetPacking",
-    "category": "set",
     "description": "Find maximum weight collection of disjoint sets",
     "fields": [
       {
@@ -267,7 +249,6 @@
   },
   {
     "name": "MinimumDominatingSet",
-    "category": "graph",
     "description": "Find minimum weight dominating set in a graph",
     "fields": [
       {
@@ -284,7 +265,6 @@
   },
   {
     "name": "MinimumSetCovering",
-    "category": "set",
     "description": "Find minimum weight collection covering the universe",
     "fields": [
       {
@@ -306,7 +286,6 @@
   },
   {
     "name": "MinimumVertexCover",
-    "category": "graph",
     "description": "Find minimum weight vertex cover in a graph",
     "fields": [
       {
@@ -323,7 +302,6 @@
   },
   {
     "name": "PaintShop",
-    "category": "specialized",
     "description": "Minimize color changes in paint shop sequence",
     "fields": [
       {
@@ -350,7 +328,6 @@
   },
   {
     "name": "QUBO",
-    "category": "optimization",
     "description": "Minimize quadratic unconstrained binary objective",
     "fields": [
       {
@@ -367,7 +344,6 @@
   },
   {
     "name": "Satisfiability",
-    "category": "satisfiability",
     "description": "Find satisfying assignment for CNF formula",
     "fields": [
       {
@@ -379,17 +355,11 @@
         "name": "clauses",
         "type_name": "Vec<CNFClause>",
         "description": "Clauses in conjunctive normal form"
-      },
-      {
-        "name": "weights",
-        "type_name": "Vec<W>",
-        "description": "Clause weights for MAX-SAT"
       }
     ]
   },
   {
     "name": "SpinGlass",
-    "category": "optimization",
     "description": "Minimize Ising Hamiltonian on a graph",
     "fields": [
       {

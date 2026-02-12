@@ -4,11 +4,13 @@
 //! and clearer separation of concerns.
 
 use crate::models::graph::{
-    is_independent_set, is_valid_coloring, is_vertex_cover, MaximumIndependentSet, KColoring,
+    is_independent_set, is_valid_coloring, is_vertex_cover, KColoring, MaximumIndependentSet,
     MinimumVertexCover,
 };
 use crate::prelude::*;
 use crate::topology::SimpleGraph;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 
 // =============================================================================
 // Independent Set Tests
@@ -19,11 +21,11 @@ mod maximum_independent_set {
 
     #[test]
     fn test_creation() {
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         assert_eq!(problem.num_vertices(), 4);
         assert_eq!(problem.num_edges(), 3);
         assert_eq!(problem.num_variables(), 4);
-        assert_eq!(problem.num_flavors(), 2);
     }
 
     #[test]
@@ -49,75 +51,50 @@ mod maximum_independent_set {
     }
 
     #[test]
-    fn test_solution_size_valid() {
+    fn test_evaluate_valid() {
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
 
         // Valid: select 0 and 2 (not adjacent)
-        let sol = problem.solution_size(&[1, 0, 1, 0]);
-        assert!(sol.is_valid);
-        assert_eq!(sol.size, 2);
+        assert_eq!(problem.evaluate(&[1, 0, 1, 0]), SolutionSize::Valid(2));
 
         // Valid: select 1 and 3 (not adjacent)
-        let sol = problem.solution_size(&[0, 1, 0, 1]);
-        assert!(sol.is_valid);
-        assert_eq!(sol.size, 2);
+        assert_eq!(problem.evaluate(&[0, 1, 0, 1]), SolutionSize::Valid(2));
     }
 
     #[test]
-    fn test_solution_size_invalid() {
+    fn test_evaluate_invalid() {
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
 
-        // Invalid: 0 and 1 are adjacent
-        let sol = problem.solution_size(&[1, 1, 0, 0]);
-        assert!(!sol.is_valid);
-        assert_eq!(sol.size, 2);
+        // Invalid: 0 and 1 are adjacent - returns Invalid
+        assert_eq!(problem.evaluate(&[1, 1, 0, 0]), SolutionSize::Invalid);
 
         // Invalid: 2 and 3 are adjacent
-        let sol = problem.solution_size(&[0, 0, 1, 1]);
-        assert!(!sol.is_valid);
+        assert_eq!(problem.evaluate(&[0, 0, 1, 1]), SolutionSize::Invalid);
     }
 
     #[test]
-    fn test_solution_size_empty() {
+    fn test_evaluate_empty() {
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-        let sol = problem.solution_size(&[0, 0, 0]);
-        assert!(sol.is_valid);
-        assert_eq!(sol.size, 0);
+        // Empty selection is valid with size 0
+        assert_eq!(problem.evaluate(&[0, 0, 0]), SolutionSize::Valid(0));
     }
 
     #[test]
-    fn test_weighted_solution() {
+    fn test_evaluate_weighted() {
         let problem = MaximumIndependentSet::with_weights(3, vec![(0, 1)], vec![10, 20, 30]);
 
         // Select vertex 2 (weight 30)
-        let sol = problem.solution_size(&[0, 0, 1]);
-        assert!(sol.is_valid);
-        assert_eq!(sol.size, 30);
+        assert_eq!(problem.evaluate(&[0, 0, 1]), SolutionSize::Valid(30));
 
         // Select vertices 0 and 2 (weights 10 + 30 = 40)
-        let sol = problem.solution_size(&[1, 0, 1]);
-        assert!(sol.is_valid);
-        assert_eq!(sol.size, 40);
-    }
-
-    #[test]
-    fn test_constraints() {
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-        let constraints = problem.constraints();
-        assert_eq!(constraints.len(), 2); // One per edge
-    }
-
-    #[test]
-    fn test_objectives() {
-        let problem = MaximumIndependentSet::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
-        let objectives = problem.objectives();
-        assert_eq!(objectives.len(), 3); // One per vertex
+        assert_eq!(problem.evaluate(&[1, 0, 1]), SolutionSize::Valid(40));
     }
 
     #[test]
     fn test_brute_force_triangle() {
         // Triangle graph: maximum IS has size 1
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -131,7 +108,8 @@ mod maximum_independent_set {
     #[test]
     fn test_brute_force_path() {
         // Path graph 0-1-2-3: maximum IS = {0,2} or {1,3} or {0,3}
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem =
+            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_best(&problem);
@@ -139,9 +117,8 @@ mod maximum_independent_set {
         for sol in &solutions {
             let size: usize = sol.iter().sum();
             assert_eq!(size, 2);
-            // Verify it's valid
-            let sol_result = problem.solution_size(sol);
-            assert!(sol_result.is_valid);
+            // Verify it's valid (evaluate returns Valid, not Invalid)
+            assert_eq!(problem.evaluate(sol), SolutionSize::Valid(2));
         }
     }
 
@@ -175,17 +152,9 @@ mod maximum_independent_set {
     }
 
     #[test]
-    fn test_problem_size() {
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3)]);
-        let size = problem.problem_size();
-        assert_eq!(size.get("num_vertices"), Some(5));
-        assert_eq!(size.get("num_edges"), Some(3));
-    }
-
-    #[test]
-    fn test_energy_mode() {
+    fn test_direction() {
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
-        assert!(problem.energy_mode().is_maximization());
+        assert_eq!(problem.direction(), Direction::Maximize);
     }
 
     #[test]
@@ -216,13 +185,15 @@ mod maximum_independent_set {
     }
 
     #[test]
-    fn test_is_satisfied() {
+    fn test_validity_via_evaluate() {
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
-        assert!(problem.is_satisfied(&[1, 0, 1])); // Valid IS
-        assert!(problem.is_satisfied(&[0, 1, 0])); // Valid IS
-        assert!(!problem.is_satisfied(&[1, 1, 0])); // Invalid: 0-1 adjacent
-        assert!(!problem.is_satisfied(&[0, 1, 1])); // Invalid: 1-2 adjacent
+        // Valid IS configurations return is_valid() == true
+        assert!(problem.evaluate(&[1, 0, 1]).is_valid());
+        assert!(problem.evaluate(&[0, 1, 0]).is_valid());
+        // Invalid configurations return Invalid
+        assert_eq!(problem.evaluate(&[1, 1, 0]), SolutionSize::Invalid);
+        assert_eq!(problem.evaluate(&[0, 1, 1]), SolutionSize::Invalid);
     }
 }
 
@@ -239,7 +210,6 @@ mod minimum_vertex_cover {
         assert_eq!(problem.num_vertices(), 4);
         assert_eq!(problem.num_edges(), 3);
         assert_eq!(problem.num_variables(), 4);
-        assert_eq!(problem.num_flavors(), 2);
     }
 
     #[test]
@@ -250,31 +220,25 @@ mod minimum_vertex_cover {
     }
 
     #[test]
-    fn test_solution_size_valid() {
+    fn test_evaluate_valid() {
         let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
         // Valid: select vertex 1 (covers both edges)
-        let sol = problem.solution_size(&[0, 1, 0]);
-        assert!(sol.is_valid);
-        assert_eq!(sol.size, 1);
+        assert_eq!(problem.evaluate(&[0, 1, 0]), SolutionSize::Valid(1));
 
         // Valid: select all vertices
-        let sol = problem.solution_size(&[1, 1, 1]);
-        assert!(sol.is_valid);
-        assert_eq!(sol.size, 3);
+        assert_eq!(problem.evaluate(&[1, 1, 1]), SolutionSize::Valid(3));
     }
 
     #[test]
-    fn test_solution_size_invalid() {
+    fn test_evaluate_invalid() {
         let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
-        // Invalid: no vertex selected
-        let sol = problem.solution_size(&[0, 0, 0]);
-        assert!(!sol.is_valid);
+        // Invalid: no vertex selected - returns Invalid for minimization
+        assert_eq!(problem.evaluate(&[0, 0, 0]), SolutionSize::Invalid);
 
         // Invalid: only vertex 0 selected (edge 1-2 not covered)
-        let sol = problem.solution_size(&[1, 0, 0]);
-        assert!(!sol.is_valid);
+        assert_eq!(problem.evaluate(&[1, 0, 0]), SolutionSize::Invalid);
     }
 
     #[test]
@@ -299,7 +263,8 @@ mod minimum_vertex_cover {
         assert_eq!(solutions.len(), 3);
         for sol in &solutions {
             assert_eq!(sol.iter().sum::<usize>(), 2);
-            assert!(problem.solution_size(sol).is_valid);
+            // Verify valid (not Invalid)
+            assert!(problem.evaluate(sol).is_valid());
         }
     }
 
@@ -332,16 +297,9 @@ mod minimum_vertex_cover {
     }
 
     #[test]
-    fn test_constraints() {
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-        let constraints = problem.constraints();
-        assert_eq!(constraints.len(), 2);
-    }
-
-    #[test]
-    fn test_energy_mode() {
+    fn test_direction() {
         let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
-        assert!(problem.energy_mode().is_minimization());
+        assert_eq!(problem.direction(), Direction::Minimize);
     }
 
     #[test]
@@ -366,13 +324,15 @@ mod minimum_vertex_cover {
     }
 
     #[test]
-    fn test_is_satisfied() {
+    fn test_validity_via_evaluate() {
         let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
-        assert!(problem.is_satisfied(&[0, 1, 0])); // Valid cover
-        assert!(problem.is_satisfied(&[1, 0, 1])); // Valid cover
-        assert!(!problem.is_satisfied(&[1, 0, 0])); // Edge 1-2 uncovered
-        assert!(!problem.is_satisfied(&[0, 0, 1])); // Edge 0-1 uncovered
+        // Valid cover configurations return is_valid() == true
+        assert!(problem.evaluate(&[0, 1, 0]).is_valid());
+        assert!(problem.evaluate(&[1, 0, 1]).is_valid());
+        // Invalid configurations return Invalid
+        assert_eq!(problem.evaluate(&[1, 0, 0]), SolutionSize::Invalid);
+        assert_eq!(problem.evaluate(&[0, 0, 1]), SolutionSize::Invalid);
     }
 
     #[test]
@@ -388,15 +348,9 @@ mod minimum_vertex_cover {
         for is_sol in &is_solutions {
             // Complement should be a valid vertex cover
             let vc_config: Vec<usize> = is_sol.iter().map(|&x| 1 - x).collect();
-            assert!(vc_problem.solution_size(&vc_config).is_valid);
+            // Valid cover returns is_valid() == true
+            assert!(vc_problem.evaluate(&vc_config).is_valid());
         }
-    }
-
-    #[test]
-    fn test_objectives() {
-        let problem = MinimumVertexCover::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
-        let objectives = problem.objectives();
-        assert_eq!(objectives.len(), 3);
     }
 
     #[test]
@@ -435,35 +389,24 @@ mod kcoloring {
         assert_eq!(problem.num_edges(), 3);
         assert_eq!(problem.num_colors(), 3);
         assert_eq!(problem.num_variables(), 4);
-        assert_eq!(problem.num_flavors(), 3);
     }
 
     #[test]
-    fn test_solution_size_valid() {
+    fn test_evaluate_valid() {
         let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
-        // Valid: different colors on adjacent vertices
-        let sol = problem.solution_size(&[0, 1, 0]);
-        assert!(sol.is_valid);
-        assert_eq!(sol.size, 0);
-
-        let sol = problem.solution_size(&[0, 1, 2]);
-        assert!(sol.is_valid);
-        assert_eq!(sol.size, 0);
+        // Valid: different colors on adjacent vertices - returns true
+        assert!(problem.evaluate(&[0, 1, 0]));
+        assert!(problem.evaluate(&[0, 1, 2]));
     }
 
     #[test]
-    fn test_solution_size_invalid() {
+    fn test_evaluate_invalid() {
         let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
         // Invalid: adjacent vertices have same color
-        let sol = problem.solution_size(&[0, 0, 1]);
-        assert!(!sol.is_valid);
-        assert_eq!(sol.size, 1); // 1 conflict
-
-        let sol = problem.solution_size(&[0, 0, 0]);
-        assert!(!sol.is_valid);
-        assert_eq!(sol.size, 2); // 2 conflicts
+        assert!(!problem.evaluate(&[0, 0, 1])); // 0-1 conflict
+        assert!(!problem.evaluate(&[0, 0, 0])); // Multiple conflicts
     }
 
     #[test]
@@ -472,10 +415,10 @@ mod kcoloring {
         let problem = KColoring::<2, SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
-        // All solutions should be valid (0 conflicts)
+        let solutions = solver.find_all_satisfying(&problem);
+        // All solutions should be valid
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            assert!(problem.evaluate(sol));
         }
     }
 
@@ -485,9 +428,9 @@ mod kcoloring {
         let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_satisfying(&problem);
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            assert!(problem.evaluate(sol));
             // All three vertices have different colors
             assert_ne!(sol[0], sol[1]);
             assert_ne!(sol[1], sol[2]);
@@ -496,30 +439,14 @@ mod kcoloring {
     }
 
     #[test]
-    fn test_triangle_2_colors() {
+    fn test_triangle_2_colors_unsat() {
         // Triangle cannot be 2-colored
         let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
-        // Best we can do is 1 conflict
-        for sol in &solutions {
-            assert!(!problem.solution_size(sol).is_valid);
-            assert_eq!(problem.solution_size(sol).size, 1);
-        }
-    }
-
-    #[test]
-    fn test_constraints() {
-        let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-        let constraints = problem.constraints();
-        assert_eq!(constraints.len(), 2); // One per edge
-    }
-
-    #[test]
-    fn test_energy_mode() {
-        let problem = KColoring::<2, SimpleGraph, i32>::new(2, vec![(0, 1)]);
-        assert!(problem.energy_mode().is_minimization());
+        // No satisfying assignments
+        let solution = solver.find_satisfying(&problem);
+        assert!(solution.is_none());
     }
 
     #[test]
@@ -539,9 +466,9 @@ mod kcoloring {
         let problem = KColoring::<1, SimpleGraph, i32>::new(3, vec![]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_satisfying(&problem);
         // Any coloring is valid when there are no edges
-        assert!(problem.solution_size(&solutions[0]).is_valid);
+        assert!(problem.evaluate(&solutions[0]));
     }
 
     #[test]
@@ -553,51 +480,9 @@ mod kcoloring {
         );
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_satisfying(&problem);
         for sol in &solutions {
-            assert!(problem.solution_size(sol).is_valid);
+            assert!(problem.evaluate(sol));
         }
-    }
-
-    #[test]
-    fn test_is_satisfied() {
-        let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-
-        assert!(problem.is_satisfied(&[0, 1, 0]));
-        assert!(problem.is_satisfied(&[0, 1, 2]));
-        assert!(!problem.is_satisfied(&[0, 0, 1]));
-    }
-
-    #[test]
-    fn test_problem_size() {
-        let problem = KColoring::<3, SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2)]);
-        let size = problem.problem_size();
-        assert_eq!(size.get("num_vertices"), Some(5));
-        assert_eq!(size.get("num_edges"), Some(2));
-        assert_eq!(size.get("num_colors"), Some(3));
-    }
-
-    #[test]
-    fn test_csp_methods() {
-        let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1)]);
-
-        // KColoring has no objectives (pure CSP)
-        let objectives = problem.objectives();
-        assert!(objectives.is_empty());
-
-        // KColoring has no weights
-        let weights: Vec<i32> = problem.weights();
-        assert!(weights.is_empty());
-
-        // is_weighted should return false
-        assert!(!problem.is_weighted());
-    }
-
-    #[test]
-    fn test_set_weights() {
-        let mut problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1)]);
-        // set_weights does nothing for KColoring
-        problem.set_weights(vec![1, 2, 3]);
-        assert!(!problem.is_weighted());
     }
 }

@@ -1,66 +1,65 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 
 #[test]
 fn test_kcoloring_creation() {
+    use crate::traits::Problem;
+
     let problem = KColoring::<3, SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.num_colors(), 3);
-    assert_eq!(problem.num_variables(), 4);
-    assert_eq!(problem.num_flavors(), 3);
+    assert_eq!(problem.dims(), vec![3, 3, 3, 3]);
 }
 
 #[test]
-fn test_solution_size_valid() {
+fn test_evaluate_valid() {
+    use crate::traits::Problem;
+
     let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
     // Valid: different colors on adjacent vertices
-    let sol = problem.solution_size(&[0, 1, 0]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0);
-
-    let sol = problem.solution_size(&[0, 1, 2]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0);
+    assert!(problem.evaluate(&[0, 1, 0]));
+    assert!(problem.evaluate(&[0, 1, 2]));
 }
 
 #[test]
-fn test_solution_size_invalid() {
+fn test_evaluate_invalid() {
+    use crate::traits::Problem;
+
     let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
     // Invalid: adjacent vertices have same color
-    let sol = problem.solution_size(&[0, 0, 1]);
-    assert!(!sol.is_valid);
-    assert_eq!(sol.size, 1); // 1 conflict
-
-    let sol = problem.solution_size(&[0, 0, 0]);
-    assert!(!sol.is_valid);
-    assert_eq!(sol.size, 2); // 2 conflicts
+    assert!(!problem.evaluate(&[0, 0, 1]));
+    assert!(!problem.evaluate(&[0, 0, 0]));
 }
 
 #[test]
 fn test_brute_force_path() {
+    use crate::traits::Problem;
+
     // Path graph can be 2-colored
     let problem = KColoring::<2, SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
-    // All solutions should be valid (0 conflicts)
+    let solutions = solver.find_all_satisfying(&problem);
+    // All solutions should be valid
     for sol in &solutions {
-        assert!(problem.solution_size(sol).is_valid);
+        assert!(problem.evaluate(sol));
     }
 }
 
 #[test]
 fn test_brute_force_triangle() {
+    use crate::traits::Problem;
+
     // Triangle needs 3 colors
     let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_satisfying(&problem);
     for sol in &solutions {
-        assert!(problem.solution_size(sol).is_valid);
+        assert!(problem.evaluate(sol));
         // All three vertices have different colors
         assert_ne!(sol[0], sol[1]);
         assert_ne!(sol[1], sol[2]);
@@ -74,25 +73,9 @@ fn test_triangle_2_colors() {
     let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
-    // Best we can do is 1 conflict
-    for sol in &solutions {
-        assert!(!problem.solution_size(sol).is_valid);
-        assert_eq!(problem.solution_size(sol).size, 1);
-    }
-}
-
-#[test]
-fn test_constraints() {
-    let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let constraints = problem.constraints();
-    assert_eq!(constraints.len(), 2); // One per edge
-}
-
-#[test]
-fn test_energy_mode() {
-    let problem = KColoring::<2, SimpleGraph, i32>::new(2, vec![(0, 1)]);
-    assert!(problem.energy_mode().is_minimization());
+    let solutions = solver.find_all_satisfying(&problem);
+    // No valid solutions
+    assert!(solutions.is_empty());
 }
 
 #[test]
@@ -109,16 +92,23 @@ fn test_is_valid_coloring_function() {
 
 #[test]
 fn test_empty_graph() {
+    use crate::traits::Problem;
+
     let problem = KColoring::<1, SimpleGraph, i32>::new(3, vec![]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_satisfying(&problem);
     // Any coloring is valid when there are no edges
-    assert!(problem.solution_size(&solutions[0]).is_valid);
+    assert!(!solutions.is_empty());
+    for sol in &solutions {
+        assert!(problem.evaluate(sol));
+    }
 }
 
 #[test]
 fn test_complete_graph_k4() {
+    use crate::traits::Problem;
+
     // K4 needs 4 colors
     let problem = KColoring::<4, SimpleGraph, i32>::new(
         4,
@@ -126,52 +116,10 @@ fn test_complete_graph_k4() {
     );
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_satisfying(&problem);
     for sol in &solutions {
-        assert!(problem.solution_size(sol).is_valid);
+        assert!(problem.evaluate(sol));
     }
-}
-
-#[test]
-fn test_is_satisfied() {
-    let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-
-    assert!(problem.is_satisfied(&[0, 1, 0]));
-    assert!(problem.is_satisfied(&[0, 1, 2]));
-    assert!(!problem.is_satisfied(&[0, 0, 1]));
-}
-
-#[test]
-fn test_problem_size() {
-    let problem = KColoring::<3, SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2)]);
-    let size = problem.problem_size();
-    assert_eq!(size.get("num_vertices"), Some(5));
-    assert_eq!(size.get("num_edges"), Some(2));
-    assert_eq!(size.get("num_colors"), Some(3));
-}
-
-#[test]
-fn test_csp_methods() {
-    let problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1)]);
-
-    // KColoring has no objectives (pure CSP)
-    let objectives = problem.objectives();
-    assert!(objectives.is_empty());
-
-    // KColoring has no weights
-    let weights: Vec<i32> = problem.weights();
-    assert!(weights.is_empty());
-
-    // is_weighted should return false
-    assert!(!problem.is_weighted());
-}
-
-#[test]
-fn test_set_weights() {
-    let mut problem = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1)]);
-    // set_weights does nothing for KColoring
-    problem.set_weights(vec![1, 2, 3]);
-    assert!(!problem.is_weighted());
 }
 
 #[test]
@@ -183,10 +131,14 @@ fn test_from_graph() {
 }
 
 #[test]
-fn test_variant() {
-    let v = KColoring::<3, SimpleGraph, i32>::variant();
-    assert_eq!(v.len(), 3);
-    assert_eq!(v[0], ("k", "3"));
-    assert_eq!(v[1], ("graph", "SimpleGraph"));
-    assert_eq!(v[2], ("weight", "i32"));
+fn test_kcoloring_problem() {
+    use crate::traits::Problem;
+
+    // Triangle graph with 3 colors
+    let p = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    assert_eq!(p.dims(), vec![3, 3, 3]);
+    // Valid: each vertex different color
+    assert!(p.evaluate(&[0, 1, 2]));
+    // Invalid: vertices 0 and 1 same color
+    assert!(!p.evaluate(&[0, 0, 1]));
 }

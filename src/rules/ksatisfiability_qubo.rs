@@ -18,19 +18,15 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-
 /// Result of reducing KSatisfiability to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionKSatToQUBO {
     target: QUBO<f64>,
     source_num_vars: usize,
-    source_size: ProblemSize,
 }
 
 impl ReductionResult for ReductionKSatToQUBO {
-    type Source = KSatisfiability<2, i32>;
+    type Source = KSatisfiability<2>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -39,14 +35,6 @@ impl ReductionResult for ReductionKSatToQUBO {
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution[..self.source_num_vars].to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -55,11 +43,10 @@ impl ReductionResult for ReductionKSatToQUBO {
 pub struct Reduction3SATToQUBO {
     target: QUBO<f64>,
     source_num_vars: usize,
-    source_size: ProblemSize,
 }
 
 impl ReductionResult for Reduction3SATToQUBO {
-    type Source = KSatisfiability<3, i32>;
+    type Source = KSatisfiability<3>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -68,14 +55,6 @@ impl ReductionResult for Reduction3SATToQUBO {
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution[..self.source_num_vars].to_vec()
-    }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
     }
 }
 
@@ -285,7 +264,11 @@ fn add_3sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32], aux_var: usize
 /// For K=3, uses Rosenberg quadratization with one auxiliary variable per clause.
 ///
 /// Returns (matrix, num_source_vars) where matrix is (n + aux) x (n + aux).
-fn build_qubo_matrix(num_vars: usize, clauses: &[crate::models::satisfiability::CNFClause], k: usize) -> Vec<Vec<f64>> {
+fn build_qubo_matrix(
+    num_vars: usize,
+    clauses: &[crate::models::satisfiability::CNFClause],
+    k: usize,
+) -> Vec<Vec<f64>> {
     match k {
         2 => {
             let mut matrix = vec![vec![0.0; num_vars]; num_vars];
@@ -311,7 +294,7 @@ fn build_qubo_matrix(num_vars: usize, clauses: &[crate::models::satisfiability::
 #[reduction(
     overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vars))]) }
 )]
-impl ReduceTo<QUBO<f64>> for KSatisfiability<2, i32> {
+impl ReduceTo<QUBO<f64>> for KSatisfiability<2> {
     type Result = ReductionKSatToQUBO;
 
     fn reduce_to(&self) -> Self::Result {
@@ -321,7 +304,6 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<2, i32> {
         ReductionKSatToQUBO {
             target: QUBO::from_matrix(matrix),
             source_num_vars: n,
-            source_size: self.problem_size(),
         }
     }
 }
@@ -331,7 +313,7 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<2, i32> {
         ("num_vars", poly!(num_vars) + poly!(num_clauses)),
     ]) }
 )]
-impl ReduceTo<QUBO<f64>> for KSatisfiability<3, i32> {
+impl ReduceTo<QUBO<f64>> for KSatisfiability<3> {
     type Result = Reduction3SATToQUBO;
 
     fn reduce_to(&self) -> Self::Result {
@@ -341,7 +323,6 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<3, i32> {
         Reduction3SATToQUBO {
             target: QUBO::from_matrix(matrix),
             source_num_vars: n,
-            source_size: self.problem_size(),
         }
     }
 }

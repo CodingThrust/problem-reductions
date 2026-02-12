@@ -1,5 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::traits::Problem;
+use crate::types::SolutionSize;
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -68,8 +70,7 @@ fn test_ilp_solution_equals_brute_force_chain() {
     assert_eq!(ilp_size, 2);
 
     // Verify the ILP solution is valid for the original problem
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid, "Extracted solution should be valid");
+    assert!(problem.evaluate(&extracted).is_valid(), "Extracted solution should be valid");
 }
 
 #[test]
@@ -92,8 +93,7 @@ fn test_ilp_solution_equals_brute_force_all_overlap() {
     assert_eq!(bf_size, 1);
     assert_eq!(ilp_size, 1);
 
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
+    assert!(problem.evaluate(&extracted).is_valid());
 }
 
 #[test]
@@ -112,14 +112,14 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let ilp_solver = ILPSolver::new();
 
     let bf_solutions = bf.find_best(&problem);
-    let bf_obj = problem.solution_size(&bf_solutions[0]).size;
+    let bf_obj = problem.evaluate(&bf_solutions[0]);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
-    let ilp_obj = problem.solution_size(&extracted).size;
+    let ilp_obj = problem.evaluate(&extracted);
 
-    assert_eq!(bf_obj, 6);
-    assert_eq!(ilp_obj, 6);
+    assert_eq!(bf_obj, SolutionSize::Valid(6));
+    assert_eq!(ilp_obj, SolutionSize::Valid(6));
 
     // Should select sets 1 and 2
     assert_eq!(extracted, vec![0, 1, 1]);
@@ -127,7 +127,8 @@ fn test_ilp_solution_equals_brute_force_weighted() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5], vec![6, 7]]);
+    let problem =
+        MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5], vec![6, 7]]);
     let reduction: ReductionSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
     // Test that extraction works correctly (1:1 mapping)
@@ -136,23 +137,19 @@ fn test_solution_extraction() {
     assert_eq!(extracted, vec![1, 0, 1, 0]);
 
     // Verify this is a valid packing (sets 0 and 2 are disjoint)
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
+    assert!(problem.evaluate(&extracted).is_valid());
 }
 
 #[test]
-fn test_source_and_target_size() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]);
+fn test_ilp_structure() {
+    let problem =
+        MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]);
     let reduction: ReductionSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let ilp = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-
-    assert_eq!(source_size.get("num_sets"), Some(4));
-
-    assert_eq!(target_size.get("num_vars"), Some(4));
+    assert_eq!(ilp.num_vars, 4);
     // 3 overlapping pairs: (0,1), (1,2), (2,3)
-    assert_eq!(target_size.get("num_constraints"), Some(3));
+    assert_eq!(ilp.constraints.len(), 3);
 }
 
 #[test]
@@ -171,9 +168,8 @@ fn test_disjoint_sets() {
     // All sets should be selected
     assert_eq!(extracted, vec![1, 1, 1, 1]);
 
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
-    assert_eq!(sol_result.size, 4);
+    assert!(problem.evaluate(&extracted).is_valid());
+    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(4));
 }
 
 #[test]
@@ -196,9 +192,8 @@ fn test_solve_reduced() {
         .solve_reduced(&problem)
         .expect("solve_reduced should work");
 
-    let sol_result = problem.solution_size(&solution);
-    assert!(sol_result.is_valid);
-    assert_eq!(sol_result.size, 2);
+    assert!(problem.evaluate(&solution).is_valid());
+    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(2));
 }
 
 #[test]
@@ -216,7 +211,6 @@ fn test_all_sets_overlap_pairwise() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
 
-    let sol_result = problem.solution_size(&extracted);
-    assert!(sol_result.is_valid);
-    assert_eq!(sol_result.size, 1);
+    assert!(problem.evaluate(&extracted).is_valid());
+    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
 }

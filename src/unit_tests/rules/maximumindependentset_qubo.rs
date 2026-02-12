@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::Problem;
 
 #[test]
 fn test_independentset_to_qubo_closed_loop() {
@@ -14,7 +15,7 @@ fn test_independentset_to_qubo_closed_loop() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(is.solution_size(&extracted).is_valid);
+        assert!(is.evaluate(&extracted).is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 2);
     }
 }
@@ -32,7 +33,7 @@ fn test_independentset_to_qubo_triangle() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(is.solution_size(&extracted).is_valid);
+        assert!(is.evaluate(&extracted).is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 1);
     }
 }
@@ -49,18 +50,17 @@ fn test_independentset_to_qubo_empty_graph() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(is.solution_size(&extracted).is_valid);
+        assert!(is.evaluate(&extracted).is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 3);
     }
 }
 
 #[test]
-fn test_independentset_to_qubo_sizes() {
+fn test_independentset_to_qubo_structure() {
     let is = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&is);
+    let qubo = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-    assert!(!source_size.components.is_empty());
-    assert!(!target_size.components.is_empty());
+    // QUBO should have same number of variables as vertices
+    assert_eq!(qubo.num_variables(), 4);
 }

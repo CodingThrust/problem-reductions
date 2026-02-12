@@ -9,19 +9,14 @@
 //!    - The OR-gadget is built recursively for multi-literal clauses
 
 use crate::models::graph::KColoring;
-use crate::topology::SimpleGraph;
 use crate::models::satisfiability::Satisfiability;
 use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::traits::Problem;
-use crate::types::ProblemSize;
-use num_traits::{Num, Zero};
+use crate::topology::SimpleGraph;
 use std::collections::HashMap;
-use std::marker::PhantomData;
-use std::ops::AddAssign;
 
 /// Helper struct for constructing the graph for the SAT to 3-Coloring reduction.
 struct SATColoringConstructor {
@@ -216,7 +211,7 @@ impl SATColoringConstructor {
 /// - Mappings from variable indices to vertex indices
 /// - Information about the source problem
 #[derive(Debug, Clone)]
-pub struct ReductionSATToColoring<W> {
+pub struct ReductionSATToColoring {
     /// The target KColoring problem.
     target: KColoring<3, SimpleGraph, i32>,
     /// Mapping from variable index (0-indexed) to positive literal vertex index.
@@ -227,17 +222,10 @@ pub struct ReductionSATToColoring<W> {
     num_source_variables: usize,
     /// Number of clauses in the source SAT problem.
     num_clauses: usize,
-    /// Size of the source problem.
-    source_size: ProblemSize,
-    /// Phantom data to tie this reduction to the source type's weight parameter.
-    _phantom: PhantomData<W>,
 }
 
-impl<W> ReductionResult for ReductionSATToColoring<W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + 'static,
-{
-    type Source = Satisfiability<W>;
+impl ReductionResult for ReductionSATToColoring {
+    type Source = Satisfiability;
     type Target = KColoring<3, SimpleGraph, i32>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -288,17 +276,9 @@ where
 
         assignment
     }
-
-    fn source_size(&self) -> ProblemSize {
-        self.source_size.clone()
-    }
-
-    fn target_size(&self) -> ProblemSize {
-        self.target.problem_size()
-    }
 }
 
-impl<W> ReductionSATToColoring<W> {
+impl ReductionSATToColoring {
     /// Get the number of clauses in the source SAT problem.
     pub fn num_clauses(&self) -> usize {
         self.num_clauses
@@ -316,7 +296,6 @@ impl<W> ReductionSATToColoring<W> {
 }
 
 #[reduction(
-    target_graph = "SimpleGraph",
     overhead = {
         ReductionOverhead::new(vec![
             // 2*num_vars + 3 (base) + 5*(num_literals - num_clauses) (OR gadgets)
@@ -325,11 +304,8 @@ impl<W> ReductionSATToColoring<W> {
         ])
     }
 )]
-impl<W> ReduceTo<KColoring<3, SimpleGraph, i32>> for Satisfiability<W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionSATToColoring<W>;
+impl ReduceTo<KColoring<3, SimpleGraph, i32>> for Satisfiability {
+    type Result = ReductionSATToColoring;
 
     fn reduce_to(&self) -> Self::Result {
         let mut constructor = SATColoringConstructor::new(self.num_vars());
@@ -347,8 +323,6 @@ where
             neg_vertices: constructor.neg_vertices,
             num_source_variables: self.num_vars(),
             num_clauses: self.num_clauses(),
-            source_size: self.problem_size(),
-            _phantom: PhantomData,
         }
     }
 }

@@ -6,15 +6,14 @@
 //! The goal is to minimize color switches between adjacent positions.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PaintShop",
-        category: "specialized",
         description: "Minimize color changes in paint shop sequence",
         fields: &[
             FieldInfo { name: "sequence_indices", type_name: "Vec<usize>", description: "Car sequence as indices" },
@@ -155,44 +154,38 @@ impl PaintShop {
     }
 }
 
-impl Problem for PaintShop {
-    const NAME: &'static str = "PaintShop";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
-    }
-
-    type Size = i32;
-
-    fn num_variables(&self) -> usize {
-        self.num_cars
-    }
-
-    fn num_flavors(&self) -> usize {
-        2 // Binary: color 0 or color 1
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_cars", self.num_cars),
-            ("sequence_length", self.sequence_indices.len()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::SmallerSizeIsBetter // Minimize color switches
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let switches = self.count_switches(config) as i32;
-        // All configurations are valid (no hard constraints)
-        SolutionSize::valid(switches)
-    }
-}
-
 /// Count color switches in a painted sequence.
 pub fn count_paint_switches(coloring: &[usize]) -> usize {
     coloring.windows(2).filter(|w| w[0] != w[1]).count()
+}
+
+impl Problem for PaintShop {
+    const NAME: &'static str = "PaintShop";
+    type Metric = SolutionSize<i32>;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.num_cars]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+        // All configurations are valid (no hard constraints).
+        SolutionSize::Valid(self.count_switches(config) as i32)
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", "i32"),
+        ]
+    }
+}
+
+impl OptimizationProblem for PaintShop {
+    type Value = i32;
+
+    fn direction(&self) -> Direction {
+        Direction::Minimize
+    }
 }
 
 #[cfg(test)]

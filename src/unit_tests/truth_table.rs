@@ -54,8 +54,7 @@ fn test_implies() {
 
 #[test]
 fn test_from_function() {
-    let majority =
-        TruthTable::from_function(3, |input| input.iter().filter(|&&b| b).count() >= 2);
+    let majority = TruthTable::from_function(3, |input| input.iter().filter(|&&b| b).count() >= 2);
     assert!(!majority.evaluate(&[false, false, false]));
     assert!(!majority.evaluate(&[true, false, false]));
     assert!(majority.evaluate(&[true, true, false]));

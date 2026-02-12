@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::Problem;
 
 #[test]
 fn test_kcoloring_to_qubo_closed_loop() {
@@ -14,7 +15,7 @@ fn test_kcoloring_to_qubo_closed_loop() {
     // All solutions should extract to valid colorings
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(kc.solution_size(&extracted).is_valid);
+        assert!(kc.evaluate(&extracted));
     }
 
     // Exactly 6 valid 3-colorings of K3
@@ -33,7 +34,7 @@ fn test_kcoloring_to_qubo_path() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(kc.solution_size(&extracted).is_valid);
+        assert!(kc.evaluate(&extracted));
     }
 
     // 2-coloring of path: 0,1,0 or 1,0,1 → 2 solutions
@@ -53,7 +54,7 @@ fn test_kcoloring_to_qubo_reversed_edges() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(kc.solution_size(&extracted).is_valid);
+        assert!(kc.evaluate(&extracted));
     }
 
     // Same as path graph: 2 valid 2-colorings
@@ -64,11 +65,6 @@ fn test_kcoloring_to_qubo_reversed_edges() {
 fn test_kcoloring_to_qubo_sizes() {
     let kc = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&kc);
-
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-    assert!(!source_size.components.is_empty());
-    assert!(!target_size.components.is_empty());
 
     // QUBO should have n*K = 3*3 = 9 variables
     assert_eq!(reduction.target_problem().num_variables(), 9);

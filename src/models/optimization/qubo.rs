@@ -3,15 +3,13 @@
 //! QUBO minimizes a quadratic function over binary variables.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "QUBO",
-        category: "optimization",
         description: "Minimize quadratic unconstrained binary objective",
         fields: &[
             FieldInfo { name: "num_vars", type_name: "usize", description: "Number of binary variables" },
@@ -114,47 +112,6 @@ impl<W: Clone + Default> QUBO<W> {
     }
 }
 
-impl<W> Problem for QUBO<W>
-where
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + std::ops::Mul<Output = W>
-        + 'static,
-{
-    const NAME: &'static str = "QUBO";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
-    }
-
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.num_vars
-    }
-
-    fn num_flavors(&self) -> usize {
-        2 // Binary
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![("num_vars", self.num_vars)])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::SmallerSizeIsBetter // Minimize
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let value = self.evaluate(config);
-        SolutionSize::valid(value)
-    }
-}
-
 impl<W> QUBO<W>
 where
     W: Clone + num_traits::Zero + std::ops::AddAssign + std::ops::Mul<Output = W>,
@@ -182,6 +139,56 @@ where
         }
 
         value
+    }
+}
+
+impl<W> Problem for QUBO<W>
+where
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + std::ops::Mul<Output = W>
+        + 'static,
+{
+    const NAME: &'static str = "QUBO";
+    type Metric = SolutionSize<W>;
+
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.num_vars]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
+        SolutionSize::Valid(self.evaluate(config))
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
+    }
+}
+
+impl<W> OptimizationProblem for QUBO<W>
+where
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + std::ops::Mul<Output = W>
+        + 'static,
+{
+    type Value = W;
+
+    fn direction(&self) -> Direction {
+        Direction::Minimize
     }
 }
 

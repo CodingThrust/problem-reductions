@@ -1,8 +1,46 @@
 use super::*;
 
 #[test]
+fn test_solution_size_valid() {
+    let size: SolutionSize<i32> = SolutionSize::Valid(42);
+    assert!(size.is_valid());
+    assert_eq!(size.size(), Some(&42));
+}
+
+#[test]
+fn test_solution_size_invalid() {
+    let size: SolutionSize<i32> = SolutionSize::Invalid;
+    assert!(!size.is_valid());
+    assert_eq!(size.size(), None);
+}
+
+#[test]
+fn test_solution_size_unwrap() {
+    let valid: SolutionSize<i32> = SolutionSize::Valid(10);
+    assert_eq!(valid.unwrap(), 10);
+}
+
+#[test]
+#[should_panic(expected = "called unwrap on Invalid")]
+fn test_solution_size_unwrap_panics() {
+    let invalid: SolutionSize<i32> = SolutionSize::Invalid;
+    invalid.unwrap();
+}
+
+#[test]
+fn test_solution_size_map() {
+    let valid: SolutionSize<i32> = SolutionSize::Valid(10);
+    let mapped = valid.map(|x| x * 2);
+    assert_eq!(mapped, SolutionSize::Valid(20));
+
+    let invalid: SolutionSize<i32> = SolutionSize::Invalid;
+    let mapped_invalid = invalid.map(|x| x * 2);
+    assert_eq!(mapped_invalid, SolutionSize::Invalid);
+}
+
+#[test]
 fn test_unweighted() {
-    let uw = Unweighted;
+    let uw = Unweighted(0);
     // Test get() method
     assert_eq!(uw.get(0), 1);
     assert_eq!(uw.get(100), 1);
@@ -17,49 +55,17 @@ fn test_unweighted() {
     let _uw4: Unweighted = Default::default();
 
     // Test PartialEq
-    assert_eq!(Unweighted, Unweighted);
+    assert_eq!(Unweighted(0), Unweighted(0));
 }
 
 #[test]
-fn test_energy_mode() {
-    let max_mode = EnergyMode::LargerSizeIsBetter;
-    let min_mode = EnergyMode::SmallerSizeIsBetter;
+fn test_direction() {
+    let max_dir = Direction::Maximize;
+    let min_dir = Direction::Minimize;
 
-    assert!(max_mode.is_maximization());
-    assert!(!max_mode.is_minimization());
-    assert!(!min_mode.is_maximization());
-    assert!(min_mode.is_minimization());
-
-    assert!(max_mode.is_better(&10, &5));
-    assert!(!max_mode.is_better(&5, &10));
-    assert!(min_mode.is_better(&5, &10));
-    assert!(!min_mode.is_better(&10, &5));
-
-    assert!(max_mode.is_better_or_equal(&10, &10));
-    assert!(min_mode.is_better_or_equal(&10, &10));
-}
-
-#[test]
-fn test_solution_size() {
-    let valid = SolutionSize::valid(42);
-    assert_eq!(valid.size, 42);
-    assert!(valid.is_valid);
-
-    let invalid = SolutionSize::invalid(0);
-    assert!(!invalid.is_valid);
-
-    let custom = SolutionSize::new(100, false);
-    assert_eq!(custom.size, 100);
-    assert!(!custom.is_valid);
-}
-
-#[test]
-fn test_solution_size_display() {
-    let valid = SolutionSize::valid(42);
-    assert_eq!(format!("{}", valid), "SolutionSize(42, valid)");
-
-    let invalid = SolutionSize::invalid(0);
-    assert_eq!(format!("{}", invalid), "SolutionSize(0, invalid)");
+    assert_eq!(max_dir, Direction::Maximize);
+    assert_eq!(min_dir, Direction::Minimize);
+    assert_ne!(max_dir, min_dir);
 }
 
 #[test]
@@ -83,45 +89,6 @@ fn test_problem_size_display() {
 }
 
 #[test]
-fn test_local_constraint() {
-    // Binary constraint on 2 variables: only (0,0) and (1,1) are valid
-    let constraint = LocalConstraint::new(2, vec![0, 1], vec![true, false, false, true]);
-
-    assert!(constraint.is_satisfied(&[0, 0]));
-    assert!(!constraint.is_satisfied(&[0, 1]));
-    assert!(!constraint.is_satisfied(&[1, 0]));
-    assert!(constraint.is_satisfied(&[1, 1]));
-    assert_eq!(constraint.num_variables(), 2);
-}
-
-#[test]
-fn test_local_constraint_out_of_bounds() {
-    let constraint = LocalConstraint::new(2, vec![5, 6], vec![true, false, false, true]);
-    // Test with config that doesn't have indices 5 and 6 - defaults to 0
-    assert!(constraint.is_satisfied(&[0, 0, 0]));
-}
-
-#[test]
-fn test_local_solution_size() {
-    // Binary objective on 1 variable: weight 0 for 0, weight 5 for 1
-    let objective = LocalSolutionSize::new(2, vec![0], vec![0, 5]);
-
-    assert_eq!(objective.evaluate(&[0]), 0);
-    assert_eq!(objective.evaluate(&[1]), 5);
-    assert_eq!(objective.num_variables(), 1);
-}
-
-#[test]
-fn test_local_solution_size_multi_variable() {
-    // Binary objective on 2 variables
-    let objective = LocalSolutionSize::new(2, vec![0, 1], vec![0, 1, 2, 3]);
-    assert_eq!(objective.evaluate(&[0, 0]), 0);
-    assert_eq!(objective.evaluate(&[0, 1]), 1);
-    assert_eq!(objective.evaluate(&[1, 0]), 2);
-    assert_eq!(objective.evaluate(&[1, 1]), 3);
-}
-
-#[test]
 fn test_numeric_weight_impls() {
     fn assert_numeric_weight<T: NumericWeight>() {}
 
@@ -129,4 +96,85 @@ fn test_numeric_weight_impls() {
     assert_numeric_weight::<f64>();
     assert_numeric_weight::<i64>();
     assert_numeric_weight::<f32>();
+}
+
+#[test]
+fn test_numeric_size_blanket_impl() {
+    fn assert_numeric_size<T: NumericSize>() {}
+    assert_numeric_size::<i32>();
+    assert_numeric_size::<i64>();
+    assert_numeric_size::<f64>();
+}
+
+#[test]
+fn test_unweighted_weights_trait() {
+    let w = Unweighted(5);
+    assert_eq!(w.len(), 5);
+    assert_eq!(w.weight(0), 1);
+    assert_eq!(w.weight(4), 1);
+    assert_eq!(Unweighted::NAME, "Unweighted");
+}
+
+#[test]
+fn test_vec_i32_weights_trait() {
+    let w = vec![3, 1, 4];
+    assert_eq!(w.len(), 3);
+    assert_eq!(w.weight(0), 3);
+    assert_eq!(w.weight(2), 4);
+    assert_eq!(<Vec<i32> as Weights>::NAME, "Weighted<i32>");
+}
+
+#[test]
+fn test_vec_f64_weights_trait() {
+    let w = vec![1.5, 2.5];
+    assert_eq!(w.len(), 2);
+    assert_eq!(w.weight(1), 2.5);
+    assert_eq!(<Vec<f64> as Weights>::NAME, "Weighted<f64>");
+}
+
+#[test]
+fn test_is_better_maximize_valid_vs_valid() {
+    // For maximization: larger is better
+    let a = SolutionSize::Valid(10);
+    let b = SolutionSize::Valid(5);
+    assert!(a.is_better(&b, Direction::Maximize));
+    assert!(!b.is_better(&a, Direction::Maximize));
+}
+
+#[test]
+fn test_is_better_minimize_valid_vs_valid() {
+    // For minimization: smaller is better
+    let a = SolutionSize::Valid(5);
+    let b = SolutionSize::Valid(10);
+    assert!(a.is_better(&b, Direction::Minimize));
+    assert!(!b.is_better(&a, Direction::Minimize));
+}
+
+#[test]
+fn test_is_better_valid_vs_invalid() {
+    // Valid is always better than invalid
+    let valid = SolutionSize::Valid(0);
+    let invalid: SolutionSize<i32> = SolutionSize::Invalid;
+    assert!(valid.is_better(&invalid, Direction::Maximize));
+    assert!(valid.is_better(&invalid, Direction::Minimize));
+    assert!(!invalid.is_better(&valid, Direction::Maximize));
+    assert!(!invalid.is_better(&valid, Direction::Minimize));
+}
+
+#[test]
+fn test_is_better_invalid_vs_invalid() {
+    // Neither invalid is better
+    let a: SolutionSize<i32> = SolutionSize::Invalid;
+    let b: SolutionSize<i32> = SolutionSize::Invalid;
+    assert!(!a.is_better(&b, Direction::Maximize));
+    assert!(!a.is_better(&b, Direction::Minimize));
+}
+
+#[test]
+fn test_is_better_equal_valid() {
+    // Equal values: neither is better
+    let a = SolutionSize::Valid(5);
+    let b = SolutionSize::Valid(5);
+    assert!(!a.is_better(&b, Direction::Maximize));
+    assert!(!a.is_better(&b, Direction::Minimize));
 }

@@ -5,16 +5,14 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumMatching",
-        category: "graph",
         description: "Find maximum weight matching in a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
@@ -178,6 +176,29 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
         }
         true
     }
+
+    /// Set new weights for the problem.
+    pub fn set_weights(&mut self, weights: Vec<W>) {
+        assert_eq!(weights.len(), self.graph.num_edges());
+        self.edge_weights = weights;
+    }
+
+    /// Get the weights for the problem.
+    pub fn weights(&self) -> Vec<W> {
+        self.edge_weights.clone()
+    }
+
+    /// Check if the problem has non-uniform weights.
+    pub fn is_weighted(&self) -> bool
+    where
+        W: PartialEq,
+    {
+        if self.edge_weights.is_empty() {
+            return false;
+        }
+        let first = &self.edge_weights[0];
+        !self.edge_weights.iter().all(|w| w == first)
+    }
 }
 
 impl<G, W> Problem for MaximumMatching<G, W>
@@ -192,34 +213,23 @@ where
         + 'static,
 {
     const NAME: &'static str = "MaximumMatching";
+    type Metric = SolutionSize<W>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", G::NAME), ("weight", short_type_name::<W>())]
+        vec![
+            ("graph", crate::variant::short_type_name::<G>()),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
     }
 
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.graph.num_edges() // Variables are edges
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.graph.num_edges()]
     }
 
-    fn num_flavors(&self) -> usize {
-        2 // Binary: edge in matching or not
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vertices", self.graph.num_vertices()),
-            ("num_edges", self.graph.num_edges()),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::LargerSizeIsBetter // Maximize matching weight
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let is_valid = self.is_valid_matching(config);
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
+        if !self.is_valid_matching(config) {
+            return SolutionSize::Invalid;
+        }
         let mut total = W::zero();
         for (idx, &selected) in config.iter().enumerate() {
             if selected == 1 {
@@ -228,11 +238,11 @@ where
                 }
             }
         }
-        SolutionSize::new(total, is_valid)
+        SolutionSize::Valid(total)
     }
 }
 
-impl<G, W> ConstraintSatisfactionProblem for MaximumMatching<G, W>
+impl<G, W> OptimizationProblem for MaximumMatching<G, W>
 where
     G: Graph,
     W: Clone
@@ -243,58 +253,10 @@ where
         + std::ops::AddAssign
         + 'static,
 {
-    fn constraints(&self) -> Vec<LocalConstraint> {
-        let v2e = self.vertex_to_edges();
-        let mut constraints = Vec::new();
+    type Value = W;
 
-        // For each vertex, at most one incident edge can be selected
-        for (_v, incident_edges) in v2e {
-            if incident_edges.len() < 2 {
-                continue; // No constraint needed for degree-0 or degree-1 vertices
-            }
-
-            let num_edges = incident_edges.len();
-            let num_configs = 2usize.pow(num_edges as u32);
-
-            // Valid if at most one edge is selected
-            let spec: Vec<bool> = (0..num_configs)
-                .map(|config_idx| {
-                    let count = (0..num_edges)
-                        .filter(|&i| (config_idx >> i) & 1 == 1)
-                        .count();
-                    count <= 1
-                })
-                .collect();
-
-            constraints.push(LocalConstraint::new(2, incident_edges, spec));
-        }
-
-        constraints
-    }
-
-    fn objectives(&self) -> Vec<LocalSolutionSize<Self::Size>> {
-        self.edge_weights
-            .iter()
-            .enumerate()
-            .map(|(i, w)| LocalSolutionSize::new(2, vec![i], vec![W::zero(), w.clone()]))
-            .collect()
-    }
-
-    fn weights(&self) -> Vec<Self::Size> {
-        self.edge_weights.clone()
-    }
-
-    fn set_weights(&mut self, weights: Vec<Self::Size>) {
-        assert_eq!(weights.len(), self.num_variables());
-        self.edge_weights = weights;
-    }
-
-    fn is_weighted(&self) -> bool {
-        if self.edge_weights.is_empty() {
-            return false;
-        }
-        let first = &self.edge_weights[0];
-        !self.edge_weights.iter().all(|w| w == first)
+    fn direction(&self) -> Direction {
+        Direction::Maximize
     }
 }
 

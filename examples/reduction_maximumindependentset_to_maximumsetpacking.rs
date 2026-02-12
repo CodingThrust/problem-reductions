@@ -1,26 +1,26 @@
-//! # Independent Set to Set Packing Reduction
-//!
-//! ## Mathematical Equivalence
-//! For each vertex v, create a set S_v of edges incident to v. Universe U = E.
-//! Selecting vertex v means selecting S_v. Independent vertices have disjoint
-//! incident edge sets, so IS maps to set packing with identical optimal value.
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
-//! - Source IS: max size 4
-//! - Target MaximumSetPacking: max packing 4
-//!
-//! ## Output
-//! Exports `docs/paper/examples/maximumindependentset_to_maximumsetpacking.json` and `maximumindependentset_to_maximumsetpacking.result.json`.
-//!
-//! See docs/paper/reductions.typ for the full reduction specification.
+// # Independent Set to Set Packing Reduction
+//
+// ## Mathematical Equivalence
+// For each vertex v, create a set S_v of edges incident to v. Universe U = E.
+// Selecting vertex v means selecting S_v. Independent vertices have disjoint
+// incident edge sets, so IS maps to set packing with identical optimal value.
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
+// - Source IS: max size 4
+// - Target MaximumSetPacking: max packing 4
+//
+// ## Output
+// Exports `docs/paper/examples/maximumindependentset_to_maximumsetpacking.json` and `maximumindependentset_to_maximumsetpacking.result.json`.
+//
+// See docs/paper/reductions.typ for the full reduction specification.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     println!("\n=== Independent Set -> Set Packing Reduction ===\n");
 
     // Petersen graph: 10 vertices, 15 edges, 3-regular
@@ -51,16 +51,16 @@ fn main() {
     let mut solutions = Vec::new();
     for (i, target_sol) in target_solutions.iter().enumerate() {
         let source_sol = reduction.extract_solution(target_sol);
-        let source_size = source.solution_size(&source_sol);
-        let target_size = target.solution_size(target_sol);
+        let source_size = source.evaluate(&source_sol);
+        let target_size = target.evaluate(target_sol);
 
         println!(
-            "  Solution {}: target={:?} (size={}), source={:?} (size={}, valid={})",
-            i, target_sol, target_size.size, source_sol, source_size.size, source_size.is_valid
+            "  Solution {}: target={:?} (size={:?}), source={:?} (size={:?}, valid={})",
+            i, target_sol, target_size, source_sol, source_size, source_size.is_valid()
         );
 
         assert!(
-            source_size.is_valid,
+            source_size.is_valid(),
             "Extracted source solution must be valid"
         );
 
@@ -73,11 +73,19 @@ fn main() {
     // Use the first solution for additional assertions
     let target_sol = &target_solutions[0];
     let source_sol = reduction.extract_solution(target_sol);
-    let source_size = source.solution_size(&source_sol);
-    let target_size = target.solution_size(target_sol);
+    let source_size = source.evaluate(&source_sol);
+    let target_size = target.evaluate(target_sol);
 
-    assert_eq!(source_size.size, 4, "IS on Petersen graph has optimal size 4");
-    assert_eq!(target_size.size, 4, "MaximumSetPacking should also have size 4");
+    assert_eq!(
+        source_size,
+        problemreductions::types::SolutionSize::Valid(4),
+        "IS on Petersen graph has optimal size 4"
+    );
+    assert_eq!(
+        target_size,
+        problemreductions::types::SolutionSize::Valid(4),
+        "MaximumSetPacking should also have size 4"
+    );
 
     // Export JSON
     let overhead = lookup_overhead("MaximumIndependentSet", "MaximumSetPacking")
@@ -105,8 +113,12 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "maximumindependentset_to_maximumsetpacking";
     write_example(name, &data, &results);
 
     println!("\nDone: IS(Petersen) optimal=4 maps to MaximumSetPacking optimal=4");
+}
+
+fn main() {
+    run()
 }

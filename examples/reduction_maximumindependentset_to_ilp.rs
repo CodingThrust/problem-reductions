@@ -1,25 +1,24 @@
-//! # Independent Set to ILP Reduction
-//!
-//! ## Mathematical Formulation
-//! Variables: x_v in {0,1} for each vertex v.
-//! Constraints: x_u + x_v <= 1 for each edge (u,v).
-//! Objective: maximize sum of w_v * x_v.
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
-//! - Source IS: max size 4
-//! - Target ILP: 10 binary variables, 15 constraints
-//!
-//! ## Output
-//! Exports `docs/paper/examples/maximumindependentset_to_ilp.json` and `maximumindependentset_to_ilp.result.json`.
+// # Independent Set to ILP Reduction
+//
+// ## Mathematical Formulation
+// Variables: x_v in {0,1} for each vertex v.
+// Constraints: x_u + x_v <= 1 for each edge (u,v).
+// Objective: maximize sum of w_v * x_v.
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
+// - Source IS: max size 4
+// - Target ILP: 10 binary variables, 15 constraints
+//
+// ## Output
+// Exports `docs/paper/examples/maximumindependentset_to_ilp.json` and `maximumindependentset_to_ilp.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use problemreductions::solvers::BruteForceFloat;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     // 1. Create IS instance: Petersen graph
     let (num_vertices, edges) = petersen();
     let is = MaximumIndependentSet::<SimpleGraph, i32>::new(num_vertices, edges.clone());
@@ -30,16 +29,23 @@ fn main() {
 
     // 3. Print transformation
     println!("\n=== Problem Transformation ===");
-    println!("Source: MaximumIndependentSet with {} variables", is.num_variables());
-    println!("Target: ILP with {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
+    println!(
+        "Source: MaximumIndependentSet with {} variables",
+        is.num_variables()
+    );
+    println!(
+        "Target: ILP with {} variables, {} constraints",
+        ilp.num_vars,
+        ilp.constraints.len()
+    );
 
-    // 4. Solve target ILP (uses BruteForceFloat since ILP has f64 objective)
+    // 4. Solve target ILP
     let solver = BruteForce::new();
-    let ilp_solutions = solver.find_best_float(ilp);
+    let ilp_solutions = solver.find_best(ilp);
     println!("\n=== Solution ===");
     println!("ILP solutions found: {}", ilp_solutions.len());
 
-    let ilp_solution = &ilp_solutions[0].0;
+    let ilp_solution = &ilp_solutions[0];
     println!("ILP solution: {:?}", ilp_solution);
 
     // 5. Extract source solution
@@ -47,17 +53,17 @@ fn main() {
     println!("Source IS solution: {:?}", is_solution);
 
     // 6. Verify
-    let size = is.solution_size(&is_solution);
-    println!("Solution valid: {}, size: {:?}", size.is_valid, size.size);
-    assert!(size.is_valid);
+    let size = is.evaluate(&is_solution);
+    println!("Solution size: {:?}", size);
+    assert!(size.is_valid()); // Valid solution
     println!("\nReduction verified successfully");
 
     // 7. Collect solutions and export JSON
     let mut solutions = Vec::new();
-    for (target_config, _score) in &ilp_solutions {
+    for target_config in &ilp_solutions {
         let source_sol = reduction.extract_solution(target_config);
-        let s = is.solution_size(&source_sol);
-        assert!(s.is_valid);
+        let s = is.evaluate(&source_sol);
+        assert!(s.is_valid()); // Valid solution
         solutions.push(SolutionPair {
             source_config: source_sol,
             target_config: target_config.clone(),
@@ -88,6 +94,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "maximumindependentset_to_ilp";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

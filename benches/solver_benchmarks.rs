@@ -1,14 +1,14 @@
 //! Benchmarks for the BruteForce solver on various problem types.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
-use std::hint::black_box;
 use problemreductions::models::graph::*;
-use problemreductions::topology::SimpleGraph;
 use problemreductions::models::optimization::*;
 use problemreductions::models::satisfiability::*;
 use problemreductions::models::set::*;
 use problemreductions::models::specialized::*;
 use problemreductions::prelude::*;
+use problemreductions::topology::SimpleGraph;
+use std::hint::black_box;
 
 /// Benchmark MaximumIndependentSet on graphs of varying sizes.
 fn bench_independent_set(c: &mut Criterion) {
@@ -78,11 +78,11 @@ fn bench_satisfiability(c: &mut Criterion) {
             })
             .collect();
 
-        let problem = Satisfiability::<i32>::new(*num_vars, clauses);
+        let problem = Satisfiability::new(*num_vars, clauses);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("3-sat", num_vars), num_vars, |b, _| {
-            b.iter(|| solver.find_best(black_box(&problem)))
+            b.iter(|| solver.find_all_satisfying(black_box(&problem)))
         });
     }
 
@@ -90,7 +90,7 @@ fn bench_satisfiability(c: &mut Criterion) {
 }
 
 /// Benchmark SpinGlass on varying sizes.
-#[allow(clippy::manual_is_multiple_of)] // Type inference issues with is_multiple_of
+#[allow(unknown_lints, clippy::manual_is_multiple_of)] // Type inference issues with is_multiple_of
 fn bench_spin_glass(c: &mut Criterion) {
     let mut group = c.benchmark_group("SpinGlass");
 
@@ -142,7 +142,7 @@ fn bench_coloring(c: &mut Criterion) {
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path_3colors", n), n, |b, _| {
-            b.iter(|| solver.find_best(black_box(&problem)))
+            b.iter(|| solver.find_all_satisfying(black_box(&problem)))
         });
     }
 
@@ -194,13 +194,14 @@ fn bench_comparison(c: &mut Criterion) {
     let solver = BruteForce::new();
 
     // MaximumIndependentSet with 8 vertices
-    let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]);
+    let is_problem =
+        MaximumIndependentSet::<SimpleGraph, i32>::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]);
     group.bench_function("MaximumIndependentSet", |b| {
         b.iter(|| solver.find_best(black_box(&is_problem)))
     });
 
     // SAT with 8 variables
-    let sat_problem = Satisfiability::<i32>::new(
+    let sat_problem = Satisfiability::new(
         8,
         vec![
             CNFClause::new(vec![1, 2, 3]),
@@ -210,7 +211,7 @@ fn bench_comparison(c: &mut Criterion) {
         ],
     );
     group.bench_function("Satisfiability", |b| {
-        b.iter(|| solver.find_best(black_box(&sat_problem)))
+        b.iter(|| solver.find_all_satisfying(black_box(&sat_problem)))
     });
 
     // SpinGlass with 8 spins

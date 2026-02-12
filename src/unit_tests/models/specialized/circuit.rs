@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
+use crate::traits::Problem;
 
 #[test]
 fn test_boolean_expr_var() {
@@ -122,11 +123,11 @@ fn test_circuit_sat_creation() {
     )]);
     let problem = CircuitSAT::<i32>::new(circuit);
     assert_eq!(problem.num_variables(), 3); // c, x, y
-    assert_eq!(problem.num_flavors(), 2);
+    assert_eq!(problem.dims(), vec![2, 2, 2]); // binary variables
 }
 
 #[test]
-fn test_circuit_sat_solution_size() {
+fn test_circuit_sat_evaluate() {
     // c = x AND y
     let circuit = Circuit::new(vec![Assignment::new(
         vec!["c".to_string()],
@@ -136,19 +137,13 @@ fn test_circuit_sat_solution_size() {
 
     // Variables sorted: c, x, y
     // c=1, x=1, y=1 -> c = 1 AND 1 = 1, valid
-    let sol = problem.solution_size(&[1, 1, 1]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 1);
+    assert!(problem.evaluate(&[1, 1, 1]));
 
     // c=0, x=0, y=0 -> c = 0 AND 0 = 0, valid
-    let sol = problem.solution_size(&[0, 0, 0]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 1);
+    assert!(problem.evaluate(&[0, 0, 0]));
 
     // c=1, x=0, y=0 -> c should be 0, but c=1, invalid
-    let sol = problem.solution_size(&[1, 0, 0]);
-    assert!(!sol.is_valid);
-    assert_eq!(sol.size, 0);
+    assert!(!problem.evaluate(&[1, 0, 0]));
 }
 
 #[test]
@@ -161,12 +156,12 @@ fn test_circuit_sat_brute_force() {
     let problem = CircuitSAT::<i32>::new(circuit);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_satisfying(&problem);
     // All satisfying: c matches x AND y
     // 4 valid configs: (0,0,0), (0,0,1), (0,1,0), (1,1,1)
     assert_eq!(solutions.len(), 4);
     for sol in &solutions {
-        assert!(problem.solution_size(sol).is_valid);
+        assert!(problem.evaluate(sol));
     }
 }
 
@@ -187,12 +182,10 @@ fn test_circuit_sat_complex() {
     let problem = CircuitSAT::<i32>::new(circuit);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_satisfying(&problem);
     // All valid solutions satisfy both assignments
     for sol in &solutions {
-        let sol_size = problem.solution_size(sol);
-        assert!(sol_size.is_valid);
-        assert_eq!(sol_size.size, 2);
+        assert!(problem.evaluate(sol));
     }
 }
 
@@ -214,57 +207,31 @@ fn test_is_circuit_satisfying() {
 }
 
 #[test]
-fn test_problem_size() {
-    let circuit = Circuit::new(vec![
-        Assignment::new(vec!["c".to_string()], BooleanExpr::var("x")),
-        Assignment::new(vec!["d".to_string()], BooleanExpr::var("y")),
-    ]);
-    let problem = CircuitSAT::<i32>::new(circuit);
-    let size = problem.problem_size();
-    assert_eq!(size.get("num_variables"), Some(4));
-    assert_eq!(size.get("num_assignments"), Some(2));
-}
-
-#[test]
-fn test_energy_mode() {
-    let circuit = Circuit::new(vec![]);
-    let problem = CircuitSAT::<i32>::new(circuit);
-    assert!(problem.energy_mode().is_maximization());
-}
-
-#[test]
 fn test_empty_circuit() {
     let circuit = Circuit::new(vec![]);
     let problem = CircuitSAT::<i32>::new(circuit);
-    let sol = problem.solution_size(&[]);
-    assert!(sol.is_valid);
-    assert_eq!(sol.size, 0);
+    // Empty circuit is trivially satisfied
+    assert!(problem.evaluate(&[]));
 }
 
 #[test]
-fn test_weighted_circuit_sat() {
-    let circuit = Circuit::new(vec![
-        Assignment::new(vec!["c".to_string()], BooleanExpr::var("x")),
-        Assignment::new(vec!["d".to_string()], BooleanExpr::var("y")),
-    ]);
-    let problem = CircuitSAT::with_weights(circuit, vec![10, 1]);
+fn test_circuit_sat_problem() {
+    use crate::traits::Problem;
 
-    // Variables sorted: c, d, x, y
-    // Config [1, 0, 1, 0]: c=1, d=0, x=1, y=0
-    // c=x (1=1) satisfied (weight 10), d=y (0=0) satisfied (weight 1)
-    let sol = problem.solution_size(&[1, 0, 1, 0]);
-    assert_eq!(sol.size, 11); // Both satisfied: 10 + 1
-    assert!(sol.is_valid);
+    // c = x AND y
+    let circuit = Circuit::new(vec![Assignment::new(
+        vec!["c".to_string()],
+        BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+    )]);
+    let p = CircuitSAT::<i32>::new(circuit);
 
-    // Config [1, 0, 0, 0]: c=1, d=0, x=0, y=0
-    // c=x (1!=0) not satisfied, d=y (0=0) satisfied (weight 1)
-    let sol = problem.solution_size(&[1, 0, 0, 0]);
-    assert_eq!(sol.size, 1); // Only d=y satisfied
-    assert!(!sol.is_valid);
+    // Variables sorted: c, x, y
+    assert_eq!(p.dims(), vec![2, 2, 2]);
 
-    // Config [0, 1, 0, 0]: c=0, d=1, x=0, y=0
-    // c=x (0=0) satisfied (weight 10), d=y (1!=0) not satisfied
-    let sol = problem.solution_size(&[0, 1, 0, 0]);
-    assert_eq!(sol.size, 10); // Only c=x satisfied
-    assert!(!sol.is_valid);
+    // c=1, x=1, y=1: c = 1 AND 1 = 1 => satisfied
+    assert!(p.evaluate(&[1, 1, 1]));
+    // c=0, x=0, y=0: c = 0 AND 0 = 0 => satisfied (c=0 matches)
+    assert!(p.evaluate(&[0, 0, 0]));
+    // c=1, x=1, y=0: c = 1 AND 0 = 0 != 1 => not satisfied
+    assert!(!p.evaluate(&[1, 1, 0]));
 }

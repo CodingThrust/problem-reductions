@@ -4,9 +4,8 @@
 ///
 /// This macro generates tests for:
 /// - Problem creation
-/// - Solution validity
+/// - Solution evaluation
 /// - Brute force solving (for small instances)
-/// - CSP interface
 /// - Metadata (if ProblemMetadata is implemented)
 ///
 /// # Example
@@ -19,9 +18,8 @@
 ///
 /// graph_problem_tests! {
 ///     problem_type: MaximumIndependentSet<SimpleGraph, i32>,
-///     constraint_type: MaximumIndependentSet<SimpleGraph, i32>,
 ///     test_cases: [
-///         // (name, num_vertices, edges, valid_solution, expected_size, is_maximization)
+///         // (name, num_vertices, edges, valid_solution, expected_value, is_maximization)
 ///         (triangle, 3, [(0, 1), (1, 2), (0, 2)], [1, 0, 0], 1, true),
 ///         (path3, 3, [(0, 1), (1, 2)], [1, 0, 1], 2, true),
 ///     ]
@@ -31,7 +29,6 @@
 macro_rules! graph_problem_tests {
     (
         problem_type: $problem:ty,
-        constraint_type: $constraint:ty,
         test_cases: [
             $(
                 ($name:ident, $n:expr, [$($edge:expr),*], [$($sol:expr),*], $size:expr, $is_max:expr)
@@ -42,6 +39,7 @@ macro_rules! graph_problem_tests {
             use super::*;
             use $crate::prelude::*;
             use $crate::registry::ProblemMetadata;
+            use $crate::types::Direction;
 
             $(
                 mod $name {
@@ -55,47 +53,24 @@ macro_rules! graph_problem_tests {
                     fn test_creation() {
                         let problem = create_problem();
                         assert_eq!(problem.num_variables(), $n);
-                        assert_eq!(problem.num_flavors(), 2);
                     }
 
                     #[test]
-                    fn test_solution_validity() {
+                    fn test_solution_evaluation() {
                         let problem = create_problem();
                         let solution = vec![$($sol),*];
-                        let result = problem.solution_size(&solution);
-                        assert!(result.is_valid, "Solution should be valid");
-                        assert_eq!(result.size, $size, "Solution size mismatch");
+                        let value = problem.evaluate(&solution);
+                        assert_eq!(value, $size, "Solution value mismatch");
                     }
 
                     #[test]
-                    fn test_energy_mode() {
+                    fn test_direction() {
                         let problem = create_problem();
                         if $is_max {
-                            assert!(problem.energy_mode().is_maximization());
+                            assert_eq!(problem.direction(), Direction::Maximize);
                         } else {
-                            assert!(problem.energy_mode().is_minimization());
+                            assert_eq!(problem.direction(), Direction::Minimize);
                         }
-                    }
-
-                    #[test]
-                    fn test_csp_interface() {
-                        let problem = create_problem();
-                        let solution = vec![$($sol),*];
-
-                        // Check constraints are generated
-                        let constraints = problem.constraints();
-                        let edge_count = vec![$($edge),*].len();
-                        assert_eq!(constraints.len(), edge_count);
-
-                        // Check objectives are generated
-                        let objectives = problem.objectives();
-                        assert_eq!(objectives.len(), $n);
-
-                        // Check is_satisfied matches solution_size validity
-                        assert_eq!(
-                            problem.is_satisfied(&solution),
-                            problem.solution_size(&solution).is_valid
-                        );
                     }
 
                     #[test]
@@ -105,16 +80,11 @@ macro_rules! graph_problem_tests {
                             let solver = BruteForce::new();
                             let solutions = solver.find_best(&problem);
 
-                            // All solutions should be valid
-                            for sol in &solutions {
-                                assert!(problem.solution_size(sol).is_valid);
-                            }
-
-                            // All solutions should have the same (optimal) size
+                            // All solutions should have the same (optimal) value
                             if solutions.len() > 1 {
-                                let first_size = problem.solution_size(&solutions[0]).size;
+                                let first_value = problem.evaluate(&solutions[0]);
                                 for sol in &solutions[1..] {
-                                    assert_eq!(problem.solution_size(sol).size, first_size);
+                                    assert_eq!(problem.evaluate(sol), first_value);
                                 }
                             }
                         }
@@ -136,6 +106,9 @@ macro_rules! graph_problem_tests {
 }
 
 /// Generate tests for verifying complement relationships between problems.
+///
+/// For complement problems (like MIS and MVC), the optimal solutions are complements
+/// of each other: if S is a maximum independent set, then V-S is a minimum vertex cover.
 ///
 /// # Example
 ///
@@ -180,7 +153,7 @@ macro_rules! complement_test {
                     let solutions_a = solver.find_best(&problem_a);
                     let solutions_b = solver.find_best(&problem_b);
 
-                    // Get optimal sizes
+                    // Get optimal sizes (count of selected vertices)
                     let size_a: usize = solutions_a[0].iter().sum();
                     let size_b: usize = solutions_b[0].iter().sum();
 
@@ -193,10 +166,12 @@ macro_rules! complement_test {
                     );
 
                     // Verify that complement of solution_a is valid for problem_b
+                    // (i.e., evaluates to a valid value, is_valid() returns true)
                     for sol_a in &solutions_a {
                         let complement: Vec<usize> = sol_a.iter().map(|&x| 1 - x).collect();
+                        let value = problem_b.evaluate(&complement);
                         assert!(
-                            problem_b.solution_size(&complement).is_valid,
+                            value.is_valid(),
                             "Complement of A solution should be valid for B"
                         );
                     }
@@ -208,6 +183,9 @@ macro_rules! complement_test {
 
 /// Quick test for a single problem instance.
 ///
+/// For maximization problems, invalid solutions evaluate to i32::MIN.
+/// For minimization problems, invalid solutions evaluate to i32::MAX.
+///
 /// # Example
 ///
 /// ```text
@@ -215,12 +193,22 @@ macro_rules! complement_test {
 /// use problemreductions::quick_problem_test;
 /// use problemreductions::prelude::MaximumIndependentSet;
 ///
+/// // Test a valid solution (is_max=true means maximization problem)
 /// quick_problem_test!(
 ///     MaximumIndependentSet,
 ///     new(3, vec![(0, 1), (1, 2)]),
 ///     solution: [1, 0, 1],
-///     expected_size: 2,
-///     is_valid: true
+///     expected_value: 2,
+///     is_max: true
+/// );
+///
+/// // Test an invalid solution (adjacent vertices selected)
+/// quick_problem_test!(
+///     MaximumIndependentSet,
+///     new(3, vec![(0, 1), (1, 2)]),
+///     solution: [1, 1, 0],
+///     expected_value: i32::MIN,
+///     is_max: true
 /// );
 /// ```
 #[macro_export]
@@ -229,15 +217,14 @@ macro_rules! quick_problem_test {
         $problem_type:ty,
         $constructor:ident($($args:expr),*),
         solution: [$($sol:expr),*],
-        expected_size: $size:expr,
-        is_valid: $valid:expr
+        expected_value: $value:expr,
+        is_max: $is_max:expr
     ) => {
         {
             let problem = <$problem_type>::$constructor($($args),*);
             let solution = vec![$($sol),*];
-            let result = problem.solution_size(&solution);
-            assert_eq!(result.size, $size);
-            assert_eq!(result.is_valid, $valid);
+            let result = problem.evaluate(&solution);
+            assert_eq!(result, $value);
         }
     };
 }

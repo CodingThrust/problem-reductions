@@ -36,8 +36,8 @@ fn test_problem_info_versions() {
     assert!(decision_only.decision_version);
     assert!(!decision_only.optimization_version);
 
-    let opt_only = ProblemInfo::new("Optimization Problem", "An optimization problem")
-        .with_decision(false);
+    let opt_only =
+        ProblemInfo::new("Optimization Problem", "An optimization problem").with_decision(false);
     assert!(!opt_only.decision_version);
     assert!(opt_only.optimization_version);
 }
@@ -45,8 +45,16 @@ fn test_problem_info_versions() {
 #[test]
 fn test_problem_info_with_fields() {
     const FIELDS: &[FieldInfo] = &[
-        FieldInfo { name: "graph", type_name: "G", description: "The graph" },
-        FieldInfo { name: "weights", type_name: "Vec<W>", description: "Vertex weights" },
+        FieldInfo {
+            name: "graph",
+            type_name: "G",
+            description: "The graph",
+        },
+        FieldInfo {
+            name: "weights",
+            type_name: "Vec<W>",
+            description: "Vertex weights",
+        },
     ];
     let info = ProblemInfo::new("Test", "Test problem").with_fields(FIELDS);
     assert_eq!(info.fields.len(), 2);

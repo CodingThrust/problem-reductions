@@ -1,22 +1,22 @@
-//! # Factoring to Circuit-SAT Reduction
-//!
-//! ## Mathematical Equivalence
-//! Builds an array multiplier circuit for p * q = N. The circuit is satisfiable
-//! iff N can be factored within the given bit bounds.
-//!
-//! ## This Example
-//! - Instance: Factor 35 = 5 × 7 (m=3 bits, n=3 bits)
-//! - Reference: Based on ProblemReductions.jl factoring example
-//! - Source: Factoring(3, 3, 35)
-//! - Target: CircuitSAT
-//!
-//! We solve the source Factoring problem directly with BruteForce (only 6 binary
-//! variables), then verify the reduction produces a valid CircuitSAT encoding by
-//! simulating the circuit forward from a known factorization to build a complete
-//! satisfying assignment.
-//!
-//! ## Output
-//! Exports `docs/paper/examples/factoring_to_circuitsat.json` and `factoring_to_circuitsat.result.json`.
+// # Factoring to Circuit-SAT Reduction
+//
+// ## Mathematical Equivalence
+// Builds an array multiplier circuit for p * q = N. The circuit is satisfiable
+// iff N can be factored within the given bit bounds.
+//
+// ## This Example
+// - Instance: Factor 35 = 5 × 7 (m=3 bits, n=3 bits)
+// - Reference: Based on ProblemReductions.jl factoring example
+// - Source: Factoring(3, 3, 35)
+// - Target: CircuitSAT
+//
+// We solve the source Factoring problem directly with BruteForce (only 6 binary
+// variables), then verify the reduction produces a valid CircuitSAT encoding by
+// simulating the circuit forward from a known factorization to build a complete
+// satisfying assignment.
+//
+// ## Output
+// Exports `docs/paper/examples/factoring_to_circuitsat.json` and `factoring_to_circuitsat.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::models::specialized::Circuit;
@@ -39,7 +39,7 @@ fn simulate_circuit(
     values
 }
 
-fn main() {
+pub fn run() {
     // 1. Create Factoring instance: factor 35 with 3-bit factors
     //    Possible: 5*7=35 or 7*5=35
     let factoring = Factoring::new(3, 3, 35);
@@ -90,7 +90,10 @@ fn main() {
     println!("\n=== Forward Simulation Verification ===");
     println!(
         "Known factorization: {} * {} = {} (bits: {:?})",
-        a, b, a * b, factoring_sol
+        a,
+        b,
+        a * b,
+        factoring_sol
     );
 
     // Set input variables: p1..p3 for first factor, q1..q3 for second factor
@@ -98,7 +101,11 @@ fn main() {
     for (i, &bit) in factoring_sol.iter().enumerate().take(factoring.m()) {
         input_values.insert(format!("p{}", i + 1), bit == 1);
     }
-    for (i, &bit) in factoring_sol[factoring.m()..].iter().enumerate().take(factoring.n()) {
+    for (i, &bit) in factoring_sol[factoring.m()..]
+        .iter()
+        .enumerate()
+        .take(factoring.n())
+    {
         input_values.insert(format!("q{}", i + 1), bit == 1);
     }
     println!("Input variables: {:?}", input_values);
@@ -120,10 +127,10 @@ fn main() {
         .collect();
 
     // Verify the circuit is satisfied
-    let circuit_size = circuit_sat.solution_size(&circuit_config);
-    println!("Circuit satisfied: {}", circuit_size.is_valid);
+    let circuit_satisfied = circuit_sat.evaluate(&circuit_config);
+    println!("Circuit satisfied: {}", circuit_satisfied);
     assert!(
-        circuit_size.is_valid,
+        circuit_satisfied,
         "Forward-simulated circuit assignment must satisfy all gates"
     );
 
@@ -132,10 +139,17 @@ fn main() {
     println!("Extracted factoring solution: {:?}", extracted);
     let (ea, eb) = factoring.read_factors(&extracted);
     println!("Extracted factors: {} * {} = {}", ea, eb, ea * eb);
-    assert_eq!(ea * eb, factoring.target(), "Round-trip must preserve factorization");
+    assert_eq!(
+        ea * eb,
+        factoring.target(),
+        "Round-trip must preserve factorization"
+    );
 
     // 5. Verify all factoring solutions can be simulated through the circuit
-    println!("\nVerifying all {} factoring solutions through circuit:", factoring_solutions.len());
+    println!(
+        "\nVerifying all {} factoring solutions through circuit:",
+        factoring_solutions.len()
+    );
     let mut solutions = Vec::new();
     for sol in &factoring_solutions {
         let (fa, fb) = factoring.read_factors(sol);
@@ -149,11 +163,23 @@ fn main() {
         let vals = simulate_circuit(circuit_sat.circuit(), &inputs);
         let config: Vec<usize> = var_names
             .iter()
-            .map(|name| if *vals.get(name).unwrap_or(&false) { 1 } else { 0 })
+            .map(|name| {
+                if *vals.get(name).unwrap_or(&false) {
+                    1
+                } else {
+                    0
+                }
+            })
             .collect();
-        let sz = circuit_sat.solution_size(&config);
-        println!("  {} * {} = {}: circuit satisfied = {}", fa, fb, fa * fb, sz.is_valid);
-        assert!(sz.is_valid);
+        let satisfied = circuit_sat.evaluate(&config);
+        println!(
+            "  {} * {} = {}: circuit satisfied = {}",
+            fa,
+            fb,
+            fa * fb,
+            satisfied
+        );
+        assert!(satisfied);
 
         solutions.push(SolutionPair {
             source_config: sol.clone(),
@@ -189,6 +215,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "factoring_to_circuitsat";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

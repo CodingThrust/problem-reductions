@@ -1,27 +1,27 @@
-//! # Spin Glass to QUBO Reduction
-//!
-//! ## Mathematical Equivalence
-//! The substitution s_i = 2x_i - 1 transforms Ising spins s in {-1,+1} to binary
-//! variables x in {0,1}. Expanding the Ising Hamiltonian H(s) under this substitution
-//! yields a QUBO objective Q(x) plus a constant offset.
-//!
-//! ## This Example
-//! - Instance: Petersen graph with 10 spins, 15 frustrated ±1 couplings, zero fields
-//! - Source SpinGlass: 10 spins on Petersen topology
-//! - Target QUBO: 10 binary variables
-//!
-//! ## Output
-//! Exports `docs/paper/examples/spinglass_to_qubo.json` and
-//! `docs/paper/examples/spinglass_to_qubo.result.json` for use in paper code blocks.
-//!
-//! See docs/paper/reductions.typ for the full reduction specification.
+// # Spin Glass to QUBO Reduction
+//
+// ## Mathematical Equivalence
+// The substitution s_i = 2x_i - 1 transforms Ising spins s in {-1,+1} to binary
+// variables x in {0,1}. Expanding the Ising Hamiltonian H(s) under this substitution
+// yields a QUBO objective Q(x) plus a constant offset.
+//
+// ## This Example
+// - Instance: Petersen graph with 10 spins, 15 frustrated ±1 couplings, zero fields
+// - Source SpinGlass: 10 spins on Petersen topology
+// - Target QUBO: 10 binary variables
+//
+// ## Output
+// Exports `docs/paper/examples/spinglass_to_qubo.json` and
+// `docs/paper/examples/spinglass_to_qubo.result.json` for use in paper code blocks.
+//
+// See docs/paper/reductions.typ for the full reduction specification.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     let (n, edges) = petersen();
     // Alternating +/-1 couplings create frustration on odd cycles
     let couplings: Vec<((usize, usize), f64)> = edges
@@ -46,9 +46,9 @@ fn main() {
     let sg_solution = reduction.extract_solution(&qubo_solutions[0]);
     println!("Source SpinGlass solution: {:?}", sg_solution);
 
-    let size = sg.solution_size(&sg_solution);
-    println!("Solution size: {:?}", size);
-    assert!(size.is_valid);
+    let energy = sg.evaluate(&sg_solution);
+    println!("Solution energy: {:?}", energy);
+    assert!(energy.is_valid()); // Valid solution
     println!("\nReduction verified successfully");
 
     // Collect all solutions
@@ -62,8 +62,8 @@ fn main() {
     }
 
     // Export JSON
-    let overhead = lookup_overhead("SpinGlass", "QUBO")
-        .expect("SpinGlass -> QUBO overhead not found");
+    let overhead =
+        lookup_overhead("SpinGlass", "QUBO").expect("SpinGlass -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
@@ -85,6 +85,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "spinglass_to_qubo";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

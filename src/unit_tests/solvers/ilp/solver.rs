@@ -20,11 +20,11 @@ fn test_ilp_solver_basic_maximize() {
     let sol = solution.unwrap();
 
     // Solution should be valid
-    let result = ilp.solution_size(&sol);
-    assert!(result.is_valid, "ILP solution should be valid");
+    let result = ilp.evaluate(&sol);
+    assert!(result.is_valid(), "ILP solution should be valid");
 
     // Optimal: x1=1, x0=0 => objective = 2
-    assert!((result.size - 2.0).abs() < 1e-9);
+    assert!((result.unwrap() - 2.0).abs() < 1e-9);
 }
 
 #[test]
@@ -44,11 +44,11 @@ fn test_ilp_solver_basic_minimize() {
     let sol = solution.unwrap();
 
     // Solution should be valid
-    let result = ilp.solution_size(&sol);
-    assert!(result.is_valid, "ILP solution should be valid");
+    let result = ilp.evaluate(&sol);
+    assert!(result.is_valid(), "ILP solution should be valid");
 
     // Optimal: one variable = 1, other = 0 => objective = 1
-    assert!((result.size - 1.0).abs() < 1e-9);
+    assert!((result.unwrap() - 1.0).abs() < 1e-9);
 }
 
 #[test]
@@ -73,8 +73,8 @@ fn test_ilp_solver_matches_brute_force() {
     let ilp_solution = ilp_solver.solve(&ilp).unwrap();
 
     // Both should find optimal value (2)
-    let bf_size = ilp.solution_size(&bf_solutions[0]).size;
-    let ilp_size = ilp.solution_size(&ilp_solution).size;
+    let bf_size = ilp.evaluate(&bf_solutions[0]).unwrap();
+    let ilp_size = ilp.evaluate(&ilp_solution).unwrap();
     assert!(
         (bf_size - ilp_size).abs() < 1e-9,
         "ILP should find optimal solution"
@@ -102,10 +102,10 @@ fn test_ilp_equality_constraint() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp).unwrap();
 
-    let result = ilp.solution_size(&solution);
-    assert!(result.is_valid);
+    let result = ilp.evaluate(&solution);
+    assert!(result.is_valid());
     // Optimal: x0=0, x1=1 => objective = 0
-    assert!((result.size - 0.0).abs() < 1e-9);
+    assert!((result.unwrap() - 0.0).abs() < 1e-9);
 }
 
 #[test]
@@ -124,13 +124,11 @@ fn test_ilp_non_binary_bounds() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp).unwrap();
 
-    let result = ilp.solution_size(&solution);
-    assert!(result.is_valid);
-    // Optimal: x0=3, x1=2 => objective = 5 (3 + 2 = 5 <= 4 is false!)
-    // Wait, 3+2=5 > 4, so constraint is violated. Let's check actual optimal:
-    // x0=2, x1=2 => 4 <= 4 valid, obj=4
-    // x0=3, x1=1 => 4 <= 4 valid, obj=4
-    assert!((result.size - 4.0).abs() < 1e-9);
+    let result = ilp.evaluate(&solution);
+    assert!(result.is_valid());
+    // Optimal: x0=2, x1=2 => 4 <= 4 valid, obj=4
+    // or x0=3, x1=1 => 4 <= 4 valid, obj=4
+    assert!((result.unwrap() - 4.0).abs() < 1e-9);
 }
 
 #[test]
@@ -149,10 +147,10 @@ fn test_ilp_negative_lower_bounds() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp).unwrap();
 
-    let result = ilp.solution_size(&solution);
-    assert!(result.is_valid);
+    let result = ilp.evaluate(&solution);
+    assert!(result.is_valid());
     // Optimal: x0=2, x1=1 => objective = 3
-    assert!((result.size - 3.0).abs() < 1e-9);
+    assert!((result.unwrap() - 3.0).abs() < 1e-9);
 }
 
 #[test]
@@ -170,10 +168,10 @@ fn test_ilp_config_to_values_roundtrip() {
     let solution = solver.solve(&ilp).unwrap();
 
     // The solution should be valid
-    let result = ilp.solution_size(&solution);
-    assert!(result.is_valid);
+    let result = ilp.evaluate(&solution);
+    assert!(result.is_valid());
     // Optimal: x0=2, x1=3 => objective = 5
-    assert!((result.size - 5.0).abs() < 1e-9);
+    assert!((result.unwrap() - 5.0).abs() < 1e-9);
 }
 
 #[test]
@@ -195,16 +193,16 @@ fn test_ilp_multiple_constraints() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp).unwrap();
 
-    let result = ilp.solution_size(&solution);
-    assert!(result.is_valid);
+    let result = ilp.evaluate(&solution);
+    assert!(result.is_valid());
 
     // Check against brute force
     let bf = BruteForce::new();
     let bf_solutions = bf.find_best(&ilp);
-    let bf_size = ilp.solution_size(&bf_solutions[0]).size;
+    let bf_size = ilp.evaluate(&bf_solutions[0]).unwrap();
 
     assert!(
-        (bf_size - result.size).abs() < 1e-9,
+        (bf_size - result.unwrap()).abs() < 1e-9,
         "ILP should match brute force"
     );
 }
@@ -222,10 +220,10 @@ fn test_ilp_unconstrained() {
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp).unwrap();
 
-    let result = ilp.solution_size(&solution);
-    assert!(result.is_valid);
+    let result = ilp.evaluate(&solution);
+    assert!(result.is_valid());
     // Optimal: both = 1
-    assert!((result.size - 2.0).abs() < 1e-9);
+    assert!((result.unwrap() - 2.0).abs() < 1e-9);
 }
 
 #[test]

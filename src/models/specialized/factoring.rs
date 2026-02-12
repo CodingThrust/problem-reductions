@@ -4,14 +4,13 @@
 //! Given a number N, find two factors (a, b) such that a * b = N.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "Factoring",
-        category: "specialized",
         description: "Factor a composite integer into two factors",
         fields: &[
             FieldInfo { name: "m", type_name: "usize", description: "Bits for first factor" },
@@ -108,54 +107,45 @@ fn int_to_bits(n: u64, num_bits: usize) -> Vec<usize> {
     (0..num_bits).map(|i| ((n >> i) & 1) as usize).collect()
 }
 
+/// Check if the given factors correctly factorize the target.
+pub fn is_factoring(target: u64, a: u64, b: u64) -> bool {
+    a * b == target
+}
+
 impl Problem for Factoring {
     const NAME: &'static str = "Factoring";
+    type Metric = SolutionSize<i32>;
 
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.m + self.n]
     }
 
-    type Size = i32;
-
-    fn num_variables(&self) -> usize {
-        self.m + self.n
-    }
-
-    fn num_flavors(&self) -> usize {
-        2 // Binary
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_bits_first", self.m),
-            ("num_bits_second", self.n),
-            ("target", self.target as usize),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::SmallerSizeIsBetter // Minimize distance from target
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
         let (a, b) = self.read_factors(config);
         let product = a * b;
-
         // Distance from target (0 means exact match)
         let distance = if product > self.target {
             (product - self.target) as i32
         } else {
             (self.target - product) as i32
         };
+        SolutionSize::Valid(distance)
+    }
 
-        let is_valid = product == self.target;
-        SolutionSize::new(distance, is_valid)
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", "i32"),
+        ]
     }
 }
 
-/// Check if the given factors correctly factorize the target.
-pub fn is_factoring(target: u64, a: u64, b: u64) -> bool {
-    a * b == target
+impl OptimizationProblem for Factoring {
+    type Value = i32;
+
+    fn direction(&self) -> Direction {
+        Direction::Minimize
+    }
 }
 
 #[cfg(test)]

@@ -1,35 +1,35 @@
-//! # Vertex Covering to QUBO Reduction (Penalty Method)
-//!
-//! ## Mathematical Relationship
-//! The Minimum Vertex Cover (MVC) problem on a graph G = (V, E) is mapped to
-//! QUBO by constructing a penalty Hamiltonian:
-//!
-//!   H(x) = sum_{i in V} x_i + P * sum_{(i,j) in E} (1 - x_i)(1 - x_j)
-//!
-//! where P is a penalty weight ensuring every edge has at least one endpoint
-//! selected. The QUBO minimization finds configurations that minimize the
-//! number of selected vertices while covering all edges.
-//!
-//! ## This Example
-//! - Instance: Petersen graph (10 vertices, 15 edges), VC=6
-//! - Source: MinimumVertexCover with minimum size 6
-//! - QUBO variables: 10 (one per vertex)
-//! - Expected: Optimal vertex covers of size 6
-//!
-//! ## Output
-//! Exports `docs/paper/examples/minimumvertexcover_to_qubo.json` and `minimumvertexcover_to_qubo.result.json`.
-//!
-//! ## Usage
-//! ```bash
-//! cargo run --example reduction_vc_to_qubo
-//! ```
+// # Vertex Covering to QUBO Reduction (Penalty Method)
+//
+// ## Mathematical Relationship
+// The Minimum Vertex Cover (MVC) problem on a graph G = (V, E) is mapped to
+// QUBO by constructing a penalty Hamiltonian:
+//
+//   H(x) = sum_{i in V} x_i + P * sum_{(i,j) in E} (1 - x_i)(1 - x_j)
+//
+// where P is a penalty weight ensuring every edge has at least one endpoint
+// selected. The QUBO minimization finds configurations that minimize the
+// number of selected vertices while covering all edges.
+//
+// ## This Example
+// - Instance: Petersen graph (10 vertices, 15 edges), VC=6
+// - Source: MinimumVertexCover with minimum size 6
+// - QUBO variables: 10 (one per vertex)
+// - Expected: Optimal vertex covers of size 6
+//
+// ## Output
+// Exports `docs/paper/examples/minimumvertexcover_to_qubo.json` and `minimumvertexcover_to_qubo.result.json`.
+//
+// ## Usage
+// ```bash
+// cargo run --example reduction_vc_to_qubo
+// ```
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-fn main() {
+pub fn run() {
     println!("=== Vertex Covering -> QUBO Reduction ===\n");
 
     // Petersen graph: 10 vertices, 15 edges, VC=6
@@ -63,14 +63,15 @@ fn main() {
             .map(|(i, _)| i)
             .collect();
         let size = selected.len();
-        println!(
-            "  Cover vertices: {:?} ({} vertices)",
-            selected, size
-        );
+        println!("  Cover vertices: {:?} ({} vertices)", selected, size);
 
         // Closed-loop verification: check solution is valid in original problem
-        let sol_size = vc.solution_size(&extracted);
-        assert!(sol_size.is_valid, "Solution must be valid in source problem");
+        // MinimumVertexCover is a minimization problem, infeasible configs return Invalid
+        let sol_size = vc.evaluate(&extracted);
+        assert!(
+            sol_size.is_valid(),
+            "Solution must be valid in source problem"
+        );
 
         solutions.push(SolutionPair {
             source_config: extracted,
@@ -80,7 +81,9 @@ fn main() {
 
     // All optimal solutions should have size 6
     assert!(
-        solutions.iter().all(|s| s.source_config.iter().filter(|&&x| x == 1).count() == 6),
+        solutions
+            .iter()
+            .all(|s| s.source_config.iter().filter(|&&x| x == 1).count() == 6),
         "All optimal VC solutions on Petersen graph should have size 6"
     );
     println!("\nVerification passed: all solutions are valid with size 6");
@@ -111,6 +114,10 @@ fn main() {
     };
 
     let results = ResultData { solutions };
-    let name = env!("CARGO_BIN_NAME").strip_prefix("reduction_").unwrap();
+    let name = "minimumvertexcover_to_qubo";
     write_example(name, &data, &results);
+}
+
+fn main() {
+    run()
 }

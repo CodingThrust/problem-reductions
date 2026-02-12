@@ -4,15 +4,14 @@
 //! (complete bipartite subgraphs) needed to cover all edges of a bipartite graph.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "BicliqueCover",
-        category: "specialized",
         description: "Cover bipartite edges with k bicliques",
         fields: &[
             FieldInfo { name: "left_size", type_name: "usize", description: "Vertices in left partition" },
@@ -195,44 +194,6 @@ impl BicliqueCover {
     }
 }
 
-impl Problem for BicliqueCover {
-    const NAME: &'static str = "BicliqueCover";
-
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
-    }
-
-    type Size = i32;
-
-    fn num_variables(&self) -> usize {
-        // Each vertex has k binary variables (one per biclique)
-        self.num_vertices() * self.k
-    }
-
-    fn num_flavors(&self) -> usize {
-        2 // Binary: in biclique or not
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("left_size", self.left_size),
-            ("right_size", self.right_size),
-            ("num_edges", self.edges.len()),
-            ("k", self.k),
-        ])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::SmallerSizeIsBetter // Minimize total biclique size
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let is_valid = self.is_valid_cover(config);
-        let size = self.total_biclique_size(config) as i32;
-        SolutionSize::new(size, is_valid)
-    }
-}
-
 /// Check if a biclique configuration covers all edges.
 pub fn is_biclique_cover(
     edges: &[(usize, usize)],
@@ -245,6 +206,38 @@ pub fn is_biclique_cover(
             .zip(right_bicliques.iter())
             .any(|(lb, rb)| lb.contains(&l) && rb.contains(&r))
     })
+}
+
+impl Problem for BicliqueCover {
+    const NAME: &'static str = "BicliqueCover";
+    type Metric = SolutionSize<i32>;
+
+    fn dims(&self) -> Vec<usize> {
+        // Each vertex has k binary variables (one per biclique)
+        vec![2; self.num_vertices() * self.k]
+    }
+
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+        if !self.is_valid_cover(config) {
+            return SolutionSize::Invalid;
+        }
+        SolutionSize::Valid(self.total_biclique_size(config) as i32)
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", "i32"),
+        ]
+    }
+}
+
+impl OptimizationProblem for BicliqueCover {
+    type Value = i32;
+
+    fn direction(&self) -> Direction {
+        Direction::Minimize
+    }
 }
 
 #[cfg(test)]

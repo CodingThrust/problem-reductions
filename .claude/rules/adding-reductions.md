@@ -5,10 +5,12 @@ paths:
 
 # Adding a Reduction Rule (A -> B)
 
-**Reference implementation:** `src/rules/minimumvertexcover_maximumindependentset.rs`
-**Reference test:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs`
-**Reference example:** `examples/reduction_minimumvertexcover_to_maximumindependentset.rs`
-**Reference paper entry:** `docs/paper/reductions.typ` (search for `MinimumVertexCover` `MaximumIndependentSet`)
+**Reference implementations — read these first:**
+- **Reduction rule:** `src/rules/minimumvertexcover_maximumindependentset.rs` — `ReductionResult` + `ReduceTo` + `#[reduction]` macro
+- **Unit test:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs` — closed-loop + edge cases
+- **Example program:** `examples/reduction_minimumvertexcover_to_maximumindependentset.rs` — create, reduce, solve, extract, verify, export
+- **Paper entry:** `docs/paper/reductions.typ` (search for `MinimumVertexCover` `MaximumIndependentSet`)
+- **Traits:** `src/rules/traits.rs` — `ReductionResult` and `ReduceTo` trait definitions
 
 ## 0. Before Writing Code
 
@@ -21,9 +23,10 @@ paths:
 ## 1. Implement
 
 Create `src/rules/<source>_<target>.rs` following the reference. Key pieces:
-- `ReductionResult` struct + impl (`target_problem`, `extract_solution`, `source_size`, `target_size`)
-- `#[reduction(...)]` macro on `ReduceTo<Target> for Source` impl (auto-generates `inventory::submit!`)
-- `#[cfg(test)] #[path = ...]` linking to unit tests
+
+- **`ReductionResult` struct + impl** — `target_problem()` + `extract_solution()` (see reference)
+- **`ReduceTo` impl with `#[reduction(...)]` macro** — auto-generates `inventory::submit!`; only `overhead` attribute needed (graph/weight types are inferred, defaulting to `SimpleGraph`/`Unweighted`)
+- **`#[cfg(test)] #[path = ...]`** linking to unit tests
 
 Register in `src/rules/mod.rs`.
 
@@ -35,6 +38,14 @@ Register in `src/rules/mod.rs`.
 ## 3. Example Program
 
 Add `examples/reduction_<source>_to_<target>.rs` — create, reduce, solve, extract, verify, export JSON (see reference example).
+
+Examples must expose `pub fn run()` with `fn main() { run() }` so they can be tested directly via `include!` (no subprocess). Use regular comments (`//`) not inner doc comments (`//!`), and hardcode the example name instead of using `env!("CARGO_BIN_NAME")`.
+
+Register the example in `tests/suites/examples.rs` by adding:
+```rust
+example_test!(reduction_<source>_to_<target>);
+example_fn!(test_<source>_to_<target>, reduction_<source>_to_<target>);
+```
 
 ## 4. Document
 

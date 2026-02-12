@@ -4,16 +4,14 @@
 //! pairwise disjoint sets.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::{ConstraintSatisfactionProblem, Problem};
-use crate::types::{EnergyMode, LocalConstraint, LocalSolutionSize, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumSetPacking",
-        category: "set",
         description: "Find maximum weight collection of disjoint sets",
         fields: &[
             FieldInfo { name: "sets", type_name: "Vec<Vec<usize>>", description: "Collection of sets over a universe" },
@@ -47,7 +45,7 @@ inventory::submit! {
 ///
 /// // Verify solutions are pairwise disjoint
 /// for sol in solutions {
-///     assert!(problem.solution_size(&sol).is_valid);
+///     assert!(problem.evaluate(&sol).is_valid());
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -130,42 +128,34 @@ where
         + 'static,
 {
     const NAME: &'static str = "MaximumSetPacking";
+    type Metric = SolutionSize<W>;
 
-    fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", short_type_name::<W>())]
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.sets.len()]
     }
 
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.sets.len()
-    }
-
-    fn num_flavors(&self) -> usize {
-        2
-    }
-
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![("num_sets", self.sets.len())])
-    }
-
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::LargerSizeIsBetter // Maximize total weight
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let is_valid = is_valid_packing(&self.sets, config);
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
+        if !is_valid_packing(&self.sets, config) {
+            return SolutionSize::Invalid;
+        }
         let mut total = W::zero();
         for (i, &selected) in config.iter().enumerate() {
             if selected == 1 {
                 total += self.weights[i].clone();
             }
         }
-        SolutionSize::new(total, is_valid)
+        SolutionSize::Valid(total)
+    }
+
+    fn variant() -> Vec<(&'static str, &'static str)> {
+        vec![
+            ("graph", "SimpleGraph"),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
     }
 }
 
-impl<W> ConstraintSatisfactionProblem for MaximumSetPacking<W>
+impl<W> OptimizationProblem for MaximumSetPacking<W>
 where
     W: Clone
         + Default
@@ -175,43 +165,10 @@ where
         + std::ops::AddAssign
         + 'static,
 {
-    fn constraints(&self) -> Vec<LocalConstraint> {
-        // For each pair of overlapping sets, at most one can be selected
-        self.overlapping_pairs()
-            .into_iter()
-            .map(|(i, j)| {
-                LocalConstraint::new(
-                    2,
-                    vec![i, j],
-                    vec![true, true, true, false], // (0,0), (0,1), (1,0) OK; (1,1) invalid
-                )
-            })
-            .collect()
-    }
+    type Value = W;
 
-    fn objectives(&self) -> Vec<LocalSolutionSize<Self::Size>> {
-        self.weights
-            .iter()
-            .enumerate()
-            .map(|(i, w)| LocalSolutionSize::new(2, vec![i], vec![W::zero(), w.clone()]))
-            .collect()
-    }
-
-    fn weights(&self) -> Vec<Self::Size> {
-        self.weights.clone()
-    }
-
-    fn set_weights(&mut self, weights: Vec<Self::Size>) {
-        assert_eq!(weights.len(), self.num_variables());
-        self.weights = weights;
-    }
-
-    fn is_weighted(&self) -> bool {
-        if self.weights.is_empty() {
-            return false;
-        }
-        let first = &self.weights[0];
-        !self.weights.iter().all(|w| w == first)
+    fn direction(&self) -> Direction {
+        Direction::Maximize
     }
 }
 

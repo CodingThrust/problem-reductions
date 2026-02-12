@@ -5,15 +5,13 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::Problem;
-use crate::types::{EnergyMode, ProblemSize, SolutionSize};
-use crate::variant::short_type_name;
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaxCut",
-        category: "graph",
         description: "Find maximum weight cut in a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The graph with edge weights" },
@@ -46,6 +44,7 @@ inventory::submit! {
 /// ```
 /// use problemreductions::models::graph::MaxCut;
 /// use problemreductions::topology::SimpleGraph;
+/// use problemreductions::types::SolutionSize;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Create a triangle with unit weights
@@ -57,8 +56,8 @@ inventory::submit! {
 ///
 /// // Maximum cut in triangle is 2 (any partition cuts 2 edges)
 /// for sol in solutions {
-///     let size = problem.solution_size(&sol);
-///     assert_eq!(size.size, 2);
+///     let size = problem.evaluate(&sol);
+///     assert_eq!(size, SolutionSize::Valid(2));
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -202,69 +201,59 @@ where
         + 'static,
 {
     const NAME: &'static str = "MaxCut";
+    type Metric = SolutionSize<W>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", G::NAME), ("weight", short_type_name::<W>())]
+        vec![
+            ("graph", crate::variant::short_type_name::<G>()),
+            ("weight", crate::variant::short_type_name::<W>()),
+        ]
     }
 
-    type Size = W;
-
-    fn num_variables(&self) -> usize {
-        self.graph.num_vertices()
+    fn dims(&self) -> Vec<usize> {
+        vec![2; self.graph.num_vertices()]
     }
 
-    fn num_flavors(&self) -> usize {
-        2 // Binary partition
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
+        // All cuts are valid, so always return Valid
+        let partition: Vec<bool> = config.iter().map(|&c| c != 0).collect();
+        SolutionSize::Valid(cut_size(&self.graph, &self.edge_weights, &partition))
     }
+}
 
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vertices", self.graph.num_vertices()),
-            ("num_edges", self.graph.num_edges()),
-        ])
-    }
+impl<G, W> OptimizationProblem for MaxCut<G, W>
+where
+    G: Graph,
+    W: Clone
+        + Default
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign
+        + 'static,
+{
+    type Value = W;
 
-    fn energy_mode(&self) -> EnergyMode {
-        EnergyMode::LargerSizeIsBetter // Maximize cut weight
-    }
-
-    fn solution_size(&self, config: &[usize]) -> SolutionSize<Self::Size> {
-        let cut_weight = compute_cut_weight(&self.graph, &self.edge_weights, config);
-        // MaxCut is always valid (any partition is allowed)
-        SolutionSize::valid(cut_weight)
+    fn direction(&self) -> Direction {
+        Direction::Maximize
     }
 }
 
 /// Compute the total weight of edges crossing the cut.
-fn compute_cut_weight<G, W>(graph: &G, edge_weights: &[W], config: &[usize]) -> W
+///
+/// # Arguments
+/// * `graph` - The graph structure
+/// * `edge_weights` - Weights for each edge (same order as `graph.edges()`)
+/// * `partition` - Boolean slice indicating which set each vertex belongs to
+pub fn cut_size<G, W>(graph: &G, edge_weights: &[W], partition: &[bool]) -> W
 where
     G: Graph,
     W: Clone + num_traits::Zero + std::ops::AddAssign,
 {
     let mut total = W::zero();
     for ((u, v), weight) in graph.edges().iter().zip(edge_weights.iter()) {
-        let u_side = config.get(*u).copied().unwrap_or(0);
-        let v_side = config.get(*v).copied().unwrap_or(0);
-        if u_side != v_side {
-            total += weight.clone();
-        }
-    }
-    total
-}
-
-/// Compute the cut size for a given partition.
-///
-/// # Arguments
-/// * `edges` - List of weighted edges as (u, v, weight) triples
-/// * `partition` - Boolean slice indicating which set each vertex belongs to
-pub fn cut_size<W>(edges: &[(usize, usize, W)], partition: &[bool]) -> W
-where
-    W: Clone + num_traits::Zero + std::ops::AddAssign,
-{
-    let mut total = W::zero();
-    for (u, v, w) in edges {
         if *u < partition.len() && *v < partition.len() && partition[*u] != partition[*v] {
-            total += w.clone();
+            total += weight.clone();
         }
     }
     total

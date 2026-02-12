@@ -22,19 +22,22 @@ fn test_overhead_to_json_single_field() {
 
     // Check first monomial: 1*n
     assert_eq!(entries[0].polynomial[0].coefficient, 1.0);
-    assert_eq!(entries[0].polynomial[0].variables, vec![("n".to_string(), 1)]);
+    assert_eq!(
+        entries[0].polynomial[0].variables,
+        vec![("n".to_string(), 1)]
+    );
 
     // Check second monomial: 1*m
     assert_eq!(entries[0].polynomial[1].coefficient, 1.0);
-    assert_eq!(entries[0].polynomial[1].variables, vec![("m".to_string(), 1)]);
+    assert_eq!(
+        entries[0].polynomial[1].variables,
+        vec![("m".to_string(), 1)]
+    );
 }
 
 #[test]
 fn test_overhead_to_json_constant_monomial() {
-    let overhead = ReductionOverhead::new(vec![(
-        "num_vars",
-        Polynomial::constant(42.0),
-    )]);
+    let overhead = ReductionOverhead::new(vec![("num_vars", Polynomial::constant(42.0))]);
     let entries = overhead_to_json(&overhead);
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].field, "num_vars");
@@ -45,15 +48,16 @@ fn test_overhead_to_json_constant_monomial() {
 
 #[test]
 fn test_overhead_to_json_scaled_power() {
-    let overhead = ReductionOverhead::new(vec![(
-        "num_edges",
-        Polynomial::var_pow("n", 2).scale(3.0),
-    )]);
+    let overhead =
+        ReductionOverhead::new(vec![("num_edges", Polynomial::var_pow("n", 2).scale(3.0))]);
     let entries = overhead_to_json(&overhead);
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].polynomial.len(), 1);
     assert_eq!(entries[0].polynomial[0].coefficient, 3.0);
-    assert_eq!(entries[0].polynomial[0].variables, vec![("n".to_string(), 2)]);
+    assert_eq!(
+        entries[0].polynomial[0].variables,
+        vec![("n".to_string(), 2)]
+    );
 }
 
 #[test]
@@ -152,7 +156,10 @@ fn test_write_example_creates_files() {
 
     let results_json: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(results_path).unwrap()).unwrap();
-    assert_eq!(results_json["solutions"][0]["source_config"], serde_json::json!([1, 0, 1]));
+    assert_eq!(
+        results_json["solutions"][0]["source_config"],
+        serde_json::json!([1, 0, 1])
+    );
 
     // Clean up test files
     let _ = fs::remove_file(reduction_path);
@@ -214,5 +221,8 @@ fn test_result_data_serialization() {
     };
     let json = serde_json::to_value(&results).unwrap();
     assert_eq!(json["solutions"].as_array().unwrap().len(), 2);
-    assert_eq!(json["solutions"][0]["source_config"], serde_json::json!([1, 0]));
+    assert_eq!(
+        json["solutions"][0]["source_config"],
+        serde_json::json!([1, 0])
+    );
 }

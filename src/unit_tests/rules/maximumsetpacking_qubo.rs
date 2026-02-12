@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
+use crate::traits::Problem;
 
 #[test]
 fn test_setpacking_to_qubo_closed_loop() {
@@ -15,7 +16,7 @@ fn test_setpacking_to_qubo_closed_loop() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(sp.solution_size(&extracted).is_valid);
+        assert!(sp.evaluate(&extracted).is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 2);
     }
 }
@@ -32,7 +33,7 @@ fn test_setpacking_to_qubo_disjoint() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(sp.solution_size(&extracted).is_valid);
+        assert!(sp.evaluate(&extracted).is_valid());
         // All 3 sets should be selected
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 3);
     }
@@ -50,18 +51,17 @@ fn test_setpacking_to_qubo_all_overlap() {
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        assert!(sp.solution_size(&extracted).is_valid);
+        assert!(sp.evaluate(&extracted).is_valid());
         assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 1);
     }
 }
 
 #[test]
-fn test_setpacking_to_qubo_sizes() {
+fn test_setpacking_to_qubo_structure() {
     let sp = MaximumSetPacking::<i32>::new(vec![vec![0, 2], vec![1, 2], vec![0, 3]]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sp);
+    let qubo = reduction.target_problem();
 
-    let source_size = reduction.source_size();
-    let target_size = reduction.target_size();
-    assert!(!source_size.components.is_empty());
-    assert!(!target_size.components.is_empty());
+    // QUBO should have same number of variables as sets
+    assert_eq!(qubo.num_variables(), 3);
 }
