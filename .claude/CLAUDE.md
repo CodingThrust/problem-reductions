@@ -20,6 +20,10 @@ make rust-export    # Generate Rust mapping JSON exports
 make export-schemas # Regenerate problem schemas JSON
 make qubo-testdata  # Regenerate QUBO ground truth JSON
 make clean          # Clean build artifacts
+make diagrams      # Generate SVG diagrams from Typst (light + dark)
+make examples      # Generate example JSON for paper
+make compare       # Generate and compare Rust mapping exports
+make run-plan      # Execute a plan with Claude autorun
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 ```
 
@@ -83,7 +87,7 @@ enum Direction { Maximize, Minimize }
 Problem types use explicit optimization prefixes:
 - `MaximumIndependentSet`, `MaximumClique`, `MaximumMatching`, `MaximumSetPacking`
 - `MinimumVertexCover`, `MinimumDominatingSet`, `MinimumSetCovering`
-- No prefix: `MaxCut`, `SpinGlass`, `QUBO`, `ILP`, `Satisfiability`, `KSatisfiability`, `CircuitSAT`, `Factoring`, `MaximalIS`
+- No prefix: `MaxCut`, `SpinGlass`, `QUBO`, `ILP`, `Satisfiability`, `KSatisfiability`, `CircuitSAT`, `Factoring`, `MaximalIS`, `PaintShop`, `BicliqueCover`, `BMF`
 
 ### Problem Variant IDs
 Reduction graph nodes use variant IDs: `ProblemName[/GraphType][/Weighted]`
