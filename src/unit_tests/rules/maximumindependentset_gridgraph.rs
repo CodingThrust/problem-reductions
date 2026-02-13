@@ -7,8 +7,7 @@ use crate::topology::SimpleGraph;
 fn test_mis_simple_to_grid_closed_loop() {
     // Triangle graph: 3 vertices, 3 edges
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let result =
-        ReduceTo::<MaximumIndependentSet<GridGraph<i32>, i32>>::reduce_to(&problem);
+    let result = ReduceTo::<MaximumIndependentSet<GridGraph<i32>, i32>>::reduce_to(&problem);
     let target = result.target_problem();
 
     // The grid graph should have more vertices than the original
@@ -32,8 +31,7 @@ fn test_mis_simple_to_grid_closed_loop() {
 fn test_mis_simple_to_grid_path_graph() {
     // Path graph: 0-1-2
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let result =
-        ReduceTo::<MaximumIndependentSet<GridGraph<i32>, i32>>::reduce_to(&problem);
+    let result = ReduceTo::<MaximumIndependentSet<GridGraph<i32>, i32>>::reduce_to(&problem);
     let target = result.target_problem();
 
     let solver = BruteForce::new();

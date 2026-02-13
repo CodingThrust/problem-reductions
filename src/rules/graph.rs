@@ -20,7 +20,6 @@ use serde::Serialize;
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet};
 
-
 /// JSON-serializable representation of the reduction graph.
 #[derive(Debug, Clone, Serialize)]
 pub struct ReductionGraphJson {
@@ -672,14 +671,15 @@ impl ReductionGraph {
         let mut nodes: Vec<NodeJson> = node_set
             .iter()
             .map(|(name, variant)| {
-                let (category, doc_path) = if let Some(&mod_path) = schema_modules.get(name.as_str()) {
-                    (
-                        Self::category_from_module_path(mod_path),
-                        Self::doc_path_from_module_path(mod_path, name),
-                    )
-                } else {
-                    ("other".to_string(), String::new())
-                };
+                let (category, doc_path) =
+                    if let Some(&mod_path) = schema_modules.get(name.as_str()) {
+                        (
+                            Self::category_from_module_path(mod_path),
+                            Self::doc_path_from_module_path(mod_path, name),
+                        )
+                    } else {
+                        ("other".to_string(), String::new())
+                    };
                 NodeJson {
                     name: name.clone(),
                     variant: variant.clone(),
@@ -791,8 +791,12 @@ impl ReductionGraph {
 
         // Sort edge data by source/target names for deterministic output
         edge_data.sort_by(|a, b| {
-            (&a.0.name, &a.0.variant, &a.1.name, &a.1.variant)
-                .cmp(&(&b.0.name, &b.0.variant, &b.1.name, &b.1.variant))
+            (&a.0.name, &a.0.variant, &a.1.name, &a.1.variant).cmp(&(
+                &b.0.name,
+                &b.0.variant,
+                &b.1.name,
+                &b.1.variant,
+            ))
         });
 
         // Resolve VariantRefs to node indices

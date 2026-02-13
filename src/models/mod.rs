@@ -18,8 +18,8 @@ pub mod specialized;
 
 // Re-export commonly used types
 pub use graph::{
-    TravelingSalesman, KColoring, MaxCut, MaximalIS, MaximumIndependentSet, MaximumMatching,
-    MinimumDominatingSet, MinimumVertexCover,
+    KColoring, MaxCut, MaximalIS, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
+    MinimumVertexCover, TravelingSalesman,
 };
 pub use optimization::{SpinGlass, QUBO};
 pub use satisfiability::{CNFClause, Satisfiability};

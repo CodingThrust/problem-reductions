@@ -109,8 +109,12 @@ impl ReduceTo<ILP> for TravelingSalesman<SimpleGraph, i32> {
         let n = self.num_vertices();
         let graph = self.graph();
         let edges_with_weights = self.edges();
-        let source_edges: Vec<(usize, usize)> = edges_with_weights.iter().map(|&(u, v, _)| (u, v)).collect();
-        let edge_weights: Vec<f64> = edges_with_weights.iter().map(|&(_, _, w)| w as f64).collect();
+        let source_edges: Vec<(usize, usize)> =
+            edges_with_weights.iter().map(|&(u, v, _)| (u, v)).collect();
+        let edge_weights: Vec<f64> = edges_with_weights
+            .iter()
+            .map(|&(_, _, w)| w as f64)
+            .collect();
         let m = source_edges.len();
 
         // Variable layout:
@@ -124,7 +128,8 @@ impl ReduceTo<ILP> for TravelingSalesman<SimpleGraph, i32> {
         let num_vars = num_x + num_y;
 
         let x_idx = |v: usize, k: usize| -> usize { v * n + k };
-        let y_idx = |edge: usize, k: usize, dir: usize| -> usize { num_x + edge * 2 * n + 2 * k + dir };
+        let y_idx =
+            |edge: usize, k: usize, dir: usize| -> usize { num_x + edge * 2 * n + 2 * k + dir };
 
         let bounds = vec![VarBounds::binary(); num_vars];
         let mut constraints = Vec::new();
@@ -174,7 +179,10 @@ impl ReduceTo<ILP> for TravelingSalesman<SimpleGraph, i32> {
                 let xu = x_idx(u, k);
                 let xv_next = x_idx(v, k_next);
                 constraints.push(LinearConstraint::le(vec![(y_fwd, 1.0), (xu, -1.0)], 0.0));
-                constraints.push(LinearConstraint::le(vec![(y_fwd, 1.0), (xv_next, -1.0)], 0.0));
+                constraints.push(LinearConstraint::le(
+                    vec![(y_fwd, 1.0), (xv_next, -1.0)],
+                    0.0,
+                ));
                 constraints.push(LinearConstraint::ge(
                     vec![(y_fwd, 1.0), (xu, -1.0), (xv_next, -1.0)],
                     -1.0,
@@ -185,7 +193,10 @@ impl ReduceTo<ILP> for TravelingSalesman<SimpleGraph, i32> {
                 let xv = x_idx(v, k);
                 let xu_next = x_idx(u, k_next);
                 constraints.push(LinearConstraint::le(vec![(y_rev, 1.0), (xv, -1.0)], 0.0));
-                constraints.push(LinearConstraint::le(vec![(y_rev, 1.0), (xu_next, -1.0)], 0.0));
+                constraints.push(LinearConstraint::le(
+                    vec![(y_rev, 1.0), (xu_next, -1.0)],
+                    0.0,
+                ));
                 constraints.push(LinearConstraint::ge(
                     vec![(y_rev, 1.0), (xv, -1.0), (xu_next, -1.0)],
                     -1.0,
@@ -202,7 +213,13 @@ impl ReduceTo<ILP> for TravelingSalesman<SimpleGraph, i32> {
             }
         }
 
-        let target = ILP::new(num_vars, bounds, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(
+            num_vars,
+            bounds,
+            constraints,
+            objective,
+            ObjectiveSense::Minimize,
+        );
 
         ReductionTSPToILP {
             target,

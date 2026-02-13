@@ -85,8 +85,8 @@ pub mod prelude {
     };
     pub use crate::error::{ProblemError, Result};
     pub use crate::models::graph::{
-        TravelingSalesman, KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
-        MaximumMatching, MinimumDominatingSet, MinimumVertexCover,
+        KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
+        MinimumDominatingSet, MinimumVertexCover, TravelingSalesman,
     };
     pub use crate::models::optimization::{
         Comparison, LinearConstraint, ObjectiveSense, SpinGlass, VarBounds, ILP, QUBO,

@@ -224,7 +224,7 @@ fn test_sat_to_3sat_mixed_clause_types() {
         4,
         vec![
             CNFClause::new(vec![1, 2]),           // Needs padding
-            CNFClause::new(vec![1, 2, 3]),         // Exact
+            CNFClause::new(vec![1, 2, 3]),        // Exact
             CNFClause::new(vec![1, 2, 3, 4, -1]), // Needs splitting
         ],
     );

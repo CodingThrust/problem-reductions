@@ -48,7 +48,12 @@ impl ReduceTo<MaximumIndependentSet<GridGraph<i32>, i32>>
         let n = self.num_vertices();
         let edges = self.edges();
         let result = ksg::map_unweighted(n, &edges);
-        let weights: Vec<i32> = result.grid_graph.nodes().iter().map(|node| node.weight).collect();
+        let weights: Vec<i32> = result
+            .grid_graph
+            .nodes()
+            .iter()
+            .map(|node| node.weight)
+            .collect();
         let target = MaximumIndependentSet::from_graph(result.grid_graph.clone(), weights);
         ReductionISSimpleToGrid {
             target,
@@ -94,7 +99,12 @@ impl ReduceTo<MaximumIndependentSet<GridGraph<i32>, i32>>
         let n = self.num_vertices();
         let edges = self.edges();
         let result = ksg::map_unweighted(n, &edges);
-        let weights: Vec<i32> = result.grid_graph.nodes().iter().map(|node| node.weight).collect();
+        let weights: Vec<i32> = result
+            .grid_graph
+            .nodes()
+            .iter()
+            .map(|node| node.weight)
+            .collect();
         let target = MaximumIndependentSet::from_graph(result.grid_graph.clone(), weights);
         ReductionISUnitDiskToGrid {
             target,

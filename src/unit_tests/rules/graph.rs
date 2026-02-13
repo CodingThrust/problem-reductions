@@ -138,14 +138,14 @@ fn test_to_json() {
     assert!(json.edges.len() >= 10);
 
     // Check that IS -> VC and VC -> IS both exist as separate directed edges
-    let is_to_vc = json
-        .edges
-        .iter()
-        .any(|e| json.source_node(e).name == "MaximumIndependentSet" && json.target_node(e).name == "MinimumVertexCover");
-    let vc_to_is = json
-        .edges
-        .iter()
-        .any(|e| json.source_node(e).name == "MinimumVertexCover" && json.target_node(e).name == "MaximumIndependentSet");
+    let is_to_vc = json.edges.iter().any(|e| {
+        json.source_node(e).name == "MaximumIndependentSet"
+            && json.target_node(e).name == "MinimumVertexCover"
+    });
+    let vc_to_is = json.edges.iter().any(|e| {
+        json.source_node(e).name == "MinimumVertexCover"
+            && json.target_node(e).name == "MaximumIndependentSet"
+    });
     assert!(is_to_vc, "Should have IS -> VC edge");
     assert!(vc_to_is, "Should have VC -> IS edge");
 }
@@ -184,15 +184,11 @@ fn test_category_from_module_path() {
         "set"
     );
     assert_eq!(
-        ReductionGraph::category_from_module_path(
-            "problemreductions::models::optimization::qubo"
-        ),
+        ReductionGraph::category_from_module_path("problemreductions::models::optimization::qubo"),
         "optimization"
     );
     assert_eq!(
-        ReductionGraph::category_from_module_path(
-            "problemreductions::models::satisfiability::sat"
-        ),
+        ReductionGraph::category_from_module_path("problemreductions::models::satisfiability::sat"),
         "satisfiability"
     );
     assert_eq!(
@@ -202,7 +198,10 @@ fn test_category_from_module_path() {
         "specialized"
     );
     // Fallback for unexpected format
-    assert_eq!(ReductionGraph::category_from_module_path("foo::bar"), "other");
+    assert_eq!(
+        ReductionGraph::category_from_module_path("foo::bar"),
+        "other"
+    );
 }
 
 #[test]
@@ -372,11 +371,17 @@ fn test_unknown_name_returns_empty() {
     assert!(!graph.has_direct_reduction_by_name("UnknownA", "UnknownB"));
 
     // find_paths with unknown name
-    assert!(graph.find_paths_by_name("UnknownProblem", "MaximumIndependentSet").is_empty());
-    assert!(graph.find_paths_by_name("MaximumIndependentSet", "UnknownProblem").is_empty());
+    assert!(graph
+        .find_paths_by_name("UnknownProblem", "MaximumIndependentSet")
+        .is_empty());
+    assert!(graph
+        .find_paths_by_name("MaximumIndependentSet", "UnknownProblem")
+        .is_empty());
 
     // find_shortest_path with unknown name
-    assert!(graph.find_shortest_path_by_name("UnknownProblem", "MaximumIndependentSet").is_none());
+    assert!(graph
+        .find_shortest_path_by_name("UnknownProblem", "MaximumIndependentSet")
+        .is_none());
 }
 
 #[test]
@@ -394,26 +399,24 @@ fn test_directed_edge_pairs() {
     let json = graph.to_json();
 
     // IS <-> VC: both directions should exist as separate edges
-    let is_to_vc = json
-        .edges
-        .iter()
-        .any(|e| json.source_node(e).name == "MaximumIndependentSet" && json.target_node(e).name == "MinimumVertexCover");
-    let vc_to_is = json
-        .edges
-        .iter()
-        .any(|e| json.source_node(e).name == "MinimumVertexCover" && json.target_node(e).name == "MaximumIndependentSet");
+    let is_to_vc = json.edges.iter().any(|e| {
+        json.source_node(e).name == "MaximumIndependentSet"
+            && json.target_node(e).name == "MinimumVertexCover"
+    });
+    let vc_to_is = json.edges.iter().any(|e| {
+        json.source_node(e).name == "MinimumVertexCover"
+            && json.target_node(e).name == "MaximumIndependentSet"
+    });
     assert!(is_to_vc, "Should have IS -> VC edge");
     assert!(vc_to_is, "Should have VC -> IS edge");
 
     // Factoring -> CircuitSAT: only forward direction
-    let factoring_to_circuit = json
-        .edges
-        .iter()
-        .any(|e| json.source_node(e).name == "Factoring" && json.target_node(e).name == "CircuitSAT");
-    let circuit_to_factoring = json
-        .edges
-        .iter()
-        .any(|e| json.source_node(e).name == "CircuitSAT" && json.target_node(e).name == "Factoring");
+    let factoring_to_circuit = json.edges.iter().any(|e| {
+        json.source_node(e).name == "Factoring" && json.target_node(e).name == "CircuitSAT"
+    });
+    let circuit_to_factoring = json.edges.iter().any(|e| {
+        json.source_node(e).name == "CircuitSAT" && json.target_node(e).name == "Factoring"
+    });
     assert!(factoring_to_circuit, "Should have Factoring -> CircuitSAT");
     assert!(
         !circuit_to_factoring,
@@ -762,7 +765,8 @@ fn test_json_variant_content() {
 
     // Find an edge involving MaximumIndependentSet (could be source or target)
     let is_edge = json.edges.iter().find(|e| {
-        json.source_node(e).name == "MaximumIndependentSet" || json.target_node(e).name == "MaximumIndependentSet"
+        json.source_node(e).name == "MaximumIndependentSet"
+            || json.target_node(e).name == "MaximumIndependentSet"
     });
     assert!(
         is_edge.is_some(),
