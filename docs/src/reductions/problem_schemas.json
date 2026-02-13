@@ -94,6 +94,22 @@
     ]
   },
   {
+    "name": "HamiltonianCycle",
+    "description": "Find minimum weight Hamiltonian cycle in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge weights w: E -> R"
+      }
+    ]
+  },
+  {
     "name": "ILP",
     "description": "Optimize linear objective subject to linear constraints",
     "fields": [
