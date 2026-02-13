@@ -10,26 +10,10 @@
 use crate::models::graph::KColoring;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::poly;
-use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+use crate::reduction;
+use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-
-// Register reduction in the inventory for automatic discovery.
-// Uses usize::MAX sentinel for K (maps to "N" via const_usize_str).
-// G is generic → defaults to SimpleGraph.
-inventory::submit! {
-    ReductionEntry {
-        source_name: "KColoring",
-        target_name: "ILP",
-        source_variant_fn: || <KColoring<{usize::MAX}, SimpleGraph> as crate::traits::Problem>::variant(),
-        target_variant_fn: || <ILP as crate::traits::Problem>::variant(),
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_vertices * num_colors)),
-            ("num_constraints", poly!(num_vertices) + poly!(num_edges * num_colors)),
-        ]),
-        module_path: module_path!(),
-    }
-}
 
 /// Result of reducing KColoring to ILP.
 ///
@@ -80,6 +64,14 @@ where
     }
 }
 
+#[reduction(
+    overhead = {
+        ReductionOverhead::new(vec![
+            ("num_vars", poly!(num_vertices * num_colors)),
+            ("num_constraints", poly!(num_vertices) + poly!(num_edges * num_colors)),
+        ])
+    }
+)]
 impl<const K: usize, G> ReduceTo<ILP> for KColoring<K, G>
 where
     G: Graph,

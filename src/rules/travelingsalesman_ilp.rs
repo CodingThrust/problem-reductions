@@ -7,7 +7,6 @@
 
 use crate::models::graph::TravelingSalesman;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
-use crate::poly;
 use crate::polynomial::{Monomial, Polynomial};
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
@@ -76,8 +75,20 @@ impl ReductionResult for ReductionTSPToILP {
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_vertices ^ 2) + Polynomial { terms: vec![Monomial { coefficient: 1.0, variables: vec![("num_vertices", 2), ("num_edges", 1)] }] }),
-            ("num_constraints", poly!(num_vertices) + poly!(num_vertices ^ 3) + poly!(num_vertices * num_edges)),
+            // num_vars = n^2 + 2*m*n
+            ("num_vars", Polynomial::var_pow("num_vertices", 2) + Polynomial {
+                terms: vec![Monomial {
+                    coefficient: 2.0,
+                    variables: vec![("num_vertices", 1), ("num_edges", 1)],
+                }]
+            }),
+            // num_constraints = 2n + n^2*(n-density) + 6mn ≈ n^3 + 6mn
+            ("num_constraints", Polynomial::var_pow("num_vertices", 3) + Polynomial {
+                terms: vec![Monomial {
+                    coefficient: 6.0,
+                    variables: vec![("num_vertices", 1), ("num_edges", 1)],
+                }]
+            }),
         ])
     }
 )]
