@@ -10,8 +10,8 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use num_traits::{Bounded, Num, Zero};
-use std::ops::AddAssign;
+use crate::types::WeightElement;
+use num_traits::Zero;
 
 /// Result of reducing MaxCut to SpinGlass.
 #[derive(Debug, Clone)]
@@ -21,7 +21,14 @@ pub struct ReductionMaxCutToSG<W> {
 
 impl<W> ReductionResult for ReductionMaxCutToSG<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
+    W: WeightElement
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + std::ops::Mul<Output = W>
+        + From<i32>,
 {
     type Source = MaxCut<SimpleGraph, W>;
     type Target = SpinGlass<SimpleGraph, W>;
@@ -91,7 +98,14 @@ pub struct ReductionSGToMaxCut<W> {
 
 impl<W> ReductionResult for ReductionSGToMaxCut<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
+    W: WeightElement
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + num_traits::Bounded
+        + std::ops::AddAssign
+        + std::ops::Mul<Output = W>
+        + From<i32>,
 {
     type Source = SpinGlass<SimpleGraph, W>;
     type Target = MaxCut<SimpleGraph, W>;

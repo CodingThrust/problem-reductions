@@ -10,9 +10,8 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use num_traits::{Bounded, Num, Zero};
+use crate::types::WeightElement;
 use std::collections::HashSet;
-use std::ops::AddAssign;
 
 /// Result of reducing MaximumIndependentSet to MaximumSetPacking.
 #[derive(Debug, Clone)]
@@ -22,7 +21,11 @@ pub struct ReductionISToSP<W> {
 
 impl<W> ReductionResult for ReductionISToSP<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
+    W: WeightElement
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign,
 {
     type Source = MaximumIndependentSet<SimpleGraph, W>;
     type Target = MaximumSetPacking<W>;
@@ -73,7 +76,11 @@ pub struct ReductionSPToIS<W> {
 
 impl<W> ReductionResult for ReductionSPToIS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
+    W: WeightElement
+        + PartialOrd
+        + num_traits::Num
+        + num_traits::Zero
+        + std::ops::AddAssign,
 {
     type Source = MaximumSetPacking<W>;
     type Target = MaximumIndependentSet<SimpleGraph, W>;

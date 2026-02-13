@@ -120,8 +120,8 @@ fn test_weight_element_i32() {
 
 #[test]
 fn test_weight_element_f64() {
-    let w: f64 = 3.14;
-    assert_eq!(w.to_sum(), 3.14);
+    let w: f64 = 3.15;
+    assert_eq!(w.to_sum(), 3.15);
 
     let zero: f64 = 0.0;
     assert_eq!(zero.to_sum(), 0.0);

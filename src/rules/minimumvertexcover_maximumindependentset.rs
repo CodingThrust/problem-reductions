@@ -8,8 +8,7 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use num_traits::{Bounded, Num, Zero};
-use std::ops::AddAssign;
+use crate::types::WeightElement;
 
 /// Result of reducing MaximumIndependentSet to MinimumVertexCover.
 #[derive(Debug, Clone)]
@@ -19,7 +18,7 @@ pub struct ReductionISToVC<W> {
 
 impl<W> ReductionResult for ReductionISToVC<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
+    W: WeightElement,
 {
     type Source = MaximumIndependentSet<SimpleGraph, W>;
     type Target = MinimumVertexCover<SimpleGraph, W>;
@@ -64,7 +63,7 @@ pub struct ReductionVCToIS<W> {
 
 impl<W> ReductionResult for ReductionVCToIS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
+    W: WeightElement,
 {
     type Source = MinimumVertexCover<SimpleGraph, W>;
     type Target = MaximumIndependentSet<SimpleGraph, W>;
