@@ -163,7 +163,6 @@ fn test_jl_parity_spinglass_evaluation() {
         let interactions: Vec<((usize, usize), i32)> = edges
             .into_iter()
             .zip(j_values)
-            .map(|((u, v), j)| ((u, v), j))
             .collect();
 
         let problem = SpinGlass::<SimpleGraph, i32>::new(nv, interactions, h_values);
@@ -688,7 +687,6 @@ fn test_jl_parity_spinglass_to_maxcut() {
         let interactions: Vec<((usize, usize), i32)> = edges
             .into_iter()
             .zip(j_values)
-            .map(|((u, v), j)| ((u, v), j))
             .collect();
         let source = SpinGlass::<SimpleGraph, i32>::new(nv, interactions, h_values);
 
@@ -772,7 +770,6 @@ fn test_jl_parity_spinglass_to_qubo() {
         let interactions: Vec<((usize, usize), f64)> = edges
             .into_iter()
             .zip(j_values)
-            .map(|((u, v), j)| ((u, v), j))
             .collect();
         let source = SpinGlass::<SimpleGraph, f64>::new(nv, interactions, h_values);
 
