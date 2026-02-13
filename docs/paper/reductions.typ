@@ -2,6 +2,7 @@
 #let graph-data = json("../src/reductions/reduction_graph.json")
 #import "@preview/cetz:0.4.2": canvas, draw
 #import "@preview/ctheorems:1.1.3": thmbox, thmplain, thmproof, thmrules
+#import "lib.typ": draw-graph, petersen-graph, house-graph, octahedral-graph, draw-grid-graph, draw-triangular-graph, graph-colors
 
 #set page(paper: "a4", margin: (x: 2cm, y: 2.5cm))
 #set text(font: "New Computer Modern", size: 10pt)
@@ -508,7 +509,33 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   Summing over all edges, each vertex $i$ appears in $"deg"(i)$ terms. The QUBO coefficients are: diagonal $Q_(i i) = w_i - P dot "deg"(i)$ (objective plus linear penalty), off-diagonal $Q_(i j) = P$ for edges. The constant $P |E|$ does not affect the minimizer.
 ]
 
-#reduction-rule("KColoring", "QUBO")[
+#let kc_qubo = load-example("kcoloring_to_qubo")
+#let kc_qubo_r = load-results("kcoloring_to_qubo")
+#let kc_qubo_sol = kc_qubo_r.solutions.at(0)
+#reduction-rule("KColoring", "QUBO",
+  example: true,
+  example-caption: [House graph ($n = 5$, $|E| = 6$, $chi = 3$) with $k = 3$ colors],
+  extra: [
+    #{
+      let hg = house-graph()
+      let fills = kc_qubo_sol.source_config.map(c => graph-colors.at(c))
+      align(center, canvas(length: 0.8cm, {
+        draw-graph(hg.vertices, hg.edges, node-fill: fills, node-labels: "index")
+      }))
+    }
+
+    *Step 1 -- Encode colors as binary variables.* Each vertex $v in {0,...,4}$ gets $k = 3$ binary variables $(x_(v,0), x_(v,1), x_(v,2))$, where $x_(v,c) = 1$ means "vertex $v$ receives color $c$." This gives $n k = 5 times 3 = 15$ QUBO variables total, arranged as:
+    $ underbrace(x_(0,0) x_(0,1) x_(0,2), "vertex 0") #h(4pt) underbrace(x_(1,0) x_(1,1) x_(1,2), "vertex 1") #h(4pt) dots.c #h(4pt) underbrace(x_(4,0) x_(4,1) x_(4,2), "vertex 4") $
+
+    *Step 2 -- One-hot penalty.* Each vertex must receive _exactly one_ color, i.e.\ $sum_c x_(v,c) = 1$. The penalty $(1 - sum_c x_(v,c))^2$ is zero iff exactly one variable in the group is 1. With weight $P_1 = 1 + n = 6$, this contributes $Q_(v k+c, v k+c) = -6$ on the diagonal and $Q_(v k+c_1, v k+c_2) = 12$ between same-vertex color pairs. These are the $5 times 5$ diagonal blocks of $Q$.\
+
+    *Step 3 -- Edge conflict penalty.* For each edge $(u,v) in E$ and each color $c$, both endpoints having color $c$ is penalized: $P_2 dot x_(u,c) x_(v,c)$ with $P_2 = P_1 slash 2 = 3$. The house has 6 edges, each contributing 3 color penalties $arrow.r$ 18 off-diagonal entries of value $3$ in $Q$.\
+
+    *Step 4 -- Verify a solution.* The first valid 3-coloring is $(c_0, ..., c_4) = (#kc_qubo_sol.source_config.map(str).join(", "))$, shown in the figure above. The one-hot encoding is $bold(x) = (#kc_qubo_sol.target_config.map(str).join(", "))$. Check: each 3-bit group has exactly one 1 (valid one-hot #sym.checkmark), and for every edge the two endpoints have different colors (e.g.\ edge $0 dash 1$: colors $#kc_qubo_sol.source_config.at(0), #kc_qubo_sol.source_config.at(1)$ #sym.checkmark).\
+
+    *Count:* #kc_qubo_r.solutions.len() valid colorings $= 3! times 3$. The triangle $2 dash 3 dash 4$ forces 3 distinct colors ($3! = 6$ permutations); for each, the base vertices $0, 1$ each have 3 compatible choices but share edge $0 dash 1$, leaving $3$ valid pairs.
+  ],
+)[
   Given $G = (V, E)$ with $k$ colors, construct upper-triangular $Q in RR^(n k times n k)$ using one-hot encoding $x_(v,c) in {0,1}$ ($n k$ variables indexed by $v dot k + c$).
 ][
   _Construction._ Applying the penalty method (@sec:penalty-method), the QUBO objective combines a one-hot constraint penalty and an edge conflict penalty:
