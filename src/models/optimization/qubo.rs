@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "QUBO",
+        module_path: module_path!(),
         description: "Minimize quadratic unconstrained binary objective",
         fields: &[
             FieldInfo { name: "num_vars", type_name: "usize", description: "Number of binary variables" },
@@ -166,10 +167,7 @@ where
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", crate::variant::short_type_name::<W>()),
-        ]
+        vec![("weight", crate::variant::short_type_name::<W>())]
     }
 }
 

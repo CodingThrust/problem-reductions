@@ -144,10 +144,8 @@ macro_rules! impl_sat_to_ksat {
     };
 }
 
-// Implement for common K values
+// Implement for K=3 (the canonical NP-complete case)
 impl_sat_to_ksat!(3);
-impl_sat_to_ksat!(4);
-impl_sat_to_ksat!(5);
 
 /// Result of reducing K-SAT to general SAT.
 ///

@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "Satisfiability",
+        module_path: module_path!(),
         description: "Find satisfying assignment for CNF formula",
         fields: &[
             FieldInfo { name: "num_vars", type_name: "usize", description: "Number of Boolean variables" },
@@ -181,7 +182,7 @@ impl Problem for Satisfiability {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "Unweighted")]
+        vec![]
     }
 }
 

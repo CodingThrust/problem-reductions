@@ -49,7 +49,7 @@ Present issue summary to user.
 
 Check that the issue template is fully filled out:
 - For **[Model]** issues: A clear mathmatical definition, Type specification, Variables and fields, The complexity clarification, verify an existing solver can solve it, or a solving strategy is provided, A detailed example for human.
-- For **[Rule]** issues: Source, Target, Reference to verify information, Implementable reduction algorithm, Test dataset generation method, Size overhead, A clear example for human.
+- For **[Rule]** issues: Source, Target, Reference to verify information, Implementable reduction algorithm, Test dataset generation method, Size overhead, A reduction example for human to verify the reduction is correct. Please put a high standard on the example: it must be in tutorial style with clear intuition and is easy to understand.
 
 Verify facts provided by the user, feel free to ask user questions. If any piece is missing or unclear, comment on the issue via `gh issue comment <number> --body "..."` to ask user clarify. Then stop and wait — do NOT proceed until the issue is complete.
 

@@ -13,6 +13,7 @@ use std::collections::HashMap;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumMatching",
+        module_path: module_path!(),
         description: "Find maximum weight matching in a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
@@ -217,7 +218,7 @@ where
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("graph", crate::variant::short_type_name::<G>()),
+            ("graph", G::NAME),
             ("weight", crate::variant::short_type_name::<W>()),
         ]
     }

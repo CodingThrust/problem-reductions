@@ -11,6 +11,7 @@ use std::collections::HashMap;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "CircuitSAT",
+        module_path: module_path!(),
         description: "Find satisfying input to a boolean circuit",
         fields: &[
             FieldInfo { name: "circuit", type_name: "Circuit", description: "The boolean circuit" },
@@ -278,7 +279,7 @@ impl Problem for CircuitSAT {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph")]
+        vec![]
     }
 }
 

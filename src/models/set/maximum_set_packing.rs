@@ -12,6 +12,7 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumSetPacking",
+        module_path: module_path!(),
         description: "Find maximum weight collection of disjoint sets",
         fields: &[
             FieldInfo { name: "sets", type_name: "Vec<Vec<usize>>", description: "Collection of sets over a universe" },
@@ -148,10 +149,7 @@ where
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", crate::variant::short_type_name::<W>()),
-        ]
+        vec![("weight", crate::variant::short_type_name::<W>())]
     }
 }
 

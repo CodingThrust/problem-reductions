@@ -12,6 +12,7 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumSetCovering",
+        module_path: module_path!(),
         description: "Find minimum weight collection covering the universe",
         fields: &[
             FieldInfo { name: "universe_size", type_name: "usize", description: "Size of the universe U" },
@@ -161,10 +162,7 @@ where
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", crate::variant::short_type_name::<W>()),
-        ]
+        vec![("weight", crate::variant::short_type_name::<W>())]
     }
 }
 

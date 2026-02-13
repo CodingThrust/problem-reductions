@@ -218,22 +218,23 @@ fn test_roundtrip_sat_3sat_sat() {
 }
 
 #[test]
-fn test_sat_to_4sat() {
+fn test_sat_to_3sat_mixed_clause_types() {
+    // Test padding, exact-size, and splitting all at once
     let sat = Satisfiability::new(
         4,
         vec![
             CNFClause::new(vec![1, 2]),           // Needs padding
-            CNFClause::new(vec![1, 2, 3, 4]),     // Exact
+            CNFClause::new(vec![1, 2, 3]),         // Exact
             CNFClause::new(vec![1, 2, 3, 4, -1]), // Needs splitting
         ],
     );
 
-    let reduction = ReduceTo::<KSatisfiability<4>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
-    // All clauses should have exactly 4 literals
+    // All clauses should have exactly 3 literals
     for clause in ksat.clauses() {
-        assert_eq!(clause.len(), 4);
+        assert_eq!(clause.len(), 3);
     }
 }
 

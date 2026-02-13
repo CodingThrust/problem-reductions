@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "TravelingSalesman",
+        module_path: module_path!(),
         description: "Find minimum weight Hamiltonian cycle in a graph (Traveling Salesman Problem)",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
@@ -177,7 +178,7 @@ where
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("graph", crate::variant::short_type_name::<G>()),
+            ("graph", G::NAME),
             ("weight", crate::variant::short_type_name::<W>()),
         ]
     }

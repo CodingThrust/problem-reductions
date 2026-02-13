@@ -13,6 +13,7 @@ mod coloring_qubo;
 mod factoring_circuit;
 mod graph;
 mod ksatisfiability_qubo;
+mod maximumindependentset_gridgraph;
 mod maximumindependentset_maximumsetpacking;
 mod maximumindependentset_qubo;
 mod maximummatching_maximumsetpacking;
@@ -63,6 +64,7 @@ pub use graph::{
     EdgeJson, NodeJson, ReductionEdge, ReductionGraph, ReductionGraphJson, ReductionPath,
 };
 pub use ksatisfiability_qubo::{Reduction3SATToQUBO, ReductionKSatToQUBO};
+pub use maximumindependentset_gridgraph::{ReductionISSimpleToGrid, ReductionISUnitDiskToGrid};
 pub use maximumindependentset_maximumsetpacking::{ReductionISToSP, ReductionSPToIS};
 pub use maximumindependentset_qubo::ReductionISToQUBO;
 pub use maximummatching_maximumsetpacking::ReductionMatchingToSP;

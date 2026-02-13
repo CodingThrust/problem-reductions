@@ -141,11 +141,11 @@ fn test_to_json() {
     let is_to_vc = json
         .edges
         .iter()
-        .any(|e| e.source.name == "MaximumIndependentSet" && e.target.name == "MinimumVertexCover");
+        .any(|e| json.source_node(e).name == "MaximumIndependentSet" && json.target_node(e).name == "MinimumVertexCover");
     let vc_to_is = json
         .edges
         .iter()
-        .any(|e| e.source.name == "MinimumVertexCover" && e.target.name == "MaximumIndependentSet");
+        .any(|e| json.source_node(e).name == "MinimumVertexCover" && json.target_node(e).name == "MaximumIndependentSet");
     assert!(is_to_vc, "Should have IS -> VC edge");
     assert!(vc_to_is, "Should have VC -> IS edge");
 }
@@ -170,66 +170,57 @@ fn test_to_json_string() {
 }
 
 #[test]
-fn test_categorize_type() {
-    // Graph problems
+fn test_category_from_module_path() {
     assert_eq!(
-        ReductionGraph::categorize_type("MaximumIndependentSet<SimpleGraph, i32>"),
+        ReductionGraph::category_from_module_path(
+            "problemreductions::models::graph::maximum_independent_set"
+        ),
         "graph"
     );
     assert_eq!(
-        ReductionGraph::categorize_type("MinimumVertexCover<SimpleGraph, i32>"),
-        "graph"
-    );
-    assert_eq!(
-        ReductionGraph::categorize_type("MaxCut<SimpleGraph, i32>"),
-        "graph"
-    );
-    assert_eq!(ReductionGraph::categorize_type("KColoring"), "graph");
-    assert_eq!(
-        ReductionGraph::categorize_type("MinimumDominatingSet<SimpleGraph, i32>"),
-        "graph"
-    );
-    assert_eq!(
-        ReductionGraph::categorize_type("MaximumMatching<i32>"),
-        "graph"
-    );
-
-    // Set problems
-    assert_eq!(
-        ReductionGraph::categorize_type("MaximumSetPacking<i32>"),
+        ReductionGraph::category_from_module_path(
+            "problemreductions::models::set::minimum_set_covering"
+        ),
         "set"
     );
     assert_eq!(
-        ReductionGraph::categorize_type("MinimumSetCovering<i32>"),
-        "set"
-    );
-
-    // Optimization
-    assert_eq!(
-        ReductionGraph::categorize_type("SpinGlass<SimpleGraph, i32>"),
+        ReductionGraph::category_from_module_path(
+            "problemreductions::models::optimization::qubo"
+        ),
         "optimization"
     );
-    assert_eq!(ReductionGraph::categorize_type("QUBO<f64>"), "optimization");
-
-    // Satisfiability
     assert_eq!(
-        ReductionGraph::categorize_type("Satisfiability"),
+        ReductionGraph::category_from_module_path(
+            "problemreductions::models::satisfiability::sat"
+        ),
         "satisfiability"
     );
     assert_eq!(
-        ReductionGraph::categorize_type("KSatisfiability<3>"),
-        "satisfiability"
+        ReductionGraph::category_from_module_path(
+            "problemreductions::models::specialized::factoring"
+        ),
+        "specialized"
+    );
+    // Fallback for unexpected format
+    assert_eq!(ReductionGraph::category_from_module_path("foo::bar"), "other");
+}
+
+#[test]
+fn test_doc_path_from_module_path() {
+    assert_eq!(
+        ReductionGraph::doc_path_from_module_path(
+            "problemreductions::models::graph::maximum_independent_set",
+            "MaximumIndependentSet"
+        ),
+        "models/graph/struct.MaximumIndependentSet.html"
     );
     assert_eq!(
-        ReductionGraph::categorize_type("CircuitSAT"),
-        "satisfiability"
+        ReductionGraph::doc_path_from_module_path(
+            "problemreductions::models::optimization::qubo",
+            "QUBO"
+        ),
+        "models/optimization/struct.QUBO.html"
     );
-
-    // Specialized
-    assert_eq!(ReductionGraph::categorize_type("Factoring"), "specialized");
-
-    // Unknown
-    assert_eq!(ReductionGraph::categorize_type("UnknownProblem"), "other");
 }
 
 #[test]
@@ -370,62 +361,31 @@ fn test_to_json_file() {
 }
 
 #[test]
-fn test_has_direct_reduction_unregistered_types() {
-    // Test with a type that's not registered in the graph
-    struct UnregisteredType;
-
+fn test_unknown_name_returns_empty() {
     let graph = ReductionGraph::new();
 
-    // Source type not registered
-    assert!(
-        !graph.has_direct_reduction::<UnregisteredType, MaximumIndependentSet<SimpleGraph, i32>>()
-    );
+    // Unknown source
+    assert!(!graph.has_direct_reduction_by_name("UnknownProblem", "MaximumIndependentSet"));
+    // Unknown target
+    assert!(!graph.has_direct_reduction_by_name("MaximumIndependentSet", "UnknownProblem"));
+    // Both unknown
+    assert!(!graph.has_direct_reduction_by_name("UnknownA", "UnknownB"));
 
-    // Target type not registered
-    assert!(
-        !graph.has_direct_reduction::<MaximumIndependentSet<SimpleGraph, i32>, UnregisteredType>()
-    );
+    // find_paths with unknown name
+    assert!(graph.find_paths_by_name("UnknownProblem", "MaximumIndependentSet").is_empty());
+    assert!(graph.find_paths_by_name("MaximumIndependentSet", "UnknownProblem").is_empty());
 
-    // Both types not registered
-    assert!(!graph.has_direct_reduction::<UnregisteredType, UnregisteredType>());
+    // find_shortest_path with unknown name
+    assert!(graph.find_shortest_path_by_name("UnknownProblem", "MaximumIndependentSet").is_none());
 }
 
 #[test]
-fn test_find_paths_unregistered_source() {
-    struct UnregisteredType;
-
+fn test_category_derived_from_schema() {
+    // CircuitSAT's category is derived from its ProblemSchemaEntry module_path
     let graph = ReductionGraph::new();
-    let paths = graph.find_paths::<UnregisteredType, MaximumIndependentSet<SimpleGraph, i32>>();
-    assert!(paths.is_empty());
-}
-
-#[test]
-fn test_find_paths_unregistered_target() {
-    struct UnregisteredType;
-
-    let graph = ReductionGraph::new();
-    let paths = graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, UnregisteredType>();
-    assert!(paths.is_empty());
-}
-
-#[test]
-fn test_find_shortest_path_no_path() {
-    struct UnregisteredType;
-
-    let graph = ReductionGraph::new();
-    let path =
-        graph.find_shortest_path::<UnregisteredType, MaximumIndependentSet<SimpleGraph, i32>>();
-    assert!(path.is_none());
-}
-
-#[test]
-fn test_categorize_circuit_as_specialized() {
-    // CircuitSAT should be categorized as specialized (contains "Circuit")
-    assert_eq!(
-        ReductionGraph::categorize_type("CircuitSAT"),
-        "satisfiability"
-    );
-    // It contains "SAT" so it goes to satisfiability
+    let json = graph.to_json();
+    let circuit = json.nodes.iter().find(|n| n.name == "CircuitSAT").unwrap();
+    assert_eq!(circuit.category, "specialized");
 }
 
 #[test]
@@ -437,11 +397,11 @@ fn test_directed_edge_pairs() {
     let is_to_vc = json
         .edges
         .iter()
-        .any(|e| e.source.name == "MaximumIndependentSet" && e.target.name == "MinimumVertexCover");
+        .any(|e| json.source_node(e).name == "MaximumIndependentSet" && json.target_node(e).name == "MinimumVertexCover");
     let vc_to_is = json
         .edges
         .iter()
-        .any(|e| e.source.name == "MinimumVertexCover" && e.target.name == "MaximumIndependentSet");
+        .any(|e| json.source_node(e).name == "MinimumVertexCover" && json.target_node(e).name == "MaximumIndependentSet");
     assert!(is_to_vc, "Should have IS -> VC edge");
     assert!(vc_to_is, "Should have VC -> IS edge");
 
@@ -449,11 +409,11 @@ fn test_directed_edge_pairs() {
     let factoring_to_circuit = json
         .edges
         .iter()
-        .any(|e| e.source.name == "Factoring" && e.target.name == "CircuitSAT");
+        .any(|e| json.source_node(e).name == "Factoring" && json.target_node(e).name == "CircuitSAT");
     let circuit_to_factoring = json
         .edges
         .iter()
-        .any(|e| e.source.name == "CircuitSAT" && e.target.name == "Factoring");
+        .any(|e| json.source_node(e).name == "CircuitSAT" && json.target_node(e).name == "Factoring");
     assert!(factoring_to_circuit, "Should have Factoring -> CircuitSAT");
     assert!(
         !circuit_to_factoring,
@@ -783,8 +743,8 @@ fn test_to_json_edges_have_variants() {
 
     // Check that edges have source and target variant refs
     for edge in &json.edges {
-        assert!(!edge.source.name.is_empty());
-        assert!(!edge.target.name.is_empty());
+        assert!(!json.source_node(edge).name.is_empty());
+        assert!(!json.target_node(edge).name.is_empty());
     }
 }
 
@@ -802,7 +762,7 @@ fn test_json_variant_content() {
 
     // Find an edge involving MaximumIndependentSet (could be source or target)
     let is_edge = json.edges.iter().find(|e| {
-        e.source.name == "MaximumIndependentSet" || e.target.name == "MaximumIndependentSet"
+        json.source_node(e).name == "MaximumIndependentSet" || json.target_node(e).name == "MaximumIndependentSet"
     });
     assert!(
         is_edge.is_some(),
@@ -828,11 +788,7 @@ fn test_concrete_variant_nodes_in_json() {
     });
     assert!(mis_unitdisk, "MIS/UnitDiskGraph node should exist");
 
-    let maxcut_gridgraph = json
-        .nodes
-        .iter()
-        .any(|n| n.name == "MaxCut" && n.variant.get("graph") == Some(&"GridGraph".to_string()));
-    assert!(maxcut_gridgraph, "MaxCut/GridGraph node should exist");
+    // MaxCut/GridGraph was removed (orphan with no reduction path)
 }
 
 #[test]
@@ -842,10 +798,10 @@ fn test_natural_edge_graph_relaxation() {
 
     // MIS/GridGraph -> MIS/SimpleGraph should exist (graph type relaxation)
     let has_edge = json.edges.iter().any(|e| {
-        e.source.name == "MaximumIndependentSet"
-            && e.target.name == "MaximumIndependentSet"
-            && e.source.variant.get("graph") == Some(&"GridGraph".to_string())
-            && e.target.variant.get("graph") == Some(&"SimpleGraph".to_string())
+        json.source_node(e).name == "MaximumIndependentSet"
+            && json.target_node(e).name == "MaximumIndependentSet"
+            && json.source_node(e).variant.get("graph") == Some(&"GridGraph".to_string())
+            && json.target_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
     });
     assert!(
         has_edge,
@@ -860,10 +816,10 @@ fn test_natural_edge_gridgraph_to_unitdisk() {
 
     // MIS/GridGraph -> MIS/UnitDiskGraph should exist
     let has_edge = json.edges.iter().any(|e| {
-        e.source.name == "MaximumIndependentSet"
-            && e.target.name == "MaximumIndependentSet"
-            && e.source.variant.get("graph") == Some(&"GridGraph".to_string())
-            && e.target.variant.get("graph") == Some(&"UnitDiskGraph".to_string())
+        json.source_node(e).name == "MaximumIndependentSet"
+            && json.target_node(e).name == "MaximumIndependentSet"
+            && json.source_node(e).variant.get("graph") == Some(&"GridGraph".to_string())
+            && json.target_node(e).variant.get("graph") == Some(&"UnitDiskGraph".to_string())
     });
     assert!(
         has_edge,
@@ -878,12 +834,12 @@ fn test_natural_edge_weight_promotion() {
 
     // MIS{SimpleGraph, Unweighted} -> MIS{SimpleGraph, i32} should exist
     let has_edge = json.edges.iter().any(|e| {
-        e.source.name == "MaximumIndependentSet"
-            && e.target.name == "MaximumIndependentSet"
-            && e.source.variant.get("graph") == Some(&"SimpleGraph".to_string())
-            && e.target.variant.get("graph") == Some(&"SimpleGraph".to_string())
-            && e.source.variant.get("weight") == Some(&"Unweighted".to_string())
-            && e.target.variant.get("weight") == Some(&"i32".to_string())
+        json.source_node(e).name == "MaximumIndependentSet"
+            && json.target_node(e).name == "MaximumIndependentSet"
+            && json.source_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
+            && json.target_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
+            && json.source_node(e).variant.get("weight") == Some(&"Unweighted".to_string())
+            && json.target_node(e).variant.get("weight") == Some(&"i32".to_string())
     });
     assert!(
         has_edge,
@@ -896,16 +852,18 @@ fn test_no_natural_edge_wrong_direction() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // MIS/SimpleGraph -> MIS/GridGraph should NOT exist (wrong direction)
-    let has_edge = json.edges.iter().any(|e| {
-        e.source.name == "MaximumIndependentSet"
-            && e.target.name == "MaximumIndependentSet"
-            && e.source.variant.get("graph") == Some(&"SimpleGraph".to_string())
-            && e.target.variant.get("graph") == Some(&"GridGraph".to_string())
+    // No NATURAL edge from SimpleGraph -> GridGraph (wrong direction for graph relaxation).
+    // A real reduction edge from SimpleGraph -> GridGraph may exist (unit disk mapping).
+    let has_natural_edge = json.edges.iter().any(|e| {
+        json.source_node(e).name == "MaximumIndependentSet"
+            && json.target_node(e).name == "MaximumIndependentSet"
+            && json.source_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
+            && json.target_node(e).variant.get("graph") == Some(&"GridGraph".to_string())
+            && e.doc_path.is_empty() // natural edges have empty doc_path
     });
     assert!(
-        !has_edge,
-        "Should NOT have MIS/SimpleGraph -> MIS/GridGraph"
+        !has_natural_edge,
+        "Should NOT have natural edge MIS/SimpleGraph -> MIS/GridGraph"
     );
 }
 
@@ -916,12 +874,12 @@ fn test_no_natural_self_edge() {
 
     // No self-edges (same variant to same variant)
     for edge in &json.edges {
-        if edge.source.name == edge.target.name {
+        if json.source_node(edge).name == json.target_node(edge).name {
             assert!(
-                edge.source.variant != edge.target.variant,
+                json.source_node(edge).variant != json.target_node(edge).variant,
                 "Should not have self-edge: {} {:?}",
-                edge.source.name,
-                edge.source.variant
+                json.source_node(edge).name,
+                json.source_node(edge).variant
             );
         }
     }
@@ -934,12 +892,12 @@ fn test_natural_edge_has_identity_overhead() {
 
     // Find a natural edge and verify its overhead is identity (field == formula)
     let natural_edge = json.edges.iter().find(|e| {
-        e.source.name == "MaximumIndependentSet"
-            && e.target.name == "MaximumIndependentSet"
-            && e.source.variant.get("graph") == Some(&"GridGraph".to_string())
-            && e.target.variant.get("graph") == Some(&"SimpleGraph".to_string())
-            && e.source.variant.get("weight") == Some(&"Unweighted".to_string())
-            && e.target.variant.get("weight") == Some(&"Unweighted".to_string())
+        json.source_node(e).name == "MaximumIndependentSet"
+            && json.target_node(e).name == "MaximumIndependentSet"
+            && json.source_node(e).variant.get("graph") == Some(&"GridGraph".to_string())
+            && json.target_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
+            && json.source_node(e).variant.get("weight") == Some(&"i32".to_string())
+            && json.target_node(e).variant.get("weight") == Some(&"i32".to_string())
     });
     assert!(natural_edge.is_some(), "Natural edge should exist");
     let edge = natural_edge.unwrap();

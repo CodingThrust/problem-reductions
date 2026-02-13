@@ -60,15 +60,15 @@
 // Extract reductions for a problem from graph-data (returns (name, label) pairs)
 #let get-reductions-to(problem-name) = {
   graph-data.edges
-    .filter(e => e.source.name == problem-name)
-    .map(e => (name: e.target.name, lbl: reduction-label(e.source.name, e.target.name)))
+    .filter(e => graph-data.nodes.at(e.source).name == problem-name)
+    .map(e => (name: graph-data.nodes.at(e.target).name, lbl: reduction-label(graph-data.nodes.at(e.source).name, graph-data.nodes.at(e.target).name)))
     .dedup(key: e => e.name)
 }
 
 #let get-reductions-from(problem-name) = {
   graph-data.edges
-    .filter(e => e.target.name == problem-name)
-    .map(e => (name: e.source.name, lbl: reduction-label(e.source.name, e.target.name)))
+    .filter(e => graph-data.nodes.at(e.target).name == problem-name)
+    .map(e => (name: graph-data.nodes.at(e.source).name, lbl: reduction-label(graph-data.nodes.at(e.source).name, graph-data.nodes.at(e.target).name)))
     .dedup(key: e => e.name)
 }
 
@@ -166,9 +166,9 @@
 
 // Find edge in graph-data by source/target names
 #let find-edge(source, target) = {
-  let edge = graph-data.edges.find(e => e.source.name == source and e.target.name == target)
+  let edge = graph-data.edges.find(e => graph-data.nodes.at(e.source).name == source and graph-data.nodes.at(e.target).name == target)
   if edge == none {
-    edge = graph-data.edges.find(e => e.source.name == target and e.target.name == source)
+    edge = graph-data.edges.find(e => graph-data.nodes.at(e.source).name == target and graph-data.nodes.at(e.target).name == source)
   }
   edge
 }
@@ -205,9 +205,9 @@
 ) = {
   let arrow = sym.arrow.r
   let edge = find-edge(source, target)
-  let src-disp = if edge != none { variant-display(edge.source) }
+  let src-disp = if edge != none { variant-display(graph-data.nodes.at(edge.source)) }
                  else { display-name.at(source) }
-  let tgt-disp = if edge != none { variant-display(edge.target) }
+  let tgt-disp = if edge != none { variant-display(graph-data.nodes.at(edge.target)) }
                  else { display-name.at(target) }
   let src-lbl = label("def:" + source)
   let tgt-lbl = label("def:" + target)
@@ -897,7 +897,7 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 #context {
   let covered = covered-rules.get()
   let json-edges = {
-    let edges = graph-data.edges.map(e => (e.source.name, e.target.name))
+    let edges = graph-data.edges.map(e => (graph-data.nodes.at(e.source).name, graph-data.nodes.at(e.target).name))
     let unique = ()
     for e in edges {
       if unique.find(u => u.at(0) == e.at(0) and u.at(1) == e.at(1)) == none {

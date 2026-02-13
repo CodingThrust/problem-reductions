@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaxCut",
+        module_path: module_path!(),
         description: "Find maximum weight cut in a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The graph with edge weights" },
@@ -205,7 +206,7 @@ where
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("graph", crate::variant::short_type_name::<G>()),
+            ("graph", G::NAME),
             ("weight", crate::variant::short_type_name::<W>()),
         ]
     }

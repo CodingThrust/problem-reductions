@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "Factoring",
+        module_path: module_path!(),
         description: "Factor a composite integer into two factors",
         fields: &[
             FieldInfo { name: "m", type_name: "usize", description: "Bits for first factor" },
@@ -133,7 +134,7 @@ impl Problem for Factoring {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        vec![]
     }
 }
 
