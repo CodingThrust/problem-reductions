@@ -112,6 +112,15 @@
     {
       "name": "MaxCut",
       "variant": {
+        "graph": "GridGraph",
+        "weight": "Unweighted"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaxCut.html"
+    },
+    {
+      "name": "MaxCut",
+      "variant": {
         "graph": "SimpleGraph",
         "weight": "Unweighted"
       },
@@ -121,6 +130,15 @@
     {
       "name": "MaximumIndependentSet",
       "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumIndependentSet.html"
+    },
+    {
+      "name": "MaximumIndependentSet",
+      "variant": {
+        "graph": "GridGraph",
+        "weight": "Unweighted"
+      },
       "category": "graph",
       "doc_path": "models/graph/struct.MaximumIndependentSet.html"
     },
@@ -138,6 +156,15 @@
       "variant": {
         "graph": "SimpleGraph",
         "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumIndependentSet.html"
+    },
+    {
+      "name": "MaximumIndependentSet",
+      "variant": {
+        "graph": "UnitDiskGraph",
+        "weight": "Unweighted"
       },
       "category": "graph",
       "doc_path": "models/graph/struct.MaximumIndependentSet.html"
@@ -268,6 +295,15 @@
     {
       "name": "SpinGlass",
       "variant": {},
+      "category": "optimization",
+      "doc_path": "models/optimization/struct.SpinGlass.html"
+    },
+    {
+      "name": "SpinGlass",
+      "variant": {
+        "graph": "GridGraph",
+        "weight": "f64"
+      },
       "category": "optimization",
       "doc_path": "models/optimization/struct.SpinGlass.html"
     },
@@ -291,6 +327,29 @@
     }
   ],
   "edges": [
+    {
+      "source": {
+        "name": "CircuitSAT",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "CircuitSAT",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_gates",
+          "formula": "num_gates"
+        }
+      ],
+      "doc_path": ""
+    },
     {
       "source": {
         "name": "CircuitSAT",
@@ -428,6 +487,33 @@
         }
       },
       "target": {
+        "name": "KColoring",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_colors",
+          "formula": "num_colors"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "KColoring",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
         "name": "QUBO",
         "variant": {
           "graph": "SimpleGraph",
@@ -496,6 +582,33 @@
       "source": {
         "name": "MaxCut",
         "variant": {
+          "graph": "GridGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MaxCut",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "MaxCut",
+        "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
         }
@@ -518,6 +631,114 @@
         }
       ],
       "doc_path": "rules/spinglass_maxcut/index.html"
+    },
+    {
+      "source": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "GridGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "GridGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "GridGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "UnitDiskGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": ""
     },
     {
       "source": {
@@ -598,6 +819,60 @@
     },
     {
       "source": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "UnitDiskGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "UnitDiskGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
         "name": "MaximumMatching",
         "variant": {
           "graph": "SimpleGraph",
@@ -649,6 +924,33 @@
         }
       ],
       "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
+    },
+    {
+      "source": {
+        "name": "MaximumSetPacking",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MaximumSetPacking",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_sets",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_elements",
+          "formula": "num_elements"
+        }
+      ],
+      "doc_path": ""
     },
     {
       "source": {
@@ -726,6 +1028,33 @@
         }
       ],
       "doc_path": "rules/minimumvertexcover_minimumsetcovering/index.html"
+    },
+    {
+      "source": {
+        "name": "MinimumVertexCover",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MinimumVertexCover",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": ""
     },
     {
       "source": {
@@ -885,6 +1214,33 @@
       "source": {
         "name": "SpinGlass",
         "variant": {
+          "graph": "GridGraph",
+          "weight": "f64"
+        }
+      },
+      "target": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_spins",
+          "formula": "num_spins"
+        },
+        {
+          "field": "num_interactions",
+          "formula": "num_interactions"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "SpinGlass",
+        "variant": {
           "graph": "SimpleGraph",
           "weight": "Unweighted"
         }
@@ -907,6 +1263,33 @@
         }
       ],
       "doc_path": "rules/spinglass_maxcut/index.html"
+    },
+    {
+      "source": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_spins",
+          "formula": "num_spins"
+        },
+        {
+          "field": "num_interactions",
+          "formula": "num_interactions"
+        }
+      ],
+      "doc_path": ""
     },
     {
       "source": {
