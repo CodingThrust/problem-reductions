@@ -20,47 +20,10 @@
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::models::specialized::Factoring;
 use crate::polynomial::{Monomial, Polynomial};
-use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+use crate::reduction;
+use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use std::cmp::min;
-
-// Register reduction in the inventory for automatic discovery
-inventory::submit! {
-    ReductionEntry {
-        source_name: "Factoring",
-        target_name: "ILP",
-        source_variant_fn: || <Factoring as crate::traits::Problem>::variant(),
-        target_variant_fn: || <ILP as crate::traits::Problem>::variant(),
-        overhead_fn: || ReductionOverhead::new(vec![
-            // num_vars = m + n + m*n + num_carries where num_carries = max(m+n, target_bits)
-            // For feasible instances, target_bits <= m+n, so this is 2(m+n) + m*n
-            ("num_vars", Polynomial {
-                terms: vec![
-                    Monomial::var("num_bits_first").scale(2.0),
-                    Monomial::var("num_bits_second").scale(2.0),
-                    Monomial {
-                        coefficient: 1.0,
-                        variables: vec![("num_bits_first", 1), ("num_bits_second", 1)],
-                    },
-                ]
-            }),
-            // num_constraints = 3*m*n + num_bit_positions + 1
-            // For feasible instances (target_bits <= m+n), this is 3*m*n + (m+n) + 1
-            ("num_constraints", Polynomial {
-                terms: vec![
-                    Monomial {
-                        coefficient: 3.0,
-                        variables: vec![("num_bits_first", 1), ("num_bits_second", 1)],
-                    },
-                    Monomial::var("num_bits_first"),
-                    Monomial::var("num_bits_second"),
-                    Monomial::constant(1.0),
-                ]
-            }),
-        ]),
-        module_path: module_path!(),
-    }
-}
 
 /// Result of reducing Factoring to ILP.
 ///
@@ -130,6 +93,35 @@ impl ReductionResult for ReductionFactoringToILP {
     }
 }
 
+#[reduction(overhead = {
+    ReductionOverhead::new(vec![
+        // num_vars = m + n + m*n + num_carries where num_carries = max(m+n, target_bits)
+        // For feasible instances, target_bits <= m+n, so this is 2(m+n) + m*n
+        ("num_vars", Polynomial {
+            terms: vec![
+                Monomial::var("num_bits_first").scale(2.0),
+                Monomial::var("num_bits_second").scale(2.0),
+                Monomial {
+                    coefficient: 1.0,
+                    variables: vec![("num_bits_first", 1), ("num_bits_second", 1)],
+                },
+            ]
+        }),
+        // num_constraints = 3*m*n + num_bit_positions + 1
+        // For feasible instances (target_bits <= m+n), this is 3*m*n + (m+n) + 1
+        ("num_constraints", Polynomial {
+            terms: vec![
+                Monomial {
+                    coefficient: 3.0,
+                    variables: vec![("num_bits_first", 1), ("num_bits_second", 1)],
+                },
+                Monomial::var("num_bits_first"),
+                Monomial::var("num_bits_second"),
+                Monomial::constant(1.0),
+            ]
+        }),
+    ])
+})]
 impl ReduceTo<ILP> for Factoring {
     type Result = ReductionFactoringToILP;
 

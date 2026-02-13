@@ -1,12 +1,6 @@
 # Problem Reductions
 
-A Rust library for reducing NP-hard problems.
-
-## Overview
-
-**problemreductions** provides implementations of various computational hard problems and reduction rules between them. It is designed for algorithm research, education, and industry applications.
-
-For theoretical background and correctness proofs, see the [PDF manual](https://codingthrust.github.io/problem-reductions/reductions.pdf).
+**problem-reductions** is a rust library that provides implementations of various computational hard problems and reduction rules between them. It is designed for algorithm research, education, and industry applications.
 
 ## Reduction Graph
 
@@ -352,6 +346,8 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
     });
 })();
 </script>
+
+For theoretical background and correctness proofs, see the [PDF manual](https://codingthrust.github.io/problem-reductions/reductions.pdf).
 
 ## Our Vision
 
