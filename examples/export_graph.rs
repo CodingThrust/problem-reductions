@@ -25,7 +25,7 @@ fn main() {
     }
 
     graph
-        .to_json_file(output_path)
+        .to_json_file(&output_path)
         .expect("Failed to write JSON file");
 
     println!("\nExported to: {}", output_path.display());
