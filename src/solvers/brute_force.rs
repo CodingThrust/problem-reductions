@@ -17,8 +17,11 @@ impl BruteForce {
         Self
     }
 
-    /// Internal: find all optimal solutions.
-    fn find_all_best<P: OptimizationProblem>(&self, problem: &P) -> Vec<Vec<usize>> {
+    /// Find all optimal solutions for an optimization problem.
+    ///
+    /// Returns all configurations that achieve the optimal metric value.
+    /// Returns empty vec if all configurations are invalid.
+    pub fn find_all_best<P: OptimizationProblem>(&self, problem: &P) -> Vec<Vec<usize>> {
         let iter = DimsIterator::new(problem.dims());
         let direction = problem.direction();
         let mut best_solutions: Vec<Vec<usize>> = vec![];
@@ -73,8 +76,8 @@ impl BruteForce {
 }
 
 impl Solver for BruteForce {
-    fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Vec<Vec<usize>> {
-        self.find_all_best(problem)
+    fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Option<Vec<usize>> {
+        self.find_all_best(problem).into_iter().next()
     }
 
     fn find_satisfying<P: Problem<Metric = bool>>(&self, problem: &P) -> Option<Vec<usize>> {

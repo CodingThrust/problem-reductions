@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 
 #[test]
 fn test_vc_to_sc_basic() {
@@ -51,7 +51,7 @@ fn test_vc_to_sc_solution_extraction() {
 
     // Solve the MinimumSetCovering problem
     let solver = BruteForce::new();
-    let sc_solutions = solver.find_best(sc_problem);
+    let sc_solutions = solver.find_all_best(sc_problem);
 
     // Extract solutions back to MinimumVertexCover
     let vc_solutions: Vec<_> = sc_solutions
@@ -78,12 +78,12 @@ fn test_vc_to_sc_optimality_preservation() {
     let solver = BruteForce::new();
 
     // Solve VC directly
-    let direct_solutions = solver.find_best(&vc_problem);
+    let direct_solutions = solver.find_all_best(&vc_problem);
     let direct_size = direct_solutions[0].iter().sum::<usize>();
 
     // Solve via reduction
     let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
-    let sc_solutions = solver.find_best(reduction.target_problem());
+    let sc_solutions = solver.find_all_best(reduction.target_problem());
     let reduced_solutions: Vec<_> = sc_solutions
         .iter()
         .map(|s| reduction.extract_solution(s))
@@ -106,8 +106,8 @@ fn test_vc_to_sc_weighted() {
 
     // Solve both ways
     let solver = BruteForce::new();
-    let vc_solutions = solver.find_best(&vc_problem);
-    let sc_solutions = solver.find_best(sc_problem);
+    let vc_solutions = solver.find_all_best(&vc_problem);
+    let sc_solutions = solver.find_all_best(sc_problem);
 
     // Both should select vertex 1 (weight 1)
     assert_eq!(vc_solutions[0], vec![0, 1, 0]);
@@ -147,7 +147,7 @@ fn test_vc_to_sc_star_graph() {
 
     // Minimum cover should be just vertex 0
     let solver = BruteForce::new();
-    let solutions = solver.find_best(&vc_problem);
+    let solutions = solver.find_all_best(&vc_problem);
     assert_eq!(solutions[0], vec![1, 0, 0, 0]);
 }
 
@@ -162,7 +162,7 @@ fn test_vc_to_sc_all_solutions_valid() {
     let sc_problem = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sc_solutions = solver.find_best(sc_problem);
+    let sc_solutions = solver.find_all_best(sc_problem);
 
     for sc_sol in &sc_solutions {
         let vc_sol = reduction.extract_solution(sc_sol);

@@ -44,8 +44,8 @@ proptest! {
         let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(n, edges);
 
         let solver = BruteForce::new();
-        let is_solutions = solver.find_best(&is_problem);
-        let vc_solutions = solver.find_best(&vc_problem);
+        let is_solutions = solver.find_all_best(&is_problem);
+        let vc_solutions = solver.find_all_best(&vc_problem);
 
         let is_size: usize = is_solutions[0].iter().sum();
         let vc_size: usize = vc_solutions[0].iter().sum();
@@ -60,7 +60,7 @@ proptest! {
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(n, edges);
         let solver = BruteForce::new();
 
-        for sol in solver.find_best(&problem) {
+        for sol in solver.find_all_best(&problem) {
             // Any subset of an IS is also an IS
             for i in 0..n {
                 let mut subset = sol.clone();
@@ -77,7 +77,7 @@ proptest! {
         let problem = MinimumVertexCover::<SimpleGraph, i32>::new(n, edges);
         let solver = BruteForce::new();
 
-        for sol in solver.find_best(&problem) {
+        for sol in solver.find_all_best(&problem) {
             // Adding any vertex to a VC still gives a valid VC
             for i in 0..n {
                 let mut superset = sol.clone();
@@ -96,7 +96,7 @@ proptest! {
         let solver = BruteForce::new();
 
         // Get all valid independent sets (not just optimal)
-        for sol in solver.find_best(&is_problem) {
+        for sol in solver.find_all_best(&is_problem) {
             // The complement should be a valid vertex cover
             let complement: Vec<usize> = sol.iter().map(|&x| 1 - x).collect();
             prop_assert!(vc_problem.evaluate(&complement).is_valid(),
@@ -129,7 +129,7 @@ proptest! {
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(n, edges);
         let solver = BruteForce::new();
 
-        for sol in solver.find_best(&problem) {
+        for sol in solver.find_all_best(&problem) {
             let metric = problem.evaluate(&sol);
             // Valid solutions have non-negative size
             prop_assert!(metric.is_valid());

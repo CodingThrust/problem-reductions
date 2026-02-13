@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -65,7 +65,7 @@ fn test_brute_force_star() {
     let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     assert!(solutions.contains(&vec![1, 0, 0, 0]));
     for sol in &solutions {
         assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(1));
@@ -79,7 +79,7 @@ fn test_brute_force_path() {
         MinimumDominatingSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Minimum is 2 (e.g., vertices 1 and 3)
     for sol in &solutions {
         assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(2));
@@ -98,7 +98,7 @@ fn test_brute_force_weighted() {
     );
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Prefer selecting all leaves (3) over center (100)
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![0, 1, 1, 1]);
@@ -130,7 +130,7 @@ fn test_isolated_vertex() {
     let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Vertex 2 is isolated, must be selected
     for sol in &solutions {
         assert_eq!(sol[2], 1);

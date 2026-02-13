@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::types::SolutionSize;
 
 #[test]
@@ -79,7 +79,7 @@ fn test_brute_force_path() {
     let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Largest maximal IS is {0, 2} with size 2
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1, 0, 1]);
@@ -92,7 +92,7 @@ fn test_brute_force_triangle() {
     let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // All maximal IS have size 1 (any single vertex)
     assert_eq!(solutions.len(), 3);
     for sol in &solutions {
@@ -130,7 +130,7 @@ fn test_empty_graph() {
     let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Only maximal IS is all vertices
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1, 1, 1]);
@@ -203,7 +203,7 @@ fn test_weighted_solution() {
         MaximalIS::<SimpleGraph, i32>::with_weights(3, vec![(0, 1), (1, 2)], vec![10, 100, 10]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Should prefer {1} with weight 100 over {0, 2} with weight 20
     // With LargerSizeIsBetter, {1} with 100 > {0, 2} with 20
     assert_eq!(solutions.len(), 1);

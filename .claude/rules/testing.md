@@ -20,8 +20,10 @@ New code must have >95% test coverage. Run `make coverage` to check.
 
 Follow the reference files above for exact API usage. Summary:
 
-- `solver.find_best(&problem)` — for optimization problems (`OptimizationProblem`, `Metric = SolutionSize<W>`)
-- `solver.find_satisfying(&problem)` — for satisfaction problems (`Metric = bool`)
+- `solver.find_best(&problem)` → `Option<Vec<usize>>` — one optimal solution for optimization problems
+- `solver.find_satisfying(&problem)` → `Option<Vec<usize>>` — one satisfying assignment
+- `solver.find_all_best(&problem)` → `Vec<Vec<usize>>` — all optimal solutions (BruteForce only)
+- `solver.find_all_satisfying(&problem)` → `Vec<Vec<usize>>` — all satisfying assignments (BruteForce only)
 - `problem.evaluate(&config)` — returns `SolutionSize::Valid(value)` / `SolutionSize::Invalid` for optimization, `bool` for satisfaction
 
 ## File Organization

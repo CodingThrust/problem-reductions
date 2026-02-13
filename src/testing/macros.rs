@@ -78,7 +78,7 @@ macro_rules! graph_problem_tests {
                         if $n <= 15 {
                             let problem = create_problem();
                             let solver = BruteForce::new();
-                            let solutions = solver.find_best(&problem);
+                            let solutions = solver.find_all_best(&problem);
 
                             // All solutions should have the same (optimal) value
                             if solutions.len() > 1 {
@@ -150,8 +150,8 @@ macro_rules! complement_test {
                     let problem_b = <$prob_b>::new(n, edges);
 
                     let solver = BruteForce::new();
-                    let solutions_a = solver.find_best(&problem_a);
-                    let solutions_b = solver.find_best(&problem_b);
+                    let solutions_a = solver.find_all_best(&problem_a);
+                    let solutions_b = solver.find_all_best(&problem_b);
 
                     // Get optimal sizes (count of selected vertices)
                     let size_a: usize = solutions_a[0].iter().sum();

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -62,7 +62,7 @@ fn test_brute_force_simple() {
     let problem = MinimumSetCovering::<i32>::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 2);
         // Verify it's a valid cover
@@ -80,7 +80,7 @@ fn test_brute_force_weighted() {
     );
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Should select sets 1 and 2 (total 6) instead of set 0 (total 10)
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![0, 1, 1]);
@@ -115,7 +115,7 @@ fn test_single_set_covers_all() {
     let problem = MinimumSetCovering::<i32>::new(3, vec![vec![0, 1, 2], vec![0], vec![1], vec![2]]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // First set alone covers everything
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1, 0, 0, 0]);
@@ -127,7 +127,7 @@ fn test_overlapping_sets() {
     let problem = MinimumSetCovering::<i32>::new(3, vec![vec![0, 1], vec![1, 2], vec![1]]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Minimum is selecting first two sets
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 2);

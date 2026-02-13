@@ -97,7 +97,7 @@ mod maximum_independent_set {
             MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         // All solutions should have exactly 1 vertex selected
         assert_eq!(solutions.len(), 3); // Three equivalent solutions
         for sol in &solutions {
@@ -112,7 +112,7 @@ mod maximum_independent_set {
             MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         // Maximum size is 2
         for sol in &solutions {
             let size: usize = sol.iter().sum();
@@ -128,7 +128,7 @@ mod maximum_independent_set {
         let problem = MaximumIndependentSet::with_weights(3, vec![(0, 1), (1, 2)], vec![1, 100, 1]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert_eq!(solutions.len(), 1);
         // Should select vertex 1 (weight 100) over vertices 0+2 (weight 2)
         assert_eq!(solutions[0], vec![0, 1, 0]);
@@ -178,7 +178,7 @@ mod maximum_independent_set {
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert_eq!(solutions.len(), 1);
         // All vertices can be selected
         assert_eq!(solutions[0], vec![1, 1, 1]);
@@ -247,7 +247,7 @@ mod minimum_vertex_cover {
         let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert_eq!(solutions.len(), 1);
         assert_eq!(solutions[0], vec![0, 1, 0]);
     }
@@ -258,7 +258,7 @@ mod minimum_vertex_cover {
         let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         // There are 3 minimum covers of size 2
         assert_eq!(solutions.len(), 3);
         for sol in &solutions {
@@ -274,7 +274,7 @@ mod minimum_vertex_cover {
         let problem = MinimumVertexCover::with_weights(3, vec![(0, 1), (1, 2)], vec![100, 1, 100]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert_eq!(solutions.len(), 1);
         // Should select vertex 1 (weight 1) instead of 0 and 2 (total 200)
         assert_eq!(solutions[0], vec![0, 1, 0]);
@@ -307,7 +307,7 @@ mod minimum_vertex_cover {
         let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         // No edges means empty cover is valid and optimal
         assert_eq!(solutions.len(), 1);
         assert_eq!(solutions[0], vec![0, 0, 0]);
@@ -318,7 +318,7 @@ mod minimum_vertex_cover {
         let problem = MinimumVertexCover::<SimpleGraph, i32>::new(2, vec![(0, 1)]);
         let solver = BruteForce::new();
 
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         // Either vertex covers the single edge
         assert_eq!(solutions.len(), 2);
     }
@@ -344,7 +344,7 @@ mod minimum_vertex_cover {
 
         let solver = BruteForce::new();
 
-        let is_solutions = solver.find_best(&is_problem);
+        let is_solutions = solver.find_all_best(&is_problem);
         for is_sol in &is_solutions {
             // Complement should be a valid vertex cover
             let vc_config: Vec<usize> = is_sol.iter().map(|&x| 1 - x).collect();

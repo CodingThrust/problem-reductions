@@ -42,7 +42,7 @@ inventory::submit! {
 /// let problem = MaximumMatching::<SimpleGraph, i32>::new(3, vec![(0, 1, 1), (1, 2, 1)]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_best(&problem);
 ///
 /// // Maximum matching has 1 edge
 /// for sol in &solutions {

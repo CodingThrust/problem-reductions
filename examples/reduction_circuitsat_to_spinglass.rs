@@ -82,7 +82,7 @@ pub fn run() {
 
     // 3. Solve the target SpinGlass problem
     let solver = BruteForce::new();
-    let sg_solutions = solver.find_best(sg);
+    let sg_solutions = solver.find_all_best(sg);
     println!("\n=== Solution ===");
     println!(
         "Target SpinGlass ground states found: {}",

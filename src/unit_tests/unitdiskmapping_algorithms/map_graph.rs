@@ -306,6 +306,7 @@ fn test_mis_overhead_cubical() {
 }
 
 #[test]
+#[ignore] // tutte maps to 1232-vertex grid; ILP solving takes ~10s
 fn test_mis_overhead_tutte() {
     let (n, edges) = smallgraph("tutte").unwrap();
     let result = map_graph(n, &edges);

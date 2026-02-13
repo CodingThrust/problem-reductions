@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -46,7 +46,7 @@ fn test_brute_force_path() {
     let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![0, 1, 0]);
 }
@@ -57,7 +57,7 @@ fn test_brute_force_triangle() {
     let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // There are 3 minimum covers of size 2
     assert_eq!(solutions.len(), 3);
     for sol in &solutions {
@@ -77,7 +77,7 @@ fn test_brute_force_weighted() {
     );
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     assert_eq!(solutions.len(), 1);
     // Should select vertex 1 (weight 1) instead of 0 and 2 (total 200)
     assert_eq!(solutions[0], vec![0, 1, 0]);
@@ -110,7 +110,7 @@ fn test_empty_graph() {
     let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // No edges means empty cover is valid and optimal
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![0, 0, 0]);
@@ -121,7 +121,7 @@ fn test_single_edge() {
     let problem = MinimumVertexCover::<SimpleGraph, i32>::new(2, vec![(0, 1)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Either vertex covers the single edge
     assert_eq!(solutions.len(), 2);
 }
@@ -137,7 +137,7 @@ fn test_complement_relationship() {
 
     let solver = BruteForce::new();
 
-    let is_solutions = solver.find_best(&is_problem);
+    let is_solutions = solver.find_all_best(&is_problem);
     for is_sol in &is_solutions {
         // Complement should be a valid vertex cover
         let vc_config: Vec<usize> = is_sol.iter().map(|&x| 1 - x).collect();

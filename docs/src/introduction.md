@@ -353,15 +353,16 @@ For theoretical background and correctness proofs, see the [PDF manual](https://
 })();
 </script>
 
-## Our vision
+## Our Vision
 
-Historically, computational complexity theorists have focused on the theory, leaving the tedious implementation work to developers. This `algorithm → paper` pipeline causes much duplicated effort in algorithm implementation. Without the right infrastructure, fundamental questions remain difficult to answer:
-- What is the fastest known algorithm for solving a given problem?
-- Given an efficient solver, which high-impact problems can it reach via reductions?
+Computational complexity theory has produced a rich body of polynomial-time reductions between NP-hard problems, yet these results largely remain confined to papers. The gap between theoretical algorithms and working software leads to two persistent inefficiencies:
 
-Imagine every computational problem in the world connected in a directed reduction graph, so that for any pair of problems we can find the most efficient reduction path between them — a high-speed railway linking any two problems. We would no longer duplicate effort solving problems that are essentially the "same." Building this infrastructure, however, is not easy.
+- **Solver underutilization.** State-of-the-art solvers (SAT solvers, ILP solvers, QUBO annealers) each target a single problem formulation. In principle, any problem reducible to that formulation can leverage the same solver — but without a systematic reduction library, practitioners must re-derive and re-implement each transformation.
+- **Redundant effort.** Problems that are polynomial-time equivalent are, from a computational standpoint, interchangeable. Without infrastructure connecting them, the same algorithmic insights are independently reimplemented across domains.
 
-What if AI could take over the implementation step, completing an `algorithm → paper → software` pipeline? Theorists would still focus on theory while AI does the heavy lifting. Can we trust AI-generated implementations? We believe so — not only because large language models are rapidly improving, but also because nearly all reductions can be verified with round-trip tests: `source → target → solution to target → solution to source` must equal `source → solution to source`. Correctness is checked automatically by running these round-trip examples.
+Our goal is to build a comprehensive, machine-readable reduction graph: a directed graph in which every node is a computational problem and every edge is a verified polynomial-time reduction. Given such a graph, one can automatically compose reduction paths to route any source problem to any reachable target solver.
+
+A key enabler is AI-assisted implementation. We propose a pipeline of `algorithm → paper → software`, in which AI agents translate published reduction proofs into tested code. The critical question — can AI-generated reductions be trusted? — has a concrete answer: nearly all reductions admit **closed-loop verification**. A round-trip test reduces a source instance to a target, solves the target, extracts the solution back, and checks it against a direct solve of the source. This property makes correctness mechanically verifiable, independent of how the code was produced.
 
 <div class="theme-light-only">
 
@@ -374,7 +375,20 @@ What if AI could take over the implementation step, completing an `algorithm →
 
 </div>
 
-Our vision is to automate this test-driven development pipeline and enable the general public to contribute. This software will be open source, forever, available at any physical location in the universe to every human being and AI agent.
+This library is the foundation of that effort: an open-source, extensible reduction graph with verified implementations, designed for contributions from both human researchers and AI agents.
+
+## Call for Contributions
+
+> **Everyone can contribute — no programming experience required.** If you know a computational problem or a reduction rule, just describe it in a GitHub issue. AI will generate a tested pull request for you to review.
+>
+> **Contribute 10 non-trivial reduction rules and you will be automatically added to the author list of the [paper](https://codingthrust.github.io/problem-reductions/reductions.pdf).**
+
+1. **Open an issue** using the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template
+2. **Fill in all sections** — definition, algorithm, size overhead, example instance
+3. **Review AI-generated code** — AI generates code and you can comment on the pull request
+4. **Merge** — ask maintainers' assistance to merge once you are satisfied
+
+For manual implementation, see the [Architecture](./arch.md#contributing) guide.
 
 ## License
 

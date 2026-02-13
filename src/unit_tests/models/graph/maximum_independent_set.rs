@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -80,7 +80,7 @@ fn test_brute_force_triangle() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // All solutions should have exactly 1 vertex selected
     assert_eq!(solutions.len(), 3); // Three equivalent solutions
     for sol in &solutions {
@@ -94,7 +94,7 @@ fn test_brute_force_path() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Maximum size is 2
     for sol in &solutions {
         let size: usize = sol.iter().sum();
@@ -115,7 +115,7 @@ fn test_brute_force_weighted() {
     );
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     assert_eq!(solutions.len(), 1);
     // Should select vertex 1 (weight 100) over vertices 0+2 (weight 2)
     assert_eq!(solutions[0], vec![0, 1, 0]);
@@ -130,7 +130,7 @@ fn test_brute_force_weighted_f64() {
     );
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     assert_eq!(solutions, vec![vec![0, 1, 0]]);
     assert_eq!(problem.evaluate(&solutions[0]), SolutionSize::Valid(2.0));
 }
@@ -179,7 +179,7 @@ fn test_empty_graph() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     assert_eq!(solutions.len(), 1);
     // All vertices can be selected
     assert_eq!(solutions[0], vec![1, 1, 1]);

@@ -97,7 +97,7 @@ fn test_solver_maximization() {
     };
     let solver = BruteForce::new();
 
-    let best = solver.find_best(&problem);
+    let best = solver.find_all_best(&problem);
     assert_eq!(best.len(), 1);
     assert_eq!(best[0], vec![1, 1, 1]); // Select all for max sum = 6
 }
@@ -109,7 +109,7 @@ fn test_solver_minimization() {
     };
     let solver = BruteForce::new();
 
-    let best = solver.find_best(&problem);
+    let best = solver.find_all_best(&problem);
     assert_eq!(best.len(), 1);
     assert_eq!(best[0], vec![0, 0, 0]); // Select none for min sum = 0
 }
@@ -122,7 +122,7 @@ fn test_solver_multiple_optimal() {
     };
     let solver = BruteForce::new();
 
-    let best = solver.find_best(&problem);
+    let best = solver.find_all_best(&problem);
     assert_eq!(best.len(), 1);
     assert_eq!(best[0], vec![1, 1]); // Only one optimal: select both = 10
 }
@@ -132,7 +132,7 @@ fn test_solver_empty() {
     let problem = MaxSumOpt { weights: vec![] };
     let solver = BruteForce::new();
 
-    let best = solver.find_best(&problem);
+    let best = solver.find_all_best(&problem);
     assert_eq!(best, vec![Vec::<usize>::new()]);
 }
 
@@ -204,6 +204,39 @@ fn test_solver_find_satisfying_empty_dims_unsat() {
 }
 
 #[test]
+fn test_find_best_returns_one_solution() {
+    let problem = MaxSumOpt {
+        weights: vec![1, 2, 3],
+    };
+    let solver = BruteForce::new();
+
+    let best = solver.find_best(&problem);
+    assert!(best.is_some());
+    assert_eq!(best.unwrap(), vec![1, 1, 1]);
+}
+
+#[test]
+fn test_find_best_empty_problem() {
+    let problem = MaxSumOpt { weights: vec![] };
+    let solver = BruteForce::new();
+
+    let best = solver.find_best(&problem);
+    assert_eq!(best, Some(vec![]));
+}
+
+#[test]
+fn test_find_best_minimization() {
+    let problem = MinSumOpt {
+        weights: vec![1, 2, 3],
+    };
+    let solver = BruteForce::new();
+
+    let best = solver.find_best(&problem);
+    assert!(best.is_some());
+    assert_eq!(best.unwrap(), vec![0, 0, 0]);
+}
+
+#[test]
 fn test_solver_with_real_mis() {
     use crate::models::graph::MaximumIndependentSet;
     use crate::topology::SimpleGraph;
@@ -213,7 +246,7 @@ fn test_solver_with_real_mis() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
-    let best = solver.find_best(&problem);
+    let best = solver.find_all_best(&problem);
     assert_eq!(best.len(), 3); // Three single-vertex solutions
     for sol in &best {
         assert_eq!(sol.iter().sum::<usize>(), 1);

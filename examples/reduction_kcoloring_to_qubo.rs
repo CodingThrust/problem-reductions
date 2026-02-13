@@ -58,7 +58,7 @@ pub fn run() {
 
     // Solve QUBO with brute force
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_all_best(qubo);
 
     // Extract and verify solutions
     println!("\nValid 3-colorings: {}", qubo_solutions.len());

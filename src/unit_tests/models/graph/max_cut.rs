@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::types::SolutionSize;
 
 #[test]
@@ -42,7 +42,7 @@ fn test_brute_force_triangle() {
     let problem = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     for sol in &solutions {
         let size = problem.evaluate(sol);
         assert_eq!(size, SolutionSize::Valid(2));
@@ -57,7 +57,7 @@ fn test_brute_force_path() {
     let problem = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     for sol in &solutions {
         let size = problem.evaluate(sol);
         assert_eq!(size, SolutionSize::Valid(2));
@@ -72,7 +72,7 @@ fn test_brute_force_weighted() {
     let problem = MaxCut::<SimpleGraph, i32>::new(3, vec![(0, 1, 10), (1, 2, 1)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Max is 11 (cut both edges) with partition like [0,1,0] or [1,0,1]
     for sol in &solutions {
         let size = problem.evaluate(sol);
@@ -127,7 +127,7 @@ fn test_empty_graph() {
     let problem = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Any partition gives cut size 0
     assert!(!solutions.is_empty());
     for sol in &solutions {
@@ -142,7 +142,7 @@ fn test_single_edge() {
     let problem = MaxCut::<SimpleGraph, i32>::new(2, vec![(0, 1, 5)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Putting vertices in different sets maximizes cut
     assert_eq!(solutions.len(), 2); // [0,1] and [1,0]
     for sol in &solutions {
@@ -161,7 +161,7 @@ fn test_complete_graph_k4() {
     );
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Max cut in K4 is 4 (2-2 partition)
     for sol in &solutions {
         assert_eq!(problem.evaluate(sol), SolutionSize::Valid(4));
@@ -176,7 +176,7 @@ fn test_bipartite_graph() {
     let problem = MaxCut::<SimpleGraph, i32>::unweighted(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Bipartite graph can achieve max cut = all edges
     for sol in &solutions {
         assert_eq!(problem.evaluate(sol), SolutionSize::Valid(4));

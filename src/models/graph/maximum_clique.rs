@@ -44,7 +44,7 @@ inventory::submit! {
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_best(&problem);
 ///
 /// // Maximum clique in a triangle (K3) is size 3
 /// assert!(solutions.iter().all(|s| s.iter().sum::<usize>() == 3));

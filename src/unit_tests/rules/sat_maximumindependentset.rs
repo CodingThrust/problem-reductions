@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::satisfiability::CNFClause;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 
 #[test]
 fn test_boolvar_creation() {
@@ -67,7 +67,7 @@ fn test_two_clause_sat_to_is() {
 
     // Maximum IS should have size 1 (can't select both)
     let solver = BruteForce::new();
-    let solutions = solver.find_best(is_problem);
+    let solutions = solver.find_all_best(is_problem);
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 1);
     }
@@ -102,7 +102,7 @@ fn test_satisfiable_formula() {
 
     // Solve the IS problem
     let solver = BruteForce::new();
-    let is_solutions = solver.find_best(is_problem);
+    let is_solutions = solver.find_all_best(is_problem);
 
     // Max IS should be 3 (one literal per clause)
     for sol in &is_solutions {
@@ -130,7 +130,7 @@ fn test_unsatisfiable_formula() {
     let is_problem = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let is_solutions = solver.find_best(is_problem);
+    let is_solutions = solver.find_all_best(is_problem);
 
     // Max IS can only be 1 (not 2 = num_clauses)
     // This indicates the formula is unsatisfiable
@@ -161,7 +161,7 @@ fn test_three_sat_example() {
     assert_eq!(is_problem.num_vertices(), 9);
 
     let solver = BruteForce::new();
-    let is_solutions = solver.find_best(is_problem);
+    let is_solutions = solver.find_all_best(is_problem);
 
     // Check that max IS has size 3 (satisfiable)
     let max_size = is_solutions[0].iter().sum::<usize>();
@@ -275,7 +275,7 @@ fn test_sat_is_solution_correspondence() {
     // Solve via reduction (IS is an optimization problem, so use find_best)
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
     let is_problem = reduction.target_problem();
-    let is_solutions = sat_solver.find_best(is_problem);
+    let is_solutions = sat_solver.find_all_best(is_problem);
 
     // Extract SAT solutions from IS
     let extracted_sat_solutions: Vec<_> = is_solutions

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 
 #[test]
 fn test_maxcut_to_spinglass() {
@@ -9,7 +9,7 @@ fn test_maxcut_to_spinglass() {
     let sg = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(sg);
+    let solutions = solver.find_all_best(sg);
 
     assert!(!solutions.is_empty());
 }

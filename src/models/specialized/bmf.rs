@@ -44,7 +44,7 @@ inventory::submit! {
 /// let problem = BMF::new(a, 1);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_best(&problem);
 ///
 /// // Check the error
 /// for sol in &solutions {

@@ -72,7 +72,8 @@ enum Direction { Maximize, Minimize }
 ### Key Patterns
 - Problems parameterized by weight type `W` and graph type `G`
 - `ReductionResult` provides `target_problem()` and `extract_solution()`
-- `Solver::find_best()` for optimization problems, `Solver::find_satisfying()` for `Metric = bool`
+- `Solver::find_best()` → `Option<Vec<usize>>` for optimization problems; `Solver::find_satisfying()` → `Option<Vec<usize>>` for `Metric = bool`
+- `BruteForce::find_all_best()` / `find_all_satisfying()` return `Vec<Vec<usize>>` for all optimal/satisfying solutions
 - Graph types: SimpleGraph, GridGraph, UnitDiskGraph, Hypergraph
 - Weight types: `Unweighted` (marker), `i32`, `f64`
 - Weight management via inherent methods (`weights()`, `set_weights()`, `is_weighted()`), not traits

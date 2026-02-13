@@ -35,7 +35,7 @@ inventory::submit! {
 /// let problem = Factoring::new(2, 2, 6);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_best(&problem);
 ///
 /// // Should find: 2*3=6 or 3*2=6
 /// for sol in &solutions {

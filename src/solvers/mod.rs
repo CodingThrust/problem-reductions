@@ -14,11 +14,11 @@ use crate::traits::{OptimizationProblem, Problem};
 
 /// Trait for problem solvers.
 pub trait Solver {
-    /// Find best solution(s) for an optimization problem.
+    /// Find one optimal solution for an optimization problem.
     ///
-    /// Returns all configurations that achieve the optimal metric value.
-    /// Returns empty vec if all configurations are invalid.
-    fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Vec<Vec<usize>>;
+    /// Returns a single configuration that achieves the optimal metric value,
+    /// or `None` if no feasible configuration exists.
+    fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Option<Vec<usize>>;
 
     /// Find any satisfying solution for a satisfaction problem (Metric = bool).
     fn find_satisfying<P: Problem<Metric = bool>>(&self, problem: &P) -> Option<Vec<usize>>;

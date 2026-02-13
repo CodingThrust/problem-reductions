@@ -10,4 +10,3 @@
 # Developer Guide
 
 - [API Reference](./api.md)
-- [CLAUDE.md](./claude.md)

@@ -20,7 +20,7 @@ mod all_problems_solvable {
         let problem =
             MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
             assert!(problem.evaluate(sol).is_valid());
@@ -31,7 +31,7 @@ mod all_problems_solvable {
     fn test_vertex_covering_solvable() {
         let problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
             assert!(problem.evaluate(sol).is_valid());
@@ -42,7 +42,7 @@ mod all_problems_solvable {
     fn test_max_cut_solvable() {
         let problem = MaxCut::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
     }
 
@@ -63,7 +63,7 @@ mod all_problems_solvable {
         let problem =
             MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
             assert!(problem.evaluate(sol).is_valid());
@@ -74,7 +74,7 @@ mod all_problems_solvable {
     fn test_maximal_is_solvable() {
         let problem = MaximalIS::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
             assert!(problem.evaluate(sol).is_valid());
@@ -86,7 +86,7 @@ mod all_problems_solvable {
         let problem =
             MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
             assert!(problem.evaluate(sol).is_valid());
@@ -116,7 +116,7 @@ mod all_problems_solvable {
     fn test_spin_glass_solvable() {
         let problem = SpinGlass::new(3, vec![((0, 1), -1.0), ((1, 2), 1.0)], vec![0.5, -0.5, 0.0]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
     }
 
@@ -128,7 +128,7 @@ mod all_problems_solvable {
             vec![0.0, 0.0, 1.0],
         ]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
     }
 
@@ -137,7 +137,7 @@ mod all_problems_solvable {
         let problem =
             MinimumSetCovering::<i32>::new(5, vec![vec![0, 1, 2], vec![2, 3, 4], vec![0, 4]]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
             assert!(problem.evaluate(sol).is_valid());
@@ -149,7 +149,7 @@ mod all_problems_solvable {
         let problem =
             MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![1, 2], vec![4]]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
             assert!(problem.evaluate(sol).is_valid());
@@ -180,7 +180,7 @@ mod all_problems_solvable {
     fn test_factoring_solvable() {
         let problem = Factoring::new(15, 2, 2);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
             assert!(problem.evaluate(sol).is_valid());
@@ -191,7 +191,7 @@ mod all_problems_solvable {
     fn test_paintshop_solvable() {
         let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
     }
 
@@ -200,7 +200,7 @@ mod all_problems_solvable {
         // Left vertices: 0, 1; Right vertices: 2, 3
         let problem = BicliqueCover::new(2, 2, vec![(0, 2), (0, 3), (1, 2), (1, 3)], 1);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
             assert!(problem.evaluate(sol).is_valid());
@@ -211,7 +211,7 @@ mod all_problems_solvable {
     fn test_bmf_solvable() {
         let problem = BMF::new(vec![vec![true, true], vec![true, true]], 1);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
         for sol in &solutions {
             // BMF minimizes Hamming distance, all configs are valid (no invalid marker)
@@ -235,8 +235,8 @@ mod problem_relationships {
         let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(n, edges);
 
         let solver = BruteForce::new();
-        let is_solutions = solver.find_best(&is_problem);
-        let vc_solutions = solver.find_best(&vc_problem);
+        let is_solutions = solver.find_all_best(&is_problem);
+        let vc_solutions = solver.find_all_best(&vc_problem);
 
         let max_is_size = is_solutions[0].iter().sum::<usize>();
         let min_vc_size = vc_solutions[0].iter().sum::<usize>();
@@ -255,7 +255,7 @@ mod problem_relationships {
         let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(n, edges);
 
         let solver = BruteForce::new();
-        let maximal_solutions = solver.find_best(&maximal_is);
+        let maximal_solutions = solver.find_all_best(&maximal_is);
 
         // Every maximal IS is also a valid IS
         for sol in &maximal_solutions {
@@ -291,7 +291,7 @@ mod problem_relationships {
         );
 
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
 
         // Optimal should be all same spin (all 0 or all 1)
         for sol in &solutions {
@@ -315,11 +315,11 @@ mod problem_relationships {
         let solver = BruteForce::new();
 
         // All sets needed for cover
-        let cover_solutions = solver.find_best(&covering);
+        let cover_solutions = solver.find_all_best(&covering);
         assert_eq!(cover_solutions[0].iter().sum::<usize>(), 3);
 
         // All sets can be packed (no overlap)
-        let pack_solutions = solver.find_best(&packing);
+        let pack_solutions = solver.find_all_best(&packing);
         assert_eq!(pack_solutions[0].iter().sum::<usize>(), 3);
     }
 }
@@ -332,7 +332,7 @@ mod edge_cases {
     fn test_empty_graph_independent_set() {
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
 
         // All vertices can be in IS when no edges
         assert_eq!(solutions[0].iter().sum::<usize>(), 3);
@@ -344,7 +344,7 @@ mod edge_cases {
         let edges = vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, edges);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
 
         // Maximum IS in complete graph is 1
         assert_eq!(solutions[0].iter().sum::<usize>(), 1);
@@ -373,7 +373,7 @@ mod edge_cases {
         // Factor 4 = 2 * 2
         let problem = Factoring::new(4, 2, 2);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
 
         assert!(!solutions.is_empty());
         for sol in &solutions {
@@ -385,7 +385,7 @@ mod edge_cases {
     fn test_single_car_paintshop() {
         let problem = PaintShop::new(vec!["a", "a"]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
 
         // Single car always has 1 switch (color must change)
         assert_eq!(problem.count_switches(&solutions[0]), 1);
@@ -402,7 +402,7 @@ mod weighted_problems {
         problem.set_weights(vec![10, 1, 1]);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
 
         // Should prefer vertex 0 (weight 10) over vertex 1 (weight 1)
         // Optimal: {0, 2} with weight 11
@@ -420,7 +420,7 @@ mod weighted_problems {
         problem.set_weights(vec![1, 10, 1]);
 
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
 
         // Prefer {0, 2} over {1} because {0,2} has weight 2 vs {1} has weight 10
         let best_weight: i32 = solutions[0]
@@ -435,7 +435,7 @@ mod weighted_problems {
     fn test_weighted_max_cut() {
         let problem = MaxCut::new(3, vec![(0, 1, 10), (1, 2, 1)]);
         let solver = BruteForce::new();
-        let solutions = solver.find_best(&problem);
+        let solutions = solver.find_all_best(&problem);
 
         // Maximum cut should include the heavy edge (0,1)
         let cut_value = problem.evaluate(&solutions[0]);

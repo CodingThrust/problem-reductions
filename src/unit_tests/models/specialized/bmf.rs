@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -92,7 +92,7 @@ fn test_brute_force_ones() {
     let problem = BMF::new(matrix, 1);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     for sol in &solutions {
         // Exact factorization has distance 0
         assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(0));
@@ -106,7 +106,7 @@ fn test_brute_force_identity() {
     let problem = BMF::new(matrix, 2);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Should find exact factorization
     for sol in &solutions {
         assert!(problem.is_exact(sol));
@@ -120,7 +120,7 @@ fn test_brute_force_insufficient_rank() {
     let problem = BMF::new(matrix, 1);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Best approximation has distance > 0
     let best_distance = problem.hamming_distance(&solutions[0]);
     // With rank 1, best we can do is distance 1 (all ones or all zeros except one)
