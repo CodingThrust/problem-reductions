@@ -111,10 +111,6 @@ Reduction graph nodes use variant IDs: `ProblemName[/GraphType][/Weighted]`
 - Completeness warnings auto-check that all JSON graph nodes/edges are covered in the paper
 - `display-name` dict maps `ProblemName` to display text
 
-## Contributing
-See the sections below for detailed guides on adding reductions, models, tests, and documentation.
-Also see GitHub Issue #3 for coding rules.
-
 ## Adding a Reduction Rule (A -> B)
 
 **Reference implementations — read these first:**
@@ -126,11 +122,13 @@ Also see GitHub Issue #3 for coding rules.
 
 ### 0. Before Writing Code
 
-1. **Brainstorm** — use `superpowers:brainstorming` to discuss with the user:
-   - The math (variable mapping, constraint encoding, penalty terms)
-   - Which example instance to use in `examples/` (must be small, human-explainable, and agreed with the user)
-2. **Generate ground truth** — use Python scripts in `scripts/` (run with `uv`) to create test data in `tests/data/<target>/`.
-3. **Write plan** — save to `docs/plans/` using `superpowers:writing-plans`.
+1. **Ensure you have enough information**
+   - The reduction algorithm, from reliable source, e.g. a paper or a famous website.
+   - Which example instance to use in `examples/`, example is expected for human reading.
+   - The method to generate test data in `tests/data/<target>/` as json files.
+
+   otherwise use `superpowers:brainstorming` to discuss with the user.
+2. **Write plan** — save to `docs/plans/` using `superpowers:writing-plans`.
 
 ### 1. Implement
 

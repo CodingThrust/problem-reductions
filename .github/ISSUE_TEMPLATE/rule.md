@@ -46,8 +46,10 @@ E.g.
 ## Example Source Instance
 
 <!-- A small but non-trivial source instance for the paper illustration.
-Must be small enough for brute-force solving, but large enough to exercise the reduction meaningfully.
-Only provide the source — the example code auto-generates the target instance, solutions, and JSON.
+Must be small enough for brute-force solving, but large enough to exercise the reduction meaningfully. E.g. "petersen graph: |V|=10, |E|=15, 3-regular" should be perfect.
+Please provide as many details as possible, because
+1. this example will appear in the paper.
+2. AI needs this information to generate example code, run it, and try to compare with what you provided.
 
-E.g. "Petersen graph: |V|=10, |E|=15, 3-regular"
+Please check existing examples in our paper for references.
 -->
