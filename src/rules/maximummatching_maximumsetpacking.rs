@@ -22,11 +22,7 @@ pub struct ReductionMatchingToSP<G, W> {
 impl<G, W> ReductionResult for ReductionMatchingToSP<G, W>
 where
     G: Graph,
-    W: WeightElement
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign,
+    W: WeightElement,
 {
     type Source = MaximumMatching<G, W>;
     type Target = MaximumSetPacking<W>;

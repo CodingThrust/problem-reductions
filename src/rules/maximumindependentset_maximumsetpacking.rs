@@ -21,11 +21,7 @@ pub struct ReductionISToSP<W> {
 
 impl<W> ReductionResult for ReductionISToSP<W>
 where
-    W: WeightElement
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign,
+    W: WeightElement,
 {
     type Source = MaximumIndependentSet<SimpleGraph, W>;
     type Target = MaximumSetPacking<W>;
@@ -76,11 +72,7 @@ pub struct ReductionSPToIS<W> {
 
 impl<W> ReductionResult for ReductionSPToIS<W>
 where
-    W: WeightElement
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign,
+    W: WeightElement,
 {
     type Source = MaximumSetPacking<W>;
     type Target = MaximumIndependentSet<SimpleGraph, W>;
