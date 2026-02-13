@@ -10,7 +10,7 @@
 
 use crate::graph_types::{GraphSubtypeEntry, WeightSubtypeEntry};
 use crate::rules::cost::PathCostFn;
-use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+use crate::rules::registry::{ConcreteVariantEntry, ReductionEntry, ReductionOverhead};
 use crate::types::ProblemSize;
 use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
@@ -20,6 +20,13 @@ use serde::Serialize;
 use std::any::TypeId;
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet};
+
+// Register concrete variants for problems that support non-SimpleGraph graph types.
+// These generate additional nodes in the JSON export.
+inventory::submit! { ConcreteVariantEntry { name: "MaximumIndependentSet", variant: &[("graph", "GridGraph"), ("weight", "Unweighted")] } }
+inventory::submit! { ConcreteVariantEntry { name: "MaximumIndependentSet", variant: &[("graph", "UnitDiskGraph"), ("weight", "Unweighted")] } }
+inventory::submit! { ConcreteVariantEntry { name: "MaxCut", variant: &[("graph", "GridGraph"), ("weight", "Unweighted")] } }
+inventory::submit! { ConcreteVariantEntry { name: "SpinGlass", variant: &[("graph", "GridGraph"), ("weight", "f64")] } }
 
 /// JSON-serializable representation of the reduction graph.
 #[derive(Debug, Clone, Serialize)]
@@ -670,6 +677,14 @@ impl ReductionGraph {
             node_set.insert((
                 entry.target_name.to_string(),
                 Self::variant_to_map(entry.target_variant),
+            ));
+        }
+
+        // Also collect nodes from ConcreteVariantEntry registrations
+        for entry in inventory::iter::<ConcreteVariantEntry> {
+            node_set.insert((
+                entry.name.to_string(),
+                Self::variant_to_map(entry.variant),
             ));
         }
 

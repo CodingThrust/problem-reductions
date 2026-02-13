@@ -813,3 +813,28 @@ fn test_json_variant_content() {
         "Edge involving MaximumIndependentSet should exist"
     );
 }
+
+#[test]
+fn test_concrete_variant_nodes_in_json() {
+    let graph = ReductionGraph::new();
+    let json = graph.to_json();
+
+    // GridGraph variants should appear as nodes
+    let mis_gridgraph = json.nodes.iter().any(|n| {
+        n.name == "MaximumIndependentSet"
+            && n.variant.get("graph") == Some(&"GridGraph".to_string())
+    });
+    assert!(mis_gridgraph, "MIS/GridGraph node should exist");
+
+    let mis_unitdisk = json.nodes.iter().any(|n| {
+        n.name == "MaximumIndependentSet"
+            && n.variant.get("graph") == Some(&"UnitDiskGraph".to_string())
+    });
+    assert!(mis_unitdisk, "MIS/UnitDiskGraph node should exist");
+
+    let maxcut_gridgraph = json.nodes.iter().any(|n| {
+        n.name == "MaxCut"
+            && n.variant.get("graph") == Some(&"GridGraph".to_string())
+    });
+    assert!(maxcut_gridgraph, "MaxCut/GridGraph node should exist");
+}
