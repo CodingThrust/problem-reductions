@@ -185,32 +185,17 @@ cargo run --example export_graph
 
 ### Trait Implementations
 
-Every problem must implement `Problem` (see `src/traits.rs`). Key points:
-
-- **`type Metric`** — `SolutionSize<W>` for optimization, `bool` for satisfaction
-- **`fn dims()`** — configuration space dimensions (e.g., `vec![2; n]` for n binary variables)
-- **`fn evaluate()`** — return `SolutionSize::Valid(value)` / `SolutionSize::Invalid` for optimization, or `bool` for satisfaction
-- **`fn variant()`** — graph and weight type metadata for the reduction registry
-
-Optimization problems additionally implement `OptimizationProblem` (see `src/traits.rs`):
-- **`type Value`** — the inner objective type (e.g., `i32`, `f64`, `W`)
-- **`fn direction()`** — `Direction::Maximize` or `Direction::Minimize`
-
-The supertrait `Problem<Metric = SolutionSize<Self::Value>>` ensures the solver can call `metric.is_valid()` and `metric.is_better()` directly — no per-problem customization needed.
-
-Weight management (`weights()`, `set_weights()`, `is_weighted()`) goes on inherent `impl` blocks, not traits. See the reference implementation for the pattern.
+See Trait Hierarchy above for `Problem` and `OptimizationProblem` members. Weight management (`weights()`, `set_weights()`, `is_weighted()`) goes on inherent `impl` blocks, not traits. See the reference implementation for the pattern.
 
 ### Categories
 
-- `src/models/satisfiability/` — Satisfiability, KSatisfiability, CircuitSAT
+- `src/models/satisfiability/` — Satisfiability, KSatisfiability
 - `src/models/graph/` — MaximumIndependentSet, MinimumVertexCover, KColoring, etc.
 - `src/models/set/` — MinimumSetCovering, MaximumSetPacking
 - `src/models/optimization/` — SpinGlass, QUBO, ILP
 - `src/models/specialized/` — CircuitSAT, Factoring, PaintShop, BicliqueCover, BMF
 
-### Naming
-
-Use explicit optimization prefixes: `Maximum` for maximization, `Minimum` for minimization (e.g., `MaximumIndependentSet`, `MinimumVertexCover`).
+Naming convention: see Problem Names above.
 
 ## Testing Requirements
 
@@ -232,44 +217,11 @@ New code must have >95% test coverage. Run `make coverage` to check.
 
 ### Key Testing Patterns
 
-Follow the reference files above for exact API usage. Summary:
-
-- `solver.find_best(&problem)` → `Option<Vec<usize>>` — one optimal solution for optimization problems
-- `solver.find_satisfying(&problem)` → `Option<Vec<usize>>` — one satisfying assignment
-- `solver.find_all_best(&problem)` → `Vec<Vec<usize>>` — all optimal solutions (BruteForce only)
-- `solver.find_all_satisfying(&problem)` → `Vec<Vec<usize>>` — all satisfying assignments (BruteForce only)
-- `problem.evaluate(&config)` — returns `SolutionSize::Valid(value)` / `SolutionSize::Invalid` for optimization, `bool` for satisfaction
+See Key Patterns above for solver API signatures. Follow the reference files for exact usage.
 
 ### File Organization
 
-Unit tests live in `src/unit_tests/`, mirroring `src/` structure. Source files reference them via `#[path]`:
-
-```rust
-// In src/rules/foo_bar.rs:
-#[cfg(test)]
-#[path = "../unit_tests/rules/foo_bar.rs"]
-mod tests;
-```
-
-Integration tests are in `tests/suites/`, consolidated through `tests/main.rs`.
-
-### Example Tests
-
-**Reference:** `tests/suites/examples.rs` — macro-based test harness
-
-Example programs (`examples/reduction_*.rs`) are tested via `include!` in `tests/suites/examples.rs` — each example is compiled directly into the test binary (no subprocess overhead). Each example must expose a `pub fn run()` entry point. See any existing example (e.g., `examples/reduction_minimumvertexcover_to_maximumindependentset.rs`) for the pattern:
-
-- `pub fn run()` with logic + `fn main() { run() }`
-- Regular comments (`//`) not inner doc comments (`//!`)
-- Hardcoded example name, not `env!("CARGO_BIN_NAME")`
-
-The test harness auto-registers each example as a separate `#[test]`, so `cargo test` runs them in parallel.
-
-### Before PR
-
-```bash
-make test clippy
-```
+Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). Integration tests in `tests/suites/`, consolidated through `tests/main.rs`. Example tests in `tests/suites/examples.rs` (see Example Program in Adding a Reduction above).
 
 ## Documentation Requirements
 
