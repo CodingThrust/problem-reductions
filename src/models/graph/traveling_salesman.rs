@@ -1,6 +1,6 @@
-//! Hamiltonian Cycle problem implementation.
+//! Traveling Salesman problem implementation.
 //!
-//! The Hamiltonian Cycle problem asks for a minimum-weight cycle
+//! The Traveling Salesman problem asks for a minimum-weight cycle
 //! that visits every vertex exactly once.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
@@ -11,8 +11,8 @@ use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
-        name: "HamiltonianCycle",
-        description: "Find minimum weight Hamiltonian cycle in a graph",
+        name: "TravelingSalesman",
+        description: "Find minimum weight Hamiltonian cycle in a graph (Traveling Salesman Problem)",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
             FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> R" },
@@ -20,7 +20,7 @@ inventory::submit! {
     }
 }
 
-/// The Hamiltonian Cycle problem.
+/// The Traveling Salesman problem.
 ///
 /// Given a weighted graph G = (V, E) with edge weights w_e,
 /// find a cycle that visits every vertex exactly once and
@@ -42,15 +42,15 @@ inventory::submit! {
 /// * `G` - The graph type (e.g., `SimpleGraph`, `GridGraph`)
 /// * `W` - The weight type for edges (e.g., `i32`, `f64`)
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct HamiltonianCycle<G, W> {
+pub struct TravelingSalesman<G, W> {
     /// The underlying graph.
     graph: G,
     /// Weights for each edge (in edge index order).
     edge_weights: Vec<W>,
 }
 
-impl<W: Clone + Default> HamiltonianCycle<SimpleGraph, W> {
-    /// Create a new HamiltonianCycle problem.
+impl<W: Clone + Default> TravelingSalesman<SimpleGraph, W> {
+    /// Create a new TravelingSalesman problem.
     pub fn new(num_vertices: usize, edges: Vec<(usize, usize, W)>) -> Self {
         let mut edge_list = Vec::new();
         let mut edge_weights = Vec::new();
@@ -65,7 +65,7 @@ impl<W: Clone + Default> HamiltonianCycle<SimpleGraph, W> {
         }
     }
 
-    /// Create a HamiltonianCycle problem with unit weights.
+    /// Create a TravelingSalesman problem with unit weights.
     pub fn unweighted(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self
     where
         W: From<i32>,
@@ -79,8 +79,8 @@ impl<W: Clone + Default> HamiltonianCycle<SimpleGraph, W> {
     }
 }
 
-impl<G: Graph, W: Clone + Default> HamiltonianCycle<G, W> {
-    /// Create a HamiltonianCycle problem from a graph with given edge weights.
+impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
+    /// Create a TravelingSalesman problem from a graph with given edge weights.
     pub fn from_graph(graph: G, edge_weights: Vec<W>) -> Self {
         assert_eq!(
             edge_weights.len(),
@@ -93,7 +93,7 @@ impl<G: Graph, W: Clone + Default> HamiltonianCycle<G, W> {
         }
     }
 
-    /// Create a HamiltonianCycle problem from a graph with unit weights.
+    /// Create a TravelingSalesman problem from a graph with unit weights.
     pub fn from_graph_unit_weights(graph: G) -> Self
     where
         W: From<i32>,
@@ -161,7 +161,7 @@ impl<G: Graph, W: Clone + Default> HamiltonianCycle<G, W> {
     }
 }
 
-impl<G, W> Problem for HamiltonianCycle<G, W>
+impl<G, W> Problem for TravelingSalesman<G, W>
 where
     G: Graph,
     W: Clone
@@ -172,7 +172,7 @@ where
         + std::ops::AddAssign
         + 'static,
 {
-    const NAME: &'static str = "HamiltonianCycle";
+    const NAME: &'static str = "TravelingSalesman";
     type Metric = SolutionSize<W>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -202,7 +202,7 @@ where
     }
 }
 
-impl<G, W> OptimizationProblem for HamiltonianCycle<G, W>
+impl<G, W> OptimizationProblem for TravelingSalesman<G, W>
 where
     G: Graph,
     W: Clone
@@ -292,5 +292,5 @@ pub fn is_hamiltonian_cycle(
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/graph/hamiltonian_cycle.rs"]
+#[path = "../../unit_tests/models/graph/traveling_salesman.rs"]
 mod tests;

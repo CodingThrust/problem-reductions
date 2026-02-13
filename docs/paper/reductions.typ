@@ -31,7 +31,7 @@
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
-  "HamiltonianCycle": [Hamiltonian Cycle],
+  "TravelingSalesman": [Traveling Salesman],
   "MaximumClique": [Maximum Clique],
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumSetCovering": [Minimum Set Covering],
@@ -325,8 +325,8 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
 ]
 
-#problem-def("HamiltonianCycle")[
-  Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR$, find a cycle visiting every vertex exactly once that minimizes $sum_(e in C) w(e)$.
+#problem-def("TravelingSalesman")[
+  Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $sum_(e in C) w(e)$.
 ]
 
 #problem-def("MaximumClique")[

@@ -4,9 +4,9 @@ use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
 #[test]
-fn test_hamiltonian_cycle_creation() {
+fn test_traveling_salesman_creation() {
     // K4 complete graph
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::new(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::new(
         4,
         vec![
             (0, 1, 10), (0, 2, 15), (0, 3, 20),
@@ -19,8 +19,8 @@ fn test_hamiltonian_cycle_creation() {
 }
 
 #[test]
-fn test_hamiltonian_cycle_unweighted() {
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::unweighted(
+fn test_traveling_salesman_unweighted() {
+    let problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
         5,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     );
@@ -30,8 +30,8 @@ fn test_hamiltonian_cycle_unweighted() {
 }
 
 #[test]
-fn test_hamiltonian_cycle_weighted() {
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::new(
+fn test_traveling_salesman_weighted() {
+    let problem = TravelingSalesman::<SimpleGraph, i32>::new(
         4,
         vec![
             (0, 1, 10), (0, 2, 15), (0, 3, 20),
@@ -44,7 +44,7 @@ fn test_hamiltonian_cycle_weighted() {
 #[test]
 fn test_evaluate_valid_cycle() {
     // C5 cycle graph with unit weights: all 5 edges form the only Hamiltonian cycle
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::unweighted(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
         5,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     );
@@ -55,7 +55,7 @@ fn test_evaluate_valid_cycle() {
 #[test]
 fn test_evaluate_invalid_degree() {
     // K4: select 3 edges incident to vertex 0 -> degree > 2 at vertex 0
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::new(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::new(
         4,
         vec![
             (0, 1, 10), (0, 2, 15), (0, 3, 20),
@@ -70,7 +70,7 @@ fn test_evaluate_invalid_degree() {
 #[test]
 fn test_evaluate_invalid_not_connected() {
     // 6 vertices, two disjoint triangles: 0-1-2-0 and 3-4-5-3
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::unweighted(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
         6,
         vec![
             (0, 1), (1, 2), (0, 2),
@@ -84,7 +84,7 @@ fn test_evaluate_invalid_not_connected() {
 #[test]
 fn test_evaluate_invalid_wrong_edge_count() {
     // C5 with only 4 edges selected -> not enough edges
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::unweighted(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
         5,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     );
@@ -93,7 +93,7 @@ fn test_evaluate_invalid_wrong_edge_count() {
 
 #[test]
 fn test_evaluate_no_edges_selected() {
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::unweighted(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
         5,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     );
@@ -103,7 +103,7 @@ fn test_evaluate_no_edges_selected() {
 #[test]
 fn test_brute_force_k4() {
     // Instance 1 from issue: K4 with weights
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::new(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::new(
         4,
         vec![
             (0, 1, 10), (0, 2, 15), (0, 3, 20),
@@ -122,7 +122,7 @@ fn test_brute_force_k4() {
 #[test]
 fn test_brute_force_path_graph_no_solution() {
     // Instance 2 from issue: path graph, no Hamiltonian cycle exists
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::unweighted(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
         4,
         vec![(0, 1), (1, 2), (2, 3)],
     );
@@ -134,7 +134,7 @@ fn test_brute_force_path_graph_no_solution() {
 #[test]
 fn test_brute_force_c5_unique_solution() {
     // Instance 3 from issue: C5 cycle graph, unique Hamiltonian cycle
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::unweighted(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
         5,
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     );
@@ -148,7 +148,7 @@ fn test_brute_force_c5_unique_solution() {
 #[test]
 fn test_brute_force_bipartite_no_solution() {
     // Instance 4 from issue: K_{2,3} bipartite, no Hamiltonian cycle
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::unweighted(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
         5,
         vec![(0, 2), (0, 3), (0, 4), (1, 2), (1, 3), (1, 4)],
     );
@@ -159,7 +159,7 @@ fn test_brute_force_bipartite_no_solution() {
 
 #[test]
 fn test_direction() {
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::unweighted(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
         3,
         vec![(0, 1), (1, 2), (0, 2)],
     );
@@ -169,8 +169,8 @@ fn test_direction() {
 #[test]
 fn test_problem_name() {
     assert_eq!(
-        <HamiltonianCycle<SimpleGraph, i32> as Problem>::NAME,
-        "HamiltonianCycle"
+        <TravelingSalesman<SimpleGraph, i32> as Problem>::NAME,
+        "TravelingSalesman"
     );
 }
 
@@ -192,7 +192,7 @@ fn test_is_hamiltonian_cycle_function() {
 
 #[test]
 fn test_set_weights() {
-    let mut problem = HamiltonianCycle::<SimpleGraph, i32>::unweighted(
+    let mut problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
         3,
         vec![(0, 1), (1, 2), (0, 2)],
     );
@@ -202,7 +202,7 @@ fn test_set_weights() {
 
 #[test]
 fn test_edges() {
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::new(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::new(
         3,
         vec![(0, 1, 10), (1, 2, 20), (0, 2, 30)],
     );
@@ -213,7 +213,7 @@ fn test_edges() {
 #[test]
 fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::from_graph(graph, vec![10, 20, 30]);
+    let problem = TravelingSalesman::<SimpleGraph, i32>::from_graph(graph, vec![10, 20, 30]);
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.weights(), vec![10, 20, 30]);
 }
@@ -221,14 +221,14 @@ fn test_from_graph() {
 #[test]
 fn test_from_graph_unit_weights() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::from_graph_unit_weights(graph);
+    let problem = TravelingSalesman::<SimpleGraph, i32>::from_graph_unit_weights(graph);
     assert_eq!(problem.weights(), vec![1, 1, 1]);
 }
 
 #[test]
 fn test_brute_force_triangle_weighted() {
     // Triangle with weights: unique Hamiltonian cycle using all edges
-    let problem = HamiltonianCycle::<SimpleGraph, i32>::new(
+    let problem = TravelingSalesman::<SimpleGraph, i32>::new(
         3,
         vec![(0, 1, 5), (1, 2, 10), (0, 2, 15)],
     );

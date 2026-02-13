@@ -9,9 +9,9 @@
 //! - [`MaxCut`]: Maximum cut on weighted graphs
 //! - [`KColoring`]: K-vertex coloring
 //! - [`MaximumMatching`]: Maximum weight matching
-//! - [`HamiltonianCycle`]: Minimum weight Hamiltonian cycle
+//! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
 
-mod hamiltonian_cycle;
+mod traveling_salesman;
 mod kcoloring;
 mod max_cut;
 mod maximal_is;
@@ -21,7 +21,7 @@ mod maximum_matching;
 mod minimum_dominating_set;
 mod minimum_vertex_cover;
 
-pub use hamiltonian_cycle::{is_hamiltonian_cycle, HamiltonianCycle};
+pub use traveling_salesman::{is_hamiltonian_cycle, TravelingSalesman};
 pub use kcoloring::{is_valid_coloring, KColoring};
 pub use max_cut::{cut_size, MaxCut};
 pub use maximal_is::{is_maximal_independent_set, MaximalIS};
