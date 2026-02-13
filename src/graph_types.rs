@@ -86,6 +86,33 @@ declare_graph_subtype!(BipartiteGraph => SimpleGraph);
 declare_graph_subtype!(BipartiteGraph => HyperGraph);
 declare_graph_subtype!(SimpleGraph => HyperGraph);
 
+/// Runtime registration of weight subtype relationships.
+pub struct WeightSubtypeEntry {
+    pub subtype: &'static str,
+    pub supertype: &'static str,
+}
+
+inventory::collect!(WeightSubtypeEntry);
+
+/// Macro to declare weight subtype relationships (runtime only).
+#[macro_export]
+macro_rules! declare_weight_subtype {
+    ($sub:expr => $sup:expr) => {
+        ::inventory::submit! {
+            $crate::graph_types::WeightSubtypeEntry {
+                subtype: $sub,
+                supertype: $sup,
+            }
+        }
+    };
+}
+
+// Weight type hierarchy (with transitive relationships):
+//   Unweighted (most restrictive) => i32 => f64 (most general)
+declare_weight_subtype!("Unweighted" => "i32");
+declare_weight_subtype!("Unweighted" => "f64"); // transitive
+declare_weight_subtype!("i32" => "f64");
+
 #[cfg(test)]
 #[path = "unit_tests/graph_types.rs"]
 mod tests;

@@ -114,3 +114,17 @@ fn test_hypergraph_entries_registered() {
         .iter()
         .any(|e| e.subtype == "SimpleGraph" && e.supertype == "HyperGraph"));
 }
+
+#[test]
+fn test_weight_subtype_entries_registered() {
+    let entries: Vec<_> = inventory::iter::<WeightSubtypeEntry>().collect();
+    assert!(entries
+        .iter()
+        .any(|e| e.subtype == "Unweighted" && e.supertype == "i32"));
+    assert!(entries
+        .iter()
+        .any(|e| e.subtype == "i32" && e.supertype == "f64"));
+    assert!(entries
+        .iter()
+        .any(|e| e.subtype == "Unweighted" && e.supertype == "f64"));
+}

@@ -8,7 +8,7 @@
 //! - Reduction applicability uses subtype relationships: A <= C and D <= B
 //! - Dijkstra's algorithm with custom cost functions for optimal paths
 
-use crate::graph_types::GraphSubtypeEntry;
+use crate::graph_types::{GraphSubtypeEntry, WeightSubtypeEntry};
 use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::types::ProblemSize;
@@ -162,6 +162,8 @@ pub struct ReductionGraph {
     type_to_name: HashMap<TypeId, &'static str>,
     /// Graph hierarchy: subtype -> set of supertypes (transitively closed).
     graph_hierarchy: HashMap<&'static str, HashSet<&'static str>>,
+    /// Weight hierarchy: subtype -> set of supertypes (transitively closed).
+    weight_hierarchy: HashMap<&'static str, HashSet<&'static str>>,
 }
 
 impl ReductionGraph {
@@ -173,6 +175,9 @@ impl ReductionGraph {
 
         // Build graph hierarchy from GraphSubtypeEntry registrations
         let graph_hierarchy = Self::build_graph_hierarchy();
+
+        // Build weight hierarchy from WeightSubtypeEntry registrations
+        let weight_hierarchy = Self::build_weight_hierarchy();
 
         // First, register all problem types (for TypeId mapping)
         Self::register_types(&mut graph, &mut name_indices, &mut type_to_name);
@@ -213,6 +218,7 @@ impl ReductionGraph {
             name_indices,
             type_to_name,
             graph_hierarchy,
+            weight_hierarchy,
         }
     }
 
@@ -223,6 +229,49 @@ impl ReductionGraph {
 
         // Collect direct subtype relationships
         for entry in inventory::iter::<GraphSubtypeEntry> {
+            supertypes
+                .entry(entry.subtype)
+                .or_default()
+                .insert(entry.supertype);
+        }
+
+        // Compute transitive closure
+        loop {
+            let mut changed = false;
+            let types: Vec<_> = supertypes.keys().copied().collect();
+
+            for sub in &types {
+                let current: Vec<_> = supertypes
+                    .get(sub)
+                    .map(|s| s.iter().copied().collect())
+                    .unwrap_or_default();
+
+                for sup in current {
+                    if let Some(sup_supers) = supertypes.get(sup).cloned() {
+                        for ss in sup_supers {
+                            if supertypes.entry(sub).or_default().insert(ss) {
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !changed {
+                break;
+            }
+        }
+
+        supertypes
+    }
+
+    /// Build weight hierarchy from WeightSubtypeEntry registrations.
+    /// Computes the transitive closure of the subtype relationship.
+    fn build_weight_hierarchy() -> HashMap<&'static str, HashSet<&'static str>> {
+        let mut supertypes: HashMap<&'static str, HashSet<&'static str>> = HashMap::new();
+
+        // Collect direct subtype relationships
+        for entry in inventory::iter::<WeightSubtypeEntry> {
             supertypes
                 .entry(entry.subtype)
                 .or_default()
@@ -322,6 +371,21 @@ impl ReductionGraph {
         sub == sup
             || self
                 .graph_hierarchy
+                .get(sub)
+                .map(|s| s.contains(sup))
+                .unwrap_or(false)
+    }
+
+    /// Get the weight hierarchy (for inspection/testing).
+    pub fn weight_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
+        &self.weight_hierarchy
+    }
+
+    /// Check if `sub` is a weight subtype of `sup` (or equal).
+    pub fn is_weight_subtype(&self, sub: &str, sup: &str) -> bool {
+        sub == sup
+            || self
+                .weight_hierarchy
                 .get(sub)
                 .map(|s| s.contains(sup))
                 .unwrap_or(false)

@@ -720,6 +720,53 @@ fn test_make_variant_ref() {
 }
 
 #[test]
+fn test_weight_hierarchy_built() {
+    let graph = ReductionGraph::new();
+    let hierarchy = graph.weight_hierarchy();
+    assert!(
+        hierarchy
+            .get("Unweighted")
+            .map(|s| s.contains("i32"))
+            .unwrap_or(false),
+        "Unweighted should have i32 as supertype"
+    );
+    assert!(
+        hierarchy
+            .get("i32")
+            .map(|s| s.contains("f64"))
+            .unwrap_or(false),
+        "i32 should have f64 as supertype"
+    );
+    assert!(
+        hierarchy
+            .get("Unweighted")
+            .map(|s| s.contains("f64"))
+            .unwrap_or(false),
+        "Unweighted should transitively have f64 as supertype"
+    );
+}
+
+#[test]
+fn test_is_weight_subtype() {
+    let graph = ReductionGraph::new();
+
+    // Reflexive
+    assert!(graph.is_weight_subtype("i32", "i32"));
+    assert!(graph.is_weight_subtype("Unweighted", "Unweighted"));
+
+    // Direct
+    assert!(graph.is_weight_subtype("Unweighted", "i32"));
+    assert!(graph.is_weight_subtype("i32", "f64"));
+
+    // Transitive
+    assert!(graph.is_weight_subtype("Unweighted", "f64"));
+
+    // Not supertypes
+    assert!(!graph.is_weight_subtype("i32", "Unweighted"));
+    assert!(!graph.is_weight_subtype("f64", "i32"));
+}
+
+#[test]
 fn test_to_json_nodes_have_variants() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
