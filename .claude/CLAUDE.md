@@ -3,6 +3,9 @@
 ## Project Overview
 Rust library for NP-hard problem reductions. Implements computational problems with reduction rules for transforming between equivalent formulations.
 
+## Skills
+When resolving an issue with pull request, please use [issue-to-pr](skills/issue-to-pr.md) skill to convert the issue into a pull request with a plan.
+
 ## Commands
 ```bash
 make help           # Show all available targets
