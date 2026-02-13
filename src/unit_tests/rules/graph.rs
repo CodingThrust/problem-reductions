@@ -508,15 +508,19 @@ fn test_is_graph_subtype_direct() {
     // Direct subtype relationships
     assert!(graph.is_graph_subtype("PlanarGraph", "SimpleGraph"));
     assert!(graph.is_graph_subtype("BipartiteGraph", "SimpleGraph"));
-    assert!(graph.is_graph_subtype("UnitDiskGraph", "PlanarGraph"));
+    assert!(graph.is_graph_subtype("GridGraph", "UnitDiskGraph"));
+    assert!(graph.is_graph_subtype("UnitDiskGraph", "SimpleGraph"));
+    assert!(graph.is_graph_subtype("SimpleGraph", "HyperGraph"));
 }
 
 #[test]
 fn test_is_graph_subtype_transitive() {
     let graph = ReductionGraph::new();
 
-    // Transitive closure: UnitDiskGraph -> PlanarGraph -> SimpleGraph
-    assert!(graph.is_graph_subtype("UnitDiskGraph", "SimpleGraph"));
+    // Transitive closure: GridGraph -> UnitDiskGraph -> SimpleGraph -> HyperGraph
+    assert!(graph.is_graph_subtype("GridGraph", "SimpleGraph"));
+    assert!(graph.is_graph_subtype("GridGraph", "HyperGraph"));
+    assert!(graph.is_graph_subtype("UnitDiskGraph", "HyperGraph"));
 }
 
 #[test]

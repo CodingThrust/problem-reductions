@@ -35,6 +35,16 @@ pub struct BipartiteGraph;
 
 impl GraphMarker for BipartiteGraph {}
 
+/// Grid graph - vertices on a grid, edges to neighbors.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct GridGraph;
+impl GraphMarker for GridGraph {}
+
+/// Hypergraph - most general graph type. Edges can connect any number of vertices.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct HyperGraph;
+impl GraphMarker for HyperGraph {}
+
 /// Runtime registration of graph subtype relationships.
 pub struct GraphSubtypeEntry {
     pub subtype: &'static str,
@@ -58,13 +68,23 @@ macro_rules! declare_graph_subtype {
     };
 }
 
-// Declare the graph type hierarchy.
-// Note: All direct relationships must be declared explicitly for compile-time trait bounds.
-// Transitive closure is only computed at runtime in build_graph_hierarchy().
-declare_graph_subtype!(UnitDiskGraph => PlanarGraph);
-declare_graph_subtype!(UnitDiskGraph => SimpleGraph); // Needed for compile-time GraphSubtype<SimpleGraph>
+// Corrected graph type hierarchy (all transitive relationships declared for compile-time bounds).
+//   HyperGraph (most general)
+//   └── SimpleGraph
+//       ├── PlanarGraph
+//       ├── BipartiteGraph
+//       └── UnitDiskGraph
+//           └── GridGraph
+declare_graph_subtype!(GridGraph => UnitDiskGraph);
+declare_graph_subtype!(GridGraph => SimpleGraph);
+declare_graph_subtype!(GridGraph => HyperGraph);
+declare_graph_subtype!(UnitDiskGraph => SimpleGraph);
+declare_graph_subtype!(UnitDiskGraph => HyperGraph);
 declare_graph_subtype!(PlanarGraph => SimpleGraph);
+declare_graph_subtype!(PlanarGraph => HyperGraph);
 declare_graph_subtype!(BipartiteGraph => SimpleGraph);
+declare_graph_subtype!(BipartiteGraph => HyperGraph);
+declare_graph_subtype!(SimpleGraph => HyperGraph);
 
 #[cfg(test)]
 #[path = "unit_tests/graph_types.rs"]
