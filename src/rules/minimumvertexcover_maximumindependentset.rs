@@ -43,11 +43,8 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<MinimumVertexCover<SimpleGraph, W>> for MaximumIndependentSet<SimpleGraph, W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionISToVC<W>;
+impl ReduceTo<MinimumVertexCover<SimpleGraph, i32>> for MaximumIndependentSet<SimpleGraph, i32> {
+    type Result = ReductionISToVC<i32>;
 
     fn reduce_to(&self) -> Self::Result {
         let target = MinimumVertexCover::with_weights(
@@ -90,11 +87,8 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<MaximumIndependentSet<SimpleGraph, W>> for MinimumVertexCover<SimpleGraph, W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionVCToIS<W>;
+impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MinimumVertexCover<SimpleGraph, i32> {
+    type Result = ReductionVCToIS<i32>;
 
     fn reduce_to(&self) -> Self::Result {
         let target = MaximumIndependentSet::with_weights(

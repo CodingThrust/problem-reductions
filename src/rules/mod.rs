@@ -102,3 +102,6 @@ pub use minimumsetcovering_ilp::ReductionSCToILP;
 pub use minimumvertexcover_ilp::ReductionVCToILP;
 #[cfg(feature = "ilp")]
 pub use travelingsalesman_ilp::ReductionTSPToILP;
+
+mod variants;
+

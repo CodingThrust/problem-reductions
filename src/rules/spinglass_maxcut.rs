@@ -43,11 +43,8 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<SpinGlass<SimpleGraph, W>> for MaxCut<SimpleGraph, W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionMaxCutToSG<W>;
+impl ReduceTo<SpinGlass<SimpleGraph, i32>> for MaxCut<SimpleGraph, i32> {
+    type Result = ReductionMaxCutToSG<i32>;
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_vertices();
@@ -70,15 +67,15 @@ where
         // MaxCut wants to maximize edges cut, SpinGlass minimizes energy.
         // When J > 0 (antiferromagnetic), opposite spins lower energy.
         // So maximizing cut = minimizing Ising energy with J = w.
-        let interactions: Vec<((usize, usize), W)> = edges_with_weights
+        let interactions: Vec<((usize, usize), i32)> = edges_with_weights
             .into_iter()
             .map(|(u, v, w)| ((u, v), w))
             .collect();
 
         // No onsite terms for pure MaxCut
-        let onsite = vec![W::zero(); n];
+        let onsite = vec![0i32; n];
 
-        let target = SpinGlass::<SimpleGraph, W>::new(n, interactions, onsite);
+        let target = SpinGlass::<SimpleGraph, i32>::new(n, interactions, onsite);
 
         ReductionMaxCutToSG { target }
     }
@@ -129,11 +126,8 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<MaxCut<SimpleGraph, W>> for SpinGlass<SimpleGraph, W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionSGToMaxCut<W>;
+impl ReduceTo<MaxCut<SimpleGraph, i32>> for SpinGlass<SimpleGraph, i32> {
+    type Result = ReductionSGToMaxCut<i32>;
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_spins();
@@ -161,7 +155,7 @@ where
             for (i, h) in fields.iter().enumerate() {
                 if !h.is_zero() {
                     edges.push((i, n));
-                    weights.push(h.clone());
+                    weights.push(*h);
                 }
             }
         }

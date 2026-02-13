@@ -45,11 +45,8 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<MaximumSetPacking<W>> for MaximumIndependentSet<SimpleGraph, W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionISToSP<W>;
+impl ReduceTo<MaximumSetPacking<i32>> for MaximumIndependentSet<SimpleGraph, i32> {
+    type Result = ReductionISToSP<i32>;
 
     fn reduce_to(&self) -> Self::Result {
         let edges = self.edges();
@@ -99,11 +96,8 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<MaximumIndependentSet<SimpleGraph, W>> for MaximumSetPacking<W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionSPToIS<W>;
+impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MaximumSetPacking<i32> {
+    type Result = ReductionSPToIS<i32>;
 
     fn reduce_to(&self) -> Self::Result {
         let sets = self.sets();

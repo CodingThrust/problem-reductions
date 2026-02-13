@@ -45,11 +45,8 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<MinimumSetCovering<W>> for MinimumVertexCover<SimpleGraph, W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionVCToSC<W>;
+impl ReduceTo<MinimumSetCovering<i32>> for MinimumVertexCover<SimpleGraph, i32> {
+    type Result = ReductionVCToSC<i32>;
 
     fn reduce_to(&self) -> Self::Result {
         let edges = self.edges();
