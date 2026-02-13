@@ -10,7 +10,6 @@ assignees: ''
 ## Definition
 
 **Name:** <!-- e.g. MaximumIndependentSet. Use Maximum/Minimum prefix for optimization problems -->
-**Category:** <!-- graph / satisfiability / set / optimization / specialized -->
 **Reference:** <!-- URL or citation for the formal definition -->
 
 <!-- Formal definition: input, feasibility constraints, and objective.
