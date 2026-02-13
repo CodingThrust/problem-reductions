@@ -112,10 +112,193 @@ Reduction graph nodes use variant IDs: `ProblemName[/GraphType][/Weighted]`
 - `display-name` dict maps `ProblemName` to display text
 
 ## Contributing
-See `.claude/rules/` for detailed guides:
-- `adding-reductions.md` - How to add reduction rules
-- `adding-models.md` - How to add problem types
-- `testing.md` - Testing requirements and patterns
-- `documentation.md` - Paper documentation patterns
-
+See the sections below for detailed guides on adding reductions, models, tests, and documentation.
 Also see GitHub Issue #3 for coding rules.
+
+## Adding a Reduction Rule (A -> B)
+
+**Reference implementations — read these first:**
+- **Reduction rule:** `src/rules/minimumvertexcover_maximumindependentset.rs` — `ReductionResult` + `ReduceTo` + `#[reduction]` macro
+- **Unit test:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs` — closed-loop + edge cases
+- **Example program:** `examples/reduction_minimumvertexcover_to_maximumindependentset.rs` — create, reduce, solve, extract, verify, export
+- **Paper entry:** `docs/paper/reductions.typ` (search for `MinimumVertexCover` `MaximumIndependentSet`)
+- **Traits:** `src/rules/traits.rs` — `ReductionResult` and `ReduceTo` trait definitions
+
+### 0. Before Writing Code
+
+1. **Brainstorm** — use `superpowers:brainstorming` to discuss with the user:
+   - The math (variable mapping, constraint encoding, penalty terms)
+   - Which example instance to use in `examples/` (must be small, human-explainable, and agreed with the user)
+2. **Generate ground truth** — use Python scripts in `scripts/` (run with `uv`) to create test data in `tests/data/<target>/`.
+3. **Write plan** — save to `docs/plans/` using `superpowers:writing-plans`.
+
+### 1. Implement
+
+Create `src/rules/<source>_<target>.rs` following the reference. Key pieces:
+
+- **`ReductionResult` struct + impl** — `target_problem()` + `extract_solution()` (see reference)
+- **`ReduceTo` impl with `#[reduction(...)]` macro** — auto-generates `inventory::submit!`; only `overhead` attribute needed (graph/weight types are inferred, defaulting to `SimpleGraph`/`Unweighted`)
+- **`#[cfg(test)] #[path = ...]`** linking to unit tests
+
+Register in `src/rules/mod.rs`.
+
+### 2. Test
+
+- **Unit tests** in `src/unit_tests/rules/<source>_<target>.rs` — closed-loop + edge cases (see reference test).
+- **Integration tests** in `tests/suites/reductions.rs` — compare against JSON ground truth.
+
+### 3. Example Program
+
+Add `examples/reduction_<source>_to_<target>.rs` — create, reduce, solve, extract, verify, export JSON (see reference example).
+
+Examples must expose `pub fn run()` with `fn main() { run() }` so they can be tested directly via `include!` (no subprocess). Use regular comments (`//`) not inner doc comments (`//!`), and hardcode the example name instead of using `env!("CARGO_BIN_NAME")`.
+
+Register the example in `tests/suites/examples.rs` by adding:
+```rust
+example_test!(reduction_<source>_to_<target>);
+example_fn!(test_<source>_to_<target>, reduction_<source>_to_<target>);
+```
+
+### 4. Document
+
+Update `docs/paper/reductions.typ` — add `reduction-rule("Source", "Target", ...)` with proof sketch (see `rules/documentation.md`).
+
+### 5. Regenerate Graph
+
+```bash
+cargo run --example export_graph
+```
+
+## Adding a Model (Problem Type)
+
+**Reference implementations — read these first:**
+- **Optimization problem:** `src/models/graph/maximum_independent_set.rs` — `Problem` + `OptimizationProblem` with `Metric = SolutionSize<W>`
+- **Satisfaction problem:** `src/models/satisfiability/sat.rs` — `Problem` with `Metric = bool`
+- **Reference test:** `src/unit_tests/models/graph/maximum_independent_set.rs`
+
+### Steps
+
+1. **Create** `src/models/<category>/<name>.rs` — follow the reference for struct definition, `Problem` impl, and `OptimizationProblem` impl (if applicable).
+2. **Register** in `src/models/<category>/mod.rs`.
+3. **Add tests** in `src/unit_tests/models/<category>/<name>.rs` (linked via `#[path]`).
+4. **Document** in `docs/paper/reductions.typ`: add `display-name` entry and `#problem-def("Name")[definition...]`.
+
+### Trait Implementations
+
+Every problem must implement `Problem` (see `src/traits.rs`). Key points:
+
+- **`type Metric`** — `SolutionSize<W>` for optimization, `bool` for satisfaction
+- **`fn dims()`** — configuration space dimensions (e.g., `vec![2; n]` for n binary variables)
+- **`fn evaluate()`** — return `SolutionSize::Valid(value)` / `SolutionSize::Invalid` for optimization, or `bool` for satisfaction
+- **`fn variant()`** — graph and weight type metadata for the reduction registry
+
+Optimization problems additionally implement `OptimizationProblem` (see `src/traits.rs`):
+- **`type Value`** — the inner objective type (e.g., `i32`, `f64`, `W`)
+- **`fn direction()`** — `Direction::Maximize` or `Direction::Minimize`
+
+The supertrait `Problem<Metric = SolutionSize<Self::Value>>` ensures the solver can call `metric.is_valid()` and `metric.is_better()` directly — no per-problem customization needed.
+
+Weight management (`weights()`, `set_weights()`, `is_weighted()`) goes on inherent `impl` blocks, not traits. See the reference implementation for the pattern.
+
+### Categories
+
+- `src/models/satisfiability/` — Satisfiability, KSatisfiability, CircuitSAT
+- `src/models/graph/` — MaximumIndependentSet, MinimumVertexCover, KColoring, etc.
+- `src/models/set/` — MinimumSetCovering, MaximumSetPacking
+- `src/models/optimization/` — SpinGlass, QUBO, ILP
+- `src/models/specialized/` — CircuitSAT, Factoring, PaintShop, BicliqueCover, BMF
+
+### Naming
+
+Use explicit optimization prefixes: `Maximum` for maximization, `Minimum` for minimization (e.g., `MaximumIndependentSet`, `MinimumVertexCover`).
+
+## Testing Requirements
+
+**Reference implementations — read these first:**
+- **Reduction test:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs` — closed-loop pattern
+- **Model test:** `src/unit_tests/models/graph/maximum_independent_set.rs` — evaluation, serialization
+- **Solver test:** `src/unit_tests/solvers/brute_force.rs` — `find_best` + `find_satisfying`
+- **Trait definitions:** `src/traits.rs` (`Problem`, `OptimizationProblem`), `src/solvers/mod.rs` (`Solver`)
+
+### Coverage
+
+New code must have >95% test coverage. Run `make coverage` to check.
+
+### Naming
+
+- Reduction tests: `test_<source>_to_<target>_closed_loop`
+- Model tests: `test_<model>_basic`, `test_<model>_serialization`
+- Solver tests: `test_<solver>_<problem>`
+
+### Key Testing Patterns
+
+Follow the reference files above for exact API usage. Summary:
+
+- `solver.find_best(&problem)` → `Option<Vec<usize>>` — one optimal solution for optimization problems
+- `solver.find_satisfying(&problem)` → `Option<Vec<usize>>` — one satisfying assignment
+- `solver.find_all_best(&problem)` → `Vec<Vec<usize>>` — all optimal solutions (BruteForce only)
+- `solver.find_all_satisfying(&problem)` → `Vec<Vec<usize>>` — all satisfying assignments (BruteForce only)
+- `problem.evaluate(&config)` — returns `SolutionSize::Valid(value)` / `SolutionSize::Invalid` for optimization, `bool` for satisfaction
+
+### File Organization
+
+Unit tests live in `src/unit_tests/`, mirroring `src/` structure. Source files reference them via `#[path]`:
+
+```rust
+// In src/rules/foo_bar.rs:
+#[cfg(test)]
+#[path = "../unit_tests/rules/foo_bar.rs"]
+mod tests;
+```
+
+Integration tests are in `tests/suites/`, consolidated through `tests/main.rs`.
+
+### Example Tests
+
+**Reference:** `tests/suites/examples.rs` — macro-based test harness
+
+Example programs (`examples/reduction_*.rs`) are tested via `include!` in `tests/suites/examples.rs` — each example is compiled directly into the test binary (no subprocess overhead). Each example must expose a `pub fn run()` entry point. See any existing example (e.g., `examples/reduction_minimumvertexcover_to_maximumindependentset.rs`) for the pattern:
+
+- `pub fn run()` with logic + `fn main() { run() }`
+- Regular comments (`//`) not inner doc comments (`//!`)
+- Hardcoded example name, not `env!("CARGO_BIN_NAME")`
+
+The test harness auto-registers each example as a separate `#[test]`, so `cargo test` runs them in parallel.
+
+### Before PR
+
+```bash
+make test clippy
+```
+
+## Documentation Requirements
+
+**Reference:** search `docs/paper/reductions.typ` for `MinimumVertexCover` `MaximumIndependentSet` to see a complete problem-def + reduction-rule example.
+
+### Adding a Problem Definition
+
+```typst
+#problem-def("ProblemName")[
+  Mathematical definition...
+]
+```
+
+Also add to the `display-name` dictionary:
+```typst
+"ProblemName": [Problem Name],
+```
+
+### Adding a Reduction Theorem
+
+```typst
+#reduction-rule("Source", "Target",
+  example: true,
+  example-caption: [caption text],
+)[
+  Rule statement...
+][
+  Proof sketch...
+]
+```
+
+Every directed reduction in the graph needs its own `reduction-rule` entry. The paper auto-checks completeness against `reduction_graph.json`.
