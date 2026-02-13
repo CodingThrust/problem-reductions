@@ -69,6 +69,15 @@
       "doc_path": "models/graph/struct.KColoring.html"
     },
     {
+      "name": "KColoring",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "Unweighted"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.KColoring.html"
+    },
+    {
       "name": "KSatisfiability",
       "variant": {},
       "category": "satisfiability",
@@ -87,6 +96,24 @@
       "name": "KSatisfiability",
       "variant": {
         "k": "3",
+        "weight": "Unweighted"
+      },
+      "category": "satisfiability",
+      "doc_path": "models/satisfiability/struct.KSatisfiability.html"
+    },
+    {
+      "name": "KSatisfiability",
+      "variant": {
+        "k": "4",
+        "weight": "Unweighted"
+      },
+      "category": "satisfiability",
+      "doc_path": "models/satisfiability/struct.KSatisfiability.html"
+    },
+    {
+      "name": "KSatisfiability",
+      "variant": {
+        "k": "5",
         "weight": "Unweighted"
       },
       "category": "satisfiability",
@@ -124,6 +151,21 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.MaxCut.html"
+    },
+    {
+      "name": "MaximumClique",
+      "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumClique.html"
+    },
+    {
+      "name": "MaximumClique",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumClique.html"
     },
     {
       "name": "MaximumIndependentSet",
@@ -183,6 +225,15 @@
       "doc_path": "models/graph/struct.MaximumMatching.html"
     },
     {
+      "name": "MaximumMatching",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumMatching.html"
+    },
+    {
       "name": "MaximumSetPacking",
       "variant": {},
       "category": "set",
@@ -232,6 +283,15 @@
       "variant": {
         "graph": "SimpleGraph",
         "weight": "Unweighted"
+      },
+      "category": "set",
+      "doc_path": "models/set/struct.MinimumSetCovering.html"
+    },
+    {
+      "name": "MinimumSetCovering",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
       },
       "category": "set",
       "doc_path": "models/set/struct.MinimumSetCovering.html"
@@ -331,6 +391,21 @@
       },
       "category": "optimization",
       "doc_path": "models/optimization/struct.SpinGlass.html"
+    },
+    {
+      "name": "TravelingSalesman",
+      "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.TravelingSalesman.html"
+    },
+    {
+      "name": "TravelingSalesman",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.TravelingSalesman.html"
     }
   ],
   "edges": [
@@ -468,6 +543,29 @@
         }
       },
       "target": {
+        "name": "QUBO",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices * num_colors"
+        }
+      ],
+      "doc_path": "rules/coloring_qubo/index.html"
+    },
+    {
+      "source": {
+        "name": "KColoring",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
         "name": "ILP",
         "variant": {
           "graph": "SimpleGraph",
@@ -485,29 +583,6 @@
         }
       ],
       "doc_path": "rules/coloring_ilp/index.html"
-    },
-    {
-      "source": {
-        "name": "KColoring",
-        "variant": {
-          "graph": "SimpleGraph",
-          "k": "N"
-        }
-      },
-      "target": {
-        "name": "QUBO",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "f64"
-        }
-      },
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_vertices * num_colors"
-        }
-      ],
-      "doc_path": "rules/coloring_qubo/index.html"
     },
     {
       "source": {
@@ -613,6 +688,60 @@
       "source": {
         "name": "KSatisfiability",
         "variant": {
+          "k": "4",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "N",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_clauses",
+          "formula": "num_clauses"
+        },
+        {
+          "field": "num_vars",
+          "formula": "num_vars"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "5",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "N",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_clauses",
+          "formula": "num_clauses"
+        },
+        {
+          "field": "num_vars",
+          "formula": "num_vars"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "KSatisfiability",
+        "variant": {
           "k": "N",
           "weight": "Unweighted"
         }
@@ -689,6 +818,33 @@
         }
       ],
       "doc_path": "rules/spinglass_maxcut/index.html"
+    },
+    {
+      "source": {
+        "name": "MaximumClique",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vertices^2"
+        }
+      ],
+      "doc_path": "rules/maximumclique_ilp/index.html"
     },
     {
       "source": {
@@ -861,6 +1017,33 @@
         }
       },
       "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_ilp/index.html"
+    },
+    {
+      "source": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
         "name": "QUBO",
         "variant": {
           "graph": "SimpleGraph",
@@ -938,6 +1121,24 @@
         }
       },
       "target": {
+        "name": "MaximumMatching",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "MaximumMatching",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
         "name": "MaximumSetPacking",
         "variant": {
           "graph": "SimpleGraph",
@@ -955,6 +1156,33 @@
         }
       ],
       "doc_path": "rules/maximummatching_maximumsetpacking/index.html"
+    },
+    {
+      "source": {
+        "name": "MaximumMatching",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_edges"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vertices"
+        }
+      ],
+      "doc_path": "rules/maximummatching_ilp/index.html"
     },
     {
       "source": {
@@ -1019,6 +1247,33 @@
         }
       },
       "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_sets^2"
+        }
+      ],
+      "doc_path": "rules/maximumsetpacking_ilp/index.html"
+    },
+    {
+      "source": {
+        "name": "MaximumSetPacking",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
         "name": "QUBO",
         "variant": {
           "graph": "SimpleGraph",
@@ -1032,6 +1287,87 @@
         }
       ],
       "doc_path": "rules/maximumsetpacking_qubo/index.html"
+    },
+    {
+      "source": {
+        "name": "MinimumDominatingSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vertices"
+        }
+      ],
+      "doc_path": "rules/minimumdominatingset_ilp/index.html"
+    },
+    {
+      "source": {
+        "name": "MinimumSetCovering",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MinimumSetCovering",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_sets",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_elements",
+          "formula": "num_elements"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "MinimumSetCovering",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "universe_size"
+        }
+      ],
+      "doc_path": "rules/minimumsetcovering_ilp/index.html"
     },
     {
       "source": {
@@ -1123,6 +1459,33 @@
         }
       },
       "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/minimumvertexcover_ilp/index.html"
+    },
+    {
+      "source": {
+        "name": "MinimumVertexCover",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
         "name": "QUBO",
         "variant": {
           "graph": "SimpleGraph",
@@ -1198,7 +1561,61 @@
       "target": {
         "name": "KSatisfiability",
         "variant": {
-          "k": "N",
+          "k": "3",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_clauses",
+          "formula": "num_clauses + num_literals"
+        },
+        {
+          "field": "num_vars",
+          "formula": "num_vars + num_literals"
+        }
+      ],
+      "doc_path": "rules/sat_ksat/index.html"
+    },
+    {
+      "source": {
+        "name": "Satisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "4",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_clauses",
+          "formula": "num_clauses + num_literals"
+        },
+        {
+          "field": "num_vars",
+          "formula": "num_vars + num_literals"
+        }
+      ],
+      "doc_path": "rules/sat_ksat/index.html"
+    },
+    {
+      "source": {
+        "name": "Satisfiability",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "5",
           "weight": "Unweighted"
         }
       },
@@ -1425,6 +1842,33 @@
         }
       ],
       "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "TravelingSalesman",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices^2 + 2 * num_vertices * num_edges"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vertices^3 - num_vertices^2 + 2 * num_vertices + 4 * num_vertices * num_edges"
+        }
+      ],
+      "doc_path": "rules/travelingsalesman_ilp/index.html"
     }
   ]
 }

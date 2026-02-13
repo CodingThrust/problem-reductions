@@ -806,6 +806,25 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v <= 1$ for each $(u, v) in.not E$ (non-edges). Objective: maximize $sum_v x_v$. Equivalently, IS on the complement graph. _Solution extraction:_ $K = {v : x_v = 1}$.
 ]
 
+#reduction-rule("TravelingSalesman", "ILP",
+  example: true,
+  example-caption: [Weighted $K_4$: the optimal tour $0 arrow 1 arrow 3 arrow 2 arrow 0$ with cost 80 is found by position-based ILP.],
+)[
+  The traveling salesman problem reduces to binary ILP with $n^2 + 2 m n$ variables via position-based encoding with McCormick linearization.
+][
+  _Construction._ For graph $G = (V, E)$ with $n = |V|$ and $m = |E|$:
+
+  _Variables:_ Binary $x_(v,k) in {0, 1}$ for each vertex $v in V$ and position $k in {0, ..., n-1}$. Interpretation: $x_(v,k) = 1$ iff vertex $v$ is at position $k$ in the tour.
+
+  _Auxiliary variables:_ For each edge $(u,v) in E$ and position $k$, introduce $y_(u,v,k)$ and $y_(v,u,k)$ to linearize the products $x_(u,k) dot x_(v,(k+1) mod n)$ and $x_(v,k) dot x_(u,(k+1) mod n)$ respectively.
+
+  _Constraints:_ (1) Each vertex has exactly one position: $sum_(k=0)^(n-1) x_(v,k) = 1$ for all $v in V$. (2) Each position has exactly one vertex: $sum_(v in V) x_(v,k) = 1$ for all $k$. (3) Non-edge consecutive prohibition: if ${v,w} in.not E$, then $x_(v,k) + x_(w,(k+1) mod n) <= 1$ for all $k$. (4) McCormick: $y <= x_(v,k)$, $y <= x_(w,(k+1) mod n)$, $y >= x_(v,k) + x_(w,(k+1) mod n) - 1$.
+
+  _Objective:_ Minimize $sum_((u,v) in E) w(u,v) dot sum_k (y_(u,v,k) + y_(v,u,k))$.
+
+  _Solution extraction._ For each position $k$, find vertex $v$ with $x_(v,k) = 1$ to recover the tour permutation; then select edges between consecutive positions.
+]
+
 == Unit Disk Mapping
 
 #reduction-rule("MaximumIndependentSet", "GridGraph")[
@@ -918,6 +937,7 @@ The following table shows concrete variable overhead for example instances, gene
   "kcoloring_to_ilp", "factoring_to_ilp",
   "maximumsetpacking_to_ilp", "minimumsetcovering_to_ilp",
   "minimumdominatingset_to_ilp", "maximumclique_to_ilp",
+  "travelingsalesman_to_ilp",
 )
 
 #let examples = example-files.map(n => {

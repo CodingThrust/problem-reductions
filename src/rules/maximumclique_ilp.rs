@@ -8,6 +8,9 @@
 
 use crate::models::graph::MaximumClique;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::poly;
+use crate::reduction;
+use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
 
@@ -39,6 +42,14 @@ impl ReductionResult for ReductionCliqueToILP {
     }
 }
 
+#[reduction(
+    overhead = {
+        ReductionOverhead::new(vec![
+            ("num_vars", poly!(num_vertices)),
+            ("num_constraints", poly!(num_vertices ^ 2)),
+        ])
+    }
+)]
 impl ReduceTo<ILP> for MaximumClique<SimpleGraph, i32> {
     type Result = ReductionCliqueToILP;
 

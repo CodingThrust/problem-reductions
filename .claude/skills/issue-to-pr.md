@@ -7,12 +7,6 @@ description: Use when you have a GitHub issue and want to create a PR with an im
 
 Convert a GitHub issue into an actionable PR with a plan that auto-triggers Claude execution.
 
-## Usage
-
-```
-/issue-to-pr <issue-number-or-url>
-```
-
 ## Workflow
 
 ```dot
@@ -24,7 +18,6 @@ digraph issue_to_pr {
     "Research references" [shape=box];
     "Write plan file" [shape=box];
     "Create branch and PR" [shape=box];
-    "PR triggers [action]" [shape=doublecircle];
 
     "Receive issue number" -> "Fetch issue with gh";
     "Fetch issue with gh" -> "Check the rules to follow";
@@ -32,7 +25,6 @@ digraph issue_to_pr {
     "Verify completeness" -> "Research references";
     "Research references" -> "Write plan file";
     "Write plan file" -> "Create branch and PR";
-    "Create branch and PR" -> "PR triggers [action]";
 }
 ```
 
@@ -108,6 +100,7 @@ The plan MUST include an **action pipeline** section with concrete steps based o
    - Present example in tutorial style (see KColoring→QUBO section for reference)
 
 5. **Regenerate graph** — `cargo run --example export_graph`
+6. **Push and create PR** — Push the changes and create a pull request with a description of the changes.
 
 **Rules for solver implementation:**
 - Make sure at least one solver is provided in the issue template. Check if the solving strategy is valid. If not, reply under issue to ask for clarification.
@@ -140,8 +133,10 @@ The plan MUST include an **action pipeline** section with concrete steps based o
 3. **Document** — Update `docs/paper/reductions.typ`:
    - Add `display-name` entry
    - Add `#problem-def("Name")[definition...]`
+4. **Push and create PR** — Push the changes and create a pull request with a description of the changes.
 
 ### 6. Create PR
+Create a pull request with only the plan file.
 
 ```bash
 # Create branch
@@ -156,8 +151,8 @@ git commit -m "Add plan for #<number>: <title>"
 # Push
 git push -u origin issue-<number>-<slug>
 
-# Create PR with [action] at the BEGINNING
-gh pr create --title "Fix #<number>: <title>" --body "[action]
+# Create PR
+gh pr create --title "Fix #<number>: <title>" --body "
 
 ## Summary
 <Brief description from brainstorming>
@@ -165,7 +160,6 @@ gh pr create --title "Fix #<number>: <title>" --body "[action]
 Closes #<number>"
 ```
 
-**CRITICAL:** The PR body MUST start with `[action]` on the first line. This triggers automated plan execution.
 
 ## Example
 
@@ -181,10 +175,9 @@ All required info is present. I'll create the plan...
 
 [Writes docs/plans/2026-02-09-independentset-to-qubo.md]
 [Creates branch, commits, pushes]
-[Creates PR with body starting with "[action]"]
+[Creates PR]
 
-Created PR #45: Fix #42: Add IndependentSet → QUBO reduction
-The [action] trigger will automatically execute the plan.
+Created PR #45: Fix #42: Add IndependentSet → QUBO reduction, description: ...
 ```
 
 ## Common Mistakes
@@ -192,6 +185,5 @@ The [action] trigger will automatically execute the plan.
 | Mistake | Fix |
 |---------|-----|
 | Issue template incomplete | Ask contributor to fill in missing sections before proceeding |
-| `[action]` not at start | PR body must BEGIN with `[action]` |
 | Including implementation code in initial PR | First PR: plan only |
 | Generic plan | Use specifics from the issue |

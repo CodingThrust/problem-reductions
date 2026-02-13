@@ -165,9 +165,9 @@ compare: rust-export
 INSTRUCTIONS ?=
 OUTPUT ?= claude-output.log
 AGENT_TYPE ?= claude
+PLAN_FILE ?= $(shell ls -t docs/plans/*.md 2>/dev/null | head -1)
 
 run-plan:
-	PLAN_FILE ?= $(shell ls -t docs/plans/*.md 2>/dev/null | head -1)
 	@NL=$$'\n'; \
 	BRANCH=$$(git branch --show-current); \
 	if [ "$(AGENT_TYPE)" = "claude" ]; then \
@@ -182,6 +182,7 @@ run-plan:
 	PROMPT="$${PROMPT}$${NL}$${NL}## Process$${NL}$${PROCESS}$${NL}$${NL}## Rules$${NL}- Tests should be strong enough to catch regressions.$${NL}- Do not modify tests to make them pass.$${NL}- Test failure must be reported."; \
 	echo "=== Prompt ===" && echo "$$PROMPT" && echo "===" ; \
 	claude --dangerously-skip-permissions \
-		--model claude-opus-4-6 \
+		--model opus \
+		--verbose \
 		--max-turns 500 \
 		-p "$$PROMPT" 2>&1 | tee "$(OUTPUT)"

@@ -50,6 +50,8 @@ mod minimumdominatingset_ilp;
 mod minimumsetcovering_ilp;
 #[cfg(feature = "ilp")]
 mod minimumvertexcover_ilp;
+#[cfg(feature = "ilp")]
+mod travelingsalesman_ilp;
 
 pub use circuit_spinglass::{
     and_gadget, not_gadget, or_gadget, set0_gadget, set1_gadget, xor_gadget, LogicGadget,
@@ -96,3 +98,5 @@ pub use minimumdominatingset_ilp::ReductionDSToILP;
 pub use minimumsetcovering_ilp::ReductionSCToILP;
 #[cfg(feature = "ilp")]
 pub use minimumvertexcover_ilp::ReductionVCToILP;
+#[cfg(feature = "ilp")]
+pub use travelingsalesman_ilp::ReductionTSPToILP;

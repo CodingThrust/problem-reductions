@@ -925,7 +925,8 @@ impl ReductionGraph {
             | "KColoring"
             | "MaximumMatching"
             | "MaxCut"
-            | "MaximumClique" => "graph",
+            | "MaximumClique"
+            | "TravelingSalesman" => "graph",
             "Satisfiability" | "KSatisfiability" => "satisfiability",
             "SpinGlass" | "QUBO" | "ILP" => "optimization",
             "MinimumSetCovering" | "MaximumSetPacking" => "set",
@@ -943,6 +944,7 @@ impl ReductionGraph {
             || name.contains("MinimumDominatingSet")
             || name.contains("MaximumMatching")
             || name.contains("MaximumClique")
+            || name.contains("TravelingSalesman")
         {
             "graph"
         } else if name.contains("MaximumSetPacking") || name.contains("SetCover") {
