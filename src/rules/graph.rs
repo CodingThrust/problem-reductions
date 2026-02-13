@@ -627,6 +627,48 @@ impl Default for ReductionGraph {
 }
 
 impl ReductionGraph {
+    /// Check if variant A is strictly more restrictive than variant B (same problem name).
+    /// Returns true if every field of A is a subtype of (or equal to) the corresponding field in B,
+    /// and at least one field is strictly more restrictive.
+    fn is_variant_reducible(
+        &self,
+        a: &std::collections::BTreeMap<String, String>,
+        b: &std::collections::BTreeMap<String, String>,
+    ) -> bool {
+        if a == b {
+            return false; // No self-reduction
+        }
+
+        let mut all_compatible = true;
+
+        // Check all fields present in either variant
+        let all_keys: std::collections::BTreeSet<_> = a.keys().chain(b.keys()).collect();
+
+        for key in all_keys {
+            let a_val = a.get(key.as_str()).map(|s| s.as_str()).unwrap_or("");
+            let b_val = b.get(key.as_str()).map(|s| s.as_str()).unwrap_or("");
+
+            if a_val == b_val {
+                continue; // Equal on this field
+            }
+
+            // Check subtype relationship based on field type
+            let is_sub = match key.as_str() {
+                "graph" => self.is_graph_subtype(a_val, b_val),
+                "weight" => self.is_weight_subtype(a_val, b_val),
+                _ => false, // Unknown fields must be equal
+            };
+
+            if !is_sub {
+                all_compatible = false;
+                break;
+            }
+        }
+
+        // all_compatible is true and a != b means at least one field is strictly more restrictive
+        all_compatible
+    }
+
     /// Helper to convert a variant slice to a BTreeMap.
     /// Normalizes empty "graph" values to "SimpleGraph" for consistency.
     fn variant_to_map(
@@ -682,10 +724,7 @@ impl ReductionGraph {
 
         // Also collect nodes from ConcreteVariantEntry registrations
         for entry in inventory::iter::<ConcreteVariantEntry> {
-            node_set.insert((
-                entry.name.to_string(),
-                Self::variant_to_map(entry.variant),
-            ));
+            node_set.insert((entry.name.to_string(), Self::variant_to_map(entry.variant)));
         }
 
         // Build nodes with categories and doc paths
@@ -750,6 +789,93 @@ impl ReductionGraph {
                     &b.target.variant,
                 ))
         });
+
+        // Auto-generate natural edges between same-name variant nodes.
+        // A natural edge exists from A to B when all variant fields of A are
+        // at least as restrictive as B's (and at least one is strictly more restrictive).
+        // The overhead is identity: p(x) = x for each field.
+        {
+            // Group non-empty-variant nodes by problem name
+            let mut nodes_by_name: HashMap<&str, Vec<&std::collections::BTreeMap<String, String>>> =
+                HashMap::new();
+            for (name, variant) in &node_set {
+                if !variant.is_empty() {
+                    nodes_by_name
+                        .entry(name.as_str())
+                        .or_default()
+                        .push(variant);
+                }
+            }
+
+            // Collect overhead field names per problem from existing edges.
+            // Use edges where the problem is the TARGET, since the overhead fields
+            // describe the target problem's size dimensions.
+            let mut fields_by_problem: HashMap<String, Vec<String>> = HashMap::new();
+            for edge in &edges {
+                if !edge.overhead.is_empty() {
+                    fields_by_problem
+                        .entry(edge.target.name.clone())
+                        .or_insert_with(|| edge.overhead.iter().map(|o| o.field.clone()).collect());
+                }
+            }
+
+            // For each pair of same-name nodes, check transitive reducibility
+            for (name, variants) in &nodes_by_name {
+                for a in variants {
+                    for b in variants {
+                        if self.is_variant_reducible(a, b) {
+                            let src_ref = VariantRef {
+                                name: name.to_string(),
+                                variant: (*a).clone(),
+                            };
+                            let dst_ref = VariantRef {
+                                name: name.to_string(),
+                                variant: (*b).clone(),
+                            };
+                            let key = (src_ref.clone(), dst_ref.clone());
+                            if edge_set.insert(key) {
+                                // Identity overhead: each field maps to itself, p(x) = x
+                                let overhead = fields_by_problem
+                                    .get(*name)
+                                    .map(|fields| {
+                                        fields
+                                            .iter()
+                                            .map(|f| OverheadFieldJson {
+                                                field: f.clone(),
+                                                formula: f.clone(),
+                                            })
+                                            .collect()
+                                    })
+                                    .unwrap_or_default();
+
+                                edges.push(EdgeJson {
+                                    source: src_ref,
+                                    target: dst_ref,
+                                    overhead,
+                                    doc_path: String::new(),
+                                });
+                            }
+                        }
+                    }
+                }
+            }
+
+            // Re-sort after adding natural edges
+            edges.sort_by(|a, b| {
+                (
+                    &a.source.name,
+                    &a.source.variant,
+                    &a.target.name,
+                    &a.target.variant,
+                )
+                    .cmp(&(
+                        &b.source.name,
+                        &b.source.variant,
+                        &b.target.name,
+                        &b.target.variant,
+                    ))
+            });
+        }
 
         ReductionGraphJson { nodes, edges }
     }

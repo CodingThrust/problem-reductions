@@ -241,16 +241,13 @@ fn test_sat_based_reductions() {
     let graph = ReductionGraph::new();
 
     // SAT -> IS
-    assert!(graph
-        .has_direct_reduction::<Satisfiability, MaximumIndependentSet<SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<Satisfiability, MaximumIndependentSet<SimpleGraph, i32>>());
 
     // SAT -> KColoring
     assert!(graph.has_direct_reduction::<Satisfiability, KColoring<3, SimpleGraph, i32>>());
 
     // SAT -> MinimumDominatingSet
-    assert!(
-        graph.has_direct_reduction::<Satisfiability, MinimumDominatingSet<SimpleGraph, i32>>()
-    );
+    assert!(graph.has_direct_reduction::<Satisfiability, MinimumDominatingSet<SimpleGraph, i32>>());
 }
 
 #[test]
@@ -832,9 +829,131 @@ fn test_concrete_variant_nodes_in_json() {
     });
     assert!(mis_unitdisk, "MIS/UnitDiskGraph node should exist");
 
-    let maxcut_gridgraph = json.nodes.iter().any(|n| {
-        n.name == "MaxCut"
-            && n.variant.get("graph") == Some(&"GridGraph".to_string())
-    });
+    let maxcut_gridgraph = json
+        .nodes
+        .iter()
+        .any(|n| n.name == "MaxCut" && n.variant.get("graph") == Some(&"GridGraph".to_string()));
     assert!(maxcut_gridgraph, "MaxCut/GridGraph node should exist");
+}
+
+#[test]
+fn test_natural_edge_graph_relaxation() {
+    let graph = ReductionGraph::new();
+    let json = graph.to_json();
+
+    // MIS/GridGraph -> MIS/SimpleGraph should exist (graph type relaxation)
+    let has_edge = json.edges.iter().any(|e| {
+        e.source.name == "MaximumIndependentSet"
+            && e.target.name == "MaximumIndependentSet"
+            && e.source.variant.get("graph") == Some(&"GridGraph".to_string())
+            && e.target.variant.get("graph") == Some(&"SimpleGraph".to_string())
+    });
+    assert!(
+        has_edge,
+        "Natural edge MIS/GridGraph -> MIS/SimpleGraph should exist"
+    );
+}
+
+#[test]
+fn test_natural_edge_gridgraph_to_unitdisk() {
+    let graph = ReductionGraph::new();
+    let json = graph.to_json();
+
+    // MIS/GridGraph -> MIS/UnitDiskGraph should exist
+    let has_edge = json.edges.iter().any(|e| {
+        e.source.name == "MaximumIndependentSet"
+            && e.target.name == "MaximumIndependentSet"
+            && e.source.variant.get("graph") == Some(&"GridGraph".to_string())
+            && e.target.variant.get("graph") == Some(&"UnitDiskGraph".to_string())
+    });
+    assert!(
+        has_edge,
+        "Natural edge MIS/GridGraph -> MIS/UnitDiskGraph should exist"
+    );
+}
+
+#[test]
+fn test_natural_edge_weight_promotion() {
+    let graph = ReductionGraph::new();
+    let json = graph.to_json();
+
+    // MIS{SimpleGraph, Unweighted} -> MIS{SimpleGraph, i32} should exist
+    let has_edge = json.edges.iter().any(|e| {
+        e.source.name == "MaximumIndependentSet"
+            && e.target.name == "MaximumIndependentSet"
+            && e.source.variant.get("graph") == Some(&"SimpleGraph".to_string())
+            && e.target.variant.get("graph") == Some(&"SimpleGraph".to_string())
+            && e.source.variant.get("weight") == Some(&"Unweighted".to_string())
+            && e.target.variant.get("weight") == Some(&"i32".to_string())
+    });
+    assert!(
+        has_edge,
+        "Natural edge MIS/Unweighted -> MIS/i32 should exist"
+    );
+}
+
+#[test]
+fn test_no_natural_edge_wrong_direction() {
+    let graph = ReductionGraph::new();
+    let json = graph.to_json();
+
+    // MIS/SimpleGraph -> MIS/GridGraph should NOT exist (wrong direction)
+    let has_edge = json.edges.iter().any(|e| {
+        e.source.name == "MaximumIndependentSet"
+            && e.target.name == "MaximumIndependentSet"
+            && e.source.variant.get("graph") == Some(&"SimpleGraph".to_string())
+            && e.target.variant.get("graph") == Some(&"GridGraph".to_string())
+    });
+    assert!(
+        !has_edge,
+        "Should NOT have MIS/SimpleGraph -> MIS/GridGraph"
+    );
+}
+
+#[test]
+fn test_no_natural_self_edge() {
+    let graph = ReductionGraph::new();
+    let json = graph.to_json();
+
+    // No self-edges (same variant to same variant)
+    for edge in &json.edges {
+        if edge.source.name == edge.target.name {
+            assert!(
+                edge.source.variant != edge.target.variant,
+                "Should not have self-edge: {} {:?}",
+                edge.source.name,
+                edge.source.variant
+            );
+        }
+    }
+}
+
+#[test]
+fn test_natural_edge_has_identity_overhead() {
+    let graph = ReductionGraph::new();
+    let json = graph.to_json();
+
+    // Find a natural edge and verify its overhead is identity (field == formula)
+    let natural_edge = json.edges.iter().find(|e| {
+        e.source.name == "MaximumIndependentSet"
+            && e.target.name == "MaximumIndependentSet"
+            && e.source.variant.get("graph") == Some(&"GridGraph".to_string())
+            && e.target.variant.get("graph") == Some(&"SimpleGraph".to_string())
+            && e.source.variant.get("weight") == Some(&"Unweighted".to_string())
+            && e.target.variant.get("weight") == Some(&"Unweighted".to_string())
+    });
+    assert!(natural_edge.is_some(), "Natural edge should exist");
+    let edge = natural_edge.unwrap();
+    // Overhead should be identity: each field maps to itself
+    assert!(
+        !edge.overhead.is_empty(),
+        "Natural edge should have identity overhead"
+    );
+    for o in &edge.overhead {
+        assert_eq!(
+            o.field, o.formula,
+            "Natural edge overhead should be identity: {} != {}",
+            o.field, o.formula
+        );
+    }
 }
