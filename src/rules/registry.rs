@@ -72,12 +72,12 @@ impl ReductionEntry {
         let source_unweighted = source
             .iter()
             .find(|(k, _)| *k == "weight")
-            .map(|(_, v)| *v == "Unweighted")
+            .map(|(_, v)| *v == "One")
             .unwrap_or(true);
         let target_unweighted = target
             .iter()
             .find(|(k, _)| *k == "weight")
-            .map(|(_, v)| *v == "Unweighted")
+            .map(|(_, v)| *v == "One")
             .unwrap_or(true);
         source_unweighted && target_unweighted
     }

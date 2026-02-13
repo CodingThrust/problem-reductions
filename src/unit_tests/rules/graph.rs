@@ -628,8 +628,8 @@ fn test_find_cheapest_path_unknown_target() {
 #[test]
 fn test_reduction_edge_struct() {
     let edge = ReductionEdge {
-        source_variant: vec![("graph", "PlanarGraph"), ("weight", "Unweighted")],
-        target_variant: vec![("graph", "SimpleGraph"), ("weight", "Unweighted")],
+        source_variant: vec![("graph", "PlanarGraph"), ("weight", "One")],
+        target_variant: vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead: ReductionOverhead::default(),
     };
 
@@ -641,7 +641,7 @@ fn test_reduction_edge_struct() {
 fn test_reduction_edge_default_graph() {
     // When no "graph" key is present, default to SimpleGraph
     let edge = ReductionEdge {
-        source_variant: vec![("weight", "Unweighted")],
+        source_variant: vec![("weight", "One")],
         target_variant: vec![],
         overhead: ReductionOverhead::default(),
     };
@@ -684,10 +684,10 @@ fn test_weight_hierarchy_built() {
     let hierarchy = graph.weight_hierarchy();
     assert!(
         hierarchy
-            .get("Unweighted")
+            .get("One")
             .map(|s| s.contains("i32"))
             .unwrap_or(false),
-        "Unweighted should have i32 as supertype"
+        "One should have i32 as supertype"
     );
     assert!(
         hierarchy
@@ -698,10 +698,10 @@ fn test_weight_hierarchy_built() {
     );
     assert!(
         hierarchy
-            .get("Unweighted")
+            .get("One")
             .map(|s| s.contains("f64"))
             .unwrap_or(false),
-        "Unweighted should transitively have f64 as supertype"
+        "One should transitively have f64 as supertype"
     );
 }
 
@@ -711,17 +711,17 @@ fn test_is_weight_subtype() {
 
     // Reflexive
     assert!(graph.is_weight_subtype("i32", "i32"));
-    assert!(graph.is_weight_subtype("Unweighted", "Unweighted"));
+    assert!(graph.is_weight_subtype("One", "One"));
 
     // Direct
-    assert!(graph.is_weight_subtype("Unweighted", "i32"));
+    assert!(graph.is_weight_subtype("One", "i32"));
     assert!(graph.is_weight_subtype("i32", "f64"));
 
     // Transitive
-    assert!(graph.is_weight_subtype("Unweighted", "f64"));
+    assert!(graph.is_weight_subtype("One", "f64"));
 
     // Not supertypes
-    assert!(!graph.is_weight_subtype("i32", "Unweighted"));
+    assert!(!graph.is_weight_subtype("i32", "One"));
     assert!(!graph.is_weight_subtype("f64", "i32"));
 }
 
@@ -836,18 +836,18 @@ fn test_natural_edge_weight_promotion() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // MIS{SimpleGraph, Unweighted} -> MIS{SimpleGraph, i32} should exist
+    // MIS{SimpleGraph, One} -> MIS{SimpleGraph, i32} should exist
     let has_edge = json.edges.iter().any(|e| {
         json.source_node(e).name == "MaximumIndependentSet"
             && json.target_node(e).name == "MaximumIndependentSet"
             && json.source_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
             && json.target_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
-            && json.source_node(e).variant.get("weight") == Some(&"Unweighted".to_string())
+            && json.source_node(e).variant.get("weight") == Some(&"One".to_string())
             && json.target_node(e).variant.get("weight") == Some(&"i32".to_string())
     });
     assert!(
         has_edge,
-        "Natural edge MIS/Unweighted -> MIS/i32 should exist"
+        "Natural edge MIS/One -> MIS/i32 should exist"
     );
 }
 

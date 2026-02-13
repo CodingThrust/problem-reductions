@@ -108,9 +108,9 @@ macro_rules! declare_weight_subtype {
 }
 
 // Weight type hierarchy (with transitive relationships):
-//   Unweighted (most restrictive) => i32 => f64 (most general)
-declare_weight_subtype!("Unweighted" => "i32");
-declare_weight_subtype!("Unweighted" => "f64"); // transitive
+//   One (most restrictive) => i32 => f64 (most general)
+declare_weight_subtype!("One" => "i32");
+declare_weight_subtype!("One" => "f64"); // transitive
 declare_weight_subtype!("i32" => "f64");
 
 #[cfg(test)]
