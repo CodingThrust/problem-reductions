@@ -126,6 +126,21 @@
       "doc_path": "models/graph/struct.MaxCut.html"
     },
     {
+      "name": "MaximumClique",
+      "variant": {},
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumClique.html"
+    },
+    {
+      "name": "MaximumClique",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumClique.html"
+    },
+    {
       "name": "MaximumIndependentSet",
       "variant": {},
       "category": "graph",
@@ -183,6 +198,15 @@
       "doc_path": "models/graph/struct.MaximumMatching.html"
     },
     {
+      "name": "MaximumMatching",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.MaximumMatching.html"
+    },
+    {
       "name": "MaximumSetPacking",
       "variant": {},
       "category": "set",
@@ -232,6 +256,15 @@
       "variant": {
         "graph": "SimpleGraph",
         "weight": "Unweighted"
+      },
+      "category": "set",
+      "doc_path": "models/set/struct.MinimumSetCovering.html"
+    },
+    {
+      "name": "MinimumSetCovering",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
       },
       "category": "set",
       "doc_path": "models/set/struct.MinimumSetCovering.html"
@@ -692,6 +725,33 @@
     },
     {
       "source": {
+        "name": "MaximumClique",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vertices^2"
+        }
+      ],
+      "doc_path": "rules/maximumclique_ilp/index.html"
+    },
+    {
+      "source": {
         "name": "MaximumIndependentSet",
         "variant": {
           "graph": "GridGraph",
@@ -851,6 +911,33 @@
         }
       ],
       "doc_path": "rules/minimumvertexcover_maximumindependentset/index.html"
+    },
+    {
+      "source": {
+        "name": "MaximumIndependentSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_ilp/index.html"
     },
     {
       "source": {
@@ -938,6 +1025,24 @@
         }
       },
       "target": {
+        "name": "MaximumMatching",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "MaximumMatching",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
         "name": "MaximumSetPacking",
         "variant": {
           "graph": "SimpleGraph",
@@ -955,6 +1060,33 @@
         }
       ],
       "doc_path": "rules/maximummatching_maximumsetpacking/index.html"
+    },
+    {
+      "source": {
+        "name": "MaximumMatching",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_edges"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vertices"
+        }
+      ],
+      "doc_path": "rules/maximummatching_ilp/index.html"
     },
     {
       "source": {
@@ -1019,6 +1151,33 @@
         }
       },
       "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_sets^2"
+        }
+      ],
+      "doc_path": "rules/maximumsetpacking_ilp/index.html"
+    },
+    {
+      "source": {
+        "name": "MaximumSetPacking",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
         "name": "QUBO",
         "variant": {
           "graph": "SimpleGraph",
@@ -1032,6 +1191,87 @@
         }
       ],
       "doc_path": "rules/maximumsetpacking_qubo/index.html"
+    },
+    {
+      "source": {
+        "name": "MinimumDominatingSet",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vertices"
+        }
+      ],
+      "doc_path": "rules/minimumdominatingset_ilp/index.html"
+    },
+    {
+      "source": {
+        "name": "MinimumSetCovering",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "MinimumSetCovering",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_sets",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_elements",
+          "formula": "num_elements"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "MinimumSetCovering",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_sets"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "universe_size"
+        }
+      ],
+      "doc_path": "rules/minimumsetcovering_ilp/index.html"
     },
     {
       "source": {
@@ -1113,6 +1353,33 @@
         }
       ],
       "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "MinimumVertexCover",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_edges"
+        }
+      ],
+      "doc_path": "rules/minimumvertexcover_ilp/index.html"
     },
     {
       "source": {
