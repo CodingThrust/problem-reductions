@@ -6,7 +6,7 @@
 //! MaxKSatisfiability type (if available).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
+use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
 
 use super::CNFClause;
@@ -154,6 +154,8 @@ impl<const K: usize> Problem for KSatisfiability<K> {
         vec![("k", crate::variant::const_usize_str::<K>())]
     }
 }
+
+impl<const K: usize> SatisfactionProblem for KSatisfiability<K> {}
 
 #[cfg(test)]
 #[path = "../../unit_tests/models/satisfiability/ksat.rs"]

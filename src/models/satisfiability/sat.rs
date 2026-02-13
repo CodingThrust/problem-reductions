@@ -6,7 +6,7 @@
 //! the separate MaxSatisfiability type (if available).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
+use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -185,6 +185,8 @@ impl Problem for Satisfiability {
         vec![]
     }
 }
+
+impl SatisfactionProblem for Satisfiability {}
 
 /// Check if an assignment satisfies a SAT formula.
 ///

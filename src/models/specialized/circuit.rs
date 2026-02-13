@@ -4,7 +4,7 @@
 //! The goal is to find variable assignments that satisfy the circuit constraints.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
+use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
@@ -282,6 +282,8 @@ impl Problem for CircuitSAT {
         vec![]
     }
 }
+
+impl SatisfactionProblem for CircuitSAT {}
 
 #[cfg(test)]
 #[path = "../../unit_tests/models/specialized/circuit.rs"]
