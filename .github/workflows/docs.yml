@@ -42,7 +42,7 @@ jobs:
         run: mdbook build
 
       - name: Build examples and PDF
-        run: make examples && typst compile docs/paper/reductions.typ book/reductions.pdf
+        run: make examples && typst compile --root docs docs/paper/reductions.typ book/reductions.pdf
 
       - name: Build rustdoc
         run: RUSTDOCFLAGS="--default-theme=dark" cargo doc --all-features --no-deps
