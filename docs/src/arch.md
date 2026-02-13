@@ -147,7 +147,8 @@ impl ReduceTo<B> for A { /* ... */ }
 Regenerate exports:
 
 ```bash
-cargo run --example export_graph    # docs/src/reductions/reduction_graph.json
+cargo run --example export_graph                # docs/src/reductions/reduction_graph.json (default)
+cargo run --example export_graph -- output.json # custom output path
 cargo run --example export_schemas  # docs/src/reductions/problem_schemas.json
 ```
 

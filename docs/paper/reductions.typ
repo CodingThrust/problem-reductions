@@ -234,7 +234,9 @@
 #align(center)[
   #text(size: 16pt, weight: "bold")[Problem Reductions: Models and Transformations]
   #v(0.5em)
-  #text(size: 11pt)[Technical Documentation]
+  #text(size: 11pt)[Jin-Guo Liu#super[1] #h(1em) Xi-Wei Pan#super[1]]
+  #v(0.3em)
+  #text(size: 9pt)[#super[1]Hong Kong University of Science and Technology (Guangzhou)]
   #v(0.3em)
   #text(size: 10pt, style: "italic")[github.com/CodingThrust/problem-reductions]
   #v(1em)
@@ -398,7 +400,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
 #let mvc_mis_sol = mvc_mis_r.solutions.at(0)
 #reduction-rule("MinimumVertexCover", "MaximumIndependentSet",
   example: true,
-  example-caption: [Path graph $P_4$: VC $arrow.l.r$ IS],
+  example-caption: [Petersen graph ($n = 10$): VC $arrow.l.r$ IS],
   extra: [
     Source VC: $C = {#mvc_mis_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.source_config.filter(x => x == 1).len()) #h(1em)
     Target IS: $S = {#mvc_mis_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.target_config.filter(x => x == 1).len()) \
@@ -446,9 +448,17 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   Expanding $sum_(i,j) Q_(i j) (s_i+1)(s_j+1)/4$ gives $J_(i j) = -Q_(i j)/4$, $h_i = -(Q_(i i) + sum_j Q_(i j))/2$. _Solution extraction:_ $x_i = (s_i + 1)/2$.
 ]
 
+#let sg_qubo = load-example("spinglass_to_qubo")
+#let sg_qubo_r = load-results("spinglass_to_qubo")
+#let sg_qubo_sol = sg_qubo_r.solutions.at(0)
 #reduction-rule("SpinGlass", "QUBO",
   example: true,
-  example-caption: [2-spin system with coupling $J_(01) = -1$, fields $h = (0.5, -0.5)$],
+  example-caption: [10-spin Ising model on Petersen graph],
+  extra: [
+    Source: $n = #sg_qubo.source.instance.num_spins$ spins, $h_i = 0$, couplings $J_(i j) in {plus.minus 1}$ \
+    Mapping: $s_i = 2x_i - 1$ converts spins ${-1, +1}$ to binary ${0, 1}$ \
+    Ground state ($#sg_qubo_r.solutions.len()$-fold degenerate): $bold(x) = (#sg_qubo_sol.target_config.map(str).join(", "))$ #sym.checkmark
+  ],
 )[
   The substitution $s_i = 2x_i - 1$ yields $H_"SG"(bold(s)) = H_"QUBO"(bold(x)) + "const"$.
 ][
@@ -465,7 +475,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 #let mis_qubo_r = load-results("maximumindependentset_to_qubo")
 #reduction-rule("MaximumIndependentSet", "QUBO",
   example: true,
-  example-caption: [IS on path $P_4$ to QUBO],
+  example-caption: [IS on the Petersen graph ($n = 10$) to QUBO],
   extra: [
     *Source edges:* $= {#mis_qubo.source.instance.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}$ \
     *QUBO matrix* ($Q in RR^(#mis_qubo.target.instance.num_vars times #mis_qubo.target.instance.num_vars)$):
@@ -569,10 +579,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 #let sat_mis_sol = sat_mis_r.solutions.at(0)
 #reduction-rule("Satisfiability", "MaximumIndependentSet",
   example: true,
-  example-caption: [$phi = (x_1 or x_2) and (not x_1 or x_3) and (x_2 or not x_3)$],
+  example-caption: [3-SAT with 5 variables and 7 clauses],
   extra: [
-    SAT assignment: $x_1=#sat_mis_sol.source_config.at(0), x_2=#sat_mis_sol.source_config.at(1), x_3=#sat_mis_sol.source_config.at(2)$ #h(1em)
-    IS graph: #sat_mis.target.instance.num_vertices vertices, #sat_mis.target.instance.num_edges edges (one vertex per literal occurrence)
+    SAT assignment: $(x_1, ..., x_5) = (#sat_mis_sol.source_config.map(str).join(", "))$ \
+    IS graph: #sat_mis.target.instance.num_vertices vertices ($= 3 times #sat_mis.source.instance.num_clauses$ literals), #sat_mis.target.instance.num_edges edges \
+    IS of size #sat_mis.source.instance.num_clauses $= m$: one vertex per clause $arrow.r$ satisfying assignment #sym.checkmark
   ],
 )[
   @karp1972 Given CNF $phi$ with $m$ clauses, construct graph $G$ such that $phi$ is satisfiable iff $G$ has an IS of size $m$.

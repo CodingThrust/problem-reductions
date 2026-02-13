@@ -37,7 +37,6 @@ jobs:
         run: |
           cargo run --example export_graph
           cargo run --example export_schemas
-          cp docs/paper/reduction_graph.json docs/src/reductions/
 
       - name: Build mdBook
         run: mdbook build

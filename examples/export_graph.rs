@@ -1,9 +1,9 @@
 //! Export the reduction graph to a JSON file.
 //!
-//! Run with: `cargo run --example export_graph`
+//! Run with: `cargo run --example export_graph [output_path]`
 
 use problemreductions::rules::ReductionGraph;
-use std::path::Path;
+use std::path::PathBuf;
 
 fn main() {
     let graph = ReductionGraph::new();
@@ -14,7 +14,10 @@ fn main() {
     println!("  Reductions: {}", graph.num_reductions());
 
     // Export to JSON (single source for both mdBook and paper)
-    let output_path = Path::new("docs/src/reductions/reduction_graph.json");
+    let output_path = std::env::args()
+        .nth(1)
+        .map(PathBuf::from)
+        .unwrap_or_else(|| PathBuf::from("docs/src/reductions/reduction_graph.json"));
 
     // Create parent directories if needed
     if let Some(parent) = output_path.parent() {
