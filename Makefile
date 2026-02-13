@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan
+.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams
 
 # Default target
 help:
@@ -11,6 +11,7 @@ help:
 	@echo "  fmt-check    - Check code formatting"
 	@echo "  clippy       - Run clippy lints"
 	@echo "  doc          - Build mdBook documentation"
+	@echo "  diagrams     - Generate SVG diagrams from Typst (light + dark)"
 	@echo "  mdbook       - Build and serve mdBook (with live reload)"
 	@echo "  paper        - Build Typst paper (requires typst)"
 	@echo "  coverage     - Generate coverage report (requires cargo-llvm-cov)"
@@ -52,6 +53,16 @@ doc:
 	RUSTDOCFLAGS="--default-theme=dark" cargo doc --all-features --no-deps
 	rm -rf docs/book/api
 	cp -r target/doc docs/book/api
+
+# Generate SVG diagrams from Typst sources (light + dark themes)
+TYPST_DIAGRAMS := $(wildcard docs/src/static/*.typ)
+diagrams:
+	@for src in $(TYPST_DIAGRAMS); do \
+		base=$$(basename $$src .typ); \
+		echo "Compiling $$base..."; \
+		typst compile $$src --input dark=false docs/src/static/$$base.svg; \
+		typst compile $$src --input dark=true docs/src/static/$$base-dark.svg; \
+	done
 
 # Build and serve mdBook with API docs
 mdbook:

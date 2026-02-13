@@ -1,6 +1,6 @@
 #import "@preview/fletcher:0.5.8" as fletcher: diagram, node, edge
 #set page(width: auto, height: auto, margin: (top: 5pt, bottom: 5pt, left: 5pt, right: 5pt), fill: none)
-#set text(font: "Noto Sans CJK SC")
+#set text(font: "Helvetica Neue")
 
 // Parameterized workflow-loop diagram
 // Usage: #workflow-loop(lang: "zh", label-size: 12pt, scale: 1.2)
