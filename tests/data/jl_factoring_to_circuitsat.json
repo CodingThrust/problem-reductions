@@ -1,0 +1,39 @@
+{
+  "target_type": "CircuitSAT",
+  "cases": [
+    {
+      "label": "factoring",
+      "extracted_single": [
+        [
+          1,
+          1
+        ]
+      ],
+      "extracted_multiple": [
+        [
+          1,
+          1
+        ]
+      ],
+      "best_source": [
+        [
+          1,
+          1
+        ]
+      ],
+      "best_target": [
+        [
+          1,
+          1,
+          1,
+          1,
+          1,
+          0,
+          0,
+          0
+        ]
+      ]
+    }
+  ],
+  "source_type": "Factoring"
+}

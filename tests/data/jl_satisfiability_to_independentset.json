@@ -1,0 +1,57 @@
+{
+  "target_type": "IndependentSet",
+  "cases": [
+    {
+      "label": "sat_is",
+      "extracted_single": [
+        [
+          true,
+          false
+        ],
+        [
+          true,
+          true
+        ]
+      ],
+      "extracted_multiple": [
+        [
+          true,
+          false
+        ],
+        [
+          true,
+          true
+        ],
+        [
+          false,
+          true
+        ]
+      ],
+      "best_source": [
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          1
+        ]
+      ],
+      "best_target": [
+        [
+          1,
+          0
+        ],
+        [
+          0,
+          1
+        ]
+      ]
+    }
+  ],
+  "source_type": "Satisfiability"
+}
