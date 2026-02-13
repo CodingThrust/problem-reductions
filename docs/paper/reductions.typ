@@ -851,10 +851,10 @@ The following reductions to Integer Linear Programming are straightforward formu
 *Example: Petersen Graph.*#footnote[Generated using `cargo run --example export_petersen_mapping` from the accompanying code repository.] The Petersen graph ($n=10$, MIS$=4$) maps to a $30 times 42$ King's subgraph with 219 nodes and overhead $Delta = 89$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 89 = 93$. The weighted and unweighted KSG mappings share identical grid topology (same node positions and edges); only the vertex weights differ. With triangular lattice encoding @nguyen2023, the same graph maps to a $42 times 60$ grid with 395 nodes and overhead $Delta = 375$, giving $"MIS"(G_"tri") = 4 + 375 = 379$.
 
 // Load JSON data
-#let petersen = json("petersen_source.json")
-#let square_weighted = json("petersen_square_weighted.json")
-#let square_unweighted = json("petersen_square_unweighted.json")
-#let triangular_mapping = json("petersen_triangular.json")
+#let petersen = json("static/petersen_source.json")
+#let square_weighted = json("static/petersen_square_weighted.json")
+#let square_unweighted = json("static/petersen_square_unweighted.json")
+#let triangular_mapping = json("static/petersen_triangular.json")
 
 #figure(
   grid(
