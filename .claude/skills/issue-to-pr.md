@@ -100,6 +100,7 @@ The plan MUST include an **action pipeline** section with concrete steps based o
    - Present example in tutorial style (see KColoring→QUBO section for reference)
 
 5. **Regenerate graph** — `cargo run --example export_graph`
+6. **Push and create PR** — Push the changes and create a pull request with a description of the changes.
 
 **Rules for solver implementation:**
 - Make sure at least one solver is provided in the issue template. Check if the solving strategy is valid. If not, reply under issue to ask for clarification.
@@ -132,6 +133,7 @@ The plan MUST include an **action pipeline** section with concrete steps based o
 3. **Document** — Update `docs/paper/reductions.typ`:
    - Add `display-name` entry
    - Add `#problem-def("Name")[definition...]`
+4. **Push and create PR** — Push the changes and create a pull request with a description of the changes.
 
 ### 6. Create PR
 Create a pull request with only the plan file.
