@@ -161,7 +161,7 @@ example_fn!(test_<source>_to_<target>, reduction_<source>_to_<target>);
 
 ### 4. Document
 
-Update `docs/paper/reductions.typ` — add `reduction-rule("Source", "Target", ...)` with proof sketch (see `rules/documentation.md`).
+Update `docs/paper/reductions.typ` — add `reduction-rule("Source", "Target", ...)` with proof sketch (see Documentation Requirements section below).
 
 ### 5. Regenerate Graph
 
