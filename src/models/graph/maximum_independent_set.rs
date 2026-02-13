@@ -32,7 +32,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `G` - The graph type (e.g., `SimpleGraph`, `GridGraph`, `UnitDiskGraph`)
-/// * `W` - The weight type (e.g., `i32`, `f64`, `Unweighted`)
+/// * `W` - The weight type (e.g., `i32`, `f64`, `One`)
 ///
 /// # Example
 ///

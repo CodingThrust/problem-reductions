@@ -3,7 +3,7 @@
 
 use crate::rules::registry::ConcreteVariantEntry;
 
-// Unweighted graph problems — valid variants that need nodes in the reduction graph
+// Unit-weighted graph problems — valid variants that need nodes in the reduction graph
 // for natural weight-promotion edges (e.g., MIS/One → MIS/i32).
 inventory::submit! { ConcreteVariantEntry { name: "MaximumIndependentSet", variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")] } }
 inventory::submit! { ConcreteVariantEntry { name: "MinimumVertexCover", variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")] } }
