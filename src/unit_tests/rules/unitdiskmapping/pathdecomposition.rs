@@ -1,4 +1,5 @@
 use super::*;
+use std::collections::HashSet;
 
 #[test]
 fn test_layout_empty() {
@@ -223,8 +224,6 @@ fn verify_vsep(num_vertices: usize, edges: &[(usize, usize)], order: &[usize]) -
     }
     vsep
 }
-
-use std::collections::HashSet;
 
 #[derive(serde::Deserialize)]
 struct PathwidthEntry {
