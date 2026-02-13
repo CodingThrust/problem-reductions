@@ -72,7 +72,74 @@ If the reference is a paper or textbook, search for accessible summaries, lectur
 
 ### 5. Write Plan
 
-Write plan to `docs/plans/YYYY-MM-DD-<slug>.md` using `superpowers:writing-plans`:
+Write plan to `docs/plans/YYYY-MM-DD-<slug>.md` using `superpowers:writing-plans`.
+
+The plan MUST include an **action pipeline** section with concrete steps based on issue type.
+
+#### For `[Rule]` issues (A -> B reduction)
+
+**Reference implementations — read these first:**
+- Reduction rule: `src/rules/minimumvertexcover_maximumindependentset.rs`
+- Unit test: `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs`
+- Example program: `examples/reduction_minimumvertexcover_to_maximumindependentset.rs`
+- Paper entry: search `docs/paper/reductions.typ` for `MinimumVertexCover` `MaximumIndependentSet`
+- Traits: `src/rules/traits.rs`
+
+**Action pipeline:**
+
+1. **Implement reduction** — Create `src/rules/<source>_<target>.rs`:
+   - `ReductionResult` struct + impl (`target_problem()` + `extract_solution()`)
+   - `ReduceTo` impl with `#[reduction(...)]` macro (only `overhead` attribute needed)
+   - `#[cfg(test)] #[path = ...]` linking to unit tests
+   - Register in `src/rules/mod.rs`
+
+2. **Write unit tests** — Create `src/unit_tests/rules/<source>_<target>.rs`:
+   - Closed-loop test: create source → reduce → solve target → extract → verify
+   - Edge cases
+
+3. **Write example program** — Create `examples/reduction_<source>_to_<target>.rs`:
+   - Must have `pub fn run()` + `fn main() { run() }`
+   - Use regular comments (`//`), hardcode example name
+   - Create, reduce, solve, extract, verify, export JSON
+   - Register in `tests/suites/examples.rs`
+
+4. **Document in paper** — Update `docs/paper/reductions.typ`:
+   - Add `reduction-rule("Source", "Target", ...)` with proof sketch
+   - Present example in tutorial style (see KColoring→QUBO section for reference)
+
+5. **Regenerate graph** — `cargo run --example export_graph`
+
+**Rules for solver implementation:**
+- Make sure at least one solver is provided in the issue template. Check if the solving strategy is valid. If not, reply under issue to ask for clarification.
+- If the solver uses integer programming, implement the model and ILP reduction rule together.
+- Otherwise, ensure the information provided is enough to implement a solver.
+
+**Rules for example writing:**
+- Implement the user-provided example instance as an example program in `examples/`.
+- Run the example; verify JSON output against user-provided information.
+- Present in `docs/paper/reductions.typ` in tutorial style with clear intuition (see KColoring→QUBO section for reference).
+
+#### For `[Model]` issues
+
+**Reference implementations — read these first:**
+- Optimization problem: `src/models/graph/maximum_independent_set.rs`
+- Satisfaction problem: `src/models/satisfiability/sat.rs`
+- Reference test: `src/unit_tests/models/graph/maximum_independent_set.rs`
+
+**Action pipeline:**
+
+1. **Implement model** — Create `src/models/<category>/<name>.rs`:
+   - Struct definition, `Problem` impl, `OptimizationProblem` impl (if applicable)
+   - Weight management via inherent methods (`weights()`, `set_weights()`, `is_weighted()`), not traits
+   - Register in `src/models/<category>/mod.rs`
+
+2. **Write tests** — Create `src/unit_tests/models/<category>/<name>.rs`:
+   - Basic evaluation tests, serialization tests
+   - Link via `#[path]`
+
+3. **Document** — Update `docs/paper/reductions.typ`:
+   - Add `display-name` entry
+   - Add `#problem-def("Name")[definition...]`
 
 ### 6. Create PR
 

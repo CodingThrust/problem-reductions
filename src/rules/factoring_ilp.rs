@@ -29,8 +29,8 @@ inventory::submit! {
     ReductionEntry {
         source_name: "Factoring",
         target_name: "ILP",
-        source_variant: &[("graph", ""), ("weight", "Unweighted")],
-        target_variant: &[("graph", ""), ("weight", "Unweighted")],
+        source_variant_fn: || <Factoring as crate::traits::Problem>::variant(),
+        target_variant_fn: || <ILP as crate::traits::Problem>::variant(),
         overhead_fn: || ReductionOverhead::new(vec![
             // num_vars = m + n + m*n + num_carries where num_carries = max(m+n, target_bits)
             // For feasible instances, target_bits <= m+n, so this is 2(m+n) + m*n
@@ -255,11 +255,7 @@ impl ReduceTo<ILP> for Factoring {
             ObjectiveSense::Minimize,
         );
 
-        ReductionFactoringToILP {
-            target: ilp,
-            m,
-            n,
-        }
+        ReductionFactoringToILP { target: ilp, m, n }
     }
 }
 

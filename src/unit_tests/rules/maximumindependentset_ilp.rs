@@ -71,7 +71,10 @@ fn test_ilp_solution_equals_brute_force_triangle() {
     assert_eq!(ilp_size, 1);
 
     // Verify the ILP solution is valid for the original problem
-    assert!(problem.evaluate(&extracted).is_valid(), "Extracted solution should be valid");
+    assert!(
+        problem.evaluate(&extracted).is_valid(),
+        "Extracted solution should be valid"
+    );
 }
 
 #[test]

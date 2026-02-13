@@ -50,33 +50,96 @@ macro_rules! example_fn {
     };
 }
 
-example_fn!(test_circuitsat_to_spinglass, reduction_circuitsat_to_spinglass);
-example_fn!(test_factoring_to_circuitsat, reduction_factoring_to_circuitsat);
+example_fn!(
+    test_circuitsat_to_spinglass,
+    reduction_circuitsat_to_spinglass
+);
+example_fn!(
+    test_factoring_to_circuitsat,
+    reduction_factoring_to_circuitsat
+);
 example_fn!(test_factoring_to_ilp, reduction_factoring_to_ilp);
 example_fn!(test_ilp_to_qubo, reduction_ilp_to_qubo);
 example_fn!(test_kcoloring_to_ilp, reduction_kcoloring_to_ilp);
 example_fn!(test_kcoloring_to_qubo, reduction_kcoloring_to_qubo);
-example_fn!(test_ksatisfiability_to_qubo, reduction_ksatisfiability_to_qubo);
+example_fn!(
+    test_ksatisfiability_to_qubo,
+    reduction_ksatisfiability_to_qubo
+);
 example_fn!(test_maxcut_to_spinglass, reduction_maxcut_to_spinglass);
 example_fn!(test_maximumclique_to_ilp, reduction_maximumclique_to_ilp);
-example_fn!(test_maximumindependentset_to_ilp, reduction_maximumindependentset_to_ilp);
-example_fn!(test_maximumindependentset_to_maximumsetpacking, reduction_maximumindependentset_to_maximumsetpacking);
-example_fn!(test_maximumindependentset_to_minimumvertexcover, reduction_maximumindependentset_to_minimumvertexcover);
-example_fn!(test_maximumindependentset_to_qubo, reduction_maximumindependentset_to_qubo);
-example_fn!(test_maximummatching_to_ilp, reduction_maximummatching_to_ilp);
-example_fn!(test_maximummatching_to_maximumsetpacking, reduction_maximummatching_to_maximumsetpacking);
-example_fn!(test_maximumsetpacking_to_ilp, reduction_maximumsetpacking_to_ilp);
-example_fn!(test_maximumsetpacking_to_qubo, reduction_maximumsetpacking_to_qubo);
-example_fn!(test_minimumdominatingset_to_ilp, reduction_minimumdominatingset_to_ilp);
-example_fn!(test_minimumsetcovering_to_ilp, reduction_minimumsetcovering_to_ilp);
-example_fn!(test_minimumvertexcover_to_ilp, reduction_minimumvertexcover_to_ilp);
-example_fn!(test_minimumvertexcover_to_maximumindependentset, reduction_minimumvertexcover_to_maximumindependentset);
-example_fn!(test_minimumvertexcover_to_minimumsetcovering, reduction_minimumvertexcover_to_minimumsetcovering);
-example_fn!(test_minimumvertexcover_to_qubo, reduction_minimumvertexcover_to_qubo);
+example_fn!(
+    test_maximumindependentset_to_ilp,
+    reduction_maximumindependentset_to_ilp
+);
+example_fn!(
+    test_maximumindependentset_to_maximumsetpacking,
+    reduction_maximumindependentset_to_maximumsetpacking
+);
+example_fn!(
+    test_maximumindependentset_to_minimumvertexcover,
+    reduction_maximumindependentset_to_minimumvertexcover
+);
+example_fn!(
+    test_maximumindependentset_to_qubo,
+    reduction_maximumindependentset_to_qubo
+);
+example_fn!(
+    test_maximummatching_to_ilp,
+    reduction_maximummatching_to_ilp
+);
+example_fn!(
+    test_maximummatching_to_maximumsetpacking,
+    reduction_maximummatching_to_maximumsetpacking
+);
+example_fn!(
+    test_maximumsetpacking_to_ilp,
+    reduction_maximumsetpacking_to_ilp
+);
+example_fn!(
+    test_maximumsetpacking_to_qubo,
+    reduction_maximumsetpacking_to_qubo
+);
+example_fn!(
+    test_minimumdominatingset_to_ilp,
+    reduction_minimumdominatingset_to_ilp
+);
+example_fn!(
+    test_minimumsetcovering_to_ilp,
+    reduction_minimumsetcovering_to_ilp
+);
+example_fn!(
+    test_minimumvertexcover_to_ilp,
+    reduction_minimumvertexcover_to_ilp
+);
+example_fn!(
+    test_minimumvertexcover_to_maximumindependentset,
+    reduction_minimumvertexcover_to_maximumindependentset
+);
+example_fn!(
+    test_minimumvertexcover_to_minimumsetcovering,
+    reduction_minimumvertexcover_to_minimumsetcovering
+);
+example_fn!(
+    test_minimumvertexcover_to_qubo,
+    reduction_minimumvertexcover_to_qubo
+);
 example_fn!(test_qubo_to_spinglass, reduction_qubo_to_spinglass);
-example_fn!(test_satisfiability_to_kcoloring, reduction_satisfiability_to_kcoloring);
-example_fn!(test_satisfiability_to_ksatisfiability, reduction_satisfiability_to_ksatisfiability);
-example_fn!(test_satisfiability_to_maximumindependentset, reduction_satisfiability_to_maximumindependentset);
-example_fn!(test_satisfiability_to_minimumdominatingset, reduction_satisfiability_to_minimumdominatingset);
+example_fn!(
+    test_satisfiability_to_kcoloring,
+    reduction_satisfiability_to_kcoloring
+);
+example_fn!(
+    test_satisfiability_to_ksatisfiability,
+    reduction_satisfiability_to_ksatisfiability
+);
+example_fn!(
+    test_satisfiability_to_maximumindependentset,
+    reduction_satisfiability_to_maximumindependentset
+);
+example_fn!(
+    test_satisfiability_to_minimumdominatingset,
+    reduction_satisfiability_to_minimumdominatingset
+);
 example_fn!(test_spinglass_to_maxcut, reduction_spinglass_to_maxcut);
 example_fn!(test_spinglass_to_qubo, reduction_spinglass_to_qubo);

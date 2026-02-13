@@ -166,5 +166,8 @@ fn test_biclique_problem() {
 
     // Test with no edges: any config is valid
     let empty_problem = BicliqueCover::new(2, 2, vec![], 1);
-    assert_eq!(empty_problem.evaluate(&[0, 0, 0, 0]), SolutionSize::Valid(0));
+    assert_eq!(
+        empty_problem.evaluate(&[0, 0, 0, 0]),
+        SolutionSize::Valid(0)
+    );
 }

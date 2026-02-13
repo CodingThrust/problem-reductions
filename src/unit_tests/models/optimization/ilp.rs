@@ -411,7 +411,10 @@ fn test_ilp_brute_force_no_feasible() {
     let solutions = solver.find_all_best(&ilp);
 
     // All solutions are infeasible - BruteForce should return empty list
-    assert!(solutions.is_empty(), "Expected no solutions for infeasible ILP");
+    assert!(
+        solutions.is_empty(),
+        "Expected no solutions for infeasible ILP"
+    );
 
     // Verify all configs are indeed infeasible
     for config in &[[0], [1]] {

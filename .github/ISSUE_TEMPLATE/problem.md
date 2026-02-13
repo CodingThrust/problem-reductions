@@ -55,10 +55,10 @@ Connect fields to the symbols defined above.
 ## How to solve
 <!--
 Solver is required for reduction rule verification purpose.
-- Can it be solved by (existing) bruteforce?
-- Can it be solved by reducing the integer programming? If so, how to reduce?
-- If none apply
 -->
+- [ ] It can be solved by (existing) bruteforce.
+- [ ] It can be solved by reducing the integer programming, through #issue-number (please file a new issue it is not exist).
+- [ ] Other, refer to ... 
 
 ## Example Instance
 

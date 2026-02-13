@@ -161,8 +161,7 @@ fn test_zero_vars_unsat_solver() {
 #[test]
 fn test_single_literal_clauses() {
     // Unit propagation scenario: x1 AND NOT x2
-    let problem =
-        Satisfiability::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])]);
+    let problem = Satisfiability::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_satisfying(&problem);

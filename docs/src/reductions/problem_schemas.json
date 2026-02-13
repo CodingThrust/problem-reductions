@@ -64,11 +64,6 @@
         "name": "variables",
         "type_name": "Vec<String>",
         "description": "Circuit variable names"
-      },
-      {
-        "name": "weights",
-        "type_name": "Vec<W>",
-        "description": "Assignment weights"
       }
     ]
   },

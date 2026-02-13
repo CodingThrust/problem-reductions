@@ -131,10 +131,7 @@ fn test_ksat_problem_v2() {
     assert!(!p.evaluate(&[1, 1, 1]));
     assert!(!p.evaluate(&[0, 0, 0]));
     assert!(p.evaluate(&[1, 0, 1]));
-    assert_eq!(
-        <KSatisfiability<3> as Problem>::NAME,
-        "KSatisfiability"
-    );
+    assert_eq!(<KSatisfiability<3> as Problem>::NAME, "KSatisfiability");
 }
 
 #[test]

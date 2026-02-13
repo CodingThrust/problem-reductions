@@ -68,7 +68,7 @@ pub fn run() {
     }
 
     // 3. Reduce Factoring -> CircuitSAT
-    let reduction = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
     let circuit_sat = reduction.target_problem();
 
     println!("\n=== Factoring -> CircuitSAT ===");
@@ -204,8 +204,8 @@ pub fn run() {
             }),
         },
         target: ProblemSide {
-            problem: CircuitSAT::<i32>::NAME.to_string(),
-            variant: variant_to_map(CircuitSAT::<i32>::variant()),
+            problem: CircuitSAT::NAME.to_string(),
+            variant: variant_to_map(CircuitSAT::variant()),
             instance: serde_json::json!({
                 "num_variables": circuit_sat.num_variables(),
                 "num_gates": circuit_sat.circuit().num_assignments(),

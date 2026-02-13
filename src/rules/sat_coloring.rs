@@ -199,8 +199,8 @@ impl SATColoringConstructor {
     }
 
     /// Build the final KColoring problem.
-    fn build_coloring(&self) -> KColoring<3, SimpleGraph, i32> {
-        KColoring::<3, SimpleGraph, i32>::new(self.num_vertices, self.edges.clone())
+    fn build_coloring(&self) -> KColoring<3, SimpleGraph> {
+        KColoring::<3, SimpleGraph>::new(self.num_vertices, self.edges.clone())
     }
 }
 
@@ -213,7 +213,7 @@ impl SATColoringConstructor {
 #[derive(Debug, Clone)]
 pub struct ReductionSATToColoring {
     /// The target KColoring problem.
-    target: KColoring<3, SimpleGraph, i32>,
+    target: KColoring<3, SimpleGraph>,
     /// Mapping from variable index (0-indexed) to positive literal vertex index.
     pos_vertices: Vec<usize>,
     /// Mapping from variable index (0-indexed) to negative literal vertex index.
@@ -226,7 +226,7 @@ pub struct ReductionSATToColoring {
 
 impl ReductionResult for ReductionSATToColoring {
     type Source = Satisfiability;
-    type Target = KColoring<3, SimpleGraph, i32>;
+    type Target = KColoring<3, SimpleGraph>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -304,7 +304,7 @@ impl ReductionSATToColoring {
         ])
     }
 )]
-impl ReduceTo<KColoring<3, SimpleGraph, i32>> for Satisfiability {
+impl ReduceTo<KColoring<3, SimpleGraph>> for Satisfiability {
     type Result = ReductionSATToColoring;
 
     fn reduce_to(&self) -> Self::Result {

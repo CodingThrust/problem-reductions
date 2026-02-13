@@ -48,7 +48,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_coloring_solvable() {
-        let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1), (1, 2)]);
         let solver = BruteForce::new();
         // KColoring returns bool, so we can use find_all_satisfying
         let satisfying = solver.find_all_satisfying(&problem);
@@ -101,7 +101,8 @@ mod all_problems_solvable {
         );
         // Satisfiability returns bool, find satisfying configs manually
         let dims = problem.dims();
-        let all_configs: Vec<Vec<usize>> = problemreductions::config::DimsIterator::new(dims.clone()).collect();
+        let all_configs: Vec<Vec<usize>> =
+            problemreductions::config::DimsIterator::new(dims.clone()).collect();
         let satisfying: Vec<Vec<usize>> = all_configs
             .into_iter()
             .filter(|config| problem.evaluate(config))
@@ -162,10 +163,11 @@ mod all_problems_solvable {
             vec!["c".to_string()],
             BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
         )]);
-        let problem = CircuitSAT::<i32>::new(circuit);
+        let problem = CircuitSAT::new(circuit);
         // CircuitSAT returns bool
         let dims = problem.dims();
-        let all_configs: Vec<Vec<usize>> = problemreductions::config::DimsIterator::new(dims.clone()).collect();
+        let all_configs: Vec<Vec<usize>> =
+            problemreductions::config::DimsIterator::new(dims.clone()).collect();
         let satisfying: Vec<Vec<usize>> = all_configs
             .into_iter()
             .filter(|config| problem.evaluate(config))
@@ -355,7 +357,8 @@ mod edge_cases {
         let problem = Satisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
         // Find satisfying configs
         let dims = problem.dims();
-        let all_configs: Vec<Vec<usize>> = problemreductions::config::DimsIterator::new(dims.clone()).collect();
+        let all_configs: Vec<Vec<usize>> =
+            problemreductions::config::DimsIterator::new(dims.clone()).collect();
         let satisfying: Vec<Vec<usize>> = all_configs
             .into_iter()
             .filter(|config| problem.evaluate(config))
@@ -456,7 +459,8 @@ mod weighted_problems {
 
         // Find satisfying configs
         let dims = problem.dims();
-        let all_configs: Vec<Vec<usize>> = problemreductions::config::DimsIterator::new(dims.clone()).collect();
+        let all_configs: Vec<Vec<usize>> =
+            problemreductions::config::DimsIterator::new(dims.clone()).collect();
         let satisfying: Vec<Vec<usize>> = all_configs
             .into_iter()
             .filter(|config| problem.evaluate(config))

@@ -205,10 +205,7 @@ impl Problem for BMF {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", "i32"),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
 }
 

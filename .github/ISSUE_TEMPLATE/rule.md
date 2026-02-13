@@ -43,7 +43,7 @@ E.g.
 - Use external solver to cross-check
 -->
 
-## Example Source Instance
+## Example
 
 <!-- A small but non-trivial source instance for the paper illustration.
 Must be small enough for brute-force solving, but large enough to exercise the reduction meaningfully. E.g. "petersen graph: |V|=10, |E|=15, 3-regular" should be perfect.

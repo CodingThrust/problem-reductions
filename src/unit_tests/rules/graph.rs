@@ -221,7 +221,7 @@ fn test_categorize_type() {
         "satisfiability"
     );
     assert_eq!(
-        ReductionGraph::categorize_type("CircuitSAT<i32>"),
+        ReductionGraph::categorize_type("CircuitSAT"),
         "satisfiability"
     );
 
@@ -244,7 +244,7 @@ fn test_sat_based_reductions() {
     assert!(graph.has_direct_reduction::<Satisfiability, MaximumIndependentSet<SimpleGraph, i32>>());
 
     // SAT -> KColoring
-    assert!(graph.has_direct_reduction::<Satisfiability, KColoring<3, SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<Satisfiability, KColoring<3, SimpleGraph>>());
 
     // SAT -> MinimumDominatingSet
     assert!(graph.has_direct_reduction::<Satisfiability, MinimumDominatingSet<SimpleGraph, i32>>());
@@ -258,10 +258,10 @@ fn test_circuit_reductions() {
     let graph = ReductionGraph::new();
 
     // Factoring -> CircuitSAT
-    assert!(graph.has_direct_reduction::<Factoring, CircuitSAT<i32>>());
+    assert!(graph.has_direct_reduction::<Factoring, CircuitSAT>());
 
     // CircuitSAT -> SpinGlass
-    assert!(graph.has_direct_reduction::<CircuitSAT<i32>, SpinGlass<SimpleGraph, f64>>());
+    assert!(graph.has_direct_reduction::<CircuitSAT, SpinGlass<SimpleGraph, i32>>());
 
     // Find path from Factoring to SpinGlass
     let paths = graph.find_paths::<Factoring, SpinGlass<SimpleGraph, f64>>();
@@ -422,11 +422,10 @@ fn test_find_shortest_path_no_path() {
 fn test_categorize_circuit_as_specialized() {
     // CircuitSAT should be categorized as specialized (contains "Circuit")
     assert_eq!(
-        ReductionGraph::categorize_type("CircuitSAT<i32>"),
+        ReductionGraph::categorize_type("CircuitSAT"),
         "satisfiability"
     );
-    // But it contains "SAT" so it goes to satisfiability first
-    // Let's verify the actual behavior matches what the code does
+    // It contains "SAT" so it goes to satisfiability
 }
 
 #[test]
@@ -666,8 +665,8 @@ fn test_find_cheapest_path_unknown_target() {
 #[test]
 fn test_reduction_edge_struct() {
     let edge = ReductionEdge {
-        source_variant: &[("graph", "PlanarGraph"), ("weight", "Unweighted")],
-        target_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
+        source_variant: vec![("graph", "PlanarGraph"), ("weight", "Unweighted")],
+        target_variant: vec![("graph", "SimpleGraph"), ("weight", "Unweighted")],
         overhead: ReductionOverhead::default(),
     };
 
@@ -679,8 +678,8 @@ fn test_reduction_edge_struct() {
 fn test_reduction_edge_default_graph() {
     // When no "graph" key is present, default to SimpleGraph
     let edge = ReductionEdge {
-        source_variant: &[("weight", "Unweighted")],
-        target_variant: &[],
+        source_variant: vec![("weight", "Unweighted")],
+        target_variant: vec![],
         overhead: ReductionOverhead::default(),
     };
 

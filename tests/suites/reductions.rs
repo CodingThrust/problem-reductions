@@ -32,7 +32,7 @@ mod is_vc_reductions {
         let is_solution = result.extract_solution(&vc_solutions[0]);
 
         // Solution should be valid for original problem
-        assert!(is_problem.evaluate(&is_solution) .is_valid());
+        assert!(is_problem.evaluate(&is_solution).is_valid());
     }
 
     #[test]
@@ -57,7 +57,7 @@ mod is_vc_reductions {
         let vc_solution = result.extract_solution(&is_solutions[0]);
 
         // Solution should be valid for original problem
-        assert!(vc_problem.evaluate(&vc_solution) .is_valid());
+        assert!(vc_problem.evaluate(&vc_solution).is_valid());
     }
 
     #[test]
@@ -86,7 +86,7 @@ mod is_vc_reductions {
         let original_sol = to_vc.extract_solution(&intermediate_sol);
 
         // Should be valid
-        assert!(original.evaluate(&original_sol) .is_valid());
+        assert!(original.evaluate(&original_sol).is_valid());
     }
 
     #[test]
@@ -145,7 +145,7 @@ mod is_sp_reductions {
         // Extract to IS solution
         let is_solution = result.extract_solution(&sp_solutions[0]);
 
-        assert!(is_problem.evaluate(&is_solution) .is_valid());
+        assert!(is_problem.evaluate(&is_solution).is_valid());
     }
 
     #[test]
@@ -189,7 +189,7 @@ mod is_sp_reductions {
         let is_solution = to_sp.extract_solution(&sp_solutions[0]);
 
         // Valid for original
-        assert!(original.evaluate(&is_solution) .is_valid());
+        assert!(original.evaluate(&is_solution).is_valid());
 
         // Should match directly solving IS
         let direct_solutions = solver.find_all_best(&original);
@@ -496,7 +496,7 @@ mod qubo_reductions {
         // All QUBO optimal solutions should extract to valid IS solutions
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
-            assert!(is.evaluate(&extracted) .is_valid());
+            assert!(is.evaluate(&extracted).is_valid());
         }
 
         // Optimal IS size should match ground truth
@@ -538,7 +538,7 @@ mod qubo_reductions {
 
         for sol in &solutions {
             let extracted = reduction.extract_solution(sol);
-            assert!(vc.evaluate(&extracted) .is_valid());
+            assert!(vc.evaluate(&extracted).is_valid());
         }
 
         // Optimal VC size should match ground truth
@@ -568,7 +568,7 @@ mod qubo_reductions {
 
         assert_eq!(data.source.num_colors, 3);
 
-        let kc = KColoring::<3, SimpleGraph, i32>::new(data.source.num_vertices, data.source.edges);
+        let kc = KColoring::<3, SimpleGraph>::new(data.source.num_vertices, data.source.edges);
         let reduction = ReduceTo::<QUBO>::reduce_to(&kc);
         let qubo = reduction.target_problem();
 

@@ -14,13 +14,15 @@ use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
-// Register reduction in the inventory for automatic discovery
+// Register reduction in the inventory for automatic discovery.
+// Uses usize::MAX sentinel for K (maps to "N" via const_usize_str).
+// G is generic → defaults to SimpleGraph.
 inventory::submit! {
     ReductionEntry {
         source_name: "KColoring",
         target_name: "ILP",
-        source_variant: &[("k", "N"), ("graph", "SimpleGraph"), ("weight", "i32")],
-        target_variant: &[("graph", ""), ("weight", "Unweighted")],
+        source_variant_fn: || <KColoring<{usize::MAX}, SimpleGraph> as crate::traits::Problem>::variant(),
+        target_variant_fn: || <ILP as crate::traits::Problem>::variant(),
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_vars", poly!(num_vertices * num_colors)),
             ("num_constraints", poly!(num_vertices) + poly!(num_edges * num_colors)),
@@ -36,32 +38,24 @@ inventory::submit! {
 /// - Constraints ensure each vertex has exactly one color
 /// - Constraints ensure adjacent vertices have different colors
 #[derive(Debug, Clone)]
-pub struct ReductionKColoringToILP<const K: usize, G, W> {
+pub struct ReductionKColoringToILP<const K: usize, G> {
     target: ILP,
     num_vertices: usize,
-    _phantom: std::marker::PhantomData<(G, W)>,
+    _phantom: std::marker::PhantomData<G>,
 }
 
-impl<const K: usize, G, W> ReductionKColoringToILP<K, G, W> {
+impl<const K: usize, G> ReductionKColoringToILP<K, G> {
     /// Get the variable index for vertex v with color c.
     fn var_index(&self, vertex: usize, color: usize) -> usize {
         vertex * K + color
     }
 }
 
-impl<const K: usize, G, W> ReductionResult for ReductionKColoringToILP<K, G, W>
+impl<const K: usize, G> ReductionResult for ReductionKColoringToILP<K, G>
 where
     G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + 'static,
 {
-    type Source = KColoring<K, G, W>;
+    type Source = KColoring<K, G>;
     type Target = ILP;
 
     fn target_problem(&self) -> &ILP {
@@ -86,19 +80,11 @@ where
     }
 }
 
-impl<const K: usize, G, W> ReduceTo<ILP> for KColoring<K, G, W>
+impl<const K: usize, G> ReduceTo<ILP> for KColoring<K, G>
 where
     G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + num_traits::Bounded
-        + std::ops::AddAssign
-        + 'static,
 {
-    type Result = ReductionKColoringToILP<K, G, W>;
+    type Result = ReductionKColoringToILP<K, G>;
 
     fn reduce_to(&self) -> Self::Result {
         let num_vertices = self.num_vertices();
@@ -151,7 +137,7 @@ where
 }
 
 // Keep the old type alias for backwards compatibility
-pub type ReductionColoringToILP = ReductionKColoringToILP<3, SimpleGraph, i32>;
+pub type ReductionColoringToILP = ReductionKColoringToILP<3, SimpleGraph>;
 
 #[cfg(test)]
 #[path = "../unit_tests/rules/coloring_ilp.rs"]

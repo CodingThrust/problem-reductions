@@ -2,6 +2,7 @@
 #let graph-data = json("../src/reductions/reduction_graph.json")
 #import "@preview/cetz:0.4.2": canvas, draw
 #import "@preview/ctheorems:1.1.3": thmbox, thmplain, thmproof, thmrules
+#import "lib.typ": g-node, g-edge, petersen-graph, house-graph, octahedral-graph, draw-grid-graph, draw-triangular-graph, graph-colors
 
 #set page(paper: "a4", margin: (x: 2cm, y: 2.5cm))
 #set text(font: "New Computer Modern", size: 10pt)
@@ -513,7 +514,36 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   Summing over all edges, each vertex $i$ appears in $"deg"(i)$ terms. The QUBO coefficients are: diagonal $Q_(i i) = w_i - P dot "deg"(i)$ (objective plus linear penalty), off-diagonal $Q_(i j) = P$ for edges. The constant $P |E|$ does not affect the minimizer.
 ]
 
-#reduction-rule("KColoring", "QUBO")[
+#let kc_qubo = load-example("kcoloring_to_qubo")
+#let kc_qubo_r = load-results("kcoloring_to_qubo")
+#let kc_qubo_sol = kc_qubo_r.solutions.at(0)
+#reduction-rule("KColoring", "QUBO",
+  example: true,
+  example-caption: [House graph ($n = 5$, $|E| = 6$, $chi = 3$) with $k = 3$ colors],
+  extra: [
+    #{
+      let hg = house-graph()
+      let fills = kc_qubo_sol.source_config.map(c => graph-colors.at(c))
+      align(center, canvas(length: 0.8cm, {
+        for (u, v) in hg.edges { g-edge(hg.vertices.at(u), hg.vertices.at(v)) }
+        for (k, pos) in hg.vertices.enumerate() {
+          g-node(pos, name: str(k), fill: fills.at(k), label: str(k))
+        }
+      }))
+    }
+
+    *Step 1 -- Encode colors as binary variables.* Each vertex $v in {0,...,4}$ gets $k = 3$ binary variables $(x_(v,0), x_(v,1), x_(v,2))$, where $x_(v,c) = 1$ means "vertex $v$ receives color $c$." This gives $n k = 5 times 3 = 15$ QUBO variables total, arranged as:
+    $ underbrace(x_(0,0) x_(0,1) x_(0,2), "vertex 0") #h(4pt) underbrace(x_(1,0) x_(1,1) x_(1,2), "vertex 1") #h(4pt) dots.c #h(4pt) underbrace(x_(4,0) x_(4,1) x_(4,2), "vertex 4") $
+
+    *Step 2 -- One-hot penalty.* Each vertex must receive _exactly one_ color, i.e.\ $sum_c x_(v,c) = 1$. The penalty $(1 - sum_c x_(v,c))^2$ is zero iff exactly one variable in the group is 1. With weight $P_1 = 1 + n = 6$, this contributes $Q_(v k+c, v k+c) = -6$ on the diagonal and $Q_(v k+c_1, v k+c_2) = 12$ between same-vertex color pairs. These are the $5 times 5$ diagonal blocks of $Q$.\
+
+    *Step 3 -- Edge conflict penalty.* For each edge $(u,v) in E$ and each color $c$, both endpoints having color $c$ is penalized: $P_2 dot x_(u,c) x_(v,c)$ with $P_2 = P_1 slash 2 = 3$. The house has 6 edges, each contributing 3 color penalties $arrow.r$ 18 off-diagonal entries of value $3$ in $Q$.\
+
+    *Step 4 -- Verify a solution.* The first valid 3-coloring is $(c_0, ..., c_4) = (#kc_qubo_sol.source_config.map(str).join(", "))$, shown in the figure above. The one-hot encoding is $bold(x) = (#kc_qubo_sol.target_config.map(str).join(", "))$. Check: each 3-bit group has exactly one 1 (valid one-hot #sym.checkmark), and for every edge the two endpoints have different colors (e.g.\ edge $0 dash 1$: colors $#kc_qubo_sol.source_config.at(0), #kc_qubo_sol.source_config.at(1)$ #sym.checkmark).\
+
+    *Count:* #kc_qubo_r.solutions.len() valid colorings $= 3! times 3$. The triangle $2 dash 3 dash 4$ forces 3 distinct colors ($3! = 6$ permutations); for each, the base vertices $0, 1$ each have 3 compatible choices but share edge $0 dash 1$, leaving $3$ valid pairs.
+  ],
+)[
   Given $G = (V, E)$ with $k$ colors, construct upper-triangular $Q in RR^(n k times n k)$ using one-hot encoding $x_(v,c) in {0,1}$ ($n k$ variables indexed by $v dot k + c$).
 ][
   _Construction._ Applying the penalty method (@sec:penalty-method), the QUBO objective combines a one-hot constraint penalty and an edge conflict penalty:
@@ -807,119 +837,28 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let square_unweighted = json("petersen_square_unweighted.json")
 #let triangular_mapping = json("petersen_triangular.json")
 
-// Draw Petersen graph with standard layout
-#let draw-petersen-cetz(data) = canvas(length: 1cm, {
-  import draw: *
-  let r-outer = 1.2
-  let r-inner = 0.6
-
-  // Positions: outer pentagon (0-4), inner star (5-9)
-  let positions = ()
-  for i in range(5) {
-    let angle = 90deg - i * 72deg
-    positions.push((calc.cos(angle) * r-outer, calc.sin(angle) * r-outer))
-  }
-  for i in range(5) {
-    let angle = 90deg - i * 72deg
-    positions.push((calc.cos(angle) * r-inner, calc.sin(angle) * r-inner))
-  }
-
-  // Draw edges
-  for edge in data.edges {
-    let (u, v) = (edge.at(0), edge.at(1))
-    line(positions.at(u), positions.at(v), stroke: 0.6pt + gray)
-  }
-
-  // Draw nodes
-  for (k, pos) in positions.enumerate() {
-    circle(pos, radius: 0.12, fill: blue, stroke: none)
-  }
-})
-
-// Draw King's Subgraph from JSON nodes - uses pre-computed edges
-#let draw-grid-cetz(data, cell-size: 0.2) = canvas(length: 1cm, {
-  import draw: *
-  let grid-data = data.grid_graph
-
-  // Get node positions (col, row) for drawing
-  let grid-positions = grid-data.nodes.map(n => (n.col, n.row))
-  let weights = grid-data.nodes.map(n => n.weight)
-
-  // Use pre-computed edges from JSON
-  let edges = grid-data.edges
-
-  // Scale for drawing
-  let vertices = grid-positions.map(p => (p.at(0) * cell-size, -p.at(1) * cell-size))
-
-  // Draw edges
-  for edge in edges {
-    let (k, l) = (edge.at(0), edge.at(1))
-    line(vertices.at(k), vertices.at(l), stroke: 0.4pt + gray)
-  }
-
-  // Draw nodes with weight-based color
-  for (k, pos) in vertices.enumerate() {
-    let w = weights.at(k)
-    let color = if w == 1 { blue } else if w == 2 { red } else { green }
-    circle(pos, radius: 0.04, fill: color, stroke: none)
-  }
-})
-
-// Draw triangular lattice from JSON nodes - uses pre-computed edges
-// Matches Rust's GridGraph physical_position_static for Triangular with offset_even_cols=true:
-//   x = row + offset (where offset = 0.5 if col is even)
-//   y = col * sqrt(3)/2
-#let draw-triangular-cetz(data, cell-size: 0.2) = canvas(length: 1cm, {
-  import draw: *
-  let grid-data = data.grid_graph
-
-  // Get node positions with triangular geometry for drawing
-  // Match Rust GridGraph::physical_position_static for Triangular:
-  //   x = row + 0.5 (if col is even, since offset_even_cols=true)
-  //   y = col * sqrt(3)/2
-  let sqrt3_2 = calc.sqrt(3) / 2
-  let grid-positions = grid-data.nodes.map(n => {
-    let offset = if calc.rem(n.col, 2) == 0 { 0.5 } else { 0.0 }
-    let x = n.row + offset
-    let y = n.col * sqrt3_2
-    (x, y)
-  })
-  let weights = grid-data.nodes.map(n => n.weight)
-
-  // Use pre-computed edges from JSON
-  let edges = grid-data.edges
-
-  // Scale for drawing
-  let vertices = grid-positions.map(p => (p.at(0) * cell-size, -p.at(1) * cell-size))
-
-  // Draw edges
-  for edge in edges {
-    let (k, l) = (edge.at(0), edge.at(1))
-    line(vertices.at(k), vertices.at(l), stroke: 0.3pt + gray)
-  }
-
-  // Draw nodes with weight-based color
-  for (k, pos) in vertices.enumerate() {
-    let w = weights.at(k)
-    let color = if w == 1 { blue } else if w == 2 { red } else { green }
-    circle(pos, radius: 0.025, fill: color, stroke: none)
-  }
-})
-
 #figure(
   grid(
     columns: 3,
     gutter: 1.5em,
     align(center + horizon)[
-      #draw-petersen-cetz(petersen)
+      #{
+        let pg = petersen-graph()
+        canvas(length: 1cm, {
+          for (u, v) in pg.edges { g-edge(pg.vertices.at(u), pg.vertices.at(v)) }
+          for (k, pos) in pg.vertices.enumerate() {
+            g-node(pos, fill: blue, stroke: none)
+          }
+        })
+      }
       (a) Petersen graph
     ],
     align(center + horizon)[
-      #draw-grid-cetz(square_weighted)
+      #draw-grid-graph(square_weighted)
       (b) King's subgraph (weighted)
     ],
     align(center + horizon)[
-      #draw-triangular-cetz(triangular_mapping)
+      #draw-triangular-graph(triangular_mapping)
       (c) Triangular lattice (weighted)
     ],
   ),

@@ -44,8 +44,8 @@ pub fn run() {
     println!("  (Unit clauses avoid OR-gadgets, keeping vertex count manageable for BruteForce)");
 
     // 2. Reduce to 3-Coloring
-    //    SAT reduces to KColoring<3, SimpleGraph, i32>
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph, i32>>::reduce_to(&sat);
+    //    SAT reduces to KColoring<3, SimpleGraph>
+    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
     println!("\n=== Problem Transformation ===");
@@ -66,8 +66,7 @@ pub fn run() {
     let solver = BruteForce::new();
     // Find all satisfying 3-colorings by iterating through configs
     let dims = coloring.dims();
-    let all_configs: Vec<Vec<usize>> =
-        problemreductions::config::DimsIterator::new(dims).collect();
+    let all_configs: Vec<Vec<usize>> = problemreductions::config::DimsIterator::new(dims).collect();
     let coloring_solutions: Vec<&[usize]> = all_configs
         .iter()
         .filter(|config| coloring.evaluate(config))
@@ -129,8 +128,8 @@ pub fn run() {
             }),
         },
         target: ProblemSide {
-            problem: KColoring::<3, SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(KColoring::<3, SimpleGraph, i32>::variant()),
+            problem: KColoring::<3, SimpleGraph>::NAME.to_string(),
+            variant: variant_to_map(KColoring::<3, SimpleGraph>::variant()),
             instance: serde_json::json!({
                 "num_vertices": coloring.num_vertices(),
                 "num_edges": coloring.num_edges(),

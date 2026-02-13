@@ -38,10 +38,16 @@ fn test_evaluate_valid() {
     let problem = MinimumSetCovering::<i32>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
 
     // Select first and third sets: covers {0,1} + {2,3} = {0,1,2,3}
-    assert_eq!(Problem::evaluate(&problem, &[1, 0, 1]), SolutionSize::Valid(2));
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 0, 1]),
+        SolutionSize::Valid(2)
+    );
 
     // Select all sets
-    assert_eq!(Problem::evaluate(&problem, &[1, 1, 1]), SolutionSize::Valid(3));
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 1, 1]),
+        SolutionSize::Valid(3)
+    );
 }
 
 #[test]
@@ -49,10 +55,16 @@ fn test_evaluate_invalid() {
     let problem = MinimumSetCovering::<i32>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
 
     // Select only first set: missing 2, 3 - returns Invalid
-    assert_eq!(Problem::evaluate(&problem, &[1, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 0, 0]),
+        SolutionSize::Invalid
+    );
 
     // Select none
-    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(
+        Problem::evaluate(&problem, &[0, 0, 0]),
+        SolutionSize::Invalid
+    );
 }
 
 #[test]

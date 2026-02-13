@@ -6,35 +6,29 @@
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
+use std::collections::HashSet;
 use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Type};
 
 /// Attribute macro for automatic reduction registration.
 ///
-/// This macro parses a `ReduceTo` impl block and automatically generates
-/// the corresponding `inventory::submit!` call with the correct metadata.
+/// Parses a `ReduceTo` impl block and generates the corresponding `inventory::submit!`
+/// call. Variant fields are derived from `Problem::variant()` when possible.
 ///
-/// # Type Parameter Convention
+/// # Variant Derivation
 ///
-/// The macro extracts graph and weight type information from type parameters:
-/// - `Problem<G>` where `G` is a graph type - extracts graph type name
-/// - `Problem<G, W>` where `W` is a weight type - weighted if W != Unweighted
+/// - **Types without type generics** (e.g., `KColoring<K, SimpleGraph>`): calls
+///   `Problem::variant()` at runtime. Const generics like `K` are substituted with
+///   `usize::MAX` (maps to `"N"` via `const_usize_str`).
+/// - **Types with type generics** (e.g., `MaxCut<SimpleGraph, W>`): falls back to
+///   constructing `("graph", ...), ("weight", ...)` from type parameter analysis.
 ///
-/// # Example
+/// # Attributes
 ///
-/// ```ignore
-/// #[reduction(
-///     source_graph = "SimpleGraph",
-///     target_graph = "GridGraph",
-///     source_weighted = false,
-///     target_weighted = true,
-/// )]
-/// impl ReduceTo<IndependentSet<i32, GridGraph>> for IndependentSet<Unweighted, SimpleGraph> {
-///     type Result = ReductionISToGridIS;
-///     fn reduce_to(&self) -> Self::Result { ... }
-/// }
-/// ```
-///
-/// The macro also supports inferring from type names when explicit attributes aren't provided.
+/// - `overhead = { expr }` — overhead specification (required for non-trivial reductions)
+/// - `source_graph = "..."` — override source graph type (fallback path only)
+/// - `target_graph = "..."` — override target graph type (fallback path only)
+/// - `source_weighted = bool` — override source weight (fallback path only)
+/// - `target_weighted = bool` — override target weight (fallback path only)
 #[proc_macro_attribute]
 pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attrs = parse_macro_input!(attr as ReductionAttrs);
@@ -119,121 +113,124 @@ fn extract_type_name(ty: &Type) -> Option<String> {
     }
 }
 
-/// Extract graph type from type parameters (first parameter in `Problem<G, W>` order)
-fn extract_graph_type(ty: &Type) -> Option<String> {
-    match ty {
-        Type::Path(type_path) => {
-            let segment = type_path.path.segments.last()?;
-            if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                // Get the first type argument which is the graph type
-                for arg in args.args.iter() {
-                    if let GenericArgument::Type(Type::Path(inner_path)) = arg {
-                        let name = inner_path
-                            .path
-                            .segments
-                            .last()
-                            .map(|s| s.ident.to_string())?;
-                        // Skip generic params (single uppercase letter)
-                        if name.len() == 1
-                            && name
-                                .chars()
-                                .next()
-                                .map(|c| c.is_ascii_uppercase())
-                                .unwrap_or(false)
-                        {
-                            return None; // Generic param, let it default
-                        }
-                        // Skip known weight types - for single-param problems like QUBO<W>
-                        if is_weight_type(&name) {
-                            return None; // Weight type in first position, not a graph type
-                        }
-                        return Some(name);
-                    }
-                }
-            }
-            None
-        }
-        _ => None,
-    }
-}
-
-/// Check if a type name is a known weight type
-fn is_weight_type(name: &str) -> bool {
-    ["i32", "i64", "f32", "f64", "Unweighted"].contains(&name)
-}
-
-/// Extract weight type from type parameters.
-/// For `Problem<G, W>` (two params): returns W (second param).
-/// For `Problem<W>` (single weight param): returns W (first param).
-fn extract_weight_type(ty: &Type) -> Option<Type> {
-    match ty {
-        Type::Path(type_path) => {
-            let segment = type_path.path.segments.last()?;
-            if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                let type_args: Vec<_> = args
-                    .args
-                    .iter()
-                    .filter_map(|arg| {
-                        if let GenericArgument::Type(t) = arg {
-                            Some(t)
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-
-                match type_args.len() {
-                    1 => {
-                        // Single param - check if it's a weight type
-                        let first = type_args[0];
-                        if let Type::Path(inner_path) = first {
-                            let name = inner_path.path.segments.last()?.ident.to_string();
-                            if is_weight_type(&name) {
-                                return Some(first.clone());
-                            }
-                        }
-                        None
-                    }
-                    2 => {
-                        // Two params: Problem<G, W> - return second
-                        Some(type_args[1].clone())
-                    }
-                    _ => None,
-                }
+/// Collect const generic parameter names from impl generics.
+/// e.g., `impl<const K: usize>` → {"K"}
+fn collect_const_generic_names(generics: &syn::Generics) -> HashSet<String> {
+    generics
+        .params
+        .iter()
+        .filter_map(|p| {
+            if let syn::GenericParam::Const(c) = p {
+                Some(c.ident.to_string())
             } else {
                 None
             }
+        })
+        .collect()
+}
+
+/// Collect type generic parameter names from impl generics.
+/// e.g., `impl<G: Graph, W: NumericSize>` → {"G", "W"}
+fn collect_type_generic_names(generics: &syn::Generics) -> HashSet<String> {
+    generics
+        .params
+        .iter()
+        .filter_map(|p| {
+            if let syn::GenericParam::Type(t) = p {
+                Some(t.ident.to_string())
+            } else {
+                None
+            }
+        })
+        .collect()
+}
+
+/// Check if a type uses any of the given type generic parameters.
+fn type_uses_type_generics(ty: &Type, type_generics: &HashSet<String>) -> bool {
+    match ty {
+        Type::Path(type_path) => {
+            if let Some(segment) = type_path.path.segments.last() {
+                if let PathArguments::AngleBracketed(args) = &segment.arguments {
+                    for arg in args.args.iter() {
+                        if let GenericArgument::Type(Type::Path(inner)) = arg {
+                            if let Some(ident) = inner.path.get_ident() {
+                                if type_generics.contains(&ident.to_string()) {
+                                    return true;
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+            false
         }
-        _ => None,
+        _ => false,
     }
 }
 
-/// Get weight type name as a string for the variant.
-/// Single-letter uppercase names are treated as generic type parameters
-/// and default to "Unweighted" since they're not concrete types.
-fn get_weight_name(ty: &Type) -> String {
+/// Rewrite a type by substituting const generic names with `{usize::MAX}`.
+///
+/// e.g., `KColoring<K, SimpleGraph>` with const_generics={"K"}
+/// → `KColoring<{usize::MAX}, SimpleGraph>`
+fn rewrite_const_generics(ty: &Type, const_generics: &HashSet<String>) -> Type {
     match ty {
         Type::Path(type_path) => {
-            let name = type_path
-                .path
-                .segments
-                .last()
-                .map(|s| s.ident.to_string())
-                .unwrap_or_else(|| "Unweighted".to_string());
-            // Treat single uppercase letters as generic params, default to Unweighted
-            if name.len() == 1
-                && name
-                    .chars()
-                    .next()
-                    .map(|c| c.is_ascii_uppercase())
-                    .unwrap_or(false)
-            {
-                "Unweighted".to_string()
-            } else {
-                name
+            let mut new_path = type_path.clone();
+            if let Some(segment) = new_path.path.segments.last_mut() {
+                if let PathArguments::AngleBracketed(args) = &mut segment.arguments {
+                    for arg in args.args.iter_mut() {
+                        if let GenericArgument::Type(Type::Path(inner)) = arg {
+                            if let Some(ident) = inner.path.get_ident() {
+                                if const_generics.contains(&ident.to_string()) {
+                                    // Replace const generic with sentinel value
+                                    *arg = syn::parse_quote!({ usize::MAX });
+                                }
+                            }
+                        }
+                    }
+                }
             }
+            Type::Path(new_path)
         }
-        _ => "Unweighted".to_string(),
+        _ => ty.clone(),
+    }
+}
+
+/// Generate the variant fn body for a type.
+///
+/// If the type has no type generics: calls `Problem::variant()` with const generic
+/// sentinels. Otherwise falls back to manual `("graph", ...), ("weight", ...)` construction.
+fn make_variant_fn_body(
+    ty: &Type,
+    const_generics: &HashSet<String>,
+    type_generics: &HashSet<String>,
+    graph_override: Option<&str>,
+    weighted_override: Option<bool>,
+) -> TokenStream2 {
+    if type_uses_type_generics(ty, type_generics) {
+        // Fallback: construct variant manually from type parameter analysis
+        let graph = graph_override
+            .map(|s| s.to_string())
+            .or_else(|| extract_graph_type(ty))
+            .unwrap_or_else(|| "SimpleGraph".to_string());
+        let weight = weighted_override
+            .map(|w| {
+                if w {
+                    "i32".to_string()
+                } else {
+                    "Unweighted".to_string()
+                }
+            })
+            .unwrap_or_else(|| {
+                extract_weight_type(ty)
+                    .map(|t| get_weight_name(&t))
+                    .unwrap_or_else(|| "Unweighted".to_string())
+            });
+        quote! { vec![("graph", #graph), ("weight", #weight)] }
+    } else {
+        // Call Problem::variant() with const generic sentinels
+        let rewritten = rewrite_const_generics(ty, const_generics);
+        quote! { <#rewritten as crate::traits::Problem>::variant() }
     }
 }
 
@@ -261,47 +258,25 @@ fn generate_reduction_entry(
     let target_name = extract_type_name(&target_type)
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
 
-    // Determine weight type names
-    let source_weight_name = attrs
-        .source_weighted
-        .map(|w| {
-            if w {
-                "i32".to_string()
-            } else {
-                "Unweighted".to_string()
-            }
-        })
-        .unwrap_or_else(|| {
-            extract_weight_type(source_type)
-                .map(|t| get_weight_name(&t))
-                .unwrap_or_else(|| "Unweighted".to_string())
-        });
-    let target_weight_name = attrs
-        .target_weighted
-        .map(|w| {
-            if w {
-                "i32".to_string()
-            } else {
-                "Unweighted".to_string()
-            }
-        })
-        .unwrap_or_else(|| {
-            extract_weight_type(&target_type)
-                .map(|t| get_weight_name(&t))
-                .unwrap_or_else(|| "Unweighted".to_string())
-        });
+    // Collect generic parameter info from the impl block
+    let const_generics = collect_const_generic_names(&impl_block.generics);
+    let type_generics = collect_type_generic_names(&impl_block.generics);
 
-    // Determine graph types
-    let source_graph = attrs
-        .source_graph
-        .clone()
-        .or_else(|| extract_graph_type(source_type))
-        .unwrap_or_else(|| "SimpleGraph".to_string());
-    let target_graph = attrs
-        .target_graph
-        .clone()
-        .or_else(|| extract_graph_type(&target_type))
-        .unwrap_or_else(|| "SimpleGraph".to_string());
+    // Generate variant fn bodies
+    let source_variant_body = make_variant_fn_body(
+        source_type,
+        &const_generics,
+        &type_generics,
+        attrs.source_graph.as_deref(),
+        attrs.source_weighted,
+    );
+    let target_variant_body = make_variant_fn_body(
+        &target_type,
+        &const_generics,
+        &type_generics,
+        attrs.target_graph.as_deref(),
+        attrs.target_weighted,
+    );
 
     // Generate overhead or use default
     let overhead = attrs.overhead.clone().unwrap_or_else(|| {
@@ -318,8 +293,8 @@ fn generate_reduction_entry(
             crate::rules::registry::ReductionEntry {
                 source_name: #source_name,
                 target_name: #target_name,
-                source_variant: &[("graph", #source_graph), ("weight", #source_weight_name)],
-                target_variant: &[("graph", #target_graph), ("weight", #target_weight_name)],
+                source_variant_fn: || { #source_variant_body },
+                target_variant_fn: || { #target_variant_body },
                 overhead_fn: || { #overhead },
                 module_path: module_path!(),
             }
@@ -350,4 +325,125 @@ fn extract_target_from_trait(path: &Path) -> syn::Result<Type> {
         segment,
         "Expected ReduceTo<Target> with type parameter",
     ))
+}
+
+// --- Fallback helpers for types with type generics ---
+
+/// Extract graph type from type parameters (first parameter in `Problem<G, W>` order)
+fn extract_graph_type(ty: &Type) -> Option<String> {
+    match ty {
+        Type::Path(type_path) => {
+            let segment = type_path.path.segments.last()?;
+            if let PathArguments::AngleBracketed(args) = &segment.arguments {
+                for arg in args.args.iter() {
+                    if let GenericArgument::Type(Type::Path(inner_path)) = arg {
+                        let name = inner_path
+                            .path
+                            .segments
+                            .last()
+                            .map(|s| s.ident.to_string())?;
+                        // Skip generic params (single uppercase letter)
+                        if name.len() == 1
+                            && name
+                                .chars()
+                                .next()
+                                .map(|c| c.is_ascii_uppercase())
+                                .unwrap_or(false)
+                        {
+                            return None;
+                        }
+                        // Skip known weight types
+                        if is_weight_type(&name) {
+                            return None;
+                        }
+                        return Some(name);
+                    }
+                }
+            }
+            None
+        }
+        _ => None,
+    }
+}
+
+/// Check if a type name is a known weight type
+fn is_weight_type(name: &str) -> bool {
+    ["i32", "i64", "f32", "f64", "Unweighted"].contains(&name)
+}
+
+/// Extract weight type from type parameters.
+fn extract_weight_type(ty: &Type) -> Option<Type> {
+    match ty {
+        Type::Path(type_path) => {
+            let segment = type_path.path.segments.last()?;
+            if let PathArguments::AngleBracketed(args) = &segment.arguments {
+                let type_args: Vec<_> = args
+                    .args
+                    .iter()
+                    .filter_map(|arg| {
+                        if let GenericArgument::Type(t) = arg {
+                            Some(t)
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+
+                match type_args.len() {
+                    1 => {
+                        let first = type_args[0];
+                        if let Type::Path(inner_path) = first {
+                            let name = inner_path.path.segments.last()?.ident.to_string();
+                            if is_weight_type(&name) {
+                                return Some(first.clone());
+                            }
+                        }
+                        None
+                    }
+                    2 => {
+                        let second = type_args[1];
+                        if let Type::Path(inner_path) = second {
+                            let name = inner_path.path.segments.last()?.ident.to_string();
+                            if is_weight_type(&name) {
+                                return Some(second.clone());
+                            }
+                        }
+                        None
+                    }
+                    _ => None,
+                }
+            } else {
+                None
+            }
+        }
+        _ => None,
+    }
+}
+
+/// Get weight type name as a string for the variant.
+/// Single-letter uppercase names are treated as generic type parameters
+/// and default to "Unweighted".
+fn get_weight_name(ty: &Type) -> String {
+    match ty {
+        Type::Path(type_path) => {
+            let name = type_path
+                .path
+                .segments
+                .last()
+                .map(|s| s.ident.to_string())
+                .unwrap_or_else(|| "Unweighted".to_string());
+            if name.len() == 1
+                && name
+                    .chars()
+                    .next()
+                    .map(|c| c.is_ascii_uppercase())
+                    .unwrap_or(false)
+            {
+                "Unweighted".to_string()
+            } else {
+                name
+            }
+        }
+        _ => "Unweighted".to_string(),
+    }
 }

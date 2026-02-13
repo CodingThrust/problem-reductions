@@ -65,10 +65,7 @@ impl BruteForce {
     /// Find all satisfying solutions for constraint satisfaction problems.
     ///
     /// Returns all configurations where `problem.evaluate(config)` returns `true`.
-    pub fn find_all_satisfying<P: Problem<Metric = bool>>(
-        &self,
-        problem: &P,
-    ) -> Vec<Vec<usize>> {
+    pub fn find_all_satisfying<P: Problem<Metric = bool>>(&self, problem: &P) -> Vec<Vec<usize>> {
         DimsIterator::new(problem.dims())
             .filter(|config| problem.evaluate(config))
             .collect()

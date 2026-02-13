@@ -73,8 +73,7 @@ fn test_satisfiable_formula() {
 #[test]
 fn test_unsatisfiable_formula() {
     // SAT: (x1) AND (NOT x1) - unsatisfiable
-    let sat =
-        Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
     let ds_problem = reduction.target_problem();
 

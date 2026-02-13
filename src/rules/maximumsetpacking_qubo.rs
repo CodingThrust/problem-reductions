@@ -40,7 +40,9 @@ impl<W: NumericWeight + num_traits::Bounded + Into<f64>> ReductionResult for Red
     source_weighted = true,
     overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_sets))]) }
 )]
-impl<W: NumericWeight + num_traits::Bounded + Into<f64>> ReduceTo<QUBO<f64>> for MaximumSetPacking<W> {
+impl<W: NumericWeight + num_traits::Bounded + Into<f64>> ReduceTo<QUBO<f64>>
+    for MaximumSetPacking<W>
+{
     type Result = ReductionSPToQUBO<W>;
 
     fn reduce_to(&self) -> Self::Result {

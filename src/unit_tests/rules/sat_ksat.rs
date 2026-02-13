@@ -294,8 +294,7 @@ fn test_mixed_clause_sizes() {
 #[test]
 fn test_unsatisfiable_formula() {
     // (x) AND (-x) is unsatisfiable
-    let sat =
-        Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
 
     let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();

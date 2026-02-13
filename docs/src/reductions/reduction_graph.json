@@ -9,17 +9,7 @@
     {
       "name": "CircuitSAT",
       "variant": {
-        "graph": "SimpleGraph",
-        "weight": "Unweighted"
-      },
-      "category": "satisfiability",
-      "doc_path": "models/specialized/struct.CircuitSAT.html"
-    },
-    {
-      "name": "CircuitSAT",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "i32"
+        "graph": "SimpleGraph"
       },
       "category": "satisfiability",
       "doc_path": "models/specialized/struct.CircuitSAT.html"
@@ -34,7 +24,7 @@
       "name": "Factoring",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "Unweighted"
+        "weight": "i32"
       },
       "category": "specialized",
       "doc_path": "models/specialized/struct.Factoring.html"
@@ -49,7 +39,7 @@
       "name": "ILP",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "Unweighted"
+        "weight": "f64"
       },
       "category": "optimization",
       "doc_path": "models/optimization/struct.ILP.html"
@@ -64,8 +54,7 @@
       "name": "KColoring",
       "variant": {
         "graph": "SimpleGraph",
-        "k": "N",
-        "weight": "i32"
+        "k": "3"
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html"
@@ -74,16 +63,7 @@
       "name": "KColoring",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "Unweighted"
-      },
-      "category": "graph",
-      "doc_path": "models/graph/struct.KColoring.html"
-    },
-    {
-      "name": "KColoring",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "i32"
+        "k": "N"
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html"
@@ -97,7 +77,25 @@
     {
       "name": "KSatisfiability",
       "variant": {
-        "graph": "SimpleGraph",
+        "k": "2",
+        "weight": "Unweighted"
+      },
+      "category": "satisfiability",
+      "doc_path": "models/satisfiability/struct.KSatisfiability.html"
+    },
+    {
+      "name": "KSatisfiability",
+      "variant": {
+        "k": "3",
+        "weight": "Unweighted"
+      },
+      "category": "satisfiability",
+      "doc_path": "models/satisfiability/struct.KSatisfiability.html"
+    },
+    {
+      "name": "KSatisfiability",
+      "variant": {
+        "k": "N",
         "weight": "Unweighted"
       },
       "category": "satisfiability",
@@ -324,6 +322,15 @@
       },
       "category": "optimization",
       "doc_path": "models/optimization/struct.SpinGlass.html"
+    },
+    {
+      "name": "SpinGlass",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "optimization",
+      "doc_path": "models/optimization/struct.SpinGlass.html"
     }
   ],
   "edges": [
@@ -331,38 +338,14 @@
       "source": {
         "name": "CircuitSAT",
         "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "target": {
-        "name": "CircuitSAT",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "i32"
-        }
-      },
-      "overhead": [
-        {
-          "field": "num_gates",
-          "formula": "num_gates"
-        }
-      ],
-      "doc_path": ""
-    },
-    {
-      "source": {
-        "name": "CircuitSAT",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "graph": "SimpleGraph"
         }
       },
       "target": {
         "name": "SpinGlass",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "i32"
         }
       },
       "overhead": [
@@ -382,14 +365,13 @@
         "name": "Factoring",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "i32"
         }
       },
       "target": {
         "name": "CircuitSAT",
         "variant": {
-          "graph": "SimpleGraph",
-          "weight": "i32"
+          "graph": "SimpleGraph"
         }
       },
       "overhead": [
@@ -405,14 +387,14 @@
         "name": "Factoring",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "i32"
         }
       },
       "target": {
         "name": "ILP",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "f64"
         }
       },
       "overhead": [
@@ -432,7 +414,7 @@
         "name": "ILP",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "f64"
         }
       },
       "target": {
@@ -455,42 +437,14 @@
         "name": "KColoring",
         "variant": {
           "graph": "SimpleGraph",
-          "k": "N",
-          "weight": "i32"
-        }
-      },
-      "target": {
-        "name": "ILP",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_vertices * num_colors"
-        },
-        {
-          "field": "num_constraints",
-          "formula": "num_vertices + num_edges * num_colors"
-        }
-      ],
-      "doc_path": "rules/coloring_ilp/index.html"
-    },
-    {
-      "source": {
-        "name": "KColoring",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "k": "3"
         }
       },
       "target": {
         "name": "KColoring",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "i32"
+          "k": "N"
         }
       },
       "overhead": [
@@ -510,7 +464,34 @@
         "name": "KColoring",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "k": "N"
+        }
+      },
+      "target": {
+        "name": "ILP",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vertices * num_colors"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vertices + num_edges * num_colors"
+        }
+      ],
+      "doc_path": "rules/coloring_ilp/index.html"
+    },
+    {
+      "source": {
+        "name": "KColoring",
+        "variant": {
+          "graph": "SimpleGraph",
+          "k": "N"
         }
       },
       "target": {
@@ -532,7 +513,84 @@
       "source": {
         "name": "KSatisfiability",
         "variant": {
+          "k": "2",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "N",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_clauses",
+          "formula": "num_clauses"
+        },
+        {
+          "field": "num_vars",
+          "formula": "num_vars"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "2",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "QUBO",
+        "variant": {
           "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vars"
+        }
+      ],
+      "doc_path": "rules/ksatisfiability_qubo/index.html"
+    },
+    {
+      "source": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "3",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "N",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_clauses",
+          "formula": "num_clauses"
+        },
+        {
+          "field": "num_vars",
+          "formula": "num_vars"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "3",
           "weight": "Unweighted"
         }
       },
@@ -555,7 +613,7 @@
       "source": {
         "name": "KSatisfiability",
         "variant": {
-          "graph": "SimpleGraph",
+          "k": "N",
           "weight": "Unweighted"
         }
       },
@@ -1114,7 +1172,7 @@
         "name": "KColoring",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "i32"
+          "k": "3"
         }
       },
       "overhead": [
@@ -1140,7 +1198,7 @@
       "target": {
         "name": "KSatisfiability",
         "variant": {
-          "graph": "SimpleGraph",
+          "k": "N",
           "weight": "Unweighted"
         }
       },
@@ -1296,6 +1354,33 @@
         "name": "SpinGlass",
         "variant": {
           "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_spins",
+          "formula": "num_spins"
+        },
+        {
+          "field": "num_interactions",
+          "formula": "num_interactions"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
           "weight": "f64"
         }
       },
@@ -1313,6 +1398,33 @@
         }
       ],
       "doc_path": "rules/spinglass_qubo/index.html"
+    },
+    {
+      "source": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_spins",
+          "formula": "num_spins"
+        },
+        {
+          "field": "num_interactions",
+          "formula": "num_interactions"
+        }
+      ],
+      "doc_path": ""
     }
   ]
 }

@@ -22,7 +22,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 #[derive(Debug, Clone)]
 pub struct ReductionFactoringToCircuit {
     /// The target CircuitSAT problem.
-    target: CircuitSAT<i32>,
+    target: CircuitSAT,
     /// Variable names for the first factor p (bit positions).
     p_vars: Vec<String>,
     /// Variable names for the second factor q (bit positions).
@@ -33,7 +33,7 @@ pub struct ReductionFactoringToCircuit {
 
 impl ReductionResult for ReductionFactoringToCircuit {
     type Source = Factoring;
-    type Target = CircuitSAT<i32>;
+    type Target = CircuitSAT;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -181,7 +181,7 @@ fn build_multiplier_cell(
         ("num_gates", poly!(num_bits_first * num_bits_second)),
     ])
 })]
-impl ReduceTo<CircuitSAT<i32>> for Factoring {
+impl ReduceTo<CircuitSAT> for Factoring {
     type Result = ReductionFactoringToCircuit;
 
     fn reduce_to(&self) -> Self::Result {

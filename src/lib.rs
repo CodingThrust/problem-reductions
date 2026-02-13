@@ -98,7 +98,9 @@ pub mod prelude {
     pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::solvers::{BruteForce, Solver};
     pub use crate::traits::{OptimizationProblem, Problem};
-    pub use crate::types::{Direction, NumericSize, NumericWeight, ProblemSize, SolutionSize, Unweighted, Weights};
+    pub use crate::types::{
+        Direction, NumericSize, NumericWeight, ProblemSize, SolutionSize, Unweighted, Weights,
+    };
 }
 
 // Re-export commonly used items at crate root
