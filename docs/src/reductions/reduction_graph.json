@@ -395,8 +395,8 @@
     {
       "name": "TravelingSalesman",
       "variant": {},
-      "category": "other",
-      "doc_path": "models/specialized/struct.TravelingSalesman.html"
+      "category": "graph",
+      "doc_path": "models/graph/struct.TravelingSalesman.html"
     },
     {
       "name": "TravelingSalesman",
@@ -404,8 +404,8 @@
         "graph": "SimpleGraph",
         "weight": "i32"
       },
-      "category": "other",
-      "doc_path": "models/specialized/struct.TravelingSalesman.html"
+      "category": "graph",
+      "doc_path": "models/graph/struct.TravelingSalesman.html"
     }
   ],
   "edges": [
@@ -1865,7 +1865,7 @@
         },
         {
           "field": "num_constraints",
-          "formula": "num_vertices^3 + 6 * num_vertices * num_edges"
+          "formula": "num_vertices^3 - num_vertices^2 + 2 * num_vertices + 4 * num_vertices * num_edges"
         }
       ],
       "doc_path": "rules/travelingsalesman_ilp/index.html"

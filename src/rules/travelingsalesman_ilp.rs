@@ -82,12 +82,22 @@ impl ReductionResult for ReductionTSPToILP {
                     variables: vec![("num_vertices", 1), ("num_edges", 1)],
                 }]
             }),
-            // num_constraints = 2n + n^2*(n-density) + 6mn ≈ n^3 + 6mn
+            // num_constraints = 2n + n(n(n-1) - 2m) + 6mn = n^3 - n^2 + 2n + 4mn
             ("num_constraints", Polynomial::var_pow("num_vertices", 3) + Polynomial {
-                terms: vec![Monomial {
-                    coefficient: 6.0,
-                    variables: vec![("num_vertices", 1), ("num_edges", 1)],
-                }]
+                terms: vec![
+                    Monomial {
+                        coefficient: -1.0,
+                        variables: vec![("num_vertices", 2)],
+                    },
+                    Monomial {
+                        coefficient: 2.0,
+                        variables: vec![("num_vertices", 1)],
+                    },
+                    Monomial {
+                        coefficient: 4.0,
+                        variables: vec![("num_vertices", 1), ("num_edges", 1)],
+                    },
+                ]
             }),
         ])
     }

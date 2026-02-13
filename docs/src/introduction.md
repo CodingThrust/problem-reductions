@@ -1,6 +1,6 @@
 # Problem Reductions
 
-**problem-reductions** a rust library that provides implementations of various computational hard problems and reduction rules between them. It is designed for algorithm research, education, and industry applications.
+**problem-reductions** is a rust library that provides implementations of various computational hard problems and reduction rules between them. It is designed for algorithm research, education, and industry applications.
 
 ## Reduction Graph
 
