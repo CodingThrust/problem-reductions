@@ -44,7 +44,7 @@ pub fn run() {
 
     // Solve the target problem
     let solver = BruteForce::new();
-    let target_solutions = solver.find_best(target);
+    let target_solutions = solver.find_all_best(target);
 
     println!("\nBest target solutions: {}", target_solutions.len());
 

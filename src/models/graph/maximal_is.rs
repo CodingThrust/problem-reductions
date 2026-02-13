@@ -39,7 +39,7 @@ inventory::submit! {
 /// let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_best(&problem);
 ///
 /// // Maximal independent sets: {0, 2} or {1}
 /// for sol in &solutions {

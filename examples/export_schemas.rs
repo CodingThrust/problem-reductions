@@ -9,7 +9,8 @@ fn main() {
     let schemas = collect_schemas();
     println!("Collected {} problem schemas", schemas.len());
 
-    let output_path = Path::new("docs/paper/problem_schemas.json");
+    // Single source for both mdBook and paper
+    let output_path = Path::new("docs/src/reductions/problem_schemas.json");
     if let Some(parent) = output_path.parent() {
         std::fs::create_dir_all(parent).expect("Failed to create output directory");
     }

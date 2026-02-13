@@ -47,7 +47,7 @@ pub trait ReductionResult: Clone {
 ///
 /// // Solve and extract solutions
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(is_problem);
+/// let solutions = solver.find_all_best(is_problem);
 /// let sat_solutions: Vec<_> = solutions.iter()
 ///     .map(|s| reduction.extract_solution(s))
 ///     .collect();

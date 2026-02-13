@@ -1,5 +1,5 @@
 // Problem Reductions: A Mathematical Reference
-#let graph-data = json("reduction_graph.json")
+#let graph-data = json("../src/reductions/reduction_graph.json")
 #import "@preview/cetz:0.4.2": canvas, draw
 #import "@preview/ctheorems:1.1.3": thmbox, thmplain, thmproof, thmrules
 
@@ -21,7 +21,7 @@
 // Load result JSON: { solutions: [{ source_config, target_config }, ...] }
 #let load-results(name) = json("examples/" + name + ".result.json")
 
-#let problem-schemas = json("problem_schemas.json")
+#let problem-schemas = json("../src/reductions/problem_schemas.json")
 
 // Problem display names for theorem headers
 #let display-name = (

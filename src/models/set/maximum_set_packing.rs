@@ -41,7 +41,7 @@ inventory::submit! {
 /// ]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_best(&problem);
 ///
 /// // Verify solutions are pairwise disjoint
 /// for sol in solutions {

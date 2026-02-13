@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
 use crate::types::SolutionSize;
 
@@ -57,7 +57,7 @@ fn test_ilp_solution_equals_brute_force_triangle() {
     let ilp_solver = ILPSolver::new();
 
     // Solve with brute force on original problem
-    let bf_solutions = bf.find_best(&problem);
+    let bf_solutions = bf.find_all_best(&problem);
 
     // Solve via ILP reduction
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -84,7 +84,7 @@ fn test_ilp_solution_equals_brute_force_path() {
     let ilp_solver = ILPSolver::new();
 
     // Solve with brute force
-    let bf_solutions = bf.find_best(&problem);
+    let bf_solutions = bf.find_all_best(&problem);
     let bf_size = problem.evaluate(&bf_solutions[0]);
 
     // Solve via ILP
@@ -112,7 +112,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_best(&problem);
+    let bf_solutions = bf.find_all_best(&problem);
     let bf_obj = problem.evaluate(&bf_solutions[0]);
 
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");

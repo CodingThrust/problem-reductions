@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -11,7 +11,7 @@ fn test_qubo_to_spinglass() {
     let sg = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sg_solutions = solver.find_best(sg);
+    let sg_solutions = solver.find_all_best(sg);
     let qubo_solutions: Vec<_> = sg_solutions
         .iter()
         .map(|s| reduction.extract_solution(s))
@@ -43,7 +43,7 @@ fn test_spinglass_to_qubo() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_all_best(qubo);
 
     // Ferromagnetic: aligned spins are optimal
     for sol in &qubo_solutions {
@@ -55,7 +55,7 @@ fn test_spinglass_to_qubo() {
 fn test_roundtrip_qubo_sg_qubo() {
     let original = QUBO::from_matrix(vec![vec![-1.0, 2.0], vec![0.0, -1.0]]);
     let solver = BruteForce::new();
-    let original_solutions = solver.find_best(&original);
+    let original_solutions = solver.find_all_best(&original);
     let _original_val = original.evaluate(&original_solutions[0]);
 
     // QUBO -> SG -> QUBO
@@ -64,7 +64,7 @@ fn test_roundtrip_qubo_sg_qubo() {
     let reduction2 = ReduceTo::<QUBO<f64>>::reduce_to(&sg);
     let roundtrip = reduction2.target_problem();
 
-    let roundtrip_solutions = solver.find_best(roundtrip);
+    let roundtrip_solutions = solver.find_all_best(roundtrip);
     let _roundtrip_val = roundtrip.evaluate(&roundtrip_solutions[0]);
 
     // The solutions should have the same configuration
@@ -85,7 +85,7 @@ fn test_antiferromagnetic() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(qubo);
+    let solutions = solver.find_all_best(qubo);
 
     // Anti-ferromagnetic: opposite spins are optimal
     for sol in &solutions {
@@ -106,7 +106,7 @@ fn test_with_onsite_fields() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(qubo);
+    let solutions = solver.find_all_best(qubo);
 
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![0], "Should prefer x=0 (s=-1)");

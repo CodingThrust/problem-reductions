@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -60,7 +60,7 @@ fn test_brute_force_chain() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Max is 2: select {0,1} and {2,3}
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 2);
@@ -78,7 +78,7 @@ fn test_brute_force_weighted() {
     );
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Should select sets 1 and 2 (total 6) over set 0 (total 5)
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![0, 1, 1]);
@@ -105,7 +105,7 @@ fn test_disjoint_sets() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0], vec![1], vec![2], vec![3]]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // All sets are disjoint, so select all
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1, 1, 1, 1]);
@@ -117,7 +117,7 @@ fn test_all_overlapping() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![0, 2], vec![0, 3]]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Can only select one set
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 1);
@@ -154,8 +154,8 @@ fn test_relationship_to_independent_set() {
 
     let solver = BruteForce::new();
 
-    let sp_solutions = solver.find_best(&sp_problem);
-    let is_solutions = solver.find_best(&is_problem);
+    let sp_solutions = solver.find_all_best(&sp_problem);
+    let is_solutions = solver.find_all_best(&is_problem);
 
     // Should have same optimal value
     let sp_size: usize = sp_solutions[0].iter().sum();

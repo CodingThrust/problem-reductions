@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -40,7 +40,7 @@ fn test_brute_force_minimize() {
     let problem = QUBO::from_matrix(vec![vec![1.0, 0.0], vec![0.0, -2.0]]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![0, 1]);
     assert_eq!(Problem::evaluate(&problem, &solutions[0]), SolutionSize::Valid(-2.0));
@@ -54,7 +54,7 @@ fn test_brute_force_with_interaction() {
     let problem = QUBO::from_matrix(vec![vec![-1.0, 2.0], vec![0.0, -1.0]]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Minimum is -1 at [1,0] or [0,1]
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
@@ -98,7 +98,7 @@ fn test_single_variable() {
     let problem = QUBO::from_matrix(vec![vec![-5.0]]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1]); // x=1 gives -5, x=0 gives 0
 }

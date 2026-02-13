@@ -39,7 +39,7 @@ inventory::submit! {
 /// let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_best(&problem);
 ///
 /// // Minimum dominating set is just the center vertex
 /// assert!(solutions.contains(&vec![1, 0, 0, 0]));

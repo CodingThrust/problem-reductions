@@ -43,7 +43,7 @@ pub fn run() {
     println!("Target: SpinGlass with {} variables", sg.num_variables());
 
     let solver = BruteForce::new();
-    let sg_solutions = solver.find_best(sg);
+    let sg_solutions = solver.find_all_best(sg);
     println!("\n=== Solution ===");
     println!("Target solutions found: {}", sg_solutions.len());
 

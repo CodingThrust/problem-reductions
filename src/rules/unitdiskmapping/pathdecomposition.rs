@@ -17,6 +17,19 @@
 use rand::seq::IndexedRandom;
 use std::collections::{HashMap, HashSet};
 
+/// Adjacency list representation built once from an edge list.
+type AdjList = Vec<HashSet<usize>>;
+
+/// Build an adjacency list from an edge list.
+fn build_adj(num_vertices: usize, edges: &[(usize, usize)]) -> AdjList {
+    let mut adj: Vec<HashSet<usize>> = vec![HashSet::new(); num_vertices];
+    for &(u, v) in edges {
+        adj[u].insert(v);
+        adj[v].insert(u);
+    }
+    adj
+}
+
 /// A layout representing a partial path decomposition.
 ///
 /// The layout tracks:
@@ -44,7 +57,8 @@ impl Layout {
     /// * `edges` - List of edges as (u, v) pairs
     /// * `vertices` - Initial ordered list of vertices
     pub fn new(num_vertices: usize, edges: &[(usize, usize)], vertices: Vec<usize>) -> Self {
-        let (vsep, neighbors) = vsep_and_neighbors(num_vertices, edges, &vertices);
+        let adj = build_adj(num_vertices, edges);
+        let (vsep, neighbors) = vsep_and_neighbors(num_vertices, &adj, &vertices);
         let vertices_set: HashSet<usize> = vertices.iter().copied().collect();
         let neighbors_set: HashSet<usize> = neighbors.iter().copied().collect();
         let disconnected: Vec<usize> = (0..num_vertices)
@@ -87,7 +101,7 @@ impl Layout {
 ///
 /// # Arguments
 /// * `num_vertices` - Total number of vertices
-/// * `edges` - List of edges
+/// * `adj` - Pre-built adjacency list
 /// * `vertices` - Ordered list of vertices
 ///
 /// # Returns
@@ -95,16 +109,9 @@ impl Layout {
 /// neighbors is the final neighbor set after all vertices are added.
 fn vsep_and_neighbors(
     num_vertices: usize,
-    edges: &[(usize, usize)],
+    adj: &AdjList,
     vertices: &[usize],
 ) -> (usize, Vec<usize>) {
-    // Build adjacency list
-    let mut adj: Vec<HashSet<usize>> = vec![HashSet::new(); num_vertices];
-    for &(u, v) in edges {
-        adj[u].insert(v);
-        adj[v].insert(u);
-    }
-
     let mut vsep = 0;
     let mut neighbors: HashSet<usize> = HashSet::new();
 
@@ -128,14 +135,7 @@ fn vsep_and_neighbors(
 /// Compute the updated vsep if vertex v is added to the layout.
 ///
 /// This is an efficient incremental computation that doesn't create a new layout.
-fn vsep_updated(num_vertices: usize, edges: &[(usize, usize)], layout: &Layout, v: usize) -> usize {
-    // Build adjacency list
-    let mut adj: Vec<HashSet<usize>> = vec![HashSet::new(); num_vertices];
-    for &(u, w) in edges {
-        adj[u].insert(w);
-        adj[w].insert(u);
-    }
-
+fn vsep_updated(adj: &AdjList, layout: &Layout, v: usize) -> usize {
     let mut vs = layout.vsep_last();
 
     // If v is in neighbors, removing it decreases frontier by 1
@@ -160,18 +160,10 @@ fn vsep_updated(num_vertices: usize, edges: &[(usize, usize)], layout: &Layout, 
 ///
 /// Returns (new_vsep, new_neighbors, new_disconnected).
 fn vsep_updated_neighbors(
-    num_vertices: usize,
-    edges: &[(usize, usize)],
+    adj: &AdjList,
     layout: &Layout,
     v: usize,
 ) -> (usize, Vec<usize>, Vec<usize>) {
-    // Build adjacency list
-    let mut adj: Vec<HashSet<usize>> = vec![HashSet::new(); num_vertices];
-    for &(u, w) in edges {
-        adj[u].insert(w);
-        adj[w].insert(u);
-    }
-
     let mut vs = layout.vsep_last();
     let mut nbs: Vec<usize> = layout.neighbors.clone();
     let mut disc: Vec<usize> = layout.disconnected.clone();
@@ -203,12 +195,11 @@ fn vsep_updated_neighbors(
 /// Extend a layout by adding a vertex.
 ///
 /// This is the ⊙ operator from the Julia implementation.
-fn extend(num_vertices: usize, edges: &[(usize, usize)], layout: &Layout, v: usize) -> Layout {
+fn extend(adj: &AdjList, layout: &Layout, v: usize) -> Layout {
     let mut vertices = layout.vertices.clone();
     vertices.push(v);
 
-    let (vs_new, neighbors_new, disconnected) =
-        vsep_updated_neighbors(num_vertices, edges, layout, v);
+    let (vs_new, neighbors_new, disconnected) = vsep_updated_neighbors(adj, layout, v);
 
     Layout {
         vertices,
@@ -223,14 +214,7 @@ fn extend(num_vertices: usize, edges: &[(usize, usize)], layout: &Layout, v: usi
 /// This adds vertices that can be added without increasing the vertex separation:
 /// 1. Vertices whose all neighbors are already in vertices or neighbors (safe to add)
 /// 2. Neighbor vertices that would add exactly one new neighbor (maintains separation)
-fn greedy_exact(num_vertices: usize, edges: &[(usize, usize)], mut layout: Layout) -> Layout {
-    // Build adjacency list
-    let mut adj: Vec<HashSet<usize>> = vec![HashSet::new(); num_vertices];
-    for &(u, v) in edges {
-        adj[u].insert(v);
-        adj[v].insert(u);
-    }
-
+fn greedy_exact(adj: &AdjList, mut layout: Layout) -> Layout {
     let mut keep_going = true;
     while keep_going {
         keep_going = false;
@@ -246,7 +230,7 @@ fn greedy_exact(num_vertices: usize, edges: &[(usize, usize)], mut layout: Layou
                     .all(|&nb| vertices_set.contains(&nb) || neighbors_set.contains(&nb));
 
                 if all_neighbors_covered {
-                    layout = extend(num_vertices, edges, &layout, v);
+                    layout = extend(adj, &layout, v);
                     keep_going = true;
                 }
             }
@@ -263,7 +247,7 @@ fn greedy_exact(num_vertices: usize, edges: &[(usize, usize)], mut layout: Layou
                 .count();
 
             if new_neighbors_count == 1 {
-                layout = extend(num_vertices, edges, &layout, v);
+                layout = extend(adj, &layout, v);
                 keep_going = true;
             }
         }
@@ -275,15 +259,10 @@ fn greedy_exact(num_vertices: usize, edges: &[(usize, usize)], mut layout: Layou
 /// Perform one greedy step by choosing the best vertex from a list.
 ///
 /// Selects randomly among vertices that minimize the new vsep.
-fn greedy_step(
-    num_vertices: usize,
-    edges: &[(usize, usize)],
-    layout: &Layout,
-    list: &[usize],
-) -> Layout {
+fn greedy_step(adj: &AdjList, layout: &Layout, list: &[usize]) -> Layout {
     let layouts: Vec<Layout> = list
         .iter()
-        .map(|&v| extend(num_vertices, edges, layout, v))
+        .map(|&v| extend(adj, layout, v))
         .collect();
 
     let costs: Vec<usize> = layouts.iter().map(|l| l.vsep()).collect();
@@ -307,15 +286,16 @@ fn greedy_step(
 /// This combines exact rules (that don't increase pathwidth) with
 /// greedy choices when exact rules don't apply.
 pub fn greedy_decompose(num_vertices: usize, edges: &[(usize, usize)]) -> Layout {
+    let adj = build_adj(num_vertices, edges);
     let mut layout = Layout::empty(num_vertices);
 
     loop {
-        layout = greedy_exact(num_vertices, edges, layout);
+        layout = greedy_exact(&adj, layout);
 
         if !layout.neighbors.is_empty() {
-            layout = greedy_step(num_vertices, edges, &layout, &layout.neighbors.clone());
+            layout = greedy_step(&adj, &layout, &layout.neighbors.clone());
         } else if !layout.disconnected.is_empty() {
-            layout = greedy_step(num_vertices, edges, &layout, &layout.disconnected.clone());
+            layout = greedy_step(&adj, &layout, &layout.disconnected.clone());
         } else {
             break;
         }
@@ -328,23 +308,24 @@ pub fn greedy_decompose(num_vertices: usize, edges: &[(usize, usize)]) -> Layout
 ///
 /// This finds the optimal (minimum) pathwidth decomposition.
 pub fn branch_and_bound(num_vertices: usize, edges: &[(usize, usize)]) -> Layout {
+    let adj = build_adj(num_vertices, edges);
     let initial = Layout::empty(num_vertices);
     let full_layout = Layout::new(num_vertices, edges, (0..num_vertices).collect());
     let mut visited: HashMap<Vec<usize>, bool> = HashMap::new();
 
-    branch_and_bound_internal(num_vertices, edges, initial, full_layout, &mut visited)
+    branch_and_bound_internal(&adj, num_vertices, initial, full_layout, &mut visited)
 }
 
 /// Internal branch and bound implementation.
 fn branch_and_bound_internal(
+    adj: &AdjList,
     num_vertices: usize,
-    edges: &[(usize, usize)],
     p: Layout,
     mut best: Layout,
     visited: &mut HashMap<Vec<usize>, bool>,
 ) -> Layout {
     if p.vsep() < best.vsep() && !visited.contains_key(&p.vertices) {
-        let p2 = greedy_exact(num_vertices, edges, p.clone());
+        let p2 = greedy_exact(adj, p.clone());
         let vsep_p2 = p2.vsep();
 
         // Check if P2 is complete
@@ -362,16 +343,16 @@ fn branch_and_bound_internal(
             // Sort by increasing vsep_updated
             let mut vsep_order: Vec<(usize, usize)> = remaining
                 .iter()
-                .map(|&v| (vsep_updated(num_vertices, edges, &p2, v), v))
+                .map(|&v| (vsep_updated(adj, &p2, v), v))
                 .collect();
             vsep_order.sort_by_key(|&(cost, _)| cost);
 
-            for (_, v) in vsep_order {
-                if vsep_updated(num_vertices, edges, &p2, v) < best.vsep() {
-                    let extended = extend(num_vertices, edges, &p2, v);
+            for (cost, v) in vsep_order {
+                if cost < best.vsep() {
+                    let extended = extend(adj, &p2, v);
                     let l3 = branch_and_bound_internal(
+                        adj,
                         num_vertices,
-                        edges,
                         extended,
                         best.clone(),
                         visited,

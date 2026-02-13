@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -66,7 +66,7 @@ fn test_brute_force_factor_6() {
     let problem = Factoring::new(2, 2, 6);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Should find 2*3 and 3*2
     assert!(!solutions.is_empty());
     for sol in &solutions {
@@ -80,7 +80,7 @@ fn test_brute_force_factor_15() {
     let problem = Factoring::new(3, 3, 15);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Should find 3*5, 5*3, 1*15, 15*1
     for sol in &solutions {
         let (a, b) = problem.read_factors(sol);
@@ -94,7 +94,7 @@ fn test_brute_force_prime() {
     let problem = Factoring::new(3, 3, 7);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     let factor_pairs: Vec<_> = solutions.iter().map(|s| problem.read_factors(s)).collect();
 
     // Should find at least one of (1,7) or (7,1)
@@ -128,7 +128,7 @@ fn test_factor_one() {
     let problem = Factoring::new(2, 2, 1);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     for sol in &solutions {
         let (a, b) = problem.read_factors(sol);
         assert_eq!(a * b, 1);

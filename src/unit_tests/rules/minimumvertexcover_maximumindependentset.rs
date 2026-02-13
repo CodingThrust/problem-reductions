@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 
 #[test]
 fn test_is_to_vc_reduction() {
@@ -11,7 +11,7 @@ fn test_is_to_vc_reduction() {
 
     // Solve the VC problem
     let solver = BruteForce::new();
-    let vc_solutions = solver.find_best(vc_problem);
+    let vc_solutions = solver.find_all_best(vc_problem);
 
     // Extract back to IS solutions
     let is_solutions: Vec<_> = vc_solutions
@@ -34,7 +34,7 @@ fn test_vc_to_is_reduction() {
     let is_problem = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let is_solutions = solver.find_best(is_problem);
+    let is_solutions = solver.find_all_best(is_problem);
 
     let vc_solutions: Vec<_> = is_solutions
         .iter()
@@ -52,7 +52,7 @@ fn test_vc_to_is_reduction() {
 fn test_roundtrip_is_vc_is() {
     let original = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let solver = BruteForce::new();
-    let original_solutions = solver.find_best(&original);
+    let original_solutions = solver.find_all_best(&original);
 
     // IS -> VC -> IS
     let reduction1 = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&original);
@@ -60,7 +60,7 @@ fn test_roundtrip_is_vc_is() {
     let reduction2 = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&vc);
     let roundtrip = reduction2.target_problem();
 
-    let roundtrip_solutions = solver.find_best(roundtrip);
+    let roundtrip_solutions = solver.find_all_best(roundtrip);
 
     // Solutions should have same objective value
     let orig_size: usize = original_solutions[0].iter().sum();

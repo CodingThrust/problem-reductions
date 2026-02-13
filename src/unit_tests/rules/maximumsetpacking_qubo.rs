@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -12,7 +12,7 @@ fn test_setpacking_to_qubo_closed_loop() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_all_best(qubo);
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
@@ -29,7 +29,7 @@ fn test_setpacking_to_qubo_disjoint() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_all_best(qubo);
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
@@ -47,7 +47,7 @@ fn test_setpacking_to_qubo_all_overlap() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_all_best(qubo);
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);

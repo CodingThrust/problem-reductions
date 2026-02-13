@@ -39,7 +39,7 @@ inventory::submit! {
 /// let problem = PaintShop::new(vec!["a", "b", "a", "c", "c", "b"]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_best(&problem);
 ///
 /// // The minimum number of color switches
 /// for sol in &solutions {

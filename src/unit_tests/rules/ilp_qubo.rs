@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense};
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -21,7 +21,7 @@ fn test_ilp_to_qubo_closed_loop() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_all_best(qubo);
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
@@ -49,7 +49,7 @@ fn test_ilp_to_qubo_minimize() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_all_best(qubo);
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
@@ -79,7 +79,7 @@ fn test_ilp_to_qubo_equality() {
     let qubo = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_all_best(qubo);
 
     // Should have exactly 3 optimal solutions (C(3,2))
     assert_eq!(qubo_solutions.len(), 3);
@@ -113,7 +113,7 @@ fn test_ilp_to_qubo_ge_with_slack() {
     assert_eq!(qubo.num_variables(), 5);
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_all_best(qubo);
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
@@ -147,7 +147,7 @@ fn test_ilp_to_qubo_le_with_slack() {
     assert_eq!(qubo.num_variables(), 5);
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_all_best(qubo);
 
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
