@@ -5,7 +5,7 @@ use crate::traits::Problem;
 #[test]
 fn test_kcoloring_to_qubo_closed_loop() {
     // Triangle K3, 3 colors → exactly 6 valid colorings (3! permutations)
-    let kc = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let kc = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&kc);
     let qubo = reduction.target_problem();
 
@@ -25,7 +25,7 @@ fn test_kcoloring_to_qubo_closed_loop() {
 #[test]
 fn test_kcoloring_to_qubo_path() {
     // Path graph: 0-1-2, 2 colors
-    let kc = KColoring::<2, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+    let kc = KColoring::<2, SimpleGraph>::new(3, vec![(0, 1), (1, 2)]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&kc);
     let qubo = reduction.target_problem();
 
@@ -45,7 +45,7 @@ fn test_kcoloring_to_qubo_path() {
 fn test_kcoloring_to_qubo_reversed_edges() {
     // Edge (2, 0) triggers the idx_v < idx_u swap branch (line 104).
     // Path: 2-0-1 with reversed edge ordering
-    let kc = KColoring::<2, SimpleGraph, i32>::new(3, vec![(2, 0), (0, 1)]);
+    let kc = KColoring::<2, SimpleGraph>::new(3, vec![(2, 0), (0, 1)]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&kc);
     let qubo = reduction.target_problem();
 
@@ -63,7 +63,7 @@ fn test_kcoloring_to_qubo_reversed_edges() {
 
 #[test]
 fn test_kcoloring_to_qubo_sizes() {
-    let kc = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let kc = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&kc);
 
     // QUBO should have n*K = 3*3 = 9 variables

@@ -121,7 +121,7 @@ fn test_circuit_sat_creation() {
         vec!["c".to_string()],
         BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     assert_eq!(problem.num_variables(), 3); // c, x, y
     assert_eq!(problem.dims(), vec![2, 2, 2]); // binary variables
 }
@@ -133,7 +133,7 @@ fn test_circuit_sat_evaluate() {
         vec!["c".to_string()],
         BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
 
     // Variables sorted: c, x, y
     // c=1, x=1, y=1 -> c = 1 AND 1 = 1, valid
@@ -153,7 +153,7 @@ fn test_circuit_sat_brute_force() {
         vec!["c".to_string()],
         BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_satisfying(&problem);
@@ -179,7 +179,7 @@ fn test_circuit_sat_complex() {
             BooleanExpr::or(vec![BooleanExpr::var("c"), BooleanExpr::var("z")]),
         ),
     ]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_satisfying(&problem);
@@ -209,7 +209,7 @@ fn test_is_circuit_satisfying() {
 #[test]
 fn test_empty_circuit() {
     let circuit = Circuit::new(vec![]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     // Empty circuit is trivially satisfied
     assert!(problem.evaluate(&[]));
 }
@@ -223,7 +223,7 @@ fn test_circuit_sat_problem() {
         vec!["c".to_string()],
         BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
     )]);
-    let p = CircuitSAT::<i32>::new(circuit);
+    let p = CircuitSAT::new(circuit);
 
     // Variables sorted: c, x, y
     assert_eq!(p.dims(), vec![2, 2, 2]);

@@ -13,7 +13,7 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use num_traits::{Bounded, Num, Zero};
+use num_traits::Zero;
 use std::collections::HashMap;
 use std::ops::AddAssign;
 
@@ -179,21 +179,18 @@ where
 
 /// Result of reducing CircuitSAT to SpinGlass.
 #[derive(Debug, Clone)]
-pub struct ReductionCircuitToSG<W> {
+pub struct ReductionCircuitToSG {
     /// The target SpinGlass problem.
-    target: SpinGlass<SimpleGraph, W>,
+    target: SpinGlass<SimpleGraph, i32>,
     /// Mapping from source variable names to spin indices.
     variable_map: HashMap<String, usize>,
     /// Source variable names in order.
     source_variables: Vec<String>,
 }
 
-impl<W> ReductionResult for ReductionCircuitToSG<W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Source = CircuitSAT<W>;
-    type Target = SpinGlass<SimpleGraph, W>;
+impl ReductionResult for ReductionCircuitToSG {
+    type Source = CircuitSAT;
+    type Target = SpinGlass<SimpleGraph, i32>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -422,14 +419,11 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<SpinGlass<SimpleGraph, W>> for CircuitSAT<W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionCircuitToSG<W>;
+impl ReduceTo<SpinGlass<SimpleGraph, i32>> for CircuitSAT {
+    type Result = ReductionCircuitToSG;
 
     fn reduce_to(&self) -> Self::Result {
-        let mut builder = SpinGlassBuilder::new();
+        let mut builder: SpinGlassBuilder<i32> = SpinGlassBuilder::new();
 
         // Process each assignment in the circuit
         for assignment in &self.circuit().assignments {

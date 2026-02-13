@@ -22,7 +22,7 @@ fn test_read_bit() {
 fn test_reduction_structure() {
     // Factor 6 = 2 * 3 with 2-bit factors
     let factoring = Factoring::new(2, 2, 6);
-    let reduction = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
 
     assert_eq!(reduction.p_vars().len(), 2);
     assert_eq!(reduction.q_vars().len(), 2);
@@ -33,7 +33,7 @@ fn test_reduction_structure() {
 fn test_reduction_structure_3x3() {
     // Factor 15 = 3 * 5 with 3-bit factors
     let factoring = Factoring::new(3, 3, 15);
-    let reduction = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
 
     assert_eq!(reduction.p_vars().len(), 3);
     assert_eq!(reduction.q_vars().len(), 3);
@@ -99,7 +99,7 @@ fn check_factorization_satisfies(
 #[test]
 fn test_factorization_6_satisfies_circuit() {
     let factoring = Factoring::new(2, 2, 6);
-    let reduction = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
 
     // 2 * 3 = 6 should satisfy the circuit
     assert!(
@@ -129,7 +129,7 @@ fn test_factorization_6_satisfies_circuit() {
 #[test]
 fn test_factorization_15_satisfies_circuit() {
     let factoring = Factoring::new(4, 4, 15);
-    let reduction = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
 
     // Valid factorizations of 15
     assert!(
@@ -159,7 +159,7 @@ fn test_factorization_15_satisfies_circuit() {
 #[test]
 fn test_factorization_21_satisfies_circuit() {
     let factoring = Factoring::new(3, 3, 21);
-    let reduction = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
 
     // 3 * 7 = 21
     assert!(
@@ -181,7 +181,7 @@ fn test_factorization_21_satisfies_circuit() {
 #[test]
 fn test_target_problem_structure() {
     let factoring = Factoring::new(3, 4, 15);
-    let reduction = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
     let circuit = reduction.target_problem();
 
     // Verify the circuit has variables and assignments
@@ -192,7 +192,7 @@ fn test_target_problem_structure() {
 #[test]
 fn test_extract_solution() {
     let factoring = Factoring::new(2, 2, 6);
-    let reduction = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
     let circuit_sat = reduction.target_problem();
 
     // Create a solution where p=2 (binary: 01) and q=3 (binary: 11)
@@ -224,7 +224,7 @@ fn test_extract_solution() {
 #[test]
 fn test_prime_7_only_trivial_factorizations() {
     let factoring = Factoring::new(3, 3, 7);
-    let reduction = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
 
     // Check that only trivial factorizations satisfy
     for p in 0..8u64 {
@@ -257,7 +257,7 @@ fn test_prime_7_only_trivial_factorizations() {
 fn test_all_2bit_factorizations() {
     // Test all possible 2-bit * 2-bit multiplications for target 6
     let factoring = Factoring::new(2, 2, 6);
-    let reduction = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
 
     let mut valid_factorizations = Vec::new();
     for p in 0..4u64 {
@@ -282,7 +282,7 @@ fn test_all_2bit_factorizations() {
 fn test_factorization_1_trivial() {
     // Factor 1 = 1 * 1
     let factoring = Factoring::new(2, 2, 1);
-    let reduction = ReduceTo::<CircuitSAT<i32>>::reduce_to(&factoring);
+    let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
 
     assert!(
         check_factorization_satisfies(&factoring, &reduction, 1, 1),

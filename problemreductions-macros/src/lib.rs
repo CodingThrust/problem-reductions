@@ -195,8 +195,15 @@ fn extract_weight_type(ty: &Type) -> Option<Type> {
                         None
                     }
                     2 => {
-                        // Two params: Problem<G, W> - return second
-                        Some(type_args[1].clone())
+                        // Two params: Problem<G, W> - return second if it's a weight type
+                        let second = type_args[1];
+                        if let Type::Path(inner_path) = second {
+                            let name = inner_path.path.segments.last()?.ident.to_string();
+                            if is_weight_type(&name) {
+                                return Some(second.clone());
+                            }
+                        }
+                        None
                     }
                     _ => None,
                 }

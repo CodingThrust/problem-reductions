@@ -23,7 +23,7 @@ pub struct ReductionKColoringToQUBO<const K: usize> {
 }
 
 impl<const K: usize> ReductionResult for ReductionKColoringToQUBO<K> {
-    type Source = KColoring<K, SimpleGraph, i32>;
+    type Source = KColoring<K, SimpleGraph>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -45,7 +45,7 @@ impl<const K: usize> ReductionResult for ReductionKColoringToQUBO<K> {
 #[reduction(
     overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vertices * num_colors))]) }
 )]
-impl<const K: usize> ReduceTo<QUBO<f64>> for KColoring<K, SimpleGraph, i32> {
+impl<const K: usize> ReduceTo<QUBO<f64>> for KColoring<K, SimpleGraph> {
     type Result = ReductionKColoringToQUBO<K>;
 
     fn reduce_to(&self) -> Self::Result {

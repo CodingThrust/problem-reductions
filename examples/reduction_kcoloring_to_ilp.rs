@@ -24,7 +24,7 @@ use problemreductions::topology::SimpleGraph;
 pub fn run() {
     // 1. Create KColoring instance: Petersen graph (10 vertices, 15 edges) with 3 colors, χ=3
     let (num_vertices, edges) = petersen();
-    let coloring = KColoring::<3, SimpleGraph, i32>::new(num_vertices, edges.clone());
+    let coloring = KColoring::<3, SimpleGraph>::new(num_vertices, edges.clone());
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&coloring);
@@ -75,8 +75,8 @@ pub fn run() {
 
     let data = ReductionData {
         source: ProblemSide {
-            problem: KColoring::<3, SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(KColoring::<3, SimpleGraph, i32>::variant()),
+            problem: KColoring::<3, SimpleGraph>::NAME.to_string(),
+            variant: variant_to_map(KColoring::<3, SimpleGraph>::variant()),
             instance: serde_json::json!({
                 "num_vertices": coloring.num_vertices(),
                 "num_edges": coloring.num_edges(),

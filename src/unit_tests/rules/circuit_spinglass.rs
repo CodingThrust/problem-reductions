@@ -2,6 +2,7 @@ use super::*;
 use crate::models::specialized::Circuit;
 use crate::solvers::BruteForce;
 use crate::types::NumericSize;
+use num_traits::Num;
 
 /// Verify a gadget has the correct ground states.
 fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<usize>, Vec<usize>)])
@@ -144,7 +145,7 @@ fn test_simple_and_circuit() {
         vec!["c".to_string()],
         BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let reduction = problem.reduce_to();
     let sg = reduction.target_problem();
 
@@ -183,7 +184,7 @@ fn test_simple_or_circuit() {
         vec!["c".to_string()],
         BooleanExpr::or(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let reduction = problem.reduce_to();
     let sg = reduction.target_problem();
 
@@ -220,7 +221,7 @@ fn test_not_circuit() {
         vec!["c".to_string()],
         BooleanExpr::not(BooleanExpr::var("x")),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let reduction = problem.reduce_to();
     let sg = reduction.target_problem();
 
@@ -255,7 +256,7 @@ fn test_xor_circuit() {
         vec!["c".to_string()],
         BooleanExpr::xor(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let reduction = problem.reduce_to();
     let sg = reduction.target_problem();
 
@@ -292,7 +293,7 @@ fn test_constant_true() {
         vec!["c".to_string()],
         BooleanExpr::constant(true),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let reduction = problem.reduce_to();
     let sg = reduction.target_problem();
 
@@ -319,7 +320,7 @@ fn test_constant_false() {
         vec!["c".to_string()],
         BooleanExpr::constant(false),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let reduction = problem.reduce_to();
     let sg = reduction.target_problem();
 
@@ -350,7 +351,7 @@ fn test_multi_input_and() {
             BooleanExpr::var("z"),
         ]),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let reduction = problem.reduce_to();
     let sg = reduction.target_problem();
 
@@ -391,7 +392,7 @@ fn test_chained_circuit() {
             BooleanExpr::or(vec![BooleanExpr::var("c"), BooleanExpr::var("z")]),
         ),
     ]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let reduction = problem.reduce_to();
     let sg = reduction.target_problem();
 
@@ -439,7 +440,7 @@ fn test_nested_expression() {
             BooleanExpr::var("z"),
         ]),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let reduction = problem.reduce_to();
     let sg = reduction.target_problem();
 
@@ -482,7 +483,7 @@ fn test_reduction_result_methods() {
         vec!["c".to_string()],
         BooleanExpr::var("x"),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let reduction = problem.reduce_to();
 
     // Test target_problem and extract_solution work
@@ -493,7 +494,7 @@ fn test_reduction_result_methods() {
 #[test]
 fn test_empty_circuit() {
     let circuit = Circuit::new(vec![]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let reduction = problem.reduce_to();
     let sg = reduction.target_problem();
 
@@ -507,7 +508,7 @@ fn test_solution_extraction() {
         vec!["c".to_string()],
         BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
     )]);
-    let problem = CircuitSAT::<i32>::new(circuit);
+    let problem = CircuitSAT::new(circuit);
     let reduction = problem.reduce_to();
 
     // The source variables are c, x, y (sorted)

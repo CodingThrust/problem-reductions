@@ -52,7 +52,7 @@ pub fn run() {
             BooleanExpr::or(vec![BooleanExpr::var("ab"), BooleanExpr::var("cin_t")]),
         ),
     ]);
-    let circuit_sat = CircuitSAT::<i32>::new(circuit);
+    let circuit_sat = CircuitSAT::new(circuit);
 
     println!("=== Circuit-SAT to Spin Glass Reduction ===\n");
     println!("Source circuit: 1-bit full adder (a, b, cin -> sum, cout)");
@@ -136,8 +136,8 @@ pub fn run() {
 
     let data = ReductionData {
         source: ProblemSide {
-            problem: CircuitSAT::<i32>::NAME.to_string(),
-            variant: variant_to_map(CircuitSAT::<i32>::variant()),
+            problem: CircuitSAT::NAME.to_string(),
+            variant: variant_to_map(CircuitSAT::variant()),
             instance: serde_json::json!({
                 "num_gates": circuit_sat.circuit().num_assignments(),
                 "num_variables": circuit_sat.num_variables(),

@@ -15,7 +15,6 @@ inventory::submit! {
         fields: &[
             FieldInfo { name: "circuit", type_name: "Circuit", description: "The boolean circuit" },
             FieldInfo { name: "variables", type_name: "Vec<String>", description: "Circuit variable names" },
-            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Assignment weights" },
         ],
     }
 }
@@ -190,7 +189,7 @@ impl Circuit {
 /// The Circuit SAT problem.
 ///
 /// Given a boolean circuit, find variable assignments that satisfy
-/// as many assignments as possible (or all of them).
+/// all circuit constraints.
 ///
 /// # Example
 ///
@@ -206,7 +205,7 @@ impl Circuit {
 ///     ),
 /// ]);
 ///
-/// let problem = CircuitSAT::<i32>::new(circuit);
+/// let problem = CircuitSAT::new(circuit);
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_satisfying(&problem);
 ///
@@ -214,38 +213,18 @@ impl Circuit {
 /// assert!(!solutions.is_empty());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CircuitSAT<W = i32> {
+pub struct CircuitSAT {
     /// The circuit.
     circuit: Circuit,
     /// Variables in order.
     variables: Vec<String>,
-    /// Weights for each assignment.
-    weights: Vec<W>,
 }
 
-impl<W: Clone + Default + From<i32>> CircuitSAT<W> {
-    /// Create a new CircuitSAT problem with unit weights.
+impl CircuitSAT {
+    /// Create a new CircuitSAT problem.
     pub fn new(circuit: Circuit) -> Self {
         let variables = circuit.variables();
-        let weights = vec![W::from(1); circuit.num_assignments()];
-        Self {
-            circuit,
-            variables,
-            weights,
-        }
-    }
-}
-
-impl<W> CircuitSAT<W> {
-    /// Create a CircuitSAT problem with custom weights.
-    pub fn with_weights(circuit: Circuit, weights: Vec<W>) -> Self {
-        assert_eq!(weights.len(), circuit.num_assignments());
-        let variables = circuit.variables();
-        Self {
-            circuit,
-            variables,
-            weights,
-        }
+        Self { circuit, variables }
     }
 
     /// Get the circuit.
@@ -286,10 +265,7 @@ pub fn is_circuit_satisfying(circuit: &Circuit, assignments: &HashMap<String, bo
         .all(|a| a.is_satisfied(assignments))
 }
 
-impl<W> Problem for CircuitSAT<W>
-where
-    W: Clone + Default + 'static,
-{
+impl Problem for CircuitSAT {
     const NAME: &'static str = "CircuitSAT";
     type Metric = bool;
 
@@ -302,10 +278,7 @@ where
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", crate::variant::short_type_name::<W>()),
-        ]
+        vec![("graph", "SimpleGraph")]
     }
 }
 

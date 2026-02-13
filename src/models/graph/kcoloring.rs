@@ -7,7 +7,6 @@ use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use serde::{Deserialize, Serialize};
-use std::marker::PhantomData;
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -28,7 +27,6 @@ inventory::submit! {
 ///
 /// * `K` - Number of colors (const generic)
 /// * `G` - Graph type (e.g., SimpleGraph, GridGraph)
-/// * `W` - Weight type (typically i32 for unweighted problems)
 ///
 /// # Example
 ///
@@ -38,7 +36,7 @@ inventory::submit! {
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Triangle graph needs at least 3 colors
-/// let problem = KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+/// let problem = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_satisfying(&problem);
@@ -49,15 +47,12 @@ inventory::submit! {
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KColoring<const K: usize, G, W> {
+pub struct KColoring<const K: usize, G> {
     /// The underlying graph.
     graph: G,
-    /// Phantom data for weight type.
-    #[serde(skip)]
-    _phantom: PhantomData<W>,
 }
 
-impl<const K: usize, W: Clone + Default> KColoring<K, SimpleGraph, W> {
+impl<const K: usize> KColoring<K, SimpleGraph> {
     /// Create a new K-Coloring problem.
     ///
     /// # Arguments
@@ -65,20 +60,14 @@ impl<const K: usize, W: Clone + Default> KColoring<K, SimpleGraph, W> {
     /// * `edges` - List of edges as (u, v) pairs
     pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self {
         let graph = SimpleGraph::new(num_vertices, edges);
-        Self {
-            graph,
-            _phantom: PhantomData,
-        }
+        Self { graph }
     }
 }
 
-impl<const K: usize, G: Graph, W: Clone + Default> KColoring<K, G, W> {
+impl<const K: usize, G: Graph> KColoring<K, G> {
     /// Create a K-Coloring problem from an existing graph.
     pub fn from_graph(graph: G) -> Self {
-        Self {
-            graph,
-            _phantom: PhantomData,
-        }
+        Self { graph }
     }
 
     /// Get a reference to the underlying graph.
@@ -119,10 +108,9 @@ impl<const K: usize, G: Graph, W: Clone + Default> KColoring<K, G, W> {
     }
 }
 
-impl<const K: usize, G, W> Problem for KColoring<K, G, W>
+impl<const K: usize, G> Problem for KColoring<K, G>
 where
     G: Graph,
-    W: Clone + Default + 'static,
 {
     const NAME: &'static str = "KColoring";
     type Metric = bool;
@@ -131,7 +119,6 @@ where
         vec![
             ("k", crate::variant::const_usize_str::<K>()),
             ("graph", crate::variant::short_type_name::<G>()),
-            ("weight", crate::variant::short_type_name::<W>()),
         ]
     }
 

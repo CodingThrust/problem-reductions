@@ -355,7 +355,7 @@ impl ReductionGraph {
             MaxCut<SimpleGraph, f64> => "MaxCut",
             MaximumMatching<SimpleGraph, i32> => "MaximumMatching",
             MinimumDominatingSet<SimpleGraph, i32> => "MinimumDominatingSet",
-            KColoring<3, SimpleGraph, i32> => "KColoring",
+            KColoring<3, SimpleGraph> => "KColoring",
             // Set problems
             MaximumSetPacking<i32> => "MaximumSetPacking",
             MinimumSetCovering<i32> => "MinimumSetCovering",
@@ -367,7 +367,7 @@ impl ReductionGraph {
             // Satisfiability problems
             Satisfiability => "Satisfiability",
             KSatisfiability<3> => "KSatisfiability",
-            CircuitSAT<i32> => "CircuitSAT",
+            CircuitSAT => "CircuitSAT",
             // Specialized
             Factoring => "Factoring",
         }

@@ -38,7 +38,7 @@ pub fn run() {
 
     // House graph: 5 vertices, 6 edges (square base + triangle roof), χ=3
     let (num_vertices, edges) = house();
-    let kc = KColoring::<3, SimpleGraph, i32>::new(num_vertices, edges.clone());
+    let kc = KColoring::<3, SimpleGraph>::new(num_vertices, edges.clone());
 
     // Reduce to QUBO
     let reduction = ReduceTo::<QUBO>::reduce_to(&kc);
@@ -93,8 +93,8 @@ pub fn run() {
 
     let data = ReductionData {
         source: ProblemSide {
-            problem: KColoring::<3, SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(KColoring::<3, SimpleGraph, i32>::variant()),
+            problem: KColoring::<3, SimpleGraph>::NAME.to_string(),
+            variant: variant_to_map(KColoring::<3, SimpleGraph>::variant()),
             instance: serde_json::json!({
                 "num_vertices": kc.num_vertices(),
                 "num_edges": kc.num_edges(),

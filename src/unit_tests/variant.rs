@@ -74,12 +74,11 @@ fn test_variant_for_problems() {
 
     // Note: f64 variants removed because SolutionSize now requires Ord
 
-    // Test KColoring (has K, graph, and weight parameters)
-    let v = KColoring::<3, SimpleGraph, i32>::variant();
-    assert_eq!(v.len(), 3);
+    // Test KColoring (has K and graph parameters)
+    let v = KColoring::<3, SimpleGraph>::variant();
+    assert_eq!(v.len(), 2);
     assert_eq!(v[0], ("k", "3"));
     assert_eq!(v[1], ("graph", "SimpleGraph"));
-    assert_eq!(v[2], ("weight", "i32"));
 
     // Test MaximalIS
     let v = MaximalIS::<SimpleGraph, i32>::variant();
@@ -121,8 +120,8 @@ fn test_variant_for_problems() {
     assert_eq!(v[1].1, "f64");
 
     // Test CircuitSAT
-    let v = CircuitSAT::<i32>::variant();
-    assert_eq!(v.len(), 2);
+    let v = CircuitSAT::variant();
+    assert_eq!(v.len(), 1);
 
     // Test Factoring (no type parameters)
     let v = Factoring::variant();

@@ -37,7 +37,7 @@ fn test_all_problems_implement_trait_correctly() {
         "MaxCut",
     );
     check_problem_trait(
-        &KColoring::<3, SimpleGraph, i32>::new(3, vec![(0, 1)]),
+        &KColoring::<3, SimpleGraph>::new(3, vec![(0, 1)]),
         "KColoring",
     );
     check_problem_trait(
@@ -78,7 +78,7 @@ fn test_all_problems_implement_trait_correctly() {
         vec!["x".to_string()],
         BooleanExpr::constant(true),
     )]);
-    check_problem_trait(&CircuitSAT::<i32>::new(circuit), "CircuitSAT");
+    check_problem_trait(&CircuitSAT::new(circuit), "CircuitSAT");
 }
 
 #[test]
@@ -111,7 +111,10 @@ fn test_direction() {
         SpinGlass::new(1, vec![], vec![0.0]).direction(),
         Direction::Minimize
     );
-    assert_eq!(BMF::new(vec![vec![true]], 1).direction(), Direction::Minimize);
+    assert_eq!(
+        BMF::new(vec![vec![true]], 1).direction(),
+        Direction::Minimize
+    );
     assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
     assert_eq!(
         BicliqueCover::new(2, 2, vec![(0, 2)], 1).direction(),

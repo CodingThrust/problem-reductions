@@ -16,15 +16,6 @@
       "doc_path": "models/specialized/struct.CircuitSAT.html"
     },
     {
-      "name": "CircuitSAT",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "i32"
-      },
-      "category": "satisfiability",
-      "doc_path": "models/specialized/struct.CircuitSAT.html"
-    },
-    {
       "name": "Factoring",
       "variant": {},
       "category": "specialized",
@@ -64,8 +55,7 @@
       "name": "KColoring",
       "variant": {
         "graph": "SimpleGraph",
-        "k": "N",
-        "weight": "i32"
+        "k": "N"
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html"
@@ -75,15 +65,6 @@
       "variant": {
         "graph": "SimpleGraph",
         "weight": "Unweighted"
-      },
-      "category": "graph",
-      "doc_path": "models/graph/struct.KColoring.html"
-    },
-    {
-      "name": "KColoring",
-      "variant": {
-        "graph": "SimpleGraph",
-        "weight": "i32"
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html"
@@ -324,6 +305,15 @@
       },
       "category": "optimization",
       "doc_path": "models/optimization/struct.SpinGlass.html"
+    },
+    {
+      "name": "SpinGlass",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "optimization",
+      "doc_path": "models/optimization/struct.SpinGlass.html"
     }
   ],
   "edges": [
@@ -336,33 +326,10 @@
         }
       },
       "target": {
-        "name": "CircuitSAT",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "i32"
-        }
-      },
-      "overhead": [
-        {
-          "field": "num_gates",
-          "formula": "num_gates"
-        }
-      ],
-      "doc_path": ""
-    },
-    {
-      "source": {
-        "name": "CircuitSAT",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "target": {
         "name": "SpinGlass",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "i32"
         }
       },
       "overhead": [
@@ -389,7 +356,7 @@
         "name": "CircuitSAT",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "i32"
+          "weight": "Unweighted"
         }
       },
       "overhead": [
@@ -455,8 +422,7 @@
         "name": "KColoring",
         "variant": {
           "graph": "SimpleGraph",
-          "k": "N",
-          "weight": "i32"
+          "k": "N"
         }
       },
       "target": {
@@ -477,33 +443,6 @@
         }
       ],
       "doc_path": "rules/coloring_ilp/index.html"
-    },
-    {
-      "source": {
-        "name": "KColoring",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
-        }
-      },
-      "target": {
-        "name": "KColoring",
-        "variant": {
-          "graph": "SimpleGraph",
-          "weight": "i32"
-        }
-      },
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_colors",
-          "formula": "num_colors"
-        }
-      ],
-      "doc_path": ""
     },
     {
       "source": {
@@ -1114,7 +1053,7 @@
         "name": "KColoring",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "i32"
+          "weight": "Unweighted"
         }
       },
       "overhead": [
@@ -1296,6 +1235,33 @@
         "name": "SpinGlass",
         "variant": {
           "graph": "SimpleGraph",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_spins",
+          "formula": "num_spins"
+        },
+        {
+          "field": "num_interactions",
+          "formula": "num_interactions"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
           "weight": "f64"
         }
       },
@@ -1313,6 +1279,33 @@
         }
       ],
       "doc_path": "rules/spinglass_qubo/index.html"
+    },
+    {
+      "source": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "i32"
+        }
+      },
+      "target": {
+        "name": "SpinGlass",
+        "variant": {
+          "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_spins",
+          "formula": "num_spins"
+        },
+        {
+          "field": "num_interactions",
+          "formula": "num_interactions"
+        }
+      ],
+      "doc_path": ""
     }
   ]
 }

@@ -56,7 +56,7 @@ Problem (core trait — all problems must implement)
 ├── type Metric: Clone                 // SolutionSize<W> for optimization, bool for satisfaction
 ├── fn dims(&self) -> Vec<usize>       // config space: [2, 2, 2] for 3 binary variables
 ├── fn evaluate(&self, config) -> Metric
-├── fn variant() -> Vec<(&str, &str)>  // [("graph","SimpleGraph"), ("weight","i32")]
+├── fn variant() -> Vec<(&str, &str)>  // e.g., [("graph","SimpleGraph"), ("weight","i32")]
 └── fn num_variables(&self) -> usize   // default: dims().len()
 
 OptimizationProblem : Problem<Metric = SolutionSize<Self::Value>> (extension for optimization)
@@ -74,7 +74,7 @@ enum Direction { Maximize, Minimize }
 ```
 
 ### Key Patterns
-- Problems parameterized by weight type `W` and graph type `G`
+- Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
 - `ReductionResult` provides `target_problem()` and `extract_solution()`
 - `Solver::find_best()` → `Option<Vec<usize>>` for optimization problems; `Solver::find_satisfying()` → `Option<Vec<usize>>` for `Metric = bool`
 - `BruteForce::find_all_best()` / `find_all_satisfying()` return `Vec<Vec<usize>>` for all optimal/satisfying solutions
