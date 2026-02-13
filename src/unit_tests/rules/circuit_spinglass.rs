@@ -1,14 +1,13 @@
 use super::*;
 use crate::models::specialized::Circuit;
 use crate::solvers::BruteForce;
-use crate::types::NumericSize;
+use crate::types::{NumericSize, WeightElement};
 use num_traits::Num;
 
 /// Verify a gadget has the correct ground states.
 fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<usize>, Vec<usize>)])
 where
-    W: Clone
-        + Default
+    W: WeightElement
         + PartialOrd
         + Num
         + Zero

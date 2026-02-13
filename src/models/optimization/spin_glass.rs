@@ -5,7 +5,7 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::types::{Direction, SolutionSize, WeightElement};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -198,27 +198,25 @@ where
 impl<G, W> Problem for SpinGlass<G, W>
 where
     G: Graph,
-    W: Clone
-        + Default
+    W: WeightElement
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
         + num_traits::Bounded
         + std::ops::AddAssign
         + std::ops::Mul<Output = W>
-        + From<i32>
-        + 'static,
+        + From<i32>,
 {
     const NAME: &'static str = "SpinGlass";
-    type Metric = SolutionSize<W>;
+    type Metric = SolutionSize<W::Sum>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
         let spins = Self::config_to_spins(config);
-        SolutionSize::Valid(self.compute_energy(&spins))
+        SolutionSize::Valid(self.compute_energy(&spins).to_sum())
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -232,18 +230,16 @@ where
 impl<G, W> OptimizationProblem for SpinGlass<G, W>
 where
     G: Graph,
-    W: Clone
-        + Default
+    W: WeightElement
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
         + num_traits::Bounded
         + std::ops::AddAssign
         + std::ops::Mul<Output = W>
-        + From<i32>
-        + 'static,
+        + From<i32>,
 {
-    type Value = W;
+    type Value = W::Sum;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

@@ -4,7 +4,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::types::{Direction, SolutionSize, WeightElement};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -145,25 +145,23 @@ where
 
 impl<W> Problem for QUBO<W>
 where
-    W: Clone
-        + Default
+    W: WeightElement
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
         + num_traits::Bounded
         + std::ops::AddAssign
-        + std::ops::Mul<Output = W>
-        + 'static,
+        + std::ops::Mul<Output = W>,
 {
     const NAME: &'static str = "QUBO";
-    type Metric = SolutionSize<W>;
+    type Metric = SolutionSize<W::Sum>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.num_vars]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
-        SolutionSize::Valid(self.evaluate(config))
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+        SolutionSize::Valid(self.evaluate(config).to_sum())
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -173,17 +171,15 @@ where
 
 impl<W> OptimizationProblem for QUBO<W>
 where
-    W: Clone
-        + Default
+    W: WeightElement
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
         + num_traits::Bounded
         + std::ops::AddAssign
-        + std::ops::Mul<Output = W>
-        + 'static,
+        + std::ops::Mul<Output = W>,
 {
-    type Value = W;
+    type Value = W::Sum;
 
     fn direction(&self) -> Direction {
         Direction::Minimize
