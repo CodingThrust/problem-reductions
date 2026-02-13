@@ -37,7 +37,7 @@ pub fn run() {
     println!("Target: MaxCut with {} variables", maxcut.num_variables());
 
     let solver = BruteForce::new();
-    let maxcut_solutions = solver.find_best(maxcut);
+    let maxcut_solutions = solver.find_all_best(maxcut);
     println!("\n=== Solution ===");
     println!("Target solutions found: {}", maxcut_solutions.len());
 

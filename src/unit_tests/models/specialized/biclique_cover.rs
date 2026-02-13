@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -78,7 +78,7 @@ fn test_brute_force_simple() {
     let problem = BicliqueCover::new(2, 2, vec![(0, 2)], 1);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     for sol in &solutions {
         assert!(problem.is_valid_cover(sol));
         // Minimum size is 2 (one left, one right vertex)
@@ -93,7 +93,7 @@ fn test_brute_force_two_bicliques() {
     let problem = BicliqueCover::new(2, 2, vec![(0, 2), (1, 3)], 2);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     for sol in &solutions {
         assert!(problem.is_valid_cover(sol));
     }

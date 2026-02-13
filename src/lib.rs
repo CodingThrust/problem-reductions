@@ -25,10 +25,10 @@
 //!
 //! // Solve with brute force
 //! let solver = BruteForce::new();
-//! let solutions = solver.find_best(&problem);
+//! let solution = solver.find_best(&problem).unwrap();
 //!
 //! // Maximum independent set in a triangle has size 1
-//! assert!(solutions.iter().all(|s| s.iter().sum::<usize>() == 1));
+//! assert_eq!(solution.iter().sum::<usize>(), 1);
 //! ```
 //!
 //! ## Problem Categories

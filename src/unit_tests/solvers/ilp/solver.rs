@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::optimization::{LinearConstraint, VarBounds};
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
@@ -69,7 +69,7 @@ fn test_ilp_solver_matches_brute_force() {
     let bf = BruteForce::new();
     let ilp_solver = ILPSolver::new();
 
-    let bf_solutions = bf.find_best(&ilp);
+    let bf_solutions = bf.find_all_best(&ilp);
     let ilp_solution = ilp_solver.solve(&ilp).unwrap();
 
     // Both should find optimal value (2)
@@ -198,7 +198,7 @@ fn test_ilp_multiple_constraints() {
 
     // Check against brute force
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_best(&ilp);
+    let bf_solutions = bf.find_all_best(&ilp);
     let bf_size = ilp.evaluate(&bf_solutions[0]).unwrap();
 
     assert!(

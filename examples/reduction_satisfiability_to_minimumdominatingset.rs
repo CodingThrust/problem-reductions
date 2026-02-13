@@ -62,7 +62,7 @@ pub fn run() {
 
     // 3. Solve the target DS problem
     let solver = BruteForce::new();
-    let ds_solutions = solver.find_best(ds);
+    let ds_solutions = solver.find_all_best(ds);
     println!("\n=== Solution ===");
     println!("Target DS solutions found: {}", ds_solutions.len());
 

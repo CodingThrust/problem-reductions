@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::satisfiability::CNFClause;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 
 #[test]
 fn test_simple_sat_to_ds() {
@@ -51,7 +51,7 @@ fn test_satisfiable_formula() {
 
     // Solve the dominating set problem
     let solver = BruteForce::new();
-    let solutions = solver.find_best(ds_problem);
+    let solutions = solver.find_all_best(ds_problem);
 
     // Minimum dominating set should be of size 2 (one per variable)
     let min_size = solutions[0].iter().sum::<usize>();
@@ -82,7 +82,7 @@ fn test_unsatisfiable_formula() {
     assert_eq!(ds_problem.num_vertices(), 5);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(ds_problem);
+    let solutions = solver.find_all_best(ds_problem);
 
     // For unsatisfiable formula, the minimum dominating set will need
     // more than num_variables vertices OR won't produce a valid assignment
@@ -127,7 +127,7 @@ fn test_three_sat_example() {
     assert_eq!(ds_problem.num_vertices(), 12);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(ds_problem);
+    let solutions = solver.find_all_best(ds_problem);
 
     // Minimum should be 3 (one per variable)
     let min_size = solutions[0].iter().sum::<usize>();
@@ -246,7 +246,7 @@ fn test_sat_ds_solution_correspondence() {
     // Solve via reduction (DS is an optimization problem, so use find_best)
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
     let ds_problem = reduction.target_problem();
-    let ds_solutions = sat_solver.find_best(ds_problem);
+    let ds_solutions = sat_solver.find_all_best(ds_problem);
 
     // Direct SAT solutions should all be valid (they're from find_all_satisfying, so they all satisfy)
     assert!(!direct_sat_solutions.is_empty());

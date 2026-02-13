@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -367,7 +367,7 @@ fn test_ilp_brute_force_maximization() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(&ilp);
+    let solutions = solver.find_all_best(&ilp);
 
     // Optimal: x1=1, x0=0 => objective = 2
     assert_eq!(solutions.len(), 1);
@@ -385,7 +385,7 @@ fn test_ilp_brute_force_minimization() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(&ilp);
+    let solutions = solver.find_all_best(&ilp);
 
     // Optimal: x0=1,x1=0 or x0=0,x1=1 => objective = 1
     assert_eq!(solutions.len(), 2);
@@ -408,7 +408,7 @@ fn test_ilp_brute_force_no_feasible() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(&ilp);
+    let solutions = solver.find_all_best(&ilp);
 
     // All solutions are infeasible - BruteForce should return empty list
     assert!(solutions.is_empty(), "Expected no solutions for infeasible ILP");
@@ -432,7 +432,7 @@ fn test_ilp_unconstrained() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(&ilp);
+    let solutions = solver.find_all_best(&ilp);
 
     // Optimal: both = 1
     assert_eq!(solutions.len(), 1);
@@ -450,7 +450,7 @@ fn test_ilp_equality_constraint() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(&ilp);
+    let solutions = solver.find_all_best(&ilp);
 
     // Optimal: x0=0, x1=1 => objective = 0
     assert_eq!(solutions.len(), 1);
@@ -474,7 +474,7 @@ fn test_ilp_multiple_constraints() {
     );
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(&ilp);
+    let solutions = solver.find_all_best(&ilp);
 
     // Optimal: x0=1, x1=0, x2=1 => objective = 2
     assert_eq!(solutions.len(), 1);

@@ -41,7 +41,7 @@ pub fn run() {
 
     // 4. Solve target
     let solver = BruteForce::new();
-    let vc_solutions = solver.find_best(vc);
+    let vc_solutions = solver.find_all_best(vc);
     println!("\n=== Solution ===");
     println!("Target solutions found: {}", vc_solutions.len());
 

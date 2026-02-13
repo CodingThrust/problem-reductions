@@ -32,20 +32,21 @@ The core workflow is: **create** a problem, **reduce** it to a target, **solve**
 
 ```rust
 use problemreductions::prelude::*;
+use problemreductions::topology::SimpleGraph;
 
 // 1. Create: Independent Set on a path graph (4 vertices)
-let problem = MaximumIndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
 // 2. Reduce: Transform to Minimum Vertex Cover
-let reduction = ReduceTo::<MinimumVertexCover<i32>>::reduce_to(&problem);
+let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&problem);
 let target = reduction.target_problem();
 
 // 3. Solve: Find optimal solution to the target problem
 let solver = BruteForce::new();
-let target_solutions = solver.find_best(target);
+let target_solution = solver.find_best(target).unwrap();
 
 // 4. Extract: Map solution back to original problem
-let solution = reduction.extract_solution(&target_solutions[0]);
+let solution = reduction.extract_solution(&target_solution);
 
 // Verify: solution is valid for the original problem
 let metric = problem.evaluate(&solution);
@@ -58,17 +59,18 @@ Reductions can be chained. Each step preserves the solution mapping:
 
 ```rust
 use problemreductions::prelude::*;
+use problemreductions::topology::SimpleGraph;
 
 // SetPacking -> IndependentSet -> VertexCover
 let sp = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
 
-let r1 = ReduceTo::<MaximumIndependentSet<i32>>::reduce_to(&sp);
-let r2 = ReduceTo::<MinimumVertexCover<i32>>::reduce_to(r1.target_problem());
+let r1 = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sp);
+let r2 = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(r1.target_problem());
 
 // Solve final target, extract back through chain
 let solver = BruteForce::new();
-let vc_sol = solver.find_best(r2.target_problem());
-let is_sol = r2.extract_solution(&vc_sol[0]);
+let vc_sol = solver.find_best(r2.target_problem()).unwrap();
+let is_sol = r2.extract_solution(&vc_sol);
 let sp_sol = r1.extract_solution(&is_sol);
 ```
 

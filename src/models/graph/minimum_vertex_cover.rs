@@ -39,7 +39,7 @@ inventory::submit! {
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_best(&problem);
 ///
 /// // Minimum vertex cover is just vertex 1
 /// assert!(solutions.contains(&vec![0, 1, 0]));

@@ -39,7 +39,7 @@ pub fn run() {
     println!("Target: QUBO with {} variables", qubo.num_variables());
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_best(qubo);
+    let qubo_solutions = solver.find_all_best(qubo);
     println!("\n=== Solution ===");
     println!("Target solutions found: {}", qubo_solutions.len());
 

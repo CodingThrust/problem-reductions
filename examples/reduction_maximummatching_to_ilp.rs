@@ -41,7 +41,7 @@ pub fn run() {
 
     // 4. Solve target ILP
     let solver = BruteForce::new();
-    let ilp_solutions = solver.find_best(ilp);
+    let ilp_solutions = solver.find_all_best(ilp);
     println!("\n=== Solution ===");
     println!("ILP solutions found: {}", ilp_solutions.len());
 

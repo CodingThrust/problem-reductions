@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -59,7 +59,7 @@ fn test_brute_force_path() {
     let problem = MaximumMatching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Maximum matching has 2 edges: {0-1, 2-3}
     assert!(solutions.contains(&vec![1, 0, 1]));
     for sol in &solutions {
@@ -72,7 +72,7 @@ fn test_brute_force_triangle() {
     let problem = MaximumMatching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Maximum matching has 1 edge (any of the 3)
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 1);
@@ -88,7 +88,7 @@ fn test_brute_force_weighted() {
         MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 100), (0, 2, 1), (1, 3, 1)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Edge 0-1 (weight 100) alone beats edges 0-2 + 1-3 (weight 2)
     assert!(solutions.contains(&vec![1, 0, 0]));
 }
@@ -132,7 +132,7 @@ fn test_perfect_matching() {
     );
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Perfect matching has 2 edges
     for sol in &solutions {
         assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(2));

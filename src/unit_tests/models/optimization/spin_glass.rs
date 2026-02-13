@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -85,7 +85,7 @@ fn test_brute_force_ferromagnetic() {
     let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Minimum energy is -1 (anti-aligned)
     for sol in &solutions {
         assert_ne!(sol[0], sol[1]);
@@ -100,7 +100,7 @@ fn test_brute_force_antiferromagnetic() {
     let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), -1.0)], vec![0.0, 0.0]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Minimum energy is -1 (aligned)
     for sol in &solutions {
         assert_eq!(sol[0], sol[1]);
@@ -130,7 +130,7 @@ fn test_triangle_frustration() {
     );
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Best we can do is satisfy 2 out of 3 interactions
     // Energy = -1 -1 + 1 = -1 (one frustrated)
     for sol in &solutions {

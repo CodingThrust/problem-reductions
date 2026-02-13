@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 
 #[test]
 fn test_is_to_setpacking() {
@@ -10,7 +10,7 @@ fn test_is_to_setpacking() {
     let sp_problem = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_best(sp_problem);
+    let sp_solutions = solver.find_all_best(sp_problem);
 
     // Extract back
     let is_solutions: Vec<_> = sp_solutions
@@ -39,7 +39,7 @@ fn test_setpacking_to_is() {
     let is_problem = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let is_solutions = solver.find_best(is_problem);
+    let is_solutions = solver.find_all_best(is_problem);
 
     // Max packing = 2 (sets 0 and 1)
     for sol in &is_solutions {
@@ -52,7 +52,7 @@ fn test_setpacking_to_is() {
 fn test_roundtrip_is_sp_is() {
     let original = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let solver = BruteForce::new();
-    let original_solutions = solver.find_best(&original);
+    let original_solutions = solver.find_all_best(&original);
 
     // IS -> SP -> IS
     let reduction1 = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&original);
@@ -61,7 +61,7 @@ fn test_roundtrip_is_sp_is() {
         ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sp);
     let roundtrip = reduction2.target_problem();
 
-    let roundtrip_solutions = solver.find_best(roundtrip);
+    let roundtrip_solutions = solver.find_all_best(roundtrip);
 
     // Solutions should have same objective value
     let orig_size: usize = original_solutions[0].iter().sum();
@@ -90,7 +90,7 @@ fn test_empty_graph() {
     assert_eq!(sp_problem.num_sets(), 3);
 
     let solver = BruteForce::new();
-    let solutions = solver.find_best(sp_problem);
+    let solutions = solver.find_all_best(sp_problem);
 
     // With no overlaps, we can select all sets
     assert_eq!(solutions[0].iter().sum::<usize>(), 3);

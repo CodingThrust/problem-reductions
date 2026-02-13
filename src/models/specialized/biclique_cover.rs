@@ -38,7 +38,7 @@ inventory::submit! {
 /// let problem = BicliqueCover::new(2, 2, vec![(0, 2), (0, 3), (1, 2)], 2);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_best(&problem);
 ///
 /// // Check coverage
 /// for sol in &solutions {

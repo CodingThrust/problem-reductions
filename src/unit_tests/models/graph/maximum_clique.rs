@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::types::SolutionSize;
 
 #[test]
@@ -94,7 +94,7 @@ fn test_brute_force_triangle() {
     let problem = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1, 1, 1]);
 }
@@ -107,7 +107,7 @@ fn test_brute_force_path() {
     let problem = MaximumClique::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Maximum size is 2
     for sol in &solutions {
         let size: usize = sol.iter().sum();
@@ -126,7 +126,7 @@ fn test_brute_force_weighted() {
         MaximumClique::<SimpleGraph, i32>::with_weights(3, vec![(0, 1), (1, 2)], vec![1, 100, 1]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Should select {0, 1} (weight 101) or {1, 2} (weight 101)
     assert!(solutions.len() == 2);
     for sol in &solutions {
@@ -178,7 +178,7 @@ fn test_empty_graph() {
     let problem = MaximumClique::<SimpleGraph, i32>::new(3, vec![]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     assert_eq!(solutions.len(), 3);
     // Each solution should have exactly one vertex selected
     for sol in &solutions {
@@ -244,7 +244,7 @@ fn test_complete_graph() {
     );
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     assert_eq!(solutions.len(), 1);
     assert_eq!(solutions[0], vec![1, 1, 1, 1]); // All vertices form a clique
 }

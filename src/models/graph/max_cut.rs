@@ -52,7 +52,7 @@ inventory::submit! {
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_best(&problem);
 ///
 /// // Maximum cut in triangle is 2 (any partition cuts 2 edges)
 /// for sol in solutions {

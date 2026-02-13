@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::SolutionSize;
@@ -28,7 +28,7 @@ fn test_matching_to_setpacking_path() {
     let sp = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_best(sp);
+    let sp_solutions = solver.find_all_best(sp);
 
     // Extract back to MaximumMatching solutions
     let _matching_solutions: Vec<_> = sp_solutions
@@ -37,7 +37,7 @@ fn test_matching_to_setpacking_path() {
         .collect();
 
     // Verify against direct MaximumMatching solution
-    let direct_solutions = solver.find_best(&matching);
+    let direct_solutions = solver.find_all_best(&matching);
 
     // Solutions should have same objective value
     let sp_size: usize = sp_solutions[0].iter().sum();
@@ -54,7 +54,7 @@ fn test_matching_to_setpacking_triangle() {
     let sp = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_best(sp);
+    let sp_solutions = solver.find_all_best(sp);
 
     // Max matching in triangle = 1 (any single edge)
     for sol in &sp_solutions {
@@ -77,13 +77,13 @@ fn test_matching_to_setpacking_weighted() {
     assert_eq!(sp.weights_ref(), &vec![100, 1, 1]);
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_best(sp);
+    let sp_solutions = solver.find_all_best(sp);
 
     // Edge 0-1 (weight 100) alone beats edges 0-2 + 1-3 (weight 2)
     assert!(sp_solutions.contains(&vec![1, 0, 0]));
 
     // Verify through direct MaximumMatching solution
-    let direct_solutions = solver.find_best(&matching);
+    let direct_solutions = solver.find_all_best(&matching);
     assert_eq!(matching.evaluate(&sp_solutions[0]), SolutionSize::Valid(100));
     assert_eq!(matching.evaluate(&direct_solutions[0]), SolutionSize::Valid(100));
 }
@@ -113,8 +113,8 @@ fn test_matching_to_setpacking_k4() {
     let sp = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_best(sp);
-    let direct_solutions = solver.find_best(&matching);
+    let sp_solutions = solver.find_all_best(sp);
+    let direct_solutions = solver.find_all_best(&matching);
 
     // Both should find matchings of size 2
     let sp_size: usize = sp_solutions[0].iter().sum();
@@ -143,7 +143,7 @@ fn test_matching_to_setpacking_single_edge() {
     assert_eq!(sp.sets()[0], vec![0, 1]);
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_best(sp);
+    let sp_solutions = solver.find_all_best(sp);
 
     // Should select the only set
     assert_eq!(sp_solutions, vec![vec![1]]);
@@ -157,7 +157,7 @@ fn test_matching_to_setpacking_disjoint_edges() {
     let sp = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_best(sp);
+    let sp_solutions = solver.find_all_best(sp);
 
     // Both edges can be selected (they don't share vertices)
     assert_eq!(sp_solutions, vec![vec![1, 1]]);
@@ -181,7 +181,7 @@ fn test_matching_to_setpacking_star() {
     let sp = reduction.target_problem();
 
     let solver = BruteForce::new();
-    let sp_solutions = solver.find_best(sp);
+    let sp_solutions = solver.find_all_best(sp);
 
     // All edges share vertex 0, so max matching = 1
     for sol in &sp_solutions {

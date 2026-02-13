@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
@@ -177,7 +177,7 @@ fn test_ilp_matches_brute_force() {
 
     // Get brute force solutions
     let bf = BruteForce::new();
-    let bf_solutions = bf.find_best(&problem);
+    let bf_solutions = bf.find_all_best(&problem);
 
     // ILP solution should be among brute force solutions
     let (a, b) = problem.read_factors(&ilp_factors);

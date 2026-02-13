@@ -62,7 +62,7 @@ pub fn run() {
 
     // 3. Solve the target IS problem
     let solver = BruteForce::new();
-    let is_solutions = solver.find_best(is);
+    let is_solutions = solver.find_all_best(is);
     println!("\n=== Solution ===");
     println!("Target IS solutions found: {}", is_solutions.len());
 

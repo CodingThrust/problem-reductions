@@ -60,7 +60,7 @@ pub fn run() {
 
     // 2. Solve the source Factoring problem directly (only 6 binary variables)
     let solver = BruteForce::new();
-    let factoring_solutions = solver.find_best(&factoring);
+    let factoring_solutions = solver.find_all_best(&factoring);
     println!("\nFactoring solutions found: {}", factoring_solutions.len());
     for sol in &factoring_solutions {
         let (a, b) = factoring.read_factors(sol);

@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::{BruteForce, Solver};
+use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -62,7 +62,7 @@ fn test_brute_force_simple() {
     let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Optimal has 1 switch: [0,0] or [1,1]
     for sol in &solutions {
         assert_eq!(problem.count_switches(sol), 1);
@@ -75,7 +75,7 @@ fn test_brute_force_longer() {
     let problem = PaintShop::new(vec!["a", "b", "a", "c", "c", "b"]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Find the minimum number of switches
     let min_switches = problem.count_switches(&solutions[0]);
     for sol in &solutions {
@@ -102,7 +102,7 @@ fn test_single_car() {
     let problem = PaintShop::new(vec!["a", "a"]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Both configs give 1 switch: a(0)->a(1) or a(1)->a(0)
     assert_eq!(solutions.len(), 2);
     for sol in &solutions {
@@ -116,7 +116,7 @@ fn test_adjacent_same_car() {
     let problem = PaintShop::new(vec!["a", "a", "b", "b"]);
     let solver = BruteForce::new();
 
-    let solutions = solver.find_best(&problem);
+    let solutions = solver.find_all_best(&problem);
     // Best case: [0,0] -> [0,1,0,1] = 3 switches, or [0,1] -> [0,1,1,0] = 2 switches
     // Actually: [0,0] -> a=0,a=1,b=0,b=1 = [0,1,0,1] = 3 switches
     // [0,1] -> a=0,a=1,b=1,b=0 = [0,1,1,0] = 2 switches

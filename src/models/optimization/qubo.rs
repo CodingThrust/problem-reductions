@@ -43,7 +43,7 @@ inventory::submit! {
 /// ]);
 ///
 /// let solver = BruteForce::new();
-/// let solutions = solver.find_best(&problem);
+/// let solutions = solver.find_all_best(&problem);
 ///
 /// // Optimal is x = [0, 1] with value -2
 /// assert!(solutions.contains(&vec![0, 1]));

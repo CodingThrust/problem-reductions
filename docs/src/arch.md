@@ -17,14 +17,16 @@ This guide covers the library internals for contributors and developers. See [Ge
 
 | Module | Purpose |
 |--------|---------|
-| `src/models/` | Problem type implementations (SAT, Graph, Set, Optimization) |
-| `src/rules/` | Reduction rules with `ReduceTo` implementations |
-| `src/registry/` | Compile-time reduction graph metadata |
-| `src/solvers/` | BruteForce and ILP solvers |
-| `src/traits.rs` | Core `Problem` and `OptimizationProblem` traits |
-| `src/types.rs` | Shared types (`SolutionSize`, `Direction`, `ProblemSize`) |
+| [`src/models/`](#models) | Problem type implementations (SAT, Graph, Set, Optimization) |
+| [`src/rules/`](#rules) | Reduction rules with `ReduceTo` implementations |
+| [`src/registry/`](#registry) | Compile-time reduction graph metadata |
+| [`src/solvers/`](#solvers) | BruteForce and ILP solvers |
+| `src/traits.rs` | Core `Problem` and `OptimizationProblem` traits (see [Models](#models)) |
+| `src/types.rs` | Shared types: `SolutionSize`, `Direction`, `ProblemSize` (see [Models](#models)) |
 
-## Trait Hierarchy
+## Models
+
+Every problem implements `Problem`. Optimization problems additionally implement `OptimizationProblem`.
 
 <div class="theme-light-only">
 
@@ -36,8 +38,6 @@ This guide covers the library internals for contributors and developers. See [Ge
 ![Trait Hierarchy](static/trait-hierarchy-dark.svg)
 
 </div>
-
-Every problem implements `Problem`. Optimization problems additionally implement `OptimizationProblem`.
 
 ```rust
 pub trait Problem: Clone {
@@ -58,12 +58,10 @@ pub trait OptimizationProblem: Problem<Metric = SolutionSize<Self::Value>> {
 - `SolutionSize<T>`: `Valid(T)` for feasible solutions, `Invalid` for constraint violations
 - `Direction`: `Maximize` or `Minimize`
 
-## Implementing Problems
-
 Problems are parameterized by graph type and weight type:
 
 - `MaximumIndependentSet<G, W>` — graph type `G`, weight type `W`
-- `Satisfiability<W>` — CNF formula with optional clause weights
+- `Satisfiability` — CNF formula (concrete type, no parameters)
 - `QUBO<W>` — parameterized by weight type only
 
 **Graph types:**
@@ -83,9 +81,18 @@ MaximumIndependentSet/GridGraph # different graph topology
 MaximumIndependentSet/Weighted  # weighted objective
 ```
 
+All problem types support JSON serialization via serde:
+
+```rust
+use problemreductions::io::{to_json, from_json};
+
+let json = to_json(&problem)?;
+let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json)?;
+```
+
 See [adding-models.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-models.md) for the full implementation guide.
 
-## Implementing Reductions
+## Rules
 
 A reduction requires two pieces:
 
@@ -104,8 +111,6 @@ impl ReductionResult for ReductionAToB {
 
     fn target_problem(&self) -> &B { &self.target }
     fn extract_solution(&self, target_sol: &[usize]) -> Vec<usize> { /* ... */ }
-    fn source_size(&self) -> ProblemSize { /* ... */ }
-    fn target_size(&self) -> ProblemSize { /* ... */ }
 }
 ```
 
@@ -123,7 +128,7 @@ The macro generates `inventory::submit!` calls for compile-time reduction graph 
 
 See [adding-reductions.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-reductions.md) for the full implementation guide.
 
-## Registry Internals
+## Registry
 
 The reduction graph is built at compile time using the `inventory` crate:
 
@@ -135,41 +140,9 @@ impl ReduceTo<B> for A { /* ... */ }
 // inventory::submit! { ReductionMeta { source: "A", target: "B", ... } }
 ```
 
-**JSON exports** (see [Getting Started](./getting-started.md#json-resources) for locations):
-
-<details>
-<summary><code>reduction_graph.json</code> schema</summary>
-
-```json
-{
-  "nodes": [
-    { "name": "Satisfiability", "variant": {}, "category": "satisfiability", "doc_path": "..." }
-  ],
-  "edges": [
-    { "source": {"name": "A", "variant": {}}, "target": {"name": "B", "variant": {}} }
-  ]
-}
-```
-
-</details>
-
-<details>
-<summary><code>problem_schemas.json</code> schema</summary>
-
-```json
-[
-  {
-    "name": "Satisfiability",
-    "category": "satisfiability",
-    "description": "Find satisfying assignment for CNF formula",
-    "fields": [
-      { "name": "num_vars", "type_name": "usize", "description": "Number of Boolean variables" }
-    ]
-  }
-]
-```
-
-</details>
+**JSON exports:**
+- [reduction_graph.json](reductions/reduction_graph.json) — all problem variants and reduction edges
+- [problem_schemas.json](reductions/problem_schemas.json) — field definitions for each problem type
 
 Regenerate exports:
 
@@ -178,44 +151,24 @@ cargo run --example export_graph    # docs/src/reductions/reduction_graph.json
 cargo run --example export_schemas  # docs/src/reductions/problem_schemas.json
 ```
 
-## Implementing Solvers
+## Solvers
 
 Solvers implement the `Solver` trait:
 
 ```rust
 pub trait Solver {
-    fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Vec<Vec<usize>>;
+    fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Option<Vec<usize>>;
     fn find_satisfying<P: Problem<Metric = bool>>(&self, problem: &P) -> Option<Vec<usize>>;
 }
 ```
 
 `ILPSolver` additionally provides `solve_reduced()` for problems implementing `ReduceTo<ILP>`.
 
-## File I/O
-
-All problem types support JSON serialization via serde:
-
-```rust
-use problemreductions::io::{to_json, from_json};
-
-let json = to_json(&problem)?;
-let restored: MaximumIndependentSet<i32> = from_json(&json)?;
-```
-
 ## Contributing
 
-### Recommended: Issue-Based Workflow
+See [Call for Contributions](./introduction.md#call-for-contributions) for the recommended issue-based workflow (no coding required).
 
-The easiest way to contribute is through GitHub issues:
-
-1. **Open an issue** using the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template
-2. **Fill in all sections** — definition, algorithm, size overhead, example instance
-3. **Review AI generated code** — AI generates code and you can review and comment on the pull request.
-4. **Merge the pull request** — Once you are happy with the code, just ask maintainers' assistance to merge the pull request.
-
-### Manual Implementation
-
-When automation isn't suitable:
+For manual implementation:
 
 - **Adding a problem:** See [adding-models.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-models.md)
 - **Adding a reduction:** See [adding-reductions.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-reductions.md)
