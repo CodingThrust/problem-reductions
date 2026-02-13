@@ -33,17 +33,16 @@ impl ReductionOverhead {
 }
 
 /// A registered reduction entry for static inventory registration.
-/// Uses function pointer to lazily create the overhead (avoids static allocation issues).
+/// Uses function pointers to lazily derive variant fields from `Problem::variant()`.
 pub struct ReductionEntry {
     /// Base name of source problem (e.g., "MaximumIndependentSet").
     pub source_name: &'static str,
     /// Base name of target problem (e.g., "MinimumVertexCover").
     pub target_name: &'static str,
-    /// Variant attributes for source problem as key-value pairs.
-    /// Common keys: "graph" (graph type), "weight" (weight type).
-    pub source_variant: &'static [(&'static str, &'static str)],
-    /// Variant attributes for target problem as key-value pairs.
-    pub target_variant: &'static [(&'static str, &'static str)],
+    /// Function to derive source variant attributes from `Problem::variant()`.
+    pub source_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
+    /// Function to derive target variant attributes from `Problem::variant()`.
+    pub target_variant_fn: fn() -> Vec<(&'static str, &'static str)>,
     /// Function to create overhead information (lazy evaluation for static context).
     pub overhead_fn: fn() -> ReductionOverhead,
     /// Module path where the reduction is defined (from `module_path!()`).
@@ -56,16 +55,26 @@ impl ReductionEntry {
         (self.overhead_fn)()
     }
 
+    /// Get the source variant by calling the function.
+    pub fn source_variant(&self) -> Vec<(&'static str, &'static str)> {
+        (self.source_variant_fn)()
+    }
+
+    /// Get the target variant by calling the function.
+    pub fn target_variant(&self) -> Vec<(&'static str, &'static str)> {
+        (self.target_variant_fn)()
+    }
+
     /// Check if this reduction involves only the base (unweighted) variants.
     pub fn is_base_reduction(&self) -> bool {
-        let source_unweighted = self
-            .source_variant
+        let source = self.source_variant();
+        let target = self.target_variant();
+        let source_unweighted = source
             .iter()
             .find(|(k, _)| *k == "weight")
             .map(|(_, v)| *v == "Unweighted")
             .unwrap_or(true);
-        let target_unweighted = self
-            .target_variant
+        let target_unweighted = target
             .iter()
             .find(|(k, _)| *k == "weight")
             .map(|(_, v)| *v == "Unweighted")
@@ -79,8 +88,8 @@ impl std::fmt::Debug for ReductionEntry {
         f.debug_struct("ReductionEntry")
             .field("source_name", &self.source_name)
             .field("target_name", &self.target_name)
-            .field("source_variant", &self.source_variant)
-            .field("target_variant", &self.target_variant)
+            .field("source_variant", &self.source_variant())
+            .field("target_variant", &self.target_variant())
             .field("overhead", &self.overhead())
             .field("module_path", &self.module_path)
             .finish()
@@ -93,7 +102,7 @@ inventory::collect!(ReductionEntry);
 /// Variants registered here appear as nodes even without explicit reduction rules.
 pub struct ConcreteVariantEntry {
     pub name: &'static str,
-    pub variant: &'static [(&'static str, &'static str)],
+    pub variant_fn: fn() -> Vec<(&'static str, &'static str)>,
 }
 
 inventory::collect!(ConcreteVariantEntry);

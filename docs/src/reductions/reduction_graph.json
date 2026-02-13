@@ -9,8 +9,7 @@
     {
       "name": "CircuitSAT",
       "variant": {
-        "graph": "SimpleGraph",
-        "weight": "Unweighted"
+        "graph": "SimpleGraph"
       },
       "category": "satisfiability",
       "doc_path": "models/specialized/struct.CircuitSAT.html"
@@ -25,7 +24,7 @@
       "name": "Factoring",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "Unweighted"
+        "weight": "i32"
       },
       "category": "specialized",
       "doc_path": "models/specialized/struct.Factoring.html"
@@ -40,7 +39,7 @@
       "name": "ILP",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "Unweighted"
+        "weight": "f64"
       },
       "category": "optimization",
       "doc_path": "models/optimization/struct.ILP.html"
@@ -55,7 +54,7 @@
       "name": "KColoring",
       "variant": {
         "graph": "SimpleGraph",
-        "k": "N"
+        "k": "3"
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html"
@@ -64,7 +63,7 @@
       "name": "KColoring",
       "variant": {
         "graph": "SimpleGraph",
-        "weight": "Unweighted"
+        "k": "N"
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html"
@@ -78,7 +77,25 @@
     {
       "name": "KSatisfiability",
       "variant": {
-        "graph": "SimpleGraph",
+        "k": "2",
+        "weight": "Unweighted"
+      },
+      "category": "satisfiability",
+      "doc_path": "models/satisfiability/struct.KSatisfiability.html"
+    },
+    {
+      "name": "KSatisfiability",
+      "variant": {
+        "k": "3",
+        "weight": "Unweighted"
+      },
+      "category": "satisfiability",
+      "doc_path": "models/satisfiability/struct.KSatisfiability.html"
+    },
+    {
+      "name": "KSatisfiability",
+      "variant": {
+        "k": "N",
         "weight": "Unweighted"
       },
       "category": "satisfiability",
@@ -321,8 +338,7 @@
       "source": {
         "name": "CircuitSAT",
         "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "graph": "SimpleGraph"
         }
       },
       "target": {
@@ -349,14 +365,13 @@
         "name": "Factoring",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "i32"
         }
       },
       "target": {
         "name": "CircuitSAT",
         "variant": {
-          "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "graph": "SimpleGraph"
         }
       },
       "overhead": [
@@ -372,14 +387,14 @@
         "name": "Factoring",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "i32"
         }
       },
       "target": {
         "name": "ILP",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "f64"
         }
       },
       "overhead": [
@@ -399,7 +414,7 @@
         "name": "ILP",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "f64"
         }
       },
       "target": {
@@ -422,6 +437,33 @@
         "name": "KColoring",
         "variant": {
           "graph": "SimpleGraph",
+          "k": "3"
+        }
+      },
+      "target": {
+        "name": "KColoring",
+        "variant": {
+          "graph": "SimpleGraph",
+          "k": "N"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_colors",
+          "formula": "num_colors"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "KColoring",
+        "variant": {
+          "graph": "SimpleGraph",
           "k": "N"
         }
       },
@@ -429,7 +471,7 @@
         "name": "ILP",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "weight": "f64"
         }
       },
       "overhead": [
@@ -449,7 +491,7 @@
         "name": "KColoring",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "k": "N"
         }
       },
       "target": {
@@ -471,7 +513,84 @@
       "source": {
         "name": "KSatisfiability",
         "variant": {
+          "k": "2",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "N",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_clauses",
+          "formula": "num_clauses"
+        },
+        {
+          "field": "num_vars",
+          "formula": "num_vars"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "2",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "QUBO",
+        "variant": {
           "graph": "SimpleGraph",
+          "weight": "f64"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vars"
+        }
+      ],
+      "doc_path": "rules/ksatisfiability_qubo/index.html"
+    },
+    {
+      "source": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "3",
+          "weight": "Unweighted"
+        }
+      },
+      "target": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "N",
+          "weight": "Unweighted"
+        }
+      },
+      "overhead": [
+        {
+          "field": "num_clauses",
+          "formula": "num_clauses"
+        },
+        {
+          "field": "num_vars",
+          "formula": "num_vars"
+        }
+      ],
+      "doc_path": ""
+    },
+    {
+      "source": {
+        "name": "KSatisfiability",
+        "variant": {
+          "k": "3",
           "weight": "Unweighted"
         }
       },
@@ -494,7 +613,7 @@
       "source": {
         "name": "KSatisfiability",
         "variant": {
-          "graph": "SimpleGraph",
+          "k": "N",
           "weight": "Unweighted"
         }
       },
@@ -1053,7 +1172,7 @@
         "name": "KColoring",
         "variant": {
           "graph": "SimpleGraph",
-          "weight": "Unweighted"
+          "k": "3"
         }
       },
       "overhead": [
@@ -1079,7 +1198,7 @@
       "target": {
         "name": "KSatisfiability",
         "variant": {
-          "graph": "SimpleGraph",
+          "k": "N",
           "weight": "Unweighted"
         }
       },

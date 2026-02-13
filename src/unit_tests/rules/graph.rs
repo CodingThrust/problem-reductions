@@ -665,8 +665,8 @@ fn test_find_cheapest_path_unknown_target() {
 #[test]
 fn test_reduction_edge_struct() {
     let edge = ReductionEdge {
-        source_variant: &[("graph", "PlanarGraph"), ("weight", "Unweighted")],
-        target_variant: &[("graph", "SimpleGraph"), ("weight", "Unweighted")],
+        source_variant: vec![("graph", "PlanarGraph"), ("weight", "Unweighted")],
+        target_variant: vec![("graph", "SimpleGraph"), ("weight", "Unweighted")],
         overhead: ReductionOverhead::default(),
     };
 
@@ -678,8 +678,8 @@ fn test_reduction_edge_struct() {
 fn test_reduction_edge_default_graph() {
     // When no "graph" key is present, default to SimpleGraph
     let edge = ReductionEdge {
-        source_variant: &[("weight", "Unweighted")],
-        target_variant: &[],
+        source_variant: vec![("weight", "Unweighted")],
+        target_variant: vec![],
         overhead: ReductionOverhead::default(),
     };
 

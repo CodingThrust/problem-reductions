@@ -23,10 +23,10 @@ use std::collections::{BinaryHeap, HashMap, HashSet};
 
 // Register concrete variants for problems that support non-SimpleGraph graph types.
 // These generate additional nodes in the JSON export.
-inventory::submit! { ConcreteVariantEntry { name: "MaximumIndependentSet", variant: &[("graph", "GridGraph"), ("weight", "Unweighted")] } }
-inventory::submit! { ConcreteVariantEntry { name: "MaximumIndependentSet", variant: &[("graph", "UnitDiskGraph"), ("weight", "Unweighted")] } }
-inventory::submit! { ConcreteVariantEntry { name: "MaxCut", variant: &[("graph", "GridGraph"), ("weight", "Unweighted")] } }
-inventory::submit! { ConcreteVariantEntry { name: "SpinGlass", variant: &[("graph", "GridGraph"), ("weight", "f64")] } }
+inventory::submit! { ConcreteVariantEntry { name: "MaximumIndependentSet", variant_fn: || vec![("graph", "GridGraph"), ("weight", "Unweighted")] } }
+inventory::submit! { ConcreteVariantEntry { name: "MaximumIndependentSet", variant_fn: || vec![("graph", "UnitDiskGraph"), ("weight", "Unweighted")] } }
+inventory::submit! { ConcreteVariantEntry { name: "MaxCut", variant_fn: || vec![("graph", "GridGraph"), ("weight", "Unweighted")] } }
+inventory::submit! { ConcreteVariantEntry { name: "SpinGlass", variant_fn: || vec![("graph", "GridGraph"), ("weight", "f64")] } }
 
 /// JSON-serializable representation of the reduction graph.
 #[derive(Debug, Clone, Serialize)]
@@ -118,9 +118,9 @@ impl ReductionPath {
 #[derive(Clone, Debug)]
 pub struct ReductionEdge {
     /// Source variant attributes as key-value pairs.
-    pub source_variant: &'static [(&'static str, &'static str)],
+    pub source_variant: Vec<(&'static str, &'static str)>,
     /// Target variant attributes as key-value pairs.
-    pub target_variant: &'static [(&'static str, &'static str)],
+    pub target_variant: Vec<(&'static str, &'static str)>,
     /// Overhead information for cost calculations.
     pub overhead: ReductionOverhead,
 }
@@ -128,7 +128,7 @@ pub struct ReductionEdge {
 impl ReductionEdge {
     /// Get the graph type from the source variant, or "SimpleGraph" as default.
     /// Empty strings are treated as missing and default to "SimpleGraph".
-    pub fn source_graph(&self) -> &'static str {
+    pub fn source_graph(&self) -> &str {
         self.source_variant
             .iter()
             .find(|(k, _)| *k == "graph")
@@ -139,7 +139,7 @@ impl ReductionEdge {
 
     /// Get the graph type from the target variant, or "SimpleGraph" as default.
     /// Empty strings are treated as missing and default to "SimpleGraph".
-    pub fn target_graph(&self) -> &'static str {
+    pub fn target_graph(&self) -> &str {
         self.target_variant
             .iter()
             .find(|(k, _)| *k == "graph")
@@ -212,8 +212,8 @@ impl ReductionGraph {
                     src,
                     dst,
                     ReductionEdge {
-                        source_variant: entry.source_variant,
-                        target_variant: entry.target_variant,
+                        source_variant: entry.source_variant(),
+                        target_variant: entry.target_variant(),
                         overhead: entry.overhead(),
                     },
                 );
@@ -626,6 +626,12 @@ impl Default for ReductionGraph {
     }
 }
 
+/// Check if const value `a` is a subtype of `b`.
+/// A specific value (e.g., "3") is a subtype of "N" (generic/any).
+fn is_const_subtype(a: &str, b: &str) -> bool {
+    a != b && b == "N" && a != "N"
+}
+
 impl ReductionGraph {
     /// Check if variant A is strictly more restrictive than variant B (same problem name).
     /// Returns true if every field of A is a subtype of (or equal to) the corresponding field in B,
@@ -656,6 +662,7 @@ impl ReductionGraph {
             let is_sub = match key.as_str() {
                 "graph" => self.is_graph_subtype(a_val, b_val),
                 "weight" => self.is_weight_subtype(a_val, b_val),
+                "k" => is_const_subtype(a_val, b_val),
                 _ => false, // Unknown fields must be equal
             };
 
@@ -671,9 +678,7 @@ impl ReductionGraph {
 
     /// Helper to convert a variant slice to a BTreeMap.
     /// Normalizes empty "graph" values to "SimpleGraph" for consistency.
-    fn variant_to_map(
-        variant: &[(&'static str, &'static str)],
-    ) -> std::collections::BTreeMap<String, String> {
+    fn variant_to_map(variant: &[(&str, &str)]) -> std::collections::BTreeMap<String, String> {
         variant
             .iter()
             .map(|(k, v)| {
@@ -688,7 +693,7 @@ impl ReductionGraph {
     }
 
     /// Helper to create a VariantRef from name and variant slice.
-    fn make_variant_ref(name: &str, variant: &[(&'static str, &'static str)]) -> VariantRef {
+    fn make_variant_ref(name: &str, variant: &[(&str, &str)]) -> VariantRef {
         VariantRef {
             name: name.to_string(),
             variant: Self::variant_to_map(variant),
@@ -712,19 +717,22 @@ impl ReductionGraph {
 
         // Then, collect variants from reduction entries
         for entry in inventory::iter::<ReductionEntry> {
+            let source_variant = entry.source_variant();
+            let target_variant = entry.target_variant();
             node_set.insert((
                 entry.source_name.to_string(),
-                Self::variant_to_map(entry.source_variant),
+                Self::variant_to_map(&source_variant),
             ));
             node_set.insert((
                 entry.target_name.to_string(),
-                Self::variant_to_map(entry.target_variant),
+                Self::variant_to_map(&target_variant),
             ));
         }
 
         // Also collect nodes from ConcreteVariantEntry registrations
         for entry in inventory::iter::<ConcreteVariantEntry> {
-            node_set.insert((entry.name.to_string(), Self::variant_to_map(entry.variant)));
+            let variant = (entry.variant_fn)();
+            node_set.insert((entry.name.to_string(), Self::variant_to_map(&variant)));
         }
 
         // Build nodes with categories and doc paths
@@ -748,8 +756,10 @@ impl ReductionGraph {
         let mut edge_data: Vec<(VariantRef, VariantRef, ReductionOverhead, String)> = Vec::new();
 
         for entry in inventory::iter::<ReductionEntry> {
-            let src_ref = Self::make_variant_ref(entry.source_name, entry.source_variant);
-            let dst_ref = Self::make_variant_ref(entry.target_name, entry.target_variant);
+            let source_variant = entry.source_variant();
+            let target_variant = entry.target_variant();
+            let src_ref = Self::make_variant_ref(entry.source_name, &source_variant);
+            let dst_ref = Self::make_variant_ref(entry.target_name, &target_variant);
             let key = (src_ref.clone(), dst_ref.clone());
             if edge_set.insert(key) {
                 let overhead = entry.overhead();
