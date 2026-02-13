@@ -72,11 +72,10 @@ pub fn run() {
     println!("Brute force confirms optimality");
 
     // 7. Collect solutions and export JSON
-    let mut solutions = Vec::new();
-    solutions.push(SolutionPair {
+    let solutions = vec![SolutionPair {
         source_config: tsp_solution.clone(),
         target_config: ilp_solution,
-    });
+    }];
 
     let overhead = lookup_overhead_or_empty("TravelingSalesman", "ILP");
     let edges: Vec<(usize, usize)> = problem.edges().iter().map(|&(u, v, _)| (u, v)).collect();
