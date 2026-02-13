@@ -39,23 +39,23 @@ fn test_solution_size_map() {
 }
 
 #[test]
-fn test_unweighted() {
-    let uw = Unweighted(0);
-    // Test get() method
-    assert_eq!(uw.get(0), 1);
-    assert_eq!(uw.get(100), 1);
-    assert_eq!(uw.get(usize::MAX), 1);
+fn test_one() {
+    let one = One;
 
     // Test Display
-    assert_eq!(format!("{}", uw), "Unweighted");
+    assert_eq!(format!("{}", one), "One");
 
     // Test Clone, Copy, Default
-    let uw2 = uw;
-    let _uw3 = uw2; // Copy works (no clone needed)
-    let _uw4: Unweighted = Default::default();
+    let one2 = one;
+    let _one3 = one2; // Copy works (no clone needed)
+    let _one4: One = Default::default();
 
     // Test PartialEq
-    assert_eq!(Unweighted(0), Unweighted(0));
+    assert_eq!(One, One);
+
+    // Test From<i32>
+    let from_int: One = One::from(42);
+    assert_eq!(from_int, One);
 }
 
 #[test]
@@ -89,16 +89,6 @@ fn test_problem_size_display() {
 }
 
 #[test]
-fn test_numeric_weight_impls() {
-    fn assert_numeric_weight<T: NumericWeight>() {}
-
-    assert_numeric_weight::<i32>();
-    assert_numeric_weight::<f64>();
-    assert_numeric_weight::<i64>();
-    assert_numeric_weight::<f32>();
-}
-
-#[test]
 fn test_numeric_size_blanket_impl() {
     fn assert_numeric_size<T: NumericSize>() {}
     assert_numeric_size::<i32>();
@@ -107,29 +97,37 @@ fn test_numeric_size_blanket_impl() {
 }
 
 #[test]
-fn test_unweighted_weights_trait() {
-    let w = Unweighted(5);
-    assert_eq!(w.len(), 5);
-    assert_eq!(w.weight(0), 1);
-    assert_eq!(w.weight(4), 1);
-    assert_eq!(Unweighted::NAME, "Unweighted");
+fn test_weight_element_one() {
+    let one = One;
+    assert_eq!(one.to_sum(), 1);
+
+    // Verify associated type
+    fn assert_weight_element<T: WeightElement>() {}
+    assert_weight_element::<One>();
 }
 
 #[test]
-fn test_vec_i32_weights_trait() {
-    let w = vec![3, 1, 4];
-    assert_eq!(w.len(), 3);
-    assert_eq!(w.weight(0), 3);
-    assert_eq!(w.weight(2), 4);
-    assert_eq!(<Vec<i32> as Weights>::NAME, "Weighted<i32>");
+fn test_weight_element_i32() {
+    let w: i32 = 42;
+    assert_eq!(w.to_sum(), 42);
+
+    let zero: i32 = 0;
+    assert_eq!(zero.to_sum(), 0);
+
+    let neg: i32 = -5;
+    assert_eq!(neg.to_sum(), -5);
 }
 
 #[test]
-fn test_vec_f64_weights_trait() {
-    let w = vec![1.5, 2.5];
-    assert_eq!(w.len(), 2);
-    assert_eq!(w.weight(1), 2.5);
-    assert_eq!(<Vec<f64> as Weights>::NAME, "Weighted<f64>");
+fn test_weight_element_f64() {
+    let w: f64 = 3.14;
+    assert_eq!(w.to_sum(), 3.14);
+
+    let zero: f64 = 0.0;
+    assert_eq!(zero.to_sum(), 0.0);
+
+    let neg: f64 = -2.5;
+    assert_eq!(neg.to_sum(), -2.5);
 }
 
 #[test]
