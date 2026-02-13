@@ -55,8 +55,7 @@ fn test_simple_sat_to_is() {
 fn test_two_clause_sat_to_is() {
     // SAT: (x1) AND (NOT x1)
     // This is unsatisfiable
-    let sat =
-        Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
     let is_problem = reduction.target_problem();
 
@@ -124,8 +123,7 @@ fn test_satisfiable_formula() {
 #[test]
 fn test_unsatisfiable_formula() {
     // SAT: (x1) AND (NOT x1) - unsatisfiable
-    let sat =
-        Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
+    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
     let is_problem = reduction.target_problem();
 

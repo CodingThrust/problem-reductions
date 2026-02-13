@@ -72,7 +72,10 @@ fn test_ilp_solution_equals_brute_force_star() {
     assert_eq!(ilp_size, SolutionSize::Valid(1));
 
     // Verify the ILP solution is valid for the original problem
-    assert!(problem.evaluate(&extracted) .is_valid(), "Extracted solution should be valid");
+    assert!(
+        problem.evaluate(&extracted).is_valid(),
+        "Extracted solution should be valid"
+    );
 }
 
 #[test]
@@ -99,7 +102,7 @@ fn test_ilp_solution_equals_brute_force_path() {
     assert_eq!(ilp_size, SolutionSize::Valid(2));
 
     // Verify validity
-    assert!(problem.evaluate(&extracted) .is_valid());
+    assert!(problem.evaluate(&extracted).is_valid());
 }
 
 #[test]
@@ -139,7 +142,7 @@ fn test_solution_extraction() {
     assert_eq!(extracted, vec![1, 0, 1, 0]);
 
     // Verify this is a valid DS (0 dominates 0,1 and 2 dominates 2,3)
-    assert!(problem.evaluate(&extracted) .is_valid());
+    assert!(problem.evaluate(&extracted).is_valid());
 }
 
 #[test]
@@ -167,7 +170,7 @@ fn test_isolated_vertices() {
     // Vertex 2 must be selected (isolated)
     assert_eq!(extracted[2], 1);
 
-    assert!(problem.evaluate(&extracted) .is_valid());
+    assert!(problem.evaluate(&extracted).is_valid());
 }
 
 #[test]
@@ -184,7 +187,7 @@ fn test_complete_graph() {
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
     let extracted = reduction.extract_solution(&ilp_solution);
 
-    assert!(problem.evaluate(&extracted) .is_valid());
+    assert!(problem.evaluate(&extracted).is_valid());
     assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
 }
 
@@ -201,7 +204,7 @@ fn test_single_vertex() {
 
     assert_eq!(extracted, vec![1]);
 
-    assert!(problem.evaluate(&extracted) .is_valid());
+    assert!(problem.evaluate(&extracted).is_valid());
     assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
 }
 
@@ -228,5 +231,5 @@ fn test_cycle_graph() {
 
     assert_eq!(bf_size, ilp_size);
 
-    assert!(problem.evaluate(&extracted) .is_valid());
+    assert!(problem.evaluate(&extracted).is_valid());
 }

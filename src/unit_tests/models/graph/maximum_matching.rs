@@ -47,10 +47,16 @@ fn test_evaluate() {
         MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 5), (1, 2, 10), (2, 3, 3)]);
 
     // Valid matching: edges 0 and 2 (disjoint)
-    assert_eq!(Problem::evaluate(&problem, &[1, 0, 1]), SolutionSize::Valid(8)); // 5 + 3
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 0, 1]),
+        SolutionSize::Valid(8)
+    ); // 5 + 3
 
     // Valid matching: edge 1 only
-    assert_eq!(Problem::evaluate(&problem, &[0, 1, 0]), SolutionSize::Valid(10));
+    assert_eq!(
+        Problem::evaluate(&problem, &[0, 1, 0]),
+        SolutionSize::Valid(10)
+    );
 }
 
 #[test]

@@ -248,8 +248,17 @@ fn test_ground_truth_vertex_order_is_valid_permutation() {
     let entries = load_pathwidth_ground_truth();
     for entry in &entries {
         let (n, edges) = crate::topology::smallgraph(&entry.graph).unwrap();
-        assert_eq!(n, entry.num_vertices, "{}: vertex count mismatch", entry.graph);
-        assert_eq!(edges.len(), entry.num_edges, "{}: edge count mismatch", entry.graph);
+        assert_eq!(
+            n, entry.num_vertices,
+            "{}: vertex count mismatch",
+            entry.graph
+        );
+        assert_eq!(
+            edges.len(),
+            entry.num_edges,
+            "{}: edge count mismatch",
+            entry.graph
+        );
 
         // vertex_order must be a permutation of 0..n
         let mut sorted = entry.vertex_order.clone();
@@ -292,23 +301,31 @@ fn test_branch_and_bound_matches_ground_truth() {
 
         // Must produce a complete layout
         assert_eq!(
-            layout.vertices.len(), n,
-            "{}: layout missing vertices", entry.graph
+            layout.vertices.len(),
+            n,
+            "{}: layout missing vertices",
+            entry.graph
         );
 
         // Pathwidth must match ground truth (branch-and-bound is exact)
         assert_eq!(
-            layout.vsep(), entry.pathwidth,
+            layout.vsep(),
+            entry.pathwidth,
             "{}: branch_and_bound vsep ({}) != ground truth ({})",
-            entry.graph, layout.vsep(), entry.pathwidth
+            entry.graph,
+            layout.vsep(),
+            entry.pathwidth
         );
 
         // Independently verify the produced layout's vsep
         let verified = verify_vsep(n, &edges, &layout.vertices);
         assert_eq!(
-            verified, layout.vsep(),
+            verified,
+            layout.vsep(),
             "{}: Layout.vsep ({}) != independently verified vsep ({})",
-            entry.graph, layout.vsep(), verified
+            entry.graph,
+            layout.vsep(),
+            verified
         );
     }
 }
@@ -335,18 +352,28 @@ fn test_greedy_respects_ground_truth_upper_bound() {
         assert!(
             layout.vsep() >= entry.pathwidth,
             "{}: greedy vsep ({}) < optimal ({}), which is impossible",
-            entry.graph, layout.vsep(), entry.pathwidth
+            entry.graph,
+            layout.vsep(),
+            entry.pathwidth
         );
 
         // Must be a complete layout
-        assert_eq!(layout.vertices.len(), n, "{}: greedy layout incomplete", entry.graph);
+        assert_eq!(
+            layout.vertices.len(),
+            n,
+            "{}: greedy layout incomplete",
+            entry.graph
+        );
 
         // Independently verify
         let verified = verify_vsep(n, &edges, &layout.vertices);
         assert_eq!(
-            verified, layout.vsep(),
+            verified,
+            layout.vsep(),
             "{}: greedy Layout.vsep ({}) != independently verified ({})",
-            entry.graph, layout.vsep(), verified
+            entry.graph,
+            layout.vsep(),
+            verified
         );
     }
 }

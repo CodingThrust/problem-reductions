@@ -58,7 +58,12 @@ pub fn run() {
         // Both are minimization problems, infeasible configs return Invalid
         println!(
             "  Solution {}: target={:?} (size={:?}), source={:?} (size={:?}, valid={})",
-            i, target_sol, target_size, source_sol, source_size, source_size.is_valid()
+            i,
+            target_sol,
+            target_size,
+            source_sol,
+            source_size,
+            source_size.is_valid()
         );
 
         assert!(

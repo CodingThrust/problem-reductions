@@ -71,10 +71,16 @@ fn test_evaluate() {
     let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
 
     // config [0,0] -> spins [-1,-1] -> energy = 1
-    assert_eq!(Problem::evaluate(&problem, &[0, 0]), SolutionSize::Valid(1.0));
+    assert_eq!(
+        Problem::evaluate(&problem, &[0, 0]),
+        SolutionSize::Valid(1.0)
+    );
 
     // config [0,1] -> spins [-1,1] -> energy = -1
-    assert_eq!(Problem::evaluate(&problem, &[0, 1]), SolutionSize::Valid(-1.0));
+    assert_eq!(
+        Problem::evaluate(&problem, &[0, 1]),
+        SolutionSize::Valid(-1.0)
+    );
 }
 
 #[test]

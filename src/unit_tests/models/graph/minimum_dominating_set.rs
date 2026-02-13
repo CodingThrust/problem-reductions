@@ -42,10 +42,16 @@ fn test_evaluate_valid() {
     let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
 
     // Select center
-    assert_eq!(Problem::evaluate(&problem, &[1, 0, 0, 0]), SolutionSize::Valid(1));
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 0, 0, 0]),
+        SolutionSize::Valid(1)
+    );
 
     // Select all leaves
-    assert_eq!(Problem::evaluate(&problem, &[0, 1, 1, 1]), SolutionSize::Valid(3));
+    assert_eq!(
+        Problem::evaluate(&problem, &[0, 1, 1, 1]),
+        SolutionSize::Valid(3)
+    );
 }
 
 #[test]
@@ -53,10 +59,16 @@ fn test_evaluate_invalid() {
     let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
 
     // Select none - returns Invalid for minimization
-    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(
+        Problem::evaluate(&problem, &[0, 0, 0, 0]),
+        SolutionSize::Invalid
+    );
 
     // Select only vertex 0 (doesn't dominate 2, 3)
-    assert_eq!(Problem::evaluate(&problem, &[1, 0, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 0, 0, 0]),
+        SolutionSize::Invalid
+    );
 }
 
 #[test]

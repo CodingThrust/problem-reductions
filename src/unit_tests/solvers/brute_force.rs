@@ -200,7 +200,10 @@ fn test_solver_find_satisfying_empty_dims_unsat() {
     let solver = BruteForce::new();
 
     assert_eq!(solver.find_satisfying(&problem), None);
-    assert_eq!(solver.find_all_satisfying(&problem), Vec::<Vec<usize>>::new());
+    assert_eq!(
+        solver.find_all_satisfying(&problem),
+        Vec::<Vec<usize>>::new()
+    );
 }
 
 #[test]

@@ -260,10 +260,7 @@ fn greedy_exact(adj: &AdjList, mut layout: Layout) -> Layout {
 ///
 /// Selects randomly among vertices that minimize the new vsep.
 fn greedy_step(adj: &AdjList, layout: &Layout, list: &[usize]) -> Layout {
-    let layouts: Vec<Layout> = list
-        .iter()
-        .map(|&v| extend(adj, layout, v))
-        .collect();
+    let layouts: Vec<Layout> = list.iter().map(|&v| extend(adj, layout, v)).collect();
 
     let costs: Vec<usize> = layouts.iter().map(|l| l.vsep()).collect();
     let best_cost = *costs.iter().min().unwrap();

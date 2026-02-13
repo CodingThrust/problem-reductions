@@ -2,7 +2,7 @@
 #let graph-data = json("../src/reductions/reduction_graph.json")
 #import "@preview/cetz:0.4.2": canvas, draw
 #import "@preview/ctheorems:1.1.3": thmbox, thmplain, thmproof, thmrules
-#import "lib.typ": draw-graph, petersen-graph, house-graph, octahedral-graph, draw-grid-graph, draw-triangular-graph, graph-colors
+#import "lib.typ": g-node, g-edge, petersen-graph, house-graph, octahedral-graph, draw-grid-graph, draw-triangular-graph, graph-colors
 
 #set page(paper: "a4", margin: (x: 2cm, y: 2.5cm))
 #set text(font: "New Computer Modern", size: 10pt)
@@ -520,7 +520,10 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
       let hg = house-graph()
       let fills = kc_qubo_sol.source_config.map(c => graph-colors.at(c))
       align(center, canvas(length: 0.8cm, {
-        draw-graph(hg.vertices, hg.edges, node-fill: fills, node-labels: "index")
+        for (u, v) in hg.edges { g-edge(hg.vertices.at(u), hg.vertices.at(v)) }
+        for (k, pos) in hg.vertices.enumerate() {
+          g-node(pos, name: str(k), fill: fills.at(k), label: str(k))
+        }
       }))
     }
 
@@ -829,119 +832,28 @@ The following reductions to Integer Linear Programming are straightforward formu
 #let square_unweighted = json("petersen_square_unweighted.json")
 #let triangular_mapping = json("petersen_triangular.json")
 
-// Draw Petersen graph with standard layout
-#let draw-petersen-cetz(data) = canvas(length: 1cm, {
-  import draw: *
-  let r-outer = 1.2
-  let r-inner = 0.6
-
-  // Positions: outer pentagon (0-4), inner star (5-9)
-  let positions = ()
-  for i in range(5) {
-    let angle = 90deg - i * 72deg
-    positions.push((calc.cos(angle) * r-outer, calc.sin(angle) * r-outer))
-  }
-  for i in range(5) {
-    let angle = 90deg - i * 72deg
-    positions.push((calc.cos(angle) * r-inner, calc.sin(angle) * r-inner))
-  }
-
-  // Draw edges
-  for edge in data.edges {
-    let (u, v) = (edge.at(0), edge.at(1))
-    line(positions.at(u), positions.at(v), stroke: 0.6pt + gray)
-  }
-
-  // Draw nodes
-  for (k, pos) in positions.enumerate() {
-    circle(pos, radius: 0.12, fill: blue, stroke: none)
-  }
-})
-
-// Draw King's Subgraph from JSON nodes - uses pre-computed edges
-#let draw-grid-cetz(data, cell-size: 0.2) = canvas(length: 1cm, {
-  import draw: *
-  let grid-data = data.grid_graph
-
-  // Get node positions (col, row) for drawing
-  let grid-positions = grid-data.nodes.map(n => (n.col, n.row))
-  let weights = grid-data.nodes.map(n => n.weight)
-
-  // Use pre-computed edges from JSON
-  let edges = grid-data.edges
-
-  // Scale for drawing
-  let vertices = grid-positions.map(p => (p.at(0) * cell-size, -p.at(1) * cell-size))
-
-  // Draw edges
-  for edge in edges {
-    let (k, l) = (edge.at(0), edge.at(1))
-    line(vertices.at(k), vertices.at(l), stroke: 0.4pt + gray)
-  }
-
-  // Draw nodes with weight-based color
-  for (k, pos) in vertices.enumerate() {
-    let w = weights.at(k)
-    let color = if w == 1 { blue } else if w == 2 { red } else { green }
-    circle(pos, radius: 0.04, fill: color, stroke: none)
-  }
-})
-
-// Draw triangular lattice from JSON nodes - uses pre-computed edges
-// Matches Rust's GridGraph physical_position_static for Triangular with offset_even_cols=true:
-//   x = row + offset (where offset = 0.5 if col is even)
-//   y = col * sqrt(3)/2
-#let draw-triangular-cetz(data, cell-size: 0.2) = canvas(length: 1cm, {
-  import draw: *
-  let grid-data = data.grid_graph
-
-  // Get node positions with triangular geometry for drawing
-  // Match Rust GridGraph::physical_position_static for Triangular:
-  //   x = row + 0.5 (if col is even, since offset_even_cols=true)
-  //   y = col * sqrt(3)/2
-  let sqrt3_2 = calc.sqrt(3) / 2
-  let grid-positions = grid-data.nodes.map(n => {
-    let offset = if calc.rem(n.col, 2) == 0 { 0.5 } else { 0.0 }
-    let x = n.row + offset
-    let y = n.col * sqrt3_2
-    (x, y)
-  })
-  let weights = grid-data.nodes.map(n => n.weight)
-
-  // Use pre-computed edges from JSON
-  let edges = grid-data.edges
-
-  // Scale for drawing
-  let vertices = grid-positions.map(p => (p.at(0) * cell-size, -p.at(1) * cell-size))
-
-  // Draw edges
-  for edge in edges {
-    let (k, l) = (edge.at(0), edge.at(1))
-    line(vertices.at(k), vertices.at(l), stroke: 0.3pt + gray)
-  }
-
-  // Draw nodes with weight-based color
-  for (k, pos) in vertices.enumerate() {
-    let w = weights.at(k)
-    let color = if w == 1 { blue } else if w == 2 { red } else { green }
-    circle(pos, radius: 0.025, fill: color, stroke: none)
-  }
-})
-
 #figure(
   grid(
     columns: 3,
     gutter: 1.5em,
     align(center + horizon)[
-      #draw-petersen-cetz(petersen)
+      #{
+        let pg = petersen-graph()
+        canvas(length: 1cm, {
+          for (u, v) in pg.edges { g-edge(pg.vertices.at(u), pg.vertices.at(v)) }
+          for (k, pos) in pg.vertices.enumerate() {
+            g-node(pos, fill: blue, stroke: none)
+          }
+        })
+      }
       (a) Petersen graph
     ],
     align(center + horizon)[
-      #draw-grid-cetz(square_weighted)
+      #draw-grid-graph(square_weighted)
       (b) King's subgraph (weighted)
     ],
     align(center + horizon)[
-      #draw-triangular-cetz(triangular_mapping)
+      #draw-triangular-graph(triangular_mapping)
       (c) Triangular lattice (weighted)
     ],
   ),

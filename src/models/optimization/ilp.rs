@@ -350,10 +350,7 @@ impl Problem for ILP {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", "f64"),
-        ]
+        vec![("graph", "SimpleGraph"), ("weight", "f64")]
     }
 }
 

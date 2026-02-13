@@ -1,46 +1,48 @@
 // Graph visualization library for the problem-reductions paper
 #import "@preview/cetz:0.4.2": canvas, draw
 
+// ── Style defaults ─────────────────────────────────────────────
+
 // Color palette for k-coloring visualizations
 #let graph-colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"))
 
-// Weight-based color map for grid graph nodes
+// Weight-based fill colors for grid graph nodes
 #let weight-color(w) = if w == 1 { blue } else if w == 2 { red } else { green }
 
-// ── Core drawing function ──────────────────────────────────────
+// ── Primitives: g-node, g-edge ─────────────────────────────────
+// All graph drawing goes through these two functions.
+// They define the standard style; callers can override any parameter.
 
-// Draw a graph from vertex positions and edge index pairs.
-//   vertices: array of (x, y) positions
-//   edges: array of (i, j) index pairs
-//   node-fill: single color or array of per-vertex colors
-//   node-labels: none, "index", or array of label strings
-#let draw-graph(
-  vertices,
-  edges,
-  radius: 0.12,
-  node-stroke: 0.5pt,
-  edge-stroke: 0.6pt + gray,
-  node-fill: white,
-  node-labels: none,
-  label-size: 6pt,
+// Draw a single graph node.
+//   pos: (x, y) position
+//   name: CetZ element name (for edge references)
+//   label: none or content to place inside the node
+#let g-node(
+  pos,
+  name: none,
+  radius: 0.2,
+  fill: white,
+  stroke: 0.5pt,
+  label: none,
+  label-size: 8pt,
 ) = {
-  import draw: *
-  // Draw edges first (behind nodes)
-  for (u, v) in edges {
-    line(vertices.at(u), vertices.at(v), stroke: edge-stroke)
-  }
-  // Draw nodes
-  for (k, pos) in vertices.enumerate() {
-    let fill = if type(node-fill) == array { node-fill.at(k) } else { node-fill }
-    circle(pos, radius: radius, fill: fill, stroke: node-stroke, name: str(k))
-    if node-labels != none {
-      let label = if node-labels == "index" { str(k) } else { node-labels.at(k) }
-      content(str(k), text(label-size, label))
-    }
+  draw.circle(pos, radius: radius, fill: fill, stroke: stroke, name: name)
+  if label != none {
+    draw.content(name, text(label-size, label))
   }
 }
 
+// Draw a single graph edge between two named nodes or positions.
+#let g-edge(
+  from,
+  to,
+  stroke: 1pt + black,
+) = {
+  draw.line(from, to, stroke: stroke)
+}
+
 // ── Pre-defined graph layouts ──────────────────────────────────
+// Each returns (vertices: [...], edges: [...])
 
 // Petersen graph: outer pentagon (0-4) + inner star (5-9)
 #let petersen-graph() = {
@@ -87,38 +89,33 @@
 }
 
 // ── Grid graph functions (JSON-driven) ─────────────────────────
+// Extract positions from JSON, draw with dense styling via g-node/g-edge.
 
 // King's subgraph from JSON with weight-based coloring
 #let draw-grid-graph(data, cell-size: 0.2) = canvas(length: 1cm, {
-  import draw: *
   let grid-data = data.grid_graph
   let positions = grid-data.nodes.map(n => (n.col * cell-size, -n.row * cell-size))
-  let weights = grid-data.nodes.map(n => n.weight)
-
-  for edge in grid-data.edges {
-    line(positions.at(edge.at(0)), positions.at(edge.at(1)), stroke: 0.4pt + gray)
-  }
+  let fills = grid-data.nodes.map(n => weight-color(n.weight))
+  let edges = grid-data.edges.map(e => (e.at(0), e.at(1)))
+  for (u, v) in edges { g-edge(positions.at(u), positions.at(v), stroke: 0.4pt + gray) }
   for (k, pos) in positions.enumerate() {
-    circle(pos, radius: 0.04, fill: weight-color(weights.at(k)), stroke: none)
+    g-node(pos, radius: 0.04, stroke: none, fill: fills.at(k))
   }
 })
 
 // Triangular lattice from JSON with weight-based coloring
 // Matches Rust GridGraph::physical_position_static for Triangular (offset_even_cols=true)
 #let draw-triangular-graph(data, cell-size: 0.2) = canvas(length: 1cm, {
-  import draw: *
   let grid-data = data.grid_graph
   let sqrt3_2 = calc.sqrt(3) / 2
   let positions = grid-data.nodes.map(n => {
     let offset = if calc.rem(n.col, 2) == 0 { 0.5 } else { 0.0 }
     ((n.row + offset) * cell-size, -n.col * sqrt3_2 * cell-size)
   })
-  let weights = grid-data.nodes.map(n => n.weight)
-
-  for edge in grid-data.edges {
-    line(positions.at(edge.at(0)), positions.at(edge.at(1)), stroke: 0.3pt + gray)
-  }
+  let fills = grid-data.nodes.map(n => weight-color(n.weight))
+  let edges = grid-data.edges.map(e => (e.at(0), e.at(1)))
+  for (u, v) in edges { g-edge(positions.at(u), positions.at(v), stroke: 0.3pt + gray) }
   for (k, pos) in positions.enumerate() {
-    circle(pos, radius: 0.025, fill: weight-color(weights.at(k)), stroke: none)
+    g-node(pos, radius: 0.025, stroke: none, fill: fills.at(k))
   }
 })

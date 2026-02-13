@@ -255,11 +255,7 @@ impl ReduceTo<ILP> for Factoring {
             ObjectiveSense::Minimize,
         );
 
-        ReductionFactoringToILP {
-            target: ilp,
-            m,
-            n,
-        }
+        ReductionFactoringToILP { target: ilp, m, n }
     }
 }
 

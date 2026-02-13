@@ -150,7 +150,10 @@ impl<const K: usize> Problem for KSatisfiability<K> {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("k", crate::variant::const_usize_str::<K>()), ("weight", "Unweighted")]
+        vec![
+            ("k", crate::variant::const_usize_str::<K>()),
+            ("weight", "Unweighted"),
+        ]
     }
 }
 

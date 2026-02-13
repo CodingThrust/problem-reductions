@@ -40,10 +40,16 @@ fn test_evaluate_valid() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5]]);
 
     // All disjoint, can select all
-    assert_eq!(Problem::evaluate(&problem, &[1, 1, 1]), SolutionSize::Valid(3));
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 1, 1]),
+        SolutionSize::Valid(3)
+    );
 
     // Select none - valid with size 0
-    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0]), SolutionSize::Valid(0));
+    assert_eq!(
+        Problem::evaluate(&problem, &[0, 0, 0]),
+        SolutionSize::Valid(0)
+    );
 }
 
 #[test]
@@ -51,7 +57,10 @@ fn test_evaluate_invalid() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
 
     // Sets 0 and 1 overlap - returns Invalid
-    assert_eq!(Problem::evaluate(&problem, &[1, 1, 0]), SolutionSize::Invalid);
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 1, 0]),
+        SolutionSize::Invalid
+    );
 }
 
 #[test]

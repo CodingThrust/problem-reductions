@@ -183,10 +183,16 @@ fn test_bmf_problem() {
 
     // Exact factorization: B = I, C = I
     // Config: [1,0,0,1, 1,0,0,1]
-    assert_eq!(Problem::evaluate(&problem, &[1, 0, 0, 1, 1, 0, 0, 1]), SolutionSize::Valid(0));
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 0, 0, 1, 1, 0, 0, 1]),
+        SolutionSize::Valid(0)
+    );
 
     // All zeros -> product is all zeros, distance = 2
-    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0, 0, 0, 0, 0, 0]), SolutionSize::Valid(2));
+    assert_eq!(
+        Problem::evaluate(&problem, &[0, 0, 0, 0, 0, 0, 0, 0]),
+        SolutionSize::Valid(2)
+    );
 
     // Direction is minimize
     assert_eq!(problem.direction(), Direction::Minimize);

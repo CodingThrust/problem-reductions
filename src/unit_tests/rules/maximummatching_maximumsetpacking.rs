@@ -84,8 +84,14 @@ fn test_matching_to_setpacking_weighted() {
 
     // Verify through direct MaximumMatching solution
     let direct_solutions = solver.find_all_best(&matching);
-    assert_eq!(matching.evaluate(&sp_solutions[0]), SolutionSize::Valid(100));
-    assert_eq!(matching.evaluate(&direct_solutions[0]), SolutionSize::Valid(100));
+    assert_eq!(
+        matching.evaluate(&sp_solutions[0]),
+        SolutionSize::Valid(100)
+    );
+    assert_eq!(
+        matching.evaluate(&direct_solutions[0]),
+        SolutionSize::Valid(100)
+    );
 }
 
 #[test]

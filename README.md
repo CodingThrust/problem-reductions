@@ -54,11 +54,10 @@ assert_eq!(solution.iter().sum::<usize>(), 2); // Max IS size is 2
 
 1. **Open an issue** using the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template. Fill in all sections — the templates guide you through the required information (definition, algorithm, size overhead, example instance, etc.).
 
-2. Optionally, if you prefer to make a **concrete plan** or **implement yourself**, I will recommend you to use the [superpowers:brainstorming](https://github.com/obra/superpowers) skill to help you write a detailed plan. After making implementation plan, you can either implement the plan yourself or create a PR with prompt:
-   ```
-   Create a pull request starting with "[action]" in the description.
-   ```
-   to trigger automated implementation.
+2. Our AI agents will pick-up the issue and generate a plan to implement the reduction rule.
+3. You will be mentioned in the pull request, provide feedback to the AI agents. If you are satisfied with the plan, you can merge the PR.
+
+Optionally, if you prefer to **implement yourself**, I will recommend you to use the [superpowers:brainstorming](https://github.com/obra/superpowers) skill to help you write a detailed plan. Create a PR and let maintainers help review and merge the PR.
 
 ### Developer Commands
 

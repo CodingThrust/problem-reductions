@@ -23,10 +23,16 @@ fn test_evaluate_valid() {
     let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
     // Valid: select vertex 1 (covers both edges)
-    assert_eq!(Problem::evaluate(&problem, &[0, 1, 0]), SolutionSize::Valid(1));
+    assert_eq!(
+        Problem::evaluate(&problem, &[0, 1, 0]),
+        SolutionSize::Valid(1)
+    );
 
     // Valid: select all vertices
-    assert_eq!(Problem::evaluate(&problem, &[1, 1, 1]), SolutionSize::Valid(3));
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 1, 1]),
+        SolutionSize::Valid(3)
+    );
 }
 
 #[test]
@@ -34,10 +40,16 @@ fn test_evaluate_invalid() {
     let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
 
     // Invalid: no vertex selected - returns Invalid for minimization
-    assert_eq!(Problem::evaluate(&problem, &[0, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(
+        Problem::evaluate(&problem, &[0, 0, 0]),
+        SolutionSize::Invalid
+    );
 
     // Invalid: only vertex 0 selected (edge 1-2 not covered)
-    assert_eq!(Problem::evaluate(&problem, &[1, 0, 0]), SolutionSize::Invalid);
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 0, 0]),
+        SolutionSize::Invalid
+    );
 }
 
 #[test]

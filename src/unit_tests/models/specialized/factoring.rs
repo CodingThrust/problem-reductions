@@ -45,20 +45,32 @@ fn test_read_factors() {
 fn test_evaluate_valid() {
     let problem = Factoring::new(2, 2, 6);
     // 2 * 3 = 6 -> distance 0
-    assert_eq!(Problem::evaluate(&problem, &[0, 1, 1, 1]), SolutionSize::Valid(0));
+    assert_eq!(
+        Problem::evaluate(&problem, &[0, 1, 1, 1]),
+        SolutionSize::Valid(0)
+    );
 
     // 3 * 2 = 6 -> distance 0
-    assert_eq!(Problem::evaluate(&problem, &[1, 1, 0, 1]), SolutionSize::Valid(0));
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 1, 0, 1]),
+        SolutionSize::Valid(0)
+    );
 }
 
 #[test]
 fn test_evaluate_invalid() {
     let problem = Factoring::new(2, 2, 6);
     // 2 * 2 = 4 != 6 -> distance 2
-    assert_eq!(Problem::evaluate(&problem, &[0, 1, 0, 1]), SolutionSize::Valid(2));
+    assert_eq!(
+        Problem::evaluate(&problem, &[0, 1, 0, 1]),
+        SolutionSize::Valid(2)
+    );
 
     // 1 * 1 = 1 != 6 -> distance 5
-    assert_eq!(Problem::evaluate(&problem, &[1, 0, 1, 0]), SolutionSize::Valid(5));
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 0, 1, 0]),
+        SolutionSize::Valid(5)
+    );
 }
 
 #[test]

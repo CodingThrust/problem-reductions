@@ -168,7 +168,7 @@ fn test_vc_to_sc_all_solutions_valid() {
         let vc_sol = reduction.extract_solution(sc_sol);
         let eval = vc_problem.evaluate(&vc_sol);
         assert!(
-            eval .is_valid(),
+            eval.is_valid(),
             "Extracted solution {:?} should be valid",
             vc_sol
         );
