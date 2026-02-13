@@ -134,6 +134,7 @@ The plan MUST include an **action pipeline** section with concrete steps based o
    - Add `#problem-def("Name")[definition...]`
 
 ### 6. Create PR
+Create a pull request with only the plan file.
 
 ```bash
 # Create branch
@@ -174,7 +175,7 @@ All required info is present. I'll create the plan...
 [Creates branch, commits, pushes]
 [Creates PR]
 
-Created PR #45: Fix #42: Add IndependentSet → QUBO reduction
+Created PR #45: Fix #42: Add IndependentSet → QUBO reduction, description: ...
 ```
 
 ## Common Mistakes
