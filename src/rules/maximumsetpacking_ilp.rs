@@ -7,7 +7,6 @@
 
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::models::set::MaximumSetPacking;
-use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -43,8 +42,8 @@ impl ReductionResult for ReductionSPToILP {
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_sets)),
-            ("num_constraints", poly!(num_sets ^ 2)),
+            ("num_vars", "num_sets"),
+            ("num_constraints", "num_sets ^ 2"),
         ])
     }
 )]

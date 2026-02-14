@@ -58,22 +58,37 @@ fn test_reduction_structure() {
 
 #[test]
 fn test_jl_parity_spinglass_to_qubo() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../tests/data/jl/spinglass_to_qubo.json")).unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/data/jl/spinglass_to_qubo.json"
+    ))
+    .unwrap();
     let sg_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/spinglass.json")).unwrap();
     let inst = &sg_data["instances"][0]["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
     let edges = jl_parse_edges(inst);
-    let j_values: Vec<f64> = inst["J"].as_array().unwrap().iter().map(|v| v.as_i64().unwrap() as f64).collect();
-    let h_values: Vec<f64> = inst["h"].as_array().unwrap().iter().map(|v| v.as_i64().unwrap() as f64).collect();
+    let j_values: Vec<f64> = inst["J"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_i64().unwrap() as f64)
+        .collect();
+    let h_values: Vec<f64> = inst["h"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|v| v.as_i64().unwrap() as f64)
+        .collect();
     let interactions: Vec<((usize, usize), f64)> = edges.into_iter().zip(j_values).collect();
     let source = SpinGlass::<SimpleGraph, f64>::new(nv, interactions, h_values);
     let result = ReduceTo::<QUBO<f64>>::reduce_to(&source);
     let solver = BruteForce::new();
     let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    let extracted: HashSet<Vec<usize>> = best_target
+        .iter()
+        .map(|t| result.extract_solution(t))
+        .collect();
     assert!(extracted.is_subset(&best_source));
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
@@ -82,26 +97,41 @@ fn test_jl_parity_spinglass_to_qubo() {
 
 #[test]
 fn test_jl_parity_qubo_to_spinglass() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../tests/data/jl/qubo_to_spinglass.json")).unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/data/jl/qubo_to_spinglass.json"
+    ))
+    .unwrap();
     let q_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/qubo.json")).unwrap();
     let jl_matrix: Vec<Vec<f64>> = q_data["instances"][0]["instance"]["matrix"]
-        .as_array().unwrap().iter()
-        .map(|row| row.as_array().unwrap().iter().map(|v| v.as_i64().unwrap() as f64).collect())
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| {
+            row.as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_i64().unwrap() as f64)
+                .collect()
+        })
         .collect();
     let n = jl_matrix.len();
     let mut rust_matrix = vec![vec![0.0f64; n]; n];
     for i in 0..n {
         rust_matrix[i][i] = jl_matrix[i][i];
-        for j in (i + 1)..n { rust_matrix[i][j] = jl_matrix[i][j] + jl_matrix[j][i]; }
+        for j in (i + 1)..n {
+            rust_matrix[i][j] = jl_matrix[i][j] + jl_matrix[j][i];
+        }
     }
     let source = QUBO::from_matrix(rust_matrix);
     let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&source);
     let solver = BruteForce::new();
     let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    let extracted: HashSet<Vec<usize>> = best_target
+        .iter()
+        .map(|t| result.extract_solution(t))
+        .collect();
     assert!(extracted.is_subset(&best_source));
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
@@ -110,26 +140,42 @@ fn test_jl_parity_qubo_to_spinglass() {
 
 #[test]
 fn test_jl_parity_rule_qubo_to_spinglass() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../tests/data/jl/rule_qubo_to_spinglass.json")).unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/data/jl/rule_qubo_to_spinglass.json"
+    ))
+    .unwrap();
     let q_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/qubo.json")).unwrap();
-    let jl_matrix: Vec<Vec<f64>> = jl_find_instance_by_label(&q_data, "rule_3x3")["instance"]["matrix"]
-        .as_array().unwrap().iter()
-        .map(|row| row.as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect())
+    let jl_matrix: Vec<Vec<f64>> = jl_find_instance_by_label(&q_data, "rule_3x3")["instance"]
+        ["matrix"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|row| {
+            row.as_array()
+                .unwrap()
+                .iter()
+                .map(|v| v.as_f64().unwrap())
+                .collect()
+        })
         .collect();
     let n = jl_matrix.len();
     let mut rust_matrix = vec![vec![0.0f64; n]; n];
     for i in 0..n {
         rust_matrix[i][i] = jl_matrix[i][i];
-        for j in (i + 1)..n { rust_matrix[i][j] = jl_matrix[i][j] + jl_matrix[j][i]; }
+        for j in (i + 1)..n {
+            rust_matrix[i][j] = jl_matrix[i][j] + jl_matrix[j][i];
+        }
     }
     let source = QUBO::from_matrix(rust_matrix);
     let result = ReduceTo::<SpinGlass<SimpleGraph, f64>>::reduce_to(&source);
     let solver = BruteForce::new();
     let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    let extracted: HashSet<Vec<usize>> = best_target
+        .iter()
+        .map(|t| result.extract_solution(t))
+        .collect();
     assert!(extracted.is_subset(&best_source));
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));

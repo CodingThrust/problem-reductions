@@ -65,18 +65,25 @@ fn test_reduction_structure() {
 
 #[test]
 fn test_jl_parity_is_to_setpacking() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../tests/data/jl/independentset_to_setpacking.json")).unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/data/jl/independentset_to_setpacking.json"
+    ))
+    .unwrap();
     let is_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/independentset.json")).unwrap();
     let inst = &is_data["instances"][0]["instance"];
     let source = MaximumIndependentSet::<SimpleGraph, i32>::new(
-        inst["num_vertices"].as_u64().unwrap() as usize, jl_parse_edges(inst));
+        inst["num_vertices"].as_u64().unwrap() as usize,
+        jl_parse_edges(inst),
+    );
     let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
     let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    let extracted: HashSet<Vec<usize>> = best_target
+        .iter()
+        .map(|t| result.extract_solution(t))
+        .collect();
     assert!(extracted.is_subset(&best_source));
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
@@ -85,8 +92,10 @@ fn test_jl_parity_is_to_setpacking() {
 
 #[test]
 fn test_jl_parity_setpacking_to_is() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../tests/data/jl/setpacking_to_independentset.json")).unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/data/jl/setpacking_to_independentset.json"
+    ))
+    .unwrap();
     let sp_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/setpacking.json")).unwrap();
     let inst = &sp_data["instances"][0]["instance"];
@@ -95,7 +104,10 @@ fn test_jl_parity_setpacking_to_is() {
     let solver = BruteForce::new();
     let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    let extracted: HashSet<Vec<usize>> = best_target
+        .iter()
+        .map(|t| result.extract_solution(t))
+        .collect();
     assert!(extracted.is_subset(&best_source));
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
@@ -104,18 +116,25 @@ fn test_jl_parity_setpacking_to_is() {
 
 #[test]
 fn test_jl_parity_rule_is_to_setpacking() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../tests/data/jl/rule_independentset_to_setpacking.json")).unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/data/jl/rule_independentset_to_setpacking.json"
+    ))
+    .unwrap();
     let is_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/independentset.json")).unwrap();
     let inst = &jl_find_instance_by_label(&is_data, "doc_4vertex")["instance"];
     let source = MaximumIndependentSet::<SimpleGraph, i32>::new(
-        inst["num_vertices"].as_u64().unwrap() as usize, jl_parse_edges(inst));
+        inst["num_vertices"].as_u64().unwrap() as usize,
+        jl_parse_edges(inst),
+    );
     let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
     let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    let extracted: HashSet<Vec<usize>> = best_target
+        .iter()
+        .map(|t| result.extract_solution(t))
+        .collect();
     assert!(extracted.is_subset(&best_source));
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
@@ -124,19 +143,26 @@ fn test_jl_parity_rule_is_to_setpacking() {
 
 #[test]
 fn test_jl_parity_doc_is_to_setpacking() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../tests/data/jl/doc_independentset_to_setpacking.json")).unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/data/jl/doc_independentset_to_setpacking.json"
+    ))
+    .unwrap();
     let is_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/independentset.json")).unwrap();
     let is_instance = jl_find_instance_by_label(&is_data, "doc_4vertex");
     let inst = &is_instance["instance"];
     let source = MaximumIndependentSet::<SimpleGraph, i32>::new(
-        inst["num_vertices"].as_u64().unwrap() as usize, jl_parse_edges(inst));
+        inst["num_vertices"].as_u64().unwrap() as usize,
+        jl_parse_edges(inst),
+    );
     let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
     let best_target = solver.find_all_best(result.target_problem());
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    let extracted: HashSet<Vec<usize>> = best_target
+        .iter()
+        .map(|t| result.extract_solution(t))
+        .collect();
     assert!(extracted.is_subset(&best_source));
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));

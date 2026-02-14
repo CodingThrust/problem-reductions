@@ -77,7 +77,7 @@ pub struct EdgeJson {
     pub source: usize,
     /// Index into the `nodes` array for the target problem variant.
     pub target: usize,
-    /// Reduction overhead: output size as polynomials of input size.
+    /// Reduction overhead: output size as expressions of input size.
     pub overhead: Vec<OverheadFieldJson>,
     /// Relative rustdoc path for the reduction module.
     pub doc_path: String,
@@ -417,7 +417,10 @@ impl ReductionGraph {
 
                 let edge_cost = cost_fn.edge_cost(&edge.overhead, &current_size);
                 let new_cost = cost.0 + edge_cost;
-                let new_size = edge.overhead.evaluate_output_size(&current_size);
+                let new_size = edge
+                    .overhead
+                    .evaluate_output_size(&current_size)
+                    .expect("overhead evaluation failed during path finding");
 
                 if new_cost < *costs.get(&next).unwrap_or(&f64::INFINITY) {
                     costs.insert(next, new_cost);

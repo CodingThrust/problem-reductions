@@ -72,8 +72,16 @@ fn test_jl_parity_evaluation() {
         serde_json::from_str(include_str!("../../../../tests/data/jl/qubo.json")).unwrap();
     for instance in data["instances"].as_array().unwrap() {
         let jl_matrix: Vec<Vec<f64>> = instance["instance"]["matrix"]
-            .as_array().unwrap().iter()
-            .map(|row| row.as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect())
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|row| {
+                row.as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_f64().unwrap())
+                    .collect()
+            })
             .collect();
         let n = jl_matrix.len();
         let mut rust_matrix = vec![vec![0.0f64; n]; n];
@@ -89,7 +97,11 @@ fn test_jl_parity_evaluation() {
             let result: SolutionSize<f64> = Problem::evaluate(&problem, &config);
             let jl_size = eval["size"].as_f64().unwrap();
             assert!(result.is_valid(), "QUBO should always be valid");
-            assert!((result.unwrap() - jl_size).abs() < 1e-10, "QUBO value mismatch for config {:?}", config);
+            assert!(
+                (result.unwrap() - jl_size).abs() < 1e-10,
+                "QUBO value mismatch for config {:?}",
+                config
+            );
         }
         let best = BruteForce::new().find_all_best(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);

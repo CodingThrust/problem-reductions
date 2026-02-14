@@ -113,10 +113,20 @@ fn test_jl_parity_evaluation() {
             let config = jl_parse_config(&eval["config"]);
             let result = problem.evaluate(&config);
             let jl_valid = eval["is_valid"].as_bool().unwrap();
-            assert_eq!(result.is_valid(), jl_valid, "SetPacking validity mismatch for config {:?}", config);
+            assert_eq!(
+                result.is_valid(),
+                jl_valid,
+                "SetPacking validity mismatch for config {:?}",
+                config
+            );
             if jl_valid {
                 let jl_size = eval["size"].as_i64().unwrap() as i32;
-                assert_eq!(result.unwrap(), jl_size, "SetPacking size mismatch for config {:?}", config);
+                assert_eq!(
+                    result.unwrap(),
+                    jl_size,
+                    "SetPacking size mismatch for config {:?}",
+                    config
+                );
             }
         }
         let best = BruteForce::new().find_all_best(&problem);
