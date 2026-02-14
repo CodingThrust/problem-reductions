@@ -14,7 +14,6 @@
 
 use crate::models::optimization::QUBO;
 use crate::models::satisfiability::KSatisfiability;
-use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -293,7 +292,7 @@ fn build_qubo_matrix(
 }
 
 #[reduction(
-    overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vars))]) }
+    overhead = { ReductionOverhead::new(vec![("num_vars", "num_vars")]) }
 )]
 impl ReduceTo<QUBO<f64>> for KSatisfiability<K2> {
     type Result = ReductionKSatToQUBO;
@@ -311,7 +310,7 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<K2> {
 
 #[reduction(
     overhead = { ReductionOverhead::new(vec![
-        ("num_vars", poly!(num_vars) + poly!(num_clauses)),
+        ("num_vars", "num_vars + num_clauses"),
     ]) }
 )]
 impl ReduceTo<QUBO<f64>> for KSatisfiability<K3> {

@@ -1,5 +1,4 @@
 use super::*;
-use crate::poly;
 
 /// Dummy reduce_fn for unit tests that don't exercise runtime reduction.
 fn dummy_reduce_fn(_: &dyn std::any::Any) -> Box<dyn crate::rules::traits::DynReductionResult> {
@@ -8,10 +7,10 @@ fn dummy_reduce_fn(_: &dyn std::any::Any) -> Box<dyn crate::rules::traits::DynRe
 
 #[test]
 fn test_reduction_overhead_evaluate() {
-    let overhead = ReductionOverhead::new(vec![("n", poly!(3 * m)), ("m", poly!(m ^ 2))]);
+    let overhead = ReductionOverhead::new(vec![("n", "3 * m"), ("m", "m ^ 2")]);
 
     let input = ProblemSize::new(vec![("m", 4)]);
-    let output = overhead.evaluate_output_size(&input);
+    let output = overhead.evaluate_output_size(&input).unwrap();
 
     assert_eq!(output.get("n"), Some(12)); // 3 * 4
     assert_eq!(output.get("m"), Some(16)); // 4^2
@@ -30,7 +29,7 @@ fn test_reduction_entry_overhead() {
         target_name: "TestTarget",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
-        overhead_fn: || ReductionOverhead::new(vec![("n", poly!(2 * n))]),
+        overhead_fn: || ReductionOverhead::new(vec![("n", "2 * n")]),
         module_path: "test::module",
         source_size_names_fn: || &["n"],
         target_size_names_fn: || &["n"],
@@ -39,7 +38,7 @@ fn test_reduction_entry_overhead() {
 
     let overhead = entry.overhead();
     let input = ProblemSize::new(vec![("n", 5)]);
-    let output = overhead.evaluate_output_size(&input);
+    let output = overhead.evaluate_output_size(&input).unwrap();
     assert_eq!(output.get("n"), Some(10));
 }
 

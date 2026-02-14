@@ -8,7 +8,6 @@
 //! carry propagation, building up partial products row by row.
 
 use crate::models::specialized::{Assignment, BooleanExpr, Circuit, CircuitSAT, Factoring};
-use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -178,8 +177,8 @@ fn build_multiplier_cell(
 
 #[reduction(overhead = {
     ReductionOverhead::new(vec![
-        ("num_variables", poly!(num_bits_first * num_bits_second)),
-        ("num_assignments", poly!(num_bits_first * num_bits_second)),
+        ("num_variables", "num_bits_first * num_bits_second"),
+        ("num_assignments", "num_bits_first * num_bits_second"),
     ])
 })]
 impl ReduceTo<CircuitSAT> for Factoring {

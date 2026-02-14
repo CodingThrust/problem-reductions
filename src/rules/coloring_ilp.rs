@@ -9,7 +9,6 @@
 
 use crate::models::graph::KColoring;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
-use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -125,8 +124,8 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_vertices ^ 2)),
-            ("num_constraints", poly!(num_vertices) + poly!(num_vertices * num_edges)),
+            ("num_vars", "num_vertices * num_colors"),
+            ("num_constraints", "num_vertices + num_edges * num_colors"),
         ])
     }
 )]

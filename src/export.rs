@@ -26,18 +26,11 @@ pub struct ProblemSide {
     pub instance: serde_json::Value,
 }
 
-/// A monomial in JSON: coefficient × Π(variable^exponent).
-#[derive(Serialize, Clone, Debug)]
-pub struct MonomialJson {
-    pub coefficient: f64,
-    pub variables: Vec<(String, u8)>,
-}
-
-/// One output field mapped to a polynomial.
+/// One output field mapped to an expression string.
 #[derive(Serialize, Clone, Debug)]
 pub struct OverheadEntry {
     pub field: String,
-    pub polynomial: Vec<MonomialJson>,
+    pub expression: String,
 }
 
 /// Top-level reduction structure (written to `<name>.json`).
@@ -66,20 +59,9 @@ pub fn overhead_to_json(overhead: &ReductionOverhead) -> Vec<OverheadEntry> {
     overhead
         .output_size
         .iter()
-        .map(|(field, poly)| OverheadEntry {
+        .map(|(field, expr)| OverheadEntry {
             field: field.to_string(),
-            polynomial: poly
-                .terms
-                .iter()
-                .map(|m| MonomialJson {
-                    coefficient: m.coefficient,
-                    variables: m
-                        .variables
-                        .iter()
-                        .map(|(name, exp)| (name.to_string(), *exp))
-                        .collect(),
-                })
-                .collect(),
+            expression: expr.to_string(),
         })
         .collect()
 }

@@ -7,7 +7,6 @@
 //! K-SAT -> SAT: Trivial embedding (K-SAT is a special case of SAT)
 
 use crate::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
-use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -113,11 +112,11 @@ fn add_clause_to_ksat(
 macro_rules! impl_sat_to_ksat {
     ($ktype:ty, $k:expr) => {
         #[reduction(overhead = {
-                                    ReductionOverhead::new(vec![
-                                        ("num_clauses", poly!(num_clauses) + poly!(num_literals)),
-                                        ("num_vars", poly!(num_vars) + poly!(num_literals)),
-                                    ])
-                                })]
+                                            ReductionOverhead::new(vec![
+                                                ("num_clauses", "num_clauses + num_literals"),
+                                                ("num_vars", "num_vars + num_literals"),
+                                            ])
+                                        })]
         impl ReduceTo<KSatisfiability<$ktype>> for Satisfiability {
             type Result = ReductionSATToKSAT<$ktype>;
 
@@ -188,9 +187,9 @@ macro_rules! impl_ksat_to_sat {
     ($ktype:ty) => {
         #[reduction(overhead = {
                                                             ReductionOverhead::new(vec![
-                                                                ("num_clauses", poly!(num_clauses)),
-                                                                ("num_vars", poly!(num_vars)),
-                                                                ("num_literals", poly!(num_literals)),
+                                                                ("num_clauses", "num_clauses"),
+                                                                ("num_vars", "num_vars"),
+                                                                ("num_literals", "num_literals"),
                                                             ])
                                                         })]
         impl ReduceTo<Satisfiability> for KSatisfiability<$ktype> {
