@@ -389,10 +389,34 @@ document.addEventListener('DOMContentLoaded', function() {
 
       cy.on('tap', 'node', function(evt) {
         var node = evt.target;
+        // Parent → expand/collapse
         if (node.data('isParent')) {
           toggleExpand(node);
           return;
         }
+        // Path selection in progress → find path (regardless of variant/simple)
+        if (selectedNode) {
+          if (node === selectedNode) {
+            clearPath();
+            return;
+          }
+          var visibleElements = cy.elements().filter(function(ele) {
+            return ele.style('display') !== 'none';
+          });
+          var dijkstra = visibleElements.dijkstra({ root: selectedNode, directed: true });
+          var path = dijkstra.pathTo(node);
+          cy.elements().removeClass('highlighted selected-node');
+          if (path && path.length > 0) {
+            path.addClass('highlighted');
+            instructions.textContent = 'Path: ' + path.nodes().map(function(n) { return n.data('label'); }).join(' \u2192 ');
+          } else {
+            instructions.textContent = 'No path from ' + selectedNode.data('label') + ' to ' + node.data('label');
+          }
+          clearBtn.style.display = 'inline';
+          selectedNode = null;
+          return;
+        }
+        // Variant node (no path selection active) → variant filter
         if (node.data('isVariant')) {
           if (activeVariantFilter === node.id()) {
             // Toggle off — clear filter
@@ -414,28 +438,10 @@ document.addEventListener('DOMContentLoaded', function() {
           instructions.textContent = 'Showing edges for ' + node.data('fullLabel') + ' — click again to clear';
           return;
         }
-        if (!selectedNode) {
-          selectedNode = node;
-          node.addClass('selected-node');
-          instructions.textContent = 'Now click a target node to find path from ' + node.data('label');
-        } else if (node === selectedNode) {
-          clearPath();
-        } else {
-          var visibleElements = cy.elements().filter(function(ele) {
-            return ele.style('display') !== 'none';
-          });
-          var dijkstra = visibleElements.dijkstra({ root: selectedNode, directed: true });
-          var path = dijkstra.pathTo(node);
-          cy.elements().removeClass('highlighted selected-node');
-          if (path && path.length > 0) {
-            path.addClass('highlighted');
-            instructions.textContent = 'Path: ' + path.nodes().map(function(n) { return n.data('label'); }).join(' \u2192 ');
-          } else {
-            instructions.textContent = 'No path from ' + selectedNode.data('label') + ' to ' + node.data('label');
-          }
-          clearBtn.style.display = 'inline';
-          selectedNode = null;
-        }
+        // Simple node (no path selection active) → start path selection
+        selectedNode = node;
+        node.addClass('selected-node');
+        instructions.textContent = 'Now click a target node to find path from ' + node.data('label');
       });
 
       cy.on('tap', 'edge', function(evt) {
