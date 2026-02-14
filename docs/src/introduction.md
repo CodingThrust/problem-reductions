@@ -27,6 +27,7 @@
     <span class="swatch" style="background:#f0f0a0;"></span>Optimization
     <span class="swatch" style="background:#c8c8f0;"></span>Satisfiability
     <span class="swatch" style="background:#f0c8e0;"></span>Specialized
+    <span style="display:inline-block;width:20px;height:0;border-top:2px dashed #bbb;margin-left:10px;margin-right:3px;vertical-align:middle;"></span>Natural Cast
   </div>
   <div>
     <span id="instructions">Click a node to start path selection</span>
@@ -34,7 +35,11 @@
   </div>
 </div>
 <div id="cy-help">
-  Click two variant nodes to find a reduction path. Double-click a node for API docs, double-click an edge for source code. Scroll to zoom, drag to pan.
+  Click a problem node to expand/collapse its variants.
+  Click a variant to filter its edges.
+  Click two nodes to find a reduction path.
+  Double-click for API docs (nodes) or source code (edges).
+  Scroll to zoom, drag to pan.
 </div>
 <div id="cy-tooltip"></div>
 
