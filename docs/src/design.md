@@ -91,18 +91,18 @@ A single problem name like `MaximumIndependentSet` can have multiple **variants*
 Each variant is identified by a set of key-value pairs returned by `Problem::variant()`:
 
 ```rust
-// MaximumIndependentSet<UnitDiskGraph, Unweighted>
+// MaximumIndependentSet<UnitDiskGraph, One>
 fn variant() -> Vec<(&'static str, &'static str)> {
-    vec![("graph", "UnitDiskGraph"), ("weight", "Unweighted")]
+    vec![("graph", "UnitDiskGraph"), ("weight", "One")]
 }
 
 // KSatisfiability<3>
 fn variant() -> Vec<(&'static str, &'static str)> {
-    vec![("k", "3"), ("weight", "Unweighted")]
+    vec![("k", "3")]
 }
 ```
 
-In the reduction graph, variant nodes are labeled with only the non-default fields for brevity (e.g. `MaximumIndependentSet (GridGraph)` omits the default `Unweighted`), while hovering shows the full variant.
+In the reduction graph, variant nodes are labeled with only the non-default fields for brevity (e.g. `MaximumIndependentSet (GridGraph)` omits the default `One`), while hovering shows the full variant.
 
 ### Graph Hierarchy
 
@@ -132,13 +132,13 @@ The runtime builds a transitive closure: `GridGraph` is a subtype of `UnitDiskGr
 Weight types form a linear promotion chain:
 
 ```
-Unweighted → i32 → f64
+One → i32 → f64
 ```
 
-An unweighted problem is a special case of a weighted one (all weights equal to 1), and an integer-weighted problem embeds naturally into real-weighted. This is declared in `src/graph_types.rs`:
+An unweighted problem (using `One`, the unit-weight type) is a special case of a weighted one (all weights equal to 1), and an integer-weighted problem embeds naturally into real-weighted. This is declared in `src/graph_types.rs`:
 
 ```rust
-declare_weight_subtype!("Unweighted" => "i32");
+declare_weight_subtype!("One" => "i32");
 declare_weight_subtype!("i32" => "f64");
 ```
 

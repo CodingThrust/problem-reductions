@@ -216,10 +216,8 @@ fn generate_reduction_entry(
     let type_generics = collect_type_generic_names(&impl_block.generics);
 
     // Generate variant fn bodies
-    let source_variant_body =
-        make_variant_fn_body(source_type, &const_generics, &type_generics)?;
-    let target_variant_body =
-        make_variant_fn_body(&target_type, &const_generics, &type_generics)?;
+    let source_variant_body = make_variant_fn_body(source_type, &const_generics, &type_generics)?;
+    let target_variant_body = make_variant_fn_body(&target_type, &const_generics, &type_generics)?;
 
     // Generate overhead or use default
     let overhead = attrs.overhead.clone().unwrap_or_else(|| {
@@ -269,4 +267,3 @@ fn extract_target_from_trait(path: &Path) -> syn::Result<Type> {
         "Expected ReduceTo<Target> with type parameter",
     ))
 }
-

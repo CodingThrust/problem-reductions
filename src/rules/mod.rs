@@ -15,8 +15,8 @@ mod graph;
 mod ksatisfiability_qubo;
 mod maximumindependentset_gridgraph;
 mod maximumindependentset_maximumsetpacking;
-mod maximumindependentset_triangular;
 mod maximumindependentset_qubo;
+mod maximumindependentset_triangular;
 mod maximummatching_maximumsetpacking;
 mod maximumsetpacking_qubo;
 mod minimumvertexcover_maximumindependentset;
@@ -66,9 +66,9 @@ pub use graph::{
 };
 pub use ksatisfiability_qubo::{Reduction3SATToQUBO, ReductionKSatToQUBO};
 pub use maximumindependentset_gridgraph::{ReductionISSimpleToGrid, ReductionISUnitDiskToGrid};
-pub use maximumindependentset_triangular::ReductionISSimpleToTriangular;
 pub use maximumindependentset_maximumsetpacking::{ReductionISToSP, ReductionSPToIS};
 pub use maximumindependentset_qubo::ReductionISToQUBO;
+pub use maximumindependentset_triangular::ReductionISSimpleToTriangular;
 pub use maximummatching_maximumsetpacking::ReductionMatchingToSP;
 pub use maximumsetpacking_qubo::ReductionSPToQUBO;
 pub use minimumvertexcover_maximumindependentset::{ReductionISToVC, ReductionVCToIS};
@@ -106,4 +106,3 @@ pub use minimumvertexcover_ilp::ReductionVCToILP;
 pub use travelingsalesman_ilp::ReductionTSPToILP;
 
 mod variants;
-

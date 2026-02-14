@@ -41,7 +41,7 @@
   }
 
   // Default values per variant key — omitted in concise labels
-  var variantDefaults = { graph: 'SimpleGraph', weight: 'Unweighted' };
+  var variantDefaults = { graph: 'SimpleGraph', weight: 'One' };
 
   function variantLabel(variant) {
     var keys = Object.keys(variant);

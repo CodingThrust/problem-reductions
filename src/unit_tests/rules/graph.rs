@@ -845,10 +845,7 @@ fn test_natural_edge_weight_promotion() {
             && json.source_node(e).variant.get("weight") == Some(&"One".to_string())
             && json.target_node(e).variant.get("weight") == Some(&"i32".to_string())
     });
-    assert!(
-        has_edge,
-        "Natural edge MIS/One -> MIS/i32 should exist"
-    );
+    assert!(has_edge, "Natural edge MIS/One -> MIS/i32 should exist");
 }
 
 #[test]
