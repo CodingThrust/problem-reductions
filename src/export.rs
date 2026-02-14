@@ -88,6 +88,10 @@ pub fn overhead_to_json(overhead: &ReductionOverhead) -> Vec<OverheadEntry> {
 /// Searches all registered `ReductionEntry` items for a matching source/target pair.
 /// Returns `None` if no matching reduction is registered (e.g., ILP reductions
 /// that don't use the `#[reduction]` macro).
+#[deprecated(
+    since = "0.2.0",
+    note = "Use ReductionGraph::resolve_path() for variant-aware overhead lookup"
+)]
 pub fn lookup_overhead(source_name: &str, target_name: &str) -> Option<ReductionOverhead> {
     for entry in inventory::iter::<ReductionEntry> {
         if entry.source_name == source_name && entry.target_name == target_name {
@@ -98,7 +102,12 @@ pub fn lookup_overhead(source_name: &str, target_name: &str) -> Option<Reduction
 }
 
 /// Look up overhead, returning an empty overhead if not registered.
+#[deprecated(
+    since = "0.2.0",
+    note = "Use ReductionGraph::resolve_path() for variant-aware overhead lookup"
+)]
 pub fn lookup_overhead_or_empty(source_name: &str, target_name: &str) -> ReductionOverhead {
+    #[allow(deprecated)]
     lookup_overhead(source_name, target_name).unwrap_or_default()
 }
 

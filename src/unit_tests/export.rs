@@ -94,6 +94,7 @@ fn test_variant_to_map_multiple() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_lookup_overhead_known_reduction() {
     // IS -> VC is a known registered reduction
     let result = lookup_overhead("MaximumIndependentSet", "MinimumVertexCover");
@@ -101,18 +102,21 @@ fn test_lookup_overhead_known_reduction() {
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_lookup_overhead_unknown_reduction() {
     let result = lookup_overhead("NonExistent", "AlsoNonExistent");
     assert!(result.is_none());
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_lookup_overhead_or_empty_known() {
     let overhead = lookup_overhead_or_empty("MaximumIndependentSet", "MinimumVertexCover");
     assert!(!overhead.output_size.is_empty());
 }
 
 #[test]
+#[allow(deprecated)]
 fn test_lookup_overhead_or_empty_unknown() {
     let overhead = lookup_overhead_or_empty("NonExistent", "AlsoNonExistent");
     assert!(overhead.output_size.is_empty());
