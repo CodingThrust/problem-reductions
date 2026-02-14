@@ -38,6 +38,9 @@ quickcheck-tests.json
 /dist/
 /build/
 
+# Julia
+**/Manifest.toml
+
 # Python
 __pycache__/
 *.py[cod]

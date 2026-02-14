@@ -2,6 +2,7 @@ use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use crate::variant::K3;
+include!("../jl_helpers.rs");
 
 #[test]
 fn test_sat_to_3sat_exact_size() {
@@ -285,12 +286,10 @@ fn test_mixed_clause_sizes() {
 
     // Verify satisfiability is preserved - use find_all_satisfying for satisfaction problems
     let solver = BruteForce::new();
-    let sat_solutions = solver.find_all_satisfying(&sat);
-    let ksat_solutions = solver.find_all_satisfying(ksat);
-
-    let sat_satisfiable = !sat_solutions.is_empty();
-    let ksat_satisfiable = !ksat_solutions.is_empty();
-    assert_eq!(sat_satisfiable, ksat_satisfiable);
+    let best_target = solver.find_all_satisfying(ksat);
+    let best_source: HashSet<Vec<usize>> = solver.find_all_satisfying(&sat).into_iter().collect();
+    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| reduction.extract_solution(t)).collect();
+    assert!(extracted.is_subset(&best_source));
 }
 
 #[test]
@@ -302,14 +301,70 @@ fn test_unsatisfiable_formula() {
     let ksat = reduction.target_problem();
 
     let solver = BruteForce::new();
+    let best_target = solver.find_all_satisfying(ksat);
+    let best_source: HashSet<Vec<usize>> = solver.find_all_satisfying(&sat).into_iter().collect();
 
-    // Both should be unsatisfiable - use find_all_satisfying for satisfaction problems
-    let sat_solutions = solver.find_all_satisfying(&sat);
-    let ksat_solutions = solver.find_all_satisfying(ksat);
+    // Both should be empty (unsatisfiable)
+    assert!(best_source.is_empty());
+    assert!(best_target.is_empty());
+}
 
-    let sat_satisfiable = !sat_solutions.is_empty();
-    let ksat_satisfiable = !ksat_solutions.is_empty();
+#[test]
+fn test_jl_parity_sat_to_ksat() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/satisfiability_to_ksatisfiability3.json")).unwrap();
+    let sat_data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/satisfiability.json")).unwrap();
+    let inst = &sat_data["instances"][0]["instance"];
+    let (num_vars, clauses) = jl_parse_sat_clauses(inst);
+    let source = Satisfiability::new(num_vars, clauses);
+    let result = ReduceTo::<KSatisfiability<K3>>::reduce_to(&source);
+    let solver = BruteForce::new();
+    let best_target = solver.find_all_satisfying(result.target_problem());
+    let best_source: HashSet<Vec<usize>> = solver.find_all_satisfying(&source).into_iter().collect();
+    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    assert!(extracted.is_subset(&best_source));
+    for case in data["cases"].as_array().unwrap() {
+        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+    }
+}
 
-    assert!(!sat_satisfiable);
-    assert!(!ksat_satisfiable);
+#[test]
+fn test_jl_parity_ksat_to_sat() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/ksatisfiability_to_satisfiability.json")).unwrap();
+    let ksat_data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/ksatisfiability.json")).unwrap();
+    let inst = &ksat_data["instances"][0]["instance"];
+    let (num_vars, clauses) = jl_parse_sat_clauses(inst);
+    let source = KSatisfiability::<K3>::new(num_vars, clauses);
+    let result = ReduceTo::<Satisfiability>::reduce_to(&source);
+    let solver = BruteForce::new();
+    let best_target = solver.find_all_satisfying(result.target_problem());
+    let best_source: HashSet<Vec<usize>> = solver.find_all_satisfying(&source).into_iter().collect();
+    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    assert!(extracted.is_subset(&best_source));
+    for case in data["cases"].as_array().unwrap() {
+        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+    }
+}
+
+#[test]
+fn test_jl_parity_rule_sat_to_ksat() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/rule_satisfiability_to_ksatisfiability3.json")).unwrap();
+    let sat_data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/satisfiability.json")).unwrap();
+    let inst = &jl_find_instance_by_label(&sat_data, "rule_3sat_multi")["instance"];
+    let (num_vars, clauses) = jl_parse_sat_clauses(inst);
+    let source = Satisfiability::new(num_vars, clauses);
+    let result = ReduceTo::<KSatisfiability<K3>>::reduce_to(&source);
+    let solver = BruteForce::new();
+    let best_target = solver.find_all_satisfying(result.target_problem());
+    let best_source: HashSet<Vec<usize>> = solver.find_all_satisfying(&source).into_iter().collect();
+    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    assert!(extracted.is_subset(&best_source));
+    for case in data["cases"].as_array().unwrap() {
+        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+    }
 }

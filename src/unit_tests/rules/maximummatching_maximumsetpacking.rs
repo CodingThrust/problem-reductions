@@ -3,6 +3,7 @@ use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::SolutionSize;
+include!("../jl_helpers.rs");
 
 #[test]
 fn test_matching_to_setpacking_structure() {
@@ -18,51 +19,6 @@ fn test_matching_to_setpacking_structure() {
     let sets = sp.sets();
     assert_eq!(sets[0], vec![0, 1]);
     assert_eq!(sets[1], vec![1, 2]);
-}
-
-#[test]
-fn test_matching_to_setpacking_path() {
-    // Path 0-1-2-3 with unit weights
-    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
-    let sp = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_best(sp);
-
-    // Extract back to MaximumMatching solutions
-    let _matching_solutions: Vec<_> = sp_solutions
-        .iter()
-        .map(|s| reduction.extract_solution(s))
-        .collect();
-
-    // Verify against direct MaximumMatching solution
-    let direct_solutions = solver.find_all_best(&matching);
-
-    // Solutions should have same objective value
-    let sp_size: usize = sp_solutions[0].iter().sum();
-    let direct_size: usize = direct_solutions[0].iter().sum();
-    assert_eq!(sp_size, direct_size);
-    assert_eq!(sp_size, 2); // Max matching in path graph has 2 edges
-}
-
-#[test]
-fn test_matching_to_setpacking_triangle() {
-    // Triangle graph
-    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
-    let sp = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_best(sp);
-
-    // Max matching in triangle = 1 (any single edge)
-    for sol in &sp_solutions {
-        assert_eq!(sol.iter().sum::<usize>(), 1);
-    }
-
-    // Should have 3 optimal solutions (one for each edge)
-    assert_eq!(sp_solutions.len(), 3);
 }
 
 #[test]
@@ -106,27 +62,6 @@ fn test_matching_to_setpacking_solution_extraction() {
 
     // Verify the extracted solution is valid for original MaximumMatching
     assert!(matching.evaluate(&matching_solution).is_valid());
-}
-
-#[test]
-fn test_matching_to_setpacking_k4() {
-    // Complete graph K4: can have perfect matching (2 edges covering all 4 vertices)
-    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(
-        4,
-        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
-    );
-    let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
-    let sp = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let sp_solutions = solver.find_all_best(sp);
-    let direct_solutions = solver.find_all_best(&matching);
-
-    // Both should find matchings of size 2
-    let sp_size: usize = sp_solutions[0].iter().sum();
-    let direct_size: usize = direct_solutions[0].iter().sum();
-    assert_eq!(sp_size, 2);
-    assert_eq!(direct_size, 2);
 }
 
 #[test]
@@ -195,4 +130,31 @@ fn test_matching_to_setpacking_star() {
     }
     // Should have 3 optimal solutions
     assert_eq!(sp_solutions.len(), 3);
+}
+
+#[test]
+fn test_jl_parity_matching_to_setpacking() {
+    let match_data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/matching.json")).unwrap();
+    let fixtures: &[(&str, &str)] = &[
+        (include_str!("../../../tests/data/jl/matching_to_setpacking.json"), "petersen"),
+        (include_str!("../../../tests/data/jl/rule_matching_to_setpacking.json"), "rule_4vertex"),
+        (include_str!("../../../tests/data/jl/rule_matchingw_to_setpacking.json"), "rule_4vertex_weighted"),
+    ];
+    for (fixture_str, label) in fixtures {
+        let data: serde_json::Value = serde_json::from_str(fixture_str).unwrap();
+        let inst = &jl_find_instance_by_label(&match_data, label)["instance"];
+        let source = MaximumMatching::<SimpleGraph, i32>::new(
+            inst["num_vertices"].as_u64().unwrap() as usize, jl_parse_weighted_edges(inst));
+        let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
+        let solver = BruteForce::new();
+        let best_target = solver.find_all_best(result.target_problem());
+        let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+        let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+        assert!(extracted.is_subset(&best_source), "Matching->SP [{label}]: extracted not subset");
+        for case in data["cases"].as_array().unwrap() {
+            assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]),
+                "Matching->SP [{label}]: best source mismatch");
+        }
+    }
 }

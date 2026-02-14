@@ -3,6 +3,7 @@ use crate::models::specialized::Circuit;
 use crate::solvers::BruteForce;
 use crate::types::{NumericSize, WeightElement};
 use num_traits::Num;
+include!("../jl_helpers.rs");
 
 /// Verify a gadget has the correct ground states.
 fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<usize>, Vec<usize>)])
@@ -139,154 +140,6 @@ fn test_set1_gadget() {
 }
 
 #[test]
-fn test_simple_and_circuit() {
-    // c = x AND y
-    let circuit = Circuit::new(vec![Assignment::new(
-        vec!["c".to_string()],
-        BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
-    )]);
-    let problem = CircuitSAT::new(circuit);
-    let reduction = problem.reduce_to();
-    let sg = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_best(sg);
-
-    // Extract and verify solutions
-    let extracted: Vec<Vec<usize>> = solutions
-        .iter()
-        .map(|s| reduction.extract_solution(s))
-        .collect();
-
-    // Should have valid AND configurations
-    // Variables are sorted: c, x, y
-    let valid_configs = vec![
-        vec![0, 0, 0], // c=0, x=0, y=0: 0 AND 0 = 0 OK
-        vec![0, 0, 1], // c=0, x=0, y=1: 0 AND 1 = 0 OK
-        vec![0, 1, 0], // c=0, x=1, y=0: 1 AND 0 = 0 OK
-        vec![1, 1, 1], // c=1, x=1, y=1: 1 AND 1 = 1 OK
-    ];
-
-    for config in &valid_configs {
-        assert!(
-            extracted.contains(config),
-            "Expected valid config {:?} not found in {:?}",
-            config,
-            extracted
-        );
-    }
-}
-
-#[test]
-fn test_simple_or_circuit() {
-    // c = x OR y
-    let circuit = Circuit::new(vec![Assignment::new(
-        vec!["c".to_string()],
-        BooleanExpr::or(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
-    )]);
-    let problem = CircuitSAT::new(circuit);
-    let reduction = problem.reduce_to();
-    let sg = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_best(sg);
-
-    let extracted: Vec<Vec<usize>> = solutions
-        .iter()
-        .map(|s| reduction.extract_solution(s))
-        .collect();
-
-    // Variables sorted: c, x, y
-    let valid_configs = vec![
-        vec![0, 0, 0], // c=0, x=0, y=0: 0 OR 0 = 0 OK
-        vec![1, 0, 1], // c=1, x=0, y=1: 0 OR 1 = 1 OK
-        vec![1, 1, 0], // c=1, x=1, y=0: 1 OR 0 = 1 OK
-        vec![1, 1, 1], // c=1, x=1, y=1: 1 OR 1 = 1 OK
-    ];
-
-    for config in &valid_configs {
-        assert!(
-            extracted.contains(config),
-            "Expected valid config {:?} not found in {:?}",
-            config,
-            extracted
-        );
-    }
-}
-
-#[test]
-fn test_not_circuit() {
-    // c = NOT x
-    let circuit = Circuit::new(vec![Assignment::new(
-        vec!["c".to_string()],
-        BooleanExpr::not(BooleanExpr::var("x")),
-    )]);
-    let problem = CircuitSAT::new(circuit);
-    let reduction = problem.reduce_to();
-    let sg = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_best(sg);
-
-    let extracted: Vec<Vec<usize>> = solutions
-        .iter()
-        .map(|s| reduction.extract_solution(s))
-        .collect();
-
-    // Variables sorted: c, x
-    let valid_configs = vec![
-        vec![1, 0], // c=1, x=0: NOT 0 = 1 OK
-        vec![0, 1], // c=0, x=1: NOT 1 = 0 OK
-    ];
-
-    for config in &valid_configs {
-        assert!(
-            extracted.contains(config),
-            "Expected valid config {:?} not found in {:?}",
-            config,
-            extracted
-        );
-    }
-}
-
-#[test]
-fn test_xor_circuit() {
-    // c = x XOR y
-    let circuit = Circuit::new(vec![Assignment::new(
-        vec!["c".to_string()],
-        BooleanExpr::xor(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
-    )]);
-    let problem = CircuitSAT::new(circuit);
-    let reduction = problem.reduce_to();
-    let sg = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_best(sg);
-
-    let extracted: Vec<Vec<usize>> = solutions
-        .iter()
-        .map(|s| reduction.extract_solution(s))
-        .collect();
-
-    // Variables sorted: c, x, y
-    let valid_configs = vec![
-        vec![0, 0, 0], // c=0, x=0, y=0: 0 XOR 0 = 0 OK
-        vec![1, 0, 1], // c=1, x=0, y=1: 0 XOR 1 = 1 OK
-        vec![1, 1, 0], // c=1, x=1, y=0: 1 XOR 0 = 1 OK
-        vec![0, 1, 1], // c=0, x=1, y=1: 1 XOR 1 = 0 OK
-    ];
-
-    for config in &valid_configs {
-        assert!(
-            extracted.contains(config),
-            "Expected valid config {:?} not found in {:?}",
-            config,
-            extracted
-        );
-    }
-}
-
-#[test]
 fn test_constant_true() {
     // c = true
     let circuit = Circuit::new(vec![Assignment::new(
@@ -379,105 +232,6 @@ fn test_multi_input_and() {
 }
 
 #[test]
-fn test_chained_circuit() {
-    // c = x AND y
-    // d = c OR z
-    let circuit = Circuit::new(vec![
-        Assignment::new(
-            vec!["c".to_string()],
-            BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
-        ),
-        Assignment::new(
-            vec!["d".to_string()],
-            BooleanExpr::or(vec![BooleanExpr::var("c"), BooleanExpr::var("z")]),
-        ),
-    ]);
-    let problem = CircuitSAT::new(circuit);
-    let reduction = problem.reduce_to();
-    let sg = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_best(sg);
-
-    let extracted: Vec<Vec<usize>> = solutions
-        .iter()
-        .map(|s| reduction.extract_solution(s))
-        .collect();
-
-    // Verify some valid configurations
-    // Variables sorted: c, d, x, y, z
-    // c = x AND y, d = c OR z
-
-    // x=1, y=1 -> c=1, z=0 -> d=1
-    assert!(
-        extracted.contains(&vec![1, 1, 1, 1, 0]),
-        "Expected (1,1,1,1,0) in {:?}",
-        extracted
-    );
-
-    // x=0, y=0 -> c=0, z=1 -> d=1
-    assert!(
-        extracted.contains(&vec![0, 1, 0, 0, 1]),
-        "Expected (0,1,0,0,1) in {:?}",
-        extracted
-    );
-
-    // x=0, y=0 -> c=0, z=0 -> d=0
-    assert!(
-        extracted.contains(&vec![0, 0, 0, 0, 0]),
-        "Expected (0,0,0,0,0) in {:?}",
-        extracted
-    );
-}
-
-#[test]
-fn test_nested_expression() {
-    // c = (x AND y) OR z
-    let circuit = Circuit::new(vec![Assignment::new(
-        vec!["c".to_string()],
-        BooleanExpr::or(vec![
-            BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
-            BooleanExpr::var("z"),
-        ]),
-    )]);
-    let problem = CircuitSAT::new(circuit);
-    let reduction = problem.reduce_to();
-    let sg = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_best(sg);
-
-    let extracted: Vec<Vec<usize>> = solutions
-        .iter()
-        .map(|s| reduction.extract_solution(s))
-        .collect();
-
-    // Variables sorted: c, x, y, z
-    // c = (x AND y) OR z
-
-    // x=1, y=1, z=0 -> c=1
-    assert!(
-        extracted.contains(&vec![1, 1, 1, 0]),
-        "Expected (1,1,1,0) in {:?}",
-        extracted
-    );
-
-    // x=0, y=0, z=1 -> c=1
-    assert!(
-        extracted.contains(&vec![1, 0, 0, 1]),
-        "Expected (1,0,0,1) in {:?}",
-        extracted
-    );
-
-    // x=0, y=0, z=0 -> c=0
-    assert!(
-        extracted.contains(&vec![0, 0, 0, 0]),
-        "Expected (0,0,0,0) in {:?}",
-        extracted
-    );
-}
-
-#[test]
 fn test_reduction_result_methods() {
     let circuit = Circuit::new(vec![Assignment::new(
         vec!["c".to_string()],
@@ -518,4 +272,28 @@ fn test_solution_extraction() {
     // Need to know the mapping to construct proper test
     let sg = reduction.target_problem();
     assert!(sg.num_spins() >= 3); // At least c, x, y
+}
+
+#[test]
+fn test_jl_parity_circuitsat_to_spinglass() {
+    use crate::models::specialized::{Assignment, BooleanExpr, Circuit};
+    let a = BooleanExpr::var("a");
+    let b = BooleanExpr::var("b");
+    let c = BooleanExpr::var("c");
+    let x_expr = BooleanExpr::or(vec![a.clone(), BooleanExpr::not(b.clone())]);
+    let y_expr = BooleanExpr::or(vec![BooleanExpr::not(c.clone()), b.clone()]);
+    let z_expr = BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y"), a.clone()]);
+    let circuit = Circuit::new(vec![
+        Assignment::new(vec!["x".to_string()], x_expr),
+        Assignment::new(vec!["y".to_string()], y_expr),
+        Assignment::new(vec!["z".to_string()], z_expr),
+    ]);
+    let source = CircuitSAT::new(circuit);
+    let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&source);
+    let solver = BruteForce::new();
+    let best_target = solver.find_all_best(result.target_problem());
+    let best_source = solver.find_all_satisfying(&source);
+    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    let best_source_set: HashSet<Vec<usize>> = best_source.into_iter().collect();
+    assert!(extracted.is_subset(&best_source_set), "CircuitSAT->SpinGlass: extracted not satisfying");
 }

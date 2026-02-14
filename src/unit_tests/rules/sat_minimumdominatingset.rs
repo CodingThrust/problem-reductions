@@ -1,6 +1,8 @@
 use super::*;
 use crate::models::satisfiability::CNFClause;
 use crate::solvers::BruteForce;
+use crate::traits::Problem;
+include!("../jl_helpers.rs");
 
 #[test]
 fn test_simple_sat_to_ds() {
@@ -33,119 +35,6 @@ fn test_two_variable_sat_to_ds() {
     // - 3 edges for second triangle: (3,4), (3,5), (4,5)
     // - 2 edges from literals to clause: (0,6), (3,6)
     assert_eq!(ds_problem.num_edges(), 8);
-}
-
-#[test]
-fn test_satisfiable_formula() {
-    // SAT: (x1 OR x2) AND (NOT x1 OR x2)
-    // Satisfiable with x2 = true
-    let sat = Satisfiability::new(
-        2,
-        vec![
-            CNFClause::new(vec![1, 2]),  // x1 OR x2
-            CNFClause::new(vec![-1, 2]), // NOT x1 OR x2
-        ],
-    );
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
-    let ds_problem = reduction.target_problem();
-
-    // Solve the dominating set problem
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_best(ds_problem);
-
-    // Minimum dominating set should be of size 2 (one per variable)
-    let min_size = solutions[0].iter().sum::<usize>();
-    assert_eq!(min_size, 2, "Minimum dominating set should have 2 vertices");
-
-    // Extract and verify at least one solution satisfies SAT
-    let mut found_satisfying = false;
-    for sol in &solutions {
-        let sat_sol = reduction.extract_solution(sol);
-        let assignment: Vec<bool> = sat_sol.iter().map(|&v| v == 1).collect();
-        if sat.is_satisfying(&assignment) {
-            found_satisfying = true;
-            break;
-        }
-    }
-    assert!(found_satisfying, "Should find a satisfying assignment");
-}
-
-#[test]
-fn test_unsatisfiable_formula() {
-    // SAT: (x1) AND (NOT x1) - unsatisfiable
-    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
-    let ds_problem = reduction.target_problem();
-
-    // Vertices: 3 (gadget) + 2 (clauses) = 5
-    assert_eq!(ds_problem.num_vertices(), 5);
-
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_best(ds_problem);
-
-    // For unsatisfiable formula, the minimum dominating set will need
-    // more than num_variables vertices OR won't produce a valid assignment
-    // Actually, in this case we can still dominate with just selecting
-    // one literal vertex (it dominates its gadget AND one clause),
-    // but then the other clause isn't dominated.
-    // So we need at least 2 vertices: one for each clause's requirement.
-
-    // The key insight is that both clauses share the same variable gadget
-    // but require opposite literals. To dominate both clause vertices,
-    // we need to select BOTH literal vertices (0 and 1) or the dummy +
-    // something else.
-
-    // Verify no extracted solution satisfies the formula
-    for sol in &solutions {
-        let sat_sol = reduction.extract_solution(sol);
-        let assignment: Vec<bool> = sat_sol.iter().map(|&v| v == 1).collect();
-        // This unsatisfiable formula should not have a satisfying assignment
-        assert!(
-            !sat.is_satisfying(&assignment),
-            "Unsatisfiable formula should not be satisfied"
-        );
-    }
-}
-
-#[test]
-fn test_three_sat_example() {
-    // 3-SAT: (x1 OR x2 OR x3) AND (NOT x1 OR NOT x2 OR x3) AND (x1 OR NOT x2 OR NOT x3)
-    let sat = Satisfiability::new(
-        3,
-        vec![
-            CNFClause::new(vec![1, 2, 3]),   // x1 OR x2 OR x3
-            CNFClause::new(vec![-1, -2, 3]), // NOT x1 OR NOT x2 OR x3
-            CNFClause::new(vec![1, -2, -3]), // x1 OR NOT x2 OR NOT x3
-        ],
-    );
-
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
-    let ds_problem = reduction.target_problem();
-
-    // 3 variables * 3 = 9 gadget vertices + 3 clauses = 12
-    assert_eq!(ds_problem.num_vertices(), 12);
-
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_best(ds_problem);
-
-    // Minimum should be 3 (one per variable)
-    let min_size = solutions[0].iter().sum::<usize>();
-    assert_eq!(min_size, 3, "Minimum dominating set should have 3 vertices");
-
-    // Verify extracted solutions
-    let mut found_satisfying = false;
-    for sol in &solutions {
-        let sat_sol = reduction.extract_solution(sol);
-        let assignment: Vec<bool> = sat_sol.iter().map(|&v| v == 1).collect();
-        if sat.is_satisfying(&assignment) {
-            found_satisfying = true;
-            break;
-        }
-    }
-    assert!(
-        found_satisfying,
-        "Should find a satisfying assignment for 3-SAT"
-    );
 }
 
 #[test]
@@ -231,48 +120,6 @@ fn test_multiple_literals_same_variable() {
 }
 
 #[test]
-fn test_sat_ds_solution_correspondence() {
-    // Comprehensive test: verify that solutions extracted from DS satisfy SAT
-    let sat = Satisfiability::new(
-        2,
-        vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
-    );
-
-    // Solve SAT directly - use find_all_satisfying for satisfaction problems
-    let sat_solver = BruteForce::new();
-    let direct_sat_solutions = sat_solver.find_all_satisfying(&sat);
-
-    // Solve via reduction (DS is an optimization problem, so use find_best)
-    let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
-    let ds_problem = reduction.target_problem();
-    let ds_solutions = sat_solver.find_all_best(ds_problem);
-
-    // Direct SAT solutions should all be valid (they're from find_all_satisfying, so they all satisfy)
-    assert!(!direct_sat_solutions.is_empty());
-
-    // DS solutions with minimum size should correspond to valid SAT solutions
-    let min_size = ds_solutions[0].iter().sum::<usize>();
-    if min_size == 2 {
-        // Only if min dominating set = num_vars
-        let mut found_satisfying = false;
-        for sol in &ds_solutions {
-            if sol.iter().sum::<usize>() == 2 {
-                let sat_sol = reduction.extract_solution(sol);
-                let assignment: Vec<bool> = sat_sol.iter().map(|&v| v == 1).collect();
-                if sat.is_satisfying(&assignment) {
-                    found_satisfying = true;
-                    break;
-                }
-            }
-        }
-        assert!(
-            found_satisfying,
-            "At least one DS solution should give a SAT solution"
-        );
-    }
-}
-
-#[test]
 fn test_accessors() {
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
@@ -309,4 +156,40 @@ fn test_negated_variable_connection() {
     // - 3 for second triangle: (3,4), (3,5), (4,5)
     // - 2 from negated literals to clause: (1,6), (4,6)
     assert_eq!(ds_problem.num_edges(), 8);
+}
+
+#[test]
+fn test_jl_parity_sat_to_dominatingset() {
+    let sat_data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/satisfiability.json")).unwrap();
+    let fixtures: &[(&str, &str)] = &[
+        (include_str!("../../../tests/data/jl/satisfiability_to_dominatingset.json"), "simple_clause"),
+        (include_str!("../../../tests/data/jl/rule_sat01_to_dominatingset.json"), "rule_sat01"),
+        (include_str!("../../../tests/data/jl/rule_sat02_to_dominatingset.json"), "rule_sat02"),
+        (include_str!("../../../tests/data/jl/rule_sat03_to_dominatingset.json"), "rule_sat03"),
+        (include_str!("../../../tests/data/jl/rule_sat04_unsat_to_dominatingset.json"), "rule_sat04_unsat"),
+        (include_str!("../../../tests/data/jl/rule_sat07_to_dominatingset.json"), "rule_sat07"),
+    ];
+    for (fixture_str, label) in fixtures {
+        let data: serde_json::Value = serde_json::from_str(fixture_str).unwrap();
+        let inst = &jl_find_instance_by_label(&sat_data, label)["instance"];
+        let (num_vars, clauses) = jl_parse_sat_clauses(inst);
+        let source = Satisfiability::new(num_vars, clauses);
+        let result = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&source);
+        let solver = BruteForce::new();
+        let best_target = solver.find_all_best(result.target_problem());
+        let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+        let sat_solutions: HashSet<Vec<usize>> = solver.find_all_satisfying(&source).into_iter().collect();
+        for case in data["cases"].as_array().unwrap() {
+            if sat_solutions.is_empty() {
+                for sol in &extracted {
+                    assert!(!source.evaluate(sol), "SAT->DS [{label}]: unsatisfiable but extracted satisfies");
+                }
+            } else {
+                assert!(extracted.is_subset(&sat_solutions), "SAT->DS [{label}]: extracted not subset");
+                assert_eq!(sat_solutions, jl_parse_configs_set(&case["best_source"]),
+                    "SAT->DS [{label}]: best source mismatch");
+            }
+        }
+    }
 }

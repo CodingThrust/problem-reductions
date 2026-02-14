@@ -1,6 +1,8 @@
 use super::*;
 use crate::models::satisfiability::CNFClause;
 use crate::solvers::BruteForce;
+use crate::traits::Problem;
+include!("../jl_helpers.rs");
 
 #[test]
 fn test_boolvar_creation() {
@@ -69,107 +71,6 @@ fn test_two_clause_sat_to_is() {
     let solutions = solver.find_all_best(is_problem);
     for sol in &solutions {
         assert_eq!(sol.iter().sum::<usize>(), 1);
-    }
-}
-
-#[test]
-fn test_satisfiable_formula() {
-    // SAT: (x1 OR x2) AND (NOT x1 OR x2) AND (x1 OR NOT x2)
-    // Satisfiable with x1=true, x2=true or x1=false, x2=true
-    let sat = Satisfiability::new(
-        2,
-        vec![
-            CNFClause::new(vec![1, 2]),  // x1 OR x2
-            CNFClause::new(vec![-1, 2]), // NOT x1 OR x2
-            CNFClause::new(vec![1, -2]), // x1 OR NOT x2
-        ],
-    );
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
-    let is_problem = reduction.target_problem();
-
-    // Should have 6 vertices (2 literals per clause, 3 clauses)
-    assert_eq!(is_problem.num_vertices(), 6);
-
-    // Count edges:
-    // - 3 edges within clauses (one per clause, since each clause has 2 literals)
-    // - Edges between complementary literals across clauses:
-    //   - x1 (clause 0, vertex 0) and NOT x1 (clause 1, vertex 2)
-    //   - x2 (clause 0, vertex 1) and NOT x2 (clause 2, vertex 5)
-    //   - x2 (clause 1, vertex 3) and NOT x2 (clause 2, vertex 5)
-    //   - x1 (clause 2, vertex 4) and NOT x1 (clause 1, vertex 2)
-    // Total: 3 (clique) + 4 (complement) = 7 edges
-
-    // Solve the IS problem
-    let solver = BruteForce::new();
-    let is_solutions = solver.find_all_best(is_problem);
-
-    // Max IS should be 3 (one literal per clause)
-    for sol in &is_solutions {
-        assert_eq!(sol.iter().sum::<usize>(), 3);
-    }
-
-    // Extract SAT solutions and verify they satisfy the original formula
-    for sol in &is_solutions {
-        let sat_sol = reduction.extract_solution(sol);
-        let assignment: Vec<bool> = sat_sol.iter().map(|&v| v == 1).collect();
-        assert!(
-            sat.is_satisfying(&assignment),
-            "Extracted solution {:?} should satisfy the SAT formula",
-            assignment
-        );
-    }
-}
-
-#[test]
-fn test_unsatisfiable_formula() {
-    // SAT: (x1) AND (NOT x1) - unsatisfiable
-    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
-    let is_problem = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let is_solutions = solver.find_all_best(is_problem);
-
-    // Max IS can only be 1 (not 2 = num_clauses)
-    // This indicates the formula is unsatisfiable
-    for sol in &is_solutions {
-        assert!(
-            sol.iter().sum::<usize>() < reduction.num_clauses(),
-            "For unsatisfiable formula, IS size should be less than num_clauses"
-        );
-    }
-}
-
-#[test]
-fn test_three_sat_example() {
-    // 3-SAT: (x1 OR x2 OR x3) AND (NOT x1 OR NOT x2 OR x3) AND (x1 OR NOT x2 OR NOT x3)
-    let sat = Satisfiability::new(
-        3,
-        vec![
-            CNFClause::new(vec![1, 2, 3]),   // x1 OR x2 OR x3
-            CNFClause::new(vec![-1, -2, 3]), // NOT x1 OR NOT x2 OR x3
-            CNFClause::new(vec![1, -2, -3]), // x1 OR NOT x2 OR NOT x3
-        ],
-    );
-
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
-    let is_problem = reduction.target_problem();
-
-    // Should have 9 vertices (3 literals per clause, 3 clauses)
-    assert_eq!(is_problem.num_vertices(), 9);
-
-    let solver = BruteForce::new();
-    let is_solutions = solver.find_all_best(is_problem);
-
-    // Check that max IS has size 3 (satisfiable)
-    let max_size = is_solutions[0].iter().sum::<usize>();
-    assert_eq!(max_size, 3, "3-SAT should be satisfiable with IS size = 3");
-
-    // Verify extracted solutions
-    for sol in &is_solutions {
-        let sat_sol = reduction.extract_solution(sol);
-        let assignment: Vec<bool> = sat_sol.iter().map(|&v| v == 1).collect();
-        assert!(sat.is_satisfying(&assignment));
     }
 }
 
@@ -259,43 +160,6 @@ fn test_empty_sat() {
 }
 
 #[test]
-fn test_sat_is_solution_correspondence() {
-    // Comprehensive test: solve both SAT and IS, compare solutions
-    let sat = Satisfiability::new(
-        2,
-        vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
-    );
-
-    // Solve SAT directly - use find_all_satisfying for satisfaction problems
-    let sat_solver = BruteForce::new();
-    let direct_sat_solutions = sat_solver.find_all_satisfying(&sat);
-
-    // Solve via reduction (IS is an optimization problem, so use find_best)
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
-    let is_problem = reduction.target_problem();
-    let is_solutions = sat_solver.find_all_best(is_problem);
-
-    // Extract SAT solutions from IS
-    let extracted_sat_solutions: Vec<_> = is_solutions
-        .iter()
-        .map(|s| reduction.extract_solution(s))
-        .collect();
-
-    // All extracted solutions should be valid SAT solutions
-    for sol in &extracted_sat_solutions {
-        let assignment: Vec<bool> = sol.iter().map(|&v| v == 1).collect();
-        assert!(sat.is_satisfying(&assignment));
-    }
-
-    // Direct SAT solutions and extracted solutions should be compatible
-    // (same satisfying assignments, though representation might differ)
-    for sol in &direct_sat_solutions {
-        let assignment: Vec<bool> = sol.iter().map(|&v| v == 1).collect();
-        assert!(sat.is_satisfying(&assignment));
-    }
-}
-
-#[test]
 fn test_literals_accessor() {
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, -2])]);
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
@@ -304,4 +168,40 @@ fn test_literals_accessor() {
     assert_eq!(literals.len(), 2);
     assert_eq!(literals[0], BoolVar::new(0, false)); // x1
     assert_eq!(literals[1], BoolVar::new(1, true)); // NOT x2
+}
+
+#[test]
+fn test_jl_parity_sat_to_independentset() {
+    let sat_data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/satisfiability.json")).unwrap();
+    let fixtures: &[(&str, &str)] = &[
+        (include_str!("../../../tests/data/jl/satisfiability_to_independentset.json"), "simple_clause"),
+        (include_str!("../../../tests/data/jl/rule_sat01_to_independentset.json"), "rule_sat01"),
+        (include_str!("../../../tests/data/jl/rule_sat02_to_independentset.json"), "rule_sat02"),
+        (include_str!("../../../tests/data/jl/rule_sat03_to_independentset.json"), "rule_sat03"),
+        (include_str!("../../../tests/data/jl/rule_sat04_unsat_to_independentset.json"), "rule_sat04_unsat"),
+        (include_str!("../../../tests/data/jl/rule_sat07_to_independentset.json"), "rule_sat07"),
+    ];
+    for (fixture_str, label) in fixtures {
+        let data: serde_json::Value = serde_json::from_str(fixture_str).unwrap();
+        let inst = &jl_find_instance_by_label(&sat_data, label)["instance"];
+        let (num_vars, clauses) = jl_parse_sat_clauses(inst);
+        let source = Satisfiability::new(num_vars, clauses);
+        let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&source);
+        let solver = BruteForce::new();
+        let best_target = solver.find_all_best(result.target_problem());
+        let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+        let sat_solutions: HashSet<Vec<usize>> = solver.find_all_satisfying(&source).into_iter().collect();
+        for case in data["cases"].as_array().unwrap() {
+            if sat_solutions.is_empty() {
+                for sol in &extracted {
+                    assert!(!source.evaluate(sol), "SAT->IS [{label}]: unsatisfiable but extracted satisfies");
+                }
+            } else {
+                assert!(extracted.is_subset(&sat_solutions), "SAT->IS [{label}]: extracted not subset");
+                assert_eq!(sat_solutions, jl_parse_configs_set(&case["best_source"]),
+                    "SAT->IS [{label}]: best source mismatch");
+            }
+        }
+    }
 }
