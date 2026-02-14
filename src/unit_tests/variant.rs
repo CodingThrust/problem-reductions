@@ -284,3 +284,57 @@ fn test_kvalue_variant_entries() {
         .iter()
         .any(|e| e.value == "K2" && e.parent == Some("K3")));
 }
+
+// --- Graph type VariantParam tests ---
+
+use crate::topology::{Graph, SimpleGraph, UnitDiskGraph};
+use crate::topology::HyperGraph;
+
+#[test]
+fn test_simple_graph_variant_param() {
+    assert_eq!(SimpleGraph::CATEGORY, "graph");
+    assert_eq!(SimpleGraph::VALUE, "SimpleGraph");
+    assert_eq!(SimpleGraph::PARENT_VALUE, Some("HyperGraph"));
+}
+
+#[test]
+fn test_unit_disk_graph_variant_param() {
+    assert_eq!(UnitDiskGraph::CATEGORY, "graph");
+    assert_eq!(UnitDiskGraph::VALUE, "UnitDiskGraph");
+    assert_eq!(UnitDiskGraph::PARENT_VALUE, Some("SimpleGraph"));
+}
+
+#[test]
+fn test_hyper_graph_variant_param() {
+    assert_eq!(HyperGraph::CATEGORY, "graph");
+    assert_eq!(HyperGraph::VALUE, "HyperGraph");
+    assert_eq!(HyperGraph::PARENT_VALUE, None);
+}
+
+#[test]
+fn test_graph_variant_entries() {
+    let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
+        .filter(|e| e.category == "graph")
+        .collect();
+    assert!(entries.iter().any(|e| e.value == "HyperGraph" && e.parent.is_none()));
+    assert!(entries.iter().any(|e| e.value == "SimpleGraph" && e.parent == Some("HyperGraph")));
+    assert!(entries.iter().any(|e| e.value == "UnitDiskGraph" && e.parent == Some("SimpleGraph")));
+}
+
+#[test]
+fn test_simple_graph_cast_to_parent() {
+    let sg = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let hg: HyperGraph = sg.cast_to_parent();
+    assert_eq!(hg.num_vertices(), 3);
+    assert_eq!(hg.num_edges(), 2);
+}
+
+#[test]
+fn test_udg_cast_to_parent() {
+    let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (0.5, 0.0), (2.0, 0.0)], 1.0);
+    let sg: SimpleGraph = udg.cast_to_parent();
+    assert_eq!(sg.num_vertices(), 3);
+    // Only the first two points are within distance 1.0
+    assert!(sg.has_edge(0, 1));
+    assert!(!sg.has_edge(0, 2));
+}

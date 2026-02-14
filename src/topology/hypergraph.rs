@@ -146,6 +146,9 @@ impl HyperGraph {
     }
 }
 
+use crate::impl_variant_param;
+impl_variant_param!(HyperGraph, "graph");
+
 #[cfg(test)]
 #[path = "../unit_tests/topology/hypergraph.rs"]
 mod tests;
