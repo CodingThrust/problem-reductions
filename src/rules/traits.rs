@@ -1,6 +1,7 @@
 //! Core traits for problem reductions.
 
 use crate::traits::Problem;
+use std::marker::PhantomData;
 
 /// Result of reducing a source problem to a target problem.
 ///
@@ -58,6 +59,41 @@ pub trait ReduceTo<T: Problem>: Problem {
 
     /// Reduce this problem to the target problem type.
     fn reduce_to(&self) -> Self::Result;
+}
+
+/// Generic reduction result for natural-edge (subtype) reductions.
+///
+/// Used when a problem on a specific graph type is trivially reducible to
+/// the same problem on a more general graph type (e.g., `MIS<Triangular>` →
+/// `MIS<SimpleGraph>`). The solution mapping is identity — vertex indices
+/// are preserved.
+#[derive(Debug, Clone)]
+pub struct ReductionAutoCast<S: Problem, T: Problem> {
+    target: T,
+    _phantom: PhantomData<S>,
+}
+
+impl<S: Problem, T: Problem> ReductionAutoCast<S, T> {
+    /// Create a new auto-cast reduction result.
+    pub fn new(target: T) -> Self {
+        Self {
+            target,
+            _phantom: PhantomData,
+        }
+    }
+}
+
+impl<S: Problem, T: Problem> ReductionResult for ReductionAutoCast<S, T> {
+    type Source = S;
+    type Target = T;
+
+    fn target_problem(&self) -> &Self::Target {
+        &self.target
+    }
+
+    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+        target_solution.to_vec()
+    }
 }
 
 #[cfg(test)]

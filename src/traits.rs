@@ -36,6 +36,12 @@ pub trait OptimizationProblem: Problem<Metric = crate::types::SolutionSize<Self:
     fn direction(&self) -> crate::types::Direction;
 }
 
+/// Marker trait for satisfaction (decision) problems.
+///
+/// Satisfaction problems evaluate configurations to `bool`:
+/// `true` if the configuration satisfies all constraints, `false` otherwise.
+pub trait SatisfactionProblem: Problem<Metric = bool> {}
+
 #[cfg(test)]
 #[path = "unit_tests/traits.rs"]
 mod tests;

@@ -6,12 +6,14 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::types::{Direction, SolutionSize, WeightElement};
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumVertexCover",
+        module_path: module_path!(),
         description: "Find minimum weight vertex cover in a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
@@ -144,20 +146,14 @@ impl<G: Graph, W: Clone + Default> MinimumVertexCover<G, W> {
 impl<G, W> Problem for MinimumVertexCover<G, W>
 where
     G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
+    W: WeightElement,
 {
     const NAME: &'static str = "MinimumVertexCover";
-    type Metric = SolutionSize<W>;
+    type Metric = SolutionSize<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("graph", crate::variant::short_type_name::<G>()),
+            ("graph", G::NAME),
             ("weight", crate::variant::short_type_name::<W>()),
         ]
     }
@@ -166,14 +162,14 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
         if !is_vertex_cover_config(&self.graph, config) {
             return SolutionSize::Invalid;
         }
-        let mut total = W::zero();
+        let mut total = W::Sum::zero();
         for (i, &selected) in config.iter().enumerate() {
             if selected == 1 {
-                total += self.weights[i].clone();
+                total += self.weights[i].to_sum();
             }
         }
         SolutionSize::Valid(total)
@@ -183,15 +179,9 @@ where
 impl<G, W> OptimizationProblem for MinimumVertexCover<G, W>
 where
     G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
+    W: WeightElement,
 {
-    type Value = W;
+    type Value = W::Sum;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

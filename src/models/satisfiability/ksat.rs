@@ -6,7 +6,7 @@
 //! MaxKSatisfiability type (if available).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
+use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
 
 use super::CNFClause;
@@ -14,6 +14,7 @@ use super::CNFClause;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "KSatisfiability",
+        module_path: module_path!(),
         description: "SAT with exactly k literals per clause",
         fields: &[
             FieldInfo { name: "num_vars", type_name: "usize", description: "Number of Boolean variables" },
@@ -150,12 +151,11 @@ impl<const K: usize> Problem for KSatisfiability<K> {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("k", crate::variant::const_usize_str::<K>()),
-            ("weight", "Unweighted"),
-        ]
+        vec![("k", crate::variant::const_usize_str::<K>())]
     }
 }
+
+impl<const K: usize> SatisfactionProblem for KSatisfiability<K> {}
 
 #[cfg(test)]
 #[path = "../../unit_tests/models/satisfiability/ksat.rs"]

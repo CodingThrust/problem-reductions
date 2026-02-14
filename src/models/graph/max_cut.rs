@@ -6,12 +6,14 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::types::{Direction, SolutionSize, WeightElement};
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaxCut",
+        module_path: module_path!(),
         description: "Find maximum weight cut in a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The graph with edge weights" },
@@ -192,20 +194,14 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
 impl<G, W> Problem for MaxCut<G, W>
 where
     G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
+    W: WeightElement,
 {
     const NAME: &'static str = "MaxCut";
-    type Metric = SolutionSize<W>;
+    type Metric = SolutionSize<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("graph", crate::variant::short_type_name::<G>()),
+            ("graph", G::NAME),
             ("weight", crate::variant::short_type_name::<W>()),
         ]
     }
@@ -214,7 +210,7 @@ where
         vec![2; self.graph.num_vertices()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
         // All cuts are valid, so always return Valid
         let partition: Vec<bool> = config.iter().map(|&c| c != 0).collect();
         SolutionSize::Valid(cut_size(&self.graph, &self.edge_weights, &partition))
@@ -224,15 +220,9 @@ where
 impl<G, W> OptimizationProblem for MaxCut<G, W>
 where
     G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
+    W: WeightElement,
 {
-    type Value = W;
+    type Value = W::Sum;
 
     fn direction(&self) -> Direction {
         Direction::Maximize
@@ -245,15 +235,15 @@ where
 /// * `graph` - The graph structure
 /// * `edge_weights` - Weights for each edge (same order as `graph.edges()`)
 /// * `partition` - Boolean slice indicating which set each vertex belongs to
-pub fn cut_size<G, W>(graph: &G, edge_weights: &[W], partition: &[bool]) -> W
+pub fn cut_size<G, W>(graph: &G, edge_weights: &[W], partition: &[bool]) -> W::Sum
 where
     G: Graph,
-    W: Clone + num_traits::Zero + std::ops::AddAssign,
+    W: WeightElement,
 {
-    let mut total = W::zero();
+    let mut total = W::Sum::zero();
     for ((u, v), weight) in graph.edges().iter().zip(edge_weights.iter()) {
         if *u < partition.len() && *v < partition.len() && partition[*u] != partition[*v] {
-            total += weight.clone();
+            total += weight.to_sum();
         }
     }
     total

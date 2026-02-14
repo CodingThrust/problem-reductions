@@ -44,7 +44,7 @@ pub fn run() {
         vec![1, 3, 5], // S4 (overlaps S0, S1, S2)
         vec![0, 4, 7], // S5 (overlaps S0, S1, S3)
     ];
-    let sp = MaximumSetPacking::<i32>::new(sets.clone());
+    let sp = MaximumSetPacking::<f64>::new(sets.clone());
 
     // Reduce to QUBO
     let reduction = ReduceTo::<QUBO>::reduce_to(&sp);

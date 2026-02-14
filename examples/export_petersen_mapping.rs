@@ -23,10 +23,10 @@
 //! ```
 //!
 //! ## Outputs
-//! - `docs/paper/petersen_source.json` - The original Petersen graph
-//! - `docs/paper/petersen_square_weighted.json` - Weighted King's subgraph
-//! - `docs/paper/petersen_square_unweighted.json` - Unweighted King's subgraph
-//! - `docs/paper/petersen_triangular.json` - Weighted triangular lattice
+//! - `docs/paper/static/petersen_source.json` - The original Petersen graph
+//! - `docs/paper/static/petersen_square_weighted.json` - Weighted King's subgraph
+//! - `docs/paper/static/petersen_square_unweighted.json` - Unweighted King's subgraph
+//! - `docs/paper/static/petersen_triangular.json` - Weighted triangular lattice
 //!
 //! See docs/paper/reductions.typ for the full reduction specification.
 
@@ -119,7 +119,7 @@ fn main() {
         edges: petersen_edges.clone(),
         mis: petersen_mis,
     };
-    write_json(&source, Path::new("docs/paper/petersen_source.json"));
+    write_json(&source, Path::new("docs/paper/static/petersen_source.json"));
 
     println!("\n=== Mapping to Grid Graphs ===\n");
 
@@ -146,7 +146,7 @@ fn main() {
     );
     write_json(
         &square_weighted,
-        Path::new("docs/paper/petersen_square_weighted.json"),
+        Path::new("docs/paper/static/petersen_square_weighted.json"),
     );
 
     // Map to unweighted King's subgraph (square lattice)
@@ -172,7 +172,7 @@ fn main() {
     );
     write_json(
         &square_unweighted,
-        Path::new("docs/paper/petersen_square_unweighted.json"),
+        Path::new("docs/paper/static/petersen_square_unweighted.json"),
     );
 
     // Map to weighted triangular lattice
@@ -198,7 +198,7 @@ fn main() {
     );
     write_json(
         &triangular_weighted,
-        Path::new("docs/paper/petersen_triangular.json"),
+        Path::new("docs/paper/static/petersen_triangular.json"),
     );
 
     println!("\n=== Summary ===\n");

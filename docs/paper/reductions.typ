@@ -44,6 +44,7 @@
   "CircuitSAT": [CircuitSAT],
   "Factoring": [Factoring],
   "GridGraph": [GridGraph MIS],
+  "Triangular": [Triangular MIS],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -60,15 +61,15 @@
 // Extract reductions for a problem from graph-data (returns (name, label) pairs)
 #let get-reductions-to(problem-name) = {
   graph-data.edges
-    .filter(e => e.source.name == problem-name)
-    .map(e => (name: e.target.name, lbl: reduction-label(e.source.name, e.target.name)))
+    .filter(e => graph-data.nodes.at(e.source).name == problem-name)
+    .map(e => (name: graph-data.nodes.at(e.target).name, lbl: reduction-label(graph-data.nodes.at(e.source).name, graph-data.nodes.at(e.target).name)))
     .dedup(key: e => e.name)
 }
 
 #let get-reductions-from(problem-name) = {
   graph-data.edges
-    .filter(e => e.target.name == problem-name)
-    .map(e => (name: e.source.name, lbl: reduction-label(e.source.name, e.target.name)))
+    .filter(e => graph-data.nodes.at(e.target).name == problem-name)
+    .map(e => (name: graph-data.nodes.at(e.source).name, lbl: reduction-label(graph-data.nodes.at(e.source).name, graph-data.nodes.at(e.target).name)))
     .dedup(key: e => e.name)
 }
 
@@ -166,9 +167,9 @@
 
 // Find edge in graph-data by source/target names
 #let find-edge(source, target) = {
-  let edge = graph-data.edges.find(e => e.source.name == source and e.target.name == target)
+  let edge = graph-data.edges.find(e => graph-data.nodes.at(e.source).name == source and graph-data.nodes.at(e.target).name == target)
   if edge == none {
-    edge = graph-data.edges.find(e => e.source.name == target and e.target.name == source)
+    edge = graph-data.edges.find(e => graph-data.nodes.at(e.source).name == target and graph-data.nodes.at(e.target).name == source)
   }
   edge
 }
@@ -205,9 +206,9 @@
 ) = {
   let arrow = sym.arrow.r
   let edge = find-edge(source, target)
-  let src-disp = if edge != none { variant-display(edge.source) }
+  let src-disp = if edge != none { variant-display(graph-data.nodes.at(edge.source)) }
                  else { display-name.at(source) }
-  let tgt-disp = if edge != none { variant-display(edge.target) }
+  let tgt-disp = if edge != none { variant-display(graph-data.nodes.at(edge.target)) }
                  else { display-name.at(target) }
   let src-lbl = label("def:" + source)
   let tgt-lbl = label("def:" + target)
@@ -851,10 +852,10 @@ The following reductions to Integer Linear Programming are straightforward formu
 *Example: Petersen Graph.*#footnote[Generated using `cargo run --example export_petersen_mapping` from the accompanying code repository.] The Petersen graph ($n=10$, MIS$=4$) maps to a $30 times 42$ King's subgraph with 219 nodes and overhead $Delta = 89$. Solving MIS on the grid yields $"MIS"(G_"grid") = 4 + 89 = 93$. The weighted and unweighted KSG mappings share identical grid topology (same node positions and edges); only the vertex weights differ. With triangular lattice encoding @nguyen2023, the same graph maps to a $42 times 60$ grid with 395 nodes and overhead $Delta = 375$, giving $"MIS"(G_"tri") = 4 + 375 = 379$.
 
 // Load JSON data
-#let petersen = json("petersen_source.json")
-#let square_weighted = json("petersen_square_weighted.json")
-#let square_unweighted = json("petersen_square_unweighted.json")
-#let triangular_mapping = json("petersen_triangular.json")
+#let petersen = json("static/petersen_source.json")
+#let square_weighted = json("static/petersen_square_weighted.json")
+#let square_unweighted = json("static/petersen_square_unweighted.json")
+#let triangular_mapping = json("static/petersen_triangular.json")
 
 #figure(
   grid(
@@ -884,6 +885,14 @@ The following reductions to Integer Linear Programming are straightforward formu
   caption: [Unit disk mappings of the Petersen graph. Blue: weight 1, red: weight 2, green: weight 3.],
 ) <fig:petersen-mapping>
 
+#reduction-rule("MaximumIndependentSet", "Triangular")[
+  @nguyen2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a weighted triangular lattice graph with at most quadratic overhead in the number of vertices.
+][
+  _Construction._ Same copy-line method as the KSG mapping, but uses a triangular lattice instead of a square grid. Crossing and simplifier gadgets are adapted for triangular geometry, producing a unit disk graph on a triangular grid where edges connect nodes within unit distance under the triangular metric.
+
+  _Overhead._ Both vertex and edge counts grow as $O(n^2)$ where $n = |V|$, matching the KSG mapping.
+]
+
 *Weighted Extension.* For MWIS, copy lines use weighted vertices (weights 1, 2, or 3). Source weights $< 1$ are added to designated "pin" vertices.
 
 *QUBO Mapping.* A QUBO problem $min bold(x)^top Q bold(x)$ maps to weighted MIS on a grid by:
@@ -897,7 +906,7 @@ See #link("https://github.com/CodingThrust/problem-reductions/blob/main/examples
 #context {
   let covered = covered-rules.get()
   let json-edges = {
-    let edges = graph-data.edges.map(e => (e.source.name, e.target.name))
+    let edges = graph-data.edges.map(e => (graph-data.nodes.at(e.source).name, graph-data.nodes.at(e.target).name))
     let unique = ()
     for e in edges {
       if unique.find(u => u.at(0) == e.at(0) and u.at(1) == e.at(1)) == none {

@@ -5,13 +5,15 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::types::{Direction, SolutionSize, WeightElement};
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumSetCovering",
+        module_path: module_path!(),
         description: "Find minimum weight collection covering the universe",
         fields: &[
             FieldInfo { name: "universe_size", type_name: "usize", description: "Size of the universe U" },
@@ -129,56 +131,41 @@ impl<W: Clone + Default> MinimumSetCovering<W> {
 
 impl<W> Problem for MinimumSetCovering<W>
 where
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
+    W: WeightElement,
 {
     const NAME: &'static str = "MinimumSetCovering";
-    type Metric = SolutionSize<W>;
+    type Metric = SolutionSize<W::Sum>;
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.sets.len()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
         let covered = self.covered_elements(config);
         let is_valid = covered.len() == self.universe_size
             && (0..self.universe_size).all(|e| covered.contains(&e));
         if !is_valid {
             return SolutionSize::Invalid;
         }
-        let mut total = W::zero();
+        let mut total = W::Sum::zero();
         for (i, &selected) in config.iter().enumerate() {
             if selected == 1 {
-                total += self.weights[i].clone();
+                total += self.weights[i].to_sum();
             }
         }
         SolutionSize::Valid(total)
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", "SimpleGraph"),
-            ("weight", crate::variant::short_type_name::<W>()),
-        ]
+        vec![("weight", crate::variant::short_type_name::<W>())]
     }
 }
 
 impl<W> OptimizationProblem for MinimumSetCovering<W>
 where
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
+    W: WeightElement,
 {
-    type Value = W;
+    type Value = W::Sum;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

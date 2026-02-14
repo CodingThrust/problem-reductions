@@ -90,23 +90,26 @@ fn test_variant_for_problems() {
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
 
-    // Test Satisfiability
+    // Test Satisfiability (no type parameters)
     let v = Satisfiability::variant();
-    assert_eq!(v.len(), 2);
+    assert_eq!(v.len(), 0);
 
-    // Test KSatisfiability
+    // Test KSatisfiability (const K parameter only)
     let v = KSatisfiability::<3>::variant();
-    assert_eq!(v.len(), 2);
+    assert_eq!(v.len(), 1);
+    assert_eq!(v[0], ("k", "3"));
 
-    // Test MaximumSetPacking
+    // Test MaximumSetPacking (weight parameter only)
     let v = MaximumSetPacking::<i32>::variant();
-    assert_eq!(v.len(), 2);
+    assert_eq!(v.len(), 1);
+    assert_eq!(v[0], ("weight", "i32"));
 
-    // Test MinimumSetCovering
+    // Test MinimumSetCovering (weight parameter only)
     let v = MinimumSetCovering::<i32>::variant();
-    assert_eq!(v.len(), 2);
+    assert_eq!(v.len(), 1);
+    assert_eq!(v[0], ("weight", "i32"));
 
-    // Test SpinGlass
+    // Test SpinGlass (graph + weight parameters)
     let v = SpinGlass::<SimpleGraph, f64>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[1].1, "f64");
@@ -114,33 +117,28 @@ fn test_variant_for_problems() {
     let v = SpinGlass::<SimpleGraph, i32>::variant();
     assert_eq!(v[1].1, "i32");
 
-    // Test QUBO
+    // Test QUBO (weight parameter only)
     let v = QUBO::<f64>::variant();
-    assert_eq!(v.len(), 2);
-    assert_eq!(v[1].1, "f64");
-
-    // Test CircuitSAT
-    let v = CircuitSAT::variant();
     assert_eq!(v.len(), 1);
+    assert_eq!(v[0], ("weight", "f64"));
+
+    // Test CircuitSAT (no type parameters)
+    let v = CircuitSAT::variant();
+    assert_eq!(v.len(), 0);
 
     // Test Factoring (no type parameters)
     let v = Factoring::variant();
-    assert_eq!(v.len(), 2);
-    assert_eq!(v[0].1, "SimpleGraph");
-    assert_eq!(v[1].1, "i32");
+    assert_eq!(v.len(), 0);
 
     // Test BicliqueCover (no type parameters)
     let v = BicliqueCover::variant();
-    assert_eq!(v.len(), 2);
-    assert_eq!(v[0].1, "SimpleGraph");
+    assert_eq!(v.len(), 0);
 
     // Test BMF (no type parameters)
     let v = BMF::variant();
-    assert_eq!(v.len(), 2);
-    assert_eq!(v[0].1, "SimpleGraph");
+    assert_eq!(v.len(), 0);
 
     // Test PaintShop (no type parameters)
     let v = PaintShop::variant();
-    assert_eq!(v.len(), 2);
-    assert_eq!(v[0].1, "SimpleGraph");
+    assert_eq!(v.len(), 0);
 }

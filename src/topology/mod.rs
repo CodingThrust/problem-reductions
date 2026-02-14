@@ -26,10 +26,12 @@ mod graph;
 mod grid_graph;
 mod hypergraph;
 pub mod small_graphs;
+mod triangular;
 mod unit_disk_graph;
 
-pub use graph::{Graph, SimpleGraph};
+pub use graph::{Graph, GraphCast, SimpleGraph};
 pub use grid_graph::{GridGraph, GridNode, GridType};
 pub use hypergraph::HyperGraph;
 pub use small_graphs::{available_graphs, smallgraph};
+pub use triangular::Triangular;
 pub use unit_disk_graph::UnitDiskGraph;

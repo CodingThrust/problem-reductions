@@ -5,12 +5,13 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
-use crate::traits::Problem;
+use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "KColoring",
+        module_path: module_path!(),
         description: "Find valid k-coloring of a graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
@@ -118,7 +119,7 @@ where
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![
             ("k", crate::variant::const_usize_str::<K>()),
-            ("graph", crate::variant::short_type_name::<G>()),
+            ("graph", G::NAME),
         ]
     }
 
@@ -130,6 +131,8 @@ where
         self.is_valid_coloring(config)
     }
 }
+
+impl<const K: usize, G: Graph> SatisfactionProblem for KColoring<K, G> {}
 
 /// Check if a coloring is valid for a graph.
 pub fn is_valid_coloring(

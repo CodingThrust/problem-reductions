@@ -9,8 +9,12 @@ fn test_traveling_salesman_creation() {
     let problem = TravelingSalesman::<SimpleGraph, i32>::new(
         4,
         vec![
-            (0, 1, 10), (0, 2, 15), (0, 3, 20),
-            (1, 2, 35), (1, 3, 25), (2, 3, 30),
+            (0, 1, 10),
+            (0, 2, 15),
+            (0, 3, 20),
+            (1, 2, 35),
+            (1, 3, 25),
+            (2, 3, 30),
         ],
     );
     assert_eq!(problem.num_vertices(), 4);
@@ -34,8 +38,12 @@ fn test_traveling_salesman_weighted() {
     let problem = TravelingSalesman::<SimpleGraph, i32>::new(
         4,
         vec![
-            (0, 1, 10), (0, 2, 15), (0, 3, 20),
-            (1, 2, 35), (1, 3, 25), (2, 3, 30),
+            (0, 1, 10),
+            (0, 2, 15),
+            (0, 3, 20),
+            (1, 2, 35),
+            (1, 3, 25),
+            (2, 3, 30),
         ],
     );
     assert!(problem.is_weighted());
@@ -58,8 +66,12 @@ fn test_evaluate_invalid_degree() {
     let problem = TravelingSalesman::<SimpleGraph, i32>::new(
         4,
         vec![
-            (0, 1, 10), (0, 2, 15), (0, 3, 20),
-            (1, 2, 35), (1, 3, 25), (2, 3, 30),
+            (0, 1, 10),
+            (0, 2, 15),
+            (0, 3, 20),
+            (1, 2, 35),
+            (1, 3, 25),
+            (2, 3, 30),
         ],
     );
     // edges: 0-1, 0-2, 0-3, 1-2, 1-3, 2-3
@@ -72,10 +84,7 @@ fn test_evaluate_invalid_not_connected() {
     // 6 vertices, two disjoint triangles: 0-1-2-0 and 3-4-5-3
     let problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
         6,
-        vec![
-            (0, 1), (1, 2), (0, 2),
-            (3, 4), (4, 5), (3, 5),
-        ],
+        vec![(0, 1), (1, 2), (0, 2), (3, 4), (4, 5), (3, 5)],
     );
     // Select all 6 edges: two disjoint cycles, not a single Hamiltonian cycle
     assert_eq!(problem.evaluate(&[1, 1, 1, 1, 1, 1]), SolutionSize::Invalid);
@@ -106,8 +115,12 @@ fn test_brute_force_k4() {
     let problem = TravelingSalesman::<SimpleGraph, i32>::new(
         4,
         vec![
-            (0, 1, 10), (0, 2, 15), (0, 3, 20),
-            (1, 2, 35), (1, 3, 25), (2, 3, 30),
+            (0, 1, 10),
+            (0, 2, 15),
+            (0, 3, 20),
+            (1, 2, 35),
+            (1, 3, 25),
+            (2, 3, 30),
         ],
     );
     let solver = BruteForce::new();
@@ -122,10 +135,8 @@ fn test_brute_force_k4() {
 #[test]
 fn test_brute_force_path_graph_no_solution() {
     // Instance 2 from issue: path graph, no Hamiltonian cycle exists
-    let problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
-        4,
-        vec![(0, 1), (1, 2), (2, 3)],
-    );
+    let problem =
+        TravelingSalesman::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
     let solver = BruteForce::new();
     let solutions = solver.find_all_best(&problem);
     assert!(solutions.is_empty());
@@ -159,10 +170,8 @@ fn test_brute_force_bipartite_no_solution() {
 
 #[test]
 fn test_direction() {
-    let problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
-        3,
-        vec![(0, 1), (1, 2), (0, 2)],
-    );
+    let problem =
+        TravelingSalesman::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
     assert_eq!(problem.direction(), Direction::Minimize);
 }
 
@@ -183,29 +192,21 @@ fn test_is_hamiltonian_cycle_function() {
         &[true, true, true]
     ));
     // Path: not a cycle
-    assert!(!is_hamiltonian_cycle(
-        3,
-        &[(0, 1), (1, 2)],
-        &[true, true]
-    ));
+    assert!(!is_hamiltonian_cycle(3, &[(0, 1), (1, 2)], &[true, true]));
 }
 
 #[test]
 fn test_set_weights() {
-    let mut problem = TravelingSalesman::<SimpleGraph, i32>::unweighted(
-        3,
-        vec![(0, 1), (1, 2), (0, 2)],
-    );
+    let mut problem =
+        TravelingSalesman::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
     problem.set_weights(vec![5, 10, 15]);
     assert_eq!(problem.weights(), vec![5, 10, 15]);
 }
 
 #[test]
 fn test_edges() {
-    let problem = TravelingSalesman::<SimpleGraph, i32>::new(
-        3,
-        vec![(0, 1, 10), (1, 2, 20), (0, 2, 30)],
-    );
+    let problem =
+        TravelingSalesman::<SimpleGraph, i32>::new(3, vec![(0, 1, 10), (1, 2, 20), (0, 2, 30)]);
     let edges = problem.edges();
     assert_eq!(edges.len(), 3);
 }
@@ -228,10 +229,8 @@ fn test_from_graph_unit_weights() {
 #[test]
 fn test_brute_force_triangle_weighted() {
     // Triangle with weights: unique Hamiltonian cycle using all edges
-    let problem = TravelingSalesman::<SimpleGraph, i32>::new(
-        3,
-        vec![(0, 1, 5), (1, 2, 10), (0, 2, 15)],
-    );
+    let problem =
+        TravelingSalesman::<SimpleGraph, i32>::new(3, vec![(0, 1, 5), (1, 2, 10), (0, 2, 15)]);
     let solver = BruteForce::new();
     let solutions = solver.find_all_best(&problem);
     assert_eq!(solutions.len(), 1);

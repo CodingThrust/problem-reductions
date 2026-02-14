@@ -12,6 +12,7 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "BicliqueCover",
+        module_path: module_path!(),
         description: "Cover bipartite edges with k bicliques",
         fields: &[
             FieldInfo { name: "left_size", type_name: "usize", description: "Vertices in left partition" },
@@ -225,7 +226,7 @@ impl Problem for BicliqueCover {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        vec![]
     }
 }
 
