@@ -71,6 +71,7 @@ Problems are parameterized by graph type and weight type:
 | `SimpleGraph` | Standard adjacency-based graph |
 | `GridGraph` | Vertices on a regular grid |
 | `UnitDiskGraph` | Edges connect vertices within a distance threshold |
+| `Triangular` | Triangular lattice graph (subtype of UnitDiskGraph) |
 | `HyperGraph` | Edges connecting any number of vertices |
 
 All problem types support JSON serialization via serde:
@@ -102,7 +103,7 @@ fn variant() -> Vec<(&'static str, &'static str)> {
 }
 ```
 
-In the reduction graph, variant nodes are labeled with only the non-default fields for brevity (e.g. `MaximumIndependentSet (GridGraph)` omits the default `One`), while hovering shows the full variant.
+Variant nodes in the reduction graph are discovered automatically from `#[reduction]` registrations — each reduction's source and target types become nodes. Natural edges between same-name variants are inferred from the graph/weight subtype partial order (e.g., `MIS/GridGraph → MIS/SimpleGraph`). In the visualization, nodes are labeled with only the non-default fields for brevity (e.g. `MaximumIndependentSet (GridGraph)` omits the default `One`).
 
 ### Graph Hierarchy
 
@@ -114,7 +115,8 @@ HyperGraph          (most general)
     ├── PlanarGraph
     ├── BipartiteGraph
     └── UnitDiskGraph
-        └── GridGraph  (most specific)
+        ├── GridGraph
+        └── Triangular
 ```
 
 A problem on a more specific graph type can always be treated as a problem on a more general one — a `GridGraph` *is* a `SimpleGraph`. This subtype relationship is registered at compile time:
