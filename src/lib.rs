@@ -20,6 +20,8 @@
 pub mod config;
 pub mod error;
 pub mod export;
+pub mod expr;
+pub mod graph_types;
 pub mod io;
 pub mod models;
 pub(crate) mod polynomial;
