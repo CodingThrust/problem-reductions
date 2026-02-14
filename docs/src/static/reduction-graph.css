@@ -62,3 +62,18 @@
   cursor: pointer;
   font-size: 12px;
 }
+
+#cy-search {
+  margin-bottom: 8px;
+}
+
+#search-input {
+  padding: 4px 10px;
+  font-size: 13px;
+  font-family: sans-serif;
+  border: 1px solid var(--sidebar-bg);
+  border-radius: 4px;
+  background: var(--bg);
+  color: var(--fg);
+  width: 200px;
+}

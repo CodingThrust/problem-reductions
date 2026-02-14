@@ -3,6 +3,16 @@ document.addEventListener('DOMContentLoaded', function() {
   var cyContainer = document.getElementById('cy');
   if (!cyContainer) return;
 
+  // Register ELK layout extension if available (CDN scripts may load before cytoscape)
+  var elkAvailable = false;
+  if (typeof cytoscapeElk !== 'undefined') {
+    cytoscape.use(cytoscapeElk);
+    elkAvailable = true;
+  } else if (typeof cytoscape !== 'undefined' && cytoscape.use) {
+    // cytoscape-elk may have auto-registered if loaded after cytoscape
+    try { cytoscape({ headless: true, elements: [] }).layout({ name: 'elk' }); elkAvailable = true; } catch(e) {}
+  }
+
   var categoryColors = {
     graph: '#c8f0c8', set: '#f0c8c8', optimization: '#f0f0a0',
     satisfiability: '#c8c8f0', specialized: '#f0c8e0'
@@ -256,15 +266,23 @@ document.addEventListener('DOMContentLoaded', function() {
             'background-color': '#cce0ff'
           }}
         ],
-        layout: {
+        layout: elkAvailable ? {
           name: 'elk',
           elk: {
             algorithm: 'stress',
             'stress.desiredEdgeLength': 200,
-            'nodeNode.spacing': 40,
+            'nodeNode.spacing': 40
           },
           animate: true,
           animationDuration: 500,
+          padding: 40
+        } : {
+          name: 'cose',
+          animate: false,
+          nodeRepulsion: function() { return 16000; },
+          idealEdgeLength: function() { return 200; },
+          gravity: 0.15,
+          numIter: 1000,
           padding: 40
         },
         userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false
@@ -309,22 +327,36 @@ document.addEventListener('DOMContentLoaded', function() {
               e.style('display', 'none');
             }
           });
+          expandedParents[parentId] = true;
           cy.edges('[edgeLevel="variant"]').forEach(function(e) {
             var srcParent = e.source().data('parent');
             var dstParent = e.target().data('parent');
             if (srcParent === parentId || dstParent === parentId) {
-              e.style('display', 'element');
+              // Only show if both endpoints are visible
+              var srcVisible = !e.source().data('isVariant') || expandedParents[srcParent];
+              var dstVisible = !e.target().data('isVariant') || expandedParents[dstParent];
+              if (srcVisible && dstVisible) {
+                e.style('display', 'element');
+              }
             }
           });
-          expandedParents[parentId] = true;
         }
 
         // Re-layout with animation
-        cy.layout({
+        cy.layout(elkAvailable ? {
           name: 'elk',
           elk: { algorithm: 'stress', 'stress.desiredEdgeLength': 200 },
           animate: true,
           animationDuration: 300,
+          padding: 40
+        } : {
+          name: 'cose',
+          animate: true,
+          animationDuration: 300,
+          nodeRepulsion: function() { return 16000; },
+          idealEdgeLength: function() { return 200; },
+          gravity: 0.15,
+          numIter: 500,
           padding: 40
         }).run();
       }
