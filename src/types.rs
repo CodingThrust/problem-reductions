@@ -217,6 +217,12 @@ impl fmt::Display for ProblemSize {
     }
 }
 
+use crate::impl_variant_param;
+
+impl_variant_param!(f64, "weight");
+impl_variant_param!(i32, "weight", parent: f64, cast: |w| *w as f64);
+impl_variant_param!(One, "weight", parent: i32, cast: |_| 1i32);
+
 #[cfg(test)]
 #[path = "unit_tests/types.rs"]
 mod tests;

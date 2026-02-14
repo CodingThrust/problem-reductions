@@ -338,3 +338,47 @@ fn test_udg_cast_to_parent() {
     assert!(sg.has_edge(0, 1));
     assert!(!sg.has_edge(0, 2));
 }
+
+// --- Weight type VariantParam tests ---
+
+use crate::types::One;
+
+#[test]
+fn test_weight_f64_variant_param() {
+    assert_eq!(<f64 as VariantParam>::CATEGORY, "weight");
+    assert_eq!(<f64 as VariantParam>::VALUE, "f64");
+    assert_eq!(<f64 as VariantParam>::PARENT_VALUE, None);
+}
+
+#[test]
+fn test_weight_i32_variant_param() {
+    assert_eq!(<i32 as VariantParam>::CATEGORY, "weight");
+    assert_eq!(<i32 as VariantParam>::VALUE, "i32");
+    assert_eq!(<i32 as VariantParam>::PARENT_VALUE, Some("f64"));
+}
+
+#[test]
+fn test_weight_one_variant_param() {
+    assert_eq!(One::CATEGORY, "weight");
+    assert_eq!(One::VALUE, "One");
+    assert_eq!(One::PARENT_VALUE, Some("i32"));
+}
+
+#[test]
+fn test_weight_cast_chain() {
+    let one = One;
+    let i: i32 = one.cast_to_parent();
+    assert_eq!(i, 1);
+    let f: f64 = i.cast_to_parent();
+    assert_eq!(f, 1.0);
+}
+
+#[test]
+fn test_weight_variant_entries() {
+    let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
+        .filter(|e| e.category == "weight")
+        .collect();
+    assert!(entries.iter().any(|e| e.value == "f64" && e.parent.is_none()));
+    assert!(entries.iter().any(|e| e.value == "i32" && e.parent == Some("f64")));
+    assert!(entries.iter().any(|e| e.value == "One" && e.parent == Some("i32")));
+}
