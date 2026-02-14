@@ -81,8 +81,9 @@ enum Direction { Maximize, Minimize }
 - `ReductionResult` provides `target_problem()` and `extract_solution()`
 - `Solver::find_best()` → `Option<Vec<usize>>` for optimization problems; `Solver::find_satisfying()` → `Option<Vec<usize>>` for `Metric = bool`
 - `BruteForce::find_all_best()` / `find_all_satisfying()` return `Vec<Vec<usize>>` for all optimal/satisfying solutions
-- Graph types: SimpleGraph, GridGraph, UnitDiskGraph, Hypergraph
-- Weight types: `Unweighted` (marker), `i32`, `f64`
+- Graph types: SimpleGraph, GridGraph, UnitDiskGraph, Triangular, HyperGraph
+- Weight types: `One` (unit weight marker), `i32`, `f64` — all implement `WeightElement` trait
+- `WeightElement` trait: `type Sum: NumericSize` + `fn to_sum(&self)` — converts weight to a summable numeric type
 - Weight management via inherent methods (`weights()`, `set_weights()`, `is_weighted()`), not traits
 - `NumericSize` supertrait bundles common numeric bounds (`Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static`)
 
@@ -93,11 +94,11 @@ Problem types use explicit optimization prefixes:
 - No prefix: `MaxCut`, `SpinGlass`, `QUBO`, `ILP`, `Satisfiability`, `KSatisfiability`, `CircuitSAT`, `Factoring`, `MaximalIS`, `PaintShop`, `BicliqueCover`, `BMF`
 
 ### Problem Variant IDs
-Reduction graph nodes use variant IDs: `ProblemName[/GraphType][/Weighted]`
-- Base: `MaximumIndependentSet` (SimpleGraph, unweighted)
-- Graph variant: `MaximumIndependentSet/GridGraph`
-- Weighted variant: `MaximumIndependentSet/Weighted`
-- Both: `MaximumIndependentSet/GridGraph/Weighted`
+Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
+- Base: `MaximumIndependentSet` (empty variant = defaults)
+- Graph variant: `MaximumIndependentSet {graph: "GridGraph", weight: "i32"}`
+- Weight variant: `MaximumIndependentSet {graph: "SimpleGraph", weight: "f64"}`
+- Nodes come exclusively from `#[reduction]` registrations; natural edges between same-name variants are inferred from the graph/weight subtype partial order
 
 ## Conventions
 

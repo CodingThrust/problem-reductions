@@ -4,13 +4,14 @@
 //! The goal is to find variable assignments that satisfy the circuit constraints.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::traits::Problem;
+use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "CircuitSAT",
+        module_path: module_path!(),
         description: "Find satisfying input to a boolean circuit",
         fields: &[
             FieldInfo { name: "circuit", type_name: "Circuit", description: "The boolean circuit" },
@@ -278,9 +279,11 @@ impl Problem for CircuitSAT {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph")]
+        vec![]
     }
 }
+
+impl SatisfactionProblem for CircuitSAT {}
 
 #[cfg(test)]
 #[path = "../../unit_tests/models/specialized/circuit.rs"]

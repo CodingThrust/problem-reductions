@@ -14,6 +14,7 @@ use std::collections::{HashMap, HashSet};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PaintShop",
+        module_path: module_path!(),
         description: "Minimize color changes in paint shop sequence",
         fields: &[
             FieldInfo { name: "sequence_indices", type_name: "Vec<usize>", description: "Car sequence as indices" },
@@ -173,7 +174,7 @@ impl Problem for PaintShop {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        vec![]
     }
 }
 

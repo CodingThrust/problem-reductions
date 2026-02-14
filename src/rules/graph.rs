@@ -10,23 +10,15 @@
 
 use crate::graph_types::{GraphSubtypeEntry, WeightSubtypeEntry};
 use crate::rules::cost::PathCostFn;
-use crate::rules::registry::{ConcreteVariantEntry, ReductionEntry, ReductionOverhead};
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::types::ProblemSize;
 use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::Serialize;
-use std::any::TypeId;
 use std::cmp::Reverse;
 use std::collections::{BinaryHeap, HashMap, HashSet};
-
-// Register concrete variants for problems that support non-SimpleGraph graph types.
-// These generate additional nodes in the JSON export.
-inventory::submit! { ConcreteVariantEntry { name: "MaximumIndependentSet", variant_fn: || vec![("graph", "GridGraph"), ("weight", "Unweighted")] } }
-inventory::submit! { ConcreteVariantEntry { name: "MaximumIndependentSet", variant_fn: || vec![("graph", "UnitDiskGraph"), ("weight", "Unweighted")] } }
-inventory::submit! { ConcreteVariantEntry { name: "MaxCut", variant_fn: || vec![("graph", "GridGraph"), ("weight", "Unweighted")] } }
-inventory::submit! { ConcreteVariantEntry { name: "SpinGlass", variant_fn: || vec![("graph", "GridGraph"), ("weight", "f64")] } }
 
 /// JSON-serializable representation of the reduction graph.
 #[derive(Debug, Clone, Serialize)]
@@ -35,6 +27,18 @@ pub struct ReductionGraphJson {
     pub nodes: Vec<NodeJson>,
     /// List of reduction edges.
     pub edges: Vec<EdgeJson>,
+}
+
+impl ReductionGraphJson {
+    /// Get the source node of an edge.
+    pub fn source_node(&self, edge: &EdgeJson) -> &NodeJson {
+        &self.nodes[edge.source]
+    }
+
+    /// Get the target node of an edge.
+    pub fn target_node(&self, edge: &EdgeJson) -> &NodeJson {
+        &self.nodes[edge.target]
+    }
 }
 
 /// A node in the reduction graph JSON.
@@ -50,13 +54,11 @@ pub struct NodeJson {
     pub doc_path: String,
 }
 
-/// Reference to a problem variant in an edge.
-#[derive(Debug, Clone, Serialize, PartialEq, Eq, Hash)]
-pub struct VariantRef {
-    /// Base problem name.
-    pub name: String,
-    /// Variant attributes as key-value pairs.
-    pub variant: std::collections::BTreeMap<String, String>,
+/// Internal reference to a problem variant, used during edge construction.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct VariantRef {
+    name: String,
+    variant: std::collections::BTreeMap<String, String>,
 }
 
 /// A single output field in the reduction overhead.
@@ -71,10 +73,10 @@ pub struct OverheadFieldJson {
 /// An edge in the reduction graph JSON.
 #[derive(Debug, Clone, Serialize)]
 pub struct EdgeJson {
-    /// Source problem variant.
-    pub source: VariantRef,
-    /// Target problem variant.
-    pub target: VariantRef,
+    /// Index into the `nodes` array for the source problem variant.
+    pub source: usize,
+    /// Index into the `nodes` array for the target problem variant.
+    pub target: usize,
     /// Reduction overhead: output size as polynomials of input size.
     pub overhead: Vec<OverheadFieldJson>,
     /// Relative rustdoc path for the reduction module.
@@ -165,8 +167,6 @@ pub struct ReductionGraph {
     graph: DiGraph<&'static str, ReductionEdge>,
     /// Map from base type name to node index.
     name_indices: HashMap<&'static str, NodeIndex>,
-    /// Map from TypeId to base type name (for generic API compatibility).
-    type_to_name: HashMap<TypeId, &'static str>,
     /// Graph hierarchy: subtype -> set of supertypes (transitively closed).
     graph_hierarchy: HashMap<&'static str, HashSet<&'static str>>,
     /// Weight hierarchy: subtype -> set of supertypes (transitively closed).
@@ -178,7 +178,6 @@ impl ReductionGraph {
     pub fn new() -> Self {
         let mut graph = DiGraph::new();
         let mut name_indices = HashMap::new();
-        let mut type_to_name = HashMap::new();
 
         // Build graph hierarchy from GraphSubtypeEntry registrations
         let graph_hierarchy = Self::build_graph_hierarchy();
@@ -186,10 +185,7 @@ impl ReductionGraph {
         // Build weight hierarchy from WeightSubtypeEntry registrations
         let weight_hierarchy = Self::build_weight_hierarchy();
 
-        // First, register all problem types (for TypeId mapping)
-        Self::register_types(&mut graph, &mut name_indices, &mut type_to_name);
-
-        // Then, register reductions from inventory (auto-discovery)
+        // Register reductions from inventory (auto-discovery)
         for entry in inventory::iter::<ReductionEntry> {
             // Ensure source node exists
             if !name_indices.contains_key(entry.source_name) {
@@ -223,7 +219,6 @@ impl ReductionGraph {
         Self {
             graph,
             name_indices,
-            type_to_name,
             graph_hierarchy,
             weight_hierarchy,
         }
@@ -313,64 +308,6 @@ impl ReductionGraph {
         }
 
         supertypes
-    }
-
-    fn register_types(
-        graph: &mut DiGraph<&'static str, ReductionEdge>,
-        name_indices: &mut HashMap<&'static str, NodeIndex>,
-        type_to_name: &mut HashMap<TypeId, &'static str>,
-    ) {
-        // Register a problem type with its base name.
-        // Multiple concrete types can map to the same base name.
-        macro_rules! register {
-            ($($ty:ty => $base_name:expr),* $(,)?) => {
-                $(
-                    // Map TypeId to base name
-                    type_to_name.insert(TypeId::of::<$ty>(), $base_name);
-
-                    // Only add node if not already present
-                    if !name_indices.contains_key($base_name) {
-                        let idx = graph.add_node($base_name);
-                        name_indices.insert($base_name, idx);
-                    }
-                )*
-            };
-        }
-
-        use crate::models::graph::*;
-        use crate::models::optimization::*;
-        use crate::models::satisfiability::*;
-        use crate::models::set::*;
-        use crate::models::specialized::*;
-        use crate::topology::SimpleGraph;
-
-        // Register problem types - multiple concrete types can share a base name
-        register! {
-            // Graph problems
-            MaximumIndependentSet<SimpleGraph, i32> => "MaximumIndependentSet",
-            MaximumIndependentSet<SimpleGraph, f64> => "MaximumIndependentSet",
-            MinimumVertexCover<SimpleGraph, i32> => "MinimumVertexCover",
-            MinimumVertexCover<SimpleGraph, f64> => "MinimumVertexCover",
-            MaxCut<SimpleGraph, i32> => "MaxCut",
-            MaxCut<SimpleGraph, f64> => "MaxCut",
-            MaximumMatching<SimpleGraph, i32> => "MaximumMatching",
-            MinimumDominatingSet<SimpleGraph, i32> => "MinimumDominatingSet",
-            KColoring<3, SimpleGraph> => "KColoring",
-            // Set problems
-            MaximumSetPacking<i32> => "MaximumSetPacking",
-            MinimumSetCovering<i32> => "MinimumSetCovering",
-            // Optimization problems
-            SpinGlass<SimpleGraph, i32> => "SpinGlass",
-            SpinGlass<SimpleGraph, f64> => "SpinGlass",
-            QUBO<f64> => "QUBO",
-            ILP => "ILP",
-            // Satisfiability problems
-            Satisfiability => "Satisfiability",
-            KSatisfiability<3> => "KSatisfiability",
-            CircuitSAT => "CircuitSAT",
-            // Specialized
-            Factoring => "Factoring",
-        }
     }
 
     /// Check if `sub` is a subtype of `sup` (or equal).
@@ -519,19 +456,12 @@ impl ReductionGraph {
 
     /// Find all paths from source to target type.
     ///
-    /// Uses type-erased names, so `find_paths::<MaxCut<SimpleGraph, i32>, SpinGlass<SimpleGraph, f64>>()`
+    /// Uses `Problem::NAME` for lookup, so `find_paths::<MaxCut<SimpleGraph, i32>, SpinGlass<SimpleGraph, f64>>()`
     /// will find paths even though the weight types differ.
-    pub fn find_paths<S: 'static, T: 'static>(&self) -> Vec<ReductionPath> {
-        let src_name = match self.type_to_name.get(&TypeId::of::<S>()) {
-            Some(&name) => name,
-            None => return vec![],
-        };
-        let dst_name = match self.type_to_name.get(&TypeId::of::<T>()) {
-            Some(&name) => name,
-            None => return vec![],
-        };
-
-        self.find_paths_by_name(src_name, dst_name)
+    pub fn find_paths<S: crate::traits::Problem, T: crate::traits::Problem>(
+        &self,
+    ) -> Vec<ReductionPath> {
+        self.find_paths_by_name(S::NAME, T::NAME)
     }
 
     /// Find all paths between problem types by name.
@@ -563,7 +493,9 @@ impl ReductionGraph {
     }
 
     /// Find the shortest path from source to target type.
-    pub fn find_shortest_path<S: 'static, T: 'static>(&self) -> Option<ReductionPath> {
+    pub fn find_shortest_path<S: crate::traits::Problem, T: crate::traits::Problem>(
+        &self,
+    ) -> Option<ReductionPath> {
         let paths = self.find_paths::<S, T>();
         paths.into_iter().min_by_key(|p| p.len())
     }
@@ -575,17 +507,10 @@ impl ReductionGraph {
     }
 
     /// Check if a direct reduction exists from S to T.
-    pub fn has_direct_reduction<S: 'static, T: 'static>(&self) -> bool {
-        let src_name = match self.type_to_name.get(&TypeId::of::<S>()) {
-            Some(&name) => name,
-            None => return false,
-        };
-        let dst_name = match self.type_to_name.get(&TypeId::of::<T>()) {
-            Some(&name) => name,
-            None => return false,
-        };
-
-        self.has_direct_reduction_by_name(src_name, dst_name)
+    pub fn has_direct_reduction<S: crate::traits::Problem, T: crate::traits::Problem>(
+        &self,
+    ) -> bool {
+        self.has_direct_reduction_by_name(S::NAME, T::NAME)
     }
 
     /// Check if a direct reduction exists by name.
@@ -704,7 +629,14 @@ impl ReductionGraph {
     ///
     /// This method generates nodes for each variant based on the registered reductions.
     pub fn to_json(&self) -> ReductionGraphJson {
+        use crate::registry::ProblemSchemaEntry;
         use crate::rules::registry::ReductionEntry;
+
+        // Build name → module_path lookup from ProblemSchemaEntry inventory
+        let schema_modules: HashMap<&str, &str> = inventory::iter::<ProblemSchemaEntry>
+            .into_iter()
+            .map(|entry| (entry.name, entry.module_path))
+            .collect();
 
         // Collect all unique nodes (name + variant combination)
         let mut node_set: HashSet<(String, std::collections::BTreeMap<String, String>)> =
@@ -729,31 +661,40 @@ impl ReductionGraph {
             ));
         }
 
-        // Also collect nodes from ConcreteVariantEntry registrations
-        for entry in inventory::iter::<ConcreteVariantEntry> {
-            let variant = (entry.variant_fn)();
-            node_set.insert((entry.name.to_string(), Self::variant_to_map(&variant)));
-        }
-
-        // Build nodes with categories and doc paths
+        // Build nodes with categories and doc paths derived from ProblemSchemaEntry.module_path
         let mut nodes: Vec<NodeJson> = node_set
             .iter()
             .map(|(name, variant)| {
-                let category = Self::categorize_type(name);
-                let doc_path = Self::compute_doc_path(name);
+                let (category, doc_path) =
+                    if let Some(&mod_path) = schema_modules.get(name.as_str()) {
+                        (
+                            Self::category_from_module_path(mod_path),
+                            Self::doc_path_from_module_path(mod_path, name),
+                        )
+                    } else {
+                        ("other".to_string(), String::new())
+                    };
                 NodeJson {
                     name: name.clone(),
                     variant: variant.clone(),
-                    category: category.to_string(),
+                    category,
                     doc_path,
                 }
             })
             .collect();
         nodes.sort_by(|a, b| (&a.name, &a.variant).cmp(&(&b.name, &b.variant)));
 
-        // Collect edges: each reduction is a separate directed edge
+        // Build node index lookup: (name, variant) -> index in sorted nodes vec
+        let node_index: HashMap<(&str, &std::collections::BTreeMap<String, String>), usize> = nodes
+            .iter()
+            .enumerate()
+            .map(|(i, n)| ((n.name.as_str(), &n.variant), i))
+            .collect();
+
+        // Collect edges as (VariantRef, VariantRef) pairs first, then resolve to indices
         let mut edge_set: HashSet<(VariantRef, VariantRef)> = HashSet::new();
-        let mut edge_data: Vec<(VariantRef, VariantRef, ReductionOverhead, String)> = Vec::new();
+        let mut edge_data: Vec<(VariantRef, VariantRef, Vec<OverheadFieldJson>, String)> =
+            Vec::new();
 
         for entry in inventory::iter::<ReductionEntry> {
             let source_variant = entry.source_variant();
@@ -764,41 +705,17 @@ impl ReductionGraph {
             if edge_set.insert(key) {
                 let overhead = entry.overhead();
                 let doc_path = Self::module_path_to_doc_path(entry.module_path);
-                edge_data.push((src_ref, dst_ref, overhead, doc_path));
-            }
-        }
-
-        // Build edges
-        let mut edges: Vec<EdgeJson> = edge_data
-            .into_iter()
-            .map(|(src, dst, overhead, doc_path)| EdgeJson {
-                source: src,
-                target: dst,
-                overhead: overhead
+                let overhead_fields = overhead
                     .output_size
                     .iter()
                     .map(|(field, poly)| OverheadFieldJson {
                         field: field.to_string(),
                         formula: poly.to_string(),
                     })
-                    .collect(),
-                doc_path,
-            })
-            .collect();
-        edges.sort_by(|a, b| {
-            (
-                &a.source.name,
-                &a.source.variant,
-                &a.target.name,
-                &a.target.variant,
-            )
-                .cmp(&(
-                    &b.source.name,
-                    &b.source.variant,
-                    &b.target.name,
-                    &b.target.variant,
-                ))
-        });
+                    .collect();
+                edge_data.push((src_ref, dst_ref, overhead_fields, doc_path));
+            }
+        }
 
         // Auto-generate natural edges between same-name variant nodes.
         // A natural edge exists from A to B when all variant fields of A are
@@ -821,11 +738,11 @@ impl ReductionGraph {
             // Use edges where the problem is the TARGET, since the overhead fields
             // describe the target problem's size dimensions.
             let mut fields_by_problem: HashMap<String, Vec<String>> = HashMap::new();
-            for edge in &edges {
-                if !edge.overhead.is_empty() {
+            for (_, dst, overhead, _) in &edge_data {
+                if !overhead.is_empty() {
                     fields_by_problem
-                        .entry(edge.target.name.clone())
-                        .or_insert_with(|| edge.overhead.iter().map(|o| o.field.clone()).collect());
+                        .entry(dst.name.clone())
+                        .or_insert_with(|| overhead.iter().map(|o| o.field.clone()).collect());
                 }
             }
 
@@ -858,34 +775,38 @@ impl ReductionGraph {
                                     })
                                     .unwrap_or_default();
 
-                                edges.push(EdgeJson {
-                                    source: src_ref,
-                                    target: dst_ref,
-                                    overhead,
-                                    doc_path: String::new(),
-                                });
+                                edge_data.push((src_ref, dst_ref, overhead, String::new()));
                             }
                         }
                     }
                 }
             }
-
-            // Re-sort after adding natural edges
-            edges.sort_by(|a, b| {
-                (
-                    &a.source.name,
-                    &a.source.variant,
-                    &a.target.name,
-                    &a.target.variant,
-                )
-                    .cmp(&(
-                        &b.source.name,
-                        &b.source.variant,
-                        &b.target.name,
-                        &b.target.variant,
-                    ))
-            });
         }
+
+        // Sort edge data by source/target names for deterministic output
+        edge_data.sort_by(|a, b| {
+            (&a.0.name, &a.0.variant, &a.1.name, &a.1.variant).cmp(&(
+                &b.0.name,
+                &b.0.variant,
+                &b.1.name,
+                &b.1.variant,
+            ))
+        });
+
+        // Resolve VariantRefs to node indices
+        let edges: Vec<EdgeJson> = edge_data
+            .into_iter()
+            .map(|(src, dst, overhead, doc_path)| {
+                let src_idx = node_index[&(src.name.as_str(), &src.variant)];
+                let dst_idx = node_index[&(dst.name.as_str(), &dst.variant)];
+                EdgeJson {
+                    source: src_idx,
+                    target: dst_idx,
+                    overhead,
+                    doc_path,
+                }
+            })
+            .collect();
 
         ReductionGraphJson { nodes, edges }
     }
@@ -914,49 +835,34 @@ impl ReductionGraph {
         format!("{}/index.html", stripped.replace("::", "/"))
     }
 
-    /// Compute the rustdoc path for a problem type.
-    /// Maps name → actual Rust module location (which may differ from the visualization category).
-    fn compute_doc_path(name: &str) -> String {
-        let module = match name {
-            "MaximumIndependentSet"
-            | "MaximalIS"
-            | "MinimumVertexCover"
-            | "MinimumDominatingSet"
-            | "KColoring"
-            | "MaximumMatching"
-            | "MaxCut"
-            | "MaximumClique"
-            | "TravelingSalesman" => "graph",
-            "Satisfiability" | "KSatisfiability" => "satisfiability",
-            "SpinGlass" | "QUBO" | "ILP" => "optimization",
-            "MinimumSetCovering" | "MaximumSetPacking" => "set",
-            _ => "specialized",
-        };
-        format!("models/{module}/struct.{name}.html")
+    /// Extract the category from a module path.
+    ///
+    /// E.g., `"problemreductions::models::graph::maximum_independent_set"` → `"graph"`.
+    fn category_from_module_path(module_path: &str) -> String {
+        // Expected format: "problemreductions::models::<category>::<module_name>"
+        let parts: Vec<&str> = module_path.split("::").collect();
+        // parts = ["problemreductions", "models", "graph", "maximum_independent_set"]
+        if parts.len() >= 3 {
+            parts[2].to_string()
+        } else {
+            "other".to_string()
+        }
     }
 
-    /// Categorize a type name into a problem category.
-    fn categorize_type(name: &str) -> &'static str {
-        if name.contains("MaximumIndependentSet")
-            || name.contains("VertexCover")
-            || name.contains("MaxCut")
-            || name.contains("Coloring")
-            || name.contains("MinimumDominatingSet")
-            || name.contains("MaximumMatching")
-            || name.contains("MaximumClique")
-            || name.contains("TravelingSalesman")
-        {
-            "graph"
-        } else if name.contains("MaximumSetPacking") || name.contains("SetCover") {
-            "set"
-        } else if name.contains("SpinGlass") || name.contains("QUBO") || name.contains("ILP") {
-            "optimization"
-        } else if name.contains("Satisfiability") || name.contains("SAT") {
-            "satisfiability"
-        } else if name.contains("Factoring") || name.contains("Circuit") {
-            "specialized"
+    /// Build the rustdoc path from a module path and problem name.
+    ///
+    /// E.g., `"problemreductions::models::graph::maximum_independent_set"`, `"MaximumIndependentSet"`
+    /// → `"models/graph/struct.MaximumIndependentSet.html"`.
+    fn doc_path_from_module_path(module_path: &str, name: &str) -> String {
+        let stripped = module_path
+            .strip_prefix("problemreductions::")
+            .unwrap_or(module_path);
+        // stripped = "models::graph::maximum_independent_set"
+        // We need "models/graph/struct.MaximumIndependentSet.html"
+        if let Some(parent) = stripped.rsplit_once("::").map(|(p, _)| p) {
+            format!("{}/struct.{}.html", parent.replace("::", "/"), name)
         } else {
-            "other"
+            format!("struct.{}.html", name)
         }
     }
 }

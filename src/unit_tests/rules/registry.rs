@@ -23,8 +23,8 @@ fn test_reduction_entry_overhead() {
     let entry = ReductionEntry {
         source_name: "TestSource",
         target_name: "TestTarget",
-        source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "Unweighted")],
-        target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "Unweighted")],
+        source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
+        target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead_fn: || ReductionOverhead::new(vec![("n", poly!(2 * n))]),
         module_path: "test::module",
     };
@@ -40,8 +40,8 @@ fn test_reduction_entry_debug() {
     let entry = ReductionEntry {
         source_name: "A",
         target_name: "B",
-        source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "Unweighted")],
-        target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "Unweighted")],
+        source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
+        target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
     };
@@ -56,8 +56,8 @@ fn test_is_base_reduction_unweighted() {
     let entry = ReductionEntry {
         source_name: "A",
         target_name: "B",
-        source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "Unweighted")],
-        target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "Unweighted")],
+        source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
+        target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
     };
@@ -70,7 +70,7 @@ fn test_is_base_reduction_source_weighted() {
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "i32")],
-        target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "Unweighted")],
+        target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
     };
@@ -82,7 +82,7 @@ fn test_is_base_reduction_target_weighted() {
     let entry = ReductionEntry {
         source_name: "A",
         target_name: "B",
-        source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "Unweighted")],
+        source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "f64")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",

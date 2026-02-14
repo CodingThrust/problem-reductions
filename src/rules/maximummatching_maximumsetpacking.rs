@@ -9,9 +9,8 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::Graph;
-use num_traits::{Bounded, Num, Zero};
-use std::ops::AddAssign;
+use crate::topology::{Graph, SimpleGraph};
+use crate::types::WeightElement;
 
 /// Result of reducing MaximumMatching to MaximumSetPacking.
 #[derive(Debug, Clone)]
@@ -23,7 +22,7 @@ pub struct ReductionMatchingToSP<G, W> {
 impl<G, W> ReductionResult for ReductionMatchingToSP<G, W>
 where
     G: Graph,
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
+    W: WeightElement,
 {
     type Source = MaximumMatching<G, W>;
     type Target = MaximumSetPacking<W>;
@@ -46,12 +45,8 @@ where
         ])
     }
 )]
-impl<G, W> ReduceTo<MaximumSetPacking<W>> for MaximumMatching<G, W>
-where
-    G: Graph,
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionMatchingToSP<G, W>;
+impl ReduceTo<MaximumSetPacking<i32>> for MaximumMatching<SimpleGraph, i32> {
+    type Result = ReductionMatchingToSP<SimpleGraph, i32>;
 
     fn reduce_to(&self) -> Self::Result {
         let edges = self.edges();

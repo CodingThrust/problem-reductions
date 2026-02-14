@@ -1,1 +1,1 @@
-{"problem":"VertexCovering","source":{"num_vertices":4,"edges":[[0,1],[1,2],[2,3],[0,3],[0,2]],"penalty":8.0},"qubo_matrix":[[-23.0,4.0,4.0,4.0],[4.0,-15.0,4.0,0.0],[4.0,4.0,-23.0,4.0],[4.0,0.0,4.0,-15.0]],"qubo_num_vars":4,"qubo_optimal":{"value":-38.0,"configs":[[1,0,1,0]]}}
+{"problem":"MinimumVertexCover","source":{"num_vertices":4,"edges":[[0,1],[1,2],[2,3],[0,3],[0,2]],"penalty":8.0},"qubo_matrix":[[-23.0,4.0,4.0,4.0],[4.0,-15.0,4.0,0.0],[4.0,4.0,-23.0,4.0],[4.0,0.0,4.0,-15.0]],"qubo_num_vars":4,"qubo_optimal":{"value":-38.0,"configs":[[1,0,1,0]]}}

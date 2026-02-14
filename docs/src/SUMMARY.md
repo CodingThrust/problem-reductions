@@ -5,7 +5,7 @@
 # User Guide
 
 - [Getting Started](./getting-started.md)
-- [Architecture](./arch.md)
+- [Design](./design.md)
 
 # Developer Guide
 

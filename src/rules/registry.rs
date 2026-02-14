@@ -72,12 +72,12 @@ impl ReductionEntry {
         let source_unweighted = source
             .iter()
             .find(|(k, _)| *k == "weight")
-            .map(|(_, v)| *v == "Unweighted")
+            .map(|(_, v)| *v == "One")
             .unwrap_or(true);
         let target_unweighted = target
             .iter()
             .find(|(k, _)| *k == "weight")
-            .map(|(_, v)| *v == "Unweighted")
+            .map(|(_, v)| *v == "One")
             .unwrap_or(true);
         source_unweighted && target_unweighted
     }
@@ -97,15 +97,6 @@ impl std::fmt::Debug for ReductionEntry {
 }
 
 inventory::collect!(ReductionEntry);
-
-/// A registered concrete problem variant (for JSON export nodes).
-/// Variants registered here appear as nodes even without explicit reduction rules.
-pub struct ConcreteVariantEntry {
-    pub name: &'static str,
-    pub variant_fn: fn() -> Vec<(&'static str, &'static str)>,
-}
-
-inventory::collect!(ConcreteVariantEntry);
 
 #[cfg(test)]
 #[path = "../unit_tests/rules/registry.rs"]

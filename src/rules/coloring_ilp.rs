@@ -72,11 +72,8 @@ where
         ])
     }
 )]
-impl<const K: usize, G> ReduceTo<ILP> for KColoring<K, G>
-where
-    G: Graph,
-{
-    type Result = ReductionKColoringToILP<K, G>;
+impl<const K: usize> ReduceTo<ILP> for KColoring<K, SimpleGraph> {
+    type Result = ReductionKColoringToILP<K, SimpleGraph>;
 
     fn reduce_to(&self) -> Self::Result {
         let num_vertices = self.num_vertices();

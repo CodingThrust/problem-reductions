@@ -6,12 +6,14 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::types::{Direction, SolutionSize, WeightElement};
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "TravelingSalesman",
+        module_path: module_path!(),
         description: "Find minimum weight Hamiltonian cycle in a graph (Traveling Salesman Problem)",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
@@ -164,20 +166,14 @@ impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
 impl<G, W> Problem for TravelingSalesman<G, W>
 where
     G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
+    W: WeightElement,
 {
     const NAME: &'static str = "TravelingSalesman";
-    type Metric = SolutionSize<W>;
+    type Metric = SolutionSize<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![
-            ("graph", crate::variant::short_type_name::<G>()),
+            ("graph", G::NAME),
             ("weight", crate::variant::short_type_name::<W>()),
         ]
     }
@@ -186,15 +182,15 @@ where
         vec![2; self.graph.num_edges()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<W> {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
         if !self.is_valid_hamiltonian_cycle(config) {
             return SolutionSize::Invalid;
         }
-        let mut total = W::zero();
+        let mut total = W::Sum::zero();
         for (idx, &selected) in config.iter().enumerate() {
             if selected == 1 {
                 if let Some(w) = self.edge_weights.get(idx) {
-                    total += w.clone();
+                    total += w.to_sum();
                 }
             }
         }
@@ -205,15 +201,9 @@ where
 impl<G, W> OptimizationProblem for TravelingSalesman<G, W>
 where
     G: Graph,
-    W: Clone
-        + Default
-        + PartialOrd
-        + num_traits::Num
-        + num_traits::Zero
-        + std::ops::AddAssign
-        + 'static,
+    W: WeightElement,
 {
-    type Value = W;
+    type Value = W::Sum;
 
     fn direction(&self) -> Direction {
         Direction::Minimize

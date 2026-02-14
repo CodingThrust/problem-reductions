@@ -7,6 +7,8 @@ use serde::Serialize;
 pub struct ProblemSchemaEntry {
     /// Problem name (e.g., "MaximumIndependentSet").
     pub name: &'static str,
+    /// Module path from `module_path!()` (e.g., "problemreductions::models::graph::maximum_independent_set").
+    pub module_path: &'static str,
     /// Human-readable description.
     pub description: &'static str,
     /// Struct fields.

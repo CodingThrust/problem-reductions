@@ -120,11 +120,11 @@ fn test_weight_subtype_entries_registered() {
     let entries: Vec<_> = inventory::iter::<WeightSubtypeEntry>().collect();
     assert!(entries
         .iter()
-        .any(|e| e.subtype == "Unweighted" && e.supertype == "i32"));
+        .any(|e| e.subtype == "One" && e.supertype == "i32"));
     assert!(entries
         .iter()
         .any(|e| e.subtype == "i32" && e.supertype == "f64"));
     assert!(entries
         .iter()
-        .any(|e| e.subtype == "Unweighted" && e.supertype == "f64"));
+        .any(|e| e.subtype == "One" && e.supertype == "f64"));
 }

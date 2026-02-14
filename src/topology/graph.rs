@@ -82,6 +82,24 @@ pub trait Graph: Clone + Send + Sync + 'static {
     }
 }
 
+/// Trait for casting a graph to a supertype in the graph hierarchy.
+///
+/// When `A: GraphCast<B>`, graph `A` can be losslessly converted to graph `B`
+/// by extracting the adjacency structure. This enables natural-edge reductions
+/// where a problem on a specific graph type is solved by treating it as a more
+/// general graph.
+pub trait GraphCast<Target: Graph>: Graph {
+    /// Convert this graph to the target graph type.
+    fn cast_graph(&self) -> Target;
+}
+
+/// Any graph can be cast to a `SimpleGraph` by extracting vertices and edges.
+impl<G: Graph> GraphCast<SimpleGraph> for G {
+    fn cast_graph(&self) -> SimpleGraph {
+        SimpleGraph::new(self.num_vertices(), self.edges())
+    }
+}
+
 /// A simple unweighted undirected graph.
 ///
 /// This is the default graph type for most problems. It wraps petgraph's

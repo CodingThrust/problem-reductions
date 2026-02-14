@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "BMF",
+        module_path: module_path!(),
         description: "Boolean matrix factorization",
         fields: &[
             FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "Target boolean matrix A" },
@@ -205,7 +206,7 @@ impl Problem for BMF {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "i32")]
+        vec![]
     }
 }
 

@@ -10,9 +10,8 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use num_traits::{Bounded, Num, Zero};
+use crate::types::WeightElement;
 use std::collections::HashSet;
-use std::ops::AddAssign;
 
 /// Result of reducing MaximumIndependentSet to MaximumSetPacking.
 #[derive(Debug, Clone)]
@@ -22,7 +21,7 @@ pub struct ReductionISToSP<W> {
 
 impl<W> ReductionResult for ReductionISToSP<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
+    W: WeightElement,
 {
     type Source = MaximumIndependentSet<SimpleGraph, W>;
     type Target = MaximumSetPacking<W>;
@@ -45,11 +44,8 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<MaximumSetPacking<W>> for MaximumIndependentSet<SimpleGraph, W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionISToSP<W>;
+impl ReduceTo<MaximumSetPacking<i32>> for MaximumIndependentSet<SimpleGraph, i32> {
+    type Result = ReductionISToSP<i32>;
 
     fn reduce_to(&self) -> Self::Result {
         let edges = self.edges();
@@ -76,7 +72,7 @@ pub struct ReductionSPToIS<W> {
 
 impl<W> ReductionResult for ReductionSPToIS<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
+    W: WeightElement,
 {
     type Source = MaximumSetPacking<W>;
     type Target = MaximumIndependentSet<SimpleGraph, W>;
@@ -99,11 +95,8 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<MaximumIndependentSet<SimpleGraph, W>> for MaximumSetPacking<W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionSPToIS<W>;
+impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MaximumSetPacking<i32> {
+    type Result = ReductionSPToIS<i32>;
 
     fn reduce_to(&self) -> Self::Result {
         let sets = self.sets();

@@ -40,46 +40,60 @@
     return name + '/' + keys.map(function(k) { return k + '=' + variant[k]; }).join(',');
   }
 
+  // Default values per variant key — omitted in concise labels
+  var variantDefaults = { graph: 'SimpleGraph', weight: 'One' };
+
   function variantLabel(variant) {
-    var graph = variant.graph || 'SimpleGraph';
-    var weight = variant.weight || 'Unweighted';
-    var extra = Object.keys(variant).filter(function(k) { return k !== 'graph' && k !== 'weight'; });
+    var keys = Object.keys(variant);
     var parts = [];
-    if (graph !== 'SimpleGraph') parts.push(graph);
-    if (weight !== 'Unweighted') parts.push('Weighted');
-    extra.forEach(function(k) { parts.push(k + '=' + variant[k]); });
+    keys.forEach(function(k) {
+      var v = variant[k];
+      if (variantDefaults[k] && v === variantDefaults[k]) return; // skip defaults
+      parts.push(k === 'graph' || k === 'weight' ? v : k + '=' + v);
+    });
     return parts.length > 0 ? parts.join(', ') : 'base';
   }
 
+  function fullVariantLabel(variant) {
+    var keys = Object.keys(variant);
+    if (keys.length === 0) return 'no parameters';
+    var parts = [];
+    keys.forEach(function(k) {
+      parts.push(k === 'graph' || k === 'weight' ? variant[k] : k + '=' + variant[k]);
+    });
+    return parts.join(', ');
+  }
+
   function isBaseVariant(variant) {
-    var graph = variant.graph || 'SimpleGraph';
-    var weight = variant.weight || 'Unweighted';
-    var extra = Object.keys(variant).filter(function(k) { return k !== 'graph' && k !== 'weight'; });
-    return graph === 'SimpleGraph' && weight === 'Unweighted' && extra.length === 0;
+    var keys = Object.keys(variant);
+    return keys.every(function(k) {
+      return variantDefaults[k] && variant[k] === variantDefaults[k];
+    });
   }
 
   fetch('reductions/reduction_graph.json')
     .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(data) {
-      // Collect variant nodes (skip base nodes with empty variant)
-      var variantNodes = data.nodes.filter(function(n) {
-        return n.variant && Object.keys(n.variant).length > 0;
-      });
-
-      // Group by problem name
+      // Group all nodes by problem name
       var problems = {};
-      variantNodes.forEach(function(n) {
+      data.nodes.forEach(function(n) {
         if (!problems[n.name]) {
           problems[n.name] = { category: n.category, doc_path: n.doc_path, children: [] };
         }
-        problems[n.name].children.push(n);
+        // Only track nodes with non-empty variants as children;
+        // empty-variant nodes are base placeholders
+        if (n.variant && Object.keys(n.variant).length > 0) {
+          problems[n.name].children.push(n);
+        }
       });
 
       // Build edges at variant level, detecting bidirectional pairs
       var edgeMap = {};
       data.edges.forEach(function(e) {
-        var srcId = variantId(e.source.name, e.source.variant);
-        var dstId = variantId(e.target.name, e.target.variant);
+        var src = data.nodes[e.source];
+        var dst = data.nodes[e.target];
+        var srcId = variantId(src.name, src.variant);
+        var dstId = variantId(dst.name, dst.variant);
         var fwd = srcId + '->' + dstId;
         var rev = dstId + '->' + srcId;
         if (edgeMap[rev]) { edgeMap[rev].bidirectional = true; }
@@ -111,11 +125,13 @@
       });
       var tempEdgeSet = {};
       data.edges.forEach(function(e) {
-        var key = e.source.name + '->' + e.target.name;
-        var rev = e.target.name + '->' + e.source.name;
+        var srcName = data.nodes[e.source].name;
+        var dstName = data.nodes[e.target].name;
+        var key = srcName + '->' + dstName;
+        var rev = dstName + '->' + srcName;
         if (!tempEdgeSet[key] && !tempEdgeSet[rev]) {
           tempEdgeSet[key] = true;
-          tempElements.push({ data: { id: 'te_' + key, source: e.source.name, target: e.target.name } });
+          tempElements.push({ data: { id: 'te_' + key, source: srcName, target: dstName } });
         }
       });
 
@@ -154,11 +170,18 @@
         var pi = problemInfo[name];
         var pos = positions[name];
 
-        if (pi.baseChild) {
+        if (info.children.length === 0) {
+          // No parameterized variants — single node with empty variant
+          var vid = variantId(name, {});
+          elements.push({
+            data: { id: vid, label: name, fullLabel: name + ' (no parameters)', category: info.category, doc_path: info.doc_path },
+            position: { x: pos.x, y: pos.y }
+          });
+        } else if (pi.baseChild) {
           // Base variant at parent position, labeled with problem name
           var baseId = variantId(name, pi.baseChild.variant);
           elements.push({
-            data: { id: baseId, label: name, category: info.category, doc_path: info.doc_path },
+            data: { id: baseId, label: name, fullLabel: name + ' (' + fullVariantLabel(pi.baseChild.variant) + ')', category: info.category, doc_path: info.doc_path },
             position: { x: pos.x, y: pos.y }
           });
           // Non-base variants placed below
@@ -166,7 +189,7 @@
             var vid = variantId(name, child.variant);
             var vl = variantLabel(child.variant);
             elements.push({
-              data: { id: vid, label: name + ' (' + vl + ')', category: child.category, doc_path: child.doc_path },
+              data: { id: vid, label: name + ' (' + vl + ')', fullLabel: name + ' (' + fullVariantLabel(child.variant) + ')', category: child.category, doc_path: child.doc_path },
               position: { x: pos.x, y: pos.y + (i + 1) * variantOffsetY }
             });
           });
@@ -175,7 +198,7 @@
           var child = pi.nonBase[0];
           var vid = variantId(name, child.variant);
           elements.push({
-            data: { id: vid, label: name, category: child.category, doc_path: child.doc_path },
+            data: { id: vid, label: name, fullLabel: name + ' (' + fullVariantLabel(child.variant) + ')', category: child.category, doc_path: child.doc_path },
             position: { x: pos.x, y: pos.y }
           });
         } else {
@@ -184,7 +207,7 @@
             var vid = variantId(name, child.variant);
             var vl = variantLabel(child.variant);
             elements.push({
-              data: { id: vid, label: name + ' (' + vl + ')', category: child.category, doc_path: child.doc_path },
+              data: { id: vid, label: name + ' (' + vl + ')', fullLabel: name + ' (' + fullVariantLabel(child.variant) + ')', category: child.category, doc_path: child.doc_path },
               position: { x: pos.x, y: pos.y + i * variantOffsetY }
             });
           });
@@ -240,7 +263,7 @@
       var tooltip = document.getElementById('tooltip');
       cy.on('mouseover', 'node', function(evt) {
         var d = evt.target.data();
-        tooltip.innerHTML = '<strong>' + d.label + '</strong><br>Category: ' + d.category + '<br><em>Double-click to view API docs</em>';
+        tooltip.innerHTML = '<strong>' + d.fullLabel + '</strong><br><em>Double-click to view API docs</em>';
         tooltip.style.display = 'block';
       });
       cy.on('mousemove', 'node', function(evt) {

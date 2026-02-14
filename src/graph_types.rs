@@ -40,6 +40,11 @@ impl GraphMarker for BipartiteGraph {}
 pub struct GridGraph;
 impl GraphMarker for GridGraph {}
 
+/// Triangular lattice graph - a unit disk graph on a triangular grid.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Triangular;
+impl GraphMarker for Triangular {}
+
 /// Hypergraph - most general graph type. Edges can connect any number of vertices.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct HyperGraph;
@@ -78,6 +83,9 @@ macro_rules! declare_graph_subtype {
 declare_graph_subtype!(GridGraph => UnitDiskGraph);
 declare_graph_subtype!(GridGraph => SimpleGraph);
 declare_graph_subtype!(GridGraph => HyperGraph);
+declare_graph_subtype!(Triangular => UnitDiskGraph);
+declare_graph_subtype!(Triangular => SimpleGraph);
+declare_graph_subtype!(Triangular => HyperGraph);
 declare_graph_subtype!(UnitDiskGraph => SimpleGraph);
 declare_graph_subtype!(UnitDiskGraph => HyperGraph);
 declare_graph_subtype!(PlanarGraph => SimpleGraph);
@@ -108,9 +116,9 @@ macro_rules! declare_weight_subtype {
 }
 
 // Weight type hierarchy (with transitive relationships):
-//   Unweighted (most restrictive) => i32 => f64 (most general)
-declare_weight_subtype!("Unweighted" => "i32");
-declare_weight_subtype!("Unweighted" => "f64"); // transitive
+//   One (most restrictive) => i32 => f64 (most general)
+declare_weight_subtype!("One" => "i32");
+declare_weight_subtype!("One" => "f64"); // transitive
 declare_weight_subtype!("i32" => "f64");
 
 #[cfg(test)]

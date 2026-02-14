@@ -19,7 +19,7 @@ use std::path::Path;
 pub struct ProblemSide {
     /// Problem name matching `Problem::NAME` (e.g., `"MaximumIndependentSet"`).
     pub problem: String,
-    /// Variant attributes (e.g., `{"graph": "SimpleGraph", "weight": "Unweighted"}`).
+    /// Variant attributes (e.g., `{"graph": "SimpleGraph", "weight": "One"}`).
     pub variant: HashMap<String, String>,
     /// Problem-specific instance data (edges, matrix, clauses, etc.).
     pub instance: serde_json::Value,

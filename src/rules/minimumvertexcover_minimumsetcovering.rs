@@ -10,8 +10,7 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use num_traits::{Bounded, Num, Zero};
-use std::ops::AddAssign;
+use crate::types::WeightElement;
 
 /// Result of reducing MinimumVertexCover to MinimumSetCovering.
 #[derive(Debug, Clone)]
@@ -21,7 +20,7 @@ pub struct ReductionVCToSC<W> {
 
 impl<W> ReductionResult for ReductionVCToSC<W>
 where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static,
+    W: WeightElement,
 {
     type Source = MinimumVertexCover<SimpleGraph, W>;
     type Target = MinimumSetCovering<W>;
@@ -45,11 +44,8 @@ where
         ])
     }
 )]
-impl<W> ReduceTo<MinimumSetCovering<W>> for MinimumVertexCover<SimpleGraph, W>
-where
-    W: Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + From<i32> + 'static,
-{
-    type Result = ReductionVCToSC<W>;
+impl ReduceTo<MinimumSetCovering<i32>> for MinimumVertexCover<SimpleGraph, i32> {
+    type Result = ReductionVCToSC<i32>;
 
     fn reduce_to(&self) -> Self::Result {
         let edges = self.edges();

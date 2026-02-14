@@ -11,6 +11,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ILP",
+        module_path: module_path!(),
         description: "Optimize linear objective subject to linear constraints",
         fields: &[
             FieldInfo { name: "num_vars", type_name: "usize", description: "Number of integer variables" },
@@ -350,7 +351,7 @@ impl Problem for ILP {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("graph", "SimpleGraph"), ("weight", "f64")]
+        vec![]
     }
 }
 
