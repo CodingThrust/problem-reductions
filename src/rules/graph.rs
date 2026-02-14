@@ -4,11 +4,10 @@
 //! for topology, allowing path finding regardless of weight type parameters.
 //!
 //! This module implements set-theoretic validation for path finding:
-//! - Graph hierarchy is built from `GraphSubtypeEntry` registrations
+//! - Variant hierarchy is built from `VariantTypeEntry` registrations
 //! - Reduction applicability uses subtype relationships: A <= C and D <= B
 //! - Dijkstra's algorithm with custom cost functions for optimal paths
 
-use crate::graph_types::{GraphSubtypeEntry, WeightSubtypeEntry};
 use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::types::ProblemSize;
@@ -229,7 +228,7 @@ impl ReductionEdge {
 ///
 /// The graph supports:
 /// - Auto-discovery of reductions from `inventory::iter::<ReductionEntry>`
-/// - Graph hierarchy from `inventory::iter::<GraphSubtypeEntry>`
+/// - Variant hierarchy from `inventory::iter::<VariantTypeEntry>`
 /// - Set-theoretic validation for path finding
 /// - Dijkstra with custom cost functions
 pub struct ReductionGraph {
@@ -288,14 +287,10 @@ impl ReductionGraph {
         }
     }
 
-    /// Build unified variant hierarchy from all sources.
+    /// Build unified variant hierarchy from `VariantTypeEntry` registrations.
     ///
-    /// Merges registrations from:
-    /// - `VariantTypeEntry` (all categories)
-    /// - `GraphSubtypeEntry` (legacy, category "graph")
-    /// - `WeightSubtypeEntry` (legacy, category "weight")
-    ///
-    /// For each category, builds a parent map and computes transitive closure.
+    /// Collects all `VariantTypeEntry` registrations and computes transitive closure
+    /// of the parent relationships for each category.
     fn build_variant_hierarchy(
     ) -> HashMap<&'static str, HashMap<&'static str, HashSet<&'static str>>> {
         let mut hierarchy: HashMap<&'static str, HashMap<&'static str, HashSet<&'static str>>> =
@@ -311,26 +306,6 @@ impl ReductionGraph {
                     .or_default()
                     .insert(parent);
             }
-        }
-
-        // Merge legacy GraphSubtypeEntry registrations (category "graph")
-        for entry in inventory::iter::<GraphSubtypeEntry> {
-            hierarchy
-                .entry("graph")
-                .or_default()
-                .entry(entry.subtype)
-                .or_default()
-                .insert(entry.supertype);
-        }
-
-        // Merge legacy WeightSubtypeEntry registrations (category "weight")
-        for entry in inventory::iter::<WeightSubtypeEntry> {
-            hierarchy
-                .entry("weight")
-                .or_default()
-                .entry(entry.subtype)
-                .or_default()
-                .insert(entry.supertype);
         }
 
         // Compute transitive closure for each category
@@ -393,8 +368,7 @@ impl ReductionGraph {
 
     /// Get the graph hierarchy (for inspection/testing).
     pub fn graph_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
-        // SAFETY: "graph" category is always present due to GraphSubtypeEntry registrations.
-        // If somehow absent, we return a static empty map.
+        // If "graph" category is absent, we return a static empty map.
         static EMPTY: std::sync::LazyLock<HashMap<&'static str, HashSet<&'static str>>> =
             std::sync::LazyLock::new(HashMap::new);
         self.variant_hierarchy.get("graph").unwrap_or(&EMPTY)

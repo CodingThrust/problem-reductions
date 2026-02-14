@@ -463,7 +463,7 @@ fn test_graph_hierarchy_built() {
     let graph = ReductionGraph::new();
     let hierarchy = graph.graph_hierarchy();
 
-    // Should have relationships from GraphSubtypeEntry registrations
+    // Should have relationships from VariantTypeEntry registrations
     // UnitDiskGraph -> PlanarGraph -> SimpleGraph
     // BipartiteGraph -> SimpleGraph
     assert!(
