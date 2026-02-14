@@ -41,27 +41,16 @@ document.addEventListener('DOMContentLoaded', function() {
     return parts.join(', ');
   }
 
-  function isBaseVariant(variant) {
-    var keys = Object.keys(variant);
-    return keys.every(function(k) {
-      return variantDefaults[k] && variant[k] === variantDefaults[k];
-    });
-  }
-
   fetch('reductions/reduction_graph.json')
     .then(function(r) { if (!r.ok) throw new Error('HTTP ' + r.status); return r.json(); })
     .then(function(data) {
-      // Group all nodes by problem name
+      // Group nodes by problem name
       var problems = {};
-      data.nodes.forEach(function(n) {
+      data.nodes.forEach(function(n, idx) {
         if (!problems[n.name]) {
-          problems[n.name] = { category: n.category, doc_path: n.doc_path, children: [] };
+          problems[n.name] = { category: n.category, doc_path: n.doc_path, variants: [] };
         }
-        // Only track nodes with non-empty variants as children;
-        // empty-variant nodes are base placeholders
-        if (n.variant && Object.keys(n.variant).length > 0) {
-          problems[n.name].children.push(n);
-        }
+        problems[n.name].variants.push({ index: idx, variant: n.variant, category: n.category, doc_path: n.doc_path });
       });
 
       // Build edges at variant level, detecting bidirectional pairs
@@ -79,72 +68,107 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
 
-      // Precompute per-problem base/non-base split
-      var problemNames = Object.keys(problems);
-      var problemInfo = {};
-      problemNames.forEach(function(name) {
-        var info = problems[name];
-        var baseChild = null, nonBase = [];
-        info.children.forEach(function(child) {
-          if (isBaseVariant(child.variant)) baseChild = child;
-          else nonBase.push(child);
-        });
-        problemInfo[name] = { baseChild: baseChild, nonBase: nonBase };
-      });
-
-      // ── Build flat variant nodes ──
+      // ── Build compound nodes ──
       var elements = [];
+      var parentIds = {};  // name → parent node id
 
-      problemNames.forEach(function(name) {
+      Object.keys(problems).forEach(function(name) {
         var info = problems[name];
-        var pi = problemInfo[name];
+        var hasMultipleVariants = info.variants.length > 1;
 
-        if (info.children.length === 0) {
-          // No parameterized variants — single node with empty variant
-          var vid = variantId(name, {});
+        if (hasMultipleVariants) {
+          // Create compound parent node
+          var parentId = 'parent_' + name;
+          parentIds[name] = parentId;
           elements.push({
-            data: { id: vid, label: name, fullLabel: name + ' (no parameters)', category: info.category, doc_path: info.doc_path }
+            data: {
+              id: parentId,
+              label: name,
+              category: info.category,
+              doc_path: info.doc_path,
+              isParent: true,
+              variantCount: info.variants.length
+            }
           });
-        } else if (pi.baseChild) {
-          // Base variant labeled with problem name
-          var baseId = variantId(name, pi.baseChild.variant);
-          elements.push({
-            data: { id: baseId, label: name, fullLabel: name + ' (' + fullVariantLabel(pi.baseChild.variant) + ')', category: info.category, doc_path: info.doc_path }
-          });
-          // Non-base variants
-          pi.nonBase.forEach(function(child) {
-            var vid = variantId(name, child.variant);
-            var vl = variantLabel(child.variant);
+
+          // Create child nodes (hidden initially — collapsed)
+          info.variants.forEach(function(v) {
+            var vid = variantId(name, v.variant);
             elements.push({
-              data: { id: vid, label: name + ' (' + vl + ')', fullLabel: name + ' (' + fullVariantLabel(child.variant) + ')', category: child.category, doc_path: child.doc_path }
+              data: {
+                id: vid,
+                parent: parentId,
+                label: variantLabel(v.variant),
+                fullLabel: name + ' (' + fullVariantLabel(v.variant) + ')',
+                category: v.category,
+                doc_path: v.doc_path,
+                isVariant: true,
+                problemName: name
+              }
             });
-          });
-        } else if (pi.nonBase.length === 1) {
-          // Single non-base variant — labeled with just problem name
-          var child = pi.nonBase[0];
-          var vid = variantId(name, child.variant);
-          elements.push({
-            data: { id: vid, label: name, fullLabel: name + ' (' + fullVariantLabel(child.variant) + ')', category: child.category, doc_path: child.doc_path }
           });
         } else {
-          // Multiple non-base variants, no base
-          pi.nonBase.forEach(function(child) {
-            var vid = variantId(name, child.variant);
-            var vl = variantLabel(child.variant);
-            elements.push({
-              data: { id: vid, label: name + ' (' + vl + ')', fullLabel: name + ' (' + fullVariantLabel(child.variant) + ')', category: child.category, doc_path: child.doc_path }
-            });
+          // Single variant — simple node (no parent)
+          var v = info.variants[0];
+          var vid = variantId(name, v.variant);
+          elements.push({
+            data: {
+              id: vid,
+              label: name,
+              fullLabel: name + ' (' + fullVariantLabel(v.variant) + ')',
+              category: v.category,
+              doc_path: v.doc_path,
+              isVariant: false,
+              problemName: name
+            }
           });
         }
       });
 
-      // ── Connect edges ──
+      // ── Build collapsed-mode edges (name-level) ──
+      var nameLevelEdges = {};
+      data.edges.forEach(function(e) {
+        var srcName = data.nodes[e.source].name;
+        var dstName = data.nodes[e.target].name;
+        if (srcName === dstName) return; // skip intra-problem natural casts
+        var key = srcName + '->' + dstName;
+        if (!nameLevelEdges[key]) {
+          nameLevelEdges[key] = { count: 0, overhead: e.overhead, doc_path: e.doc_path };
+        }
+        nameLevelEdges[key].count++;
+      });
+
+      // Add collapsed edges to elements
+      Object.keys(nameLevelEdges).forEach(function(key) {
+        var parts = key.split('->');
+        var srcId = parentIds[parts[0]] || variantId(parts[0], problems[parts[0]].variants[0].variant);
+        var dstId = parentIds[parts[1]] || variantId(parts[1], problems[parts[1]].variants[0].variant);
+        var info = nameLevelEdges[key];
+        elements.push({
+          data: {
+            id: 'collapsed_' + key,
+            source: srcId,
+            target: dstId,
+            label: info.count > 1 ? '\u00d7' + info.count : '',
+            edgeLevel: 'collapsed',
+            overhead: info.overhead,
+            doc_path: info.doc_path
+          }
+        });
+      });
+
+      // ── Build variant-level edges (hidden, shown when expanded) ──
       Object.keys(edgeMap).forEach(function(k) {
         var e = edgeMap[k];
         elements.push({
           data: {
-            id: k, source: e.source, target: e.target,
-            bidirectional: e.bidirectional, overhead: e.overhead, doc_path: e.doc_path
+            id: 'variant_' + k,
+            source: e.source,
+            target: e.target,
+            bidirectional: e.bidirectional,
+            edgeLevel: 'variant',
+            overhead: e.overhead,
+            doc_path: e.doc_path
           }
         });
       });
@@ -153,6 +177,7 @@ document.addEventListener('DOMContentLoaded', function() {
         container: document.getElementById('cy'),
         elements: elements,
         style: [
+          // Base node style (simple nodes — single variant, no parent)
           { selector: 'node', style: {
             'label': 'data(label)', 'text-valign': 'center', 'text-halign': 'center',
             'font-size': '10px', 'font-family': 'monospace',
@@ -163,12 +188,47 @@ document.addEventListener('DOMContentLoaded', function() {
             'border-color': function(ele) { return categoryBorders[ele.data('category')] || '#999'; },
             'text-wrap': 'none', 'cursor': 'pointer'
           }},
+          // Parent (compound) node — collapsed appearance
+          { selector: 'node[?isParent]', style: {
+            'label': 'data(label)',
+            'text-valign': 'top',
+            'text-halign': 'center',
+            'font-size': '11px',
+            'font-family': 'monospace',
+            'padding': '10px',
+            'background-color': function(ele) { return categoryColors[ele.data('category')] || '#f0f0f0'; },
+            'border-width': 1.5,
+            'border-color': function(ele) { return categoryBorders[ele.data('category')] || '#999'; },
+            'shape': 'round-rectangle',
+            'cursor': 'pointer'
+          }},
+          // Child variant nodes
+          { selector: 'node[?isVariant]', style: {
+            'label': 'data(label)',
+            'text-valign': 'center',
+            'text-halign': 'center',
+            'font-size': '9px',
+            'font-family': 'monospace',
+            'width': function(ele) { return Math.max(ele.data('label').length * 5.5 + 8, 40); },
+            'height': 18,
+            'shape': 'round-rectangle',
+            'background-color': function(ele) { return categoryColors[ele.data('category')] || '#f0f0f0'; },
+            'border-width': 1,
+            'border-color': function(ele) { return categoryBorders[ele.data('category')] || '#999'; },
+            'cursor': 'pointer'
+          }},
+          // Edge styles
           { selector: 'edge', style: {
             'width': 1.5, 'line-color': '#999', 'target-arrow-color': '#999', 'target-arrow-shape': 'triangle',
             'source-arrow-color': '#999',
             'source-arrow-shape': function(ele) { return ele.data('bidirectional') ? 'triangle' : 'none'; },
-            'curve-style': 'bezier', 'arrow-scale': 0.7, 'cursor': 'pointer'
+            'curve-style': 'bezier', 'arrow-scale': 0.7, 'cursor': 'pointer',
+            'label': 'data(label)', 'font-size': '9px', 'text-rotation': 'autorotate',
+            'color': '#666', 'text-margin-y': -8
           }},
+          // Hidden variant-level edges
+          { selector: 'edge[edgeLevel="variant"]', style: { 'display': 'none' } },
+          // Highlighted styles
           { selector: '.highlighted', style: {
             'background-color': '#ff6b6b', 'border-color': '#cc0000', 'border-width': 2, 'z-index': 10
           }},
@@ -193,11 +253,18 @@ document.addEventListener('DOMContentLoaded', function() {
         userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false
       });
 
+      // Start collapsed — hide all child variant nodes
+      cy.nodes('[?isVariant]').style('display', 'none');
+
       // Tooltip for nodes
       var tooltip = document.getElementById('cy-tooltip');
       cy.on('mouseover', 'node', function(evt) {
         var d = evt.target.data();
-        tooltip.innerHTML = '<strong>' + d.fullLabel + '</strong><br><em>Double-click to view API docs</em>';
+        var title = d.fullLabel || d.label;
+        if (d.isParent) {
+          title += ' (' + d.variantCount + ' variants)';
+        }
+        tooltip.innerHTML = '<strong>' + title + '</strong><br><em>Double-click to view API docs</em>';
         tooltip.style.display = 'block';
       });
       cy.on('mousemove', 'node', function(evt) {
@@ -260,6 +327,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
       cy.on('tap', 'node', function(evt) {
         var node = evt.target;
+        if (node.data('isParent')) return; // skip — will be handled in Task 4
         if (!selectedNode) {
           selectedNode = node;
           node.addClass('selected-node');
@@ -267,7 +335,10 @@ document.addEventListener('DOMContentLoaded', function() {
         } else if (node === selectedNode) {
           clearPath();
         } else {
-          var dijkstra = cy.elements().dijkstra({ root: selectedNode, directed: true });
+          var visibleElements = cy.elements().filter(function(ele) {
+            return ele.style('display') !== 'none';
+          });
+          var dijkstra = visibleElements.dijkstra({ root: selectedNode, directed: true });
           var path = dijkstra.pathTo(node);
           cy.elements().removeClass('highlighted selected-node');
           if (path && path.length > 0) {
