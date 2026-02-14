@@ -1,6 +1,8 @@
 use super::*;
 use crate::models::satisfiability::CNFClause;
 use crate::solvers::BruteForce;
+use crate::traits::Problem;
+include!("../jl_helpers.rs");
 
 #[test]
 fn test_simple_sat_to_ds() {
@@ -309,4 +311,40 @@ fn test_negated_variable_connection() {
     // - 3 for second triangle: (3,4), (3,5), (4,5)
     // - 2 from negated literals to clause: (1,6), (4,6)
     assert_eq!(ds_problem.num_edges(), 8);
+}
+
+#[test]
+fn test_jl_parity_sat_to_dominatingset() {
+    let sat_data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/satisfiability.json")).unwrap();
+    let fixtures: &[(&str, &str)] = &[
+        (include_str!("../../../tests/data/jl/satisfiability_to_dominatingset.json"), "simple_clause"),
+        (include_str!("../../../tests/data/jl/rule_sat01_to_dominatingset.json"), "rule_sat01"),
+        (include_str!("../../../tests/data/jl/rule_sat02_to_dominatingset.json"), "rule_sat02"),
+        (include_str!("../../../tests/data/jl/rule_sat03_to_dominatingset.json"), "rule_sat03"),
+        (include_str!("../../../tests/data/jl/rule_sat04_unsat_to_dominatingset.json"), "rule_sat04_unsat"),
+        (include_str!("../../../tests/data/jl/rule_sat07_to_dominatingset.json"), "rule_sat07"),
+    ];
+    for (fixture_str, label) in fixtures {
+        let data: serde_json::Value = serde_json::from_str(fixture_str).unwrap();
+        let inst = &jl_find_instance_by_label(&sat_data, label)["instance"];
+        let (num_vars, clauses) = jl_parse_sat_clauses(inst);
+        let source = Satisfiability::new(num_vars, clauses);
+        let result = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&source);
+        let solver = BruteForce::new();
+        let best_target = solver.find_all_best(result.target_problem());
+        let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+        let sat_solutions: HashSet<Vec<usize>> = solver.find_all_satisfying(&source).into_iter().collect();
+        for case in data["cases"].as_array().unwrap() {
+            if sat_solutions.is_empty() {
+                for sol in &extracted {
+                    assert!(!source.evaluate(sol), "SAT->DS [{label}]: unsatisfiable but extracted satisfies");
+                }
+            } else {
+                assert!(extracted.is_subset(&sat_solutions), "SAT->DS [{label}]: extracted not subset");
+                assert_eq!(sat_solutions, jl_parse_configs_set(&case["best_source"]),
+                    "SAT->DS [{label}]: best source mismatch");
+            }
+        }
+    }
 }

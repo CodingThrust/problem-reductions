@@ -1,6 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
+include!("../../jl_helpers.rs");
 
 #[test]
 fn test_3sat_creation() {
@@ -148,4 +149,25 @@ fn test_ksat_problem_v2_2sat() {
     assert!(p.evaluate(&[0, 1]));
     assert!(!p.evaluate(&[1, 1]));
     assert!(!p.evaluate(&[0, 0]));
+}
+
+#[test]
+fn test_jl_parity_evaluation() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tests/data/jl/ksatisfiability.json")).unwrap();
+    for instance in data["instances"].as_array().unwrap() {
+        let (num_vars, clauses) = jl_parse_sat_clauses(&instance["instance"]);
+        let num_clauses = instance["instance"]["clauses"].as_array().unwrap().len();
+        let problem = KSatisfiability::<3>::new(num_vars, clauses);
+        for eval in instance["evaluations"].as_array().unwrap() {
+            let config = jl_parse_config(&eval["config"]);
+            let rust_result = problem.evaluate(&config);
+            let jl_size = eval["size"].as_u64().unwrap() as usize;
+            assert_eq!(rust_result, jl_size == num_clauses, "KSat eval mismatch for config {:?}", config);
+        }
+        let rust_best = BruteForce::new().find_all_satisfying(&problem);
+        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
+        let rust_best_set: HashSet<Vec<usize>> = rust_best.into_iter().collect();
+        assert_eq!(rust_best_set, jl_best, "KSat best solutions mismatch");
+    }
 }

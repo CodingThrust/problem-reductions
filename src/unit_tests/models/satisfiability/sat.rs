@@ -1,6 +1,7 @@
 use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::traits::Problem;
+include!("../../jl_helpers.rs");
 
 #[test]
 fn test_cnf_clause_creation() {
@@ -267,6 +268,30 @@ fn test_sat_problem_empty_formula() {
     assert_eq!(p.dims(), vec![2, 2]);
     assert!(p.evaluate(&[0, 0]));
     assert!(p.evaluate(&[1, 1]));
+}
+
+#[test]
+fn test_jl_parity_evaluation() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tests/data/jl/satisfiability.json")).unwrap();
+    for instance in data["instances"].as_array().unwrap() {
+        let (num_vars, clauses) = jl_parse_sat_clauses(&instance["instance"]);
+        let problem = Satisfiability::new(num_vars, clauses);
+        let num_clauses = instance["instance"]["clauses"].as_array().unwrap().len();
+        for eval in instance["evaluations"].as_array().unwrap() {
+            let config = jl_parse_config(&eval["config"]);
+            let rust_result = problem.evaluate(&config);
+            let jl_size = eval["size"].as_u64().unwrap() as usize;
+            let jl_all_satisfied = jl_size == num_clauses;
+            assert_eq!(rust_result, jl_all_satisfied, "SAT eval mismatch for config {:?}", config);
+        }
+        let rust_best = BruteForce::new().find_all_satisfying(&problem);
+        let rust_best_set: HashSet<Vec<usize>> = rust_best.into_iter().collect();
+        if !rust_best_set.is_empty() {
+            let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
+            assert_eq!(rust_best_set, jl_best, "SAT best solutions mismatch");
+        }
+    }
 }
 
 #[test]

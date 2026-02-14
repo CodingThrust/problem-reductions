@@ -2,6 +2,7 @@ use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
+include!("../../jl_helpers.rs");
 
 #[test]
 fn test_spin_glass_creation() {
@@ -187,4 +188,30 @@ fn test_spin_glass_problem() {
     assert_eq!(Problem::evaluate(&p, &[1, 0]), SolutionSize::Valid(-1.0));
 
     assert_eq!(p.direction(), Direction::Minimize);
+}
+
+#[test]
+fn test_jl_parity_evaluation() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tests/data/jl/spinglass.json")).unwrap();
+    for instance in data["instances"].as_array().unwrap() {
+        let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
+        let edges = jl_parse_edges(&instance["instance"]);
+        let j_values = jl_parse_i32_vec(&instance["instance"]["J"]);
+        let h_values = jl_parse_i32_vec(&instance["instance"]["h"]);
+        let interactions: Vec<((usize, usize), i32)> = edges.into_iter().zip(j_values).collect();
+        let problem = SpinGlass::<SimpleGraph, i32>::new(nv, interactions, h_values);
+        for eval in instance["evaluations"].as_array().unwrap() {
+            let jl_config = jl_parse_config(&eval["config"]);
+            let config = jl_flip_config(&jl_config);
+            let result = problem.evaluate(&config);
+            let jl_size = eval["size"].as_i64().unwrap() as i32;
+            assert!(result.is_valid(), "SpinGlass should always be valid");
+            assert_eq!(result.unwrap(), jl_size, "SpinGlass energy mismatch for config {:?}", config);
+        }
+        let best = BruteForce::new().find_all_best(&problem);
+        let jl_best = jl_flip_configs_set(&jl_parse_configs_set(&instance["best_solutions"]));
+        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        assert_eq!(rust_best, jl_best, "SpinGlass best solutions mismatch");
+    }
 }

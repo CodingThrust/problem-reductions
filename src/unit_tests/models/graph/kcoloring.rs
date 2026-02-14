@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+include!("../../jl_helpers.rs");
 
 #[test]
 fn test_kcoloring_creation() {
@@ -139,4 +140,26 @@ fn test_kcoloring_problem() {
     assert!(p.evaluate(&[0, 1, 2]));
     // Invalid: vertices 0 and 1 same color
     assert!(!p.evaluate(&[0, 0, 1]));
+}
+
+#[test]
+fn test_jl_parity_evaluation() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tests/data/jl/coloring.json")).unwrap();
+    for instance in data["instances"].as_array().unwrap() {
+        let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
+        let edges = jl_parse_edges(&instance["instance"]);
+        let num_edges = edges.len();
+        let problem = KColoring::<3, SimpleGraph>::new(nv, edges);
+        for eval in instance["evaluations"].as_array().unwrap() {
+            let config = jl_parse_config(&eval["config"]);
+            let result: bool = problem.evaluate(&config);
+            let jl_size = eval["size"].as_i64().unwrap() as usize;
+            assert_eq!(result, jl_size == num_edges, "KColoring mismatch for config {:?}", config);
+        }
+        let all_sat = BruteForce::new().find_all_satisfying(&problem);
+        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
+        let rust_sat: HashSet<Vec<usize>> = all_sat.into_iter().collect();
+        assert_eq!(rust_sat, jl_best, "KColoring satisfying solutions mismatch");
+    }
 }

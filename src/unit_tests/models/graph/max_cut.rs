@@ -1,6 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::types::SolutionSize;
+include!("../../jl_helpers.rs");
 
 #[test]
 fn test_maxcut_creation() {
@@ -248,4 +249,26 @@ fn test_maxcut_problem() {
     // All same partition: no cut, weight = 0
     assert_eq!(p.evaluate(&[0, 0, 0]), SolutionSize::Valid(0));
     assert_eq!(p.direction(), Direction::Maximize);
+}
+
+#[test]
+fn test_jl_parity_evaluation() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tests/data/jl/maxcut.json")).unwrap();
+    for instance in data["instances"].as_array().unwrap() {
+        let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
+        let weighted_edges = jl_parse_weighted_edges(&instance["instance"]);
+        let problem = MaxCut::<SimpleGraph, i32>::new(nv, weighted_edges);
+        for eval in instance["evaluations"].as_array().unwrap() {
+            let config = jl_parse_config(&eval["config"]);
+            let result = problem.evaluate(&config);
+            let jl_size = eval["size"].as_i64().unwrap() as i32;
+            assert!(result.is_valid(), "MaxCut should always be valid");
+            assert_eq!(result.unwrap(), jl_size, "MaxCut size mismatch for config {:?}", config);
+        }
+        let best = BruteForce::new().find_all_best(&problem);
+        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        assert_eq!(rust_best, jl_best, "MaxCut best solutions mismatch");
+    }
 }

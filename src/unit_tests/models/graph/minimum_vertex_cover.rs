@@ -2,6 +2,7 @@ use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
+include!("../../jl_helpers.rs");
 
 #[test]
 fn test_vertex_cover_creation() {
@@ -211,4 +212,34 @@ fn test_mvc_problem_v2() {
     // Invalid VC: select only vertex 0 (edge (1,2) not covered)
     assert_eq!(Problem::evaluate(&p, &[1, 0, 0]), SolutionSize::Invalid);
     assert_eq!(p.direction(), Direction::Minimize);
+}
+
+#[test]
+fn test_jl_parity_evaluation() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tests/data/jl/vertexcovering.json")).unwrap();
+    for instance in data["instances"].as_array().unwrap() {
+        let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
+        let edges = jl_parse_edges(&instance["instance"]);
+        let weights = jl_parse_i32_vec(&instance["instance"]["weights"]);
+        let problem = if weights.iter().all(|&w| w == 1) {
+            MinimumVertexCover::<SimpleGraph, i32>::new(nv, edges)
+        } else {
+            MinimumVertexCover::with_weights(nv, edges, weights)
+        };
+        for eval in instance["evaluations"].as_array().unwrap() {
+            let config = jl_parse_config(&eval["config"]);
+            let result = problem.evaluate(&config);
+            let jl_valid = eval["is_valid"].as_bool().unwrap();
+            assert_eq!(result.is_valid(), jl_valid, "VC validity mismatch for config {:?}", config);
+            if jl_valid {
+                let jl_size = eval["size"].as_i64().unwrap() as i32;
+                assert_eq!(result.unwrap(), jl_size, "VC size mismatch for config {:?}", config);
+            }
+        }
+        let best = BruteForce::new().find_all_best(&problem);
+        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        assert_eq!(rust_best, jl_best, "VC best solutions mismatch");
+    }
 }

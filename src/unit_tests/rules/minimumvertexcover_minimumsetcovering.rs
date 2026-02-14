@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+include!("../jl_helpers.rs");
 
 #[test]
 fn test_vc_to_sc_basic() {
@@ -172,5 +173,45 @@ fn test_vc_to_sc_all_solutions_valid() {
             "Extracted solution {:?} should be valid",
             vc_sol
         );
+    }
+}
+
+#[test]
+fn test_jl_parity_vc_to_setcovering() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/vertexcovering_to_setcovering.json")).unwrap();
+    let vc_data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/vertexcovering.json")).unwrap();
+    let inst = &vc_data["instances"][0]["instance"];
+    let source = MinimumVertexCover::with_weights(
+        inst["num_vertices"].as_u64().unwrap() as usize, jl_parse_edges(inst), jl_parse_i32_vec(&inst["weights"]));
+    let result = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&source);
+    let solver = BruteForce::new();
+    let best_target = solver.find_all_best(result.target_problem());
+    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    assert!(extracted.is_subset(&best_source));
+    for case in data["cases"].as_array().unwrap() {
+        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+    }
+}
+
+#[test]
+fn test_jl_parity_rule_vc_to_setcovering() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/rule_vertexcovering_to_setcovering.json")).unwrap();
+    let vc_data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/vertexcovering.json")).unwrap();
+    let inst = &jl_find_instance_by_label(&vc_data, "rule_4vertex")["instance"];
+    let source = MinimumVertexCover::with_weights(
+        inst["num_vertices"].as_u64().unwrap() as usize, jl_parse_edges(inst), jl_parse_i32_vec(&inst["weights"]));
+    let result = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&source);
+    let solver = BruteForce::new();
+    let best_target = solver.find_all_best(result.target_problem());
+    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    assert!(extracted.is_subset(&best_source));
+    for case in data["cases"].as_array().unwrap() {
+        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
 }

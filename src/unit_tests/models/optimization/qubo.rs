@@ -2,6 +2,7 @@ use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
+include!("../../jl_helpers.rs");
 
 #[test]
 fn test_qubo_from_matrix() {
@@ -146,4 +147,36 @@ fn test_qubo_problem() {
     // x = [1, 0]: f = 1
     assert_eq!(Problem::evaluate(&p, &[1, 0]), SolutionSize::Valid(1.0));
     assert_eq!(p.direction(), Direction::Minimize);
+}
+
+#[test]
+fn test_jl_parity_evaluation() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tests/data/jl/qubo.json")).unwrap();
+    for instance in data["instances"].as_array().unwrap() {
+        let jl_matrix: Vec<Vec<f64>> = instance["instance"]["matrix"]
+            .as_array().unwrap().iter()
+            .map(|row| row.as_array().unwrap().iter().map(|v| v.as_f64().unwrap()).collect())
+            .collect();
+        let n = jl_matrix.len();
+        let mut rust_matrix = vec![vec![0.0f64; n]; n];
+        for i in 0..n {
+            rust_matrix[i][i] = jl_matrix[i][i];
+            for j in (i + 1)..n {
+                rust_matrix[i][j] = jl_matrix[i][j] + jl_matrix[j][i];
+            }
+        }
+        let problem = QUBO::from_matrix(rust_matrix);
+        for eval in instance["evaluations"].as_array().unwrap() {
+            let config = jl_parse_config(&eval["config"]);
+            let result: SolutionSize<f64> = Problem::evaluate(&problem, &config);
+            let jl_size = eval["size"].as_f64().unwrap();
+            assert!(result.is_valid(), "QUBO should always be valid");
+            assert!((result.unwrap() - jl_size).abs() < 1e-10, "QUBO value mismatch for config {:?}", config);
+        }
+        let best = BruteForce::new().find_all_best(&problem);
+        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        assert_eq!(rust_best, jl_best, "QUBO best solutions mismatch");
+    }
 }

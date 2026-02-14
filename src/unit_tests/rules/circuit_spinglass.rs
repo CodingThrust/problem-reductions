@@ -3,6 +3,7 @@ use crate::models::specialized::Circuit;
 use crate::solvers::BruteForce;
 use crate::types::{NumericSize, WeightElement};
 use num_traits::Num;
+include!("../jl_helpers.rs");
 
 /// Verify a gadget has the correct ground states.
 fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<usize>, Vec<usize>)])
@@ -517,4 +518,28 @@ fn test_solution_extraction() {
     // Need to know the mapping to construct proper test
     let sg = reduction.target_problem();
     assert!(sg.num_spins() >= 3); // At least c, x, y
+}
+
+#[test]
+fn test_jl_parity_circuitsat_to_spinglass() {
+    use crate::models::specialized::{Assignment, BooleanExpr, Circuit};
+    let a = BooleanExpr::var("a");
+    let b = BooleanExpr::var("b");
+    let c = BooleanExpr::var("c");
+    let x_expr = BooleanExpr::or(vec![a.clone(), BooleanExpr::not(b.clone())]);
+    let y_expr = BooleanExpr::or(vec![BooleanExpr::not(c.clone()), b.clone()]);
+    let z_expr = BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y"), a.clone()]);
+    let circuit = Circuit::new(vec![
+        Assignment::new(vec!["x".to_string()], x_expr),
+        Assignment::new(vec!["y".to_string()], y_expr),
+        Assignment::new(vec!["z".to_string()], z_expr),
+    ]);
+    let source = CircuitSAT::new(circuit);
+    let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&source);
+    let solver = BruteForce::new();
+    let best_target = solver.find_all_best(result.target_problem());
+    let best_source = solver.find_all_satisfying(&source);
+    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    let best_source_set: HashSet<Vec<usize>> = best_source.into_iter().collect();
+    assert!(extracted.is_subset(&best_source_set), "CircuitSAT->SpinGlass: extracted not satisfying");
 }

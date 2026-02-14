@@ -1,6 +1,8 @@
 use super::*;
+use crate::solvers::BruteForce;
 use crate::traits::Problem;
 use std::collections::HashMap;
+include!("../jl_helpers.rs");
 
 #[test]
 fn test_read_bit() {
@@ -292,4 +294,21 @@ fn test_factorization_1_trivial() {
         !check_factorization_satisfies(&factoring, &reduction, 2, 1),
         "2 * 1 = 2 != 1 should not satisfy"
     );
+}
+
+#[test]
+fn test_jl_parity_factoring_to_circuitsat() {
+    let source = Factoring::new(1, 1, 1);
+    let result = ReduceTo::<CircuitSAT>::reduce_to(&source);
+    let solver = BruteForce::new();
+    let best_target = solver.find_all_satisfying(result.target_problem());
+    for t in &best_target {
+        let sol = result.extract_solution(t);
+        assert_eq!(source.evaluate(&sol).unwrap(), 0, "Factoring extracted solution should be valid");
+    }
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/factoring_to_circuitsat.json")).unwrap();
+    let jl_best_source = jl_parse_configs_set(&data["cases"][0]["best_source"]);
+    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    assert_eq!(best_source, jl_best_source, "Factoring best source mismatch");
 }

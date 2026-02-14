@@ -2,6 +2,7 @@ use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
+include!("../../jl_helpers.rs");
 
 #[test]
 fn test_factoring_creation() {
@@ -164,4 +165,30 @@ fn test_factoring_problem() {
     assert_eq!(Problem::evaluate(&p, &[0, 0, 0, 0]), SolutionSize::Valid(6));
 
     assert_eq!(p.direction(), Direction::Minimize);
+}
+
+#[test]
+fn test_jl_parity_evaluation() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tests/data/jl/factoring.json")).unwrap();
+    for instance in data["instances"].as_array().unwrap() {
+        let m = instance["instance"]["m"].as_u64().unwrap() as usize;
+        let n = instance["instance"]["n"].as_u64().unwrap() as usize;
+        let input = instance["instance"]["input"].as_u64().unwrap();
+        let problem = Factoring::new(m, n, input);
+        for eval in instance["evaluations"].as_array().unwrap() {
+            let config = jl_parse_config(&eval["config"]);
+            let result = problem.evaluate(&config);
+            let jl_valid = eval["is_valid"].as_bool().unwrap();
+            if jl_valid {
+                assert_eq!(result.unwrap(), 0, "Factoring: valid config should have distance 0");
+            } else {
+                assert_ne!(result.unwrap(), 0, "Factoring: invalid config should have nonzero distance");
+            }
+        }
+        let best = BruteForce::new().find_all_best(&problem);
+        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        assert_eq!(rust_best, jl_best, "Factoring best solutions mismatch");
+    }
 }
