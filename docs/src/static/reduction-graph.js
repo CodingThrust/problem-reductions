@@ -92,106 +92,53 @@ document.addEventListener('DOMContentLoaded', function() {
         problemInfo[name] = { baseChild: baseChild, nonBase: nonBase };
       });
 
-      // ── Step 1: Layout one node per problem using cose ──
-      var tempElements = [];
-      problemNames.forEach(function(name) {
-        var info = problems[name];
-        tempElements.push({
-          data: { id: name, label: name, category: info.category }
-        });
-      });
-      var tempEdgeSet = {};
-      data.edges.forEach(function(e) {
-        var srcName = data.nodes[e.source].name;
-        var dstName = data.nodes[e.target].name;
-        var key = srcName + '->' + dstName;
-        var rev = dstName + '->' + srcName;
-        if (!tempEdgeSet[key] && !tempEdgeSet[rev]) {
-          tempEdgeSet[key] = true;
-          tempElements.push({ data: { id: 'te_' + key, source: srcName, target: dstName } });
-        }
-      });
-
-      var tempCy = cytoscape({
-        container: document.getElementById('cy'),
-        elements: tempElements,
-        style: [
-          { selector: 'node', style: {
-            'label': 'data(label)', 'text-valign': 'center', 'text-halign': 'center',
-            'font-size': '11px', 'font-family': 'monospace',
-            'width': function(ele) { return Math.max(ele.data('label').length * 7 + 14, 60); },
-            'height': 28, 'shape': 'round-rectangle'
-          }},
-          { selector: 'edge', style: { 'width': 1, 'line-color': '#ddd', 'target-arrow-shape': 'none' } }
-        ],
-        layout: {
-          name: 'cose', animate: false,
-          nodeRepulsion: function() { return 16000; },
-          idealEdgeLength: function() { return 200; },
-          gravity: 0.15, numIter: 1000, padding: 40
-        }
-      });
-
-      var positions = {};
-      tempCy.nodes().forEach(function(n) {
-        positions[n.id()] = { x: n.position('x'), y: n.position('y') };
-      });
-      tempCy.destroy();
-
-      // ── Step 2: Place flat variant nodes near parent positions ──
+      // ── Build flat variant nodes ──
       var elements = [];
-      var variantOffsetY = 30;
 
       problemNames.forEach(function(name) {
         var info = problems[name];
         var pi = problemInfo[name];
-        var pos = positions[name];
 
         if (info.children.length === 0) {
           // No parameterized variants — single node with empty variant
           var vid = variantId(name, {});
           elements.push({
-            data: { id: vid, label: name, fullLabel: name + ' (no parameters)', category: info.category, doc_path: info.doc_path },
-            position: { x: pos.x, y: pos.y }
+            data: { id: vid, label: name, fullLabel: name + ' (no parameters)', category: info.category, doc_path: info.doc_path }
           });
         } else if (pi.baseChild) {
-          // Base variant at parent position, labeled with problem name
+          // Base variant labeled with problem name
           var baseId = variantId(name, pi.baseChild.variant);
           elements.push({
-            data: { id: baseId, label: name, fullLabel: name + ' (' + fullVariantLabel(pi.baseChild.variant) + ')', category: info.category, doc_path: info.doc_path },
-            position: { x: pos.x, y: pos.y }
+            data: { id: baseId, label: name, fullLabel: name + ' (' + fullVariantLabel(pi.baseChild.variant) + ')', category: info.category, doc_path: info.doc_path }
           });
-          // Non-base variants placed below
-          pi.nonBase.forEach(function(child, i) {
+          // Non-base variants
+          pi.nonBase.forEach(function(child) {
             var vid = variantId(name, child.variant);
             var vl = variantLabel(child.variant);
             elements.push({
-              data: { id: vid, label: name + ' (' + vl + ')', fullLabel: name + ' (' + fullVariantLabel(child.variant) + ')', category: child.category, doc_path: child.doc_path },
-              position: { x: pos.x, y: pos.y + (i + 1) * variantOffsetY }
+              data: { id: vid, label: name + ' (' + vl + ')', fullLabel: name + ' (' + fullVariantLabel(child.variant) + ')', category: child.category, doc_path: child.doc_path }
             });
           });
         } else if (pi.nonBase.length === 1) {
-          // Single non-base variant — place at parent position with just problem name
+          // Single non-base variant — labeled with just problem name
           var child = pi.nonBase[0];
           var vid = variantId(name, child.variant);
           elements.push({
-            data: { id: vid, label: name, fullLabel: name + ' (' + fullVariantLabel(child.variant) + ')', category: child.category, doc_path: child.doc_path },
-            position: { x: pos.x, y: pos.y }
+            data: { id: vid, label: name, fullLabel: name + ' (' + fullVariantLabel(child.variant) + ')', category: child.category, doc_path: child.doc_path }
           });
         } else {
-          // Multiple non-base variants, no base — first at parent, rest below
-          pi.nonBase.forEach(function(child, i) {
+          // Multiple non-base variants, no base
+          pi.nonBase.forEach(function(child) {
             var vid = variantId(name, child.variant);
             var vl = variantLabel(child.variant);
             elements.push({
-              data: { id: vid, label: name + ' (' + vl + ')', fullLabel: name + ' (' + fullVariantLabel(child.variant) + ')', category: child.category, doc_path: child.doc_path },
-              position: { x: pos.x, y: pos.y + i * variantOffsetY }
+              data: { id: vid, label: name + ' (' + vl + ')', fullLabel: name + ' (' + fullVariantLabel(child.variant) + ')', category: child.category, doc_path: child.doc_path }
             });
           });
         }
       });
 
-      // ── Step 3: Connect edges ──
+      // ── Connect edges ──
       Object.keys(edgeMap).forEach(function(k) {
         var e = edgeMap[k];
         elements.push({
@@ -232,7 +179,17 @@ document.addEventListener('DOMContentLoaded', function() {
             'border-color': '#0066cc', 'border-width': 2, 'background-color': '#cce0ff'
           }}
         ],
-        layout: { name: 'preset' },
+        layout: {
+          name: 'elk',
+          elk: {
+            algorithm: 'stress',
+            'stress.desiredEdgeLength': 200,
+            'nodeNode.spacing': 40,
+          },
+          animate: true,
+          animationDuration: 500,
+          padding: 40
+        },
         userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false
       });
 
