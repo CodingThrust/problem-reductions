@@ -54,6 +54,13 @@ pub struct NodeJson {
     pub doc_path: String,
 }
 
+/// A matched reduction entry: (source_variant, target_variant, overhead).
+pub type MatchedEntry = (
+    std::collections::BTreeMap<String, String>,
+    std::collections::BTreeMap<String, String>,
+    ReductionOverhead,
+);
+
 /// Internal reference to a problem variant, used during edge construction.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct VariantRef {
@@ -689,6 +696,55 @@ impl ReductionGraph {
             name: name.to_string(),
             variant: Self::variant_to_map(variant),
         }
+    }
+
+    /// Find the best matching `ReductionEntry` for a (source_name, target_name) pair
+    /// given the caller's current source variant.
+    ///
+    /// "Best" means: compatible (current variant is reducible to the entry's source variant)
+    /// and most specific (tightest fit among all compatible entries).
+    ///
+    /// Returns `(entry_source_variant, entry_target_variant, overhead)` or `None`.
+    pub fn find_best_entry(
+        &self,
+        source_name: &str,
+        target_name: &str,
+        current_variant: &std::collections::BTreeMap<String, String>,
+    ) -> Option<MatchedEntry> {
+        let mut best: Option<MatchedEntry> = None;
+
+        for entry in inventory::iter::<ReductionEntry> {
+            if entry.source_name != source_name || entry.target_name != target_name {
+                continue;
+            }
+
+            let entry_source = Self::variant_to_map(&entry.source_variant());
+            let entry_target = Self::variant_to_map(&entry.target_variant());
+
+            // Check: current_variant is reducible to entry's source variant
+            // (current is equal-or-more-specific on every axis)
+            if current_variant != &entry_source
+                && !self.is_variant_reducible(current_variant, &entry_source)
+            {
+                continue;
+            }
+
+            // Pick the most specific: if we already have a best, prefer the one
+            // whose source_variant is more specific (tighter fit)
+            let dominated = if let Some((ref best_source, _, _)) = best {
+                // New entry is more specific than current best?
+                self.is_variant_reducible(&entry_source, best_source)
+                    || entry_source == *current_variant
+            } else {
+                true
+            };
+
+            if dominated {
+                best = Some((entry_source, entry_target, entry.overhead()));
+            }
+        }
+
+        best
     }
 
     /// Export the reduction graph as a JSON-serializable structure.

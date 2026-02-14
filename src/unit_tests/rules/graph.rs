@@ -946,3 +946,66 @@ fn test_natural_edge_has_identity_overhead() {
         );
     }
 }
+
+#[test]
+fn test_find_matching_entry_ksat_k3() {
+    let graph = ReductionGraph::new();
+    let variant_k3: std::collections::BTreeMap<String, String> =
+        [("k".to_string(), "3".to_string())].into();
+
+    let entry = graph.find_best_entry("KSatisfiability", "QUBO", &variant_k3);
+    assert!(entry.is_some());
+    let (source_var, _target_var, overhead) = entry.unwrap();
+    // K=3 overhead has num_clauses term; K=2 does not
+    assert!(overhead
+        .output_size
+        .iter()
+        .any(|(field, _)| *field == "num_vars"));
+    // K=3 overhead: poly!(num_vars) + poly!(num_clauses) → two terms total
+    let num_vars_poly = &overhead
+        .output_size
+        .iter()
+        .find(|(f, _)| *f == "num_vars")
+        .unwrap()
+        .1;
+    assert!(
+        num_vars_poly.terms.len() >= 2,
+        "K=3 overhead should have num_vars + num_clauses"
+    );
+    // Verify the source variant matches k=3
+    assert_eq!(source_var.get("k"), Some(&"3".to_string()));
+}
+
+#[test]
+fn test_find_matching_entry_ksat_k2() {
+    let graph = ReductionGraph::new();
+    let variant_k2: std::collections::BTreeMap<String, String> =
+        [("k".to_string(), "2".to_string())].into();
+
+    let entry = graph.find_best_entry("KSatisfiability", "QUBO", &variant_k2);
+    assert!(entry.is_some());
+    let (_source_var, _target_var, overhead) = entry.unwrap();
+    // K=2 overhead: just poly!(num_vars) → one term
+    let num_vars_poly = &overhead
+        .output_size
+        .iter()
+        .find(|(f, _)| *f == "num_vars")
+        .unwrap()
+        .1;
+    assert_eq!(
+        num_vars_poly.terms.len(),
+        1,
+        "K=2 overhead should have only num_vars"
+    );
+}
+
+#[test]
+fn test_find_matching_entry_no_match() {
+    let graph = ReductionGraph::new();
+    let variant: std::collections::BTreeMap<String, String> =
+        [("k".to_string(), "99".to_string())].into();
+
+    // k=99 is not a subtype of k=2 or k=3
+    let entry = graph.find_best_entry("KSatisfiability", "QUBO", &variant);
+    assert!(entry.is_none());
+}
