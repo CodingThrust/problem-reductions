@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams
+.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata
 
 # Default target
 help:
@@ -22,6 +22,7 @@ help:
 	@echo "  examples     - Generate example JSON for paper"
 	@echo "  export-schemas - Export problem schemas to JSON"
 	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
+	@echo "  jl-testdata  - Regenerate Julia parity test data (requires julia)"
 	@echo "  release V=x.y.z - Tag and push a new release (triggers CI publish)"
 	@echo "  run-plan   - Execute a plan with Claude autorun (latest plan in docs/plans/)"
 
@@ -113,6 +114,9 @@ check: fmt-check clippy test
 # Regenerate QUBO test data from Python (requires uv)
 qubo-testdata:
 	cd scripts && uv run python generate_qubo_tests.py
+
+jl-testdata:  ## Regenerate Julia parity test data
+	cd scripts/jl && julia --project=. generate_testdata.jl
 
 # Release a new version: make release V=0.2.0
 release:

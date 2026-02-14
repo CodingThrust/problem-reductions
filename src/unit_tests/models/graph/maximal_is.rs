@@ -1,6 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::types::SolutionSize;
+include!("../../jl_helpers.rs");
 
 #[test]
 fn test_maximal_is_creation() {
@@ -59,50 +59,6 @@ fn test_is_maximal() {
 }
 
 #[test]
-fn test_evaluate() {
-    use crate::traits::Problem;
-
-    let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-
-    // Maximal: {0, 2}
-    assert_eq!(problem.evaluate(&[1, 0, 1]), SolutionSize::Valid(2));
-
-    // Maximal: {1}
-    assert_eq!(problem.evaluate(&[0, 1, 0]), SolutionSize::Valid(1));
-
-    // Not maximal: {0} - returns Invalid
-    assert_eq!(problem.evaluate(&[1, 0, 0]), SolutionSize::Invalid);
-}
-
-#[test]
-fn test_brute_force_path() {
-    let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Largest maximal IS is {0, 2} with size 2
-    assert_eq!(solutions.len(), 1);
-    assert_eq!(solutions[0], vec![1, 0, 1]);
-}
-
-#[test]
-fn test_brute_force_triangle() {
-    use crate::traits::Problem;
-
-    let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // All maximal IS have size 1 (any single vertex)
-    assert_eq!(solutions.len(), 3);
-    for sol in &solutions {
-        assert_eq!(sol.iter().sum::<usize>(), 1);
-        // Maximal IS should evaluate to Valid(1)
-        assert_eq!(problem.evaluate(sol), SolutionSize::Valid(1));
-    }
-}
-
-#[test]
 fn test_is_maximal_independent_set_function() {
     let edges = vec![(0, 1), (1, 2)];
 
@@ -123,17 +79,6 @@ fn test_direction() {
 
     let problem = MaximalIS::<SimpleGraph, i32>::new(2, vec![(0, 1)]);
     assert_eq!(problem.direction(), Direction::Maximize);
-}
-
-#[test]
-fn test_empty_graph() {
-    let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Only maximal IS is all vertices
-    assert_eq!(solutions.len(), 1);
-    assert_eq!(solutions[0], vec![1, 1, 1]);
 }
 
 #[test]
@@ -198,29 +143,26 @@ fn test_weights_ref() {
 }
 
 #[test]
-fn test_weighted_solution() {
-    let problem =
-        MaximalIS::<SimpleGraph, i32>::with_weights(3, vec![(0, 1), (1, 2)], vec![10, 100, 10]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Should prefer {1} with weight 100 over {0, 2} with weight 20
-    // With LargerSizeIsBetter, {1} with 100 > {0, 2} with 20
-    assert_eq!(solutions.len(), 1);
-    assert_eq!(solutions[0], vec![0, 1, 0]);
-}
-
-#[test]
-fn test_maximal_is_problem() {
-    use crate::traits::{OptimizationProblem, Problem};
-    use crate::types::Direction;
-
-    // Path graph 0-1-2
-    let p = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    assert_eq!(p.dims(), vec![2, 2, 2]);
-    // Valid maximal IS: {0, 2} - independent and maximal
-    assert_eq!(p.evaluate(&[1, 0, 1]), SolutionSize::Valid(2));
-    // Not maximal: {0} alone - vertex 2 could be added
-    assert_eq!(p.evaluate(&[1, 0, 0]), SolutionSize::Invalid);
-    assert_eq!(p.direction(), Direction::Maximize);
+fn test_jl_parity_evaluation() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tests/data/jl/maximalis.json")).unwrap();
+    for instance in data["instances"].as_array().unwrap() {
+        let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
+        let edges = jl_parse_edges(&instance["instance"]);
+        let problem = MaximalIS::<SimpleGraph, i32>::new(nv, edges);
+        for eval in instance["evaluations"].as_array().unwrap() {
+            let config = jl_parse_config(&eval["config"]);
+            let result = problem.evaluate(&config);
+            let jl_valid = eval["is_valid"].as_bool().unwrap();
+            assert_eq!(result.is_valid(), jl_valid, "MaximalIS validity mismatch for config {:?}", config);
+            if jl_valid {
+                let jl_size = eval["size"].as_i64().unwrap() as i32;
+                assert_eq!(result.unwrap(), jl_size, "MaximalIS size mismatch for config {:?}", config);
+            }
+        }
+        let best = BruteForce::new().find_all_best(&problem);
+        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        assert_eq!(rust_best, jl_best, "MaximalIS best solutions mismatch");
+    }
 }

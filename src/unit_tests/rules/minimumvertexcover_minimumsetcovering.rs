@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+include!("../jl_helpers.rs");
 
 #[test]
 fn test_vc_to_sc_basic() {
@@ -39,59 +40,6 @@ fn test_vc_to_sc_triangle() {
         let set = sc_problem.get_set(i).unwrap();
         assert_eq!(set.len(), 2);
     }
-}
-
-#[test]
-fn test_vc_to_sc_solution_extraction() {
-    use crate::traits::Problem;
-
-    let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
-    let sc_problem = reduction.target_problem();
-
-    // Solve the MinimumSetCovering problem
-    let solver = BruteForce::new();
-    let sc_solutions = solver.find_all_best(sc_problem);
-
-    // Extract solutions back to MinimumVertexCover
-    let vc_solutions: Vec<_> = sc_solutions
-        .iter()
-        .map(|s| reduction.extract_solution(s))
-        .collect();
-
-    // Verify extracted solutions are valid vertex covers
-    for sol in &vc_solutions {
-        // Check that the solution evaluates to a valid value (not i32::MAX for invalid)
-        let eval = vc_problem.evaluate(sol);
-        assert!(eval.is_valid());
-    }
-
-    // The minimum should be selecting just vertex 1 (covers both edges)
-    let min_size: usize = vc_solutions[0].iter().sum();
-    assert_eq!(min_size, 1);
-}
-
-#[test]
-fn test_vc_to_sc_optimality_preservation() {
-    // Test that optimal solutions are preserved through reduction
-    let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    let solver = BruteForce::new();
-
-    // Solve VC directly
-    let direct_solutions = solver.find_all_best(&vc_problem);
-    let direct_size = direct_solutions[0].iter().sum::<usize>();
-
-    // Solve via reduction
-    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
-    let sc_solutions = solver.find_all_best(reduction.target_problem());
-    let reduced_solutions: Vec<_> = sc_solutions
-        .iter()
-        .map(|s| reduction.extract_solution(s))
-        .collect();
-    let reduced_size = reduced_solutions[0].iter().sum::<usize>();
-
-    // Optimal sizes should match
-    assert_eq!(direct_size, reduced_size);
 }
 
 #[test]
@@ -152,25 +100,41 @@ fn test_vc_to_sc_star_graph() {
 }
 
 #[test]
-fn test_vc_to_sc_all_solutions_valid() {
-    use crate::traits::Problem;
-
-    // Ensure all solutions extracted from SC are valid VC solutions
-    let vc_problem =
-        MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]);
-    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
-    let sc_problem = reduction.target_problem();
-
+fn test_jl_parity_vc_to_setcovering() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/vertexcovering_to_setcovering.json")).unwrap();
+    let vc_data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/vertexcovering.json")).unwrap();
+    let inst = &vc_data["instances"][0]["instance"];
+    let source = MinimumVertexCover::with_weights(
+        inst["num_vertices"].as_u64().unwrap() as usize, jl_parse_edges(inst), jl_parse_i32_vec(&inst["weights"]));
+    let result = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
-    let sc_solutions = solver.find_all_best(sc_problem);
+    let best_target = solver.find_all_best(result.target_problem());
+    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    assert!(extracted.is_subset(&best_source));
+    for case in data["cases"].as_array().unwrap() {
+        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
+    }
+}
 
-    for sc_sol in &sc_solutions {
-        let vc_sol = reduction.extract_solution(sc_sol);
-        let eval = vc_problem.evaluate(&vc_sol);
-        assert!(
-            eval.is_valid(),
-            "Extracted solution {:?} should be valid",
-            vc_sol
-        );
+#[test]
+fn test_jl_parity_rule_vc_to_setcovering() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/rule_vertexcovering_to_setcovering.json")).unwrap();
+    let vc_data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/vertexcovering.json")).unwrap();
+    let inst = &jl_find_instance_by_label(&vc_data, "rule_4vertex")["instance"];
+    let source = MinimumVertexCover::with_weights(
+        inst["num_vertices"].as_u64().unwrap() as usize, jl_parse_edges(inst), jl_parse_i32_vec(&inst["weights"]));
+    let result = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&source);
+    let solver = BruteForce::new();
+    let best_target = solver.find_all_best(result.target_problem());
+    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
+    assert!(extracted.is_subset(&best_source));
+    for case in data["cases"].as_array().unwrap() {
+        assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
 }

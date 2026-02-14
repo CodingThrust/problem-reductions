@@ -2,6 +2,7 @@ use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
+include!("../../jl_helpers.rs");
 
 #[test]
 fn test_set_packing_creation() {
@@ -36,64 +37,6 @@ fn test_overlapping_pairs() {
 }
 
 #[test]
-fn test_evaluate_valid() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5]]);
-
-    // All disjoint, can select all
-    assert_eq!(
-        Problem::evaluate(&problem, &[1, 1, 1]),
-        SolutionSize::Valid(3)
-    );
-
-    // Select none - valid with size 0
-    assert_eq!(
-        Problem::evaluate(&problem, &[0, 0, 0]),
-        SolutionSize::Valid(0)
-    );
-}
-
-#[test]
-fn test_evaluate_invalid() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
-
-    // Sets 0 and 1 overlap - returns Invalid
-    assert_eq!(
-        Problem::evaluate(&problem, &[1, 1, 0]),
-        SolutionSize::Invalid
-    );
-}
-
-#[test]
-fn test_brute_force_chain() {
-    // Chain: {0,1}, {1,2}, {2,3} - can select at most 2 non-adjacent sets
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Max is 2: select {0,1} and {2,3}
-    for sol in &solutions {
-        assert_eq!(sol.iter().sum::<usize>(), 2);
-        // Verify it's a valid packing
-        assert!(Problem::evaluate(&problem, sol).is_valid());
-    }
-}
-
-#[test]
-fn test_brute_force_weighted() {
-    // Weighted: single heavy set vs multiple light sets
-    let problem = MaximumSetPacking::with_weights(
-        vec![vec![0, 1, 2, 3], vec![0, 1], vec![2, 3]],
-        vec![5, 3, 3],
-    );
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Should select sets 1 and 2 (total 6) over set 0 (total 5)
-    assert_eq!(solutions.len(), 1);
-    assert_eq!(solutions[0], vec![0, 1, 1]);
-}
-
-#[test]
 fn test_is_set_packing_function() {
     let sets = vec![vec![0, 1], vec![1, 2], vec![3, 4]];
 
@@ -107,30 +50,6 @@ fn test_is_set_packing_function() {
 fn test_direction() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1]]);
     assert_eq!(problem.direction(), Direction::Maximize);
-}
-
-#[test]
-fn test_disjoint_sets() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0], vec![1], vec![2], vec![3]]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // All sets are disjoint, so select all
-    assert_eq!(solutions.len(), 1);
-    assert_eq!(solutions[0], vec![1, 1, 1, 1]);
-}
-
-#[test]
-fn test_all_overlapping() {
-    // All sets share element 0
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![0, 2], vec![0, 3]]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Can only select one set
-    for sol in &solutions {
-        assert_eq!(sol.iter().sum::<usize>(), 1);
-    }
 }
 
 #[test]
@@ -179,17 +98,30 @@ fn test_is_set_packing_wrong_len() {
 }
 
 #[test]
-fn test_set_packing_problem() {
-    // S0={0,1}, S1={1,2}, S2={3,4} -- S0 and S1 overlap, S2 is disjoint from both
-    let p = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
-    assert_eq!(p.dims(), vec![2, 2, 2]);
-
-    // Select S0 and S2 (disjoint) -> valid, weight=2
-    assert_eq!(Problem::evaluate(&p, &[1, 0, 1]), SolutionSize::Valid(2));
-    // Select S0 and S1 (overlap) -> invalid
-    assert_eq!(Problem::evaluate(&p, &[1, 1, 0]), SolutionSize::Invalid);
-    // Select none -> valid, weight=0
-    assert_eq!(Problem::evaluate(&p, &[0, 0, 0]), SolutionSize::Valid(0));
-
-    assert_eq!(p.direction(), Direction::Maximize);
+fn test_jl_parity_evaluation() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tests/data/jl/setpacking.json")).unwrap();
+    for instance in data["instances"].as_array().unwrap() {
+        let sets = jl_parse_sets(&instance["instance"]["sets"]);
+        let weights = jl_parse_i32_vec(&instance["instance"]["weights"]);
+        let problem = if weights.iter().all(|&w| w == 1) {
+            MaximumSetPacking::<i32>::new(sets)
+        } else {
+            MaximumSetPacking::with_weights(sets, weights)
+        };
+        for eval in instance["evaluations"].as_array().unwrap() {
+            let config = jl_parse_config(&eval["config"]);
+            let result = problem.evaluate(&config);
+            let jl_valid = eval["is_valid"].as_bool().unwrap();
+            assert_eq!(result.is_valid(), jl_valid, "SetPacking validity mismatch for config {:?}", config);
+            if jl_valid {
+                let jl_size = eval["size"].as_i64().unwrap() as i32;
+                assert_eq!(result.unwrap(), jl_size, "SetPacking size mismatch for config {:?}", config);
+            }
+        }
+        let best = BruteForce::new().find_all_best(&problem);
+        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        assert_eq!(rust_best, jl_best, "SetPacking best solutions mismatch");
+    }
 }

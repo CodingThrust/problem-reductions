@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::satisfiability::CNFClause;
 use crate::solvers::BruteForce;
+include!("../jl_helpers.rs");
 
 #[test]
 fn test_constructor_basic_structure() {
@@ -59,43 +60,6 @@ fn test_reduction_structure() {
     assert_eq!(coloring.num_colors(), 3);
     assert_eq!(reduction.pos_vertices().len(), 2);
     assert_eq!(reduction.neg_vertices().len(), 2);
-}
-
-#[test]
-fn test_unsatisfiable_formula() {
-    // Unsatisfiable: (x1) AND (NOT x1)
-    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
-
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
-    let coloring = reduction.target_problem();
-
-    // Solve the coloring problem - use find_all_satisfying since KColoring is a satisfaction problem
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(coloring);
-
-    // For an unsatisfiable formula, the coloring should have no valid solutions
-    // OR no valid coloring exists that extracts to a satisfying SAT assignment
-    let mut found_satisfying = false;
-    for sol in &solutions {
-        let sat_sol = reduction.extract_solution(sol);
-        let assignment: Vec<bool> = sat_sol.iter().map(|&v| v == 1).collect();
-        if sat.is_satisfying(&assignment) {
-            found_satisfying = true;
-            break;
-        }
-    }
-
-    // The coloring should not yield a satisfying SAT assignment
-    // because the formula is unsatisfiable
-    // Note: The coloring graph itself may still be colorable,
-    // but the constraints should make it impossible for both
-    // x1 and NOT x1 to be TRUE color simultaneously
-    // Actually, let's check if ANY coloring solution produces a valid SAT solution
-    // If the formula is unsat, no valid coloring should extract to a satisfying assignment
-    assert!(
-        !found_satisfying,
-        "Unsatisfiable formula should not produce satisfying assignment"
-    );
 }
 
 #[test]
@@ -175,32 +139,6 @@ fn test_complex_formula_structure() {
     assert_eq!(coloring.num_vertices(), 24);
     assert_eq!(coloring.num_colors(), 3);
     assert_eq!(reduction.num_clauses(), 3);
-}
-
-#[test]
-fn test_single_literal_clauses() {
-    // (x1) AND (x2) - both must be true
-    let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![2])]);
-
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
-    let coloring = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(coloring);
-
-    let mut found_correct = false;
-    for sol in &solutions {
-        let sat_sol = reduction.extract_solution(sol);
-        if sat_sol == vec![1, 1] {
-            found_correct = true;
-            break;
-        }
-    }
-
-    assert!(
-        found_correct,
-        "Should find solution where both x1 and x2 are true"
-    );
 }
 
 #[test]
@@ -292,4 +230,32 @@ fn test_extraction_with_different_color_assignment() {
     let coloring_permuted2 = vec![1, 2, 0, 1, 2];
     let extracted2 = reduction.extract_solution(&coloring_permuted2);
     assert_eq!(extracted2, vec![1]);
+}
+
+#[test]
+fn test_jl_parity_sat_to_coloring() {
+    let sat_data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../tests/data/jl/satisfiability.json")).unwrap();
+    let fixtures: &[(&str, &str)] = &[
+        (include_str!("../../../tests/data/jl/satisfiability_to_coloring3.json"), "simple_clause"),
+        (include_str!("../../../tests/data/jl/rule_satisfiability2_to_coloring3.json"), "rule_sat_coloring"),
+    ];
+    for (fixture_str, label) in fixtures {
+        let data: serde_json::Value = serde_json::from_str(fixture_str).unwrap();
+        let inst = &jl_find_instance_by_label(&sat_data, label)["instance"];
+        let (num_vars, clauses) = jl_parse_sat_clauses(inst);
+        let source = Satisfiability::new(num_vars, clauses);
+        let result = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&source);
+        let ilp_solver = crate::solvers::ILPSolver::new();
+        let target = result.target_problem();
+        let target_sol = ilp_solver.solve_reduced(target).expect("ILP should find a coloring");
+        let extracted = result.extract_solution(&target_sol);
+        let best_source: HashSet<Vec<usize>> = BruteForce::new()
+            .find_all_satisfying(&source).into_iter().collect();
+        assert!(best_source.contains(&extracted), "SAT->Coloring [{label}]: extracted not satisfying");
+        for case in data["cases"].as_array().unwrap() {
+            assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]),
+                "SAT->Coloring [{label}]: best source mismatch");
+        }
+    }
 }

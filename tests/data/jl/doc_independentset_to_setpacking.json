@@ -1,0 +1,1 @@
+{"target_type":"SetPacking","cases":[{"label":"doc_is","extracted_single":[[1,0,0,1],[0,1,0,1]],"extracted_multiple":[[1,0,0,1],[0,1,0,1]],"best_source":[[1,0,0,1],[0,1,0,1]],"best_target":[[1,0,0,1],[0,1,0,1]]}],"source_type":"doc_IndependentSet"}
