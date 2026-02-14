@@ -237,12 +237,8 @@ pub struct ReductionGraph {
     graph: DiGraph<&'static str, ReductionEdge>,
     /// Map from base type name to node index.
     name_indices: HashMap<&'static str, NodeIndex>,
-    /// Graph hierarchy: subtype -> set of supertypes (transitively closed).
-    graph_hierarchy: HashMap<&'static str, HashSet<&'static str>>,
-    /// Weight hierarchy: subtype -> set of supertypes (transitively closed).
-    weight_hierarchy: HashMap<&'static str, HashSet<&'static str>>,
-    /// K hierarchy: subtype -> set of supertypes (transitively closed).
-    k_hierarchy: HashMap<&'static str, HashSet<&'static str>>,
+    /// Variant hierarchy: category -> (value -> set_of_supertypes). Transitively closed.
+    variant_hierarchy: HashMap<&'static str, HashMap<&'static str, HashSet<&'static str>>>,
 }
 
 impl ReductionGraph {
@@ -251,14 +247,8 @@ impl ReductionGraph {
         let mut graph = DiGraph::new();
         let mut name_indices = HashMap::new();
 
-        // Build graph hierarchy from GraphSubtypeEntry registrations
-        let graph_hierarchy = Self::build_graph_hierarchy();
-
-        // Build weight hierarchy from WeightSubtypeEntry registrations
-        let weight_hierarchy = Self::build_weight_hierarchy();
-
-        // Build K hierarchy from VariantTypeEntry registrations
-        let k_hierarchy = Self::build_k_hierarchy();
+        // Build unified variant hierarchy from all sources
+        let variant_hierarchy = Self::build_variant_hierarchy();
 
         // Register reductions from inventory (auto-discovery)
         for entry in inventory::iter::<ReductionEntry> {
@@ -294,175 +284,127 @@ impl ReductionGraph {
         Self {
             graph,
             name_indices,
-            graph_hierarchy,
-            weight_hierarchy,
-            k_hierarchy,
+            variant_hierarchy,
         }
     }
 
-    /// Build graph hierarchy from GraphSubtypeEntry registrations.
-    /// Computes the transitive closure of the subtype relationship.
-    fn build_graph_hierarchy() -> HashMap<&'static str, HashSet<&'static str>> {
-        let mut supertypes: HashMap<&'static str, HashSet<&'static str>> = HashMap::new();
+    /// Build unified variant hierarchy from all sources.
+    ///
+    /// Merges registrations from:
+    /// - `VariantTypeEntry` (all categories)
+    /// - `GraphSubtypeEntry` (legacy, category "graph")
+    /// - `WeightSubtypeEntry` (legacy, category "weight")
+    ///
+    /// For each category, builds a parent map and computes transitive closure.
+    fn build_variant_hierarchy(
+    ) -> HashMap<&'static str, HashMap<&'static str, HashSet<&'static str>>> {
+        let mut hierarchy: HashMap<&'static str, HashMap<&'static str, HashSet<&'static str>>> =
+            HashMap::new();
 
-        // Collect direct subtype relationships
+        // Collect from VariantTypeEntry (all categories)
+        for entry in inventory::iter::<VariantTypeEntry> {
+            if let Some(parent) = entry.parent {
+                hierarchy
+                    .entry(entry.category)
+                    .or_default()
+                    .entry(entry.value)
+                    .or_default()
+                    .insert(parent);
+            }
+        }
+
+        // Merge legacy GraphSubtypeEntry registrations (category "graph")
         for entry in inventory::iter::<GraphSubtypeEntry> {
-            supertypes
+            hierarchy
+                .entry("graph")
+                .or_default()
                 .entry(entry.subtype)
                 .or_default()
                 .insert(entry.supertype);
         }
 
-        // Compute transitive closure
-        loop {
-            let mut changed = false;
-            let types: Vec<_> = supertypes.keys().copied().collect();
-
-            for sub in &types {
-                let current: Vec<_> = supertypes
-                    .get(sub)
-                    .map(|s| s.iter().copied().collect())
-                    .unwrap_or_default();
-
-                for sup in current {
-                    if let Some(sup_supers) = supertypes.get(sup).cloned() {
-                        for ss in sup_supers {
-                            if supertypes.entry(sub).or_default().insert(ss) {
-                                changed = true;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if !changed {
-                break;
-            }
-        }
-
-        supertypes
-    }
-
-    /// Build weight hierarchy from WeightSubtypeEntry registrations.
-    /// Computes the transitive closure of the subtype relationship.
-    fn build_weight_hierarchy() -> HashMap<&'static str, HashSet<&'static str>> {
-        let mut supertypes: HashMap<&'static str, HashSet<&'static str>> = HashMap::new();
-
-        // Collect direct subtype relationships
+        // Merge legacy WeightSubtypeEntry registrations (category "weight")
         for entry in inventory::iter::<WeightSubtypeEntry> {
-            supertypes
+            hierarchy
+                .entry("weight")
+                .or_default()
                 .entry(entry.subtype)
                 .or_default()
                 .insert(entry.supertype);
         }
 
-        // Compute transitive closure
-        loop {
-            let mut changed = false;
-            let types: Vec<_> = supertypes.keys().copied().collect();
+        // Compute transitive closure for each category
+        for supertypes in hierarchy.values_mut() {
+            loop {
+                let mut changed = false;
+                let types: Vec<_> = supertypes.keys().copied().collect();
 
-            for sub in &types {
-                let current: Vec<_> = supertypes
-                    .get(sub)
-                    .map(|s| s.iter().copied().collect())
-                    .unwrap_or_default();
+                for sub in &types {
+                    let current: Vec<_> = supertypes
+                        .get(sub)
+                        .map(|s| s.iter().copied().collect())
+                        .unwrap_or_default();
 
-                for sup in current {
-                    if let Some(sup_supers) = supertypes.get(sup).cloned() {
-                        for ss in sup_supers {
-                            if supertypes.entry(sub).or_default().insert(ss) {
-                                changed = true;
+                    for sup in current {
+                        if let Some(sup_supers) = supertypes.get(sup).cloned() {
+                            for ss in sup_supers {
+                                if supertypes.entry(sub).or_default().insert(ss) {
+                                    changed = true;
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            if !changed {
-                break;
+                if !changed {
+                    break;
+                }
             }
         }
 
-        supertypes
+        hierarchy
     }
 
-    /// Check if `sub` is a subtype of `sup` (or equal).
-    pub fn is_graph_subtype(&self, sub: &str, sup: &str) -> bool {
+    /// Check if `sub` is a subtype of `sup` (or equal) within the given category.
+    fn is_subtype(&self, category: &str, sub: &str, sup: &str) -> bool {
         sub == sup
             || self
-                .graph_hierarchy
-                .get(sub)
-                .map(|s| s.contains(sup))
+                .variant_hierarchy
+                .get(category)
+                .and_then(|cat| cat.get(sub))
+                .map(|supers| supers.contains(sup))
                 .unwrap_or(false)
     }
 
-    /// Get the weight hierarchy (for inspection/testing).
-    pub fn weight_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
-        &self.weight_hierarchy
+    /// Check if `sub` is a graph subtype of `sup` (or equal).
+    pub fn is_graph_subtype(&self, sub: &str, sup: &str) -> bool {
+        self.is_subtype("graph", sub, sup)
     }
 
     /// Check if `sub` is a weight subtype of `sup` (or equal).
     pub fn is_weight_subtype(&self, sub: &str, sup: &str) -> bool {
-        sub == sup
-            || self
-                .weight_hierarchy
-                .get(sub)
-                .map(|s| s.contains(sup))
-                .unwrap_or(false)
-    }
-
-    /// Build K hierarchy from VariantTypeEntry registrations (category = "k").
-    /// Computes the transitive closure of the subtype relationship.
-    fn build_k_hierarchy() -> HashMap<&'static str, HashSet<&'static str>> {
-        let mut supertypes: HashMap<&'static str, HashSet<&'static str>> = HashMap::new();
-
-        // Collect direct subtype relationships from VariantTypeEntry with category "k"
-        for entry in inventory::iter::<VariantTypeEntry> {
-            if entry.category == "k" {
-                if let Some(parent) = entry.parent {
-                    supertypes.entry(entry.value).or_default().insert(parent);
-                }
-            }
-        }
-
-        // Compute transitive closure
-        loop {
-            let mut changed = false;
-            let types: Vec<_> = supertypes.keys().copied().collect();
-
-            for sub in &types {
-                let current: Vec<_> = supertypes
-                    .get(sub)
-                    .map(|s| s.iter().copied().collect())
-                    .unwrap_or_default();
-
-                for sup in current {
-                    if let Some(sup_supers) = supertypes.get(sup).cloned() {
-                        for ss in sup_supers {
-                            if supertypes.entry(sub).or_default().insert(ss) {
-                                changed = true;
-                            }
-                        }
-                    }
-                }
-            }
-
-            if !changed {
-                break;
-            }
-        }
-
-        supertypes
+        self.is_subtype("weight", sub, sup)
     }
 
     /// Check if `sub` is a K subtype of `sup` (or equal).
     pub fn is_k_subtype(&self, sub: &str, sup: &str) -> bool {
-        sub == sup
-            || self
-                .k_hierarchy
-                .get(sub)
-                .map(|s| s.contains(sup))
-                .unwrap_or(false)
+        self.is_subtype("k", sub, sup)
+    }
+
+    /// Get the graph hierarchy (for inspection/testing).
+    pub fn graph_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
+        // SAFETY: "graph" category is always present due to GraphSubtypeEntry registrations.
+        // If somehow absent, we return a static empty map.
+        static EMPTY: std::sync::LazyLock<HashMap<&'static str, HashSet<&'static str>>> =
+            std::sync::LazyLock::new(HashMap::new);
+        self.variant_hierarchy.get("graph").unwrap_or(&EMPTY)
+    }
+
+    /// Get the weight hierarchy (for inspection/testing).
+    pub fn weight_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
+        static EMPTY: std::sync::LazyLock<HashMap<&'static str, HashSet<&'static str>>> =
+            std::sync::LazyLock::new(HashMap::new);
+        self.variant_hierarchy.get("weight").unwrap_or(&EMPTY)
     }
 
     /// Check if a reduction rule can be used.
@@ -669,10 +611,6 @@ impl ReductionGraph {
         self.graph.edge_count()
     }
 
-    /// Get the graph hierarchy (for inspection/testing).
-    pub fn graph_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
-        &self.graph_hierarchy
-    }
 }
 
 impl Default for ReductionGraph {
@@ -707,13 +645,8 @@ impl ReductionGraph {
                 continue; // Equal on this field
             }
 
-            // Check subtype relationship based on field type
-            let is_sub = match key.as_str() {
-                "graph" => self.is_graph_subtype(a_val, b_val),
-                "weight" => self.is_weight_subtype(a_val, b_val),
-                "k" => self.is_k_subtype(a_val, b_val),
-                _ => false, // Unknown fields must be equal
-            };
+            // Check subtype relationship using the unified hierarchy
+            let is_sub = self.is_subtype(key.as_str(), a_val, b_val);
 
             if !is_sub {
                 all_compatible = false;
