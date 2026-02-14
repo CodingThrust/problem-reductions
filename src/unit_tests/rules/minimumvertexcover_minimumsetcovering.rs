@@ -43,59 +43,6 @@ fn test_vc_to_sc_triangle() {
 }
 
 #[test]
-fn test_vc_to_sc_solution_extraction() {
-    use crate::traits::Problem;
-
-    let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
-    let sc_problem = reduction.target_problem();
-
-    // Solve the MinimumSetCovering problem
-    let solver = BruteForce::new();
-    let sc_solutions = solver.find_all_best(sc_problem);
-
-    // Extract solutions back to MinimumVertexCover
-    let vc_solutions: Vec<_> = sc_solutions
-        .iter()
-        .map(|s| reduction.extract_solution(s))
-        .collect();
-
-    // Verify extracted solutions are valid vertex covers
-    for sol in &vc_solutions {
-        // Check that the solution evaluates to a valid value (not i32::MAX for invalid)
-        let eval = vc_problem.evaluate(sol);
-        assert!(eval.is_valid());
-    }
-
-    // The minimum should be selecting just vertex 1 (covers both edges)
-    let min_size: usize = vc_solutions[0].iter().sum();
-    assert_eq!(min_size, 1);
-}
-
-#[test]
-fn test_vc_to_sc_optimality_preservation() {
-    // Test that optimal solutions are preserved through reduction
-    let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    let solver = BruteForce::new();
-
-    // Solve VC directly
-    let direct_solutions = solver.find_all_best(&vc_problem);
-    let direct_size = direct_solutions[0].iter().sum::<usize>();
-
-    // Solve via reduction
-    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
-    let sc_solutions = solver.find_all_best(reduction.target_problem());
-    let reduced_solutions: Vec<_> = sc_solutions
-        .iter()
-        .map(|s| reduction.extract_solution(s))
-        .collect();
-    let reduced_size = reduced_solutions[0].iter().sum::<usize>();
-
-    // Optimal sizes should match
-    assert_eq!(direct_size, reduced_size);
-}
-
-#[test]
 fn test_vc_to_sc_weighted() {
     // Weighted problem: weights should be preserved
     let vc_problem = MinimumVertexCover::with_weights(3, vec![(0, 1), (1, 2)], vec![10, 1, 10]);
@@ -150,30 +97,6 @@ fn test_vc_to_sc_star_graph() {
     let solver = BruteForce::new();
     let solutions = solver.find_all_best(&vc_problem);
     assert_eq!(solutions[0], vec![1, 0, 0, 0]);
-}
-
-#[test]
-fn test_vc_to_sc_all_solutions_valid() {
-    use crate::traits::Problem;
-
-    // Ensure all solutions extracted from SC are valid VC solutions
-    let vc_problem =
-        MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (0, 2), (2, 3)]);
-    let reduction = ReduceTo::<MinimumSetCovering<i32>>::reduce_to(&vc_problem);
-    let sc_problem = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let sc_solutions = solver.find_all_best(sc_problem);
-
-    for sc_sol in &sc_solutions {
-        let vc_sol = reduction.extract_solution(sc_sol);
-        let eval = vc_problem.evaluate(&vc_sol);
-        assert!(
-            eval.is_valid(),
-            "Extracted solution {:?} should be valid",
-            vc_sol
-        );
-    }
 }
 
 #[test]

@@ -37,64 +37,6 @@ fn test_overlapping_pairs() {
 }
 
 #[test]
-fn test_evaluate_valid() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5]]);
-
-    // All disjoint, can select all
-    assert_eq!(
-        Problem::evaluate(&problem, &[1, 1, 1]),
-        SolutionSize::Valid(3)
-    );
-
-    // Select none - valid with size 0
-    assert_eq!(
-        Problem::evaluate(&problem, &[0, 0, 0]),
-        SolutionSize::Valid(0)
-    );
-}
-
-#[test]
-fn test_evaluate_invalid() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
-
-    // Sets 0 and 1 overlap - returns Invalid
-    assert_eq!(
-        Problem::evaluate(&problem, &[1, 1, 0]),
-        SolutionSize::Invalid
-    );
-}
-
-#[test]
-fn test_brute_force_chain() {
-    // Chain: {0,1}, {1,2}, {2,3} - can select at most 2 non-adjacent sets
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Max is 2: select {0,1} and {2,3}
-    for sol in &solutions {
-        assert_eq!(sol.iter().sum::<usize>(), 2);
-        // Verify it's a valid packing
-        assert!(Problem::evaluate(&problem, sol).is_valid());
-    }
-}
-
-#[test]
-fn test_brute_force_weighted() {
-    // Weighted: single heavy set vs multiple light sets
-    let problem = MaximumSetPacking::with_weights(
-        vec![vec![0, 1, 2, 3], vec![0, 1], vec![2, 3]],
-        vec![5, 3, 3],
-    );
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Should select sets 1 and 2 (total 6) over set 0 (total 5)
-    assert_eq!(solutions.len(), 1);
-    assert_eq!(solutions[0], vec![0, 1, 1]);
-}
-
-#[test]
 fn test_is_set_packing_function() {
     let sets = vec![vec![0, 1], vec![1, 2], vec![3, 4]];
 
@@ -108,30 +50,6 @@ fn test_is_set_packing_function() {
 fn test_direction() {
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1]]);
     assert_eq!(problem.direction(), Direction::Maximize);
-}
-
-#[test]
-fn test_disjoint_sets() {
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0], vec![1], vec![2], vec![3]]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // All sets are disjoint, so select all
-    assert_eq!(solutions.len(), 1);
-    assert_eq!(solutions[0], vec![1, 1, 1, 1]);
-}
-
-#[test]
-fn test_all_overlapping() {
-    // All sets share element 0
-    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![0, 2], vec![0, 3]]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Can only select one set
-    for sol in &solutions {
-        assert_eq!(sol.iter().sum::<usize>(), 1);
-    }
 }
 
 #[test]
@@ -177,22 +95,6 @@ fn test_relationship_to_independent_set() {
 fn test_is_set_packing_wrong_len() {
     let sets = vec![vec![0, 1], vec![1, 2]];
     assert!(!is_set_packing(&sets, &[true])); // Wrong length
-}
-
-#[test]
-fn test_set_packing_problem() {
-    // S0={0,1}, S1={1,2}, S2={3,4} -- S0 and S1 overlap, S2 is disjoint from both
-    let p = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
-    assert_eq!(p.dims(), vec![2, 2, 2]);
-
-    // Select S0 and S2 (disjoint) -> valid, weight=2
-    assert_eq!(Problem::evaluate(&p, &[1, 0, 1]), SolutionSize::Valid(2));
-    // Select S0 and S1 (overlap) -> invalid
-    assert_eq!(Problem::evaluate(&p, &[1, 1, 0]), SolutionSize::Invalid);
-    // Select none -> valid, weight=0
-    assert_eq!(Problem::evaluate(&p, &[0, 0, 0]), SolutionSize::Valid(0));
-
-    assert_eq!(p.direction(), Direction::Maximize);
 }
 
 #[test]

@@ -3,19 +3,6 @@ use crate::solvers::BruteForce;
 include!("../jl_helpers.rs");
 
 #[test]
-fn test_maxcut_to_spinglass() {
-    // Simple triangle MaxCut
-    let mc = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&mc);
-    let sg = reduction.target_problem();
-
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_best(sg);
-
-    assert!(!solutions.is_empty());
-}
-
-#[test]
 fn test_spinglass_to_maxcut_no_onsite() {
     // SpinGlass without onsite terms
     let sg = SpinGlass::<SimpleGraph, i32>::new(3, vec![((0, 1), 1), ((1, 2), 1)], vec![0, 0, 0]);

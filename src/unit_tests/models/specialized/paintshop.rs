@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::types::Direction;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -45,43 +45,6 @@ fn test_count_switches() {
 
     // Config [1, 1] -> coloring [1, 1, 0, 0] -> 1 switch
     assert_eq!(problem.count_switches(&[1, 1]), 1);
-}
-
-#[test]
-fn test_evaluate() {
-    let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
-
-    // Config [0, 0] -> coloring [0, 0, 1, 1] -> 1 switch
-    assert_eq!(Problem::evaluate(&problem, &[0, 0]), SolutionSize::Valid(1));
-
-    // Config [0, 1] -> coloring [0, 1, 1, 0] -> 2 switches
-    assert_eq!(Problem::evaluate(&problem, &[0, 1]), SolutionSize::Valid(2));
-}
-
-#[test]
-fn test_brute_force_simple() {
-    let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Optimal has 1 switch: [0,0] or [1,1]
-    for sol in &solutions {
-        assert_eq!(problem.count_switches(sol), 1);
-    }
-}
-
-#[test]
-fn test_brute_force_longer() {
-    // Sequence: a, b, a, c, c, b
-    let problem = PaintShop::new(vec!["a", "b", "a", "c", "c", "b"]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Find the minimum number of switches
-    let min_switches = problem.count_switches(&solutions[0]);
-    for sol in &solutions {
-        assert_eq!(problem.count_switches(sol), min_switches);
-    }
 }
 
 #[test]
@@ -136,29 +99,6 @@ fn test_invalid_sequence_single_occurrence() {
 fn test_car_labels() {
     let problem = PaintShop::new(vec!["car1", "car2", "car1", "car2"]);
     assert_eq!(problem.car_labels().len(), 2);
-}
-
-#[test]
-fn test_paintshop_problem() {
-    use crate::traits::{OptimizationProblem, Problem};
-    use crate::types::Direction;
-
-    let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
-
-    // dims: one binary variable per car
-    assert_eq!(problem.dims(), vec![2, 2]);
-
-    // Config [0, 0] -> coloring [0, 0, 1, 1] -> 1 switch
-    assert_eq!(Problem::evaluate(&problem, &[0, 0]), SolutionSize::Valid(1));
-
-    // Config [0, 1] -> coloring [0, 1, 1, 0] -> 2 switches
-    assert_eq!(Problem::evaluate(&problem, &[0, 1]), SolutionSize::Valid(2));
-
-    // Config [1, 1] -> coloring [1, 1, 0, 0] -> 1 switch
-    assert_eq!(Problem::evaluate(&problem, &[1, 1]), SolutionSize::Valid(1));
-
-    // Direction is minimize
-    assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]

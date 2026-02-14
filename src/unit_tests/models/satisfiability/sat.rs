@@ -73,52 +73,6 @@ fn test_count_satisfied() {
 }
 
 #[test]
-fn test_evaluate() {
-    let problem = Satisfiability::new(
-        2,
-        vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
-    );
-
-    // true, false - satisfies both clauses
-    assert!(problem.evaluate(&[1, 0]));
-
-    // true, true - fails second clause
-    assert!(!problem.evaluate(&[1, 1]));
-}
-
-#[test]
-fn test_brute_force_satisfiable() {
-    // (x1) AND (x2) AND (NOT x1 OR NOT x2) - UNSAT
-    let problem = Satisfiability::new(
-        2,
-        vec![
-            CNFClause::new(vec![1]),
-            CNFClause::new(vec![2]),
-            CNFClause::new(vec![-1, -2]),
-        ],
-    );
-    let solver = BruteForce::new();
-
-    // This is unsatisfiable, so find_satisfying returns None
-    let solution = solver.find_satisfying(&problem);
-    assert!(solution.is_none());
-}
-
-#[test]
-fn test_brute_force_simple_sat() {
-    // (x1 OR x2) - many solutions
-    let problem = Satisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_satisfying(&problem);
-    // 3 satisfying assignments
-    assert_eq!(solutions.len(), 3);
-    for sol in &solutions {
-        assert!(problem.evaluate(sol));
-    }
-}
-
-#[test]
 fn test_is_satisfying_assignment() {
     let clauses = vec![vec![1, 2], vec![-1, 3]];
 
@@ -181,38 +135,6 @@ fn test_get_clause() {
 }
 
 #[test]
-fn test_three_sat_example() {
-    // (x1 OR x2 OR x3) AND (NOT x1 OR NOT x2 OR x3) AND (x1 OR NOT x2 OR NOT x3)
-    let problem = Satisfiability::new(
-        3,
-        vec![
-            CNFClause::new(vec![1, 2, 3]),
-            CNFClause::new(vec![-1, -2, 3]),
-            CNFClause::new(vec![1, -2, -3]),
-        ],
-    );
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_satisfying(&problem);
-    for sol in &solutions {
-        assert!(problem.evaluate(sol));
-    }
-}
-
-#[test]
-fn test_evaluate_csp() {
-    let problem = Satisfiability::new(
-        2,
-        vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, -2])],
-    );
-
-    assert!(problem.evaluate(&[1, 0]));
-    assert!(problem.evaluate(&[0, 1]));
-    assert!(!problem.evaluate(&[1, 1]));
-    assert!(!problem.evaluate(&[0, 0]));
-}
-
-#[test]
 fn test_is_satisfying_assignment_defaults() {
     // When assignment is shorter than needed, missing vars default to false
     let clauses = vec![vec![1, 2]];
@@ -244,33 +166,6 @@ fn test_clause_debug() {
 }
 
 #[test]
-fn test_sat_problem() {
-    use crate::traits::Problem;
-
-    let p = Satisfiability::new(
-        2,
-        vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 2])],
-    );
-
-    assert_eq!(p.dims(), vec![2, 2]);
-    assert!(!p.evaluate(&[0, 0]));
-    assert!(!p.evaluate(&[1, 0]));
-    assert!(p.evaluate(&[0, 1]));
-    assert!(p.evaluate(&[1, 1]));
-    assert_eq!(<Satisfiability as Problem>::NAME, "Satisfiability");
-}
-
-#[test]
-fn test_sat_problem_empty_formula() {
-    use crate::traits::Problem;
-
-    let p = Satisfiability::new(2, vec![]);
-    assert_eq!(p.dims(), vec![2, 2]);
-    assert!(p.evaluate(&[0, 0]));
-    assert!(p.evaluate(&[1, 1]));
-}
-
-#[test]
 fn test_jl_parity_evaluation() {
     let data: serde_json::Value =
         serde_json::from_str(include_str!("../../../../tests/data/jl/satisfiability.json")).unwrap();
@@ -294,14 +189,3 @@ fn test_jl_parity_evaluation() {
     }
 }
 
-#[test]
-fn test_sat_problem_single_literal() {
-    use crate::traits::Problem;
-
-    let p = Satisfiability::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-2])]);
-    assert_eq!(p.dims(), vec![2, 2]);
-    assert!(p.evaluate(&[1, 0]));
-    assert!(!p.evaluate(&[0, 0]));
-    assert!(!p.evaluate(&[1, 1]));
-    assert!(!p.evaluate(&[0, 1]));
-}

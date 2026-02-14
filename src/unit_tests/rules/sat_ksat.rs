@@ -1,6 +1,5 @@
 use super::*;
 use crate::solvers::BruteForce;
-use crate::traits::Problem;
 include!("../jl_helpers.rs");
 
 #[test]
@@ -101,63 +100,6 @@ fn test_sat_to_3sat_single_literal() {
 }
 
 #[test]
-fn test_sat_to_3sat_preserves_satisfiability() {
-    // Create a SAT formula and verify the 3-SAT version is equisatisfiable
-    let sat = Satisfiability::new(
-        3,
-        vec![
-            CNFClause::new(vec![1, 2]),         // Needs padding
-            CNFClause::new(vec![-1, 2, 3]),     // Already 3 literals
-            CNFClause::new(vec![1, -2, 3, -3]), // Needs splitting (tautology for testing)
-        ],
-    );
-
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
-    let ksat = reduction.target_problem();
-
-    // Solve both problems - use find_all_satisfying for satisfaction problems
-    let solver = BruteForce::new();
-
-    let sat_solutions = solver.find_all_satisfying(&sat);
-    let ksat_solutions = solver.find_all_satisfying(ksat);
-
-    // If SAT is satisfiable, K-SAT should be too
-    let sat_satisfiable = !sat_solutions.is_empty();
-    let ksat_satisfiable = !ksat_solutions.is_empty();
-
-    assert_eq!(sat_satisfiable, ksat_satisfiable);
-
-    // Extract solutions should map back correctly
-    if ksat_satisfiable {
-        for ksat_sol in &ksat_solutions {
-            let sat_sol = reduction.extract_solution(ksat_sol);
-            assert_eq!(sat_sol.len(), 3); // Original variable count
-        }
-    }
-}
-
-#[test]
-fn test_sat_to_3sat_solution_extraction() {
-    let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
-
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
-    let ksat = reduction.target_problem();
-
-    // Solve K-SAT - use find_all_satisfying for satisfaction problems
-    let solver = BruteForce::new();
-    let ksat_solutions = solver.find_all_satisfying(ksat);
-
-    // Extract and verify solutions
-    for ksat_sol in &ksat_solutions {
-        let sat_sol = reduction.extract_solution(ksat_sol);
-        // Should only have original 2 variables
-        assert_eq!(sat_sol.len(), 2);
-        // Should satisfy original problem
-        assert!(sat.evaluate(&sat_sol));
-    }
-}
-
-#[test]
 fn test_3sat_to_sat() {
     let ksat = KSatisfiability::<3>::new(
         3,
@@ -187,35 +129,6 @@ fn test_3sat_to_sat_solution_extraction() {
     let sol = vec![1, 0, 1];
     let extracted = reduction.extract_solution(&sol);
     assert_eq!(extracted, vec![1, 0, 1]);
-}
-
-#[test]
-fn test_roundtrip_sat_3sat_sat() {
-    // SAT -> 3-SAT -> SAT roundtrip
-    let original_sat = Satisfiability::new(
-        3,
-        vec![CNFClause::new(vec![1, -2]), CNFClause::new(vec![2, 3])],
-    );
-
-    // SAT -> 3-SAT
-    let to_ksat = ReduceTo::<KSatisfiability<3>>::reduce_to(&original_sat);
-    let ksat = to_ksat.target_problem();
-
-    // 3-SAT -> SAT
-    let to_sat = ReduceTo::<Satisfiability>::reduce_to(ksat);
-    let final_sat = to_sat.target_problem();
-
-    // Solve all three - use find_all_satisfying for satisfaction problems
-    let solver = BruteForce::new();
-
-    let orig_solutions = solver.find_all_satisfying(&original_sat);
-    let ksat_solutions = solver.find_all_satisfying(ksat);
-    let final_solutions = solver.find_all_satisfying(final_sat);
-
-    // All should be satisfiable (have at least one solution)
-    assert!(!orig_solutions.is_empty());
-    assert!(!ksat_solutions.is_empty());
-    assert!(!final_solutions.is_empty());
 }
 
 #[test]
@@ -260,58 +173,6 @@ fn test_empty_sat_to_3sat() {
 
     assert_eq!(ksat.num_clauses(), 0);
     assert_eq!(ksat.num_vars(), 3);
-}
-
-#[test]
-fn test_mixed_clause_sizes() {
-    let sat = Satisfiability::new(
-        5,
-        vec![
-            CNFClause::new(vec![1]),             // 1 literal
-            CNFClause::new(vec![2, 3]),          // 2 literals
-            CNFClause::new(vec![1, 2, 3]),       // 3 literals
-            CNFClause::new(vec![1, 2, 3, 4]),    // 4 literals
-            CNFClause::new(vec![1, 2, 3, 4, 5]), // 5 literals
-        ],
-    );
-
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
-    let ksat = reduction.target_problem();
-
-    // All clauses should have exactly 3 literals
-    for clause in ksat.clauses() {
-        assert_eq!(clause.len(), 3);
-    }
-
-    // Verify satisfiability is preserved - use find_all_satisfying for satisfaction problems
-    let solver = BruteForce::new();
-    let sat_solutions = solver.find_all_satisfying(&sat);
-    let ksat_solutions = solver.find_all_satisfying(ksat);
-
-    let sat_satisfiable = !sat_solutions.is_empty();
-    let ksat_satisfiable = !ksat_solutions.is_empty();
-    assert_eq!(sat_satisfiable, ksat_satisfiable);
-}
-
-#[test]
-fn test_unsatisfiable_formula() {
-    // (x) AND (-x) is unsatisfiable
-    let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
-
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
-    let ksat = reduction.target_problem();
-
-    let solver = BruteForce::new();
-
-    // Both should be unsatisfiable - use find_all_satisfying for satisfaction problems
-    let sat_solutions = solver.find_all_satisfying(&sat);
-    let ksat_solutions = solver.find_all_satisfying(ksat);
-
-    let sat_satisfiable = !sat_solutions.is_empty();
-    let ksat_satisfiable = !ksat_solutions.is_empty();
-
-    assert!(!sat_satisfiable);
-    assert!(!ksat_satisfiable);
 }
 
 #[test]

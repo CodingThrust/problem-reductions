@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::types::Direction;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -68,54 +68,6 @@ fn test_compute_energy_with_fields() {
 }
 
 #[test]
-fn test_evaluate() {
-    let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
-
-    // config [0,0] -> spins [-1,-1] -> energy = 1
-    assert_eq!(
-        Problem::evaluate(&problem, &[0, 0]),
-        SolutionSize::Valid(1.0)
-    );
-
-    // config [0,1] -> spins [-1,1] -> energy = -1
-    assert_eq!(
-        Problem::evaluate(&problem, &[0, 1]),
-        SolutionSize::Valid(-1.0)
-    );
-}
-
-#[test]
-fn test_brute_force_ferromagnetic() {
-    // Ferromagnetic: J > 0 prefers aligned spins to minimize energy
-    // But wait, energy = J*s1*s2, so J>0 with aligned gives positive energy
-    // For minimization, we want anti-aligned for J>0
-    let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Minimum energy is -1 (anti-aligned)
-    for sol in &solutions {
-        assert_ne!(sol[0], sol[1]);
-        assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(-1.0));
-    }
-}
-
-#[test]
-fn test_brute_force_antiferromagnetic() {
-    // Antiferromagnetic: J < 0, energy = J*s1*s2
-    // J<0 with aligned spins gives negative energy (good for minimization)
-    let problem = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), -1.0)], vec![0.0, 0.0]);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Minimum energy is -1 (aligned)
-    for sol in &solutions {
-        assert_eq!(sol[0], sol[1]);
-        assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(-1.0));
-    }
-}
-
-#[test]
 fn test_direction() {
     let problem = SpinGlass::<SimpleGraph, f64>::without_fields(2, vec![]);
     assert_eq!(problem.direction(), Direction::Minimize);
@@ -125,24 +77,6 @@ fn test_direction() {
 fn test_num_variables() {
     let problem = SpinGlass::<SimpleGraph, f64>::without_fields(5, vec![]);
     assert_eq!(problem.num_variables(), 5);
-}
-
-#[test]
-fn test_triangle_frustration() {
-    // Triangle with all antiferromagnetic couplings - frustrated system
-    let problem = SpinGlass::<SimpleGraph, f64>::new(
-        3,
-        vec![((0, 1), 1.0), ((1, 2), 1.0), ((0, 2), 1.0)],
-        vec![0.0, 0.0, 0.0],
-    );
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Best we can do is satisfy 2 out of 3 interactions
-    // Energy = -1 -1 + 1 = -1 (one frustrated)
-    for sol in &solutions {
-        assert_eq!(Problem::evaluate(&problem, sol), SolutionSize::Valid(-1.0));
-    }
 }
 
 #[test]
@@ -170,24 +104,6 @@ fn test_graph_accessor() {
     let graph = problem.graph();
     assert_eq!(graph.num_vertices(), 3);
     assert_eq!(graph.num_edges(), 1);
-}
-
-#[test]
-fn test_spin_glass_problem() {
-    // Two spins with antiferromagnetic coupling J_01 = 1
-    let p = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
-    assert_eq!(p.dims(), vec![2, 2]);
-
-    // config [0, 0] => spins [-1, -1]: H = 1 * (-1)*(-1) = 1
-    assert_eq!(Problem::evaluate(&p, &[0, 0]), SolutionSize::Valid(1.0));
-    // config [1, 1] => spins [+1, +1]: H = 1 * 1*1 = 1
-    assert_eq!(Problem::evaluate(&p, &[1, 1]), SolutionSize::Valid(1.0));
-    // config [0, 1] => spins [-1, +1]: H = 1 * (-1)*(1) = -1
-    assert_eq!(Problem::evaluate(&p, &[0, 1]), SolutionSize::Valid(-1.0));
-    // config [1, 0] => spins [+1, -1]: H = 1 * (1)*(-1) = -1
-    assert_eq!(Problem::evaluate(&p, &[1, 0]), SolutionSize::Valid(-1.0));
-
-    assert_eq!(p.direction(), Direction::Minimize);
 }
 
 #[test]

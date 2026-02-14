@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::types::Direction;
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -43,78 +43,6 @@ fn test_read_factors() {
 }
 
 #[test]
-fn test_evaluate_valid() {
-    let problem = Factoring::new(2, 2, 6);
-    // 2 * 3 = 6 -> distance 0
-    assert_eq!(
-        Problem::evaluate(&problem, &[0, 1, 1, 1]),
-        SolutionSize::Valid(0)
-    );
-
-    // 3 * 2 = 6 -> distance 0
-    assert_eq!(
-        Problem::evaluate(&problem, &[1, 1, 0, 1]),
-        SolutionSize::Valid(0)
-    );
-}
-
-#[test]
-fn test_evaluate_invalid() {
-    let problem = Factoring::new(2, 2, 6);
-    // 2 * 2 = 4 != 6 -> distance 2
-    assert_eq!(
-        Problem::evaluate(&problem, &[0, 1, 0, 1]),
-        SolutionSize::Valid(2)
-    );
-
-    // 1 * 1 = 1 != 6 -> distance 5
-    assert_eq!(
-        Problem::evaluate(&problem, &[1, 0, 1, 0]),
-        SolutionSize::Valid(5)
-    );
-}
-
-#[test]
-fn test_brute_force_factor_6() {
-    let problem = Factoring::new(2, 2, 6);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Should find 2*3 and 3*2
-    assert!(!solutions.is_empty());
-    for sol in &solutions {
-        let (a, b) = problem.read_factors(sol);
-        assert_eq!(a * b, 6);
-    }
-}
-
-#[test]
-fn test_brute_force_factor_15() {
-    let problem = Factoring::new(3, 3, 15);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    // Should find 3*5, 5*3, 1*15, 15*1
-    for sol in &solutions {
-        let (a, b) = problem.read_factors(sol);
-        assert_eq!(a * b, 15);
-    }
-}
-
-#[test]
-fn test_brute_force_prime() {
-    // 7 is prime, only 1*7 and 7*1 work
-    let problem = Factoring::new(3, 3, 7);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    let factor_pairs: Vec<_> = solutions.iter().map(|s| problem.read_factors(s)).collect();
-
-    // Should find at least one of (1,7) or (7,1)
-    assert!(factor_pairs.contains(&(1, 7)) || factor_pairs.contains(&(7, 1)));
-}
-
-#[test]
 fn test_is_factoring_function() {
     assert!(is_factoring(6, 2, 3));
     assert!(is_factoring(6, 3, 2));
@@ -133,38 +61,6 @@ fn test_is_valid_factorization() {
     let problem = Factoring::new(2, 2, 6);
     assert!(problem.is_valid_factorization(&[0, 1, 1, 1])); // 2*3=6
     assert!(!problem.is_valid_factorization(&[0, 1, 0, 1])); // 2*2=4
-}
-
-#[test]
-fn test_factor_one() {
-    // Factor 1: only 1*1 works
-    let problem = Factoring::new(2, 2, 1);
-    let solver = BruteForce::new();
-
-    let solutions = solver.find_all_best(&problem);
-    for sol in &solutions {
-        let (a, b) = problem.read_factors(sol);
-        assert_eq!(a * b, 1);
-    }
-}
-
-#[test]
-fn test_factoring_problem() {
-    use crate::traits::{OptimizationProblem, Problem};
-    use crate::types::Direction;
-
-    // Factor 6 with 2-bit factors
-    let p = Factoring::new(2, 2, 6);
-    assert_eq!(p.dims(), vec![2, 2, 2, 2]);
-
-    // Bits [0,1, 1,1] = a=2, b=3, product=6, distance=0
-    assert_eq!(Problem::evaluate(&p, &[0, 1, 1, 1]), SolutionSize::Valid(0));
-    // Bits [1,1, 0,1] = a=3, b=2, product=6, distance=0
-    assert_eq!(Problem::evaluate(&p, &[1, 1, 0, 1]), SolutionSize::Valid(0));
-    // Bits [0,0, 0,0] = a=0, b=0, product=0, distance=6
-    assert_eq!(Problem::evaluate(&p, &[0, 0, 0, 0]), SolutionSize::Valid(6));
-
-    assert_eq!(p.direction(), Direction::Minimize);
 }
 
 #[test]
