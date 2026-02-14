@@ -5,6 +5,36 @@ use crate::rules::cost::MinimizeSteps;
 use crate::topology::SimpleGraph;
 
 #[test]
+fn test_resolved_path_basic_structure() {
+    use crate::rules::graph::{EdgeKind, ReductionStep, ResolvedPath};
+    use std::collections::BTreeMap;
+
+    let steps = vec![
+        ReductionStep {
+            name: "A".to_string(),
+            variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+        },
+        ReductionStep {
+            name: "B".to_string(),
+            variant: BTreeMap::from([("weight".to_string(), "f64".to_string())]),
+        },
+    ];
+    let edges = vec![EdgeKind::Reduction {
+        overhead: Default::default(),
+    }];
+    let path = ResolvedPath {
+        steps: steps.clone(),
+        edges,
+    };
+
+    assert_eq!(path.len(), 1);
+    assert_eq!(path.num_reductions(), 1);
+    assert_eq!(path.num_casts(), 0);
+    assert_eq!(path.steps[0].name, "A");
+    assert_eq!(path.steps[1].name, "B");
+}
+
+#[test]
 fn test_find_direct_path() {
     let graph = ReductionGraph::new();
     let paths = graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>();

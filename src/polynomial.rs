@@ -5,7 +5,7 @@ use std::fmt;
 use std::ops::Add;
 
 /// A monomial: coefficient × Π(variable^exponent)
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct Monomial {
     pub coefficient: f64,
     pub variables: Vec<(&'static str, u8)>,
@@ -52,7 +52,7 @@ impl Monomial {
 }
 
 /// A polynomial: Σ monomials
-#[derive(Clone, Debug, PartialEq)]
+#[derive(Clone, Debug, PartialEq, serde::Serialize)]
 pub struct Polynomial {
     pub terms: Vec<Monomial>,
 }

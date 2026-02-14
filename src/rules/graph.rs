@@ -116,6 +116,72 @@ impl ReductionPath {
     }
 }
 
+/// A node in a variant-level reduction path.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize)]
+pub struct ReductionStep {
+    /// Problem name (e.g., "MaximumIndependentSet").
+    pub name: String,
+    /// Variant at this point (e.g., {"graph": "GridGraph", "weight": "i32"}).
+    pub variant: std::collections::BTreeMap<String, String>,
+}
+
+/// The kind of transition between adjacent steps in a resolved path.
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize)]
+pub enum EdgeKind {
+    /// A registered reduction (backed by a ReduceTo impl).
+    Reduction {
+        /// Overhead from the matching ReductionEntry.
+        overhead: ReductionOverhead,
+    },
+    /// A natural cast via subtype relaxation. Identity overhead.
+    NaturalCast,
+}
+
+/// A fully resolved reduction path with variant information at each node.
+///
+/// Created by [`ReductionGraph::resolve_path`] from a name-level [`ReductionPath`].
+/// Each adjacent pair of steps is connected by an [`EdgeKind`]: either a registered
+/// reduction or a natural cast (subtype relaxation with identity overhead).
+#[allow(dead_code)]
+#[derive(Debug, Clone, Serialize)]
+pub struct ResolvedPath {
+    /// Sequence of (name, variant) nodes.
+    pub steps: Vec<ReductionStep>,
+    /// Edge kinds between adjacent steps. Length = steps.len() - 1.
+    pub edges: Vec<EdgeKind>,
+}
+
+#[allow(dead_code)]
+impl ResolvedPath {
+    /// Number of edges (reductions + casts) in the path.
+    pub fn len(&self) -> usize {
+        self.edges.len()
+    }
+
+    /// Whether the path is empty.
+    pub fn is_empty(&self) -> bool {
+        self.edges.is_empty()
+    }
+
+    /// Number of registered reduction steps (excludes natural casts).
+    pub fn num_reductions(&self) -> usize {
+        self.edges
+            .iter()
+            .filter(|e| matches!(e, EdgeKind::Reduction { .. }))
+            .count()
+    }
+
+    /// Number of natural cast steps.
+    pub fn num_casts(&self) -> usize {
+        self.edges
+            .iter()
+            .filter(|e| matches!(e, EdgeKind::NaturalCast))
+            .count()
+    }
+}
+
 /// Edge data for a reduction.
 #[derive(Clone, Debug)]
 pub struct ReductionEdge {
