@@ -55,7 +55,7 @@ inventory::collect!(VariantTypeEntry);
 ///
 /// # Usage
 ///
-/// ```rust,ignore
+/// ```text
 /// // Root type (no parent):
 /// impl_variant_param!(SimpleGraph, "graph");
 ///
@@ -130,7 +130,7 @@ macro_rules! impl_variant_param {
 ///
 /// # Usage
 ///
-/// ```rust,ignore
+/// ```text
 /// variant_params![]           // -> vec![]
 /// variant_params![G, W]       // -> vec![(G::CATEGORY, G::VALUE), ...]
 /// ```

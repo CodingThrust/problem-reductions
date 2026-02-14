@@ -41,11 +41,15 @@ fn test_graph_variant_type_entries_registered() {
 
     // Should include PlanarGraph, BipartiteGraph, and the topology types
     assert!(
-        entries.iter().any(|e| e.value == "PlanarGraph" && e.parent == Some("SimpleGraph")),
+        entries
+            .iter()
+            .any(|e| e.value == "PlanarGraph" && e.parent == Some("SimpleGraph")),
         "PlanarGraph should be registered with parent SimpleGraph"
     );
     assert!(
-        entries.iter().any(|e| e.value == "BipartiteGraph" && e.parent == Some("SimpleGraph")),
+        entries
+            .iter()
+            .any(|e| e.value == "BipartiteGraph" && e.parent == Some("SimpleGraph")),
         "BipartiteGraph should be registered with parent SimpleGraph"
     );
     assert!(
@@ -77,15 +81,21 @@ fn test_weight_variant_type_entries_registered() {
         .collect();
 
     assert!(
-        entries.iter().any(|e| e.value == "One" && e.parent == Some("i32")),
+        entries
+            .iter()
+            .any(|e| e.value == "One" && e.parent == Some("i32")),
         "One should be registered with parent i32"
     );
     assert!(
-        entries.iter().any(|e| e.value == "i32" && e.parent == Some("f64")),
+        entries
+            .iter()
+            .any(|e| e.value == "i32" && e.parent == Some("f64")),
         "i32 should be registered with parent f64"
     );
     assert!(
-        entries.iter().any(|e| e.value == "f64" && e.parent.is_none()),
+        entries
+            .iter()
+            .any(|e| e.value == "f64" && e.parent.is_none()),
         "f64 should be registered as root"
     );
 }

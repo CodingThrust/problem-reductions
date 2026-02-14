@@ -584,7 +584,6 @@ impl ReductionGraph {
     pub fn num_reductions(&self) -> usize {
         self.graph.edge_count()
     }
-
 }
 
 impl Default for ReductionGraph {

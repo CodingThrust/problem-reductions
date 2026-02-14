@@ -122,10 +122,7 @@ fn type_uses_type_generics(ty: &Type, type_generics: &HashSet<String>) -> bool {
 ///
 /// Calls `Problem::variant()` on the concrete type.
 /// Errors if the type uses any type generics — all `ReduceTo` impls must be concrete.
-fn make_variant_fn_body(
-    ty: &Type,
-    type_generics: &HashSet<String>,
-) -> syn::Result<TokenStream2> {
+fn make_variant_fn_body(ty: &Type, type_generics: &HashSet<String>) -> syn::Result<TokenStream2> {
     if type_uses_type_generics(ty, type_generics) {
         let used: Vec<_> = type_generics.iter().cloned().collect();
         return Err(syn::Error::new_spanned(

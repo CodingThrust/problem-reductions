@@ -101,13 +101,13 @@ pub use traits::{ReduceTo, ReductionAutoCast, ReductionResult};
 macro_rules! impl_natural_reduction {
     ($Problem:ident, $SubGraph:ty, $SuperGraph:ty, $Weight:ty) => {
         #[reduction(
-                            overhead = {
-                                $crate::rules::registry::ReductionOverhead::new(vec![
-                                    ("num_vertices", $crate::poly!(num_vertices)),
-                                    ("num_edges", $crate::poly!(num_edges)),
-                                ])
-                            }
-                        )]
+                                    overhead = {
+                                        $crate::rules::registry::ReductionOverhead::new(vec![
+                                            ("num_vertices", $crate::poly!(num_vertices)),
+                                            ("num_edges", $crate::poly!(num_edges)),
+                                        ])
+                                    }
+                                )]
         impl $crate::rules::ReduceTo<$Problem<$SuperGraph, $Weight>>
             for $Problem<$SubGraph, $Weight>
         {
