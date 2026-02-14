@@ -670,7 +670,7 @@ mod qubo_reductions {
             })
             .collect();
 
-        let ksat = KSatisfiability::<2>::new(data.source.num_variables, clauses);
+        let ksat = KSatisfiability::<K2>::new(data.source.num_variables, clauses);
         let reduction = ReduceTo::<QUBO>::reduce_to(&ksat);
         let qubo = reduction.target_problem();
 

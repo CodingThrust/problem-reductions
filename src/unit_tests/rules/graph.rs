@@ -311,12 +311,13 @@ fn test_optimization_reductions() {
 #[test]
 fn test_ksat_reductions() {
     use crate::models::satisfiability::{KSatisfiability, Satisfiability};
+    use crate::variant::K3;
 
     let graph = ReductionGraph::new();
 
     // SAT <-> 3-SAT (bidirectional)
-    assert!(graph.has_direct_reduction::<Satisfiability, KSatisfiability<3>>());
-    assert!(graph.has_direct_reduction::<KSatisfiability<3>, Satisfiability>());
+    assert!(graph.has_direct_reduction::<Satisfiability, KSatisfiability<K3>>());
+    assert!(graph.has_direct_reduction::<KSatisfiability<K3>, Satisfiability>());
 }
 
 #[test]
@@ -951,7 +952,7 @@ fn test_natural_edge_has_identity_overhead() {
 fn test_find_matching_entry_ksat_k3() {
     let graph = ReductionGraph::new();
     let variant_k3: std::collections::BTreeMap<String, String> =
-        [("k".to_string(), "3".to_string())].into();
+        [("k".to_string(), "K3".to_string())].into();
 
     let entry = graph.find_best_entry("KSatisfiability", "QUBO", &variant_k3);
     assert!(entry.is_some());
@@ -972,15 +973,15 @@ fn test_find_matching_entry_ksat_k3() {
         num_vars_poly.terms.len() >= 2,
         "K=3 overhead should have num_vars + num_clauses"
     );
-    // Verify the source variant matches k=3
-    assert_eq!(source_var.get("k"), Some(&"3".to_string()));
+    // Verify the source variant matches k=K3
+    assert_eq!(source_var.get("k"), Some(&"K3".to_string()));
 }
 
 #[test]
 fn test_find_matching_entry_ksat_k2() {
     let graph = ReductionGraph::new();
     let variant_k2: std::collections::BTreeMap<String, String> =
-        [("k".to_string(), "2".to_string())].into();
+        [("k".to_string(), "K2".to_string())].into();
 
     let entry = graph.find_best_entry("KSatisfiability", "QUBO", &variant_k2);
     assert!(entry.is_some());
@@ -1003,9 +1004,9 @@ fn test_find_matching_entry_ksat_k2() {
 fn test_find_matching_entry_no_match() {
     let graph = ReductionGraph::new();
     let variant: std::collections::BTreeMap<String, String> =
-        [("k".to_string(), "99".to_string())].into();
+        [("k".to_string(), "K99".to_string())].into();
 
-    // k=99 is not a subtype of k=2 or k=3
+    // k=K99 is not a subtype of K2 or K3
     let entry = graph.find_best_entry("KSatisfiability", "QUBO", &variant);
     assert!(entry.is_none());
 }
@@ -1096,8 +1097,8 @@ fn test_resolve_path_ksat_disambiguates() {
         .find_shortest_path_by_name("KSatisfiability", "QUBO")
         .unwrap();
 
-    // Resolve with k=3
-    let source_k3 = BTreeMap::from([("k".to_string(), "3".to_string())]);
+    // Resolve with k=K3
+    let source_k3 = BTreeMap::from([("k".to_string(), "K3".to_string())]);
     let target = BTreeMap::from([("weight".to_string(), "f64".to_string())]);
 
     let resolved_k3 = graph.resolve_path(&name_path, &source_k3, &target).unwrap();
@@ -1117,8 +1118,8 @@ fn test_resolve_path_ksat_disambiguates() {
         .1;
     assert!(num_vars_poly_k3.terms.len() >= 2);
 
-    // Resolve with k=2
-    let source_k2 = BTreeMap::from([("k".to_string(), "2".to_string())]);
+    // Resolve with k=K2
+    let source_k2 = BTreeMap::from([("k".to_string(), "K2".to_string())]);
     let resolved_k2 = graph.resolve_path(&name_path, &source_k2, &target).unwrap();
     let overhead_k2 = match &resolved_k2.edges.last().unwrap() {
         EdgeKind::Reduction { overhead } => overhead,
@@ -1142,8 +1143,8 @@ fn test_resolve_path_incompatible_returns_none() {
         .find_shortest_path_by_name("KSatisfiability", "QUBO")
         .unwrap();
 
-    // k=99 matches neither k=2 nor k=3
-    let source = BTreeMap::from([("k".to_string(), "99".to_string())]);
+    // k=K99 matches neither K2 nor K3
+    let source = BTreeMap::from([("k".to_string(), "K99".to_string())]);
     let target = BTreeMap::from([("weight".to_string(), "f64".to_string())]);
 
     let resolved = graph.resolve_path(&name_path, &source, &target);

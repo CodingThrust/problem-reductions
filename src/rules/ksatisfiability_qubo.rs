@@ -18,6 +18,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::variant::{K2, K3};
 /// Result of reducing KSatisfiability to QUBO.
 #[derive(Debug, Clone)]
 pub struct ReductionKSatToQUBO {
@@ -26,7 +27,7 @@ pub struct ReductionKSatToQUBO {
 }
 
 impl ReductionResult for ReductionKSatToQUBO {
-    type Source = KSatisfiability<2>;
+    type Source = KSatisfiability<K2>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -38,7 +39,7 @@ impl ReductionResult for ReductionKSatToQUBO {
     }
 }
 
-/// Result of reducing KSatisfiability<3> to QUBO.
+/// Result of reducing KSatisfiability<K3> to QUBO.
 #[derive(Debug, Clone)]
 pub struct Reduction3SATToQUBO {
     target: QUBO<f64>,
@@ -46,7 +47,7 @@ pub struct Reduction3SATToQUBO {
 }
 
 impl ReductionResult for Reduction3SATToQUBO {
-    type Source = KSatisfiability<3>;
+    type Source = KSatisfiability<K3>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -294,7 +295,7 @@ fn build_qubo_matrix(
 #[reduction(
     overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vars))]) }
 )]
-impl ReduceTo<QUBO<f64>> for KSatisfiability<2> {
+impl ReduceTo<QUBO<f64>> for KSatisfiability<K2> {
     type Result = ReductionKSatToQUBO;
 
     fn reduce_to(&self) -> Self::Result {
@@ -313,7 +314,7 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<2> {
         ("num_vars", poly!(num_vars) + poly!(num_clauses)),
     ]) }
 )]
-impl ReduceTo<QUBO<f64>> for KSatisfiability<3> {
+impl ReduceTo<QUBO<f64>> for KSatisfiability<K3> {
     type Result = Reduction3SATToQUBO;
 
     fn reduce_to(&self) -> Self::Result {

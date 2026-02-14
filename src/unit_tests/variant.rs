@@ -185,10 +185,10 @@ fn test_variant_for_problems() {
     let v = Satisfiability::variant();
     assert_eq!(v.len(), 0);
 
-    // Test KSatisfiability (const K parameter only)
-    let v = KSatisfiability::<3>::variant();
+    // Test KSatisfiability (K type parameter only)
+    let v = KSatisfiability::<K3>::variant();
     assert_eq!(v.len(), 1);
-    assert_eq!(v[0], ("k", "3"));
+    assert_eq!(v[0], ("k", "K3"));
 
     // Test MaximumSetPacking (weight parameter only)
     let v = MaximumSetPacking::<i32>::variant();

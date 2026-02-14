@@ -1,13 +1,14 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
+use crate::variant::K3;
 
 #[test]
 fn test_sat_to_3sat_exact_size() {
     // Clause already has 3 literals - should remain unchanged
     let sat = Satisfiability::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
 
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     assert_eq!(ksat.num_vars(), 3);
@@ -21,7 +22,7 @@ fn test_sat_to_3sat_padding() {
     // (a v b) becomes (a v b v x) AND (a v b v -x)
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
 
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     // Should have 2 clauses (positive and negative ancilla)
@@ -38,7 +39,7 @@ fn test_sat_to_3sat_splitting() {
     // (a v b v c v d) becomes (a v b v x) AND (-x v c v d)
     let sat = Satisfiability::new(4, vec![CNFClause::new(vec![1, 2, 3, 4])]);
 
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     // Should have 2 clauses after splitting
@@ -68,7 +69,7 @@ fn test_sat_to_3sat_large_clause() {
     // (a v b v c v d v e) -> (a v b v x1) AND (-x1 v c v x2) AND (-x2 v d v e)
     let sat = Satisfiability::new(5, vec![CNFClause::new(vec![1, 2, 3, 4, 5])]);
 
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     // Should have 3 clauses after splitting
@@ -85,7 +86,7 @@ fn test_sat_to_3sat_single_literal() {
     // (a) becomes (a v x v y) where we pad twice
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
 
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     // With recursive padding: (a) -> (a v x) AND (a v -x)
@@ -111,7 +112,7 @@ fn test_sat_to_3sat_preserves_satisfiability() {
         ],
     );
 
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     // Solve both problems - use find_all_satisfying for satisfaction problems
@@ -139,7 +140,7 @@ fn test_sat_to_3sat_preserves_satisfiability() {
 fn test_sat_to_3sat_solution_extraction() {
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1, 2])]);
 
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     // Solve K-SAT - use find_all_satisfying for satisfaction problems
@@ -158,7 +159,7 @@ fn test_sat_to_3sat_solution_extraction() {
 
 #[test]
 fn test_3sat_to_sat() {
-    let ksat = KSatisfiability::<3>::new(
+    let ksat = KSatisfiability::<K3>::new(
         3,
         vec![
             CNFClause::new(vec![1, 2, 3]),
@@ -179,7 +180,7 @@ fn test_3sat_to_sat() {
 
 #[test]
 fn test_3sat_to_sat_solution_extraction() {
-    let ksat = KSatisfiability::<3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
+    let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
 
     let reduction = ReduceTo::<Satisfiability>::reduce_to(&ksat);
 
@@ -197,7 +198,7 @@ fn test_roundtrip_sat_3sat_sat() {
     );
 
     // SAT -> 3-SAT
-    let to_ksat = ReduceTo::<KSatisfiability<3>>::reduce_to(&original_sat);
+    let to_ksat = ReduceTo::<KSatisfiability<K3>>::reduce_to(&original_sat);
     let ksat = to_ksat.target_problem();
 
     // 3-SAT -> SAT
@@ -229,7 +230,7 @@ fn test_sat_to_3sat_mixed_clause_types() {
         ],
     );
 
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     // All clauses should have exactly 3 literals
@@ -242,7 +243,7 @@ fn test_sat_to_3sat_mixed_clause_types() {
 fn test_ksat_structure() {
     let sat = Satisfiability::new(3, vec![CNFClause::new(vec![1, 2, 3, 4])]);
 
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     // K-SAT should preserve original variables plus auxiliary vars
@@ -254,7 +255,7 @@ fn test_ksat_structure() {
 fn test_empty_sat_to_3sat() {
     let sat = Satisfiability::new(3, vec![]);
 
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     assert_eq!(ksat.num_clauses(), 0);
@@ -274,7 +275,7 @@ fn test_mixed_clause_sizes() {
         ],
     );
 
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     // All clauses should have exactly 3 literals
@@ -297,7 +298,7 @@ fn test_unsatisfiable_formula() {
     // (x) AND (-x) is unsatisfiable
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
 
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     let solver = BruteForce::new();

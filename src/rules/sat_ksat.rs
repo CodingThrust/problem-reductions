@@ -11,20 +11,21 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
+use crate::variant::{KValue, K2, K3, KN};
 
 /// Result of reducing general SAT to K-SAT.
 ///
 /// This reduction transforms a SAT formula into an equisatisfiable K-SAT formula
 /// by introducing ancilla (auxiliary) variables.
 #[derive(Debug, Clone)]
-pub struct ReductionSATToKSAT<const K: usize> {
+pub struct ReductionSATToKSAT<K: KValue> {
     /// Number of original variables in the source problem.
     source_num_vars: usize,
     /// The target K-SAT problem.
     target: KSatisfiability<K>,
 }
 
-impl<const K: usize> ReductionResult for ReductionSATToKSAT<K> {
+impl<K: KValue> ReductionResult for ReductionSATToKSAT<K> {
     type Source = Satisfiability;
     type Target = KSatisfiability<K>;
 
@@ -108,18 +109,17 @@ fn add_clause_to_ksat(
 /// Implementation of SAT -> K-SAT reduction.
 ///
 /// Note: We implement this for specific K values rather than generic K
-/// because Rust's type system requires concrete implementations for
-/// the `ReduceTo` trait pattern used in this crate.
+/// because the `#[reduction]` proc macro requires concrete types.
 macro_rules! impl_sat_to_ksat {
-    ($k:expr) => {
+    ($ktype:ty, $k:expr) => {
         #[reduction(overhead = {
                                     ReductionOverhead::new(vec![
                                         ("num_clauses", poly!(num_clauses) + poly!(num_literals)),
                                         ("num_vars", poly!(num_vars) + poly!(num_literals)),
                                     ])
                                 })]
-        impl ReduceTo<KSatisfiability<$k>> for Satisfiability {
-            type Result = ReductionSATToKSAT<$k>;
+        impl ReduceTo<KSatisfiability<$ktype>> for Satisfiability {
+            type Result = ReductionSATToKSAT<$ktype>;
 
             fn reduce_to(&self) -> Self::Result {
                 let source_num_vars = self.num_vars();
@@ -133,7 +133,7 @@ macro_rules! impl_sat_to_ksat {
                 // Calculate total number of variables (original + ancillas)
                 let total_vars = (next_var - 1) as usize;
 
-                let target = KSatisfiability::<$k>::new(total_vars, result_clauses);
+                let target = KSatisfiability::<$ktype>::new(total_vars, result_clauses);
 
                 ReductionSATToKSAT {
                     source_num_vars,
@@ -145,18 +145,19 @@ macro_rules! impl_sat_to_ksat {
 }
 
 // Implement for K=3 (the canonical NP-complete case)
-impl_sat_to_ksat!(3);
+impl_sat_to_ksat!(K3, 3);
 
 /// Result of reducing K-SAT to general SAT.
 ///
 /// This is a trivial embedding since K-SAT is a special case of SAT.
 #[derive(Debug, Clone)]
-pub struct ReductionKSATToSAT<const K: usize> {
+pub struct ReductionKSATToSAT<K: KValue> {
     /// The target SAT problem.
     target: Satisfiability,
+    _phantom: std::marker::PhantomData<K>,
 }
 
-impl<const K: usize> ReductionResult for ReductionKSATToSAT<K> {
+impl<K: KValue> ReductionResult for ReductionKSATToSAT<K> {
     type Source = KSatisfiability<K>;
     type Target = Satisfiability;
 
@@ -170,22 +171,42 @@ impl<const K: usize> ReductionResult for ReductionKSATToSAT<K> {
     }
 }
 
-#[reduction(overhead = {
-    ReductionOverhead::new(vec![
-        ("num_clauses", poly!(num_clauses)),
-        ("num_vars", poly!(num_vars)),
-    ])
-})]
-impl<const K: usize> ReduceTo<Satisfiability> for KSatisfiability<K> {
-    type Result = ReductionKSATToSAT<K>;
+/// Helper function for KSAT -> SAT reduction logic (generic over K).
+fn reduce_ksat_to_sat<K: KValue>(ksat: &KSatisfiability<K>) -> ReductionKSATToSAT<K> {
+    let clauses = ksat.clauses().to_vec();
+    let target = Satisfiability::new(ksat.num_vars(), clauses);
 
-    fn reduce_to(&self) -> Self::Result {
-        let clauses = self.clauses().to_vec();
-        let target = Satisfiability::new(self.num_vars(), clauses);
-
-        ReductionKSATToSAT { target }
+    ReductionKSATToSAT {
+        target,
+        _phantom: std::marker::PhantomData,
     }
 }
+
+/// Macro for concrete KSAT -> SAT reduction impls.
+/// The `#[reduction]` macro requires concrete types.
+macro_rules! impl_ksat_to_sat {
+    ($ktype:ty) => {
+        #[reduction(overhead = {
+            ReductionOverhead::new(vec![
+                ("num_clauses", poly!(num_clauses)),
+                ("num_vars", poly!(num_vars)),
+            ])
+        })]
+        impl ReduceTo<Satisfiability> for KSatisfiability<$ktype> {
+            type Result = ReductionKSATToSAT<$ktype>;
+
+            fn reduce_to(&self) -> Self::Result {
+                reduce_ksat_to_sat(self)
+            }
+        }
+    };
+}
+
+// Register KN for the reduction graph (covers all K values as the generic entry)
+impl_ksat_to_sat!(KN);
+// Register K3 and K2 as concrete entries (used directly in tests and reductions)
+impl_ksat_to_sat!(K3);
+impl_ksat_to_sat!(K2);
 
 #[cfg(test)]
 #[path = "../unit_tests/rules/sat_ksat.rs"]

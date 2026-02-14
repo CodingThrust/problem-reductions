@@ -2,12 +2,13 @@ use super::*;
 use crate::models::satisfiability::CNFClause;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
+use crate::variant::{K2, K3};
 
 #[test]
 fn test_ksatisfiability_to_qubo_closed_loop() {
     // 3 vars, 4 clauses (matches ground truth):
     // (x1 ∨ x2), (¬x1 ∨ x3), (x2 ∨ ¬x3), (¬x2 ∨ ¬x3)
-    let ksat = KSatisfiability::<2>::new(
+    let ksat = KSatisfiability::<K2>::new(
         3,
         vec![
             CNFClause::new(vec![1, 2]),   // x1 ∨ x2
@@ -32,7 +33,7 @@ fn test_ksatisfiability_to_qubo_closed_loop() {
 #[test]
 fn test_ksatisfiability_to_qubo_simple() {
     // 2 vars, 1 clause: (x1 ∨ x2) → 3 satisfying assignments
-    let ksat = KSatisfiability::<2>::new(2, vec![CNFClause::new(vec![1, 2])]);
+    let ksat = KSatisfiability::<K2>::new(2, vec![CNFClause::new(vec![1, 2])]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat);
     let qubo = reduction.target_problem();
 
@@ -50,7 +51,7 @@ fn test_ksatisfiability_to_qubo_contradiction() {
     // 1 var, 2 clauses: (x1 ∨ x1) and (¬x1 ∨ ¬x1) — can't satisfy both
     // Actually, this is (x1) and (¬x1), which is a contradiction
     // Max-2-SAT will satisfy 1 of 2 clauses
-    let ksat = KSatisfiability::<2>::new(
+    let ksat = KSatisfiability::<K2>::new(
         1,
         vec![
             CNFClause::new(vec![1, 1]),   // x1 ∨ x1 = x1
@@ -71,7 +72,7 @@ fn test_ksatisfiability_to_qubo_contradiction() {
 fn test_ksatisfiability_to_qubo_reversed_vars() {
     // Clause (3, -1) has var_i=2 > var_j=0, triggering the swap branch (line 71).
     // 3 vars, clauses: (x3 ∨ ¬x1), (x1 ∨ x2)
-    let ksat = KSatisfiability::<2>::new(
+    let ksat = KSatisfiability::<K2>::new(
         3,
         vec![
             CNFClause::new(vec![3, -1]), // var 2 > var 0 → swap
@@ -92,7 +93,7 @@ fn test_ksatisfiability_to_qubo_reversed_vars() {
 
 #[test]
 fn test_ksatisfiability_to_qubo_structure() {
-    let ksat = KSatisfiability::<2>::new(
+    let ksat = KSatisfiability::<K2>::new(
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
@@ -106,7 +107,7 @@ fn test_ksatisfiability_to_qubo_structure() {
 #[test]
 fn test_k3satisfiability_to_qubo_closed_loop() {
     // 3-SAT: 5 vars, 7 clauses
-    let ksat = KSatisfiability::<3>::new(
+    let ksat = KSatisfiability::<K3>::new(
         5,
         vec![
             CNFClause::new(vec![1, 2, -3]),  // x1 ∨ x2 ∨ ¬x3
@@ -140,7 +141,7 @@ fn test_k3satisfiability_to_qubo_closed_loop() {
 #[test]
 fn test_k3satisfiability_to_qubo_single_clause() {
     // Single 3-SAT clause: (x1 ∨ x2 ∨ x3) — 7 satisfying assignments
-    let ksat = KSatisfiability::<3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
+    let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat);
     let qubo = reduction.target_problem();
 
@@ -163,7 +164,7 @@ fn test_k3satisfiability_to_qubo_single_clause() {
 #[test]
 fn test_k3satisfiability_to_qubo_all_negated() {
     // All negated: (¬x1 ∨ ¬x2 ∨ ¬x3) — 7 satisfying assignments
-    let ksat = KSatisfiability::<3>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
+    let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ksat);
     let qubo = reduction.target_problem();
 
