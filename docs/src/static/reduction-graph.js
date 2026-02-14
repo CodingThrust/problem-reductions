@@ -237,6 +237,12 @@ document.addEventListener('DOMContentLoaded', function() {
           }},
           { selector: '.selected-node', style: {
             'border-color': '#0066cc', 'border-width': 2, 'background-color': '#cce0ff'
+          }},
+          { selector: '.faded', style: { 'opacity': 0.1 } },
+          { selector: '.variant-selected', style: {
+            'border-color': '#0066cc',
+            'border-width': 2.5,
+            'background-color': '#cce0ff'
           }}
         ],
         layout: {
@@ -257,6 +263,7 @@ document.addEventListener('DOMContentLoaded', function() {
       cy.nodes('[?isVariant]').style('display', 'none');
 
       var expandedParents = {};  // parentId → true/false
+      var activeVariantFilter = null;
 
       function toggleExpand(parentNode) {
         var parentId = parentNode.id();
@@ -386,6 +393,27 @@ document.addEventListener('DOMContentLoaded', function() {
           toggleExpand(node);
           return;
         }
+        if (node.data('isVariant')) {
+          if (activeVariantFilter === node.id()) {
+            // Toggle off — clear filter
+            cy.elements().removeClass('faded variant-selected');
+            activeVariantFilter = null;
+            instructions.textContent = 'Click a node to start path selection';
+            return;
+          }
+          // Apply filter
+          activeVariantFilter = node.id();
+          cy.elements().addClass('faded');
+          node.removeClass('faded').addClass('variant-selected');
+          var connectedEdges = node.connectedEdges('[edgeLevel="variant"]');
+          connectedEdges.removeClass('faded');
+          connectedEdges.connectedNodes().removeClass('faded');
+          if (node.data('parent')) {
+            cy.getElementById(node.data('parent')).removeClass('faded');
+          }
+          instructions.textContent = 'Showing edges for ' + node.data('fullLabel') + ' — click again to clear';
+          return;
+        }
         if (!selectedNode) {
           selectedNode = node;
           node.addClass('selected-node');
@@ -427,7 +455,13 @@ document.addEventListener('DOMContentLoaded', function() {
         selectedNode = null;
       });
 
-      cy.on('tap', function(evt) { if (evt.target === cy) { clearPath(); } });
+      cy.on('tap', function(evt) {
+        if (evt.target === cy) {
+          clearPath();
+          cy.elements().removeClass('faded variant-selected');
+          activeVariantFilter = null;
+        }
+      });
     })
     .catch(function(err) {
       document.getElementById('cy').innerHTML = '<p style="padding:1em;color:#c00;">Failed to load reduction graph: ' + err.message + '</p>';
