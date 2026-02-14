@@ -82,19 +82,26 @@ fn jl_parse_sets(val: &serde_json::Value) -> Vec<Vec<usize>> {
 fn jl_parse_sat_clauses(
     instance: &serde_json::Value,
 ) -> (usize, Vec<crate::models::satisfiability::CNFClause>) {
-    let num_vars = instance["num_variables"].as_u64().unwrap() as usize;
+    let num_vars = instance["num_variables"]
+        .as_u64()
+        .expect("num_variables should be a u64") as usize;
     let clauses = instance["clauses"]
         .as_array()
-        .unwrap()
+        .expect("clauses should be an array")
         .iter()
         .map(|clause| {
             let literals: Vec<i32> = clause["literals"]
                 .as_array()
-                .unwrap()
+                .expect("clause.literals should be an array")
                 .iter()
                 .map(|lit| {
-                    let var = lit["variable"].as_u64().unwrap() as i32 + 1;
-                    let negated = lit["negated"].as_bool().unwrap();
+                    let var = lit["variable"]
+                        .as_u64()
+                        .expect("literal.variable should be a u64") as i32
+                        + 1;
+                    let negated = lit["negated"]
+                        .as_bool()
+                        .expect("literal.negated should be a bool");
                     if negated { -var } else { var }
                 })
                 .collect();
@@ -122,8 +129,8 @@ fn jl_find_instance_by_label<'a>(
 ) -> &'a serde_json::Value {
     data["instances"]
         .as_array()
-        .unwrap()
+        .expect("instances should be an array")
         .iter()
-        .find(|inst| inst["label"].as_str().unwrap() == label)
+        .find(|inst| inst["label"].as_str().expect("instance label should be a string") == label)
         .unwrap_or_else(|| panic!("Instance '{label}' not found"))
 }
