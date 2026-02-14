@@ -1,4 +1,95 @@
 use super::*;
+use crate::variant::{CastToParent, KValue, VariantParam, VariantTypeEntry};
+
+// Test types for the new system
+#[derive(Clone, Debug)]
+struct TestRoot;
+#[derive(Clone, Debug)]
+struct TestChild;
+
+impl_variant_param!(TestRoot, "test_cat");
+impl_variant_param!(TestChild, "test_cat", parent: TestRoot, cast: |_| TestRoot);
+
+#[test]
+fn test_variant_param_root() {
+    assert_eq!(TestRoot::CATEGORY, "test_cat");
+    assert_eq!(TestRoot::VALUE, "TestRoot");
+    assert_eq!(TestRoot::PARENT_VALUE, None);
+}
+
+#[test]
+fn test_variant_param_child() {
+    assert_eq!(TestChild::CATEGORY, "test_cat");
+    assert_eq!(TestChild::VALUE, "TestChild");
+    assert_eq!(TestChild::PARENT_VALUE, Some("TestRoot"));
+}
+
+#[test]
+fn test_cast_to_parent() {
+    let child = TestChild;
+    let _parent: TestRoot = child.cast_to_parent();
+}
+
+#[test]
+fn test_variant_type_entry_registered() {
+    let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
+        .filter(|e| e.category == "test_cat")
+        .collect();
+    assert!(entries
+        .iter()
+        .any(|e| e.value == "TestRoot" && e.parent.is_none()));
+    assert!(entries
+        .iter()
+        .any(|e| e.value == "TestChild" && e.parent == Some("TestRoot")));
+}
+
+#[derive(Clone, Debug)]
+struct TestKRoot;
+#[derive(Clone, Debug)]
+struct TestKChild;
+
+impl_variant_param!(TestKRoot, "test_k", k: None);
+impl_variant_param!(TestKChild, "test_k", parent: TestKRoot, cast: |_| TestKRoot, k: Some(3));
+
+#[test]
+fn test_kvalue_via_macro_root() {
+    assert_eq!(TestKRoot::CATEGORY, "test_k");
+    assert_eq!(TestKRoot::VALUE, "TestKRoot");
+    assert_eq!(TestKRoot::PARENT_VALUE, None);
+    assert_eq!(TestKRoot::K, None);
+}
+
+#[test]
+fn test_kvalue_via_macro_child() {
+    assert_eq!(TestKChild::CATEGORY, "test_k");
+    assert_eq!(TestKChild::VALUE, "TestKChild");
+    assert_eq!(TestKChild::PARENT_VALUE, Some("TestKRoot"));
+    assert_eq!(TestKChild::K, Some(3));
+}
+
+#[test]
+fn test_variant_params_macro_empty() {
+    let v: Vec<(&str, &str)> = variant_params![];
+    assert!(v.is_empty());
+}
+
+#[test]
+fn test_variant_params_macro_single() {
+    fn check<T: VariantParam>() -> Vec<(&'static str, &'static str)> {
+        variant_params![T]
+    }
+    let v = check::<TestRoot>();
+    assert_eq!(v, vec![("test_cat", "TestRoot")]);
+}
+
+#[test]
+fn test_variant_params_macro_multiple() {
+    fn check<A: VariantParam, B: VariantParam>() -> Vec<(&'static str, &'static str)> {
+        variant_params![A, B]
+    }
+    let v = check::<TestRoot, TestChild>();
+    assert_eq!(v, vec![("test_cat", "TestRoot"), ("test_cat", "TestChild")]);
+}
 
 #[test]
 fn test_short_type_name_primitive() {
