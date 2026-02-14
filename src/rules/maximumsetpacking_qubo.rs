@@ -13,7 +13,7 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
-/// Result of reducing MaximumSetPacking<f64> to QUBO<f64>.
+/// Result of reducing `MaximumSetPacking<f64>` to `QUBO<f64>`.
 #[derive(Debug, Clone)]
 pub struct ReductionSPToQUBO {
     target: QUBO<f64>,
