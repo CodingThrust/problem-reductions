@@ -7,7 +7,6 @@
 //! K-SAT -> SAT: Trivial embedding (K-SAT is a special case of SAT)
 
 use crate::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
-use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -113,11 +112,11 @@ fn add_clause_to_ksat(
 macro_rules! impl_sat_to_ksat {
     ($k:expr) => {
         #[reduction(overhead = {
-                                    ReductionOverhead::new(vec![
-                                        ("num_clauses", poly!(num_clauses) + poly!(num_literals)),
-                                        ("num_vars", poly!(num_vars) + poly!(num_literals)),
-                                    ])
-                                })]
+                                            ReductionOverhead::new(vec![
+                                                ("num_clauses", "num_clauses + num_literals"),
+                                                ("num_vars", "num_vars + num_literals"),
+                                            ])
+                                        })]
         impl ReduceTo<KSatisfiability<$k>> for Satisfiability {
             type Result = ReductionSATToKSAT<$k>;
 
@@ -172,8 +171,8 @@ impl<const K: usize> ReductionResult for ReductionKSATToSAT<K> {
 
 #[reduction(overhead = {
     ReductionOverhead::new(vec![
-        ("num_clauses", poly!(num_clauses)),
-        ("num_vars", poly!(num_vars)),
+        ("num_clauses", "num_clauses"),
+        ("num_vars", "num_vars"),
     ])
 })]
 impl<const K: usize> ReduceTo<Satisfiability> for KSatisfiability<K> {

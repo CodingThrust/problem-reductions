@@ -1,34 +1,51 @@
 //! Automatic reduction registration via inventory.
 
-use crate::polynomial::Polynomial;
+use crate::expr::{EvalError, Expr, Func};
 use crate::types::ProblemSize;
 
 /// Overhead specification for a reduction.
 #[derive(Clone, Debug, Default)]
 pub struct ReductionOverhead {
-    /// Output size as polynomials of input size variables.
-    /// Each entry is (output_field_name, polynomial).
-    pub output_size: Vec<(&'static str, Polynomial)>,
+    /// Output size as symbolic expressions of input size variables.
+    /// Each entry is (output_field_name, expression).
+    pub output_size: Vec<(&'static str, Expr)>,
 }
 
 impl ReductionOverhead {
-    pub fn new(output_size: Vec<(&'static str, Polynomial)>) -> Self {
-        Self { output_size }
+    pub fn new(specs: Vec<(&'static str, &'static str)>) -> Self {
+        Self {
+            output_size: specs
+                .into_iter()
+                .map(|(field, expr_str)| {
+                    let expr = Expr::parse(expr_str).unwrap_or_else(|e| {
+                        panic!("invalid overhead expression for '{field}': {e}")
+                    });
+                    (field, expr)
+                })
+                .collect(),
+        }
     }
 
     /// Evaluate output size given input size.
     ///
-    /// Uses `round()` for the f64 to usize conversion because polynomial coefficients
+    /// Uses `round()` for the f64 to usize conversion because expression coefficients
     /// are typically integers (1, 2, 3, 7, 21, etc.) and any fractional results come
     /// from floating-point arithmetic imprecision, not intentional fractions.
-    /// For problem sizes, rounding to nearest integer is the most intuitive behavior.
-    pub fn evaluate_output_size(&self, input: &ProblemSize) -> ProblemSize {
-        let fields: Vec<_> = self
-            .output_size
-            .iter()
-            .map(|(name, poly)| (*name, poly.evaluate(input).round() as usize))
-            .collect();
-        ProblemSize::new(fields)
+    pub fn evaluate_output_size(&self, input: &ProblemSize) -> Result<ProblemSize, EvalError> {
+        let mut fields = Vec::new();
+        for (name, expr) in &self.output_size {
+            let val = expr.evaluate(input)?;
+            let rounded = val.round();
+            if !rounded.is_finite() || rounded < 0.0 || rounded > usize::MAX as f64 {
+                return Err(EvalError::Domain {
+                    func: Func::Floor,
+                    detail: format!("overhead for '{name}' produced out-of-range value: {val}")
+                        .into(),
+                });
+            }
+            fields.push((*name, rounded as usize));
+        }
+        Ok(ProblemSize::new(fields))
     }
 }
 
