@@ -113,11 +113,11 @@ fn add_clause_to_ksat(
 macro_rules! impl_sat_to_ksat {
     ($k:expr) => {
         #[reduction(overhead = {
-                            ReductionOverhead::new(vec![
-                                ("num_clauses", poly!(num_clauses) + poly!(num_literals)),
-                                ("num_vars", poly!(num_vars) + poly!(num_literals)),
-                            ])
-                        })]
+                                    ReductionOverhead::new(vec![
+                                        ("num_clauses", poly!(num_clauses) + poly!(num_literals)),
+                                        ("num_vars", poly!(num_vars) + poly!(num_literals)),
+                                    ])
+                                })]
         impl ReduceTo<KSatisfiability<$k>> for Satisfiability {
             type Result = ReductionSATToKSAT<$k>;
 
