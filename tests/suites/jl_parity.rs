@@ -14,13 +14,13 @@ use std::collections::HashSet;
 fn parse_edges(instance: &serde_json::Value) -> Vec<(usize, usize)> {
     instance["edges"]
         .as_array()
-        .unwrap()
+        .expect("edges should be an array")
         .iter()
         .map(|e| {
-            let arr = e.as_array().unwrap();
+            let arr = e.as_array().expect("edge should be a [u, v] array");
             (
-                arr[0].as_u64().unwrap() as usize,
-                arr[1].as_u64().unwrap() as usize,
+                arr[0].as_u64().expect("edge vertex should be u64") as usize,
+                arr[1].as_u64().expect("edge vertex should be u64") as usize,
             )
         })
         .collect()
@@ -30,9 +30,9 @@ fn parse_weighted_edges(instance: &serde_json::Value) -> Vec<(usize, usize, i32)
     let edges = parse_edges(instance);
     let weights: Vec<i32> = instance["weights"]
         .as_array()
-        .unwrap()
+        .expect("weights should be an array")
         .iter()
-        .map(|w| w.as_i64().unwrap() as i32)
+        .map(|w| w.as_i64().expect("weight should be i64") as i32)
         .collect();
     edges
         .into_iter()
@@ -43,15 +43,15 @@ fn parse_weighted_edges(instance: &serde_json::Value) -> Vec<(usize, usize, i32)
 
 fn parse_config(val: &serde_json::Value) -> Vec<usize> {
     val.as_array()
-        .unwrap()
+        .expect("config should be an array")
         .iter()
-        .map(|v| v.as_u64().unwrap() as usize)
+        .map(|v| v.as_u64().expect("config element should be u64") as usize)
         .collect()
 }
 
 fn parse_configs_set(val: &serde_json::Value) -> HashSet<Vec<usize>> {
     val.as_array()
-        .unwrap()
+        .expect("configs set should be an array")
         .iter()
         .map(parse_config)
         .collect()
@@ -59,21 +59,21 @@ fn parse_configs_set(val: &serde_json::Value) -> HashSet<Vec<usize>> {
 
 fn parse_i32_vec(val: &serde_json::Value) -> Vec<i32> {
     val.as_array()
-        .unwrap()
+        .expect("should be an array of integers")
         .iter()
-        .map(|v| v.as_i64().unwrap() as i32)
+        .map(|v| v.as_i64().expect("element should be i64") as i32)
         .collect()
 }
 
 fn parse_sets(val: &serde_json::Value) -> Vec<Vec<usize>> {
     val.as_array()
-        .unwrap()
+        .expect("sets should be an array")
         .iter()
         .map(|s| {
             s.as_array()
-                .unwrap()
+                .expect("set should be an array")
                 .iter()
-                .map(|v| v.as_u64().unwrap() as usize)
+                .map(|v| v.as_u64().expect("set element should be u64") as usize)
                 .collect()
         })
         .collect()

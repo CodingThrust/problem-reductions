@@ -288,9 +288,11 @@ function export_reduction(source, target_type, source_label)
     # solve target
     best_target = findbest(target, BruteForce())
 
-    # extract solutions
-    extracted_single = unique(extract_solution.(Ref(result), best_target))
-    extracted_multiple = extract_multiple_solutions(result, best_target)
+    # extract solutions (convert booleans to 0/1 integers for JSON consistency)
+    bool_to_int(x::Bool) = Int(x)
+    bool_to_int(x) = x
+    extracted_single = unique([bool_to_int.(sol) for sol in extract_solution.(Ref(result), best_target)])
+    extracted_multiple = [bool_to_int.(sol) for sol in extract_multiple_solutions(result, best_target)]
 
     return Dict(
         "label" => source_label,
