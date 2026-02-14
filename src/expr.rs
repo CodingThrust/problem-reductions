@@ -160,10 +160,7 @@ impl Expr {
     pub fn evaluate(&self, size: &ProblemSize) -> Result<f64, EvalError> {
         match self {
             Expr::Num(v) => Ok(*v),
-            Expr::Var(name) => size
-                .get(name)
-                .map(|v| v as f64)
-                .ok_or_else(|| EvalError::UnknownVar(name.clone())),
+            Expr::Var(name) => Ok(size.get(name).unwrap_or(0) as f64),
             Expr::Neg(inner) => Ok(-inner.evaluate(size)?),
             Expr::BinOp { op, lhs, rhs } => {
                 let l = lhs.evaluate(size)?;

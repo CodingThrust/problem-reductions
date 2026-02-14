@@ -18,13 +18,10 @@ fn test_eval_var() {
 }
 
 #[test]
-fn test_eval_unknown_var() {
+fn test_eval_unknown_var_defaults_to_zero() {
     let expr = Expr::Var("missing".into());
     let size = ProblemSize::new(vec![]);
-    assert!(matches!(
-        expr.evaluate(&size),
-        Err(EvalError::UnknownVar(_))
-    ));
+    assert_eq!(expr.evaluate(&size).unwrap(), 0.0);
 }
 
 #[test]
