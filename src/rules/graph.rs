@@ -124,7 +124,6 @@ impl ReductionPath {
 }
 
 /// A node in a variant-level reduction path.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 pub struct ReductionStep {
     /// Problem name (e.g., "MaximumIndependentSet").
@@ -134,7 +133,6 @@ pub struct ReductionStep {
 }
 
 /// The kind of transition between adjacent steps in a resolved path.
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 pub enum EdgeKind {
     /// A registered reduction (backed by a ReduceTo impl).
@@ -151,7 +149,6 @@ pub enum EdgeKind {
 /// Created by [`ReductionGraph::resolve_path`] from a name-level [`ReductionPath`].
 /// Each adjacent pair of steps is connected by an [`EdgeKind`]: either a registered
 /// reduction or a natural cast (subtype relaxation with identity overhead).
-#[allow(dead_code)]
 #[derive(Debug, Clone, Serialize)]
 pub struct ResolvedPath {
     /// Sequence of (name, variant) nodes.
@@ -160,7 +157,6 @@ pub struct ResolvedPath {
     pub edges: Vec<EdgeKind>,
 }
 
-#[allow(dead_code)]
 impl ResolvedPath {
     /// Number of edges (reductions + casts) in the path.
     pub fn len(&self) -> usize {
