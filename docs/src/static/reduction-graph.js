@@ -160,6 +160,9 @@ document.addEventListener('DOMContentLoaded', function() {
       // ── Build variant-level edges (hidden, shown when expanded) ──
       Object.keys(edgeMap).forEach(function(k) {
         var e = edgeMap[k];
+        var srcName = e.source.split('/')[0];
+        var dstName = e.target.split('/')[0];
+        var isNaturalCast = srcName === dstName;
         elements.push({
           data: {
             id: 'variant_' + k,
@@ -168,7 +171,8 @@ document.addEventListener('DOMContentLoaded', function() {
             bidirectional: e.bidirectional,
             edgeLevel: 'variant',
             overhead: e.overhead,
-            doc_path: e.doc_path
+            doc_path: e.doc_path,
+            isNaturalCast: isNaturalCast
           }
         });
       });
@@ -228,6 +232,13 @@ document.addEventListener('DOMContentLoaded', function() {
           }},
           // Hidden variant-level edges
           { selector: 'edge[edgeLevel="variant"]', style: { 'display': 'none' } },
+          // Natural cast edges (intra-problem)
+          { selector: 'edge[?isNaturalCast]', style: {
+            'line-style': 'dashed',
+            'line-color': '#bbb',
+            'target-arrow-color': '#bbb',
+            'width': 1
+          }},
           // Highlighted styles
           { selector: '.highlighted', style: {
             'background-color': '#ff6b6b', 'border-color': '#cc0000', 'border-width': 2, 'z-index': 10
