@@ -1,0 +1,1 @@
+{"target_type":"IndependentSet","cases":[{"label":"rule_sat04","extracted_single":[[true],[false]],"extracted_multiple":[[true],[false]],"best_source":[[0],[1]],"best_target":[[1,0,0,0,0,0],[0,1,0,0,0,0],[0,0,1,0,0,0],[0,0,0,1,0,0],[0,0,0,0,1,0],[0,0,0,0,0,1]]}],"source_type":"rule_SAT04_unsat"}

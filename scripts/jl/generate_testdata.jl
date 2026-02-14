@@ -4,7 +4,7 @@
 
 using ProblemReductions, Graphs, JSON
 
-const OUTDIR = joinpath(@__DIR__, "..", "..", "tests", "data")
+const OUTDIR = joinpath(@__DIR__, "..", "..", "tests", "data", "jl")
 mkpath(OUTDIR)
 
 # ── helpers ──────────────────────────────────────────────────────────
@@ -23,7 +23,7 @@ end
 function write_fixture(filename, data)
     path = joinpath(OUTDIR, filename)
     open(path, "w") do f
-        JSON.print(f, data, 2)
+        JSON.print(f, data)
     end
     println("  wrote $path")
 end
@@ -230,6 +230,50 @@ function export_factoring(f, label)
     return make_instance(label, inst, f)
 end
 
+function export_dominatingset(ds, graph, label)
+    inst = serialize_graph_problem(ds, graph)
+    return make_instance(label, inst, ds)
+end
+
+function export_maximalis(mis, graph, label)
+    inst = serialize_graph_problem(mis, graph)
+    return make_instance(label, inst, mis)
+end
+
+function export_paintshop(ps, label)
+    inst = Dict(
+        "sequence" => ps.sequence,
+        "num_cars" => length(unique(ps.sequence)),
+    )
+    return make_instance(label, inst, ps)
+end
+
+function export_coloring(col, graph, k, label)
+    inst = Dict(
+        "num_vertices" => nv(graph),
+        "edges" => graph_to_edges(graph),
+        "k" => k,
+    )
+    return make_instance(label, inst, col)
+end
+
+function export_setcovering(sc, label)
+    # convert sets to 0-based
+    sets_0 = [sort([e - 1 for e in s]) for s in sc.sets]
+    w = sc.weights
+    if w isa UnitWeight
+        wts = ones(Int, w.n)
+    else
+        wts = collect(w)
+    end
+    inst = Dict(
+        "universe_size" => length(sc.elements),
+        "sets" => sets_0,
+        "weights" => wts,
+    )
+    return make_instance(label, inst, sc)
+end
+
 # ── reduction exports ────────────────────────────────────────────────
 
 function export_reduction(source, target_type, source_label)
@@ -281,68 +325,232 @@ function main()
     setpacking = SetPacking([[1, 2, 5], [1, 3], [2, 4], [3, 6], [2, 3, 6]])
     matching = Matching(graph)
 
+    # ── Doc example instances ──
+    # IndependentSet docstring: 4-vertex graph
+    doc_is_graph = SimpleGraph(Graphs.SimpleEdge.([(1, 2), (1, 3), (3, 4), (2, 3)]))
+    doc_is = IndependentSet(doc_is_graph)
+    # Tutorial: diamond graph
+    doc_diamond = smallgraph(:diamond)
+    doc_is_diamond = IndependentSet(doc_diamond)
+
+    # SpinGlass docstring: 4-vertex graph
+    doc_sg_graph = SimpleGraph(Graphs.SimpleEdge.([(1, 2), (1, 3), (3, 4), (2, 3)]))
+    doc_sg = SpinGlass(doc_sg_graph, [1, -1, 1, -1], [1, -1, -1, 1])
+
+    # MaxCut docstring: complete_graph(3) with weights
+    doc_mc_graph = complete_graph(3)
+    doc_mc = MaxCut(doc_mc_graph, [1, 2, 3])
+
+    # QUBO docstring: identity matrix
+    doc_qubo = QUBO([1. 0 0; 0 1 0; 0 0 1])
+
+    # VertexCovering docstring: 4-vertex 5-edge graph with weights
+    doc_vc_graph = SimpleGraph(Graphs.SimpleEdge.([(1,2), (1,3), (3,4), (2,3), (1,4)]))
+    doc_vc = VertexCovering(doc_vc_graph, [1, 3, 1, 4])
+
+    # Factoring docstring + Ising example: Factoring(2,2,6)
+    doc_fact = Factoring(2, 2, 6)
+
+    # DominatingSet docstring: path_graph(5)
+    doc_ds_graph = path_graph(5)
+    doc_ds = DominatingSet(doc_ds_graph)
+
+    # MaximalIS docstring: 4-vertex 5-edge graph
+    doc_mis_graph = SimpleGraph(Graphs.SimpleEdge.([(1, 2), (1, 3), (3, 4), (2, 3), (1, 4)]))
+    doc_mis = MaximalIS(doc_mis_graph)
+
+    # PaintShop docstring
+    doc_ps = PaintShop(["a", "b", "a", "c", "c", "b"])
+
+    # Coloring docstring: petersen graph, 3 colors
+    doc_col = Coloring{3}(graph)
+
+    # SetCovering docstring
+    doc_sc = SetCovering([[1, 2, 3], [2, 4], [1, 4]], [1, 2, 3])
+
+    # ── Individual rule test instances (from test/rules/*.jl) ──
+    rule_graph4 = SimpleGraph(Graphs.SimpleEdge.([(1, 2), (1, 3), (3, 4), (2, 3)]))
+
+    # spinglass_maxcut.jl: MaxCut with specific weights
+    rule_mc = MaxCut(rule_graph4, [1, 3, 1, 4])
+    # spinglass_maxcut.jl: SpinGlass with same weights
+    rule_sg = SpinGlass(rule_graph4, [1, 3, 1, 4], zeros(Int, 4))
+
+    # spinglass_qubo.jl: different QUBO matrix
+    rule_qubo = QUBO([2 1 -2; 1 2 -2; -2 -2 2])
+
+    # vertexcovering_setcovering.jl: VC with specific weights
+    rule_vc = VertexCovering(rule_graph4, [1, 3, 1, 4])
+
+    # independentset_setpacking.jl: g02 variant (different edge insertion order, same graph)
+    rule_is_g02 = IndependentSet(SimpleGraph(Graphs.SimpleEdge.([(1, 3), (1, 2), (2, 3), (3, 4)])))
+
+    # matching_setpacking.jl: 4-vertex matching (unweighted + weighted)
+    rule_match_uw = Matching(rule_graph4)
+    rule_match_w = Matching(rule_graph4, [1, 2, 3, 4])
+
+    # sat_3sat.jl: multi-clause SAT
+    rule_sat_3sat = Satisfiability(CNF([
+        CNFClause([BoolVar(:x)]),
+        CNFClause([BoolVar(:y, true), BoolVar(:z)]),
+        CNFClause([BoolVar(:x), BoolVar(:y, true), BoolVar(:z), BoolVar(:w)]),
+    ]))
+
+    # sat_independentset.jl / sat_dominatingset.jl / circuit_sat.jl: 3-variable SAT instances
+    x1, nx1 = BoolVar(:x1), BoolVar(:x1, true)
+    x2, nx2 = BoolVar(:x2), BoolVar(:x2, true)
+    x3, nx3 = BoolVar(:x3), BoolVar(:x3, true)
+
+    rule_sat01 = Satisfiability(CNF([
+        CNFClause([x1, nx2, x3]),
+        CNFClause([nx1, x2, nx3]),
+        CNFClause([x1, nx2, nx3]),
+        CNFClause([nx1, x2, x3]),
+    ]))
+    rule_sat02 = Satisfiability(CNF([
+        CNFClause([nx1, x2, x3]),
+        CNFClause([x1, nx2, x3]),
+        CNFClause([x1, x2, nx3]),
+    ]))
+    rule_sat03 = Satisfiability(CNF([
+        CNFClause([x1, x2, x3]),
+        CNFClause([nx1, nx2, nx3]),
+    ]))
+    # Unsatisfiable instances
+    rule_sat04 = Satisfiability(CNF([
+        CNFClause([x1, x1, x1]),
+        CNFClause([nx1, nx1, nx1]),
+    ]))
+    rule_sat05 = Satisfiability(CNF([CNFClause([x1]), CNFClause([nx1])]))
+    rule_sat06 = Satisfiability(CNF([
+        CNFClause([x1, x2]),
+        CNFClause([x1, nx2]),
+        CNFClause([nx1, x2]),
+        CNFClause([nx1, nx2]),
+    ]))
+    rule_sat07 = Satisfiability(CNF([
+        CNFClause([x1, x2]),
+        CNFClause([x1, nx2]),
+        CNFClause([nx1, x2]),
+    ]))
+
+    # sat_coloring.jl
+    rule_sat_col = Satisfiability(CNF([
+        CNFClause([BoolVar(:X), BoolVar(:Y)]),
+        CNFClause([BoolVar(:X), BoolVar(:Y, true)]),
+    ]))
+
     # ── Export model fixtures ──
     println("Exporting model fixtures...")
 
     # IndependentSet (SimpleGraph)
-    write_fixture("jl_independentset.json", model_fixture("IndependentSet", [
+    write_fixture("independentset.json", model_fixture("IndependentSet", [
         export_independentset(graph, "petersen"),
+        export_independentset(doc_is_graph, "doc_4vertex"),
+        export_independentset(doc_diamond, "doc_diamond"),
     ]))
 
     # SpinGlass
-    write_fixture("jl_spinglass.json", model_fixture("SpinGlass", [
+    write_fixture("spinglass.json", model_fixture("SpinGlass", [
         export_spinglass(spinglass, graph, "petersen"),
+        export_spinglass(doc_sg, doc_sg_graph, "doc_4vertex"),
+        export_spinglass(rule_sg, rule_graph4, "rule_4vertex"),
     ]))
 
     # MaxCut
-    write_fixture("jl_maxcut.json", model_fixture("MaxCut", [
+    write_fixture("maxcut.json", model_fixture("MaxCut", [
         export_maxcut(maxcut, graph, "petersen"),
+        export_maxcut(doc_mc, doc_mc_graph, "doc_k3"),
+        export_maxcut(rule_mc, rule_graph4, "rule_4vertex"),
     ]))
 
     # QUBO
-    write_fixture("jl_qubo.json", model_fixture("QUBO", [
+    write_fixture("qubo.json", model_fixture("QUBO", [
         export_qubo(qubo, "3x3_matrix"),
+        export_qubo(doc_qubo, "doc_identity"),
+        export_qubo(rule_qubo, "rule_3x3"),
     ]))
 
     # Satisfiability
-    write_fixture("jl_satisfiability.json", model_fixture("Satisfiability", [
+    write_fixture("satisfiability.json", model_fixture("Satisfiability", [
         export_sat(sat, "simple_clause"),
+        export_sat(rule_sat_3sat, "rule_3sat_multi"),
+        export_sat(rule_sat01, "rule_sat01"),
+        export_sat(rule_sat02, "rule_sat02"),
+        export_sat(rule_sat03, "rule_sat03"),
+        export_sat(rule_sat04, "rule_sat04_unsat"),
+        export_sat(rule_sat05, "rule_sat05_unsat"),
+        export_sat(rule_sat06, "rule_sat06_unsat"),
+        export_sat(rule_sat07, "rule_sat07"),
+        export_sat(rule_sat_col, "rule_sat_coloring"),
     ]))
 
     # KSatisfiability
-    write_fixture("jl_ksatisfiability.json", model_fixture("KSatisfiability", [
+    write_fixture("ksatisfiability.json", model_fixture("KSatisfiability", [
         export_ksat(ksat, 3, "simple_3sat"),
     ]))
 
     # VertexCovering
-    write_fixture("jl_vertexcovering.json", model_fixture("VertexCovering", [
+    write_fixture("vertexcovering.json", model_fixture("VertexCovering", [
         export_vertexcovering(vertexcovering, graph, "petersen"),
+        export_vertexcovering(doc_vc, doc_vc_graph, "doc_4vertex"),
+        export_vertexcovering(rule_vc, rule_graph4, "rule_4vertex"),
     ]))
 
     # SetPacking
-    write_fixture("jl_setpacking.json", model_fixture("SetPacking", [
+    write_fixture("setpacking.json", model_fixture("SetPacking", [
         export_setpacking(setpacking, "five_sets"),
     ]))
 
     # Matching
-    write_fixture("jl_matching.json", model_fixture("Matching", [
+    write_fixture("matching.json", model_fixture("Matching", [
         export_matching(matching, graph, "petersen"),
+        export_matching(rule_match_uw, rule_graph4, "rule_4vertex"),
+        export_matching(rule_match_w, rule_graph4, "rule_4vertex_weighted"),
     ]))
 
     # Factoring
     fact1 = Factoring(1, 1, 1)
     fact2 = Factoring(2, 1, 2)
     fact3 = Factoring(2, 1, 3)
-    write_fixture("jl_factoring.json", model_fixture("Factoring", [
+    write_fixture("factoring.json", model_fixture("Factoring", [
         export_factoring(fact1, "1x1_factor_1"),
         export_factoring(fact2, "2x1_factor_2"),
         export_factoring(fact3, "2x1_factor_3"),
+        export_factoring(doc_fact, "doc_factor6"),
+    ]))
+
+    # DominatingSet (doc example)
+    write_fixture("dominatingset.json", model_fixture("DominatingSet", [
+        export_dominatingset(doc_ds, doc_ds_graph, "doc_path5"),
+    ]))
+
+    # MaximalIS (doc example)
+    write_fixture("maximalis.json", model_fixture("MaximalIS", [
+        export_maximalis(doc_mis, doc_mis_graph, "doc_4vertex"),
+    ]))
+
+    # PaintShop (doc example)
+    write_fixture("paintshop.json", model_fixture("PaintShop", [
+        export_paintshop(doc_ps, "doc_abaccb"),
+    ]))
+
+    # Coloring (doc example)
+    write_fixture("coloring.json", model_fixture("Coloring", [
+        export_coloring(doc_col, graph, 3, "doc_petersen_3color"),
+    ]))
+
+    # SetCovering (doc example)
+    write_fixture("setcovering.json", model_fixture("SetCovering", [
+        export_setcovering(doc_sc, "doc_3subsets"),
     ]))
 
     # ── Export reduction fixtures ──
     println("Exporting reduction fixtures...")
 
+    # ── Reduction pairs: rules.jl round-trip + doc examples ──
     reduction_pairs = Any[
+        (doc_is,         SetPacking,               "doc_is",         "doc_IndependentSet", "SetPacking"),
         (circuit,        SpinGlass{<:SimpleGraph}, "circuit",        "CircuitSAT",       "SpinGlass"),
         (maxcut,         SpinGlass{<:SimpleGraph}, "maxcut",         "MaxCut",            "SpinGlass"),
         (spinglass,      MaxCut,                   "spinglass",      "SpinGlass",         "MaxCut"),
@@ -362,8 +570,47 @@ function main()
         (fact1,          CircuitSAT,               "factoring",      "Factoring",         "CircuitSAT"),
     ]
 
+    # ── Reduction pairs: individual rule test instances (test/rules/*.jl) ──
+    rule_reduction_pairs = Any[
+        # spinglass_maxcut.jl
+        (rule_mc,        SpinGlass{<:SimpleGraph}, "rule_mc",        "rule_MaxCut",       "SpinGlass"),
+        (rule_sg,        MaxCut,                   "rule_sg",        "rule_SpinGlass",    "MaxCut"),
+        # spinglass_qubo.jl
+        (rule_qubo,      SpinGlass{<:SimpleGraph}, "rule_qubo",      "rule_QUBO",         "SpinGlass"),
+        # vertexcovering_setcovering.jl
+        (rule_vc,        SetCovering,              "rule_vc",        "rule_VertexCovering", "SetCovering"),
+        # independentset_setpacking.jl
+        (rule_is_g02,    SetPacking,               "rule_is_g02",    "rule_IndependentSet", "SetPacking"),
+        # vertexcovering_independentset.jl
+        (doc_is,         VertexCovering,            "rule_is_vc",    "rule2_IndependentSet", "VertexCovering"),
+        # matching_setpacking.jl (unweighted + weighted)
+        (rule_match_uw,  SetPacking,               "rule_match_uw",  "rule_Matching",     "SetPacking"),
+        (rule_match_w,   SetPacking,               "rule_match_w",   "rule_MatchingW",    "SetPacking"),
+        # sat_3sat.jl
+        (rule_sat_3sat,  KSatisfiability{3},        "rule_sat_3sat",  "rule_Satisfiability", "KSatisfiability3"),
+        # circuit_sat.jl (SAT → CircuitSAT)
+        (rule_sat01,     CircuitSAT,               "rule_sat01",     "rule_SAT01",        "CircuitSAT"),
+        (rule_sat02,     CircuitSAT,               "rule_sat02",     "rule_SAT02",        "CircuitSAT"),
+        (rule_sat03,     CircuitSAT,               "rule_sat03",     "rule_SAT03",        "CircuitSAT"),
+        # sat_coloring.jl
+        (rule_sat_col,   Coloring{3},              "rule_sat_col",   "rule_Satisfiability2", "Coloring3"),
+        # sat_independentset.jl
+        (rule_sat01,     IndependentSet{<:SimpleGraph}, "rule_sat01", "rule_SAT01",       "IndependentSet"),
+        (rule_sat02,     IndependentSet{<:SimpleGraph}, "rule_sat02", "rule_SAT02",       "IndependentSet"),
+        (rule_sat03,     IndependentSet{<:SimpleGraph}, "rule_sat03", "rule_SAT03",       "IndependentSet"),
+        (rule_sat04,     IndependentSet{<:SimpleGraph}, "rule_sat04", "rule_SAT04_unsat", "IndependentSet"),
+        (rule_sat07,     IndependentSet{<:SimpleGraph}, "rule_sat07", "rule_SAT07",       "IndependentSet"),
+        # sat_dominatingset.jl
+        (rule_sat01,     DominatingSet{<:SimpleGraph}, "rule_sat01",  "rule_SAT01",       "DominatingSet"),
+        (rule_sat02,     DominatingSet{<:SimpleGraph}, "rule_sat02",  "rule_SAT02",       "DominatingSet"),
+        (rule_sat03,     DominatingSet{<:SimpleGraph}, "rule_sat03",  "rule_SAT03",       "DominatingSet"),
+        (rule_sat04,     DominatingSet{<:SimpleGraph}, "rule_sat04",  "rule_SAT04_unsat", "DominatingSet"),
+        (rule_sat07,     DominatingSet{<:SimpleGraph}, "rule_sat07",  "rule_SAT07",       "DominatingSet"),
+    ]
+    append!(reduction_pairs, rule_reduction_pairs)
+
     for (source, target_type, source_label, src_name, tgt_name) in reduction_pairs
-        filename = "jl_$(lowercase(src_name))_to_$(lowercase(tgt_name)).json"
+        filename = "$(lowercase(src_name))_to_$(lowercase(tgt_name)).json"
         case = export_reduction(source, target_type, source_label)
         data = Dict(
             "source_type" => src_name,
