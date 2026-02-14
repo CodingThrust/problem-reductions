@@ -21,6 +21,7 @@ use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::solvers::ILPSolver;
 
+#[allow(deprecated)]
 pub fn run() {
     // 1. Create Factoring instance: find p (3-bit) x q (3-bit) = 35
     let problem = Factoring::new(3, 3, 35);

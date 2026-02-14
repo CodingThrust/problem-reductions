@@ -20,6 +20,7 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
+#[allow(deprecated)]
 pub fn run() {
     let (num_vertices, edges) = petersen();
     let maxcut = MaxCut::<SimpleGraph, i32>::unweighted(num_vertices, edges.clone());

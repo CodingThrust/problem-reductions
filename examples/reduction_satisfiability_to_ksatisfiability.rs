@@ -21,6 +21,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 
+#[allow(deprecated)]
 pub fn run() {
     // 1. Create SAT instance with varied clause sizes to demonstrate padding and splitting:
     //    - 1 literal: padded to 3

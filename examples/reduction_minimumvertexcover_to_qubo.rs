@@ -29,6 +29,7 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
+#[allow(deprecated)]
 pub fn run() {
     println!("=== Vertex Covering -> QUBO Reduction ===\n");
 

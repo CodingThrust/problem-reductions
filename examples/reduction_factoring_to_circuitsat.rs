@@ -39,6 +39,7 @@ fn simulate_circuit(
     values
 }
 
+#[allow(deprecated)]
 pub fn run() {
     // 1. Create Factoring instance: factor 35 with 3-bit factors
     //    Possible: 5*7=35 or 7*5=35

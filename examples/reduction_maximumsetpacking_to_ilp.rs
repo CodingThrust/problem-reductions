@@ -17,6 +17,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 
+#[allow(deprecated)]
 pub fn run() {
     // 1. Create MaximumSetPacking instance: 6 sets over universe {0,...,7}
     let sets = vec![

@@ -21,6 +21,7 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
+#[allow(deprecated)]
 pub fn run() {
     let (n, edges) = petersen();
     // Alternating +/-1 couplings create frustration on odd cycles

@@ -32,6 +32,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 
+#[allow(deprecated)]
 pub fn run() {
     println!("=== Set Packing -> QUBO Reduction ===\n");
 

@@ -1045,8 +1045,8 @@ fn test_resolve_path_direct_same_variant() {
 
 #[test]
 fn test_resolve_path_with_natural_cast() {
-    use std::collections::BTreeMap;
     use crate::topology::GridGraph;
+    use std::collections::BTreeMap;
     let graph = ReductionGraph::new();
 
     // MIS(GridGraph) → VC(SimpleGraph) — needs a natural cast MIS(GridGraph)→MIS(SimpleGraph)
@@ -1075,10 +1075,7 @@ fn test_resolve_path_with_natural_cast() {
     assert_eq!(resolved.num_casts(), 1);
     assert_eq!(resolved.steps.len(), 3);
     assert_eq!(resolved.steps[0].name, "MaximumIndependentSet");
-    assert_eq!(
-        resolved.steps[0].variant.get("graph").unwrap(),
-        "GridGraph"
-    );
+    assert_eq!(resolved.steps[0].variant.get("graph").unwrap(), "GridGraph");
     assert_eq!(resolved.steps[1].name, "MaximumIndependentSet");
     assert_eq!(
         resolved.steps[1].variant.get("graph").unwrap(),
@@ -1091,8 +1088,8 @@ fn test_resolve_path_with_natural_cast() {
 
 #[test]
 fn test_resolve_path_ksat_disambiguates() {
-    use std::collections::BTreeMap;
     use crate::rules::graph::EdgeKind;
+    use std::collections::BTreeMap;
     let graph = ReductionGraph::new();
 
     let name_path = graph
@@ -1103,9 +1100,7 @@ fn test_resolve_path_ksat_disambiguates() {
     let source_k3 = BTreeMap::from([("k".to_string(), "3".to_string())]);
     let target = BTreeMap::from([("weight".to_string(), "f64".to_string())]);
 
-    let resolved_k3 = graph
-        .resolve_path(&name_path, &source_k3, &target)
-        .unwrap();
+    let resolved_k3 = graph.resolve_path(&name_path, &source_k3, &target).unwrap();
     assert_eq!(resolved_k3.num_reductions(), 1);
 
     // Extract overhead from the reduction edge
@@ -1124,9 +1119,7 @@ fn test_resolve_path_ksat_disambiguates() {
 
     // Resolve with k=2
     let source_k2 = BTreeMap::from([("k".to_string(), "2".to_string())]);
-    let resolved_k2 = graph
-        .resolve_path(&name_path, &source_k2, &target)
-        .unwrap();
+    let resolved_k2 = graph.resolve_path(&name_path, &source_k2, &target).unwrap();
     let overhead_k2 = match &resolved_k2.edges.last().unwrap() {
         EdgeKind::Reduction { overhead } => overhead,
         _ => panic!("last edge should be Reduction"),

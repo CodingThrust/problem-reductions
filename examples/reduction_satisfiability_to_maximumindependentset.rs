@@ -17,6 +17,7 @@ use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 
+#[allow(deprecated)]
 pub fn run() {
     // 1. Create SAT instance: 5-variable, 7-clause 3-SAT formula
     let sat = Satisfiability::new(

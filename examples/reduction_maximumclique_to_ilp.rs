@@ -19,6 +19,7 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::octahedral;
 use problemreductions::topology::SimpleGraph;
 
+#[allow(deprecated)]
 pub fn run() {
     // 1. Create MaximumClique instance: Octahedron (K_{2,2,2}), 6 vertices, 12 edges, clique number 3
     let (num_vertices, edges) = octahedral();

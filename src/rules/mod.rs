@@ -63,8 +63,8 @@ pub use circuit_spinglass::{
 pub use coloring_qubo::ReductionKColoringToQUBO;
 pub use factoring_circuit::ReductionFactoringToCircuit;
 pub use graph::{
-    EdgeJson, EdgeKind, NodeJson, ReductionEdge, ReductionGraph, ReductionGraphJson,
-    ReductionPath, ReductionStep, ResolvedPath,
+    EdgeJson, EdgeKind, NodeJson, ReductionEdge, ReductionGraph, ReductionGraphJson, ReductionPath,
+    ReductionStep, ResolvedPath,
 };
 pub use ksatisfiability_qubo::{Reduction3SATToQUBO, ReductionKSatToQUBO};
 pub use maximumindependentset_gridgraph::{ReductionISSimpleToGrid, ReductionISUnitDiskToGrid};

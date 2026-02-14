@@ -38,6 +38,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 
+#[allow(deprecated)]
 pub fn run() {
     println!("=== ILP (Binary) -> QUBO Reduction ===\n");
 

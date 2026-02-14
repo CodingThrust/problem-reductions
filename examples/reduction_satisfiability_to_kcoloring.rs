@@ -19,6 +19,7 @@ use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 
+#[allow(deprecated)]
 pub fn run() {
     // 1. Create SAT instance: 5-variable, 3-clause formula with unit clauses
     //    The SAT→KColoring reduction creates OR-gadgets that add 5 vertices per literal

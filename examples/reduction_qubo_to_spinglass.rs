@@ -21,6 +21,7 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
+#[allow(deprecated)]
 pub fn run() {
     let (n, edges) = petersen();
     let mut matrix = vec![vec![0.0; n]; n];

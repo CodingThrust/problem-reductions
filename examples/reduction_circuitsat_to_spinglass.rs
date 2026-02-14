@@ -21,6 +21,7 @@ use problemreductions::models::specialized::{Assignment, BooleanExpr, Circuit};
 use problemreductions::prelude::*;
 use problemreductions::topology::{Graph, SimpleGraph};
 
+#[allow(deprecated)]
 pub fn run() {
     // 1. Create CircuitSAT instance: 1-bit full adder
     //    sum = a XOR b XOR cin, cout = (a AND b) OR (cin AND (a XOR b))

@@ -20,6 +20,7 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
+#[allow(deprecated)]
 pub fn run() {
     let (n, edges) = petersen();
     let couplings: Vec<((usize, usize), i32)> = edges

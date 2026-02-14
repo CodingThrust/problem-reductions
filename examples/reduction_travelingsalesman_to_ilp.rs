@@ -19,6 +19,7 @@ use problemreductions::prelude::*;
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::SimpleGraph;
 
+#[allow(deprecated)]
 pub fn run() {
     // 1. Create TSP instance: K4 with weights
     let problem = TravelingSalesman::<SimpleGraph, i32>::new(

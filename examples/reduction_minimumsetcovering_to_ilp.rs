@@ -17,6 +17,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 
+#[allow(deprecated)]
 pub fn run() {
     // 1. Create MinimumSetCovering instance: universe {0,...,7}, 6 sets
     let sets = vec![

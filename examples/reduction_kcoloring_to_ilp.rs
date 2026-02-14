@@ -21,6 +21,7 @@ use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
+#[allow(deprecated)]
 pub fn run() {
     // 1. Create KColoring instance: Petersen graph (10 vertices, 15 edges) with 3 colors, χ=3
     let (num_vertices, edges) = petersen();
