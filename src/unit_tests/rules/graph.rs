@@ -814,6 +814,24 @@ fn test_natural_edge_graph_relaxation() {
 }
 
 #[test]
+fn test_natural_edge_triangular_to_simplegraph() {
+    let graph = ReductionGraph::new();
+    let json = graph.to_json();
+
+    // MIS/Triangular -> MIS/SimpleGraph should exist (Triangular is a subtype of SimpleGraph)
+    let has_edge = json.edges.iter().any(|e| {
+        json.source_node(e).name == "MaximumIndependentSet"
+            && json.target_node(e).name == "MaximumIndependentSet"
+            && json.source_node(e).variant.get("graph") == Some(&"Triangular".to_string())
+            && json.target_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
+    });
+    assert!(
+        has_edge,
+        "Natural edge MIS/Triangular -> MIS/SimpleGraph should exist"
+    );
+}
+
+#[test]
 fn test_natural_edge_gridgraph_to_unitdisk() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
