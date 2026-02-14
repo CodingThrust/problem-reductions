@@ -5,7 +5,7 @@
 //! - `<name>.json` — reduction structure (source, target, overhead)
 //! - `<name>.result.json` — runtime solutions
 //!
-//! The schema mirrors the internal types: `ReductionOverhead` for polynomials,
+//! The schema mirrors the internal types: `ReductionOverhead` for overhead expressions,
 //! `Problem::variant()` for problem variants, and `Problem::NAME` for problem names.
 
 use crate::rules::registry::ReductionOverhead;

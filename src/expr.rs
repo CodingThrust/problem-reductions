@@ -4,6 +4,7 @@
 //! Supports arithmetic, exponentiation, and built-in math functions.
 
 use crate::types::ProblemSize;
+use std::collections::HashSet;
 use std::fmt;
 
 /// A symbolic expression over named variables.
@@ -92,6 +93,62 @@ impl Expr {
             op,
             lhs: Box::new(lhs),
             rhs: Box::new(rhs),
+        }
+    }
+}
+
+// ── Analysis & Transformation ──
+
+impl Expr {
+    /// Collect all variable names referenced in this expression.
+    pub fn variable_names(&self) -> HashSet<&str> {
+        let mut names = HashSet::new();
+        self.collect_variable_names(&mut names);
+        names
+    }
+
+    fn collect_variable_names<'a>(&'a self, names: &mut HashSet<&'a str>) {
+        match self {
+            Expr::Num(_) => {}
+            Expr::Var(name) => {
+                names.insert(name);
+            }
+            Expr::Neg(inner) => inner.collect_variable_names(names),
+            Expr::BinOp { lhs, rhs, .. } => {
+                lhs.collect_variable_names(names);
+                rhs.collect_variable_names(names);
+            }
+            Expr::Call { args, .. } => {
+                for arg in args {
+                    arg.collect_variable_names(names);
+                }
+            }
+        }
+    }
+
+    /// Substitute variables in this expression using a mapping.
+    /// Variables found in the mapping are replaced by clones of the mapped expression;
+    /// variables not in the mapping are left unchanged.
+    pub fn substitute(&self, mapping: &std::collections::HashMap<&str, &Expr>) -> Expr {
+        match self {
+            Expr::Num(v) => Expr::Num(*v),
+            Expr::Var(name) => {
+                if let Some(replacement) = mapping.get(name.as_ref()) {
+                    (*replacement).clone()
+                } else {
+                    Expr::Var(name.clone())
+                }
+            }
+            Expr::Neg(inner) => Expr::Neg(Box::new(inner.substitute(mapping))),
+            Expr::BinOp { op, lhs, rhs } => Expr::BinOp {
+                op: *op,
+                lhs: Box::new(lhs.substitute(mapping)),
+                rhs: Box::new(rhs.substitute(mapping)),
+            },
+            Expr::Call { func, args } => Expr::Call {
+                func: *func,
+                args: args.iter().map(|a| a.substitute(mapping)).collect(),
+            },
         }
     }
 }

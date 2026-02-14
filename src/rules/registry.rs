@@ -1,7 +1,6 @@
 //! Automatic reduction registration via inventory.
 
 use crate::expr::{EvalError, Expr, Func};
-use crate::polynomial::Polynomial;
 use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
 use std::any::Any;
@@ -34,7 +33,14 @@ impl ReductionOverhead {
     /// Used by variant cast reductions where problem size doesn't change.
     pub fn identity(fields: &[&'static str]) -> Self {
         Self {
-            output_size: fields.iter().map(|&f| (f, Polynomial::var(f))).collect(),
+            output_size: fields
+                .iter()
+                .map(|&f| {
+                    let expr = Expr::parse(f)
+                        .unwrap_or_else(|e| panic!("invalid identity field name '{f}': {e}"));
+                    (f, expr)
+                })
+                .collect(),
         }
     }
 
@@ -60,32 +66,32 @@ impl ReductionOverhead {
         Ok(ProblemSize::new(fields))
     }
 
-    /// Collect all input variable names referenced by the overhead polynomials.
+    /// Collect all input variable names referenced by the overhead expressions.
     pub fn input_variable_names(&self) -> HashSet<&'static str> {
         self.output_size
             .iter()
-            .flat_map(|(_, poly)| poly.variable_names())
+            .flat_map(|(_, expr)| expr.variable_names())
             .collect()
     }
 
     /// Compose two overheads: substitute self's output into `next`'s input.
     ///
-    /// Returns a new overhead whose polynomials map from self's input variables
+    /// Returns a new overhead whose expressions map from self's input variables
     /// directly to `next`'s output variables.
     pub fn compose(&self, next: &ReductionOverhead) -> ReductionOverhead {
         use std::collections::HashMap;
 
-        // Build substitution map: output field name → output polynomial
-        let mapping: HashMap<&str, &Polynomial> = self
+        // Build substitution map: output field name → output expression
+        let mapping: HashMap<&str, &Expr> = self
             .output_size
             .iter()
-            .map(|(name, poly)| (*name, poly))
+            .map(|(name, expr)| (*name, expr))
             .collect();
 
         let composed = next
             .output_size
             .iter()
-            .map(|(name, poly)| (*name, poly.substitute(&mapping)))
+            .map(|(name, expr)| (*name, expr.substitute(&mapping)))
             .collect();
 
         ReductionOverhead {
@@ -93,12 +99,12 @@ impl ReductionOverhead {
         }
     }
 
-    /// Get the polynomial for a named output field.
-    pub fn get(&self, name: &str) -> Option<&Polynomial> {
+    /// Get the expression for a named output field.
+    pub fn get(&self, name: &str) -> Option<&Expr> {
         self.output_size
             .iter()
             .find(|(n, _)| *n == name)
-            .map(|(_, p)| p)
+            .map(|(_, e)| e)
     }
 }
 
