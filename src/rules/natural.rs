@@ -14,6 +14,6 @@ use crate::topology::{SimpleGraph, Triangular};
 
 impl_natural_reduction!(MaximumIndependentSet, Triangular, SimpleGraph, i32);
 
-#[cfg(test)]
+#[cfg(all(test, feature = "ilp"))]
 #[path = "../unit_tests/rules/natural.rs"]
 mod tests;
