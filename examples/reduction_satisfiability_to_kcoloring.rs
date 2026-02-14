@@ -117,9 +117,13 @@ pub fn run() {
     // 5. Export JSON
     let source_variant = variant_to_map(Satisfiability::variant());
     let target_variant = variant_to_map(KColoring::<K3, SimpleGraph>::variant());
-    let overhead =
-        lookup_overhead("Satisfiability", &source_variant, "KColoring", &target_variant)
-            .expect("Satisfiability -> KColoring overhead not found");
+    let overhead = lookup_overhead(
+        "Satisfiability",
+        &source_variant,
+        "KColoring",
+        &target_variant,
+    )
+    .expect("Satisfiability -> KColoring overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

@@ -99,9 +99,13 @@ pub fn run() {
     // Export JSON
     let source_variant = variant_to_map(MaximumSetPacking::<i32>::variant());
     let target_variant = variant_to_map(QUBO::<f64>::variant());
-    let overhead =
-        lookup_overhead("MaximumSetPacking", &source_variant, "QUBO", &target_variant)
-            .expect("MaximumSetPacking -> QUBO overhead not found");
+    let overhead = lookup_overhead(
+        "MaximumSetPacking",
+        &source_variant,
+        "QUBO",
+        &target_variant,
+    )
+    .expect("MaximumSetPacking -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

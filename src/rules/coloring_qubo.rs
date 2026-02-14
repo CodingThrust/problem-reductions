@@ -15,7 +15,7 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
-use crate::variant::{K2, K3, KN, KValue};
+use crate::variant::{KValue, K2, K3, KN};
 
 /// Result of reducing KColoring to QUBO.
 #[derive(Debug, Clone)]
@@ -47,7 +47,9 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
 }
 
 /// Helper function implementing the KColoring to QUBO reduction logic.
-fn reduce_kcoloring_to_qubo<K: KValue>(problem: &KColoring<K, SimpleGraph>) -> ReductionKColoringToQUBO<K> {
+fn reduce_kcoloring_to_qubo<K: KValue>(
+    problem: &KColoring<K, SimpleGraph>,
+) -> ReductionKColoringToQUBO<K> {
     let k = K::K.expect("KN cannot be used as problem instance");
     let n = problem.num_vertices();
     let edges = problem.edges();

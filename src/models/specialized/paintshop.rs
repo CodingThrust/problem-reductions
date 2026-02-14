@@ -174,7 +174,7 @@ impl Problem for PaintShop {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![]
+        crate::variant_params![]
     }
 }
 

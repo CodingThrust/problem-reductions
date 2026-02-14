@@ -21,8 +21,8 @@ pub struct ReductionMatchingToSP<G, W> {
 
 impl<G, W> ReductionResult for ReductionMatchingToSP<G, W>
 where
-    G: Graph,
-    W: WeightElement,
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
 {
     type Source = MaximumMatching<G, W>;
     type Target = MaximumSetPacking<W>;

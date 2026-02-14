@@ -91,9 +91,13 @@ pub fn run() {
     // Export JSON
     let source_variant = variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant());
     let target_variant = variant_to_map(QUBO::<f64>::variant());
-    let overhead =
-        lookup_overhead("MinimumVertexCover", &source_variant, "QUBO", &target_variant)
-            .expect("MinimumVertexCover -> QUBO overhead not found");
+    let overhead = lookup_overhead(
+        "MinimumVertexCover",
+        &source_variant,
+        "QUBO",
+        &target_variant,
+    )
+    .expect("MinimumVertexCover -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

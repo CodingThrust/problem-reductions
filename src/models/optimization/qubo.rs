@@ -146,6 +146,7 @@ where
 impl<W> Problem for QUBO<W>
 where
     W: WeightElement
+        + crate::variant::VariantParam
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
@@ -165,13 +166,14 @@ where
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("weight", crate::variant::short_type_name::<W>())]
+        crate::variant_params![W]
     }
 }
 
 impl<W> OptimizationProblem for QUBO<W>
 where
     W: WeightElement
+        + crate::variant::VariantParam
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero

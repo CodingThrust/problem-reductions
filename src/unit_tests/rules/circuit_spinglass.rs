@@ -8,6 +8,7 @@ use num_traits::Num;
 fn verify_gadget_truth_table<W>(gadget: &LogicGadget<W>, expected: &[(Vec<usize>, Vec<usize>)])
 where
     W: WeightElement
+        + crate::variant::VariantParam
         + PartialOrd
         + Num
         + Zero

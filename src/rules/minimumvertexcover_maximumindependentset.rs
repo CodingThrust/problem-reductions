@@ -18,7 +18,7 @@ pub struct ReductionISToVC<W> {
 
 impl<W> ReductionResult for ReductionISToVC<W>
 where
-    W: WeightElement,
+    W: WeightElement + crate::variant::VariantParam,
 {
     type Source = MaximumIndependentSet<SimpleGraph, W>;
     type Target = MinimumVertexCover<SimpleGraph, W>;
@@ -63,7 +63,7 @@ pub struct ReductionVCToIS<W> {
 
 impl<W> ReductionResult for ReductionVCToIS<W>
 where
-    W: WeightElement,
+    W: WeightElement + crate::variant::VariantParam,
 {
     type Source = MinimumVertexCover<SimpleGraph, W>;
     type Target = MaximumIndependentSet<SimpleGraph, W>;

@@ -62,9 +62,8 @@ pub fn run() {
     let edges: Vec<(usize, usize, i32)> = maxcut.edges();
     let source_variant = variant_to_map(MaxCut::<SimpleGraph, i32>::variant());
     let target_variant = variant_to_map(SpinGlass::<SimpleGraph, i32>::variant());
-    let overhead =
-        lookup_overhead("MaxCut", &source_variant, "SpinGlass", &target_variant)
-            .expect("MaxCut -> SpinGlass overhead not found");
+    let overhead = lookup_overhead("MaxCut", &source_variant, "SpinGlass", &target_variant)
+        .expect("MaxCut -> SpinGlass overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

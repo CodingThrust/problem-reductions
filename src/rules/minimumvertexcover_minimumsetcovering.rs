@@ -20,7 +20,7 @@ pub struct ReductionVCToSC<W> {
 
 impl<W> ReductionResult for ReductionVCToSC<W>
 where
-    W: WeightElement,
+    W: WeightElement + crate::variant::VariantParam,
 {
     type Source = MinimumVertexCover<SimpleGraph, W>;
     type Target = MinimumSetCovering<W>;

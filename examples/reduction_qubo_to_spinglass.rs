@@ -69,9 +69,8 @@ pub fn run() {
     // Export JSON
     let source_variant = variant_to_map(QUBO::<f64>::variant());
     let target_variant = variant_to_map(SpinGlass::<SimpleGraph, f64>::variant());
-    let overhead =
-        lookup_overhead("QUBO", &source_variant, "SpinGlass", &target_variant)
-            .expect("QUBO -> SpinGlass overhead not found");
+    let overhead = lookup_overhead("QUBO", &source_variant, "SpinGlass", &target_variant)
+        .expect("QUBO -> SpinGlass overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

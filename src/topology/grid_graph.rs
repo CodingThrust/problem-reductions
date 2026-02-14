@@ -313,6 +313,19 @@ impl<W: Clone + fmt::Display> fmt::Display for GridGraph<W> {
     }
 }
 
+impl crate::variant::VariantParam for GridGraph<i32> {
+    const CATEGORY: &'static str = "graph";
+    const VALUE: &'static str = "GridGraph";
+    const PARENT_VALUE: Option<&'static str> = Some("UnitDiskGraph");
+}
+inventory::submit! {
+    crate::variant::VariantTypeEntry {
+        category: "graph",
+        value: "GridGraph",
+        parent: Some("UnitDiskGraph"),
+    }
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/topology/grid_graph.rs"]
 mod tests;

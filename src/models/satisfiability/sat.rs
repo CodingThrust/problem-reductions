@@ -182,7 +182,7 @@ impl Problem for Satisfiability {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![]
+        crate::variant_params![]
     }
 }
 

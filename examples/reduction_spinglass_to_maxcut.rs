@@ -66,9 +66,8 @@ pub fn run() {
     // Export JSON
     let source_variant = variant_to_map(SpinGlass::<SimpleGraph, i32>::variant());
     let target_variant = variant_to_map(MaxCut::<SimpleGraph, i32>::variant());
-    let overhead =
-        lookup_overhead("SpinGlass", &source_variant, "MaxCut", &target_variant)
-            .expect("SpinGlass -> MaxCut overhead not found");
+    let overhead = lookup_overhead("SpinGlass", &source_variant, "MaxCut", &target_variant)
+        .expect("SpinGlass -> MaxCut overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

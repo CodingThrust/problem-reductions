@@ -119,9 +119,8 @@ pub fn run() {
     // Export JSON
     let source_variant = variant_to_map(KSatisfiability::<K3>::variant());
     let target_variant = variant_to_map(QUBO::<f64>::variant());
-    let overhead =
-        lookup_overhead("KSatisfiability", &source_variant, "QUBO", &target_variant)
-            .expect("KSatisfiability -> QUBO overhead not found");
+    let overhead = lookup_overhead("KSatisfiability", &source_variant, "QUBO", &target_variant)
+        .expect("KSatisfiability -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

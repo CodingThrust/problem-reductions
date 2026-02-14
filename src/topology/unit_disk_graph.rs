@@ -228,8 +228,8 @@ impl Graph for UnitDiskGraph {
     }
 }
 
-use crate::impl_variant_param;
 use super::graph::SimpleGraph;
+use crate::impl_variant_param;
 impl_variant_param!(UnitDiskGraph, "graph", parent: SimpleGraph,
     cast: |g| SimpleGraph::new(g.num_vertices(), Graph::edges(g)));
 

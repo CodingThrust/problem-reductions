@@ -165,17 +165,14 @@ impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
 
 impl<G, W> Problem for TravelingSalesman<G, W>
 where
-    G: Graph,
-    W: WeightElement,
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "TravelingSalesman";
     type Metric = SolutionSize<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", G::NAME),
-            ("weight", crate::variant::short_type_name::<W>()),
-        ]
+        crate::variant_params![G, W]
     }
 
     fn dims(&self) -> Vec<usize> {
@@ -200,8 +197,8 @@ where
 
 impl<G, W> OptimizationProblem for TravelingSalesman<G, W>
 where
-    G: Graph,
-    W: WeightElement,
+    G: Graph + crate::variant::VariantParam,
+    W: WeightElement + crate::variant::VariantParam,
 {
     type Value = W::Sum;
 

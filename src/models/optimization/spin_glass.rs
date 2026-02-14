@@ -197,8 +197,9 @@ where
 
 impl<G, W> Problem for SpinGlass<G, W>
 where
-    G: Graph,
+    G: Graph + crate::variant::VariantParam,
     W: WeightElement
+        + crate::variant::VariantParam
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
@@ -220,17 +221,15 @@ where
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("graph", G::NAME),
-            ("weight", crate::variant::short_type_name::<W>()),
-        ]
+        crate::variant_params![G, W]
     }
 }
 
 impl<G, W> OptimizationProblem for SpinGlass<G, W>
 where
-    G: Graph,
+    G: Graph + crate::variant::VariantParam,
     W: WeightElement
+        + crate::variant::VariantParam
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero

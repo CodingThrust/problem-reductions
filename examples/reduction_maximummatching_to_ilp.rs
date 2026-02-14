@@ -72,9 +72,8 @@ pub fn run() {
 
     let source_variant = variant_to_map(MaximumMatching::<SimpleGraph, i32>::variant());
     let target_variant = variant_to_map(ILP::variant());
-    let overhead =
-        lookup_overhead("MaximumMatching", &source_variant, "ILP", &target_variant)
-            .unwrap_or_default();
+    let overhead = lookup_overhead("MaximumMatching", &source_variant, "ILP", &target_variant)
+        .unwrap_or_default();
 
     let data = ReductionData {
         source: ProblemSide {

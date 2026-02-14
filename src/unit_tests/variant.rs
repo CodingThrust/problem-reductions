@@ -286,7 +286,9 @@ fn test_kvalue_variant_entries() {
     let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
         .filter(|e| e.category == "k")
         .collect();
-    assert!(entries.iter().any(|e| e.value == "KN" && e.parent.is_none()));
+    assert!(entries
+        .iter()
+        .any(|e| e.value == "KN" && e.parent.is_none()));
     assert!(entries
         .iter()
         .any(|e| e.value == "K4" && e.parent == Some("KN")));
@@ -303,8 +305,8 @@ fn test_kvalue_variant_entries() {
 
 // --- Graph type VariantParam tests ---
 
-use crate::topology::{Graph, SimpleGraph, UnitDiskGraph};
 use crate::topology::HyperGraph;
+use crate::topology::{Graph, SimpleGraph, UnitDiskGraph};
 
 #[test]
 fn test_simple_graph_variant_param() {
@@ -332,9 +334,15 @@ fn test_graph_variant_entries() {
     let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
         .filter(|e| e.category == "graph")
         .collect();
-    assert!(entries.iter().any(|e| e.value == "HyperGraph" && e.parent.is_none()));
-    assert!(entries.iter().any(|e| e.value == "SimpleGraph" && e.parent == Some("HyperGraph")));
-    assert!(entries.iter().any(|e| e.value == "UnitDiskGraph" && e.parent == Some("SimpleGraph")));
+    assert!(entries
+        .iter()
+        .any(|e| e.value == "HyperGraph" && e.parent.is_none()));
+    assert!(entries
+        .iter()
+        .any(|e| e.value == "SimpleGraph" && e.parent == Some("HyperGraph")));
+    assert!(entries
+        .iter()
+        .any(|e| e.value == "UnitDiskGraph" && e.parent == Some("SimpleGraph")));
 }
 
 #[test]
@@ -394,7 +402,13 @@ fn test_weight_variant_entries() {
     let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
         .filter(|e| e.category == "weight")
         .collect();
-    assert!(entries.iter().any(|e| e.value == "f64" && e.parent.is_none()));
-    assert!(entries.iter().any(|e| e.value == "i32" && e.parent == Some("f64")));
-    assert!(entries.iter().any(|e| e.value == "One" && e.parent == Some("i32")));
+    assert!(entries
+        .iter()
+        .any(|e| e.value == "f64" && e.parent.is_none()));
+    assert!(entries
+        .iter()
+        .any(|e| e.value == "i32" && e.parent == Some("f64")));
+    assert!(entries
+        .iter()
+        .any(|e| e.value == "One" && e.parent == Some("i32")));
 }

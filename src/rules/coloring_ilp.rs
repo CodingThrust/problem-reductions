@@ -14,7 +14,7 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::variant::{K1, K2, K3, K4, KN, KValue};
+use crate::variant::{KValue, K1, K2, K3, K4, KN};
 
 /// Result of reducing KColoring to ILP.
 ///
@@ -68,7 +68,9 @@ where
 }
 
 /// Helper function implementing the KColoring to ILP reduction logic.
-fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(problem: &KColoring<K, G>) -> ReductionKColoringToILP<K, G> {
+fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
+    problem: &KColoring<K, G>,
+) -> ReductionKColoringToILP<K, G> {
     let k = K::K.expect("KN cannot be used as problem instance");
     let num_vertices = problem.num_vertices();
     let num_vars = num_vertices * k;

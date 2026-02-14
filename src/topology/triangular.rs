@@ -32,6 +32,19 @@ impl Triangular {
     }
 }
 
+impl crate::variant::VariantParam for Triangular {
+    const CATEGORY: &'static str = "graph";
+    const VALUE: &'static str = "Triangular";
+    const PARENT_VALUE: Option<&'static str> = Some("UnitDiskGraph");
+}
+inventory::submit! {
+    crate::variant::VariantTypeEntry {
+        category: "graph",
+        value: "Triangular",
+        parent: Some("UnitDiskGraph"),
+    }
+}
+
 impl Graph for Triangular {
     const NAME: &'static str = "Triangular";
 
