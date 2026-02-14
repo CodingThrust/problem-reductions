@@ -256,6 +256,61 @@ document.addEventListener('DOMContentLoaded', function() {
       // Start collapsed — hide all child variant nodes
       cy.nodes('[?isVariant]').style('display', 'none');
 
+      var expandedParents = {};  // parentId → true/false
+
+      function toggleExpand(parentNode) {
+        var parentId = parentNode.id();
+        var isExpanded = expandedParents[parentId];
+        var children = parentNode.children();
+        var name = parentNode.data('label');
+
+        if (isExpanded) {
+          // Collapse: hide children, show collapsed edges, hide variant edges
+          children.style('display', 'none');
+          cy.edges('[edgeLevel="collapsed"]').forEach(function(e) {
+            var srcName = e.source().data('label') || e.source().data('problemName');
+            var dstName = e.target().data('label') || e.target().data('problemName');
+            if (srcName === name || dstName === name) {
+              e.style('display', 'element');
+            }
+          });
+          cy.edges('[edgeLevel="variant"]').forEach(function(e) {
+            var srcParent = e.source().data('parent');
+            var dstParent = e.target().data('parent');
+            if (srcParent === parentId || dstParent === parentId) {
+              e.style('display', 'none');
+            }
+          });
+          expandedParents[parentId] = false;
+        } else {
+          // Expand: show children, hide collapsed edges, show variant edges
+          children.style('display', 'element');
+          cy.edges('[edgeLevel="collapsed"]').forEach(function(e) {
+            // Hide collapsed edges connected to this parent
+            if (e.source().id() === parentId || e.target().id() === parentId) {
+              e.style('display', 'none');
+            }
+          });
+          cy.edges('[edgeLevel="variant"]').forEach(function(e) {
+            var srcParent = e.source().data('parent');
+            var dstParent = e.target().data('parent');
+            if (srcParent === parentId || dstParent === parentId) {
+              e.style('display', 'element');
+            }
+          });
+          expandedParents[parentId] = true;
+        }
+
+        // Re-layout with animation
+        cy.layout({
+          name: 'elk',
+          elk: { algorithm: 'stress', 'stress.desiredEdgeLength': 200 },
+          animate: true,
+          animationDuration: 300,
+          padding: 40
+        }).run();
+      }
+
       // Tooltip for nodes
       var tooltip = document.getElementById('cy-tooltip');
       cy.on('mouseover', 'node', function(evt) {
@@ -327,7 +382,10 @@ document.addEventListener('DOMContentLoaded', function() {
 
       cy.on('tap', 'node', function(evt) {
         var node = evt.target;
-        if (node.data('isParent')) return; // skip — will be handled in Task 4
+        if (node.data('isParent')) {
+          toggleExpand(node);
+          return;
+        }
         if (!selectedNode) {
           selectedNode = node;
           node.addClass('selected-node');
