@@ -203,6 +203,72 @@ MIS (SimpleGraph, i32)
 
 Both steps are identity reductions with zero overhead — no new variables or constraints are introduced. The variant system generates these edges automatically from the declared hierarchies.
 
+### Variant-Aware Path Resolution
+
+The `ReductionGraph` performs path-finding at the **name level** — nodes are `"MaximumIndependentSet"`, not `"MaximumIndependentSet<GridGraph, i32>"`. This keeps path discovery fast (one node per problem name), but it means a `ReductionPath` like `["KSatisfiability", "QUBO"]` carries no variant information. Two issues follow:
+
+1. **Overhead ambiguity.** `KSatisfiability<2> → QUBO` and `KSatisfiability<3> → QUBO` have different overheads (k=3 introduces auxiliary variables via Rosenberg quadratization), but a name-level path can't distinguish them.
+
+2. **Natural edge execution.** The path `MIS(GridGraph) → VC(SimpleGraph)` needs an implicit graph-relaxation step, but the name-level path only says `["MaximumIndependentSet", "MinimumVertexCover"]`.
+
+The solution is **two-phase resolution**: name-level discovery followed by variant-level resolution.
+
+#### `resolve_path`
+
+```rust
+pub fn resolve_path(
+    &self,
+    path: &ReductionPath,                       // name-level plan
+    source_variant: &BTreeMap<String, String>,   // caller's concrete variant
+    target_variant: &BTreeMap<String, String>,   // desired target variant
+) -> Option<ResolvedPath>
+```
+
+The resolver walks the name-level path, threading variant state through each step:
+
+1. **Find candidates** — all `ReductionEntry` items matching `(src_name, dst_name)`.
+2. **Filter compatible** — keep entries where the current variant is equal-or-more-specific than the entry's source variant on every axis.
+3. **Pick most specific** — among compatible entries, choose the tightest fit.
+4. **Insert natural cast** — if the current variant is more specific than the chosen entry's source, emit a `NaturalCast` edge.
+5. **Advance** — update current variant to the entry's target variant, emit a `Reduction` edge with the correct overhead.
+
+The result is a `ResolvedPath`:
+
+```rust
+pub struct ResolvedPath {
+    pub steps: Vec<ReductionStep>,  // (name, variant) at each node
+    pub edges: Vec<EdgeKind>,       // Reduction{overhead} | NaturalCast
+}
+```
+
+#### Example: MIS on GridGraph to MinimumVertexCover
+
+Resolving `MIS(GridGraph, i32) → VC(SimpleGraph, i32)` through name-path `["MIS", "VC"]`:
+
+```
+steps:  MIS{GridGraph,i32}  →  MIS{SimpleGraph,i32}  →  VC{SimpleGraph,i32}
+edges:       NaturalCast              Reduction{overhead}
+```
+
+The resolver finds that the `MIS → VC` reduction expects `SimpleGraph`, so it inserts a `NaturalCast` to relax `GridGraph` to `SimpleGraph` first.
+
+#### Example: KSat Disambiguation
+
+Resolving `KSat(k=3) → QUBO` through name-path `["KSatisfiability", "QUBO"]`:
+
+- Candidates: `KSat<2> → QUBO` (overhead: `num_vars`) and `KSat<3> → QUBO` (overhead: `num_vars + num_clauses`).
+- Filter with `k=3`: only `KSat<3>` is compatible (`3` is not a subtype of `2`).
+- Result: the k=3-specific overhead is returned.
+
+#### Execution Model
+
+`ResolvedPath` is a **plan**, not an executor. Callers dispatch each step themselves:
+
+- `EdgeKind::Reduction` → call `ReduceTo::reduce_to()`
+- `EdgeKind::NaturalCast` → call `GraphCast::cast_graph()` or equivalent weight cast
+
+This avoids type-erasure complexity while giving callers precise variant and overhead information at each step.
+
 ## Rules
 
 A reduction requires two pieces:
