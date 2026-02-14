@@ -77,7 +77,7 @@ pub struct EdgeJson {
     pub source: usize,
     /// Index into the `nodes` array for the target problem variant.
     pub target: usize,
-    /// Reduction overhead: output size as polynomials of input size.
+    /// Reduction overhead: output size as expressions of input size.
     pub overhead: Vec<OverheadFieldJson>,
     /// Relative rustdoc path for the reduction module.
     pub doc_path: String,
