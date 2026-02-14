@@ -462,6 +462,33 @@ document.addEventListener('DOMContentLoaded', function() {
           activeVariantFilter = null;
         }
       });
+
+      // Search bar handler
+      var searchInput = document.getElementById('search-input');
+      if (searchInput) {
+        searchInput.addEventListener('input', function() {
+          var query = this.value.trim().toLowerCase();
+          if (query === '') {
+            cy.elements().removeClass('faded');
+            return;
+          }
+          cy.nodes().forEach(function(node) {
+            var label = (node.data('label') || '').toLowerCase();
+            var fullLabel = (node.data('fullLabel') || '').toLowerCase();
+            if (label.includes(query) || fullLabel.includes(query)) {
+              node.removeClass('faded');
+            } else {
+              node.addClass('faded');
+            }
+          });
+          cy.edges().addClass('faded');
+          cy.nodes().not('.faded').connectedEdges().forEach(function(edge) {
+            if (!edge.source().hasClass('faded') && !edge.target().hasClass('faded')) {
+              edge.removeClass('faded');
+            }
+          });
+        });
+      }
     })
     .catch(function(err) {
       document.getElementById('cy').innerHTML = '<p style="padding:1em;color:#c00;">Failed to load reduction graph: ' + err.message + '</p>';

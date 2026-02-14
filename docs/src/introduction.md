@@ -7,6 +7,18 @@
 <script src="https://unpkg.com/elkjs@0.9.3/lib/elk.bundled.js"></script>
 <script src="https://unpkg.com/cytoscape-elk@2.2.0/cytoscape-elk.js"></script>
 
+<div id="cy-search" style="margin-bottom: 8px;">
+  <input id="search-input" type="text" placeholder="Search problems..." style="
+    padding: 4px 10px;
+    font-size: 13px;
+    font-family: sans-serif;
+    border: 1px solid var(--sidebar-bg);
+    border-radius: 4px;
+    background: var(--bg);
+    color: var(--fg);
+    width: 200px;
+  ">
+</div>
 <div id="cy"></div>
 <div id="cy-controls">
   <div id="legend">
