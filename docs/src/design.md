@@ -129,6 +129,19 @@ declare_graph_subtype!(UnitDiskGraph => SimpleGraph);
 
 The runtime builds a transitive closure: `GridGraph` is a subtype of `UnitDiskGraph`, `SimpleGraph`, and `HyperGraph`.
 
+**Example: natural edge for Triangular MIS.** Suppose we have a `MaximumIndependentSet<Triangular, i32>` instance — an independent set problem on a triangular lattice. Because `Triangular` is a subtype of `SimpleGraph` in the graph hierarchy, the reduction graph contains a natural edge:
+
+```
+MIS<Triangular, i32>  →  MIS<SimpleGraph, i32>
+```
+
+This edge has identity overhead (the problem size is unchanged) and requires no code — the triangular lattice graph *is* a simple graph, so any MIS algorithm for general graphs applies directly. Combined with the explicit reduction `MIS<SimpleGraph, i32> → MIS<GridGraph, i32>` (unit disk mapping), the system can automatically chain:
+
+```
+MIS<Triangular, i32>  →  MIS<SimpleGraph, i32>  →  MIS<GridGraph, i32>
+     (natural edge)           (explicit reduction)
+```
+
 ### Weight Hierarchy
 
 Weight types form a linear promotion chain:
