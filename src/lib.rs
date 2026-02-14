@@ -130,3 +130,6 @@ mod test_trait_consistency;
 #[cfg(test)]
 #[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
 mod test_unitdiskmapping_algorithms;
+#[cfg(test)]
+#[path = "unit_tests/jl_parity.rs"]
+mod test_jl_parity;
