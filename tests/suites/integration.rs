@@ -48,7 +48,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_coloring_solvable() {
-        let problem = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1), (1, 2)]);
         let solver = BruteForce::new();
         // KColoring returns bool, so we can use find_all_satisfying
         let satisfying = solver.find_all_satisfying(&problem);

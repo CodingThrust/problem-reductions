@@ -1,11 +1,12 @@
 use super::*;
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::traits::Problem;
+use crate::variant::{K1, K2, K3, K4};
 
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Triangle graph with 3 colors
-    let problem = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -36,7 +37,7 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_reduction_path_graph() {
     // Path graph 0-1-2 with 2 colors (2-colorable)
-    let problem = KColoring::<2, SimpleGraph>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = KColoring::<K2, SimpleGraph>::new(3, vec![(0, 1), (1, 2)]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -50,7 +51,7 @@ fn test_reduction_path_graph() {
 #[test]
 fn test_ilp_solution_equals_brute_force_triangle() {
     // Triangle needs 3 colors
-    let problem = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -83,7 +84,7 @@ fn test_ilp_solution_equals_brute_force_triangle() {
 #[test]
 fn test_ilp_solution_equals_brute_force_path() {
     // Path graph 0-1-2-3 with 2 colors
-    let problem = KColoring::<2, SimpleGraph>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = KColoring::<K2, SimpleGraph>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -108,7 +109,7 @@ fn test_ilp_solution_equals_brute_force_path() {
 #[test]
 fn test_ilp_infeasible_triangle_2_colors() {
     // Triangle cannot be 2-colored
-    let problem = KColoring::<2, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = KColoring::<K2, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -124,7 +125,7 @@ fn test_ilp_infeasible_triangle_2_colors() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1)]);
+    let problem = KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1)]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
 
     // ILP solution where:
@@ -143,7 +144,7 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_ilp_structure() {
-    let problem = KColoring::<3, SimpleGraph>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+    let problem = KColoring::<K3, SimpleGraph>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -156,7 +157,7 @@ fn test_ilp_structure() {
 #[test]
 fn test_empty_graph() {
     // Graph with no edges: any coloring is valid
-    let problem = KColoring::<1, SimpleGraph>::new(3, vec![]);
+    let problem = KColoring::<K1, SimpleGraph>::new(3, vec![]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -174,7 +175,7 @@ fn test_empty_graph() {
 fn test_complete_graph_k4() {
     // K4 needs 4 colors
     let problem =
-        KColoring::<4, SimpleGraph>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+        KColoring::<K4, SimpleGraph>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -195,7 +196,7 @@ fn test_complete_graph_k4() {
 fn test_complete_graph_k4_with_3_colors_infeasible() {
     // K4 cannot be 3-colored
     let problem =
-        KColoring::<3, SimpleGraph>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+        KColoring::<K3, SimpleGraph>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -208,7 +209,7 @@ fn test_complete_graph_k4_with_3_colors_infeasible() {
 fn test_bipartite_graph() {
     // Complete bipartite K_{2,2}: 0-2, 0-3, 1-2, 1-3
     // This is 2-colorable
-    let problem = KColoring::<2, SimpleGraph>::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
+    let problem = KColoring::<K2, SimpleGraph>::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -228,7 +229,7 @@ fn test_bipartite_graph() {
 #[test]
 fn test_solve_reduced() {
     // Test the ILPSolver::solve_reduced method
-    let problem = KColoring::<2, SimpleGraph>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = KColoring::<K2, SimpleGraph>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
@@ -241,7 +242,7 @@ fn test_solve_reduced() {
 #[test]
 fn test_single_vertex() {
     // Single vertex graph: always 1-colorable
-    let problem = KColoring::<1, SimpleGraph>::new(1, vec![]);
+    let problem = KColoring::<K1, SimpleGraph>::new(1, vec![]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -258,7 +259,7 @@ fn test_single_vertex() {
 #[test]
 fn test_single_edge() {
     // Single edge: needs 2 colors
-    let problem = KColoring::<2, SimpleGraph>::new(2, vec![(0, 1)]);
+    let problem = KColoring::<K2, SimpleGraph>::new(2, vec![(0, 1)]);
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 

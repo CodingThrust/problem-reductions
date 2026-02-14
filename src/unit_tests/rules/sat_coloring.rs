@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::satisfiability::CNFClause;
 use crate::solvers::BruteForce;
+use crate::variant::K3;
 
 #[test]
 fn test_constructor_basic_structure() {
@@ -32,7 +33,7 @@ fn test_special_vertex_accessors() {
 fn test_simple_sat_to_coloring() {
     // Simple SAT: (x1) - one clause with one literal
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
     // Should have 2*1 + 3 = 5 base vertices
@@ -49,7 +50,7 @@ fn test_reduction_structure() {
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 2])],
     );
 
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
     // Base vertices: 3 (TRUE, FALSE, AUX) + 2*2 (pos and neg for each var) = 7
@@ -66,7 +67,7 @@ fn test_unsatisfiable_formula() {
     // Unsatisfiable: (x1) AND (NOT x1)
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1]), CNFClause::new(vec![-1])]);
 
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
     // Solve the coloring problem - use find_all_satisfying since KColoring is a satisfaction problem
@@ -103,7 +104,7 @@ fn test_three_literal_clause_structure() {
     // (x1 OR x2 OR x3)
     let sat = Satisfiability::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
 
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
     // Base vertices: 3 + 2*3 = 9
@@ -122,7 +123,7 @@ fn test_coloring_structure() {
         3,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
     );
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
     // Verify coloring has expected structure
@@ -134,7 +135,7 @@ fn test_coloring_structure() {
 fn test_extract_solution_basic() {
     // Simple case: one variable, one clause (x1)
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
 
     // Manually construct a valid coloring where x1 has TRUE color
     // Vertices: 0=TRUE, 1=FALSE, 2=AUX, 3=x1, 4=NOT_x1
@@ -166,7 +167,7 @@ fn test_complex_formula_structure() {
         ],
     );
 
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
     // Base vertices: 3 + 2*3 = 9
@@ -182,7 +183,7 @@ fn test_single_literal_clauses() {
     // (x1) AND (x2) - both must be true
     let sat = Satisfiability::new(2, vec![CNFClause::new(vec![1]), CNFClause::new(vec![2])]);
 
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -207,7 +208,7 @@ fn test_single_literal_clauses() {
 fn test_empty_sat() {
     // Empty SAT (trivially satisfiable)
     let sat = Satisfiability::new(0, vec![]);
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
 
     assert_eq!(reduction.num_clauses(), 0);
     assert!(reduction.pos_vertices().is_empty());
@@ -224,7 +225,7 @@ fn test_num_clauses_accessor() {
         2,
         vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1])],
     );
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
     assert_eq!(reduction.num_clauses(), 2);
 }
 
@@ -251,7 +252,7 @@ fn test_manual_coloring_extraction() {
     // Test solution extraction with a manually constructed coloring solution
     // for a simple 1-variable SAT problem: (x1)
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
     // The graph structure for (x1) with set_true:
@@ -278,7 +279,7 @@ fn test_extraction_with_different_color_assignment() {
     // Test that extraction works with different color assignments
     // (colors may be permuted but semantics preserved)
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
 
     // Different valid coloring: TRUE=2, FALSE=0, AUX=1
     // x1 must have color 2 (TRUE), NOT_x1 must have color 0 (FALSE)

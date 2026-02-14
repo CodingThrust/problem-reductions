@@ -1,11 +1,12 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::variant::{K1, K2, K3, K4};
 
 #[test]
 fn test_kcoloring_creation() {
     use crate::traits::Problem;
 
-    let problem = KColoring::<3, SimpleGraph>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = KColoring::<K3, SimpleGraph>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.num_colors(), 3);
@@ -16,7 +17,7 @@ fn test_kcoloring_creation() {
 fn test_evaluate_valid() {
     use crate::traits::Problem;
 
-    let problem = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1), (1, 2)]);
 
     // Valid: different colors on adjacent vertices
     assert!(problem.evaluate(&[0, 1, 0]));
@@ -27,7 +28,7 @@ fn test_evaluate_valid() {
 fn test_evaluate_invalid() {
     use crate::traits::Problem;
 
-    let problem = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1), (1, 2)]);
 
     // Invalid: adjacent vertices have same color
     assert!(!problem.evaluate(&[0, 0, 1]));
@@ -39,7 +40,7 @@ fn test_brute_force_path() {
     use crate::traits::Problem;
 
     // Path graph can be 2-colored
-    let problem = KColoring::<2, SimpleGraph>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = KColoring::<K2, SimpleGraph>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_satisfying(&problem);
@@ -54,7 +55,7 @@ fn test_brute_force_triangle() {
     use crate::traits::Problem;
 
     // Triangle needs 3 colors
-    let problem = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_satisfying(&problem);
@@ -70,7 +71,7 @@ fn test_brute_force_triangle() {
 #[test]
 fn test_triangle_2_colors() {
     // Triangle cannot be 2-colored
-    let problem = KColoring::<2, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let problem = KColoring::<K2, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_satisfying(&problem);
@@ -94,7 +95,7 @@ fn test_is_valid_coloring_function() {
 fn test_empty_graph() {
     use crate::traits::Problem;
 
-    let problem = KColoring::<1, SimpleGraph>::new(3, vec![]);
+    let problem = KColoring::<K1, SimpleGraph>::new(3, vec![]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_satisfying(&problem);
@@ -111,7 +112,7 @@ fn test_complete_graph_k4() {
 
     // K4 needs 4 colors
     let problem =
-        KColoring::<4, SimpleGraph>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+        KColoring::<K4, SimpleGraph>::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_satisfying(&problem);
@@ -123,7 +124,7 @@ fn test_complete_graph_k4() {
 #[test]
 fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = KColoring::<3, SimpleGraph>::from_graph(graph);
+    let problem = KColoring::<K3, SimpleGraph>::from_graph(graph);
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 2);
 }
@@ -133,7 +134,7 @@ fn test_kcoloring_problem() {
     use crate::traits::Problem;
 
     // Triangle graph with 3 colors
-    let p = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let p = KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     assert_eq!(p.dims(), vec![3, 3, 3]);
     // Valid: each vertex different color
     assert!(p.evaluate(&[0, 1, 2]));

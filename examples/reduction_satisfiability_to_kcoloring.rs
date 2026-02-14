@@ -44,8 +44,8 @@ pub fn run() {
     println!("  (Unit clauses avoid OR-gadgets, keeping vertex count manageable for BruteForce)");
 
     // 2. Reduce to 3-Coloring
-    //    SAT reduces to KColoring<3, SimpleGraph>
-    let reduction = ReduceTo::<KColoring<3, SimpleGraph>>::reduce_to(&sat);
+    //    SAT reduces to KColoring<K3, SimpleGraph>
+    let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);
     let coloring = reduction.target_problem();
 
     println!("\n=== Problem Transformation ===");
@@ -116,7 +116,7 @@ pub fn run() {
 
     // 5. Export JSON
     let source_variant = variant_to_map(Satisfiability::variant());
-    let target_variant = variant_to_map(KColoring::<3, SimpleGraph>::variant());
+    let target_variant = variant_to_map(KColoring::<K3, SimpleGraph>::variant());
     let overhead =
         lookup_overhead("Satisfiability", &source_variant, "KColoring", &target_variant)
             .expect("Satisfiability -> KColoring overhead not found");
@@ -131,7 +131,7 @@ pub fn run() {
             }),
         },
         target: ProblemSide {
-            problem: KColoring::<3, SimpleGraph>::NAME.to_string(),
+            problem: KColoring::<K3, SimpleGraph>::NAME.to_string(),
             variant: target_variant,
             instance: serde_json::json!({
                 "num_vertices": coloring.num_vertices(),

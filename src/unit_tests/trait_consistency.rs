@@ -5,6 +5,7 @@ use crate::models::set::*;
 use crate::models::specialized::*;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
+use crate::variant::K3;
 
 fn check_problem_trait<P: Problem>(problem: &P, name: &str) {
     let dims = problem.dims();
@@ -37,7 +38,7 @@ fn test_all_problems_implement_trait_correctly() {
         "MaxCut",
     );
     check_problem_trait(
-        &KColoring::<3, SimpleGraph>::new(3, vec![(0, 1)]),
+        &KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1)]),
         "KColoring",
     );
     check_problem_trait(

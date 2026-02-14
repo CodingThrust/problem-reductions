@@ -257,6 +257,7 @@ fn test_sat_based_reductions() {
     use crate::models::graph::KColoring;
     use crate::models::graph::MinimumDominatingSet;
     use crate::models::satisfiability::Satisfiability;
+    use crate::variant::K3;
 
     let graph = ReductionGraph::new();
 
@@ -264,7 +265,7 @@ fn test_sat_based_reductions() {
     assert!(graph.has_direct_reduction::<Satisfiability, MaximumIndependentSet<SimpleGraph, i32>>());
 
     // SAT -> KColoring
-    assert!(graph.has_direct_reduction::<Satisfiability, KColoring<3, SimpleGraph>>());
+    assert!(graph.has_direct_reduction::<Satisfiability, KColoring<K3, SimpleGraph>>());
 
     // SAT -> MinimumDominatingSet
     assert!(graph.has_direct_reduction::<Satisfiability, MinimumDominatingSet<SimpleGraph, i32>>());

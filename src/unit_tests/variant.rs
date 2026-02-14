@@ -166,9 +166,9 @@ fn test_variant_for_problems() {
     // Note: f64 variants removed because SolutionSize now requires Ord
 
     // Test KColoring (has K and graph parameters)
-    let v = KColoring::<3, SimpleGraph>::variant();
+    let v = KColoring::<K3, SimpleGraph>::variant();
     assert_eq!(v.len(), 2);
-    assert_eq!(v[0], ("k", "3"));
+    assert_eq!(v[0], ("k", "K3"));
     assert_eq!(v[1], ("graph", "SimpleGraph"));
 
     // Test MaximalIS
@@ -236,7 +236,15 @@ fn test_variant_for_problems() {
 
 // --- KValue concrete type tests ---
 
-use crate::variant::{K2, K3, KN};
+use crate::variant::{K1, K2, K3, K4, KN};
+
+#[test]
+fn test_kvalue_k1() {
+    assert_eq!(K1::CATEGORY, "k");
+    assert_eq!(K1::VALUE, "K1");
+    assert_eq!(K1::PARENT_VALUE, Some("K2"));
+    assert_eq!(K1::K, Some(1));
+}
 
 #[test]
 fn test_kvalue_k2() {
@@ -250,7 +258,7 @@ fn test_kvalue_k2() {
 fn test_kvalue_k3() {
     assert_eq!(K3::CATEGORY, "k");
     assert_eq!(K3::VALUE, "K3");
-    assert_eq!(K3::PARENT_VALUE, Some("KN"));
+    assert_eq!(K3::PARENT_VALUE, Some("K4"));
     assert_eq!(K3::K, Some(3));
 }
 
@@ -264,9 +272,11 @@ fn test_kvalue_kn() {
 
 #[test]
 fn test_kvalue_cast_chain() {
-    let k2 = K2;
+    let k1 = K1;
+    let k2: K2 = k1.cast_to_parent();
     let k3: K3 = k2.cast_to_parent();
-    let kn: KN = k3.cast_to_parent();
+    let k4: K4 = k3.cast_to_parent();
+    let kn: KN = k4.cast_to_parent();
     assert_eq!(KN::K, None);
     let _ = kn; // use it
 }
@@ -279,10 +289,16 @@ fn test_kvalue_variant_entries() {
     assert!(entries.iter().any(|e| e.value == "KN" && e.parent.is_none()));
     assert!(entries
         .iter()
-        .any(|e| e.value == "K3" && e.parent == Some("KN")));
+        .any(|e| e.value == "K4" && e.parent == Some("KN")));
+    assert!(entries
+        .iter()
+        .any(|e| e.value == "K3" && e.parent == Some("K4")));
     assert!(entries
         .iter()
         .any(|e| e.value == "K2" && e.parent == Some("K3")));
+    assert!(entries
+        .iter()
+        .any(|e| e.value == "K1" && e.parent == Some("K2")));
 }
 
 // --- Graph type VariantParam tests ---

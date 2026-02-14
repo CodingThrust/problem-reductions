@@ -14,6 +14,7 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
+use crate::variant::{K1, K2, K3, K4, KN, KValue};
 
 /// Result of reducing KColoring to ILP.
 ///
@@ -22,22 +23,23 @@ use crate::topology::{Graph, SimpleGraph};
 /// - Constraints ensure each vertex has exactly one color
 /// - Constraints ensure adjacent vertices have different colors
 #[derive(Debug, Clone)]
-pub struct ReductionKColoringToILP<const K: usize, G> {
+pub struct ReductionKColoringToILP<K: KValue, G> {
     target: ILP,
     num_vertices: usize,
-    _phantom: std::marker::PhantomData<G>,
+    _phantom: std::marker::PhantomData<(K, G)>,
 }
 
-impl<const K: usize, G> ReductionKColoringToILP<K, G> {
+impl<K: KValue, G> ReductionKColoringToILP<K, G> {
     /// Get the variable index for vertex v with color c.
     fn var_index(&self, vertex: usize, color: usize) -> usize {
-        vertex * K + color
+        let k = K::K.expect("KN cannot be used as problem instance");
+        vertex * k + color
     }
 }
 
-impl<const K: usize, G> ReductionResult for ReductionKColoringToILP<K, G>
+impl<K: KValue, G> ReductionResult for ReductionKColoringToILP<K, G>
 where
-    G: Graph,
+    G: Graph + crate::variant::VariantParam,
 {
     type Source = KColoring<K, G>;
     type Target = ILP;
@@ -51,9 +53,10 @@ where
     /// The ILP solution has num_vertices * K binary variables.
     /// For each vertex, we find which color has value 1.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+        let k = K::K.expect("KN cannot be used as problem instance");
         (0..self.num_vertices)
             .map(|v| {
-                (0..K)
+                (0..k)
                     .find(|&c| {
                         let var_idx = self.var_index(v, c);
                         var_idx < target_solution.len() && target_solution[var_idx] == 1
@@ -64,6 +67,58 @@ where
     }
 }
 
+/// Helper function implementing the KColoring to ILP reduction logic.
+fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(problem: &KColoring<K, G>) -> ReductionKColoringToILP<K, G> {
+    let k = K::K.expect("KN cannot be used as problem instance");
+    let num_vertices = problem.num_vertices();
+    let num_vars = num_vertices * k;
+
+    // Helper function to get variable index
+    let var_index = |v: usize, c: usize| -> usize { v * k + c };
+
+    // All variables are binary (0 or 1)
+    let bounds = vec![VarBounds::binary(); num_vars];
+
+    let mut constraints = Vec::new();
+
+    // Constraint 1: Each vertex has exactly one color
+    // sum_c x_{v,c} = 1 for each vertex v
+    for v in 0..num_vertices {
+        let terms: Vec<(usize, f64)> = (0..k).map(|c| (var_index(v, c), 1.0)).collect();
+        constraints.push(LinearConstraint::eq(terms, 1.0));
+    }
+
+    // Constraint 2: Adjacent vertices have different colors
+    // x_{u,c} + x_{v,c} <= 1 for each edge (u,v) and each color c
+    for (u, v) in problem.edges() {
+        for c in 0..k {
+            constraints.push(LinearConstraint::le(
+                vec![(var_index(u, c), 1.0), (var_index(v, c), 1.0)],
+                1.0,
+            ));
+        }
+    }
+
+    // Objective: minimize 0 (feasibility problem)
+    // We use an empty objective
+    let objective: Vec<(usize, f64)> = vec![];
+
+    let target = ILP::new(
+        num_vars,
+        bounds,
+        constraints,
+        objective,
+        ObjectiveSense::Minimize,
+    );
+
+    ReductionKColoringToILP {
+        target,
+        num_vertices,
+        _phantom: std::marker::PhantomData,
+    }
+}
+
+// Register only the KN variant in the reduction graph
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
@@ -72,61 +127,28 @@ where
         ])
     }
 )]
-impl<const K: usize> ReduceTo<ILP> for KColoring<K, SimpleGraph> {
-    type Result = ReductionKColoringToILP<K, SimpleGraph>;
+impl ReduceTo<ILP> for KColoring<KN, SimpleGraph> {
+    type Result = ReductionKColoringToILP<KN, SimpleGraph>;
 
     fn reduce_to(&self) -> Self::Result {
-        let num_vertices = self.num_vertices();
-        let num_vars = num_vertices * K;
-
-        // Helper function to get variable index
-        let var_index = |v: usize, c: usize| -> usize { v * K + c };
-
-        // All variables are binary (0 or 1)
-        let bounds = vec![VarBounds::binary(); num_vars];
-
-        let mut constraints = Vec::new();
-
-        // Constraint 1: Each vertex has exactly one color
-        // sum_c x_{v,c} = 1 for each vertex v
-        for v in 0..num_vertices {
-            let terms: Vec<(usize, f64)> = (0..K).map(|c| (var_index(v, c), 1.0)).collect();
-            constraints.push(LinearConstraint::eq(terms, 1.0));
-        }
-
-        // Constraint 2: Adjacent vertices have different colors
-        // x_{u,c} + x_{v,c} <= 1 for each edge (u,v) and each color c
-        for (u, v) in self.edges() {
-            for c in 0..K {
-                constraints.push(LinearConstraint::le(
-                    vec![(var_index(u, c), 1.0), (var_index(v, c), 1.0)],
-                    1.0,
-                ));
-            }
-        }
-
-        // Objective: minimize 0 (feasibility problem)
-        // We use an empty objective
-        let objective: Vec<(usize, f64)> = vec![];
-
-        let target = ILP::new(
-            num_vars,
-            bounds,
-            constraints,
-            objective,
-            ObjectiveSense::Minimize,
-        );
-
-        ReductionKColoringToILP {
-            target,
-            num_vertices,
-            _phantom: std::marker::PhantomData,
-        }
+        reduce_kcoloring_to_ilp(self)
     }
 }
 
+// Additional concrete impls for tests (not registered in reduction graph)
+macro_rules! impl_kcoloring_to_ilp {
+    ($($ktype:ty),+) => {$(
+        impl ReduceTo<ILP> for KColoring<$ktype, SimpleGraph> {
+            type Result = ReductionKColoringToILP<$ktype, SimpleGraph>;
+            fn reduce_to(&self) -> Self::Result { reduce_kcoloring_to_ilp(self) }
+        }
+    )+};
+}
+
+impl_kcoloring_to_ilp!(K1, K2, K3, K4);
+
 // Keep the old type alias for backwards compatibility
-pub type ReductionColoringToILP = ReductionKColoringToILP<3, SimpleGraph>;
+pub type ReductionColoringToILP = ReductionKColoringToILP<K3, SimpleGraph>;
 
 #[cfg(test)]
 #[path = "../unit_tests/rules/coloring_ilp.rs"]

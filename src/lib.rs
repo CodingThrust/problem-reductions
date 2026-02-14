@@ -101,7 +101,7 @@ pub mod prelude {
     pub use crate::types::{
         Direction, NumericSize, One, ProblemSize, SolutionSize, Unweighted, WeightElement,
     };
-    pub use crate::variant::{CastToParent, KValue, VariantParam, K2, K3, KN};
+    pub use crate::variant::{CastToParent, KValue, VariantParam, K1, K2, K3, K4, KN};
 }
 
 // Re-export commonly used items at crate root

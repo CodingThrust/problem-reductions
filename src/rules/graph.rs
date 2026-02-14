@@ -12,6 +12,7 @@ use crate::graph_types::{GraphSubtypeEntry, WeightSubtypeEntry};
 use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::types::ProblemSize;
+use crate::variant::VariantTypeEntry;
 use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -240,6 +241,8 @@ pub struct ReductionGraph {
     graph_hierarchy: HashMap<&'static str, HashSet<&'static str>>,
     /// Weight hierarchy: subtype -> set of supertypes (transitively closed).
     weight_hierarchy: HashMap<&'static str, HashSet<&'static str>>,
+    /// K hierarchy: subtype -> set of supertypes (transitively closed).
+    k_hierarchy: HashMap<&'static str, HashSet<&'static str>>,
 }
 
 impl ReductionGraph {
@@ -253,6 +256,9 @@ impl ReductionGraph {
 
         // Build weight hierarchy from WeightSubtypeEntry registrations
         let weight_hierarchy = Self::build_weight_hierarchy();
+
+        // Build K hierarchy from VariantTypeEntry registrations
+        let k_hierarchy = Self::build_k_hierarchy();
 
         // Register reductions from inventory (auto-discovery)
         for entry in inventory::iter::<ReductionEntry> {
@@ -290,6 +296,7 @@ impl ReductionGraph {
             name_indices,
             graph_hierarchy,
             weight_hierarchy,
+            k_hierarchy,
         }
     }
 
@@ -399,6 +406,60 @@ impl ReductionGraph {
         sub == sup
             || self
                 .weight_hierarchy
+                .get(sub)
+                .map(|s| s.contains(sup))
+                .unwrap_or(false)
+    }
+
+    /// Build K hierarchy from VariantTypeEntry registrations (category = "k").
+    /// Computes the transitive closure of the subtype relationship.
+    fn build_k_hierarchy() -> HashMap<&'static str, HashSet<&'static str>> {
+        let mut supertypes: HashMap<&'static str, HashSet<&'static str>> = HashMap::new();
+
+        // Collect direct subtype relationships from VariantTypeEntry with category "k"
+        for entry in inventory::iter::<VariantTypeEntry> {
+            if entry.category == "k" {
+                if let Some(parent) = entry.parent {
+                    supertypes.entry(entry.value).or_default().insert(parent);
+                }
+            }
+        }
+
+        // Compute transitive closure
+        loop {
+            let mut changed = false;
+            let types: Vec<_> = supertypes.keys().copied().collect();
+
+            for sub in &types {
+                let current: Vec<_> = supertypes
+                    .get(sub)
+                    .map(|s| s.iter().copied().collect())
+                    .unwrap_or_default();
+
+                for sup in current {
+                    if let Some(sup_supers) = supertypes.get(sup).cloned() {
+                        for ss in sup_supers {
+                            if supertypes.entry(sub).or_default().insert(ss) {
+                                changed = true;
+                            }
+                        }
+                    }
+                }
+            }
+
+            if !changed {
+                break;
+            }
+        }
+
+        supertypes
+    }
+
+    /// Check if `sub` is a K subtype of `sup` (or equal).
+    pub fn is_k_subtype(&self, sub: &str, sup: &str) -> bool {
+        sub == sup
+            || self
+                .k_hierarchy
                 .get(sub)
                 .map(|s| s.contains(sup))
                 .unwrap_or(false)
@@ -620,12 +681,6 @@ impl Default for ReductionGraph {
     }
 }
 
-/// Check if const value `a` is a subtype of `b`.
-/// A specific value (e.g., "3") is a subtype of "N" (generic/any).
-fn is_const_subtype(a: &str, b: &str) -> bool {
-    a != b && b == "N" && a != "N"
-}
-
 impl ReductionGraph {
     /// Check if variant A is strictly more restrictive than variant B (same problem name).
     /// Returns true if every field of A is a subtype of (or equal to) the corresponding field in B,
@@ -656,7 +711,7 @@ impl ReductionGraph {
             let is_sub = match key.as_str() {
                 "graph" => self.is_graph_subtype(a_val, b_val),
                 "weight" => self.is_weight_subtype(a_val, b_val),
-                "k" => is_const_subtype(a_val, b_val),
+                "k" => self.is_k_subtype(a_val, b_val),
                 _ => false, // Unknown fields must be equal
             };
 
