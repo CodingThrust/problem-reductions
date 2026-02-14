@@ -1,4 +1,3 @@
-use super::*;
 use crate::variant::{CastToParent, KValue, VariantParam, VariantTypeEntry};
 
 // Test types for the new system
@@ -89,34 +88,6 @@ fn test_variant_params_macro_multiple() {
     }
     let v = check::<TestRoot, TestChild>();
     assert_eq!(v, vec![("test_cat", "TestRoot"), ("test_cat", "TestChild")]);
-}
-
-#[test]
-fn test_short_type_name_primitive() {
-    assert_eq!(short_type_name::<i32>(), "i32");
-    assert_eq!(short_type_name::<f64>(), "f64");
-}
-
-#[test]
-fn test_short_type_name_struct() {
-    struct MyStruct;
-    assert_eq!(short_type_name::<MyStruct>(), "MyStruct");
-}
-
-#[test]
-fn test_const_usize_str() {
-    assert_eq!(const_usize_str::<1>(), "1");
-    assert_eq!(const_usize_str::<2>(), "2");
-    assert_eq!(const_usize_str::<3>(), "3");
-    assert_eq!(const_usize_str::<4>(), "4");
-    assert_eq!(const_usize_str::<5>(), "5");
-    assert_eq!(const_usize_str::<6>(), "6");
-    assert_eq!(const_usize_str::<7>(), "7");
-    assert_eq!(const_usize_str::<8>(), "8");
-    assert_eq!(const_usize_str::<9>(), "9");
-    assert_eq!(const_usize_str::<10>(), "10");
-    assert_eq!(const_usize_str::<11>(), "N");
-    assert_eq!(const_usize_str::<100>(), "N");
 }
 
 #[test]
