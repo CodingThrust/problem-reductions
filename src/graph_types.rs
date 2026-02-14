@@ -40,6 +40,11 @@ impl GraphMarker for BipartiteGraph {}
 pub struct GridGraph;
 impl GraphMarker for GridGraph {}
 
+/// Triangular lattice graph - a unit disk graph on a triangular grid.
+#[derive(Debug, Clone, Copy, Default)]
+pub struct Triangular;
+impl GraphMarker for Triangular {}
+
 /// Hypergraph - most general graph type. Edges can connect any number of vertices.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct HyperGraph;
@@ -78,6 +83,9 @@ macro_rules! declare_graph_subtype {
 declare_graph_subtype!(GridGraph => UnitDiskGraph);
 declare_graph_subtype!(GridGraph => SimpleGraph);
 declare_graph_subtype!(GridGraph => HyperGraph);
+declare_graph_subtype!(Triangular => UnitDiskGraph);
+declare_graph_subtype!(Triangular => SimpleGraph);
+declare_graph_subtype!(Triangular => HyperGraph);
 declare_graph_subtype!(UnitDiskGraph => SimpleGraph);
 declare_graph_subtype!(UnitDiskGraph => HyperGraph);
 declare_graph_subtype!(PlanarGraph => SimpleGraph);

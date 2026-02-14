@@ -44,6 +44,7 @@
   "CircuitSAT": [CircuitSAT],
   "Factoring": [Factoring],
   "GridGraph": [GridGraph MIS],
+  "Triangular": [Triangular MIS],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -883,6 +884,14 @@ The following reductions to Integer Linear Programming are straightforward formu
   ),
   caption: [Unit disk mappings of the Petersen graph. Blue: weight 1, red: weight 2, green: weight 3.],
 ) <fig:petersen-mapping>
+
+#reduction-rule("MaximumIndependentSet", "Triangular")[
+  @nguyen2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a weighted triangular lattice graph with at most quadratic overhead in the number of vertices.
+][
+  _Construction._ Same copy-line method as the KSG mapping, but uses a triangular lattice instead of a square grid. Crossing and simplifier gadgets are adapted for triangular geometry, producing a unit disk graph on a triangular grid where edges connect nodes within unit distance under the triangular metric.
+
+  _Overhead._ Both vertex and edge counts grow as $O(n^2)$ where $n = |V|$, matching the KSG mapping.
+]
 
 *Weighted Extension.* For MWIS, copy lines use weighted vertices (weights 1, 2, or 3). Source weights $< 1$ are added to designated "pin" vertices.
 
