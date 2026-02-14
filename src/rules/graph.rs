@@ -10,7 +10,7 @@
 
 use crate::graph_types::{GraphSubtypeEntry, WeightSubtypeEntry};
 use crate::rules::cost::PathCostFn;
-use crate::rules::registry::{ConcreteVariantEntry, ReductionEntry, ReductionOverhead};
+use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::types::ProblemSize;
 use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
@@ -659,12 +659,6 @@ impl ReductionGraph {
                 entry.target_name.to_string(),
                 Self::variant_to_map(&target_variant),
             ));
-        }
-
-        // Also collect nodes from ConcreteVariantEntry registrations
-        for entry in inventory::iter::<ConcreteVariantEntry> {
-            let variant = (entry.variant_fn)();
-            node_set.insert((entry.name.to_string(), Self::variant_to_map(&variant)));
         }
 
         // Build nodes with categories and doc paths derived from ProblemSchemaEntry.module_path

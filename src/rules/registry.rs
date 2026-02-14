@@ -98,15 +98,6 @@ impl std::fmt::Debug for ReductionEntry {
 
 inventory::collect!(ReductionEntry);
 
-/// A registered concrete problem variant (for JSON export nodes).
-/// Variants registered here appear as nodes even without explicit reduction rules.
-pub struct ConcreteVariantEntry {
-    pub name: &'static str,
-    pub variant_fn: fn() -> Vec<(&'static str, &'static str)>,
-}
-
-inventory::collect!(ConcreteVariantEntry);
-
 #[cfg(test)]
 #[path = "../unit_tests/rules/registry.rs"]
 mod tests;

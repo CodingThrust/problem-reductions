@@ -775,7 +775,7 @@ fn test_json_variant_content() {
 }
 
 #[test]
-fn test_concrete_variant_nodes_in_json() {
+fn test_reduction_variant_nodes_in_json() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
@@ -829,23 +829,6 @@ fn test_natural_edge_gridgraph_to_unitdisk() {
         has_edge,
         "Natural edge MIS/GridGraph -> MIS/UnitDiskGraph should exist"
     );
-}
-
-#[test]
-fn test_natural_edge_weight_promotion() {
-    let graph = ReductionGraph::new();
-    let json = graph.to_json();
-
-    // MIS{SimpleGraph, One} -> MIS{SimpleGraph, i32} should exist
-    let has_edge = json.edges.iter().any(|e| {
-        json.source_node(e).name == "MaximumIndependentSet"
-            && json.target_node(e).name == "MaximumIndependentSet"
-            && json.source_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
-            && json.target_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
-            && json.source_node(e).variant.get("weight") == Some(&"One".to_string())
-            && json.target_node(e).variant.get("weight") == Some(&"i32".to_string())
-    });
-    assert!(has_edge, "Natural edge MIS/One -> MIS/i32 should exist");
 }
 
 #[test]
