@@ -137,24 +137,44 @@ fn test_jl_parity_matching_to_setpacking() {
     let match_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/matching.json")).unwrap();
     let fixtures: &[(&str, &str)] = &[
-        (include_str!("../../../tests/data/jl/matching_to_setpacking.json"), "petersen"),
-        (include_str!("../../../tests/data/jl/rule_matching_to_setpacking.json"), "rule_4vertex"),
-        (include_str!("../../../tests/data/jl/rule_matchingw_to_setpacking.json"), "rule_4vertex_weighted"),
+        (
+            include_str!("../../../tests/data/jl/matching_to_setpacking.json"),
+            "petersen",
+        ),
+        (
+            include_str!("../../../tests/data/jl/rule_matching_to_setpacking.json"),
+            "rule_4vertex",
+        ),
+        (
+            include_str!("../../../tests/data/jl/rule_matchingw_to_setpacking.json"),
+            "rule_4vertex_weighted",
+        ),
     ];
     for (fixture_str, label) in fixtures {
         let data: serde_json::Value = serde_json::from_str(fixture_str).unwrap();
         let inst = &jl_find_instance_by_label(&match_data, label)["instance"];
         let source = MaximumMatching::<SimpleGraph, i32>::new(
-            inst["num_vertices"].as_u64().unwrap() as usize, jl_parse_weighted_edges(inst));
+            inst["num_vertices"].as_u64().unwrap() as usize,
+            jl_parse_weighted_edges(inst),
+        );
         let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
         let solver = BruteForce::new();
         let best_target = solver.find_all_best(result.target_problem());
         let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-        let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
-        assert!(extracted.is_subset(&best_source), "Matching->SP [{label}]: extracted not subset");
+        let extracted: HashSet<Vec<usize>> = best_target
+            .iter()
+            .map(|t| result.extract_solution(t))
+            .collect();
+        assert!(
+            extracted.is_subset(&best_source),
+            "Matching->SP [{label}]: extracted not subset"
+        );
         for case in data["cases"].as_array().unwrap() {
-            assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]),
-                "Matching->SP [{label}]: best source mismatch");
+            assert_eq!(
+                best_source,
+                jl_parse_configs_set(&case["best_source"]),
+                "Matching->SP [{label}]: best source mismatch"
+            );
         }
     }
 }

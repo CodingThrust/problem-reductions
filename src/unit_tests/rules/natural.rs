@@ -10,9 +10,21 @@ fn test_mis_triangular_to_simple_closed_loop() {
     let source = MaximumIndependentSet::<SimpleGraph, i32>::new(
         10,
         vec![
-            (0, 1), (1, 2), (2, 3), (3, 4), (4, 0), // outer cycle
-            (5, 7), (7, 9), (9, 6), (6, 8), (8, 5), // inner pentagram
-            (0, 5), (1, 6), (2, 7), (3, 8), (4, 9), // spokes
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 4),
+            (4, 0), // outer cycle
+            (5, 7),
+            (7, 9),
+            (9, 6),
+            (6, 8),
+            (8, 5), // inner pentagram
+            (0, 5),
+            (1, 6),
+            (2, 7),
+            (3, 8),
+            (4, 9), // spokes
         ],
     );
 
@@ -30,7 +42,9 @@ fn test_mis_triangular_to_simple_closed_loop() {
 
     // Solve with ILP on the relaxed SimpleGraph problem
     let solver = ILPSolver::new();
-    let solution = solver.solve_reduced(simple_problem).expect("ILP should find a solution");
+    let solution = solver
+        .solve_reduced(simple_problem)
+        .expect("ILP should find a solution");
 
     // Identity mapping: solution is unchanged
     let extracted = to_simple.extract_solution(&solution);
