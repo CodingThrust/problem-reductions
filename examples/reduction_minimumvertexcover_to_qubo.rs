@@ -29,7 +29,6 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-#[allow(deprecated)]
 pub fn run() {
     println!("=== Vertex Covering -> QUBO Reduction ===\n");
 
@@ -90,13 +89,16 @@ pub fn run() {
     println!("\nVerification passed: all solutions are valid with size 6");
 
     // Export JSON
-    let overhead = lookup_overhead("MinimumVertexCover", "QUBO")
-        .expect("MinimumVertexCover -> QUBO overhead not found");
+    let source_variant = variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let target_variant = variant_to_map(QUBO::<f64>::variant());
+    let overhead =
+        lookup_overhead("MinimumVertexCover", &source_variant, "QUBO", &target_variant)
+            .expect("MinimumVertexCover -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vertices": vc.num_vertices(),
                 "num_edges": vc.num_edges(),
@@ -105,7 +107,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: variant_to_map(QUBO::<f64>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": qubo.matrix(),

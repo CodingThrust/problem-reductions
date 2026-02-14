@@ -21,7 +21,6 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-#[allow(deprecated)]
 pub fn run() {
     let (n, edges) = petersen();
     // Alternating +/-1 couplings create frustration on odd cycles
@@ -63,20 +62,23 @@ pub fn run() {
     }
 
     // Export JSON
+    let source_variant = variant_to_map(SpinGlass::<SimpleGraph, f64>::variant());
+    let target_variant = variant_to_map(QUBO::<f64>::variant());
     let overhead =
-        lookup_overhead("SpinGlass", "QUBO").expect("SpinGlass -> QUBO overhead not found");
+        lookup_overhead("SpinGlass", &source_variant, "QUBO", &target_variant)
+            .expect("SpinGlass -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: SpinGlass::<SimpleGraph, f64>::NAME.to_string(),
-            variant: variant_to_map(SpinGlass::<SimpleGraph, f64>::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_spins": sg.num_variables(),
             }),
         },
         target: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: variant_to_map(QUBO::<f64>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": qubo.matrix(),

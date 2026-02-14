@@ -32,7 +32,6 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 
-#[allow(deprecated)]
 pub fn run() {
     println!("=== Set Packing -> QUBO Reduction ===\n");
 
@@ -98,13 +97,16 @@ pub fn run() {
     println!("\nVerification passed: all solutions are valid set packings");
 
     // Export JSON
-    let overhead = lookup_overhead("MaximumSetPacking", "QUBO")
-        .expect("MaximumSetPacking -> QUBO overhead not found");
+    let source_variant = variant_to_map(MaximumSetPacking::<i32>::variant());
+    let target_variant = variant_to_map(QUBO::<f64>::variant());
+    let overhead =
+        lookup_overhead("MaximumSetPacking", &source_variant, "QUBO", &target_variant)
+            .expect("MaximumSetPacking -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: MaximumSetPacking::<i32>::NAME.to_string(),
-            variant: variant_to_map(MaximumSetPacking::<i32>::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_sets": sp.num_sets(),
                 "sets": sp.sets(),
@@ -112,7 +114,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: variant_to_map(QUBO::<f64>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": qubo.matrix(),

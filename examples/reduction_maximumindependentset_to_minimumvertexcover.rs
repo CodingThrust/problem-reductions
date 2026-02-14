@@ -19,7 +19,6 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-#[allow(deprecated)]
 pub fn run() {
     // 1. Create IS instance: Petersen graph
     let (num_vertices, edges) = petersen();
@@ -61,14 +60,21 @@ pub fn run() {
     println!("Reduction verified successfully");
 
     // 6. Export JSON
-    let overhead = lookup_overhead("MaximumIndependentSet", "MinimumVertexCover")
-        .expect("MaximumIndependentSet -> MinimumVertexCover overhead not found");
+    let source_variant = variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let target_variant = variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let overhead = lookup_overhead(
+        "MaximumIndependentSet",
+        &source_variant,
+        "MinimumVertexCover",
+        &target_variant,
+    )
+    .expect("MaximumIndependentSet -> MinimumVertexCover overhead not found");
     let vc_edges = vc.edges();
 
     let data = ReductionData {
         source: ProblemSide {
             problem: MaximumIndependentSet::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vertices": is.num_vertices(),
                 "num_edges": is.num_edges(),
@@ -77,7 +83,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vertices": vc.num_vertices(),
                 "num_edges": vc.num_edges(),

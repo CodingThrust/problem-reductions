@@ -605,7 +605,7 @@
           "formula": "num_edges"
         }
       ],
-      "doc_path": "rules/natural/index.html"
+      "doc_path": ""
     },
     {
       "source": 17,
@@ -928,10 +928,6 @@
         {
           "field": "num_spins",
           "formula": "num_spins"
-        },
-        {
-          "field": "num_interactions",
-          "formula": "num_interactions"
         }
       ],
       "doc_path": ""

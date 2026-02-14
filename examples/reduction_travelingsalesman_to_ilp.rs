@@ -19,7 +19,6 @@ use problemreductions::prelude::*;
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::SimpleGraph;
 
-#[allow(deprecated)]
 pub fn run() {
     // 1. Create TSP instance: K4 with weights
     let problem = TravelingSalesman::<SimpleGraph, i32>::new(
@@ -78,13 +77,21 @@ pub fn run() {
         target_config: ilp_solution,
     }];
 
-    let overhead = lookup_overhead_or_empty("TravelingSalesman", "ILP");
+    let source_variant = variant_to_map(TravelingSalesman::<SimpleGraph, i32>::variant());
+    let target_variant = variant_to_map(ILP::variant());
+    let overhead = lookup_overhead(
+        "TravelingSalesman",
+        &source_variant,
+        "ILP",
+        &target_variant,
+    )
+    .unwrap_or_default();
     let edges: Vec<(usize, usize)> = problem.edges().iter().map(|&(u, v, _)| (u, v)).collect();
 
     let data = ReductionData {
         source: ProblemSide {
             problem: TravelingSalesman::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(TravelingSalesman::<SimpleGraph, i32>::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vertices": problem.num_vertices(),
                 "num_edges": problem.num_edges(),
@@ -93,7 +100,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: variant_to_map(ILP::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

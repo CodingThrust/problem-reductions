@@ -21,7 +21,6 @@ use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-#[allow(deprecated)]
 pub fn run() {
     // 1. Create KColoring instance: Petersen graph (10 vertices, 15 edges) with 3 colors, χ=3
     let (num_vertices, edges) = petersen();
@@ -71,13 +70,15 @@ pub fn run() {
         target_config: ilp_solution,
     });
 
-    let overhead =
-        lookup_overhead("KColoring", "ILP").expect("KColoring -> ILP overhead not found");
+    let source_variant = variant_to_map(KColoring::<3, SimpleGraph>::variant());
+    let target_variant = variant_to_map(ILP::variant());
+    let overhead = lookup_overhead("KColoring", &source_variant, "ILP", &target_variant)
+        .expect("KColoring -> ILP overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: KColoring::<3, SimpleGraph>::NAME.to_string(),
-            variant: variant_to_map(KColoring::<3, SimpleGraph>::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vertices": coloring.num_vertices(),
                 "num_edges": coloring.num_edges(),
@@ -86,7 +87,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: variant_to_map(ILP::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

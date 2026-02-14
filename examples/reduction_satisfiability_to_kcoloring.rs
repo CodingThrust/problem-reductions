@@ -19,7 +19,6 @@ use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 
-#[allow(deprecated)]
 pub fn run() {
     // 1. Create SAT instance: 5-variable, 3-clause formula with unit clauses
     //    The SAT→KColoring reduction creates OR-gadgets that add 5 vertices per literal
@@ -116,13 +115,16 @@ pub fn run() {
     println!("\nReduction verified successfully");
 
     // 5. Export JSON
-    let overhead = lookup_overhead("Satisfiability", "KColoring")
-        .expect("Satisfiability -> KColoring overhead not found");
+    let source_variant = variant_to_map(Satisfiability::variant());
+    let target_variant = variant_to_map(KColoring::<3, SimpleGraph>::variant());
+    let overhead =
+        lookup_overhead("Satisfiability", &source_variant, "KColoring", &target_variant)
+            .expect("Satisfiability -> KColoring overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: Satisfiability::NAME.to_string(),
-            variant: variant_to_map(Satisfiability::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
                 "num_clauses": sat.num_clauses(),
@@ -130,7 +132,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: KColoring::<3, SimpleGraph>::NAME.to_string(),
-            variant: variant_to_map(KColoring::<3, SimpleGraph>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vertices": coloring.num_vertices(),
                 "num_edges": coloring.num_edges(),

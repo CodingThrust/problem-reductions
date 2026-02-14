@@ -20,7 +20,6 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-#[allow(deprecated)]
 pub fn run() {
     let (num_vertices, edges) = petersen();
     let maxcut = MaxCut::<SimpleGraph, i32>::unweighted(num_vertices, edges.clone());
@@ -61,13 +60,16 @@ pub fn run() {
 
     // Export JSON
     let edges: Vec<(usize, usize, i32)> = maxcut.edges();
+    let source_variant = variant_to_map(MaxCut::<SimpleGraph, i32>::variant());
+    let target_variant = variant_to_map(SpinGlass::<SimpleGraph, i32>::variant());
     let overhead =
-        lookup_overhead("MaxCut", "SpinGlass").expect("MaxCut -> SpinGlass overhead not found");
+        lookup_overhead("MaxCut", &source_variant, "SpinGlass", &target_variant)
+            .expect("MaxCut -> SpinGlass overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: MaxCut::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MaxCut::<SimpleGraph, i32>::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vertices": maxcut.num_vertices(),
                 "num_edges": maxcut.num_edges(),
@@ -76,7 +78,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: SpinGlass::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(SpinGlass::<SimpleGraph, i32>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_spins": sg.num_variables(),
             }),

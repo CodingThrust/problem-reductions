@@ -20,7 +20,6 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-#[allow(deprecated)]
 pub fn run() {
     println!("\n=== Vertex Cover -> Set Covering Reduction ===\n");
 
@@ -96,13 +95,20 @@ pub fn run() {
     );
 
     // Export JSON
-    let overhead = lookup_overhead("MinimumVertexCover", "MinimumSetCovering")
-        .expect("MinimumVertexCover -> MinimumSetCovering overhead not found");
+    let source_variant = variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let target_variant = variant_to_map(MinimumSetCovering::<i32>::variant());
+    let overhead = lookup_overhead(
+        "MinimumVertexCover",
+        &source_variant,
+        "MinimumSetCovering",
+        &target_variant,
+    )
+    .expect("MinimumVertexCover -> MinimumSetCovering overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vertices": source.num_vertices(),
                 "num_edges": source.num_edges(),
@@ -111,7 +117,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: MinimumSetCovering::<i32>::NAME.to_string(),
-            variant: variant_to_map(MinimumSetCovering::<i32>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_sets": target.num_sets(),
                 "sets": target.sets(),

@@ -116,33 +116,17 @@ pub fn run() {
 
     println!("\nVerification passed: all solutions maximize satisfied clauses");
 
-    // Resolve variant-aware overhead via resolve_path
-    let rg = problemreductions::rules::ReductionGraph::new();
-    let name_path = rg
-        .find_shortest_path_by_name("KSatisfiability", "QUBO")
-        .expect("KSatisfiability -> QUBO path not found");
-    let source_variant = variant_to_map(KSatisfiability::<3>::variant())
-        .into_iter()
-        .collect::<std::collections::BTreeMap<_, _>>();
-    let target_variant = variant_to_map(QUBO::<f64>::variant())
-        .into_iter()
-        .collect::<std::collections::BTreeMap<_, _>>();
-    let resolved = rg
-        .resolve_path(&name_path, &source_variant, &target_variant)
-        .expect("Failed to resolve KSatisfiability -> QUBO path");
-    // Extract overhead from the reduction edge
-    let overhead = match resolved.edges.iter().find_map(|e| match e {
-        problemreductions::rules::EdgeKind::Reduction { overhead } => Some(overhead),
-        _ => None,
-    }) {
-        Some(o) => o.clone(),
-        None => panic!("Resolved path has no reduction edge"),
-    };
+    // Export JSON
+    let source_variant = variant_to_map(KSatisfiability::<3>::variant());
+    let target_variant = variant_to_map(QUBO::<f64>::variant());
+    let overhead =
+        lookup_overhead("KSatisfiability", &source_variant, "QUBO", &target_variant)
+            .expect("KSatisfiability -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: KSatisfiability::<3>::NAME.to_string(),
-            variant: variant_to_map(KSatisfiability::<3>::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vars": ksat.num_vars(),
                 "num_clauses": ksat.clauses().len(),
@@ -151,7 +135,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: variant_to_map(QUBO::<f64>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": qubo.matrix(),

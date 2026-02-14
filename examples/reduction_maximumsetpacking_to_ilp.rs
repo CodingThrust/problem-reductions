@@ -17,7 +17,6 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 
-#[allow(deprecated)]
 pub fn run() {
     // 1. Create MaximumSetPacking instance: 6 sets over universe {0,...,7}
     let sets = vec![
@@ -77,12 +76,16 @@ pub fn run() {
         });
     }
 
-    let overhead = lookup_overhead_or_empty("MaximumSetPacking", "ILP");
+    let source_variant = variant_to_map(MaximumSetPacking::<i32>::variant());
+    let target_variant = variant_to_map(ILP::variant());
+    let overhead =
+        lookup_overhead("MaximumSetPacking", &source_variant, "ILP", &target_variant)
+            .unwrap_or_default();
 
     let data = ReductionData {
         source: ProblemSide {
             problem: MaximumSetPacking::<i32>::NAME.to_string(),
-            variant: variant_to_map(MaximumSetPacking::<i32>::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_sets": sp.num_sets(),
                 "sets": sp.sets(),
@@ -90,7 +93,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: variant_to_map(ILP::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

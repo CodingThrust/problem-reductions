@@ -21,7 +21,6 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 
-#[allow(deprecated)]
 pub fn run() {
     // 1. Create SAT instance with varied clause sizes to demonstrate padding and splitting:
     //    - 1 literal: padded to 3
@@ -124,13 +123,20 @@ pub fn run() {
     println!("\nReduction verified successfully");
 
     // 5. Export JSON
-    let overhead = lookup_overhead("Satisfiability", "KSatisfiability")
-        .expect("Satisfiability -> KSatisfiability overhead not found");
+    let source_variant = variant_to_map(Satisfiability::variant());
+    let target_variant = variant_to_map(KSatisfiability::<3>::variant());
+    let overhead = lookup_overhead(
+        "Satisfiability",
+        &source_variant,
+        "KSatisfiability",
+        &target_variant,
+    )
+    .expect("Satisfiability -> KSatisfiability overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: Satisfiability::NAME.to_string(),
-            variant: variant_to_map(Satisfiability::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
                 "num_clauses": sat.num_clauses(),
@@ -138,7 +144,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: KSatisfiability::<3>::NAME.to_string(),
-            variant: variant_to_map(KSatisfiability::<3>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": ksat.num_vars(),
                 "num_clauses": ksat.num_clauses(),

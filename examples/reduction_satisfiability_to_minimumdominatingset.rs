@@ -17,7 +17,6 @@ use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 
-#[allow(deprecated)]
 pub fn run() {
     // 1. Create SAT instance: 5-variable, 7-clause 3-SAT formula
     let sat = Satisfiability::new(
@@ -119,13 +118,20 @@ pub fn run() {
     }
 
     // 6. Export JSON
-    let overhead = lookup_overhead("Satisfiability", "MinimumDominatingSet")
-        .expect("Satisfiability -> MinimumDominatingSet overhead not found");
+    let source_variant = variant_to_map(Satisfiability::variant());
+    let target_variant = variant_to_map(MinimumDominatingSet::<SimpleGraph, i32>::variant());
+    let overhead = lookup_overhead(
+        "Satisfiability",
+        &source_variant,
+        "MinimumDominatingSet",
+        &target_variant,
+    )
+    .expect("Satisfiability -> MinimumDominatingSet overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: Satisfiability::NAME.to_string(),
-            variant: variant_to_map(Satisfiability::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
                 "num_clauses": sat.num_clauses(),
@@ -133,7 +139,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: MinimumDominatingSet::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MinimumDominatingSet::<SimpleGraph, i32>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vertices": ds.num_vertices(),
                 "num_edges": ds.num_edges(),

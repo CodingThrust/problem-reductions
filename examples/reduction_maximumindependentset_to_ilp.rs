@@ -18,7 +18,6 @@ use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::SimpleGraph;
 
-#[allow(deprecated)]
 pub fn run() {
     // 1. Create IS instance: Petersen graph
     let (num_vertices, edges) = petersen();
@@ -71,12 +70,16 @@ pub fn run() {
         });
     }
 
-    let overhead = lookup_overhead_or_empty("MaximumIndependentSet", "ILP");
+    let source_variant = variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let target_variant = variant_to_map(ILP::variant());
+    let overhead =
+        lookup_overhead("MaximumIndependentSet", &source_variant, "ILP", &target_variant)
+            .unwrap_or_default();
 
     let data = ReductionData {
         source: ProblemSide {
             problem: MaximumIndependentSet::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vertices": is.num_vertices(),
                 "num_edges": is.num_edges(),
@@ -85,7 +88,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: variant_to_map(ILP::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

@@ -8,9 +8,10 @@
 //! The schema mirrors the internal types: `ReductionOverhead` for polynomials,
 //! `Problem::variant()` for problem variants, and `Problem::NAME` for problem names.
 
-use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+use crate::rules::registry::ReductionOverhead;
+use crate::rules::ReductionGraph;
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 use std::fs;
 use std::path::Path;
 
@@ -83,32 +84,23 @@ pub fn overhead_to_json(overhead: &ReductionOverhead) -> Vec<OverheadEntry> {
         .collect()
 }
 
-/// Look up `ReductionOverhead` from inventory by source and target problem names.
+/// Look up `ReductionOverhead` for a direct reduction using `ReductionGraph::find_best_entry`.
 ///
-/// Searches all registered `ReductionEntry` items for a matching source/target pair.
-/// Returns `None` if no matching reduction is registered (e.g., ILP reductions
-/// that don't use the `#[reduction]` macro).
-#[deprecated(
-    since = "0.2.0",
-    note = "Use ReductionGraph::resolve_path() for variant-aware overhead lookup"
-)]
-pub fn lookup_overhead(source_name: &str, target_name: &str) -> Option<ReductionOverhead> {
-    for entry in inventory::iter::<ReductionEntry> {
-        if entry.source_name == source_name && entry.target_name == target_name {
-            return Some(entry.overhead());
-        }
-    }
-    None
-}
-
-/// Look up overhead, returning an empty overhead if not registered.
-#[deprecated(
-    since = "0.2.0",
-    note = "Use ReductionGraph::resolve_path() for variant-aware overhead lookup"
-)]
-pub fn lookup_overhead_or_empty(source_name: &str, target_name: &str) -> ReductionOverhead {
-    #[allow(deprecated)]
-    lookup_overhead(source_name, target_name).unwrap_or_default()
+/// Finds the best matching registered reduction entry for the given source/target
+/// names and source variant. Returns `None` if no compatible direct reduction exists.
+pub fn lookup_overhead(
+    source_name: &str,
+    source_variant: &HashMap<String, String>,
+    target_name: &str,
+    _target_variant: &HashMap<String, String>,
+) -> Option<ReductionOverhead> {
+    let graph = ReductionGraph::new();
+    let src_bt: BTreeMap<String, String> = source_variant
+        .iter()
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect();
+    let (_, _, overhead) = graph.find_best_entry(source_name, target_name, &src_bt)?;
+    Some(overhead)
 }
 
 /// Convert `Problem::variant()` output to a `HashMap`.
