@@ -747,6 +747,71 @@ impl ReductionGraph {
         best
     }
 
+    /// Resolve a name-level [`ReductionPath`] into a variant-level [`ResolvedPath`].
+    ///
+    /// Walks the name-level path, threading variant state through each edge.
+    /// For each step, picks the most-specific compatible `ReductionEntry` and
+    /// inserts `NaturalCast` steps where the caller's variant is more specific
+    /// than the rule's expected source variant.
+    ///
+    /// Returns `None` if no compatible reduction entry exists for any step.
+    pub fn resolve_path(
+        &self,
+        path: &ReductionPath,
+        source_variant: &std::collections::BTreeMap<String, String>,
+        target_variant: &std::collections::BTreeMap<String, String>,
+    ) -> Option<ResolvedPath> {
+        if path.type_names.len() < 2 {
+            return None;
+        }
+
+        let mut current_variant = source_variant.clone();
+        let mut steps = vec![ReductionStep {
+            name: path.type_names[0].to_string(),
+            variant: current_variant.clone(),
+        }];
+        let mut edges = Vec::new();
+
+        for i in 0..path.type_names.len() - 1 {
+            let src_name = path.type_names[i];
+            let dst_name = path.type_names[i + 1];
+
+            let (entry_source, entry_target, overhead) =
+                self.find_best_entry(src_name, dst_name, &current_variant)?;
+
+            // Insert natural cast if current variant differs from entry's source
+            if current_variant != entry_source {
+                steps.push(ReductionStep {
+                    name: src_name.to_string(),
+                    variant: entry_source,
+                });
+                edges.push(EdgeKind::NaturalCast);
+            }
+
+            // Advance through the reduction
+            current_variant = entry_target;
+            steps.push(ReductionStep {
+                name: dst_name.to_string(),
+                variant: current_variant.clone(),
+            });
+            edges.push(EdgeKind::Reduction { overhead });
+        }
+
+        // Trailing natural cast if final variant differs from requested target
+        if current_variant != *target_variant
+            && self.is_variant_reducible(&current_variant, target_variant)
+        {
+            let last_name = path.type_names.last().unwrap();
+            steps.push(ReductionStep {
+                name: last_name.to_string(),
+                variant: target_variant.clone(),
+            });
+            edges.push(EdgeKind::NaturalCast);
+        }
+
+        Some(ResolvedPath { steps, edges })
+    }
+
     /// Export the reduction graph as a JSON-serializable structure.
     ///
     /// This method generates nodes for each variant based on the registered reductions.

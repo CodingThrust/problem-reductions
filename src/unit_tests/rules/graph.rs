@@ -1009,3 +1009,150 @@ fn test_find_matching_entry_no_match() {
     let entry = graph.find_best_entry("KSatisfiability", "QUBO", &variant);
     assert!(entry.is_none());
 }
+
+#[test]
+fn test_resolve_path_direct_same_variant() {
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    // MIS(SimpleGraph, i32) → VC(SimpleGraph, i32) — no cast needed
+    let name_path = graph
+        .find_shortest_path::<
+            MaximumIndependentSet<SimpleGraph, i32>,
+            MinimumVertexCover<SimpleGraph, i32>,
+        >()
+        .unwrap();
+
+    let source_variant = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    let target_variant = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+
+    let resolved = graph
+        .resolve_path(&name_path, &source_variant, &target_variant)
+        .unwrap();
+
+    assert_eq!(resolved.num_reductions(), 1);
+    assert_eq!(resolved.num_casts(), 0);
+    assert_eq!(resolved.steps.len(), 2);
+    assert_eq!(resolved.steps[0].name, "MaximumIndependentSet");
+    assert_eq!(resolved.steps[1].name, "MinimumVertexCover");
+}
+
+#[test]
+fn test_resolve_path_with_natural_cast() {
+    use std::collections::BTreeMap;
+    use crate::topology::GridGraph;
+    let graph = ReductionGraph::new();
+
+    // MIS(GridGraph) → VC(SimpleGraph) — needs a natural cast MIS(GridGraph)→MIS(SimpleGraph)
+    let name_path = graph
+        .find_shortest_path::<
+            MaximumIndependentSet<GridGraph<i32>, i32>,
+            MinimumVertexCover<SimpleGraph, i32>,
+        >()
+        .unwrap();
+
+    let source_variant = BTreeMap::from([
+        ("graph".to_string(), "GridGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    let target_variant = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+
+    let resolved = graph
+        .resolve_path(&name_path, &source_variant, &target_variant)
+        .unwrap();
+
+    // Should be: MIS(GridGraph) --NaturalCast--> MIS(SimpleGraph) --Reduction--> VC(SimpleGraph)
+    assert_eq!(resolved.num_reductions(), 1);
+    assert_eq!(resolved.num_casts(), 1);
+    assert_eq!(resolved.steps.len(), 3);
+    assert_eq!(resolved.steps[0].name, "MaximumIndependentSet");
+    assert_eq!(
+        resolved.steps[0].variant.get("graph").unwrap(),
+        "GridGraph"
+    );
+    assert_eq!(resolved.steps[1].name, "MaximumIndependentSet");
+    assert_eq!(
+        resolved.steps[1].variant.get("graph").unwrap(),
+        "SimpleGraph"
+    );
+    assert_eq!(resolved.steps[2].name, "MinimumVertexCover");
+    assert!(matches!(resolved.edges[0], EdgeKind::NaturalCast));
+    assert!(matches!(resolved.edges[1], EdgeKind::Reduction { .. }));
+}
+
+#[test]
+fn test_resolve_path_ksat_disambiguates() {
+    use std::collections::BTreeMap;
+    use crate::rules::graph::EdgeKind;
+    let graph = ReductionGraph::new();
+
+    let name_path = graph
+        .find_shortest_path_by_name("KSatisfiability", "QUBO")
+        .unwrap();
+
+    // Resolve with k=3
+    let source_k3 = BTreeMap::from([("k".to_string(), "3".to_string())]);
+    let target = BTreeMap::from([("weight".to_string(), "f64".to_string())]);
+
+    let resolved_k3 = graph
+        .resolve_path(&name_path, &source_k3, &target)
+        .unwrap();
+    assert_eq!(resolved_k3.num_reductions(), 1);
+
+    // Extract overhead from the reduction edge
+    let overhead_k3 = match &resolved_k3.edges.last().unwrap() {
+        EdgeKind::Reduction { overhead } => overhead,
+        _ => panic!("last edge should be Reduction"),
+    };
+    // K=3 overhead has 2 terms in num_vars polynomial
+    let num_vars_poly_k3 = &overhead_k3
+        .output_size
+        .iter()
+        .find(|(f, _)| *f == "num_vars")
+        .unwrap()
+        .1;
+    assert!(num_vars_poly_k3.terms.len() >= 2);
+
+    // Resolve with k=2
+    let source_k2 = BTreeMap::from([("k".to_string(), "2".to_string())]);
+    let resolved_k2 = graph
+        .resolve_path(&name_path, &source_k2, &target)
+        .unwrap();
+    let overhead_k2 = match &resolved_k2.edges.last().unwrap() {
+        EdgeKind::Reduction { overhead } => overhead,
+        _ => panic!("last edge should be Reduction"),
+    };
+    let num_vars_poly_k2 = &overhead_k2
+        .output_size
+        .iter()
+        .find(|(f, _)| *f == "num_vars")
+        .unwrap()
+        .1;
+    assert_eq!(num_vars_poly_k2.terms.len(), 1);
+}
+
+#[test]
+fn test_resolve_path_incompatible_returns_none() {
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    let name_path = graph
+        .find_shortest_path_by_name("KSatisfiability", "QUBO")
+        .unwrap();
+
+    // k=99 matches neither k=2 nor k=3
+    let source = BTreeMap::from([("k".to_string(), "99".to_string())]);
+    let target = BTreeMap::from([("weight".to_string(), "f64".to_string())]);
+
+    let resolved = graph.resolve_path(&name_path, &source, &target);
+    assert!(resolved.is_none());
+}
