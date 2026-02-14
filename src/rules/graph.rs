@@ -805,6 +805,14 @@ impl ReductionGraph {
             ));
         }
 
+        // Remove empty-variant base nodes that are redundant (same name already has specific variants)
+        let names_with_variants: HashSet<String> = node_set
+            .iter()
+            .filter(|(_, variant)| !variant.is_empty())
+            .map(|(name, _)| name.clone())
+            .collect();
+        node_set.retain(|(name, variant)| !variant.is_empty() || !names_with_variants.contains(name));
+
         // Build nodes with categories and doc paths derived from ProblemSchemaEntry.module_path
         let mut nodes: Vec<NodeJson> = node_set
             .iter()

@@ -27,18 +27,14 @@ document.addEventListener('DOMContentLoaded', function() {
     return name + '/' + keys.map(function(k) { return k + '=' + variant[k]; }).join(',');
   }
 
-  // Default values per variant key — omitted in concise labels
-  var variantDefaults = { graph: 'SimpleGraph', weight: 'One' };
-
   function variantLabel(variant) {
     var keys = Object.keys(variant);
+    if (keys.length === 0) return 'default';
     var parts = [];
     keys.forEach(function(k) {
-      var v = variant[k];
-      if (variantDefaults[k] && v === variantDefaults[k]) return; // skip defaults
-      parts.push(k === 'graph' || k === 'weight' ? v : k + '=' + v);
+      parts.push(k === 'graph' || k === 'weight' ? variant[k] : k + '=' + variant[k]);
     });
-    return parts.length > 0 ? parts.join(', ') : 'base';
+    return parts.join(', ');
   }
 
   function fullVariantLabel(variant) {
@@ -135,17 +131,23 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
 
-      // ── Build collapsed-mode edges (name-level) ──
+      // ── Build collapsed-mode edges (name-level), merging bidirectional pairs ──
       var nameLevelEdges = {};
       data.edges.forEach(function(e) {
         var srcName = data.nodes[e.source].name;
         var dstName = data.nodes[e.target].name;
         if (srcName === dstName) return; // skip intra-problem natural casts
-        var key = srcName + '->' + dstName;
-        if (!nameLevelEdges[key]) {
-          nameLevelEdges[key] = { count: 0, overhead: e.overhead, doc_path: e.doc_path };
+        var fwd = srcName + '->' + dstName;
+        var rev = dstName + '->' + srcName;
+        if (nameLevelEdges[rev]) {
+          // Reverse already exists — mark bidirectional, don't create parallel edge
+          nameLevelEdges[rev].bidirectional = true;
+        } else {
+          if (!nameLevelEdges[fwd]) {
+            nameLevelEdges[fwd] = { count: 0, overhead: e.overhead, doc_path: e.doc_path, bidirectional: false };
+          }
+          nameLevelEdges[fwd].count++;
         }
-        nameLevelEdges[key].count++;
       });
 
       // Add collapsed edges to elements
@@ -161,6 +163,7 @@ document.addEventListener('DOMContentLoaded', function() {
             target: dstId,
             label: info.count > 1 ? '\u00d7' + info.count : '',
             edgeLevel: 'collapsed',
+            bidirectional: info.bidirectional,
             overhead: info.overhead,
             doc_path: info.doc_path
           }
@@ -202,19 +205,30 @@ document.addEventListener('DOMContentLoaded', function() {
             'border-color': function(ele) { return categoryBorders[ele.data('category')] || '#999'; },
             'text-wrap': 'none', 'cursor': 'pointer'
           }},
-          // Parent (compound) node — collapsed appearance
+          // Parent (compound) node — collapsed by default
           { selector: 'node[?isParent]', style: {
             'label': 'data(label)',
-            'text-valign': 'top',
+            'text-valign': 'center',
             'text-halign': 'center',
-            'font-size': '11px',
+            'font-size': '10px',
             'font-family': 'monospace',
-            'padding': '10px',
+            'min-width': function(ele) { return Math.max(ele.data('label').length * 6.5 + 16, 60); },
+            'min-height': 28,
+            'padding': '4px',
             'background-color': function(ele) { return categoryColors[ele.data('category')] || '#f0f0f0'; },
             'border-width': 1.5,
             'border-color': function(ele) { return categoryBorders[ele.data('category')] || '#999'; },
             'shape': 'round-rectangle',
+            'compound-sizing-wrt-labels': 'include',
             'cursor': 'pointer'
+          }},
+          // Parent (compound) node — expanded appearance
+          { selector: 'node[?isParent].expanded', style: {
+            'text-valign': 'top',
+            'font-size': '11px',
+            'padding': '10px',
+            'min-width': 0,
+            'min-height': 0
           }},
           // Child variant nodes
           { selector: 'node[?isVariant]', style: {
@@ -266,30 +280,48 @@ document.addEventListener('DOMContentLoaded', function() {
             'background-color': '#cce0ff'
           }}
         ],
-        layout: elkAvailable ? {
+        layout: { name: 'preset' },  // delay layout until children are hidden
+        userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false
+      });
+
+      // Shared layout helper
+      function getLayoutOpts(animate) {
+        return elkAvailable ? {
           name: 'elk',
           elk: {
             algorithm: 'stress',
             'stress.desiredEdgeLength': 200,
             'nodeNode.spacing': 40
           },
-          animate: true,
-          animationDuration: 500,
+          nodeDimensionsIncludeLabels: true,
+          fit: true,
+          animate: animate,
+          animationDuration: animate ? 400 : 0,
           padding: 40
         } : {
           name: 'cose',
-          animate: false,
+          nodeDimensionsIncludeLabels: true,
+          fit: true,
+          animate: animate,
+          animationDuration: animate ? 300 : 0,
           nodeRepulsion: function() { return 16000; },
           idealEdgeLength: function() { return 200; },
           gravity: 0.15,
           numIter: 1000,
           padding: 40
-        },
-        userZoomingEnabled: true, userPanningEnabled: true, boxSelectionEnabled: false
-      });
+        };
+      }
 
-      // Start collapsed — hide all child variant nodes
-      cy.nodes('[?isVariant]').style('display', 'none');
+      // Run initial layout with children visible (ELK needs compound structure
+      // for accurate sizing/positioning), then collapse after layout completes.
+      cyContainer.style.opacity = '0';
+      var initOpts = getLayoutOpts(false);
+      initOpts.stop = function() {
+        cy.nodes('[?isVariant]').style('display', 'none');
+        cy.fit(40);
+        cyContainer.style.opacity = '1';
+      };
+      cy.layout(initOpts).run();
 
       var expandedParents = {};  // parentId → true/false
       var activeVariantFilter = null;
@@ -303,6 +335,7 @@ document.addEventListener('DOMContentLoaded', function() {
         if (isExpanded) {
           // Collapse: hide children, show collapsed edges, hide variant edges
           children.style('display', 'none');
+          parentNode.removeClass('expanded');
           cy.edges('[edgeLevel="collapsed"]').forEach(function(e) {
             var srcName = e.source().data('label') || e.source().data('problemName');
             var dstName = e.target().data('label') || e.target().data('problemName');
@@ -321,6 +354,7 @@ document.addEventListener('DOMContentLoaded', function() {
         } else {
           // Expand: show children, hide collapsed edges, show variant edges
           children.style('display', 'element');
+          parentNode.addClass('expanded');
           cy.edges('[edgeLevel="collapsed"]').forEach(function(e) {
             // Hide collapsed edges connected to this parent
             if (e.source().id() === parentId || e.target().id() === parentId) {
@@ -342,23 +376,7 @@ document.addEventListener('DOMContentLoaded', function() {
           });
         }
 
-        // Re-layout with animation
-        cy.layout(elkAvailable ? {
-          name: 'elk',
-          elk: { algorithm: 'stress', 'stress.desiredEdgeLength': 200 },
-          animate: true,
-          animationDuration: 300,
-          padding: 40
-        } : {
-          name: 'cose',
-          animate: true,
-          animationDuration: 300,
-          nodeRepulsion: function() { return 16000; },
-          idealEdgeLength: function() { return 200; },
-          gravity: 0.15,
-          numIter: 500,
-          padding: 40
-        }).run();
+        // No global re-layout — nodes stay in place, parent resizes to fit children
       }
 
       // Tooltip for nodes
