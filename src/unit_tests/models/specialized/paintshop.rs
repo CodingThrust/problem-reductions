@@ -107,14 +107,22 @@ fn test_jl_parity_evaluation() {
         serde_json::from_str(include_str!("../../../../tests/data/jl/paintshop.json")).unwrap();
     for instance in data["instances"].as_array().unwrap() {
         let sequence: Vec<String> = instance["instance"]["sequence"]
-            .as_array().unwrap().iter()
-            .map(|v| v.as_str().unwrap().to_string()).collect();
+            .as_array()
+            .unwrap()
+            .iter()
+            .map(|v| v.as_str().unwrap().to_string())
+            .collect();
         let problem = PaintShop::new(sequence);
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_config(&eval["config"]);
             let result = problem.evaluate(&config);
             let jl_size = eval["size"].as_i64().unwrap() as i32;
-            assert_eq!(result.unwrap(), jl_size, "PaintShop switches mismatch for config {:?}", config);
+            assert_eq!(
+                result.unwrap(),
+                jl_size,
+                "PaintShop switches mismatch for config {:?}",
+                config
+            );
         }
         let best = BruteForce::new().find_all_best(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);

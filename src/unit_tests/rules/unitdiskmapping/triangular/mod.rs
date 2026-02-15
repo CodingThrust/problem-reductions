@@ -1,5 +1,4 @@
 use super::*;
-use crate::topology::Graph;
 
 #[test]
 fn test_triangular_cross_gadget() {
@@ -13,10 +12,10 @@ fn test_map_graph_triangular() {
     let edges = vec![(0, 1), (1, 2)];
     let result = map_graph_triangular(3, &edges);
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
     assert!(matches!(
-        result.grid_graph.grid_type(),
-        GridType::Triangular { .. }
+        result.kind,
+        GridKind::Triangular
     ));
 }
 
@@ -66,7 +65,7 @@ fn test_map_graph_triangular_with_order() {
     let order = vec![2, 1, 0];
     let result = map_graph_triangular_with_order(3, &edges, &order);
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
     assert_eq!(result.spacing, TRIANGULAR_SPACING);
     assert_eq!(result.padding, TRIANGULAR_PADDING);
 }
@@ -76,7 +75,7 @@ fn test_map_graph_triangular_single_vertex() {
     let edges: Vec<(usize, usize)> = vec![];
     let result = map_graph_triangular(1, &edges);
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
 }
 
 #[test]

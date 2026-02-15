@@ -101,8 +101,10 @@ fn test_has_edge() {
 
 #[test]
 fn test_jl_parity_evaluation() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../../tests/data/jl/vertexcovering.json")).unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/data/jl/vertexcovering.json"
+    ))
+    .unwrap();
     for instance in data["instances"].as_array().unwrap() {
         let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
         let edges = jl_parse_edges(&instance["instance"]);
@@ -116,10 +118,20 @@ fn test_jl_parity_evaluation() {
             let config = jl_parse_config(&eval["config"]);
             let result = problem.evaluate(&config);
             let jl_valid = eval["is_valid"].as_bool().unwrap();
-            assert_eq!(result.is_valid(), jl_valid, "VC validity mismatch for config {:?}", config);
+            assert_eq!(
+                result.is_valid(),
+                jl_valid,
+                "VC validity mismatch for config {:?}",
+                config
+            );
             if jl_valid {
                 let jl_size = eval["size"].as_i64().unwrap() as i32;
-                assert_eq!(result.unwrap(), jl_size, "VC size mismatch for config {:?}", config);
+                assert_eq!(
+                    result.unwrap(),
+                    jl_size,
+                    "VC size mismatch for config {:?}",
+                    config
+                );
             }
         }
         let best = BruteForce::new().find_all_best(&problem);

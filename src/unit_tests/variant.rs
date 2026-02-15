@@ -207,13 +207,13 @@ fn test_variant_for_problems() {
 
 // --- KValue concrete type tests ---
 
-use crate::variant::{K1, K2, K3, K4, KN};
+use crate::variant::{K1, K2, K3, K4, K5, KN};
 
 #[test]
 fn test_kvalue_k1() {
     assert_eq!(K1::CATEGORY, "k");
     assert_eq!(K1::VALUE, "K1");
-    assert_eq!(K1::PARENT_VALUE, Some("K2"));
+    assert_eq!(K1::PARENT_VALUE, Some("KN"));
     assert_eq!(K1::K, Some(1));
 }
 
@@ -221,7 +221,7 @@ fn test_kvalue_k1() {
 fn test_kvalue_k2() {
     assert_eq!(K2::CATEGORY, "k");
     assert_eq!(K2::VALUE, "K2");
-    assert_eq!(K2::PARENT_VALUE, Some("K3"));
+    assert_eq!(K2::PARENT_VALUE, Some("KN"));
     assert_eq!(K2::K, Some(2));
 }
 
@@ -229,8 +229,24 @@ fn test_kvalue_k2() {
 fn test_kvalue_k3() {
     assert_eq!(K3::CATEGORY, "k");
     assert_eq!(K3::VALUE, "K3");
-    assert_eq!(K3::PARENT_VALUE, Some("K4"));
+    assert_eq!(K3::PARENT_VALUE, Some("KN"));
     assert_eq!(K3::K, Some(3));
+}
+
+#[test]
+fn test_kvalue_k4() {
+    assert_eq!(K4::CATEGORY, "k");
+    assert_eq!(K4::VALUE, "K4");
+    assert_eq!(K4::PARENT_VALUE, Some("KN"));
+    assert_eq!(K4::K, Some(4));
+}
+
+#[test]
+fn test_kvalue_k5() {
+    assert_eq!(K5::CATEGORY, "k");
+    assert_eq!(K5::VALUE, "K5");
+    assert_eq!(K5::PARENT_VALUE, Some("KN"));
+    assert_eq!(K5::K, Some(5));
 }
 
 #[test]
@@ -242,36 +258,23 @@ fn test_kvalue_kn() {
 }
 
 #[test]
-fn test_kvalue_cast_chain() {
-    let k1 = K1;
-    let k2: K2 = k1.cast_to_parent();
-    let k3: K3 = k2.cast_to_parent();
-    let k4: K4 = k3.cast_to_parent();
-    let kn: KN = k4.cast_to_parent();
-    assert_eq!(KN::K, None);
-    let _ = kn; // use it
-}
-
-#[test]
 fn test_kvalue_variant_entries() {
     let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
         .filter(|e| e.category == "k")
         .collect();
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "KN" && e.parent.is_none()));
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "K4" && e.parent == Some("KN")));
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "K3" && e.parent == Some("K4")));
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "K2" && e.parent == Some("K3")));
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "K1" && e.parent == Some("K2")));
+    // All specific K values have KN as parent (flat hierarchy, no chain)
+    for entry in &entries {
+        if entry.value == "KN" {
+            assert_eq!(entry.parent, None, "KN should have no parent");
+        } else {
+            assert_eq!(
+                entry.parent,
+                Some("KN"),
+                "K value {} should have KN as parent",
+                entry.value
+            );
+        }
+    }
 }
 
 // --- Graph type VariantParam tests ---

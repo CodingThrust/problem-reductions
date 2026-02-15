@@ -93,10 +93,9 @@
 
 // King's subgraph from JSON with weight-based coloring
 #let draw-grid-graph(data, cell-size: 0.2) = canvas(length: 1cm, {
-  let grid-data = data.grid_graph
-  let positions = grid-data.nodes.map(n => (n.col * cell-size, -n.row * cell-size))
-  let fills = grid-data.nodes.map(n => weight-color(n.weight))
-  let edges = grid-data.edges.map(e => (e.at(0), e.at(1)))
+  let positions = data.nodes.map(n => (n.col * cell-size, -n.row * cell-size))
+  let fills = data.nodes.map(n => weight-color(n.weight))
+  let edges = data.edges.map(e => (e.at(0), e.at(1)))
   for (u, v) in edges { g-edge(positions.at(u), positions.at(v), stroke: 0.4pt + gray) }
   for (k, pos) in positions.enumerate() {
     g-node(pos, radius: 0.04, stroke: none, fill: fills.at(k))
@@ -104,16 +103,15 @@
 })
 
 // Triangular lattice from JSON with weight-based coloring
-// Matches Rust GridGraph::physical_position_static for Triangular (offset_even_cols=true)
+// Physical positions use triangular lattice transform (offset_even_cols=true)
 #let draw-triangular-graph(data, cell-size: 0.2) = canvas(length: 1cm, {
-  let grid-data = data.grid_graph
   let sqrt3_2 = calc.sqrt(3) / 2
-  let positions = grid-data.nodes.map(n => {
+  let positions = data.nodes.map(n => {
     let offset = if calc.rem(n.col, 2) == 0 { 0.5 } else { 0.0 }
     ((n.row + offset) * cell-size, -n.col * sqrt3_2 * cell-size)
   })
-  let fills = grid-data.nodes.map(n => weight-color(n.weight))
-  let edges = grid-data.edges.map(e => (e.at(0), e.at(1)))
+  let fills = data.nodes.map(n => weight-color(n.weight))
+  let edges = data.edges.map(e => (e.at(0), e.at(1)))
   for (u, v) in edges { g-edge(positions.at(u), positions.at(v), stroke: 0.3pt + gray) }
   for (k, pos) in positions.enumerate() {
     g-node(pos, radius: 0.025, stroke: none, fill: fills.at(k))

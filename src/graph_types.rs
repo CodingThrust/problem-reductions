@@ -45,13 +45,13 @@ inventory::submit! {
     }
 }
 
-/// Grid graph - vertices on a grid, edges to neighbors.
+/// King's subgraph - a unit disk graph on a square grid with king's move connectivity.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct GridGraph;
+pub struct KingsSubgraph;
 
-/// Triangular lattice graph - a unit disk graph on a triangular grid.
+/// Triangular subgraph - a unit disk graph on a triangular lattice.
 #[derive(Debug, Clone, Copy, Default)]
-pub struct Triangular;
+pub struct TriangularSubgraph;
 
 /// Hypergraph - most general graph type. Edges can connect any number of vertices.
 #[derive(Debug, Clone, Copy, Default)]

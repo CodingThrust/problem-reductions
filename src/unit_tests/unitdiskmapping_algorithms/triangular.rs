@@ -1,10 +1,8 @@
 //! Tests for triangular lattice mapping (src/rules/mapping/triangular.rs).
 
 use super::common::solve_weighted_grid_mis;
-use crate::rules::unitdiskmapping::{
-    map_graph_triangular, map_graph_triangular_with_order, trace_centers, MappingResult,
-};
-use crate::topology::{smallgraph, Graph};
+use crate::rules::unitdiskmapping::{trace_centers, triangular, MappingResult};
+use crate::topology::smallgraph;
 use std::collections::HashMap;
 
 // === Basic Triangular Mapping Tests ===
@@ -12,9 +10,9 @@ use std::collections::HashMap;
 #[test]
 fn test_triangular_path_graph() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = map_graph_triangular(3, &edges);
+    let result = triangular::map_weighted(3, &edges);
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
     assert!(result.mis_overhead >= 0);
     assert_eq!(result.lines.len(), 3);
 }
@@ -22,27 +20,27 @@ fn test_triangular_path_graph() {
 #[test]
 fn test_triangular_complete_k4() {
     let edges = vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
-    let result = map_graph_triangular(4, &edges);
+    let result = triangular::map_weighted(4, &edges);
 
-    assert!(result.grid_graph.num_vertices() > 4);
+    assert!(result.positions.len() > 4);
     assert_eq!(result.lines.len(), 4);
 }
 
 #[test]
 fn test_triangular_single_vertex() {
     let edges: Vec<(usize, usize)> = vec![];
-    let result = map_graph_triangular(1, &edges);
+    let result = triangular::map_weighted(1, &edges);
 
     assert_eq!(result.lines.len(), 1);
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
 }
 
 #[test]
 fn test_triangular_empty_graph() {
     let edges: Vec<(usize, usize)> = vec![];
-    let result = map_graph_triangular(3, &edges);
+    let result = triangular::map_weighted(3, &edges);
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
     assert_eq!(result.lines.len(), 3);
 }
 
@@ -50,18 +48,18 @@ fn test_triangular_empty_graph() {
 fn test_triangular_with_custom_order() {
     let edges = vec![(0, 1), (1, 2)];
     let order = vec![2, 1, 0];
-    let result = map_graph_triangular_with_order(3, &edges, &order);
+    let result = triangular::map_weighted_with_order(3, &edges, &order);
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
     assert_eq!(result.lines.len(), 3);
 }
 
 #[test]
 fn test_triangular_star_graph() {
     let edges = vec![(0, 1), (0, 2), (0, 3)];
-    let result = map_graph_triangular(4, &edges);
+    let result = triangular::map_weighted(4, &edges);
 
-    assert!(result.grid_graph.num_vertices() > 4);
+    assert!(result.positions.len() > 4);
     assert_eq!(result.lines.len(), 4);
 }
 
@@ -69,13 +67,13 @@ fn test_triangular_star_graph() {
 #[should_panic]
 fn test_triangular_zero_vertices_panics() {
     let edges: Vec<(usize, usize)> = vec![];
-    let _ = map_graph_triangular(0, &edges);
+    let _ = triangular::map_weighted(0, &edges);
 }
 
 #[test]
 fn test_triangular_offset_setting() {
     let edges = vec![(0, 1)];
-    let result = map_graph_triangular(2, &edges);
+    let result = triangular::map_weighted(2, &edges);
 
     // Triangular mode uses spacing=6, padding=2
     assert_eq!(result.spacing, 6);
@@ -85,7 +83,7 @@ fn test_triangular_offset_setting() {
 #[test]
 fn test_triangular_mapping_result_serialization() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = map_graph_triangular(3, &edges);
+    let result = triangular::map_weighted(3, &edges);
 
     let json = serde_json::to_string(&result).unwrap();
     let deserialized: MappingResult = serde_json::from_str(&json).unwrap();
@@ -102,7 +100,7 @@ fn test_map_standard_graphs_triangular() {
 
     for name in graph_names {
         let (n, edges) = smallgraph(name).unwrap();
-        let result = map_graph_triangular(n, &edges);
+        let result = triangular::map_weighted(n, &edges);
 
         assert_eq!(
             result.lines.len(),
@@ -112,7 +110,7 @@ fn test_map_standard_graphs_triangular() {
             n
         );
         assert!(
-            result.grid_graph.num_vertices() > 0,
+            !result.positions.is_empty(),
             "{}: should have grid nodes",
             name
         );
@@ -155,7 +153,7 @@ fn verify_mapping_matches_julia(name: &str) -> bool {
 
     // Use Julia's vertex order to ensure consistent mapping
     let vertex_order = get_julia_vertex_order(name).unwrap_or_else(|| (0..n).collect());
-    let result = map_graph_triangular_with_order(n, &edges, &vertex_order);
+    let result = triangular::map_weighted_with_order(n, &edges, &vertex_order);
 
     // Load Julia's trace data
     let julia_path = format!(
@@ -174,11 +172,11 @@ fn verify_mapping_matches_julia(name: &str) -> bool {
 
     // Compare node count
     let julia_nodes = julia_data["num_grid_nodes"].as_u64().unwrap() as usize;
-    if result.grid_graph.num_vertices() != julia_nodes {
+    if result.positions.len() != julia_nodes {
         eprintln!(
             "{}: node count mismatch - Rust={}, Julia={}",
             name,
-            result.grid_graph.num_vertices(),
+            result.positions.len(),
             julia_nodes
         );
         return false;
@@ -196,7 +194,7 @@ fn verify_mapping_matches_julia(name: &str) -> bool {
 
     // Compare edge count
     if let Some(julia_edges) = julia_data["num_grid_edges"].as_u64() {
-        let rust_edges = result.grid_graph.num_edges();
+        let rust_edges = result.num_edges();
         if rust_edges != julia_edges as usize {
             eprintln!(
                 "{}: edge count mismatch - Rust={}, Julia={}",
@@ -237,7 +235,7 @@ fn verify_mapping_matches_julia(name: &str) -> bool {
 fn test_triangular_mis_overhead_path_graph() {
     let edges = vec![(0, 1), (1, 2)];
     let n = 3;
-    let result = map_graph_triangular(n, &edges);
+    let result = triangular::map_weighted(n, &edges);
 
     let mapped_mis = solve_weighted_grid_mis(&result) as i32;
 
@@ -302,7 +300,7 @@ fn test_triangular_mapping_tutte() {
 #[test]
 fn test_trace_centers_single_vertex() {
     let edges: Vec<(usize, usize)> = vec![];
-    let result = map_graph_triangular(1, &edges);
+    let result = triangular::map_weighted(1, &edges);
 
     let centers = trace_centers(&result);
     assert_eq!(centers.len(), 1);
@@ -311,7 +309,7 @@ fn test_trace_centers_single_vertex() {
 #[test]
 fn test_trace_centers_path_graph() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = map_graph_triangular(3, &edges);
+    let result = triangular::map_weighted(3, &edges);
 
     let centers = trace_centers(&result);
     assert_eq!(centers.len(), 3);
@@ -326,7 +324,7 @@ fn test_trace_centers_path_graph() {
 #[test]
 fn test_trace_centers_triangle() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = map_graph_triangular(3, &edges);
+    let result = triangular::map_weighted(3, &edges);
 
     let centers = trace_centers(&result);
     assert_eq!(centers.len(), 3);
@@ -345,8 +343,6 @@ fn test_trace_centers_triangle() {
 fn test_triangular_map_config_back_standard_graphs() {
     use super::common::{is_independent_set, solve_mis, solve_weighted_mis_config};
     use crate::rules::unitdiskmapping::map_weights;
-    use crate::topology::Graph;
-
     // All standard graphs (excluding tutte/karate which are slow)
     let graph_names = [
         "bull",
@@ -376,7 +372,7 @@ fn test_triangular_map_config_back_standard_graphs() {
 
         // Use Julia's vertex order if available
         let vertex_order = get_julia_vertex_order(name).unwrap_or_else(|| (0..n).collect());
-        let result = map_graph_triangular_with_order(n, &edges, &vertex_order);
+        let result = triangular::map_weighted_with_order(n, &edges, &vertex_order);
 
         // Follow Julia's approach: source weights of 0.2 for each vertex
         let source_weights: Vec<f64> = vec![0.2; n];
@@ -390,8 +386,8 @@ fn test_triangular_map_config_back_standard_graphs() {
             .map(|&w| (w * 10.0).round() as i32)
             .collect();
 
-        let grid_edges = result.grid_graph.edges().to_vec();
-        let num_grid = result.grid_graph.num_vertices();
+        let grid_edges = result.edges();
+        let num_grid = result.positions.len();
 
         // Solve weighted MIS on grid
         let grid_config = solve_weighted_mis_config(num_grid, &grid_edges, &weights);
@@ -399,8 +395,8 @@ fn test_triangular_map_config_back_standard_graphs() {
         // Use triangular-specific trace_centers (not the KSG version)
         // Build position to node index map
         let mut pos_to_idx: HashMap<(usize, usize), usize> = HashMap::new();
-        for (idx, node) in result.grid_graph.nodes().iter().enumerate() {
-            if let (Ok(row), Ok(col)) = (usize::try_from(node.row), usize::try_from(node.col)) {
+        for (idx, &(row, col)) in result.positions.iter().enumerate() {
+            if let (Ok(row), Ok(col)) = (usize::try_from(row), usize::try_from(col)) {
                 pos_to_idx.insert((row, col), idx);
             }
         }

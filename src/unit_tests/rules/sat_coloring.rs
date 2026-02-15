@@ -301,8 +301,14 @@ fn test_jl_parity_sat_to_coloring() {
     let sat_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/satisfiability.json")).unwrap();
     let fixtures: &[(&str, &str)] = &[
-        (include_str!("../../../tests/data/jl/satisfiability_to_coloring3.json"), "simple_clause"),
-        (include_str!("../../../tests/data/jl/rule_satisfiability2_to_coloring3.json"), "rule_sat_coloring"),
+        (
+            include_str!("../../../tests/data/jl/satisfiability_to_coloring3.json"),
+            "simple_clause",
+        ),
+        (
+            include_str!("../../../tests/data/jl/rule_satisfiability2_to_coloring3.json"),
+            "rule_sat_coloring",
+        ),
     ];
     for (fixture_str, label) in fixtures {
         let data: serde_json::Value = serde_json::from_str(fixture_str).unwrap();
@@ -312,14 +318,24 @@ fn test_jl_parity_sat_to_coloring() {
         let result = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&source);
         let ilp_solver = crate::solvers::ILPSolver::new();
         let target = result.target_problem();
-        let target_sol = ilp_solver.solve_reduced(target).expect("ILP should find a coloring");
+        let target_sol = ilp_solver
+            .solve_reduced(target)
+            .expect("ILP should find a coloring");
         let extracted = result.extract_solution(&target_sol);
         let best_source: HashSet<Vec<usize>> = BruteForce::new()
-            .find_all_satisfying(&source).into_iter().collect();
-        assert!(best_source.contains(&extracted), "SAT->Coloring [{label}]: extracted not satisfying");
+            .find_all_satisfying(&source)
+            .into_iter()
+            .collect();
+        assert!(
+            best_source.contains(&extracted),
+            "SAT->Coloring [{label}]: extracted not satisfying"
+        );
         for case in data["cases"].as_array().unwrap() {
-            assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]),
-                "SAT->Coloring [{label}]: best source mismatch");
+            assert_eq!(
+                best_source,
+                jl_parse_configs_set(&case["best_source"]),
+                "SAT->Coloring [{label}]: best source mismatch"
+            );
         }
     }
 }

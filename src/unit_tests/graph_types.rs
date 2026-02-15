@@ -8,7 +8,8 @@ fn test_graph_type_traits() {
     let _: PlanarGraph = Default::default();
     let _: UnitDiskGraph = Default::default();
     let _: BipartiteGraph = Default::default();
-    let _: GridGraph = Default::default();
+    let _: KingsSubgraph = Default::default();
+    let _: TriangularSubgraph = Default::default();
     let _: HyperGraph = Default::default();
 
     // Test Copy (SimpleGraph implements Copy, so no need to clone)
@@ -61,12 +62,12 @@ fn test_graph_variant_type_entries_registered() {
         "UnitDiskGraph should be registered"
     );
     assert!(
-        entries.iter().any(|e| e.value == "GridGraph"),
-        "GridGraph should be registered"
+        entries.iter().any(|e| e.value == "KingsSubgraph"),
+        "KingsSubgraph should be registered"
     );
     assert!(
-        entries.iter().any(|e| e.value == "Triangular"),
-        "Triangular should be registered"
+        entries.iter().any(|e| e.value == "TriangularSubgraph"),
+        "TriangularSubgraph should be registered"
     );
     assert!(
         entries.iter().any(|e| e.value == "HyperGraph"),
@@ -123,7 +124,7 @@ fn test_marker_structs_exist() {
     let _ = PlanarGraph;
     let _ = UnitDiskGraph;
     let _ = BipartiteGraph;
-    let _ = GridGraph;
-    let _ = Triangular;
+    let _ = KingsSubgraph;
+    let _ = TriangularSubgraph;
     let _ = HyperGraph;
 }

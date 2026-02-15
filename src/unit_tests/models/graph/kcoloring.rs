@@ -156,7 +156,12 @@ fn test_jl_parity_evaluation() {
             let config = jl_parse_config(&eval["config"]);
             let result: bool = problem.evaluate(&config);
             let jl_size = eval["size"].as_i64().unwrap() as usize;
-            assert_eq!(result, jl_size == num_edges, "KColoring mismatch for config {:?}", config);
+            assert_eq!(
+                result,
+                jl_size == num_edges,
+                "KColoring mismatch for config {:?}",
+                config
+            );
         }
         let all_sat = BruteForce::new().find_all_satisfying(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);

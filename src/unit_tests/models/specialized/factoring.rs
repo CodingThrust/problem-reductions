@@ -77,9 +77,17 @@ fn test_jl_parity_evaluation() {
             let result = problem.evaluate(&config);
             let jl_valid = eval["is_valid"].as_bool().unwrap();
             if jl_valid {
-                assert_eq!(result.unwrap(), 0, "Factoring: valid config should have distance 0");
+                assert_eq!(
+                    result.unwrap(),
+                    0,
+                    "Factoring: valid config should have distance 0"
+                );
             } else {
-                assert_ne!(result.unwrap(), 0, "Factoring: invalid config should have nonzero distance");
+                assert_ne!(
+                    result.unwrap(),
+                    0,
+                    "Factoring: invalid config should have nonzero distance"
+                );
             }
         }
         let best = BruteForce::new().find_all_best(&problem);

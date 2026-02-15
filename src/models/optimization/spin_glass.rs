@@ -36,7 +36,7 @@ inventory::submit! {
 ///
 /// # Type Parameters
 ///
-/// * `G` - The graph type (e.g., `SimpleGraph`, `GridGraph`, `UnitDiskGraph`)
+/// * `G` - The graph type (e.g., `SimpleGraph`, `KingsSubgraph`, `UnitDiskGraph`)
 /// * `W` - The weight type for couplings (e.g., `i32`, `f64`)
 ///
 /// # Example

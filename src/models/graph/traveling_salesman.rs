@@ -41,7 +41,7 @@ inventory::submit! {
 ///
 /// # Type Parameters
 ///
-/// * `G` - The graph type (e.g., `SimpleGraph`, `GridGraph`)
+/// * `G` - The graph type (e.g., `SimpleGraph`, `KingsSubgraph`)
 /// * `W` - The weight type for edges (e.g., `i32`, `f64`)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TravelingSalesman<G, W> {

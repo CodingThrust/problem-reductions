@@ -39,7 +39,7 @@ use serde::{Deserialize, Serialize};
 /// }
 /// ```
 pub trait Graph: Clone + Send + Sync + 'static {
-    /// The name of the graph type (e.g., "SimpleGraph", "GridGraph").
+    /// The name of the graph type (e.g., "SimpleGraph", "KingsSubgraph").
     const NAME: &'static str;
 
     /// Returns the number of vertices in the graph.

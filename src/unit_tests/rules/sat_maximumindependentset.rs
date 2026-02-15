@@ -175,12 +175,30 @@ fn test_jl_parity_sat_to_independentset() {
     let sat_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/satisfiability.json")).unwrap();
     let fixtures: &[(&str, &str)] = &[
-        (include_str!("../../../tests/data/jl/satisfiability_to_independentset.json"), "simple_clause"),
-        (include_str!("../../../tests/data/jl/rule_sat01_to_independentset.json"), "rule_sat01"),
-        (include_str!("../../../tests/data/jl/rule_sat02_to_independentset.json"), "rule_sat02"),
-        (include_str!("../../../tests/data/jl/rule_sat03_to_independentset.json"), "rule_sat03"),
-        (include_str!("../../../tests/data/jl/rule_sat04_unsat_to_independentset.json"), "rule_sat04_unsat"),
-        (include_str!("../../../tests/data/jl/rule_sat07_to_independentset.json"), "rule_sat07"),
+        (
+            include_str!("../../../tests/data/jl/satisfiability_to_independentset.json"),
+            "simple_clause",
+        ),
+        (
+            include_str!("../../../tests/data/jl/rule_sat01_to_independentset.json"),
+            "rule_sat01",
+        ),
+        (
+            include_str!("../../../tests/data/jl/rule_sat02_to_independentset.json"),
+            "rule_sat02",
+        ),
+        (
+            include_str!("../../../tests/data/jl/rule_sat03_to_independentset.json"),
+            "rule_sat03",
+        ),
+        (
+            include_str!("../../../tests/data/jl/rule_sat04_unsat_to_independentset.json"),
+            "rule_sat04_unsat",
+        ),
+        (
+            include_str!("../../../tests/data/jl/rule_sat07_to_independentset.json"),
+            "rule_sat07",
+        ),
     ];
     for (fixture_str, label) in fixtures {
         let data: serde_json::Value = serde_json::from_str(fixture_str).unwrap();
@@ -190,17 +208,30 @@ fn test_jl_parity_sat_to_independentset() {
         let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&source);
         let solver = BruteForce::new();
         let best_target = solver.find_all_best(result.target_problem());
-        let extracted: HashSet<Vec<usize>> = best_target.iter().map(|t| result.extract_solution(t)).collect();
-        let sat_solutions: HashSet<Vec<usize>> = solver.find_all_satisfying(&source).into_iter().collect();
+        let extracted: HashSet<Vec<usize>> = best_target
+            .iter()
+            .map(|t| result.extract_solution(t))
+            .collect();
+        let sat_solutions: HashSet<Vec<usize>> =
+            solver.find_all_satisfying(&source).into_iter().collect();
         for case in data["cases"].as_array().unwrap() {
             if sat_solutions.is_empty() {
                 for sol in &extracted {
-                    assert!(!source.evaluate(sol), "SAT->IS [{label}]: unsatisfiable but extracted satisfies");
+                    assert!(
+                        !source.evaluate(sol),
+                        "SAT->IS [{label}]: unsatisfiable but extracted satisfies"
+                    );
                 }
             } else {
-                assert!(extracted.is_subset(&sat_solutions), "SAT->IS [{label}]: extracted not subset");
-                assert_eq!(sat_solutions, jl_parse_configs_set(&case["best_source"]),
-                    "SAT->IS [{label}]: best source mismatch");
+                assert!(
+                    extracted.is_subset(&sat_solutions),
+                    "SAT->IS [{label}]: extracted not subset"
+                );
+                assert_eq!(
+                    sat_solutions,
+                    jl_parse_configs_set(&case["best_source"]),
+                    "SAT->IS [{label}]: best source mismatch"
+                );
             }
         }
     }

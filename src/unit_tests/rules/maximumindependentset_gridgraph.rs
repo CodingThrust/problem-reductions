@@ -1,13 +1,13 @@
 use super::*;
 use crate::models::graph::MaximumIndependentSet;
 use crate::solvers::BruteForce;
-use crate::topology::{SimpleGraph, UnitDiskGraph};
+use crate::topology::{KingsSubgraph, SimpleGraph, UnitDiskGraph};
 
 #[test]
 fn test_mis_simple_to_grid_closed_loop() {
     // Triangle graph: 3 vertices, 3 edges
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
-    let result = ReduceTo::<MaximumIndependentSet<GridGraph<i32>, i32>>::reduce_to(&problem);
+    let result = ReduceTo::<MaximumIndependentSet<KingsSubgraph, i32>>::reduce_to(&problem);
     let target = result.target_problem();
 
     // The grid graph should have more vertices than the original
@@ -31,7 +31,7 @@ fn test_mis_simple_to_grid_closed_loop() {
 fn test_mis_simple_to_grid_path_graph() {
     // Path graph: 0-1-2
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let result = ReduceTo::<MaximumIndependentSet<GridGraph<i32>, i32>>::reduce_to(&problem);
+    let result = ReduceTo::<MaximumIndependentSet<KingsSubgraph, i32>>::reduce_to(&problem);
     let target = result.target_problem();
 
     let solver = BruteForce::new();
@@ -53,7 +53,7 @@ fn test_mis_unitdisk_to_grid_closed_loop() {
     assert_eq!(udg.num_edges(), 1);
 
     let problem = MaximumIndependentSet::<UnitDiskGraph, i32>::from_graph(udg, vec![1, 1, 1]);
-    let result = ReduceTo::<MaximumIndependentSet<GridGraph<i32>, i32>>::reduce_to(&problem);
+    let result = ReduceTo::<MaximumIndependentSet<KingsSubgraph, i32>>::reduce_to(&problem);
     let target = result.target_problem();
 
     assert!(target.num_vertices() >= 3);

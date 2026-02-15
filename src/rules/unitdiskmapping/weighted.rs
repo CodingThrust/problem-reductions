@@ -458,10 +458,9 @@ pub fn map_weights(result: &MappingResult, source_weights: &[f64]) -> Vec<f64> {
 
     // Start with base weights from grid nodes
     let mut weights: Vec<f64> = result
-        .grid_graph
-        .nodes()
+        .node_weights
         .iter()
-        .map(|n| n.weight as f64)
+        .map(|&w| w as f64)
         .collect();
 
     // Get center locations for each original vertex
@@ -472,10 +471,9 @@ pub fn map_weights(result: &MappingResult, source_weights: &[f64]) -> Vec<f64> {
         let center = centers[vertex];
         // Find the node index at this center location
         if let Some(idx) = result
-            .grid_graph
-            .nodes()
+            .positions
             .iter()
-            .position(|n| n.row as usize == center.0 && n.col as usize == center.1)
+            .position(|&(r, c)| r as usize == center.0 && c as usize == center.1)
         {
             weights[idx] += src_weight;
         }

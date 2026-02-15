@@ -2,7 +2,7 @@
 
 use super::common::solve_weighted_mis;
 use crate::rules::unitdiskmapping::{
-    create_copylines, map_graph, map_graph_triangular, mis_overhead_copyline, CopyLine,
+    create_copylines, ksg, mis_overhead_copyline, triangular, CopyLine,
 };
 
 // === Edge Case Tests ===
@@ -46,7 +46,7 @@ fn test_mis_overhead_copyline_zero_hstop() {
 #[test]
 fn test_copylines_have_valid_vertex_ids() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = map_graph(3, &edges);
+    let result = ksg::map_unweighted(3, &edges);
 
     for line in &result.lines {
         assert!(line.vertex < 3, "Vertex ID should be in range");
@@ -56,7 +56,7 @@ fn test_copylines_have_valid_vertex_ids() {
 #[test]
 fn test_copylines_have_positive_slots() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = map_graph(3, &edges);
+    let result = ksg::map_unweighted(3, &edges);
 
     for line in &result.lines {
         assert!(line.vslot > 0, "vslot should be positive");
@@ -67,7 +67,7 @@ fn test_copylines_have_positive_slots() {
 #[test]
 fn test_copylines_have_valid_ranges() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = map_graph(3, &edges);
+    let result = ksg::map_unweighted(3, &edges);
 
     for line in &result.lines {
         assert!(line.vstart <= line.vstop, "vstart should be <= vstop");
@@ -145,7 +145,7 @@ fn test_copyline_copyline_locations_triangular() {
 #[test]
 fn test_mapping_result_has_copylines() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = map_graph(3, &edges);
+    let result = ksg::map_unweighted(3, &edges);
 
     assert_eq!(result.lines.len(), 3);
 
@@ -160,7 +160,7 @@ fn test_mapping_result_has_copylines() {
 #[test]
 fn test_triangular_mapping_result_has_copylines() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = map_graph_triangular(3, &edges);
+    let result = triangular::map_weighted(3, &edges);
 
     assert_eq!(result.lines.len(), 3);
 }
@@ -168,7 +168,7 @@ fn test_triangular_mapping_result_has_copylines() {
 #[test]
 fn test_copyline_vslot_hslot_ordering() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
-    let result = map_graph(3, &edges);
+    let result = ksg::map_unweighted(3, &edges);
 
     // vslot is determined by vertex order, should be 1-indexed
     let mut vslots: Vec<usize> = result.lines.iter().map(|l| l.vslot).collect();
@@ -183,7 +183,7 @@ fn test_copyline_vslot_hslot_ordering() {
 #[test]
 fn test_copyline_center_on_grid() {
     let edges = vec![(0, 1)];
-    let result = map_graph(2, &edges);
+    let result = ksg::map_unweighted(2, &edges);
 
     // Each copyline's center should correspond to a grid node
     for line in &result.lines {
@@ -255,7 +255,7 @@ fn test_copyline_copyline_locations_structure() {
 #[test]
 fn test_copyline_triangular_spacing() {
     let edges = vec![(0, 1), (1, 2)];
-    let result = map_graph_triangular(3, &edges);
+    let result = triangular::map_weighted(3, &edges);
 
     // Triangular uses spacing=6
     assert_eq!(result.spacing, 6);

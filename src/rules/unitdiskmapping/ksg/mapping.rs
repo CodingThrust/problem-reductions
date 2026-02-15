@@ -17,19 +17,31 @@ use super::gadgets_weighted::{
     weighted_tape_entry_mis_overhead, WeightedKsgPattern, WeightedKsgTapeEntry,
 };
 use super::{PADDING, SPACING};
-use crate::topology::{GridGraph, GridNode, GridType};
+use crate::topology::{Graph, KingsSubgraph, TriangularSubgraph};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 use std::fmt;
 
-/// Unit radius for KSG square lattice grid graphs.
-const KSG_UNIT_RADIUS: f64 = 1.5;
+/// The kind of grid lattice used in a mapping result.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
+pub enum GridKind {
+    /// Square lattice (King's SubGraph connectivity, radius 1.5).
+    Kings,
+    /// Triangular lattice (radius 1.1).
+    Triangular,
+}
 
-/// Result of mapping a graph to a KSG grid graph.
+/// Result of mapping a graph to a grid graph.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MappingResult<T = KsgTapeEntry> {
-    /// The resulting grid graph.
-    pub grid_graph: GridGraph<i32>,
+    /// Integer grid positions (row, col) for each node.
+    pub positions: Vec<(i32, i32)>,
+    /// Weight of each node.
+    pub node_weights: Vec<i32>,
+    /// Grid dimensions (rows, cols).
+    pub grid_dimensions: (usize, usize),
+    /// The kind of grid lattice.
+    pub kind: GridKind,
     /// Copy lines used in the mapping.
     pub lines: Vec<CopyLine>,
     /// Padding used.
@@ -46,14 +58,25 @@ pub struct MappingResult<T = KsgTapeEntry> {
 }
 
 impl<T> MappingResult<T> {
-    /// Get the grid graph size.
-    pub fn grid_size(&self) -> (usize, usize) {
-        self.grid_graph.size()
-    }
-
     /// Get the number of vertices in the original graph.
     pub fn num_original_vertices(&self) -> usize {
         self.lines.len()
+    }
+
+    /// Compute edges based on grid kind.
+    pub fn edges(&self) -> Vec<(usize, usize)> {
+        match self.kind {
+            GridKind::Kings => self.to_kings_subgraph().edges(),
+            GridKind::Triangular => self.to_triangular_subgraph().edges(),
+        }
+    }
+
+    /// Compute the number of edges based on grid kind.
+    pub fn num_edges(&self) -> usize {
+        match self.kind {
+            GridKind::Kings => self.to_kings_subgraph().num_edges(),
+            GridKind::Triangular => self.to_triangular_subgraph().num_edges(),
+        }
     }
 
     /// Print a configuration on the grid, highlighting selected nodes.
@@ -68,12 +91,12 @@ impl<T> MappingResult<T> {
 
     /// Format a 2D configuration as a string.
     pub fn format_config(&self, config: &[Vec<usize>]) -> String {
-        let (rows, cols) = self.grid_graph.size();
+        let (rows, cols) = self.grid_dimensions;
 
         // Build position to node index map
         let mut pos_to_node: HashMap<(i32, i32), usize> = HashMap::new();
-        for (idx, node) in self.grid_graph.nodes().iter().enumerate() {
-            pos_to_node.insert((node.row, node.col), idx);
+        for (idx, &(r, c)) in self.positions.iter().enumerate() {
+            pos_to_node.insert((r, c), idx);
         }
 
         let mut lines = Vec::new();
@@ -116,7 +139,70 @@ impl<T> MappingResult<T> {
 
     /// Format a flat configuration vector as a string.
     pub fn format_config_flat(&self, config: &[usize]) -> String {
-        self.grid_graph.format_with_config(Some(config), false)
+        self.format_grid_with_config(Some(config))
+    }
+
+    /// Create a [`KingsSubgraph`] from this mapping result, extracting positions
+    /// and discarding weights.
+    pub fn to_kings_subgraph(&self) -> KingsSubgraph {
+        KingsSubgraph::new(self.positions.clone())
+    }
+
+    /// Create a [`TriangularSubgraph`] from this mapping result, extracting positions
+    /// and discarding weights.
+    pub fn to_triangular_subgraph(&self) -> TriangularSubgraph {
+        TriangularSubgraph::new(self.positions.clone())
+    }
+
+    /// Format the grid, optionally with a configuration overlay.
+    ///
+    /// Without config: shows weight values (single-char) or `●` for multi-char weights.
+    /// With config: shows `●` for selected nodes, `○` for unselected.
+    /// Empty cells show `⋅`.
+    fn format_grid_with_config(&self, config: Option<&[usize]>) -> String {
+        if self.positions.is_empty() {
+            return String::from("(empty grid graph)");
+        }
+
+        let (rows, cols) = self.grid_dimensions;
+
+        let mut pos_to_idx: HashMap<(i32, i32), usize> = HashMap::new();
+        for (idx, &(r, c)) in self.positions.iter().enumerate() {
+            pos_to_idx.insert((r, c), idx);
+        }
+
+        let mut lines = Vec::new();
+
+        for r in 0..rows as i32 {
+            let mut line = String::new();
+            for c in 0..cols as i32 {
+                let s = if let Some(&idx) = pos_to_idx.get(&(r, c)) {
+                    if let Some(cfg) = config {
+                        if cfg.get(idx).copied().unwrap_or(0) > 0 {
+                            "●".to_string()
+                        } else {
+                            "○".to_string()
+                        }
+                    } else {
+                        let w = self.node_weights[idx];
+                        let ws = format!("{}", w);
+                        if ws.len() == 1 {
+                            ws
+                        } else {
+                            "●".to_string()
+                        }
+                    }
+                } else {
+                    "⋅".to_string()
+                };
+                line.push_str(&s);
+                line.push(' ');
+            }
+            line.pop();
+            lines.push(line);
+        }
+
+        lines.join("\n")
     }
 }
 
@@ -135,12 +221,12 @@ impl MappingResult<KsgTapeEntry> {
     /// A vector where `result[v]` is 1 if vertex `v` is selected, 0 otherwise.
     pub fn map_config_back(&self, grid_config: &[usize]) -> Vec<usize> {
         // Step 1: Convert flat config to 2D matrix
-        let (rows, cols) = self.grid_graph.size();
+        let (rows, cols) = self.grid_dimensions;
         let mut config_2d = vec![vec![0usize; cols]; rows];
 
-        for (idx, node) in self.grid_graph.nodes().iter().enumerate() {
-            let row = node.row as usize;
-            let col = node.col as usize;
+        for (idx, &(row, col)) in self.positions.iter().enumerate() {
+            let row = row as usize;
+            let col = col as usize;
             if row < rows && col < cols {
                 config_2d[row][col] = grid_config.get(idx).copied().unwrap_or(0);
             }
@@ -163,8 +249,8 @@ impl MappingResult<KsgTapeEntry> {
     pub fn map_config_back_via_centers(&self, grid_config: &[usize]) -> Vec<usize> {
         // Build a position to node index map
         let mut pos_to_idx: HashMap<(usize, usize), usize> = HashMap::new();
-        for (idx, node) in self.grid_graph.nodes().iter().enumerate() {
-            if let (Ok(row), Ok(col)) = (usize::try_from(node.row), usize::try_from(node.col)) {
+        for (idx, &(row, col)) in self.positions.iter().enumerate() {
+            if let (Ok(row), Ok(col)) = (usize::try_from(row), usize::try_from(col)) {
                 pos_to_idx.insert((row, col), idx);
             }
         }
@@ -189,12 +275,12 @@ impl MappingResult<WeightedKsgTapeEntry> {
     /// Map a configuration back from grid to original graph (weighted version).
     pub fn map_config_back(&self, grid_config: &[usize]) -> Vec<usize> {
         // Step 1: Convert flat config to 2D matrix
-        let (rows, cols) = self.grid_graph.size();
+        let (rows, cols) = self.grid_dimensions;
         let mut config_2d = vec![vec![0usize; cols]; rows];
 
-        for (idx, node) in self.grid_graph.nodes().iter().enumerate() {
-            let row = node.row as usize;
-            let col = node.col as usize;
+        for (idx, &(row, col)) in self.positions.iter().enumerate() {
+            let row = row as usize;
+            let col = col as usize;
             if row < rows && col < cols {
                 config_2d[row][col] = grid_config.get(idx).copied().unwrap_or(0);
             }
@@ -216,7 +302,7 @@ impl MappingResult<WeightedKsgTapeEntry> {
 
 impl<T> fmt::Display for MappingResult<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", self.grid_graph)
+        write!(f, "{}", self.format_grid_with_config(None))
     }
 }
 
@@ -507,21 +593,22 @@ pub fn map_unweighted_with_order(
     let gadget_overhead: i32 = tape.iter().map(tape_entry_mis_overhead).sum();
     let mis_overhead = copyline_overhead + gadget_overhead;
 
-    // Convert to GridGraph
-    let nodes: Vec<GridNode<i32>> = grid
+    // Extract positions and weights from occupied cells
+    let (positions, node_weights): (Vec<(i32, i32)>, Vec<i32>) = grid
         .occupied_coords()
         .into_iter()
         .filter_map(|(row, col)| {
             grid.get(row, col)
-                .map(|cell| GridNode::new(row as i32, col as i32, cell.weight()))
+                .map(|cell| ((row as i32, col as i32), cell.weight()))
         })
-        .filter(|n| n.weight > 0)
-        .collect();
-
-    let grid_graph = GridGraph::new(GridType::Square, grid.size(), nodes, KSG_UNIT_RADIUS);
+        .filter(|&(_, w)| w > 0)
+        .unzip();
 
     MappingResult {
-        grid_graph,
+        positions,
+        node_weights,
+        grid_dimensions: grid.size(),
+        kind: GridKind::Kings,
         lines: copylines,
         padding: PADDING,
         spacing: SPACING,
@@ -598,21 +685,22 @@ pub fn map_weighted_with_order(
     let gadget_overhead: i32 = tape.iter().map(weighted_tape_entry_mis_overhead).sum();
     let mis_overhead = copyline_overhead + gadget_overhead;
 
-    // Convert to GridGraph with weights
-    let nodes: Vec<GridNode<i32>> = grid
+    // Extract positions and weights from occupied cells
+    let (positions, node_weights): (Vec<(i32, i32)>, Vec<i32>) = grid
         .occupied_coords()
         .into_iter()
         .filter_map(|(row, col)| {
             grid.get(row, col)
-                .map(|cell| GridNode::new(row as i32, col as i32, cell.weight()))
+                .map(|cell| ((row as i32, col as i32), cell.weight()))
         })
-        .filter(|n| n.weight > 0)
-        .collect();
-
-    let grid_graph = GridGraph::new(GridType::Square, grid.size(), nodes, KSG_UNIT_RADIUS);
+        .filter(|&(_, w)| w > 0)
+        .unzip();
 
     MappingResult {
-        grid_graph,
+        positions,
+        node_weights,
+        grid_dimensions: grid.size(),
+        kind: GridKind::Kings,
         lines: copylines,
         padding: PADDING,
         spacing: SPACING,

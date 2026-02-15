@@ -154,8 +154,10 @@ fn test_ksat_problem_v2_2sat() {
 
 #[test]
 fn test_jl_parity_evaluation() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../../tests/data/jl/ksatisfiability.json")).unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/data/jl/ksatisfiability.json"
+    ))
+    .unwrap();
     for instance in data["instances"].as_array().unwrap() {
         let (num_vars, clauses) = jl_parse_sat_clauses(&instance["instance"]);
         let num_clauses = instance["instance"]["clauses"].as_array().unwrap().len();
@@ -164,7 +166,12 @@ fn test_jl_parity_evaluation() {
             let config = jl_parse_config(&eval["config"]);
             let rust_result = problem.evaluate(&config);
             let jl_size = eval["size"].as_u64().unwrap() as usize;
-            assert_eq!(rust_result, jl_size == num_clauses, "KSat eval mismatch for config {:?}", config);
+            assert_eq!(
+                rust_result,
+                jl_size == num_clauses,
+                "KSat eval mismatch for config {:?}",
+                config
+            );
         }
         let rust_best = BruteForce::new().find_all_satisfying(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);

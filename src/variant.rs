@@ -161,15 +161,20 @@ pub struct K3;
 #[derive(Clone, Copy, Debug, Default)]
 pub struct K4;
 
+/// K=5 (e.g., 5-coloring).
+#[derive(Clone, Copy, Debug, Default)]
+pub struct K5;
+
 /// Generic K (any value). Used for reductions that apply to all K.
 #[derive(Clone, Copy, Debug, Default)]
 pub struct KN;
 
 impl_variant_param!(KN, "k", k: None);
+impl_variant_param!(K5, "k", parent: KN, cast: |_| KN, k: Some(5));
 impl_variant_param!(K4, "k", parent: KN, cast: |_| KN, k: Some(4));
-impl_variant_param!(K3, "k", parent: K4, cast: |_| K4, k: Some(3));
-impl_variant_param!(K2, "k", parent: K3, cast: |_| K3, k: Some(2));
-impl_variant_param!(K1, "k", parent: K2, cast: |_| K2, k: Some(1));
+impl_variant_param!(K3, "k", parent: KN, cast: |_| KN, k: Some(3));
+impl_variant_param!(K2, "k", parent: KN, cast: |_| KN, k: Some(2));
+impl_variant_param!(K1, "k", parent: KN, cast: |_| KN, k: Some(1));
 
 #[cfg(test)]
 #[path = "unit_tests/variant.rs"]

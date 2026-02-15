@@ -5,7 +5,7 @@
 //! - Weighted (square lattice with weights)
 //! - Triangular (triangular lattice with weights)
 
-use crate::rules::unitdiskmapping::{map_graph_triangular_with_order, map_graph_with_order};
+use crate::rules::unitdiskmapping::{ksg, triangular};
 use serde::Deserialize;
 use std::collections::HashSet;
 use std::fs;
@@ -124,7 +124,7 @@ fn compare_square_unweighted(name: &str) {
 
     // Use Julia's vertex order to ensure consistent mapping
     let vertex_order = get_vertex_order(&julia);
-    let rust_result = map_graph_with_order(num_vertices, &edges, &vertex_order);
+    let rust_result = ksg::map_unweighted_with_order(num_vertices, &edges, &vertex_order);
 
     // Collect Rust grid nodes from copyline_locations (0-indexed)
     let rust_nodes: HashSet<(i32, i32)> = rust_result
@@ -147,7 +147,7 @@ fn compare_square_unweighted(name: &str) {
     println!("\n=== {} (square/unweighted) ===", name);
     print_comparison(
         &julia,
-        &rust_result.grid_graph.size(),
+        &rust_result.grid_dimensions,
         rust_result.mis_overhead,
         &julia_nodes,
         &rust_nodes,
@@ -159,7 +159,7 @@ fn compare_square_unweighted(name: &str) {
     // Assertions
     assert_eq!(
         julia.grid_size,
-        rust_result.grid_graph.size(),
+        rust_result.grid_dimensions,
         "{} square: Grid size mismatch",
         name
     );
@@ -273,7 +273,7 @@ fn compare_triangular(name: &str) {
 
     // Extract Julia's vertex order from copy_lines
     let vertex_order = get_vertex_order(&julia);
-    let rust_result = map_graph_triangular_with_order(num_vertices, &edges, &vertex_order);
+    let rust_result = triangular::map_weighted_with_order(num_vertices, &edges, &vertex_order);
 
     // Collect Rust grid nodes from copyline_locations_triangular (0-indexed)
     let rust_nodes: HashSet<(i32, i32)> = rust_result
@@ -296,7 +296,7 @@ fn compare_triangular(name: &str) {
     println!("\n=== {} (triangular) ===", name);
     print_comparison(
         &julia,
-        &rust_result.grid_graph.size(),
+        &rust_result.grid_dimensions,
         rust_result.mis_overhead,
         &julia_nodes,
         &rust_nodes,
@@ -396,7 +396,7 @@ fn compare_triangular(name: &str) {
     // Assertions
     assert_eq!(
         julia.grid_size,
-        rust_result.grid_graph.size(),
+        rust_result.grid_dimensions,
         "{} triangular: Grid size mismatch",
         name
     );
@@ -560,12 +560,12 @@ fn compare_connected_cells(name: &str) {
 
     // Run Rust mapping with Julia's vertex order
     let vertex_order = get_vertex_order(&julia);
-    let rust_result = map_graph_with_order(num_vertices, &edges, &vertex_order);
+    let rust_result = ksg::map_unweighted_with_order(num_vertices, &edges, &vertex_order);
 
     // Re-create the grid with connections to check Connected cell positions
     let mut grid = crate::rules::unitdiskmapping::MappingGrid::with_padding(
-        rust_result.grid_graph.size().0,
-        rust_result.grid_graph.size().1,
+        rust_result.grid_dimensions.0,
+        rust_result.grid_dimensions.1,
         rust_result.spacing,
         rust_result.padding,
     );

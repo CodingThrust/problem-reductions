@@ -28,7 +28,7 @@ inventory::submit! {
 /// # Type Parameters
 ///
 /// * `K` - KValue type representing the number of colors (e.g., K3 for 3-coloring)
-/// * `G` - Graph type (e.g., SimpleGraph, GridGraph)
+/// * `G` - Graph type (e.g., SimpleGraph, KingsSubgraph)
 ///
 /// # Example
 ///

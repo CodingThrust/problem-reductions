@@ -1,15 +1,14 @@
 use super::*;
-use crate::topology::Graph;
 
 #[test]
 fn test_map_weighted_basic() {
     let edges = vec![(0, 1), (1, 2)];
     let result = map_weighted(3, &edges);
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
     assert!(matches!(
-        result.grid_graph.grid_type(),
-        GridType::Triangular { .. }
+        result.kind,
+        GridKind::Triangular
     ));
 }
 
@@ -18,7 +17,7 @@ fn test_map_weighted_with_method() {
     let edges = vec![(0, 1), (1, 2)];
     let result = map_weighted_with_method(3, &edges, PathDecompositionMethod::MinhThiTrick);
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
 }
 
 #[test]
@@ -27,7 +26,7 @@ fn test_map_weighted_with_order() {
     let vertex_order = vec![0, 1, 2];
     let result = map_weighted_with_order(3, &edges, &vertex_order);
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
 }
 
 #[test]
@@ -54,7 +53,7 @@ fn test_map_weights() {
     let grid_weights = map_weights(&result, &source_weights);
 
     // Should have same length as grid nodes
-    assert_eq!(grid_weights.len(), result.grid_graph.num_vertices());
+    assert_eq!(grid_weights.len(), result.positions.len());
 
     // All weights should be positive
     assert!(grid_weights.iter().all(|&w| w > 0.0));

@@ -59,7 +59,7 @@ document.addEventListener('DOMContentLoaded', function() {
         problems[n.name].variants.push({ index: idx, variant: n.variant, category: n.category, doc_path: n.doc_path });
       });
 
-      // Build edges at variant level, detecting bidirectional pairs
+      // Build edges at variant level — each directed edge is separate
       var edgeMap = {};
       data.edges.forEach(function(e) {
         var src = data.nodes[e.source];
@@ -67,10 +67,8 @@ document.addEventListener('DOMContentLoaded', function() {
         var srcId = variantId(src.name, src.variant);
         var dstId = variantId(dst.name, dst.variant);
         var fwd = srcId + '->' + dstId;
-        var rev = dstId + '->' + srcId;
-        if (edgeMap[rev]) { edgeMap[rev].bidirectional = true; }
-        else if (!edgeMap[fwd]) {
-          edgeMap[fwd] = { source: srcId, target: dstId, bidirectional: false, overhead: e.overhead || [], doc_path: e.doc_path || '' };
+        if (!edgeMap[fwd]) {
+          edgeMap[fwd] = { source: srcId, target: dstId, overhead: e.overhead || [], doc_path: e.doc_path || '' };
         }
       });
 
@@ -131,23 +129,17 @@ document.addEventListener('DOMContentLoaded', function() {
         }
       });
 
-      // ── Build collapsed-mode edges (name-level), merging bidirectional pairs ──
+      // ── Build collapsed-mode edges (name-level) — each direction is separate ──
       var nameLevelEdges = {};
       data.edges.forEach(function(e) {
         var srcName = data.nodes[e.source].name;
         var dstName = data.nodes[e.target].name;
         if (srcName === dstName) return; // skip intra-problem natural casts
         var fwd = srcName + '->' + dstName;
-        var rev = dstName + '->' + srcName;
-        if (nameLevelEdges[rev]) {
-          // Reverse already exists — mark bidirectional, don't create parallel edge
-          nameLevelEdges[rev].bidirectional = true;
-        } else {
-          if (!nameLevelEdges[fwd]) {
-            nameLevelEdges[fwd] = { count: 0, overhead: e.overhead, doc_path: e.doc_path, bidirectional: false };
-          }
-          nameLevelEdges[fwd].count++;
+        if (!nameLevelEdges[fwd]) {
+          nameLevelEdges[fwd] = { count: 0, overhead: e.overhead, doc_path: e.doc_path };
         }
+        nameLevelEdges[fwd].count++;
       });
 
       // Add collapsed edges to elements
@@ -163,7 +155,6 @@ document.addEventListener('DOMContentLoaded', function() {
             target: dstId,
             label: info.count > 1 ? '\u00d7' + info.count : '',
             edgeLevel: 'collapsed',
-            bidirectional: info.bidirectional,
             overhead: info.overhead,
             doc_path: info.doc_path
           }
@@ -181,7 +172,6 @@ document.addEventListener('DOMContentLoaded', function() {
             id: 'variant_' + k,
             source: e.source,
             target: e.target,
-            bidirectional: e.bidirectional,
             edgeLevel: 'variant',
             overhead: e.overhead,
             doc_path: e.doc_path,
@@ -194,6 +184,11 @@ document.addEventListener('DOMContentLoaded', function() {
         container: document.getElementById('cy'),
         elements: elements,
         style: [
+          // Use manual z-index on all elements so we have full control
+          // over rendering order (bypasses compound-depth conventions)
+          { selector: '*', style: {
+            'z-index-compare': 'manual'
+          }},
           // Base node style (simple nodes — single variant, no parent)
           { selector: 'node', style: {
             'label': 'data(label)', 'text-valign': 'center', 'text-halign': 'center',
@@ -203,7 +198,8 @@ document.addEventListener('DOMContentLoaded', function() {
             'background-color': function(ele) { return categoryColors[ele.data('category')] || '#f0f0f0'; },
             'border-width': 1,
             'border-color': function(ele) { return categoryBorders[ele.data('category')] || '#999'; },
-            'text-wrap': 'none', 'cursor': 'pointer'
+            'text-wrap': 'none', 'cursor': 'pointer',
+            'z-index': 2
           }},
           // Parent (compound) node — collapsed by default
           { selector: 'node[?isParent]', style: {
@@ -220,7 +216,8 @@ document.addEventListener('DOMContentLoaded', function() {
             'border-color': function(ele) { return categoryBorders[ele.data('category')] || '#999'; },
             'shape': 'round-rectangle',
             'compound-sizing-wrt-labels': 'include',
-            'cursor': 'pointer'
+            'cursor': 'pointer',
+            'z-index': 2
           }},
           // Parent (compound) node — expanded appearance
           { selector: 'node[?isParent].expanded', style: {
@@ -228,7 +225,8 @@ document.addEventListener('DOMContentLoaded', function() {
             'font-size': '11px',
             'padding': '10px',
             'min-width': 0,
-            'min-height': 0
+            'min-height': 0,
+            'z-index': 5
           }},
           // Child variant nodes
           { selector: 'node[?isVariant]', style: {
@@ -243,19 +241,24 @@ document.addEventListener('DOMContentLoaded', function() {
             'background-color': function(ele) { return categoryColors[ele.data('category')] || '#f0f0f0'; },
             'border-width': 1,
             'border-color': function(ele) { return categoryBorders[ele.data('category')] || '#999'; },
-            'cursor': 'pointer'
+            'cursor': 'pointer',
+            'z-index': 6
           }},
-          // Edge styles
+          // Edge styles (z-index 1 = below nodes)
           { selector: 'edge', style: {
             'width': 1.5, 'line-color': '#999', 'target-arrow-color': '#999', 'target-arrow-shape': 'triangle',
-            'source-arrow-color': '#999',
-            'source-arrow-shape': function(ele) { return ele.data('bidirectional') ? 'triangle' : 'none'; },
             'curve-style': 'bezier', 'arrow-scale': 0.7, 'cursor': 'pointer',
+            'source-distance-from-node': 5,
+            'target-distance-from-node': 5,
+            'overlay-padding': 2,
             'label': 'data(label)', 'font-size': '9px', 'text-rotation': 'autorotate',
-            'color': '#666', 'text-margin-y': -8
+            'color': '#666', 'text-margin-y': -8,
+            'z-index': 1
           }},
-          // Hidden variant-level edges
-          { selector: 'edge[edgeLevel="variant"]', style: { 'display': 'none' } },
+          // Variant-level edges (hidden programmatically after init; above expanded parent)
+          { selector: 'edge[edgeLevel="variant"]', style: {
+            'z-index': 7
+          } },
           // Natural cast edges (intra-problem)
           { selector: 'edge[?isNaturalCast]', style: {
             'line-style': 'dashed',
@@ -265,10 +268,10 @@ document.addEventListener('DOMContentLoaded', function() {
           }},
           // Highlighted styles
           { selector: '.highlighted', style: {
-            'background-color': '#ff6b6b', 'border-color': '#cc0000', 'border-width': 2, 'z-index': 10
+            'background-color': '#ff6b6b', 'border-color': '#cc0000', 'border-width': 2, 'z-index': 20
           }},
           { selector: 'edge.highlighted', style: {
-            'line-color': '#ff4444', 'target-arrow-color': '#ff4444', 'source-arrow-color': '#ff4444', 'width': 3, 'z-index': 10
+            'line-color': '#ff4444', 'target-arrow-color': '#ff4444', 'width': 3, 'z-index': 20
           }},
           { selector: '.selected-node', style: {
             'border-color': '#0066cc', 'border-width': 2, 'background-color': '#cce0ff'
@@ -318,6 +321,7 @@ document.addEventListener('DOMContentLoaded', function() {
       var initOpts = getLayoutOpts(false);
       initOpts.stop = function() {
         cy.nodes('[?isVariant]').style('display', 'none');
+        cy.edges('[edgeLevel="variant"]').style('display', 'none');
         cy.fit(40);
         cyContainer.style.opacity = '1';
       };
@@ -330,19 +334,21 @@ document.addEventListener('DOMContentLoaded', function() {
         var parentId = parentNode.id();
         var isExpanded = expandedParents[parentId];
         var children = parentNode.children();
-        var name = parentNode.data('label');
 
         if (isExpanded) {
-          // Collapse: hide children, show collapsed edges, hide variant edges
+          // ── Collapse ──
           children.style('display', 'none');
           parentNode.removeClass('expanded');
+          expandedParents[parentId] = false;
+
+          // Show collapsed edges connected to this parent
           cy.edges('[edgeLevel="collapsed"]').forEach(function(e) {
-            var srcName = e.source().data('label') || e.source().data('problemName');
-            var dstName = e.target().data('label') || e.target().data('problemName');
-            if (srcName === name || dstName === name) {
+            if (e.source().id() === parentId || e.target().id() === parentId) {
               e.style('display', 'element');
             }
           });
+
+          // Hide all variant edges touching this parent's children
           cy.edges('[edgeLevel="variant"]').forEach(function(e) {
             var srcParent = e.source().data('parent');
             var dstParent = e.target().data('parent');
@@ -350,33 +356,42 @@ document.addEventListener('DOMContentLoaded', function() {
               e.style('display', 'none');
             }
           });
-          expandedParents[parentId] = false;
         } else {
-          // Expand: show children, hide collapsed edges, show variant edges
+          // ── Expand ──
           children.style('display', 'element');
           parentNode.addClass('expanded');
+          expandedParents[parentId] = true;
+
+          // Hide collapsed edges from this parent ONLY when the other endpoint
+          // can be reached via variant edges. If the other endpoint is a
+          // collapsed compound parent, keep the collapsed edge (its children
+          // are hidden, so variant edges can't replace it).
           cy.edges('[edgeLevel="collapsed"]').forEach(function(e) {
-            // Hide collapsed edges connected to this parent
             if (e.source().id() === parentId || e.target().id() === parentId) {
-              e.style('display', 'none');
+              var otherId = e.source().id() === parentId ? e.target().id() : e.source().id();
+              var otherNode = cy.getElementById(otherId);
+              var otherIsCollapsedParent = otherNode.data('isParent') && !expandedParents[otherId];
+              if (!otherIsCollapsedParent) {
+                e.style('display', 'none');
+              }
             }
           });
-          expandedParents[parentId] = true;
+
+          // Show variant edges where both endpoints are visible
           cy.edges('[edgeLevel="variant"]').forEach(function(e) {
             var srcParent = e.source().data('parent');
             var dstParent = e.target().data('parent');
             if (srcParent === parentId || dstParent === parentId) {
-              // Only show if both endpoints are visible
-              var srcVisible = !e.source().data('isVariant') || expandedParents[srcParent];
-              var dstVisible = !e.target().data('isVariant') || expandedParents[dstParent];
-              if (srcVisible && dstVisible) {
+              // A node is visible if it's not a variant child,
+              // or if its parent is expanded
+              var srcOk = !e.source().data('isVariant') || expandedParents[srcParent];
+              var dstOk = !e.target().data('isVariant') || expandedParents[dstParent];
+              if (srcOk && dstOk) {
                 e.style('display', 'element');
               }
             }
           });
         }
-
-        // No global re-layout — nodes stay in place, parent resizes to fit children
       }
 
       // Tooltip for nodes
@@ -401,8 +416,7 @@ document.addEventListener('DOMContentLoaded', function() {
       // Edge tooltip
       cy.on('mouseover', 'edge', function(evt) {
         var d = evt.target.data();
-        var arrow = d.bidirectional ? ' \u2194 ' : ' \u2192 ';
-        var html = '<strong>' + evt.target.source().data('label') + arrow + evt.target.target().data('label') + '</strong>';
+        var html = '<strong>' + evt.target.source().data('label') + ' \u2192 ' + evt.target.target().data('label') + '</strong>';
         if (d.overhead && d.overhead.length > 0) {
           html += '<br>' + d.overhead.map(function(o) { return '<code>' + o.field + '</code> = <code>' + o.formula + '</code>'; }).join('<br>');
         }
@@ -450,43 +464,50 @@ document.addEventListener('DOMContentLoaded', function() {
 
       cy.on('tap', 'node', function(evt) {
         var node = evt.target;
-        // Parent → expand/collapse
-        if (node.data('isParent')) {
-          toggleExpand(node);
-          return;
-        }
-        // Path selection in progress → find path (regardless of variant/simple)
+
+        // Path selection in progress → any node completes the path
         if (selectedNode) {
           if (node === selectedNode) {
             clearPath();
             return;
           }
+          // For parent nodes, find path to the parent itself
+          var target = node;
           var visibleElements = cy.elements().filter(function(ele) {
             return ele.style('display') !== 'none';
           });
           var dijkstra = visibleElements.dijkstra({ root: selectedNode, directed: true });
-          var path = dijkstra.pathTo(node);
+          var path = dijkstra.pathTo(target);
           cy.elements().removeClass('highlighted selected-node');
           if (path && path.length > 0) {
             path.addClass('highlighted');
-            instructions.textContent = 'Path: ' + path.nodes().map(function(n) { return n.data('label'); }).join(' \u2192 ');
+            instructions.textContent = 'Path: ' + path.nodes().map(function(n) {
+              return n.data('fullLabel') || n.data('label');
+            }).join(' \u2192 ');
           } else {
-            instructions.textContent = 'No path from ' + selectedNode.data('label') + ' to ' + node.data('label');
+            instructions.textContent = 'No path from ' +
+              (selectedNode.data('fullLabel') || selectedNode.data('label')) +
+              ' to ' + (target.data('fullLabel') || target.data('label'));
           }
           clearBtn.style.display = 'inline';
           selectedNode = null;
           return;
         }
-        // Variant node (no path selection active) → variant filter
+
+        // No path selection active — Parent → expand/collapse
+        if (node.data('isParent')) {
+          toggleExpand(node);
+          return;
+        }
+
+        // No path selection active — Variant node → variant filter
         if (node.data('isVariant')) {
           if (activeVariantFilter === node.id()) {
-            // Toggle off — clear filter
             cy.elements().removeClass('faded variant-selected');
             activeVariantFilter = null;
             instructions.textContent = 'Click a node to start path selection';
             return;
           }
-          // Apply filter
           activeVariantFilter = node.id();
           cy.elements().addClass('faded');
           node.removeClass('faded').addClass('variant-selected');
@@ -499,10 +520,12 @@ document.addEventListener('DOMContentLoaded', function() {
           instructions.textContent = 'Showing edges for ' + node.data('fullLabel') + ' — click again to clear';
           return;
         }
-        // Simple node (no path selection active) → start path selection
+
+        // No path selection active — Simple/any node → start path selection
         selectedNode = node;
         node.addClass('selected-node');
-        instructions.textContent = 'Now click a target node to find path from ' + node.data('label');
+        instructions.textContent = 'Now click a target node to find path from ' +
+          (node.data('fullLabel') || node.data('label'));
       });
 
       cy.on('tap', 'edge', function(evt) {
@@ -512,8 +535,7 @@ document.addEventListener('DOMContentLoaded', function() {
         edge.addClass('highlighted');
         edge.source().addClass('highlighted');
         edge.target().addClass('highlighted');
-        var arrow = d.bidirectional ? ' \u2194 ' : ' \u2192 ';
-        var text = edge.source().data('label') + arrow + edge.target().data('label');
+        var text = edge.source().data('label') + ' \u2192 ' + edge.target().data('label');
         if (d.overhead && d.overhead.length > 0) {
           text += '  |  ' + d.overhead.map(function(o) { return o.field + ' = ' + o.formula; }).join(', ');
         }

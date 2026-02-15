@@ -39,7 +39,7 @@ impl ReductionResult for ReductionKSatToQUBO {
     }
 }
 
-/// Result of reducing KSatisfiability<K3> to QUBO.
+/// Result of reducing `KSatisfiability<K3>` to QUBO.
 #[derive(Debug, Clone)]
 pub struct Reduction3SATToQUBO {
     target: QUBO<f64>,

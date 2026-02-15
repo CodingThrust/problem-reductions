@@ -5,7 +5,7 @@ use crate::models::MaximumIndependentSet;
 use crate::rules::unitdiskmapping::MappingResult;
 use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::ILPSolver;
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::SimpleGraph;
 
 /// Check if a configuration is a valid independent set.
 pub fn is_independent_set(edges: &[(usize, usize)], config: &[usize]) -> bool {
@@ -45,22 +45,22 @@ pub fn solve_mis_config(num_vertices: usize, edges: &[(usize, usize)]) -> Vec<us
     }
 }
 
-/// Solve MIS on a GridGraph using ILPSolver (unweighted).
+/// Solve MIS on a Grid using ILPSolver (unweighted).
 #[allow(dead_code)]
 pub fn solve_grid_mis(result: &MappingResult) -> usize {
-    let edges = result.grid_graph.edges().to_vec();
-    let num_vertices = result.grid_graph.num_vertices();
+    let edges = result.edges();
+    let num_vertices = result.positions.len();
     solve_mis(num_vertices, &edges)
 }
 
-/// Solve weighted MIS on a GridGraph using ILPSolver.
+/// Solve weighted MIS on a Grid using ILPSolver.
 #[allow(dead_code)]
 pub fn solve_weighted_grid_mis(result: &MappingResult) -> usize {
-    let edges = result.grid_graph.edges().to_vec();
-    let num_vertices = result.grid_graph.num_vertices();
+    let edges = result.edges();
+    let num_vertices = result.positions.len();
 
     let weights: Vec<i32> = (0..num_vertices)
-        .map(|i| result.grid_graph.weight(i).copied().unwrap_or(1))
+        .map(|i| result.node_weights.get(i).copied().unwrap_or(1))
         .collect();
 
     solve_weighted_mis(num_vertices, &edges, &weights) as usize

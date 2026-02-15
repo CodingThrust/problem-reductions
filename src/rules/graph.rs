@@ -54,12 +54,15 @@ pub struct NodeJson {
     pub doc_path: String,
 }
 
-/// A matched reduction entry: (source_variant, target_variant, overhead).
-pub type MatchedEntry = (
-    std::collections::BTreeMap<String, String>,
-    std::collections::BTreeMap<String, String>,
-    ReductionOverhead,
-);
+/// A matched reduction entry returned by [`ReductionGraph::find_best_entry`].
+pub struct MatchedEntry {
+    /// The entry's source variant (may be less specific than the caller's current variant).
+    pub source_variant: std::collections::BTreeMap<String, String>,
+    /// The entry's target variant (becomes the new current variant after the reduction).
+    pub target_variant: std::collections::BTreeMap<String, String>,
+    /// The overhead of the reduction.
+    pub overhead: ReductionOverhead,
+}
 
 /// Internal reference to a problem variant, used during edge construction.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -128,7 +131,7 @@ impl ReductionPath {
 pub struct ReductionStep {
     /// Problem name (e.g., "MaximumIndependentSet").
     pub name: String,
-    /// Variant at this point (e.g., {"graph": "GridGraph", "weight": "i32"}).
+    /// Variant at this point (e.g., {"graph": "KingsSubgraph", "weight": "i32"}).
     pub variant: std::collections::BTreeMap<String, String>,
 }
 
@@ -687,17 +690,22 @@ impl ReductionGraph {
             }
 
             // Pick the most specific: if we already have a best, prefer the one
-            // whose source_variant is more specific (tighter fit)
-            let dominated = if let Some((ref best_source, _, _)) = best {
-                // New entry is more specific than current best?
-                self.is_variant_reducible(&entry_source, best_source)
+            // whose source_variant is more specific (tighter fit).
+            // is_variant_reducible(A, B) means A ≤ B (A is subtype of B),
+            // so entry_source ≤ best_source means the new entry is more specific.
+            let dominated = if let Some(ref best_entry) = best {
+                self.is_variant_reducible(&entry_source, &best_entry.source_variant)
                     || entry_source == *current_variant
             } else {
                 true
             };
 
             if dominated {
-                best = Some((entry_source, entry_target, entry.overhead()));
+                best = Some(MatchedEntry {
+                    source_variant: entry_source,
+                    target_variant: entry_target,
+                    overhead: entry.overhead(),
+                });
             }
         }
 
@@ -733,25 +741,31 @@ impl ReductionGraph {
             let src_name = path.type_names[i];
             let dst_name = path.type_names[i + 1];
 
-            let (entry_source, entry_target, overhead) =
-                self.find_best_entry(src_name, dst_name, &current_variant)?;
+            let matched = self.find_best_entry(src_name, dst_name, &current_variant)?;
 
-            // Insert natural cast if current variant differs from entry's source
-            if current_variant != entry_source {
+            // Insert natural cast if current variant differs from entry's source.
+            // Safety: find_best_entry already verified is_variant_reducible(current, entry_source).
+            if current_variant != matched.source_variant {
+                debug_assert!(
+                    self.is_variant_reducible(&current_variant, &matched.source_variant),
+                    "natural cast requires current variant to be a subtype of entry source"
+                );
                 steps.push(ReductionStep {
                     name: src_name.to_string(),
-                    variant: entry_source,
+                    variant: matched.source_variant,
                 });
                 edges.push(EdgeKind::NaturalCast);
             }
 
             // Advance through the reduction
-            current_variant = entry_target;
+            current_variant = matched.target_variant;
             steps.push(ReductionStep {
                 name: dst_name.to_string(),
                 variant: current_variant.clone(),
             });
-            edges.push(EdgeKind::Reduction { overhead });
+            edges.push(EdgeKind::Reduction {
+                overhead: matched.overhead,
+            });
         }
 
         // Trailing natural cast if final variant differs from requested target
@@ -811,7 +825,8 @@ impl ReductionGraph {
             .filter(|(_, variant)| !variant.is_empty())
             .map(|(name, _)| name.clone())
             .collect();
-        node_set.retain(|(name, variant)| !variant.is_empty() || !names_with_variants.contains(name));
+        node_set
+            .retain(|(name, variant)| !variant.is_empty() || !names_with_variants.contains(name));
 
         // Build nodes with categories and doc paths derived from ProblemSchemaEntry.module_path
         let mut nodes: Vec<NodeJson> = node_set

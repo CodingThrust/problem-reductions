@@ -1,20 +1,25 @@
 //! Tests for gadget properties (src/rules/mapping/gadgets.rs and triangular gadgets).
 
 use super::common::{solve_weighted_mis, triangular_edges};
-use crate::rules::unitdiskmapping::{
-    Branch, BranchFix, Cross, EndTurn, Mirror, Pattern, ReflectedGadget, RotatedGadget, TCon,
-    TriBranch, TriBranchFix, TriBranchFixB, TriCross, TriEndTurn, TriTConDown, TriTConUp,
-    TriTrivialTurnLeft, TriTrivialTurnRight, TriTurn, TriWTurn, TriangularGadget, TrivialTurn,
-    Turn, WTurn, WeightedKsgBranch, WeightedKsgBranchFix, WeightedKsgBranchFixB, WeightedKsgCross,
+use crate::rules::unitdiskmapping::ksg::{
+    KsgBranch, KsgBranchFix, KsgBranchFixB, KsgCross, KsgDanglingLeg, KsgEndTurn,
+    KsgReflectedGadget, KsgRotatedGadget, KsgTCon, KsgTrivialTurn, KsgTurn, KsgWTurn, Mirror,
+    WeightedKsgBranch, WeightedKsgBranchFix, WeightedKsgBranchFixB, WeightedKsgCross,
     WeightedKsgDanglingLeg, WeightedKsgEndTurn, WeightedKsgTCon, WeightedKsgTrivialTurn,
     WeightedKsgTurn, WeightedKsgWTurn,
 };
+use crate::rules::unitdiskmapping::triangular::{
+    WeightedTriBranch, WeightedTriBranchFix, WeightedTriBranchFixB, WeightedTriCross,
+    WeightedTriEndTurn, WeightedTriTConDown, WeightedTriTConUp, WeightedTriTrivialTurnLeft,
+    WeightedTriTrivialTurnRight, WeightedTriTurn, WeightedTriWTurn, WeightedTriangularGadget,
+};
+use crate::rules::unitdiskmapping::Pattern;
 
 // === Square Gadget Tests ===
 
 #[test]
 fn test_cross_disconnected_gadget() {
-    let gadget = Cross::<false>;
+    let gadget = KsgCross::<false>;
     let (locs, edges, pins) = gadget.source_graph();
 
     assert!(!locs.is_empty());
@@ -24,7 +29,7 @@ fn test_cross_disconnected_gadget() {
 
 #[test]
 fn test_cross_connected_gadget() {
-    let gadget = Cross::<true>;
+    let gadget = KsgCross::<true>;
     let (locs, _, pins) = gadget.source_graph();
 
     assert!(!locs.is_empty());
@@ -33,7 +38,7 @@ fn test_cross_connected_gadget() {
 
 #[test]
 fn test_turn_gadget() {
-    let gadget = Turn;
+    let gadget = KsgTurn;
     let (locs, edges, pins) = gadget.source_graph();
 
     assert!(!locs.is_empty());
@@ -43,7 +48,7 @@ fn test_turn_gadget() {
 
 #[test]
 fn test_wturn_gadget() {
-    let gadget = WTurn;
+    let gadget = KsgWTurn;
     let (locs, _, pins) = gadget.source_graph();
 
     assert!(!locs.is_empty());
@@ -52,7 +57,7 @@ fn test_wturn_gadget() {
 
 #[test]
 fn test_branch_gadget() {
-    let gadget = Branch;
+    let gadget = KsgBranch;
     let (locs, edges, pins) = gadget.source_graph();
 
     assert!(!locs.is_empty());
@@ -62,7 +67,7 @@ fn test_branch_gadget() {
 
 #[test]
 fn test_branch_fix_gadget() {
-    let gadget = BranchFix;
+    let gadget = KsgBranchFix;
     let (locs, _, pins) = gadget.source_graph();
 
     assert!(!locs.is_empty());
@@ -71,7 +76,7 @@ fn test_branch_fix_gadget() {
 
 #[test]
 fn test_tcon_gadget() {
-    let gadget = TCon;
+    let gadget = KsgTCon;
     let (locs, _, pins) = gadget.source_graph();
 
     assert!(!locs.is_empty());
@@ -80,7 +85,7 @@ fn test_tcon_gadget() {
 
 #[test]
 fn test_trivial_turn_gadget() {
-    let gadget = TrivialTurn;
+    let gadget = KsgTrivialTurn;
     let (locs, _, pins) = gadget.source_graph();
 
     assert!(!locs.is_empty());
@@ -89,7 +94,7 @@ fn test_trivial_turn_gadget() {
 
 #[test]
 fn test_end_turn_gadget() {
-    let gadget = EndTurn;
+    let gadget = KsgEndTurn;
     let (locs, _, pins) = gadget.source_graph();
 
     assert!(!locs.is_empty());
@@ -99,64 +104,64 @@ fn test_end_turn_gadget() {
 #[test]
 fn test_all_gadgets_have_valid_pins() {
     // Test Cross<true>
-    let (source_locs, _, source_pins) = Cross::<true>.source_graph();
-    let (mapped_locs, mapped_pins) = Cross::<true>.mapped_graph();
+    let (source_locs, _, source_pins) = KsgCross::<true>.source_graph();
+    let (mapped_locs, mapped_pins) = KsgCross::<true>.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
     // Test Cross<false>
-    let (source_locs, _, source_pins) = Cross::<false>.source_graph();
-    let (mapped_locs, mapped_pins) = Cross::<false>.mapped_graph();
+    let (source_locs, _, source_pins) = KsgCross::<false>.source_graph();
+    let (mapped_locs, mapped_pins) = KsgCross::<false>.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
     // Test Turn
-    let (source_locs, _, source_pins) = Turn.source_graph();
-    let (mapped_locs, mapped_pins) = Turn.mapped_graph();
+    let (source_locs, _, source_pins) = KsgTurn.source_graph();
+    let (mapped_locs, mapped_pins) = KsgTurn.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
     // Test WTurn
-    let (source_locs, _, source_pins) = WTurn.source_graph();
-    let (mapped_locs, mapped_pins) = WTurn.mapped_graph();
+    let (source_locs, _, source_pins) = KsgWTurn.source_graph();
+    let (mapped_locs, mapped_pins) = KsgWTurn.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
     // Test Branch
-    let (source_locs, _, source_pins) = Branch.source_graph();
-    let (mapped_locs, mapped_pins) = Branch.mapped_graph();
+    let (source_locs, _, source_pins) = KsgBranch.source_graph();
+    let (mapped_locs, mapped_pins) = KsgBranch.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
     // Test BranchFix
-    let (source_locs, _, source_pins) = BranchFix.source_graph();
-    let (mapped_locs, mapped_pins) = BranchFix.mapped_graph();
+    let (source_locs, _, source_pins) = KsgBranchFix.source_graph();
+    let (mapped_locs, mapped_pins) = KsgBranchFix.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
     // Test TCon
-    let (source_locs, _, source_pins) = TCon.source_graph();
-    let (mapped_locs, mapped_pins) = TCon.mapped_graph();
+    let (source_locs, _, source_pins) = KsgTCon.source_graph();
+    let (mapped_locs, mapped_pins) = KsgTCon.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
     // Test TrivialTurn
-    let (source_locs, _, source_pins) = TrivialTurn.source_graph();
-    let (mapped_locs, mapped_pins) = TrivialTurn.mapped_graph();
+    let (source_locs, _, source_pins) = KsgTrivialTurn.source_graph();
+    let (mapped_locs, mapped_pins) = KsgTrivialTurn.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
 
     // Test EndTurn
-    let (source_locs, _, source_pins) = EndTurn.source_graph();
-    let (mapped_locs, mapped_pins) = EndTurn.mapped_graph();
+    let (source_locs, _, source_pins) = KsgEndTurn.source_graph();
+    let (mapped_locs, mapped_pins) = KsgEndTurn.mapped_graph();
     assert!(source_pins.iter().all(|&p| p < source_locs.len()));
     assert!(mapped_pins.iter().all(|&p| p < mapped_locs.len()));
     assert_eq!(source_pins.len(), mapped_pins.len());
@@ -166,7 +171,7 @@ fn test_all_gadgets_have_valid_pins() {
 
 #[test]
 fn test_triangular_gadgets_have_valid_pins() {
-    fn check_tri_gadget<G: TriangularGadget>(gadget: G, name: &str) {
+    fn check_tri_gadget<G: WeightedTriangularGadget>(gadget: G, name: &str) {
         let (source_locs, _, source_pins) = gadget.source_graph();
         let (mapped_locs, mapped_pins) = gadget.mapped_graph();
 
@@ -182,26 +187,26 @@ fn test_triangular_gadgets_have_valid_pins() {
         );
     }
 
-    check_tri_gadget(TriCross::<true>, "TriCross<true>");
-    check_tri_gadget(TriCross::<false>, "TriCross<false>");
-    check_tri_gadget(TriTurn, "TriTurn");
-    check_tri_gadget(TriWTurn, "TriWTurn");
-    check_tri_gadget(TriBranch, "TriBranch");
-    check_tri_gadget(TriBranchFix, "TriBranchFix");
-    check_tri_gadget(TriBranchFixB, "TriBranchFixB");
-    check_tri_gadget(TriTConUp, "TriTConUp");
-    check_tri_gadget(TriTConDown, "TriTConDown");
-    check_tri_gadget(TriTrivialTurnLeft, "TriTrivialTurnLeft");
-    check_tri_gadget(TriTrivialTurnRight, "TriTrivialTurnRight");
-    check_tri_gadget(TriEndTurn, "TriEndTurn");
+    check_tri_gadget(WeightedTriCross::<true>, "TriCross<true>");
+    check_tri_gadget(WeightedTriCross::<false>, "TriCross<false>");
+    check_tri_gadget(WeightedTriTurn, "WeightedTriTurn");
+    check_tri_gadget(WeightedTriWTurn, "WeightedTriWTurn");
+    check_tri_gadget(WeightedTriBranch, "WeightedTriBranch");
+    check_tri_gadget(WeightedTriBranchFix, "WeightedTriBranchFix");
+    check_tri_gadget(WeightedTriBranchFixB, "WeightedTriBranchFixB");
+    check_tri_gadget(WeightedTriTConUp, "WeightedTriTConUp");
+    check_tri_gadget(WeightedTriTConDown, "WeightedTriTConDown");
+    check_tri_gadget(WeightedTriTrivialTurnLeft, "WeightedTriTrivialTurnLeft");
+    check_tri_gadget(WeightedTriTrivialTurnRight, "WeightedTriTrivialTurnRight");
+    check_tri_gadget(WeightedTriEndTurn, "WeightedTriEndTurn");
 }
 
 // === Weighted MIS Equivalence Tests ===
 
 #[test]
 fn test_triturn_mis_equivalence() {
-    // TriTurn is already weighted (WeightedTriTurn)
-    let gadget = TriTurn;
+    // WeightedTriTurn is already weighted (WeightedTriTurn)
+    let gadget = WeightedTriTurn;
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
@@ -224,15 +229,15 @@ fn test_triturn_mis_equivalence() {
 
     assert_eq!(
         actual, expected,
-        "TriTurn: expected overhead {}, got {} (src={}, map={})",
+        "WeightedTriTurn: expected overhead {}, got {} (src={}, map={})",
         expected, actual, src_mis, map_mis
     );
 }
 
 #[test]
 fn test_tribranch_mis_equivalence() {
-    // TriBranch is already weighted (WeightedTriBranch)
-    let gadget = TriBranch;
+    // WeightedTriBranch is already weighted (WeightedTriBranch)
+    let gadget = WeightedTriBranch;
     let (src_locs, src_edges, src_pins) = gadget.source_graph();
     let (map_locs, map_pins) = gadget.mapped_graph();
 
@@ -255,7 +260,7 @@ fn test_tribranch_mis_equivalence() {
 
     assert_eq!(
         actual, expected,
-        "TriBranch: expected overhead {}, got {} (src={}, map={})",
+        "WeightedTriBranch: expected overhead {}, got {} (src={}, map={})",
         expected, actual, src_mis, map_mis
     );
 }
@@ -263,7 +268,7 @@ fn test_tribranch_mis_equivalence() {
 #[test]
 fn test_tricross_connected_weighted_mis_equivalence() {
     // TriCross is already weighted (WeightedTriCross)
-    let gadget = TriCross::<true>;
+    let gadget = WeightedTriCross::<true>;
     let (source_locs, source_edges, source_pins) = gadget.source_graph();
     let (mapped_locs, mapped_pins) = gadget.mapped_graph();
 
@@ -294,7 +299,7 @@ fn test_tricross_connected_weighted_mis_equivalence() {
 #[test]
 fn test_tricross_disconnected_weighted_mis_equivalence() {
     // TriCross is already weighted (WeightedTriCross)
-    let gadget = TriCross::<false>;
+    let gadget = WeightedTriCross::<false>;
     let (source_locs, source_edges, source_pins) = gadget.source_graph();
     let (mapped_locs, mapped_pins) = gadget.mapped_graph();
 
@@ -326,7 +331,7 @@ fn test_tricross_disconnected_weighted_mis_equivalence() {
 fn test_all_triangular_weighted_gadgets_mis_equivalence() {
     // Triangular gadgets are already weighted (WeightedTri* prefix)
     // So we directly use their source_weights() and mapped_weights() methods
-    fn test_gadget<G: TriangularGadget + Copy>(gadget: G, name: &str) {
+    fn test_gadget<G: WeightedTriangularGadget + Copy>(gadget: G, name: &str) {
         let (src_locs, src_edges, src_pins) = gadget.source_graph();
         let (map_locs, map_pins) = gadget.mapped_graph();
 
@@ -354,18 +359,18 @@ fn test_all_triangular_weighted_gadgets_mis_equivalence() {
         );
     }
 
-    test_gadget(TriTurn, "TriTurn");
-    test_gadget(TriBranch, "TriBranch");
-    test_gadget(TriCross::<true>, "TriCross<true>");
-    test_gadget(TriCross::<false>, "TriCross<false>");
-    test_gadget(TriTConDown, "TriTConDown");
-    test_gadget(TriTConUp, "TriTConUp");
-    test_gadget(TriTrivialTurnLeft, "TriTrivialTurnLeft");
-    test_gadget(TriTrivialTurnRight, "TriTrivialTurnRight");
-    test_gadget(TriEndTurn, "TriEndTurn");
-    test_gadget(TriWTurn, "TriWTurn");
-    test_gadget(TriBranchFix, "TriBranchFix");
-    test_gadget(TriBranchFixB, "TriBranchFixB");
+    test_gadget(WeightedTriTurn, "WeightedTriTurn");
+    test_gadget(WeightedTriBranch, "WeightedTriBranch");
+    test_gadget(WeightedTriCross::<true>, "TriCross<true>");
+    test_gadget(WeightedTriCross::<false>, "TriCross<false>");
+    test_gadget(WeightedTriTConDown, "WeightedTriTConDown");
+    test_gadget(WeightedTriTConUp, "WeightedTriTConUp");
+    test_gadget(WeightedTriTrivialTurnLeft, "WeightedTriTrivialTurnLeft");
+    test_gadget(WeightedTriTrivialTurnRight, "WeightedTriTrivialTurnRight");
+    test_gadget(WeightedTriEndTurn, "WeightedTriEndTurn");
+    test_gadget(WeightedTriWTurn, "WeightedTriWTurn");
+    test_gadget(WeightedTriBranchFix, "WeightedTriBranchFix");
+    test_gadget(WeightedTriBranchFixB, "WeightedTriBranchFixB");
 }
 
 // === KSG Weighted Gadget Tests ===
@@ -831,13 +836,13 @@ fn test_all_ksg_weighted_gadgets_mis_equivalence() {
 #[test]
 fn test_pattern_source_matrix() {
     // Test source_matrix generation for all gadgets
-    let cross_matrix = Cross::<true>.source_matrix();
+    let cross_matrix = KsgCross::<true>.source_matrix();
     assert!(!cross_matrix.is_empty());
 
-    let turn_matrix = Turn.source_matrix();
+    let turn_matrix = KsgTurn.source_matrix();
     assert!(!turn_matrix.is_empty());
 
-    let branch_matrix = Branch.source_matrix();
+    let branch_matrix = KsgBranch.source_matrix();
     assert!(!branch_matrix.is_empty());
 }
 
@@ -857,10 +862,10 @@ fn test_weighted_ksg_pattern_source_matrix() {
 fn test_pattern_mapped_matrix() {
     use crate::rules::unitdiskmapping::Pattern;
 
-    let cross_mapped = Cross::<true>.mapped_matrix();
+    let cross_mapped = KsgCross::<true>.mapped_matrix();
     assert!(!cross_mapped.is_empty());
 
-    let turn_mapped = Turn.mapped_matrix();
+    let turn_mapped = KsgTurn.mapped_matrix();
     assert!(!turn_mapped.is_empty());
 }
 
@@ -910,8 +915,8 @@ fn test_all_weighted_gadgets_weights_positive() {
 #[test]
 fn test_gadget_is_connected_variants() {
     // Test is_connected() method
-    assert!(Cross::<true>.is_connected());
-    assert!(!Cross::<false>.is_connected());
+    assert!(KsgCross::<true>.is_connected());
+    assert!(!KsgCross::<false>.is_connected());
 
     assert!(WeightedKsgCross::<true>.is_connected());
     assert!(!WeightedKsgCross::<false>.is_connected());
@@ -920,20 +925,20 @@ fn test_gadget_is_connected_variants() {
 #[test]
 fn test_gadget_is_cross_gadget() {
     // Cross gadgets should return true
-    assert!(Cross::<true>.is_cross_gadget());
-    assert!(Cross::<false>.is_cross_gadget());
+    assert!(KsgCross::<true>.is_cross_gadget());
+    assert!(KsgCross::<false>.is_cross_gadget());
     assert!(WeightedKsgCross::<true>.is_cross_gadget());
     assert!(WeightedKsgCross::<false>.is_cross_gadget());
 
     // Non-cross gadgets should return false
-    assert!(!Turn.is_cross_gadget());
+    assert!(!KsgTurn.is_cross_gadget());
     assert!(!WeightedKsgTurn.is_cross_gadget());
 }
 
 #[test]
 fn test_gadget_connected_nodes() {
     // Connected gadgets should have connected_nodes
-    let nodes = Cross::<true>.connected_nodes();
+    let nodes = KsgCross::<true>.connected_nodes();
     assert!(!nodes.is_empty());
 
     let weighted_nodes = WeightedKsgCross::<true>.connected_nodes();
@@ -978,32 +983,32 @@ fn test_build_triangular_unit_disk_edges() {
 
 #[test]
 fn test_triangular_gadget_source_matrix() {
-    let matrix = TriTurn.source_matrix();
+    let matrix = WeightedTriTurn.source_matrix();
     assert!(!matrix.is_empty());
 
-    let matrix = TriCross::<true>.source_matrix();
+    let matrix = WeightedTriCross::<true>.source_matrix();
     assert!(!matrix.is_empty());
 
-    let matrix = TriBranch.source_matrix();
+    let matrix = WeightedTriBranch.source_matrix();
     assert!(!matrix.is_empty());
 }
 
 #[test]
 fn test_triangular_gadget_mapped_matrix() {
-    use crate::rules::unitdiskmapping::TriangularGadget;
+    use crate::rules::unitdiskmapping::triangular::WeightedTriangularGadget;
 
-    let matrix = TriTurn.mapped_matrix();
+    let matrix = WeightedTriTurn.mapped_matrix();
     assert!(!matrix.is_empty());
 
-    let matrix = TriCross::<true>.mapped_matrix();
+    let matrix = WeightedTriCross::<true>.mapped_matrix();
     assert!(!matrix.is_empty());
 }
 
 #[test]
 fn test_triangular_gadget_weights() {
     // Test that weights are returned correctly
-    let src_weights = TriTurn.source_weights();
-    let map_weights = TriTurn.mapped_weights();
+    let src_weights = WeightedTriTurn.source_weights();
+    let map_weights = WeightedTriTurn.mapped_weights();
     assert!(!src_weights.is_empty());
     assert!(!map_weights.is_empty());
 
@@ -1015,19 +1020,19 @@ fn test_triangular_gadget_weights() {
 #[test]
 fn test_triangular_gadget_connected_nodes() {
     // Test connected gadgets
-    let nodes = TriCross::<true>.connected_nodes();
+    let nodes = WeightedTriCross::<true>.connected_nodes();
     // TriCross<true> should have connected nodes
-    assert!(!nodes.is_empty() || TriCross::<true>.is_connected());
+    assert!(!nodes.is_empty() || WeightedTriCross::<true>.is_connected());
 
     // TriCross<false> should not be connected
-    assert!(!TriCross::<false>.is_connected());
+    assert!(!WeightedTriCross::<false>.is_connected());
 }
 
 #[test]
 fn test_all_triangular_gadgets_source_matrix() {
-    use crate::rules::unitdiskmapping::TriangularGadget;
+    use crate::rules::unitdiskmapping::triangular::WeightedTriangularGadget;
 
-    fn check_matrix<G: TriangularGadget>(gadget: G, name: &str) {
+    fn check_matrix<G: WeightedTriangularGadget>(gadget: G, name: &str) {
         let matrix = gadget.source_matrix();
         let (rows, cols) = gadget.size();
         assert_eq!(
@@ -1046,25 +1051,25 @@ fn test_all_triangular_gadgets_source_matrix() {
         }
     }
 
-    check_matrix(TriTurn, "TriTurn");
-    check_matrix(TriCross::<true>, "TriCross<true>");
-    check_matrix(TriCross::<false>, "TriCross<false>");
-    check_matrix(TriBranch, "TriBranch");
-    check_matrix(TriBranchFix, "TriBranchFix");
-    check_matrix(TriBranchFixB, "TriBranchFixB");
-    check_matrix(TriTConUp, "TriTConUp");
-    check_matrix(TriTConDown, "TriTConDown");
-    check_matrix(TriTrivialTurnLeft, "TriTrivialTurnLeft");
-    check_matrix(TriTrivialTurnRight, "TriTrivialTurnRight");
-    check_matrix(TriEndTurn, "TriEndTurn");
-    check_matrix(TriWTurn, "TriWTurn");
+    check_matrix(WeightedTriTurn, "WeightedTriTurn");
+    check_matrix(WeightedTriCross::<true>, "TriCross<true>");
+    check_matrix(WeightedTriCross::<false>, "TriCross<false>");
+    check_matrix(WeightedTriBranch, "WeightedTriBranch");
+    check_matrix(WeightedTriBranchFix, "WeightedTriBranchFix");
+    check_matrix(WeightedTriBranchFixB, "WeightedTriBranchFixB");
+    check_matrix(WeightedTriTConUp, "WeightedTriTConUp");
+    check_matrix(WeightedTriTConDown, "WeightedTriTConDown");
+    check_matrix(WeightedTriTrivialTurnLeft, "WeightedTriTrivialTurnLeft");
+    check_matrix(WeightedTriTrivialTurnRight, "WeightedTriTrivialTurnRight");
+    check_matrix(WeightedTriEndTurn, "WeightedTriEndTurn");
+    check_matrix(WeightedTriWTurn, "WeightedTriWTurn");
 }
 
 #[test]
 fn test_all_triangular_gadgets_mapped_matrix() {
-    use crate::rules::unitdiskmapping::TriangularGadget;
+    use crate::rules::unitdiskmapping::triangular::WeightedTriangularGadget;
 
-    fn check_matrix<G: TriangularGadget>(gadget: G, name: &str) {
+    fn check_matrix<G: WeightedTriangularGadget>(gadget: G, name: &str) {
         let matrix = gadget.mapped_matrix();
         let (rows, cols) = gadget.size();
         assert_eq!(
@@ -1083,44 +1088,44 @@ fn test_all_triangular_gadgets_mapped_matrix() {
         }
     }
 
-    check_matrix(TriTurn, "TriTurn");
-    check_matrix(TriCross::<true>, "TriCross<true>");
-    check_matrix(TriCross::<false>, "TriCross<false>");
-    check_matrix(TriBranch, "TriBranch");
-    check_matrix(TriBranchFix, "TriBranchFix");
-    check_matrix(TriBranchFixB, "TriBranchFixB");
-    check_matrix(TriTConUp, "TriTConUp");
-    check_matrix(TriTConDown, "TriTConDown");
-    check_matrix(TriTrivialTurnLeft, "TriTrivialTurnLeft");
-    check_matrix(TriTrivialTurnRight, "TriTrivialTurnRight");
-    check_matrix(TriEndTurn, "TriEndTurn");
-    check_matrix(TriWTurn, "TriWTurn");
+    check_matrix(WeightedTriTurn, "WeightedTriTurn");
+    check_matrix(WeightedTriCross::<true>, "TriCross<true>");
+    check_matrix(WeightedTriCross::<false>, "TriCross<false>");
+    check_matrix(WeightedTriBranch, "WeightedTriBranch");
+    check_matrix(WeightedTriBranchFix, "WeightedTriBranchFix");
+    check_matrix(WeightedTriBranchFixB, "WeightedTriBranchFixB");
+    check_matrix(WeightedTriTConUp, "WeightedTriTConUp");
+    check_matrix(WeightedTriTConDown, "WeightedTriTConDown");
+    check_matrix(WeightedTriTrivialTurnLeft, "WeightedTriTrivialTurnLeft");
+    check_matrix(WeightedTriTrivialTurnRight, "WeightedTriTrivialTurnRight");
+    check_matrix(WeightedTriEndTurn, "WeightedTriEndTurn");
+    check_matrix(WeightedTriWTurn, "WeightedTriWTurn");
 }
 
 // === Rotated/Reflected Gadget Wrapper Tests ===
 
 #[test]
 fn test_rotated_gadget_size() {
-    let base = Turn;
+    let base = KsgTurn;
     let (m, n) = base.size();
 
     // 90 degree rotation swaps dimensions
-    let rot90 = RotatedGadget::new(base, 1);
+    let rot90 = KsgRotatedGadget::new(base, 1);
     assert_eq!(rot90.size(), (n, m));
 
     // 180 degree keeps dimensions
-    let rot180 = RotatedGadget::new(base, 2);
+    let rot180 = KsgRotatedGadget::new(base, 2);
     assert_eq!(rot180.size(), (m, n));
 
     // 270 degree swaps dimensions
-    let rot270 = RotatedGadget::new(base, 3);
+    let rot270 = KsgRotatedGadget::new(base, 3);
     assert_eq!(rot270.size(), (n, m));
 }
 
 #[test]
 fn test_rotated_gadget_cross_location() {
-    let base = Cross::<true>;
-    let rotated = RotatedGadget::new(base, 1);
+    let base = KsgCross::<true>;
+    let rotated = KsgRotatedGadget::new(base, 1);
 
     // Cross location should be valid for rotated gadget
     let (r, c) = rotated.cross_location();
@@ -1131,8 +1136,8 @@ fn test_rotated_gadget_cross_location() {
 
 #[test]
 fn test_rotated_gadget_source_graph() {
-    let base = Turn;
-    let rotated = RotatedGadget::new(base, 1);
+    let base = KsgTurn;
+    let rotated = KsgRotatedGadget::new(base, 1);
 
     let (locs, edges, pins) = rotated.source_graph();
     let (rows, cols) = rotated.size();
@@ -1156,8 +1161,8 @@ fn test_rotated_gadget_source_graph() {
 
 #[test]
 fn test_rotated_gadget_mapped_graph() {
-    let base = Branch;
-    let rotated = RotatedGadget::new(base, 2);
+    let base = KsgBranch;
+    let rotated = KsgRotatedGadget::new(base, 2);
 
     let (locs, pins) = rotated.mapped_graph();
     let (rows, cols) = rotated.size();
@@ -1176,8 +1181,8 @@ fn test_rotated_gadget_mapped_graph() {
 
 #[test]
 fn test_rotated_gadget_preserves_mis_overhead() {
-    let base = Turn;
-    let rotated = RotatedGadget::new(base, 1);
+    let base = KsgTurn;
+    let rotated = KsgRotatedGadget::new(base, 1);
 
     // MIS overhead should be same for rotated gadget
     assert_eq!(base.mis_overhead(), rotated.mis_overhead());
@@ -1186,7 +1191,7 @@ fn test_rotated_gadget_preserves_mis_overhead() {
 #[test]
 fn test_rotated_gadget_preserves_weights() {
     let base = WeightedKsgTurn;
-    let rotated = RotatedGadget::new(base, 2);
+    let rotated = KsgRotatedGadget::new(base, 2);
 
     // Weights don't change with rotation
     assert_eq!(base.source_weights(), rotated.source_weights());
@@ -1195,8 +1200,8 @@ fn test_rotated_gadget_preserves_weights() {
 
 #[test]
 fn test_rotated_gadget_delegates_properties() {
-    let base = Cross::<true>;
-    let rotated = RotatedGadget::new(base, 1);
+    let base = KsgCross::<true>;
+    let rotated = KsgRotatedGadget::new(base, 1);
 
     assert_eq!(base.is_connected(), rotated.is_connected());
     assert_eq!(base.is_cross_gadget(), rotated.is_cross_gadget());
@@ -1205,36 +1210,36 @@ fn test_rotated_gadget_delegates_properties() {
 
 #[test]
 fn test_reflected_gadget_size_x_y() {
-    let base = Turn;
+    let base = KsgTurn;
     let (m, n) = base.size();
 
     // X and Y mirror keep same dimensions
-    let ref_x = ReflectedGadget::new(base, Mirror::X);
+    let ref_x = KsgReflectedGadget::new(base, Mirror::X);
     assert_eq!(ref_x.size(), (m, n));
 
-    let ref_y = ReflectedGadget::new(base, Mirror::Y);
+    let ref_y = KsgReflectedGadget::new(base, Mirror::Y);
     assert_eq!(ref_y.size(), (m, n));
 }
 
 #[test]
 fn test_reflected_gadget_size_diagonal() {
-    let base = Turn;
+    let base = KsgTurn;
     let (m, n) = base.size();
 
     // Diagonal mirrors swap dimensions
-    let ref_diag = ReflectedGadget::new(base, Mirror::Diag);
+    let ref_diag = KsgReflectedGadget::new(base, Mirror::Diag);
     assert_eq!(ref_diag.size(), (n, m));
 
-    let ref_offdiag = ReflectedGadget::new(base, Mirror::OffDiag);
+    let ref_offdiag = KsgReflectedGadget::new(base, Mirror::OffDiag);
     assert_eq!(ref_offdiag.size(), (n, m));
 }
 
 #[test]
 fn test_reflected_gadget_cross_location() {
-    let base = Cross::<true>;
+    let base = KsgCross::<true>;
 
     for mirror in [Mirror::X, Mirror::Y, Mirror::Diag, Mirror::OffDiag] {
-        let reflected = ReflectedGadget::new(base, mirror);
+        let reflected = KsgReflectedGadget::new(base, mirror);
         let (r, c) = reflected.cross_location();
         let (rows, cols) = reflected.size();
         assert!(r > 0 && r <= rows, "mirror {:?}: row out of bounds", mirror);
@@ -1244,8 +1249,8 @@ fn test_reflected_gadget_cross_location() {
 
 #[test]
 fn test_reflected_gadget_source_graph() {
-    let base = Branch;
-    let reflected = ReflectedGadget::new(base, Mirror::X);
+    let base = KsgBranch;
+    let reflected = KsgReflectedGadget::new(base, Mirror::X);
 
     let (locs, edges, pins) = reflected.source_graph();
     let (rows, cols) = reflected.size();
@@ -1269,8 +1274,8 @@ fn test_reflected_gadget_source_graph() {
 
 #[test]
 fn test_reflected_gadget_mapped_graph() {
-    let base = TCon;
-    let reflected = ReflectedGadget::new(base, Mirror::Y);
+    let base = KsgTCon;
+    let reflected = KsgReflectedGadget::new(base, Mirror::Y);
 
     let (locs, pins) = reflected.mapped_graph();
     let (rows, cols) = reflected.size();
@@ -1287,8 +1292,8 @@ fn test_reflected_gadget_mapped_graph() {
 
 #[test]
 fn test_reflected_gadget_preserves_mis_overhead() {
-    let base = Turn;
-    let reflected = ReflectedGadget::new(base, Mirror::Diag);
+    let base = KsgTurn;
+    let reflected = KsgReflectedGadget::new(base, Mirror::Diag);
 
     assert_eq!(base.mis_overhead(), reflected.mis_overhead());
 }
@@ -1296,7 +1301,7 @@ fn test_reflected_gadget_preserves_mis_overhead() {
 #[test]
 fn test_reflected_gadget_preserves_weights() {
     let base = WeightedKsgBranch;
-    let reflected = ReflectedGadget::new(base, Mirror::OffDiag);
+    let reflected = KsgReflectedGadget::new(base, Mirror::OffDiag);
 
     assert_eq!(base.source_weights(), reflected.source_weights());
     assert_eq!(base.mapped_weights(), reflected.mapped_weights());
@@ -1304,8 +1309,8 @@ fn test_reflected_gadget_preserves_weights() {
 
 #[test]
 fn test_reflected_gadget_delegates_properties() {
-    let base = Cross::<false>;
-    let reflected = ReflectedGadget::new(base, Mirror::X);
+    let base = KsgCross::<false>;
+    let reflected = KsgReflectedGadget::new(base, Mirror::X);
 
     assert_eq!(base.is_connected(), reflected.is_connected());
     assert_eq!(base.is_cross_gadget(), reflected.is_cross_gadget());
@@ -1316,7 +1321,7 @@ fn test_reflected_gadget_delegates_properties() {
 fn test_all_rotations_valid_graphs() {
     fn check_rotated<G: Pattern + Copy>(gadget: G, name: &str) {
         for n in 0..4 {
-            let rotated = RotatedGadget::new(gadget, n);
+            let rotated = KsgRotatedGadget::new(gadget, n);
             let (src_locs, src_edges, src_pins) = rotated.source_graph();
             let (map_locs, map_pins) = rotated.mapped_graph();
 
@@ -1345,17 +1350,17 @@ fn test_all_rotations_valid_graphs() {
         }
     }
 
-    check_rotated(Turn, "Turn");
-    check_rotated(Branch, "Branch");
-    check_rotated(Cross::<true>, "Cross<true>");
-    check_rotated(TCon, "TCon");
+    check_rotated(KsgTurn, "KsgTurn");
+    check_rotated(KsgBranch, "KsgBranch");
+    check_rotated(KsgCross::<true>, "KsgCross<true>");
+    check_rotated(KsgTCon, "KsgTCon");
 }
 
 #[test]
 fn test_all_mirrors_valid_graphs() {
     fn check_mirrored<G: Pattern + Copy>(gadget: G, name: &str) {
         for mirror in [Mirror::X, Mirror::Y, Mirror::Diag, Mirror::OffDiag] {
-            let reflected = ReflectedGadget::new(gadget, mirror);
+            let reflected = KsgReflectedGadget::new(gadget, mirror);
             let (src_locs, src_edges, src_pins) = reflected.source_graph();
             let (map_locs, map_pins) = reflected.mapped_graph();
 
@@ -1384,16 +1389,14 @@ fn test_all_mirrors_valid_graphs() {
         }
     }
 
-    check_mirrored(Turn, "Turn");
-    check_mirrored(Branch, "Branch");
-    check_mirrored(Cross::<true>, "Cross<true>");
-    check_mirrored(TCon, "TCon");
+    check_mirrored(KsgTurn, "KsgTurn");
+    check_mirrored(KsgBranch, "KsgBranch");
+    check_mirrored(KsgCross::<true>, "KsgCross<true>");
+    check_mirrored(KsgTCon, "KsgTCon");
 }
 
 // === Julia Tests: rotated_and_reflected counts ===
 // From Julia's test/gadgets.jl
-
-use crate::rules::unitdiskmapping::{BranchFixB, DanglingLeg};
 
 /// Count unique gadgets from all rotations (0, 1, 2, 3) and reflections (X, Y, Diag, OffDiag).
 /// Julia: length(rotated_and_reflected(gadget))
@@ -1404,14 +1407,14 @@ fn count_rotated_and_reflected<G: Pattern + Copy + std::fmt::Debug>(gadget: G) -
 
     // All rotations (0, 90, 180, 270 degrees)
     for n in 0..4 {
-        let rotated = RotatedGadget::new(gadget, n);
+        let rotated = KsgRotatedGadget::new(gadget, n);
         let (locs, _, _) = rotated.source_graph();
         unique.insert(format!("{:?}", locs));
     }
 
     // All reflections
     for mirror in [Mirror::X, Mirror::Y, Mirror::Diag, Mirror::OffDiag] {
-        let reflected = ReflectedGadget::new(gadget, mirror);
+        let reflected = KsgReflectedGadget::new(gadget, mirror);
         let (locs, _, _) = reflected.source_graph();
         unique.insert(format!("{:?}", locs));
     }
@@ -1422,7 +1425,7 @@ fn count_rotated_and_reflected<G: Pattern + Copy + std::fmt::Debug>(gadget: G) -
 #[test]
 fn test_rotated_and_reflected_danglingleg() {
     // Julia: @test length(rotated_and_reflected(UnitDiskMapping.DanglingLeg())) == 4
-    let count = count_rotated_and_reflected(DanglingLeg);
+    let count = count_rotated_and_reflected(KsgDanglingLeg);
     assert_eq!(count, 4, "DanglingLeg should have 4 unique orientations");
 }
 
@@ -1431,7 +1434,7 @@ fn test_rotated_and_reflected_cross_false() {
     // Julia: @test length(rotated_and_reflected(Cross{false}())) == 4
     // Cross has 4-fold rotational symmetry, so rotations produce duplicates
     // But reflections may produce different locations in our representation
-    let count = count_rotated_and_reflected(Cross::<false>);
+    let count = count_rotated_and_reflected(KsgCross::<false>);
     // Cross should have limited unique orientations due to symmetry
     assert!(
         count > 0,
@@ -1446,7 +1449,7 @@ fn test_rotated_and_reflected_cross_false() {
 #[test]
 fn test_rotated_and_reflected_cross_true() {
     // Julia: @test length(rotated_and_reflected(Cross{true}())) == 4
-    let count = count_rotated_and_reflected(Cross::<true>);
+    let count = count_rotated_and_reflected(KsgCross::<true>);
     assert!(
         count > 0,
         "Cross<true> should have some unique orientations"
@@ -1460,7 +1463,7 @@ fn test_rotated_and_reflected_cross_true() {
 #[test]
 fn test_rotated_and_reflected_branchfixb() {
     // Julia: @test length(rotated_and_reflected(BranchFixB())) == 8
-    let count = count_rotated_and_reflected(BranchFixB);
+    let count = count_rotated_and_reflected(KsgBranchFixB);
     assert_eq!(count, 8, "BranchFixB should have 8 unique orientations");
 }
 
@@ -1470,14 +1473,14 @@ fn test_rotated_and_reflected_branchfixb() {
 #[test]
 fn test_danglingleg_size() {
     // Julia: @test size(p) == (4, 3)
-    let gadget = DanglingLeg;
+    let gadget = KsgDanglingLeg;
     assert_eq!(gadget.size(), (4, 3), "DanglingLeg size should be (4, 3)");
 }
 
 #[test]
 fn test_danglingleg_source_locations() {
     // Julia: @test UnitDiskMapping.source_locations(p) == UnitDiskMapping.Node.([(2,2), (3,2), (4,2)])
-    let gadget = DanglingLeg;
+    let gadget = KsgDanglingLeg;
     let (locs, _, _) = gadget.source_graph();
 
     // Julia is 1-indexed, Rust is 1-indexed for gadget coordinates
@@ -1488,7 +1491,7 @@ fn test_danglingleg_source_locations() {
 #[test]
 fn test_danglingleg_mapped_locations() {
     // Julia: @test UnitDiskMapping.mapped_locations(p) == UnitDiskMapping.Node.([(4,2)])
-    let gadget = DanglingLeg;
+    let gadget = KsgDanglingLeg;
     let (locs, _) = gadget.mapped_graph();
 
     // Julia is 1-indexed
@@ -1498,7 +1501,7 @@ fn test_danglingleg_mapped_locations() {
 
 #[test]
 fn test_danglingleg_mis_overhead() {
-    let gadget = DanglingLeg;
+    let gadget = KsgDanglingLeg;
     // DanglingLeg simplifies 3 nodes to 1, removing 2 from MIS
     assert_eq!(
         gadget.mis_overhead(),

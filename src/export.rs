@@ -99,8 +99,8 @@ pub fn lookup_overhead(
         .iter()
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
-    let (_, _, overhead) = graph.find_best_entry(source_name, target_name, &src_bt)?;
-    Some(overhead)
+    let matched = graph.find_best_entry(source_name, target_name, &src_bt)?;
+    Some(matched.overhead)
 }
 
 /// Convert `Problem::variant()` output to a `HashMap`.

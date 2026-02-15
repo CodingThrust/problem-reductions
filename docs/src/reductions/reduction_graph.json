@@ -81,7 +81,7 @@
     {
       "name": "MaximumIndependentSet",
       "variant": {
-        "graph": "GridGraph",
+        "graph": "KingsSubgraph",
         "weight": "i32"
       },
       "category": "graph",
@@ -99,7 +99,7 @@
     {
       "name": "MaximumIndependentSet",
       "variant": {
-        "graph": "Triangular",
+        "graph": "TriangularSubgraph",
         "weight": "i32"
       },
       "category": "graph",
@@ -300,21 +300,6 @@
         }
       ],
       "doc_path": "rules/coloring_qubo/index.html"
-    },
-    {
-      "source": 5,
-      "target": 6,
-      "overhead": [
-        {
-          "field": "num_clauses",
-          "formula": "num_clauses"
-        },
-        {
-          "field": "num_vars",
-          "formula": "num_vars"
-        }
-      ],
-      "doc_path": ""
     },
     {
       "source": 5,
@@ -895,6 +880,10 @@
         {
           "field": "num_spins",
           "formula": "num_spins"
+        },
+        {
+          "field": "num_interactions",
+          "formula": "num_interactions"
         }
       ],
       "doc_path": ""
