@@ -16,7 +16,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     // 1. Create MinimumDominatingSet instance: Petersen graph
@@ -87,9 +87,9 @@ pub fn run() {
             problem: MinimumDominatingSet::<SimpleGraph, i32>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
-                "num_vertices": ds.num_vertices(),
-                "num_edges": ds.num_edges(),
-                "edges": ds.edges(),
+                "num_vertices": ds.graph().num_vertices(),
+                "num_edges": ds.graph().num_edges(),
+                "edges": ds.graph().edges(),
             }),
         },
         target: ProblemSide {

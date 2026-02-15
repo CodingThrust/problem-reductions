@@ -15,7 +15,7 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     // 1. Create SAT instance: 5-variable, 7-clause 3-SAT formula
@@ -53,8 +53,8 @@ pub fn run() {
     );
     println!(
         "Target: MinimumDominatingSet with {} vertices, {} edges",
-        ds.num_vertices(),
-        ds.num_edges()
+        ds.graph().num_vertices(),
+        ds.graph().num_edges()
     );
     println!("  Variable gadgets: 3 vertices per variable (pos, neg, dummy) forming triangles");
     println!("  Clause vertices: 1 per clause, connected to relevant literal vertices");
@@ -141,8 +141,8 @@ pub fn run() {
             problem: MinimumDominatingSet::<SimpleGraph, i32>::NAME.to_string(),
             variant: target_variant,
             instance: serde_json::json!({
-                "num_vertices": ds.num_vertices(),
-                "num_edges": ds.num_edges(),
+                "num_vertices": ds.graph().num_vertices(),
+                "num_edges": ds.graph().num_edges(),
             }),
         },
         overhead: overhead_to_json(&overhead),

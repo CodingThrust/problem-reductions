@@ -80,38 +80,9 @@ impl<G: Graph, W: Clone + Default> MinimumDominatingSet<G, W> {
         Self { graph, weights }
     }
 
-    /// Create a Dominating Set problem from a graph with unit weights.
-    pub fn from_graph_unit_weights(graph: G) -> Self
-    where
-        W: From<i32>,
-    {
-        let weights = vec![W::from(1); graph.num_vertices()];
-        Self { graph, weights }
-    }
-
     /// Get a reference to the underlying graph.
     pub fn graph(&self) -> &G {
         &self.graph
-    }
-
-    /// Get the number of vertices.
-    pub fn num_vertices(&self) -> usize {
-        self.graph.num_vertices()
-    }
-
-    /// Get the number of edges.
-    pub fn num_edges(&self) -> usize {
-        self.graph.num_edges()
-    }
-
-    /// Get edges as a list of (u, v) pairs.
-    pub fn edges(&self) -> Vec<(usize, usize)> {
-        self.graph.edges()
-    }
-
-    /// Check if two vertices are adjacent.
-    pub fn has_edge(&self, u: usize, v: usize) -> bool {
-        self.graph.has_edge(u, v)
     }
 
     /// Get neighbors of a vertex.
@@ -126,32 +97,9 @@ impl<G: Graph, W: Clone + Default> MinimumDominatingSet<G, W> {
         neighborhood
     }
 
-    /// Get a reference to the weights vector.
-    pub fn weights_ref(&self) -> &Vec<W> {
+    /// Get a reference to the weights slice.
+    pub fn weights(&self) -> &[W] {
         &self.weights
-    }
-
-    /// Set new weights for the problem.
-    pub fn set_weights(&mut self, weights: Vec<W>) {
-        assert_eq!(weights.len(), self.graph.num_vertices());
-        self.weights = weights;
-    }
-
-    /// Get the weights for the problem.
-    pub fn weights(&self) -> Vec<W> {
-        self.weights.clone()
-    }
-
-    /// Check if the problem has non-uniform weights.
-    pub fn is_weighted(&self) -> bool
-    where
-        W: PartialEq,
-    {
-        if self.weights.is_empty() {
-            return false;
-        }
-        let first = &self.weights[0];
-        !self.weights.iter().all(|w| w == first)
     }
 
     /// Check if a set of vertices is a dominating set.
