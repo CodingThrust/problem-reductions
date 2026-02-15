@@ -2,45 +2,18 @@ use super::*;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::set::MaximumSetPacking;
 use crate::rules::cost::MinimizeSteps;
-use crate::rules::graph::classify_problem_category;
+use crate::rules::graph::{classify_problem_category, ReductionStep};
 use crate::topology::SimpleGraph;
-
-#[test]
-fn test_resolved_path_basic_structure() {
-    use crate::rules::graph::{EdgeKind, ReductionStep, ResolvedPath};
-    use std::collections::BTreeMap;
-
-    let steps = vec![
-        ReductionStep {
-            name: "A".to_string(),
-            variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
-        },
-        ReductionStep {
-            name: "B".to_string(),
-            variant: BTreeMap::from([("weight".to_string(), "f64".to_string())]),
-        },
-    ];
-    let edges = vec![EdgeKind::Reduction {
-        overhead: Default::default(),
-    }];
-    let path = ResolvedPath {
-        steps: steps.clone(),
-        edges,
-    };
-
-    assert_eq!(path.len(), 1);
-    assert_eq!(path.num_reductions(), 1);
-    assert_eq!(path.steps[0].name, "A");
-    assert_eq!(path.steps[1].name, "B");
-}
 
 #[test]
 fn test_find_direct_path() {
     let graph = ReductionGraph::new();
     let paths = graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>();
     assert!(!paths.is_empty());
-    assert_eq!(paths[0].type_names.len(), 2);
-    assert_eq!(paths[0].len(), 1); // One reduction step
+    // At least one path should be a direct reduction (1 edge = 2 steps)
+    let shortest = paths.iter().min_by_key(|p| p.len()).unwrap();
+    assert_eq!(shortest.type_names().len(), 2);
+    assert_eq!(shortest.len(), 1); // One reduction step
 }
 
 #[test]
@@ -98,7 +71,7 @@ fn test_type_erased_paths() {
     assert!(!paths_i32.is_empty());
     assert!(!paths_f64.is_empty());
     // Name-level paths should be the same (MaxCut -> SpinGlass)
-    assert_eq!(paths_i32[0].type_names, paths_f64[0].type_names);
+    assert_eq!(paths_i32[0].type_names(), paths_f64[0].type_names());
 }
 
 #[test]
@@ -342,7 +315,7 @@ fn test_all_categories_present() {
 
 #[test]
 fn test_empty_path_source_target() {
-    let path = ReductionPath { type_names: vec![] };
+    let path = ReductionPath { steps: vec![] };
     assert!(path.is_empty());
     assert_eq!(path.len(), 0);
     assert!(path.source().is_none());
@@ -351,8 +324,12 @@ fn test_empty_path_source_target() {
 
 #[test]
 fn test_single_node_path() {
+    use std::collections::BTreeMap;
     let path = ReductionPath {
-        type_names: vec!["MaximumIndependentSet"],
+        steps: vec![ReductionStep {
+            name: "MaximumIndependentSet".to_string(),
+            variant: BTreeMap::new(),
+        }],
     };
     assert!(!path.is_empty());
     assert_eq!(path.len(), 0); // No reductions, just one type
@@ -700,4 +677,62 @@ fn test_classify_problem_category() {
         "optimization"
     );
     assert_eq!(classify_problem_category("unknown::path"), "other");
+}
+
+#[test]
+fn test_find_executable_path_direct() {
+    let graph = ReductionGraph::new();
+    let path = graph.find_executable_path::<
+        MaximumIndependentSet<SimpleGraph, i32>,
+        MinimumVertexCover<SimpleGraph, i32>,
+    >();
+    assert!(path.is_some());
+}
+
+#[test]
+fn test_chained_reduction_direct() {
+    use crate::solvers::{BruteForce, Solver};
+    use crate::traits::Problem;
+
+    let graph = ReductionGraph::new();
+    let path = graph
+        .find_executable_path::<
+            MaximumIndependentSet<SimpleGraph, i32>,
+            MinimumVertexCover<SimpleGraph, i32>,
+        >()
+        .unwrap();
+
+    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let reduction = path.reduce(&problem);
+    let target = reduction.target_problem();
+
+    let solver = BruteForce::new();
+    let target_solution = solver.find_best(target).unwrap();
+    let source_solution = reduction.extract_solution(&target_solution);
+    let metric = problem.evaluate(&source_solution);
+    assert!(metric.is_valid());
+}
+
+#[test]
+fn test_chained_reduction_multi_step() {
+    use crate::solvers::{BruteForce, Solver};
+    use crate::traits::Problem;
+
+    let graph = ReductionGraph::new();
+    let path = graph
+        .find_executable_path::<
+            MaximumIndependentSet<SimpleGraph, i32>,
+            MaximumSetPacking<i32>,
+        >()
+        .unwrap();
+
+    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let reduction = path.reduce(&problem);
+    let target = reduction.target_problem();
+
+    let solver = BruteForce::new();
+    let target_solution = solver.find_best(target).unwrap();
+    let source_solution = reduction.extract_solution(&target_solution);
+    let metric = problem.evaluate(&source_solution);
+    assert!(metric.is_valid());
 }

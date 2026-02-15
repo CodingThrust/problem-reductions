@@ -11,6 +11,7 @@
 use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::rules::traits::DynReductionResult;
+use crate::traits::Problem;
 use crate::types::ProblemSize;
 use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
@@ -20,12 +21,12 @@ use serde::Serialize;
 use std::any::Any;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
+use std::marker::PhantomData;
 
 /// Internal edge data combining overhead and executable reduce function.
 #[derive(Clone)]
 pub(crate) struct ReductionEdgeData {
     pub overhead: ReductionOverhead,
-    #[allow(dead_code)]
     pub reduce_fn: fn(&dyn Any) -> Box<dyn DynReductionResult>,
 }
 
@@ -92,36 +93,47 @@ pub struct EdgeJson {
     pub doc_path: String,
 }
 
-/// A path through the reduction graph.
+/// A path through the variant-level reduction graph.
 #[derive(Debug, Clone)]
 pub struct ReductionPath {
-    /// Human-readable type names in the path (base names without type parameters).
-    pub type_names: Vec<&'static str>,
+    /// Variant-level steps in the path.
+    pub steps: Vec<ReductionStep>,
 }
 
 impl ReductionPath {
-    /// Get the length of the path (number of reductions).
+    /// Number of edges (reductions) in the path.
     pub fn len(&self) -> usize {
-        if self.type_names.is_empty() {
+        if self.steps.is_empty() {
             0
         } else {
-            self.type_names.len() - 1
+            self.steps.len() - 1
         }
     }
 
-    /// Check if the path is empty.
+    /// Whether the path is empty.
     pub fn is_empty(&self) -> bool {
-        self.type_names.is_empty()
+        self.steps.is_empty()
     }
 
-    /// Get the source type name.
-    pub fn source(&self) -> Option<&'static str> {
-        self.type_names.first().copied()
+    /// Source problem name.
+    pub fn source(&self) -> Option<&str> {
+        self.steps.first().map(|s| s.name.as_str())
     }
 
-    /// Get the target type name.
-    pub fn target(&self) -> Option<&'static str> {
-        self.type_names.last().copied()
+    /// Target problem name.
+    pub fn target(&self) -> Option<&str> {
+        self.steps.last().map(|s| s.name.as_str())
+    }
+
+    /// Name-level path (deduplicated consecutive same-name steps).
+    pub fn type_names(&self) -> Vec<&str> {
+        let mut names: Vec<&str> = Vec::new();
+        for step in &self.steps {
+            if names.last() != Some(&step.name.as_str()) {
+                names.push(&step.name);
+            }
+        }
+        names
     }
 }
 
@@ -132,45 +144,6 @@ pub struct ReductionStep {
     pub name: String,
     /// Variant at this point (e.g., {"graph": "KingsSubgraph", "weight": "i32"}).
     pub variant: BTreeMap<String, String>,
-}
-
-/// The kind of transition between adjacent steps in a resolved path.
-#[derive(Debug, Clone, Serialize)]
-pub enum EdgeKind {
-    /// A registered reduction (backed by a ReduceTo impl).
-    Reduction {
-        /// Overhead from the matching ReductionEntry.
-        overhead: ReductionOverhead,
-    },
-}
-
-/// A fully resolved reduction path with variant information at each node.
-#[derive(Debug, Clone, Serialize)]
-pub struct ResolvedPath {
-    /// Sequence of (name, variant) nodes.
-    pub steps: Vec<ReductionStep>,
-    /// Edge kinds between adjacent steps. Length = steps.len() - 1.
-    pub edges: Vec<EdgeKind>,
-}
-
-impl ResolvedPath {
-    /// Number of edges in the path.
-    pub fn len(&self) -> usize {
-        self.edges.len()
-    }
-
-    /// Whether the path is empty.
-    pub fn is_empty(&self) -> bool {
-        self.edges.is_empty()
-    }
-
-    /// Number of registered reduction steps.
-    pub fn num_reductions(&self) -> usize {
-        self.edges
-            .iter()
-            .filter(|e| matches!(e, EdgeKind::Reduction { .. }))
-            .count()
-    }
 }
 
 /// Classify a problem's category from its module path.
@@ -344,7 +317,7 @@ impl ReductionGraph {
 
             while let Some(Reverse((cost, node))) = heap.pop() {
                 if dst_set.contains(&node) {
-                    let path = self.reconstruct_path_names(&prev, src_idx, node);
+                    let path = self.reconstruct_path(&prev, src_idx, node);
                     if best_path.as_ref().map(|(c, _)| cost.0 < *c).unwrap_or(true) {
                         best_path = Some((cost.0, path));
                     }
@@ -381,36 +354,33 @@ impl ReductionGraph {
         best_path.map(|(_, p)| p)
     }
 
-    /// Reconstruct a name-level path from the predecessor map.
-    fn reconstruct_path_names(
+    /// Reconstruct a variant-level path from the predecessor map.
+    fn reconstruct_path(
         &self,
         prev: &HashMap<NodeIndex, (NodeIndex, petgraph::graph::EdgeIndex)>,
         src: NodeIndex,
         dst: NodeIndex,
     ) -> ReductionPath {
-        let mut path = vec![self.nodes[self.graph[dst]].name];
+        let mut steps = vec![ReductionStep {
+            name: self.nodes[self.graph[dst]].name.to_string(),
+            variant: self.nodes[self.graph[dst]].variant.clone(),
+        }];
         let mut current = dst;
 
         while current != src {
             if let Some(&(prev_node, _)) = prev.get(&current) {
-                path.push(self.nodes[self.graph[prev_node]].name);
+                steps.push(ReductionStep {
+                    name: self.nodes[self.graph[prev_node]].name.to_string(),
+                    variant: self.nodes[self.graph[prev_node]].variant.clone(),
+                });
                 current = prev_node;
             } else {
                 break;
             }
         }
 
-        path.reverse();
-        // Deduplicate consecutive names (variant-level hops within same problem)
-        let mut deduped = Vec::new();
-        for name in &path {
-            if deduped.last() != Some(name) {
-                deduped.push(*name);
-            }
-        }
-        ReductionPath {
-            type_names: deduped,
-        }
+        steps.reverse();
+        ReductionPath { steps }
     }
 
     /// Find all paths from source to target type.
@@ -435,7 +405,6 @@ impl ReductionGraph {
         };
 
         let mut all_paths = Vec::new();
-        let mut seen_name_paths: HashSet<Vec<&'static str>> = HashSet::new();
 
         for &src_idx in &src_nodes {
             for &dst_idx in &dst_nodes {
@@ -449,18 +418,17 @@ impl ReductionGraph {
                 .collect();
 
                 for path in paths {
-                    // Convert variant-level path to name-level path (dedup consecutive same-name nodes)
-                    let mut type_names: Vec<&'static str> = Vec::new();
-                    for &idx in &path {
-                        let name = self.nodes[self.graph[idx]].name;
-                        if type_names.last() != Some(&name) {
-                            type_names.push(name);
-                        }
-                    }
-                    if !seen_name_paths.contains(&type_names) {
-                        seen_name_paths.insert(type_names.clone());
-                        all_paths.push(ReductionPath { type_names });
-                    }
+                    let steps: Vec<ReductionStep> = path
+                        .iter()
+                        .map(|&idx| {
+                            let node = &self.nodes[self.graph[idx]];
+                            ReductionStep {
+                                name: node.name.to_string(),
+                                variant: node.variant.clone(),
+                            }
+                        })
+                        .collect();
+                    all_paths.push(ReductionPath { steps });
                 }
             }
         }
@@ -759,6 +727,131 @@ pub struct MatchedEntry {
     pub target_variant: BTreeMap<String, String>,
     /// The overhead of the reduction.
     pub overhead: ReductionOverhead,
+}
+
+/// Type alias for a dynamically-dispatched reduce function pointer.
+type ReduceFn = fn(&dyn Any) -> Box<dyn DynReductionResult>;
+
+/// A typed, executable reduction path from source type `S` to target type `T`.
+pub struct ExecutablePath<S: Problem, T: Problem> {
+    edge_fns: Vec<ReduceFn>,
+    _phantom: PhantomData<(S, T)>,
+}
+
+impl<S: Problem + 'static, T: Problem + 'static> ExecutablePath<S, T> {
+    /// Execute the reduction path on a source problem instance.
+    pub fn reduce(&self, source: &S) -> ChainedReduction<S, T> {
+        let mut steps: Vec<Box<dyn DynReductionResult>> = Vec::new();
+        let step = (self.edge_fns[0])(source as &dyn Any);
+        steps.push(step);
+        for edge_fn in &self.edge_fns[1..] {
+            let step = {
+                let prev_target = steps.last().unwrap().target_problem_any();
+                edge_fn(prev_target)
+            };
+            steps.push(step);
+        }
+        ChainedReduction {
+            steps,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Number of reduction steps in the path.
+    pub fn len(&self) -> usize {
+        self.edge_fns.len()
+    }
+
+    /// Whether the path is empty (zero steps).
+    pub fn is_empty(&self) -> bool {
+        self.edge_fns.is_empty()
+    }
+}
+
+/// A composed reduction from source type `S` to target type `T`.
+pub struct ChainedReduction<S: Problem, T: Problem> {
+    steps: Vec<Box<dyn DynReductionResult>>,
+    _phantom: PhantomData<(S, T)>,
+}
+
+impl<S: Problem, T: Problem + 'static> ChainedReduction<S, T> {
+    /// Get a reference to the target problem.
+    pub fn target_problem(&self) -> &T {
+        self.steps
+            .last()
+            .expect("ChainedReduction has no steps")
+            .target_problem_any()
+            .downcast_ref::<T>()
+            .expect("final step target type mismatch")
+    }
+
+    /// Extract a solution from target space to source space.
+    pub fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
+        self.steps
+            .iter()
+            .rev()
+            .fold(target_solution.to_vec(), |sol, step| {
+                step.extract_solution_dyn(&sol)
+            })
+    }
+}
+
+impl ReductionGraph {
+    /// Find a typed, executable reduction path from `S` to `T`.
+    pub fn find_executable_path<S: Problem + 'static, T: Problem + 'static>(
+        &self,
+    ) -> Option<ExecutablePath<S, T>> {
+        let source_variant = Self::variant_to_map(&S::variant());
+        let target_variant = Self::variant_to_map(&T::variant());
+
+        let src_ref = VariantRef {
+            name: S::NAME.to_string(),
+            variant: source_variant,
+        };
+        let dst_ref = VariantRef {
+            name: T::NAME.to_string(),
+            variant: target_variant,
+        };
+
+        // Find exact source and target nodes
+        let src_idx = self.find_node_index(&src_ref)?;
+        let dst_idx = self.find_node_index(&dst_ref)?;
+
+        // Find shortest path using astar
+        let path_indices = petgraph::algo::astar(
+            &self.graph,
+            src_idx,
+            |n| n == dst_idx,
+            |_| 1,
+            |_| 0,
+        )?
+        .1;
+
+        // Collect reduce_fns along the path edges
+        let mut edge_fns = Vec::new();
+        for window in path_indices.windows(2) {
+            let edge_idx = self.graph.find_edge(window[0], window[1])?;
+            let edge_data = &self.graph[edge_idx];
+            edge_fns.push(edge_data.reduce_fn);
+        }
+
+        Some(ExecutablePath {
+            edge_fns,
+            _phantom: PhantomData,
+        })
+    }
+
+    /// Find the node index matching a variant reference.
+    fn find_node_index(&self, vref: &VariantRef) -> Option<NodeIndex> {
+        let nodes = self.name_to_nodes.get(vref.name.as_str())?;
+        nodes
+            .iter()
+            .find(|&&idx| {
+                let node = &self.nodes[self.graph[idx]];
+                node.variant == vref.variant
+            })
+            .copied()
+    }
 }
 
 #[cfg(test)]

@@ -8,7 +8,7 @@ use std::marker::PhantomData;
 ///
 /// This trait encapsulates the target problem and provides methods
 /// to extract solutions back to the source problem space.
-pub trait ReductionResult: Clone {
+pub trait ReductionResult {
     /// The source problem type.
     type Source: Problem;
     /// The target problem type.

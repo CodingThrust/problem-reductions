@@ -75,7 +75,7 @@ fn test_multi_step_path() {
     let path = path.unwrap();
     assert_eq!(path.len(), 2, "Should be a 2-step path");
     assert_eq!(
-        path.type_names,
+        path.type_names(),
         vec!["Factoring", "CircuitSAT", "SpinGlass"]
     );
 }
