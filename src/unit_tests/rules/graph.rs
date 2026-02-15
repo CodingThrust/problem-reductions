@@ -1160,6 +1160,30 @@ fn test_resolve_path_incompatible_returns_none() {
 }
 
 #[test]
+fn test_filter_redundant_base_nodes() {
+    use std::collections::{BTreeMap, HashSet};
+
+    let mut node_set: HashSet<(String, BTreeMap<String, String>)> = HashSet::new();
+
+    // Base node (empty variant) — should be removed because variant-specific sibling exists
+    node_set.insert(("MIS".to_string(), BTreeMap::new()));
+
+    // Variant-specific node
+    let mut variant = BTreeMap::new();
+    variant.insert("graph".to_string(), "GridGraph".to_string());
+    node_set.insert(("MIS".to_string(), variant));
+
+    // Base node with no siblings — should be kept
+    node_set.insert(("QUBO".to_string(), BTreeMap::new()));
+
+    filter_redundant_base_nodes(&mut node_set);
+
+    assert_eq!(node_set.len(), 2);
+    assert!(!node_set.iter().any(|(name, v)| name == "MIS" && v.is_empty()));
+    assert!(node_set.iter().any(|(name, _)| name == "QUBO"));
+}
+
+#[test]
 fn test_classify_problem_category() {
     assert_eq!(
         classify_problem_category("problemreductions::models::graph::maximum_independent_set"),

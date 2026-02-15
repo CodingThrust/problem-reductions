@@ -188,6 +188,18 @@ impl ResolvedPath {
     }
 }
 
+/// Remove base nodes (empty variant) when a variant-specific sibling exists.
+pub(crate) fn filter_redundant_base_nodes(
+    node_set: &mut HashSet<(String, std::collections::BTreeMap<String, String>)>,
+) {
+    let names_with_variants: HashSet<String> = node_set
+        .iter()
+        .filter(|(_, variant)| !variant.is_empty())
+        .map(|(name, _)| name.clone())
+        .collect();
+    node_set.retain(|(name, variant)| !variant.is_empty() || !names_with_variants.contains(name));
+}
+
 /// Classify a problem's category from its module path.
 /// Expected format: "problemreductions::models::<category>::<module_name>"
 pub(crate) fn classify_problem_category(module_path: &str) -> &str {
@@ -834,13 +846,7 @@ impl ReductionGraph {
         }
 
         // Remove empty-variant base nodes that are redundant (same name already has specific variants)
-        let names_with_variants: HashSet<String> = node_set
-            .iter()
-            .filter(|(_, variant)| !variant.is_empty())
-            .map(|(name, _)| name.clone())
-            .collect();
-        node_set
-            .retain(|(name, variant)| !variant.is_empty() || !names_with_variants.contains(name));
+        filter_redundant_base_nodes(&mut node_set);
 
         // Build nodes with categories and doc paths derived from ProblemSchemaEntry.module_path
         let mut nodes: Vec<NodeJson> = node_set
