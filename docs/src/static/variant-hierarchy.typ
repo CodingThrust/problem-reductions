@@ -24,7 +24,7 @@
     spacing: (10mm, 8mm),
 
     // Section labels
-    node((-0.3, -0.5), text(size: 10pt, weight: "bold")[Graph Types], stroke: none, fill: none),
+    node((0.0, -0.5), text(size: 10pt, weight: "bold")[Graph Types], stroke: none, fill: none),
     node((3.2, -0.5), text(size: 10pt, weight: "bold")[Weights], stroke: none, fill: none),
     node((5, -0.5), text(size: 10pt, weight: "bold")[K Values], stroke: none, fill: none),
 

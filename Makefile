@@ -56,13 +56,14 @@ doc:
 	cp -r target/doc docs/book/api
 
 # Generate SVG diagrams from Typst sources (light + dark themes)
-TYPST_DIAGRAMS := $(wildcard docs/src/static/*.typ)
+TYPST_DOC_DIAGRAMS := $(wildcard docs/src/static/*.typ)
+TYPST_PAPER_DIAGRAMS := $(wildcard docs/paper/static/*.typ)
 diagrams:
-	@for src in $(TYPST_DIAGRAMS); do \
+	@for src in $(TYPST_DOC_DIAGRAMS); do \
 		base=$$(basename $$src .typ); \
-		echo "Compiling $$base..."; \
-		typst compile $$src --input dark=false docs/src/static/$$base.svg; \
-		typst compile $$src --input dark=true docs/src/static/$$base-dark.svg; \
+		echo "Compiling $$base (doc)..."; \
+		typst compile $$src --root=. --input dark=false docs/src/static/$$base.svg; \
+		typst compile $$src --root=. --input dark=true docs/src/static/$$base-dark.svg; \
 	done
 
 # Build and serve mdBook with API docs

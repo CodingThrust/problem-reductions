@@ -1,3 +1,25 @@
+# Polish design.md Implementation Plan
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
+
+**Goal:** Rewrite `docs/src/design.md` following the "Follow the Data" structure: fill empty sections, update outdated content, and create a coherent contributor-oriented narrative.
+
+**Architecture:** Single-file rewrite of `docs/src/design.md`. Organized as 11 sections tracing the lifecycle of a reduction. All diagrams are preserved as-is. No code changes, only documentation.
+
+**Tech Stack:** Markdown (mdBook), existing SVG diagrams, code snippets from the Rust source.
+
+---
+
+### Task 1: Rewrite sections 1-2 (Module Overview + Problem Model)
+
+**Files:**
+- Modify: `docs/src/design.md:1-44`
+
+**Step 1: Replace lines 1-44 with updated Module Overview and Problem Model**
+
+Replace the entire file content from line 1 through line 44 (end of trait hierarchy diagram) with:
+
+```markdown
 # Design
 
 This guide covers the library internals for contributors.
@@ -43,12 +65,37 @@ Every problem implements `Problem`. Optimization problems additionally implement
 ![Trait Hierarchy](static/trait-hierarchy-dark.svg)
 
 </div>
+```
 
+**Step 2: Verify the mdbook builds**
+
+Run: `cd /Users/liujinguo/rcode/problemreductions && mdbook build`
+Expected: Build succeeds, no broken links.
+
+**Step 3: Commit**
+
+```bash
+git add docs/src/design.md
+git commit -m "docs: rewrite design.md sections 1-2 (module overview + problem model)"
+```
+
+---
+
+### Task 2: Rewrite section 3 (Variant System)
+
+**Files:**
+- Modify: `docs/src/design.md` — replace the old "Problem variants" subsection (lines 46-93 in the original) with the new "Variant System" section.
+
+**Step 1: Write the Variant System section**
+
+This section replaces everything from `### Problem variants` through the end of the `variant_params!` code block. It should appear immediately after the trait hierarchy diagram.
+
+```markdown
 ## Variant System
 
-A single problem name like `MaximumIndependentSet` can have multiple **variants** — carrying weights on vertices, or defined on a restricted topology (e.g., king's subgraph). Some variants are more specific than others: the king's subgraph is a special case of the unit-disk graph, which is a special case of the simple graph.
+A single problem name like `MaximumIndependentSet` can have multiple **variants** — carrying weights on vertices, or defined on a grid. Some variants are more specific than others: the grid graph is a special case of the unit-disk graph, which is a special case of the simple graph.
 
-In **set** language, variants form **subsets**: independent sets on king's subgraphs are a subset of independent sets on unit-disk graphs. The reduction from a more specific variant to a less specific one is a **natural reduction** (identity mapping). To avoid repeating the same rule for each variant pair, the library provides an auto-casting mechanism.
+In **set** language, variants form **subsets**: independent sets on grid graphs are a subset of independent sets on unit-disk graphs. The reduction from a more specific variant to a less specific one is a **natural reduction** (identity mapping). To avoid repeating the same rule for each variant pair, the library provides an auto-casting mechanism.
 
 <div class="theme-light-only">
 
@@ -63,7 +110,7 @@ In **set** language, variants form **subsets**: independent sets on king's subgr
 
 Arrows indicate the **subset** (subtype) direction. Variant types fall into three categories:
 
-- **Graph type** — `HyperGraph` (root), `SimpleGraph`, `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`.
+- **Graph type** — e.g., `SimpleGraph`, `UnitDiskGraph`, `KingsSubgraph`. Available graph variants:
 - **Weight type** — `One` (unweighted), `i32`, `f64`.
 - **K value** — e.g., `K3` for 3-SAT, `KN` for arbitrary K.
 
@@ -105,14 +152,12 @@ The `impl_variant_param!` macro implements `VariantParam` (and optionally `CastT
 
 ```rust
 // Root type (no parent):
-impl_variant_param!(HyperGraph, "graph");
+impl_variant_param!(SimpleGraph, "graph");
 
 // Type with parent (cast closure required):
-impl_variant_param!(SimpleGraph, "graph", parent: HyperGraph,
-    cast: |g| {
-        let edges: Vec<Vec<usize>> = g.edges().into_iter().map(|(u, v)| vec![u, v]).collect();
-        HyperGraph::new(g.num_vertices(), edges)
-    });
+impl_variant_param!(UnitDiskGraph, "graph",
+    parent: SimpleGraph,
+    cast: |g| SimpleGraph::new(g.num_vertices(), g.edges()));
 
 // K root (arbitrary K):
 impl_variant_param!(KN, "k", k: None);
@@ -132,10 +177,34 @@ The `variant_params!` macro composes the `Problem::variant()` body from type par
 fn variant() -> Vec<(&'static str, &'static str)> {
     crate::variant_params![G, W]
     // e.g., MaximumIndependentSet<UnitDiskGraph, One>
-    //     -> vec![("graph", "UnitDiskGraph"), ("weight", "One")]
+    //     → vec![("graph", "UnitDiskGraph"), ("weight", "One")]
 }
 ```
+```
 
+**Step 2: Verify mdbook builds**
+
+Run: `cd /Users/liujinguo/rcode/problemreductions && mdbook build`
+
+**Step 3: Commit**
+
+```bash
+git add docs/src/design.md
+git commit -m "docs: rewrite design.md section 3 (variant system)"
+```
+
+---
+
+### Task 3: Rewrite section 4 (Reduction Rules)
+
+**Files:**
+- Modify: `docs/src/design.md` — replace the old "Reduction Rules" section.
+
+**Step 1: Write the Reduction Rules section**
+
+This replaces the old section (lines 95-129 in the original). Place it after the Variant System section.
+
+```markdown
 ## Reduction Rules
 
 A reduction requires two pieces: a **result struct** and a **`ReduceTo<T>` impl**.
@@ -145,7 +214,7 @@ A reduction requires two pieces: a **result struct** and a **`ReduceTo<T>` impl*
 Holds the target problem and the logic to map solutions back:
 
 ```rust
-#[derive(Debug, Clone)]
+#[derive(Clone)]
 pub struct ReductionISToVC<W> {
     target: MinimumVertexCover<SimpleGraph, W>,
 }
@@ -189,8 +258,8 @@ inventory::submit! {
     ReductionEntry {
         source_name: "MaximumIndependentSet",
         target_name: "MinimumVertexCover",
-        source_variant_fn: || <MaximumIndependentSet<SimpleGraph, i32> as Problem>::variant(),
-        target_variant_fn: || <MinimumVertexCover<SimpleGraph, i32> as Problem>::variant(),
+        source_variant_fn: || <MIS<SimpleGraph, i32> as Problem>::variant(),
+        target_variant_fn: || <MVC<SimpleGraph, i32> as Problem>::variant(),
         overhead_fn: || ReductionOverhead::new(vec![
             ("num_vertices", poly!(num_vertices)),
             ("num_edges", poly!(num_edges)),
@@ -202,6 +271,32 @@ inventory::submit! {
 
 This `ReductionEntry` is collected at compile time by `inventory`, making the reduction discoverable by the `ReductionGraph` without any manual registration.
 
+See [adding-reductions.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-reductions.md) for the full implementation guide.
+```
+
+**Step 2: Verify mdbook builds**
+
+Run: `cd /Users/liujinguo/rcode/problemreductions && mdbook build`
+
+**Step 3: Commit**
+
+```bash
+git add docs/src/design.md
+git commit -m "docs: rewrite design.md section 4 (reduction rules)"
+```
+
+---
+
+### Task 4: Rewrite section 5 (Reduction Graph)
+
+**Files:**
+- Modify: `docs/src/design.md` — replace the old "Reduction" H2 and "Reduction Graph" H3 (lines 132-149 in the original).
+
+**Step 1: Write the Reduction Graph section**
+
+Place after Reduction Rules. This replaces the old "Reduction" section header and its "Reduction Graph" subsection.
+
+```markdown
 ## Reduction Graph
 
 The `ReductionGraph` is the central runtime data structure. It collects all registered reductions and variant hierarchies to enable path finding and overhead evaluation.
@@ -226,7 +321,31 @@ For example, `MaximumIndependentSet{KingsSubgraph, i32}` gets a natural edge to 
 
 - [reduction_graph.json](reductions/reduction_graph.json) — all problem variants and reduction edges
 - [problem_schemas.json](reductions/problem_schemas.json) — field definitions for each problem type
+```
 
+**Step 2: Verify mdbook builds**
+
+Run: `cd /Users/liujinguo/rcode/problemreductions && mdbook build`
+
+**Step 3: Commit**
+
+```bash
+git add docs/src/design.md
+git commit -m "docs: rewrite design.md section 5 (reduction graph)"
+```
+
+---
+
+### Task 5: Rewrite section 6 (Path Finding)
+
+**Files:**
+- Modify: `docs/src/design.md` — replace the old "Path Finding" H3 (lines 153-208 in the original).
+
+**Step 1: Write the Path Finding section**
+
+Place after Reduction Graph. Keep the existing resolve_path content and examples, add the Dijkstra/cost-function content.
+
+```markdown
 ## Path Finding
 
 Path finding operates at two levels: **name-level** paths (which problem types to traverse) and **variant-level** resolved paths (with concrete variant and overhead at each step).
@@ -302,23 +421,47 @@ pub struct ResolvedPath {
 
 #### Example: MIS on KingsSubgraph to MinimumVertexCover
 
-Resolving `MIS(KingsSubgraph, i32) -> VC(SimpleGraph, i32)` through name-path `["MIS", "VC"]`:
+Resolving `MIS(KingsSubgraph, i32) → VC(SimpleGraph, i32)` through name-path `["MIS", "VC"]`:
 
 ```
-steps:  MIS{KingsSubgraph,i32}  ->  MIS{SimpleGraph,i32}  ->  VC{SimpleGraph,i32}
+steps:  MIS{KingsSubgraph,i32}  →  MIS{SimpleGraph,i32}  →  VC{SimpleGraph,i32}
 edges:       NaturalCast                  Reduction{overhead}
 ```
 
-The resolver finds that the `MIS -> VC` reduction expects `SimpleGraph`, so it inserts a `NaturalCast` to relax `KingsSubgraph` to `SimpleGraph` first.
+The resolver finds that the `MIS → VC` reduction expects `SimpleGraph`, so it inserts a `NaturalCast` to relax `KingsSubgraph` to `SimpleGraph` first.
 
 #### Example: KSat Disambiguation
 
-Resolving `KSat(k=3) -> QUBO` through name-path `["KSatisfiability", "QUBO"]`:
+Resolving `KSat(k=3) → QUBO` through name-path `["KSatisfiability", "QUBO"]`:
 
-- Candidates: `KSat<2> -> QUBO` (overhead: `num_vars`) and `KSat<3> -> QUBO` (overhead: `num_vars + num_clauses`).
+- Candidates: `KSat<2> → QUBO` (overhead: `num_vars`) and `KSat<3> → QUBO` (overhead: `num_vars + num_clauses`).
 - Filter with `k=3`: only `KSat<3>` is compatible (`3` is not a subtype of `2`).
 - Result: the k=3-specific overhead is returned.
+```
 
+**Step 2: Verify mdbook builds**
+
+Run: `cd /Users/liujinguo/rcode/problemreductions && mdbook build`
+
+**Step 3: Commit**
+
+```bash
+git add docs/src/design.md
+git commit -m "docs: rewrite design.md section 6 (path finding)"
+```
+
+---
+
+### Task 6: Write sections 7-8 (Overhead Evaluation + Reduction Execution)
+
+**Files:**
+- Modify: `docs/src/design.md` — replace the empty "Overhead Evaluation" and "Reduction Execution" headers (lines 210-212 in the original).
+
+**Step 1: Write the Overhead Evaluation and Reduction Execution sections**
+
+Place after Path Finding.
+
+```markdown
 ## Overhead Evaluation
 
 Each reduction declares how the output problem size relates to the input size, expressed as polynomials.
@@ -338,9 +481,9 @@ Output size formulas use `Polynomial` (a sum of `Monomial` terms). The `poly!` m
 
 ```rust
 poly!(num_vertices)              // p(x) = num_vertices
-poly!(num_vertices ^ 2)          // p(x) = num_vertices^2
-poly!(3 * num_edges)             // p(x) = 3 * num_edges
-poly!(num_vertices * num_edges)  // p(x) = num_vertices * num_edges
+poly!(num_vertices ^ 2)          // p(x) = num_vertices²
+poly!(3 * num_edges)             // p(x) = 3 · num_edges
+poly!(num_vertices * num_edges)  // p(x) = num_vertices · num_edges
 ```
 
 A `ReductionOverhead` pairs output field names with their polynomials:
@@ -386,7 +529,31 @@ After solving the final target problem, walk the chain **in reverse**:
 ### Why concrete types (no type erasure)
 
 The library uses concrete types at each step rather than `dyn Problem`. This preserves full type safety and avoids boxing overhead, at the cost of requiring callers to know the types at each step. This design choice keeps the reduction pipeline zero-cost and makes the compiler verify correctness at each transformation boundary.
+```
 
+**Step 2: Verify mdbook builds**
+
+Run: `cd /Users/liujinguo/rcode/problemreductions && mdbook build`
+
+**Step 3: Commit**
+
+```bash
+git add docs/src/design.md
+git commit -m "docs: write design.md sections 7-8 (overhead evaluation + execution)"
+```
+
+---
+
+### Task 7: Rewrite sections 9-11 (Solvers + JSON + Contributing)
+
+**Files:**
+- Modify: `docs/src/design.md` — replace the old "Solvers", "JSON Serialization", and "Contributing" sections (lines 237-252 in the original).
+
+**Step 1: Write the Solvers, JSON Serialization, and Contributing sections**
+
+Place after Reduction Execution.
+
+```markdown
 ## Solvers
 
 Solvers implement the `Solver` trait:
@@ -437,3 +604,48 @@ cargo run --example export_schemas              # docs/src/reductions/problem_sc
 ## Contributing
 
 See [Call for Contributions](./introduction.md#call-for-contributions) for the recommended issue-based workflow (no coding required).
+```
+
+**Step 2: Verify mdbook builds**
+
+Run: `cd /Users/liujinguo/rcode/problemreductions && mdbook build`
+
+**Step 3: Commit**
+
+```bash
+git add docs/src/design.md
+git commit -m "docs: rewrite design.md sections 9-11 (solvers + JSON + contributing)"
+```
+
+---
+
+### Task 8: Update internal anchor links in module table
+
+**Files:**
+- Modify: `docs/src/design.md` — the Module Overview table links.
+
+**Step 1: Verify all anchor links resolve correctly**
+
+Check that the `#problem-model`, `#reduction-rules`, `#reduction-graph`, `#solvers`, `#variant-system` anchors match the actual section headers. mdBook generates anchors from headers by lowercasing and replacing spaces with hyphens.
+
+Expected mappings:
+- `## Problem Model` → `#problem-model`
+- `## Variant System` → `#variant-system`
+- `## Reduction Rules` → `#reduction-rules`
+- `## Reduction Graph` → `#reduction-graph`
+- `## Solvers` → `#solvers`
+
+**Step 2: Fix any broken anchors**
+
+If needed, update the table links in the Module Overview section.
+
+**Step 3: Final mdbook build**
+
+Run: `cd /Users/liujinguo/rcode/problemreductions && mdbook build`
+
+**Step 4: Commit**
+
+```bash
+git add docs/src/design.md
+git commit -m "docs: fix internal anchor links in design.md"
+```
