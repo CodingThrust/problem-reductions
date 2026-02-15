@@ -401,7 +401,11 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_independent_set() {
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![10, 1, 1]);
+        let problem = MaximumIndependentSet::<SimpleGraph, i32>::with_weights(
+            3,
+            vec![(0, 1)],
+            vec![10, 1, 1],
+        );
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
@@ -418,7 +422,11 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_vertex_cover() {
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::with_weights(3, vec![(0, 1), (1, 2)], vec![1, 10, 1]);
+        let problem = MinimumVertexCover::<SimpleGraph, i32>::with_weights(
+            3,
+            vec![(0, 1), (1, 2)],
+            vec![1, 10, 1],
+        );
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);

@@ -74,7 +74,10 @@ mod is_vc_reductions {
         let final_is = back_to_is.target_problem();
 
         // Should have same structure
-        assert_eq!(final_is.graph().num_vertices(), original.graph().num_vertices());
+        assert_eq!(
+            final_is.graph().num_vertices(),
+            original.graph().num_vertices()
+        );
         assert_eq!(final_is.graph().num_edges(), original.graph().num_edges());
 
         // Solve the final problem
@@ -792,7 +795,10 @@ mod io_tests {
         let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json).unwrap();
 
         // Should have same structure
-        assert_eq!(restored.graph().num_vertices(), original.graph().num_vertices());
+        assert_eq!(
+            restored.graph().num_vertices(),
+            original.graph().num_vertices()
+        );
         assert_eq!(restored.graph().num_edges(), original.graph().num_edges());
 
         // Reduce the restored problem

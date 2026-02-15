@@ -377,7 +377,10 @@ fn export_square(
         .map(|line| mis_overhead_copyline(line, spacing, padding) as i32)
         .sum();
     let crossing_overhead: i32 = crossing_tape.iter().map(ksg::tape_entry_mis_overhead).sum();
-    let simplifier_overhead: i32 = simplifier_tape.iter().map(ksg::tape_entry_mis_overhead).sum();
+    let simplifier_overhead: i32 = simplifier_tape
+        .iter()
+        .map(ksg::tape_entry_mis_overhead)
+        .sum();
 
     let copy_lines_export = export_copylines_square(&copylines, padding, spacing);
     let crossing_tape_export = export_square_tape(&crossing_tape, 0);
@@ -588,7 +591,10 @@ fn export_copylines_square(
 }
 
 // IMPORTANT: Tape positions are 0-indexed. DO NOT add +1 to row/col!
-fn export_triangular_tape(tape: &[triangular::WeightedTriTapeEntry], offset: usize) -> Vec<TapeEntryExport> {
+fn export_triangular_tape(
+    tape: &[triangular::WeightedTriTapeEntry],
+    offset: usize,
+) -> Vec<TapeEntryExport> {
     tape.iter()
         .enumerate()
         .map(|(i, e)| TapeEntryExport {

@@ -81,11 +81,7 @@ fn test_map_weights_one() {
     assert!(mapped.iter().all(|&w| w > 0.0));
 
     // Mapped weights should equal base weights plus original weights at centers
-    let base_total: f64 = result
-        .node_weights
-        .iter()
-        .map(|&w| w as f64)
-        .sum();
+    let base_total: f64 = result.node_weights.iter().map(|&w| w as f64).sum();
     let original_total: f64 = weights.iter().sum();
     let mapped_total: f64 = mapped.iter().sum();
 
@@ -285,11 +281,7 @@ fn test_map_weights_preserves_total_weight() {
     let mapped = map_weights(&result, &original_weights);
 
     // Sum of mapped weights should be base_sum + original_sum
-    let base_sum: f64 = result
-        .node_weights
-        .iter()
-        .map(|&w| w as f64)
-        .sum();
+    let base_sum: f64 = result.node_weights.iter().map(|&w| w as f64).sum();
     let original_sum: f64 = original_weights.iter().sum();
     let mapped_sum: f64 = mapped.iter().sum();
 
@@ -317,18 +309,8 @@ fn test_trace_centers_consistency_with_config_back() {
 
     // Each center should be within grid bounds
     let (rows, cols) = {
-        let max_row = result
-            .positions
-            .iter()
-            .map(|&(r, _)| r)
-            .max()
-            .unwrap_or(0);
-        let max_col = result
-            .positions
-            .iter()
-            .map(|&(_, c)| c)
-            .max()
-            .unwrap_or(0);
+        let max_row = result.positions.iter().map(|&(r, _)| r).max().unwrap_or(0);
+        let max_col = result.positions.iter().map(|&(_, c)| c).max().unwrap_or(0);
         (max_row as usize + 1, max_col as usize + 1)
     };
 

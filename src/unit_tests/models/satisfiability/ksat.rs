@@ -186,9 +186,9 @@ fn test_kn_creation() {
     let problem = KSatisfiability::<KN>::new(
         3,
         vec![
-            CNFClause::new(vec![1, 2, 3]),    // 3 literals
-            CNFClause::new(vec![-1, -2]),      // 2 literals
-            CNFClause::new(vec![1]),           // 1 literal
+            CNFClause::new(vec![1, 2, 3]), // 3 literals
+            CNFClause::new(vec![-1, -2]),  // 2 literals
+            CNFClause::new(vec![1]),       // 1 literal
         ],
     );
     assert_eq!(problem.num_vars(), 3);

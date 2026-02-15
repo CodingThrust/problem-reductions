@@ -434,10 +434,10 @@ fn test_full_pipeline_triangular_house() {
 
 #[test]
 fn test_apply_and_unapply_gadget() {
+    use crate::rules::unitdiskmapping::ksg::KsgTurn;
     use crate::rules::unitdiskmapping::{
         apply_gadget, unapply_gadget, CellState, MappingGrid, Pattern,
     };
-    use crate::rules::unitdiskmapping::ksg::KsgTurn;
 
     // Create a small grid with spacing 4
     let mut grid = MappingGrid::new(10, 10, 4);
@@ -467,8 +467,8 @@ fn test_apply_and_unapply_gadget() {
 
 #[test]
 fn test_apply_gadget_at_various_positions() {
-    use crate::rules::unitdiskmapping::{apply_gadget, CellState, MappingGrid, Pattern};
     use crate::rules::unitdiskmapping::ksg::KsgTurn;
+    use crate::rules::unitdiskmapping::{apply_gadget, CellState, MappingGrid, Pattern};
 
     let mut grid = MappingGrid::new(20, 20, 4);
     let turn = KsgTurn;

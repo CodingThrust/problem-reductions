@@ -80,8 +80,7 @@ fn test_is_dominating_set_wrong_len() {
 #[test]
 fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem =
-        MinimumDominatingSet::<SimpleGraph, i32>::from_graph(graph, vec![1, 2, 3]);
+    let problem = MinimumDominatingSet::<SimpleGraph, i32>::from_graph(graph, vec![1, 2, 3]);
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.weights(), &[1, 2, 3]);
 }

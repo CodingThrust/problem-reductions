@@ -69,7 +69,8 @@ fn test_edges() {
 
 #[test]
 fn test_with_custom_weights() {
-    let problem = MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
+    let problem =
+        MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
     assert_eq!(problem.weights().to_vec(), vec![5, 10, 15]);
 }
 

@@ -288,14 +288,22 @@ fn test_unweighted_square_danglingleg() {
 fn test_triangular_cross_false() {
     let gt = load_ground_truth();
     let map = to_map(&gt.triangular);
-    check_gadget!("TriCross_false", WeightedTriCross::<false>, map["TriCross_false"]);
+    check_gadget!(
+        "TriCross_false",
+        WeightedTriCross::<false>,
+        map["TriCross_false"]
+    );
 }
 
 #[test]
 fn test_triangular_cross_true() {
     let gt = load_ground_truth();
     let map = to_map(&gt.triangular);
-    check_gadget!("TriCross_true", WeightedTriCross::<true>, map["TriCross_true"]);
+    check_gadget!(
+        "TriCross_true",
+        WeightedTriCross::<true>,
+        map["TriCross_true"]
+    );
 }
 
 #[test]
@@ -544,9 +552,24 @@ test_rotated!(test_rotated_branch_rot2, KsgBranch, 2, "Branch_rot2");
 test_rotated!(test_rotated_branch_rot3, KsgBranch, 3, "Branch_rot3");
 
 // BranchFix rotations
-test_rotated!(test_rotated_branchfix_rot1, KsgBranchFix, 1, "BranchFix_rot1");
-test_rotated!(test_rotated_branchfix_rot2, KsgBranchFix, 2, "BranchFix_rot2");
-test_rotated!(test_rotated_branchfix_rot3, KsgBranchFix, 3, "BranchFix_rot3");
+test_rotated!(
+    test_rotated_branchfix_rot1,
+    KsgBranchFix,
+    1,
+    "BranchFix_rot1"
+);
+test_rotated!(
+    test_rotated_branchfix_rot2,
+    KsgBranchFix,
+    2,
+    "BranchFix_rot2"
+);
+test_rotated!(
+    test_rotated_branchfix_rot3,
+    KsgBranchFix,
+    3,
+    "BranchFix_rot3"
+);
 
 // BranchFixB rotations
 test_rotated!(
@@ -705,8 +728,18 @@ test_reflected!(
 );
 
 // Branch reflections
-test_reflected!(test_reflected_branch_x, KsgBranch, Mirror::X, "Branch_ref_x");
-test_reflected!(test_reflected_branch_y, KsgBranch, Mirror::Y, "Branch_ref_y");
+test_reflected!(
+    test_reflected_branch_x,
+    KsgBranch,
+    Mirror::X,
+    "Branch_ref_x"
+);
+test_reflected!(
+    test_reflected_branch_y,
+    KsgBranch,
+    Mirror::Y,
+    "Branch_ref_y"
+);
 test_reflected!(
     test_reflected_branch_diag,
     KsgBranch,

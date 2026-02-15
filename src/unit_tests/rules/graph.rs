@@ -1180,7 +1180,9 @@ fn test_filter_redundant_base_nodes() {
     filter_redundant_base_nodes(&mut node_set);
 
     assert_eq!(node_set.len(), 2);
-    assert!(!node_set.iter().any(|(name, v)| name == "MIS" && v.is_empty()));
+    assert!(!node_set
+        .iter()
+        .any(|(name, v)| name == "MIS" && v.is_empty()));
     assert!(node_set.iter().any(|(name, _)| name == "QUBO"));
 }
 
@@ -1202,10 +1204,7 @@ fn test_classify_problem_category() {
         classify_problem_category("problemreductions::models::optimization::qubo"),
         "optimization"
     );
-    assert_eq!(
-        classify_problem_category("unknown::path"),
-        "other"
-    );
+    assert_eq!(classify_problem_category("unknown::path"), "other");
 }
 
 #[test]

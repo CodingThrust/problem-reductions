@@ -6,10 +6,7 @@ fn test_map_weighted_basic() {
     let result = map_weighted(3, &edges);
 
     assert!(!result.positions.is_empty());
-    assert!(matches!(
-        result.kind,
-        GridKind::Triangular
-    ));
+    assert!(matches!(result.kind, GridKind::Triangular));
 }
 
 #[test]

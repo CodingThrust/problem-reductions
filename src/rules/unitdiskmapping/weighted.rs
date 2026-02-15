@@ -457,11 +457,7 @@ pub fn map_weights(result: &MappingResult, source_weights: &[f64]) -> Vec<f64> {
     );
 
     // Start with base weights from grid nodes
-    let mut weights: Vec<f64> = result
-        .node_weights
-        .iter()
-        .map(|&w| w as f64)
-        .collect();
+    let mut weights: Vec<f64> = result.node_weights.iter().map(|&w| w as f64).collect();
 
     // Get center locations for each original vertex
     let centers = trace_centers(result);
