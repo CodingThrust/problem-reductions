@@ -736,3 +736,72 @@ fn test_chained_reduction_multi_step() {
     let metric = problem.evaluate(&source_solution);
     assert!(metric.is_valid());
 }
+
+#[test]
+fn test_chained_reduction_with_variant_casts() {
+    use crate::models::satisfiability::{CNFClause, KSatisfiability};
+    use crate::solvers::{BruteForce, Solver};
+    use crate::topology::UnitDiskGraph;
+    use crate::traits::Problem;
+
+    let graph = ReductionGraph::new();
+
+    // MIS<UnitDiskGraph, i32> -> MIS<SimpleGraph, i32> (variant cast) -> MVC<SimpleGraph, i32>
+    let path = graph.find_executable_path::<
+        MaximumIndependentSet<UnitDiskGraph, i32>,
+        MinimumVertexCover<SimpleGraph, i32>,
+    >();
+    assert!(
+        path.is_some(),
+        "Should find path from MIS<UnitDiskGraph> to MVC<SimpleGraph> via variant cast"
+    );
+    let path = path.unwrap();
+    assert!(
+        path.len() >= 2,
+        "Path should cross variant cast boundary (at least 2 steps)"
+    );
+
+    // Create a small UnitDiskGraph MIS problem (triangle of close nodes)
+    let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (0.5, 0.0), (0.25, 0.4)], 1.0);
+    let mis = MaximumIndependentSet::<UnitDiskGraph, i32>::from_graph(udg, vec![1, 1, 1]);
+
+    let reduction = path.reduce(&mis);
+    let target = reduction.target_problem();
+
+    let solver = BruteForce::new();
+    let target_solution = solver.find_best(target).unwrap();
+    let source_solution = reduction.extract_solution(&target_solution);
+    let metric = mis.evaluate(&source_solution);
+    assert!(metric.is_valid());
+
+    // Also test the KSat<K3> -> Sat -> MIS multi-step path
+    let ksat_path = graph.find_executable_path::<
+        KSatisfiability<crate::variant::K3>,
+        MaximumIndependentSet<SimpleGraph, i32>,
+    >();
+    assert!(
+        ksat_path.is_some(),
+        "Should find path from KSat<K3> to MIS"
+    );
+    let ksat_path = ksat_path.unwrap();
+
+    // Create a 3-SAT formula
+    let ksat = KSatisfiability::<crate::variant::K3>::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, 2, -3]),
+            CNFClause::new(vec![-1, -2, -3]),
+            CNFClause::new(vec![-1, 2, 3]),
+            CNFClause::new(vec![1, -2, 3]),
+        ],
+    );
+
+    let reduction = ksat_path.reduce(&ksat);
+    let target = reduction.target_problem();
+
+    let target_solution = solver.find_best(target).unwrap();
+    let original_solution = reduction.extract_solution(&target_solution);
+
+    // Verify the extracted solution satisfies the original 3-SAT formula
+    assert!(ksat.evaluate(&original_solution));
+}
