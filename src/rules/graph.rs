@@ -10,14 +10,24 @@
 
 use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
+use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
 use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::Serialize;
+use std::any::Any;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
+
+/// Internal edge data combining overhead and executable reduce function.
+#[derive(Clone)]
+pub(crate) struct ReductionEdgeData {
+    pub overhead: ReductionOverhead,
+    #[allow(dead_code)]
+    pub reduce_fn: fn(&dyn Any) -> Box<dyn DynReductionResult>,
+}
 
 /// JSON-serializable representation of the reduction graph.
 #[derive(Debug, Clone, Serialize)]
@@ -194,8 +204,8 @@ struct VariantNode {
 /// - Dijkstra with custom cost functions
 /// - Path finding by problem type or by name
 pub struct ReductionGraph {
-    /// Graph with node indices as node data, edge weights as ReductionOverhead.
-    graph: DiGraph<usize, ReductionOverhead>,
+    /// Graph with node indices as node data, edge weights as ReductionEdgeData.
+    graph: DiGraph<usize, ReductionEdgeData>,
     /// All variant nodes, indexed by position.
     nodes: Vec<VariantNode>,
     /// Map from base type name to all NodeIndex values for that name.
@@ -214,7 +224,7 @@ impl ReductionGraph {
         let ensure_node = |name: &'static str,
                            variant: BTreeMap<String, String>,
                            nodes: &mut Vec<VariantNode>,
-                           graph: &mut DiGraph<usize, ReductionOverhead>,
+                           graph: &mut DiGraph<usize, ReductionEdgeData>,
                            node_index: &mut HashMap<VariantRef, NodeIndex>,
                            name_to_nodes: &mut HashMap<&'static str, Vec<NodeIndex>>|
          -> NodeIndex {
@@ -258,7 +268,14 @@ impl ReductionGraph {
 
             // Check if edge already exists (avoid duplicates)
             if graph.find_edge(src_idx, dst_idx).is_none() {
-                graph.add_edge(src_idx, dst_idx, entry.overhead());
+                graph.add_edge(
+                    src_idx,
+                    dst_idx,
+                    ReductionEdgeData {
+                        overhead: entry.overhead(),
+                        reduce_fn: entry.reduce_fn,
+                    },
+                );
             }
         }
 
@@ -344,7 +361,7 @@ impl ReductionGraph {
                 };
 
                 for edge_ref in self.graph.edges(node) {
-                    let overhead = edge_ref.weight();
+                    let overhead = &edge_ref.weight().overhead;
                     let next = edge_ref.target();
 
                     let edge_cost = cost_fn.edge_cost(overhead, &current_size);
@@ -576,7 +593,7 @@ impl ReductionGraph {
         for edge_ref in self.graph.edge_references() {
             let src_node_id = self.graph[edge_ref.source()];
             let dst_node_id = self.graph[edge_ref.target()];
-            let overhead = edge_ref.weight();
+            let overhead = &edge_ref.weight().overhead;
 
             let overhead_fields = overhead
                 .output_size
