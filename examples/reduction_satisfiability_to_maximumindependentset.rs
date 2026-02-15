@@ -15,7 +15,7 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     // 1. Create SAT instance: 5-variable, 7-clause 3-SAT formula
@@ -53,8 +53,8 @@ pub fn run() {
     );
     println!(
         "Target: MaximumIndependentSet with {} vertices, {} edges",
-        is.num_vertices(),
-        is.num_edges()
+        is.graph().num_vertices(),
+        is.graph().num_edges()
     );
     println!("  Each literal occurrence becomes a vertex.");
     println!("  Edges connect literals within the same clause (clique)");
@@ -127,8 +127,8 @@ pub fn run() {
             problem: MaximumIndependentSet::<SimpleGraph, i32>::NAME.to_string(),
             variant: target_variant,
             instance: serde_json::json!({
-                "num_vertices": is.num_vertices(),
-                "num_edges": is.num_edges(),
+                "num_vertices": is.graph().num_vertices(),
+                "num_edges": is.graph().num_edges(),
             }),
         },
         overhead: overhead_to_json(&overhead),

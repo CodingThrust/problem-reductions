@@ -39,7 +39,7 @@ fn test_disjoint_sets() {
     let is_problem = reduction.target_problem();
 
     // No edges in the intersection graph
-    assert_eq!(is_problem.num_edges(), 0);
+    assert_eq!(is_problem.graph().num_edges(), 0);
 }
 
 #[test]
@@ -60,7 +60,7 @@ fn test_reduction_structure() {
     let is = reduction2.target_problem();
 
     // IS should have same number of vertices as sets in SP
-    assert_eq!(is.num_vertices(), 2);
+    assert_eq!(is.graph().num_vertices(), 2);
 }
 
 #[test]

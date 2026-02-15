@@ -10,10 +10,10 @@ fn test_mis_simple_to_triangular_closed_loop() {
     let target = result.target_problem();
 
     // The triangular graph should have more vertices than the original
-    assert!(target.num_vertices() > 3);
+    assert!(target.graph().num_vertices() > 3);
 
     // Map a trivial zero solution back to verify dimensions
-    let zero_config = vec![0; target.num_vertices()];
+    let zero_config = vec![0; target.graph().num_vertices()];
     let original_solution = result.extract_solution(&zero_config);
     assert_eq!(original_solution.len(), 3);
 }

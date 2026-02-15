@@ -17,7 +17,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     // 1. Create IS instance: Petersen graph
@@ -76,8 +76,8 @@ pub fn run() {
             problem: MaximumIndependentSet::<SimpleGraph, i32>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
-                "num_vertices": is.num_vertices(),
-                "num_edges": is.num_edges(),
+                "num_vertices": is.graph().num_vertices(),
+                "num_edges": is.graph().num_edges(),
                 "edges": edges,
             }),
         },

@@ -8,7 +8,7 @@ use crate::models::graph::{
     MinimumVertexCover,
 };
 use crate::prelude::*;
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 use crate::variant::{K1, K2, K3, K4};
@@ -24,15 +24,15 @@ mod maximum_independent_set {
     fn test_creation() {
         let problem =
             MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-        assert_eq!(problem.num_vertices(), 4);
-        assert_eq!(problem.num_edges(), 3);
+        assert_eq!(problem.graph().num_vertices(), 4);
+        assert_eq!(problem.graph().num_edges(), 3);
         assert_eq!(problem.num_variables(), 4);
     }
 
     #[test]
     fn test_with_weights() {
         let problem = MaximumIndependentSet::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
-        assert_eq!(problem.weights(), vec![1, 2, 3]);
+        assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
         assert!(problem.is_weighted());
     }
 
@@ -45,10 +45,10 @@ mod maximum_independent_set {
     #[test]
     fn test_has_edge() {
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-        assert!(problem.has_edge(0, 1));
-        assert!(problem.has_edge(1, 0)); // Undirected
-        assert!(problem.has_edge(1, 2));
-        assert!(!problem.has_edge(0, 2));
+        assert!(problem.graph().has_edge(0, 1));
+        assert!(problem.graph().has_edge(1, 0)); // Undirected
+        assert!(problem.graph().has_edge(1, 2));
+        assert!(!problem.graph().has_edge(0, 2));
     }
 
     #[test]
@@ -161,17 +161,16 @@ mod maximum_independent_set {
     #[test]
     fn test_edges() {
         let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
-        let edges = problem.edges();
+        let edges = problem.graph().edges();
         assert_eq!(edges.len(), 2);
         assert!(edges.contains(&(0, 1)) || edges.contains(&(1, 0)));
         assert!(edges.contains(&(2, 3)) || edges.contains(&(3, 2)));
     }
 
     #[test]
-    fn test_set_weights() {
-        let mut problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
-        problem.set_weights(vec![5, 10, 15]);
-        assert_eq!(problem.weights(), vec![5, 10, 15]);
+    fn test_with_custom_weights() {
+        let problem = MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
+        assert_eq!(problem.weights().to_vec(), vec![5, 10, 15]);
     }
 
     #[test]

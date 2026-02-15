@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::graph::MaximumIndependentSet;
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 use std::fs;
 use std::time::{SystemTime, UNIX_EPOCH};
 
@@ -18,8 +18,8 @@ fn test_from_json() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
     let json = to_json(&problem).unwrap();
     let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json).unwrap();
-    assert_eq!(restored.num_vertices(), 3);
-    assert_eq!(restored.num_edges(), 2);
+    assert_eq!(restored.graph().num_vertices(), 3);
+    assert_eq!(restored.graph().num_edges(), 2);
 }
 
 #[test]
@@ -47,8 +47,8 @@ fn test_file_roundtrip() {
     // Read back
     let restored: MaximumIndependentSet<SimpleGraph, i32> =
         read_problem(path, FileFormat::Json).unwrap();
-    assert_eq!(restored.num_vertices(), 4);
-    assert_eq!(restored.num_edges(), 3);
+    assert_eq!(restored.graph().num_vertices(), 4);
+    assert_eq!(restored.graph().num_edges(), 3);
 
     // Cleanup
     fs::remove_file(path).ok();

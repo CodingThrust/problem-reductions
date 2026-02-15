@@ -16,7 +16,7 @@
 //!
 //! // Problems work with any graph type - SimpleGraph by default
 //! let simple_graph_problem: MaximumIndependentSet<SimpleGraph, i32> = MaximumIndependentSet::new(3, vec![(0, 1)]);
-//! assert_eq!(simple_graph_problem.num_vertices(), 3);
+//! assert_eq!(simple_graph_problem.graph().num_vertices(), 3);
 //!
 //! // Different graph topologies enable different reduction algorithms
 //! // (UnitDiskGraph example would require specific constructors)

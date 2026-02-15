@@ -9,7 +9,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::types::WeightElement;
 use std::collections::HashSet;
 
@@ -48,8 +48,8 @@ impl ReduceTo<MaximumSetPacking<i32>> for MaximumIndependentSet<SimpleGraph, i32
     type Result = ReductionISToSP<i32>;
 
     fn reduce_to(&self) -> Self::Result {
-        let edges = self.edges();
-        let n = self.num_vertices();
+        let edges = self.graph().edges();
+        let n = self.graph().num_vertices();
 
         // For each vertex, collect the indices of its incident edges
         let mut sets: Vec<Vec<usize>> = vec![Vec::new(); n];
@@ -58,7 +58,7 @@ impl ReduceTo<MaximumSetPacking<i32>> for MaximumIndependentSet<SimpleGraph, i32
             sets[v].push(edge_idx);
         }
 
-        let target = MaximumSetPacking::with_weights(sets, self.weights_ref().clone());
+        let target = MaximumSetPacking::with_weights(sets, self.weights().to_vec());
 
         ReductionISToSP { target }
     }

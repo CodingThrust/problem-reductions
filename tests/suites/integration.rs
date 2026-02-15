@@ -401,8 +401,7 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_independent_set() {
-        let mut problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
-        problem.set_weights(vec![10, 1, 1]);
+        let problem = MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![10, 1, 1]);
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);

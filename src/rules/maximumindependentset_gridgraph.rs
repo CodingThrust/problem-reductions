@@ -9,7 +9,7 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::rules::unitdiskmapping::ksg;
-use crate::topology::{KingsSubgraph, SimpleGraph, UnitDiskGraph};
+use crate::topology::{Graph, KingsSubgraph, SimpleGraph, UnitDiskGraph};
 
 /// Result of reducing MIS on SimpleGraph to MIS on KingsSubgraph.
 #[derive(Debug, Clone)]
@@ -45,8 +45,8 @@ impl ReduceTo<MaximumIndependentSet<KingsSubgraph, i32>>
     type Result = ReductionISSimpleToGrid;
 
     fn reduce_to(&self) -> Self::Result {
-        let n = self.num_vertices();
-        let edges = self.edges();
+        let n = self.graph().num_vertices();
+        let edges = self.graph().edges();
         let result = ksg::map_unweighted(n, &edges);
         let weights = result.node_weights.clone();
         let grid = result.to_kings_subgraph();
@@ -92,8 +92,8 @@ impl ReduceTo<MaximumIndependentSet<KingsSubgraph, i32>>
     type Result = ReductionISUnitDiskToGrid;
 
     fn reduce_to(&self) -> Self::Result {
-        let n = self.num_vertices();
-        let edges = self.edges();
+        let n = self.graph().num_vertices();
+        let edges = Graph::edges(self.graph());
         let result = ksg::map_unweighted(n, &edges);
         let weights = result.node_weights.clone();
         let grid = result.to_kings_subgraph();

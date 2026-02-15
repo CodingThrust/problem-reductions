@@ -4,7 +4,7 @@
 //! solutions can be properly extracted through the reduction pipeline.
 
 use problemreductions::prelude::*;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 /// Tests for MaximumIndependentSet <-> MinimumVertexCover reductions.
 mod is_vc_reductions {
@@ -46,8 +46,8 @@ mod is_vc_reductions {
         let is_problem = result.target_problem();
 
         // Same graph structure
-        assert_eq!(is_problem.num_vertices(), 4);
-        assert_eq!(is_problem.num_edges(), 3);
+        assert_eq!(is_problem.graph().num_vertices(), 4);
+        assert_eq!(is_problem.graph().num_edges(), 3);
 
         // Solve the target IS problem
         let solver = BruteForce::new();
@@ -74,8 +74,8 @@ mod is_vc_reductions {
         let final_is = back_to_is.target_problem();
 
         // Should have same structure
-        assert_eq!(final_is.num_vertices(), original.num_vertices());
-        assert_eq!(final_is.num_edges(), original.num_edges());
+        assert_eq!(final_is.graph().num_vertices(), original.graph().num_vertices());
+        assert_eq!(final_is.graph().num_edges(), original.graph().num_edges());
 
         // Solve the final problem
         let solver = BruteForce::new();
@@ -158,7 +158,7 @@ mod is_sp_reductions {
         let is_problem = result.target_problem();
 
         // Should have an edge for each pair of overlapping sets (none here)
-        assert_eq!(is_problem.num_edges(), 0);
+        assert_eq!(is_problem.graph().num_edges(), 0);
 
         // Solve
         let solver = BruteForce::new();
@@ -792,8 +792,8 @@ mod io_tests {
         let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json).unwrap();
 
         // Should have same structure
-        assert_eq!(restored.num_vertices(), original.num_vertices());
-        assert_eq!(restored.num_edges(), original.num_edges());
+        assert_eq!(restored.graph().num_vertices(), original.graph().num_vertices());
+        assert_eq!(restored.graph().num_edges(), original.graph().num_edges());
 
         // Reduce the restored problem
         let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&restored);

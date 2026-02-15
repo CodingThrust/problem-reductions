@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::satisfiability::CNFClause;
 use crate::solvers::BruteForce;
+use crate::topology::Graph;
 use crate::traits::Problem;
 include!("../jl_helpers.rs");
 
@@ -48,9 +49,9 @@ fn test_simple_sat_to_is() {
     let is_problem = reduction.target_problem();
 
     // Should have 1 vertex (one literal)
-    assert_eq!(is_problem.num_vertices(), 1);
+    assert_eq!(is_problem.graph().num_vertices(), 1);
     // No edges (single vertex can't form a clique)
-    assert_eq!(is_problem.num_edges(), 0);
+    assert_eq!(is_problem.graph().num_edges(), 0);
 }
 
 #[test]
@@ -62,9 +63,9 @@ fn test_two_clause_sat_to_is() {
     let is_problem = reduction.target_problem();
 
     // Should have 2 vertices
-    assert_eq!(is_problem.num_vertices(), 2);
+    assert_eq!(is_problem.graph().num_vertices(), 2);
     // Should have 1 edge (between x1 and NOT x1)
-    assert_eq!(is_problem.num_edges(), 1);
+    assert_eq!(is_problem.graph().num_edges(), 1);
 
     // Maximum IS should have size 1 (can't select both)
     let solver = BruteForce::new();
@@ -110,8 +111,8 @@ fn test_clique_edges_in_clause() {
     let is_problem = reduction.target_problem();
 
     // 3 vertices, 3 edges (complete graph K3)
-    assert_eq!(is_problem.num_vertices(), 3);
-    assert_eq!(is_problem.num_edges(), 3);
+    assert_eq!(is_problem.graph().num_vertices(), 3);
+    assert_eq!(is_problem.graph().num_edges(), 3);
 }
 
 #[test]
@@ -130,8 +131,8 @@ fn test_complement_edges_across_clauses() {
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
     let is_problem = reduction.target_problem();
 
-    assert_eq!(is_problem.num_vertices(), 3);
-    assert_eq!(is_problem.num_edges(), 1); // Only the complement edge
+    assert_eq!(is_problem.graph().num_vertices(), 3);
+    assert_eq!(is_problem.graph().num_edges(), 1); // Only the complement edge
 }
 
 #[test]
@@ -144,7 +145,7 @@ fn test_is_structure() {
     let is_problem = reduction.target_problem();
 
     // IS should have vertices for literals in clauses
-    assert_eq!(is_problem.num_vertices(), 4); // 2 + 2 literals
+    assert_eq!(is_problem.graph().num_vertices(), 4); // 2 + 2 literals
 }
 
 #[test]
@@ -154,8 +155,8 @@ fn test_empty_sat() {
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
     let is_problem = reduction.target_problem();
 
-    assert_eq!(is_problem.num_vertices(), 0);
-    assert_eq!(is_problem.num_edges(), 0);
+    assert_eq!(is_problem.graph().num_vertices(), 0);
+    assert_eq!(is_problem.graph().num_edges(), 0);
     assert_eq!(reduction.num_clauses(), 0);
 }
 
