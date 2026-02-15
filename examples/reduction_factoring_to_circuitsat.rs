@@ -190,13 +190,15 @@ pub fn run() {
     println!("\nReduction verified successfully: 35 = 5 * 7");
 
     // 6. Export JSON
-    let overhead = lookup_overhead("Factoring", "CircuitSAT")
+    let source_variant = variant_to_map(Factoring::variant());
+    let target_variant = variant_to_map(CircuitSAT::variant());
+    let overhead = lookup_overhead("Factoring", &source_variant, "CircuitSAT", &target_variant)
         .expect("Factoring -> CircuitSAT overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: Factoring::NAME.to_string(),
-            variant: variant_to_map(Factoring::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "number": factoring.target(),
                 "num_bits_first": factoring.m(),
@@ -205,7 +207,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: CircuitSAT::NAME.to_string(),
-            variant: variant_to_map(CircuitSAT::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_variables": circuit_sat.num_variables(),
                 "num_gates": circuit_sat.circuit().num_assignments(),

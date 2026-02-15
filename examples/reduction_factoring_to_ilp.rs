@@ -70,13 +70,15 @@ pub fn run() {
         target_config: ilp_solution,
     }];
 
-    let overhead =
-        lookup_overhead("Factoring", "ILP").expect("Factoring -> ILP overhead not found");
+    let source_variant = variant_to_map(Factoring::variant());
+    let target_variant = variant_to_map(ILP::variant());
+    let overhead = lookup_overhead("Factoring", &source_variant, "ILP", &target_variant)
+        .expect("Factoring -> ILP overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: Factoring::NAME.to_string(),
-            variant: variant_to_map(Factoring::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "number": problem.target(),
                 "num_bits_first": problem.m(),
@@ -85,7 +87,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: variant_to_map(ILP::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
                 "num_constraints": ilp.constraints.len(),

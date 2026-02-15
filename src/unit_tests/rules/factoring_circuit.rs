@@ -304,11 +304,20 @@ fn test_jl_parity_factoring_to_circuitsat() {
     let best_target = solver.find_all_satisfying(result.target_problem());
     for t in &best_target {
         let sol = result.extract_solution(t);
-        assert_eq!(source.evaluate(&sol).unwrap(), 0, "Factoring extracted solution should be valid");
+        assert_eq!(
+            source.evaluate(&sol).unwrap(),
+            0,
+            "Factoring extracted solution should be valid"
+        );
     }
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../tests/data/jl/factoring_to_circuitsat.json")).unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../tests/data/jl/factoring_to_circuitsat.json"
+    ))
+    .unwrap();
     let jl_best_source = jl_parse_configs_set(&data["cases"][0]["best_source"]);
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    assert_eq!(best_source, jl_best_source, "Factoring best source mismatch");
+    assert_eq!(
+        best_source, jl_best_source,
+        "Factoring best source mismatch"
+    );
 }

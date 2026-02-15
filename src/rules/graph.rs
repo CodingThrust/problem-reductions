@@ -4,14 +4,14 @@
 //! for topology, allowing path finding regardless of weight type parameters.
 //!
 //! This module implements set-theoretic validation for path finding:
-//! - Graph hierarchy is built from `GraphSubtypeEntry` registrations
+//! - Variant hierarchy is built from `VariantTypeEntry` registrations
 //! - Reduction applicability uses subtype relationships: A <= C and D <= B
 //! - Dijkstra's algorithm with custom cost functions for optimal paths
 
-use crate::graph_types::{GraphSubtypeEntry, WeightSubtypeEntry};
 use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::types::ProblemSize;
+use crate::variant::VariantTypeEntry;
 use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
 use petgraph::graph::{DiGraph, NodeIndex};
@@ -52,6 +52,16 @@ pub struct NodeJson {
     pub category: String,
     /// Relative rustdoc path (e.g., "models/graph/maximum_independent_set").
     pub doc_path: String,
+}
+
+/// A matched reduction entry returned by [`ReductionGraph::find_best_entry`].
+pub struct MatchedEntry {
+    /// The entry's source variant (may be less specific than the caller's current variant).
+    pub source_variant: std::collections::BTreeMap<String, String>,
+    /// The entry's target variant (becomes the new current variant after the reduction).
+    pub target_variant: std::collections::BTreeMap<String, String>,
+    /// The overhead of the reduction.
+    pub overhead: ReductionOverhead,
 }
 
 /// Internal reference to a problem variant, used during edge construction.
@@ -116,6 +126,68 @@ impl ReductionPath {
     }
 }
 
+/// A node in a variant-level reduction path.
+#[derive(Debug, Clone, Serialize)]
+pub struct ReductionStep {
+    /// Problem name (e.g., "MaximumIndependentSet").
+    pub name: String,
+    /// Variant at this point (e.g., {"graph": "KingsSubgraph", "weight": "i32"}).
+    pub variant: std::collections::BTreeMap<String, String>,
+}
+
+/// The kind of transition between adjacent steps in a resolved path.
+#[derive(Debug, Clone, Serialize)]
+pub enum EdgeKind {
+    /// A registered reduction (backed by a ReduceTo impl).
+    Reduction {
+        /// Overhead from the matching ReductionEntry.
+        overhead: ReductionOverhead,
+    },
+    /// A natural cast via subtype relaxation. Identity overhead.
+    NaturalCast,
+}
+
+/// A fully resolved reduction path with variant information at each node.
+///
+/// Created by [`ReductionGraph::resolve_path`] from a name-level [`ReductionPath`].
+/// Each adjacent pair of steps is connected by an [`EdgeKind`]: either a registered
+/// reduction or a natural cast (subtype relaxation with identity overhead).
+#[derive(Debug, Clone, Serialize)]
+pub struct ResolvedPath {
+    /// Sequence of (name, variant) nodes.
+    pub steps: Vec<ReductionStep>,
+    /// Edge kinds between adjacent steps. Length = steps.len() - 1.
+    pub edges: Vec<EdgeKind>,
+}
+
+impl ResolvedPath {
+    /// Number of edges (reductions + casts) in the path.
+    pub fn len(&self) -> usize {
+        self.edges.len()
+    }
+
+    /// Whether the path is empty.
+    pub fn is_empty(&self) -> bool {
+        self.edges.is_empty()
+    }
+
+    /// Number of registered reduction steps (excludes natural casts).
+    pub fn num_reductions(&self) -> usize {
+        self.edges
+            .iter()
+            .filter(|e| matches!(e, EdgeKind::Reduction { .. }))
+            .count()
+    }
+
+    /// Number of natural cast steps.
+    pub fn num_casts(&self) -> usize {
+        self.edges
+            .iter()
+            .filter(|e| matches!(e, EdgeKind::NaturalCast))
+            .count()
+    }
+}
+
 /// Edge data for a reduction.
 #[derive(Clone, Debug)]
 pub struct ReductionEdge {
@@ -159,7 +231,7 @@ impl ReductionEdge {
 ///
 /// The graph supports:
 /// - Auto-discovery of reductions from `inventory::iter::<ReductionEntry>`
-/// - Graph hierarchy from `inventory::iter::<GraphSubtypeEntry>`
+/// - Variant hierarchy from `inventory::iter::<VariantTypeEntry>`
 /// - Set-theoretic validation for path finding
 /// - Dijkstra with custom cost functions
 pub struct ReductionGraph {
@@ -167,10 +239,8 @@ pub struct ReductionGraph {
     graph: DiGraph<&'static str, ReductionEdge>,
     /// Map from base type name to node index.
     name_indices: HashMap<&'static str, NodeIndex>,
-    /// Graph hierarchy: subtype -> set of supertypes (transitively closed).
-    graph_hierarchy: HashMap<&'static str, HashSet<&'static str>>,
-    /// Weight hierarchy: subtype -> set of supertypes (transitively closed).
-    weight_hierarchy: HashMap<&'static str, HashSet<&'static str>>,
+    /// Variant hierarchy: category -> (value -> set_of_supertypes). Transitively closed.
+    variant_hierarchy: HashMap<&'static str, HashMap<&'static str, HashSet<&'static str>>>,
 }
 
 impl ReductionGraph {
@@ -179,11 +249,8 @@ impl ReductionGraph {
         let mut graph = DiGraph::new();
         let mut name_indices = HashMap::new();
 
-        // Build graph hierarchy from GraphSubtypeEntry registrations
-        let graph_hierarchy = Self::build_graph_hierarchy();
-
-        // Build weight hierarchy from WeightSubtypeEntry registrations
-        let weight_hierarchy = Self::build_weight_hierarchy();
+        // Build unified variant hierarchy from all sources
+        let variant_hierarchy = Self::build_variant_hierarchy();
 
         // Register reductions from inventory (auto-discovery)
         for entry in inventory::iter::<ReductionEntry> {
@@ -219,120 +286,102 @@ impl ReductionGraph {
         Self {
             graph,
             name_indices,
-            graph_hierarchy,
-            weight_hierarchy,
+            variant_hierarchy,
         }
     }
 
-    /// Build graph hierarchy from GraphSubtypeEntry registrations.
-    /// Computes the transitive closure of the subtype relationship.
-    fn build_graph_hierarchy() -> HashMap<&'static str, HashSet<&'static str>> {
-        let mut supertypes: HashMap<&'static str, HashSet<&'static str>> = HashMap::new();
+    /// Build unified variant hierarchy from `VariantTypeEntry` registrations.
+    ///
+    /// Collects all `VariantTypeEntry` registrations and computes transitive closure
+    /// of the parent relationships for each category.
+    fn build_variant_hierarchy(
+    ) -> HashMap<&'static str, HashMap<&'static str, HashSet<&'static str>>> {
+        let mut hierarchy: HashMap<&'static str, HashMap<&'static str, HashSet<&'static str>>> =
+            HashMap::new();
 
-        // Collect direct subtype relationships
-        for entry in inventory::iter::<GraphSubtypeEntry> {
-            supertypes
-                .entry(entry.subtype)
-                .or_default()
-                .insert(entry.supertype);
+        // Collect from VariantTypeEntry (all categories)
+        for entry in inventory::iter::<VariantTypeEntry> {
+            if let Some(parent) = entry.parent {
+                hierarchy
+                    .entry(entry.category)
+                    .or_default()
+                    .entry(entry.value)
+                    .or_default()
+                    .insert(parent);
+            }
         }
 
-        // Compute transitive closure
-        loop {
-            let mut changed = false;
-            let types: Vec<_> = supertypes.keys().copied().collect();
+        // Compute transitive closure for each category
+        for supertypes in hierarchy.values_mut() {
+            loop {
+                let mut changed = false;
+                let types: Vec<_> = supertypes.keys().copied().collect();
 
-            for sub in &types {
-                let current: Vec<_> = supertypes
-                    .get(sub)
-                    .map(|s| s.iter().copied().collect())
-                    .unwrap_or_default();
+                for sub in &types {
+                    let current: Vec<_> = supertypes
+                        .get(sub)
+                        .map(|s| s.iter().copied().collect())
+                        .unwrap_or_default();
 
-                for sup in current {
-                    if let Some(sup_supers) = supertypes.get(sup).cloned() {
-                        for ss in sup_supers {
-                            if supertypes.entry(sub).or_default().insert(ss) {
-                                changed = true;
+                    for sup in current {
+                        if let Some(sup_supers) = supertypes.get(sup).cloned() {
+                            for ss in sup_supers {
+                                if supertypes.entry(sub).or_default().insert(ss) {
+                                    changed = true;
+                                }
                             }
                         }
                     }
                 }
-            }
 
-            if !changed {
-                break;
-            }
-        }
-
-        supertypes
-    }
-
-    /// Build weight hierarchy from WeightSubtypeEntry registrations.
-    /// Computes the transitive closure of the subtype relationship.
-    fn build_weight_hierarchy() -> HashMap<&'static str, HashSet<&'static str>> {
-        let mut supertypes: HashMap<&'static str, HashSet<&'static str>> = HashMap::new();
-
-        // Collect direct subtype relationships
-        for entry in inventory::iter::<WeightSubtypeEntry> {
-            supertypes
-                .entry(entry.subtype)
-                .or_default()
-                .insert(entry.supertype);
-        }
-
-        // Compute transitive closure
-        loop {
-            let mut changed = false;
-            let types: Vec<_> = supertypes.keys().copied().collect();
-
-            for sub in &types {
-                let current: Vec<_> = supertypes
-                    .get(sub)
-                    .map(|s| s.iter().copied().collect())
-                    .unwrap_or_default();
-
-                for sup in current {
-                    if let Some(sup_supers) = supertypes.get(sup).cloned() {
-                        for ss in sup_supers {
-                            if supertypes.entry(sub).or_default().insert(ss) {
-                                changed = true;
-                            }
-                        }
-                    }
+                if !changed {
+                    break;
                 }
             }
-
-            if !changed {
-                break;
-            }
         }
 
-        supertypes
+        hierarchy
     }
 
-    /// Check if `sub` is a subtype of `sup` (or equal).
-    pub fn is_graph_subtype(&self, sub: &str, sup: &str) -> bool {
+    /// Check if `sub` is a subtype of `sup` (or equal) within the given category.
+    fn is_subtype(&self, category: &str, sub: &str, sup: &str) -> bool {
         sub == sup
             || self
-                .graph_hierarchy
-                .get(sub)
-                .map(|s| s.contains(sup))
+                .variant_hierarchy
+                .get(category)
+                .and_then(|cat| cat.get(sub))
+                .map(|supers| supers.contains(sup))
                 .unwrap_or(false)
     }
 
-    /// Get the weight hierarchy (for inspection/testing).
-    pub fn weight_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
-        &self.weight_hierarchy
+    /// Check if `sub` is a graph subtype of `sup` (or equal).
+    pub fn is_graph_subtype(&self, sub: &str, sup: &str) -> bool {
+        self.is_subtype("graph", sub, sup)
     }
 
     /// Check if `sub` is a weight subtype of `sup` (or equal).
     pub fn is_weight_subtype(&self, sub: &str, sup: &str) -> bool {
-        sub == sup
-            || self
-                .weight_hierarchy
-                .get(sub)
-                .map(|s| s.contains(sup))
-                .unwrap_or(false)
+        self.is_subtype("weight", sub, sup)
+    }
+
+    /// Check if `sub` is a K subtype of `sup` (or equal).
+    pub fn is_k_subtype(&self, sub: &str, sup: &str) -> bool {
+        self.is_subtype("k", sub, sup)
+    }
+
+    /// Get the graph hierarchy (for inspection/testing).
+    pub fn graph_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
+        // If "graph" category is absent, we return a static empty map.
+        static EMPTY: std::sync::LazyLock<HashMap<&'static str, HashSet<&'static str>>> =
+            std::sync::LazyLock::new(HashMap::new);
+        self.variant_hierarchy.get("graph").unwrap_or(&EMPTY)
+    }
+
+    /// Get the weight hierarchy (for inspection/testing).
+    pub fn weight_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
+        static EMPTY: std::sync::LazyLock<HashMap<&'static str, HashSet<&'static str>>> =
+            std::sync::LazyLock::new(HashMap::new);
+        self.variant_hierarchy.get("weight").unwrap_or(&EMPTY)
     }
 
     /// Check if a reduction rule can be used.
@@ -538,23 +587,12 @@ impl ReductionGraph {
     pub fn num_reductions(&self) -> usize {
         self.graph.edge_count()
     }
-
-    /// Get the graph hierarchy (for inspection/testing).
-    pub fn graph_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
-        &self.graph_hierarchy
-    }
 }
 
 impl Default for ReductionGraph {
     fn default() -> Self {
         Self::new()
     }
-}
-
-/// Check if const value `a` is a subtype of `b`.
-/// A specific value (e.g., "3") is a subtype of "N" (generic/any).
-fn is_const_subtype(a: &str, b: &str) -> bool {
-    a != b && b == "N" && a != "N"
 }
 
 impl ReductionGraph {
@@ -583,13 +621,8 @@ impl ReductionGraph {
                 continue; // Equal on this field
             }
 
-            // Check subtype relationship based on field type
-            let is_sub = match key.as_str() {
-                "graph" => self.is_graph_subtype(a_val, b_val),
-                "weight" => self.is_weight_subtype(a_val, b_val),
-                "k" => is_const_subtype(a_val, b_val),
-                _ => false, // Unknown fields must be equal
-            };
+            // Check subtype relationship using the unified hierarchy
+            let is_sub = self.is_subtype(key.as_str(), a_val, b_val);
 
             if !is_sub {
                 all_compatible = false;
@@ -623,6 +656,131 @@ impl ReductionGraph {
             name: name.to_string(),
             variant: Self::variant_to_map(variant),
         }
+    }
+
+    /// Find the best matching `ReductionEntry` for a (source_name, target_name) pair
+    /// given the caller's current source variant.
+    ///
+    /// "Best" means: compatible (current variant is reducible to the entry's source variant)
+    /// and most specific (tightest fit among all compatible entries).
+    ///
+    /// Returns `(entry_source_variant, entry_target_variant, overhead)` or `None`.
+    pub fn find_best_entry(
+        &self,
+        source_name: &str,
+        target_name: &str,
+        current_variant: &std::collections::BTreeMap<String, String>,
+    ) -> Option<MatchedEntry> {
+        let mut best: Option<MatchedEntry> = None;
+
+        for entry in inventory::iter::<ReductionEntry> {
+            if entry.source_name != source_name || entry.target_name != target_name {
+                continue;
+            }
+
+            let entry_source = Self::variant_to_map(&entry.source_variant());
+            let entry_target = Self::variant_to_map(&entry.target_variant());
+
+            // Check: current_variant is reducible to entry's source variant
+            // (current is equal-or-more-specific on every axis)
+            if current_variant != &entry_source
+                && !self.is_variant_reducible(current_variant, &entry_source)
+            {
+                continue;
+            }
+
+            // Pick the most specific: if we already have a best, prefer the one
+            // whose source_variant is more specific (tighter fit).
+            // is_variant_reducible(A, B) means A ≤ B (A is subtype of B),
+            // so entry_source ≤ best_source means the new entry is more specific.
+            let dominated = if let Some(ref best_entry) = best {
+                self.is_variant_reducible(&entry_source, &best_entry.source_variant)
+                    || entry_source == *current_variant
+            } else {
+                true
+            };
+
+            if dominated {
+                best = Some(MatchedEntry {
+                    source_variant: entry_source,
+                    target_variant: entry_target,
+                    overhead: entry.overhead(),
+                });
+            }
+        }
+
+        best
+    }
+
+    /// Resolve a name-level [`ReductionPath`] into a variant-level [`ResolvedPath`].
+    ///
+    /// Walks the name-level path, threading variant state through each edge.
+    /// For each step, picks the most-specific compatible `ReductionEntry` and
+    /// inserts `NaturalCast` steps where the caller's variant is more specific
+    /// than the rule's expected source variant.
+    ///
+    /// Returns `None` if no compatible reduction entry exists for any step.
+    pub fn resolve_path(
+        &self,
+        path: &ReductionPath,
+        source_variant: &std::collections::BTreeMap<String, String>,
+        target_variant: &std::collections::BTreeMap<String, String>,
+    ) -> Option<ResolvedPath> {
+        if path.type_names.len() < 2 {
+            return None;
+        }
+
+        let mut current_variant = source_variant.clone();
+        let mut steps = vec![ReductionStep {
+            name: path.type_names[0].to_string(),
+            variant: current_variant.clone(),
+        }];
+        let mut edges = Vec::new();
+
+        for i in 0..path.type_names.len() - 1 {
+            let src_name = path.type_names[i];
+            let dst_name = path.type_names[i + 1];
+
+            let matched = self.find_best_entry(src_name, dst_name, &current_variant)?;
+
+            // Insert natural cast if current variant differs from entry's source.
+            // Safety: find_best_entry already verified is_variant_reducible(current, entry_source).
+            if current_variant != matched.source_variant {
+                debug_assert!(
+                    self.is_variant_reducible(&current_variant, &matched.source_variant),
+                    "natural cast requires current variant to be a subtype of entry source"
+                );
+                steps.push(ReductionStep {
+                    name: src_name.to_string(),
+                    variant: matched.source_variant,
+                });
+                edges.push(EdgeKind::NaturalCast);
+            }
+
+            // Advance through the reduction
+            current_variant = matched.target_variant;
+            steps.push(ReductionStep {
+                name: dst_name.to_string(),
+                variant: current_variant.clone(),
+            });
+            edges.push(EdgeKind::Reduction {
+                overhead: matched.overhead,
+            });
+        }
+
+        // Trailing natural cast if final variant differs from requested target
+        if current_variant != *target_variant
+            && self.is_variant_reducible(&current_variant, target_variant)
+        {
+            let last_name = path.type_names.last().unwrap();
+            steps.push(ReductionStep {
+                name: last_name.to_string(),
+                variant: target_variant.clone(),
+            });
+            edges.push(EdgeKind::NaturalCast);
+        }
+
+        Some(ResolvedPath { steps, edges })
     }
 
     /// Export the reduction graph as a JSON-serializable structure.
@@ -660,6 +818,15 @@ impl ReductionGraph {
                 Self::variant_to_map(&target_variant),
             ));
         }
+
+        // Remove empty-variant base nodes that are redundant (same name already has specific variants)
+        let names_with_variants: HashSet<String> = node_set
+            .iter()
+            .filter(|(_, variant)| !variant.is_empty())
+            .map(|(name, _)| name.clone())
+            .collect();
+        node_set
+            .retain(|(name, variant)| !variant.is_empty() || !names_with_variants.contains(name));
 
         // Build nodes with categories and doc paths derived from ProblemSchemaEntry.module_path
         let mut nodes: Vec<NodeJson> = node_set

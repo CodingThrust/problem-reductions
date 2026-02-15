@@ -69,9 +69,9 @@ Problems are parameterized by graph type and weight type:
 | Type | Description |
 |------|-------------|
 | `SimpleGraph` | Standard adjacency-based graph |
-| `GridGraph` | Vertices on a regular grid |
 | `UnitDiskGraph` | Edges connect vertices within a distance threshold |
-| `Triangular` | Triangular lattice graph (subtype of UnitDiskGraph) |
+| `KingsSubgraph` | King's subgraph on a square grid (subtype of UnitDiskGraph) |
+| `TriangularSubgraph` | Triangular lattice subgraph (subtype of UnitDiskGraph) |
 | `HyperGraph` | Edges connecting any number of vertices |
 
 All problem types support JSON serialization via serde:
@@ -89,6 +89,17 @@ See [adding-models.md](https://github.com/CodingThrust/problem-reductions/blob/m
 
 A single problem name like `MaximumIndependentSet` can have multiple **variants** — concrete instantiations that differ in graph topology, weight type, or other parameters. The variant system tracks these distinctions in the reduction graph so that reductions between specific instantiations are represented precisely.
 
+<div class="theme-light-only">
+
+![Variant Hierarchy](static/variant-hierarchy.svg)
+
+</div>
+<div class="theme-dark-only">
+
+![Variant Hierarchy](static/variant-hierarchy-dark.svg)
+
+</div>
+
 Each variant is identified by a set of key-value pairs returned by `Problem::variant()`:
 
 ```rust
@@ -103,7 +114,7 @@ fn variant() -> Vec<(&'static str, &'static str)> {
 }
 ```
 
-Variant nodes in the reduction graph are discovered automatically from `#[reduction]` registrations — each reduction's source and target types become nodes. Natural edges between same-name variants are inferred from the graph/weight subtype partial order (e.g., `MIS/GridGraph → MIS/SimpleGraph`). In the visualization, nodes are labeled with only the non-default fields for brevity (e.g. `MaximumIndependentSet (GridGraph)` omits the default `One`).
+Variant nodes in the reduction graph are discovered automatically from `#[reduction]` registrations — each reduction's source and target types become nodes. Natural edges between same-name variants are inferred from the graph/weight subtype partial order (e.g., `MIS/KingsSubgraph → MIS/SimpleGraph`). In the visualization, nodes are labeled with only the non-default fields for brevity (e.g. `MaximumIndependentSet (KingsSubgraph)` omits the default `One`).
 
 ### Graph Hierarchy
 
@@ -115,31 +126,31 @@ HyperGraph          (most general)
     ├── PlanarGraph
     ├── BipartiteGraph
     └── UnitDiskGraph
-        ├── GridGraph
-        └── Triangular
+        ├── KingsSubgraph
+        └── TriangularSubgraph
 ```
 
-A problem on a more specific graph type can always be treated as a problem on a more general one — a `GridGraph` *is* a `SimpleGraph`. This subtype relationship is registered at compile time:
+A problem on a more specific graph type can always be treated as a problem on a more general one — a `KingsSubgraph` *is* a `SimpleGraph`. This subtype relationship is registered at compile time:
 
 ```rust
-declare_graph_subtype!(GridGraph => UnitDiskGraph);
+declare_graph_subtype!(KingsSubgraph => UnitDiskGraph);
 declare_graph_subtype!(UnitDiskGraph => SimpleGraph);
 // ...
 ```
 
-The runtime builds a transitive closure: `GridGraph` is a subtype of `UnitDiskGraph`, `SimpleGraph`, and `HyperGraph`.
+The runtime builds a transitive closure: `KingsSubgraph` is a subtype of `UnitDiskGraph`, `SimpleGraph`, and `HyperGraph`.
 
-**Example: natural edge for Triangular MIS.** Suppose we have a `MaximumIndependentSet<Triangular, i32>` instance — an independent set problem on a triangular lattice. Because `Triangular` is a subtype of `SimpleGraph` in the graph hierarchy, the reduction graph contains a natural edge:
-
-```
-MIS<Triangular, i32>  →  MIS<SimpleGraph, i32>
-```
-
-This edge has identity overhead (the problem size is unchanged) and requires no code — the triangular lattice graph *is* a simple graph, so any MIS algorithm for general graphs applies directly. Combined with the explicit reduction `MIS<SimpleGraph, i32> → MIS<GridGraph, i32>` (unit disk mapping), the system can automatically chain:
+**Example: natural edge for TriangularSubgraph MIS.** Suppose we have a `MaximumIndependentSet<TriangularSubgraph, i32>` instance — an independent set problem on a triangular lattice. Because `TriangularSubgraph` is a subtype of `SimpleGraph` in the graph hierarchy, the reduction graph contains a natural edge:
 
 ```
-MIS<Triangular, i32>  →  MIS<SimpleGraph, i32>  →  MIS<GridGraph, i32>
-     (natural edge)           (explicit reduction)
+MIS<TriangularSubgraph, i32>  →  MIS<SimpleGraph, i32>
+```
+
+This edge has identity overhead (the problem size is unchanged) and requires no code — the triangular lattice graph *is* a simple graph, so any MIS algorithm for general graphs applies directly. Combined with the explicit reduction `MIS<SimpleGraph, i32> → MIS<KingsSubgraph, i32>` (unit disk mapping), the system can automatically chain:
+
+```
+MIS<TriangularSubgraph, i32>  →  MIS<SimpleGraph, i32>  →  MIS<KingsSubgraph, i32>
+     (natural edge)                  (explicit reduction)
 ```
 
 ### Weight Hierarchy
@@ -159,15 +170,15 @@ declare_weight_subtype!("i32" => "f64");
 
 ### K Parameter
 
-`KSatisfiability<K>` and `KColoring<K, G>` use a const generic `K` mapped to a string via `const_usize_str`:
+`KSatisfiability<K>` and `KColoring<K, G>` use type-level K values:
 
 | Rust type | Variant `k` |
 |-----------|-------------|
-| `KSatisfiability<2>` | `"2"` |
-| `KSatisfiability<3>` | `"3"` |
-| Generic `KSatisfiability<K>` | `"N"` |
+| `KSatisfiability<K2>` | `"K2"` |
+| `KSatisfiability<K3>` | `"K3"` |
+| Generic `KSatisfiability<KN>` | `"KN"` |
 
-A specific K value (e.g. `"3"`) is a subtype of the generic `"N"`, meaning any concrete K-SAT instance can be treated as a general K-SAT problem.
+K values form a **flat hierarchy**: each specific K value (K1, K2, K3, K4, K5) is a direct child of the generic KN, with no chain between them. This reflects the fact that k-SAT and k-coloring problems with different k are independent problem classes — a 2-SAT instance is not a 3-SAT instance, and vice versa.
 
 ### Natural Edges
 
@@ -202,6 +213,72 @@ MIS (SimpleGraph, i32)
 **Step 2 — Weight promotion.** An unweighted MIS asks for the largest independent set (all vertices have equal value). This is equivalent to a weighted MIS where every vertex has weight 1. The instance gains uniform weights and becomes `MaximumIndependentSet<SimpleGraph, i32>`.
 
 Both steps are identity reductions with zero overhead — no new variables or constraints are introduced. The variant system generates these edges automatically from the declared hierarchies.
+
+### Variant-Aware Path Resolution
+
+The `ReductionGraph` performs path-finding at the **name level** — nodes are `"MaximumIndependentSet"`, not `"MaximumIndependentSet<GridGraph, i32>"`. This keeps path discovery fast (one node per problem name), but it means a `ReductionPath` like `["KSatisfiability", "QUBO"]` carries no variant information. Two issues follow:
+
+1. **Overhead ambiguity.** `KSatisfiability<2> → QUBO` and `KSatisfiability<3> → QUBO` have different overheads (k=3 introduces auxiliary variables via Rosenberg quadratization), but a name-level path can't distinguish them.
+
+2. **Natural edge execution.** The path `MIS(KingsSubgraph) → VC(SimpleGraph)` needs an implicit graph-relaxation step, but the name-level path only says `["MaximumIndependentSet", "MinimumVertexCover"]`.
+
+The solution is **two-phase resolution**: name-level discovery followed by variant-level resolution.
+
+#### `resolve_path`
+
+```rust
+pub fn resolve_path(
+    &self,
+    path: &ReductionPath,                       // name-level plan
+    source_variant: &BTreeMap<String, String>,   // caller's concrete variant
+    target_variant: &BTreeMap<String, String>,   // desired target variant
+) -> Option<ResolvedPath>
+```
+
+The resolver walks the name-level path, threading variant state through each step:
+
+1. **Find candidates** — all `ReductionEntry` items matching `(src_name, dst_name)`.
+2. **Filter compatible** — keep entries where the current variant is equal-or-more-specific than the entry's source variant on every axis.
+3. **Pick most specific** — among compatible entries, choose the tightest fit.
+4. **Insert natural cast** — if the current variant is more specific than the chosen entry's source, emit a `NaturalCast` edge.
+5. **Advance** — update current variant to the entry's target variant, emit a `Reduction` edge with the correct overhead.
+
+The result is a `ResolvedPath`:
+
+```rust
+pub struct ResolvedPath {
+    pub steps: Vec<ReductionStep>,  // (name, variant) at each node
+    pub edges: Vec<EdgeKind>,       // Reduction{overhead} | NaturalCast
+}
+```
+
+#### Example: MIS on KingsSubgraph to MinimumVertexCover
+
+Resolving `MIS(KingsSubgraph, i32) → VC(SimpleGraph, i32)` through name-path `["MIS", "VC"]`:
+
+```
+steps:  MIS{KingsSubgraph,i32}  →  MIS{SimpleGraph,i32}  →  VC{SimpleGraph,i32}
+edges:       NaturalCast                  Reduction{overhead}
+```
+
+The resolver finds that the `MIS → VC` reduction expects `SimpleGraph`, so it inserts a `NaturalCast` to relax `KingsSubgraph` to `SimpleGraph` first.
+
+#### Example: KSat Disambiguation
+
+Resolving `KSat(k=3) → QUBO` through name-path `["KSatisfiability", "QUBO"]`:
+
+- Candidates: `KSat<2> → QUBO` (overhead: `num_vars`) and `KSat<3> → QUBO` (overhead: `num_vars + num_clauses`).
+- Filter with `k=3`: only `KSat<3>` is compatible (`3` is not a subtype of `2`).
+- Result: the k=3-specific overhead is returned.
+
+#### Execution Model
+
+`ResolvedPath` is a **plan**, not an executor. Callers dispatch each step themselves:
+
+- `EdgeKind::Reduction` → call `ReduceTo::reduce_to()`
+- `EdgeKind::NaturalCast` → call `GraphCast::cast_graph()` or equivalent weight cast
+
+This avoids type-erasure complexity while giving callers precise variant and overhead information at each step.
 
 ## Rules
 

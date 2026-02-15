@@ -1,12 +1,12 @@
 use super::*;
 use crate::models::graph::MaximumIndependentSet;
-use crate::topology::{Graph, SimpleGraph, Triangular};
+use crate::topology::{Graph, SimpleGraph, TriangularSubgraph};
 
 #[test]
 fn test_mis_simple_to_triangular_closed_loop() {
     // Path graph: 0-1-2
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    let result = ReduceTo::<MaximumIndependentSet<Triangular, i32>>::reduce_to(&problem);
+    let result = ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i32>>::reduce_to(&problem);
     let target = result.target_problem();
 
     // The triangular graph should have more vertices than the original
@@ -22,11 +22,11 @@ fn test_mis_simple_to_triangular_closed_loop() {
 fn test_mis_simple_to_triangular_graph_methods() {
     // Single edge graph: 0-1
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(2, vec![(0, 1)]);
-    let result = ReduceTo::<MaximumIndependentSet<Triangular, i32>>::reduce_to(&problem);
+    let result = ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i32>>::reduce_to(&problem);
     let target = result.target_problem();
     let graph = target.graph();
 
-    // Exercise all Graph trait methods on the Triangular type
+    // Exercise all Graph trait methods on the TriangularSubgraph type
     let n = graph.num_vertices();
     assert!(n > 2);
 
@@ -50,10 +50,8 @@ fn test_mis_simple_to_triangular_graph_methods() {
         }
     }
 
-    // Exercise Triangular-specific methods
-    let nodes = graph.nodes();
-    assert_eq!(nodes.len(), n);
-
-    let inner = graph.grid_graph();
-    assert_eq!(inner.num_vertices(), n);
+    // Exercise TriangularSubgraph-specific methods
+    let positions = graph.positions();
+    assert_eq!(positions.len(), n);
+    assert_eq!(graph.num_positions(), n);
 }

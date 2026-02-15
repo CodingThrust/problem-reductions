@@ -52,7 +52,7 @@ pub fn run() {
     println!("  Clause sizes: 1, 2, 3, 3, 4, 5 (demonstrates padding and splitting)");
 
     // 2. Reduce to 3-SAT (K=3)
-    let reduction = ReduceTo::<KSatisfiability<3>>::reduce_to(&sat);
+    let reduction = ReduceTo::<KSatisfiability<K3>>::reduce_to(&sat);
     let ksat = reduction.target_problem();
 
     println!("\n=== Problem Transformation ===");
@@ -123,21 +123,28 @@ pub fn run() {
     println!("\nReduction verified successfully");
 
     // 5. Export JSON
-    let overhead = lookup_overhead("Satisfiability", "KSatisfiability")
-        .expect("Satisfiability -> KSatisfiability overhead not found");
+    let source_variant = variant_to_map(Satisfiability::variant());
+    let target_variant = variant_to_map(KSatisfiability::<K3>::variant());
+    let overhead = lookup_overhead(
+        "Satisfiability",
+        &source_variant,
+        "KSatisfiability",
+        &target_variant,
+    )
+    .expect("Satisfiability -> KSatisfiability overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: Satisfiability::NAME.to_string(),
-            variant: variant_to_map(Satisfiability::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
                 "num_clauses": sat.num_clauses(),
             }),
         },
         target: ProblemSide {
-            problem: KSatisfiability::<3>::NAME.to_string(),
-            variant: variant_to_map(KSatisfiability::<3>::variant()),
+            problem: KSatisfiability::<K3>::NAME.to_string(),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": ksat.num_vars(),
                 "num_clauses": ksat.num_clauses(),

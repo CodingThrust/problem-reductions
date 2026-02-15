@@ -8,12 +8,8 @@
 //!           cargo run --example export_mapping_stages -- petersen triangular
 
 use problemreductions::rules::unitdiskmapping::{
-    apply_crossing_gadgets, apply_simplifier_gadgets, apply_triangular_crossing_gadgets,
-    apply_triangular_simplifier_gadgets, apply_weighted_crossing_gadgets,
-    apply_weighted_simplifier_gadgets, create_copylines, mis_overhead_copyline,
-    mis_overhead_copyline_triangular, tape_entry_mis_overhead, triangular_tape_entry_mis_overhead,
-    weighted_tape_entry_mis_overhead, CopyLine, MappingGrid, TapeEntry, TriangularTapeEntry,
-    WeightedKsgTapeEntry, SQUARE_PADDING, SQUARE_SPACING, TRIANGULAR_PADDING, TRIANGULAR_SPACING,
+    create_copylines, ksg, mis_overhead_copyline, mis_overhead_copyline_triangular, triangular,
+    CopyLine, MappingGrid,
 };
 use problemreductions::topology::smallgraph;
 use serde::Serialize;
@@ -227,8 +223,8 @@ fn export_triangular(
     edges: &[(usize, usize)],
     vertex_order: &[usize],
 ) -> MappingExport {
-    let spacing = TRIANGULAR_SPACING;
-    let padding = TRIANGULAR_PADDING;
+    let spacing = triangular::SPACING;
+    let padding = triangular::PADDING;
 
     let copylines = create_copylines(n, edges, vertex_order);
 
@@ -271,10 +267,10 @@ fn export_triangular(
     }
     let stage2_nodes = extract_grid_nodes(&grid);
 
-    let crossing_tape = apply_triangular_crossing_gadgets(&mut grid, &copylines, spacing, padding);
+    let crossing_tape = triangular::apply_crossing_gadgets(&mut grid, &copylines, spacing, padding);
     let stage3_nodes = extract_grid_nodes(&grid);
 
-    let simplifier_tape = apply_triangular_simplifier_gadgets(&mut grid, 10);
+    let simplifier_tape = triangular::apply_simplifier_gadgets(&mut grid, 10);
     let stage4_nodes = extract_grid_nodes(&grid);
 
     let copyline_overhead: i32 = copylines
@@ -283,11 +279,11 @@ fn export_triangular(
         .sum();
     let crossing_overhead: i32 = crossing_tape
         .iter()
-        .map(triangular_tape_entry_mis_overhead)
+        .map(triangular::tape_entry_mis_overhead)
         .sum();
     let simplifier_overhead: i32 = simplifier_tape
         .iter()
-        .map(triangular_tape_entry_mis_overhead)
+        .map(triangular::tape_entry_mis_overhead)
         .sum();
 
     let copy_lines_export = export_copylines_triangular(&copylines, padding, spacing);
@@ -323,8 +319,8 @@ fn export_square(
     edges: &[(usize, usize)],
     vertex_order: &[usize],
 ) -> MappingExport {
-    let spacing = SQUARE_SPACING;
-    let padding = SQUARE_PADDING;
+    let spacing = ksg::SPACING;
+    let padding = ksg::PADDING;
 
     let copylines = create_copylines(n, edges, vertex_order);
 
@@ -370,18 +366,18 @@ fn export_square(
     }
     let stage2_nodes = extract_grid_nodes(&grid);
 
-    let crossing_tape = apply_crossing_gadgets(&mut grid, &copylines);
+    let crossing_tape = ksg::apply_crossing_gadgets(&mut grid, &copylines);
     let stage3_nodes = extract_grid_nodes(&grid);
 
-    let simplifier_tape = apply_simplifier_gadgets(&mut grid, 2);
+    let simplifier_tape = ksg::apply_simplifier_gadgets(&mut grid, 2);
     let stage4_nodes = extract_grid_nodes(&grid);
 
     let copyline_overhead: i32 = copylines
         .iter()
         .map(|line| mis_overhead_copyline(line, spacing, padding) as i32)
         .sum();
-    let crossing_overhead: i32 = crossing_tape.iter().map(tape_entry_mis_overhead).sum();
-    let simplifier_overhead: i32 = simplifier_tape.iter().map(tape_entry_mis_overhead).sum();
+    let crossing_overhead: i32 = crossing_tape.iter().map(ksg::tape_entry_mis_overhead).sum();
+    let simplifier_overhead: i32 = simplifier_tape.iter().map(ksg::tape_entry_mis_overhead).sum();
 
     let copy_lines_export = export_copylines_square(&copylines, padding, spacing);
     let crossing_tape_export = export_square_tape(&crossing_tape, 0);
@@ -416,8 +412,8 @@ fn export_weighted(
     edges: &[(usize, usize)],
     vertex_order: &[usize],
 ) -> MappingExport {
-    let spacing = SQUARE_SPACING;
-    let padding = SQUARE_PADDING;
+    let spacing = ksg::SPACING;
+    let padding = ksg::PADDING;
 
     let copylines = create_copylines(n, edges, vertex_order);
 
@@ -460,10 +456,10 @@ fn export_weighted(
     }
     let stage2_nodes = extract_grid_nodes(&grid);
 
-    let crossing_tape = apply_weighted_crossing_gadgets(&mut grid, &copylines);
+    let crossing_tape = ksg::apply_weighted_crossing_gadgets(&mut grid, &copylines);
     let stage3_nodes = extract_grid_nodes(&grid);
 
-    let simplifier_tape = apply_weighted_simplifier_gadgets(&mut grid, 2);
+    let simplifier_tape = ksg::apply_weighted_simplifier_gadgets(&mut grid, 2);
     let stage4_nodes = extract_grid_nodes(&grid);
 
     // Weighted mode: overhead = unweighted_overhead * 2
@@ -473,11 +469,11 @@ fn export_weighted(
         .sum();
     let crossing_overhead: i32 = crossing_tape
         .iter()
-        .map(weighted_tape_entry_mis_overhead)
+        .map(ksg::weighted_tape_entry_mis_overhead)
         .sum();
     let simplifier_overhead: i32 = simplifier_tape
         .iter()
-        .map(weighted_tape_entry_mis_overhead)
+        .map(ksg::weighted_tape_entry_mis_overhead)
         .sum();
 
     let copy_lines_export = export_copylines_square(&copylines, padding, spacing);
@@ -592,7 +588,7 @@ fn export_copylines_square(
 }
 
 // IMPORTANT: Tape positions are 0-indexed. DO NOT add +1 to row/col!
-fn export_triangular_tape(tape: &[TriangularTapeEntry], offset: usize) -> Vec<TapeEntryExport> {
+fn export_triangular_tape(tape: &[triangular::WeightedTriTapeEntry], offset: usize) -> Vec<TapeEntryExport> {
     tape.iter()
         .enumerate()
         .map(|(i, e)| TapeEntryExport {
@@ -601,13 +597,13 @@ fn export_triangular_tape(tape: &[TriangularTapeEntry], offset: usize) -> Vec<Ta
             gadget_idx: e.gadget_idx,
             row: e.row, // 0-indexed - DO NOT change!
             col: e.col, // 0-indexed - DO NOT change!
-            overhead: triangular_tape_entry_mis_overhead(e),
+            overhead: triangular::tape_entry_mis_overhead(e),
         })
         .collect()
 }
 
 // IMPORTANT: Tape positions are 0-indexed. DO NOT add +1 to row/col!
-fn export_square_tape(tape: &[TapeEntry], offset: usize) -> Vec<TapeEntryExport> {
+fn export_square_tape(tape: &[ksg::KsgTapeEntry], offset: usize) -> Vec<TapeEntryExport> {
     tape.iter()
         .enumerate()
         .map(|(i, e)| TapeEntryExport {
@@ -616,14 +612,14 @@ fn export_square_tape(tape: &[TapeEntry], offset: usize) -> Vec<TapeEntryExport>
             gadget_idx: e.pattern_idx,
             row: e.row, // 0-indexed - DO NOT change!
             col: e.col, // 0-indexed - DO NOT change!
-            overhead: tape_entry_mis_overhead(e),
+            overhead: ksg::tape_entry_mis_overhead(e),
         })
         .collect()
 }
 
 // IMPORTANT: Tape positions are 0-indexed. DO NOT add +1 to row/col!
 fn export_weighted_square_tape(
-    tape: &[WeightedKsgTapeEntry],
+    tape: &[ksg::WeightedKsgTapeEntry],
     offset: usize,
 ) -> Vec<TapeEntryExport> {
     tape.iter()
@@ -634,7 +630,7 @@ fn export_weighted_square_tape(
             gadget_idx: e.pattern_idx,
             row: e.row, // 0-indexed - DO NOT change!
             col: e.col, // 0-indexed - DO NOT change!
-            overhead: weighted_tape_entry_mis_overhead(e),
+            overhead: ksg::weighted_tape_entry_mis_overhead(e),
         })
         .collect()
 }

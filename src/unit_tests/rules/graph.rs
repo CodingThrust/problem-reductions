@@ -5,6 +5,36 @@ use crate::rules::cost::MinimizeSteps;
 use crate::topology::SimpleGraph;
 
 #[test]
+fn test_resolved_path_basic_structure() {
+    use crate::rules::graph::{EdgeKind, ReductionStep, ResolvedPath};
+    use std::collections::BTreeMap;
+
+    let steps = vec![
+        ReductionStep {
+            name: "A".to_string(),
+            variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+        },
+        ReductionStep {
+            name: "B".to_string(),
+            variant: BTreeMap::from([("weight".to_string(), "f64".to_string())]),
+        },
+    ];
+    let edges = vec![EdgeKind::Reduction {
+        overhead: Default::default(),
+    }];
+    let path = ResolvedPath {
+        steps: steps.clone(),
+        edges,
+    };
+
+    assert_eq!(path.len(), 1);
+    assert_eq!(path.num_reductions(), 1);
+    assert_eq!(path.num_casts(), 0);
+    assert_eq!(path.steps[0].name, "A");
+    assert_eq!(path.steps[1].name, "B");
+}
+
+#[test]
 fn test_find_direct_path() {
     let graph = ReductionGraph::new();
     let paths = graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>();
@@ -227,6 +257,7 @@ fn test_sat_based_reductions() {
     use crate::models::graph::KColoring;
     use crate::models::graph::MinimumDominatingSet;
     use crate::models::satisfiability::Satisfiability;
+    use crate::variant::K3;
 
     let graph = ReductionGraph::new();
 
@@ -234,7 +265,7 @@ fn test_sat_based_reductions() {
     assert!(graph.has_direct_reduction::<Satisfiability, MaximumIndependentSet<SimpleGraph, i32>>());
 
     // SAT -> KColoring
-    assert!(graph.has_direct_reduction::<Satisfiability, KColoring<3, SimpleGraph>>());
+    assert!(graph.has_direct_reduction::<Satisfiability, KColoring<K3, SimpleGraph>>());
 
     // SAT -> MinimumDominatingSet
     assert!(graph.has_direct_reduction::<Satisfiability, MinimumDominatingSet<SimpleGraph, i32>>());
@@ -281,12 +312,13 @@ fn test_optimization_reductions() {
 #[test]
 fn test_ksat_reductions() {
     use crate::models::satisfiability::{KSatisfiability, Satisfiability};
+    use crate::variant::K3;
 
     let graph = ReductionGraph::new();
 
     // SAT <-> 3-SAT (bidirectional)
-    assert!(graph.has_direct_reduction::<Satisfiability, KSatisfiability<3>>());
-    assert!(graph.has_direct_reduction::<KSatisfiability<3>, Satisfiability>());
+    assert!(graph.has_direct_reduction::<Satisfiability, KSatisfiability<K3>>());
+    assert!(graph.has_direct_reduction::<KSatisfiability<K3>, Satisfiability>());
 }
 
 #[test]
@@ -431,7 +463,7 @@ fn test_graph_hierarchy_built() {
     let graph = ReductionGraph::new();
     let hierarchy = graph.graph_hierarchy();
 
-    // Should have relationships from GraphSubtypeEntry registrations
+    // Should have relationships from VariantTypeEntry registrations
     // UnitDiskGraph -> PlanarGraph -> SimpleGraph
     // BipartiteGraph -> SimpleGraph
     assert!(
@@ -467,7 +499,7 @@ fn test_is_graph_subtype_direct() {
     // Direct subtype relationships
     assert!(graph.is_graph_subtype("PlanarGraph", "SimpleGraph"));
     assert!(graph.is_graph_subtype("BipartiteGraph", "SimpleGraph"));
-    assert!(graph.is_graph_subtype("GridGraph", "UnitDiskGraph"));
+    assert!(graph.is_graph_subtype("KingsSubgraph", "UnitDiskGraph"));
     assert!(graph.is_graph_subtype("UnitDiskGraph", "SimpleGraph"));
     assert!(graph.is_graph_subtype("SimpleGraph", "HyperGraph"));
 }
@@ -476,9 +508,9 @@ fn test_is_graph_subtype_direct() {
 fn test_is_graph_subtype_transitive() {
     let graph = ReductionGraph::new();
 
-    // Transitive closure: GridGraph -> UnitDiskGraph -> SimpleGraph -> HyperGraph
-    assert!(graph.is_graph_subtype("GridGraph", "SimpleGraph"));
-    assert!(graph.is_graph_subtype("GridGraph", "HyperGraph"));
+    // Transitive closure: KingsSubgraph -> UnitDiskGraph -> SimpleGraph -> HyperGraph
+    assert!(graph.is_graph_subtype("KingsSubgraph", "SimpleGraph"));
+    assert!(graph.is_graph_subtype("KingsSubgraph", "HyperGraph"));
     assert!(graph.is_graph_subtype("UnitDiskGraph", "HyperGraph"));
 }
 
@@ -779,12 +811,12 @@ fn test_reduction_variant_nodes_in_json() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // GridGraph variants should appear as nodes
-    let mis_gridgraph = json.nodes.iter().any(|n| {
+    // KingsSubgraph variants should appear as nodes
+    let mis_kingssubgraph = json.nodes.iter().any(|n| {
         n.name == "MaximumIndependentSet"
-            && n.variant.get("graph") == Some(&"GridGraph".to_string())
+            && n.variant.get("graph") == Some(&"KingsSubgraph".to_string())
     });
-    assert!(mis_gridgraph, "MIS/GridGraph node should exist");
+    assert!(mis_kingssubgraph, "MIS/KingsSubgraph node should exist");
 
     let mis_unitdisk = json.nodes.iter().any(|n| {
         n.name == "MaximumIndependentSet"
@@ -792,7 +824,7 @@ fn test_reduction_variant_nodes_in_json() {
     });
     assert!(mis_unitdisk, "MIS/UnitDiskGraph node should exist");
 
-    // MaxCut/GridGraph was removed (orphan with no reduction path)
+    // MaxCut/Grid was removed (orphan with no reduction path)
 }
 
 #[test]
@@ -800,16 +832,16 @@ fn test_natural_edge_graph_relaxation() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // MIS/GridGraph -> MIS/SimpleGraph should exist (graph type relaxation)
+    // MIS/KingsSubgraph -> MIS/SimpleGraph should exist (graph type relaxation)
     let has_edge = json.edges.iter().any(|e| {
         json.source_node(e).name == "MaximumIndependentSet"
             && json.target_node(e).name == "MaximumIndependentSet"
-            && json.source_node(e).variant.get("graph") == Some(&"GridGraph".to_string())
+            && json.source_node(e).variant.get("graph") == Some(&"KingsSubgraph".to_string())
             && json.target_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
     });
     assert!(
         has_edge,
-        "Natural edge MIS/GridGraph -> MIS/SimpleGraph should exist"
+        "Natural edge MIS/KingsSubgraph -> MIS/SimpleGraph should exist"
     );
 }
 
@@ -818,16 +850,16 @@ fn test_natural_edge_triangular_to_simplegraph() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // MIS/Triangular -> MIS/SimpleGraph should exist (Triangular is a subtype of SimpleGraph)
+    // MIS/TriangularSubgraph -> MIS/SimpleGraph should exist (TriangularSubgraph is a subtype of SimpleGraph)
     let has_edge = json.edges.iter().any(|e| {
         json.source_node(e).name == "MaximumIndependentSet"
             && json.target_node(e).name == "MaximumIndependentSet"
-            && json.source_node(e).variant.get("graph") == Some(&"Triangular".to_string())
+            && json.source_node(e).variant.get("graph") == Some(&"TriangularSubgraph".to_string())
             && json.target_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
     });
     assert!(
         has_edge,
-        "Natural edge MIS/Triangular -> MIS/SimpleGraph should exist"
+        "Natural edge MIS/TriangularSubgraph -> MIS/SimpleGraph should exist"
     );
 }
 
@@ -836,16 +868,16 @@ fn test_natural_edge_gridgraph_to_unitdisk() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // MIS/GridGraph -> MIS/UnitDiskGraph should exist
+    // MIS/KingsSubgraph -> MIS/UnitDiskGraph should exist
     let has_edge = json.edges.iter().any(|e| {
         json.source_node(e).name == "MaximumIndependentSet"
             && json.target_node(e).name == "MaximumIndependentSet"
-            && json.source_node(e).variant.get("graph") == Some(&"GridGraph".to_string())
+            && json.source_node(e).variant.get("graph") == Some(&"KingsSubgraph".to_string())
             && json.target_node(e).variant.get("graph") == Some(&"UnitDiskGraph".to_string())
     });
     assert!(
         has_edge,
-        "Natural edge MIS/GridGraph -> MIS/UnitDiskGraph should exist"
+        "Natural edge MIS/KingsSubgraph -> MIS/UnitDiskGraph should exist"
     );
 }
 
@@ -854,18 +886,18 @@ fn test_no_natural_edge_wrong_direction() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
 
-    // No NATURAL edge from SimpleGraph -> GridGraph (wrong direction for graph relaxation).
-    // A real reduction edge from SimpleGraph -> GridGraph may exist (unit disk mapping).
+    // No NATURAL edge from SimpleGraph -> KingsSubgraph (wrong direction for graph relaxation).
+    // A real reduction edge from SimpleGraph -> KingsSubgraph may exist (unit disk mapping).
     let has_natural_edge = json.edges.iter().any(|e| {
         json.source_node(e).name == "MaximumIndependentSet"
             && json.target_node(e).name == "MaximumIndependentSet"
             && json.source_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
-            && json.target_node(e).variant.get("graph") == Some(&"GridGraph".to_string())
+            && json.target_node(e).variant.get("graph") == Some(&"KingsSubgraph".to_string())
             && e.doc_path.is_empty() // natural edges have empty doc_path
     });
     assert!(
         !has_natural_edge,
-        "Should NOT have natural edge MIS/SimpleGraph -> MIS/GridGraph"
+        "Should NOT have natural edge MIS/SimpleGraph -> MIS/KingsSubgraph"
     );
 }
 
@@ -896,7 +928,7 @@ fn test_natural_edge_has_identity_overhead() {
     let natural_edge = json.edges.iter().find(|e| {
         json.source_node(e).name == "MaximumIndependentSet"
             && json.target_node(e).name == "MaximumIndependentSet"
-            && json.source_node(e).variant.get("graph") == Some(&"GridGraph".to_string())
+            && json.source_node(e).variant.get("graph") == Some(&"KingsSubgraph".to_string())
             && json.target_node(e).variant.get("graph") == Some(&"SimpleGraph".to_string())
             && json.source_node(e).variant.get("weight") == Some(&"i32".to_string())
             && json.target_node(e).variant.get("weight") == Some(&"i32".to_string())
@@ -915,4 +947,213 @@ fn test_natural_edge_has_identity_overhead() {
             o.field, o.formula
         );
     }
+}
+
+#[test]
+fn test_find_matching_entry_ksat_k3() {
+    let graph = ReductionGraph::new();
+    let variant_k3: std::collections::BTreeMap<String, String> =
+        [("k".to_string(), "K3".to_string())].into();
+
+    let entry = graph.find_best_entry("KSatisfiability", "QUBO", &variant_k3);
+    assert!(entry.is_some());
+    let entry = entry.unwrap();
+    let source_var = &entry.source_variant;
+    let overhead = &entry.overhead;
+    // K=3 overhead has num_clauses term; K=2 does not
+    assert!(overhead
+        .output_size
+        .iter()
+        .any(|(field, _)| *field == "num_vars"));
+    // K=3 overhead: poly!(num_vars) + poly!(num_clauses) → two terms total
+    let num_vars_poly = &overhead
+        .output_size
+        .iter()
+        .find(|(f, _)| *f == "num_vars")
+        .unwrap()
+        .1;
+    assert!(
+        num_vars_poly.terms.len() >= 2,
+        "K=3 overhead should have num_vars + num_clauses"
+    );
+    // Verify the source variant matches k=K3
+    assert_eq!(source_var.get("k"), Some(&"K3".to_string()));
+}
+
+#[test]
+fn test_find_matching_entry_ksat_k2() {
+    let graph = ReductionGraph::new();
+    let variant_k2: std::collections::BTreeMap<String, String> =
+        [("k".to_string(), "K2".to_string())].into();
+
+    let entry = graph.find_best_entry("KSatisfiability", "QUBO", &variant_k2);
+    assert!(entry.is_some());
+    let entry = entry.unwrap();
+    let overhead = &entry.overhead;
+    // K=2 overhead: just poly!(num_vars) → one term
+    let num_vars_poly = &overhead
+        .output_size
+        .iter()
+        .find(|(f, _)| *f == "num_vars")
+        .unwrap()
+        .1;
+    assert_eq!(
+        num_vars_poly.terms.len(),
+        1,
+        "K=2 overhead should have only num_vars"
+    );
+}
+
+#[test]
+fn test_find_matching_entry_no_match() {
+    let graph = ReductionGraph::new();
+    let variant: std::collections::BTreeMap<String, String> =
+        [("k".to_string(), "K99".to_string())].into();
+
+    // k=K99 is not a subtype of K2 or K3
+    let entry = graph.find_best_entry("KSatisfiability", "QUBO", &variant);
+    assert!(entry.is_none());
+}
+
+#[test]
+fn test_resolve_path_direct_same_variant() {
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    // MIS(SimpleGraph, i32) → VC(SimpleGraph, i32) — no cast needed
+    let name_path = graph
+        .find_shortest_path::<
+            MaximumIndependentSet<SimpleGraph, i32>,
+            MinimumVertexCover<SimpleGraph, i32>,
+        >()
+        .unwrap();
+
+    let source_variant = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    let target_variant = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+
+    let resolved = graph
+        .resolve_path(&name_path, &source_variant, &target_variant)
+        .unwrap();
+
+    assert_eq!(resolved.num_reductions(), 1);
+    assert_eq!(resolved.num_casts(), 0);
+    assert_eq!(resolved.steps.len(), 2);
+    assert_eq!(resolved.steps[0].name, "MaximumIndependentSet");
+    assert_eq!(resolved.steps[1].name, "MinimumVertexCover");
+}
+
+#[test]
+fn test_resolve_path_with_natural_cast() {
+    use crate::topology::KingsSubgraph;
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    // MIS(KingsSubgraph) → VC(SimpleGraph) — needs a natural cast MIS(KingsSubgraph)→MIS(SimpleGraph)
+    let name_path = graph
+        .find_shortest_path::<
+            MaximumIndependentSet<KingsSubgraph, i32>,
+            MinimumVertexCover<SimpleGraph, i32>,
+        >()
+        .unwrap();
+
+    let source_variant = BTreeMap::from([
+        ("graph".to_string(), "KingsSubgraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    let target_variant = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+
+    let resolved = graph
+        .resolve_path(&name_path, &source_variant, &target_variant)
+        .unwrap();
+
+    // Should be: MIS(KingsSubgraph) --NaturalCast--> MIS(SimpleGraph) --Reduction--> VC(SimpleGraph)
+    assert_eq!(resolved.num_reductions(), 1);
+    assert_eq!(resolved.num_casts(), 1);
+    assert_eq!(resolved.steps.len(), 3);
+    assert_eq!(resolved.steps[0].name, "MaximumIndependentSet");
+    assert_eq!(
+        resolved.steps[0].variant.get("graph").unwrap(),
+        "KingsSubgraph"
+    );
+    assert_eq!(resolved.steps[1].name, "MaximumIndependentSet");
+    assert_eq!(
+        resolved.steps[1].variant.get("graph").unwrap(),
+        "SimpleGraph"
+    );
+    assert_eq!(resolved.steps[2].name, "MinimumVertexCover");
+    assert!(matches!(resolved.edges[0], EdgeKind::NaturalCast));
+    assert!(matches!(resolved.edges[1], EdgeKind::Reduction { .. }));
+}
+
+#[test]
+fn test_resolve_path_ksat_disambiguates() {
+    use crate::rules::graph::EdgeKind;
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    let name_path = graph
+        .find_shortest_path_by_name("KSatisfiability", "QUBO")
+        .unwrap();
+
+    // Resolve with k=K3
+    let source_k3 = BTreeMap::from([("k".to_string(), "K3".to_string())]);
+    let target = BTreeMap::from([("weight".to_string(), "f64".to_string())]);
+
+    let resolved_k3 = graph.resolve_path(&name_path, &source_k3, &target).unwrap();
+    assert_eq!(resolved_k3.num_reductions(), 1);
+
+    // Extract overhead from the reduction edge
+    let overhead_k3 = match &resolved_k3.edges.last().unwrap() {
+        EdgeKind::Reduction { overhead } => overhead,
+        _ => panic!("last edge should be Reduction"),
+    };
+    // K=3 overhead has 2 terms in num_vars polynomial
+    let num_vars_poly_k3 = &overhead_k3
+        .output_size
+        .iter()
+        .find(|(f, _)| *f == "num_vars")
+        .unwrap()
+        .1;
+    assert!(num_vars_poly_k3.terms.len() >= 2);
+
+    // Resolve with k=K2
+    let source_k2 = BTreeMap::from([("k".to_string(), "K2".to_string())]);
+    let resolved_k2 = graph.resolve_path(&name_path, &source_k2, &target).unwrap();
+    let overhead_k2 = match &resolved_k2.edges.last().unwrap() {
+        EdgeKind::Reduction { overhead } => overhead,
+        _ => panic!("last edge should be Reduction"),
+    };
+    let num_vars_poly_k2 = &overhead_k2
+        .output_size
+        .iter()
+        .find(|(f, _)| *f == "num_vars")
+        .unwrap()
+        .1;
+    assert_eq!(num_vars_poly_k2.terms.len(), 1);
+}
+
+#[test]
+fn test_resolve_path_incompatible_returns_none() {
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    let name_path = graph
+        .find_shortest_path_by_name("KSatisfiability", "QUBO")
+        .unwrap();
+
+    // k=K99 matches neither K2 nor K3
+    let source = BTreeMap::from([("k".to_string(), "K99".to_string())]);
+    let target = BTreeMap::from([("weight".to_string(), "f64".to_string())]);
+
+    let resolved = graph.resolve_path(&name_path, &source, &target);
+    assert!(resolved.is_none());
 }

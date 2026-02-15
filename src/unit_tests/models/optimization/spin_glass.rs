@@ -123,7 +123,12 @@ fn test_jl_parity_evaluation() {
             let result = problem.evaluate(&config);
             let jl_size = eval["size"].as_i64().unwrap() as i32;
             assert!(result.is_valid(), "SpinGlass should always be valid");
-            assert_eq!(result.unwrap(), jl_size, "SpinGlass energy mismatch for config {:?}", config);
+            assert_eq!(
+                result.unwrap(),
+                jl_size,
+                "SpinGlass energy mismatch for config {:?}",
+                config
+            );
         }
         let best = BruteForce::new().find_all_best(&problem);
         let jl_best = jl_flip_configs_set(&jl_parse_configs_set(&instance["best_solutions"]));

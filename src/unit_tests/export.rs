@@ -96,26 +96,22 @@ fn test_variant_to_map_multiple() {
 #[test]
 fn test_lookup_overhead_known_reduction() {
     // IS -> VC is a known registered reduction
-    let result = lookup_overhead("MaximumIndependentSet", "MinimumVertexCover");
+    let source_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
+    let target_variant = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
+    let result = lookup_overhead(
+        "MaximumIndependentSet",
+        &source_variant,
+        "MinimumVertexCover",
+        &target_variant,
+    );
     assert!(result.is_some());
 }
 
 #[test]
 fn test_lookup_overhead_unknown_reduction() {
-    let result = lookup_overhead("NonExistent", "AlsoNonExistent");
+    let empty = variant_to_map(vec![]);
+    let result = lookup_overhead("NonExistent", &empty, "AlsoNonExistent", &empty);
     assert!(result.is_none());
-}
-
-#[test]
-fn test_lookup_overhead_or_empty_known() {
-    let overhead = lookup_overhead_or_empty("MaximumIndependentSet", "MinimumVertexCover");
-    assert!(!overhead.output_size.is_empty());
-}
-
-#[test]
-fn test_lookup_overhead_or_empty_unknown() {
-    let overhead = lookup_overhead_or_empty("NonExistent", "AlsoNonExistent");
-    assert!(overhead.output_size.is_empty());
 }
 
 #[test]

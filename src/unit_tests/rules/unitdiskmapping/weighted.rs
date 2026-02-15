@@ -85,10 +85,10 @@ fn test_triangular_weighted_ruleset_has_13_gadgets() {
 
 #[test]
 fn test_trace_centers_basic() {
-    use crate::rules::unitdiskmapping::map_graph_triangular;
+    use crate::rules::unitdiskmapping::triangular::map_weighted;
 
     let edges = vec![(0, 1), (1, 2)];
-    let result = map_graph_triangular(3, &edges);
+    let result = map_weighted(3, &edges);
 
     let centers = super::trace_centers(&result);
     assert_eq!(centers.len(), 3);
@@ -102,17 +102,15 @@ fn test_trace_centers_basic() {
 
 #[test]
 fn test_map_weights_basic() {
-    use crate::rules::unitdiskmapping::map_graph_triangular;
-    use crate::topology::Graph;
-
+    use crate::rules::unitdiskmapping::triangular::map_weighted;
     let edges = vec![(0, 1), (1, 2)];
-    let result = map_graph_triangular(3, &edges);
+    let result = map_weighted(3, &edges);
 
     let source_weights = vec![0.5, 0.3, 0.7];
     let grid_weights = super::map_weights(&result, &source_weights);
 
     // Should have same length as grid nodes
-    assert_eq!(grid_weights.len(), result.grid_graph.num_vertices());
+    assert_eq!(grid_weights.len(), result.positions.len());
 
     // All weights should be positive
     assert!(grid_weights.iter().all(|&w| w > 0.0));
@@ -121,10 +119,10 @@ fn test_map_weights_basic() {
 #[test]
 #[should_panic(expected = "all weights must be in range")]
 fn test_map_weights_rejects_invalid() {
-    use crate::rules::unitdiskmapping::map_graph_triangular;
+    use crate::rules::unitdiskmapping::triangular::map_weighted;
 
     let edges = vec![(0, 1)];
-    let result = map_graph_triangular(2, &edges);
+    let result = map_weighted(2, &edges);
 
     let source_weights = vec![1.5, 0.3]; // Invalid: > 1
     super::map_weights(&result, &source_weights);

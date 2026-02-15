@@ -568,7 +568,7 @@ mod qubo_reductions {
 
         assert_eq!(data.source.num_colors, 3);
 
-        let kc = KColoring::<3, SimpleGraph>::new(data.source.num_vertices, data.source.edges);
+        let kc = KColoring::<K3, SimpleGraph>::new(data.source.num_vertices, data.source.edges);
         let reduction = ReduceTo::<QUBO>::reduce_to(&kc);
         let qubo = reduction.target_problem();
 
@@ -670,7 +670,7 @@ mod qubo_reductions {
             })
             .collect();
 
-        let ksat = KSatisfiability::<2>::new(data.source.num_variables, clauses);
+        let ksat = KSatisfiability::<K2>::new(data.source.num_variables, clauses);
         let reduction = ReduceTo::<QUBO>::reduce_to(&ksat);
         let qubo = reduction.target_problem();
 

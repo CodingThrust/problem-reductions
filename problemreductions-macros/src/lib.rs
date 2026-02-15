@@ -12,8 +12,7 @@ use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Typ
 /// Attribute macro for automatic reduction registration.
 ///
 /// Parses a `ReduceTo` impl block and generates the corresponding `inventory::submit!`
-/// call. Variant fields are derived from `Problem::variant()`. Const generics like `K`
-/// are substituted with `usize::MAX` (maps to `"N"` via `const_usize_str`).
+/// call. Variant fields are derived from `Problem::variant()`.
 ///
 /// **Type generics are not supported** — all `ReduceTo` impls must use concrete types.
 /// If you need a reduction for a generic problem, write separate impls for each concrete
@@ -80,22 +79,6 @@ fn extract_type_name(ty: &Type) -> Option<String> {
     }
 }
 
-/// Collect const generic parameter names from impl generics.
-/// e.g., `impl<const K: usize>` → {"K"}
-fn collect_const_generic_names(generics: &syn::Generics) -> HashSet<String> {
-    generics
-        .params
-        .iter()
-        .filter_map(|p| {
-            if let syn::GenericParam::Const(c) = p {
-                Some(c.ident.to_string())
-            } else {
-                None
-            }
-        })
-        .collect()
-}
-
 /// Collect type generic parameter names from impl generics.
 /// e.g., `impl<G: Graph, W: NumericSize>` → {"G", "W"}
 fn collect_type_generic_names(generics: &syn::Generics) -> HashSet<String> {
@@ -135,43 +118,11 @@ fn type_uses_type_generics(ty: &Type, type_generics: &HashSet<String>) -> bool {
     }
 }
 
-/// Rewrite a type by substituting const generic names with `{usize::MAX}`.
-///
-/// e.g., `KColoring<K, SimpleGraph>` with const_generics={"K"}
-/// → `KColoring<{usize::MAX}, SimpleGraph>`
-fn rewrite_const_generics(ty: &Type, const_generics: &HashSet<String>) -> Type {
-    match ty {
-        Type::Path(type_path) => {
-            let mut new_path = type_path.clone();
-            if let Some(segment) = new_path.path.segments.last_mut() {
-                if let PathArguments::AngleBracketed(args) = &mut segment.arguments {
-                    for arg in args.args.iter_mut() {
-                        if let GenericArgument::Type(Type::Path(inner)) = arg {
-                            if let Some(ident) = inner.path.get_ident() {
-                                if const_generics.contains(&ident.to_string()) {
-                                    // Replace const generic with sentinel value
-                                    *arg = syn::parse_quote!({ usize::MAX });
-                                }
-                            }
-                        }
-                    }
-                }
-            }
-            Type::Path(new_path)
-        }
-        _ => ty.clone(),
-    }
-}
-
 /// Generate the variant fn body for a type.
 ///
-/// Calls `Problem::variant()` with const generic sentinels.
+/// Calls `Problem::variant()` on the concrete type.
 /// Errors if the type uses any type generics — all `ReduceTo` impls must be concrete.
-fn make_variant_fn_body(
-    ty: &Type,
-    const_generics: &HashSet<String>,
-    type_generics: &HashSet<String>,
-) -> syn::Result<TokenStream2> {
+fn make_variant_fn_body(ty: &Type, type_generics: &HashSet<String>) -> syn::Result<TokenStream2> {
     if type_uses_type_generics(ty, type_generics) {
         let used: Vec<_> = type_generics.iter().cloned().collect();
         return Err(syn::Error::new_spanned(
@@ -183,8 +134,7 @@ fn make_variant_fn_body(
             ),
         ));
     }
-    let rewritten = rewrite_const_generics(ty, const_generics);
-    Ok(quote! { <#rewritten as crate::traits::Problem>::variant() })
+    Ok(quote! { <#ty as crate::traits::Problem>::variant() })
 }
 
 /// Generate the reduction entry code
@@ -212,12 +162,11 @@ fn generate_reduction_entry(
         .ok_or_else(|| syn::Error::new_spanned(&target_type, "Cannot extract target type name"))?;
 
     // Collect generic parameter info from the impl block
-    let const_generics = collect_const_generic_names(&impl_block.generics);
     let type_generics = collect_type_generic_names(&impl_block.generics);
 
     // Generate variant fn bodies
-    let source_variant_body = make_variant_fn_body(source_type, &const_generics, &type_generics)?;
-    let target_variant_body = make_variant_fn_body(&target_type, &const_generics, &type_generics)?;
+    let source_variant_body = make_variant_fn_body(source_type, &type_generics)?;
+    let target_variant_body = make_variant_fn_body(&target_type, &type_generics)?;
 
     // Generate overhead or use default
     let overhead = attrs.overhead.clone().unwrap_or_else(|| {

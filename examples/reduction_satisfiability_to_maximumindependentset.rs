@@ -104,13 +104,20 @@ pub fn run() {
     println!("\nReduction verified successfully");
 
     // 5. Export JSON
-    let overhead = lookup_overhead("Satisfiability", "MaximumIndependentSet")
-        .expect("Satisfiability -> MaximumIndependentSet overhead not found");
+    let source_variant = variant_to_map(Satisfiability::variant());
+    let target_variant = variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let overhead = lookup_overhead(
+        "Satisfiability",
+        &source_variant,
+        "MaximumIndependentSet",
+        &target_variant,
+    )
+    .expect("Satisfiability -> MaximumIndependentSet overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: Satisfiability::NAME.to_string(),
-            variant: variant_to_map(Satisfiability::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vars": sat.num_vars(),
                 "num_clauses": sat.num_clauses(),
@@ -118,7 +125,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: MaximumIndependentSet::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vertices": is.num_vertices(),
                 "num_edges": is.num_edges(),

@@ -27,11 +27,8 @@
 //! - `docs/paper/static/petersen_square_weighted.json` - Weighted King's subgraph
 //! - `docs/paper/static/petersen_square_unweighted.json` - Unweighted King's subgraph
 //! - `docs/paper/static/petersen_triangular.json` - Weighted triangular lattice
-//!
-//! See docs/paper/reductions.typ for the full reduction specification.
 
-use problemreductions::rules::unitdiskmapping::{ksg, triangular};
-use problemreductions::topology::{Graph, GridGraph};
+use problemreductions::rules::unitdiskmapping::{ksg, triangular, MappingResult};
 use serde::Serialize;
 use std::fs;
 use std::path::Path;
@@ -45,35 +42,52 @@ struct SourceGraph {
     mis: usize,
 }
 
-/// Grid mapping output for visualization.
+/// Grid mapping visualization data (flat format for Typst rendering).
 #[derive(Serialize)]
-struct GridMapping {
-    grid_graph: GridGraph<i32>,
+struct GridVisualization {
+    nodes: Vec<NodeData>,
+    edges: Vec<(usize, usize)>,
     mis_overhead: i32,
     padding: usize,
     spacing: usize,
     weighted: bool,
 }
 
-/// Write JSON to file with pretty formatting.
+#[derive(Serialize)]
+struct NodeData {
+    row: i32,
+    col: i32,
+    weight: i32,
+}
+
+impl GridVisualization {
+    fn from_result<T>(result: &MappingResult<T>, weighted: bool) -> Self {
+        let nodes: Vec<NodeData> = result
+            .positions
+            .iter()
+            .zip(result.node_weights.iter())
+            .map(|(&(row, col), &weight)| NodeData { row, col, weight })
+            .collect();
+        let edges = result.edges();
+        GridVisualization {
+            nodes,
+            edges,
+            mis_overhead: result.mis_overhead,
+            padding: result.padding,
+            spacing: result.spacing,
+            weighted,
+        }
+    }
+}
+
+/// Write JSON to file in compact format.
 fn write_json<T: Serialize>(data: &T, path: &Path) {
-    let json = serde_json::to_string_pretty(data).expect("Failed to serialize to JSON");
+    let json = serde_json::to_string(data).expect("Failed to serialize to JSON");
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).expect("Failed to create output directory");
     }
     fs::write(path, json).expect("Failed to write JSON file");
     println!("  Wrote: {}", path.display());
-}
-
-/// Create a GridMapping from a MappingResult by using the actual grid_graph.
-fn make_grid_mapping<T>(result: &ksg::MappingResult<T>, weighted: bool) -> GridMapping {
-    GridMapping {
-        grid_graph: result.grid_graph.clone(),
-        mis_overhead: result.mis_overhead,
-        padding: result.padding,
-        spacing: result.spacing,
-        weighted,
-    }
 }
 
 fn main() {
@@ -126,78 +140,69 @@ fn main() {
     // Map to weighted King's subgraph (square lattice)
     println!("1. King's Subgraph (Weighted)");
     let square_weighted_result = ksg::map_weighted(num_vertices, &petersen_edges);
-    let square_weighted = make_grid_mapping(&square_weighted_result, true);
-    println!(
-        "   Grid size: {}×{}",
-        square_weighted.grid_graph.size().0,
-        square_weighted.grid_graph.size().1
-    );
+    let square_weighted_viz = GridVisualization::from_result(&square_weighted_result, true);
     println!(
         "   Vertices: {}, Edges: {}",
-        square_weighted.grid_graph.num_vertices(),
-        square_weighted.grid_graph.num_edges()
+        square_weighted_viz.nodes.len(),
+        square_weighted_viz.edges.len()
     );
-    println!("   MIS overhead Δ: {}", square_weighted.mis_overhead);
+    println!(
+        "   MIS overhead Δ: {}",
+        square_weighted_result.mis_overhead
+    );
     println!(
         "   MIS(grid) = MIS(source) + Δ = {} + {} = {}",
         petersen_mis,
-        square_weighted.mis_overhead,
-        petersen_mis as i32 + square_weighted.mis_overhead
+        square_weighted_result.mis_overhead,
+        petersen_mis as i32 + square_weighted_result.mis_overhead
     );
     write_json(
-        &square_weighted,
+        &square_weighted_viz,
         Path::new("docs/paper/static/petersen_square_weighted.json"),
     );
 
     // Map to unweighted King's subgraph (square lattice)
     println!("\n2. King's Subgraph (Unweighted)");
     let square_unweighted_result = ksg::map_unweighted(num_vertices, &petersen_edges);
-    let square_unweighted = make_grid_mapping(&square_unweighted_result, false);
-    println!(
-        "   Grid size: {}×{}",
-        square_unweighted.grid_graph.size().0,
-        square_unweighted.grid_graph.size().1
-    );
+    let square_unweighted_viz = GridVisualization::from_result(&square_unweighted_result, false);
     println!(
         "   Vertices: {}, Edges: {}",
-        square_unweighted.grid_graph.num_vertices(),
-        square_unweighted.grid_graph.num_edges()
+        square_unweighted_viz.nodes.len(),
+        square_unweighted_viz.edges.len()
     );
-    println!("   MIS overhead Δ: {}", square_unweighted.mis_overhead);
+    println!(
+        "   MIS overhead Δ: {}",
+        square_unweighted_result.mis_overhead
+    );
     println!(
         "   MIS(grid) = MIS(source) + Δ = {} + {} = {}",
         petersen_mis,
-        square_unweighted.mis_overhead,
-        petersen_mis as i32 + square_unweighted.mis_overhead
+        square_unweighted_result.mis_overhead,
+        petersen_mis as i32 + square_unweighted_result.mis_overhead
     );
     write_json(
-        &square_unweighted,
+        &square_unweighted_viz,
         Path::new("docs/paper/static/petersen_square_unweighted.json"),
     );
 
     // Map to weighted triangular lattice
     println!("\n3. Triangular Lattice (Weighted)");
     let triangular_result = triangular::map_weighted(num_vertices, &petersen_edges);
-    let triangular_weighted = make_grid_mapping(&triangular_result, true);
-    println!(
-        "   Grid size: {}×{}",
-        triangular_weighted.grid_graph.size().0,
-        triangular_weighted.grid_graph.size().1
-    );
+    let triangular_viz = GridVisualization::from_result(&triangular_result, true);
     println!(
         "   Vertices: {}, Edges: {}",
-        triangular_weighted.grid_graph.num_vertices(),
-        triangular_weighted.grid_graph.num_edges()
+        triangular_viz.nodes.len(),
+        triangular_viz.edges.len()
     );
-    println!("   MIS overhead Δ: {}", triangular_weighted.mis_overhead);
+    println!("   MIS overhead Δ: {}", triangular_result.mis_overhead);
     println!(
         "   MIS(grid) = MIS(source) + Δ = {} + {} = {}",
         petersen_mis,
-        triangular_weighted.mis_overhead,
-        petersen_mis as i32 + triangular_weighted.mis_overhead
+        triangular_result.mis_overhead,
+        petersen_mis as i32 + triangular_result.mis_overhead
     );
     write_json(
-        &triangular_weighted,
+        &triangular_viz,
         Path::new("docs/paper/static/petersen_triangular.json"),
     );
 
@@ -206,21 +211,21 @@ fn main() {
     println!();
     println!(
         "King's subgraph (weighted):   {} vertices, MIS = {} (overhead Δ = {})",
-        square_weighted.grid_graph.num_vertices(),
-        petersen_mis as i32 + square_weighted.mis_overhead,
-        square_weighted.mis_overhead
+        square_weighted_viz.nodes.len(),
+        petersen_mis as i32 + square_weighted_result.mis_overhead,
+        square_weighted_result.mis_overhead
     );
     println!(
         "King's subgraph (unweighted): {} vertices, MIS = {} (overhead Δ = {})",
-        square_unweighted.grid_graph.num_vertices(),
-        petersen_mis as i32 + square_unweighted.mis_overhead,
-        square_unweighted.mis_overhead
+        square_unweighted_viz.nodes.len(),
+        petersen_mis as i32 + square_unweighted_result.mis_overhead,
+        square_unweighted_result.mis_overhead
     );
     println!(
         "Triangular lattice (weighted): {} vertices, MIS = {} (overhead Δ = {})",
-        triangular_weighted.grid_graph.num_vertices(),
-        petersen_mis as i32 + triangular_weighted.mis_overhead,
-        triangular_weighted.mis_overhead
+        triangular_viz.nodes.len(),
+        petersen_mis as i32 + triangular_result.mis_overhead,
+        triangular_result.mis_overhead
     );
 
     println!("\n✓ Unit disk mapping demonstrated successfully");

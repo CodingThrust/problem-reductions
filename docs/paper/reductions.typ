@@ -43,8 +43,8 @@
   "KSatisfiability": [$k$-SAT],
   "CircuitSAT": [CircuitSAT],
   "Factoring": [Factoring],
-  "GridGraph": [GridGraph MIS],
-  "Triangular": [Triangular MIS],
+  "KingsSubgraph": [King's Subgraph MIS],
+  "TriangularSubgraph": [Triangular Subgraph MIS],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -828,7 +828,7 @@ The following reductions to Integer Linear Programming are straightforward formu
 
 == Unit Disk Mapping
 
-#reduction-rule("MaximumIndependentSet", "GridGraph")[
+#reduction-rule("MaximumIndependentSet", "KingsSubgraph")[
   @nguyen2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a unit disk graph (King's subgraph) with at most quadratic overhead in the number of vertices.
 ][
   _Construction (Copy-Line Method)._ Given $G = (V, E)$ with $n = |V|$:
@@ -885,7 +885,7 @@ The following reductions to Integer Linear Programming are straightforward formu
   caption: [Unit disk mappings of the Petersen graph. Blue: weight 1, red: weight 2, green: weight 3.],
 ) <fig:petersen-mapping>
 
-#reduction-rule("MaximumIndependentSet", "Triangular")[
+#reduction-rule("MaximumIndependentSet", "TriangularSubgraph")[
   @nguyen2023 Any MIS problem on a general graph $G$ can be reduced to MIS on a weighted triangular lattice graph with at most quadratic overhead in the number of vertices.
 ][
   _Construction._ Same copy-line method as the KSG mapping, but uses a triangular lattice instead of a square grid. Crossing and simplifier gadgets are adapted for triangular geometry, producing a unit disk graph on a triangular grid where edges connect nodes within unit distance under the triangular metric.

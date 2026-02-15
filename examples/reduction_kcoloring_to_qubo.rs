@@ -38,7 +38,7 @@ pub fn run() {
 
     // House graph: 5 vertices, 6 edges (square base + triangle roof), χ=3
     let (num_vertices, edges) = house();
-    let kc = KColoring::<3, SimpleGraph>::new(num_vertices, edges.clone());
+    let kc = KColoring::<K3, SimpleGraph>::new(num_vertices, edges.clone());
 
     // Reduce to QUBO
     let reduction = ReduceTo::<QUBO>::reduce_to(&kc);
@@ -88,13 +88,15 @@ pub fn run() {
     );
 
     // Export JSON
-    let overhead =
-        lookup_overhead("KColoring", "QUBO").expect("KColoring -> QUBO overhead not found");
+    let source_variant = variant_to_map(KColoring::<K3, SimpleGraph>::variant());
+    let target_variant = variant_to_map(QUBO::<f64>::variant());
+    let overhead = lookup_overhead("KColoring", &source_variant, "QUBO", &target_variant)
+        .expect("KColoring -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
-            problem: KColoring::<3, SimpleGraph>::NAME.to_string(),
-            variant: variant_to_map(KColoring::<3, SimpleGraph>::variant()),
+            problem: KColoring::<K3, SimpleGraph>::NAME.to_string(),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vertices": kc.num_vertices(),
                 "num_edges": kc.num_edges(),
@@ -103,7 +105,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: variant_to_map(QUBO::<f64>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": qubo.matrix(),

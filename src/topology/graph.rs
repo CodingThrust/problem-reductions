@@ -39,7 +39,7 @@ use serde::{Deserialize, Serialize};
 /// }
 /// ```
 pub trait Graph: Clone + Send + Sync + 'static {
-    /// The name of the graph type (e.g., "SimpleGraph", "GridGraph").
+    /// The name of the graph type (e.g., "SimpleGraph", "KingsSubgraph").
     const NAME: &'static str;
 
     /// Returns the number of vertices in the graph.
@@ -277,6 +277,14 @@ impl PartialEq for SimpleGraph {
 }
 
 impl Eq for SimpleGraph {}
+
+use super::hypergraph::HyperGraph;
+use crate::impl_variant_param;
+impl_variant_param!(SimpleGraph, "graph", parent: HyperGraph,
+cast: |g| {
+    let edges: Vec<Vec<usize>> = g.edges().into_iter().map(|(u, v)| vec![u, v]).collect();
+    HyperGraph::new(g.num_vertices(), edges)
+});
 
 #[cfg(test)]
 #[path = "../unit_tests/topology/graph.rs"]

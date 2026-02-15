@@ -6,6 +6,7 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
+use crate::variant::{KValue, VariantParam};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -26,18 +27,19 @@ inventory::submit! {
 ///
 /// # Type Parameters
 ///
-/// * `K` - Number of colors (const generic)
-/// * `G` - Graph type (e.g., SimpleGraph, GridGraph)
+/// * `K` - KValue type representing the number of colors (e.g., K3 for 3-coloring)
+/// * `G` - Graph type (e.g., SimpleGraph, KingsSubgraph)
 ///
 /// # Example
 ///
 /// ```
 /// use problemreductions::models::graph::KColoring;
 /// use problemreductions::topology::SimpleGraph;
+/// use problemreductions::variant::K3;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Triangle graph needs at least 3 colors
-/// let problem = KColoring::<3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+/// let problem = KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_satisfying(&problem);
@@ -48,12 +50,15 @@ inventory::submit! {
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KColoring<const K: usize, G> {
+#[serde(bound(deserialize = "G: serde::Deserialize<'de>"))]
+pub struct KColoring<K: KValue, G> {
     /// The underlying graph.
     graph: G,
+    #[serde(skip)]
+    _phantom: std::marker::PhantomData<K>,
 }
 
-impl<const K: usize> KColoring<K, SimpleGraph> {
+impl<K: KValue> KColoring<K, SimpleGraph> {
     /// Create a new K-Coloring problem.
     ///
     /// # Arguments
@@ -61,14 +66,20 @@ impl<const K: usize> KColoring<K, SimpleGraph> {
     /// * `edges` - List of edges as (u, v) pairs
     pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self {
         let graph = SimpleGraph::new(num_vertices, edges);
-        Self { graph }
+        Self {
+            graph,
+            _phantom: std::marker::PhantomData,
+        }
     }
 }
 
-impl<const K: usize, G: Graph> KColoring<K, G> {
+impl<K: KValue, G: Graph> KColoring<K, G> {
     /// Create a K-Coloring problem from an existing graph.
     pub fn from_graph(graph: G) -> Self {
-        Self { graph }
+        Self {
+            graph,
+            _phantom: std::marker::PhantomData,
+        }
     }
 
     /// Get a reference to the underlying graph.
@@ -88,7 +99,7 @@ impl<const K: usize, G: Graph> KColoring<K, G> {
 
     /// Get the number of colors.
     pub fn num_colors(&self) -> usize {
-        K
+        K::K.expect("KN cannot be used as problem instance")
     }
 
     /// Get the edges as a list of (u, v) pairs.
@@ -109,22 +120,20 @@ impl<const K: usize, G: Graph> KColoring<K, G> {
     }
 }
 
-impl<const K: usize, G> Problem for KColoring<K, G>
+impl<K: KValue, G> Problem for KColoring<K, G>
 where
-    G: Graph,
+    G: Graph + VariantParam,
 {
     const NAME: &'static str = "KColoring";
     type Metric = bool;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![
-            ("k", crate::variant::const_usize_str::<K>()),
-            ("graph", G::NAME),
-        ]
+        crate::variant_params![K, G]
     }
 
     fn dims(&self) -> Vec<usize> {
-        vec![K; self.graph.num_vertices()]
+        let k = K::K.expect("KN cannot be used as problem instance");
+        vec![k; self.graph.num_vertices()]
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
@@ -132,7 +141,7 @@ where
     }
 }
 
-impl<const K: usize, G: Graph> SatisfactionProblem for KColoring<K, G> {}
+impl<K: KValue, G: Graph + VariantParam> SatisfactionProblem for KColoring<K, G> {}
 
 /// Check if a coloring is valid for a graph.
 pub fn is_valid_coloring(

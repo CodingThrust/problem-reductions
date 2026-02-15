@@ -68,13 +68,20 @@ pub fn run() {
     // Export JSON
     let vc_edges = vc.edges();
     let is_edges = is.edges();
-    let overhead = lookup_overhead("MinimumVertexCover", "MaximumIndependentSet")
-        .expect("MinimumVertexCover -> MaximumIndependentSet overhead not found");
+    let source_variant = variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let target_variant = variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let overhead = lookup_overhead(
+        "MinimumVertexCover",
+        &source_variant,
+        "MaximumIndependentSet",
+        &target_variant,
+    )
+    .expect("MinimumVertexCover -> MaximumIndependentSet overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vertices": vc.num_vertices(),
                 "num_edges": vc.num_edges(),
@@ -83,7 +90,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: MaximumIndependentSet::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vertices": is.num_vertices(),
                 "num_edges": is.num_edges(),

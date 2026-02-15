@@ -135,19 +135,22 @@ pub fn run() {
     println!("\nVerification passed: all solutions are feasible and optimal");
 
     // Export JSON
-    let overhead = lookup_overhead("ILP", "QUBO").expect("ILP -> QUBO overhead not found");
+    let source_variant = variant_to_map(ILP::variant());
+    let target_variant = variant_to_map(QUBO::<f64>::variant());
+    let overhead = lookup_overhead("ILP", &source_variant, "QUBO", &target_variant)
+        .expect("ILP -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: ILP::NAME.to_string(),
-            variant: variant_to_map(ILP::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,
             }),
         },
         target: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: variant_to_map(QUBO::<f64>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": qubo.matrix(),

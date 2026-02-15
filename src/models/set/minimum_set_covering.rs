@@ -131,7 +131,7 @@ impl<W: Clone + Default> MinimumSetCovering<W> {
 
 impl<W> Problem for MinimumSetCovering<W>
 where
-    W: WeightElement,
+    W: WeightElement + crate::variant::VariantParam,
 {
     const NAME: &'static str = "MinimumSetCovering";
     type Metric = SolutionSize<W::Sum>;
@@ -157,13 +157,13 @@ where
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("weight", crate::variant::short_type_name::<W>())]
+        crate::variant_params![W]
     }
 }
 
 impl<W> OptimizationProblem for MinimumSetCovering<W>
 where
-    W: WeightElement,
+    W: WeightElement + crate::variant::VariantParam,
 {
     type Value = W::Sum;
 

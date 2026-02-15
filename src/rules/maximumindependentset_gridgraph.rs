@@ -1,4 +1,4 @@
-//! Reduction from MaximumIndependentSet on SimpleGraph/UnitDiskGraph to GridGraph
+//! Reduction from MaximumIndependentSet on SimpleGraph/UnitDiskGraph to KingsSubgraph
 //! using the King's Subgraph (KSG) unit disk mapping.
 //!
 //! Maps an arbitrary graph's MIS problem to an equivalent weighted MIS on a grid graph.
@@ -9,18 +9,18 @@ use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::rules::unitdiskmapping::ksg;
-use crate::topology::{GridGraph, SimpleGraph, UnitDiskGraph};
+use crate::topology::{KingsSubgraph, SimpleGraph, UnitDiskGraph};
 
-/// Result of reducing MIS on SimpleGraph to MIS on GridGraph.
+/// Result of reducing MIS on SimpleGraph to MIS on KingsSubgraph.
 #[derive(Debug, Clone)]
 pub struct ReductionISSimpleToGrid {
-    target: MaximumIndependentSet<GridGraph<i32>, i32>,
+    target: MaximumIndependentSet<KingsSubgraph, i32>,
     mapping_result: ksg::MappingResult<ksg::KsgTapeEntry>,
 }
 
 impl ReductionResult for ReductionISSimpleToGrid {
     type Source = MaximumIndependentSet<SimpleGraph, i32>;
-    type Target = MaximumIndependentSet<GridGraph<i32>, i32>;
+    type Target = MaximumIndependentSet<KingsSubgraph, i32>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -39,7 +39,7 @@ impl ReductionResult for ReductionISSimpleToGrid {
         ])
     }
 )]
-impl ReduceTo<MaximumIndependentSet<GridGraph<i32>, i32>>
+impl ReduceTo<MaximumIndependentSet<KingsSubgraph, i32>>
     for MaximumIndependentSet<SimpleGraph, i32>
 {
     type Result = ReductionISSimpleToGrid;
@@ -48,13 +48,9 @@ impl ReduceTo<MaximumIndependentSet<GridGraph<i32>, i32>>
         let n = self.num_vertices();
         let edges = self.edges();
         let result = ksg::map_unweighted(n, &edges);
-        let weights: Vec<i32> = result
-            .grid_graph
-            .nodes()
-            .iter()
-            .map(|node| node.weight)
-            .collect();
-        let target = MaximumIndependentSet::from_graph(result.grid_graph.clone(), weights);
+        let weights = result.node_weights.clone();
+        let grid = result.to_kings_subgraph();
+        let target = MaximumIndependentSet::from_graph(grid, weights);
         ReductionISSimpleToGrid {
             target,
             mapping_result: result,
@@ -62,16 +58,16 @@ impl ReduceTo<MaximumIndependentSet<GridGraph<i32>, i32>>
     }
 }
 
-/// Result of reducing MIS on UnitDiskGraph to MIS on GridGraph.
+/// Result of reducing MIS on UnitDiskGraph to MIS on KingsSubgraph.
 #[derive(Debug, Clone)]
 pub struct ReductionISUnitDiskToGrid {
-    target: MaximumIndependentSet<GridGraph<i32>, i32>,
+    target: MaximumIndependentSet<KingsSubgraph, i32>,
     mapping_result: ksg::MappingResult<ksg::KsgTapeEntry>,
 }
 
 impl ReductionResult for ReductionISUnitDiskToGrid {
     type Source = MaximumIndependentSet<UnitDiskGraph, i32>;
-    type Target = MaximumIndependentSet<GridGraph<i32>, i32>;
+    type Target = MaximumIndependentSet<KingsSubgraph, i32>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -90,7 +86,7 @@ impl ReductionResult for ReductionISUnitDiskToGrid {
         ])
     }
 )]
-impl ReduceTo<MaximumIndependentSet<GridGraph<i32>, i32>>
+impl ReduceTo<MaximumIndependentSet<KingsSubgraph, i32>>
     for MaximumIndependentSet<UnitDiskGraph, i32>
 {
     type Result = ReductionISUnitDiskToGrid;
@@ -99,13 +95,9 @@ impl ReduceTo<MaximumIndependentSet<GridGraph<i32>, i32>>
         let n = self.num_vertices();
         let edges = self.edges();
         let result = ksg::map_unweighted(n, &edges);
-        let weights: Vec<i32> = result
-            .grid_graph
-            .nodes()
-            .iter()
-            .map(|node| node.weight)
-            .collect();
-        let target = MaximumIndependentSet::from_graph(result.grid_graph.clone(), weights);
+        let weights = result.node_weights.clone();
+        let grid = result.to_kings_subgraph();
+        let target = MaximumIndependentSet::from_graph(grid, weights);
         ReductionISUnitDiskToGrid {
             target,
             mapping_result: result,

@@ -22,6 +22,7 @@ pub struct ReductionMaxCutToSG<W> {
 impl<W> ReductionResult for ReductionMaxCutToSG<W>
 where
     W: WeightElement
+        + crate::variant::VariantParam
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero
@@ -99,6 +100,7 @@ pub struct ReductionSGToMaxCut<W> {
 impl<W> ReductionResult for ReductionSGToMaxCut<W>
 where
     W: WeightElement
+        + crate::variant::VariantParam
         + PartialOrd
         + num_traits::Num
         + num_traits::Zero

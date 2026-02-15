@@ -1,49 +1,45 @@
 use crate::models::graph::MaximumIndependentSet;
-use crate::rules::{ReduceTo, ReductionResult};
-use crate::solvers::ILPSolver;
-use crate::topology::{SimpleGraph, Triangular};
-use crate::traits::Problem;
+use crate::rules::graph::{EdgeKind, ReductionGraph};
+use crate::topology::{SimpleGraph, TriangularSubgraph};
+use std::collections::BTreeMap;
 
 #[test]
-fn test_mis_triangular_to_simple_closed_loop() {
-    // Petersen graph: 10 vertices, 15 edges, max IS = 4
-    let source = MaximumIndependentSet::<SimpleGraph, i32>::new(
-        10,
-        vec![
-            (0, 1), (1, 2), (2, 3), (3, 4), (4, 0), // outer cycle
-            (5, 7), (7, 9), (9, 6), (6, 8), (8, 5), // inner pentagram
-            (0, 5), (1, 6), (2, 7), (3, 8), (4, 9), // spokes
-        ],
+fn test_natural_cast_triangular_to_simple_via_resolve() {
+    let graph = ReductionGraph::new();
+
+    // Find any path from MIS to itself (via VC round-trip) to test natural cast insertion
+    // Instead, directly test that resolve_path inserts a natural cast for MIS(TriangularSubgraph)->VC(SimpleGraph)
+    let name_path = graph
+        .find_shortest_path::<
+            MaximumIndependentSet<TriangularSubgraph, i32>,
+            crate::models::graph::MinimumVertexCover<SimpleGraph, i32>,
+        >()
+        .unwrap();
+
+    let source_variant = BTreeMap::from([
+        ("graph".to_string(), "TriangularSubgraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    let target_variant = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+
+    let resolved = graph
+        .resolve_path(&name_path, &source_variant, &target_variant)
+        .unwrap();
+
+    // Path should be: MIS(TriangularSubgraph) --NaturalCast--> MIS(SimpleGraph) --Reduction--> VC(SimpleGraph)
+    assert_eq!(resolved.num_casts(), 1);
+    assert_eq!(resolved.num_reductions(), 1);
+    assert!(matches!(resolved.edges[0], EdgeKind::NaturalCast));
+    assert!(matches!(resolved.edges[1], EdgeKind::Reduction { .. }));
+    assert_eq!(
+        resolved.steps[0].variant.get("graph").unwrap(),
+        "TriangularSubgraph"
     );
-
-    // SimpleGraph → Triangular (unit disk mapping)
-    let to_tri = ReduceTo::<MaximumIndependentSet<Triangular, i32>>::reduce_to(&source);
-    let tri_problem = to_tri.target_problem();
-
-    // Triangular → SimpleGraph (natural edge: graph subtype relaxation)
-    let to_simple = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(tri_problem);
-    let simple_problem = to_simple.target_problem();
-
-    // Graph structure is preserved by identity cast
-    assert_eq!(simple_problem.num_vertices(), tri_problem.num_vertices());
-    assert_eq!(simple_problem.num_edges(), tri_problem.num_edges());
-
-    // Solve with ILP on the relaxed SimpleGraph problem
-    let solver = ILPSolver::new();
-    let solution = solver.solve_reduced(simple_problem).expect("ILP should find a solution");
-
-    // Identity mapping: solution is unchanged
-    let extracted = to_simple.extract_solution(&solution);
-    assert_eq!(extracted, solution);
-
-    // Extracted solution is valid on the Triangular problem
-    let metric = tri_problem.evaluate(&extracted);
-    assert!(metric.is_valid());
-
-    // Map back through the full chain to the original Petersen graph
-    let original_solution = to_tri.extract_solution(&extracted);
-    let original_metric = source.evaluate(&original_solution);
-    assert!(original_metric.is_valid());
-    // Petersen graph max IS = 4
-    assert_eq!(original_solution.iter().sum::<usize>(), 4);
+    assert_eq!(
+        resolved.steps[1].variant.get("graph").unwrap(),
+        "SimpleGraph"
+    );
 }

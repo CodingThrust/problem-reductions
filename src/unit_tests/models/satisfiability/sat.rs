@@ -167,8 +167,10 @@ fn test_clause_debug() {
 
 #[test]
 fn test_jl_parity_evaluation() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../../tests/data/jl/satisfiability.json")).unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/data/jl/satisfiability.json"
+    ))
+    .unwrap();
     for instance in data["instances"].as_array().unwrap() {
         let (num_vars, clauses) = jl_parse_sat_clauses(&instance["instance"]);
         let problem = Satisfiability::new(num_vars, clauses);
@@ -178,7 +180,11 @@ fn test_jl_parity_evaluation() {
             let rust_result = problem.evaluate(&config);
             let jl_size = eval["size"].as_u64().unwrap() as usize;
             let jl_all_satisfied = jl_size == num_clauses;
-            assert_eq!(rust_result, jl_all_satisfied, "SAT eval mismatch for config {:?}", config);
+            assert_eq!(
+                rust_result, jl_all_satisfied,
+                "SAT eval mismatch for config {:?}",
+                config
+            );
         }
         let rust_best = BruteForce::new().find_all_satisfying(&problem);
         let rust_best_set: HashSet<Vec<usize>> = rust_best.into_iter().collect();
@@ -188,4 +194,3 @@ fn test_jl_parity_evaluation() {
         }
     }
 }
-

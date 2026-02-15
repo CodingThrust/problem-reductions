@@ -131,13 +131,15 @@ pub fn run() {
     println!("\nReduction verified successfully");
 
     // 5. Export JSON
-    let overhead = lookup_overhead("CircuitSAT", "SpinGlass")
+    let source_variant = variant_to_map(CircuitSAT::variant());
+    let target_variant = variant_to_map(SpinGlass::<SimpleGraph, i32>::variant());
+    let overhead = lookup_overhead("CircuitSAT", &source_variant, "SpinGlass", &target_variant)
         .expect("CircuitSAT -> SpinGlass overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
             problem: CircuitSAT::NAME.to_string(),
-            variant: variant_to_map(CircuitSAT::variant()),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_gates": circuit_sat.circuit().num_assignments(),
                 "num_variables": circuit_sat.num_variables(),
@@ -145,7 +147,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: SpinGlass::<SimpleGraph, i32>::NAME.to_string(),
-            variant: variant_to_map(SpinGlass::<SimpleGraph, i32>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_spins": sg.num_variables(),
             }),

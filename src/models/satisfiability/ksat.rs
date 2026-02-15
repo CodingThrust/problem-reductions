@@ -7,6 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
+use crate::variant::KValue;
 use serde::{Deserialize, Serialize};
 
 use super::CNFClause;
@@ -31,16 +32,17 @@ inventory::submit! {
 /// This is the decision version of the problem.
 ///
 /// # Type Parameters
-/// * `K` - The number of literals per clause (compile-time constant)
+/// * `K` - A type implementing `KValue` that specifies the number of literals per clause
 ///
 /// # Example
 ///
 /// ```
 /// use problemreductions::models::satisfiability::{KSatisfiability, CNFClause};
+/// use problemreductions::variant::K3;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // 3-SAT formula: (x1 OR x2 OR x3) AND (NOT x1 OR x2 OR NOT x3)
-/// let problem = KSatisfiability::<3>::new(
+/// let problem = KSatisfiability::<K3>::new(
 ///     3,
 ///     vec![
 ///         CNFClause::new(vec![1, 2, 3]),       // x1 OR x2 OR x3
@@ -53,29 +55,38 @@ inventory::submit! {
 /// assert!(!solutions.is_empty());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct KSatisfiability<const K: usize> {
+#[serde(bound(deserialize = ""))]
+pub struct KSatisfiability<K: KValue> {
     /// Number of variables.
     num_vars: usize,
     /// Clauses in CNF, each with exactly K literals.
     clauses: Vec<CNFClause>,
+    #[serde(skip)]
+    _phantom: std::marker::PhantomData<K>,
 }
 
-impl<const K: usize> KSatisfiability<K> {
+impl<K: KValue> KSatisfiability<K> {
     /// Create a new K-SAT problem.
     ///
     /// # Panics
-    /// Panics if any clause does not have exactly K literals.
+    /// Panics if any clause does not have exactly K literals,
+    /// or if K is KN (generic K cannot be instantiated).
     pub fn new(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
+        let k = K::K.expect("KN cannot be instantiated");
         for (i, clause) in clauses.iter().enumerate() {
             assert!(
-                clause.len() == K,
+                clause.len() == k,
                 "Clause {} has {} literals, expected {}",
                 i,
                 clause.len(),
-                K
+                k
             );
         }
-        Self { num_vars, clauses }
+        Self {
+            num_vars,
+            clauses,
+            _phantom: std::marker::PhantomData,
+        }
     }
 
     /// Create a new K-SAT problem allowing clauses with fewer than K literals.
@@ -84,18 +95,24 @@ impl<const K: usize> KSatisfiability<K> {
     /// fewer literals (e.g., when allow_less is true in the Julia implementation).
     ///
     /// # Panics
-    /// Panics if any clause has more than K literals.
+    /// Panics if any clause has more than K literals,
+    /// or if K is KN (generic K cannot be instantiated).
     pub fn new_allow_less(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
+        let k = K::K.expect("KN cannot be instantiated");
         for (i, clause) in clauses.iter().enumerate() {
             assert!(
-                clause.len() <= K,
+                clause.len() <= k,
                 "Clause {} has {} literals, expected at most {}",
                 i,
                 clause.len(),
-                K
+                k
             );
         }
-        Self { num_vars, clauses }
+        Self {
+            num_vars,
+            clauses,
+            _phantom: std::marker::PhantomData,
+        }
     }
 
     /// Get the number of variables.
@@ -137,7 +154,7 @@ impl<const K: usize> KSatisfiability<K> {
     }
 }
 
-impl<const K: usize> Problem for KSatisfiability<K> {
+impl<K: KValue> Problem for KSatisfiability<K> {
     const NAME: &'static str = "KSatisfiability";
     type Metric = bool;
 
@@ -151,11 +168,11 @@ impl<const K: usize> Problem for KSatisfiability<K> {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![("k", crate::variant::const_usize_str::<K>())]
+        crate::variant_params![K]
     }
 }
 
-impl<const K: usize> SatisfactionProblem for KSatisfiability<K> {}
+impl<K: KValue> SatisfactionProblem for KSatisfiability<K> {}
 
 #[cfg(test)]
 #[path = "../../unit_tests/models/satisfiability/ksat.rs"]

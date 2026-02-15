@@ -46,14 +46,11 @@ use super::grid::MappingGrid;
 use super::ksg::mapping::MappingResult;
 use super::ksg::KsgTapeEntry as TapeEntry;
 use super::pathdecomposition::{pathwidth, vertex_order_from_layout, PathDecompositionMethod};
-use crate::topology::{GridGraph, GridNode, GridType};
+use crate::rules::unitdiskmapping::ksg::mapping::GridKind;
 use serde::{Deserialize, Serialize};
 
 pub const TRIANGULAR_SPACING: usize = 6;
 pub const TRIANGULAR_PADDING: usize = 2;
-// Use radius 1.1 to match Julia's TRIANGULAR_UNIT_RADIUS
-// For triangular lattice, physical positions use sqrt(3)/2 scaling for y
-const TRIANGULAR_UNIT_RADIUS: f64 = 1.1;
 
 /// Tape entry recording a triangular gadget application.
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -1588,35 +1585,25 @@ pub fn map_graph_triangular_with_order(
         })
         .collect();
 
-    // Extract doubled cells before converting to GridGraph
+    // Extract doubled cells before extracting positions
     let doubled_cells = grid.doubled_cells();
 
-    // Convert to GridGraph with triangular type
-    let nodes: Vec<GridNode<i32>> = grid
+    // Extract positions and weights from occupied cells
+    let (positions, node_weights): (Vec<(i32, i32)>, Vec<i32>) = grid
         .occupied_coords()
         .into_iter()
         .filter_map(|(row, col)| {
             grid.get(row, col)
-                .map(|cell| GridNode::new(row as i32, col as i32, cell.weight()))
+                .map(|cell| ((row as i32, col as i32), cell.weight()))
         })
-        .filter(|n| n.weight > 0)
-        .collect();
-
-    // Use Triangular grid type to match Julia's TriangularGrid()
-    // Julia uses 1-indexed coords where odd cols get offset 0.5.
-    // Rust uses 0-indexed coords, so even cols (0,2,4...) correspond to Julia's odd cols (1,3,5...).
-    // Therefore, offset_even_cols=true gives the same offset pattern as Julia.
-    let grid_graph = GridGraph::new(
-        GridType::Triangular {
-            offset_even_cols: true,
-        },
-        grid.size(),
-        nodes,
-        TRIANGULAR_UNIT_RADIUS,
-    );
+        .filter(|&(_, w)| w > 0)
+        .unzip();
 
     MappingResult {
-        grid_graph,
+        positions,
+        node_weights,
+        grid_dimensions: grid.size(),
+        kind: GridKind::Triangular,
         lines: copylines,
         padding,
         spacing,

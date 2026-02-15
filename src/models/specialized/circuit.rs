@@ -279,7 +279,7 @@ impl Problem for CircuitSAT {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![]
+        crate::variant_params![]
     }
 }
 

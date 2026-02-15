@@ -62,13 +62,13 @@ pub fn run() {
         "x3 OR NOT x4 OR NOT x5".to_string(),
     ];
 
-    let ksat = KSatisfiability::<3>::new(5, clauses);
+    let ksat = KSatisfiability::<K3>::new(5, clauses);
 
     // Reduce to QUBO
     let reduction = ReduceTo::<QUBO>::reduce_to(&ksat);
     let qubo = reduction.target_problem();
 
-    println!("Source: KSatisfiability<3> with 5 variables, 7 clauses");
+    println!("Source: KSatisfiability<K3> with 5 variables, 7 clauses");
     for (i, c) in clause_strings.iter().enumerate() {
         println!("  C{}: {}", i + 1, c);
     }
@@ -117,13 +117,15 @@ pub fn run() {
     println!("\nVerification passed: all solutions maximize satisfied clauses");
 
     // Export JSON
-    let overhead = lookup_overhead("KSatisfiability", "QUBO")
+    let source_variant = variant_to_map(KSatisfiability::<K3>::variant());
+    let target_variant = variant_to_map(QUBO::<f64>::variant());
+    let overhead = lookup_overhead("KSatisfiability", &source_variant, "QUBO", &target_variant)
         .expect("KSatisfiability -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
-            problem: KSatisfiability::<3>::NAME.to_string(),
-            variant: variant_to_map(KSatisfiability::<3>::variant()),
+            problem: KSatisfiability::<K3>::NAME.to_string(),
+            variant: source_variant,
             instance: serde_json::json!({
                 "num_vars": ksat.num_vars(),
                 "num_clauses": ksat.clauses().len(),
@@ -132,7 +134,7 @@ pub fn run() {
         },
         target: ProblemSide {
             problem: QUBO::<f64>::NAME.to_string(),
-            variant: variant_to_map(QUBO::<f64>::variant()),
+            variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": qubo.num_vars(),
                 "matrix": qubo.matrix(),

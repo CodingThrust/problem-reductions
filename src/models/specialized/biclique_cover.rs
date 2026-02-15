@@ -226,7 +226,7 @@ impl Problem for BicliqueCover {
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        vec![]
+        crate::variant_params![]
     }
 }
 

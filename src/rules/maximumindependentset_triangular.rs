@@ -1,4 +1,4 @@
-//! Reduction from MaximumIndependentSet on SimpleGraph to Triangular lattice
+//! Reduction from MaximumIndependentSet on SimpleGraph to TriangularSubgraph
 //! using the weighted triangular unit disk mapping.
 //!
 //! Maps an arbitrary graph's MIS problem to an equivalent weighted MIS on a
@@ -11,18 +11,18 @@ use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::rules::unitdiskmapping::ksg;
 use crate::rules::unitdiskmapping::triangular;
-use crate::topology::{SimpleGraph, Triangular};
+use crate::topology::{SimpleGraph, TriangularSubgraph};
 
-/// Result of reducing MIS on SimpleGraph to MIS on Triangular.
+/// Result of reducing MIS on SimpleGraph to MIS on TriangularSubgraph.
 #[derive(Debug, Clone)]
 pub struct ReductionISSimpleToTriangular {
-    target: MaximumIndependentSet<Triangular, i32>,
+    target: MaximumIndependentSet<TriangularSubgraph, i32>,
     mapping_result: ksg::MappingResult<ksg::KsgTapeEntry>,
 }
 
 impl ReductionResult for ReductionISSimpleToTriangular {
     type Source = MaximumIndependentSet<SimpleGraph, i32>;
-    type Target = MaximumIndependentSet<Triangular, i32>;
+    type Target = MaximumIndependentSet<TriangularSubgraph, i32>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -41,20 +41,17 @@ impl ReductionResult for ReductionISSimpleToTriangular {
         ])
     }
 )]
-impl ReduceTo<MaximumIndependentSet<Triangular, i32>> for MaximumIndependentSet<SimpleGraph, i32> {
+impl ReduceTo<MaximumIndependentSet<TriangularSubgraph, i32>>
+    for MaximumIndependentSet<SimpleGraph, i32>
+{
     type Result = ReductionISSimpleToTriangular;
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_vertices();
         let edges = self.edges();
         let result = triangular::map_weighted(n, &edges);
-        let weights: Vec<i32> = result
-            .grid_graph
-            .nodes()
-            .iter()
-            .map(|node| node.weight)
-            .collect();
-        let grid = Triangular::new(result.grid_graph.clone());
+        let weights = result.node_weights.clone();
+        let grid = result.to_triangular_subgraph();
         let target = MaximumIndependentSet::from_graph(grid, weights);
         ReductionISSimpleToTriangular {
             target,

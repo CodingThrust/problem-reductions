@@ -1,5 +1,4 @@
 use super::*;
-use crate::topology::Graph;
 
 #[test]
 fn test_embed_graph_path() {
@@ -18,7 +17,7 @@ fn test_map_unweighted_triangle() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
     let result = map_unweighted(3, &edges);
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
     // mis_overhead can be negative due to gadgets, so we just verify the function completes
 }
 
@@ -28,7 +27,7 @@ fn test_map_weighted_triangle() {
     let edges = vec![(0, 1), (1, 2), (0, 2)];
     let result = map_weighted(3, &edges);
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
 }
 
 #[test]
@@ -37,7 +36,7 @@ fn test_mapping_result_config_back_unweighted() {
     let result = map_unweighted(2, &edges);
 
     // Create a dummy config
-    let config: Vec<usize> = vec![0; result.grid_graph.num_vertices()];
+    let config: Vec<usize> = vec![0; result.positions.len()];
     let original = result.map_config_back(&config);
 
     assert_eq!(original.len(), 2);
@@ -49,7 +48,7 @@ fn test_mapping_result_config_back_weighted() {
     let result = map_weighted(2, &edges);
 
     // Create a dummy config
-    let config: Vec<usize> = vec![0; result.grid_graph.num_vertices()];
+    let config: Vec<usize> = vec![0; result.positions.len()];
     let original = result.map_config_back(&config);
 
     assert_eq!(original.len(), 2);
@@ -89,7 +88,7 @@ fn test_map_unweighted_with_method() {
     let edges = vec![(0, 1), (1, 2)];
     let result = map_unweighted_with_method(3, &edges, PathDecompositionMethod::greedy());
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
 }
 
 #[test]
@@ -97,5 +96,5 @@ fn test_map_weighted_with_method() {
     let edges = vec![(0, 1), (1, 2)];
     let result = map_weighted_with_method(3, &edges, PathDecompositionMethod::greedy());
 
-    assert!(result.grid_graph.num_vertices() > 0);
+    assert!(!result.positions.is_empty());
 }
