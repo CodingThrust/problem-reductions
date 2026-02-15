@@ -23,8 +23,8 @@
     edge-stroke: 1.5pt + box-color,
     spacing: (8mm, 12mm),
 
-    // Problem trait (main)
-    node((0, 0), box(width: 55mm, align(left)[
+    // Problem trait (top center)
+    node((0.5, 0), box(width: 55mm, align(left)[
       #strong[trait Problem]\
       #text(size: 8pt, fill: secondary)[
         `const NAME: &str`\
@@ -35,35 +35,38 @@
       ]
     ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <problem>),
 
-    // OptimizationProblem trait
+    // OptimizationProblem trait (bottom left)
     node((0, 1), box(width: 55mm, align(left)[
       #strong[trait OptimizationProblem]\
       #text(size: 8pt, fill: secondary)[
         `type Value: PartialOrd + Clone`\
         `fn direction() -> Direction`\
         #text(style: "italic")[requires `Metric = SolutionSize<Value>`]
+
+      #strong[SolutionSize\<T\>]\
+      #text(size: 8pt, fill: secondary)[`Valid(T) | Invalid`]
+
+      #strong[Direction]\
+      #text(size: 8pt, fill: secondary)[`Maximize | Minimize`]
+
       ]
     ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <opt>),
 
-    // Type boxes on the right
-    node((1.3, 0), box(width: 38mm, align(left)[
-      #strong[SolutionSize\<T\>]\
-      #text(size: 8pt, fill: secondary)[`Valid(T) | Invalid`]
-    ]), fill: type-fill, corner-radius: 6pt, inset: 8pt, name: <solsize>),
+    // SatisfactionProblem trait (bottom right)
+    node((1.2, 1), box(width: 42mm, align(left)[
+      #strong[trait SatisfactionProblem]\
+      #text(size: 8pt, fill: secondary)[
+        #text(style: "italic")[marker trait]\
+        #text(style: "italic")[requires `Metric = bool`]
+      ]
+    ]), fill: trait-fill, corner-radius: 6pt, inset: 10pt, name: <sat>),
 
-    node((1.3, 1), box(width: 38mm, align(left)[
-      #strong[Direction]\
-      #text(size: 8pt, fill: secondary)[`Maximize | Minimize`]
-    ]), fill: type-fill, corner-radius: 6pt, inset: 8pt, name: <dir>),
-
-    // Inheritance arrow
+    // Inheritance arrows
     edge(<opt>, <problem>, "->", label: text(size: 8pt)[extends], label-side: left, label-fill: none),
-
-    // Type associations
-    edge(<problem>, <solsize>, "->"),
-    edge(<opt>, <dir>, "->"),
+    edge(<sat>, <problem>, "->", label: text(size: 8pt)[extends], label-side: right, label-fill: none),
   )
 }
 
 #let standalone-dark = sys.inputs.at("dark", default: "false") == "true"
 #trait-hierarchy(dark: standalone-dark)
+

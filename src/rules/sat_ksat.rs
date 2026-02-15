@@ -187,11 +187,11 @@ fn reduce_ksat_to_sat<K: KValue>(ksat: &KSatisfiability<K>) -> ReductionKSATToSA
 macro_rules! impl_ksat_to_sat {
     ($ktype:ty) => {
         #[reduction(overhead = {
-                                                    ReductionOverhead::new(vec![
-                                                        ("num_clauses", poly!(num_clauses)),
-                                                        ("num_vars", poly!(num_vars)),
-                                                    ])
-                                                })]
+                                                            ReductionOverhead::new(vec![
+                                                                ("num_clauses", poly!(num_clauses)),
+                                                                ("num_vars", poly!(num_vars)),
+                                                            ])
+                                                        })]
         impl ReduceTo<Satisfiability> for KSatisfiability<$ktype> {
             type Result = ReductionKSATToSAT<$ktype>;
 

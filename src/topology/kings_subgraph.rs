@@ -93,7 +93,9 @@ impl Graph for KingsSubgraph {
             return Vec::new();
         }
         (0..self.positions.len())
-            .filter(|&u| u != v && Self::distance(self.positions[v], self.positions[u]) < KINGS_RADIUS)
+            .filter(|&u| {
+                u != v && Self::distance(self.positions[v], self.positions[u]) < KINGS_RADIUS
+            })
             .collect()
     }
 }

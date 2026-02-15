@@ -11,7 +11,7 @@ use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::rules::unitdiskmapping::ksg;
 use crate::rules::unitdiskmapping::triangular;
-use crate::topology::{SimpleGraph, TriangularSubgraph};
+use crate::topology::{Graph, SimpleGraph, TriangularSubgraph};
 
 /// Result of reducing MIS on SimpleGraph to MIS on TriangularSubgraph.
 #[derive(Debug, Clone)]
@@ -47,8 +47,8 @@ impl ReduceTo<MaximumIndependentSet<TriangularSubgraph, i32>>
     type Result = ReductionISSimpleToTriangular;
 
     fn reduce_to(&self) -> Self::Result {
-        let n = self.num_vertices();
-        let edges = self.edges();
+        let n = self.graph().num_vertices();
+        let edges = self.graph().edges();
         let result = triangular::map_weighted(n, &edges);
         let weights = result.node_weights.clone();
         let grid = result.to_triangular_subgraph();

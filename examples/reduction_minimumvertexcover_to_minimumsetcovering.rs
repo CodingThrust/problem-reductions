@@ -18,7 +18,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     println!("\n=== Vertex Cover -> Set Covering Reduction ===\n");
@@ -110,8 +110,8 @@ pub fn run() {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
-                "num_vertices": source.num_vertices(),
-                "num_edges": source.num_edges(),
+                "num_vertices": source.graph().num_vertices(),
+                "num_edges": source.graph().num_edges(),
                 "edges": edges,
             }),
         },

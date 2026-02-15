@@ -7,8 +7,8 @@ include!("../../jl_helpers.rs");
 #[test]
 fn test_vertex_cover_creation() {
     let problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    assert_eq!(problem.num_vertices(), 4);
-    assert_eq!(problem.num_edges(), 3);
+    assert_eq!(problem.graph().num_vertices(), 4);
+    assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_variables(), 4);
 }
 
@@ -16,7 +16,7 @@ fn test_vertex_cover_creation() {
 fn test_vertex_cover_with_weights() {
     let problem =
         MinimumVertexCover::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
-    assert_eq!(problem.weights(), vec![1, 2, 3]);
+    assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
 }
 
 #[test]
@@ -70,16 +70,16 @@ fn test_is_vertex_cover_wrong_len() {
 #[test]
 fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::from_graph_unit_weights(graph);
-    assert_eq!(problem.num_vertices(), 3);
-    assert_eq!(problem.num_edges(), 2);
+    let problem = MinimumVertexCover::<SimpleGraph, i32>::from_graph(graph, vec![1, 1, 1]);
+    assert_eq!(problem.graph().num_vertices(), 3);
+    assert_eq!(problem.graph().num_edges(), 2);
 }
 
 #[test]
 fn test_from_graph_with_weights() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MinimumVertexCover::<SimpleGraph, i32>::from_graph(graph, vec![1, 2, 3]);
-    assert_eq!(problem.weights(), vec![1, 2, 3]);
+    assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
 }
 
 #[test]
@@ -93,10 +93,10 @@ fn test_graph_accessor() {
 #[test]
 fn test_has_edge() {
     let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    assert!(problem.has_edge(0, 1));
-    assert!(problem.has_edge(1, 0)); // Undirected
-    assert!(problem.has_edge(1, 2));
-    assert!(!problem.has_edge(0, 2));
+    assert!(problem.graph().has_edge(0, 1));
+    assert!(problem.graph().has_edge(1, 0)); // Undirected
+    assert!(problem.graph().has_edge(1, 2));
+    assert!(!problem.graph().has_edge(0, 2));
 }
 
 #[test]

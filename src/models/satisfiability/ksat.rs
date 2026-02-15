@@ -69,18 +69,20 @@ impl<K: KValue> KSatisfiability<K> {
     /// Create a new K-SAT problem.
     ///
     /// # Panics
-    /// Panics if any clause does not have exactly K literals,
-    /// or if K is KN (generic K cannot be instantiated).
+    /// Panics if any clause does not have exactly K literals (when K is a
+    /// concrete value like K2, K3). When K is KN (arbitrary), no clause-length
+    /// validation is performed.
     pub fn new(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
-        let k = K::K.expect("KN cannot be instantiated");
-        for (i, clause) in clauses.iter().enumerate() {
-            assert!(
-                clause.len() == k,
-                "Clause {} has {} literals, expected {}",
-                i,
-                clause.len(),
-                k
-            );
+        if let Some(k) = K::K {
+            for (i, clause) in clauses.iter().enumerate() {
+                assert!(
+                    clause.len() == k,
+                    "Clause {} has {} literals, expected {}",
+                    i,
+                    clause.len(),
+                    k
+                );
+            }
         }
         Self {
             num_vars,
@@ -95,18 +97,20 @@ impl<K: KValue> KSatisfiability<K> {
     /// fewer literals (e.g., when allow_less is true in the Julia implementation).
     ///
     /// # Panics
-    /// Panics if any clause has more than K literals,
-    /// or if K is KN (generic K cannot be instantiated).
+    /// Panics if any clause has more than K literals (when K is a concrete
+    /// value like K2, K3). When K is KN (arbitrary), no clause-length
+    /// validation is performed.
     pub fn new_allow_less(num_vars: usize, clauses: Vec<CNFClause>) -> Self {
-        let k = K::K.expect("KN cannot be instantiated");
-        for (i, clause) in clauses.iter().enumerate() {
-            assert!(
-                clause.len() <= k,
-                "Clause {} has {} literals, expected at most {}",
-                i,
-                clause.len(),
-                k
-            );
+        if let Some(k) = K::K {
+            for (i, clause) in clauses.iter().enumerate() {
+                assert!(
+                    clause.len() <= k,
+                    "Clause {} has {} literals, expected at most {}",
+                    i,
+                    clause.len(),
+                    k
+                );
+            }
         }
         Self {
             num_vars,

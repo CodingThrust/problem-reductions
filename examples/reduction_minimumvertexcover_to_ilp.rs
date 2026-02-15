@@ -16,7 +16,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     // 1. Create VC instance: Petersen graph (10 vertices, 15 edges), VC=6
@@ -87,9 +87,9 @@ pub fn run() {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
-                "num_vertices": vc.num_vertices(),
-                "num_edges": vc.num_edges(),
-                "edges": vc.edges(),
+                "num_vertices": vc.graph().num_vertices(),
+                "num_edges": vc.graph().num_edges(),
+                "edges": vc.graph().edges(),
             }),
         },
         target: ProblemSide {

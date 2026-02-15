@@ -12,7 +12,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing MinimumDominatingSet to ILP.
 ///
@@ -55,7 +55,7 @@ impl ReduceTo<ILP> for MinimumDominatingSet<SimpleGraph, i32> {
     type Result = ReductionDSToILP;
 
     fn reduce_to(&self) -> Self::Result {
-        let num_vars = self.num_vertices();
+        let num_vars = self.graph().num_vertices();
 
         // All variables are binary (0 or 1)
         let bounds = vec![VarBounds::binary(); num_vars];

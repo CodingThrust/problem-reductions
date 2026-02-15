@@ -1,7 +1,7 @@
 use super::*;
 use crate::models::graph::MaximumIndependentSet;
 use crate::solvers::BruteForce;
-use crate::topology::{KingsSubgraph, SimpleGraph, UnitDiskGraph};
+use crate::topology::{Graph, KingsSubgraph, SimpleGraph, UnitDiskGraph};
 
 #[test]
 fn test_mis_simple_to_grid_closed_loop() {
@@ -11,7 +11,7 @@ fn test_mis_simple_to_grid_closed_loop() {
     let target = result.target_problem();
 
     // The grid graph should have more vertices than the original
-    assert!(target.num_vertices() > 3);
+    assert!(target.graph().num_vertices() > 3);
 
     // Find best solution on the grid graph using brute force
     let solver = BruteForce::new();
@@ -56,7 +56,7 @@ fn test_mis_unitdisk_to_grid_closed_loop() {
     let result = ReduceTo::<MaximumIndependentSet<KingsSubgraph, i32>>::reduce_to(&problem);
     let target = result.target_problem();
 
-    assert!(target.num_vertices() >= 3);
+    assert!(target.graph().num_vertices() >= 3);
 
     let solver = BruteForce::new();
     let grid_solutions = solver.find_all_best(target);

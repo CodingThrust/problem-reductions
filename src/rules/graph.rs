@@ -188,6 +188,48 @@ impl ResolvedPath {
     }
 }
 
+/// Remove base nodes (empty variant) when a variant-specific sibling exists.
+pub(crate) fn filter_redundant_base_nodes(
+    node_set: &mut HashSet<(String, std::collections::BTreeMap<String, String>)>,
+) {
+    let names_with_variants: HashSet<String> = node_set
+        .iter()
+        .filter(|(_, variant)| !variant.is_empty())
+        .map(|(name, _)| name.clone())
+        .collect();
+    node_set.retain(|(name, variant)| !variant.is_empty() || !names_with_variants.contains(name));
+}
+
+/// Determine whether a natural (subtype) edge should exist from variant `a` to variant `b`.
+///
+/// A natural edge exists when all variant fields of `a` are at least as restrictive as `b`'s
+/// (i.e., each field of `a` is a subtype of or equal to the corresponding field of `b`),
+/// and at least one field is strictly more restrictive. This means `a` is a strict subtype of `b`.
+///
+/// Returns `true` if a natural edge from `a` to `b` should exist, `false` otherwise.
+/// Returns `false` when `a == b` (no self-edges).
+pub(crate) fn is_natural_edge(
+    a: &std::collections::BTreeMap<String, String>,
+    b: &std::collections::BTreeMap<String, String>,
+    graph: &ReductionGraph,
+) -> bool {
+    graph.is_variant_reducible(a, b)
+}
+
+/// Classify a problem's category from its module path.
+/// Expected format: "problemreductions::models::<category>::<module_name>"
+pub(crate) fn classify_problem_category(module_path: &str) -> &str {
+    let parts: Vec<&str> = module_path.split("::").collect();
+    if parts.len() >= 3 {
+        if let Some(pos) = parts.iter().position(|&p| p == "models") {
+            if pos + 1 < parts.len() {
+                return parts[pos + 1];
+            }
+        }
+    }
+    "other"
+}
+
 /// Edge data for a reduction.
 #[derive(Clone, Debug)]
 pub struct ReductionEdge {
@@ -820,13 +862,7 @@ impl ReductionGraph {
         }
 
         // Remove empty-variant base nodes that are redundant (same name already has specific variants)
-        let names_with_variants: HashSet<String> = node_set
-            .iter()
-            .filter(|(_, variant)| !variant.is_empty())
-            .map(|(name, _)| name.clone())
-            .collect();
-        node_set
-            .retain(|(name, variant)| !variant.is_empty() || !names_with_variants.contains(name));
+        filter_redundant_base_nodes(&mut node_set);
 
         // Build nodes with categories and doc paths derived from ProblemSchemaEntry.module_path
         let mut nodes: Vec<NodeJson> = node_set
@@ -917,7 +953,7 @@ impl ReductionGraph {
             for (name, variants) in &nodes_by_name {
                 for a in variants {
                     for b in variants {
-                        if self.is_variant_reducible(a, b) {
+                        if is_natural_edge(a, b, self) {
                             let src_ref = VariantRef {
                                 name: name.to_string(),
                                 variant: (*a).clone(),
@@ -1006,14 +1042,7 @@ impl ReductionGraph {
     ///
     /// E.g., `"problemreductions::models::graph::maximum_independent_set"` → `"graph"`.
     fn category_from_module_path(module_path: &str) -> String {
-        // Expected format: "problemreductions::models::<category>::<module_name>"
-        let parts: Vec<&str> = module_path.split("::").collect();
-        // parts = ["problemreductions", "models", "graph", "maximum_independent_set"]
-        if parts.len() >= 3 {
-            parts[2].to_string()
-        } else {
-            "other".to_string()
-        }
+        classify_problem_category(module_path).to_string()
     }
 
     /// Build the rustdoc path from a module path and problem name.

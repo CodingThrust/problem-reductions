@@ -146,10 +146,7 @@ fn main() {
         square_weighted_viz.nodes.len(),
         square_weighted_viz.edges.len()
     );
-    println!(
-        "   MIS overhead Δ: {}",
-        square_weighted_result.mis_overhead
-    );
+    println!("   MIS overhead Δ: {}", square_weighted_result.mis_overhead);
     println!(
         "   MIS(grid) = MIS(source) + Δ = {} + {} = {}",
         petersen_mis,

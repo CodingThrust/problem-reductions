@@ -7,7 +7,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::types::WeightElement;
 
 /// Result of reducing MaximumIndependentSet to MinimumVertexCover.
@@ -47,9 +47,9 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i32>> for MaximumIndependentSet<Si
 
     fn reduce_to(&self) -> Self::Result {
         let target = MinimumVertexCover::with_weights(
-            self.num_vertices(),
-            self.edges(),
-            self.weights_ref().clone(),
+            self.graph().num_vertices(),
+            self.graph().edges(),
+            self.weights().to_vec(),
         );
         ReductionISToVC { target }
     }
@@ -91,9 +91,9 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MinimumVertexCover<Si
 
     fn reduce_to(&self) -> Self::Result {
         let target = MaximumIndependentSet::with_weights(
-            self.num_vertices(),
-            self.edges(),
-            self.weights_ref().clone(),
+            self.graph().num_vertices(),
+            self.graph().edges(),
+            self.weights().to_vec(),
         );
         ReductionVCToIS { target }
     }

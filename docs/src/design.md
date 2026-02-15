@@ -1,6 +1,6 @@
 # Design
 
-This guide covers the library internals for contributors and developers. See [Getting Started](./getting-started.md) for usage examples.
+This guide covers the library internals for contributors.
 
 ## Module Overview
 
@@ -17,16 +17,21 @@ This guide covers the library internals for contributors and developers. See [Ge
 
 | Module | Purpose |
 |--------|---------|
-| [`src/models/`](#models) | Problem type implementations (SAT, Graph, Set, Optimization) |
-| [`src/rules/`](#rules) | Reduction rules with `ReduceTo` implementations |
-| [`src/registry/`](#registry) | Compile-time reduction graph metadata |
+| [`src/models/`](#problem-model) | Problem type implementations (SAT, Graph, Set, Optimization) |
+| [`src/rules/`](#reduction-rules) | Reduction rules with `ReduceTo` implementations |
+| [`src/registry/`](#reduction-graph) | Compile-time reduction graph metadata |
 | [`src/solvers/`](#solvers) | BruteForce and ILP solvers |
-| `src/traits.rs` | Core `Problem` and `OptimizationProblem` traits (see [Models](#models)) |
-| `src/types.rs` | Shared types: `SolutionSize`, `Direction`, `ProblemSize` (see [Models](#models)) |
+| `src/traits.rs` | Core `Problem` and `OptimizationProblem` traits (see [Problem Model](#problem-model)) |
+| `src/types.rs` | Shared types: `SolutionSize`, `Direction`, `ProblemSize` (see [Problem Model](#problem-model)) |
+| `src/variant.rs` | Variant parameter system (see [Variant System](#variant-system)) |
 
-## Models
+## Problem Model
 
-Every problem implements `Problem`. Optimization problems additionally implement `OptimizationProblem`.
+Every problem implements `Problem`. Optimization problems additionally implement `OptimizationProblem`; satisfaction problems implement `SatisfactionProblem`.
+
+- **`Problem`** — the base trait. Every problem declares a `NAME` (e.g., `"MaximumIndependentSet"`). The solver explores the configuration space defined by `dims()` and scores each configuration with `evaluate()`. For example, a 4-vertex MIS has `dims() = [2, 2, 2, 2]` (each vertex is selected or not); `evaluate(&[1, 0, 1, 0])` returns `Valid(2)` if vertices 0 and 2 form an independent set, or `Invalid` if they share an edge.
+- **`OptimizationProblem`** — extends `Problem` with a comparable `Value` type and a `direction()` (`Maximize` or `Minimize`).
+- **`SatisfactionProblem`** — constrains `Metric = bool`: `true` if all constraints are satisfied, `false` otherwise.
 
 <div class="theme-light-only">
 
@@ -39,55 +44,11 @@ Every problem implements `Problem`. Optimization problems additionally implement
 
 </div>
 
-```rust
-pub trait Problem: Clone {
-    const NAME: &'static str;          // e.g., "MaximumIndependentSet"
-    type Metric: Clone;                // SolutionSize<W> or bool
-    fn dims(&self) -> Vec<usize>;      // config space: [2, 2, 2] for 3 binary vars
-    fn evaluate(&self, config: &[usize]) -> Self::Metric;
-    fn variant() -> Vec<(&'static str, &'static str)>;
-}
-
-pub trait OptimizationProblem: Problem<Metric = SolutionSize<Self::Value>> {
-    type Value: PartialOrd + Clone;    // i32, f64, etc.
-    fn direction(&self) -> Direction;  // Maximize or Minimize
-}
-```
-
-**Key types:**
-- `SolutionSize<T>`: `Valid(T)` for feasible solutions, `Invalid` for constraint violations
-- `Direction`: `Maximize` or `Minimize`
-
-Problems are parameterized by graph type and weight type:
-
-- `MaximumIndependentSet<G, W>` — graph type `G`, weight type `W`
-- `Satisfiability` — CNF formula (concrete type, no parameters)
-- `QUBO<W>` — parameterized by weight type only
-
-**Graph types:**
-
-| Type | Description |
-|------|-------------|
-| `SimpleGraph` | Standard adjacency-based graph |
-| `UnitDiskGraph` | Edges connect vertices within a distance threshold |
-| `KingsSubgraph` | King's subgraph on a square grid (subtype of UnitDiskGraph) |
-| `TriangularSubgraph` | Triangular lattice subgraph (subtype of UnitDiskGraph) |
-| `HyperGraph` | Edges connecting any number of vertices |
-
-All problem types support JSON serialization via serde:
-
-```rust
-use problemreductions::io::{to_json, from_json};
-
-let json = to_json(&problem)?;
-let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json)?;
-```
-
-See [adding-models.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-models.md) for the full implementation guide.
-
 ## Variant System
 
-A single problem name like `MaximumIndependentSet` can have multiple **variants** — concrete instantiations that differ in graph topology, weight type, or other parameters. The variant system tracks these distinctions in the reduction graph so that reductions between specific instantiations are represented precisely.
+A single problem name like `MaximumIndependentSet` can have multiple **variants** — carrying weights on vertices, or defined on a restricted topology (e.g., king's subgraph). Some variants are more specific than others: the king's subgraph is a special case of the unit-disk graph, which is a special case of the simple graph.
+
+In **set** language, variants form **subsets**: independent sets on king's subgraphs are a subset of independent sets on unit-disk graphs. The reduction from a more specific variant to a less specific one is a **natural reduction** (identity mapping). To avoid repeating the same rule for each variant pair, the library provides an auto-casting mechanism.
 
 <div class="theme-light-only">
 
@@ -100,131 +61,218 @@ A single problem name like `MaximumIndependentSet` can have multiple **variants*
 
 </div>
 
-Each variant is identified by a set of key-value pairs returned by `Problem::variant()`:
+Arrows indicate the **subset** (subtype) direction. Variant types fall into three categories:
+
+- **Graph type** — `HyperGraph` (root), `SimpleGraph`, `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`.
+- **Weight type** — `One` (unweighted), `i32`, `f64`.
+- **K value** — e.g., `K3` for 3-SAT, `KN` for arbitrary K.
+
+<div class="theme-light-only">
+
+![Lattices](static/lattices.svg)
+
+</div>
+<div class="theme-dark-only">
+
+![Lattices](static/lattices-dark.svg)
+
+</div>
+
+### VariantParam trait
+
+Each variant parameter type implements `VariantParam`, which declares its category, value, and optional parent:
 
 ```rust
-// MaximumIndependentSet<UnitDiskGraph, One>
+pub trait VariantParam: 'static {
+    const CATEGORY: &'static str;     // e.g., "graph", "weight", "k"
+    const VALUE: &'static str;        // e.g., "SimpleGraph", "i32"
+    const PARENT_VALUE: Option<&'static str>;  // None for root types
+}
+```
+
+Types with a parent also implement `CastToParent`, providing the runtime conversion for natural casts:
+
+```rust
+pub trait CastToParent: VariantParam {
+    type Parent: VariantParam;
+    fn cast_to_parent(&self) -> Self::Parent;
+}
+```
+
+### Registration with `impl_variant_param!`
+
+The `impl_variant_param!` macro implements `VariantParam` (and optionally `CastToParent` / `KValue`) and registers a `VariantTypeEntry` via `inventory` for compile-time hierarchy discovery:
+
+```rust
+// Root type (no parent):
+impl_variant_param!(HyperGraph, "graph");
+
+// Type with parent (cast closure required):
+impl_variant_param!(SimpleGraph, "graph", parent: HyperGraph,
+    cast: |g| {
+        let edges: Vec<Vec<usize>> = g.edges().into_iter().map(|(u, v)| vec![u, v]).collect();
+        HyperGraph::new(g.num_vertices(), edges)
+    });
+
+// K root (arbitrary K):
+impl_variant_param!(KN, "k", k: None);
+
+// Specific K with parent:
+impl_variant_param!(K3, "k", parent: KN, cast: |_| KN, k: Some(3));
+```
+
+At startup, the `ReductionGraph` collects all `VariantTypeEntry` registrations and computes the **transitive closure** of the parent relationships, so `KingsSubgraph` is recognized as a subtype of `SimpleGraph` even though it declares `UnitDiskGraph` as its direct parent.
+
+### Composing `Problem::variant()`
+
+The `variant_params!` macro composes the `Problem::variant()` body from type parameter names:
+
+```rust
+// MaximumIndependentSet<G: VariantParam, W: VariantParam>
 fn variant() -> Vec<(&'static str, &'static str)> {
-    vec![("graph", "UnitDiskGraph"), ("weight", "One")]
+    crate::variant_params![G, W]
+    // e.g., MaximumIndependentSet<UnitDiskGraph, One>
+    //     -> vec![("graph", "UnitDiskGraph"), ("weight", "One")]
+}
+```
+
+## Reduction Rules
+
+A reduction requires two pieces: a **result struct** and a **`ReduceTo<T>` impl**.
+
+### Result struct
+
+Holds the target problem and the logic to map solutions back:
+
+```rust
+#[derive(Debug, Clone)]
+pub struct ReductionISToVC<W> {
+    target: MinimumVertexCover<SimpleGraph, W>,
 }
 
-// KSatisfiability<3>
-fn variant() -> Vec<(&'static str, &'static str)> {
-    vec![("k", "3")]
+impl<W: WeightElement + VariantParam> ReductionResult for ReductionISToVC<W> {
+    type Source = MaximumIndependentSet<SimpleGraph, W>;
+    type Target = MinimumVertexCover<SimpleGraph, W>;
+
+    fn target_problem(&self) -> &Self::Target { &self.target }
+    fn extract_solution(&self, target_sol: &[usize]) -> Vec<usize> {
+        target_sol.iter().map(|&x| 1 - x).collect()  // complement
+    }
 }
 ```
 
-Variant nodes in the reduction graph are discovered automatically from `#[reduction]` registrations — each reduction's source and target types become nodes. Natural edges between same-name variants are inferred from the graph/weight subtype partial order (e.g., `MIS/KingsSubgraph → MIS/SimpleGraph`). In the visualization, nodes are labeled with only the non-default fields for brevity (e.g. `MaximumIndependentSet (KingsSubgraph)` omits the default `One`).
-
-### Graph Hierarchy
-
-Graph types form a subtype hierarchy declared in `src/graph_types.rs`:
-
-```
-HyperGraph          (most general)
-└── SimpleGraph
-    ├── PlanarGraph
-    ├── BipartiteGraph
-    └── UnitDiskGraph
-        ├── KingsSubgraph
-        └── TriangularSubgraph
-```
-
-A problem on a more specific graph type can always be treated as a problem on a more general one — a `KingsSubgraph` *is* a `SimpleGraph`. This subtype relationship is registered at compile time:
+### `ReduceTo<T>` impl with the `#[reduction]` macro
 
 ```rust
-declare_graph_subtype!(KingsSubgraph => UnitDiskGraph);
-declare_graph_subtype!(UnitDiskGraph => SimpleGraph);
-// ...
+#[reduction(
+    overhead = {
+        ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_vertices)),
+            ("num_edges", poly!(num_edges)),
+        ])
+    }
+)]
+impl ReduceTo<MinimumVertexCover<SimpleGraph, i32>>
+    for MaximumIndependentSet<SimpleGraph, i32>
+{
+    type Result = ReductionISToVC<i32>;
+    fn reduce_to(&self) -> Self::Result { /* ... */ }
+}
 ```
 
-The runtime builds a transitive closure: `KingsSubgraph` is a subtype of `UnitDiskGraph`, `SimpleGraph`, and `HyperGraph`.
+### What the macro generates
 
-**Example: natural edge for TriangularSubgraph MIS.** Suppose we have a `MaximumIndependentSet<TriangularSubgraph, i32>` instance — an independent set problem on a triangular lattice. Because `TriangularSubgraph` is a subtype of `SimpleGraph` in the graph hierarchy, the reduction graph contains a natural edge:
-
-```
-MIS<TriangularSubgraph, i32>  →  MIS<SimpleGraph, i32>
-```
-
-This edge has identity overhead (the problem size is unchanged) and requires no code — the triangular lattice graph *is* a simple graph, so any MIS algorithm for general graphs applies directly. Combined with the explicit reduction `MIS<SimpleGraph, i32> → MIS<KingsSubgraph, i32>` (unit disk mapping), the system can automatically chain:
-
-```
-MIS<TriangularSubgraph, i32>  →  MIS<SimpleGraph, i32>  →  MIS<KingsSubgraph, i32>
-     (natural edge)                  (explicit reduction)
-```
-
-### Weight Hierarchy
-
-Weight types form a linear promotion chain:
-
-```
-One → i32 → f64
-```
-
-An unweighted problem (using `One`, the unit-weight type) is a special case of a weighted one (all weights equal to 1), and an integer-weighted problem embeds naturally into real-weighted. This is declared in `src/graph_types.rs`:
+The `#[reduction]` attribute expands to the original `impl` block plus an `inventory::submit!` call:
 
 ```rust
-declare_weight_subtype!("One" => "i32");
-declare_weight_subtype!("i32" => "f64");
+inventory::submit! {
+    ReductionEntry {
+        source_name: "MaximumIndependentSet",
+        target_name: "MinimumVertexCover",
+        source_variant_fn: || <MaximumIndependentSet<SimpleGraph, i32> as Problem>::variant(),
+        target_variant_fn: || <MinimumVertexCover<SimpleGraph, i32> as Problem>::variant(),
+        overhead_fn: || ReductionOverhead::new(vec![
+            ("num_vertices", poly!(num_vertices)),
+            ("num_edges", poly!(num_edges)),
+        ]),
+        module_path: module_path!(),
+    }
+}
 ```
 
-### K Parameter
+This `ReductionEntry` is collected at compile time by `inventory`, making the reduction discoverable by the `ReductionGraph` without any manual registration.
 
-`KSatisfiability<K>` and `KColoring<K, G>` use type-level K values:
+## Reduction Graph
 
-| Rust type | Variant `k` |
-|-----------|-------------|
-| `KSatisfiability<K2>` | `"K2"` |
-| `KSatisfiability<K3>` | `"K3"` |
-| Generic `KSatisfiability<KN>` | `"KN"` |
+The `ReductionGraph` is the central runtime data structure. It collects all registered reductions and variant hierarchies to enable path finding and overhead evaluation.
 
-K values form a **flat hierarchy**: each specific K value (K1, K2, K3, K4, K5) is a direct child of the generic KN, with no chain between them. This reflects the fact that k-SAT and k-coloring problems with different k are independent problem classes — a 2-SAT instance is not a 3-SAT instance, and vice versa.
+### Construction
 
-### Natural Edges
+`ReductionGraph::new()` performs two `inventory` scans:
 
-When two variants of the same problem differ only in that one is "more specific" than the other, a **natural edge** is auto-generated in the reduction graph. The edge represents the trivial identity reduction — the problem instance doesn't change, only its type annotation relaxes.
+1. **`ReductionEntry` items** — each registered reduction becomes a directed edge in a `petgraph::DiGraph`. Nodes are type-erased base names (e.g., `"MaxCut"`, not `"MaxCut<SimpleGraph, i32>"`), so path finding works regardless of type parameters.
 
-A variant A is reducible to variant B when every field of A is at least as specific as the corresponding field of B:
+2. **`VariantTypeEntry` items** — parent declarations are collected per category and transitively closed, building a `variant_hierarchy: HashMap<category, HashMap<value, Set<supertypes>>>`.
 
-- **graph:** `is_graph_subtype(A.graph, B.graph)` — e.g. `UnitDiskGraph` ≤ `SimpleGraph`
-- **weight:** `is_weight_subtype(A.weight, B.weight)` — e.g. `Unweighted` ≤ `i32`
-- **k:** a concrete value is a subtype of `"N"`
+### Natural edges
 
-Natural edges have identity overhead: the output size equals the input size.
+When exporting the graph (via `to_json()`), the graph auto-generates **natural edges** between same-name variant nodes. A natural edge from variant A to variant B exists when every field of A is at least as restrictive as B's (i.e., A is a subtype of B). Natural edges carry **identity overhead** — the problem size is unchanged.
 
-### Example: Unweighted MIS on UnitDiskGraph → Weighted MIS on SimpleGraph
+For example, `MaximumIndependentSet{KingsSubgraph, i32}` gets a natural edge to `MaximumIndependentSet{SimpleGraph, i32}` because `KingsSubgraph` is a subtype of `SimpleGraph`.
 
-Consider reducing `MaximumIndependentSet<UnitDiskGraph, Unweighted>` to `MaximumIndependentSet<SimpleGraph, i32>`. These are two variants of the same problem, so the reduction graph connects them via natural edges:
+### JSON export
 
+`ReductionGraph::to_json()` produces a `ReductionGraphJson` with fully expanded variant nodes and both reduction + natural edges:
+
+- [reduction_graph.json](reductions/reduction_graph.json) — all problem variants and reduction edges
+- [problem_schemas.json](reductions/problem_schemas.json) — field definitions for each problem type
+
+## Path Finding
+
+Path finding operates at two levels: **name-level** paths (which problem types to traverse) and **variant-level** resolved paths (with concrete variant and overhead at each step).
+
+### Name-level paths
+
+`find_paths_by_name(src, dst)` enumerates all simple paths in the type-erased graph. `find_shortest_path_by_name()` returns the one with fewest hops.
+
+For cost-aware routing, `find_cheapest_path()` uses **Dijkstra's algorithm** with set-theoretic validation:
+
+```rust
+pub fn find_cheapest_path<C: PathCostFn>(
+    &self,
+    source: (&str, &str),        // (problem_name, graph_type)
+    target: (&str, &str),
+    input_size: &ProblemSize,
+    cost_fn: &C,
+) -> Option<ReductionPath>
 ```
-MIS (UnitDiskGraph, Unweighted)
-  │
-  │  graph relaxation: UnitDiskGraph ≤ SimpleGraph
-  ▼
-MIS (SimpleGraph, Unweighted)
-  │
-  │  weight promotion: Unweighted ≤ i32
-  ▼
-MIS (SimpleGraph, i32)
+
+At each edge, Dijkstra checks `rule_applicable()` — the source graph must be a subtype of the rule's expected source, and the rule's target graph must be a subtype of the desired target. This ensures the chosen path respects variant constraints.
+
+### Cost functions
+
+The `PathCostFn` trait computes edge cost from overhead and current problem size:
+
+```rust
+pub trait PathCostFn {
+    fn edge_cost(&self, overhead: &ReductionOverhead, current_size: &ProblemSize) -> f64;
+}
 ```
 
-**Step 1 — Graph relaxation.** A unit disk graph is a simple graph (it just happens to have geometric structure). The MIS instance is unchanged; we simply forget the geometric embedding and treat it as a generic graph.
+Built-in implementations:
 
-**Step 2 — Weight promotion.** An unweighted MIS asks for the largest independent set (all vertices have equal value). This is equivalent to a weighted MIS where every vertex has weight 1. The instance gains uniform weights and becomes `MaximumIndependentSet<SimpleGraph, i32>`.
+| Cost function | Strategy |
+|--------------|----------|
+| `Minimize("field")` | Minimize a single output field |
+| `MinimizeWeighted([(field, w)])` | Weighted sum of output fields |
+| `MinimizeMax([fields])` | Minimize the maximum of fields |
+| `MinimizeLexicographic([fields])` | Lexicographic: minimize first, break ties with rest |
+| `MinimizeSteps` | Minimize number of hops (unit edge cost) |
+| `CustomCost(closure)` | User-defined cost function |
 
-Both steps are identity reductions with zero overhead — no new variables or constraints are introduced. The variant system generates these edges automatically from the declared hierarchies.
+### Variant-level resolution: `resolve_path`
 
-### Variant-Aware Path Resolution
-
-The `ReductionGraph` performs path-finding at the **name level** — nodes are `"MaximumIndependentSet"`, not `"MaximumIndependentSet<GridGraph, i32>"`. This keeps path discovery fast (one node per problem name), but it means a `ReductionPath` like `["KSatisfiability", "QUBO"]` carries no variant information. Two issues follow:
-
-1. **Overhead ambiguity.** `KSatisfiability<2> → QUBO` and `KSatisfiability<3> → QUBO` have different overheads (k=3 introduces auxiliary variables via Rosenberg quadratization), but a name-level path can't distinguish them.
-
-2. **Natural edge execution.** The path `MIS(KingsSubgraph) → VC(SimpleGraph)` needs an implicit graph-relaxation step, but the name-level path only says `["MaximumIndependentSet", "MinimumVertexCover"]`.
-
-The solution is **two-phase resolution**: name-level discovery followed by variant-level resolution.
-
-#### `resolve_path`
+Given a name-level `ReductionPath`, `resolve_path` threads variant state through each step to produce a `ResolvedPath`:
 
 ```rust
 pub fn resolve_path(
@@ -235,7 +283,7 @@ pub fn resolve_path(
 ) -> Option<ResolvedPath>
 ```
 
-The resolver walks the name-level path, threading variant state through each step:
+The algorithm:
 
 1. **Find candidates** — all `ReductionEntry` items matching `(src_name, dst_name)`.
 2. **Filter compatible** — keep entries where the current variant is equal-or-more-specific than the entry's source variant on every axis.
@@ -254,91 +302,90 @@ pub struct ResolvedPath {
 
 #### Example: MIS on KingsSubgraph to MinimumVertexCover
 
-Resolving `MIS(KingsSubgraph, i32) → VC(SimpleGraph, i32)` through name-path `["MIS", "VC"]`:
+Resolving `MIS(KingsSubgraph, i32) -> VC(SimpleGraph, i32)` through name-path `["MIS", "VC"]`:
 
 ```
-steps:  MIS{KingsSubgraph,i32}  →  MIS{SimpleGraph,i32}  →  VC{SimpleGraph,i32}
+steps:  MIS{KingsSubgraph,i32}  ->  MIS{SimpleGraph,i32}  ->  VC{SimpleGraph,i32}
 edges:       NaturalCast                  Reduction{overhead}
 ```
 
-The resolver finds that the `MIS → VC` reduction expects `SimpleGraph`, so it inserts a `NaturalCast` to relax `KingsSubgraph` to `SimpleGraph` first.
+The resolver finds that the `MIS -> VC` reduction expects `SimpleGraph`, so it inserts a `NaturalCast` to relax `KingsSubgraph` to `SimpleGraph` first.
 
 #### Example: KSat Disambiguation
 
-Resolving `KSat(k=3) → QUBO` through name-path `["KSatisfiability", "QUBO"]`:
+Resolving `KSat(k=3) -> QUBO` through name-path `["KSatisfiability", "QUBO"]`:
 
-- Candidates: `KSat<2> → QUBO` (overhead: `num_vars`) and `KSat<3> → QUBO` (overhead: `num_vars + num_clauses`).
+- Candidates: `KSat<2> -> QUBO` (overhead: `num_vars`) and `KSat<3> -> QUBO` (overhead: `num_vars + num_clauses`).
 - Filter with `k=3`: only `KSat<3>` is compatible (`3` is not a subtype of `2`).
 - Result: the k=3-specific overhead is returned.
 
-#### Execution Model
+## Overhead Evaluation
 
-`ResolvedPath` is a **plan**, not an executor. Callers dispatch each step themselves:
+Each reduction declares how the output problem size relates to the input size, expressed as polynomials.
 
-- `EdgeKind::Reduction` → call `ReduceTo::reduce_to()`
-- `EdgeKind::NaturalCast` → call `GraphCast::cast_graph()` or equivalent weight cast
+### ProblemSize
 
-This avoids type-erasure complexity while giving callers precise variant and overhead information at each step.
-
-## Rules
-
-A reduction requires two pieces:
-
-**1. Result struct** — holds the target problem and extraction logic:
+A `ProblemSize` holds named size components — the dimensions that characterize a problem instance:
 
 ```rust
-#[derive(Clone)]
-pub struct ReductionAToB {
-    target: B,
-    // ... mapping data for extraction
-}
-
-impl ReductionResult for ReductionAToB {
-    type Source = A;
-    type Target = B;
-
-    fn target_problem(&self) -> &B { &self.target }
-    fn extract_solution(&self, target_sol: &[usize]) -> Vec<usize> { /* ... */ }
-}
+let size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 15)]);
+assert_eq!(size.get("num_vertices"), Some(10));
 ```
 
-**2. `ReduceTo<T>` impl** with the `#[reduction]` macro:
+### Polynomials
+
+Output size formulas use `Polynomial` (a sum of `Monomial` terms). The `poly!` macro provides a concise syntax:
 
 ```rust
-#[reduction(A -> B)]
-impl ReduceTo<B> for A {
-    type Result = ReductionAToB;
-    fn reduce_to(&self) -> Self::Result { /* ... */ }
-}
+poly!(num_vertices)              // p(x) = num_vertices
+poly!(num_vertices ^ 2)          // p(x) = num_vertices^2
+poly!(3 * num_edges)             // p(x) = 3 * num_edges
+poly!(num_vertices * num_edges)  // p(x) = num_vertices * num_edges
 ```
 
-The macro generates `inventory::submit!` calls for compile-time reduction graph registration.
-
-See [adding-reductions.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-reductions.md) for the full implementation guide.
-
-## Registry
-
-The reduction graph is built at compile time using the `inventory` crate:
+A `ReductionOverhead` pairs output field names with their polynomials:
 
 ```rust
-#[reduction(A -> B)]
-impl ReduceTo<B> for A { /* ... */ }
-
-// Expands to include:
-// inventory::submit! { ReductionMeta { source: "A", target: "B", ... } }
+ReductionOverhead::new(vec![
+    ("num_vars", poly!(num_vertices) + poly!(num_edges)),
+    ("num_clauses", poly!(3 * num_edges)),
+])
 ```
 
-**JSON exports:**
-- [reduction_graph.json](reductions/reduction_graph.json) — all problem variants and reduction edges
-- [problem_schemas.json](reductions/problem_schemas.json) — field definitions for each problem type
+### Evaluating overhead
 
-Regenerate exports:
+`ReductionOverhead::evaluate_output_size(input)` substitutes input values into the polynomials and returns a new `ProblemSize`:
 
-```bash
-cargo run --example export_graph                # docs/src/reductions/reduction_graph.json (default)
-cargo run --example export_graph -- output.json # custom output path
-cargo run --example export_schemas  # docs/src/reductions/problem_schemas.json
 ```
+Input:  ProblemSize { num_vertices: 10, num_edges: 15 }
+Output: ProblemSize { num_vars: 25, num_clauses: 45 }
+```
+
+### Composing through a path
+
+For a multi-step reduction path, overhead composes: the output of step $N$ becomes the input of step $N+1$. Each `ResolvedPath` edge carries its own `ReductionOverhead` (or `NaturalCast` with identity overhead), so the total output size is computed by chaining `evaluate_output_size` calls through the path.
+
+## Reduction Execution
+
+A `ResolvedPath` is a **plan**, not an executor. It provides variant and overhead information at each step, but callers dispatch the actual transformations themselves.
+
+### Dispatching steps
+
+Walk the `edges` array and dispatch based on `EdgeKind`:
+
+- **`EdgeKind::Reduction`** — call `ReduceTo::reduce_to()` on the current problem to produce a `ReductionResult`, then call `target_problem()` to get the next problem.
+- **`EdgeKind::NaturalCast`** — call `CastToParent::cast_to_parent()` (for graph casts) or the equivalent weight cast. The problem data is preserved; only the type changes.
+
+### Extracting solutions
+
+After solving the final target problem, walk the chain **in reverse**:
+
+- At each `Reduction` edge, call `extract_solution(&target_solution)` on the corresponding `ReductionResult` to map the solution back to the source space.
+- At each `NaturalCast` edge, the solution passes through unchanged (identity mapping).
+
+### Why concrete types (no type erasure)
+
+The library uses concrete types at each step rather than `dyn Problem`. This preserves full type safety and avoids boxing overhead, at the cost of requiring callers to know the types at each step. This design choice keeps the reduction pipeline zero-cost and makes the compiler verify correctness at each transformation boundary.
 
 ## Solvers
 
@@ -351,16 +398,42 @@ pub trait Solver {
 }
 ```
 
-`ILPSolver` additionally provides `solve_reduced()` for problems implementing `ReduceTo<ILP>`.
+### BruteForce
+
+Enumerates every configuration in the space defined by `dims()`. Suitable for small instances (<20 variables). In addition to the `Solver` trait methods, provides:
+
+- `find_all_best(problem)` — returns all tied-optimal configurations.
+- `find_all_satisfying(problem)` — returns all satisfying configurations.
+
+Primarily used for **testing and verification** of reductions via closed-loop tests.
+
+### ILPSolver
+
+Feature-gated behind `ilp`. Uses the HiGHS solver via the `good_lp` crate. Additionally provides `solve_reduced()` for problems that implement `ReduceTo<ILP>` — it reduces, solves the ILP, and extracts the solution in one call.
+
+## JSON Serialization
+
+All problem types support JSON serialization via serde:
+
+```rust
+use problemreductions::io::{to_json, from_json};
+
+let json = to_json(&problem)?;
+let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json)?;
+```
+
+**Exported JSON files:**
+- [reduction_graph.json](reductions/reduction_graph.json) — all problem variants and reduction edges
+- [problem_schemas.json](reductions/problem_schemas.json) — field definitions for each problem type
+
+Regenerate exports:
+
+```bash
+cargo run --example export_graph                # docs/src/reductions/reduction_graph.json (default)
+cargo run --example export_graph -- output.json # custom output path
+cargo run --example export_schemas              # docs/src/reductions/problem_schemas.json
+```
 
 ## Contributing
 
 See [Call for Contributions](./introduction.md#call-for-contributions) for the recommended issue-based workflow (no coding required).
-
-For manual implementation:
-
-- **Adding a problem:** See [adding-models.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-models.md)
-- **Adding a reduction:** See [adding-reductions.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/adding-reductions.md)
-- **Testing requirements:** See [testing.md](https://github.com/CodingThrust/problem-reductions/blob/main/.claude/rules/testing.md)
-
-Run `make test clippy` before submitting PRs.

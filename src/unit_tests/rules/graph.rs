@@ -2,6 +2,8 @@ use super::*;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::set::MaximumSetPacking;
 use crate::rules::cost::MinimizeSteps;
+use crate::rules::graph::classify_problem_category;
+use crate::rules::graph::is_natural_edge;
 use crate::topology::SimpleGraph;
 
 #[test]
@@ -1156,4 +1158,159 @@ fn test_resolve_path_incompatible_returns_none() {
 
     let resolved = graph.resolve_path(&name_path, &source, &target);
     assert!(resolved.is_none());
+}
+
+#[test]
+fn test_filter_redundant_base_nodes() {
+    use std::collections::{BTreeMap, HashSet};
+
+    let mut node_set: HashSet<(String, BTreeMap<String, String>)> = HashSet::new();
+
+    // Base node (empty variant) — should be removed because variant-specific sibling exists
+    node_set.insert(("MIS".to_string(), BTreeMap::new()));
+
+    // Variant-specific node
+    let mut variant = BTreeMap::new();
+    variant.insert("graph".to_string(), "GridGraph".to_string());
+    node_set.insert(("MIS".to_string(), variant));
+
+    // Base node with no siblings — should be kept
+    node_set.insert(("QUBO".to_string(), BTreeMap::new()));
+
+    filter_redundant_base_nodes(&mut node_set);
+
+    assert_eq!(node_set.len(), 2);
+    assert!(!node_set
+        .iter()
+        .any(|(name, v)| name == "MIS" && v.is_empty()));
+    assert!(node_set.iter().any(|(name, _)| name == "QUBO"));
+}
+
+#[test]
+fn test_classify_problem_category() {
+    assert_eq!(
+        classify_problem_category("problemreductions::models::graph::maximum_independent_set"),
+        "graph"
+    );
+    assert_eq!(
+        classify_problem_category("problemreductions::models::satisfiability::satisfiability"),
+        "satisfiability"
+    );
+    assert_eq!(
+        classify_problem_category("problemreductions::models::set::maximum_set_packing"),
+        "set"
+    );
+    assert_eq!(
+        classify_problem_category("problemreductions::models::optimization::qubo"),
+        "optimization"
+    );
+    assert_eq!(classify_problem_category("unknown::path"), "other");
+}
+
+#[test]
+fn test_is_natural_edge_same_variant() {
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    // Same variant — no edge (is_variant_reducible returns false for equal variants)
+    let a = BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]);
+    let b = a.clone();
+    assert!(!is_natural_edge(&a, &b, &graph));
+}
+
+#[test]
+fn test_is_natural_edge_subtype_forward() {
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    // KingsSubgraph is subtype of SimpleGraph — natural edge from sub to sup
+    let sub = BTreeMap::from([
+        ("graph".to_string(), "KingsSubgraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    let sup = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    assert!(is_natural_edge(&sub, &sup, &graph));
+}
+
+#[test]
+fn test_is_natural_edge_not_reverse() {
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    // SimpleGraph is NOT a subtype of KingsSubgraph — no natural edge in this direction
+    let sup = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    let sub = BTreeMap::from([
+        ("graph".to_string(), "KingsSubgraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    assert!(!is_natural_edge(&sup, &sub, &graph));
+}
+
+#[test]
+fn test_is_natural_edge_different_weight() {
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    // One is subtype of i32 — natural edge from One to i32
+    let sub = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "One".to_string()),
+    ]);
+    let sup = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    assert!(is_natural_edge(&sub, &sup, &graph));
+}
+
+#[test]
+fn test_is_natural_edge_incompatible_fields() {
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    // Graph field goes more specific but weight goes more general — not a natural edge
+    let a = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "One".to_string()),
+    ]);
+    let b = BTreeMap::from([
+        ("graph".to_string(), "KingsSubgraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    assert!(!is_natural_edge(&a, &b, &graph));
+}
+
+#[test]
+fn test_is_natural_edge_transitive_subtype() {
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    // KingsSubgraph -> UnitDiskGraph -> SimpleGraph (transitive)
+    // With weight One -> f64 (transitive)
+    let sub = BTreeMap::from([
+        ("graph".to_string(), "KingsSubgraph".to_string()),
+        ("weight".to_string(), "One".to_string()),
+    ]);
+    let sup = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "f64".to_string()),
+    ]);
+    assert!(is_natural_edge(&sub, &sup, &graph));
+}
+
+#[test]
+fn test_is_natural_edge_empty_variants() {
+    use std::collections::BTreeMap;
+    let graph = ReductionGraph::new();
+
+    // Both empty — same variant, no edge
+    let a: BTreeMap<String, String> = BTreeMap::new();
+    let b: BTreeMap<String, String> = BTreeMap::new();
+    assert!(!is_natural_edge(&a, &b, &graph));
 }

@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::satisfiability::CNFClause;
 use crate::solvers::BruteForce;
+use crate::topology::Graph;
 use crate::traits::Problem;
 include!("../jl_helpers.rs");
 
@@ -12,12 +13,12 @@ fn test_simple_sat_to_ds() {
     let ds_problem = reduction.target_problem();
 
     // Should have 3 vertices (variable gadget) + 1 clause vertex = 4 vertices
-    assert_eq!(ds_problem.num_vertices(), 4);
+    assert_eq!(ds_problem.graph().num_vertices(), 4);
 
     // Edges: 3 for triangle + 1 from positive literal to clause = 4
     // Triangle edges: (0,1), (0,2), (1,2)
     // Clause edge: (0, 3) since x1 positive connects to clause vertex
-    assert_eq!(ds_problem.num_edges(), 4);
+    assert_eq!(ds_problem.graph().num_edges(), 4);
 }
 
 #[test]
@@ -28,13 +29,13 @@ fn test_two_variable_sat_to_ds() {
     let ds_problem = reduction.target_problem();
 
     // 2 variables * 3 = 6 gadget vertices + 1 clause vertex = 7
-    assert_eq!(ds_problem.num_vertices(), 7);
+    assert_eq!(ds_problem.graph().num_vertices(), 7);
 
     // Edges:
     // - 3 edges for first triangle: (0,1), (0,2), (1,2)
     // - 3 edges for second triangle: (3,4), (3,5), (4,5)
     // - 2 edges from literals to clause: (0,6), (3,6)
-    assert_eq!(ds_problem.num_edges(), 8);
+    assert_eq!(ds_problem.graph().num_edges(), 8);
 }
 
 #[test]
@@ -87,7 +88,7 @@ fn test_ds_structure() {
     let ds_problem = reduction.target_problem();
 
     // 3 vars * 3 = 9 gadget vertices + 2 clause vertices = 11
-    assert_eq!(ds_problem.num_vertices(), 11);
+    assert_eq!(ds_problem.graph().num_vertices(), 11);
 }
 
 #[test]
@@ -97,8 +98,8 @@ fn test_empty_sat() {
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);
     let ds_problem = reduction.target_problem();
 
-    assert_eq!(ds_problem.num_vertices(), 0);
-    assert_eq!(ds_problem.num_edges(), 0);
+    assert_eq!(ds_problem.graph().num_vertices(), 0);
+    assert_eq!(ds_problem.graph().num_edges(), 0);
     assert_eq!(reduction.num_clauses(), 0);
     assert_eq!(reduction.num_literals(), 0);
 }
@@ -111,12 +112,12 @@ fn test_multiple_literals_same_variable() {
     let ds_problem = reduction.target_problem();
 
     // 3 gadget vertices + 1 clause vertex = 4
-    assert_eq!(ds_problem.num_vertices(), 4);
+    assert_eq!(ds_problem.graph().num_vertices(), 4);
 
     // Edges:
     // - 3 for triangle
     // - 2 from literals to clause (both positive and negative literals connect)
-    assert_eq!(ds_problem.num_edges(), 5);
+    assert_eq!(ds_problem.graph().num_edges(), 5);
 }
 
 #[test]
@@ -149,13 +150,13 @@ fn test_negated_variable_connection() {
     let ds_problem = reduction.target_problem();
 
     // 2 * 3 = 6 gadget vertices + 1 clause = 7
-    assert_eq!(ds_problem.num_vertices(), 7);
+    assert_eq!(ds_problem.graph().num_vertices(), 7);
 
     // Edges:
     // - 3 for first triangle: (0,1), (0,2), (1,2)
     // - 3 for second triangle: (3,4), (3,5), (4,5)
     // - 2 from negated literals to clause: (1,6), (4,6)
-    assert_eq!(ds_problem.num_edges(), 8);
+    assert_eq!(ds_problem.graph().num_edges(), 8);
 }
 
 #[test]

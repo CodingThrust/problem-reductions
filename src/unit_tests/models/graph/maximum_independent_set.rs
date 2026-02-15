@@ -7,8 +7,8 @@ include!("../../jl_helpers.rs");
 #[test]
 fn test_independent_set_creation() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    assert_eq!(problem.num_vertices(), 4);
-    assert_eq!(problem.num_edges(), 3);
+    assert_eq!(problem.graph().num_vertices(), 4);
+    assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.dims().len(), 4);
 }
 
@@ -16,7 +16,7 @@ fn test_independent_set_creation() {
 fn test_independent_set_with_weights() {
     let problem =
         MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
-    assert_eq!(problem.weights(), vec![1, 2, 3]);
+    assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
     assert!(problem.is_weighted());
 }
 
@@ -29,10 +29,10 @@ fn test_independent_set_unweighted() {
 #[test]
 fn test_has_edge() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
-    assert!(problem.has_edge(0, 1));
-    assert!(problem.has_edge(1, 0)); // Undirected
-    assert!(problem.has_edge(1, 2));
-    assert!(!problem.has_edge(0, 2));
+    assert!(problem.graph().has_edge(0, 1));
+    assert!(problem.graph().has_edge(1, 0)); // Undirected
+    assert!(problem.graph().has_edge(1, 2));
+    assert!(!problem.graph().has_edge(0, 2));
 }
 
 #[test]
@@ -61,17 +61,17 @@ fn test_direction() {
 #[test]
 fn test_edges() {
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (2, 3)]);
-    let edges = problem.edges();
+    let edges = problem.graph().edges();
     assert_eq!(edges.len(), 2);
     assert!(edges.contains(&(0, 1)) || edges.contains(&(1, 0)));
     assert!(edges.contains(&(2, 3)) || edges.contains(&(3, 2)));
 }
 
 #[test]
-fn test_set_weights() {
-    let mut problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
-    problem.set_weights(vec![5, 10, 15]);
-    assert_eq!(problem.weights(), vec![5, 10, 15]);
+fn test_with_custom_weights() {
+    let problem =
+        MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
+    assert_eq!(problem.weights().to_vec(), vec![5, 10, 15]);
 }
 
 #[test]
@@ -79,16 +79,16 @@ fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem =
         MaximumIndependentSet::<SimpleGraph, i32>::from_graph(graph.clone(), vec![1, 2, 3]);
-    assert_eq!(problem.num_vertices(), 3);
-    assert_eq!(problem.weights(), vec![1, 2, 3]);
+    assert_eq!(problem.graph().num_vertices(), 3);
+    assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
 }
 
 #[test]
-fn test_from_graph_unit_weights() {
+fn test_from_graph_with_unit_weights() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MaximumIndependentSet::<SimpleGraph, i32>::from_graph_unit_weights(graph);
-    assert_eq!(problem.num_vertices(), 3);
-    assert_eq!(problem.weights(), vec![1, 1, 1]);
+    let problem = MaximumIndependentSet::<SimpleGraph, i32>::from_graph(graph, vec![1, 1, 1]);
+    assert_eq!(problem.graph().num_vertices(), 3);
+    assert_eq!(problem.weights().to_vec(), vec![1, 1, 1]);
 }
 
 #[test]
@@ -100,10 +100,10 @@ fn test_graph_accessor() {
 }
 
 #[test]
-fn test_weights_ref() {
+fn test_weights() {
     let problem =
         MaximumIndependentSet::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![5, 10, 15]);
-    assert_eq!(problem.weights_ref(), &vec![5, 10, 15]);
+    assert_eq!(problem.weights(), &[5, 10, 15]);
 }
 
 #[test]

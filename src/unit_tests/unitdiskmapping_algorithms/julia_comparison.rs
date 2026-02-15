@@ -158,8 +158,7 @@ fn compare_square_unweighted(name: &str) {
 
     // Assertions
     assert_eq!(
-        julia.grid_size,
-        rust_result.grid_dimensions,
+        julia.grid_size, rust_result.grid_dimensions,
         "{} square: Grid size mismatch",
         name
     );
@@ -395,8 +394,7 @@ fn compare_triangular(name: &str) {
 
     // Assertions
     assert_eq!(
-        julia.grid_size,
-        rust_result.grid_dimensions,
+        julia.grid_size, rust_result.grid_dimensions,
         "{} triangular: Grid size mismatch",
         name
     );

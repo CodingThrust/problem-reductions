@@ -13,10 +13,7 @@ fn test_map_graph_triangular() {
     let result = map_graph_triangular(3, &edges);
 
     assert!(!result.positions.is_empty());
-    assert!(matches!(
-        result.kind,
-        GridKind::Triangular
-    ));
+    assert!(matches!(result.kind, GridKind::Triangular));
 }
 
 #[test]
