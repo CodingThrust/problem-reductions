@@ -7,23 +7,6 @@
 #[derive(Debug, Clone, Copy, Default)]
 pub struct SimpleGraph;
 
-/// Planar graph - can be drawn on a plane without edge crossings.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct PlanarGraph;
-
-impl crate::variant::VariantParam for PlanarGraph {
-    const CATEGORY: &'static str = "graph";
-    const VALUE: &'static str = "PlanarGraph";
-    const PARENT_VALUE: Option<&'static str> = Some("SimpleGraph");
-}
-inventory::submit! {
-    crate::variant::VariantTypeEntry {
-        category: "graph",
-        value: "PlanarGraph",
-        parent: Some("SimpleGraph"),
-    }
-}
-
 /// Unit disk graph - vertices are points, edges connect points within unit distance.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct UnitDiskGraph;
