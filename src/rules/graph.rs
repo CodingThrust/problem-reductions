@@ -1,24 +1,23 @@
 //! Runtime reduction graph for discovering and executing reduction paths.
 //!
-//! The graph uses type-erased names (e.g., "SpinGlass" instead of "SpinGlass<SimpleGraph, i32>")
-//! for topology, allowing path finding regardless of weight type parameters.
+//! The graph uses variant-level nodes: each node is a unique `(problem_name, variant)` pair.
+//! Edges come exclusively from `#[reduction]` registrations via `inventory::iter::<ReductionEntry>`.
 //!
-//! This module implements set-theoretic validation for path finding:
-//! - Variant hierarchy is built from `VariantTypeEntry` registrations
-//! - Reduction applicability uses subtype relationships: A <= C and D <= B
+//! This module implements:
+//! - Variant-level graph construction from `ReductionEntry` inventory
 //! - Dijkstra's algorithm with custom cost functions for optimal paths
+//! - JSON export for documentation and visualization
 
 use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::types::ProblemSize;
-use crate::variant::VariantTypeEntry;
 use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
 use petgraph::graph::{DiGraph, NodeIndex};
 use petgraph::visit::EdgeRef;
 use serde::Serialize;
 use std::cmp::Reverse;
-use std::collections::{BinaryHeap, HashMap, HashSet};
+use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
 
 /// JSON-serializable representation of the reduction graph.
 #[derive(Debug, Clone, Serialize)]
@@ -47,28 +46,18 @@ pub struct NodeJson {
     /// Base problem name (e.g., "MaximumIndependentSet").
     pub name: String,
     /// Variant attributes as key-value pairs.
-    pub variant: std::collections::BTreeMap<String, String>,
+    pub variant: BTreeMap<String, String>,
     /// Category of the problem (e.g., "graph", "set", "optimization", "satisfiability", "specialized").
     pub category: String,
     /// Relative rustdoc path (e.g., "models/graph/maximum_independent_set").
     pub doc_path: String,
 }
 
-/// A matched reduction entry returned by [`ReductionGraph::find_best_entry`].
-pub struct MatchedEntry {
-    /// The entry's source variant (may be less specific than the caller's current variant).
-    pub source_variant: std::collections::BTreeMap<String, String>,
-    /// The entry's target variant (becomes the new current variant after the reduction).
-    pub target_variant: std::collections::BTreeMap<String, String>,
-    /// The overhead of the reduction.
-    pub overhead: ReductionOverhead,
-}
-
-/// Internal reference to a problem variant, used during edge construction.
+/// Internal reference to a problem variant, used as HashMap key.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct VariantRef {
     name: String,
-    variant: std::collections::BTreeMap<String, String>,
+    variant: BTreeMap<String, String>,
 }
 
 /// A single output field in the reduction overhead.
@@ -132,7 +121,7 @@ pub struct ReductionStep {
     /// Problem name (e.g., "MaximumIndependentSet").
     pub name: String,
     /// Variant at this point (e.g., {"graph": "KingsSubgraph", "weight": "i32"}).
-    pub variant: std::collections::BTreeMap<String, String>,
+    pub variant: BTreeMap<String, String>,
 }
 
 /// The kind of transition between adjacent steps in a resolved path.
@@ -143,15 +132,9 @@ pub enum EdgeKind {
         /// Overhead from the matching ReductionEntry.
         overhead: ReductionOverhead,
     },
-    /// A natural cast via subtype relaxation. Identity overhead.
-    NaturalCast,
 }
 
 /// A fully resolved reduction path with variant information at each node.
-///
-/// Created by [`ReductionGraph::resolve_path`] from a name-level [`ReductionPath`].
-/// Each adjacent pair of steps is connected by an [`EdgeKind`]: either a registered
-/// reduction or a natural cast (subtype relaxation with identity overhead).
 #[derive(Debug, Clone, Serialize)]
 pub struct ResolvedPath {
     /// Sequence of (name, variant) nodes.
@@ -161,7 +144,7 @@ pub struct ResolvedPath {
 }
 
 impl ResolvedPath {
-    /// Number of edges (reductions + casts) in the path.
+    /// Number of edges in the path.
     pub fn len(&self) -> usize {
         self.edges.len()
     }
@@ -171,49 +154,13 @@ impl ResolvedPath {
         self.edges.is_empty()
     }
 
-    /// Number of registered reduction steps (excludes natural casts).
+    /// Number of registered reduction steps.
     pub fn num_reductions(&self) -> usize {
         self.edges
             .iter()
             .filter(|e| matches!(e, EdgeKind::Reduction { .. }))
             .count()
     }
-
-    /// Number of natural cast steps.
-    pub fn num_casts(&self) -> usize {
-        self.edges
-            .iter()
-            .filter(|e| matches!(e, EdgeKind::NaturalCast))
-            .count()
-    }
-}
-
-/// Remove base nodes (empty variant) when a variant-specific sibling exists.
-pub(crate) fn filter_redundant_base_nodes(
-    node_set: &mut HashSet<(String, std::collections::BTreeMap<String, String>)>,
-) {
-    let names_with_variants: HashSet<String> = node_set
-        .iter()
-        .filter(|(_, variant)| !variant.is_empty())
-        .map(|(name, _)| name.clone())
-        .collect();
-    node_set.retain(|(name, variant)| !variant.is_empty() || !names_with_variants.contains(name));
-}
-
-/// Determine whether a natural (subtype) edge should exist from variant `a` to variant `b`.
-///
-/// A natural edge exists when all variant fields of `a` are at least as restrictive as `b`'s
-/// (i.e., each field of `a` is a subtype of or equal to the corresponding field of `b`),
-/// and at least one field is strictly more restrictive. This means `a` is a strict subtype of `b`.
-///
-/// Returns `true` if a natural edge from `a` to `b` should exist, `false` otherwise.
-/// Returns `false` when `a == b` (no self-edges).
-pub(crate) fn is_natural_edge(
-    a: &std::collections::BTreeMap<String, String>,
-    b: &std::collections::BTreeMap<String, String>,
-    graph: &ReductionGraph,
-) -> bool {
-    graph.is_variant_reducible(a, b)
 }
 
 /// Classify a problem's category from its module path.
@@ -230,235 +177,126 @@ pub(crate) fn classify_problem_category(module_path: &str) -> &str {
     "other"
 }
 
-/// Edge data for a reduction.
-#[derive(Clone, Debug)]
-pub struct ReductionEdge {
-    /// Source variant attributes as key-value pairs.
-    pub source_variant: Vec<(&'static str, &'static str)>,
-    /// Target variant attributes as key-value pairs.
-    pub target_variant: Vec<(&'static str, &'static str)>,
-    /// Overhead information for cost calculations.
-    pub overhead: ReductionOverhead,
-}
-
-impl ReductionEdge {
-    /// Get the graph type from the source variant, or "SimpleGraph" as default.
-    /// Empty strings are treated as missing and default to "SimpleGraph".
-    pub fn source_graph(&self) -> &str {
-        self.source_variant
-            .iter()
-            .find(|(k, _)| *k == "graph")
-            .map(|(_, v)| *v)
-            .filter(|v| !v.is_empty())
-            .unwrap_or("SimpleGraph")
-    }
-
-    /// Get the graph type from the target variant, or "SimpleGraph" as default.
-    /// Empty strings are treated as missing and default to "SimpleGraph".
-    pub fn target_graph(&self) -> &str {
-        self.target_variant
-            .iter()
-            .find(|(k, _)| *k == "graph")
-            .map(|(_, v)| *v)
-            .filter(|v| !v.is_empty())
-            .unwrap_or("SimpleGraph")
-    }
+/// Internal node data for the variant-level graph.
+#[derive(Debug, Clone)]
+struct VariantNode {
+    name: &'static str,
+    variant: BTreeMap<String, String>,
 }
 
 /// Runtime graph of all registered reductions.
 ///
-/// Uses type-erased names for the graph topology, so `MaxCut<SimpleGraph, i32>` and `MaxCut<SimpleGraph, f64>`
-/// map to the same node "MaxCut". This allows finding reduction paths regardless
-/// of weight type parameters.
+/// Uses variant-level nodes: each node is a unique `(problem_name, variant)` pair.
+/// All edges come from `inventory::iter::<ReductionEntry>` registrations.
 ///
 /// The graph supports:
 /// - Auto-discovery of reductions from `inventory::iter::<ReductionEntry>`
-/// - Variant hierarchy from `inventory::iter::<VariantTypeEntry>`
-/// - Set-theoretic validation for path finding
 /// - Dijkstra with custom cost functions
+/// - Path finding by problem type or by name
 pub struct ReductionGraph {
-    /// Graph with base type names as node data.
-    graph: DiGraph<&'static str, ReductionEdge>,
-    /// Map from base type name to node index.
-    name_indices: HashMap<&'static str, NodeIndex>,
-    /// Variant hierarchy: category -> (value -> set_of_supertypes). Transitively closed.
-    variant_hierarchy: HashMap<&'static str, HashMap<&'static str, HashSet<&'static str>>>,
+    /// Graph with node indices as node data, edge weights as ReductionOverhead.
+    graph: DiGraph<usize, ReductionOverhead>,
+    /// All variant nodes, indexed by position.
+    nodes: Vec<VariantNode>,
+    /// Map from base type name to all NodeIndex values for that name.
+    name_to_nodes: HashMap<&'static str, Vec<NodeIndex>>,
 }
 
 impl ReductionGraph {
     /// Create a new reduction graph with all registered reductions from inventory.
     pub fn new() -> Self {
         let mut graph = DiGraph::new();
-        let mut name_indices = HashMap::new();
+        let mut nodes: Vec<VariantNode> = Vec::new();
+        let mut node_index: HashMap<VariantRef, NodeIndex> = HashMap::new();
+        let mut name_to_nodes: HashMap<&'static str, Vec<NodeIndex>> = HashMap::new();
 
-        // Build unified variant hierarchy from all sources
-        let variant_hierarchy = Self::build_variant_hierarchy();
+        // Helper to ensure a variant node exists in the graph.
+        let ensure_node = |name: &'static str,
+                           variant: BTreeMap<String, String>,
+                           nodes: &mut Vec<VariantNode>,
+                           graph: &mut DiGraph<usize, ReductionOverhead>,
+                           node_index: &mut HashMap<VariantRef, NodeIndex>,
+                           name_to_nodes: &mut HashMap<&'static str, Vec<NodeIndex>>|
+         -> NodeIndex {
+            let vref = VariantRef {
+                name: name.to_string(),
+                variant: variant.clone(),
+            };
+            if let Some(&idx) = node_index.get(&vref) {
+                idx
+            } else {
+                let node_id = nodes.len();
+                nodes.push(VariantNode { name, variant });
+                let idx = graph.add_node(node_id);
+                node_index.insert(vref, idx);
+                name_to_nodes.entry(name).or_default().push(idx);
+                idx
+            }
+        };
 
         // Register reductions from inventory (auto-discovery)
         for entry in inventory::iter::<ReductionEntry> {
-            // Ensure source node exists
-            if !name_indices.contains_key(entry.source_name) {
-                let idx = graph.add_node(entry.source_name);
-                name_indices.insert(entry.source_name, idx);
-            }
-            // Ensure target node exists
-            if !name_indices.contains_key(entry.target_name) {
-                let idx = graph.add_node(entry.target_name);
-                name_indices.insert(entry.target_name, idx);
-            }
+            let source_variant = Self::variant_to_map(&entry.source_variant());
+            let target_variant = Self::variant_to_map(&entry.target_variant());
 
-            // Add edge with metadata
-            let src = name_indices[entry.source_name];
-            let dst = name_indices[entry.target_name];
+            let src_idx = ensure_node(
+                entry.source_name,
+                source_variant,
+                &mut nodes,
+                &mut graph,
+                &mut node_index,
+                &mut name_to_nodes,
+            );
+            let dst_idx = ensure_node(
+                entry.target_name,
+                target_variant,
+                &mut nodes,
+                &mut graph,
+                &mut node_index,
+                &mut name_to_nodes,
+            );
 
             // Check if edge already exists (avoid duplicates)
-            if graph.find_edge(src, dst).is_none() {
-                graph.add_edge(
-                    src,
-                    dst,
-                    ReductionEdge {
-                        source_variant: entry.source_variant(),
-                        target_variant: entry.target_variant(),
-                        overhead: entry.overhead(),
-                    },
-                );
+            if graph.find_edge(src_idx, dst_idx).is_none() {
+                graph.add_edge(src_idx, dst_idx, entry.overhead());
             }
         }
 
         Self {
             graph,
-            name_indices,
-            variant_hierarchy,
+            nodes,
+            name_to_nodes,
         }
     }
 
-    /// Build unified variant hierarchy from `VariantTypeEntry` registrations.
-    ///
-    /// Collects all `VariantTypeEntry` registrations and computes transitive closure
-    /// of the parent relationships for each category.
-    fn build_variant_hierarchy(
-    ) -> HashMap<&'static str, HashMap<&'static str, HashSet<&'static str>>> {
-        let mut hierarchy: HashMap<&'static str, HashMap<&'static str, HashSet<&'static str>>> =
-            HashMap::new();
-
-        // Collect from VariantTypeEntry (all categories)
-        for entry in inventory::iter::<VariantTypeEntry> {
-            if let Some(parent) = entry.parent {
-                hierarchy
-                    .entry(entry.category)
-                    .or_default()
-                    .entry(entry.value)
-                    .or_default()
-                    .insert(parent);
-            }
-        }
-
-        // Compute transitive closure for each category
-        for supertypes in hierarchy.values_mut() {
-            loop {
-                let mut changed = false;
-                let types: Vec<_> = supertypes.keys().copied().collect();
-
-                for sub in &types {
-                    let current: Vec<_> = supertypes
-                        .get(sub)
-                        .map(|s| s.iter().copied().collect())
-                        .unwrap_or_default();
-
-                    for sup in current {
-                        if let Some(sup_supers) = supertypes.get(sup).cloned() {
-                            for ss in sup_supers {
-                                if supertypes.entry(sub).or_default().insert(ss) {
-                                    changed = true;
-                                }
-                            }
-                        }
-                    }
-                }
-
-                if !changed {
-                    break;
-                }
-            }
-        }
-
-        hierarchy
-    }
-
-    /// Check if `sub` is a subtype of `sup` (or equal) within the given category.
-    fn is_subtype(&self, category: &str, sub: &str, sup: &str) -> bool {
-        sub == sup
-            || self
-                .variant_hierarchy
-                .get(category)
-                .and_then(|cat| cat.get(sub))
-                .map(|supers| supers.contains(sup))
-                .unwrap_or(false)
-    }
-
-    /// Check if `sub` is a graph subtype of `sup` (or equal).
-    pub fn is_graph_subtype(&self, sub: &str, sup: &str) -> bool {
-        self.is_subtype("graph", sub, sup)
-    }
-
-    /// Check if `sub` is a weight subtype of `sup` (or equal).
-    pub fn is_weight_subtype(&self, sub: &str, sup: &str) -> bool {
-        self.is_subtype("weight", sub, sup)
-    }
-
-    /// Check if `sub` is a K subtype of `sup` (or equal).
-    pub fn is_k_subtype(&self, sub: &str, sup: &str) -> bool {
-        self.is_subtype("k", sub, sup)
-    }
-
-    /// Get the graph hierarchy (for inspection/testing).
-    pub fn graph_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
-        // If "graph" category is absent, we return a static empty map.
-        static EMPTY: std::sync::LazyLock<HashMap<&'static str, HashSet<&'static str>>> =
-            std::sync::LazyLock::new(HashMap::new);
-        self.variant_hierarchy.get("graph").unwrap_or(&EMPTY)
-    }
-
-    /// Get the weight hierarchy (for inspection/testing).
-    pub fn weight_hierarchy(&self) -> &HashMap<&'static str, HashSet<&'static str>> {
-        static EMPTY: std::sync::LazyLock<HashMap<&'static str, HashSet<&'static str>>> =
-            std::sync::LazyLock::new(HashMap::new);
-        self.variant_hierarchy.get("weight").unwrap_or(&EMPTY)
-    }
-
-    /// Check if a reduction rule can be used.
-    ///
-    /// For a reduction from problem A (on graph type G_A) to problem B (on graph type G_B),
-    /// using a rule that reduces C (on G_C) to D (on G_D):
-    ///
-    /// The rule is applicable if:
-    /// - G_A is a subtype of G_C (our source graph is more specific than rule requires)
-    /// - G_D is a subtype of G_B (rule produces a graph that fits our target requirement)
-    pub fn rule_applicable(
-        &self,
-        want_source_graph: &str,
-        want_target_graph: &str,
-        rule_source_graph: &str,
-        rule_target_graph: &str,
-    ) -> bool {
-        // A <= C: our source must be subtype of rule's source (or equal)
-        // D <= B: rule's target must be subtype of our target (or equal)
-        self.is_graph_subtype(want_source_graph, rule_source_graph)
-            && self.is_graph_subtype(rule_target_graph, want_target_graph)
+    /// Helper to convert a variant slice to a BTreeMap.
+    /// Normalizes empty "graph" values to "SimpleGraph" for consistency.
+    fn variant_to_map(variant: &[(&str, &str)]) -> BTreeMap<String, String> {
+        variant
+            .iter()
+            .map(|(k, v)| {
+                let value = if *k == "graph" && v.is_empty() {
+                    "SimpleGraph".to_string()
+                } else {
+                    v.to_string()
+                };
+                (k.to_string(), value)
+            })
+            .collect()
     }
 
     /// Find the cheapest path using a custom cost function.
     ///
-    /// Uses Dijkstra's algorithm with set-theoretic validation.
+    /// Uses Dijkstra's algorithm on the variant-level graph.
     ///
     /// # Arguments
-    /// - `source`: (problem_name, graph_type) for source
+    /// - `source`: (problem_name, graph_type) for source — used to look up the variant node
     /// - `target`: (problem_name, graph_type) for target
     /// - `input_size`: Initial problem size for cost calculations
     /// - `cost_fn`: Custom cost function for path optimization
     ///
     /// # Returns
-    /// The cheapest path if one exists that satisfies the graph type constraints.
+    /// The cheapest path if one exists.
     pub fn find_cheapest_path<C: PathCostFn>(
         &self,
         source: (&str, &str),
@@ -466,75 +304,79 @@ impl ReductionGraph {
         input_size: &ProblemSize,
         cost_fn: &C,
     ) -> Option<ReductionPath> {
-        let src_idx = *self.name_indices.get(source.0)?;
-        let dst_idx = *self.name_indices.get(target.0)?;
+        // Find source nodes matching the name (we try all variant nodes for that name)
+        let src_nodes = self.name_to_nodes.get(source.0)?;
+        let dst_nodes = self.name_to_nodes.get(target.0)?;
 
-        let mut costs: HashMap<NodeIndex, f64> = HashMap::new();
-        let mut sizes: HashMap<NodeIndex, ProblemSize> = HashMap::new();
-        let mut prev: HashMap<NodeIndex, (NodeIndex, petgraph::graph::EdgeIndex)> = HashMap::new();
-        let mut heap = BinaryHeap::new();
+        // Build set of target node indices for quick lookup
+        let dst_set: HashSet<NodeIndex> = dst_nodes.iter().copied().collect();
 
-        costs.insert(src_idx, 0.0);
-        sizes.insert(src_idx, input_size.clone());
-        heap.push(Reverse((OrderedFloat(0.0), src_idx)));
+        let mut best_path: Option<(f64, ReductionPath)> = None;
 
-        while let Some(Reverse((cost, node))) = heap.pop() {
-            if node == dst_idx {
-                return Some(self.reconstruct_path(&prev, src_idx, dst_idx));
-            }
+        // Try from each source node
+        for &src_idx in src_nodes {
+            let mut costs: HashMap<NodeIndex, f64> = HashMap::new();
+            let mut sizes: HashMap<NodeIndex, ProblemSize> = HashMap::new();
+            let mut prev: HashMap<NodeIndex, (NodeIndex, petgraph::graph::EdgeIndex)> =
+                HashMap::new();
+            let mut heap = BinaryHeap::new();
 
-            if cost.0 > *costs.get(&node).unwrap_or(&f64::INFINITY) {
-                continue;
-            }
+            costs.insert(src_idx, 0.0);
+            sizes.insert(src_idx, input_size.clone());
+            heap.push(Reverse((OrderedFloat(0.0), src_idx)));
 
-            let current_size = match sizes.get(&node) {
-                Some(s) => s.clone(),
-                None => continue,
-            };
-
-            for edge_ref in self.graph.edges(node) {
-                let edge = edge_ref.weight();
-                let next = edge_ref.target();
-
-                // Check set-theoretic applicability
-                if !self.rule_applicable(
-                    source.1,
-                    target.1,
-                    edge.source_graph(),
-                    edge.target_graph(),
-                ) {
+            while let Some(Reverse((cost, node))) = heap.pop() {
+                if dst_set.contains(&node) {
+                    let path = self.reconstruct_path_names(&prev, src_idx, node);
+                    if best_path.as_ref().map(|(c, _)| cost.0 < *c).unwrap_or(true) {
+                        best_path = Some((cost.0, path));
+                    }
                     continue;
                 }
 
-                let edge_cost = cost_fn.edge_cost(&edge.overhead, &current_size);
-                let new_cost = cost.0 + edge_cost;
-                let new_size = edge.overhead.evaluate_output_size(&current_size);
+                if cost.0 > *costs.get(&node).unwrap_or(&f64::INFINITY) {
+                    continue;
+                }
 
-                if new_cost < *costs.get(&next).unwrap_or(&f64::INFINITY) {
-                    costs.insert(next, new_cost);
-                    sizes.insert(next, new_size);
-                    prev.insert(next, (node, edge_ref.id()));
-                    heap.push(Reverse((OrderedFloat(new_cost), next)));
+                let current_size = match sizes.get(&node) {
+                    Some(s) => s.clone(),
+                    None => continue,
+                };
+
+                for edge_ref in self.graph.edges(node) {
+                    let overhead = edge_ref.weight();
+                    let next = edge_ref.target();
+
+                    let edge_cost = cost_fn.edge_cost(overhead, &current_size);
+                    let new_cost = cost.0 + edge_cost;
+                    let new_size = overhead.evaluate_output_size(&current_size);
+
+                    if new_cost < *costs.get(&next).unwrap_or(&f64::INFINITY) {
+                        costs.insert(next, new_cost);
+                        sizes.insert(next, new_size);
+                        prev.insert(next, (node, edge_ref.id()));
+                        heap.push(Reverse((OrderedFloat(new_cost), next)));
+                    }
                 }
             }
         }
 
-        None
+        best_path.map(|(_, p)| p)
     }
 
-    /// Reconstruct a path from the predecessor map.
-    fn reconstruct_path(
+    /// Reconstruct a name-level path from the predecessor map.
+    fn reconstruct_path_names(
         &self,
         prev: &HashMap<NodeIndex, (NodeIndex, petgraph::graph::EdgeIndex)>,
         src: NodeIndex,
         dst: NodeIndex,
     ) -> ReductionPath {
-        let mut path = vec![self.graph[dst]];
+        let mut path = vec![self.nodes[self.graph[dst]].name];
         let mut current = dst;
 
         while current != src {
             if let Some(&(prev_node, _)) = prev.get(&current) {
-                path.push(self.graph[prev_node]);
+                path.push(self.nodes[self.graph[prev_node]].name);
                 current = prev_node;
             } else {
                 break;
@@ -542,13 +384,22 @@ impl ReductionGraph {
         }
 
         path.reverse();
-        ReductionPath { type_names: path }
+        // Deduplicate consecutive names (variant-level hops within same problem)
+        let mut deduped = Vec::new();
+        for name in &path {
+            if deduped.last() != Some(name) {
+                deduped.push(*name);
+            }
+        }
+        ReductionPath {
+            type_names: deduped,
+        }
     }
 
     /// Find all paths from source to target type.
     ///
-    /// Uses `Problem::NAME` for lookup, so `find_paths::<MaxCut<SimpleGraph, i32>, SpinGlass<SimpleGraph, f64>>()`
-    /// will find paths even though the weight types differ.
+    /// Uses `Problem::NAME` for lookup. With variant-level nodes, this finds
+    /// paths between any variant of S and any variant of T.
     pub fn find_paths<S: crate::traits::Problem, T: crate::traits::Problem>(
         &self,
     ) -> Vec<ReductionPath> {
@@ -557,30 +408,47 @@ impl ReductionGraph {
 
     /// Find all paths between problem types by name.
     pub fn find_paths_by_name(&self, src: &str, dst: &str) -> Vec<ReductionPath> {
-        let src_idx = match self.name_indices.get(src) {
-            Some(&idx) => idx,
+        let src_nodes = match self.name_to_nodes.get(src) {
+            Some(nodes) => nodes.clone(),
             None => return vec![],
         };
-        let dst_idx = match self.name_indices.get(dst) {
-            Some(&idx) => idx,
+        let dst_nodes = match self.name_to_nodes.get(dst) {
+            Some(nodes) => nodes.clone(),
             None => return vec![],
         };
 
-        let paths: Vec<Vec<NodeIndex>> = all_simple_paths::<
-            Vec<NodeIndex>,
-            _,
-            std::hash::RandomState,
-        >(&self.graph, src_idx, dst_idx, 0, None)
-        .collect();
+        let mut all_paths = Vec::new();
+        let mut seen_name_paths: HashSet<Vec<&'static str>> = HashSet::new();
 
-        paths
-            .into_iter()
-            .map(|path| {
-                let type_names: Vec<&'static str> =
-                    path.iter().map(|&idx| self.graph[idx]).collect();
-                ReductionPath { type_names }
-            })
-            .collect()
+        for &src_idx in &src_nodes {
+            for &dst_idx in &dst_nodes {
+                let paths: Vec<Vec<NodeIndex>> = all_simple_paths::<
+                    Vec<NodeIndex>,
+                    _,
+                    std::hash::RandomState,
+                >(
+                    &self.graph, src_idx, dst_idx, 0, None
+                )
+                .collect();
+
+                for path in paths {
+                    // Convert variant-level path to name-level path (dedup consecutive same-name nodes)
+                    let mut type_names: Vec<&'static str> = Vec::new();
+                    for &idx in &path {
+                        let name = self.nodes[self.graph[idx]].name;
+                        if type_names.last() != Some(&name) {
+                            type_names.push(name);
+                        }
+                    }
+                    if !seen_name_paths.contains(&type_names) {
+                        seen_name_paths.insert(type_names.clone());
+                        all_paths.push(ReductionPath { type_names });
+                    }
+                }
+            }
+        }
+
+        all_paths
     }
 
     /// Find the shortest path from source to target type.
@@ -606,28 +474,46 @@ impl ReductionGraph {
 
     /// Check if a direct reduction exists by name.
     pub fn has_direct_reduction_by_name(&self, src: &str, dst: &str) -> bool {
-        if let (Some(&src_idx), Some(&dst_idx)) =
-            (self.name_indices.get(src), self.name_indices.get(dst))
-        {
-            self.graph.find_edge(src_idx, dst_idx).is_some()
-        } else {
-            false
+        let src_nodes = match self.name_to_nodes.get(src) {
+            Some(nodes) => nodes,
+            None => return false,
+        };
+        let dst_nodes = match self.name_to_nodes.get(dst) {
+            Some(nodes) => nodes,
+            None => return false,
+        };
+
+        let dst_set: HashSet<NodeIndex> = dst_nodes.iter().copied().collect();
+
+        for &src_idx in src_nodes {
+            for edge_ref in self.graph.edges(src_idx) {
+                if dst_set.contains(&edge_ref.target()) {
+                    return true;
+                }
+            }
         }
+
+        false
     }
 
     /// Get all registered problem type names (base names).
     pub fn problem_types(&self) -> Vec<&'static str> {
-        self.name_indices.keys().copied().collect()
+        self.name_to_nodes.keys().copied().collect()
     }
 
-    /// Get the number of registered problem types.
+    /// Get the number of registered problem types (unique base names).
     pub fn num_types(&self) -> usize {
-        self.name_indices.len()
+        self.name_to_nodes.len()
     }
 
-    /// Get the number of registered reductions.
+    /// Get the number of registered reductions (edges).
     pub fn num_reductions(&self) -> usize {
         self.graph.edge_count()
+    }
+
+    /// Get the number of variant-level nodes.
+    pub fn num_variant_nodes(&self) -> usize {
+        self.nodes.len()
     }
 }
 
@@ -638,380 +524,122 @@ impl Default for ReductionGraph {
 }
 
 impl ReductionGraph {
-    /// Check if variant A is strictly more restrictive than variant B (same problem name).
-    /// Returns true if every field of A is a subtype of (or equal to) the corresponding field in B,
-    /// and at least one field is strictly more restrictive.
-    fn is_variant_reducible(
-        &self,
-        a: &std::collections::BTreeMap<String, String>,
-        b: &std::collections::BTreeMap<String, String>,
-    ) -> bool {
-        if a == b {
-            return false; // No self-reduction
-        }
-
-        let mut all_compatible = true;
-
-        // Check all fields present in either variant
-        let all_keys: std::collections::BTreeSet<_> = a.keys().chain(b.keys()).collect();
-
-        for key in all_keys {
-            let a_val = a.get(key.as_str()).map(|s| s.as_str()).unwrap_or("");
-            let b_val = b.get(key.as_str()).map(|s| s.as_str()).unwrap_or("");
-
-            if a_val == b_val {
-                continue; // Equal on this field
-            }
-
-            // Check subtype relationship using the unified hierarchy
-            let is_sub = self.is_subtype(key.as_str(), a_val, b_val);
-
-            if !is_sub {
-                all_compatible = false;
-                break;
-            }
-        }
-
-        // all_compatible is true and a != b means at least one field is strictly more restrictive
-        all_compatible
-    }
-
-    /// Helper to convert a variant slice to a BTreeMap.
-    /// Normalizes empty "graph" values to "SimpleGraph" for consistency.
-    fn variant_to_map(variant: &[(&str, &str)]) -> std::collections::BTreeMap<String, String> {
-        variant
-            .iter()
-            .map(|(k, v)| {
-                let value = if *k == "graph" && v.is_empty() {
-                    "SimpleGraph".to_string()
-                } else {
-                    v.to_string()
-                };
-                (k.to_string(), value)
-            })
-            .collect()
-    }
-
-    /// Helper to create a VariantRef from name and variant slice.
-    fn make_variant_ref(name: &str, variant: &[(&str, &str)]) -> VariantRef {
-        VariantRef {
-            name: name.to_string(),
-            variant: Self::variant_to_map(variant),
-        }
-    }
-
-    /// Find the best matching `ReductionEntry` for a (source_name, target_name) pair
-    /// given the caller's current source variant.
-    ///
-    /// "Best" means: compatible (current variant is reducible to the entry's source variant)
-    /// and most specific (tightest fit among all compatible entries).
-    ///
-    /// Returns `(entry_source_variant, entry_target_variant, overhead)` or `None`.
-    pub fn find_best_entry(
-        &self,
-        source_name: &str,
-        target_name: &str,
-        current_variant: &std::collections::BTreeMap<String, String>,
-    ) -> Option<MatchedEntry> {
-        let mut best: Option<MatchedEntry> = None;
-
-        for entry in inventory::iter::<ReductionEntry> {
-            if entry.source_name != source_name || entry.target_name != target_name {
-                continue;
-            }
-
-            let entry_source = Self::variant_to_map(&entry.source_variant());
-            let entry_target = Self::variant_to_map(&entry.target_variant());
-
-            // Check: current_variant is reducible to entry's source variant
-            // (current is equal-or-more-specific on every axis)
-            if current_variant != &entry_source
-                && !self.is_variant_reducible(current_variant, &entry_source)
-            {
-                continue;
-            }
-
-            // Pick the most specific: if we already have a best, prefer the one
-            // whose source_variant is more specific (tighter fit).
-            // is_variant_reducible(A, B) means A ≤ B (A is subtype of B),
-            // so entry_source ≤ best_source means the new entry is more specific.
-            let dominated = if let Some(ref best_entry) = best {
-                self.is_variant_reducible(&entry_source, &best_entry.source_variant)
-                    || entry_source == *current_variant
-            } else {
-                true
-            };
-
-            if dominated {
-                best = Some(MatchedEntry {
-                    source_variant: entry_source,
-                    target_variant: entry_target,
-                    overhead: entry.overhead(),
-                });
-            }
-        }
-
-        best
-    }
-
-    /// Resolve a name-level [`ReductionPath`] into a variant-level [`ResolvedPath`].
-    ///
-    /// Walks the name-level path, threading variant state through each edge.
-    /// For each step, picks the most-specific compatible `ReductionEntry` and
-    /// inserts `NaturalCast` steps where the caller's variant is more specific
-    /// than the rule's expected source variant.
-    ///
-    /// Returns `None` if no compatible reduction entry exists for any step.
-    pub fn resolve_path(
-        &self,
-        path: &ReductionPath,
-        source_variant: &std::collections::BTreeMap<String, String>,
-        target_variant: &std::collections::BTreeMap<String, String>,
-    ) -> Option<ResolvedPath> {
-        if path.type_names.len() < 2 {
-            return None;
-        }
-
-        let mut current_variant = source_variant.clone();
-        let mut steps = vec![ReductionStep {
-            name: path.type_names[0].to_string(),
-            variant: current_variant.clone(),
-        }];
-        let mut edges = Vec::new();
-
-        for i in 0..path.type_names.len() - 1 {
-            let src_name = path.type_names[i];
-            let dst_name = path.type_names[i + 1];
-
-            let matched = self.find_best_entry(src_name, dst_name, &current_variant)?;
-
-            // Insert natural cast if current variant differs from entry's source.
-            // Safety: find_best_entry already verified is_variant_reducible(current, entry_source).
-            if current_variant != matched.source_variant {
-                debug_assert!(
-                    self.is_variant_reducible(&current_variant, &matched.source_variant),
-                    "natural cast requires current variant to be a subtype of entry source"
-                );
-                steps.push(ReductionStep {
-                    name: src_name.to_string(),
-                    variant: matched.source_variant,
-                });
-                edges.push(EdgeKind::NaturalCast);
-            }
-
-            // Advance through the reduction
-            current_variant = matched.target_variant;
-            steps.push(ReductionStep {
-                name: dst_name.to_string(),
-                variant: current_variant.clone(),
-            });
-            edges.push(EdgeKind::Reduction {
-                overhead: matched.overhead,
-            });
-        }
-
-        // Trailing natural cast if final variant differs from requested target
-        if current_variant != *target_variant
-            && self.is_variant_reducible(&current_variant, target_variant)
-        {
-            let last_name = path.type_names.last().unwrap();
-            steps.push(ReductionStep {
-                name: last_name.to_string(),
-                variant: target_variant.clone(),
-            });
-            edges.push(EdgeKind::NaturalCast);
-        }
-
-        Some(ResolvedPath { steps, edges })
-    }
-
     /// Export the reduction graph as a JSON-serializable structure.
     ///
-    /// This method generates nodes for each variant based on the registered reductions.
+    /// Nodes and edges come directly from the variant-level graph.
     pub fn to_json(&self) -> ReductionGraphJson {
         use crate::registry::ProblemSchemaEntry;
-        use crate::rules::registry::ReductionEntry;
 
-        // Build name → module_path lookup from ProblemSchemaEntry inventory
+        // Build name -> module_path lookup from ProblemSchemaEntry inventory
         let schema_modules: HashMap<&str, &str> = inventory::iter::<ProblemSchemaEntry>
             .into_iter()
             .map(|entry| (entry.name, entry.module_path))
             .collect();
 
-        // Collect all unique nodes (name + variant combination)
-        let mut node_set: HashSet<(String, std::collections::BTreeMap<String, String>)> =
-            HashSet::new();
-
-        // First, add base nodes from the graph
-        for &name in self.name_indices.keys() {
-            node_set.insert((name.to_string(), std::collections::BTreeMap::new()));
-        }
-
-        // Then, collect variants from reduction entries
-        for entry in inventory::iter::<ReductionEntry> {
-            let source_variant = entry.source_variant();
-            let target_variant = entry.target_variant();
-            node_set.insert((
-                entry.source_name.to_string(),
-                Self::variant_to_map(&source_variant),
-            ));
-            node_set.insert((
-                entry.target_name.to_string(),
-                Self::variant_to_map(&target_variant),
-            ));
-        }
-
-        // Remove empty-variant base nodes that are redundant (same name already has specific variants)
-        filter_redundant_base_nodes(&mut node_set);
-
-        // Build nodes with categories and doc paths derived from ProblemSchemaEntry.module_path
-        let mut nodes: Vec<NodeJson> = node_set
-            .iter()
-            .map(|(name, variant)| {
-                let (category, doc_path) =
-                    if let Some(&mod_path) = schema_modules.get(name.as_str()) {
-                        (
-                            Self::category_from_module_path(mod_path),
-                            Self::doc_path_from_module_path(mod_path, name),
-                        )
-                    } else {
-                        ("other".to_string(), String::new())
-                    };
-                NodeJson {
-                    name: name.clone(),
-                    variant: variant.clone(),
-                    category,
-                    doc_path,
-                }
-            })
-            .collect();
-        nodes.sort_by(|a, b| (&a.name, &a.variant).cmp(&(&b.name, &b.variant)));
-
-        // Build node index lookup: (name, variant) -> index in sorted nodes vec
-        let node_index: HashMap<(&str, &std::collections::BTreeMap<String, String>), usize> = nodes
+        // Build sorted node list from the internal nodes
+        let mut json_nodes: Vec<(usize, NodeJson)> = self
+            .nodes
             .iter()
             .enumerate()
-            .map(|(i, n)| ((n.name.as_str(), &n.variant), i))
-            .collect();
-
-        // Collect edges as (VariantRef, VariantRef) pairs first, then resolve to indices
-        let mut edge_set: HashSet<(VariantRef, VariantRef)> = HashSet::new();
-        let mut edge_data: Vec<(VariantRef, VariantRef, Vec<OverheadFieldJson>, String)> =
-            Vec::new();
-
-        for entry in inventory::iter::<ReductionEntry> {
-            let source_variant = entry.source_variant();
-            let target_variant = entry.target_variant();
-            let src_ref = Self::make_variant_ref(entry.source_name, &source_variant);
-            let dst_ref = Self::make_variant_ref(entry.target_name, &target_variant);
-            let key = (src_ref.clone(), dst_ref.clone());
-            if edge_set.insert(key) {
-                let overhead = entry.overhead();
-                let doc_path = Self::module_path_to_doc_path(entry.module_path);
-                let overhead_fields = overhead
-                    .output_size
-                    .iter()
-                    .map(|(field, poly)| OverheadFieldJson {
-                        field: field.to_string(),
-                        formula: poly.to_string(),
-                    })
-                    .collect();
-                edge_data.push((src_ref, dst_ref, overhead_fields, doc_path));
-            }
-        }
-
-        // Auto-generate natural edges between same-name variant nodes.
-        // A natural edge exists from A to B when all variant fields of A are
-        // at least as restrictive as B's (and at least one is strictly more restrictive).
-        // The overhead is identity: p(x) = x for each field.
-        {
-            // Group non-empty-variant nodes by problem name
-            let mut nodes_by_name: HashMap<&str, Vec<&std::collections::BTreeMap<String, String>>> =
-                HashMap::new();
-            for (name, variant) in &node_set {
-                if !variant.is_empty() {
-                    nodes_by_name
-                        .entry(name.as_str())
-                        .or_default()
-                        .push(variant);
-                }
-            }
-
-            // Collect overhead field names per problem from existing edges.
-            // Use edges where the problem is the TARGET, since the overhead fields
-            // describe the target problem's size dimensions.
-            let mut fields_by_problem: HashMap<String, Vec<String>> = HashMap::new();
-            for (_, dst, overhead, _) in &edge_data {
-                if !overhead.is_empty() {
-                    fields_by_problem
-                        .entry(dst.name.clone())
-                        .or_insert_with(|| overhead.iter().map(|o| o.field.clone()).collect());
-                }
-            }
-
-            // For each pair of same-name nodes, check transitive reducibility
-            for (name, variants) in &nodes_by_name {
-                for a in variants {
-                    for b in variants {
-                        if is_natural_edge(a, b, self) {
-                            let src_ref = VariantRef {
-                                name: name.to_string(),
-                                variant: (*a).clone(),
-                            };
-                            let dst_ref = VariantRef {
-                                name: name.to_string(),
-                                variant: (*b).clone(),
-                            };
-                            let key = (src_ref.clone(), dst_ref.clone());
-                            if edge_set.insert(key) {
-                                // Identity overhead: each field maps to itself, p(x) = x
-                                let overhead = fields_by_problem
-                                    .get(*name)
-                                    .map(|fields| {
-                                        fields
-                                            .iter()
-                                            .map(|f| OverheadFieldJson {
-                                                field: f.clone(),
-                                                formula: f.clone(),
-                                            })
-                                            .collect()
-                                    })
-                                    .unwrap_or_default();
-
-                                edge_data.push((src_ref, dst_ref, overhead, String::new()));
-                            }
-                        }
-                    }
-                }
-            }
-        }
-
-        // Sort edge data by source/target names for deterministic output
-        edge_data.sort_by(|a, b| {
-            (&a.0.name, &a.0.variant, &a.1.name, &a.1.variant).cmp(&(
-                &b.0.name,
-                &b.0.variant,
-                &b.1.name,
-                &b.1.variant,
-            ))
-        });
-
-        // Resolve VariantRefs to node indices
-        let edges: Vec<EdgeJson> = edge_data
-            .into_iter()
-            .map(|(src, dst, overhead, doc_path)| {
-                let src_idx = node_index[&(src.name.as_str(), &src.variant)];
-                let dst_idx = node_index[&(dst.name.as_str(), &dst.variant)];
-                EdgeJson {
-                    source: src_idx,
-                    target: dst_idx,
-                    overhead,
-                    doc_path,
-                }
+            .map(|(i, node)| {
+                let (category, doc_path) = if let Some(&mod_path) = schema_modules.get(node.name) {
+                    (
+                        Self::category_from_module_path(mod_path),
+                        Self::doc_path_from_module_path(mod_path, node.name),
+                    )
+                } else {
+                    ("other".to_string(), String::new())
+                };
+                (
+                    i,
+                    NodeJson {
+                        name: node.name.to_string(),
+                        variant: node.variant.clone(),
+                        category,
+                        doc_path,
+                    },
+                )
             })
             .collect();
+        json_nodes.sort_by(|a, b| (&a.1.name, &a.1.variant).cmp(&(&b.1.name, &b.1.variant)));
+
+        // Build old-index -> new-index mapping
+        let mut old_to_new: HashMap<usize, usize> = HashMap::new();
+        for (new_idx, (old_idx, _)) in json_nodes.iter().enumerate() {
+            old_to_new.insert(*old_idx, new_idx);
+        }
+
+        let nodes: Vec<NodeJson> = json_nodes.into_iter().map(|(_, n)| n).collect();
+
+        // Build edges from the graph
+        let mut edges: Vec<EdgeJson> = Vec::new();
+        for edge_ref in self.graph.edge_references() {
+            let src_node_id = self.graph[edge_ref.source()];
+            let dst_node_id = self.graph[edge_ref.target()];
+            let overhead = edge_ref.weight();
+
+            let overhead_fields = overhead
+                .output_size
+                .iter()
+                .map(|(field, poly)| OverheadFieldJson {
+                    field: field.to_string(),
+                    formula: poly.to_string(),
+                })
+                .collect();
+
+            // Find the doc_path from the matching ReductionEntry
+            let src_name = self.nodes[src_node_id].name;
+            let dst_name = self.nodes[dst_node_id].name;
+            let src_variant = &self.nodes[src_node_id].variant;
+            let dst_variant = &self.nodes[dst_node_id].variant;
+
+            let doc_path = self.find_entry_doc_path(src_name, dst_name, src_variant, dst_variant);
+
+            edges.push(EdgeJson {
+                source: old_to_new[&src_node_id],
+                target: old_to_new[&dst_node_id],
+                overhead: overhead_fields,
+                doc_path,
+            });
+        }
+
+        // Sort edges for deterministic output
+        edges.sort_by(|a, b| {
+            (
+                &nodes[a.source].name,
+                &nodes[a.source].variant,
+                &nodes[a.target].name,
+                &nodes[a.target].variant,
+            )
+                .cmp(&(
+                    &nodes[b.source].name,
+                    &nodes[b.source].variant,
+                    &nodes[b.target].name,
+                    &nodes[b.target].variant,
+                ))
+        });
 
         ReductionGraphJson { nodes, edges }
+    }
+
+    /// Find the doc_path for a reduction entry matching the given source/target.
+    fn find_entry_doc_path(
+        &self,
+        src_name: &str,
+        dst_name: &str,
+        src_variant: &BTreeMap<String, String>,
+        dst_variant: &BTreeMap<String, String>,
+    ) -> String {
+        for entry in inventory::iter::<ReductionEntry> {
+            if entry.source_name == src_name && entry.target_name == dst_name {
+                let entry_src = Self::variant_to_map(&entry.source_variant());
+                let entry_dst = Self::variant_to_map(&entry.target_variant());
+                if &entry_src == src_variant && &entry_dst == dst_variant {
+                    return Self::module_path_to_doc_path(entry.module_path);
+                }
+            }
+        }
+        String::new()
     }
 
     /// Export the reduction graph as a JSON string.
@@ -1030,7 +658,7 @@ impl ReductionGraph {
 
     /// Convert a module path to a rustdoc relative path.
     ///
-    /// E.g., `"problemreductions::rules::spinglass_qubo"` → `"rules/spinglass_qubo/index.html"`.
+    /// E.g., `"problemreductions::rules::spinglass_qubo"` -> `"rules/spinglass_qubo/index.html"`.
     fn module_path_to_doc_path(module_path: &str) -> String {
         let stripped = module_path
             .strip_prefix("problemreductions::")
@@ -1040,7 +668,7 @@ impl ReductionGraph {
 
     /// Extract the category from a module path.
     ///
-    /// E.g., `"problemreductions::models::graph::maximum_independent_set"` → `"graph"`.
+    /// E.g., `"problemreductions::models::graph::maximum_independent_set"` -> `"graph"`.
     fn category_from_module_path(module_path: &str) -> String {
         classify_problem_category(module_path).to_string()
     }
@@ -1048,19 +676,72 @@ impl ReductionGraph {
     /// Build the rustdoc path from a module path and problem name.
     ///
     /// E.g., `"problemreductions::models::graph::maximum_independent_set"`, `"MaximumIndependentSet"`
-    /// → `"models/graph/struct.MaximumIndependentSet.html"`.
+    /// -> `"models/graph/struct.MaximumIndependentSet.html"`.
     fn doc_path_from_module_path(module_path: &str, name: &str) -> String {
         let stripped = module_path
             .strip_prefix("problemreductions::")
             .unwrap_or(module_path);
-        // stripped = "models::graph::maximum_independent_set"
-        // We need "models/graph/struct.MaximumIndependentSet.html"
         if let Some(parent) = stripped.rsplit_once("::").map(|(p, _)| p) {
             format!("{}/struct.{}.html", parent.replace("::", "/"), name)
         } else {
             format!("struct.{}.html", name)
         }
     }
+
+    /// Find the best matching `ReductionEntry` for a (source_name, target_name) pair
+    /// given the caller's current source variant.
+    ///
+    /// First tries an exact match on the source variant. If no exact match is found,
+    /// falls back to a name-only match (returning the first entry whose source and
+    /// target names match). This allows looking up overhead for specific variants
+    /// (e.g., `K3`) when only the general variant (e.g., `KN`) is registered.
+    pub fn find_best_entry(
+        &self,
+        source_name: &str,
+        target_name: &str,
+        current_variant: &BTreeMap<String, String>,
+    ) -> Option<MatchedEntry> {
+        let mut fallback: Option<MatchedEntry> = None;
+
+        for entry in inventory::iter::<ReductionEntry> {
+            if entry.source_name != source_name || entry.target_name != target_name {
+                continue;
+            }
+
+            let entry_source = Self::variant_to_map(&entry.source_variant());
+            let entry_target = Self::variant_to_map(&entry.target_variant());
+
+            // Exact match on source variant — return immediately
+            if current_variant == &entry_source {
+                return Some(MatchedEntry {
+                    source_variant: entry_source,
+                    target_variant: entry_target,
+                    overhead: entry.overhead(),
+                });
+            }
+
+            // Remember the first name-only match as a fallback
+            if fallback.is_none() {
+                fallback = Some(MatchedEntry {
+                    source_variant: entry_source,
+                    target_variant: entry_target,
+                    overhead: entry.overhead(),
+                });
+            }
+        }
+
+        fallback
+    }
+}
+
+/// A matched reduction entry returned by [`ReductionGraph::find_best_entry`].
+pub struct MatchedEntry {
+    /// The entry's source variant.
+    pub source_variant: BTreeMap<String, String>,
+    /// The entry's target variant.
+    pub target_variant: BTreeMap<String, String>,
+    /// The overhead of the reduction.
+    pub overhead: ReductionOverhead,
 }
 
 #[cfg(test)]

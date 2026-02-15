@@ -1,7 +1,7 @@
 //! Graph type markers for parametric problem modeling.
 //!
 //! ZST marker structs for graph types used as type parameters in problem definitions.
-//! The subtype hierarchy is managed via `VariantTypeEntry` registrations (see `src/variant.rs`).
+//! The subtype hierarchy is managed via `VariantParam` trait implementations (see `src/variant.rs`).
 
 /// Simple (arbitrary) graph - the most general graph type.
 #[derive(Debug, Clone, Copy, Default)]

@@ -1,9 +1,8 @@
 //! Variant system for type-level problem parameterization.
 //!
 //! Types declare their variant category, value, and parent via `VariantParam`.
-//! The `impl_variant_param!` macro registers types with both the trait and
-//! the runtime `VariantTypeEntry` inventory. The `variant_params!` macro
-//! composes `Problem::variant()` bodies from type parameter names.
+//! The `impl_variant_param!` macro registers types with the trait.
+//! The `variant_params!` macro composes `Problem::variant()` bodies from type parameter names.
 
 /// A type that participates in the variant system.
 ///
@@ -36,22 +35,7 @@ pub trait KValue: VariantParam + Clone + 'static {
     const K: Option<usize>;
 }
 
-/// Runtime-discoverable variant type registration.
-///
-/// Built by `impl_variant_param!` macro, collected by `inventory`.
-pub struct VariantTypeEntry {
-    /// Category name (e.g., `"graph"`, `"weight"`, `"k"`).
-    pub category: &'static str,
-    /// Type name within the category (e.g., `"SimpleGraph"`, `"i32"`).
-    pub value: &'static str,
-    /// Parent type name in the subtype hierarchy, or `None` for root types.
-    pub parent: Option<&'static str>,
-}
-
-inventory::collect!(VariantTypeEntry);
-
-/// Implement `VariantParam` (and optionally `CastToParent` and/or `KValue`) for a type,
-/// and register a `VariantTypeEntry` with inventory.
+/// Implement `VariantParam` (and optionally `CastToParent` and/or `KValue`) for a type.
 ///
 /// # Usage
 ///
@@ -78,13 +62,6 @@ macro_rules! impl_variant_param {
             const VALUE: &'static str = stringify!($ty);
             const PARENT_VALUE: Option<&'static str> = None;
         }
-        ::inventory::submit! {
-            $crate::variant::VariantTypeEntry {
-                category: $cat,
-                value: stringify!($ty),
-                parent: None,
-            }
-        }
     };
     // Type with parent + cast closure
     ($ty:ty, $cat:expr, parent: $parent:ty, cast: $cast:expr) => {
@@ -98,13 +75,6 @@ macro_rules! impl_variant_param {
             fn cast_to_parent(&self) -> $parent {
                 let f: fn(&$ty) -> $parent = $cast;
                 f(self)
-            }
-        }
-        ::inventory::submit! {
-            $crate::variant::VariantTypeEntry {
-                category: $cat,
-                value: stringify!($ty),
-                parent: Some(stringify!($parent)),
             }
         }
     };

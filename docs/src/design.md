@@ -48,7 +48,7 @@ Every problem implements `Problem`. Optimization problems additionally implement
 
 A single problem name like `MaximumIndependentSet` can have multiple **variants** — carrying weights on vertices, or defined on a restricted topology (e.g., king's subgraph). Some variants are more specific than others: the king's subgraph is a special case of the unit-disk graph, which is a special case of the simple graph.
 
-In **set** language, variants form **subsets**: independent sets on king's subgraphs are a subset of independent sets on unit-disk graphs. The reduction from a more specific variant to a less specific one is a **natural reduction** (identity mapping). To avoid repeating the same rule for each variant pair, the library provides an auto-casting mechanism.
+In **set** language, variants form **subsets**: independent sets on king's subgraphs are a subset of independent sets on unit-disk graphs. The reduction from a more specific variant to a less specific one is a **variant cast** — an identity mapping where vertex/element indices are preserved. Each such cast is explicitly declared as a `#[reduction]` registration using the `impl_variant_reduction!` macro.
 
 <div class="theme-light-only">
 
@@ -90,7 +90,7 @@ pub trait VariantParam: 'static {
 }
 ```
 
-Types with a parent also implement `CastToParent`, providing the runtime conversion for natural casts:
+Types with a parent also implement `CastToParent`, providing the runtime conversion for variant casts:
 
 ```rust
 pub trait CastToParent: VariantParam {
@@ -101,7 +101,7 @@ pub trait CastToParent: VariantParam {
 
 ### Registration with `impl_variant_param!`
 
-The `impl_variant_param!` macro implements `VariantParam` (and optionally `CastToParent` / `KValue`) and registers a `VariantTypeEntry` via `inventory` for compile-time hierarchy discovery:
+The `impl_variant_param!` macro implements `VariantParam` (and optionally `CastToParent` / `KValue`) for a type:
 
 ```rust
 // Root type (no parent):
@@ -121,7 +121,21 @@ impl_variant_param!(KN, "k", k: None);
 impl_variant_param!(K3, "k", parent: KN, cast: |_| KN, k: Some(3));
 ```
 
-At startup, the `ReductionGraph` collects all `VariantTypeEntry` registrations and computes the **transitive closure** of the parent relationships, so `KingsSubgraph` is recognized as a subtype of `SimpleGraph` even though it declares `UnitDiskGraph` as its direct parent.
+### Variant cast reductions with `impl_variant_reduction!`
+
+When a more specific variant (e.g., `KingsSubgraph`) needs to be treated as a less specific one (e.g., `UnitDiskGraph`), an explicit variant cast reduction is declared using `impl_variant_reduction!`. This generates a `ReduceTo` impl with `#[reduction]` registration and identity overhead:
+
+```rust
+impl_variant_reduction!(
+    MaximumIndependentSet,
+    <KingsSubgraph, i32> => <UnitDiskGraph, i32>,
+    fields: [num_vertices, num_edges],
+    |src| MaximumIndependentSet::from_graph(
+        src.graph().cast_to_parent(), src.weights())
+);
+```
+
+The problem name appears once, followed by `<SourceParams> => <TargetParams>`. This works with any number of type parameters. All variant casts use `ReductionAutoCast` for identity solution mapping (vertex/element indices are preserved) and `ReductionOverhead::identity()` for the overhead fields.
 
 ### Composing `Problem::variant()`
 
@@ -204,38 +218,35 @@ This `ReductionEntry` is collected at compile time by `inventory`, making the re
 
 ## Reduction Graph
 
-The `ReductionGraph` is the central runtime data structure. It collects all registered reductions and variant hierarchies to enable path finding and overhead evaluation.
+The `ReductionGraph` is the central runtime data structure. It collects all registered reductions to enable path finding and overhead evaluation.
 
 ### Construction
 
-`ReductionGraph::new()` performs two `inventory` scans:
+`ReductionGraph::new()` scans `inventory::iter::<ReductionEntry>` and builds a variant-level `petgraph::DiGraph`:
 
-1. **`ReductionEntry` items** — each registered reduction becomes a directed edge in a `petgraph::DiGraph`. Nodes are type-erased base names (e.g., `"MaxCut"`, not `"MaxCut<SimpleGraph, i32>"`), so path finding works regardless of type parameters.
+- **Nodes** are unique `(problem_name, variant)` pairs — e.g., `("MaximumIndependentSet", {graph: "KingsSubgraph", weight: "i32"})`. Different variants of the same problem are separate nodes.
+- **Edges** come exclusively from `#[reduction]` registrations. This includes both cross-problem reductions (e.g., MIS → QUBO) and variant casts (e.g., MIS on KingsSubgraph → MIS on UnitDiskGraph).
 
-2. **`VariantTypeEntry` items** — parent declarations are collected per category and transitively closed, building a `variant_hierarchy: HashMap<category, HashMap<value, Set<supertypes>>>`.
-
-### Natural edges
-
-When exporting the graph (via `to_json()`), the graph auto-generates **natural edges** between same-name variant nodes. A natural edge from variant A to variant B exists when every field of A is at least as restrictive as B's (i.e., A is a subtype of B). Natural edges carry **identity overhead** — the problem size is unchanged.
-
-For example, `MaximumIndependentSet{KingsSubgraph, i32}` gets a natural edge to `MaximumIndependentSet{SimpleGraph, i32}` because `KingsSubgraph` is a subtype of `SimpleGraph`.
+There are no auto-generated edges. Every edge in the graph corresponds to an explicit `ReduceTo` impl in the source code.
 
 ### JSON export
 
-`ReductionGraph::to_json()` produces a `ReductionGraphJson` with fully expanded variant nodes and both reduction + natural edges:
+`ReductionGraph::to_json()` produces a `ReductionGraphJson` with all variant nodes and reduction edges:
 
 - [reduction_graph.json](reductions/reduction_graph.json) — all problem variants and reduction edges
 - [problem_schemas.json](reductions/problem_schemas.json) — field definitions for each problem type
 
 ## Path Finding
 
-Path finding operates at two levels: **name-level** paths (which problem types to traverse) and **variant-level** resolved paths (with concrete variant and overhead at each step).
+Path finding operates on the variant-level graph. Since each node is a `(name, variant)` pair, the graph directly encodes which variant transitions are possible.
 
 ### Name-level paths
 
-`find_paths_by_name(src, dst)` enumerates all simple paths in the type-erased graph. `find_shortest_path_by_name()` returns the one with fewest hops.
+`find_paths_by_name(src, dst)` enumerates all simple paths between any variant of the source and any variant of the target, deduplicating consecutive same-name nodes to produce name-level paths. `find_shortest_path_by_name()` returns the one with fewest hops.
 
-For cost-aware routing, `find_cheapest_path()` uses **Dijkstra's algorithm** with set-theoretic validation:
+### Dijkstra with cost functions
+
+For cost-aware routing, `find_cheapest_path()` uses **Dijkstra's algorithm** over the variant-level graph:
 
 ```rust
 pub fn find_cheapest_path<C: PathCostFn>(
@@ -247,7 +258,7 @@ pub fn find_cheapest_path<C: PathCostFn>(
 ) -> Option<ReductionPath>
 ```
 
-At each edge, Dijkstra checks `rule_applicable()` — the source graph must be a subtype of the rule's expected source, and the rule's target graph must be a subtype of the desired target. This ensures the chosen path respects variant constraints.
+Since variant casts are explicit edges with identity overhead, Dijkstra naturally traverses them when they appear on the cheapest path.
 
 ### Cost functions
 
@@ -270,54 +281,16 @@ Built-in implementations:
 | `MinimizeSteps` | Minimize number of hops (unit edge cost) |
 | `CustomCost(closure)` | User-defined cost function |
 
-### Variant-level resolution: `resolve_path`
+### Example: MIS on KingsSubgraph to MinimumVertexCover
 
-Given a name-level `ReductionPath`, `resolve_path` threads variant state through each step to produce a `ResolvedPath`:
-
-```rust
-pub fn resolve_path(
-    &self,
-    path: &ReductionPath,                       // name-level plan
-    source_variant: &BTreeMap<String, String>,   // caller's concrete variant
-    target_variant: &BTreeMap<String, String>,   // desired target variant
-) -> Option<ResolvedPath>
-```
-
-The algorithm:
-
-1. **Find candidates** — all `ReductionEntry` items matching `(src_name, dst_name)`.
-2. **Filter compatible** — keep entries where the current variant is equal-or-more-specific than the entry's source variant on every axis.
-3. **Pick most specific** — among compatible entries, choose the tightest fit.
-4. **Insert natural cast** — if the current variant is more specific than the chosen entry's source, emit a `NaturalCast` edge.
-5. **Advance** — update current variant to the entry's target variant, emit a `Reduction` edge with the correct overhead.
-
-The result is a `ResolvedPath`:
-
-```rust
-pub struct ResolvedPath {
-    pub steps: Vec<ReductionStep>,  // (name, variant) at each node
-    pub edges: Vec<EdgeKind>,       // Reduction{overhead} | NaturalCast
-}
-```
-
-#### Example: MIS on KingsSubgraph to MinimumVertexCover
-
-Resolving `MIS(KingsSubgraph, i32) -> VC(SimpleGraph, i32)` through name-path `["MIS", "VC"]`:
+Finding a path from `MIS{KingsSubgraph, i32}` to `VC{SimpleGraph, i32}`:
 
 ```
-steps:  MIS{KingsSubgraph,i32}  ->  MIS{SimpleGraph,i32}  ->  VC{SimpleGraph,i32}
-edges:       NaturalCast                  Reduction{overhead}
+MIS{KingsSubgraph,i32} -> MIS{UnitDiskGraph,i32} -> MIS{SimpleGraph,i32} -> VC{SimpleGraph,i32}
+     variant cast              variant cast                reduction
 ```
 
-The resolver finds that the `MIS -> VC` reduction expects `SimpleGraph`, so it inserts a `NaturalCast` to relax `KingsSubgraph` to `SimpleGraph` first.
-
-#### Example: KSat Disambiguation
-
-Resolving `KSat(k=3) -> QUBO` through name-path `["KSatisfiability", "QUBO"]`:
-
-- Candidates: `KSat<2> -> QUBO` (overhead: `num_vars`) and `KSat<3> -> QUBO` (overhead: `num_vars + num_clauses`).
-- Filter with `k=3`: only `KSat<3>` is compatible (`3` is not a subtype of `2`).
-- Result: the k=3-specific overhead is returned.
+Each variant cast is an explicit edge registered via `impl_variant_reduction!`, so the path finder treats all edges uniformly.
 
 ## Overhead Evaluation
 
@@ -363,7 +336,7 @@ Output: ProblemSize { num_vars: 25, num_clauses: 45 }
 
 ### Composing through a path
 
-For a multi-step reduction path, overhead composes: the output of step $N$ becomes the input of step $N+1$. Each `ResolvedPath` edge carries its own `ReductionOverhead` (or `NaturalCast` with identity overhead), so the total output size is computed by chaining `evaluate_output_size` calls through the path.
+For a multi-step reduction path, overhead composes: the output of step $N$ becomes the input of step $N+1$. Each edge carries its own `ReductionOverhead`, so the total output size is computed by chaining `evaluate_output_size` calls through the path. Variant cast edges use `ReductionOverhead::identity()`, passing through all fields unchanged.
 
 ## Reduction Execution
 
@@ -371,17 +344,11 @@ A `ResolvedPath` is a **plan**, not an executor. It provides variant and overhea
 
 ### Dispatching steps
 
-Walk the `edges` array and dispatch based on `EdgeKind`:
-
-- **`EdgeKind::Reduction`** — call `ReduceTo::reduce_to()` on the current problem to produce a `ReductionResult`, then call `target_problem()` to get the next problem.
-- **`EdgeKind::NaturalCast`** — call `CastToParent::cast_to_parent()` (for graph casts) or the equivalent weight cast. The problem data is preserved; only the type changes.
+Walk the `edges` array and call `ReduceTo::reduce_to()` on the current problem at each step to produce a `ReductionResult`, then call `target_problem()` to get the next problem. Both cross-problem reductions and variant casts are dispatched uniformly through `ReduceTo`.
 
 ### Extracting solutions
 
-After solving the final target problem, walk the chain **in reverse**:
-
-- At each `Reduction` edge, call `extract_solution(&target_solution)` on the corresponding `ReductionResult` to map the solution back to the source space.
-- At each `NaturalCast` edge, the solution passes through unchanged (identity mapping).
+After solving the final target problem, walk the chain **in reverse**, calling `extract_solution(&target_solution)` on each `ReductionResult` to map the solution back to the source space. Variant cast reductions use `ReductionAutoCast`, which passes indices through unchanged (identity mapping).
 
 ### Why concrete types (no type erasure)
 

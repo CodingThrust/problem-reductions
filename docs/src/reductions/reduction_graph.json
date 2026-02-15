@@ -273,7 +273,7 @@
           "formula": "num_colors"
         }
       ],
-      "doc_path": ""
+      "doc_path": "rules/kcoloring_casts/index.html"
     },
     {
       "source": 4,
@@ -306,15 +306,15 @@
       "target": 7,
       "overhead": [
         {
-          "field": "num_clauses",
-          "formula": "num_clauses"
-        },
-        {
           "field": "num_vars",
           "formula": "num_vars"
+        },
+        {
+          "field": "num_clauses",
+          "formula": "num_clauses"
         }
       ],
-      "doc_path": ""
+      "doc_path": "rules/ksatisfiability_casts/index.html"
     },
     {
       "source": 5,
@@ -347,15 +347,15 @@
       "target": 7,
       "overhead": [
         {
-          "field": "num_clauses",
-          "formula": "num_clauses"
-        },
-        {
           "field": "num_vars",
           "formula": "num_vars"
+        },
+        {
+          "field": "num_clauses",
+          "formula": "num_clauses"
         }
       ],
-      "doc_path": ""
+      "doc_path": "rules/ksatisfiability_casts/index.html"
     },
     {
       "source": 6,
@@ -430,21 +430,6 @@
     },
     {
       "source": 10,
-      "target": 11,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": ""
-    },
-    {
-      "source": 10,
       "target": 13,
       "overhead": [
         {
@@ -456,7 +441,7 @@
           "formula": "num_edges"
         }
       ],
-      "doc_path": ""
+      "doc_path": "rules/maximumindependentset_casts/index.html"
     },
     {
       "source": 11,
@@ -546,21 +531,6 @@
     },
     {
       "source": 12,
-      "target": 11,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": ""
-    },
-    {
-      "source": 12,
       "target": 13,
       "overhead": [
         {
@@ -572,7 +542,7 @@
           "formula": "num_edges"
         }
       ],
-      "doc_path": ""
+      "doc_path": "rules/maximumindependentset_casts/index.html"
     },
     {
       "source": 13,
@@ -602,7 +572,7 @@
           "formula": "num_edges"
         }
       ],
-      "doc_path": ""
+      "doc_path": "rules/maximumindependentset_casts/index.html"
     },
     {
       "source": 14,
@@ -688,7 +658,7 @@
           "formula": "num_elements"
         }
       ],
-      "doc_path": ""
+      "doc_path": "rules/maximumsetpacking_casts/index.html"
     },
     {
       "source": 17,
@@ -886,7 +856,7 @@
           "formula": "num_interactions"
         }
       ],
-      "doc_path": ""
+      "doc_path": "rules/spinglass_casts/index.html"
     },
     {
       "source": 24,

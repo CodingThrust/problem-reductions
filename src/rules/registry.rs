@@ -16,6 +16,14 @@ impl ReductionOverhead {
         Self { output_size }
     }
 
+    /// Identity overhead: each output field equals the same-named input field.
+    /// Used by variant cast reductions where problem size doesn't change.
+    pub fn identity(fields: &[&'static str]) -> Self {
+        Self {
+            output_size: fields.iter().map(|&f| (f, Polynomial::var(f))).collect(),
+        }
+    }
+
     /// Evaluate output size given input size.
     ///
     /// Uses `round()` for the f64 to usize conversion because polynomial coefficients

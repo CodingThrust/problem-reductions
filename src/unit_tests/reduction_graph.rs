@@ -1,4 +1,4 @@
-//! Tests for ReductionGraph: discovery, path finding, graph hierarchy, and typed API.
+//! Tests for ReductionGraph: discovery, path finding, and typed API.
 
 use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph};
@@ -96,34 +96,6 @@ fn test_problem_size_propagation() {
 
     let path2 = graph.find_shortest_path_by_name("MaximumIndependentSet", "MaximumSetPacking");
     assert!(path2.is_some());
-}
-
-// ---- Graph hierarchy ----
-
-#[test]
-fn test_graph_hierarchy_built() {
-    let graph = ReductionGraph::new();
-
-    assert!(graph.is_graph_subtype("UnitDiskGraph", "SimpleGraph"));
-    assert!(graph.is_graph_subtype("PlanarGraph", "SimpleGraph"));
-    assert!(graph.is_graph_subtype("BipartiteGraph", "SimpleGraph"));
-
-    // Reflexive
-    assert!(graph.is_graph_subtype("SimpleGraph", "SimpleGraph"));
-
-    // Non-subtype relationships
-    assert!(!graph.is_graph_subtype("SimpleGraph", "UnitDiskGraph"));
-}
-
-#[test]
-fn test_rule_applicability() {
-    let graph = ReductionGraph::new();
-
-    // Rule for SimpleGraph applies to UnitDiskGraph source (UnitDisk <= Simple)
-    assert!(graph.rule_applicable("UnitDiskGraph", "SimpleGraph", "SimpleGraph", "SimpleGraph"));
-
-    // Rule for UnitDiskGraph doesn't apply to SimpleGraph source (Simple is NOT <= UnitDisk)
-    assert!(!graph.rule_applicable("SimpleGraph", "SimpleGraph", "UnitDiskGraph", "SimpleGraph"));
 }
 
 // ---- JSON export ----
