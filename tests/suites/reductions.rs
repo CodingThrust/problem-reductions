@@ -21,8 +21,8 @@ mod is_vc_reductions {
         let vc_problem = result.target_problem();
 
         // Same graph structure
-        assert_eq!(vc_problem.num_vertices(), 3);
-        assert_eq!(vc_problem.num_edges(), 3);
+        assert_eq!(vc_problem.graph().num_vertices(), 3);
+        assert_eq!(vc_problem.graph().num_edges(), 3);
 
         // Solve the target VC problem
         let solver = BruteForce::new();
@@ -799,8 +799,8 @@ mod io_tests {
         let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&restored);
         let vc = result.target_problem();
 
-        assert_eq!(vc.num_vertices(), 4);
-        assert_eq!(vc.num_edges(), 3);
+        assert_eq!(vc.graph().num_vertices(), 4);
+        assert_eq!(vc.graph().num_edges(), 3);
     }
 
     #[test]

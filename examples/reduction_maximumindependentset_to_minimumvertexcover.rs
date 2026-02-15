@@ -69,7 +69,7 @@ pub fn run() {
         &target_variant,
     )
     .expect("MaximumIndependentSet -> MinimumVertexCover overhead not found");
-    let vc_edges = vc.edges();
+    let vc_edges = vc.graph().edges();
 
     let data = ReductionData {
         source: ProblemSide {
@@ -85,8 +85,8 @@ pub fn run() {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
             variant: target_variant,
             instance: serde_json::json!({
-                "num_vertices": vc.num_vertices(),
-                "num_edges": vc.num_edges(),
+                "num_vertices": vc.graph().num_vertices(),
+                "num_edges": vc.graph().num_edges(),
                 "edges": vc_edges,
             }),
         },

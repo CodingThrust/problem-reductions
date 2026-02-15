@@ -12,7 +12,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing MinimumVertexCover to QUBO.
 #[derive(Debug, Clone)]
@@ -40,9 +40,9 @@ impl ReduceTo<QUBO<f64>> for MinimumVertexCover<SimpleGraph, i32> {
     type Result = ReductionVCToQUBO;
 
     fn reduce_to(&self) -> Self::Result {
-        let n = self.num_vertices();
-        let edges = self.edges();
-        let weights = self.weights_ref();
+        let n = self.graph().num_vertices();
+        let edges = self.graph().edges();
+        let weights = self.weights();
         let total_weight: f64 = weights.iter().map(|&w| w as f64).sum();
         let penalty = 1.0 + total_weight;
 

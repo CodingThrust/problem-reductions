@@ -9,7 +9,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::types::WeightElement;
 
 /// Result of reducing MinimumVertexCover to MinimumSetCovering.
@@ -48,9 +48,9 @@ impl ReduceTo<MinimumSetCovering<i32>> for MinimumVertexCover<SimpleGraph, i32> 
     type Result = ReductionVCToSC<i32>;
 
     fn reduce_to(&self) -> Self::Result {
-        let edges = self.edges();
+        let edges = self.graph().edges();
         let num_edges = edges.len();
-        let num_vertices = self.num_vertices();
+        let num_vertices = self.graph().num_vertices();
 
         // For each vertex, create a set of edge indices that it covers.
         // An edge (u, v) with index i is covered by vertex j if j == u or j == v.
@@ -65,7 +65,7 @@ impl ReduceTo<MinimumSetCovering<i32>> for MinimumVertexCover<SimpleGraph, i32> 
             })
             .collect();
 
-        let target = MinimumSetCovering::with_weights(num_edges, sets, self.weights_ref().clone());
+        let target = MinimumSetCovering::with_weights(num_edges, sets, self.weights().to_vec());
 
         ReductionVCToSC { target }
     }

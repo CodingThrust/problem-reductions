@@ -11,7 +11,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing MinimumVertexCover to ILP.
 ///
@@ -53,7 +53,7 @@ impl ReduceTo<ILP> for MinimumVertexCover<SimpleGraph, i32> {
     type Result = ReductionVCToILP;
 
     fn reduce_to(&self) -> Self::Result {
-        let num_vars = self.num_vertices();
+        let num_vars = self.graph().num_vertices();
 
         // All variables are binary (0 or 1)
         let bounds = vec![VarBounds::binary(); num_vars];
@@ -61,6 +61,7 @@ impl ReduceTo<ILP> for MinimumVertexCover<SimpleGraph, i32> {
         // Constraints: x_u + x_v >= 1 for each edge (u, v)
         // This ensures at least one endpoint of each edge is selected
         let constraints: Vec<LinearConstraint> = self
+            .graph()
             .edges()
             .into_iter()
             .map(|(u, v)| LinearConstraint::ge(vec![(u, 1.0), (v, 1.0)], 1.0))
@@ -68,7 +69,7 @@ impl ReduceTo<ILP> for MinimumVertexCover<SimpleGraph, i32> {
 
         // Objective: minimize sum of w_i * x_i (weighted sum of selected vertices)
         let objective: Vec<(usize, f64)> = self
-            .weights_ref()
+            .weights()
             .iter()
             .enumerate()
             .map(|(i, &w)| (i, w as f64))

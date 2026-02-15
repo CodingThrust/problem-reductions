@@ -207,15 +207,15 @@ mod minimum_vertex_cover {
     #[test]
     fn test_creation() {
         let problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-        assert_eq!(problem.num_vertices(), 4);
-        assert_eq!(problem.num_edges(), 3);
+        assert_eq!(problem.graph().num_vertices(), 4);
+        assert_eq!(problem.graph().num_edges(), 3);
         assert_eq!(problem.num_variables(), 4);
     }
 
     #[test]
     fn test_with_weights() {
         let problem = MinimumVertexCover::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
-        assert_eq!(problem.weights(), vec![1, 2, 3]);
+        assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
         assert!(problem.is_weighted());
     }
 
@@ -354,12 +354,10 @@ mod minimum_vertex_cover {
     }
 
     #[test]
-    fn test_set_weights() {
-        let mut problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
-        assert!(!problem.is_weighted()); // Initially uniform
-        problem.set_weights(vec![1, 2, 3]);
+    fn test_with_custom_weights() {
+        let problem = MinimumVertexCover::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
         assert!(problem.is_weighted());
-        assert_eq!(problem.weights(), vec![1, 2, 3]);
+        assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
     }
 
     #[test]

@@ -66,7 +66,7 @@ pub fn run() {
     println!("\nReduction verified successfully");
 
     // Export JSON
-    let vc_edges = vc.edges();
+    let vc_edges = vc.graph().edges();
     let is_edges = is.graph().edges();
     let source_variant = variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant());
     let target_variant = variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant());
@@ -83,8 +83,8 @@ pub fn run() {
             problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
-                "num_vertices": vc.num_vertices(),
-                "num_edges": vc.num_edges(),
+                "num_vertices": vc.graph().num_vertices(),
+                "num_edges": vc.graph().num_edges(),
                 "edges": vc_edges,
             }),
         },

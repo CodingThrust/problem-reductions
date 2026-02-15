@@ -10,7 +10,7 @@ fn test_weighted_reduction() {
     let vc_problem = reduction.target_problem();
 
     // Weights should be preserved
-    assert_eq!(vc_problem.weights_ref(), &vec![10, 20, 30]);
+    assert_eq!(vc_problem.weights().to_vec(), vec![10, 20, 30]);
 }
 
 #[test]
@@ -21,7 +21,7 @@ fn test_reduction_structure() {
     let vc = reduction.target_problem();
 
     // Same number of vertices in both problems
-    assert_eq!(vc.num_vertices(), 5);
+    assert_eq!(vc.graph().num_vertices(), 5);
 }
 
 #[test]
