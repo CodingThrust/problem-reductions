@@ -200,6 +200,22 @@ pub(crate) fn filter_redundant_base_nodes(
     node_set.retain(|(name, variant)| !variant.is_empty() || !names_with_variants.contains(name));
 }
 
+/// Determine whether a natural (subtype) edge should exist from variant `a` to variant `b`.
+///
+/// A natural edge exists when all variant fields of `a` are at least as restrictive as `b`'s
+/// (i.e., each field of `a` is a subtype of or equal to the corresponding field of `b`),
+/// and at least one field is strictly more restrictive. This means `a` is a strict subtype of `b`.
+///
+/// Returns `true` if a natural edge from `a` to `b` should exist, `false` otherwise.
+/// Returns `false` when `a == b` (no self-edges).
+pub(crate) fn is_natural_edge(
+    a: &std::collections::BTreeMap<String, String>,
+    b: &std::collections::BTreeMap<String, String>,
+    graph: &ReductionGraph,
+) -> bool {
+    graph.is_variant_reducible(a, b)
+}
+
 /// Classify a problem's category from its module path.
 /// Expected format: "problemreductions::models::<category>::<module_name>"
 pub(crate) fn classify_problem_category(module_path: &str) -> &str {
@@ -937,7 +953,7 @@ impl ReductionGraph {
             for (name, variants) in &nodes_by_name {
                 for a in variants {
                     for b in variants {
-                        if self.is_variant_reducible(a, b) {
+                        if is_natural_edge(a, b, self) {
                             let src_ref = VariantRef {
                                 name: name.to_string(),
                                 variant: (*a).clone(),
