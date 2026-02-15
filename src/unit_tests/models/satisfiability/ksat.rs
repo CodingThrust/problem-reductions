@@ -1,7 +1,7 @@
 use super::*;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
-use crate::variant::{K2, K3};
+use crate::variant::{K2, K3, KN};
 include!("../../jl_helpers.rs");
 
 #[test]
@@ -177,5 +177,38 @@ fn test_jl_parity_evaluation() {
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best_set: HashSet<Vec<usize>> = rust_best.into_iter().collect();
         assert_eq!(rust_best_set, jl_best, "KSat best solutions mismatch");
+    }
+}
+
+#[test]
+fn test_kn_creation() {
+    // KN accepts clauses of any length without validation
+    let problem = KSatisfiability::<KN>::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, 2, 3]),    // 3 literals
+            CNFClause::new(vec![-1, -2]),      // 2 literals
+            CNFClause::new(vec![1]),           // 1 literal
+        ],
+    );
+    assert_eq!(problem.num_vars(), 3);
+    assert_eq!(problem.num_clauses(), 3);
+    assert!(problem.evaluate(&[1, 0, 0])); // x1=T, x2=F, x3=F
+}
+
+#[test]
+fn test_kn_from_k3_clauses() {
+    // KN can be constructed from clauses originally built for K3
+    let k3 = KSatisfiability::<K3>::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, 2, -3]),
+            CNFClause::new(vec![-1, -2, -3]),
+        ],
+    );
+    let kn = KSatisfiability::<KN>::new(k3.num_vars(), k3.clauses().to_vec());
+    // Both should agree on evaluations
+    for config in &[[1, 0, 0], [0, 1, 0], [1, 1, 1]] {
+        assert_eq!(k3.evaluate(config), kn.evaluate(config));
     }
 }
