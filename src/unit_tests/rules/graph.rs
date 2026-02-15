@@ -1193,8 +1193,8 @@ fn test_classify_problem_category() {
         "graph"
     );
     assert_eq!(
-        classify_problem_category("problemreductions::models::sat::satisfiability"),
-        "sat"
+        classify_problem_category("problemreductions::models::satisfiability::satisfiability"),
+        "satisfiability"
     );
     assert_eq!(
         classify_problem_category("problemreductions::models::set::maximum_set_packing"),
