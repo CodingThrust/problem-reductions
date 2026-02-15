@@ -1,4 +1,4 @@
-use crate::variant::{CastToParent, KValue, VariantParam, VariantTypeEntry};
+use crate::variant::{CastToParent, KValue, VariantParam};
 
 // Test types for the new system
 #[derive(Clone, Debug)]
@@ -27,19 +27,6 @@ fn test_variant_param_child() {
 fn test_cast_to_parent() {
     let child = TestChild;
     let _parent: TestRoot = child.cast_to_parent();
-}
-
-#[test]
-fn test_variant_type_entry_registered() {
-    let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
-        .filter(|e| e.category == "test_cat")
-        .collect();
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "TestRoot" && e.parent.is_none()));
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "TestChild" && e.parent == Some("TestRoot")));
 }
 
 #[derive(Clone, Debug)]
@@ -111,8 +98,6 @@ fn test_variant_for_problems() {
     assert_eq!(v[1].0, "weight");
     assert_eq!(v[1].1, "i32");
 
-    // Note: f64 variants removed because SolutionSize now requires Ord
-
     // Test MinimumVertexCover
     let v = MinimumVertexCover::<SimpleGraph, i32>::variant();
     assert_eq!(v.len(), 2);
@@ -133,8 +118,6 @@ fn test_variant_for_problems() {
     let v = MaxCut::<SimpleGraph, i32>::variant();
     assert_eq!(v.len(), 2);
     assert_eq!(v[0].1, "SimpleGraph");
-
-    // Note: f64 variants removed because SolutionSize now requires Ord
 
     // Test KColoring (has K and graph parameters)
     let v = KColoring::<K3, SimpleGraph>::variant();
@@ -257,26 +240,6 @@ fn test_kvalue_kn() {
     assert_eq!(KN::K, None);
 }
 
-#[test]
-fn test_kvalue_variant_entries() {
-    let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
-        .filter(|e| e.category == "k")
-        .collect();
-    // All specific K values have KN as parent (flat hierarchy, no chain)
-    for entry in &entries {
-        if entry.value == "KN" {
-            assert_eq!(entry.parent, None, "KN should have no parent");
-        } else {
-            assert_eq!(
-                entry.parent,
-                Some("KN"),
-                "K value {} should have KN as parent",
-                entry.value
-            );
-        }
-    }
-}
-
 // --- Graph type VariantParam tests ---
 
 use crate::topology::HyperGraph;
@@ -301,22 +264,6 @@ fn test_hyper_graph_variant_param() {
     assert_eq!(HyperGraph::CATEGORY, "graph");
     assert_eq!(HyperGraph::VALUE, "HyperGraph");
     assert_eq!(HyperGraph::PARENT_VALUE, None);
-}
-
-#[test]
-fn test_graph_variant_entries() {
-    let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
-        .filter(|e| e.category == "graph")
-        .collect();
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "HyperGraph" && e.parent.is_none()));
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "SimpleGraph" && e.parent == Some("HyperGraph")));
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "UnitDiskGraph" && e.parent == Some("SimpleGraph")));
 }
 
 #[test]
@@ -369,20 +316,4 @@ fn test_weight_cast_chain() {
     assert_eq!(i, 1);
     let f: f64 = i.cast_to_parent();
     assert_eq!(f, 1.0);
-}
-
-#[test]
-fn test_weight_variant_entries() {
-    let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
-        .filter(|e| e.category == "weight")
-        .collect();
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "f64" && e.parent.is_none()));
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "i32" && e.parent == Some("f64")));
-    assert!(entries
-        .iter()
-        .any(|e| e.value == "One" && e.parent == Some("i32")));
 }

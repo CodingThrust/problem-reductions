@@ -1,5 +1,5 @@
 use super::*;
-use crate::variant::{VariantParam, VariantTypeEntry};
+use crate::variant::VariantParam;
 
 #[test]
 fn test_graph_type_traits() {
@@ -35,92 +35,8 @@ fn test_bipartitegraph_variant_param() {
 }
 
 #[test]
-fn test_graph_variant_type_entries_registered() {
-    let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
-        .filter(|e| e.category == "graph")
-        .collect();
-
-    // Should include PlanarGraph, BipartiteGraph, and the topology types
-    assert!(
-        entries
-            .iter()
-            .any(|e| e.value == "PlanarGraph" && e.parent == Some("SimpleGraph")),
-        "PlanarGraph should be registered with parent SimpleGraph"
-    );
-    assert!(
-        entries
-            .iter()
-            .any(|e| e.value == "BipartiteGraph" && e.parent == Some("SimpleGraph")),
-        "BipartiteGraph should be registered with parent SimpleGraph"
-    );
-    assert!(
-        entries.iter().any(|e| e.value == "SimpleGraph"),
-        "SimpleGraph should be registered"
-    );
-    assert!(
-        entries.iter().any(|e| e.value == "UnitDiskGraph"),
-        "UnitDiskGraph should be registered"
-    );
-    assert!(
-        entries.iter().any(|e| e.value == "KingsSubgraph"),
-        "KingsSubgraph should be registered"
-    );
-    assert!(
-        entries.iter().any(|e| e.value == "TriangularSubgraph"),
-        "TriangularSubgraph should be registered"
-    );
-    assert!(
-        entries.iter().any(|e| e.value == "HyperGraph"),
-        "HyperGraph should be registered"
-    );
-}
-
-#[test]
-fn test_weight_variant_type_entries_registered() {
-    let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
-        .filter(|e| e.category == "weight")
-        .collect();
-
-    assert!(
-        entries
-            .iter()
-            .any(|e| e.value == "One" && e.parent == Some("i32")),
-        "One should be registered with parent i32"
-    );
-    assert!(
-        entries
-            .iter()
-            .any(|e| e.value == "i32" && e.parent == Some("f64")),
-        "i32 should be registered with parent f64"
-    );
-    assert!(
-        entries
-            .iter()
-            .any(|e| e.value == "f64" && e.parent.is_none()),
-        "f64 should be registered as root"
-    );
-}
-
-#[test]
-fn test_unitdiskgraph_to_planargraph_not_parent() {
-    // UnitDiskGraph's parent is SimpleGraph, not PlanarGraph
-    let entries: Vec<_> = inventory::iter::<VariantTypeEntry>()
-        .filter(|e| e.category == "graph" && e.value == "UnitDiskGraph")
-        .collect();
-
-    for entry in &entries {
-        assert_ne!(
-            entry.parent,
-            Some("PlanarGraph"),
-            "UnitDiskGraph should not have PlanarGraph as parent"
-        );
-    }
-}
-
-#[test]
 fn test_marker_structs_exist() {
     // Verify that all ZST marker structs still exist and can be instantiated
-    // Note: BipartiteGraph and PlanarGraph are now real topology types in src/topology/
     let _ = SimpleGraph;
     let _ = UnitDiskGraph;
     let _ = KingsSubgraph;

@@ -134,7 +134,7 @@ document.addEventListener('DOMContentLoaded', function() {
       data.edges.forEach(function(e) {
         var srcName = data.nodes[e.source].name;
         var dstName = data.nodes[e.target].name;
-        if (srcName === dstName) return; // skip intra-problem natural casts
+        if (srcName === dstName) return; // skip intra-problem variant casts
         var fwd = srcName + '->' + dstName;
         if (!nameLevelEdges[fwd]) {
           nameLevelEdges[fwd] = { count: 0, overhead: e.overhead, doc_path: e.doc_path };
@@ -166,7 +166,7 @@ document.addEventListener('DOMContentLoaded', function() {
         var e = edgeMap[k];
         var srcName = e.source.split('/')[0];
         var dstName = e.target.split('/')[0];
-        var isNaturalCast = srcName === dstName;
+        var isVariantCast = srcName === dstName && e.overhead && e.overhead.length > 0 && e.overhead.every(function(o) { return o.field === o.formula; });
         elements.push({
           data: {
             id: 'variant_' + k,
@@ -175,7 +175,7 @@ document.addEventListener('DOMContentLoaded', function() {
             edgeLevel: 'variant',
             overhead: e.overhead,
             doc_path: e.doc_path,
-            isNaturalCast: isNaturalCast
+            isVariantCast: isVariantCast
           }
         });
       });
@@ -259,8 +259,8 @@ document.addEventListener('DOMContentLoaded', function() {
           { selector: 'edge[edgeLevel="variant"]', style: {
             'z-index': 7
           } },
-          // Natural cast edges (intra-problem)
-          { selector: 'edge[?isNaturalCast]', style: {
+          // Variant cast edges (intra-problem)
+          { selector: 'edge[?isVariantCast]', style: {
             'line-style': 'dashed',
             'line-color': '#bbb',
             'target-arrow-color': '#bbb',

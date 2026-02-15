@@ -116,10 +116,3 @@ impl crate::variant::CastToParent for KingsSubgraph {
         UnitDiskGraph::new(positions, KINGS_RADIUS)
     }
 }
-inventory::submit! {
-    crate::variant::VariantTypeEntry {
-        category: "graph",
-        value: "KingsSubgraph",
-        parent: Some("UnitDiskGraph"),
-    }
-}

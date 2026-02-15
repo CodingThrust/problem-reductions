@@ -12,21 +12,25 @@ mod circuit_spinglass;
 mod coloring_qubo;
 mod factoring_circuit;
 mod graph;
+mod kcoloring_casts;
+mod ksatisfiability_casts;
 mod ksatisfiability_qubo;
+mod maximumindependentset_casts;
 mod maximumindependentset_gridgraph;
 mod maximumindependentset_maximumsetpacking;
 mod maximumindependentset_qubo;
 mod maximumindependentset_triangular;
 mod maximummatching_maximumsetpacking;
+mod maximumsetpacking_casts;
 mod maximumsetpacking_qubo;
 mod minimumvertexcover_maximumindependentset;
 mod minimumvertexcover_minimumsetcovering;
 mod minimumvertexcover_qubo;
-mod natural;
 mod sat_coloring;
 mod sat_ksat;
 mod sat_maximumindependentset;
 mod sat_minimumdominatingset;
+mod spinglass_casts;
 mod spinglass_maxcut;
 mod spinglass_qubo;
 mod traits;
@@ -63,8 +67,8 @@ pub use circuit_spinglass::{
 pub use coloring_qubo::ReductionKColoringToQUBO;
 pub use factoring_circuit::ReductionFactoringToCircuit;
 pub use graph::{
-    EdgeJson, EdgeKind, NodeJson, ReductionEdge, ReductionGraph, ReductionGraphJson, ReductionPath,
-    ReductionStep, ResolvedPath,
+    ChainedReduction, EdgeJson, ExecutablePath, NodeJson, ReductionGraph, ReductionGraphJson,
+    ReductionPath, ReductionStep,
 };
 pub use ksatisfiability_qubo::{Reduction3SATToQUBO, ReductionKSatToQUBO};
 pub use maximumindependentset_gridgraph::{ReductionISSimpleToGrid, ReductionISUnitDiskToGrid};
@@ -84,40 +88,49 @@ pub use spinglass_maxcut::{ReductionMaxCutToSG, ReductionSGToMaxCut};
 pub use spinglass_qubo::{ReductionQUBOToSG, ReductionSGToQUBO};
 pub use traits::{ReduceTo, ReductionAutoCast, ReductionResult};
 
-/// Generates a natural-edge `ReduceTo` impl for graph subtype relaxation.
+/// Generates a variant-cast `ReduceTo` impl with `#[reduction]` registration.
 ///
-/// When graph type `$SubGraph` is a subtype of `$SuperGraph`, a problem on
-/// the subgraph can be trivially solved as the same problem on the supergraph.
-/// This macro stamps out the concrete `#[reduction]` impl with identity overhead
-/// and uses [`ReductionAutoCast`] for the identity solution mapping.
+/// Variant casts convert a problem from one variant to another (e.g.,
+/// `MIS<KingsSubgraph, i32>` -> `MIS<UnitDiskGraph, i32>`). The solution
+/// mapping is identity -- vertex/element indices are preserved.
+///
+/// The problem name is specified once, followed by `<SourceParams> => <TargetParams>`.
+/// This works with any number of type parameters.
 ///
 /// # Example
 ///
 /// ```text
-/// impl_natural_reduction!(MaximumIndependentSet, Triangular, SimpleGraph, i32);
-/// // Generates: ReduceTo<MIS<SimpleGraph, i32>> for MIS<Triangular, i32>
+/// impl_variant_reduction!(
+///     MaximumIndependentSet,
+///     <KingsSubgraph, i32> => <UnitDiskGraph, i32>,
+///     fields: [num_vertices, num_edges],
+///     |src| MaximumIndependentSet::from_graph(
+///         src.graph().cast_to_parent(), src.weights())
+/// );
 /// ```
 #[macro_export]
-macro_rules! impl_natural_reduction {
-    ($Problem:ident, $SubGraph:ty, $SuperGraph:ty, $Weight:ty) => {
-        #[reduction(
-                                    overhead = {
-                                        $crate::rules::registry::ReductionOverhead::new(vec![
-                                            ("num_vertices", $crate::poly!(num_vertices)),
-                                            ("num_edges", $crate::poly!(num_edges)),
-                                        ])
-                                    }
-                                )]
-        impl $crate::rules::ReduceTo<$Problem<$SuperGraph, $Weight>>
-            for $Problem<$SubGraph, $Weight>
+macro_rules! impl_variant_reduction {
+    ($problem:ident,
+     < $($src_param:ty),+ > => < $($dst_param:ty),+ >,
+     fields: [$($field:ident),+],
+     |$src:ident| $body:expr) => {
+        #[$crate::reduction(
+            overhead = {
+                $crate::rules::registry::ReductionOverhead::identity(
+                    &[$(stringify!($field)),+]
+                )
+            }
+        )]
+        impl $crate::rules::ReduceTo<$problem<$($dst_param),+>>
+            for $problem<$($src_param),+>
         {
-            type Result = $crate::rules::ReductionAutoCast<Self, $Problem<$SuperGraph, $Weight>>;
-
+            type Result = $crate::rules::ReductionAutoCast<
+                $problem<$($src_param),+>,
+                $problem<$($dst_param),+>,
+            >;
             fn reduce_to(&self) -> Self::Result {
-                use $crate::topology::GraphCast;
-                let graph: $SuperGraph = self.graph().cast_graph();
-                let target = $Problem::from_graph(graph, self.weights());
-                $crate::rules::ReductionAutoCast::new(target)
+                let $src = self;
+                $crate::rules::ReductionAutoCast::new($body)
             }
         }
     };

@@ -142,10 +142,3 @@ impl crate::variant::CastToParent for TriangularSubgraph {
         UnitDiskGraph::new(positions, TRIANGULAR_RADIUS)
     }
 }
-inventory::submit! {
-    crate::variant::VariantTypeEntry {
-        category: "graph",
-        value: "TriangularSubgraph",
-        parent: Some("UnitDiskGraph"),
-    }
-}
