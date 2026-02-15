@@ -88,6 +88,8 @@ pub struct EdgeJson {
 pub struct ReductionPath {
     /// Human-readable type names in the path (base names without type parameters).
     pub type_names: Vec<&'static str>,
+    /// Overhead for each edge in the path (length = type_names.len() - 1).
+    pub overheads: Vec<ReductionOverhead>,
 }
 
 impl ReductionPath {
@@ -113,6 +115,15 @@ impl ReductionPath {
     /// Get the target type name.
     pub fn target(&self) -> Option<&'static str> {
         self.type_names.last().copied()
+    }
+
+    /// Evaluate the end-to-end overhead by chaining each step's overhead.
+    pub fn evaluate(&self, input: &ProblemSize) -> Result<ProblemSize, crate::expr::EvalError> {
+        let mut current = input.clone();
+        for overhead in &self.overheads {
+            current = overhead.evaluate_output_size(&current)?;
+        }
+        Ok(current)
     }
 }
 
@@ -442,11 +453,13 @@ impl ReductionGraph {
         dst: NodeIndex,
     ) -> ReductionPath {
         let mut path = vec![self.graph[dst]];
+        let mut edge_indices = Vec::new();
         let mut current = dst;
 
         while current != src {
-            if let Some(&(prev_node, _)) = prev.get(&current) {
+            if let Some(&(prev_node, edge_idx)) = prev.get(&current) {
                 path.push(self.graph[prev_node]);
+                edge_indices.push(edge_idx);
                 current = prev_node;
             } else {
                 break;
@@ -454,7 +467,17 @@ impl ReductionGraph {
         }
 
         path.reverse();
-        ReductionPath { type_names: path }
+        edge_indices.reverse();
+
+        let overheads = edge_indices
+            .iter()
+            .map(|&idx| self.graph[idx].overhead.clone())
+            .collect();
+
+        ReductionPath {
+            type_names: path,
+            overheads,
+        }
     }
 
     /// Find all paths from source to target type.
@@ -490,7 +513,17 @@ impl ReductionGraph {
             .map(|path| {
                 let type_names: Vec<&'static str> =
                     path.iter().map(|&idx| self.graph[idx]).collect();
-                ReductionPath { type_names }
+                let overheads = path
+                    .windows(2)
+                    .map(|w| {
+                        let edge_idx = self.graph.find_edge(w[0], w[1]).unwrap();
+                        self.graph[edge_idx].overhead.clone()
+                    })
+                    .collect();
+                ReductionPath {
+                    type_names,
+                    overheads,
+                }
             })
             .collect()
     }

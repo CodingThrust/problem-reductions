@@ -306,7 +306,10 @@ fn test_all_categories_present() {
 
 #[test]
 fn test_empty_path_source_target() {
-    let path = ReductionPath { type_names: vec![] };
+    let path = ReductionPath {
+        type_names: vec![],
+        overheads: vec![],
+    };
     assert!(path.is_empty());
     assert_eq!(path.len(), 0);
     assert!(path.source().is_none());
@@ -317,6 +320,7 @@ fn test_empty_path_source_target() {
 fn test_single_node_path() {
     let path = ReductionPath {
         type_names: vec!["MaximumIndependentSet"],
+        overheads: vec![],
     };
     assert!(!path.is_empty());
     assert_eq!(path.len(), 0); // No reductions, just one type
