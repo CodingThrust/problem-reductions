@@ -28,23 +28,6 @@ inventory::submit! {
 #[derive(Debug, Clone, Copy, Default)]
 pub struct UnitDiskGraph;
 
-/// Bipartite graph - vertices can be partitioned into two sets with edges only between sets.
-#[derive(Debug, Clone, Copy, Default)]
-pub struct BipartiteGraph;
-
-impl crate::variant::VariantParam for BipartiteGraph {
-    const CATEGORY: &'static str = "graph";
-    const VALUE: &'static str = "BipartiteGraph";
-    const PARENT_VALUE: Option<&'static str> = Some("SimpleGraph");
-}
-inventory::submit! {
-    crate::variant::VariantTypeEntry {
-        category: "graph",
-        value: "BipartiteGraph",
-        parent: Some("SimpleGraph"),
-    }
-}
-
 /// King's subgraph - a unit disk graph on a square grid with king's move connectivity.
 #[derive(Debug, Clone, Copy, Default)]
 pub struct KingsSubgraph;

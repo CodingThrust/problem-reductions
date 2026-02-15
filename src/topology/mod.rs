@@ -22,6 +22,7 @@
 //! // (UnitDiskGraph example would require specific constructors)
 //! ```
 
+mod bipartite_graph;
 mod graph;
 mod hypergraph;
 mod kings_subgraph;
@@ -29,6 +30,7 @@ pub mod small_graphs;
 mod triangular_subgraph;
 mod unit_disk_graph;
 
+pub use bipartite_graph::BipartiteGraph;
 pub use graph::{Graph, GraphCast, SimpleGraph};
 pub use hypergraph::HyperGraph;
 pub use kings_subgraph::KingsSubgraph;

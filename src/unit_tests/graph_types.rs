@@ -7,7 +7,6 @@ fn test_graph_type_traits() {
     let _: SimpleGraph = Default::default();
     let _: PlanarGraph = Default::default();
     let _: UnitDiskGraph = Default::default();
-    let _: BipartiteGraph = Default::default();
     let _: KingsSubgraph = Default::default();
     let _: TriangularSubgraph = Default::default();
     let _: HyperGraph = Default::default();
@@ -29,6 +28,7 @@ fn test_planargraph_variant_param() {
 
 #[test]
 fn test_bipartitegraph_variant_param() {
+    use crate::topology::BipartiteGraph;
     assert_eq!(BipartiteGraph::CATEGORY, "graph");
     assert_eq!(BipartiteGraph::VALUE, "BipartiteGraph");
     assert_eq!(BipartiteGraph::PARENT_VALUE, Some("SimpleGraph"));
@@ -120,10 +120,10 @@ fn test_unitdiskgraph_to_planargraph_not_parent() {
 #[test]
 fn test_marker_structs_exist() {
     // Verify that all ZST marker structs still exist and can be instantiated
+    // Note: BipartiteGraph is now a real topology type in src/topology/bipartite_graph.rs
     let _ = SimpleGraph;
     let _ = PlanarGraph;
     let _ = UnitDiskGraph;
-    let _ = BipartiteGraph;
     let _ = KingsSubgraph;
     let _ = TriangularSubgraph;
     let _ = HyperGraph;
