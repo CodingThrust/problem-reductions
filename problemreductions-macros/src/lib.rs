@@ -187,6 +187,11 @@ fn generate_reduction_entry(
                 target_variant_fn: || { #target_variant_body },
                 overhead_fn: || { #overhead },
                 module_path: module_path!(),
+                reduce_fn: |src: &dyn std::any::Any| -> Box<dyn crate::rules::traits::DynReductionResult> {
+                    let src = src.downcast_ref::<#source_type>()
+                        .expect("DynReductionResult: source type mismatch");
+                    Box::new(<#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src))
+                },
             }
         }
     };
