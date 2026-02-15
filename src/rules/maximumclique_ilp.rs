@@ -12,7 +12,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 
 /// Result of reducing MaximumClique to ILP.
 ///
@@ -54,7 +54,7 @@ impl ReduceTo<ILP> for MaximumClique<SimpleGraph, i32> {
     type Result = ReductionCliqueToILP;
 
     fn reduce_to(&self) -> Self::Result {
-        let num_vars = self.num_vertices();
+        let num_vars = self.graph().num_vertices();
 
         // All variables are binary (0 or 1)
         let bounds = vec![VarBounds::binary(); num_vars];
@@ -65,7 +65,7 @@ impl ReduceTo<ILP> for MaximumClique<SimpleGraph, i32> {
         let mut constraints: Vec<LinearConstraint> = Vec::new();
         for u in 0..num_vars {
             for v in (u + 1)..num_vars {
-                if !self.has_edge(u, v) {
+                if !self.graph().has_edge(u, v) {
                     constraints.push(LinearConstraint::le(vec![(u, 1.0), (v, 1.0)], 1.0));
                 }
             }

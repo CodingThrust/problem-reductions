@@ -17,7 +17,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::octahedral;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     // 1. Create MaximumClique instance: Octahedron (K_{2,2,2}), 6 vertices, 12 edges, clique number 3
@@ -81,9 +81,9 @@ pub fn run() {
             problem: MaximumClique::<SimpleGraph, i32>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
-                "num_vertices": clique.num_vertices(),
-                "num_edges": clique.num_edges(),
-                "edges": clique.edges(),
+                "num_vertices": clique.graph().num_vertices(),
+                "num_edges": clique.graph().num_edges(),
+                "edges": clique.graph().edges(),
             }),
         },
         target: ProblemSide {

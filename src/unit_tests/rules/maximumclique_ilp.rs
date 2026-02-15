@@ -14,7 +14,7 @@ fn is_valid_clique(problem: &MaximumClique<SimpleGraph, i32>, config: &[usize]) 
     // Check all pairs of selected vertices are adjacent
     for i in 0..selected.len() {
         for j in (i + 1)..selected.len() {
-            if !problem.has_edge(selected[i], selected[j]) {
+            if !problem.graph().has_edge(selected[i], selected[j]) {
                 return false;
             }
         }
@@ -24,18 +24,17 @@ fn is_valid_clique(problem: &MaximumClique<SimpleGraph, i32>, config: &[usize]) 
 
 /// Compute the clique size (sum of weights of selected vertices).
 fn clique_size(problem: &MaximumClique<SimpleGraph, i32>, config: &[usize]) -> i32 {
-    let weights = problem.weights();
     config
         .iter()
         .enumerate()
         .filter(|(_, &v)| v == 1)
-        .map(|(i, _)| weights[i])
+        .map(|(i, _)| problem.weights()[i])
         .sum()
 }
 
 /// Find maximum clique size by brute force enumeration.
 fn brute_force_max_clique(problem: &MaximumClique<SimpleGraph, i32>) -> i32 {
-    let n = problem.num_vertices();
+    let n = problem.graph().num_vertices();
     let mut max_size = 0;
     for mask in 0..(1 << n) {
         let config: Vec<usize> = (0..n).map(|i| (mask >> i) & 1).collect();
