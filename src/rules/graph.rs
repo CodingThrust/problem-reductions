@@ -108,6 +108,8 @@ pub(crate) struct EdgeJson {
 pub struct ReductionPath {
     /// Variant-level steps in the path.
     pub steps: Vec<ReductionStep>,
+    /// Overhead for each edge in the path (length = steps.len() - 1).
+    pub overheads: Vec<ReductionOverhead>,
 }
 
 impl ReductionPath {
@@ -144,6 +146,15 @@ impl ReductionPath {
             }
         }
         names
+    }
+
+    /// Evaluate the end-to-end overhead by chaining each step's overhead.
+    pub fn evaluate(&self, input: &ProblemSize) -> Result<ProblemSize, crate::expr::EvalError> {
+        let mut current = input.clone();
+        for overhead in &self.overheads {
+            current = overhead.evaluate_output_size(&current)?;
+        }
+        Ok(current)
     }
 }
 
@@ -528,7 +539,14 @@ impl ReductionGraph {
                 }
             })
             .collect();
-        ReductionPath { steps }
+        let overheads = node_path
+            .windows(2)
+            .map(|w| {
+                let edge_idx = self.graph.find_edge(w[0], w[1]).unwrap();
+                self.graph[edge_idx].overhead.clone()
+            })
+            .collect();
+        ReductionPath { steps, overheads }
     }
 
     /// Find all simple paths between two specific problem variants.
