@@ -188,6 +188,20 @@ impl ResolvedPath {
     }
 }
 
+/// Classify a problem's category from its module path.
+/// Expected format: "problemreductions::models::<category>::<module_name>"
+pub(crate) fn classify_problem_category(module_path: &str) -> &str {
+    let parts: Vec<&str> = module_path.split("::").collect();
+    if parts.len() >= 3 {
+        if let Some(pos) = parts.iter().position(|&p| p == "models") {
+            if pos + 1 < parts.len() {
+                return parts[pos + 1];
+            }
+        }
+    }
+    "other"
+}
+
 /// Edge data for a reduction.
 #[derive(Clone, Debug)]
 pub struct ReductionEdge {
@@ -1006,14 +1020,7 @@ impl ReductionGraph {
     ///
     /// E.g., `"problemreductions::models::graph::maximum_independent_set"` → `"graph"`.
     fn category_from_module_path(module_path: &str) -> String {
-        // Expected format: "problemreductions::models::<category>::<module_name>"
-        let parts: Vec<&str> = module_path.split("::").collect();
-        // parts = ["problemreductions", "models", "graph", "maximum_independent_set"]
-        if parts.len() >= 3 {
-            parts[2].to_string()
-        } else {
-            "other".to_string()
-        }
+        classify_problem_category(module_path).to_string()
     }
 
     /// Build the rustdoc path from a module path and problem name.

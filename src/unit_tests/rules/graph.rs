@@ -2,6 +2,7 @@ use super::*;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::set::MaximumSetPacking;
 use crate::rules::cost::MinimizeSteps;
+use crate::rules::graph::classify_problem_category;
 use crate::topology::SimpleGraph;
 
 #[test]
@@ -1156,4 +1157,28 @@ fn test_resolve_path_incompatible_returns_none() {
 
     let resolved = graph.resolve_path(&name_path, &source, &target);
     assert!(resolved.is_none());
+}
+
+#[test]
+fn test_classify_problem_category() {
+    assert_eq!(
+        classify_problem_category("problemreductions::models::graph::maximum_independent_set"),
+        "graph"
+    );
+    assert_eq!(
+        classify_problem_category("problemreductions::models::sat::satisfiability"),
+        "sat"
+    );
+    assert_eq!(
+        classify_problem_category("problemreductions::models::set::maximum_set_packing"),
+        "set"
+    );
+    assert_eq!(
+        classify_problem_category("problemreductions::models::optimization::qubo"),
+        "optimization"
+    );
+    assert_eq!(
+        classify_problem_category("unknown::path"),
+        "other"
+    );
 }
