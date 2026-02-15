@@ -80,9 +80,9 @@ impl GridVisualization {
     }
 }
 
-/// Write JSON to file with pretty formatting.
+/// Write JSON to file in compact format.
 fn write_json<T: Serialize>(data: &T, path: &Path) {
-    let json = serde_json::to_string_pretty(data).expect("Failed to serialize to JSON");
+    let json = serde_json::to_string(data).expect("Failed to serialize to JSON");
     if let Some(parent) = path.parent() {
         fs::create_dir_all(parent).expect("Failed to create output directory");
     }
