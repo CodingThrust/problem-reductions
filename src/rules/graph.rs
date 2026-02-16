@@ -302,6 +302,30 @@ impl ReductionGraph {
         cost_fn: &C,
     ) -> Option<ReductionPath> {
         let src = self.lookup_node(source, source_variant)?;
+
+        // Validate: when input_size is non-empty, check outgoing edges
+        if !input_size.components.is_empty() {
+            let size_names: std::collections::HashSet<&str> =
+                input_size.components.iter().map(|(k, _)| k.as_str()).collect();
+            for edge_ref in self.graph.edges(src) {
+                let missing: Vec<_> = edge_ref
+                    .weight()
+                    .overhead
+                    .input_variable_names()
+                    .into_iter()
+                    .filter(|name| !size_names.contains(name))
+                    .collect();
+                if !missing.is_empty() {
+                    let target_node = &self.nodes[self.graph[edge_ref.target()]];
+                    panic!(
+                        "Overhead for {} -> {} references variables {:?} \
+                         not in source problem_size() components {:?}",
+                        source, target_node.name, missing, size_names,
+                    );
+                }
+            }
+        }
+
         let dst = self.lookup_node(target, target_variant)?;
         let node_path = self.dijkstra(src, dst, input_size, cost_fn)?;
         Some(self.node_path_to_reduction_path(&node_path))

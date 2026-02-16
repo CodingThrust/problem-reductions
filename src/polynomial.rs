@@ -1,6 +1,7 @@
 //! Polynomial representation for reduction overhead.
 
 use crate::types::ProblemSize;
+use std::collections::HashSet;
 use std::fmt;
 use std::ops::Add;
 
@@ -99,6 +100,14 @@ impl Polynomial {
 
     pub fn evaluate(&self, size: &ProblemSize) -> f64 {
         self.terms.iter().map(|m| m.evaluate(size)).sum()
+    }
+
+    /// Collect all variable names referenced by this polynomial.
+    pub fn variable_names(&self) -> HashSet<&'static str> {
+        self.terms
+            .iter()
+            .flat_map(|m| m.variables.iter().map(|(name, _)| *name))
+            .collect()
     }
 }
 

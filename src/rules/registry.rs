@@ -4,6 +4,7 @@ use crate::polynomial::Polynomial;
 use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
 use std::any::Any;
+use std::collections::HashSet;
 
 /// Overhead specification for a reduction.
 #[derive(Clone, Debug, Default, serde::Serialize)]
@@ -39,6 +40,14 @@ impl ReductionOverhead {
             .map(|(name, poly)| (*name, poly.evaluate(input).round() as usize))
             .collect();
         ProblemSize::new(fields)
+    }
+
+    /// Collect all input variable names referenced by the overhead polynomials.
+    pub fn input_variable_names(&self) -> HashSet<&'static str> {
+        self.output_size
+            .iter()
+            .flat_map(|(_, poly)| poly.variable_names())
+            .collect()
     }
 }
 
