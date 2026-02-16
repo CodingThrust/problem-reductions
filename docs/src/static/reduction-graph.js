@@ -246,11 +246,11 @@ document.addEventListener('DOMContentLoaded', function() {
           }},
           // Edge styles (z-index 1 = below nodes)
           { selector: 'edge', style: {
-            'width': 1.5, 'line-color': '#999', 'target-arrow-color': '#999', 'target-arrow-shape': 'triangle',
+            'width': 1, 'line-color': '#999', 'target-arrow-color': '#999', 'target-arrow-shape': 'triangle',
             'curve-style': 'bezier', 'arrow-scale': 0.7, 'cursor': 'pointer',
             'source-distance-from-node': 5,
             'target-distance-from-node': 5,
-            'overlay-padding': 2,
+            'overlay-padding': 0,
             'label': 'data(label)', 'font-size': '9px', 'text-rotation': 'autorotate',
             'color': '#666', 'text-margin-y': -8,
             'z-index': 1
