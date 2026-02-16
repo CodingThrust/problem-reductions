@@ -1,9 +1,11 @@
 use super::*;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
+use crate::models::optimization::QUBO;
 use crate::models::set::MaximumSetPacking;
 use crate::rules::cost::MinimizeSteps;
 use crate::rules::graph::{classify_problem_category, ReductionStep};
 use crate::topology::SimpleGraph;
+use crate::traits::Problem;
 
 #[test]
 fn test_find_direct_path() {
@@ -576,11 +578,14 @@ fn test_find_cheapest_path_minimize_steps() {
     let graph = ReductionGraph::new();
     let cost_fn = MinimizeSteps;
     let input_size = crate::types::ProblemSize::new(vec![("n", 10), ("m", 20)]);
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
 
-    // Find path from MaximumIndependentSet to MinimumVertexCover
     let path = graph.find_cheapest_path(
-        ("MaximumIndependentSet", "SimpleGraph"),
-        ("MinimumVertexCover", "SimpleGraph"),
+        "MaximumIndependentSet",
+        &src,
+        "MinimumVertexCover",
+        &dst,
         &input_size,
         &cost_fn,
     );
@@ -595,10 +600,14 @@ fn test_find_cheapest_path_multi_step() {
     let graph = ReductionGraph::new();
     let cost_fn = MinimizeSteps;
     let input_size = crate::types::ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
 
     let path = graph.find_cheapest_path(
-        ("MaximumIndependentSet", "SimpleGraph"),
-        ("MaximumSetPacking", "SimpleGraph"),
+        "MaximumIndependentSet",
+        &src,
+        "MaximumSetPacking",
+        &dst,
         &input_size,
         &cost_fn,
     );
@@ -613,11 +622,14 @@ fn test_find_cheapest_path_is_to_qubo() {
     let graph = ReductionGraph::new();
     let cost_fn = MinimizeSteps;
     let input_size = crate::types::ProblemSize::new(vec![("n", 10)]);
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
 
-    // Direct path from MaximumIndependentSet to QUBO
     let path = graph.find_cheapest_path(
-        ("MaximumIndependentSet", "SimpleGraph"),
-        ("QUBO", "SimpleGraph"),
+        "MaximumIndependentSet",
+        &src,
+        "QUBO",
+        &dst,
         &input_size,
         &cost_fn,
     );
@@ -631,10 +643,14 @@ fn test_find_cheapest_path_unknown_source() {
     let graph = ReductionGraph::new();
     let cost_fn = MinimizeSteps;
     let input_size = crate::types::ProblemSize::new(vec![("n", 10)]);
+    let unknown = BTreeMap::new();
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
 
     let path = graph.find_cheapest_path(
-        ("UnknownProblem", "SimpleGraph"),
-        ("MinimumVertexCover", "SimpleGraph"),
+        "UnknownProblem",
+        &unknown,
+        "MinimumVertexCover",
+        &dst,
         &input_size,
         &cost_fn,
     );
@@ -647,10 +663,14 @@ fn test_find_cheapest_path_unknown_target() {
     let graph = ReductionGraph::new();
     let cost_fn = MinimizeSteps;
     let input_size = crate::types::ProblemSize::new(vec![("n", 10)]);
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let unknown = BTreeMap::new();
 
     let path = graph.find_cheapest_path(
-        ("MaximumIndependentSet", "SimpleGraph"),
-        ("UnknownProblem", "SimpleGraph"),
+        "MaximumIndependentSet",
+        &src,
+        "UnknownProblem",
+        &unknown,
         &input_size,
         &cost_fn,
     );

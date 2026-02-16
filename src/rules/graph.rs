@@ -259,9 +259,9 @@ impl ReductionGraph {
         }
     }
 
-    /// Helper to convert a variant slice to a BTreeMap.
+    /// Convert a variant slice to a BTreeMap.
     /// Normalizes empty "graph" values to "SimpleGraph" for consistency.
-    fn variant_to_map(variant: &[(&str, &str)]) -> BTreeMap<String, String> {
+    pub(crate) fn variant_to_map(variant: &[(&str, &str)]) -> BTreeMap<String, String> {
         variant
             .iter()
             .map(|(k, v)| {
@@ -275,13 +275,16 @@ impl ReductionGraph {
             .collect()
     }
 
-    /// Find the cheapest path using a custom cost function.
+    /// Find the cheapest path between two specific problem variants.
     ///
-    /// Uses Dijkstra's algorithm on the variant-level graph.
+    /// Uses Dijkstra's algorithm on the variant-level graph from the exact
+    /// source variant node to the exact target variant node.
     ///
     /// # Arguments
-    /// - `source`: (problem_name, graph_type) for source — used to look up the variant node
-    /// - `target`: (problem_name, graph_type) for target
+    /// - `source`: source problem name
+    /// - `source_variant`: variant key-value pairs for the source
+    /// - `target`: target problem name
+    /// - `target_variant`: variant key-value pairs for the target
     /// - `input_size`: Initial problem size for cost calculations
     /// - `cost_fn`: Custom cost function for path optimization
     ///
@@ -289,69 +292,66 @@ impl ReductionGraph {
     /// The cheapest path if one exists.
     pub fn find_cheapest_path<C: PathCostFn>(
         &self,
-        source: (&str, &str),
-        target: (&str, &str),
+        source: &str,
+        source_variant: &BTreeMap<String, String>,
+        target: &str,
+        target_variant: &BTreeMap<String, String>,
         input_size: &ProblemSize,
         cost_fn: &C,
     ) -> Option<ReductionPath> {
-        // Find source nodes matching the name (we try all variant nodes for that name)
-        let src_nodes = self.name_to_nodes.get(source.0)?;
-        let dst_nodes = self.name_to_nodes.get(target.0)?;
+        let src_ref = VariantRef {
+            name: source.to_string(),
+            variant: source_variant.clone(),
+        };
+        let dst_ref = VariantRef {
+            name: target.to_string(),
+            variant: target_variant.clone(),
+        };
 
-        // Build set of target node indices for quick lookup
-        let dst_set: HashSet<NodeIndex> = dst_nodes.iter().copied().collect();
+        let src_idx = self.find_node_index(&src_ref)?;
+        let dst_idx = self.find_node_index(&dst_ref)?;
 
-        let mut best_path: Option<(f64, ReductionPath)> = None;
+        let mut costs: HashMap<NodeIndex, f64> = HashMap::new();
+        let mut sizes: HashMap<NodeIndex, ProblemSize> = HashMap::new();
+        let mut prev: HashMap<NodeIndex, (NodeIndex, petgraph::graph::EdgeIndex)> = HashMap::new();
+        let mut heap = BinaryHeap::new();
 
-        // Try from each source node
-        for &src_idx in src_nodes {
-            let mut costs: HashMap<NodeIndex, f64> = HashMap::new();
-            let mut sizes: HashMap<NodeIndex, ProblemSize> = HashMap::new();
-            let mut prev: HashMap<NodeIndex, (NodeIndex, petgraph::graph::EdgeIndex)> =
-                HashMap::new();
-            let mut heap = BinaryHeap::new();
+        costs.insert(src_idx, 0.0);
+        sizes.insert(src_idx, input_size.clone());
+        heap.push(Reverse((OrderedFloat(0.0), src_idx)));
 
-            costs.insert(src_idx, 0.0);
-            sizes.insert(src_idx, input_size.clone());
-            heap.push(Reverse((OrderedFloat(0.0), src_idx)));
+        while let Some(Reverse((cost, node))) = heap.pop() {
+            if node == dst_idx {
+                return Some(self.reconstruct_path(&prev, src_idx, dst_idx));
+            }
 
-            while let Some(Reverse((cost, node))) = heap.pop() {
-                if dst_set.contains(&node) {
-                    let path = self.reconstruct_path(&prev, src_idx, node);
-                    if best_path.as_ref().map(|(c, _)| cost.0 < *c).unwrap_or(true) {
-                        best_path = Some((cost.0, path));
-                    }
-                    continue;
-                }
+            if cost.0 > *costs.get(&node).unwrap_or(&f64::INFINITY) {
+                continue;
+            }
 
-                if cost.0 > *costs.get(&node).unwrap_or(&f64::INFINITY) {
-                    continue;
-                }
+            let current_size = match sizes.get(&node) {
+                Some(s) => s.clone(),
+                None => continue,
+            };
 
-                let current_size = match sizes.get(&node) {
-                    Some(s) => s.clone(),
-                    None => continue,
-                };
+            for edge_ref in self.graph.edges(node) {
+                let overhead = &edge_ref.weight().overhead;
+                let next = edge_ref.target();
 
-                for edge_ref in self.graph.edges(node) {
-                    let overhead = &edge_ref.weight().overhead;
-                    let next = edge_ref.target();
+                let edge_cost = cost_fn.edge_cost(overhead, &current_size);
+                let new_cost = cost.0 + edge_cost;
+                let new_size = overhead.evaluate_output_size(&current_size);
 
-                    let edge_cost = cost_fn.edge_cost(overhead, &current_size);
-                    let new_cost = cost.0 + edge_cost;
-                    let new_size = overhead.evaluate_output_size(&current_size);
-
-                    if new_cost < *costs.get(&next).unwrap_or(&f64::INFINITY) {
-                        costs.insert(next, new_cost);
-                        sizes.insert(next, new_size);
-                        prev.insert(next, (node, edge_ref.id()));
-                        heap.push(Reverse((OrderedFloat(new_cost), next)));
-                    }
+                if new_cost < *costs.get(&next).unwrap_or(&f64::INFINITY) {
+                    costs.insert(next, new_cost);
+                    sizes.insert(next, new_size);
+                    prev.insert(next, (node, edge_ref.id()));
+                    heap.push(Reverse((OrderedFloat(new_cost), next)));
                 }
             }
         }
 
-        best_path.map(|(_, p)| p)
+        None
     }
 
     /// Reconstruct a variant-level path from the predecessor map.
@@ -678,8 +678,11 @@ impl ReductionGraph {
     ///
     /// First tries an exact match on the source variant. If no exact match is found,
     /// falls back to a name-only match (returning the first entry whose source and
-    /// target names match). This allows looking up overhead for specific variants
-    /// (e.g., `K3`) when only the general variant (e.g., `KN`) is registered.
+    /// target names match). This is intentional: specific variants (e.g., `K3`) may
+    /// not have their own `#[reduction]` entry, but the general variant (`KN`) covers
+    /// them with the same overhead polynomial. The fallback is safe because cross-name
+    /// reductions share the same overhead regardless of source variant; it is only
+    /// used by the JSON export pipeline (`export::lookup_overhead`).
     pub fn find_best_entry(
         &self,
         source_name: &str,

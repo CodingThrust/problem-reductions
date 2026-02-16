@@ -3,6 +3,7 @@
 use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph};
 use crate::topology::SimpleGraph;
+use crate::traits::Problem;
 use crate::types::ProblemSize;
 
 // ---- Discovery and registration ----
@@ -47,9 +48,14 @@ fn test_find_path_with_cost_function() {
     let graph = ReductionGraph::new();
     let input_size = ProblemSize::new(vec![("n", 100), ("m", 200)]);
 
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+
     let path = graph.find_cheapest_path(
-        ("MaximumIndependentSet", "SimpleGraph"),
-        ("MinimumVertexCover", "SimpleGraph"),
+        "MaximumIndependentSet",
+        &src,
+        "MinimumVertexCover",
+        &dst,
         &input_size,
         &MinimizeSteps,
     );
@@ -85,9 +91,14 @@ fn test_problem_size_propagation() {
     let graph = ReductionGraph::new();
     let input_size = ProblemSize::new(vec![("num_vertices", 50), ("num_edges", 100)]);
 
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+
     let path = graph.find_cheapest_path(
-        ("MaximumIndependentSet", "SimpleGraph"),
-        ("MinimumVertexCover", "SimpleGraph"),
+        "MaximumIndependentSet",
+        &src,
+        "MinimumVertexCover",
+        &dst,
         &input_size,
         &MinimizeSteps,
     );
@@ -133,7 +144,11 @@ fn test_find_direct_path() {
 
     let paths = graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>();
     assert!(!paths.is_empty());
-    assert_eq!(paths[0].len(), 1);
+    assert!(
+        paths.iter().any(|p| p.len() == 1),
+        "Should contain a direct (1-step) path, got lengths: {:?}",
+        paths.iter().map(|p| p.len()).collect::<Vec<_>>()
+    );
 }
 
 #[test]
