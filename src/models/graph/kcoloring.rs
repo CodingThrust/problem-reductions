@@ -89,6 +89,11 @@ impl<K: KValue, G: Graph> KColoring<K, G> {
         self.num_colors
     }
 
+    /// Check if a configuration is a valid coloring.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        is_valid_coloring(&self.graph, config, self.num_colors)
+    }
+
     /// Check if a coloring is valid.
     fn is_valid_coloring(&self, config: &[usize]) -> bool {
         for (u, v) in self.graph.edges() {

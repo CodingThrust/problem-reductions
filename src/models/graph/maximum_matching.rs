@@ -121,6 +121,11 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
     }
 
     /// Check if a configuration is a valid matching.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        self.is_valid_matching(config)
+    }
+
+    /// Check if a configuration is a valid matching (internal).
     fn is_valid_matching(&self, config: &[usize]) -> bool {
         let mut vertex_used = vec![false; self.graph.num_vertices()];
 

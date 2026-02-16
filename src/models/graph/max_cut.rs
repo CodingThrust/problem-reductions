@@ -136,6 +136,15 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
     pub fn edge_weights(&self) -> Vec<W> {
         self.edge_weights.clone()
     }
+
+    /// Compute the cut size for a given partition configuration.
+    pub fn cut_size(&self, config: &[usize]) -> W::Sum
+    where
+        W: WeightElement,
+    {
+        let partition: Vec<bool> = config.iter().map(|&c| c != 0).collect();
+        cut_size(&self.graph, &self.edge_weights, &partition)
+    }
 }
 
 impl<G, W> Problem for MaxCut<G, W>

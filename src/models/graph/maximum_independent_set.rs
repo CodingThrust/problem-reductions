@@ -88,6 +88,11 @@ impl<G: Graph, W: Clone + Default> MaximumIndependentSet<G, W> {
     {
         !W::IS_UNIT
     }
+
+    /// Check if a configuration is a valid independent set.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        is_independent_set_config(&self.graph, config)
+    }
 }
 
 impl<G, W> Problem for MaximumIndependentSet<G, W>
