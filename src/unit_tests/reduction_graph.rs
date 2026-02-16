@@ -46,7 +46,7 @@ fn test_bidirectional_reductions() {
 #[test]
 fn test_find_path_with_cost_function() {
     let graph = ReductionGraph::new();
-    let input_size = ProblemSize::new(vec![("n", 100), ("m", 200)]);
+    let input_size = ProblemSize::new(vec![("num_vertices", 100), ("num_edges", 200)]);
 
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
@@ -74,7 +74,14 @@ fn test_multi_step_path() {
     // Factoring -> CircuitSAT -> SpinGlass<SimpleGraph, i32> is a 2-step path
     let src = ReductionGraph::variant_to_map(&crate::models::specialized::Factoring::variant());
     let dst = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, i32>::variant());
-    let path = graph.find_cheapest_path("Factoring", &src, "SpinGlass", &dst, &ProblemSize::new(vec![]), &MinimizeSteps);
+    let path = graph.find_cheapest_path(
+        "Factoring",
+        &src,
+        "SpinGlass",
+        &dst,
+        &ProblemSize::new(vec![]),
+        &MinimizeSteps,
+    );
 
     assert!(
         path.is_some(),
@@ -107,9 +114,17 @@ fn test_problem_size_propagation() {
 
     assert!(path.is_some());
 
-    let src2 = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let src2 =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst2 = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
-    let path2 = graph.find_cheapest_path("MaximumIndependentSet", &src2, "MaximumSetPacking", &dst2, &ProblemSize::new(vec![]), &MinimizeSteps);
+    let path2 = graph.find_cheapest_path(
+        "MaximumIndependentSet",
+        &src2,
+        "MaximumSetPacking",
+        &dst2,
+        &ProblemSize::new(vec![]),
+        &MinimizeSteps,
+    );
     assert!(path2.is_some());
 }
 
@@ -167,7 +182,14 @@ fn test_find_indirect_path() {
     let paths = graph.find_all_paths("MaximumSetPacking", &src, "MinimumVertexCover", &dst);
     assert!(!paths.is_empty());
 
-    let shortest = graph.find_cheapest_path("MaximumSetPacking", &src, "MinimumVertexCover", &dst, &ProblemSize::new(vec![]), &MinimizeSteps);
+    let shortest = graph.find_cheapest_path(
+        "MaximumSetPacking",
+        &src,
+        "MinimumVertexCover",
+        &dst,
+        &ProblemSize::new(vec![]),
+        &MinimizeSteps,
+    );
     assert!(shortest.is_some());
     assert_eq!(shortest.unwrap().len(), 2);
 }
@@ -185,14 +207,33 @@ fn test_no_path_exists() {
 #[test]
 fn test_bidirectional_paths() {
     let graph = ReductionGraph::new();
-    let is_var = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let is_var =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let vc_var = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
     let sg_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
     let qubo_var = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
 
-    assert!(!graph.find_all_paths("MaximumIndependentSet", &is_var, "MinimumVertexCover", &vc_var).is_empty());
-    assert!(!graph.find_all_paths("MinimumVertexCover", &vc_var, "MaximumIndependentSet", &is_var).is_empty());
+    assert!(!graph
+        .find_all_paths(
+            "MaximumIndependentSet",
+            &is_var,
+            "MinimumVertexCover",
+            &vc_var
+        )
+        .is_empty());
+    assert!(!graph
+        .find_all_paths(
+            "MinimumVertexCover",
+            &vc_var,
+            "MaximumIndependentSet",
+            &is_var
+        )
+        .is_empty());
 
-    assert!(!graph.find_all_paths("SpinGlass", &sg_var, "QUBO", &qubo_var).is_empty());
-    assert!(!graph.find_all_paths("QUBO", &qubo_var, "SpinGlass", &sg_var).is_empty());
+    assert!(!graph
+        .find_all_paths("SpinGlass", &sg_var, "QUBO", &qubo_var)
+        .is_empty());
+    assert!(!graph
+        .find_all_paths("QUBO", &qubo_var, "SpinGlass", &sg_var)
+        .is_empty());
 }
