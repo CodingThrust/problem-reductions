@@ -2,7 +2,7 @@
 # Generate JSON test fixtures from ProblemReductions.jl for Rust parity testing.
 # Run: cd scripts/jl && julia --project=. generate_testdata.jl
 
-using ProblemReductions, Graphs, JSON
+using ProblemReductions, Graphs, JSON, Random
 
 const OUTDIR = joinpath(@__DIR__, "..", "..", "tests", "data", "jl")
 mkpath(OUTDIR)
@@ -465,6 +465,7 @@ end
 # ── main ─────────────────────────────────────────────────────────────
 
 function main()
+    Random.seed!(42)  # pin seed so re-runs produce identical fixtures
     println("Generating Julia parity test data...")
 
     # ── Build test instances (matching Julia test/rules/rules.jl) ──
@@ -801,53 +802,61 @@ function main()
         write_fixture(filename, data)
     end
 
-    # ── Export reduction path fixtures ──
+    # ── Export reduction path fixtures (deterministic, skip if already exist) ──
     println("Exporting reduction path fixtures...")
 
     g = reduction_graph()
 
-    # MaxCut → SpinGlass path
-    mc_source = MaxCut(smallgraph(:petersen))
-    mc_paths = reduction_paths(g, MaxCut, SpinGlass)
-    mc_res = reduceto(mc_paths[1], mc_source)
-    mc_best_source = findbest(mc_source, BruteForce())
-    mc_best_target = findbest(target_problem(mc_res), BruteForce())
-    mc_extracted = sort(unique(extract_solution.(Ref(mc_res), mc_best_target)))
+    if !isfile(joinpath(OUTDIR, "path_maxcut_to_spinglass.json"))
+        # MaxCut → SpinGlass path
+        mc_source = MaxCut(smallgraph(:petersen))
+        mc_paths = reduction_paths(g, MaxCut, SpinGlass)
+        mc_res = reduceto(mc_paths[1], mc_source)
+        mc_best_source = findbest(mc_source, BruteForce())
+        mc_best_target = findbest(target_problem(mc_res), BruteForce())
+        mc_extracted = sort(unique(extract_solution.(Ref(mc_res), mc_best_target)))
 
-    write_fixture("path_maxcut_to_spinglass.json", Dict(
-        "path" => string.(typeof.(mc_paths[1].nodes)),
-        "best_source" => mc_best_source,
-        "best_target" => mc_best_target,
-        "extracted" => mc_extracted,
-    ))
+        write_fixture("path_maxcut_to_spinglass.json", Dict(
+            "path" => string.(typeof.(mc_paths[1].nodes)),
+            "best_source" => mc_best_source,
+            "best_target" => mc_best_target,
+            "extracted" => mc_extracted,
+        ))
 
-    # MaxCut → QUBO path
-    mc_qubo_paths = reduction_paths(g, MaxCut, QUBO)
-    mc_qubo_res = reduceto(mc_qubo_paths[1], mc_source)
-    mc_qubo_best_target = findbest(target_problem(mc_qubo_res), BruteForce())
-    mc_qubo_extracted = sort(unique(extract_solution.(Ref(mc_qubo_res), mc_qubo_best_target)))
+        # MaxCut → QUBO path (uses same mc_source/mc_best_source)
+        mc_qubo_paths = reduction_paths(g, MaxCut, QUBO)
+        mc_qubo_res = reduceto(mc_qubo_paths[1], mc_source)
+        mc_qubo_best_target = findbest(target_problem(mc_qubo_res), BruteForce())
+        mc_qubo_extracted = sort(unique(extract_solution.(Ref(mc_qubo_res), mc_qubo_best_target)))
 
-    write_fixture("path_maxcut_to_qubo.json", Dict(
-        "path" => string.(typeof.(mc_qubo_paths[1].nodes)),
-        "best_source" => mc_best_source,
-        "extracted" => mc_qubo_extracted,
-    ))
+        write_fixture("path_maxcut_to_qubo.json", Dict(
+            "path" => string.(typeof.(mc_qubo_paths[1].nodes)),
+            "best_source" => mc_best_source,
+            "extracted" => mc_qubo_extracted,
+        ))
+    else
+        println("  skipping path_maxcut_to_*.json (already exist)")
+    end
 
-    # Factoring → SpinGlass path
-    fact = Factoring(2, 1, 3)
-    fact_paths = reduction_paths(g, Factoring, SpinGlass)
-    fact_res = reduceto(fact_paths[1], fact)
-    fact_best_target = findbest(target_problem(fact_res), BruteForce())
-    fact_extracted = sort(unique(filter(
-        sol -> solution_size(fact, sol) == SolutionSize(0, true),
-        extract_solution.(Ref(fact_res), fact_best_target)
-    )))
+    if !isfile(joinpath(OUTDIR, "path_factoring_to_spinglass.json"))
+        # Factoring → SpinGlass path (slow BruteForce on SpinGlass target)
+        fact = Factoring(2, 1, 3)
+        fact_paths = reduction_paths(g, Factoring, SpinGlass)
+        fact_res = reduceto(fact_paths[1], fact)
+        fact_best_target = findbest(target_problem(fact_res), BruteForce())
+        fact_extracted = sort(unique(filter(
+            sol -> solution_size(fact, sol) == SolutionSize(0, true),
+            extract_solution.(Ref(fact_res), fact_best_target)
+        )))
 
-    write_fixture("path_factoring_to_spinglass.json", Dict(
-        "path" => string.(typeof.(fact_paths[1].nodes)),
-        "best_source" => findbest(fact, BruteForce()),
-        "extracted" => fact_extracted,
-    ))
+        write_fixture("path_factoring_to_spinglass.json", Dict(
+            "path" => string.(typeof.(fact_paths[1].nodes)),
+            "best_source" => findbest(fact, BruteForce()),
+            "extracted" => fact_extracted,
+        ))
+    else
+        println("  skipping path_factoring_to_spinglass.json (already exists)")
+    end
 
     println("Done! Generated fixtures in $OUTDIR")
 end
