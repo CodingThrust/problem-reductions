@@ -149,16 +149,6 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
         &self.graph
     }
 
-    /// Get the number of vertices.
-    pub fn num_vertices(&self) -> usize {
-        self.graph.num_vertices()
-    }
-
-    /// Get the number of edges.
-    pub fn num_edges(&self) -> usize {
-        self.graph.num_edges()
-    }
-
     /// Get the edges with weights.
     pub fn edges(&self) -> Vec<(usize, usize, W)> {
         self.graph

@@ -7,15 +7,15 @@ fn test_maxcut_creation() {
     use crate::traits::Problem;
 
     let problem = MaxCut::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 3)]);
-    assert_eq!(problem.num_vertices(), 4);
-    assert_eq!(problem.num_edges(), 3);
+    assert_eq!(problem.graph().num_vertices(), 4);
+    assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
 }
 
 #[test]
 fn test_maxcut_unweighted() {
     let problem = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
-    assert_eq!(problem.num_edges(), 2);
+    assert_eq!(problem.graph().num_edges(), 2);
 }
 
 #[test]
@@ -62,8 +62,8 @@ fn test_direction() {
 fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MaxCut::<SimpleGraph, i32>::from_graph(graph, vec![5, 10]);
-    assert_eq!(problem.num_vertices(), 3);
-    assert_eq!(problem.num_edges(), 2);
+    assert_eq!(problem.graph().num_vertices(), 3);
+    assert_eq!(problem.graph().num_edges(), 2);
     assert_eq!(problem.edge_weights(), vec![5, 10]);
 }
 
@@ -71,8 +71,8 @@ fn test_from_graph() {
 fn test_from_graph_unweighted() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = MaxCut::<SimpleGraph, i32>::from_graph_unweighted(graph);
-    assert_eq!(problem.num_vertices(), 3);
-    assert_eq!(problem.num_edges(), 2);
+    assert_eq!(problem.graph().num_vertices(), 3);
+    assert_eq!(problem.graph().num_edges(), 2);
     assert_eq!(problem.edge_weights(), vec![1, 1]);
 }
 

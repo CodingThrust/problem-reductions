@@ -19,7 +19,7 @@ use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::small_graphs::petersen;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     // 1. Create KColoring instance: Petersen graph (10 vertices, 15 edges) with 3 colors, χ=3
@@ -80,8 +80,8 @@ pub fn run() {
             problem: KColoring::<K3, SimpleGraph>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
-                "num_vertices": coloring.num_vertices(),
-                "num_edges": coloring.num_edges(),
+                "num_vertices": coloring.graph().num_vertices(),
+                "num_edges": coloring.graph().num_edges(),
                 "num_colors": 3,
             }),
         },

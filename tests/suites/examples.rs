@@ -10,6 +10,7 @@ macro_rules! example_test {
     };
 }
 
+example_test!(chained_reduction_ksat_to_mis);
 example_test!(reduction_circuitsat_to_spinglass);
 example_test!(reduction_factoring_to_circuitsat);
 example_test!(reduction_factoring_to_ilp);
@@ -51,6 +52,10 @@ macro_rules! example_fn {
     };
 }
 
+example_fn!(
+    test_chained_reduction_ksat_to_mis,
+    chained_reduction_ksat_to_mis
+);
 example_fn!(
     test_circuitsat_to_spinglass,
     reduction_circuitsat_to_spinglass

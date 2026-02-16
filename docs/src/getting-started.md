@@ -55,70 +55,24 @@ assert!(metric.is_valid());
 
 ### Chaining Reductions
 
-Reductions compose into multi-step chains. A `ResolvedPath` describes the plan —
-each step carries the problem name and variant, each edge is either a `Reduction`
-(with overhead) or a `NaturalCast` (free subtype relaxation).
+Reductions compose into multi-step chains. The `ReductionGraph` discovers
+paths through the variant-level graph. Find a `ReductionPath` first, then
+convert it to a typed `ExecutablePath<S, T>` via `make_executable()`. Call
+`reduce()` once and get a `ChainedReduction` with `target_problem()` and
+`extract_solution()`, just like a single-step reduction.
+
 Here we solve a 3-SAT formula by chaining through Satisfiability
 and MaximumIndependentSet:
 
-```rust
-use std::collections::BTreeMap;
-use problemreductions::prelude::*;
-use problemreductions::topology::SimpleGraph;
-use problemreductions::rules::{ReductionGraph, EdgeKind};
-use problemreductions::solvers::ILPSolver;
+```rust,ignore
+{{#include ../../examples/chained_reduction_ksat_to_mis.rs:imports}}
 
-// --- Plan: obtain a ResolvedPath ---
-
-let graph = ReductionGraph::new();
-let path = graph.find_shortest_path_by_name("KSatisfiability", "MaximumIndependentSet").unwrap();
-let source = BTreeMap::from([("k".to_string(), "K3".to_string())]);
-let resolved = graph.resolve_path(&path, &source, &BTreeMap::new()).unwrap();
-
-// The resolved path:
-//   step 0: KSatisfiability {k: "K3"}
-//   step 1: Satisfiability  {}
-//   step 2: MaximumIndependentSet {graph: "SimpleGraph", weight: "i32"}
-//   edge 0: Reduction  (K3-SAT → SAT, trivial embedding)
-//   edge 1: Reduction  (SAT → MIS, Karp 1972)
-
-// --- Execute: create, reduce, solve, extract ---
-
-// Create: 3-SAT formula (a∨b∨¬c)∧(¬a∨¬b∨¬c)∧(¬a∨b∨c)∧(a∨¬b∨c)
-let ksat = KSatisfiability::<K3>::new(3, vec![
-    CNFClause::new(vec![1, 2, -3]),    // a ∨ b ∨ ¬c
-    CNFClause::new(vec![-1, -2, -3]),  // ¬a ∨ ¬b ∨ ¬c
-    CNFClause::new(vec![-1, 2, 3]),    // ¬a ∨ b ∨ c
-    CNFClause::new(vec![1, -2, 3]),    // a ∨ ¬b ∨ c
-]);
-
-// Widen: 3-SAT → N-SAT (natural variant cast, KN accepts any clause size)
-let nsat = KSatisfiability::<KN>::new(ksat.num_vars(), ksat.clauses().to_vec());
-
-// Reduce: N-SAT → Satisfiability (trivial embedding)
-let r1 = ReduceTo::<Satisfiability>::reduce_to(&nsat);
-
-// Reduce: Satisfiability → MaximumIndependentSet (Karp reduction)
-let r2 = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(r1.target_problem());
-
-// Solve: MIS via ILP (internally: MIS → ILP → solve → extract)
-let ilp = ILPSolver::new();
-let mis_solution = ilp.solve_reduced(r2.target_problem()).unwrap();
-
-// Extract: trace back through the reduction chain
-let sat_solution = r2.extract_solution(&mis_solution);
-let nsat_solution = r1.extract_solution(&sat_solution);
-
-// Verify: satisfies the original 3-SAT formula
-assert!(ksat.evaluate(&nsat_solution));
+{{#include ../../examples/chained_reduction_ksat_to_mis.rs:example}}
 ```
 
-The `ILPSolver::solve_reduced()` handles the final MIS → ILP reduction,
-solve, and extraction internally. The caller traces back the explicit chain
-with `extract_solution()` at each step, recovering a satisfying assignment
-for the original formula.
-
-> **Note:** `ILPSolver` requires the `ilp` feature flag (see [Solvers](#solvers)).
+The `ExecutablePath` handles variant casts (e.g., `K3` → `KN`) and
+cross-problem reductions (e.g., SAT → MIS) uniformly. The `ChainedReduction`
+extracts solutions back through the entire chain in one call.
 
 ## Solvers
 

@@ -1,13 +1,14 @@
 //! Core traits for problem reductions.
 
 use crate::traits::Problem;
+use std::any::Any;
 use std::marker::PhantomData;
 
 /// Result of reducing a source problem to a target problem.
 ///
 /// This trait encapsulates the target problem and provides methods
 /// to extract solutions back to the source problem space.
-pub trait ReductionResult: Clone {
+pub trait ReductionResult {
     /// The source problem type.
     type Source: Problem;
     /// The target problem type.
@@ -93,6 +94,29 @@ impl<S: Problem, T: Problem> ReductionResult for ReductionAutoCast<S, T> {
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         target_solution.to_vec()
+    }
+}
+
+/// Type-erased reduction result for runtime-discovered paths.
+///
+/// Implemented automatically for all `ReductionResult` types via blanket impl.
+/// Used internally by `ExecutablePath` and `ChainedReduction`.
+pub trait DynReductionResult {
+    /// Get the target problem as a type-erased reference.
+    fn target_problem_any(&self) -> &dyn Any;
+    /// Extract a solution from target space to source space.
+    fn extract_solution_dyn(&self, target_solution: &[usize]) -> Vec<usize>;
+}
+
+impl<R: ReductionResult + 'static> DynReductionResult for R
+where
+    R::Target: 'static,
+{
+    fn target_problem_any(&self) -> &dyn Any {
+        self.target_problem() as &dyn Any
+    }
+    fn extract_solution_dyn(&self, target_solution: &[usize]) -> Vec<usize> {
+        self.extract_solution(target_solution)
     }
 }
 

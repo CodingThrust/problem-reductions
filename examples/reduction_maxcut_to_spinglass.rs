@@ -18,7 +18,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     let (num_vertices, edges) = petersen();
@@ -70,8 +70,8 @@ pub fn run() {
             problem: MaxCut::<SimpleGraph, i32>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
-                "num_vertices": maxcut.num_vertices(),
-                "num_edges": maxcut.num_edges(),
+                "num_vertices": maxcut.graph().num_vertices(),
+                "num_edges": maxcut.graph().num_edges(),
                 "edges": edges,
             }),
         },

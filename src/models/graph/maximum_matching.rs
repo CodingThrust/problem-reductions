@@ -126,16 +126,6 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
         &self.graph
     }
 
-    /// Get the number of vertices.
-    pub fn num_vertices(&self) -> usize {
-        self.graph.num_vertices()
-    }
-
-    /// Get the number of edges.
-    pub fn num_edges(&self) -> usize {
-        self.graph.num_edges()
-    }
-
     /// Get edge endpoints.
     pub fn edge_endpoints(&self, edge_idx: usize) -> Option<(usize, usize)> {
         self.graph.edges().get(edge_idx).copied()

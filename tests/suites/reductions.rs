@@ -297,7 +297,7 @@ mod sg_maxcut_reductions {
         let maxcut = result.target_problem();
 
         // Same number of vertices
-        assert_eq!(maxcut.num_vertices(), 3);
+        assert_eq!(maxcut.graph().num_vertices(), 3);
 
         // Solve MaxCut
         let solver = BruteForce::new();

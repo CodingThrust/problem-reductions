@@ -1,8 +1,9 @@
-//! Tests for ReductionGraph: discovery, path finding, graph hierarchy, and typed API.
+//! Tests for ReductionGraph: discovery, path finding, and typed API.
 
 use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph};
 use crate::topology::SimpleGraph;
+use crate::traits::Problem;
 use crate::types::ProblemSize;
 
 // ---- Discovery and registration ----
@@ -47,9 +48,14 @@ fn test_find_path_with_cost_function() {
     let graph = ReductionGraph::new();
     let input_size = ProblemSize::new(vec![("n", 100), ("m", 200)]);
 
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+
     let path = graph.find_cheapest_path(
-        ("MaximumIndependentSet", "SimpleGraph"),
-        ("MinimumVertexCover", "SimpleGraph"),
+        "MaximumIndependentSet",
+        &src,
+        "MinimumVertexCover",
+        &dst,
         &input_size,
         &MinimizeSteps,
     );
@@ -75,7 +81,7 @@ fn test_multi_step_path() {
     let path = path.unwrap();
     assert_eq!(path.len(), 2, "Should be a 2-step path");
     assert_eq!(
-        path.type_names,
+        path.type_names(),
         vec!["Factoring", "CircuitSAT", "SpinGlass"]
     );
 }
@@ -85,9 +91,14 @@ fn test_problem_size_propagation() {
     let graph = ReductionGraph::new();
     let input_size = ProblemSize::new(vec![("num_vertices", 50), ("num_edges", 100)]);
 
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+
     let path = graph.find_cheapest_path(
-        ("MaximumIndependentSet", "SimpleGraph"),
-        ("MinimumVertexCover", "SimpleGraph"),
+        "MaximumIndependentSet",
+        &src,
+        "MinimumVertexCover",
+        &dst,
         &input_size,
         &MinimizeSteps,
     );
@@ -96,34 +107,6 @@ fn test_problem_size_propagation() {
 
     let path2 = graph.find_shortest_path_by_name("MaximumIndependentSet", "MaximumSetPacking");
     assert!(path2.is_some());
-}
-
-// ---- Graph hierarchy ----
-
-#[test]
-fn test_graph_hierarchy_built() {
-    let graph = ReductionGraph::new();
-
-    assert!(graph.is_graph_subtype("UnitDiskGraph", "SimpleGraph"));
-    assert!(graph.is_graph_subtype("PlanarGraph", "SimpleGraph"));
-    assert!(graph.is_graph_subtype("BipartiteGraph", "SimpleGraph"));
-
-    // Reflexive
-    assert!(graph.is_graph_subtype("SimpleGraph", "SimpleGraph"));
-
-    // Non-subtype relationships
-    assert!(!graph.is_graph_subtype("SimpleGraph", "UnitDiskGraph"));
-}
-
-#[test]
-fn test_rule_applicability() {
-    let graph = ReductionGraph::new();
-
-    // Rule for SimpleGraph applies to UnitDiskGraph source (UnitDisk <= Simple)
-    assert!(graph.rule_applicable("UnitDiskGraph", "SimpleGraph", "SimpleGraph", "SimpleGraph"));
-
-    // Rule for UnitDiskGraph doesn't apply to SimpleGraph source (Simple is NOT <= UnitDisk)
-    assert!(!graph.rule_applicable("SimpleGraph", "SimpleGraph", "UnitDiskGraph", "SimpleGraph"));
 }
 
 // ---- JSON export ----
@@ -161,7 +144,11 @@ fn test_find_direct_path() {
 
     let paths = graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>();
     assert!(!paths.is_empty());
-    assert_eq!(paths[0].len(), 1);
+    assert!(
+        paths.iter().any(|p| p.len() == 1),
+        "Should contain a direct (1-step) path, got lengths: {:?}",
+        paths.iter().map(|p| p.len()).collect::<Vec<_>>()
+    );
 }
 
 #[test]

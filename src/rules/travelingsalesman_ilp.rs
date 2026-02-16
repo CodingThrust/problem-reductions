@@ -106,7 +106,7 @@ impl ReduceTo<ILP> for TravelingSalesman<SimpleGraph, i32> {
     type Result = ReductionTSPToILP;
 
     fn reduce_to(&self) -> Self::Result {
-        let n = self.num_vertices();
+        let n = self.graph().num_vertices();
         let graph = self.graph();
         let edges_with_weights = self.edges();
         let source_edges: Vec<(usize, usize)> =

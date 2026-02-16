@@ -26,14 +26,14 @@ use crate::variant::{KValue, K1, K2, K3, K4, KN};
 pub struct ReductionKColoringToILP<K: KValue, G> {
     target: ILP,
     num_vertices: usize,
+    num_colors: usize,
     _phantom: std::marker::PhantomData<(K, G)>,
 }
 
 impl<K: KValue, G> ReductionKColoringToILP<K, G> {
     /// Get the variable index for vertex v with color c.
     fn var_index(&self, vertex: usize, color: usize) -> usize {
-        let k = K::K.expect("KN cannot be used as problem instance");
-        vertex * k + color
+        vertex * self.num_colors + color
     }
 }
 
@@ -53,7 +53,7 @@ where
     /// The ILP solution has num_vertices * K binary variables.
     /// For each vertex, we find which color has value 1.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let k = K::K.expect("KN cannot be used as problem instance");
+        let k = self.num_colors;
         (0..self.num_vertices)
             .map(|v| {
                 (0..k)
@@ -71,8 +71,8 @@ where
 fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
     problem: &KColoring<K, G>,
 ) -> ReductionKColoringToILP<K, G> {
-    let k = K::K.expect("KN cannot be used as problem instance");
-    let num_vertices = problem.num_vertices();
+    let k = problem.num_colors();
+    let num_vertices = problem.graph().num_vertices();
     let num_vars = num_vertices * k;
 
     // Helper function to get variable index
@@ -92,7 +92,7 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
 
     // Constraint 2: Adjacent vertices have different colors
     // x_{u,c} + x_{v,c} <= 1 for each edge (u,v) and each color c
-    for (u, v) in problem.edges() {
+    for (u, v) in problem.graph().edges() {
         for c in 0..k {
             constraints.push(LinearConstraint::le(
                 vec![(var_index(u, c), 1.0), (var_index(v, c), 1.0)],
@@ -116,6 +116,7 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
     ReductionKColoringToILP {
         target,
         num_vertices,
+        num_colors: k,
         _phantom: std::marker::PhantomData,
     }
 }

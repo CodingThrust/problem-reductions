@@ -1,7 +1,9 @@
 //! Automatic reduction registration via inventory.
 
 use crate::polynomial::Polynomial;
+use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
+use std::any::Any;
 
 /// Overhead specification for a reduction.
 #[derive(Clone, Debug, Default, serde::Serialize)]
@@ -14,6 +16,14 @@ pub struct ReductionOverhead {
 impl ReductionOverhead {
     pub fn new(output_size: Vec<(&'static str, Polynomial)>) -> Self {
         Self { output_size }
+    }
+
+    /// Identity overhead: each output field equals the same-named input field.
+    /// Used by variant cast reductions where problem size doesn't change.
+    pub fn identity(fields: &[&'static str]) -> Self {
+        Self {
+            output_size: fields.iter().map(|&f| (f, Polynomial::var(f))).collect(),
+        }
     }
 
     /// Evaluate output size given input size.
@@ -47,6 +57,10 @@ pub struct ReductionEntry {
     pub overhead_fn: fn() -> ReductionOverhead,
     /// Module path where the reduction is defined (from `module_path!()`).
     pub module_path: &'static str,
+    /// Type-erased reduction executor.
+    /// Takes a `&dyn Any` (must be `&SourceType`), calls `ReduceTo::reduce_to()`,
+    /// and returns the result as a boxed `DynReductionResult`.
+    pub reduce_fn: fn(&dyn Any) -> Box<dyn DynReductionResult>,
 }
 
 impl ReductionEntry {

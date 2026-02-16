@@ -9,7 +9,7 @@ fn test_spinglass_to_maxcut_no_onsite() {
     let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
     let mc = reduction.target_problem();
 
-    assert_eq!(mc.num_vertices(), 3); // No ancilla needed
+    assert_eq!(mc.graph().num_vertices(), 3); // No ancilla needed
     assert!(reduction.ancilla.is_none());
 }
 
@@ -20,7 +20,7 @@ fn test_spinglass_to_maxcut_with_onsite() {
     let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);
     let mc = reduction.target_problem();
 
-    assert_eq!(mc.num_vertices(), 3); // Ancilla added
+    assert_eq!(mc.graph().num_vertices(), 3); // Ancilla added
     assert_eq!(reduction.ancilla, Some(2));
 }
 
@@ -76,7 +76,7 @@ fn test_reduction_structure() {
     let reduction2 = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg2);
     let mc2 = reduction2.target_problem();
 
-    assert_eq!(mc2.num_vertices(), 3);
+    assert_eq!(mc2.graph().num_vertices(), 3);
 }
 
 #[test]

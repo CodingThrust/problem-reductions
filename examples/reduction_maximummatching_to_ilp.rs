@@ -16,7 +16,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     // 1. Create MaximumMatching instance: Petersen graph with unit weights
@@ -80,8 +80,8 @@ pub fn run() {
             problem: MaximumMatching::<SimpleGraph, i32>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
-                "num_vertices": matching.num_vertices(),
-                "num_edges": matching.num_edges(),
+                "num_vertices": matching.graph().num_vertices(),
+                "num_edges": matching.graph().num_edges(),
                 "edges": edges,
             }),
         },

@@ -17,7 +17,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::solvers::ILPSolver;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     // 1. Create TSP instance: K4 with weights
@@ -42,7 +42,7 @@ pub fn run() {
     println!(
         "Source: TravelingSalesman with {} variables ({} edges)",
         problem.num_variables(),
-        problem.num_edges()
+        problem.graph().num_edges()
     );
     println!(
         "Target: ILP with {} variables, {} constraints",
@@ -88,8 +88,8 @@ pub fn run() {
             problem: TravelingSalesman::<SimpleGraph, i32>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
-                "num_vertices": problem.num_vertices(),
-                "num_edges": problem.num_edges(),
+                "num_vertices": problem.graph().num_vertices(),
+                "num_edges": problem.graph().num_edges(),
                 "edges": edges,
             }),
         },

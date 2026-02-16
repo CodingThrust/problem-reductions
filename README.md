@@ -3,7 +3,7 @@
 [![Crates.io](https://img.shields.io/crates/v/problemreductions)](https://crates.io/crates/problemreductions)
 [![CI](https://github.com/CodingThrust/problem-reductions/actions/workflows/ci.yml/badge.svg)](https://github.com/CodingThrust/problem-reductions/actions/workflows/ci.yml)
 [![codecov](https://codecov.io/github/CodingThrust/problem-reductions/graph/badge.svg?token=0CdEC8GHN0)](https://codecov.io/github/CodingThrust/problem-reductions)
-[![Docs](https://img.shields.io/badge/Docs-API-green)](https://codingthrust.github.io/problem-reductions/)
+[![Docs](https://img.shields.io/badge/docs-API-blue)](https://codingthrust.github.io/problem-reductions/)
 
 A Rust library for NP-hard problem definitions and reductions. We aim to implement >100 NP-hard problems and reductions rule between them, under the assistance of AI.
 
