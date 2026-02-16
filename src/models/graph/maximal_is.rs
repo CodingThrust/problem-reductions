@@ -6,7 +6,7 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::Graph;
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::types::{Direction, ProblemSize, SolutionSize, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -151,6 +151,13 @@ where
             }
         }
         SolutionSize::Valid(total)
+    }
+
+    fn problem_size(&self) -> ProblemSize {
+        ProblemSize::new(vec![
+            ("num_vertices", self.graph().num_vertices()),
+            ("num_edges", self.graph().num_edges()),
+        ])
     }
 }
 

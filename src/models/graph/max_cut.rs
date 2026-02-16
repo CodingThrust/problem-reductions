@@ -6,7 +6,7 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::Graph;
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::types::{Direction, ProblemSize, SolutionSize, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -158,6 +158,13 @@ where
         // All cuts are valid, so always return Valid
         let partition: Vec<bool> = config.iter().map(|&c| c != 0).collect();
         SolutionSize::Valid(cut_size(&self.graph, &self.edge_weights, &partition))
+    }
+
+    fn problem_size(&self) -> ProblemSize {
+        ProblemSize::new(vec![
+            ("num_vertices", self.graph().num_vertices()),
+            ("num_edges", self.graph().num_edges()),
+        ])
     }
 }
 
