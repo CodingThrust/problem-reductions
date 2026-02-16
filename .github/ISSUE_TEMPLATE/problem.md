@@ -7,6 +7,10 @@ assignees: ''
 
 ---
 
+## Motivation
+
+<!-- One sentence: why is this problem useful to include? E.g. "Widely used in network design and has known reductions to QUBO." -->
+
 ## Definition
 
 **Name:** <!-- e.g. MaximumIndependentSet. Use Maximum/Minimum prefix for optimization problems -->

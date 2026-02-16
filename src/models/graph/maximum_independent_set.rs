@@ -4,7 +4,7 @@
 //! such that no two vertices in the subset are adjacent.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::Graph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -42,7 +42,8 @@ inventory::submit! {
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Create a triangle graph (3 vertices, 3 edges)
-/// let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+/// let problem = MaximumIndependentSet::new(graph, vec![1; 3]);
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
@@ -59,36 +60,9 @@ pub struct MaximumIndependentSet<G, W> {
     weights: Vec<W>,
 }
 
-impl<W: Clone + Default> MaximumIndependentSet<SimpleGraph, W> {
-    /// Create a new Independent Set problem with unit weights.
-    ///
-    /// # Arguments
-    /// * `num_vertices` - Number of vertices in the graph
-    /// * `edges` - List of edges as (u, v) pairs
-    pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self
-    where
-        W: From<i32>,
-    {
-        let graph = SimpleGraph::new(num_vertices, edges);
-        let weights = vec![W::from(1); num_vertices];
-        Self { graph, weights }
-    }
-
-    /// Create a new Independent Set problem with custom weights.
-    pub fn with_weights(num_vertices: usize, edges: Vec<(usize, usize)>, weights: Vec<W>) -> Self {
-        assert_eq!(
-            weights.len(),
-            num_vertices,
-            "weights length must match num_vertices"
-        );
-        let graph = SimpleGraph::new(num_vertices, edges);
-        Self { graph, weights }
-    }
-}
-
 impl<G: Graph, W: Clone + Default> MaximumIndependentSet<G, W> {
-    /// Create an Independent Set problem from an existing graph with custom weights.
-    pub fn from_graph(graph: G, weights: Vec<W>) -> Self {
+    /// Create an Independent Set problem from a graph with given weights.
+    pub fn new(graph: G, weights: Vec<W>) -> Self {
         assert_eq!(
             weights.len(),
             graph.num_vertices(),
@@ -107,16 +81,12 @@ impl<G: Graph, W: Clone + Default> MaximumIndependentSet<G, W> {
         &self.weights
     }
 
-    /// Check if the problem has non-uniform weights.
+    /// Check if the problem uses a non-unit weight type.
     pub fn is_weighted(&self) -> bool
     where
-        W: PartialEq,
+        W: WeightElement,
     {
-        if self.weights.is_empty() {
-            return false;
-        }
-        let first = &self.weights[0];
-        !self.weights.iter().all(|w| w == first)
+        !W::IS_UNIT
     }
 }
 
@@ -175,19 +145,19 @@ fn is_independent_set_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 /// Check if a set of vertices forms an independent set.
 ///
 /// # Arguments
-/// * `num_vertices` - Total number of vertices
-/// * `edges` - List of edges as (u, v) pairs
+/// * `graph` - The graph
 /// * `selected` - Boolean slice indicating which vertices are selected
-pub fn is_independent_set(
-    num_vertices: usize,
-    edges: &[(usize, usize)],
-    selected: &[bool],
-) -> bool {
-    if selected.len() != num_vertices {
-        return false;
-    }
-    for &(u, v) in edges {
-        if u < selected.len() && v < selected.len() && selected[u] && selected[v] {
+///
+/// # Panics
+/// Panics if `selected.len() != graph.num_vertices()`.
+pub fn is_independent_set<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+    assert_eq!(
+        selected.len(),
+        graph.num_vertices(),
+        "selected length must match num_vertices"
+    );
+    for (u, v) in graph.edges() {
+        if selected[u] && selected[v] {
             return false;
         }
     }

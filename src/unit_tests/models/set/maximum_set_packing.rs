@@ -78,7 +78,8 @@ fn test_relationship_to_independent_set() {
 
     // Build intersection graph
     let edges = sp_problem.overlapping_pairs();
-    let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(sets.len(), edges);
+    let n = sets.len();
+    let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i32; n]);
 
     let solver = BruteForce::new();
 

@@ -21,7 +21,7 @@ use problemreductions::topology::{Graph, SimpleGraph};
 pub fn run() {
     // 1. Create IS instance: Petersen graph
     let (num_vertices, edges) = petersen();
-    let is = MaximumIndependentSet::<SimpleGraph, i32>::new(num_vertices, edges.clone());
+    let is = MaximumIndependentSet::new(SimpleGraph::new(num_vertices, edges.clone()), vec![1i32; num_vertices]);
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&is);

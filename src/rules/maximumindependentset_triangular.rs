@@ -52,7 +52,7 @@ impl ReduceTo<MaximumIndependentSet<TriangularSubgraph, i32>>
         let result = triangular::map_weighted(n, &edges);
         let weights = result.node_weights.clone();
         let grid = result.to_triangular_subgraph();
-        let target = MaximumIndependentSet::from_graph(grid, weights);
+        let target = MaximumIndependentSet::new(grid, weights);
         ReductionISSimpleToTriangular {
             target,
             mapping_result: result,

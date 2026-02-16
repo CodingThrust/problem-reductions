@@ -104,7 +104,7 @@ pub use traits::{ReduceTo, ReductionAutoCast, ReductionResult};
 ///     MaximumIndependentSet,
 ///     <KingsSubgraph, i32> => <UnitDiskGraph, i32>,
 ///     fields: [num_vertices, num_edges],
-///     |src| MaximumIndependentSet::from_graph(
+///     |src| MaximumIndependentSet::new(
 ///         src.graph().cast_to_parent(), src.weights())
 /// );
 /// ```

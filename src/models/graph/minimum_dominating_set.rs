@@ -4,7 +4,7 @@
 //! such that every vertex is either in the set or adjacent to a vertex in the set.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::Graph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -38,7 +38,8 @@ inventory::submit! {
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Star graph: center dominates all
-/// let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+/// let problem = MinimumDominatingSet::new(graph, vec![1; 4]);
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_best(&problem);
@@ -54,29 +55,14 @@ pub struct MinimumDominatingSet<G, W> {
     weights: Vec<W>,
 }
 
-impl<W: Clone + Default> MinimumDominatingSet<SimpleGraph, W> {
-    /// Create a new Dominating Set problem with unit weights.
-    pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self
-    where
-        W: From<i32>,
-    {
-        let graph = SimpleGraph::new(num_vertices, edges);
-        let weights = vec![W::from(1); num_vertices];
-        Self { graph, weights }
-    }
-
-    /// Create a new Dominating Set problem with custom weights.
-    pub fn with_weights(num_vertices: usize, edges: Vec<(usize, usize)>, weights: Vec<W>) -> Self {
-        assert_eq!(weights.len(), num_vertices);
-        let graph = SimpleGraph::new(num_vertices, edges);
-        Self { graph, weights }
-    }
-}
-
 impl<G: Graph, W: Clone + Default> MinimumDominatingSet<G, W> {
-    /// Create a Dominating Set problem from a graph with custom weights.
-    pub fn from_graph(graph: G, weights: Vec<W>) -> Self {
-        assert_eq!(weights.len(), graph.num_vertices());
+    /// Create a Dominating Set problem from a graph with given weights.
+    pub fn new(graph: G, weights: Vec<W>) -> Self {
+        assert_eq!(
+            weights.len(),
+            graph.num_vertices(),
+            "weights length must match graph num_vertices"
+        );
         Self { graph, weights }
     }
 
@@ -167,28 +153,23 @@ where
 }
 
 /// Check if a set of vertices is a dominating set.
-pub fn is_dominating_set(num_vertices: usize, edges: &[(usize, usize)], selected: &[bool]) -> bool {
-    if selected.len() != num_vertices {
-        return false;
-    }
-
-    // Build adjacency list
-    let mut adj: Vec<HashSet<usize>> = vec![HashSet::new(); num_vertices];
-    for &(u, v) in edges {
-        if u < num_vertices && v < num_vertices {
-            adj[u].insert(v);
-            adj[v].insert(u);
-        }
-    }
+///
+/// # Panics
+/// Panics if `selected.len() != graph.num_vertices()`.
+pub fn is_dominating_set<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+    assert_eq!(
+        selected.len(),
+        graph.num_vertices(),
+        "selected length must match num_vertices"
+    );
 
     // Check each vertex is dominated
-    for v in 0..num_vertices {
+    for v in 0..graph.num_vertices() {
         if selected[v] {
             continue; // v dominates itself
         }
         // Check if any neighbor of v is selected
-        let dominated = adj[v].iter().any(|&u| selected[u]);
-        if !dominated {
+        if !graph.neighbors(v).iter().any(|&u| selected[u]) {
             return false;
         }
     }

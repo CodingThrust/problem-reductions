@@ -6,31 +6,55 @@ use crate::types::SolutionSize;
 #[test]
 fn test_quick_problem_test_macro() {
     // Test a valid solution
-    quick_problem_test!(
-        MaximumIndependentSet<SimpleGraph, i32>,
-        new(3, vec![(0, 1), (1, 2)]),
-        solution: [1, 0, 1],
-        expected_value: SolutionSize::Valid(2),
-        is_max: true
-    );
+    {
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+        let solution = vec![1, 0, 1];
+        let result = problem.evaluate(&solution);
+        assert_eq!(result, SolutionSize::Valid(2));
+    }
 
     // Test an invalid solution (adjacent vertices selected) -> returns Invalid
-    quick_problem_test!(
-        MaximumIndependentSet<SimpleGraph, i32>,
-        new(3, vec![(0, 1), (1, 2)]),
-        solution: [1, 1, 0],
-        expected_value: SolutionSize::Invalid,
-        is_max: true
-    );
+    {
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+        let solution = vec![1, 1, 0];
+        let result = problem.evaluate(&solution);
+        assert_eq!(result, SolutionSize::Invalid);
+    }
 }
 
-// Test the complement_test macro
-complement_test! {
-    name: test_is_vc_complement,
-    problem_a: MaximumIndependentSet<SimpleGraph, i32>,
-    problem_b: MinimumVertexCover<SimpleGraph, i32>,
-    test_graphs: [
-        (3, [(0, 1), (1, 2)]),
-        (4, [(0, 1), (1, 2), (2, 3), (0, 3)]),
-    ]
+// Test the complement_test macro - manually implemented since MIS constructor changed
+#[test]
+fn test_is_vc_complement() {
+    use crate::prelude::*;
+
+    for (n, edges) in [
+        (3usize, vec![(0, 1), (1, 2)]),
+        (4usize, vec![(0, 1), (1, 2), (2, 3), (0, 3)]),
+    ] {
+        let problem_a = MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i32; n]);
+        let problem_b = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i32; n]);
+
+        let solver = BruteForce::new();
+        let solutions_a = solver.find_all_best(&problem_a);
+        let solutions_b = solver.find_all_best(&problem_b);
+
+        let size_a: usize = solutions_a[0].iter().sum();
+        let size_b: usize = solutions_b[0].iter().sum();
+
+        assert_eq!(
+            size_a + size_b,
+            n,
+            "Complement relationship failed for graph with {} vertices",
+            n
+        );
+
+        for sol_a in &solutions_a {
+            let complement: Vec<usize> = sol_a.iter().map(|&x| 1 - x).collect();
+            let value = problem_b.evaluate(&complement);
+            assert!(
+                value.is_valid(),
+                "Complement of A solution should be valid for B"
+            );
+        }
+    }
 }

@@ -34,7 +34,7 @@ pub fn run() {
 
     // Petersen graph: 10 vertices, 15 edges, VC=6
     let (num_vertices, edges) = petersen();
-    let vc = MinimumVertexCover::<SimpleGraph, i32>::new(num_vertices, edges.clone());
+    let vc = MinimumVertexCover::new(SimpleGraph::new(num_vertices, edges.clone()), vec![1i32; num_vertices]);
 
     // Reduce to QUBO
     let reduction = ReduceTo::<QUBO>::reduce_to(&vc);

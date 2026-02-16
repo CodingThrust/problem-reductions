@@ -14,7 +14,7 @@ mod is_vc_reductions {
     fn test_is_to_vc_basic() {
         // Triangle graph
         let is_problem =
-            MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+            MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
 
         // Reduce IS to VC
         let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is_problem);
@@ -39,7 +39,7 @@ mod is_vc_reductions {
     fn test_vc_to_is_basic() {
         // Path graph
         let vc_problem =
-            MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+            MinimumVertexCover::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
 
         // Reduce VC to IS
         let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&vc_problem);
@@ -63,7 +63,7 @@ mod is_vc_reductions {
     #[test]
     fn test_is_vc_roundtrip() {
         let original =
-            MaximumIndependentSet::<SimpleGraph, i32>::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]);
+            MaximumIndependentSet::new(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]), vec![1i32; 5]);
 
         // IS -> VC
         let to_vc = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&original);
@@ -94,7 +94,7 @@ mod is_vc_reductions {
 
     #[test]
     fn test_is_vc_weighted() {
-        let is_problem = MaximumIndependentSet::with_weights(3, vec![(0, 1)], vec![10, 1, 5]);
+        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![10, 1, 5]);
 
         let result = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is_problem);
         let vc_problem = result.target_problem();
@@ -109,8 +109,8 @@ mod is_vc_reductions {
         let edges = vec![(0, 1), (1, 2), (2, 3), (0, 3)];
         let n = 4;
 
-        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(n, edges.clone());
-        let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(n, edges);
+        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i32; n]);
+        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i32; n]);
 
         let solver = BruteForce::new();
 
@@ -133,7 +133,7 @@ mod is_sp_reductions {
     fn test_is_to_sp_basic() {
         // Triangle graph - each vertex's incident edges become a set
         let is_problem =
-            MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+            MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
 
         let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);
         let sp_problem = result.target_problem();
@@ -178,7 +178,7 @@ mod is_sp_reductions {
     #[test]
     fn test_is_sp_roundtrip() {
         let original =
-            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+            MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
 
         // IS -> SP
         let to_sp = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&original);
@@ -310,7 +310,7 @@ mod sg_maxcut_reductions {
 
     #[test]
     fn test_maxcut_to_sg_basic() {
-        let maxcut = MaxCut::new(3, vec![(0, 1, 2), (1, 2, 1), (0, 2, 3)]);
+        let maxcut = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![2, 1, 3]);
 
         let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&maxcut);
         let sg = result.target_problem();
@@ -394,7 +394,7 @@ mod topology_tests {
 
         // Extract edges
         let edges = udg.edges().to_vec();
-        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, edges);
+        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(4, edges), vec![1i32; 4]);
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&is_problem);
@@ -484,9 +484,10 @@ mod qubo_reductions {
             std::fs::read_to_string("tests/data/qubo/maximumindependentset_to_qubo.json").unwrap();
         let data: ISToQuboData = serde_json::from_str(&json).unwrap();
 
-        let is = MaximumIndependentSet::<SimpleGraph, i32>::new(
-            data.source.num_vertices,
-            data.source.edges,
+        let n = data.source.num_vertices;
+        let is = MaximumIndependentSet::new(
+            SimpleGraph::new(n, data.source.edges),
+            vec![1i32; n],
         );
         let reduction = ReduceTo::<QUBO>::reduce_to(&is);
         let qubo = reduction.target_problem();
@@ -527,9 +528,10 @@ mod qubo_reductions {
             std::fs::read_to_string("tests/data/qubo/minimumvertexcover_to_qubo.json").unwrap();
         let data: VCToQuboData = serde_json::from_str(&json).unwrap();
 
-        let vc = MinimumVertexCover::<SimpleGraph, i32>::new(
-            data.source.num_vertices,
-            data.source.edges,
+        let n = data.source.num_vertices;
+        let vc = MinimumVertexCover::new(
+            SimpleGraph::new(n, data.source.edges),
+            vec![1i32; n],
         );
         let reduction = ReduceTo::<QUBO>::reduce_to(&vc);
         let qubo = reduction.target_problem();
@@ -571,7 +573,7 @@ mod qubo_reductions {
 
         assert_eq!(data.source.num_colors, 3);
 
-        let kc = KColoring::<K3, SimpleGraph>::new(data.source.num_vertices, data.source.edges);
+        let kc = KColoring::<K3, _>::new(SimpleGraph::new(data.source.num_vertices, data.source.edges));
         let reduction = ReduceTo::<QUBO>::reduce_to(&kc);
         let qubo = reduction.target_problem();
 
@@ -786,7 +788,7 @@ mod io_tests {
     #[test]
     fn test_serialize_reduce_deserialize() {
         let original =
-            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+            MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
 
         // Serialize
         let json = to_json(&original).unwrap();
@@ -841,9 +843,9 @@ mod end_to_end {
     #[test]
     fn test_full_pipeline_is_vc_sp() {
         // Start with an MaximumIndependentSet problem
-        let is = MaximumIndependentSet::<SimpleGraph, i32>::new(
-            5,
-            vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4)],
+        let is = MaximumIndependentSet::new(
+            SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4)]),
+            vec![1i32; 5],
         );
 
         // Solve directly

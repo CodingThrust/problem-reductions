@@ -4,7 +4,7 @@
 //! such that no two adjacent vertices have the same color.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::Graph;
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::variant::{KValue, VariantParam, KN};
 use serde::{Deserialize, Serialize};
@@ -39,7 +39,8 @@ inventory::submit! {
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Triangle graph needs at least 3 colors
-/// let problem = KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+/// let problem = KColoring::<K3, _>::new(graph);
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_satisfying(&problem);
@@ -65,34 +66,15 @@ fn default_num_colors<K: KValue>() -> usize {
     K::K.unwrap_or(0)
 }
 
-impl<K: KValue> KColoring<K, SimpleGraph> {
-    /// Create a new K-Coloring problem.
-    ///
-    /// # Arguments
-    /// * `num_vertices` - Number of vertices
-    /// * `edges` - List of edges as (u, v) pairs
-    ///
-    /// # Panics
-    /// Panics if `K` is `KN` (use [`from_graph_with_k`](Self::from_graph_with_k) instead).
-    pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self {
-        let graph = SimpleGraph::new(num_vertices, edges);
-        Self {
-            graph,
-            num_colors: K::K.expect("KN requires from_graph_with_k"),
-            _phantom: std::marker::PhantomData,
-        }
-    }
-}
-
 impl<K: KValue, G: Graph> KColoring<K, G> {
-    /// Create a K-Coloring problem from an existing graph.
+    /// Create a new K-Coloring problem from a graph.
     ///
     /// # Panics
-    /// Panics if `K` is `KN` (use [`KColoring::<KN, G>::from_graph_with_k`] instead).
-    pub fn from_graph(graph: G) -> Self {
+    /// Panics if `K` is `KN` (use [`KColoring::<KN, G>::with_k`] instead).
+    pub fn new(graph: G) -> Self {
         Self {
             graph,
-            num_colors: K::K.expect("KN requires from_graph_with_k"),
+            num_colors: K::K.expect("KN requires with_k"),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -124,9 +106,9 @@ impl<G: Graph> KColoring<KN, G> {
     /// Create a K-Coloring problem with an explicit number of colors.
     ///
     /// Only available for `KN` (runtime K). For compile-time K types like
-    /// `K3`, use [`from_graph`](KColoring::from_graph) which derives K
-    /// from the type parameter.
-    pub fn from_graph_with_k(graph: G, num_colors: usize) -> Self {
+    /// `K3`, use [`new`](KColoring::new) which derives K from the type
+    /// parameter.
+    pub fn with_k(graph: G, num_colors: usize) -> Self {
         Self {
             graph,
             num_colors,
@@ -158,22 +140,22 @@ where
 impl<K: KValue, G: Graph + VariantParam> SatisfactionProblem for KColoring<K, G> {}
 
 /// Check if a coloring is valid for a graph.
-pub fn is_valid_coloring(
-    num_vertices: usize,
-    edges: &[(usize, usize)],
-    coloring: &[usize],
-    num_colors: usize,
-) -> bool {
-    if coloring.len() != num_vertices {
-        return false;
-    }
+///
+/// # Panics
+/// Panics if `coloring.len() != graph.num_vertices()`.
+pub fn is_valid_coloring<G: Graph>(graph: &G, coloring: &[usize], num_colors: usize) -> bool {
+    assert_eq!(
+        coloring.len(),
+        graph.num_vertices(),
+        "coloring length must match num_vertices"
+    );
     // Check all colors are valid
     if coloring.iter().any(|&c| c >= num_colors) {
         return false;
     }
     // Check no adjacent vertices have same color
-    for &(u, v) in edges {
-        if u < coloring.len() && v < coloring.len() && coloring[u] == coloring[v] {
+    for (u, v) in graph.edges() {
+        if coloring[u] == coloring[v] {
             return false;
         }
     }

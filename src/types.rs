@@ -36,12 +36,15 @@ impl<T> NumericSize for T where
 pub trait WeightElement: Clone + Default + 'static {
     /// The numeric type used for sums and comparisons.
     type Sum: NumericSize;
+    /// Whether this is the unit weight type (`One`).
+    const IS_UNIT: bool;
     /// Convert this weight element to the sum type.
     fn to_sum(&self) -> Self::Sum;
 }
 
 impl WeightElement for i32 {
     type Sum = i32;
+    const IS_UNIT: bool = false;
     fn to_sum(&self) -> i32 {
         *self
     }
@@ -49,6 +52,7 @@ impl WeightElement for i32 {
 
 impl WeightElement for f64 {
     type Sum = f64;
+    const IS_UNIT: bool = false;
     fn to_sum(&self) -> f64 {
         *self
     }
@@ -63,6 +67,7 @@ pub struct One;
 
 impl WeightElement for One {
     type Sum = i32;
+    const IS_UNIT: bool = true;
     fn to_sum(&self) -> i32 {
         1
     }

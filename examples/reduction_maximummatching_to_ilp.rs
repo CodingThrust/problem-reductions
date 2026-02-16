@@ -21,7 +21,7 @@ use problemreductions::topology::{Graph, SimpleGraph};
 pub fn run() {
     // 1. Create MaximumMatching instance: Petersen graph with unit weights
     let (num_vertices, edges) = petersen();
-    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(num_vertices, edges.clone());
+    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(num_vertices, edges.clone()));
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&matching);

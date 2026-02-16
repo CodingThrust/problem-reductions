@@ -166,7 +166,7 @@ impl ReduceTo<MinimumDominatingSet<SimpleGraph, i32>> for Satisfiability {
             }
         }
 
-        let target = MinimumDominatingSet::new(num_vertices, edges);
+        let target = MinimumDominatingSet::new(SimpleGraph::new(num_vertices, edges), vec![1i32; num_vertices]);
 
         ReductionSATToDS {
             target,

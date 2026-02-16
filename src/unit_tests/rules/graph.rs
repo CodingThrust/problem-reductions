@@ -734,7 +734,7 @@ fn test_chained_reduction_direct() {
         >(&rpath)
         .unwrap();
 
-    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
     let reduction = path.reduce(&problem);
     let target = reduction.target_problem();
 
@@ -764,7 +764,7 @@ fn test_chained_reduction_multi_step() {
         >(&rpath)
         .unwrap();
 
-    let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
     let reduction = path.reduce(&problem);
     let target = reduction.target_problem();
 
@@ -815,7 +815,7 @@ fn test_chained_reduction_with_variant_casts() {
 
     // Create a small UnitDiskGraph MIS problem (triangle of close nodes)
     let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (0.5, 0.0), (0.25, 0.4)], 1.0);
-    let mis = MaximumIndependentSet::<UnitDiskGraph, i32>::from_graph(udg, vec![1, 1, 1]);
+    let mis = MaximumIndependentSet::new(udg, vec![1i32, 1, 1]);
 
     let reduction = path.reduce(&mis);
     let target = reduction.target_problem();

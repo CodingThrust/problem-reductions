@@ -26,31 +26,31 @@ fn check_problem_trait<P: Problem>(problem: &P, name: &str) {
 #[test]
 fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
-        &MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
+        &MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
         "MaximumIndependentSet",
     );
     check_problem_trait(
-        &MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
+        &MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
         "MinimumVertexCover",
     );
     check_problem_trait(
-        &MaxCut::<SimpleGraph, i32>::new(3, vec![(0, 1, 1)]),
+        &MaxCut::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32]),
         "MaxCut",
     );
     check_problem_trait(
-        &KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1)]),
+        &KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1)])),
         "KColoring",
     );
     check_problem_trait(
-        &MinimumDominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
+        &MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
         "MinimumDominatingSet",
     );
     check_problem_trait(
-        &MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
+        &MaximalIS::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
         "MaximalIS",
     );
     check_problem_trait(
-        &MaximumMatching::<SimpleGraph, i32>::new(3, vec![(0, 1, 1)]),
+        &MaximumMatching::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32]),
         "MaximumMatching",
     );
     check_problem_trait(
@@ -89,11 +89,11 @@ fn test_direction() {
 
     // Minimization problems
     assert_eq!(
-        MinimumVertexCover::<SimpleGraph, i32>::new(2, vec![(0, 1)]).direction(),
+        MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
         Direction::Minimize
     );
     assert_eq!(
-        MinimumDominatingSet::<SimpleGraph, i32>::new(2, vec![(0, 1)]).direction(),
+        MinimumDominatingSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
         Direction::Minimize
     );
     assert_eq!(
@@ -124,19 +124,19 @@ fn test_direction() {
 
     // Maximization problems
     assert_eq!(
-        MaximumIndependentSet::<SimpleGraph, i32>::new(2, vec![(0, 1)]).direction(),
+        MaximumIndependentSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
         Direction::Maximize
     );
     assert_eq!(
-        MaximalIS::<SimpleGraph, i32>::new(2, vec![(0, 1)]).direction(),
+        MaximalIS::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
         Direction::Maximize
     );
     assert_eq!(
-        MaxCut::<SimpleGraph, i32>::new(2, vec![(0, 1, 1)]).direction(),
+        MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32]).direction(),
         Direction::Maximize
     );
     assert_eq!(
-        MaximumMatching::<SimpleGraph, i32>::new(2, vec![(0, 1, 1)]).direction(),
+        MaximumMatching::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32]).direction(),
         Direction::Maximize
     );
     assert_eq!(
@@ -144,7 +144,7 @@ fn test_direction() {
         Direction::Maximize
     );
     assert_eq!(
-        MaximumClique::<SimpleGraph, i32>::new(2, vec![(0, 1)]).direction(),
+        MaximumClique::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
         Direction::Maximize
     );
 }

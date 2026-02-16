@@ -18,7 +18,7 @@ mod all_problems_solvable {
     #[test]
     fn test_independent_set_solvable() {
         let problem =
-            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+            MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
@@ -29,7 +29,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_vertex_covering_solvable() {
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
@@ -40,7 +40,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_max_cut_solvable() {
-        let problem = MaxCut::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
+        let problem = MaxCut::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1, 2, 1]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
@@ -48,7 +48,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_coloring_solvable() {
-        let problem = KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
         let solver = BruteForce::new();
         // KColoring returns bool, so we can use find_all_satisfying
         let satisfying = solver.find_all_satisfying(&problem);
@@ -61,7 +61,7 @@ mod all_problems_solvable {
     #[test]
     fn test_dominating_set_solvable() {
         let problem =
-            MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+            MinimumDominatingSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
@@ -72,7 +72,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_maximal_is_solvable() {
-        let problem = MaximalIS::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = MaximalIS::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
@@ -84,7 +84,7 @@ mod all_problems_solvable {
     #[test]
     fn test_matching_solvable() {
         let problem =
-            MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
+            MaximumMatching::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1, 2, 1]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
@@ -233,8 +233,8 @@ mod problem_relationships {
         let edges = vec![(0, 1), (1, 2), (2, 3), (0, 3)];
         let n = 4;
 
-        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(n, edges.clone());
-        let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(n, edges);
+        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i32; n]);
+        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i32; n]);
 
         let solver = BruteForce::new();
         let is_solutions = solver.find_all_best(&is_problem);
@@ -253,8 +253,8 @@ mod problem_relationships {
         let edges = vec![(0, 1), (1, 2), (2, 3)];
         let n = 4;
 
-        let maximal_is = MaximalIS::<SimpleGraph, i32>::new(n, edges.clone());
-        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(n, edges);
+        let maximal_is = MaximalIS::new(SimpleGraph::new(n, edges.clone()), vec![1i32; n]);
+        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i32; n]);
 
         let solver = BruteForce::new();
         let maximal_solutions = solver.find_all_best(&maximal_is);
@@ -332,7 +332,7 @@ mod edge_cases {
 
     #[test]
     fn test_empty_graph_independent_set() {
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![]);
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
 
@@ -344,7 +344,7 @@ mod edge_cases {
     fn test_complete_graph_independent_set() {
         // K4 - complete graph on 4 vertices
         let edges = vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, edges);
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(4, edges), vec![1i32; 4]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
 
@@ -401,9 +401,8 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_independent_set() {
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::with_weights(
-            3,
-            vec![(0, 1)],
+        let problem = MaximumIndependentSet::new(
+            SimpleGraph::new(3, vec![(0, 1)]),
             vec![10, 1, 1],
         );
 
@@ -422,9 +421,8 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_vertex_cover() {
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::with_weights(
-            3,
-            vec![(0, 1), (1, 2)],
+        let problem = MinimumVertexCover::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
             vec![1, 10, 1],
         );
 
@@ -442,7 +440,7 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_max_cut() {
-        let problem = MaxCut::new(3, vec![(0, 1, 10), (1, 2, 1)]);
+        let problem = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 1]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
 
