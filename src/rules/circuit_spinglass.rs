@@ -30,8 +30,10 @@ pub struct LogicGadget<W> {
     /// The SpinGlass problem encoding the gate.
     pub problem: SpinGlass<SimpleGraph, W>,
     /// Input spin indices (0-indexed within the gadget).
+    #[allow(dead_code)] // read in tests
     pub inputs: Vec<usize>,
     /// Output spin indices (0-indexed within the gadget).
+    #[allow(dead_code)] // read in tests
     pub outputs: Vec<usize>,
 }
 

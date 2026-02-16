@@ -150,9 +150,6 @@ macro_rules! impl_kcoloring_to_ilp {
 
 impl_kcoloring_to_ilp!(K1, K2, K3, K4);
 
-// Keep the old type alias for backwards compatibility
-pub type ReductionColoringToILP = ReductionKColoringToILP<K3, SimpleGraph>;
-
 #[cfg(test)]
 #[path = "../unit_tests/rules/coloring_ilp.rs"]
 mod tests;
