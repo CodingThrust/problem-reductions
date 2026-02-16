@@ -115,6 +115,13 @@ impl<W: Clone + Default> MinimumSetCovering<W> {
         &self.weights
     }
 
+    /// Check if a configuration is a valid set cover.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        let covered = self.covered_elements(config);
+        covered.len() == self.universe_size
+            && (0..self.universe_size).all(|e| covered.contains(&e))
+    }
+
     /// Check which elements are covered by selected sets.
     pub fn covered_elements(&self, config: &[usize]) -> HashSet<usize> {
         let mut covered = HashSet::new();

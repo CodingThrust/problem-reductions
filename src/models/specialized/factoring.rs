@@ -90,6 +90,11 @@ impl Factoring {
         (a, b)
     }
 
+    /// Check if a configuration is a valid factorization.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        self.is_valid_factorization(config)
+    }
+
     /// Check if the configuration is a valid factorization.
     pub fn is_valid_factorization(&self, config: &[usize]) -> bool {
         let (a, b) = self.read_factors(config);
