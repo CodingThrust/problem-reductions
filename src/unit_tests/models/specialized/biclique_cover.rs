@@ -3,6 +3,8 @@ use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
+include!("../../jl_helpers.rs");
+
 #[test]
 fn test_biclique_cover_creation() {
     let problem = BicliqueCover::new(2, 2, vec![(0, 2), (0, 3), (1, 2)], 2);
@@ -170,4 +172,44 @@ fn test_biclique_problem() {
         empty_problem.evaluate(&[0, 0, 0, 0]),
         SolutionSize::Valid(0)
     );
+}
+
+#[test]
+fn test_jl_parity_evaluation() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tests/data/jl/biclique_cover.json"))
+            .unwrap();
+    for instance in data["instances"].as_array().unwrap() {
+        let left_size = instance["instance"]["left_size"].as_u64().unwrap() as usize;
+        let right_size = instance["instance"]["right_size"].as_u64().unwrap() as usize;
+        let edges = jl_parse_edges(&instance["instance"]);
+        let k = instance["instance"]["k"].as_u64().unwrap() as usize;
+        let problem = BicliqueCover::new(left_size, right_size, edges, k);
+        for eval in instance["evaluations"].as_array().unwrap() {
+            let config = jl_parse_config(&eval["config"]);
+            let result = problem.evaluate(&config);
+            let jl_valid = eval["is_valid"].as_bool().unwrap();
+            let jl_size = eval["size"].as_i64().unwrap() as i32;
+            if jl_valid {
+                assert_eq!(
+                    result,
+                    SolutionSize::Valid(jl_size),
+                    "BicliqueCover: valid config mismatch"
+                );
+            } else {
+                assert_eq!(
+                    result,
+                    SolutionSize::Invalid,
+                    "BicliqueCover: invalid config should be Invalid"
+                );
+            }
+        }
+        let best = BruteForce::new().find_all_best(&problem);
+        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        assert_eq!(
+            rust_best, jl_best,
+            "BicliqueCover best solutions mismatch"
+        );
+    }
 }
