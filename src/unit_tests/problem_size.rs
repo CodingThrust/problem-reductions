@@ -94,10 +94,10 @@ fn test_problem_size_tsp() {
 #[test]
 fn test_problem_size_sat() {
     use crate::models::satisfiability::CNFClause;
-    let sat = Satisfiability::new(3, vec![
-        CNFClause::new(vec![1, -2]),
-        CNFClause::new(vec![2, 3]),
-    ]);
+    let sat = Satisfiability::new(
+        3,
+        vec![CNFClause::new(vec![1, -2]), CNFClause::new(vec![2, 3])],
+    );
     let size = sat.problem_size();
     assert_eq!(size.get("num_vars"), Some(3));
     assert_eq!(size.get("num_clauses"), Some(2));
@@ -108,10 +108,13 @@ fn test_problem_size_sat() {
 fn test_problem_size_ksat() {
     use crate::models::satisfiability::CNFClause;
     use crate::variant::K3;
-    let ksat = KSatisfiability::<K3>::new(3, vec![
-        CNFClause::new(vec![1, -2, 3]),
-        CNFClause::new(vec![-1, 2, -3]),
-    ]);
+    let ksat = KSatisfiability::<K3>::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, -2, 3]),
+            CNFClause::new(vec![-1, 2, -3]),
+        ],
+    );
     let size = ksat.problem_size();
     assert_eq!(size.get("num_vars"), Some(3));
     assert_eq!(size.get("num_clauses"), Some(2));
@@ -161,13 +164,11 @@ fn test_problem_size_factoring() {
 
 #[test]
 fn test_problem_size_circuitsat() {
-    use crate::models::specialized::{BooleanExpr, Assignment, Circuit};
-    let circuit = Circuit::new(vec![
-        Assignment::new(
-            vec!["c".to_string()],
-            BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
-        ),
-    ]);
+    use crate::models::specialized::{Assignment, BooleanExpr, Circuit};
+    let circuit = Circuit::new(vec![Assignment::new(
+        vec!["c".to_string()],
+        BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+    )]);
     let problem = CircuitSAT::new(circuit);
     let size = problem.problem_size();
     assert_eq!(size.get("num_variables"), Some(problem.num_variables()));
@@ -203,11 +204,7 @@ fn test_problem_size_bmf() {
 
 #[test]
 fn test_problem_size_set_packing() {
-    let sp = MaximumSetPacking::<i32>::new(vec![
-        vec![0, 1],
-        vec![1, 2],
-        vec![2, 3],
-    ]);
+    let sp = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
     let size = sp.problem_size();
     assert_eq!(size.get("num_sets"), Some(3));
     assert_eq!(size.get("universe_size"), Some(4));
@@ -215,14 +212,7 @@ fn test_problem_size_set_packing() {
 
 #[test]
 fn test_problem_size_set_covering() {
-    let sc = MinimumSetCovering::<i32>::new(
-        4,
-        vec![
-            vec![0, 1],
-            vec![1, 2],
-            vec![2, 3],
-        ],
-    );
+    let sc = MinimumSetCovering::<i32>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
     let size = sc.problem_size();
     assert_eq!(size.get("num_sets"), Some(3));
     assert_eq!(size.get("universe_size"), Some(4));

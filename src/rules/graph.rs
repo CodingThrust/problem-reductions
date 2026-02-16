@@ -276,11 +276,7 @@ impl ReductionGraph {
     }
 
     /// Look up a variant node by name and variant map.
-    fn lookup_node(
-        &self,
-        name: &str,
-        variant: &BTreeMap<String, String>,
-    ) -> Option<NodeIndex> {
+    fn lookup_node(&self, name: &str, variant: &BTreeMap<String, String>) -> Option<NodeIndex> {
         let nodes = self.name_to_nodes.get(name)?;
         nodes
             .iter()
@@ -305,8 +301,11 @@ impl ReductionGraph {
 
         // Validate: when input_size is non-empty, check outgoing edges
         if !input_size.components.is_empty() {
-            let size_names: std::collections::HashSet<&str> =
-                input_size.components.iter().map(|(k, _)| k.as_str()).collect();
+            let size_names: std::collections::HashSet<&str> = input_size
+                .components
+                .iter()
+                .map(|(k, _)| k.as_str())
+                .collect();
             for edge_ref in self.graph.edges(src) {
                 let missing: Vec<_> = edge_ref
                     .weight()
@@ -425,11 +424,12 @@ impl ReductionGraph {
             None => return vec![],
         };
 
-        let paths: Vec<Vec<NodeIndex>> =
-            all_simple_paths::<Vec<NodeIndex>, _, std::hash::RandomState>(
-                &self.graph, src, dst, 0, None,
-            )
-            .collect();
+        let paths: Vec<Vec<NodeIndex>> = all_simple_paths::<
+            Vec<NodeIndex>,
+            _,
+            std::hash::RandomState,
+        >(&self.graph, src, dst, 0, None)
+        .collect();
 
         paths
             .iter()

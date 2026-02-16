@@ -7,7 +7,8 @@ use crate::types::SolutionSize;
 fn test_quick_problem_test_macro() {
     // Test a valid solution
     {
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+        let problem =
+            MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
         let solution = vec![1, 0, 1];
         let result = problem.evaluate(&solution);
         assert_eq!(result, SolutionSize::Valid(2));
@@ -15,7 +16,8 @@ fn test_quick_problem_test_macro() {
 
     // Test an invalid solution (adjacent vertices selected) -> returns Invalid
     {
-        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+        let problem =
+            MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
         let solution = vec![1, 1, 0];
         let result = problem.evaluate(&solution);
         assert_eq!(result, SolutionSize::Invalid);
@@ -31,7 +33,8 @@ fn test_is_vc_complement() {
         (3usize, vec![(0, 1), (1, 2)]),
         (4usize, vec![(0, 1), (1, 2), (2, 3), (0, 3)]),
     ] {
-        let problem_a = MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i32; n]);
+        let problem_a =
+            MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i32; n]);
         let problem_b = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i32; n]);
 
         let solver = BruteForce::new();

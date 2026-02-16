@@ -148,7 +148,9 @@ where
     }
 
     fn problem_size(&self) -> ProblemSize {
-        let universe_size = self.sets().iter()
+        let universe_size = self
+            .sets()
+            .iter()
             .flat_map(|s| s.iter())
             .max()
             .map_or(0, |&m| m + 1);

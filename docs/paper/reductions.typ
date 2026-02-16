@@ -246,7 +246,7 @@
 ]
 
 #block(width: 100%, inset: (x: 2em, y: 1em))[
-  *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problemreductions` library. For each reduction, we state theorems with constructive proofs that preserve solution structure.
+  *Abstract.* We present formal definitions for computational problems and polynomial-time reductions implemented in the `problem-reductions` library. For each reduction, we state theorems with constructive proofs that preserve solution structure.
 ]
 
 

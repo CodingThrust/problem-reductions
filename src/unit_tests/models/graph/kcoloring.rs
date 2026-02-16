@@ -119,8 +119,10 @@ fn test_complete_graph_k4() {
     use crate::traits::Problem;
 
     // K4 needs 4 colors
-    let problem =
-        KColoring::<K4, _>::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]));
+    let problem = KColoring::<K4, _>::new(SimpleGraph::new(
+        4,
+        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+    ));
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_satisfying(&problem);

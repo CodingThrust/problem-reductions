@@ -176,9 +176,10 @@ fn test_biclique_problem() {
 
 #[test]
 fn test_jl_parity_evaluation() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../../tests/data/jl/biclique_cover.json"))
-            .unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/data/jl/biclique_cover.json"
+    ))
+    .unwrap();
     for instance in data["instances"].as_array().unwrap() {
         let left_size = instance["instance"]["left_size"].as_u64().unwrap() as usize;
         let right_size = instance["instance"]["right_size"].as_u64().unwrap() as usize;
@@ -207,9 +208,6 @@ fn test_jl_parity_evaluation() {
         let best = BruteForce::new().find_all_best(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
-        assert_eq!(
-            rust_best, jl_best,
-            "BicliqueCover best solutions mismatch"
-        );
+        assert_eq!(rust_best, jl_best, "BicliqueCover best solutions mismatch");
     }
 }

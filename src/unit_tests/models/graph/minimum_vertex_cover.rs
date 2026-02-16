@@ -7,7 +7,10 @@ include!("../../jl_helpers.rs");
 
 #[test]
 fn test_vertex_cover_creation() {
-    let problem = MinimumVertexCover::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1i32; 4],
+    );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_variables(), 4);
@@ -15,8 +18,7 @@ fn test_vertex_cover_creation() {
 
 #[test]
 fn test_vertex_cover_with_weights() {
-    let problem =
-        MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1, 2, 3]);
+    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1, 2, 3]);
     assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
 }
 

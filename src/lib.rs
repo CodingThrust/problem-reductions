@@ -120,6 +120,9 @@ pub use problemreductions_macros::reduction;
 #[path = "unit_tests/graph_models.rs"]
 mod test_graph_models;
 #[cfg(test)]
+#[path = "unit_tests/problem_size.rs"]
+mod test_problem_size;
+#[cfg(test)]
 #[path = "unit_tests/property.rs"]
 mod test_property;
 #[cfg(test)]
@@ -131,6 +134,3 @@ mod test_trait_consistency;
 #[cfg(test)]
 #[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
 mod test_unitdiskmapping_algorithms;
-#[cfg(test)]
-#[path = "unit_tests/problem_size.rs"]
-mod test_problem_size;
