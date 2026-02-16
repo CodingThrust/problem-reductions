@@ -635,7 +635,18 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ For $v_(j,i) in S$ with literal $x_k$: set $x_k = 1$; for $overline(x_k)$: set $x_k = 0$.
 ]
 
-#reduction-rule("Satisfiability", "KColoring")[
+#let sat_kc = load-example("satisfiability_to_kcoloring")
+#let sat_kc_r = load-results("satisfiability_to_kcoloring")
+#let sat_kc_sol = sat_kc_r.solutions.at(0)
+#reduction-rule("Satisfiability", "KColoring",
+  example: true,
+  example-caption: [5-variable SAT with 3 unit clauses to 3-coloring],
+  extra: [
+    SAT assignment: $(x_1, ..., x_5) = (#sat_kc_sol.source_config.map(str).join(", "))$ \
+    Construction: 3 base + $2 times #sat_kc.source.instance.num_vars$ variable gadgets + OR-gadgets $arrow.r$ #sat_kc.target.instance.num_vertices vertices, #sat_kc.target.instance.num_edges edges \
+    #sat_kc_r.solutions.len() valid 3-colorings (color symmetry of satisfying assignments) #sym.checkmark
+  ],
+)[
   @garey1979 Given CNF $phi$, construct graph $G$ such that $phi$ is satisfiable iff $G$ is 3-colorable.
 ][
   _Construction._ (1) Base triangle: TRUE, FALSE, AUX vertices with all pairs connected. (2) Variable gadget for $x_i$: vertices $"pos"_i$, $"neg"_i$ connected to each other and to AUX. (3) Clause gadget: for $(ell_1 or ... or ell_k)$, apply OR-gadgets iteratively producing output $o$, then connect $o$ to FALSE and AUX.
@@ -645,7 +656,18 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Set $x_i = 1$ iff $"color"("pos"_i) = "color"("TRUE")$.
 ]
 
-#reduction-rule("Satisfiability", "MinimumDominatingSet")[
+#let sat_ds = load-example("satisfiability_to_minimumdominatingset")
+#let sat_ds_r = load-results("satisfiability_to_minimumdominatingset")
+#let sat_ds_sol = sat_ds_r.solutions.at(0)
+#reduction-rule("Satisfiability", "MinimumDominatingSet",
+  example: true,
+  example-caption: [5-variable 7-clause 3-SAT to dominating set],
+  extra: [
+    SAT assignment: $(x_1, ..., x_5) = (#sat_ds_sol.source_config.map(str).join(", "))$ \
+    Vertex structure: $#sat_ds.target.instance.num_vertices = 3 times #sat_ds.source.instance.num_vars + #sat_ds.source.instance.num_clauses$ (variable triangles + clause vertices) \
+    Dominating set of size $n = #sat_ds.source.instance.num_vars$: one vertex per variable triangle #sym.checkmark
+  ],
+)[
   @garey1979 Given CNF $phi$ with $n$ variables and $m$ clauses, $phi$ is satisfiable iff the constructed graph has a dominating set of size $n$.
 ][
   _Construction._ (1) Variable triangle for $x_i$: vertices $"pos"_i = 3i$, $"neg"_i = 3i+1$, $"dum"_i = 3i+2$ forming a triangle. (2) Clause vertex $c_j = 3n+j$ connected to $"pos"_i$ if $x_i in C_j$, to $"neg"_i$ if $overline(x_i) in C_j$.
@@ -661,7 +683,18 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Variable mapping:_ Identity — variables and clauses unchanged. _Solution extraction:_ identity.
 ]
 
-#reduction-rule("Satisfiability", "KSatisfiability")[
+#let sat_ksat = load-example("satisfiability_to_ksatisfiability")
+#let sat_ksat_r = load-results("satisfiability_to_ksatisfiability")
+#let sat_ksat_sol = sat_ksat_r.solutions.at(0)
+#reduction-rule("Satisfiability", "KSatisfiability",
+  example: true,
+  example-caption: [Mixed-size clauses (sizes 1 to 5) to 3-SAT],
+  extra: [
+    Source: #sat_ksat.source.instance.num_vars variables, #sat_ksat.source.instance.num_clauses clauses (sizes 1, 2, 3, 3, 4, 5) \
+    Target 3-SAT: $#sat_ksat.target.instance.num_vars = #sat_ksat.source.instance.num_vars + 7$ variables, #sat_ksat.target.instance.num_clauses clauses (small padded, large split) \
+    First solution: $(x_1, ..., x_5) = (#sat_ksat_sol.source_config.map(str).join(", "))$, auxiliary vars are don't-cares #sym.checkmark
+  ],
+)[
   @cook1971 @garey1979 Any SAT formula converts to $k$-SAT ($k >= 3$) preserving satisfiability.
 ][
   _Small clauses ($|C| < k$):_ Pad $(ell_1 or ... or ell_r)$ with auxiliary $y$: $(ell_1 or ... or ell_r or y or overline(y) or ...)$ to length $k$.
@@ -672,7 +705,17 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ Original clause true $arrow.l.r$ auxiliary chain can propagate truth through new clauses.
 ]
 
-#reduction-rule("CircuitSAT", "SpinGlass")[
+#let cs_sg = load-example("circuitsat_to_spinglass")
+#let cs_sg_r = load-results("circuitsat_to_spinglass")
+#reduction-rule("CircuitSAT", "SpinGlass",
+  example: true,
+  example-caption: [1-bit full adder to Ising model],
+  extra: [
+    Circuit: #cs_sg.source.instance.num_gates gates (2 XOR, 2 AND, 1 OR), #cs_sg.source.instance.num_variables variables \
+    Target: #cs_sg.target.instance.num_spins spins (each gate allocates I/O + auxiliary spins) \
+    #cs_sg_r.solutions.len() ground states ($= 2^3$ valid input combinations for the full adder) #sym.checkmark
+  ],
+)[
   @whitfield2012 @lucas2014 Each gate maps to a gadget whose ground states encode valid I/O.
 ][
   _Spin mapping:_ $sigma in {0,1} arrow.bar s = 2sigma - 1 in {-1, +1}$.
@@ -694,7 +737,26 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   caption: [Ising gadgets for logic gates. Ground states match truth tables.]
 ) <tab:gadgets>
 
-#reduction-rule("Factoring", "CircuitSAT")[
+#let fact_cs = load-example("factoring_to_circuitsat")
+#let fact_cs_r = load-results("factoring_to_circuitsat")
+#let fact-decode(config, start, count) = {
+  let pow2 = (1, 2, 4, 8, 16, 32)
+  range(count).fold(0, (acc, i) => acc + config.at(start + i) * pow2.at(i))
+}
+#let fact-nbf = fact_cs.source.instance.num_bits_first
+#let fact-nbs = fact_cs.source.instance.num_bits_second
+#reduction-rule("Factoring", "CircuitSAT",
+  example: true,
+  example-caption: [Factor $N = #fact_cs.source.instance.number$],
+  extra: [
+    Circuit: $#fact-nbf times #fact-nbs$ array multiplier with #fact_cs.target.instance.num_gates gates, #fact_cs.target.instance.num_variables variables \
+    #fact_cs_r.solutions.len() solutions: #fact_cs_r.solutions.map(sol => {
+      let p = fact-decode(sol.source_config, 0, fact-nbf)
+      let q = fact-decode(sol.source_config, fact-nbf, fact-nbs)
+      $#p times #q = #fact_cs.source.instance.number$
+    }).join(" and ") #sym.checkmark
+  ],
+)[
   An array multiplier with output constrained to $N$ is satisfiable iff $N$ factors within bit bounds. _(Folklore; no canonical reference.)_
 ][
   _Construction._ Build $m times n$ array multiplier for $p times q$:
@@ -708,13 +770,36 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ $p = sum_i p_i 2^(i-1)$, $q = sum_j q_j 2^(j-1)$.
 ]
 
-#reduction-rule("MaxCut", "SpinGlass")[
+#let mc_sg = load-example("maxcut_to_spinglass")
+#let mc_sg_r = load-results("maxcut_to_spinglass")
+#let mc_sg_sol = mc_sg_r.solutions.at(0)
+#let mc_sg_cut = mc_sg.source.instance.edges.filter(e => mc_sg_sol.source_config.at(e.at(0)) != mc_sg_sol.source_config.at(e.at(1))).len()
+#reduction-rule("MaxCut", "SpinGlass",
+  example: true,
+  example-caption: [Petersen graph ($n = 10$, unit weights) to Ising],
+  extra: [
+    Direct 1:1 mapping: vertices $arrow.r$ spins, $J_(i j) = w_(i j) = 1$, $h_i = 0$ \
+    Partition: $S = {#mc_sg_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ vs $overline(S) = {#mc_sg_sol.source_config.enumerate().filter(((i, x)) => x == 0).map(((i, x)) => str(i)).join(", ")}$ \
+    Cut value $= #mc_sg_cut$ ($#mc_sg_r.solutions.len()$-fold degenerate) #sym.checkmark
+  ],
+)[
   @barahona1982 Set $J_(i j) = w_(i j)$, $h_i = 0$. Maximizing cut equals minimizing $-sum J_(i j) s_i s_j$.
 ][
   Opposite-partition vertices satisfy $s_i s_j = -1$, contributing $-J_(i j)(-1) = J_(i j)$ to the energy. _Variable mapping:_ $J_(i j) = w_(i j)$, $h_i = 0$, spins $s_i = 2 sigma_i - 1$ where $sigma_i in {0, 1}$ is the partition label. _Solution extraction:_ partition $= {i : s_i = +1}$.
 ]
 
-#reduction-rule("SpinGlass", "MaxCut")[
+#let sg_mc = load-example("spinglass_to_maxcut")
+#let sg_mc_r = load-results("spinglass_to_maxcut")
+#let sg_mc_sol = sg_mc_r.solutions.at(0)
+#reduction-rule("SpinGlass", "MaxCut",
+  example: true,
+  example-caption: [10-spin Ising with alternating $J_(i j) in {plus.minus 1}$],
+  extra: [
+    All $h_i = 0$: no ancilla needed, direct 1:1 vertex mapping \
+    Edge weights $w_(i j) = J_(i j) in {plus.minus 1}$ (alternating couplings) \
+    Ground state ($#sg_mc_r.solutions.len()$-fold degenerate): partition $S = {#sg_mc_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ #sym.checkmark
+  ],
+)[
   @barahona1982 @lucas2014 Ground states of Ising models correspond to maximum cuts.
 ][
   _MaxCut $arrow.r$ SpinGlass:_ Set $J_(i j) = w_(i j)$, $h_i = 0$. Maximizing cut equals minimizing $-sum J_(i j) s_i s_j$ since $s_i s_j = -1$ when $s_i != s_j$.

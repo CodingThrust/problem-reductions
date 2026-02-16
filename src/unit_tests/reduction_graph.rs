@@ -290,31 +290,22 @@ fn test_3sat_to_mis_triangular_overhead() {
     );
     assert_eq!(path.len(), 3);
 
-    // Evaluate overhead at each step
-    let sizes = graph.evaluate_path_overhead(&path, &input_size);
-    assert_eq!(sizes.len(), 4); // initial + 3 steps
+    // Per-edge symbolic overheads
+    let edges = graph.path_overheads(&path);
+    assert_eq!(edges.len(), 3);
 
-    // Step 0: K3SAT input (V=3, C=2, L=6)
-    assert_eq!(sizes[0].get("num_vars"), Some(3));
-    assert_eq!(sizes[0].get("num_clauses"), Some(2));
-    assert_eq!(sizes[0].get("num_literals"), Some(6));
+    // Edge 0: K3SAT → SAT (identity)
+    assert_eq!(edges[0].get("num_vars").unwrap().normalized(), poly!(num_vars));
+    assert_eq!(edges[0].get("num_clauses").unwrap().normalized(), poly!(num_clauses));
+    assert_eq!(edges[0].get("num_literals").unwrap().normalized(), poly!(num_literals));
 
-    // Step 1: K3SAT → SAT (identity: V=3, C=2, L=6)
-    assert_eq!(sizes[1].get("num_vars"), Some(3));
-    assert_eq!(sizes[1].get("num_clauses"), Some(2));
-    assert_eq!(sizes[1].get("num_literals"), Some(6));
+    // Edge 1: SAT → MIS{SimpleGraph,i32}
+    assert_eq!(edges[1].get("num_vertices").unwrap().normalized(), poly!(num_literals));
+    assert_eq!(edges[1].get("num_edges").unwrap().normalized(), poly!(num_literals ^ 2));
 
-    // Step 2: SAT → MIS{SimpleGraph,i32}
-    //   num_vertices = num_literals = 6
-    //   num_edges = num_literals² = 36
-    assert_eq!(sizes[2].get("num_vertices"), Some(6));
-    assert_eq!(sizes[2].get("num_edges"), Some(36));
-
-    // Step 3: MIS{SimpleGraph,i32} → MIS{TriangularSubgraph,i32}
-    //   num_vertices = num_vertices² = 36
-    //   num_edges = num_vertices² = 36
-    assert_eq!(sizes[3].get("num_vertices"), Some(36));
-    assert_eq!(sizes[3].get("num_edges"), Some(36));
+    // Edge 2: MIS{SimpleGraph,i32} → MIS{TriangularSubgraph,i32}
+    assert_eq!(edges[2].get("num_vertices").unwrap().normalized(), poly!(num_vertices ^ 2));
+    assert_eq!(edges[2].get("num_edges").unwrap().normalized(), poly!(num_vertices ^ 2));
 
     // Compose overheads symbolically along the path.
     // The composed overhead maps 3-SAT input variables to final MIS{Triangular} output.

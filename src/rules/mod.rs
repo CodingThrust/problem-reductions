@@ -65,8 +65,8 @@ pub use circuit_spinglass::{
 pub use coloring_qubo::ReductionKColoringToQUBO;
 pub use factoring_circuit::ReductionFactoringToCircuit;
 pub use graph::{
-    ChainedReduction, EdgeJson, ExecutablePath, NodeJson, ReductionGraph, ReductionGraphJson,
-    ReductionPath, ReductionStep,
+    ChainedReduction, EdgeJson, ExecutablePath, NodeJson, ReductionGraph,
+    ReductionGraphJson, ReductionPath, ReductionStep,
 };
 #[cfg(test)]
 pub(crate) use graph::validate_overhead_variables;
