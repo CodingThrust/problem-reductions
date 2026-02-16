@@ -759,6 +759,17 @@
     },
     {
       "source": 21,
+      "target": 0,
+      "overhead": [
+        {
+          "field": "num_variables",
+          "formula": "num_variables + num_clauses + 1"
+        }
+      ],
+      "doc_path": "rules/sat_circuitsat/index.html"
+    },
+    {
+      "source": 21,
       "target": 3,
       "overhead": [
         {
