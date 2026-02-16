@@ -176,9 +176,9 @@ run-plan:
 	@NL=$$'\n'; \
 	BRANCH=$$(git branch --show-current); \
 	if [ "$(AGENT_TYPE)" = "claude" ]; then \
-		PROCESS="1. Read the plan file$${NL}2. Use /subagent-driven-development to execute tasks$${NL}3. Push: git push origin $$BRANCH$${NL}4. Create a pull request"; \
+		PROCESS="1. Read the plan file$${NL}2. Use /subagent-driven-development to execute tasks$${NL}3. Push: git push origin $$BRANCH$${NL}4. Post summary"; \
 	else \
-		PROCESS="1. Read the plan file$${NL}2. Execute the tasks step by step. For each task, implement and test before moving on.$${NL}3. Push: git push origin $$BRANCH$${NL}4. Create a pull request"; \
+		PROCESS="1. Read the plan file$${NL}2. Execute the tasks step by step. For each task, implement and test before moving on.$${NL}3. Push: git push origin $$BRANCH$${NL}4. Post summary"; \
 	fi; \
 	PROMPT="Execute the plan in '$${PLAN_FILE}'."; \
 	if [ -n "$(INSTRUCTIONS)" ]; then \
