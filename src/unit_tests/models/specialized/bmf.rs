@@ -3,6 +3,8 @@ use crate::solvers::BruteForce;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
+include!("../../jl_helpers.rs");
+
 #[test]
 fn test_bmf_creation() {
     let matrix = vec![vec![true, false], vec![false, true]];
@@ -203,4 +205,41 @@ fn test_bmf_problem() {
     assert_eq!(problem.dims(), vec![2; 2]); // B(1*1) + C(1*1)
     assert_eq!(Problem::evaluate(&problem, &[1, 1]), SolutionSize::Valid(0)); // Exact
     assert_eq!(Problem::evaluate(&problem, &[0, 0]), SolutionSize::Valid(1)); // Distance 1
+}
+
+#[test]
+fn test_jl_parity_evaluation() {
+    let data: serde_json::Value =
+        serde_json::from_str(include_str!("../../../../tests/data/jl/bmf.json")).unwrap();
+    for instance in data["instances"].as_array().unwrap() {
+        let matrix_json = instance["instance"]["matrix"].as_array().unwrap();
+        let matrix: Vec<Vec<bool>> = matrix_json
+            .iter()
+            .map(|row| {
+                row.as_array()
+                    .unwrap()
+                    .iter()
+                    .map(|v| v.as_u64().unwrap() != 0)
+                    .collect()
+            })
+            .collect();
+        let k = instance["instance"]["k"].as_u64().unwrap() as usize;
+        let problem = BMF::new(matrix, k);
+        for eval in instance["evaluations"].as_array().unwrap() {
+            let config = jl_parse_config(&eval["config"]);
+            let result = problem.evaluate(&config);
+            let jl_size = eval["size"].as_i64().unwrap() as i32;
+            // BMF always returns Valid(hamming_distance)
+            assert_eq!(
+                result,
+                SolutionSize::Valid(jl_size),
+                "BMF: size mismatch for config {:?}",
+                config
+            );
+        }
+        let best = BruteForce::new().find_all_best(&problem);
+        let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
+        let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
+        assert_eq!(rust_best, jl_best, "BMF best solutions mismatch");
+    }
 }

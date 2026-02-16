@@ -46,9 +46,7 @@ Every problem implements `Problem`. Optimization problems additionally implement
 
 ## Variant System
 
-A single problem name like `MaximumIndependentSet` can have multiple **variants** — carrying weights on vertices, or defined on a restricted topology (e.g., king's subgraph). Some variants are more specific than others: the king's subgraph is a special case of the unit-disk graph, which is a special case of the simple graph.
-
-In **set** language, variants form **subsets**: independent sets on king's subgraphs are a subset of independent sets on unit-disk graphs. The reduction from a more specific variant to a less specific one is a **variant cast** — an identity mapping where vertex/element indices are preserved. Each such cast is explicitly declared as a `#[reduction]` registration using the `impl_variant_reduction!` macro.
+A single problem name like `MaximumIndependentSet` can have multiple **variants** — carrying weights on vertices, or defined on a restricted topology (e.g., king's subgraph). Variants form a subtype hierarchy: independent sets on king's subgraphs are a subset of independent sets on unit-disk graphs. The reduction from a more specific variant to a less specific one is a **variant cast** — an identity mapping where indices are preserved.
 
 <div class="theme-light-only">
 
@@ -61,7 +59,7 @@ In **set** language, variants form **subsets**: independent sets on king's subgr
 
 </div>
 
-Arrows indicate the **subset** (subtype) direction. Variant types fall into three categories:
+Variant types fall into three categories:
 
 - **Graph type** — `HyperGraph` (root), `SimpleGraph`, `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`.
 - **Weight type** — `One` (unweighted), `i32`, `f64`.
@@ -77,6 +75,9 @@ Arrows indicate the **subset** (subtype) direction. Variant types fall into thre
 ![Lattices](static/lattices-dark.svg)
 
 </div>
+
+<details>
+<summary>Implementation details: VariantParam trait and macros</summary>
 
 ### VariantParam trait
 
@@ -123,7 +124,7 @@ impl_variant_param!(K3, "k", parent: KN, cast: |_| KN, k: Some(3));
 
 ### Variant cast reductions with `impl_variant_reduction!`
 
-When a more specific variant (e.g., `KingsSubgraph`) needs to be treated as a less specific one (e.g., `UnitDiskGraph`), an explicit variant cast reduction is declared using `impl_variant_reduction!`. This generates a `ReduceTo` impl with `#[reduction]` registration and identity overhead:
+When a more specific variant needs to be treated as a less specific one, an explicit variant cast reduction is declared:
 
 ```rust
 impl_variant_reduction!(
@@ -134,8 +135,6 @@ impl_variant_reduction!(
         src.graph().cast_to_parent(), src.weights())
 );
 ```
-
-The problem name appears once, followed by `<SourceParams> => <TargetParams>`. This works with any number of type parameters. All variant casts use `ReductionAutoCast` for identity solution mapping (vertex/element indices are preserved) and `ReductionOverhead::identity()` for the overhead fields.
 
 ### Composing `Problem::variant()`
 
@@ -150,13 +149,13 @@ fn variant() -> Vec<(&'static str, &'static str)> {
 }
 ```
 
+</details>
+
 ## Reduction Rules
 
 A reduction requires two pieces: a **result struct** and a **`ReduceTo<T>` impl**.
 
-### Result struct
-
-Holds the target problem and the logic to map solutions back:
+The result struct holds the target problem and the logic to map solutions back:
 
 ```rust
 #[derive(Debug, Clone)]
@@ -175,7 +174,7 @@ impl<W: WeightElement + VariantParam> ReductionResult for ReductionISToVC<W> {
 }
 ```
 
-### `ReduceTo<T>` impl with the `#[reduction]` macro
+The `#[reduction]` macro on the `ReduceTo<T>` impl registers the reduction in the compile-time graph:
 
 ```rust
 #[reduction(
@@ -194,7 +193,8 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i32>>
 }
 ```
 
-### What the macro generates
+<details>
+<summary>What the <code>#[reduction]</code> macro generates</summary>
 
 The `#[reduction]` attribute expands to the original `impl` block plus an `inventory::submit!` call:
 
@@ -220,106 +220,69 @@ inventory::submit! {
 
 This `ReductionEntry` is collected at compile time by `inventory`, making the reduction discoverable by the `ReductionGraph` without any manual registration. The `reduce_fn` field provides a type-erased executor that enables runtime-discovered paths to chain reductions automatically.
 
+</details>
+
 ## Reduction Graph
 
-The `ReductionGraph` is the central runtime data structure. It collects all registered reductions to enable path finding and overhead evaluation.
+`ReductionGraph::new()` scans `inventory::iter::<ReductionEntry>` and builds a variant-level directed graph:
 
-### Construction
+- **Nodes** are unique `(problem_name, variant)` pairs — e.g., `("MaximumIndependentSet", {graph: "KingsSubgraph", weight: "i32"})`.
+- **Edges** come exclusively from `#[reduction]` registrations — both cross-problem reductions and variant casts. There are no auto-generated edges.
 
-`ReductionGraph::new()` scans `inventory::iter::<ReductionEntry>` and builds a variant-level `petgraph::DiGraph`:
+### Path finding
 
-- **Nodes** are unique `(problem_name, variant)` pairs — e.g., `("MaximumIndependentSet", {graph: "KingsSubgraph", weight: "i32"})`. Different variants of the same problem are separate nodes.
-- **Edges** come exclusively from `#[reduction]` registrations. This includes both cross-problem reductions (e.g., MIS → QUBO) and variant casts (e.g., MIS on KingsSubgraph → MIS on UnitDiskGraph).
+All path-finding operates on **exact variant nodes**. Use `ReductionGraph::variant_to_map(&T::variant())` to convert a `Problem::variant()` into the required `BTreeMap<String, String>`.
 
-There are no auto-generated edges. Every edge in the graph corresponds to an explicit `ReduceTo` impl in the source code.
+| Method | Algorithm | Use case |
+|--------|-----------|----------|
+| `find_cheapest_path(src, src_var, dst, dst_var, input_size, cost_fn)` | Dijkstra | Optimal path under a cost function |
+| `find_all_paths(src, src_var, dst, dst_var)` | All simple paths | Enumerate every route |
 
-### JSON export
+Use `find_cheapest_path` with `MinimizeSteps` for fewest-hops search.
 
-`ReductionGraph::to_json()` produces a `ReductionGraphJson` with all variant nodes and reduction edges:
-
-- [reduction_graph.json](reductions/reduction_graph.json) — all problem variants and reduction edges
-- [problem_schemas.json](reductions/problem_schemas.json) — field definitions for each problem type
-
-## Path Finding
-
-Path finding operates on the variant-level graph. Since each node is a `(name, variant)` pair, the graph directly encodes which variant transitions are possible.
-
-### Name-level paths
-
-`find_paths_by_name(src, dst)` enumerates all simple paths between any variant of the source and any variant of the target, deduplicating consecutive same-name nodes to produce name-level paths. `find_shortest_path_by_name()` returns the one with fewest hops.
-
-### Dijkstra with cost functions
-
-For cost-aware routing, `find_cheapest_path()` uses **Dijkstra's algorithm** over the variant-level graph:
-
-```rust
-pub fn find_cheapest_path<C: PathCostFn>(
-    &self,
-    source: &str,                              // problem name
-    source_variant: &BTreeMap<String, String>,  // exact variant
-    target: &str,
-    target_variant: &BTreeMap<String, String>,
-    input_size: &ProblemSize,
-    cost_fn: &C,
-) -> Option<ReductionPath>
-```
-
-The variant maps specify the exact source and target nodes in the variant-level graph. Use `ReductionGraph::variant_to_map(&T::variant())` to convert a `Problem::variant()` slice into the required `BTreeMap`. Since variant casts are explicit edges with identity overhead, Dijkstra naturally traverses them when they appear on the cheapest path.
-
-### Cost functions
-
-The `PathCostFn` trait computes edge cost from overhead and current problem size:
-
-```rust
-pub trait PathCostFn {
-    fn edge_cost(&self, overhead: &ReductionOverhead, current_size: &ProblemSize) -> f64;
-}
-```
-
-Built-in implementations:
+The `PathCostFn` trait (used by `find_cheapest_path`) computes edge cost from overhead and current problem size:
 
 | Cost function | Strategy |
 |--------------|----------|
-| `Minimize("field")` | Minimize a single output field |
-| `MinimizeWeighted([(field, w)])` | Weighted sum of output fields |
-| `MinimizeMax([fields])` | Minimize the maximum of fields |
-| `MinimizeLexicographic([fields])` | Lexicographic: minimize first, break ties with rest |
 | `MinimizeSteps` | Minimize number of hops (unit edge cost) |
+| `Minimize("field")` | Minimize a single output field |
 | `CustomCost(closure)` | User-defined cost function |
 
-### Example: MIS on KingsSubgraph to MinimumVertexCover
-
-Finding a path from `MIS{KingsSubgraph, i32}` to `VC{SimpleGraph, i32}`:
+**Example:** Finding a path from `MIS{KingsSubgraph, i32}` to `VC{SimpleGraph, i32}`:
 
 ```
 MIS{KingsSubgraph,i32} -> MIS{UnitDiskGraph,i32} -> MIS{SimpleGraph,i32} -> VC{SimpleGraph,i32}
      variant cast              variant cast                reduction
 ```
 
-Each variant cast is an explicit edge registered via `impl_variant_reduction!`, so the path finder treats all edges uniformly.
+### Executable paths
 
-## Overhead Evaluation
-
-Each reduction declares how the output problem size relates to the input size, expressed as polynomials.
-
-### ProblemSize
-
-A `ProblemSize` holds named size components — the dimensions that characterize a problem instance:
+Convert a `ReductionPath` into a typed `ExecutablePath<S, T>` via `make_executable()`, then call `reduce()`:
 
 ```rust
-let size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 15)]);
-assert_eq!(size.get("num_vertices"), Some(10));
+let rpath = graph.find_cheapest_path("Factoring", &src_var,
+    "SpinGlass", &dst_var, &ProblemSize::new(vec![]), &MinimizeSteps).unwrap();
+let path = graph.make_executable::<Factoring, SpinGlass<SimpleGraph, f64>>(&rpath).unwrap();
+
+let reduction = path.reduce(&factoring_instance);
+let target = reduction.target_problem();
+let solution = reduction.extract_solution(&target_solution);
 ```
 
-### Polynomials
+Internally, `ExecutablePath` holds a type-erased executor per edge. `ChainedReduction` stores intermediate results and extracts solutions back through the chain in reverse.
 
-Output size formulas use `Polynomial` (a sum of `Monomial` terms). The `poly!` macro provides a concise syntax:
+For full type control, you can also chain `ReduceTo::reduce_to()` calls manually at each step.
+
+<details>
+<summary>Overhead evaluation</summary>
+
+Each reduction declares how the output problem size relates to the input, expressed as polynomials. The `poly!` macro provides concise syntax:
 
 ```rust
 poly!(num_vertices)              // p(x) = num_vertices
-poly!(num_vertices ^ 2)          // p(x) = num_vertices^2
-poly!(3 * num_edges)             // p(x) = 3 * num_edges
-poly!(num_vertices * num_edges)  // p(x) = num_vertices * num_edges
+poly!(num_vertices ^ 2)          // p(x) = num_vertices²
+poly!(3 * num_edges)             // p(x) = 3 × num_edges
+poly!(num_vertices * num_edges)  // p(x) = num_vertices × num_edges
 ```
 
 A `ReductionOverhead` pairs output field names with their polynomials:
@@ -331,60 +294,16 @@ ReductionOverhead::new(vec![
 ])
 ```
 
-### Evaluating overhead
-
-`ReductionOverhead::evaluate_output_size(input)` substitutes input values into the polynomials and returns a new `ProblemSize`:
+`evaluate_output_size(input)` substitutes input values:
 
 ```
 Input:  ProblemSize { num_vertices: 10, num_edges: 15 }
 Output: ProblemSize { num_vars: 25, num_clauses: 45 }
 ```
 
-### Composing through a path
+For multi-step paths, overhead composes: the output of step N becomes the input of step N+1. Variant cast edges use `ReductionOverhead::identity()`, passing through all fields unchanged.
 
-For a multi-step reduction path, overhead composes: the output of step $N$ becomes the input of step $N+1$. Each edge carries its own `ReductionOverhead`, so the total output size is computed by chaining `evaluate_output_size` calls through the path. Variant cast edges use `ReductionOverhead::identity()`, passing through all fields unchanged.
-
-## Reduction Execution
-
-The library provides two approaches to executing reductions: **manual chaining** for full type control, and **executable paths** for automatic multi-step reduction.
-
-### Executable paths (automatic)
-
-First find a `ReductionPath` with exact variant matching, then convert it to an `ExecutablePath<S, T>` via `make_executable()`. Call `reduce()` to execute the path:
-
-```rust
-let graph = ReductionGraph::new();
-let src_var = ReductionGraph::variant_to_map(&KSatisfiability::<K3>::variant());
-let dst_var = ReductionGraph::variant_to_map(
-    &MaximumIndependentSet::<SimpleGraph, i32>::variant());
-let rpath = graph
-    .find_cheapest_path("KSatisfiability", &src_var,
-        "MaximumIndependentSet", &dst_var,
-        &ProblemSize::new(vec![]), &MinimizeSteps)
-    .unwrap();
-let path = graph
-    .make_executable::<KSatisfiability<K3>, MaximumIndependentSet<SimpleGraph, i32>>(&rpath)
-    .unwrap();
-
-let reduction = path.reduce(&ksat_instance);
-let target = reduction.target_problem();   // &MaximumIndependentSet<SimpleGraph, i32>
-let solution = reduction.extract_solution(&target_solution);
-```
-
-Internally, `ExecutablePath` holds a `Vec<fn(&dyn Any) -> Box<dyn DynReductionResult>>` — one type-erased executor per edge. `make_executable` looks up each edge's `reduce_fn` along the `ReductionPath` steps. Each `reduce_fn` is generated by the `#[reduction]` macro and downcasts the source, calls `ReduceTo::reduce_to()`, and boxes the result. `ChainedReduction` stores the intermediate results and extracts solutions back through the chain in reverse.
-
-### Manual chaining
-
-For full type control, call `ReduceTo::reduce_to()` at each step manually:
-
-```rust
-let r0 = ReduceTo::<KSatisfiability<KN>>::reduce_to(&ksat);
-let r1 = ReduceTo::<Satisfiability>::reduce_to(r0.target_problem());
-let r2 = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(r1.target_problem());
-// ... solve r2.target_problem(), then extract in reverse
-```
-
-Both cross-problem reductions and variant casts are dispatched uniformly through `ReduceTo`. Variant cast reductions use `ReductionAutoCast`, which passes indices through unchanged (identity mapping).
+</details>
 
 ## Solvers
 
@@ -397,18 +316,10 @@ pub trait Solver {
 }
 ```
 
-### BruteForce
-
-Enumerates every configuration in the space defined by `dims()`. Suitable for small instances (<20 variables). In addition to the `Solver` trait methods, provides:
-
-- `find_all_best(problem)` — returns all tied-optimal configurations.
-- `find_all_satisfying(problem)` — returns all satisfying configurations.
-
-Primarily used for **testing and verification** of reductions via closed-loop tests.
-
-### ILPSolver
-
-Feature-gated behind `ilp`. Uses the HiGHS solver via the `good_lp` crate. Additionally provides `solve_reduced()` for problems that implement `ReduceTo<ILP>` — it reduces, solves the ILP, and extracts the solution in one call.
+| Solver | Description |
+|--------|-------------|
+| **BruteForce** | Enumerates all configurations. Also provides `find_all_best()` and `find_all_satisfying()`. Used for testing and verification. |
+| **ILPSolver** | Feature-gated (`ilp`). Uses HiGHS via `good_lp`. Also provides `solve_reduced()` for problems that implement `ReduceTo<ILP>`. |
 
 ## JSON Serialization
 
@@ -421,17 +332,12 @@ let json = to_json(&problem)?;
 let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json)?;
 ```
 
-**Exported JSON files:**
+Exported files:
+
 - [reduction_graph.json](reductions/reduction_graph.json) — all problem variants and reduction edges
 - [problem_schemas.json](reductions/problem_schemas.json) — field definitions for each problem type
 
-Regenerate exports:
-
-```bash
-cargo run --example export_graph                # docs/src/reductions/reduction_graph.json (default)
-cargo run --example export_graph -- output.json # custom output path
-cargo run --example export_schemas              # docs/src/reductions/problem_schemas.json
-```
+Regenerate with `cargo run --example export_graph` and `cargo run --example export_schemas`.
 
 ## Contributing
 

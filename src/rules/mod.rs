@@ -2,10 +2,7 @@
 
 pub mod cost;
 pub mod registry;
-pub use cost::{
-    CustomCost, Minimize, MinimizeLexicographic, MinimizeMax, MinimizeSteps, MinimizeWeighted,
-    PathCostFn,
-};
+pub use cost::{CustomCost, Minimize, MinimizeSteps, PathCostFn};
 pub use registry::{ReductionEntry, ReductionOverhead};
 
 mod circuit_spinglass;
@@ -26,6 +23,7 @@ mod maximumsetpacking_qubo;
 mod minimumvertexcover_maximumindependentset;
 mod minimumvertexcover_minimumsetcovering;
 mod minimumvertexcover_qubo;
+mod sat_circuitsat;
 mod sat_coloring;
 mod sat_ksat;
 mod sat_maximumindependentset;
@@ -80,6 +78,7 @@ pub use maximumsetpacking_qubo::ReductionSPToQUBO;
 pub use minimumvertexcover_maximumindependentset::{ReductionISToVC, ReductionVCToIS};
 pub use minimumvertexcover_minimumsetcovering::ReductionVCToSC;
 pub use minimumvertexcover_qubo::ReductionVCToQUBO;
+pub use sat_circuitsat::ReductionSATToCircuit;
 pub use sat_coloring::ReductionSATToColoring;
 pub use sat_ksat::{ReductionKSATToSAT, ReductionSATToKSAT};
 pub use sat_maximumindependentset::{BoolVar, ReductionSATToIS};
