@@ -51,7 +51,8 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
         (6, 9),
         (7, 9),
     ];
-    let source = MaxCut::<SimpleGraph, i32>::unweighted(10, petersen_edges);
+    let source =
+        MaxCut::<SimpleGraph, i32>::unweighted(SimpleGraph::new(10, petersen_edges));
     let reduction = path.reduce(&source);
     let target = reduction.target_problem();
 
@@ -106,7 +107,8 @@ fn test_jl_parity_maxcut_to_qubo_path() {
         (6, 9),
         (7, 9),
     ];
-    let source = MaxCut::<SimpleGraph, i32>::unweighted(10, petersen_edges);
+    let source =
+        MaxCut::<SimpleGraph, i32>::unweighted(SimpleGraph::new(10, petersen_edges));
     let reduction = path.reduce(&source);
 
     let solver = BruteForce::new();
