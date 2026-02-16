@@ -24,7 +24,7 @@ use problemreductions::topology::{Graph, SimpleGraph};
 pub fn run() {
     // 1. Create KColoring instance: Petersen graph (10 vertices, 15 edges) with 3 colors, χ=3
     let (num_vertices, edges) = petersen();
-    let coloring = KColoring::<K3, SimpleGraph>::new(num_vertices, edges.clone());
+    let coloring = KColoring::<K3, _>::new(SimpleGraph::new(num_vertices, edges.clone()));
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&coloring);

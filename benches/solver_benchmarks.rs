@@ -139,7 +139,7 @@ fn bench_coloring(c: &mut Criterion) {
 
     for n in [3, 4, 5, 6].iter() {
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let problem = KColoring::<K3, SimpleGraph>::new(*n, edges);
+        let problem = KColoring::<K3, _>::new(SimpleGraph::new(*n, edges));
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path_3colors", n), n, |b, _| {

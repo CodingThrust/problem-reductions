@@ -201,7 +201,7 @@ impl SATColoringConstructor {
 
     /// Build the final KColoring problem.
     fn build_coloring(&self) -> KColoring<K3, SimpleGraph> {
-        KColoring::<K3, SimpleGraph>::new(self.num_vertices, self.edges.clone())
+        KColoring::<K3, _>::new(SimpleGraph::new(self.num_vertices, self.edges.clone()))
     }
 }
 

@@ -38,7 +38,7 @@ pub fn run() {
 
     // House graph: 5 vertices, 6 edges (square base + triangle roof), χ=3
     let (num_vertices, edges) = house();
-    let kc = KColoring::<K3, SimpleGraph>::new(num_vertices, edges.clone());
+    let kc = KColoring::<K3, _>::new(SimpleGraph::new(num_vertices, edges.clone()));
 
     // Reduce to QUBO
     let reduction = ReduceTo::<QUBO>::reduce_to(&kc);

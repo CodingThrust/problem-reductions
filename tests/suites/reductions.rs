@@ -573,7 +573,7 @@ mod qubo_reductions {
 
         assert_eq!(data.source.num_colors, 3);
 
-        let kc = KColoring::<K3, SimpleGraph>::new(data.source.num_vertices, data.source.edges);
+        let kc = KColoring::<K3, _>::new(SimpleGraph::new(data.source.num_vertices, data.source.edges));
         let reduction = ReduceTo::<QUBO>::reduce_to(&kc);
         let qubo = reduction.target_problem();
 

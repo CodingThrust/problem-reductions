@@ -38,7 +38,7 @@ fn test_all_problems_implement_trait_correctly() {
         "MaxCut",
     );
     check_problem_trait(
-        &KColoring::<K3, SimpleGraph>::new(3, vec![(0, 1)]),
+        &KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1)])),
         "KColoring",
     );
     check_problem_trait(
