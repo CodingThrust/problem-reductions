@@ -40,7 +40,7 @@ where
     overhead = {
         ReductionOverhead::new(vec![
             ("num_sets", poly!(num_vertices)),
-            ("num_elements", poly!(num_edges)),
+            ("universe_size", poly!(num_edges)),
         ])
     }
 )]

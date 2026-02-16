@@ -1,6 +1,7 @@
 //! Polynomial representation for reduction overhead.
 
 use crate::types::ProblemSize;
+use std::collections::{HashMap, HashSet};
 use std::fmt;
 use std::ops::Add;
 
@@ -48,6 +49,39 @@ impl Monomial {
             })
             .product();
         self.coefficient * var_product
+    }
+
+    /// Multiply two monomials.
+    pub fn mul(&self, other: &Monomial) -> Monomial {
+        let mut variables = self.variables.clone();
+        variables.extend_from_slice(&other.variables);
+        Monomial {
+            coefficient: self.coefficient * other.coefficient,
+            variables,
+        }
+    }
+
+    /// Normalize: sort variables by name, merge duplicate entries.
+    pub fn normalize(&mut self) {
+        self.variables.sort_by_key(|(name, _)| *name);
+        let mut merged: Vec<(&'static str, u8)> = Vec::new();
+        for &(name, exp) in &self.variables {
+            if let Some(last) = merged.last_mut() {
+                if last.0 == name {
+                    last.1 += exp;
+                    continue;
+                }
+            }
+            merged.push((name, exp));
+        }
+        // Remove zero-exponent variables
+        merged.retain(|&(_, exp)| exp > 0);
+        self.variables = merged;
+    }
+
+    /// Variable signature for like-term comparison (after normalization).
+    fn var_signature(&self) -> &[(&'static str, u8)] {
+        &self.variables
     }
 }
 
@@ -99,6 +133,95 @@ impl Polynomial {
 
     pub fn evaluate(&self, size: &ProblemSize) -> f64 {
         self.terms.iter().map(|m| m.evaluate(size)).sum()
+    }
+
+    /// Collect all variable names referenced by this polynomial.
+    pub fn variable_names(&self) -> HashSet<&'static str> {
+        self.terms
+            .iter()
+            .flat_map(|m| m.variables.iter().map(|(name, _)| *name))
+            .collect()
+    }
+
+    /// Multiply two polynomials.
+    pub fn mul(&self, other: &Polynomial) -> Polynomial {
+        let mut terms = Vec::new();
+        for a in &self.terms {
+            for b in &other.terms {
+                terms.push(a.mul(b));
+            }
+        }
+        let mut result = Polynomial { terms };
+        result.normalize();
+        result
+    }
+
+    /// Raise to a non-negative integer power.
+    pub fn pow(&self, n: u8) -> Polynomial {
+        match n {
+            0 => Polynomial::constant(1.0),
+            1 => self.clone(),
+            _ => {
+                let mut result = self.clone();
+                for _ in 1..n {
+                    result = result.mul(self);
+                }
+                result
+            }
+        }
+    }
+
+    /// Substitute variables with polynomials.
+    ///
+    /// Each variable in the polynomial is replaced by the corresponding
+    /// polynomial from the mapping. Variables not in the mapping are left as-is.
+    pub fn substitute(&self, mapping: &HashMap<&str, &Polynomial>) -> Polynomial {
+        let mut result = Polynomial::zero();
+        for mono in &self.terms {
+            // Start with the coefficient
+            let mut term_poly = Polynomial::constant(mono.coefficient);
+            // Multiply by each variable's substitution raised to its exponent
+            for &(name, exp) in &mono.variables {
+                let var_poly = if let Some(&replacement) = mapping.get(name) {
+                    replacement.pow(exp)
+                } else {
+                    Polynomial::var_pow(name, exp)
+                };
+                term_poly = term_poly.mul(&var_poly);
+            }
+            result = result + term_poly;
+        }
+        result.normalize();
+        result
+    }
+
+    /// Normalize: normalize all monomials, then combine like terms.
+    pub fn normalize(&mut self) {
+        for term in &mut self.terms {
+            term.normalize();
+        }
+        // Combine like terms
+        let mut combined: Vec<Monomial> = Vec::new();
+        for term in &self.terms {
+            if let Some(existing) = combined
+                .iter_mut()
+                .find(|m| m.var_signature() == term.var_signature())
+            {
+                existing.coefficient += term.coefficient;
+            } else {
+                combined.push(term.clone());
+            }
+        }
+        // Remove zero-coefficient terms
+        combined.retain(|m| m.coefficient.abs() > 1e-15);
+        self.terms = combined;
+    }
+
+    /// Return a normalized copy.
+    pub fn normalized(&self) -> Polynomial {
+        let mut p = self.clone();
+        p.normalize();
+        p
     }
 }
 

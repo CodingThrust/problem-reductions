@@ -5,7 +5,8 @@ use crate::topology::{Graph, SimpleGraph, TriangularSubgraph};
 #[test]
 fn test_mis_simple_to_triangular_closed_loop() {
     // Path graph: 0-1-2
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     let result = ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i32>>::reduce_to(&problem);
     let target = result.target_problem();
 

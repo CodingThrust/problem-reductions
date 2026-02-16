@@ -159,6 +159,13 @@ where
         let partition: Vec<bool> = config.iter().map(|&c| c != 0).collect();
         SolutionSize::Valid(cut_size(&self.graph, &self.edge_weights, &partition))
     }
+
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vertices", "num_edges"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.graph().num_vertices(), self.graph().num_edges()]
+    }
 }
 
 impl<G, W> OptimizationProblem for MaxCut<G, W>

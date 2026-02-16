@@ -38,7 +38,8 @@ impl ReductionResult for ReductionSATToCircuit {
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_variables", poly!(num_variables) + poly!(num_clauses) + poly!(1)),
+            ("num_variables", poly!(num_vars) + poly!(num_clauses) + poly!(1)),
+            ("num_assignments", poly!(num_clauses) + poly!(2)),
         ])
     }
 )]

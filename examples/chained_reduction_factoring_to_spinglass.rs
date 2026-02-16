@@ -18,8 +18,7 @@ pub fn run() {
 
     // Find reduction path: Factoring -> ... -> SpinGlass
     let src_var = ReductionGraph::variant_to_map(&Factoring::variant());
-    let dst_var =
-        ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
+    let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
     let rpath = graph
         .find_cheapest_path(
             "Factoring",

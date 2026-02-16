@@ -6,7 +6,10 @@ use crate::types::SolutionSize;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Triangle graph: 3 vertices, 3 edges
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i32; 3],
+    );
     let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -50,7 +53,10 @@ fn test_reduction_weighted() {
 #[test]
 fn test_ilp_solution_equals_brute_force_triangle() {
     // Triangle graph: max IS = 1 vertex
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i32; 3],
+    );
     let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -80,7 +86,10 @@ fn test_ilp_solution_equals_brute_force_triangle() {
 #[test]
 fn test_ilp_solution_equals_brute_force_path() {
     // Path graph 0-1-2-3: max IS = 2 (e.g., {0, 2} or {1, 3} or {0, 3})
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1i32; 4],
+    );
     let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -109,7 +118,8 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     // 0 -- 1 -- 2
     // Weights: [1, 100, 1]
     // Max IS by weight: just vertex 1 (weight 100) beats 0+2 (weight 2)
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 100, 1]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 100, 1]);
     let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -132,7 +142,8 @@ fn test_ilp_solution_equals_brute_force_weighted() {
 
 #[test]
 fn test_solution_extraction() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i32; 4]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i32; 4]);
     let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
 
     // Test that extraction works correctly (1:1 mapping)
@@ -146,8 +157,10 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_ilp_structure() {
-    let problem =
-        MaximumIndependentSet::new(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]), vec![1i32; 5]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        vec![1i32; 5],
+    );
     let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -198,7 +211,10 @@ fn test_complete_graph() {
 #[test]
 fn test_solve_reduced() {
     // Test the ILPSolver::solve_reduced method
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1i32; 4],
+    );
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
@@ -213,8 +229,10 @@ fn test_solve_reduced() {
 fn test_bipartite_graph() {
     // Bipartite graph: 0-2, 0-3, 1-2, 1-3 (two independent sets: {0,1} and {2,3})
     // With equal weights, max IS = 2
-    let problem =
-        MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]), vec![1i32; 4]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]),
+        vec![1i32; 4],
+    );
     let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 

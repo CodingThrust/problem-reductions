@@ -6,7 +6,10 @@ use crate::types::SolutionSize;
 #[test]
 fn test_reduction_creates_valid_ilp() {
     // Triangle graph: 3 vertices, 3 edges
-    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i32; 3],
+    );
     let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -50,7 +53,10 @@ fn test_reduction_weighted() {
 #[test]
 fn test_ilp_solution_equals_brute_force_triangle() {
     // Triangle graph: min VC = 2 vertices
-    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i32; 3],
+    );
     let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -80,7 +86,10 @@ fn test_ilp_solution_equals_brute_force_triangle() {
 #[test]
 fn test_ilp_solution_equals_brute_force_path() {
     // Path graph 0-1-2-3: min VC = 2 (e.g., {1, 2} or {0, 2} or {1, 3})
-    let problem = MinimumVertexCover::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1i32; 4],
+    );
     let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -109,7 +118,8 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     // 0 -- 1 -- 2
     // Weights: [100, 1, 100]
     // Min VC by weight: just vertex 1 (weight 1) beats 0+2 (weight 200)
-    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![100, 1, 100]);
+    let problem =
+        MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![100, 1, 100]);
     let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -146,8 +156,10 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_ilp_structure() {
-    let problem =
-        MinimumVertexCover::new(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]), vec![1i32; 5]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+        vec![1i32; 5],
+    );
     let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -198,7 +210,10 @@ fn test_complete_graph() {
 #[test]
 fn test_solve_reduced() {
     // Test the ILPSolver::solve_reduced method
-    let problem = MinimumVertexCover::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1i32; 4],
+    );
 
     let ilp_solver = ILPSolver::new();
     let solution = ilp_solver
@@ -213,8 +228,10 @@ fn test_solve_reduced() {
 fn test_bipartite_graph() {
     // Bipartite graph: 0-2, 0-3, 1-2, 1-3 (complete bipartite K_{2,2})
     // Min VC = 2 (either side of the bipartition)
-    let problem =
-        MinimumVertexCover::new(SimpleGraph::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]), vec![1i32; 4]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]),
+        vec![1i32; 4],
+    );
     let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -255,8 +272,10 @@ fn test_single_edge() {
 fn test_star_graph() {
     // Star graph: center vertex 0 connected to all others
     // Min VC = 1 (just the center)
-    let problem =
-        MinimumVertexCover::new(SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]), vec![1i32; 5]);
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(5, vec![(0, 1), (0, 2), (0, 3), (0, 4)]),
+        vec![1i32; 5],
+    );
     let reduction: ReductionVCToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 

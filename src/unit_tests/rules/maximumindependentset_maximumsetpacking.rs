@@ -4,7 +4,8 @@ include!("../jl_helpers.rs");
 
 #[test]
 fn test_weighted_reduction() {
-    let is_problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 20, 30]);
+    let is_problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 20, 30]);
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);
     let sp_problem = reduction.target_problem();
 
@@ -45,7 +46,8 @@ fn test_disjoint_sets() {
 #[test]
 fn test_reduction_structure() {
     // Test IS to SP structure
-    let is_problem = MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2)]), vec![1i32; 4]);
+    let is_problem =
+        MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2)]), vec![1i32; 4]);
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);
     let sp = reduction.target_problem();
 
@@ -73,10 +75,8 @@ fn test_jl_parity_is_to_setpacking() {
         serde_json::from_str(include_str!("../../../tests/data/jl/independentset.json")).unwrap();
     let inst = &is_data["instances"][0]["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
-    let source = MaximumIndependentSet::new(
-        SimpleGraph::new(nv, jl_parse_edges(inst)),
-        vec![1i32; nv],
-    );
+    let source =
+        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
     let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
     let best_target = solver.find_all_best(result.target_problem());
@@ -125,10 +125,8 @@ fn test_jl_parity_rule_is_to_setpacking() {
         serde_json::from_str(include_str!("../../../tests/data/jl/independentset.json")).unwrap();
     let inst = &jl_find_instance_by_label(&is_data, "doc_4vertex")["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
-    let source = MaximumIndependentSet::new(
-        SimpleGraph::new(nv, jl_parse_edges(inst)),
-        vec![1i32; nv],
-    );
+    let source =
+        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
     let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
     let best_target = solver.find_all_best(result.target_problem());
@@ -154,10 +152,8 @@ fn test_jl_parity_doc_is_to_setpacking() {
     let is_instance = jl_find_instance_by_label(&is_data, "doc_4vertex");
     let inst = &is_instance["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
-    let source = MaximumIndependentSet::new(
-        SimpleGraph::new(nv, jl_parse_edges(inst)),
-        vec![1i32; nv],
-    );
+    let source =
+        MaximumIndependentSet::new(SimpleGraph::new(nv, jl_parse_edges(inst)), vec![1i32; nv]);
     let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
     let solver = BruteForce::new();
     let best_target = solver.find_all_best(result.target_problem());

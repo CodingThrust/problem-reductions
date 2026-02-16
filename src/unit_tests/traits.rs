@@ -21,6 +21,12 @@ impl Problem for TestSatProblem {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "bool")]
     }
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.num_vars]
+    }
 }
 
 #[test]
@@ -79,6 +85,12 @@ impl Problem for TestMaxProblem {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.weights.len()]
+    }
 }
 
 impl OptimizationProblem for TestMaxProblem {
@@ -110,6 +122,12 @@ impl Problem for TestMinProblem {
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
+    }
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.costs.len()]
     }
 }
 
@@ -161,6 +179,12 @@ impl Problem for MultiDimProblem {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_dims"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.dims.len()]
+    }
 }
 
 #[test]
@@ -209,6 +233,12 @@ impl Problem for FloatProblem {
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "f64")]
+    }
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.weights.len()]
     }
 }
 

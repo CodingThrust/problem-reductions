@@ -22,7 +22,10 @@ use problemreductions::topology::{Graph, SimpleGraph};
 pub fn run() {
     // 1. Create IS instance: Petersen graph
     let (num_vertices, edges) = petersen();
-    let is = MaximumIndependentSet::new(SimpleGraph::new(num_vertices, edges.clone()), vec![1i32; num_vertices]);
+    let is = MaximumIndependentSet::new(
+        SimpleGraph::new(num_vertices, edges.clone()),
+        vec![1i32; num_vertices],
+    );
 
     // 2. Reduce to VC
     let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&is);

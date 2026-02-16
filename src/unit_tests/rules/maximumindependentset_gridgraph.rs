@@ -6,7 +6,10 @@ use crate::topology::{Graph, KingsSubgraph, SimpleGraph, UnitDiskGraph};
 #[test]
 fn test_mis_simple_to_grid_closed_loop() {
     // Triangle graph: 3 vertices, 3 edges
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i32; 3],
+    );
     let result = ReduceTo::<MaximumIndependentSet<KingsSubgraph, i32>>::reduce_to(&problem);
     let target = result.target_problem();
 
@@ -30,7 +33,8 @@ fn test_mis_simple_to_grid_closed_loop() {
 #[test]
 fn test_mis_simple_to_grid_path_graph() {
     // Path graph: 0-1-2
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     let result = ReduceTo::<MaximumIndependentSet<KingsSubgraph, i32>>::reduce_to(&problem);
     let target = result.target_problem();
 

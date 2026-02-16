@@ -5,7 +5,10 @@ include!("../../jl_helpers.rs");
 
 #[test]
 fn test_maximal_is_creation() {
-    let problem = MaximalIS::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
+    let problem = MaximalIS::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1i32; 4],
+    );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
 }
@@ -57,10 +60,7 @@ fn test_is_maximal_independent_set_function() {
 
     assert!(is_maximal_independent_set(&graph, &[true, false, true]));
     assert!(is_maximal_independent_set(&graph, &[false, true, false]));
-    assert!(!is_maximal_independent_set(
-        &graph,
-        &[true, false, false]
-    )); // Can add 2
+    assert!(!is_maximal_independent_set(&graph, &[true, false, false])); // Can add 2
     assert!(!is_maximal_independent_set(&graph, &[true, true, false])); // Not independent
 }
 

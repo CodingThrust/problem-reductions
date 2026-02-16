@@ -125,8 +125,8 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_vertices * num_colors)),
-            ("num_constraints", poly!(num_vertices) + poly!(num_edges * num_colors)),
+            ("num_vars", poly!(num_vertices ^ 2)),
+            ("num_constraints", poly!(num_vertices) + poly!(num_vertices * num_edges)),
         ])
     }
 )]

@@ -144,7 +144,8 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_ilp_structure() {
-    let problem = KColoring::<K3, _>::new(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]));
+    let problem =
+        KColoring::<K3, _>::new(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]));
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -174,8 +175,10 @@ fn test_empty_graph() {
 #[test]
 fn test_complete_graph_k4() {
     // K4 needs 4 colors
-    let problem =
-        KColoring::<K4, _>::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]));
+    let problem = KColoring::<K4, _>::new(SimpleGraph::new(
+        4,
+        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+    ));
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -195,8 +198,10 @@ fn test_complete_graph_k4() {
 #[test]
 fn test_complete_graph_k4_with_3_colors_infeasible() {
     // K4 cannot be 3-colored
-    let problem =
-        KColoring::<K3, _>::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]));
+    let problem = KColoring::<K3, _>::new(SimpleGraph::new(
+        4,
+        vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
+    ));
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -209,7 +214,8 @@ fn test_complete_graph_k4_with_3_colors_infeasible() {
 fn test_bipartite_graph() {
     // Complete bipartite K_{2,2}: 0-2, 0-3, 1-2, 1-3
     // This is 2-colorable
-    let problem = KColoring::<K2, _>::new(SimpleGraph::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]));
+    let problem =
+        KColoring::<K2, _>::new(SimpleGraph::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]));
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 

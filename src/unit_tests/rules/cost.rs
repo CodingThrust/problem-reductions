@@ -48,4 +48,3 @@ fn test_minimize_missing_field() {
 
     assert_eq!(cost_fn.edge_cost(&overhead, &size), 0.0);
 }
-

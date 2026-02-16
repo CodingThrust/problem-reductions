@@ -181,6 +181,13 @@ impl Problem for Satisfiability {
         self.is_satisfying(&assignment)
     }
 
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars", "num_clauses", "num_literals"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.num_vars(), self.num_clauses(), self.num_literals()]
+    }
+
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }

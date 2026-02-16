@@ -7,8 +7,10 @@ include!("../../jl_helpers.rs");
 
 #[test]
 fn test_matching_creation() {
-    let problem =
-        MaximumMatching::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1, 2, 3]);
+    let problem = MaximumMatching::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1, 2, 3],
+    );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_variables(), 3);
@@ -16,7 +18,8 @@ fn test_matching_creation() {
 
 #[test]
 fn test_matching_unit_weights() {
-    let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let problem =
+        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.graph().num_edges(), 2);
 }
 
@@ -30,8 +33,10 @@ fn test_edge_endpoints() {
 
 #[test]
 fn test_is_valid_matching() {
-    let problem =
-        MaximumMatching::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1, 1, 1]);
+    let problem = MaximumMatching::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1, 1, 1],
+    );
 
     // Valid: select edge 0 only
     assert!(problem.is_valid_matching(&[1, 0, 0]));
@@ -97,7 +102,8 @@ fn test_new() {
 
 #[test]
 fn test_unit_weights() {
-    let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let problem =
+        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.graph().num_edges(), 2);
     assert_eq!(problem.weights(), vec![1, 1]);
@@ -105,7 +111,8 @@ fn test_unit_weights() {
 
 #[test]
 fn test_graph_accessor() {
-    let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let problem =
+        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.graph().num_edges(), 2);
 }
