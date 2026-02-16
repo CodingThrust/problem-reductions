@@ -301,7 +301,8 @@ impl ReductionSATToColoring {
         ReductionOverhead::new(vec![
             // 2*num_vars + 3 (base) + 5*(num_literals - num_clauses) (OR gadgets)
             ("num_vertices", poly!(2 * num_vars) + poly!(5 * num_literals) + poly!(num_clauses).scale(-5.0) + poly!(3)),
-            ("num_edges", poly!(2 * num_vars) + poly!(5 * num_literals) + poly!(num_clauses).scale(-5.0) + poly!(3)),
+            // 3 (triangle) + 3*num_vars + 11*(num_literals - num_clauses) (OR gadgets) + 2*num_clauses (set_true)
+            ("num_edges", poly!(3 * num_vars) + poly!(11 * num_literals) + poly!(num_clauses).scale(-9.0) + poly!(3)),
         ])
     }
 )]

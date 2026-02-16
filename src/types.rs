@@ -205,7 +205,7 @@ impl ProblemSize {
     /// This is the primary constructor used by the `problem_size()` free function,
     /// combining type-level names with instance-level values.
     pub fn from_names_values(names: &[&str], values: &[usize]) -> Self {
-        debug_assert_eq!(
+        assert_eq!(
             names.len(),
             values.len(),
             "ProblemSize: names ({}) and values ({}) length mismatch",
