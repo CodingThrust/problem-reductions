@@ -10,6 +10,7 @@ use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::SimpleGraph;
 use problemreductions::types::ProblemSize;
+use problemreductions::variant::K3;
 // ANCHOR_END: imports
 
 pub fn run() {

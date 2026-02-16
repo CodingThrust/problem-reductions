@@ -16,10 +16,12 @@
 // Exports `docs/paper/examples/kcoloring_to_ilp.json` and `kcoloring_to_ilp.result.json`.
 
 use problemreductions::export::*;
+use problemreductions::models::optimization::ILP;
 use problemreductions::prelude::*;
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::{Graph, SimpleGraph};
+use problemreductions::variant::K3;
 
 pub fn run() {
     // 1. Create KColoring instance: Petersen graph (10 vertices, 15 edges) with 3 colors, χ=3

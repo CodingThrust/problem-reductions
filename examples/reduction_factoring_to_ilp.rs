@@ -18,6 +18,7 @@
 // Exports `docs/paper/examples/factoring_to_ilp.json` for use in paper code blocks.
 
 use problemreductions::export::*;
+use problemreductions::models::optimization::ILP;
 use problemreductions::prelude::*;
 use problemreductions::solvers::ILPSolver;
 

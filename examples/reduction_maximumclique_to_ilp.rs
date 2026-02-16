@@ -15,6 +15,7 @@
 // Exports `docs/paper/examples/maximumclique_to_ilp.json` and `maximumclique_to_ilp.result.json`.
 
 use problemreductions::export::*;
+use problemreductions::models::optimization::ILP;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::octahedral;
 use problemreductions::topology::{Graph, SimpleGraph};

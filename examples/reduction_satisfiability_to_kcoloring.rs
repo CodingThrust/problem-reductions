@@ -18,6 +18,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::{Graph, SimpleGraph};
+use problemreductions::variant::K3;
 
 pub fn run() {
     // 1. Create SAT instance: 5-variable, 3-clause formula with unit clauses
