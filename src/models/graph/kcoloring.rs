@@ -6,7 +6,7 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
-use crate::variant::{KValue, VariantParam};
+use crate::variant::{KValue, VariantParam, KN};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -88,23 +88,11 @@ impl<K: KValue, G: Graph> KColoring<K, G> {
     /// Create a K-Coloring problem from an existing graph.
     ///
     /// # Panics
-    /// Panics if `K` is `KN` (use [`from_graph_with_k`](Self::from_graph_with_k) instead).
+    /// Panics if `K` is `KN` (use [`KColoring::<KN, G>::from_graph_with_k`] instead).
     pub fn from_graph(graph: G) -> Self {
         Self {
             graph,
             num_colors: K::K.expect("KN requires from_graph_with_k"),
-            _phantom: std::marker::PhantomData,
-        }
-    }
-
-    /// Create a K-Coloring problem with an explicit number of colors.
-    ///
-    /// Use this for `KN` variant casts where the number of colors is only
-    /// known at runtime.
-    pub fn from_graph_with_k(graph: G, num_colors: usize) -> Self {
-        Self {
-            graph,
-            num_colors,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -144,6 +132,21 @@ impl<K: KValue, G: Graph> KColoring<K, G> {
             }
         }
         true
+    }
+}
+
+impl<G: Graph> KColoring<KN, G> {
+    /// Create a K-Coloring problem with an explicit number of colors.
+    ///
+    /// Only available for `KN` (runtime K). For compile-time K types like
+    /// `K3`, use [`from_graph`](KColoring::from_graph) which derives K
+    /// from the type parameter.
+    pub fn from_graph_with_k(graph: G, num_colors: usize) -> Self {
+        Self {
+            graph,
+            num_colors,
+            _phantom: std::marker::PhantomData,
+        }
     }
 }
 
