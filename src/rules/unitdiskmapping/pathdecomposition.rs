@@ -409,10 +409,8 @@ impl PathDecompositionMethod {
 /// * `method` - The decomposition method to use
 ///
 /// # Example
-/// ```
-/// use problemreductions::rules::unitdiskmapping::pathdecomposition::{pathwidth, PathDecompositionMethod};
 ///
-/// // Path graph: 0-1-2
+/// ```text
 /// let edges = vec![(0, 1), (1, 2)];
 /// let layout = pathwidth(3, &edges, PathDecompositionMethod::greedy());
 /// assert_eq!(layout.vertices.len(), 3);
