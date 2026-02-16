@@ -109,12 +109,14 @@ pub fn config_to_index(config: &[usize], num_flavors: usize) -> usize {
 }
 
 /// Convert a binary configuration to a bitvec-style representation.
-pub fn config_to_bits(config: &[usize]) -> Vec<bool> {
+#[cfg(test)]
+pub(crate) fn config_to_bits(config: &[usize]) -> Vec<bool> {
     config.iter().map(|&v| v != 0).collect()
 }
 
 /// Convert a bitvec-style representation to a binary configuration.
-pub fn bits_to_config(bits: &[bool]) -> Vec<usize> {
+#[cfg(test)]
+pub(crate) fn bits_to_config(bits: &[bool]) -> Vec<usize> {
     bits.iter().map(|&b| if b { 1 } else { 0 }).collect()
 }
 

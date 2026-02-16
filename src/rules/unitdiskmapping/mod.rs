@@ -25,24 +25,36 @@
 //! let tri_result = triangular::map_weighted(3, &edges);
 //! ```
 
-pub mod alpha_tensor;
+#[allow(dead_code)]
+pub(crate) mod alpha_tensor;
 mod copyline;
 mod grid;
 pub mod ksg;
-pub mod pathdecomposition;
+pub(crate) mod pathdecomposition;
 mod traits;
 pub mod triangular;
 mod weighted;
 
-// Re-export shared types
-pub use copyline::{create_copylines, mis_overhead_copyline, remove_order, CopyLine};
-pub use grid::{CellState, MappingGrid};
-pub use pathdecomposition::{pathwidth, Layout, PathDecompositionMethod};
-pub use traits::{apply_gadget, pattern_matches, unapply_gadget, Pattern, PatternCell};
-
 // Re-export commonly used items from submodules for convenience
 pub use ksg::{GridKind, MappingResult};
 
-// Re-exports from private modules (not accessible via ksg:: or triangular::)
-pub use copyline::{copyline_weighted_locations_triangular, mis_overhead_copyline_triangular};
-pub use weighted::{map_weights, trace_centers, Weightable};
+// Re-exports for unit tests (only needed in test builds)
+#[cfg(test)]
+pub(crate) use copyline::{
+    copyline_weighted_locations_triangular, create_copylines, mis_overhead_copyline, CopyLine,
+};
+#[cfg(test)]
+pub(crate) use grid::{CellState, MappingGrid};
+#[cfg(test)]
+pub(crate) use traits::{apply_gadget, unapply_gadget, Pattern};
+#[cfg(test)]
+pub(crate) use weighted::{map_weights, trace_centers};
+
+// Hidden re-exports for development tools (examples/export_mapping_stages.rs)
+#[doc(hidden)]
+pub mod _internal {
+    pub use super::copyline::{
+        create_copylines, mis_overhead_copyline, mis_overhead_copyline_triangular, CopyLine,
+    };
+    pub use super::grid::{CellState, MappingGrid};
+}

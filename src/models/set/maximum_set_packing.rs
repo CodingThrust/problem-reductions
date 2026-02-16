@@ -117,6 +117,11 @@ impl<W: Clone + Default> MaximumSetPacking<W> {
     pub fn weights_ref(&self) -> &Vec<W> {
         &self.weights
     }
+
+    /// Check if a configuration is a valid set packing.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        is_valid_packing(&self.sets, config)
+    }
 }
 
 impl<W> Problem for MaximumSetPacking<W>
@@ -194,7 +199,8 @@ fn is_valid_packing(sets: &[Vec<usize>], config: &[usize]) -> bool {
 }
 
 /// Check if a selection of sets forms a valid set packing.
-pub fn is_set_packing(sets: &[Vec<usize>], selected: &[bool]) -> bool {
+#[cfg(test)]
+pub(crate) fn is_set_packing(sets: &[Vec<usize>], selected: &[bool]) -> bool {
     if selected.len() != sets.len() {
         return false;
     }

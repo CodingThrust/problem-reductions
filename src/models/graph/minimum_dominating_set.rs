@@ -88,6 +88,11 @@ impl<G: Graph, W: Clone + Default> MinimumDominatingSet<G, W> {
         &self.weights
     }
 
+    /// Check if a configuration is a valid dominating set.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        self.is_dominating(config)
+    }
+
     /// Check if a set of vertices is a dominating set.
     fn is_dominating(&self, config: &[usize]) -> bool {
         let n = self.graph.num_vertices();
@@ -163,7 +168,8 @@ where
 ///
 /// # Panics
 /// Panics if `selected.len() != graph.num_vertices()`.
-pub fn is_dominating_set<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+#[cfg(test)]
+pub(crate) fn is_dominating_set<G: Graph>(graph: &G, selected: &[bool]) -> bool {
     assert_eq!(
         selected.len(),
         graph.num_vertices(),

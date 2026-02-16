@@ -111,6 +111,11 @@ impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
         !W::IS_UNIT
     }
 
+    /// Check if a configuration is a valid Hamiltonian cycle.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        self.is_valid_hamiltonian_cycle(config)
+    }
+
     /// Check if a configuration forms a valid Hamiltonian cycle.
     fn is_valid_hamiltonian_cycle(&self, config: &[usize]) -> bool {
         if config.len() != self.graph.num_edges() {
@@ -176,7 +181,7 @@ where
 ///
 /// # Panics
 /// Panics if `selected.len() != graph.num_edges()`.
-pub fn is_hamiltonian_cycle<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+pub(crate) fn is_hamiltonian_cycle<G: Graph>(graph: &G, selected: &[bool]) -> bool {
     assert_eq!(
         selected.len(),
         graph.num_edges(),

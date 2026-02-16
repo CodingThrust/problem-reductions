@@ -8,8 +8,11 @@
 //!           cargo run --example export_mapping_stages -- petersen triangular
 
 use problemreductions::rules::unitdiskmapping::{
-    create_copylines, ksg, mis_overhead_copyline, mis_overhead_copyline_triangular, triangular,
-    CopyLine, MappingGrid,
+    _internal::{
+        create_copylines, mis_overhead_copyline, mis_overhead_copyline_triangular, CopyLine,
+        MappingGrid,
+    },
+    ksg, triangular,
 };
 use problemreductions::topology::smallgraph;
 use serde::Serialize;
@@ -102,7 +105,7 @@ fn gadget_name(idx: usize) -> String {
 // The Typst script converts to 1-indexed for comparison with Julia.
 // DO NOT add +1 here - keep 0-indexed!
 fn extract_grid_nodes(grid: &MappingGrid) -> Vec<GridNodeExport> {
-    use problemreductions::rules::unitdiskmapping::CellState;
+    use problemreductions::rules::unitdiskmapping::_internal::CellState;
     let mut nodes = Vec::new();
     let (rows, cols) = grid.size();
     for r in 0..rows {

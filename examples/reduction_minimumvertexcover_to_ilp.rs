@@ -14,6 +14,7 @@
 // Exports `docs/paper/examples/minimumvertexcover_to_ilp.json` and `minimumvertexcover_to_ilp.result.json`.
 
 use problemreductions::export::*;
+use problemreductions::models::optimization::ILP;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::{Graph, SimpleGraph};

@@ -238,6 +238,11 @@ impl CircuitSAT {
         &self.variables
     }
 
+    /// Check if a configuration is a valid satisfying assignment.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        self.count_satisfied(config) == self.circuit.num_assignments()
+    }
+
     /// Convert a configuration to variable assignments.
     fn config_to_assignments(&self, config: &[usize]) -> HashMap<String, bool> {
         self.variables
@@ -259,7 +264,8 @@ impl CircuitSAT {
 }
 
 /// Check if a circuit assignment is satisfying.
-pub fn is_circuit_satisfying(circuit: &Circuit, assignments: &HashMap<String, bool>) -> bool {
+#[cfg(test)]
+pub(crate) fn is_circuit_satisfying(circuit: &Circuit, assignments: &HashMap<String, bool>) -> bool {
     circuit
         .assignments
         .iter()

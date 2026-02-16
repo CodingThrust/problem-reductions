@@ -188,6 +188,7 @@ pub fn apply_gadget<P: Pattern>(pattern: &P, grid: &mut MappingGrid, i: usize, j
 
 /// Unapply a gadget pattern at position (i, j).
 #[allow(clippy::needless_range_loop)]
+#[allow(dead_code)]
 pub fn unapply_gadget<P: Pattern>(pattern: &P, grid: &mut MappingGrid, i: usize, j: usize) {
     let source = pattern.source_matrix();
     let (m, n) = pattern.size();

@@ -10,6 +10,7 @@ use problemreductions::models::set::*;
 use problemreductions::models::specialized::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::{BipartiteGraph, SimpleGraph};
+use problemreductions::variant::K3;
 
 /// Test that all problem types can be instantiated and solved.
 mod all_problems_solvable {

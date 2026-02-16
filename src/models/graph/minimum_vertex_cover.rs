@@ -83,6 +83,11 @@ impl<G: Graph, W: Clone + Default> MinimumVertexCover<G, W> {
     {
         !W::IS_UNIT
     }
+
+    /// Check if a configuration is a valid vertex cover.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        is_vertex_cover_config(&self.graph, config)
+    }
 }
 
 impl<G, W> Problem for MinimumVertexCover<G, W>
@@ -154,7 +159,8 @@ fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 ///
 /// # Panics
 /// Panics if `selected.len() != graph.num_vertices()`.
-pub fn is_vertex_cover<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+#[cfg(test)]
+pub(crate) fn is_vertex_cover<G: Graph>(graph: &G, selected: &[bool]) -> bool {
     assert_eq!(
         selected.len(),
         graph.num_vertices(),

@@ -14,6 +14,7 @@
 // Exports `docs/paper/examples/maximummatching_to_ilp.json` and `maximummatching_to_ilp.result.json`.
 
 use problemreductions::export::*;
+use problemreductions::models::optimization::ILP;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::{Graph, SimpleGraph};

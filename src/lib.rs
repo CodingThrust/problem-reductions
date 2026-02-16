@@ -64,44 +64,40 @@
 pub mod config;
 pub mod error;
 pub mod export;
-pub mod graph_types;
 pub mod io;
 pub mod models;
-pub mod polynomial;
+pub(crate) mod polynomial;
 pub mod registry;
 pub mod rules;
 pub mod solvers;
 pub mod testing;
 pub mod topology;
 pub mod traits;
-pub mod truth_table;
+#[allow(dead_code)]
+pub(crate) mod truth_table;
 pub mod types;
 pub mod variant;
 
 /// Prelude module for convenient imports.
 pub mod prelude {
-    pub use crate::config::{
-        bits_to_config, config_to_bits, config_to_index, index_to_config, ConfigIterator,
-    };
-    pub use crate::error::{ProblemError, Result};
+    // Problem types
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumDominatingSet, MinimumVertexCover, TravelingSalesman,
     };
-    pub use crate::models::optimization::{
-        Comparison, LinearConstraint, ObjectiveSense, SpinGlass, VarBounds, ILP, QUBO,
-    };
+    pub use crate::models::optimization::{SpinGlass, QUBO};
     pub use crate::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
-    pub use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
-    pub use crate::registry::{ComplexityClass, ProblemInfo, ProblemMetadata};
+    pub use crate::models::specialized::{BicliqueCover, BMF, CircuitSAT, Factoring, PaintShop};
+
+    // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
     pub use crate::solvers::{BruteForce, Solver};
     pub use crate::traits::{problem_size, OptimizationProblem, Problem, SatisfactionProblem};
-    pub use crate::types::{
-        Direction, NumericSize, One, ProblemSize, SolutionSize, Unweighted, WeightElement,
-    };
-    pub use crate::variant::{CastToParent, KValue, VariantParam, K1, K2, K3, K4, K5, KN};
+
+    // Types
+    pub use crate::error::{ProblemError, Result};
+    pub use crate::types::{Direction, One, ProblemSize, SolutionSize, Unweighted};
 }
 
 // Re-export commonly used items at crate root

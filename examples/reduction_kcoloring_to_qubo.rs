@@ -32,6 +32,7 @@ use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::house;
 use problemreductions::topology::{Graph, SimpleGraph};
+use problemreductions::variant::K3;
 
 pub fn run() {
     println!("=== K-Coloring -> QUBO Reduction ===\n");

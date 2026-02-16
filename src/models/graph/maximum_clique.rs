@@ -88,6 +88,11 @@ impl<G: Graph, W: Clone + Default> MaximumClique<G, W> {
     {
         !W::IS_UNIT
     }
+
+    /// Check if a configuration is a valid clique.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        is_clique_config(&self.graph, config)
+    }
 }
 
 impl<G, W> Problem for MaximumClique<G, W>
@@ -168,7 +173,8 @@ fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 ///
 /// # Panics
 /// Panics if `selected.len() != graph.num_vertices()`.
-pub fn is_clique<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+#[cfg(test)]
+pub(crate) fn is_clique<G: Graph>(graph: &G, selected: &[bool]) -> bool {
     assert_eq!(
         selected.len(),
         graph.num_vertices(),
