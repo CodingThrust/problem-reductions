@@ -9,6 +9,7 @@ assignees: ''
 
 **Source:** <!-- e.g. MaximumIndependentSet. Browse existing problems: https://codingthrust.github.io/problem-reductions/ -->
 **Target:** <!-- e.g. QUBO -->
+**Motivation:** <!-- One sentence: why is this reduction useful? E.g. "Enables solving MIS on quantum annealers via QUBO formulation." -->
 **Reference:** <!-- URL, paper, or textbook citation for this reduction -->
 
 ## Reduction Algorithm
