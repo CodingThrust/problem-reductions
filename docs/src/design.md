@@ -255,14 +255,16 @@ For cost-aware routing, `find_cheapest_path()` uses **Dijkstra's algorithm** ove
 ```rust
 pub fn find_cheapest_path<C: PathCostFn>(
     &self,
-    source: (&str, &str),        // (problem_name, graph_type)
-    target: (&str, &str),
+    source: &str,                              // problem name
+    source_variant: &BTreeMap<String, String>,  // exact variant
+    target: &str,
+    target_variant: &BTreeMap<String, String>,
     input_size: &ProblemSize,
     cost_fn: &C,
 ) -> Option<ReductionPath>
 ```
 
-Since variant casts are explicit edges with identity overhead, Dijkstra naturally traverses them when they appear on the cheapest path.
+The variant maps specify the exact source and target nodes in the variant-level graph. Use `ReductionGraph::variant_to_map(&T::variant())` to convert a `Problem::variant()` slice into the required `BTreeMap`. Since variant casts are explicit edges with identity overhead, Dijkstra naturally traverses them when they appear on the cheapest path.
 
 ### Cost functions
 
@@ -348,12 +350,17 @@ The library provides two approaches to executing reductions: **manual chaining**
 
 ### Executable paths (automatic)
 
-First find a `ReductionPath`, then convert it to an `ExecutablePath<S, T>` via `make_executable()`. Call `reduce()` to execute the path:
+First find a `ReductionPath` with exact variant matching, then convert it to an `ExecutablePath<S, T>` via `make_executable()`. Call `reduce()` to execute the path:
 
 ```rust
 let graph = ReductionGraph::new();
+let src_var = ReductionGraph::variant_to_map(&KSatisfiability::<K3>::variant());
+let dst_var = ReductionGraph::variant_to_map(
+    &MaximumIndependentSet::<SimpleGraph, i32>::variant());
 let rpath = graph
-    .find_shortest_path::<KSatisfiability<K3>, MaximumIndependentSet<SimpleGraph, i32>>()
+    .find_cheapest_path("KSatisfiability", &src_var,
+        "MaximumIndependentSet", &dst_var,
+        &ProblemSize::new(vec![]), &MinimizeSteps)
     .unwrap();
 let path = graph
     .make_executable::<KSatisfiability<K3>, MaximumIndependentSet<SimpleGraph, i32>>(&rpath)
