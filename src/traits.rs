@@ -22,6 +22,8 @@ pub trait Problem: Clone {
     /// Used for generating variant IDs in the reduction graph schema.
     /// Returns pairs like `[("graph", "SimpleGraph"), ("weight", "i32")]`.
     fn variant() -> Vec<(&'static str, &'static str)>;
+    /// Named size components for overhead estimation in reduction path-finding.
+    fn problem_size(&self) -> crate::types::ProblemSize;
 }
 
 /// Extension for problems with a numeric objective to optimize.
