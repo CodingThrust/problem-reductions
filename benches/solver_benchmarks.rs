@@ -51,8 +51,9 @@ fn bench_max_cut(c: &mut Criterion) {
     let mut group = c.benchmark_group("MaxCut");
 
     for n in [4, 6, 8, 10].iter() {
-        let edges: Vec<(usize, usize, i32)> = (0..*n - 1).map(|i| (i, i + 1, 1)).collect();
-        let problem = MaxCut::new(*n, edges);
+        let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
+        let weights = vec![1i32; edges.len()];
+        let problem = MaxCut::new(SimpleGraph::new(*n, edges), weights);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
@@ -155,8 +156,9 @@ fn bench_matching(c: &mut Criterion) {
     let mut group = c.benchmark_group("Matching");
 
     for n in [4, 6, 8, 10].iter() {
-        let edges: Vec<(usize, usize, i32)> = (0..*n - 1).map(|i| (i, i + 1, 1)).collect();
-        let problem = MaximumMatching::new(*n, edges);
+        let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
+        let weights = vec![1i32; edges.len()];
+        let problem = MaximumMatching::new(SimpleGraph::new(*n, edges), weights);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
@@ -226,7 +228,7 @@ fn bench_comparison(c: &mut Criterion) {
     });
 
     // MaxCut with 8 vertices
-    let mc_problem = MaxCut::new(8, vec![(0, 1, 1), (2, 3, 1), (4, 5, 1), (6, 7, 1)]);
+    let mc_problem = MaxCut::new(SimpleGraph::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]), vec![1, 1, 1, 1]);
     group.bench_function("MaxCut", |b| {
         b.iter(|| solver.find_best(black_box(&mc_problem)))
     });

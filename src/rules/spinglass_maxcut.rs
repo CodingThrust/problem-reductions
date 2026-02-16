@@ -176,7 +176,7 @@ impl ReduceTo<MaxCut<SimpleGraph, i32>> for SpinGlass<SimpleGraph, i32> {
             }
         }
 
-        let target = MaxCut::with_weights(total_vertices, edges, weights);
+        let target = MaxCut::new(SimpleGraph::new(total_vertices, edges), weights);
 
         ReductionSGToMaxCut {
             target,

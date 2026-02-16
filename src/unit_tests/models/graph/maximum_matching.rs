@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::topology::SimpleGraph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 include!("../../jl_helpers.rs");
@@ -7,21 +8,21 @@ include!("../../jl_helpers.rs");
 #[test]
 fn test_matching_creation() {
     let problem =
-        MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 3)]);
+        MaximumMatching::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1, 2, 3]);
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_variables(), 3);
 }
 
 #[test]
-fn test_matching_unweighted() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
+fn test_matching_unit_weights() {
+    let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.graph().num_edges(), 2);
 }
 
 #[test]
 fn test_edge_endpoints() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::new(3, vec![(0, 1, 1), (1, 2, 2)]);
+    let problem = MaximumMatching::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 2]);
     assert_eq!(problem.edge_endpoints(0), Some((0, 1)));
     assert_eq!(problem.edge_endpoints(1), Some((1, 2)));
     assert_eq!(problem.edge_endpoints(2), None);
@@ -30,7 +31,7 @@ fn test_edge_endpoints() {
 #[test]
 fn test_is_valid_matching() {
     let problem =
-        MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 1), (2, 3, 1)]);
+        MaximumMatching::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1, 1, 1]);
 
     // Valid: select edge 0 only
     assert!(problem.is_valid_matching(&[1, 0, 0]));
@@ -54,27 +55,27 @@ fn test_is_matching_function() {
 
 #[test]
 fn test_direction() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::unweighted(2, vec![(0, 1)]);
+    let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(2, vec![(0, 1)]));
     assert_eq!(problem.direction(), Direction::Maximize);
 }
 
 #[test]
 fn test_empty_graph() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::unweighted(3, vec![]);
+    let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![]));
     // Empty matching is valid with size 0
     assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0));
 }
 
 #[test]
 fn test_edges() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::new(3, vec![(0, 1, 5), (1, 2, 10)]);
+    let problem = MaximumMatching::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![5, 10]);
     let edges = problem.edges();
     assert_eq!(edges.len(), 2);
 }
 
 #[test]
 fn test_empty_sets() {
-    let problem = MaximumMatching::<SimpleGraph, i32>::unweighted(2, vec![]);
+    let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(2, vec![]));
     // Empty matching
     assert_eq!(Problem::evaluate(&problem, &[]), SolutionSize::Valid(0));
 }
@@ -92,18 +93,16 @@ fn test_is_matching_out_of_bounds() {
 }
 
 #[test]
-fn test_from_graph() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MaximumMatching::<SimpleGraph, i32>::from_graph(graph, vec![5, 10]);
+fn test_new() {
+    let problem = MaximumMatching::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![5, 10]);
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.graph().num_edges(), 2);
     assert_eq!(problem.weights(), vec![5, 10]);
 }
 
 #[test]
-fn test_from_graph_unit_weights() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MaximumMatching::<SimpleGraph, i32>::from_graph_unit_weights(graph);
+fn test_unit_weights() {
+    let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.graph().num_edges(), 2);
     assert_eq!(problem.weights(), vec![1, 1]);
@@ -111,8 +110,7 @@ fn test_from_graph_unit_weights() {
 
 #[test]
 fn test_graph_accessor() {
-    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MaximumMatching::<SimpleGraph, i32>::from_graph_unit_weights(graph);
+    let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.graph().num_edges(), 2);
 }
@@ -124,7 +122,9 @@ fn test_jl_parity_evaluation() {
     for instance in data["instances"].as_array().unwrap() {
         let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
         let weighted_edges = jl_parse_weighted_edges(&instance["instance"]);
-        let problem = MaximumMatching::<SimpleGraph, i32>::new(nv, weighted_edges);
+        let edges: Vec<(usize, usize)> = weighted_edges.iter().map(|&(u, v, _)| (u, v)).collect();
+        let weights: Vec<i32> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
+        let problem = MaximumMatching::new(SimpleGraph::new(nv, edges), weights);
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_config(&eval["config"]);
             let result = problem.evaluate(&config);

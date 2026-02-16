@@ -4,7 +4,7 @@
 //! that visits every vertex exactly once.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::Graph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -51,39 +51,9 @@ pub struct TravelingSalesman<G, W> {
     edge_weights: Vec<W>,
 }
 
-impl<W: Clone + Default> TravelingSalesman<SimpleGraph, W> {
-    /// Create a new TravelingSalesman problem.
-    pub fn new(num_vertices: usize, edges: Vec<(usize, usize, W)>) -> Self {
-        let mut edge_list = Vec::new();
-        let mut edge_weights = Vec::new();
-        for (u, v, w) in edges {
-            edge_list.push((u, v));
-            edge_weights.push(w);
-        }
-        let graph = SimpleGraph::new(num_vertices, edge_list);
-        Self {
-            graph,
-            edge_weights,
-        }
-    }
-
-    /// Create a TravelingSalesman problem with unit weights.
-    pub fn unweighted(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self
-    where
-        W: From<i32>,
-    {
-        let edge_weights = vec![W::from(1); edges.len()];
-        let graph = SimpleGraph::new(num_vertices, edges);
-        Self {
-            graph,
-            edge_weights,
-        }
-    }
-}
-
 impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
     /// Create a TravelingSalesman problem from a graph with given edge weights.
-    pub fn from_graph(graph: G, edge_weights: Vec<W>) -> Self {
+    pub fn new(graph: G, edge_weights: Vec<W>) -> Self {
         assert_eq!(
             edge_weights.len(),
             graph.num_edges(),
@@ -95,8 +65,8 @@ impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
         }
     }
 
-    /// Create a TravelingSalesman problem from a graph with unit weights.
-    pub fn from_graph_unit_weights(graph: G) -> Self
+    /// Create a TravelingSalesman problem with unit weights.
+    pub fn unit_weights(graph: G) -> Self
     where
         W: From<i32>,
     {

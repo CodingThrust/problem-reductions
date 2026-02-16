@@ -4,7 +4,7 @@
 //! that maximizes the total weight of edges crossing the partition.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::Graph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -50,7 +50,8 @@ inventory::submit! {
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Create a triangle with unit weights
-/// let problem = MaxCut::<SimpleGraph, i32>::new(3, vec![(0, 1, 1), (1, 2, 1), (0, 2, 1)]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+/// let problem = MaxCut::new(graph, vec![1, 1, 1]);
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
@@ -70,57 +71,13 @@ pub struct MaxCut<G, W> {
     edge_weights: Vec<W>,
 }
 
-impl<W: Clone + Default> MaxCut<SimpleGraph, W> {
-    /// Create a new MaxCut problem.
-    ///
-    /// # Arguments
-    /// * `num_vertices` - Number of vertices
-    /// * `edges` - List of weighted edges as (u, v, weight) triples
-    pub fn new(num_vertices: usize, edges: Vec<(usize, usize, W)>) -> Self {
-        let edge_list: Vec<(usize, usize)> = edges.iter().map(|(u, v, _)| (*u, *v)).collect();
-        let edge_weights: Vec<W> = edges.into_iter().map(|(_, _, w)| w).collect();
-        let graph = SimpleGraph::new(num_vertices, edge_list);
-        Self {
-            graph,
-            edge_weights,
-        }
-    }
-
-    /// Create a MaxCut problem with unit weights.
-    pub fn unweighted(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self
-    where
-        W: From<i32>,
-    {
-        let edge_weights = vec![W::from(1); edges.len()];
-        let graph = SimpleGraph::new(num_vertices, edges);
-        Self {
-            graph,
-            edge_weights,
-        }
-    }
-
-    /// Create a MaxCut problem from edges without weights in tuple form.
-    pub fn with_weights(num_vertices: usize, edges: Vec<(usize, usize)>, weights: Vec<W>) -> Self {
-        assert_eq!(
-            edges.len(),
-            weights.len(),
-            "edges and weights must have same length"
-        );
-        let graph = SimpleGraph::new(num_vertices, edges);
-        Self {
-            graph,
-            edge_weights: weights,
-        }
-    }
-}
-
 impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
     /// Create a MaxCut problem from a graph with specified edge weights.
     ///
     /// # Arguments
     /// * `graph` - The underlying graph
     /// * `edge_weights` - Weights for each edge (must match graph.num_edges())
-    pub fn from_graph(graph: G, edge_weights: Vec<W>) -> Self {
+    pub fn new(graph: G, edge_weights: Vec<W>) -> Self {
         assert_eq!(
             edge_weights.len(),
             graph.num_edges(),
@@ -132,8 +89,8 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
         }
     }
 
-    /// Create a MaxCut problem from a graph with unit weights.
-    pub fn from_graph_unweighted(graph: G) -> Self
+    /// Create a MaxCut problem with unit weights.
+    pub fn unweighted(graph: G) -> Self
     where
         W: From<i32>,
     {

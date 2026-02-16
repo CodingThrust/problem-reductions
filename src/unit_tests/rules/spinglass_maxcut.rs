@@ -52,7 +52,7 @@ fn test_solution_extraction_with_ancilla() {
 
 #[test]
 fn test_weighted_maxcut() {
-    let mc = MaxCut::<SimpleGraph, i32>::new(3, vec![(0, 1, 10), (1, 2, 20)]);
+    let mc = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 20]);
     let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&mc);
     let sg = reduction.target_problem();
 
@@ -64,7 +64,7 @@ fn test_weighted_maxcut() {
 #[test]
 fn test_reduction_structure() {
     // Test MaxCut to SpinGlass structure
-    let mc = MaxCut::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
+    let mc = MaxCut::<_, i32>::unweighted(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&mc);
     let sg = reduction.target_problem();
 
@@ -119,7 +119,9 @@ fn test_jl_parity_maxcut_to_spinglass() {
     let inst = &mc_data["instances"][0]["instance"];
     let nv = inst["num_vertices"].as_u64().unwrap() as usize;
     let weighted_edges = jl_parse_weighted_edges(inst);
-    let source = MaxCut::<SimpleGraph, i32>::new(nv, weighted_edges);
+    let edges: Vec<(usize, usize)> = weighted_edges.iter().map(|&(u, v, _)| (u, v)).collect();
+    let weights: Vec<i32> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
+    let source = MaxCut::new(SimpleGraph::new(nv, edges), weights);
     let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();
     let best_target = solver.find_all_best(result.target_problem());
@@ -143,9 +145,12 @@ fn test_jl_parity_rule_maxcut_to_spinglass() {
     let mc_data: serde_json::Value =
         serde_json::from_str(include_str!("../../../tests/data/jl/maxcut.json")).unwrap();
     let inst = &jl_find_instance_by_label(&mc_data, "rule_4vertex")["instance"];
-    let source = MaxCut::<SimpleGraph, i32>::new(
-        inst["num_vertices"].as_u64().unwrap() as usize,
-        jl_parse_weighted_edges(inst),
+    let weighted_edges = jl_parse_weighted_edges(inst);
+    let edges: Vec<(usize, usize)> = weighted_edges.iter().map(|&(u, v, _)| (u, v)).collect();
+    let weights: Vec<i32> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
+    let source = MaxCut::new(
+        SimpleGraph::new(inst["num_vertices"].as_u64().unwrap() as usize, edges),
+        weights,
     );
     let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&source);
     let solver = BruteForce::new();

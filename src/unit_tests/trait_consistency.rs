@@ -34,7 +34,7 @@ fn test_all_problems_implement_trait_correctly() {
         "MinimumVertexCover",
     );
     check_problem_trait(
-        &MaxCut::<SimpleGraph, i32>::new(3, vec![(0, 1, 1)]),
+        &MaxCut::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32]),
         "MaxCut",
     );
     check_problem_trait(
@@ -50,7 +50,7 @@ fn test_all_problems_implement_trait_correctly() {
         "MaximalIS",
     );
     check_problem_trait(
-        &MaximumMatching::<SimpleGraph, i32>::new(3, vec![(0, 1, 1)]),
+        &MaximumMatching::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32]),
         "MaximumMatching",
     );
     check_problem_trait(
@@ -132,11 +132,11 @@ fn test_direction() {
         Direction::Maximize
     );
     assert_eq!(
-        MaxCut::<SimpleGraph, i32>::new(2, vec![(0, 1, 1)]).direction(),
+        MaxCut::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32]).direction(),
         Direction::Maximize
     );
     assert_eq!(
-        MaximumMatching::<SimpleGraph, i32>::new(2, vec![(0, 1, 1)]).direction(),
+        MaximumMatching::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32]).direction(),
         Direction::Maximize
     );
     assert_eq!(

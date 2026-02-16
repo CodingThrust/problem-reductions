@@ -4,7 +4,7 @@
 //! such that no two edges share a vertex.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::Graph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -41,7 +41,8 @@ inventory::submit! {
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Path graph 0-1-2
-/// let problem = MaximumMatching::<SimpleGraph, i32>::new(3, vec![(0, 1, 1), (1, 2, 1)]);
+/// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+/// let problem = MaximumMatching::<_, i32>::unit_weights(graph);
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_best(&problem);
@@ -59,45 +60,13 @@ pub struct MaximumMatching<G, W> {
     edge_weights: Vec<W>,
 }
 
-impl<W: Clone + Default> MaximumMatching<SimpleGraph, W> {
-    /// Create a new MaximumMatching problem.
-    ///
-    /// # Arguments
-    /// * `num_vertices` - Number of vertices
-    /// * `edges` - List of weighted edges as (u, v, weight) triples
-    pub fn new(num_vertices: usize, edges: Vec<(usize, usize, W)>) -> Self {
-        let mut edge_list = Vec::new();
-        let mut edge_weights = Vec::new();
-        for (u, v, w) in edges {
-            edge_list.push((u, v));
-            edge_weights.push(w);
-        }
-        let graph = SimpleGraph::new(num_vertices, edge_list);
-        Self {
-            graph,
-            edge_weights,
-        }
-    }
-
-    /// Create a MaximumMatching problem with unit weights.
-    pub fn unweighted(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self
-    where
-        W: From<i32>,
-    {
-        Self::new(
-            num_vertices,
-            edges.into_iter().map(|(u, v)| (u, v, W::from(1))).collect(),
-        )
-    }
-}
-
 impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
     /// Create a MaximumMatching problem from a graph with given edge weights.
     ///
     /// # Arguments
     /// * `graph` - The graph
     /// * `edge_weights` - Weight for each edge (in graph.edges() order)
-    pub fn from_graph(graph: G, edge_weights: Vec<W>) -> Self {
+    pub fn new(graph: G, edge_weights: Vec<W>) -> Self {
         assert_eq!(
             edge_weights.len(),
             graph.num_edges(),
@@ -109,8 +78,8 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
         }
     }
 
-    /// Create a MaximumMatching problem from a graph with unit weights.
-    pub fn from_graph_unit_weights(graph: G) -> Self
+    /// Create a MaximumMatching problem with unit weights.
+    pub fn unit_weights(graph: G) -> Self
     where
         W: From<i32>,
     {

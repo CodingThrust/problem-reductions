@@ -40,7 +40,7 @@ mod all_problems_solvable {
 
     #[test]
     fn test_max_cut_solvable() {
-        let problem = MaxCut::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
+        let problem = MaxCut::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1, 2, 1]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
@@ -84,7 +84,7 @@ mod all_problems_solvable {
     #[test]
     fn test_matching_solvable() {
         let problem =
-            MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 1), (1, 2, 2), (2, 3, 1)]);
+            MaximumMatching::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1, 2, 1]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
@@ -440,7 +440,7 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_max_cut() {
-        let problem = MaxCut::new(3, vec![(0, 1, 10), (1, 2, 1)]);
+        let problem = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 1]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
 

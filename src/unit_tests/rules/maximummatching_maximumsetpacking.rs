@@ -8,7 +8,7 @@ include!("../jl_helpers.rs");
 #[test]
 fn test_matching_to_setpacking_structure() {
     // Path graph 0-1-2
-    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(3, vec![(0, 1), (1, 2)]);
+    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
     let sp = reduction.target_problem();
 
@@ -25,7 +25,7 @@ fn test_matching_to_setpacking_structure() {
 fn test_matching_to_setpacking_weighted() {
     // Weighted edges: heavy edge should win over multiple light edges
     let matching =
-        MaximumMatching::<SimpleGraph, i32>::new(4, vec![(0, 1, 100), (0, 2, 1), (1, 3, 1)]);
+        MaximumMatching::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3)]), vec![100, 1, 1]);
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
     let sp = reduction.target_problem();
 
@@ -52,7 +52,7 @@ fn test_matching_to_setpacking_weighted() {
 
 #[test]
 fn test_matching_to_setpacking_solution_extraction() {
-    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
 
     // Test solution extraction is 1:1
@@ -67,7 +67,7 @@ fn test_matching_to_setpacking_solution_extraction() {
 #[test]
 fn test_matching_to_setpacking_empty() {
     // Graph with no edges
-    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(3, vec![]);
+    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![]));
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
     let sp = reduction.target_problem();
 
@@ -76,7 +76,7 @@ fn test_matching_to_setpacking_empty() {
 
 #[test]
 fn test_matching_to_setpacking_single_edge() {
-    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(2, vec![(0, 1)]);
+    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(2, vec![(0, 1)]));
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
     let sp = reduction.target_problem();
 
@@ -93,7 +93,7 @@ fn test_matching_to_setpacking_single_edge() {
 #[test]
 fn test_matching_to_setpacking_disjoint_edges() {
     // Two disjoint edges: 0-1 and 2-3
-    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (2, 3)]);
+    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (2, 3)]));
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
     let sp = reduction.target_problem();
 
@@ -106,7 +106,7 @@ fn test_matching_to_setpacking_disjoint_edges() {
 
 #[test]
 fn test_reduction_structure() {
-    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(5, vec![(0, 1), (1, 2), (2, 3)]);
+    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
     let sp = reduction.target_problem();
 
@@ -117,7 +117,7 @@ fn test_reduction_structure() {
 #[test]
 fn test_matching_to_setpacking_star() {
     // Star graph: center vertex 0 connected to 1, 2, 3
-    let matching = MaximumMatching::<SimpleGraph, i32>::unweighted(4, vec![(0, 1), (0, 2), (0, 3)]);
+    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
     let sp = reduction.target_problem();
 
@@ -153,9 +153,12 @@ fn test_jl_parity_matching_to_setpacking() {
     for (fixture_str, label) in fixtures {
         let data: serde_json::Value = serde_json::from_str(fixture_str).unwrap();
         let inst = &jl_find_instance_by_label(&match_data, label)["instance"];
-        let source = MaximumMatching::<SimpleGraph, i32>::new(
-            inst["num_vertices"].as_u64().unwrap() as usize,
-            jl_parse_weighted_edges(inst),
+        let weighted_edges = jl_parse_weighted_edges(inst);
+        let edges: Vec<(usize, usize)> = weighted_edges.iter().map(|&(u, v, _)| (u, v)).collect();
+        let weights: Vec<i32> = weighted_edges.into_iter().map(|(_, _, w)| w).collect();
+        let source = MaximumMatching::new(
+            SimpleGraph::new(inst["num_vertices"].as_u64().unwrap() as usize, edges),
+            weights,
         );
         let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
         let solver = BruteForce::new();

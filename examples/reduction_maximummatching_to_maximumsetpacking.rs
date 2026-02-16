@@ -25,7 +25,7 @@ pub fn run() {
 
     // Petersen graph with unit weights
     let (num_vertices, edges) = petersen();
-    let source = MaximumMatching::<SimpleGraph, i32>::unweighted(num_vertices, edges.clone());
+    let source = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(num_vertices, edges.clone()));
 
     println!("Source: MaximumMatching on Petersen graph");
     println!("  Vertices: {}", num_vertices);

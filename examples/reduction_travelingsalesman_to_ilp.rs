@@ -21,16 +21,9 @@ use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     // 1. Create TSP instance: K4 with weights
-    let problem = TravelingSalesman::<SimpleGraph, i32>::new(
-        4,
-        vec![
-            (0, 1, 10),
-            (0, 2, 15),
-            (0, 3, 20),
-            (1, 2, 35),
-            (1, 3, 25),
-            (2, 3, 30),
-        ],
+    let problem = TravelingSalesman::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        vec![10, 15, 20, 35, 25, 30],
     );
 
     // 2. Reduce to ILP

@@ -310,7 +310,7 @@ mod sg_maxcut_reductions {
 
     #[test]
     fn test_maxcut_to_sg_basic() {
-        let maxcut = MaxCut::new(3, vec![(0, 1, 2), (1, 2, 1), (0, 2, 3)]);
+        let maxcut = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![2, 1, 3]);
 
         let result = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&maxcut);
         let sg = result.target_problem();

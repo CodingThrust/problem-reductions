@@ -22,7 +22,7 @@ use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     let (num_vertices, edges) = petersen();
-    let maxcut = MaxCut::<SimpleGraph, i32>::unweighted(num_vertices, edges.clone());
+    let maxcut = MaxCut::<_, i32>::unweighted(SimpleGraph::new(num_vertices, edges.clone()));
 
     let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&maxcut);
     let sg = reduction.target_problem();
