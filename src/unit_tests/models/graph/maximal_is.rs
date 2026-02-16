@@ -53,16 +53,15 @@ fn test_is_maximal() {
 
 #[test]
 fn test_is_maximal_independent_set_function() {
-    let edges = vec![(0, 1), (1, 2)];
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
 
-    assert!(is_maximal_independent_set(3, &edges, &[true, false, true]));
-    assert!(is_maximal_independent_set(3, &edges, &[false, true, false]));
+    assert!(is_maximal_independent_set(&graph, &[true, false, true]));
+    assert!(is_maximal_independent_set(&graph, &[false, true, false]));
     assert!(!is_maximal_independent_set(
-        3,
-        &edges,
+        &graph,
         &[true, false, false]
     )); // Can add 2
-    assert!(!is_maximal_independent_set(3, &edges, &[true, true, false])); // Not independent
+    assert!(!is_maximal_independent_set(&graph, &[true, true, false])); // Not independent
 }
 
 #[test]
@@ -95,8 +94,9 @@ fn test_is_weighted_empty() {
 }
 
 #[test]
+#[should_panic(expected = "selected length must match num_vertices")]
 fn test_is_maximal_independent_set_wrong_len() {
-    assert!(!is_maximal_independent_set(3, &[(0, 1)], &[true, false]));
+    is_maximal_independent_set(&SimpleGraph::new(3, vec![(0, 1)]), &[true, false]);
 }
 
 #[test]

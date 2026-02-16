@@ -113,9 +113,8 @@ impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
 
     /// Check if a configuration forms a valid Hamiltonian cycle.
     fn is_valid_hamiltonian_cycle(&self, config: &[usize]) -> bool {
-        let edges = self.graph.edges();
         let selected: Vec<bool> = config.iter().map(|&s| s == 1).collect();
-        is_hamiltonian_cycle(self.graph.num_vertices(), &edges, &selected)
+        is_hamiltonian_cycle(&self.graph, &selected)
     }
 }
 
@@ -164,16 +163,18 @@ where
 }
 
 /// Check if a selection of edges forms a valid Hamiltonian cycle.
-pub fn is_hamiltonian_cycle(
-    num_vertices: usize,
-    edges: &[(usize, usize)],
-    selected: &[bool],
-) -> bool {
-    if selected.len() != edges.len() {
-        return false;
-    }
+///
+/// # Panics
+/// Panics if `selected.len() != graph.num_edges()`.
+pub fn is_hamiltonian_cycle<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+    assert_eq!(
+        selected.len(),
+        graph.num_edges(),
+        "selected length must match num_edges"
+    );
 
-    let n = num_vertices;
+    let n = graph.num_vertices();
+    let edges = graph.edges();
     let mut degree = vec![0usize; n];
     let mut selected_count = 0;
     let mut first_vertex = None;
@@ -181,9 +182,6 @@ pub fn is_hamiltonian_cycle(
     for (idx, &sel) in selected.iter().enumerate() {
         if sel {
             let (u, v) = edges[idx];
-            if u >= n || v >= n {
-                return false;
-            }
             degree[u] += 1;
             degree[v] += 1;
             selected_count += 1;

@@ -40,16 +40,16 @@ fn test_closed_neighborhood() {
 
 #[test]
 fn test_is_dominating_set_function() {
-    let edges = vec![(0, 1), (0, 2), (0, 3)];
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
 
     // Center dominates all
-    assert!(is_dominating_set(4, &edges, &[true, false, false, false]));
+    assert!(is_dominating_set(&graph, &[true, false, false, false]));
     // All leaves dominate (leaf dominates center which dominates others)
-    assert!(is_dominating_set(4, &edges, &[false, true, true, true]));
+    assert!(is_dominating_set(&graph, &[false, true, true, true]));
     // Single leaf doesn't dominate other leaves
-    assert!(!is_dominating_set(4, &edges, &[false, true, false, false]));
+    assert!(!is_dominating_set(&graph, &[false, true, false, false]));
     // Empty doesn't dominate
-    assert!(!is_dominating_set(4, &edges, &[false, false, false, false]));
+    assert!(!is_dominating_set(&graph, &[false, false, false, false]));
 }
 
 #[test]
@@ -74,8 +74,9 @@ fn test_isolated_vertex() {
 }
 
 #[test]
+#[should_panic(expected = "selected length must match num_vertices")]
 fn test_is_dominating_set_wrong_len() {
-    assert!(!is_dominating_set(3, &[(0, 1)], &[true, false]));
+    is_dominating_set(&SimpleGraph::new(3, vec![(0, 1)]), &[true, false]);
 }
 
 #[test]

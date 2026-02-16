@@ -203,18 +203,21 @@ where
 }
 
 /// Check if a selection of edges forms a valid matching.
-pub fn is_matching(num_vertices: usize, edges: &[(usize, usize)], selected: &[bool]) -> bool {
-    if selected.len() != edges.len() {
-        return false;
-    }
+///
+/// # Panics
+/// Panics if `selected.len() != graph.num_edges()`.
+pub fn is_matching<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+    assert_eq!(
+        selected.len(),
+        graph.num_edges(),
+        "selected length must match num_edges"
+    );
 
-    let mut vertex_used = vec![false; num_vertices];
+    let edges = graph.edges();
+    let mut vertex_used = vec![false; graph.num_vertices()];
     for (idx, &sel) in selected.iter().enumerate() {
         if sel {
             let (u, v) = edges[idx];
-            if u >= num_vertices || v >= num_vertices {
-                return false;
-            }
             if vertex_used[u] || vertex_used[v] {
                 return false;
             }

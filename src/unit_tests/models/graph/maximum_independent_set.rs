@@ -39,17 +39,24 @@ fn test_has_edge() {
 
 #[test]
 fn test_is_independent_set_function() {
-    assert!(is_independent_set(3, &[(0, 1)], &[true, false, true]));
-    assert!(is_independent_set(3, &[(0, 1)], &[false, true, true]));
-    assert!(!is_independent_set(3, &[(0, 1)], &[true, true, false]));
     assert!(is_independent_set(
-        3,
-        &[(0, 1), (1, 2)],
+        &SimpleGraph::new(3, vec![(0, 1)]),
+        &[true, false, true]
+    ));
+    assert!(is_independent_set(
+        &SimpleGraph::new(3, vec![(0, 1)]),
+        &[false, true, true]
+    ));
+    assert!(!is_independent_set(
+        &SimpleGraph::new(3, vec![(0, 1)]),
+        &[true, true, false]
+    ));
+    assert!(is_independent_set(
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
         &[true, false, true]
     ));
     assert!(!is_independent_set(
-        3,
-        &[(0, 1), (1, 2)],
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
         &[false, true, true]
     ));
 }

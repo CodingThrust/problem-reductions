@@ -149,12 +149,14 @@ fn test_problem_name() {
 fn test_is_hamiltonian_cycle_function() {
     // Triangle: selecting all 3 edges is a valid Hamiltonian cycle
     assert!(is_hamiltonian_cycle(
-        3,
-        &[(0, 1), (1, 2), (0, 2)],
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         &[true, true, true]
     ));
     // Path: not a cycle
-    assert!(!is_hamiltonian_cycle(3, &[(0, 1), (1, 2)], &[true, true]));
+    assert!(!is_hamiltonian_cycle(
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        &[true, true]
+    ));
 }
 
 #[test]

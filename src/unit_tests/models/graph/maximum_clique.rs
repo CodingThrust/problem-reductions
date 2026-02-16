@@ -138,16 +138,24 @@ fn test_brute_force_weighted() {
 #[test]
 fn test_is_clique_function() {
     // Triangle
-    assert!(is_clique(3, &[(0, 1), (1, 2), (0, 2)], &[true, true, true]));
     assert!(is_clique(
-        3,
-        &[(0, 1), (1, 2), (0, 2)],
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        &[true, true, true]
+    ));
+    assert!(is_clique(
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         &[true, true, false]
     ));
 
     // Path - not all pairs adjacent
-    assert!(!is_clique(3, &[(0, 1), (1, 2)], &[true, false, true]));
-    assert!(is_clique(3, &[(0, 1), (1, 2)], &[true, true, false])); // Adjacent pair
+    assert!(!is_clique(
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        &[true, false, true]
+    ));
+    assert!(is_clique(
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        &[true, true, false]
+    )); // Adjacent pair
 }
 
 #[test]
@@ -216,9 +224,10 @@ fn test_weights_ref() {
 }
 
 #[test]
+#[should_panic(expected = "selected length must match num_vertices")]
 fn test_is_clique_wrong_len() {
-    // Wrong length should return false
-    assert!(!is_clique(3, &[(0, 1)], &[true, false]));
+    // Wrong length should panic
+    is_clique(&SimpleGraph::new(3, vec![(0, 1)]), &[true, false]);
 }
 
 #[test]

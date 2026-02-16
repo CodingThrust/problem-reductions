@@ -140,22 +140,22 @@ where
 impl<K: KValue, G: Graph + VariantParam> SatisfactionProblem for KColoring<K, G> {}
 
 /// Check if a coloring is valid for a graph.
-pub fn is_valid_coloring(
-    num_vertices: usize,
-    edges: &[(usize, usize)],
-    coloring: &[usize],
-    num_colors: usize,
-) -> bool {
-    if coloring.len() != num_vertices {
-        return false;
-    }
+///
+/// # Panics
+/// Panics if `coloring.len() != graph.num_vertices()`.
+pub fn is_valid_coloring<G: Graph>(graph: &G, coloring: &[usize], num_colors: usize) -> bool {
+    assert_eq!(
+        coloring.len(),
+        graph.num_vertices(),
+        "coloring length must match num_vertices"
+    );
     // Check all colors are valid
     if coloring.iter().any(|&c| c >= num_colors) {
         return false;
     }
     // Check no adjacent vertices have same color
-    for &(u, v) in edges {
-        if u < coloring.len() && v < coloring.len() && coloring[u] == coloring[v] {
+    for (u, v) in graph.edges() {
+        if coloring[u] == coloring[v] {
             return false;
         }
     }

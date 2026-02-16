@@ -45,12 +45,12 @@ fn test_is_valid_matching() {
 
 #[test]
 fn test_is_matching_function() {
-    let edges = vec![(0, 1), (1, 2), (2, 3)];
+    let graph = SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]);
 
-    assert!(is_matching(4, &edges, &[true, false, true])); // Disjoint
-    assert!(is_matching(4, &edges, &[false, true, false])); // Single edge
-    assert!(!is_matching(4, &edges, &[true, true, false])); // Share vertex 1
-    assert!(is_matching(4, &edges, &[false, false, false])); // Empty is valid
+    assert!(is_matching(&graph, &[true, false, true])); // Disjoint
+    assert!(is_matching(&graph, &[false, true, false])); // Single edge
+    assert!(!is_matching(&graph, &[true, true, false])); // Share vertex 1
+    assert!(is_matching(&graph, &[false, false, false])); // Empty is valid
 }
 
 #[test]
@@ -81,15 +81,10 @@ fn test_empty_sets() {
 }
 
 #[test]
+#[should_panic(expected = "selected length must match num_edges")]
 fn test_is_matching_wrong_len() {
-    let edges = vec![(0, 1), (1, 2)];
-    assert!(!is_matching(3, &edges, &[true])); // Wrong length
-}
-
-#[test]
-fn test_is_matching_out_of_bounds() {
-    let edges = vec![(0, 5)]; // Vertex 5 doesn't exist
-    assert!(!is_matching(3, &edges, &[true]));
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    is_matching(&graph, &[true]); // Wrong length
 }
 
 #[test]

@@ -145,19 +145,19 @@ fn is_independent_set_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 /// Check if a set of vertices forms an independent set.
 ///
 /// # Arguments
-/// * `num_vertices` - Total number of vertices
-/// * `edges` - List of edges as (u, v) pairs
+/// * `graph` - The graph
 /// * `selected` - Boolean slice indicating which vertices are selected
-pub fn is_independent_set(
-    num_vertices: usize,
-    edges: &[(usize, usize)],
-    selected: &[bool],
-) -> bool {
-    if selected.len() != num_vertices {
-        return false;
-    }
-    for &(u, v) in edges {
-        if u < selected.len() && v < selected.len() && selected[u] && selected[v] {
+///
+/// # Panics
+/// Panics if `selected.len() != graph.num_vertices()`.
+pub fn is_independent_set<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+    assert_eq!(
+        selected.len(),
+        graph.num_vertices(),
+        "selected length must match num_vertices"
+    );
+    for (u, v) in graph.edges() {
+        if selected[u] && selected[v] {
             return false;
         }
     }

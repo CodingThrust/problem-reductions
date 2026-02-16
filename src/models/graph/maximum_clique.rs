@@ -156,13 +156,17 @@ fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 /// Check if a set of vertices forms a clique.
 ///
 /// # Arguments
-/// * `num_vertices` - Total number of vertices
-/// * `edges` - List of edges as (u, v) pairs
+/// * `graph` - The graph
 /// * `selected` - Boolean slice indicating which vertices are selected
-pub fn is_clique(num_vertices: usize, edges: &[(usize, usize)], selected: &[bool]) -> bool {
-    if selected.len() != num_vertices {
-        return false;
-    }
+///
+/// # Panics
+/// Panics if `selected.len() != graph.num_vertices()`.
+pub fn is_clique<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+    assert_eq!(
+        selected.len(),
+        graph.num_vertices(),
+        "selected length must match num_vertices"
+    );
 
     // Collect selected vertices
     let selected_vertices: Vec<usize> = selected
@@ -172,19 +176,10 @@ pub fn is_clique(num_vertices: usize, edges: &[(usize, usize)], selected: &[bool
         .map(|(i, _)| i)
         .collect();
 
-    // Build adjacency set for O(1) edge lookup
-    use std::collections::HashSet;
-    let edge_set: HashSet<(usize, usize)> = edges
-        .iter()
-        .flat_map(|&(u, v)| vec![(u, v), (v, u)])
-        .collect();
-
     // Check all pairs of selected vertices are adjacent
     for i in 0..selected_vertices.len() {
         for j in (i + 1)..selected_vertices.len() {
-            let u = selected_vertices[i];
-            let v = selected_vertices[j];
-            if !edge_set.contains(&(u, v)) {
+            if !graph.has_edge(selected_vertices[i], selected_vertices[j]) {
                 return false;
             }
         }

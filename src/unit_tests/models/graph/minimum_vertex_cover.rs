@@ -22,16 +22,20 @@ fn test_vertex_cover_with_weights() {
 
 #[test]
 fn test_is_vertex_cover_function() {
-    assert!(is_vertex_cover(3, &[(0, 1), (1, 2)], &[false, true, false]));
-    assert!(is_vertex_cover(3, &[(0, 1), (1, 2)], &[true, false, true]));
+    assert!(is_vertex_cover(
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        &[false, true, false]
+    ));
+    assert!(is_vertex_cover(
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        &[true, false, true]
+    ));
     assert!(!is_vertex_cover(
-        3,
-        &[(0, 1), (1, 2)],
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
         &[true, false, false]
     ));
     assert!(!is_vertex_cover(
-        3,
-        &[(0, 1), (1, 2)],
+        &SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
         &[false, false, false]
     ));
 }
@@ -63,9 +67,10 @@ fn test_complement_relationship() {
 }
 
 #[test]
+#[should_panic(expected = "selected length must match num_vertices")]
 fn test_is_vertex_cover_wrong_len() {
-    // Wrong length should return false
-    assert!(!is_vertex_cover(3, &[(0, 1)], &[true, false]));
+    // Wrong length should panic
+    is_vertex_cover(&SimpleGraph::new(3, vec![(0, 1)]), &[true, false]);
 }
 
 #[test]

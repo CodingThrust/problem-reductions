@@ -167,37 +167,29 @@ where
 }
 
 /// Check if a set is a maximal independent set.
-pub fn is_maximal_independent_set(
-    num_vertices: usize,
-    edges: &[(usize, usize)],
-    selected: &[bool],
-) -> bool {
-    if selected.len() != num_vertices {
-        return false;
-    }
-
-    // Build adjacency
-    let mut adj: Vec<Vec<usize>> = vec![vec![]; num_vertices];
-    for &(u, v) in edges {
-        if u < num_vertices && v < num_vertices {
-            adj[u].push(v);
-            adj[v].push(u);
-        }
-    }
+///
+/// # Panics
+/// Panics if `selected.len() != graph.num_vertices()`.
+pub fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+    assert_eq!(
+        selected.len(),
+        graph.num_vertices(),
+        "selected length must match num_vertices"
+    );
 
     // Check independence
-    for &(u, v) in edges {
-        if u < selected.len() && v < selected.len() && selected[u] && selected[v] {
+    for (u, v) in graph.edges() {
+        if selected[u] && selected[v] {
             return false;
         }
     }
 
-    // Check maximality
-    for v in 0..num_vertices {
+    // Check maximality: no unselected vertex can be added
+    for v in 0..graph.num_vertices() {
         if selected[v] {
             continue;
         }
-        let can_add = adj[v].iter().all(|&u| !selected[u]);
+        let can_add = graph.neighbors(v).iter().all(|&u| !selected[u]);
         if can_add {
             return false;
         }

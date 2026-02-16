@@ -83,14 +83,20 @@ fn test_triangle_2_colors() {
 
 #[test]
 fn test_is_valid_coloring_function() {
-    let edges = vec![(0, 1), (1, 2)];
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
 
-    assert!(is_valid_coloring(3, &edges, &[0, 1, 0], 2));
-    assert!(is_valid_coloring(3, &edges, &[0, 1, 2], 3));
-    assert!(!is_valid_coloring(3, &edges, &[0, 0, 1], 2)); // 0-1 conflict
-    assert!(!is_valid_coloring(3, &edges, &[0, 1, 1], 2)); // 1-2 conflict
-    assert!(!is_valid_coloring(3, &edges, &[0, 1], 2)); // Wrong length
-    assert!(!is_valid_coloring(3, &edges, &[0, 2, 0], 2)); // Color out of range
+    assert!(is_valid_coloring(&graph, &[0, 1, 0], 2));
+    assert!(is_valid_coloring(&graph, &[0, 1, 2], 3));
+    assert!(!is_valid_coloring(&graph, &[0, 0, 1], 2)); // 0-1 conflict
+    assert!(!is_valid_coloring(&graph, &[0, 1, 1], 2)); // 1-2 conflict
+    assert!(!is_valid_coloring(&graph, &[0, 2, 0], 2)); // Color out of range
+}
+
+#[test]
+#[should_panic(expected = "coloring length must match num_vertices")]
+fn test_is_valid_coloring_wrong_len() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    is_valid_coloring(&graph, &[0, 1], 2); // Wrong length
 }
 
 #[test]
