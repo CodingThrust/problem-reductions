@@ -700,12 +700,18 @@ fn test_classify_problem_category() {
 }
 
 #[test]
-fn test_find_executable_path_direct() {
+fn test_make_executable_direct() {
     let graph = ReductionGraph::new();
-    let path = graph.find_executable_path::<
+    let rpath = graph
+        .find_shortest_path::<
+            MaximumIndependentSet<SimpleGraph, i32>,
+            MinimumVertexCover<SimpleGraph, i32>,
+        >()
+        .unwrap();
+    let path = graph.make_executable::<
         MaximumIndependentSet<SimpleGraph, i32>,
         MinimumVertexCover<SimpleGraph, i32>,
-    >();
+    >(&rpath);
     assert!(path.is_some());
 }
 
@@ -715,11 +721,17 @@ fn test_chained_reduction_direct() {
     use crate::traits::Problem;
 
     let graph = ReductionGraph::new();
-    let path = graph
-        .find_executable_path::<
+    let rpath = graph
+        .find_shortest_path::<
             MaximumIndependentSet<SimpleGraph, i32>,
             MinimumVertexCover<SimpleGraph, i32>,
         >()
+        .unwrap();
+    let path = graph
+        .make_executable::<
+            MaximumIndependentSet<SimpleGraph, i32>,
+            MinimumVertexCover<SimpleGraph, i32>,
+        >(&rpath)
         .unwrap();
 
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
@@ -739,11 +751,17 @@ fn test_chained_reduction_multi_step() {
     use crate::traits::Problem;
 
     let graph = ReductionGraph::new();
-    let path = graph
-        .find_executable_path::<
+    let rpath = graph
+        .find_shortest_path::<
             MaximumIndependentSet<SimpleGraph, i32>,
             MaximumSetPacking<i32>,
         >()
+        .unwrap();
+    let path = graph
+        .make_executable::<
+            MaximumIndependentSet<SimpleGraph, i32>,
+            MaximumSetPacking<i32>,
+        >(&rpath)
         .unwrap();
 
     let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
@@ -760,26 +778,40 @@ fn test_chained_reduction_multi_step() {
 #[test]
 fn test_chained_reduction_with_variant_casts() {
     use crate::models::satisfiability::{CNFClause, KSatisfiability};
+    use crate::rules::MinimizeSteps;
     use crate::solvers::{BruteForce, Solver};
     use crate::topology::UnitDiskGraph;
     use crate::traits::Problem;
+    use crate::types::ProblemSize;
 
     let graph = ReductionGraph::new();
 
     // MIS<UnitDiskGraph, i32> -> MIS<SimpleGraph, i32> (variant cast) -> MVC<SimpleGraph, i32>
-    let path = graph.find_executable_path::<
-        MaximumIndependentSet<UnitDiskGraph, i32>,
-        MinimumVertexCover<SimpleGraph, i32>,
-    >();
+    // Use find_cheapest_path for exact variant matching (not name-based find_shortest_path)
+    let src_var = ReductionGraph::variant_to_map(&MaximumIndependentSet::<UnitDiskGraph, i32>::variant());
+    let dst_var = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let rpath = graph.find_cheapest_path(
+        "MaximumIndependentSet", &src_var,
+        "MinimumVertexCover", &dst_var,
+        &ProblemSize::new(vec![]),
+        &MinimizeSteps,
+    );
     assert!(
-        path.is_some(),
+        rpath.is_some(),
         "Should find path from MIS<UnitDiskGraph> to MVC<SimpleGraph> via variant cast"
     );
-    let path = path.unwrap();
+    let rpath = rpath.unwrap();
     assert!(
-        path.len() >= 2,
+        rpath.len() >= 2,
         "Path should cross variant cast boundary (at least 2 steps)"
     );
+
+    let path = graph
+        .make_executable::<
+            MaximumIndependentSet<UnitDiskGraph, i32>,
+            MinimumVertexCover<SimpleGraph, i32>,
+        >(&rpath)
+        .unwrap();
 
     // Create a small UnitDiskGraph MIS problem (triangle of close nodes)
     let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (0.5, 0.0), (0.25, 0.4)], 1.0);
@@ -795,15 +827,21 @@ fn test_chained_reduction_with_variant_casts() {
     assert!(metric.is_valid());
 
     // Also test the KSat<K3> -> Sat -> MIS multi-step path
-    let ksat_path = graph.find_executable_path::<
+    let ksat_rpath = graph.find_shortest_path::<
         KSatisfiability<crate::variant::K3>,
         MaximumIndependentSet<SimpleGraph, i32>,
     >();
     assert!(
-        ksat_path.is_some(),
+        ksat_rpath.is_some(),
         "Should find path from KSat<K3> to MIS"
     );
-    let ksat_path = ksat_path.unwrap();
+    let ksat_rpath = ksat_rpath.unwrap();
+    let ksat_path = graph
+        .make_executable::<
+            KSatisfiability<crate::variant::K3>,
+            MaximumIndependentSet<SimpleGraph, i32>,
+        >(&ksat_rpath)
+        .unwrap();
 
     // Create a 3-SAT formula
     let ksat = KSatisfiability::<crate::variant::K3>::new(

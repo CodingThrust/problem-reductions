@@ -275,21 +275,23 @@ impl ReductionGraph {
             .collect()
     }
 
+    /// Look up a variant node by name and variant map.
+    fn lookup_node(
+        &self,
+        name: &str,
+        variant: &BTreeMap<String, String>,
+    ) -> Option<NodeIndex> {
+        let nodes = self.name_to_nodes.get(name)?;
+        nodes
+            .iter()
+            .find(|&&idx| self.nodes[self.graph[idx]].variant == *variant)
+            .copied()
+    }
+
     /// Find the cheapest path between two specific problem variants.
     ///
     /// Uses Dijkstra's algorithm on the variant-level graph from the exact
     /// source variant node to the exact target variant node.
-    ///
-    /// # Arguments
-    /// - `source`: source problem name
-    /// - `source_variant`: variant key-value pairs for the source
-    /// - `target`: target problem name
-    /// - `target_variant`: variant key-value pairs for the target
-    /// - `input_size`: Initial problem size for cost calculations
-    /// - `cost_fn`: Custom cost function for path optimization
-    ///
-    /// # Returns
-    /// The cheapest path if one exists.
     pub fn find_cheapest_path<C: PathCostFn>(
         &self,
         source: &str,
@@ -299,30 +301,43 @@ impl ReductionGraph {
         input_size: &ProblemSize,
         cost_fn: &C,
     ) -> Option<ReductionPath> {
-        let src_ref = VariantRef {
-            name: source.to_string(),
-            variant: source_variant.clone(),
-        };
-        let dst_ref = VariantRef {
-            name: target.to_string(),
-            variant: target_variant.clone(),
-        };
+        let src = self.lookup_node(source, source_variant)?;
+        let dst = self.lookup_node(target, target_variant)?;
+        let node_path = self.dijkstra(src, dst, input_size, cost_fn)?;
+        Some(self.node_path_to_reduction_path(&node_path))
+    }
 
-        let src_idx = self.find_node_index(&src_ref)?;
-        let dst_idx = self.find_node_index(&dst_ref)?;
-
+    /// Core Dijkstra search on node indices.
+    fn dijkstra<C: PathCostFn>(
+        &self,
+        src: NodeIndex,
+        dst: NodeIndex,
+        input_size: &ProblemSize,
+        cost_fn: &C,
+    ) -> Option<Vec<NodeIndex>> {
         let mut costs: HashMap<NodeIndex, f64> = HashMap::new();
         let mut sizes: HashMap<NodeIndex, ProblemSize> = HashMap::new();
-        let mut prev: HashMap<NodeIndex, (NodeIndex, petgraph::graph::EdgeIndex)> = HashMap::new();
+        let mut prev: HashMap<NodeIndex, NodeIndex> = HashMap::new();
         let mut heap = BinaryHeap::new();
 
-        costs.insert(src_idx, 0.0);
-        sizes.insert(src_idx, input_size.clone());
-        heap.push(Reverse((OrderedFloat(0.0), src_idx)));
+        costs.insert(src, 0.0);
+        sizes.insert(src, input_size.clone());
+        heap.push(Reverse((OrderedFloat(0.0), src)));
 
         while let Some(Reverse((cost, node))) = heap.pop() {
-            if node == dst_idx {
-                return Some(self.reconstruct_path(&prev, src_idx, dst_idx));
+            if node == dst {
+                let mut path = vec![dst];
+                let mut current = dst;
+                while current != src {
+                    if let Some(&prev_node) = prev.get(&current) {
+                        path.push(prev_node);
+                        current = prev_node;
+                    } else {
+                        break;
+                    }
+                }
+                path.reverse();
+                return Some(path);
             }
 
             if cost.0 > *costs.get(&node).unwrap_or(&f64::INFINITY) {
@@ -345,7 +360,7 @@ impl ReductionGraph {
                 if new_cost < *costs.get(&next).unwrap_or(&f64::INFINITY) {
                     costs.insert(next, new_cost);
                     sizes.insert(next, new_size);
-                    prev.insert(next, (node, edge_ref.id()));
+                    prev.insert(next, node);
                     heap.push(Reverse((OrderedFloat(new_cost), next)));
                 }
             }
@@ -354,32 +369,18 @@ impl ReductionGraph {
         None
     }
 
-    /// Reconstruct a variant-level path from the predecessor map.
-    fn reconstruct_path(
-        &self,
-        prev: &HashMap<NodeIndex, (NodeIndex, petgraph::graph::EdgeIndex)>,
-        src: NodeIndex,
-        dst: NodeIndex,
-    ) -> ReductionPath {
-        let mut steps = vec![ReductionStep {
-            name: self.nodes[self.graph[dst]].name.to_string(),
-            variant: self.nodes[self.graph[dst]].variant.clone(),
-        }];
-        let mut current = dst;
-
-        while current != src {
-            if let Some(&(prev_node, _)) = prev.get(&current) {
-                steps.push(ReductionStep {
-                    name: self.nodes[self.graph[prev_node]].name.to_string(),
-                    variant: self.nodes[self.graph[prev_node]].variant.clone(),
-                });
-                current = prev_node;
-            } else {
-                break;
-            }
-        }
-
-        steps.reverse();
+    /// Convert a node index path to a `ReductionPath`.
+    fn node_path_to_reduction_path(&self, node_path: &[NodeIndex]) -> ReductionPath {
+        let steps = node_path
+            .iter()
+            .map(|&idx| {
+                let node = &self.nodes[self.graph[idx]];
+                ReductionStep {
+                    name: node.name.to_string(),
+                    variant: node.variant.clone(),
+                }
+            })
+            .collect();
         ReductionPath { steps }
     }
 
@@ -800,60 +801,24 @@ impl<S: Problem, T: Problem + 'static> ChainedReduction<S, T> {
 }
 
 impl ReductionGraph {
-    /// Find a typed, executable reduction path from `S` to `T`.
-    pub fn find_executable_path<S: Problem + 'static, T: Problem + 'static>(
+    /// Convert a `ReductionPath` into a typed, executable path.
+    ///
+    /// Looks up each edge's `reduce_fn` from the graph along the path steps.
+    pub fn make_executable<S: Problem, T: Problem>(
         &self,
+        path: &ReductionPath,
     ) -> Option<ExecutablePath<S, T>> {
-        let source_variant = Self::variant_to_map(&S::variant());
-        let target_variant = Self::variant_to_map(&T::variant());
-
-        let src_ref = VariantRef {
-            name: S::NAME.to_string(),
-            variant: source_variant,
-        };
-        let dst_ref = VariantRef {
-            name: T::NAME.to_string(),
-            variant: target_variant,
-        };
-
-        // Find exact source and target nodes
-        let src_idx = self.find_node_index(&src_ref)?;
-        let dst_idx = self.find_node_index(&dst_ref)?;
-
-        // Find shortest path using astar
-        let path_indices = petgraph::algo::astar(
-            &self.graph,
-            src_idx,
-            |n| n == dst_idx,
-            |_| 1,
-            |_| 0,
-        )?
-        .1;
-
-        // Collect reduce_fns along the path edges
         let mut edge_fns = Vec::new();
-        for window in path_indices.windows(2) {
-            let edge_idx = self.graph.find_edge(window[0], window[1])?;
-            let edge_data = &self.graph[edge_idx];
-            edge_fns.push(edge_data.reduce_fn);
+        for window in path.steps.windows(2) {
+            let src = self.lookup_node(&window[0].name, &window[0].variant)?;
+            let dst = self.lookup_node(&window[1].name, &window[1].variant)?;
+            let edge_idx = self.graph.find_edge(src, dst)?;
+            edge_fns.push(self.graph[edge_idx].reduce_fn);
         }
-
         Some(ExecutablePath {
             edge_fns,
             _phantom: PhantomData,
         })
-    }
-
-    /// Find the node index matching a variant reference.
-    fn find_node_index(&self, vref: &VariantRef) -> Option<NodeIndex> {
-        let nodes = self.name_to_nodes.get(vref.name.as_str())?;
-        nodes
-            .iter()
-            .find(|&&idx| {
-                let node = &self.nodes[self.graph[idx]];
-                node.variant == vref.variant
-            })
-            .copied()
     }
 }
 

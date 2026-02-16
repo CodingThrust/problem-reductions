@@ -56,8 +56,8 @@ assert!(metric.is_valid());
 ### Chaining Reductions
 
 Reductions compose into multi-step chains. The `ReductionGraph` discovers
-paths through the variant-level graph and `find_executable_path` returns a
-typed `ExecutablePath<S, T>` that chains the steps automatically — you call
+paths through the variant-level graph. Find a `ReductionPath` first, then
+convert it to a typed `ExecutablePath<S, T>` via `make_executable()`. Call
 `reduce()` once and get a `ChainedReduction` with `target_problem()` and
 `extract_solution()`, just like a single-step reduction.
 
@@ -70,8 +70,11 @@ use problemreductions::topology::SimpleGraph;
 use problemreductions::rules::ReductionGraph;
 
 let graph = ReductionGraph::new();
+let rpath = graph
+    .find_shortest_path::<KSatisfiability<K3>, MaximumIndependentSet<SimpleGraph, i32>>()
+    .unwrap();
 let path = graph
-    .find_executable_path::<KSatisfiability<K3>, MaximumIndependentSet<SimpleGraph, i32>>()
+    .make_executable::<KSatisfiability<K3>, MaximumIndependentSet<SimpleGraph, i32>>(&rpath)
     .unwrap();
 
 // Create: 3-SAT formula (a∨b∨¬c)∧(¬a∨¬b∨¬c)∧(¬a∨b∨c)∧(a∨¬b∨c)
