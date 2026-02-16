@@ -7,7 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::types::{Direction, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
@@ -175,6 +175,13 @@ impl Problem for PaintShop {
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
+    }
+
+    fn problem_size(&self) -> ProblemSize {
+        ProblemSize::new(vec![
+            ("num_cars", self.num_cars()),
+            ("num_sequence", self.sequence_len()),
+        ])
     }
 }
 

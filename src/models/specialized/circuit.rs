@@ -281,6 +281,13 @@ impl Problem for CircuitSAT {
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
+
+    fn problem_size(&self) -> crate::types::ProblemSize {
+        crate::types::ProblemSize::new(vec![
+            ("num_variables", self.num_variables()),
+            ("num_assignments", self.circuit().num_assignments()),
+        ])
+    }
 }
 
 impl SatisfactionProblem for CircuitSAT {}

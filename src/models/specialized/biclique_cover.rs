@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::types::{Direction, ProblemSize, SolutionSize};
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -115,6 +115,16 @@ impl BicliqueCover {
             edges,
             k,
         }
+    }
+
+    /// Get the left partition size.
+    pub fn left_size(&self) -> usize {
+        self.left_size
+    }
+
+    /// Get the right partition size.
+    pub fn right_size(&self) -> usize {
+        self.right_size
     }
 
     /// Get the number of vertices.
@@ -227,6 +237,15 @@ impl Problem for BicliqueCover {
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
+    }
+
+    fn problem_size(&self) -> ProblemSize {
+        ProblemSize::new(vec![
+            ("left_size", self.left_size()),
+            ("right_size", self.right_size()),
+            ("num_edges", self.num_edges()),
+            ("rank", self.k()),
+        ])
     }
 }
 
