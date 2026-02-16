@@ -15,38 +15,38 @@ use problemreductions::types::ProblemSize;
 pub fn run() {
     // ANCHOR: example
     // ANCHOR: step1
-    let graph = ReductionGraph::new();
-
-    // Find reduction path: Factoring -> ... -> SpinGlass
-    let src_var = ReductionGraph::variant_to_map(&Factoring::variant());
-    let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
+    let graph = ReductionGraph::new(); // all registered reductions
+    let src_var = ReductionGraph::variant_to_map(&Factoring::variant()); // {} (no variant params)
+    let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant()); // {graph: "SimpleGraph", weight: "f64"}
     let rpath = graph
         .find_cheapest_path(
-            "Factoring",
-            &src_var,
-            "SpinGlass",
-            &dst_var,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
+            "Factoring",              // source problem name
+            &src_var,                 // source variant map
+            "SpinGlass",              // target problem name
+            &dst_var,                 // target variant map
+            &ProblemSize::new(vec![]), // input size (empty = unknown)
+            &MinimizeSteps,           // cost function: fewest hops
         )
         .unwrap();
     println!("  {}", rpath);
     // ANCHOR_END: step1
 
     // ANCHOR: step2
-    // Create: factor 6 = p × q with 2-bit factors (mirrors Julia's Factoring(2, 2, 6))
-    let factoring = Factoring::new(2, 2, 6);
+    let factoring = Factoring::new(
+        2, // num_bits_first:  p is a 2-bit factor
+        2, // num_bits_second: q is a 2-bit factor
+        6, // target_product:  find p × q = 6
+    );
     // ANCHOR_END: step2
 
     // ANCHOR: step3
-    // Solve Factoring via ILP
+    // solve_reduced: reduce → ILP, solve with HiGHS, extract back
     let solver = ILPSolver::new();
     let solution = solver.solve_reduced(&factoring).unwrap();
     // ANCHOR_END: step3
 
     // ANCHOR: step4
-    // Extract and display the factors
-    let (p, q) = factoring.read_factors(&solution);
+    let (p, q) = factoring.read_factors(&solution); // decode bit assignments → integers
     println!("{} = {} × {}", factoring.target(), p, q);
     assert_eq!(p * q, 6, "Factors should multiply to 6");
     // ANCHOR_END: step4

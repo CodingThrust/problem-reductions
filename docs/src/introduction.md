@@ -71,7 +71,7 @@ This library is the foundation of that effort: an open-source, extensible reduct
 3. **Review AI-generated code** — AI generates code and you can comment on the pull request
 4. **Merge** — ask maintainers' assistance to merge once you are satisfied
 
-For manual implementation, see the [Architecture](./arch.md#contributing) guide.
+For manual implementation, see the [Design](./design.md#contributing) guide.
 
 ## License
 

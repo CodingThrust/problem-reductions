@@ -5,11 +5,11 @@
 [![codecov](https://codecov.io/github/CodingThrust/problem-reductions/graph/badge.svg?token=0CdEC8GHN0)](https://codecov.io/github/CodingThrust/problem-reductions)
 [![Docs](https://img.shields.io/badge/docs-API-blue)](https://codingthrust.github.io/problem-reductions/)
 
-A Rust library for NP-hard problem definitions and reductions. We aim to implement >100 NP-hard problems and reductions rule between them, under the assistance of AI.
+A Rust library for NP-hard problem definitions and reductions. We aim to implement [100+ problems and reduction rules](https://codingthrust.github.io/problem-reductions/) between them, with automatic reduction path search. Built with AI assistance.
 
 This infrastructure aims to solve two problems:
-- Given a hard problem $A$, reduce it to the most vaible problem $B$, to be solved efficiently with an external solver.
-- Given a solver $S$ for problem $B$, explore how efficient it can be used for solving other problems.
+- Given a hard problem $A$, reduce it to the most viable problem $B$, to be solved efficiently with an external solver.
+- Given a solver $S$ for problem $B$, explore how efficiently it can be used for solving other problems.
 
 Download [PDF manual](https://codingthrust.github.io/problem-reductions/reductions.pdf) for humans.
 
@@ -19,30 +19,10 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-problemreductions = "0.1"
+problemreductions = "0.2"
 ```
 
-## Quick Start
-
-```rust
-use problemreductions::prelude::*;
-use problemreductions::models::optimization::ILP;
-
-// Create an Independent Set problem on a path graph
-let problem = IndependentSet::<i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-
-// Reduce to Integer Linear Programming
-let reduction = ReduceTo::<ILP>::reduce_to(&problem);
-let ilp = reduction.target_problem();
-
-// Solve with ILP solver (efficient for larger instances)
-let solver = ILPSolver::new();
-let ilp_solution = solver.solve(ilp).unwrap();
-
-// Extract solution back to original problem
-let solution = reduction.extract_solution(&ilp_solution);
-assert_eq!(solution.iter().sum::<usize>(), 2); // Max IS size is 2
-```
+See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples and the reduction workflow.
 
 ## Contributing
 

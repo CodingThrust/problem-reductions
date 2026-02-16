@@ -8,7 +8,7 @@
 //!
 //! ## Features
 //!
-//! - **Problem Definitions**: Implementations of 18+ NP-hard problems
+//! - **Problem Definitions**: Implementations of 21+ NP-hard problems
 //! - **Reduction Rules**: Transform problems into equivalent problems
 //! - **Solvers**: Brute-force solver for testing and verification
 //! - **Validation**: Utilities to verify solution validity
@@ -44,20 +44,23 @@
 //! - MaximalIS: Maximal independent set
 //! - MinimumVertexCover: Minimum weight vertex cover
 //! - MinimumDominatingSet: Minimum dominating set
-//! - Coloring: K-vertex coloring
+//! - MaximumClique: Maximum weight clique
+//! - MaxCut: Maximum cut on weighted graphs
+//! - MaximumMatching: Maximum weight matching
+//! - KColoring: K-vertex coloring
+//! - TravelingSalesman: Minimum weight Hamiltonian cycle
 //!
 //! ### Set Problems
 //! - MinimumSetCovering: Minimum weight set cover
 //! - MaximumSetPacking: Maximum weight set packing
 //!
 //! ### Optimization Problems
-//! - MaxCut: Maximum cut on weighted graphs
 //! - SpinGlass: Ising model Hamiltonian
 //! - QUBO: Quadratic unconstrained binary optimization
-//! - MaximumMatching: Maximum weight matching
+//! - ILP: Integer linear programming
 //!
 //! ### Specialized Problems
-//! - Paintshop: Minimize color switches
+//! - PaintShop: Minimize color switches
 //! - BicliqueCover: Biclique cover on bipartite graphs
 //! - BMF: Boolean matrix factorization
 

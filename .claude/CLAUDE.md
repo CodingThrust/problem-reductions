@@ -26,6 +26,7 @@ make clean          # Clean build artifacts
 make diagrams      # Generate SVG diagrams from Typst (light + dark)
 make examples      # Generate example JSON for paper
 make compare       # Generate and compare Rust mapping exports
+make jl-testdata   # Regenerate Julia parity test data (requires julia)
 make run-plan      # Execute a plan with Claude autorun
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 ```
@@ -44,7 +45,7 @@ make test clippy  # Must pass before PR
 - `src/models/` - Problem implementations (SAT, Graph, Set, Optimization)
 - `src/rules/` - Reduction rules + inventory registration
 - `src/solvers/` - BruteForce solver, ILP solver (feature-gated)
-- `src/traits.rs` - `Problem`, `OptimizationProblem` traits
+- `src/traits.rs` - `Problem`, `OptimizationProblem`, `SatisfactionProblem` traits
 - `src/rules/traits.rs` - `ReduceTo<T>`, `ReductionResult` traits
 - `src/registry/` - Compile-time reduction metadata collection
 - `src/unit_tests/` - Unit test files (mirroring `src/` structure, referenced via `#[path]`)
@@ -63,15 +64,19 @@ Problem (core trait — all problems must implement)
 ├── fn dims(&self) -> Vec<usize>       // config space: [2, 2, 2] for 3 binary variables
 ├── fn evaluate(&self, config) -> Metric
 ├── fn variant() -> Vec<(&str, &str)>  // e.g., [("graph","SimpleGraph"), ("weight","i32")]
-└── fn num_variables(&self) -> usize   // default: dims().len()
+├── fn num_variables(&self) -> usize   // default: dims().len()
+├── fn problem_size_names() -> &[&str] // static field names for size metrics
+└── fn problem_size_values(&self) -> Vec<usize>  // instance-level size values
 
 OptimizationProblem : Problem<Metric = SolutionSize<Self::Value>> (extension for optimization)
 │
 ├── type Value: PartialOrd + Clone     // inner objective type (i32, f64, etc.)
 └── fn direction(&self) -> Direction   // Maximize or Minimize
+
+SatisfactionProblem : Problem<Metric = bool> (marker trait for decision problems)
 ```
 
-**Satisfaction problems** (e.g., `Satisfiability`) use `Metric = bool` and do not implement `OptimizationProblem`.
+**Satisfaction problems** (e.g., `Satisfiability`) use `Metric = bool` and implement `SatisfactionProblem`.
 
 **Optimization problems** (e.g., `MaximumIndependentSet`) use `Metric = SolutionSize<W>` where:
 ```rust
@@ -84,7 +89,7 @@ enum Direction { Maximize, Minimize }
 - `ReductionResult` provides `target_problem()` and `extract_solution()`
 - `Solver::find_best()` → `Option<Vec<usize>>` for optimization problems; `Solver::find_satisfying()` → `Option<Vec<usize>>` for `Metric = bool`
 - `BruteForce::find_all_best()` / `find_all_satisfying()` return `Vec<Vec<usize>>` for all optimal/satisfying solutions
-- Graph types: SimpleGraph, GridGraph, UnitDiskGraph, Triangular, HyperGraph
+- Graph types: HyperGraph, SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
 - Weight types: `One` (unit weight marker), `i32`, `f64` — all implement `WeightElement` trait
 - `WeightElement` trait: `type Sum: NumericSize` + `fn to_sum(&self)` — converts weight to a summable numeric type
 - Weight management via inherent methods (`weights()`, `set_weights()`, `is_weighted()`), not traits
@@ -94,7 +99,7 @@ enum Direction { Maximize, Minimize }
 Problem types use explicit optimization prefixes:
 - `MaximumIndependentSet`, `MaximumClique`, `MaximumMatching`, `MaximumSetPacking`
 - `MinimumVertexCover`, `MinimumDominatingSet`, `MinimumSetCovering`
-- No prefix: `MaxCut`, `SpinGlass`, `QUBO`, `ILP`, `Satisfiability`, `KSatisfiability`, `CircuitSAT`, `Factoring`, `MaximalIS`, `PaintShop`, `BicliqueCover`, `BMF`
+- No prefix: `MaxCut`, `SpinGlass`, `QUBO`, `ILP`, `Satisfiability`, `KSatisfiability`, `CircuitSAT`, `Factoring`, `MaximalIS`, `PaintShop`, `BicliqueCover`, `BMF`, `KColoring`, `TravelingSalesman`
 
 ### Problem Variant IDs
 Reduction graph nodes use variant key-value pairs from `Problem::variant()`:

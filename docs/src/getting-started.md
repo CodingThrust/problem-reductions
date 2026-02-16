@@ -10,7 +10,7 @@ Add to your `Cargo.toml`:
 
 ```toml
 [dependencies]
-problemreductions = "0.1"
+problemreductions = "0.2"
 ```
 
 ## The Reduction Workflow
@@ -28,10 +28,10 @@ The core workflow is: **create** a problem, **reduce** it to a target, **solve**
 
 </div>
 
-### Example 1: Direct reduction
+### Example 1: Direct reduction — MIS to ILP
 
-Reduce Maximum Independent Set to Minimum Vertex Cover on a 4-vertex path
-graph, solve the target, and extract the solution back.
+Reduce Maximum Independent Set to Integer Linear Programming (ILP) on a
+4-vertex path graph, solve with the ILP solver, and extract the solution back.
 
 #### Step 1 — Create the source problem
 
@@ -39,6 +39,8 @@ A path graph `0–1–2–3` has 4 vertices and 3 edges.
 
 ```rust,ignore
 use problemreductions::prelude::*;
+use problemreductions::models::optimization::ILP;
+use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::SimpleGraph;
 
 let problem = MaximumIndependentSet::new(
@@ -47,69 +49,66 @@ let problem = MaximumIndependentSet::new(
 );
 ```
 
-#### Step 2 — Reduce to Minimum Vertex Cover
+#### Step 2 — Reduce to ILP
 
 `ReduceTo` applies a single-step reduction. The result holds the target
-problem and knows how to map solutions back.
+problem and knows how to map solutions back. The ILP formulation introduces
+binary variable x_v for each vertex, constraint x_u + x_v ≤ 1 for each edge,
+and maximizes the weighted sum.
 
 ```rust,ignore
-println!("Source: {} {:?}", MaximumIndependentSet::<SimpleGraph, i32>::NAME,
-    MaximumIndependentSet::<SimpleGraph, i32>::variant());
-let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&problem);
-let target = reduction.target_problem();
-println!("Target: {} {:?}, {} variables",
-    MinimumVertexCover::<SimpleGraph, i32>::NAME,
-    MinimumVertexCover::<SimpleGraph, i32>::variant(),
-    target.num_variables());
+let reduction = ReduceTo::<ILP>::reduce_to(&problem);
+let ilp = reduction.target_problem();
+println!("ILP: {} variables, {} constraints", ilp.num_vars, ilp.constraints.len());
 ```
 
 ```text
-Source: MaximumIndependentSet [("graph", "SimpleGraph"), ("weight", "i32")]
-Target: MinimumVertexCover [("graph", "SimpleGraph"), ("weight", "i32")], 4 variables
+ILP: 4 variables, 3 constraints
 ```
 
-#### Step 3 — Solve the target problem
+#### Step 3 — Solve the ILP
 
-`BruteForce` enumerates all configurations and returns the optimal one.
+`ILPSolver` uses the HiGHS solver to find optimal solutions efficiently.
+For small instances you can also use `BruteForce`, but `ILPSolver` scales
+to much larger problems.
 
 ```rust,ignore
-let solver = BruteForce::new();
-let target_solution = solver.find_best(target).unwrap();
-println!("VC solution: {:?}", target_solution);
+let solver = ILPSolver::new();
+let ilp_solution = solver.solve(ilp).unwrap();
+println!("ILP solution: {:?}", ilp_solution);
 ```
 
 ```text
-VC solution: [1, 0, 1, 0]
+ILP solution: [1, 0, 1, 0]
 ```
 
 #### Step 4 — Extract and verify
 
-`extract_solution` maps the Vertex Cover solution back to an Independent Set
-solution by complementing the configuration.
+`extract_solution` maps the ILP solution back to the original problem's
+configuration space.
 
 ```rust,ignore
-let solution = reduction.extract_solution(&target_solution);
+let solution = reduction.extract_solution(&ilp_solution);
 let metric = problem.evaluate(&solution);
 println!("IS solution: {:?} -> size {:?}", solution, metric);
 assert!(metric.is_valid());
 ```
 
 ```text
-IS solution: [0, 1, 0, 1] -> size Valid(2)
+IS solution: [1, 0, 1, 0] -> size Valid(2)
 ```
 
-S ⊆ V is an independent set iff V \ S is a vertex cover, so the complement
-maps optimality in one direction to optimality in the other.
+For convenience, `ILPSolver::solve_reduced` combines reduce + solve + extract
+in a single call:
+
+```rust,ignore
+let solution = ILPSolver::new().solve_reduced(&problem).unwrap();
+assert!(problem.evaluate(&solution).is_valid());
+```
 
 ### Example 2: Reduction path search — integer factoring to spin glass
 
-Real-world problems often require **chaining** multiple reductions. Here we factor the integer 6 by reducing `Factoring` through the reduction graph to `SpinGlass`, through automatic reduction path search.
-
-```rust,ignore
-{{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:imports}}
-
-{{#include ../../examples/chained_reduction_factoring_to_spinglass.rs:example}}
-```
+Real-world problems often require **chaining** multiple reductions. Here we factor the integer 6 by reducing `Factoring` through the reduction graph to `SpinGlass`, through automatic reduction path search. ([full source](https://github.com/CodingThrust/problem-reductions/blob/main/examples/chained_reduction_factoring_to_spinglass.rs))
 
 Let's walk through each step.
 
@@ -189,21 +188,19 @@ Composed (source → target):
 
 ## Solvers
 
-Two solvers for testing purposes are available:
+Two solvers are available:
 
 | Solver | Use Case | Notes |
 |--------|----------|-------|
 | [`BruteForce`](api/problemreductions/solvers/struct.BruteForce.html) | Small instances (<20 variables) | Enumerates all configurations |
-| [`ILPSolver`](api/problemreductions/solvers/ilp/struct.ILPSolver.html) | Larger instances | Requires `ilp` feature flag |
+| [`ILPSolver`](api/problemreductions/solvers/ilp/struct.ILPSolver.html) | Larger instances | Enabled by default (`ilp` feature) |
 
-Enable ILP support:
+ILP support is enabled by default. To disable it:
 
 ```toml
 [dependencies]
-problemreductions = { version = "0.1", features = ["ilp"] }
+problemreductions = { version = "0.2", default-features = false }
 ```
-
-**Future:** Automated reduction path optimization will find the best route between any two connected problems.
 
 ## JSON Resources
 
@@ -216,5 +213,5 @@ The library exports machine-readable metadata useful for tooling and research:
 ## Next Steps
 
 - Explore the [interactive reduction graph](./introduction.html) to discover available reductions
-- Read the [Architecture](./arch.md) guide for implementation details
+- Read the [Design](./design.md) guide for implementation details
 - Browse the [API Reference](./api.html) for full documentation

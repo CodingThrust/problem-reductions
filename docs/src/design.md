@@ -19,9 +19,9 @@ This guide covers the library internals for contributors.
 |--------|---------|
 | [`src/models/`](#problem-model) | Problem type implementations (SAT, Graph, Set, Optimization) |
 | [`src/rules/`](#reduction-rules) | Reduction rules with `ReduceTo` implementations |
-| [`src/registry/`](#reduction-graph) | Compile-time reduction graph metadata |
+| [`src/registry/`](#reduction-graph) | Reduction graph metadata (collected via `inventory`) |
 | [`src/solvers/`](#solvers) | BruteForce and ILP solvers |
-| `src/traits.rs` | Core `Problem` and `OptimizationProblem` traits (see [Problem Model](#problem-model)) |
+| `src/traits.rs` | Core `Problem`, `OptimizationProblem`, `SatisfactionProblem` traits (see [Problem Model](#problem-model)) |
 | `src/types.rs` | Shared types: `SolutionSize`, `Direction`, `ProblemSize` (see [Problem Model](#problem-model)) |
 | `src/variant.rs` | Variant parameter system (see [Variant System](#variant-system)) |
 
@@ -29,20 +29,29 @@ This guide covers the library internals for contributors.
 
 Every problem implements `Problem`. Optimization problems additionally implement `OptimizationProblem`; satisfaction problems implement `SatisfactionProblem`.
 
-- **`Problem`** — the base trait. Every problem declares a `NAME` (e.g., `"MaximumIndependentSet"`). The solver explores the configuration space defined by `dims()` and scores each configuration with `evaluate()`. For example, a 4-vertex MIS has `dims() = [2, 2, 2, 2]` (each vertex is selected or not); `evaluate(&[1, 0, 1, 0])` returns `Valid(2)` if vertices 0 and 2 form an independent set, or `Invalid` if they share an edge.
+```rust,ignore
+trait Problem: Clone {
+    const NAME: &'static str;              // e.g., "MaximumIndependentSet"
+    type Metric: Clone;                    // SolutionSize<W> or bool
+    fn dims(&self) -> Vec<usize>;          // config space per variable
+    fn evaluate(&self, config: &[usize]) -> Self::Metric;
+    fn variant() -> Vec<(&'static str, &'static str)>; // e.g., [("graph", "SimpleGraph"), ("weight", "i32")]
+    fn num_variables(&self) -> usize;      // default: dims().len()
+    fn problem_size_names() -> &'static [&'static str]; // e.g., ["num_vertices", "num_edges"]
+    fn problem_size_values(&self) -> Vec<usize>;       // e.g., [10, 15] for a specific instance
+}
+
+trait OptimizationProblem: Problem<Metric = SolutionSize<Self::Value>> {
+    type Value: PartialOrd + Clone;        // e.g., i32, f64
+    fn direction(&self) -> Direction;      // Maximize or Minimize
+}
+
+trait SatisfactionProblem: Problem<Metric = bool> {}  // marker trait
+```
+
+- **`Problem`** — the base trait. Every problem declares a `NAME` (e.g., `"MaximumIndependentSet"`). The solver explores the configuration space defined by `dims()` and scores each configuration with `evaluate()`. For example, a 4-vertex MIS has `dims() = [2, 2, 2, 2]` (each vertex is selected or not); `evaluate(&[1, 0, 1, 0])` returns `Valid(2)` if vertices 0 and 2 form an independent set, or `Invalid` if they share an edge. `problem_size_names()` and `problem_size_values()` expose the instance's structural dimensions (e.g., `num_vertices`, `num_edges`) as a `ProblemSize` — used by the reduction graph to evaluate overhead polynomials along a path.
 - **`OptimizationProblem`** — extends `Problem` with a comparable `Value` type and a `direction()` (`Maximize` or `Minimize`).
 - **`SatisfactionProblem`** — constrains `Metric = bool`: `true` if all constraints are satisfied, `false` otherwise.
-
-<div class="theme-light-only">
-
-![Trait Hierarchy](static/trait-hierarchy.svg)
-
-</div>
-<div class="theme-dark-only">
-
-![Trait Hierarchy](static/trait-hierarchy-dark.svg)
-
-</div>
 
 ## Variant System
 
@@ -83,7 +92,7 @@ Variant types fall into three categories:
 
 Each variant parameter type implements `VariantParam`, which declares its category, value, and optional parent:
 
-```rust
+```rust,ignore
 pub trait VariantParam: 'static {
     const CATEGORY: &'static str;     // e.g., "graph", "weight", "k"
     const VALUE: &'static str;        // e.g., "SimpleGraph", "i32"
@@ -93,7 +102,7 @@ pub trait VariantParam: 'static {
 
 Types with a parent also implement `CastToParent`, providing the runtime conversion for variant casts:
 
-```rust
+```rust,ignore
 pub trait CastToParent: VariantParam {
     type Parent: VariantParam;
     fn cast_to_parent(&self) -> Self::Parent;
@@ -104,7 +113,7 @@ pub trait CastToParent: VariantParam {
 
 The `impl_variant_param!` macro implements `VariantParam` (and optionally `CastToParent` / `KValue`) for a type:
 
-```rust
+```rust,ignore
 // Root type (no parent):
 impl_variant_param!(HyperGraph, "graph");
 
@@ -126,13 +135,13 @@ impl_variant_param!(K3, "k", parent: KN, cast: |_| KN, k: Some(3));
 
 When a more specific variant needs to be treated as a less specific one, an explicit variant cast reduction is declared:
 
-```rust
+```rust,ignore
 impl_variant_reduction!(
     MaximumIndependentSet,
     <KingsSubgraph, i32> => <UnitDiskGraph, i32>,
     fields: [num_vertices, num_edges],
-    |src| MaximumIndependentSet::from_graph(
-        src.graph().cast_to_parent(), src.weights())
+    |src| MaximumIndependentSet::new(
+        src.graph().cast_to_parent(), src.weights().to_vec())
 );
 ```
 
@@ -140,7 +149,7 @@ impl_variant_reduction!(
 
 The `variant_params!` macro composes the `Problem::variant()` body from type parameter names:
 
-```rust
+```rust,ignore
 // MaximumIndependentSet<G: VariantParam, W: VariantParam>
 fn variant() -> Vec<(&'static str, &'static str)> {
     crate::variant_params![G, W]
@@ -157,7 +166,7 @@ A reduction requires two pieces: a **result struct** and a **`ReduceTo<T>` impl*
 
 The result struct holds the target problem and the logic to map solutions back:
 
-```rust
+```rust,ignore
 #[derive(Debug, Clone)]
 pub struct ReductionISToVC<W> {
     target: MinimumVertexCover<SimpleGraph, W>,
@@ -174,9 +183,9 @@ impl<W: WeightElement + VariantParam> ReductionResult for ReductionISToVC<W> {
 }
 ```
 
-The `#[reduction]` macro on the `ReduceTo<T>` impl registers the reduction in the compile-time graph:
+The `#[reduction]` attribute on the `ReduceTo<T>` impl registers the reduction in the global registry (via `inventory`):
 
-```rust
+```rust,ignore
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
@@ -198,7 +207,7 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i32>>
 
 The `#[reduction]` attribute expands to the original `impl` block plus an `inventory::submit!` call:
 
-```rust
+```rust,ignore
 inventory::submit! {
     ReductionEntry {
         source_name: "MaximumIndependentSet",
@@ -218,16 +227,23 @@ inventory::submit! {
 }
 ```
 
-This `ReductionEntry` is collected at compile time by `inventory`, making the reduction discoverable by the `ReductionGraph` without any manual registration. The `reduce_fn` field provides a type-erased executor that enables runtime-discovered paths to chain reductions automatically.
+Each `ReductionEntry` is collected by `inventory` at link time and iterated at runtime, making every reduction discoverable by `ReductionGraph` without manual registration. The `reduce_fn` field provides a type-erased executor that enables dynamically discovered paths to chain reductions automatically.
 
 </details>
 
 ## Reduction Graph
 
-`ReductionGraph::new()` scans `inventory::iter::<ReductionEntry>` and builds a variant-level directed graph:
+`ReductionGraph::new()` iterates all registered `ReductionEntry` items (via `inventory`) and builds a variant-level directed graph:
 
 - **Nodes** are unique `(problem_name, variant)` pairs — e.g., `("MaximumIndependentSet", {graph: "KingsSubgraph", weight: "i32"})`.
 - **Edges** come exclusively from `#[reduction]` registrations — both cross-problem reductions and variant casts. There are no auto-generated edges.
+
+Exported files:
+
+- [reduction_graph.json](reductions/reduction_graph.json) — all problem variants and reduction edges
+- [problem_schemas.json](reductions/problem_schemas.json) — field definitions for each problem type
+
+Regenerate with `cargo run --example export_graph` and `cargo run --example export_schemas`.
 
 ### Path finding
 
@@ -245,8 +261,10 @@ The `PathCostFn` trait (used by `find_cheapest_path`) computes edge cost from ov
 | Cost function | Strategy |
 |--------------|----------|
 | `MinimizeSteps` | Minimize number of hops (unit edge cost) |
-| `Minimize("field")` | Minimize a single output field |
-| `CustomCost(closure)` | User-defined cost function |
+| `Minimize("field")` | Minimize a single output field (e.g., `Minimize("num_variables")`) |
+| `CustomCost(closure)` | User-defined: `\|overhead: &ReductionOverhead, size: &ProblemSize\| -> f64` |
+
+`CustomCost` wraps a closure that receives the edge's `ReductionOverhead` (polynomial mapping from input to output size fields) and the current `ProblemSize` (accumulated field values at that point in the path), and returns an `f64` edge cost. Dijkstra minimizes the total cost along the path.
 
 **Example:** Finding a path from `MIS{KingsSubgraph, i32}` to `VC{SimpleGraph, i32}`:
 
@@ -259,17 +277,21 @@ MIS{KingsSubgraph,i32} -> MIS{UnitDiskGraph,i32} -> MIS{SimpleGraph,i32} -> VC{S
 
 Convert a `ReductionPath` into a typed `ExecutablePath<S, T>` via `make_executable()`, then call `reduce()`:
 
-```rust
+```rust,ignore
+// find_cheapest_path returns a ReductionPath (list of variant node IDs)
 let rpath = graph.find_cheapest_path("Factoring", &src_var,
     "SpinGlass", &dst_var, &ProblemSize::new(vec![]), &MinimizeSteps).unwrap();
+
+// make_executable converts it into a typed, callable chain
 let path = graph.make_executable::<Factoring, SpinGlass<SimpleGraph, f64>>(&rpath).unwrap();
 
+// reduce() applies each step, returning a ChainedReduction
 let reduction = path.reduce(&factoring_instance);
-let target = reduction.target_problem();
-let solution = reduction.extract_solution(&target_solution);
+let target: &SpinGlass<SimpleGraph, f64> = reduction.target_problem();
+let solution: Vec<usize> = reduction.extract_solution(&target_solution);
 ```
 
-Internally, `ExecutablePath` holds a type-erased executor per edge. `ChainedReduction` stores intermediate results and extracts solutions back through the chain in reverse.
+`ExecutablePath` holds a type-erased `ReduceFn` per edge. `reduce()` applies them sequentially, producing a `ChainedReduction` that stores each intermediate result. `extract_solution` maps the final solution back through the chain in reverse order.
 
 For full type control, you can also chain `ReduceTo::reduce_to()` calls manually at each step.
 
@@ -278,7 +300,7 @@ For full type control, you can also chain `ReduceTo::reduce_to()` calls manually
 
 Each reduction declares how the output problem size relates to the input, expressed as polynomials. The `poly!` macro provides concise syntax:
 
-```rust
+```rust,ignore
 poly!(num_vertices)              // p(x) = num_vertices
 poly!(num_vertices ^ 2)          // p(x) = num_vertices²
 poly!(3 * num_edges)             // p(x) = 3 × num_edges
@@ -287,7 +309,7 @@ poly!(num_vertices * num_edges)  // p(x) = num_vertices × num_edges
 
 A `ReductionOverhead` pairs output field names with their polynomials:
 
-```rust
+```rust,ignore
 ReductionOverhead::new(vec![
     ("num_vars", poly!(num_vertices) + poly!(num_edges)),
     ("num_clauses", poly!(3 * num_edges)),
@@ -309,7 +331,7 @@ For multi-step paths, overhead composes: the output of step N becomes the input 
 
 Solvers implement the `Solver` trait:
 
-```rust
+```rust,ignore
 pub trait Solver {
     fn find_best<P: OptimizationProblem>(&self, problem: &P) -> Option<Vec<usize>>;
     fn find_satisfying<P: Problem<Metric = bool>>(&self, problem: &P) -> Option<Vec<usize>>;
@@ -319,25 +341,18 @@ pub trait Solver {
 | Solver | Description |
 |--------|-------------|
 | **BruteForce** | Enumerates all configurations. Also provides `find_all_best()` and `find_all_satisfying()`. Used for testing and verification. |
-| **ILPSolver** | Feature-gated (`ilp`). Uses HiGHS via `good_lp`. Also provides `solve_reduced()` for problems that implement `ReduceTo<ILP>`. |
+| **ILPSolver** | Enabled by default (`ilp` feature). Uses HiGHS via `good_lp`. Also provides `solve_reduced()` for problems that implement `ReduceTo<ILP>`. |
 
 ## JSON Serialization
 
 All problem types support JSON serialization via serde:
 
-```rust
+```rust,ignore
 use problemreductions::io::{to_json, from_json};
 
-let json = to_json(&problem)?;
+let json: String = to_json(&problem)?;
 let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json)?;
 ```
-
-Exported files:
-
-- [reduction_graph.json](reductions/reduction_graph.json) — all problem variants and reduction edges
-- [problem_schemas.json](reductions/problem_schemas.json) — field definitions for each problem type
-
-Regenerate with `cargo run --example export_graph` and `cargo run --example export_schemas`.
 
 ## Contributing
 
