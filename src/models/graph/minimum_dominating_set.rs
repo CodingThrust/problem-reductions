@@ -169,8 +169,7 @@ pub fn is_dominating_set<G: Graph>(graph: &G, selected: &[bool]) -> bool {
             continue; // v dominates itself
         }
         // Check if any neighbor of v is selected
-        let dominated = graph.neighbors(v).iter().any(|&u| selected[u]);
-        if !dominated {
+        if !graph.neighbors(v).iter().any(|&u| selected[u]) {
             return false;
         }
     }

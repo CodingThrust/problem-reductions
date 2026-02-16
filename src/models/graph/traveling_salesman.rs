@@ -113,6 +113,9 @@ impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
 
     /// Check if a configuration forms a valid Hamiltonian cycle.
     fn is_valid_hamiltonian_cycle(&self, config: &[usize]) -> bool {
+        if config.len() != self.graph.num_edges() {
+            return false;
+        }
         let selected: Vec<bool> = config.iter().map(|&s| s == 1).collect();
         is_hamiltonian_cycle(&self.graph, &selected)
     }

@@ -189,8 +189,7 @@ pub fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool]) -> boo
         if selected[v] {
             continue;
         }
-        let can_add = graph.neighbors(v).iter().all(|&u| !selected[u]);
-        if can_add {
+        if graph.neighbors(v).iter().all(|&u| !selected[u]) {
             return false;
         }
     }
