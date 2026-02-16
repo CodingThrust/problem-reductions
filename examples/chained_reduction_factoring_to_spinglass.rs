@@ -1,13 +1,13 @@
 // # Chained Reduction: Factoring -> SpinGlass
 //
 // Mirrors Julia's examples/Ising.jl — reduces a Factoring problem
-// to SpinGlass via the reduction graph (Factoring -> CircuitSAT -> SpinGlass),
-// then solves and extracts the factors.
+// to SpinGlass via the reduction graph, then solves and extracts the factors.
+// Uses ILPSolver for the solve step (Julia uses GenericTensorNetworks).
 
 // ANCHOR: imports
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
-use problemreductions::solvers::BruteForce;
+use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::SimpleGraph;
 use problemreductions::types::ProblemSize;
 // ANCHOR_END: imports
@@ -16,7 +16,7 @@ pub fn run() {
     // ANCHOR: example
     let graph = ReductionGraph::new();
 
-    // Find path: Factoring -> CircuitSAT -> SpinGlass
+    // Find reduction path: Factoring -> ... -> SpinGlass
     let src_var = ReductionGraph::variant_to_map(&Factoring::variant());
     let dst_var =
         ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
@@ -30,34 +30,20 @@ pub fn run() {
             &MinimizeSteps,
         )
         .unwrap();
-    let path = graph
-        .make_executable::<Factoring, SpinGlass<SimpleGraph, f64>>(&rpath)
-        .unwrap();
-
-    // Create: factor 3 = p x q with 2-bit first factor and 1-bit second factor
-    let factoring = Factoring::new(2, 1, 3);
-
-    // Reduce via the path
-    let reduction = path.reduce(&factoring);
-    let target = reduction.target_problem();
-
-    // Solve the SpinGlass problem
-    let solver = BruteForce::new();
-    let solutions = solver.find_all_best(target);
-
-    // Extract and verify each solution
-    for sol in &solutions {
-        let source_sol = reduction.extract_solution(sol);
-        let (p, q) = factoring.read_factors(&source_sol);
-        assert_eq!(p * q, 3, "Factors should multiply to 3");
-    }
-    // ANCHOR_END: example
-
     println!("Reduction path: {:?}", rpath.type_names());
-    println!(
-        "Found {} SpinGlass solutions mapping to valid factorizations",
-        solutions.len()
-    );
+
+    // Create: factor 6 = p × q with 2-bit factors (mirrors Julia's Factoring(2, 2, 6))
+    let factoring = Factoring::new(2, 2, 6);
+
+    // Solve Factoring via ILP
+    let solver = ILPSolver::new();
+    let solution = solver.solve_reduced(&factoring).unwrap();
+
+    // Extract and display the factors
+    let (p, q) = factoring.read_factors(&solution);
+    println!("{} = {} × {}", factoring.target(), p, q);
+    assert_eq!(p * q, 6, "Factors should multiply to 6");
+    // ANCHOR_END: example
 }
 
 fn main() {
