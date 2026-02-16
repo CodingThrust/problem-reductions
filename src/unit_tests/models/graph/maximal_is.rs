@@ -1,17 +1,18 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::topology::SimpleGraph;
 include!("../../jl_helpers.rs");
 
 #[test]
 fn test_maximal_is_creation() {
-    let problem = MaximalIS::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = MaximalIS::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
 }
 
 #[test]
 fn test_maximal_is_with_weights() {
-    let problem = MaximalIS::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
+    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1, 2, 3]);
     assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
     assert!(problem.is_weighted());
 }
@@ -19,14 +20,14 @@ fn test_maximal_is_with_weights() {
 #[test]
 fn test_maximal_is_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MaximalIS::<SimpleGraph, i32>::from_graph(graph, vec![1, 2, 3]);
+    let problem = MaximalIS::new(graph, vec![1, 2, 3]);
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
 }
 
 #[test]
 fn test_is_independent() {
-    let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
 
     assert!(problem.is_independent(&[1, 0, 1]));
     assert!(problem.is_independent(&[0, 1, 0]));
@@ -35,7 +36,7 @@ fn test_is_independent() {
 
 #[test]
 fn test_is_maximal() {
-    let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
 
     // {0, 2} is maximal (cannot add 1)
     assert!(problem.is_maximal(&[1, 0, 1]));
@@ -69,25 +70,25 @@ fn test_direction() {
     use crate::traits::OptimizationProblem;
     use crate::types::Direction;
 
-    let problem = MaximalIS::<SimpleGraph, i32>::new(2, vec![(0, 1)]);
+    let problem = MaximalIS::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]);
     assert_eq!(problem.direction(), Direction::Maximize);
 }
 
 #[test]
 fn test_weights() {
-    let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
+    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
     assert_eq!(problem.weights().to_vec(), vec![1, 1, 1]); // Unit weights
 }
 
 #[test]
 fn test_is_weighted() {
-    let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
+    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
     assert!(!problem.is_weighted()); // Initially uniform
 }
 
 #[test]
 fn test_is_weighted_empty() {
-    let problem = MaximalIS::<SimpleGraph, i32>::with_weights(0, vec![], vec![]);
+    let problem = MaximalIS::new(SimpleGraph::new(0, vec![]), vec![0i32; 0]);
     assert!(!problem.is_weighted());
 }
 
@@ -98,7 +99,7 @@ fn test_is_maximal_independent_set_wrong_len() {
 
 #[test]
 fn test_graph_ref() {
-    let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     let graph = problem.graph();
     assert_eq!(graph.num_vertices(), 3);
     assert_eq!(graph.num_edges(), 2);
@@ -106,14 +107,14 @@ fn test_graph_ref() {
 
 #[test]
 fn test_edges() {
-    let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     let edges = problem.graph().edges();
     assert_eq!(edges.len(), 2);
 }
 
 #[test]
 fn test_has_edge() {
-    let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     assert!(problem.graph().has_edge(0, 1));
     assert!(problem.graph().has_edge(1, 0)); // Undirected
     assert!(problem.graph().has_edge(1, 2));
@@ -122,7 +123,7 @@ fn test_has_edge() {
 
 #[test]
 fn test_weights_ref() {
-    let problem = MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
+    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
     assert_eq!(problem.weights(), &[1, 1, 1]);
 }
 
@@ -133,7 +134,7 @@ fn test_jl_parity_evaluation() {
     for instance in data["instances"].as_array().unwrap() {
         let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
         let edges = jl_parse_edges(&instance["instance"]);
-        let problem = MaximalIS::<SimpleGraph, i32>::new(nv, edges);
+        let problem = MaximalIS::new(SimpleGraph::new(nv, edges), vec![1i32; nv]);
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_config(&eval["config"]);
             let result = problem.evaluate(&config);

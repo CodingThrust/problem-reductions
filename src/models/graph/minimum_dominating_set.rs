@@ -4,7 +4,7 @@
 //! such that every vertex is either in the set or adjacent to a vertex in the set.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::Graph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -38,7 +38,8 @@ inventory::submit! {
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Star graph: center dominates all
-/// let problem = MinimumDominatingSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+/// let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]);
+/// let problem = MinimumDominatingSet::new(graph, vec![1; 4]);
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_best(&problem);
@@ -54,29 +55,14 @@ pub struct MinimumDominatingSet<G, W> {
     weights: Vec<W>,
 }
 
-impl<W: Clone + Default> MinimumDominatingSet<SimpleGraph, W> {
-    /// Create a new Dominating Set problem with unit weights.
-    pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self
-    where
-        W: From<i32>,
-    {
-        let graph = SimpleGraph::new(num_vertices, edges);
-        let weights = vec![W::from(1); num_vertices];
-        Self { graph, weights }
-    }
-
-    /// Create a new Dominating Set problem with custom weights.
-    pub fn with_weights(num_vertices: usize, edges: Vec<(usize, usize)>, weights: Vec<W>) -> Self {
-        assert_eq!(weights.len(), num_vertices);
-        let graph = SimpleGraph::new(num_vertices, edges);
-        Self { graph, weights }
-    }
-}
-
 impl<G: Graph, W: Clone + Default> MinimumDominatingSet<G, W> {
-    /// Create a Dominating Set problem from a graph with custom weights.
-    pub fn from_graph(graph: G, weights: Vec<W>) -> Self {
-        assert_eq!(weights.len(), graph.num_vertices());
+    /// Create a Dominating Set problem from a graph with given weights.
+    pub fn new(graph: G, weights: Vec<W>) -> Self {
+        assert_eq!(
+            weights.len(),
+            graph.num_vertices(),
+            "weights length must match graph num_vertices"
+        );
         Self { graph, weights }
     }
 

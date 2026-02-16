@@ -32,7 +32,7 @@ fn test_is_vc_complement() {
         (4usize, vec![(0, 1), (1, 2), (2, 3), (0, 3)]),
     ] {
         let problem_a = MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i32; n]);
-        let problem_b = MinimumVertexCover::<SimpleGraph, i32>::new(n, edges);
+        let problem_b = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i32; n]);
 
         let solver = BruteForce::new();
         let solutions_a = solver.find_all_best(&problem_a);

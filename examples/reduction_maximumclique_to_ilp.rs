@@ -22,7 +22,7 @@ use problemreductions::topology::{Graph, SimpleGraph};
 pub fn run() {
     // 1. Create MaximumClique instance: Octahedron (K_{2,2,2}), 6 vertices, 12 edges, clique number 3
     let (num_vertices, edges) = octahedral();
-    let clique = MaximumClique::<SimpleGraph, i32>::new(num_vertices, edges.clone());
+    let clique = MaximumClique::new(SimpleGraph::new(num_vertices, edges.clone()), vec![1i32; num_vertices]);
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&clique);

@@ -30,7 +30,7 @@ fn test_all_problems_implement_trait_correctly() {
         "MaximumIndependentSet",
     );
     check_problem_trait(
-        &MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
+        &MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
         "MinimumVertexCover",
     );
     check_problem_trait(
@@ -42,11 +42,11 @@ fn test_all_problems_implement_trait_correctly() {
         "KColoring",
     );
     check_problem_trait(
-        &MinimumDominatingSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
+        &MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
         "MinimumDominatingSet",
     );
     check_problem_trait(
-        &MaximalIS::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
+        &MaximalIS::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
         "MaximalIS",
     );
     check_problem_trait(
@@ -89,11 +89,11 @@ fn test_direction() {
 
     // Minimization problems
     assert_eq!(
-        MinimumVertexCover::<SimpleGraph, i32>::new(2, vec![(0, 1)]).direction(),
+        MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
         Direction::Minimize
     );
     assert_eq!(
-        MinimumDominatingSet::<SimpleGraph, i32>::new(2, vec![(0, 1)]).direction(),
+        MinimumDominatingSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
         Direction::Minimize
     );
     assert_eq!(
@@ -128,7 +128,7 @@ fn test_direction() {
         Direction::Maximize
     );
     assert_eq!(
-        MaximalIS::<SimpleGraph, i32>::new(2, vec![(0, 1)]).direction(),
+        MaximalIS::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
         Direction::Maximize
     );
     assert_eq!(
@@ -144,7 +144,7 @@ fn test_direction() {
         Direction::Maximize
     );
     assert_eq!(
-        MaximumClique::<SimpleGraph, i32>::new(2, vec![(0, 1)]).direction(),
+        MaximumClique::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
         Direction::Maximize
     );
 }

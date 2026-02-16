@@ -209,7 +209,7 @@ mod minimum_vertex_cover {
 
     #[test]
     fn test_creation() {
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
         assert_eq!(problem.graph().num_vertices(), 4);
         assert_eq!(problem.graph().num_edges(), 3);
         assert_eq!(problem.num_variables(), 4);
@@ -217,14 +217,14 @@ mod minimum_vertex_cover {
 
     #[test]
     fn test_with_weights() {
-        let problem = MinimumVertexCover::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1, 2, 3]);
         assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
         assert!(problem.is_weighted());
     }
 
     #[test]
     fn test_evaluate_valid() {
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
 
         // Valid: select vertex 1 (covers both edges)
         assert_eq!(problem.evaluate(&[0, 1, 0]), SolutionSize::Valid(1));
@@ -235,7 +235,7 @@ mod minimum_vertex_cover {
 
     #[test]
     fn test_evaluate_invalid() {
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
 
         // Invalid: no vertex selected - returns Invalid for minimization
         assert_eq!(problem.evaluate(&[0, 0, 0]), SolutionSize::Invalid);
@@ -247,7 +247,7 @@ mod minimum_vertex_cover {
     #[test]
     fn test_brute_force_path() {
         // Path graph 0-1-2: minimum vertex cover is {1}
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_all_best(&problem);
@@ -258,7 +258,7 @@ mod minimum_vertex_cover {
     #[test]
     fn test_brute_force_triangle() {
         // Triangle: minimum vertex cover has size 2
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_all_best(&problem);
@@ -274,7 +274,7 @@ mod minimum_vertex_cover {
     #[test]
     fn test_brute_force_weighted() {
         // Weighted: prefer selecting low-weight vertices
-        let problem = MinimumVertexCover::with_weights(3, vec![(0, 1), (1, 2)], vec![100, 1, 100]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![100, 1, 100]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_all_best(&problem);
@@ -301,13 +301,13 @@ mod minimum_vertex_cover {
 
     #[test]
     fn test_direction() {
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
         assert_eq!(problem.direction(), Direction::Minimize);
     }
 
     #[test]
     fn test_empty_graph() {
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_all_best(&problem);
@@ -318,7 +318,7 @@ mod minimum_vertex_cover {
 
     #[test]
     fn test_single_edge() {
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(2, vec![(0, 1)]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]);
         let solver = BruteForce::new();
 
         let solutions = solver.find_all_best(&problem);
@@ -328,7 +328,7 @@ mod minimum_vertex_cover {
 
     #[test]
     fn test_validity_via_evaluate() {
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
 
         // Valid cover configurations return is_valid() == true
         assert!(problem.evaluate(&[0, 1, 0]).is_valid());
@@ -343,7 +343,7 @@ mod minimum_vertex_cover {
         // For a graph, if S is an independent set, then V\S is a vertex cover
         let edges = vec![(0, 1), (1, 2), (2, 3)];
         let is_problem = MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()), vec![1i32; 4]);
-        let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, edges);
+        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(4, edges), vec![1i32; 4]);
 
         let solver = BruteForce::new();
 
@@ -358,14 +358,14 @@ mod minimum_vertex_cover {
 
     #[test]
     fn test_with_custom_weights() {
-        let problem = MinimumVertexCover::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1, 2, 3]);
         assert!(problem.is_weighted());
         assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
     }
 
     #[test]
     fn test_is_weighted_empty() {
-        let problem = MinimumVertexCover::<SimpleGraph, i32>::new(0, vec![]);
+        let problem = MinimumVertexCover::new(SimpleGraph::new(0, vec![]), vec![0i32; 0]);
         assert!(!problem.is_weighted());
     }
 

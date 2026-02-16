@@ -39,7 +39,7 @@ mod is_vc_reductions {
     fn test_vc_to_is_basic() {
         // Path graph
         let vc_problem =
-            MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+            MinimumVertexCover::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
 
         // Reduce VC to IS
         let result = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&vc_problem);
@@ -110,7 +110,7 @@ mod is_vc_reductions {
         let n = 4;
 
         let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i32; n]);
-        let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(n, edges);
+        let vc_problem = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i32; n]);
 
         let solver = BruteForce::new();
 
@@ -528,9 +528,10 @@ mod qubo_reductions {
             std::fs::read_to_string("tests/data/qubo/minimumvertexcover_to_qubo.json").unwrap();
         let data: VCToQuboData = serde_json::from_str(&json).unwrap();
 
-        let vc = MinimumVertexCover::<SimpleGraph, i32>::new(
-            data.source.num_vertices,
-            data.source.edges,
+        let n = data.source.num_vertices;
+        let vc = MinimumVertexCover::new(
+            SimpleGraph::new(n, data.source.edges),
+            vec![1i32; n],
         );
         let reduction = ReduceTo::<QUBO>::reduce_to(&vc);
         let qubo = reduction.target_problem();

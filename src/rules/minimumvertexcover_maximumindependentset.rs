@@ -46,9 +46,8 @@ impl ReduceTo<MinimumVertexCover<SimpleGraph, i32>> for MaximumIndependentSet<Si
     type Result = ReductionISToVC<i32>;
 
     fn reduce_to(&self) -> Self::Result {
-        let target = MinimumVertexCover::with_weights(
-            self.graph().num_vertices(),
-            self.graph().edges(),
+        let target = MinimumVertexCover::new(
+            SimpleGraph::new(self.graph().num_vertices(), self.graph().edges()),
             self.weights().to_vec(),
         );
         ReductionISToVC { target }

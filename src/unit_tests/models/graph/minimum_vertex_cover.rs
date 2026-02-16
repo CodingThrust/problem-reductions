@@ -1,12 +1,13 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::topology::SimpleGraph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::Direction;
 include!("../../jl_helpers.rs");
 
 #[test]
 fn test_vertex_cover_creation() {
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let problem = MinimumVertexCover::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_variables(), 4);
@@ -15,7 +16,7 @@ fn test_vertex_cover_creation() {
 #[test]
 fn test_vertex_cover_with_weights() {
     let problem =
-        MinimumVertexCover::<SimpleGraph, i32>::with_weights(3, vec![(0, 1)], vec![1, 2, 3]);
+        MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1, 2, 3]);
     assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
 }
 
@@ -37,7 +38,7 @@ fn test_is_vertex_cover_function() {
 
 #[test]
 fn test_direction() {
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1)]);
+    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
     assert_eq!(problem.direction(), Direction::Minimize);
 }
 
@@ -48,7 +49,7 @@ fn test_complement_relationship() {
 
     let edges = vec![(0, 1), (1, 2), (2, 3)];
     let is_problem = MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()), vec![1i32; 4]);
-    let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, edges);
+    let vc_problem = MinimumVertexCover::new(SimpleGraph::new(4, edges), vec![1i32; 4]);
 
     let solver = BruteForce::new();
 
@@ -70,7 +71,7 @@ fn test_is_vertex_cover_wrong_len() {
 #[test]
 fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::from_graph(graph, vec![1, 1, 1]);
+    let problem = MinimumVertexCover::new(graph, vec![1i32, 1, 1]);
     assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.graph().num_edges(), 2);
 }
@@ -78,13 +79,13 @@ fn test_from_graph() {
 #[test]
 fn test_from_graph_with_weights() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::from_graph(graph, vec![1, 2, 3]);
+    let problem = MinimumVertexCover::new(graph, vec![1, 2, 3]);
     assert_eq!(problem.weights().to_vec(), vec![1, 2, 3]);
 }
 
 #[test]
 fn test_graph_accessor() {
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     let graph = problem.graph();
     assert_eq!(graph.num_vertices(), 3);
     assert_eq!(graph.num_edges(), 2);
@@ -92,7 +93,7 @@ fn test_graph_accessor() {
 
 #[test]
 fn test_has_edge() {
-    let problem = MinimumVertexCover::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     assert!(problem.graph().has_edge(0, 1));
     assert!(problem.graph().has_edge(1, 0)); // Undirected
     assert!(problem.graph().has_edge(1, 2));
@@ -109,11 +110,7 @@ fn test_jl_parity_evaluation() {
         let nv = instance["instance"]["num_vertices"].as_u64().unwrap() as usize;
         let edges = jl_parse_edges(&instance["instance"]);
         let weights = jl_parse_i32_vec(&instance["instance"]["weights"]);
-        let problem = if weights.iter().all(|&w| w == 1) {
-            MinimumVertexCover::<SimpleGraph, i32>::new(nv, edges)
-        } else {
-            MinimumVertexCover::with_weights(nv, edges, weights)
-        };
+        let problem = MinimumVertexCover::new(SimpleGraph::new(nv, edges), weights);
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_config(&eval["config"]);
             let result = problem.evaluate(&config);

@@ -25,7 +25,7 @@ pub fn run() {
 
     // Petersen graph: 10 vertices, 15 edges, VC=6
     let (num_vertices, edges) = petersen();
-    let source = MinimumVertexCover::<SimpleGraph, i32>::new(num_vertices, edges.clone());
+    let source = MinimumVertexCover::new(SimpleGraph::new(num_vertices, edges.clone()), vec![1i32; num_vertices]);
 
     println!("Source: MinimumVertexCover on Petersen graph");
     println!("  Vertices: {}", num_vertices);
