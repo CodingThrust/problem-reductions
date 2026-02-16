@@ -241,6 +241,41 @@ fn test_bidirectional_paths() {
         .is_empty());
 }
 
+// ---- Display ----
+
+#[test]
+fn test_reduction_path_display() {
+    let graph = ReductionGraph::new();
+    let src_var = ReductionGraph::variant_to_map(&Factoring::variant());
+    let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
+    let path = graph
+        .find_cheapest_path(
+            "Factoring",
+            &src_var,
+            "SpinGlass",
+            &dst_var,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .unwrap();
+
+    let s = format!("{path}");
+    // Should contain arrow-separated problem names with variant info
+    assert!(s.contains("Factoring"));
+    assert!(s.contains("→"));
+    assert!(s.contains("SpinGlass"));
+
+    // Step with empty variant
+    let step = &path.steps[0];
+    assert_eq!(format!("{step}"), "Factoring");
+
+    // Step with non-empty variant
+    let last = path.steps.last().unwrap();
+    let last_s = format!("{last}");
+    assert!(last_s.contains("SpinGlass"));
+    assert!(last_s.contains("{"));
+}
+
 // ---- Overhead evaluation along a path ----
 
 #[test]
