@@ -47,7 +47,7 @@ fn test_complement_relationship() {
     use crate::models::graph::MaximumIndependentSet;
 
     let edges = vec![(0, 1), (1, 2), (2, 3)];
-    let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, edges.clone());
+    let is_problem = MaximumIndependentSet::new(SimpleGraph::new(4, edges.clone()), vec![1i32; 4]);
     let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(4, edges);
 
     let solver = BruteForce::new();

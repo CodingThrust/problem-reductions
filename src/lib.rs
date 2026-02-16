@@ -21,7 +21,7 @@
 //! use problemreductions::topology::SimpleGraph;
 //!
 //! // Create an Independent Set problem on a triangle graph
-//! let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+//! let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
 //!
 //! // Solve with brute force
 //! let solver = BruteForce::new();

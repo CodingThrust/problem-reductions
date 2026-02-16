@@ -26,7 +26,7 @@ fn check_problem_trait<P: Problem>(problem: &P, name: &str) {
 #[test]
 fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
-        &MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1)]),
+        &MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
         "MaximumIndependentSet",
     );
     check_problem_trait(
@@ -124,7 +124,7 @@ fn test_direction() {
 
     // Maximization problems
     assert_eq!(
-        MaximumIndependentSet::<SimpleGraph, i32>::new(2, vec![(0, 1)]).direction(),
+        MaximumIndependentSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
         Direction::Maximize
     );
     assert_eq!(

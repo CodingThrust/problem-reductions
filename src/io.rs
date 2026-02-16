@@ -44,7 +44,7 @@ impl FileFormat {
 /// use problemreductions::models::graph::MaximumIndependentSet;
 /// use problemreductions::topology::SimpleGraph;
 ///
-/// let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2)]);
+/// let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
 /// write_problem(&problem, "problem.json", FileFormat::Json).unwrap();
 /// ```
 pub fn write_problem<T: Serialize, P: AsRef<Path>>(

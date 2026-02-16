@@ -90,9 +90,8 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MinimumVertexCover<Si
     type Result = ReductionVCToIS<i32>;
 
     fn reduce_to(&self) -> Self::Result {
-        let target = MaximumIndependentSet::with_weights(
-            self.graph().num_vertices(),
-            self.graph().edges(),
+        let target = MaximumIndependentSet::new(
+            SimpleGraph::new(self.graph().num_vertices(), self.graph().edges()),
             self.weights().to_vec(),
         );
         ReductionVCToIS { target }

@@ -35,7 +35,7 @@ use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 
 // 1. Create: Independent Set on a path graph (4 vertices)
-let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+let problem = MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
 
 // 2. Reduce: Transform to Minimum Vertex Cover
 let reduction = ReduceTo::<MinimumVertexCover<SimpleGraph, i32>>::reduce_to(&problem);

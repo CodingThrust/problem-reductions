@@ -6,7 +6,7 @@ use crate::traits::Problem;
 fn test_independentset_to_qubo_closed_loop() {
     // Path graph: 0-1-2-3 (4 vertices, 3 edges)
     // Maximum IS = {0, 2} or {1, 3} (size 2)
-    let is = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let is = MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&is);
     let qubo = reduction.target_problem();
 
@@ -24,7 +24,7 @@ fn test_independentset_to_qubo_closed_loop() {
 fn test_independentset_to_qubo_triangle() {
     // Triangle: 0-1-2 (complete graph K3)
     // Maximum IS = any single vertex (size 1)
-    let is = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![(0, 1), (1, 2), (0, 2)]);
+    let is = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&is);
     let qubo = reduction.target_problem();
 
@@ -41,7 +41,7 @@ fn test_independentset_to_qubo_triangle() {
 #[test]
 fn test_independentset_to_qubo_empty_graph() {
     // No edges: all vertices form the IS
-    let is = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![]);
+    let is = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&is);
     let qubo = reduction.target_problem();
 
@@ -57,7 +57,7 @@ fn test_independentset_to_qubo_empty_graph() {
 
 #[test]
 fn test_independentset_to_qubo_structure() {
-    let is = MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+    let is = MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&is);
     let qubo = reduction.target_problem();
 

@@ -50,7 +50,7 @@ impl ReduceTo<MaximumIndependentSet<KingsSubgraph, i32>>
         let result = ksg::map_unweighted(n, &edges);
         let weights = result.node_weights.clone();
         let grid = result.to_kings_subgraph();
-        let target = MaximumIndependentSet::from_graph(grid, weights);
+        let target = MaximumIndependentSet::new(grid, weights);
         ReductionISSimpleToGrid {
             target,
             mapping_result: result,
@@ -97,7 +97,7 @@ impl ReduceTo<MaximumIndependentSet<KingsSubgraph, i32>>
         let result = ksg::map_unweighted(n, &edges);
         let weights = result.node_weights.clone();
         let grid = result.to_kings_subgraph();
-        let target = MaximumIndependentSet::from_graph(grid, weights);
+        let target = MaximumIndependentSet::new(grid, weights);
         ReductionISUnitDiskToGrid {
             target,
             mapping_result: result,

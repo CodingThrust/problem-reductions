@@ -18,7 +18,7 @@ mod all_problems_solvable {
     #[test]
     fn test_independent_set_solvable() {
         let problem =
-            MaximumIndependentSet::<SimpleGraph, i32>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
+            MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());
@@ -233,7 +233,7 @@ mod problem_relationships {
         let edges = vec![(0, 1), (1, 2), (2, 3), (0, 3)];
         let n = 4;
 
-        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(n, edges.clone());
+        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges.clone()), vec![1i32; n]);
         let vc_problem = MinimumVertexCover::<SimpleGraph, i32>::new(n, edges);
 
         let solver = BruteForce::new();
@@ -254,7 +254,7 @@ mod problem_relationships {
         let n = 4;
 
         let maximal_is = MaximalIS::<SimpleGraph, i32>::new(n, edges.clone());
-        let is_problem = MaximumIndependentSet::<SimpleGraph, i32>::new(n, edges);
+        let is_problem = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i32; n]);
 
         let solver = BruteForce::new();
         let maximal_solutions = solver.find_all_best(&maximal_is);
@@ -332,7 +332,7 @@ mod edge_cases {
 
     #[test]
     fn test_empty_graph_independent_set() {
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(3, vec![]);
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
 
@@ -344,7 +344,7 @@ mod edge_cases {
     fn test_complete_graph_independent_set() {
         // K4 - complete graph on 4 vertices
         let edges = vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)];
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(4, edges);
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(4, edges), vec![1i32; 4]);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
 
@@ -401,9 +401,8 @@ mod weighted_problems {
 
     #[test]
     fn test_weighted_independent_set() {
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::with_weights(
-            3,
-            vec![(0, 1)],
+        let problem = MaximumIndependentSet::new(
+            SimpleGraph::new(3, vec![(0, 1)]),
             vec![10, 1, 1],
         );
 

@@ -12,7 +12,7 @@ impl_variant_reduction!(
     MaximumIndependentSet,
     <KingsSubgraph, i32> => <UnitDiskGraph, i32>,
     fields: [num_vertices, num_edges],
-    |src| MaximumIndependentSet::from_graph(
+    |src| MaximumIndependentSet::new(
         src.graph().cast_to_parent(), src.weights().to_vec())
 );
 
@@ -20,7 +20,7 @@ impl_variant_reduction!(
     MaximumIndependentSet,
     <TriangularSubgraph, i32> => <UnitDiskGraph, i32>,
     fields: [num_vertices, num_edges],
-    |src| MaximumIndependentSet::from_graph(
+    |src| MaximumIndependentSet::new(
         src.graph().cast_to_parent(), src.weights().to_vec())
 );
 
@@ -28,6 +28,6 @@ impl_variant_reduction!(
     MaximumIndependentSet,
     <UnitDiskGraph, i32> => <SimpleGraph, i32>,
     fields: [num_vertices, num_edges],
-    |src| MaximumIndependentSet::from_graph(
+    |src| MaximumIndependentSet::new(
         src.graph().cast_to_parent(), src.weights().to_vec())
 );

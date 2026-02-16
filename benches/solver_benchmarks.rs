@@ -18,7 +18,7 @@ fn bench_independent_set(c: &mut Criterion) {
     for n in [4, 6, 8, 10].iter() {
         // Create a path graph with n vertices
         let edges: Vec<(usize, usize)> = (0..*n - 1).map(|i| (i, i + 1)).collect();
-        let problem = MaximumIndependentSet::<SimpleGraph, i32>::new(*n, edges);
+        let problem = MaximumIndependentSet::new(SimpleGraph::new(*n, edges), vec![1i32; *n]);
         let solver = BruteForce::new();
 
         group.bench_with_input(BenchmarkId::new("path", n), n, |b, _| {
@@ -196,7 +196,7 @@ fn bench_comparison(c: &mut Criterion) {
 
     // MaximumIndependentSet with 8 vertices
     let is_problem =
-        MaximumIndependentSet::<SimpleGraph, i32>::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]);
+        MaximumIndependentSet::new(SimpleGraph::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]), vec![1i32; 8]);
     group.bench_function("MaximumIndependentSet", |b| {
         b.iter(|| solver.find_best(black_box(&is_problem)))
     });
