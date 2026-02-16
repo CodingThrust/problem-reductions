@@ -156,7 +156,8 @@ impl PaintShop {
 }
 
 /// Count color switches in a painted sequence.
-pub fn count_paint_switches(coloring: &[usize]) -> usize {
+#[cfg(test)]
+pub(crate) fn count_paint_switches(coloring: &[usize]) -> usize {
     coloring.windows(2).filter(|w| w[0] != w[1]).count()
 }
 

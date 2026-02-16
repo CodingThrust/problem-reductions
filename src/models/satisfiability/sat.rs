@@ -162,6 +162,13 @@ impl Satisfiability {
         self.clauses.iter().all(|c| c.is_satisfied(assignment))
     }
 
+    /// Check if a solution (config) is valid.
+    ///
+    /// For SAT, a valid solution is one that satisfies all clauses.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        self.evaluate(config)
+    }
+
     /// Convert a usize config to boolean assignment.
     fn config_to_assignment(config: &[usize]) -> Vec<bool> {
         config.iter().map(|&v| v == 1).collect()
@@ -201,7 +208,8 @@ impl SatisfactionProblem for Satisfiability {}
 /// * `num_vars` - Number of variables
 /// * `clauses` - Clauses as vectors of literals (1-indexed, signed)
 /// * `assignment` - Boolean assignment (0-indexed)
-pub fn is_satisfying_assignment(
+#[cfg(test)]
+pub(crate) fn is_satisfying_assignment(
     _num_vars: usize,
     clauses: &[Vec<i32>],
     assignment: &[bool],

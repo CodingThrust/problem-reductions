@@ -114,7 +114,8 @@ fn int_to_bits(n: u64, num_bits: usize) -> Vec<usize> {
 }
 
 /// Check if the given factors correctly factorize the target.
-pub fn is_factoring(target: u64, a: u64, b: u64) -> bool {
+#[cfg(test)]
+pub(crate) fn is_factoring(target: u64, a: u64, b: u64) -> bool {
     a * b == target
 }
 

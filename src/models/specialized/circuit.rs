@@ -264,7 +264,8 @@ impl CircuitSAT {
 }
 
 /// Check if a circuit assignment is satisfying.
-pub fn is_circuit_satisfying(circuit: &Circuit, assignments: &HashMap<String, bool>) -> bool {
+#[cfg(test)]
+pub(crate) fn is_circuit_satisfying(circuit: &Circuit, assignments: &HashMap<String, bool>) -> bool {
     circuit
         .assignments
         .iter()

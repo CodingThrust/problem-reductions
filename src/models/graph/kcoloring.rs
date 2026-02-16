@@ -155,7 +155,7 @@ impl<K: KValue, G: Graph + VariantParam> SatisfactionProblem for KColoring<K, G>
 ///
 /// # Panics
 /// Panics if `coloring.len() != graph.num_vertices()`.
-pub fn is_valid_coloring<G: Graph>(graph: &G, coloring: &[usize], num_colors: usize) -> bool {
+pub(crate) fn is_valid_coloring<G: Graph>(graph: &G, coloring: &[usize], num_colors: usize) -> bool {
     assert_eq!(
         coloring.len(),
         graph.num_vertices(),

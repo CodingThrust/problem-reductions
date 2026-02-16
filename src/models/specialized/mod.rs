@@ -7,14 +7,14 @@
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 //! - [`BMF`]: Boolean matrix factorization
 
-mod biclique_cover;
-mod bmf;
-mod circuit;
-mod factoring;
-mod paintshop;
+pub(crate) mod biclique_cover;
+pub(crate) mod bmf;
+pub(crate) mod circuit;
+pub(crate) mod factoring;
+pub(crate) mod paintshop;
 
-pub use biclique_cover::{is_biclique_cover, BicliqueCover};
-pub use bmf::{boolean_matrix_product, matrix_hamming_distance, BMF};
-pub use circuit::{is_circuit_satisfying, Assignment, BooleanExpr, BooleanOp, Circuit, CircuitSAT};
-pub use factoring::{is_factoring, Factoring};
-pub use paintshop::{count_paint_switches, PaintShop};
+pub use biclique_cover::BicliqueCover;
+pub use bmf::BMF;
+pub use circuit::{Assignment, BooleanExpr, BooleanOp, Circuit, CircuitSAT};
+pub use factoring::Factoring;
+pub use paintshop::PaintShop;

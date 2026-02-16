@@ -187,7 +187,8 @@ where
 }
 
 /// Check if a selection of sets forms a valid set cover.
-pub fn is_set_cover(universe_size: usize, sets: &[Vec<usize>], selected: &[bool]) -> bool {
+#[cfg(test)]
+pub(crate) fn is_set_cover(universe_size: usize, sets: &[Vec<usize>], selected: &[bool]) -> bool {
     if selected.len() != sets.len() {
         return false;
     }

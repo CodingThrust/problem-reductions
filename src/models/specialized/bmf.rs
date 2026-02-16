@@ -172,12 +172,14 @@ impl BMF {
 }
 
 /// Compute the boolean matrix product.
-pub fn boolean_matrix_product(b: &[Vec<bool>], c: &[Vec<bool>]) -> Vec<Vec<bool>> {
+#[cfg(test)]
+pub(crate) fn boolean_matrix_product(b: &[Vec<bool>], c: &[Vec<bool>]) -> Vec<Vec<bool>> {
     BMF::boolean_product(b, c)
 }
 
 /// Compute the Hamming distance between two boolean matrices.
-pub fn matrix_hamming_distance(a: &[Vec<bool>], b: &[Vec<bool>]) -> usize {
+#[cfg(test)]
+pub(crate) fn matrix_hamming_distance(a: &[Vec<bool>], b: &[Vec<bool>]) -> usize {
     a.iter()
         .zip(b.iter())
         .map(|(a_row, b_row)| {

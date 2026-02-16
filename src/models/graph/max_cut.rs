@@ -195,7 +195,7 @@ where
 /// * `graph` - The graph structure
 /// * `edge_weights` - Weights for each edge (same order as `graph.edges()`)
 /// * `partition` - Boolean slice indicating which set each vertex belongs to
-pub fn cut_size<G, W>(graph: &G, edge_weights: &[W], partition: &[bool]) -> W::Sum
+pub(crate) fn cut_size<G, W>(graph: &G, edge_weights: &[W], partition: &[bool]) -> W::Sum
 where
     G: Graph,
     W: WeightElement,

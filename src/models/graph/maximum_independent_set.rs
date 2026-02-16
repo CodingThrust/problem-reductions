@@ -162,7 +162,8 @@ fn is_independent_set_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 ///
 /// # Panics
 /// Panics if `selected.len() != graph.num_vertices()`.
-pub fn is_independent_set<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+#[cfg(test)]
+pub(crate) fn is_independent_set<G: Graph>(graph: &G, selected: &[bool]) -> bool {
     assert_eq!(
         selected.len(),
         graph.num_vertices(),

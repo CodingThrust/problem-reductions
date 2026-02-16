@@ -199,7 +199,8 @@ fn is_valid_packing(sets: &[Vec<usize>], config: &[usize]) -> bool {
 }
 
 /// Check if a selection of sets forms a valid set packing.
-pub fn is_set_packing(sets: &[Vec<usize>], selected: &[bool]) -> bool {
+#[cfg(test)]
+pub(crate) fn is_set_packing(sets: &[Vec<usize>], selected: &[bool]) -> bool {
     if selected.len() != sets.len() {
         return false;
     }

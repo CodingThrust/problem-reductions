@@ -195,7 +195,8 @@ impl BicliqueCover {
 }
 
 /// Check if a biclique configuration covers all edges.
-pub fn is_biclique_cover(
+#[cfg(test)]
+pub(crate) fn is_biclique_cover(
     edges: &[(usize, usize)],
     left_bicliques: &[HashSet<usize>],
     right_bicliques: &[HashSet<usize>],

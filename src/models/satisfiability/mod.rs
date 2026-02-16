@@ -9,6 +9,3 @@ mod sat;
 
 pub use ksat::KSatisfiability;
 pub use sat::{CNFClause, Satisfiability};
-
-// Validation utilities
-pub use sat::is_satisfying_assignment;

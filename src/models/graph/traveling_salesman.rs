@@ -181,7 +181,7 @@ where
 ///
 /// # Panics
 /// Panics if `selected.len() != graph.num_edges()`.
-pub fn is_hamiltonian_cycle<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+pub(crate) fn is_hamiltonian_cycle<G: Graph>(graph: &G, selected: &[bool]) -> bool {
     assert_eq!(
         selected.len(),
         graph.num_edges(),
