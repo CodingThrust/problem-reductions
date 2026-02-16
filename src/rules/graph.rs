@@ -261,7 +261,7 @@ impl ReductionGraph {
 
     /// Convert a variant slice to a BTreeMap.
     /// Normalizes empty "graph" values to "SimpleGraph" for consistency.
-    pub(crate) fn variant_to_map(variant: &[(&str, &str)]) -> BTreeMap<String, String> {
+    pub fn variant_to_map(variant: &[(&str, &str)]) -> BTreeMap<String, String> {
         variant
             .iter()
             .map(|(k, v)| {

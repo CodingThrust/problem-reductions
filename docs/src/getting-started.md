@@ -64,38 +64,10 @@ convert it to a typed `ExecutablePath<S, T>` via `make_executable()`. Call
 Here we solve a 3-SAT formula by chaining through Satisfiability
 and MaximumIndependentSet:
 
-```rust
-use problemreductions::prelude::*;
-use problemreductions::topology::SimpleGraph;
-use problemreductions::rules::ReductionGraph;
+```rust,ignore
+{{#include ../../examples/chained_reduction_ksat_to_mis.rs:imports}}
 
-let graph = ReductionGraph::new();
-let rpath = graph
-    .find_shortest_path::<KSatisfiability<K3>, MaximumIndependentSet<SimpleGraph, i32>>()
-    .unwrap();
-let path = graph
-    .make_executable::<KSatisfiability<K3>, MaximumIndependentSet<SimpleGraph, i32>>(&rpath)
-    .unwrap();
-
-// Create: 3-SAT formula (a∨b∨¬c)∧(¬a∨¬b∨¬c)∧(¬a∨b∨c)∧(a∨¬b∨c)
-let ksat = KSatisfiability::<K3>::new(3, vec![
-    CNFClause::new(vec![1, 2, -3]),
-    CNFClause::new(vec![-1, -2, -3]),
-    CNFClause::new(vec![-1, 2, 3]),
-    CNFClause::new(vec![1, -2, 3]),
-]);
-
-// Reduce: the executable path handles all intermediate steps
-let reduction = path.reduce(&ksat);
-let target = reduction.target_problem();
-
-// Solve and extract back to original space
-let solver = BruteForce::new();
-let solution = solver.find_best(target).unwrap();
-let original = reduction.extract_solution(&solution);
-
-// Verify: satisfies the original 3-SAT formula
-assert!(ksat.evaluate(&original));
+{{#include ../../examples/chained_reduction_ksat_to_mis.rs:example}}
 ```
 
 The `ExecutablePath` handles variant casts (e.g., `K3` → `KN`) and

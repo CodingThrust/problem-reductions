@@ -827,10 +827,16 @@ fn test_chained_reduction_with_variant_casts() {
     assert!(metric.is_valid());
 
     // Also test the KSat<K3> -> Sat -> MIS multi-step path
-    let ksat_rpath = graph.find_shortest_path::<
-        KSatisfiability<crate::variant::K3>,
-        MaximumIndependentSet<SimpleGraph, i32>,
-    >();
+    // Use find_cheapest_path for exact variant matching (find_shortest_path is name-based
+    // and may pick a path through a different KSat variant)
+    let ksat_src = ReductionGraph::variant_to_map(&KSatisfiability::<crate::variant::K3>::variant());
+    let ksat_dst = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let ksat_rpath = graph.find_cheapest_path(
+        "KSatisfiability", &ksat_src,
+        "MaximumIndependentSet", &ksat_dst,
+        &crate::types::ProblemSize::new(vec![]),
+        &crate::rules::MinimizeSteps,
+    );
     assert!(
         ksat_rpath.is_some(),
         "Should find path from KSat<K3> to MIS"
