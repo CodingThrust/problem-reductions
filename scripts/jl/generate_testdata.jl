@@ -274,6 +274,165 @@ function export_setcovering(sc, label)
     return make_instance(label, inst, sc)
 end
 
+"""Evaluate BicliqueCover with flat binary config (matching Rust convention).
+
+Config layout: for each vertex v (0-based) and biclique b (0-based),
+config[v*k + b + 1] == 1 means vertex v is in biclique b.
+Returns (is_valid, size) where is_valid means all edges covered,
+and size is the total number of 1s in the config.
+"""
+function biclique_cover_evaluate(left_size, right_size, edges_0based, k, config)
+    n = left_size + right_size
+    # Check all edges are covered
+    for (l, r) in edges_0based
+        covered = false
+        for b in 0:k-1
+            l_in = config[l * k + b + 1] == 1
+            r_in = config[r * k + b + 1] == 1
+            if l_in && r_in
+                covered = true
+                break
+            end
+        end
+        if !covered
+            return (false, 0)
+        end
+    end
+    return (true, sum(config))
+end
+
+function export_biclique_cover(graph, left_part, k, label)
+    left_size = length(left_part)
+    right_size = nv(graph) - left_size
+    edges_0 = graph_to_edges(graph)
+    n = nv(graph)
+    num_vars = n * k
+
+    inst = Dict(
+        "num_vertices" => n,
+        "edges" => edges_0,
+        "left_size" => left_size,
+        "right_size" => right_size,
+        "k" => k,
+    )
+
+    # Sample configs
+    configs = Set{Vector{Int}}()
+    push!(configs, zeros(Int, num_vars))
+    push!(configs, ones(Int, num_vars))
+    while length(configs) < min(10, 2^num_vars)
+        push!(configs, [rand(0:1) for _ in 1:num_vars])
+    end
+    configs = collect(configs)
+
+    # Evaluate configs
+    evals = []
+    for cfg in configs
+        (valid, sz) = biclique_cover_evaluate(left_size, right_size, edges_0, k, cfg)
+        push!(evals, Dict("config" => cfg, "is_valid" => valid, "size" => valid ? sz : 0))
+    end
+
+    # Brute force: find all best (minimize size among valid covers)
+    best_size = typemax(Int)
+    best_configs = Vector{Int}[]
+    for bits in 0:(2^num_vars - 1)
+        cfg = [(bits >> i) & 1 for i in 0:num_vars-1]
+        (valid, sz) = biclique_cover_evaluate(left_size, right_size, edges_0, k, cfg)
+        if valid
+            if sz < best_size
+                best_size = sz
+                best_configs = [cfg]
+            elseif sz == best_size
+                push!(best_configs, cfg)
+            end
+        end
+    end
+
+    return Dict(
+        "label" => label,
+        "instance" => inst,
+        "evaluations" => evals,
+        "best_solutions" => best_configs,
+    )
+end
+
+"""Evaluate BMF with flat binary config (matching Rust convention).
+
+Config layout: first m*k bits are B (row-major), next k*n bits are C (row-major).
+Returns hamming distance between A and boolean_product(B, C).
+All configs are valid.
+"""
+function bmf_evaluate(A, m, n, k, config)
+    # Extract B (m x k)
+    B = zeros(Bool, m, k)
+    for i in 1:m, j in 1:k
+        B[i,j] = config[(i-1)*k + j] == 1
+    end
+    b_size = m * k
+    # Extract C (k x n)
+    C = zeros(Bool, k, n)
+    for i in 1:k, j in 1:n
+        C[i,j] = config[b_size + (i-1)*n + j] == 1
+    end
+    # Boolean product
+    product = zeros(Bool, m, n)
+    for i in 1:m, j in 1:n
+        product[i,j] = any(kk -> B[i,kk] && C[kk,j], 1:k)
+    end
+    # Hamming distance
+    return sum(A .!= product)
+end
+
+function export_bmf(A, k, label)
+    m, n = size(A)
+    num_vars = m * k + k * n
+
+    inst = Dict(
+        "matrix" => [[Int(A[i,j]) for j in 1:n] for i in 1:m],
+        "m" => m,
+        "n" => n,
+        "k" => k,
+    )
+
+    # Sample configs
+    configs = Set{Vector{Int}}()
+    push!(configs, zeros(Int, num_vars))
+    push!(configs, ones(Int, num_vars))
+    while length(configs) < min(10, 2^num_vars)
+        push!(configs, [rand(0:1) for _ in 1:num_vars])
+    end
+    configs = collect(configs)
+
+    # Evaluate configs
+    evals = []
+    for cfg in configs
+        dist = bmf_evaluate(A, m, n, k, cfg)
+        # All configs are valid for BMF; size = hamming distance
+        push!(evals, Dict("config" => cfg, "is_valid" => true, "size" => dist))
+    end
+
+    # Brute force: find all best (minimize hamming distance)
+    best_dist = typemax(Int)
+    best_configs = Vector{Int}[]
+    for bits in 0:(2^num_vars - 1)
+        cfg = [(bits >> i) & 1 for i in 0:num_vars-1]
+        dist = bmf_evaluate(A, m, n, k, cfg)
+        if dist < best_dist
+            best_dist = dist
+            best_configs = [cfg]
+        elseif dist == best_dist
+            push!(best_configs, cfg)
+        end
+    end
+
+    return Dict(
+        "label" => label,
+        "instance" => inst,
+        "evaluations" => evals,
+        "best_solutions" => best_configs,
+    )
+end
+
 # ── reduction exports ────────────────────────────────────────────────
 
 function export_reduction(source, target_type, source_label)
@@ -369,6 +528,16 @@ function main()
 
     # SetCovering docstring
     doc_sc = SetCovering([[1, 2, 3], [2, 4], [1, 4]], [1, 2, 3])
+
+    # BicliqueCover: 6-vertex bipartite graph, 2 bicliques (from Julia test)
+    doc_bc_graph = SimpleGraph(6)
+    for (i,j) in [(1,5), (1,4), (2,5), (2,4), (3,6)]
+        add_edge!(doc_bc_graph, i, j)
+    end
+    doc_bc = BicliqueCover(doc_bc_graph, [1,2,3], 2)
+
+    # BMF: 3x3 all-ones matrix, rank 2 (from Julia test)
+    doc_bmf = BinaryMatrixFactorization(trues(3, 3), 2)
 
     # ── Individual rule test instances (from test/rules/*.jl) ──
     rule_graph4 = SimpleGraph(Graphs.SimpleEdge.([(1, 2), (1, 3), (3, 4), (2, 3)]))
@@ -545,6 +714,16 @@ function main()
     # SetCovering (doc example)
     write_fixture("setcovering.json", model_fixture("SetCovering", [
         export_setcovering(doc_sc, "doc_3subsets"),
+    ]))
+
+    # BicliqueCover
+    write_fixture("biclique_cover.json", model_fixture("BicliqueCover", [
+        export_biclique_cover(doc_bc_graph, [1,2,3], 2, "doc_6vertex"),
+    ]))
+
+    # BMF
+    write_fixture("bmf.json", model_fixture("BMF", [
+        export_bmf(trues(3, 3), 2, "doc_3x3_ones"),
     ]))
 
     # ── Export reduction fixtures ──
