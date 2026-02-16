@@ -74,7 +74,7 @@ fn test_multi_step_path() {
     // Factoring -> CircuitSAT -> SpinGlass<SimpleGraph, i32> is a 2-step path
     let src = ReductionGraph::variant_to_map(&crate::models::specialized::Factoring::variant());
     let dst = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, i32>::variant());
-    let path = graph.find_shortest_path("Factoring", &src, "SpinGlass", &dst);
+    let path = graph.find_cheapest_path("Factoring", &src, "SpinGlass", &dst, &ProblemSize::new(vec![]), &MinimizeSteps);
 
     assert!(
         path.is_some(),
@@ -109,7 +109,7 @@ fn test_problem_size_propagation() {
 
     let src2 = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst2 = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
-    let path2 = graph.find_shortest_path("MaximumIndependentSet", &src2, "MaximumSetPacking", &dst2);
+    let path2 = graph.find_cheapest_path("MaximumIndependentSet", &src2, "MaximumSetPacking", &dst2, &ProblemSize::new(vec![]), &MinimizeSteps);
     assert!(path2.is_some());
 }
 
@@ -167,7 +167,7 @@ fn test_find_indirect_path() {
     let paths = graph.find_all_paths("MaximumSetPacking", &src, "MinimumVertexCover", &dst);
     assert!(!paths.is_empty());
 
-    let shortest = graph.find_shortest_path("MaximumSetPacking", &src, "MinimumVertexCover", &dst);
+    let shortest = graph.find_cheapest_path("MaximumSetPacking", &src, "MinimumVertexCover", &dst, &ProblemSize::new(vec![]), &MinimizeSteps);
     assert!(shortest.is_some());
     assert_eq!(shortest.unwrap().len(), 2);
 }

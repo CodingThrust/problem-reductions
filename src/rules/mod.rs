@@ -2,10 +2,7 @@
 
 pub mod cost;
 pub mod registry;
-pub use cost::{
-    CustomCost, Minimize, MinimizeLexicographic, MinimizeMax, MinimizeSteps, MinimizeWeighted,
-    PathCostFn,
-};
+pub use cost::{CustomCost, Minimize, MinimizeSteps, PathCostFn};
 pub use registry::{ReductionEntry, ReductionOverhead};
 
 mod circuit_spinglass;

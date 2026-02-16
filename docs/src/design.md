@@ -237,7 +237,8 @@ All path-finding operates on **exact variant nodes**. Use `ReductionGraph::varia
 |--------|-----------|----------|
 | `find_cheapest_path(src, src_var, dst, dst_var, input_size, cost_fn)` | Dijkstra | Optimal path under a cost function |
 | `find_all_paths(src, src_var, dst, dst_var)` | All simple paths | Enumerate every route |
-| `find_shortest_path(src, src_var, dst, dst_var)` | All simple paths + min | Fewest hops |
+
+Use `find_cheapest_path` with `MinimizeSteps` for fewest-hops search.
 
 The `PathCostFn` trait (used by `find_cheapest_path`) computes edge cost from overhead and current problem size:
 
@@ -245,9 +246,6 @@ The `PathCostFn` trait (used by `find_cheapest_path`) computes edge cost from ov
 |--------------|----------|
 | `MinimizeSteps` | Minimize number of hops (unit edge cost) |
 | `Minimize("field")` | Minimize a single output field |
-| `MinimizeWeighted([(field, w)])` | Weighted sum of output fields |
-| `MinimizeMax([fields])` | Minimize the maximum of fields |
-| `MinimizeLexicographic([fields])` | Lexicographic ordering |
 | `CustomCost(closure)` | User-defined cost function |
 
 **Example:** Finding a path from `MIS{KingsSubgraph, i32}` to `VC{SimpleGraph, i32}`:

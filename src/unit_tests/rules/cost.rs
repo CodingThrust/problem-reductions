@@ -18,46 +18,12 @@ fn test_minimize_single() {
 }
 
 #[test]
-fn test_minimize_weighted() {
-    let cost_fn = MinimizeWeighted(vec![("n", 1.0), ("m", 2.0)]);
-    let size = ProblemSize::new(vec![("n", 10), ("m", 5)]);
-    let overhead = test_overhead();
-
-    // output n = 20, output m = 5
-    // cost = 1.0 * 20 + 2.0 * 5 = 30
-    assert_eq!(cost_fn.edge_cost(&overhead, &size), 30.0);
-}
-
-#[test]
 fn test_minimize_steps() {
     let cost_fn = MinimizeSteps;
     let size = ProblemSize::new(vec![("n", 100)]);
     let overhead = test_overhead();
 
     assert_eq!(cost_fn.edge_cost(&overhead, &size), 1.0);
-}
-
-#[test]
-fn test_minimize_max() {
-    let cost_fn = MinimizeMax(vec!["n", "m"]);
-    let size = ProblemSize::new(vec![("n", 10), ("m", 5)]);
-    let overhead = test_overhead();
-
-    // output n = 20, output m = 5
-    // max(20, 5) = 20
-    assert_eq!(cost_fn.edge_cost(&overhead, &size), 20.0);
-}
-
-#[test]
-fn test_minimize_lexicographic() {
-    let cost_fn = MinimizeLexicographic(vec!["n", "m"]);
-    let size = ProblemSize::new(vec![("n", 10), ("m", 5)]);
-    let overhead = test_overhead();
-
-    // output n = 20, output m = 5
-    // cost = 20 * 1.0 + 5 * 1e-10 = 20.0000000005
-    let cost = cost_fn.edge_cost(&overhead, &size);
-    assert!(cost > 20.0 && cost < 20.001);
 }
 
 #[test]
@@ -83,11 +49,3 @@ fn test_minimize_missing_field() {
     assert_eq!(cost_fn.edge_cost(&overhead, &size), 0.0);
 }
 
-#[test]
-fn test_minimize_max_empty() {
-    let cost_fn = MinimizeMax(vec![]);
-    let size = ProblemSize::new(vec![("n", 10)]);
-    let overhead = test_overhead();
-
-    assert_eq!(cost_fn.edge_cost(&overhead, &size), 0.0);
-}

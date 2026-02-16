@@ -413,20 +413,6 @@ impl ReductionGraph {
             .collect()
     }
 
-    /// Find the shortest path between two specific problem variants.
-    ///
-    /// Returns the path with the fewest reduction steps.
-    pub fn find_shortest_path(
-        &self,
-        source: &str,
-        source_variant: &BTreeMap<String, String>,
-        target: &str,
-        target_variant: &BTreeMap<String, String>,
-    ) -> Option<ReductionPath> {
-        let paths = self.find_all_paths(source, source_variant, target, target_variant);
-        paths.into_iter().min_by_key(|p| p.len())
-    }
-
     /// Check if a direct reduction exists from S to T.
     pub fn has_direct_reduction<S: crate::traits::Problem, T: crate::traits::Problem>(
         &self,
