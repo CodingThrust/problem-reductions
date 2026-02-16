@@ -9,5 +9,5 @@ impl_variant_reduction!(
     KColoring,
     <K3, SimpleGraph> => <KN, SimpleGraph>,
     fields: [num_vertices, num_colors],
-    |src| KColoring::from_graph(src.graph().clone())
+    |src| KColoring::from_graph_with_k(src.graph().clone(), src.num_colors())
 );

@@ -22,6 +22,7 @@ use crate::variant::{KValue, K2, K3, KN};
 pub struct ReductionKColoringToQUBO<K: KValue> {
     target: QUBO<f64>,
     num_vertices: usize,
+    num_colors: usize,
     _phantom: std::marker::PhantomData<K>,
 }
 
@@ -35,7 +36,7 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
 
     /// Decode one-hot: for each vertex, find which color bit is 1.
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        let k = K::K.expect("KN cannot be used as problem instance");
+        let k = self.num_colors;
         (0..self.num_vertices)
             .map(|v| {
                 (0..k)
@@ -50,7 +51,7 @@ impl<K: KValue> ReductionResult for ReductionKColoringToQUBO<K> {
 fn reduce_kcoloring_to_qubo<K: KValue>(
     problem: &KColoring<K, SimpleGraph>,
 ) -> ReductionKColoringToQUBO<K> {
-    let k = K::K.expect("KN cannot be used as problem instance");
+    let k = problem.num_colors();
     let n = problem.num_vertices();
     let edges = problem.edges();
     let nq = n * k;
@@ -99,6 +100,7 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
     ReductionKColoringToQUBO {
         target: QUBO::from_matrix(matrix),
         num_vertices: n,
+        num_colors: k,
         _phantom: std::marker::PhantomData,
     }
 }

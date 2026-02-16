@@ -329,12 +329,9 @@ impl ReductionGraph {
                 let mut path = vec![dst];
                 let mut current = dst;
                 while current != src {
-                    if let Some(&prev_node) = prev.get(&current) {
-                        path.push(prev_node);
-                        current = prev_node;
-                    } else {
-                        break;
-                    }
+                    let &prev_node = prev.get(&current)?;
+                    path.push(prev_node);
+                    current = prev_node;
                 }
                 path.reverse();
                 return Some(path);
@@ -808,6 +805,9 @@ impl ReductionGraph {
         &self,
         path: &ReductionPath,
     ) -> Option<ExecutablePath<S, T>> {
+        if path.steps.len() < 2 {
+            return None;
+        }
         let mut edge_fns = Vec::new();
         for window in path.steps.windows(2) {
             let src = self.lookup_node(&window[0].name, &window[0].variant)?;

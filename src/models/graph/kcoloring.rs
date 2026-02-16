@@ -54,8 +54,15 @@ inventory::submit! {
 pub struct KColoring<K: KValue, G> {
     /// The underlying graph.
     graph: G,
+    /// Runtime number of colors. Always set; for compile-time K types it equals K::K.
+    #[serde(default = "default_num_colors::<K>")]
+    num_colors: usize,
     #[serde(skip)]
     _phantom: std::marker::PhantomData<K>,
+}
+
+fn default_num_colors<K: KValue>() -> usize {
+    K::K.unwrap_or(0)
 }
 
 impl<K: KValue> KColoring<K, SimpleGraph> {
@@ -64,10 +71,14 @@ impl<K: KValue> KColoring<K, SimpleGraph> {
     /// # Arguments
     /// * `num_vertices` - Number of vertices
     /// * `edges` - List of edges as (u, v) pairs
+    ///
+    /// # Panics
+    /// Panics if `K` is `KN` (use [`from_graph_with_k`](Self::from_graph_with_k) instead).
     pub fn new(num_vertices: usize, edges: Vec<(usize, usize)>) -> Self {
         let graph = SimpleGraph::new(num_vertices, edges);
         Self {
             graph,
+            num_colors: K::K.expect("KN requires from_graph_with_k"),
             _phantom: std::marker::PhantomData,
         }
     }
@@ -75,9 +86,25 @@ impl<K: KValue> KColoring<K, SimpleGraph> {
 
 impl<K: KValue, G: Graph> KColoring<K, G> {
     /// Create a K-Coloring problem from an existing graph.
+    ///
+    /// # Panics
+    /// Panics if `K` is `KN` (use [`from_graph_with_k`](Self::from_graph_with_k) instead).
     pub fn from_graph(graph: G) -> Self {
         Self {
             graph,
+            num_colors: K::K.expect("KN requires from_graph_with_k"),
+            _phantom: std::marker::PhantomData,
+        }
+    }
+
+    /// Create a K-Coloring problem with an explicit number of colors.
+    ///
+    /// Use this for `KN` variant casts where the number of colors is only
+    /// known at runtime.
+    pub fn from_graph_with_k(graph: G, num_colors: usize) -> Self {
+        Self {
+            graph,
+            num_colors,
             _phantom: std::marker::PhantomData,
         }
     }
@@ -99,7 +126,7 @@ impl<K: KValue, G: Graph> KColoring<K, G> {
 
     /// Get the number of colors.
     pub fn num_colors(&self) -> usize {
-        K::K.expect("KN cannot be used as problem instance")
+        self.num_colors
     }
 
     /// Get the edges as a list of (u, v) pairs.
@@ -132,8 +159,7 @@ where
     }
 
     fn dims(&self) -> Vec<usize> {
-        let k = K::K.expect("KN cannot be used as problem instance");
-        vec![k; self.graph.num_vertices()]
+        vec![self.num_colors; self.graph.num_vertices()]
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
