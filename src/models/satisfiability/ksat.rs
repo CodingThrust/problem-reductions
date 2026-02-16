@@ -7,6 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
+use crate::types::ProblemSize;
 use crate::variant::KValue;
 use serde::{Deserialize, Serialize};
 
@@ -169,6 +170,15 @@ impl<K: KValue> Problem for KSatisfiability<K> {
     fn evaluate(&self, config: &[usize]) -> bool {
         let assignment = Self::config_to_assignment(config);
         self.is_satisfying(&assignment)
+    }
+
+    fn problem_size(&self) -> ProblemSize {
+        let num_literals: usize = self.clauses().iter().map(|c| c.len()).sum();
+        ProblemSize::new(vec![
+            ("num_vars", self.num_vars()),
+            ("num_clauses", self.num_clauses()),
+            ("num_literals", num_literals),
+        ])
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {

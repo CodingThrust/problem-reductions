@@ -7,6 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
+use crate::types::ProblemSize;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -179,6 +180,14 @@ impl Problem for Satisfiability {
     fn evaluate(&self, config: &[usize]) -> bool {
         let assignment = Self::config_to_assignment(config);
         self.is_satisfying(&assignment)
+    }
+
+    fn problem_size(&self) -> ProblemSize {
+        ProblemSize::new(vec![
+            ("num_vars", self.num_vars()),
+            ("num_clauses", self.num_clauses()),
+            ("num_literals", self.num_literals()),
+        ])
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
