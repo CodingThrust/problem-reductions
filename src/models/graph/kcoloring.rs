@@ -89,6 +89,11 @@ impl<K: KValue, G: Graph> KColoring<K, G> {
         self.num_colors
     }
 
+    /// Check if a configuration is a valid coloring.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        is_valid_coloring(&self.graph, config, self.num_colors)
+    }
+
     /// Check if a coloring is valid.
     fn is_valid_coloring(&self, config: &[usize]) -> bool {
         for (u, v) in self.graph.edges() {
@@ -150,7 +155,7 @@ impl<K: KValue, G: Graph + VariantParam> SatisfactionProblem for KColoring<K, G>
 ///
 /// # Panics
 /// Panics if `coloring.len() != graph.num_vertices()`.
-pub fn is_valid_coloring<G: Graph>(graph: &G, coloring: &[usize], num_colors: usize) -> bool {
+pub(crate) fn is_valid_coloring<G: Graph>(graph: &G, coloring: &[usize], num_colors: usize) -> bool {
     assert_eq!(
         coloring.len(),
         graph.num_vertices(),

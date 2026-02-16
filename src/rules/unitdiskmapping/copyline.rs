@@ -425,6 +425,7 @@ pub fn mis_overhead_copyline(line: &CopyLine, spacing: usize, padding: usize) ->
 ///
 /// # Returns
 /// A tuple of (locations, weights) vectors.
+#[allow(dead_code)]
 pub fn copyline_weighted_locations_triangular(
     line: &CopyLine,
     spacing: usize,

@@ -15,6 +15,7 @@
 // Exports `docs/paper/examples/minimumsetcovering_to_ilp.json` and `minimumsetcovering_to_ilp.result.json`.
 
 use problemreductions::export::*;
+use problemreductions::models::optimization::ILP;
 use problemreductions::prelude::*;
 
 pub fn run() {

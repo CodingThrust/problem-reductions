@@ -86,6 +86,11 @@ impl<G: Graph, W: Clone + Default> MaximalIS<G, W> {
         !W::IS_UNIT
     }
 
+    /// Check if a configuration is a valid maximal independent set.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        self.is_maximal(config)
+    }
+
     /// Check if a configuration is an independent set.
     fn is_independent(&self, config: &[usize]) -> bool {
         for (u, v) in self.graph.edges() {
@@ -177,7 +182,8 @@ where
 ///
 /// # Panics
 /// Panics if `selected.len() != graph.num_vertices()`.
-pub fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool]) -> bool {
+#[cfg(test)]
+pub(crate) fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool]) -> bool {
     assert_eq!(
         selected.len(),
         graph.num_vertices(),

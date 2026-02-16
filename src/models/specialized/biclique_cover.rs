@@ -164,6 +164,11 @@ impl BicliqueCover {
         false
     }
 
+    /// Check if a configuration is a valid biclique cover.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        self.is_valid_cover(config)
+    }
+
     /// Check if all edges are covered.
     pub fn is_valid_cover(&self, config: &[usize]) -> bool {
         use crate::topology::Graph;
@@ -190,7 +195,8 @@ impl BicliqueCover {
 }
 
 /// Check if a biclique configuration covers all edges.
-pub fn is_biclique_cover(
+#[cfg(test)]
+pub(crate) fn is_biclique_cover(
     edges: &[(usize, usize)],
     left_bicliques: &[HashSet<usize>],
     right_bicliques: &[HashSet<usize>],

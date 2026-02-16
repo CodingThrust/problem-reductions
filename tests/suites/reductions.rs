@@ -3,8 +3,10 @@
 //! These tests verify that reduction chains work correctly and
 //! solutions can be properly extracted through the reduction pipeline.
 
+use problemreductions::models::optimization::{ILP, LinearConstraint, ObjectiveSense};
 use problemreductions::prelude::*;
 use problemreductions::topology::{Graph, SimpleGraph};
+use problemreductions::variant::{K2, K3};
 
 /// Tests for MaximumIndependentSet <-> MinimumVertexCover reductions.
 mod is_vc_reductions {
@@ -420,53 +422,8 @@ mod topology_tests {
     }
 }
 
-/// Tests for TruthTable integration with reductions.
-mod truth_table_tests {
-    use problemreductions::truth_table::TruthTable;
-
-    #[test]
-    fn test_truth_table_to_sat() {
-        // Create a simple truth table (AND gate)
-        let and_gate = TruthTable::and(2);
-
-        // Find satisfying assignments
-        let satisfying = and_gate.satisfying_assignments();
-
-        // AND gate: only [T, T] satisfies
-        assert_eq!(satisfying.len(), 1);
-        assert_eq!(satisfying[0], vec![true, true]);
-    }
-
-    #[test]
-    fn test_truth_table_xor_to_sat() {
-        // XOR has exactly 2^(n-1) satisfying assignments for n inputs
-        let xor3 = TruthTable::xor(3);
-        let satisfying = xor3.satisfying_assignments();
-
-        // 3-XOR: exactly 4 satisfying assignments
-        assert_eq!(satisfying.len(), 4);
-
-        // Each should have odd number of true inputs
-        for assignment in &satisfying {
-            let true_count = assignment.iter().filter(|&&b| b).count();
-            assert_eq!(true_count % 2, 1);
-        }
-    }
-
-    #[test]
-    fn test_truth_table_combined() {
-        // Test combining truth tables (useful for circuit construction)
-        let a = TruthTable::and(2);
-        let b = TruthTable::or(2);
-
-        // a AND b (element-wise AND of two truth tables)
-        let combined = a.and_with(&b);
-
-        // AND result: [F,F,F,T], OR result: [F,T,T,T]
-        // Combined: [F,F,F,T]
-        assert_eq!(combined.outputs_vec(), vec![false, false, false, true]);
-    }
-}
+// TruthTable integration tests moved to src/unit_tests/truth_table.rs
+// (truth_table module is now pub(crate))
 
 /// Tests for QUBO reductions against ground truth JSON.
 mod qubo_reductions {

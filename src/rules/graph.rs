@@ -32,36 +32,38 @@ pub(crate) struct ReductionEdgeData {
 
 /// JSON-serializable representation of the reduction graph.
 #[derive(Debug, Clone, Serialize)]
-pub struct ReductionGraphJson {
+pub(crate) struct ReductionGraphJson {
     /// List of problem type nodes.
-    pub nodes: Vec<NodeJson>,
+    pub(crate) nodes: Vec<NodeJson>,
     /// List of reduction edges.
-    pub edges: Vec<EdgeJson>,
+    pub(crate) edges: Vec<EdgeJson>,
 }
 
 impl ReductionGraphJson {
     /// Get the source node of an edge.
-    pub fn source_node(&self, edge: &EdgeJson) -> &NodeJson {
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn source_node(&self, edge: &EdgeJson) -> &NodeJson {
         &self.nodes[edge.source]
     }
 
     /// Get the target node of an edge.
-    pub fn target_node(&self, edge: &EdgeJson) -> &NodeJson {
+    #[cfg_attr(not(test), allow(dead_code))]
+    pub(crate) fn target_node(&self, edge: &EdgeJson) -> &NodeJson {
         &self.nodes[edge.target]
     }
 }
 
 /// A node in the reduction graph JSON.
 #[derive(Debug, Clone, Serialize)]
-pub struct NodeJson {
+pub(crate) struct NodeJson {
     /// Base problem name (e.g., "MaximumIndependentSet").
-    pub name: String,
+    pub(crate) name: String,
     /// Variant attributes as key-value pairs.
-    pub variant: BTreeMap<String, String>,
+    pub(crate) variant: BTreeMap<String, String>,
     /// Category of the problem (e.g., "graph", "set", "optimization", "satisfiability", "specialized").
-    pub category: String,
+    pub(crate) category: String,
     /// Relative rustdoc path (e.g., "models/graph/maximum_independent_set").
-    pub doc_path: String,
+    pub(crate) doc_path: String,
 }
 
 /// Internal reference to a problem variant, used as HashMap key.
@@ -73,24 +75,24 @@ struct VariantRef {
 
 /// A single output field in the reduction overhead.
 #[derive(Debug, Clone, Serialize)]
-pub struct OverheadFieldJson {
+pub(crate) struct OverheadFieldJson {
     /// Output field name (e.g., "num_vars").
-    pub field: String,
+    pub(crate) field: String,
     /// Formula as a human-readable string (e.g., "num_vertices").
-    pub formula: String,
+    pub(crate) formula: String,
 }
 
 /// An edge in the reduction graph JSON.
 #[derive(Debug, Clone, Serialize)]
-pub struct EdgeJson {
+pub(crate) struct EdgeJson {
     /// Index into the `nodes` array for the source problem variant.
-    pub source: usize,
+    pub(crate) source: usize,
     /// Index into the `nodes` array for the target problem variant.
-    pub target: usize,
+    pub(crate) target: usize,
     /// Reduction overhead: output size as polynomials of input size.
-    pub overhead: Vec<OverheadFieldJson>,
+    pub(crate) overhead: Vec<OverheadFieldJson>,
     /// Relative rustdoc path for the reduction module.
-    pub doc_path: String,
+    pub(crate) doc_path: String,
 }
 
 /// A path through the variant-level reduction graph.
@@ -633,7 +635,7 @@ impl ReductionGraph {
     /// Export the reduction graph as a JSON-serializable structure.
     ///
     /// Nodes and edges come directly from the variant-level graph.
-    pub fn to_json(&self) -> ReductionGraphJson {
+    pub(crate) fn to_json(&self) -> ReductionGraphJson {
         use crate::registry::ProblemSchemaEntry;
 
         // Build name -> module_path lookup from ProblemSchemaEntry inventory

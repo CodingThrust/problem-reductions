@@ -3,10 +3,10 @@
 //! Tests extracted from source files for better compilation times
 //! and clearer separation of concerns.
 
-use crate::models::graph::{
-    is_independent_set, is_valid_coloring, is_vertex_cover, KColoring, MaximumIndependentSet,
-    MinimumVertexCover,
-};
+use crate::models::graph::kcoloring::is_valid_coloring;
+use crate::models::graph::maximum_independent_set::is_independent_set;
+use crate::models::graph::minimum_vertex_cover::is_vertex_cover;
+use crate::models::graph::{KColoring, MaximumIndependentSet, MinimumVertexCover};
 use crate::prelude::*;
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};

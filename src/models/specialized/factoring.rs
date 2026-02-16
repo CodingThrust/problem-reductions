@@ -90,6 +90,11 @@ impl Factoring {
         (a, b)
     }
 
+    /// Check if a configuration is a valid factorization.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        self.is_valid_factorization(config)
+    }
+
     /// Check if the configuration is a valid factorization.
     pub fn is_valid_factorization(&self, config: &[usize]) -> bool {
         let (a, b) = self.read_factors(config);
@@ -109,7 +114,8 @@ fn int_to_bits(n: u64, num_bits: usize) -> Vec<usize> {
 }
 
 /// Check if the given factors correctly factorize the target.
-pub fn is_factoring(target: u64, a: u64, b: u64) -> bool {
+#[cfg(test)]
+pub(crate) fn is_factoring(target: u64, a: u64, b: u64) -> bool {
     a * b == target
 }
 

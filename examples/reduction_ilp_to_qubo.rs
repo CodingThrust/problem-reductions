@@ -36,6 +36,7 @@
 // ```
 
 use problemreductions::export::*;
+use problemreductions::models::optimization::{ILP, LinearConstraint, ObjectiveSense};
 use problemreductions::prelude::*;
 
 pub fn run() {

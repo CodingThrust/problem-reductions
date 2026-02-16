@@ -38,6 +38,7 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
+use problemreductions::variant::K3;
 
 pub fn run() {
     println!("=== K-Satisfiability (3-SAT) -> QUBO Reduction ===\n");
