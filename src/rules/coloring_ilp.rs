@@ -72,7 +72,7 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
     problem: &KColoring<K, G>,
 ) -> ReductionKColoringToILP<K, G> {
     let k = problem.num_colors();
-    let num_vertices = problem.num_vertices();
+    let num_vertices = problem.graph().num_vertices();
     let num_vars = num_vertices * k;
 
     // Helper function to get variable index
@@ -92,7 +92,7 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
 
     // Constraint 2: Adjacent vertices have different colors
     // x_{u,c} + x_{v,c} <= 1 for each edge (u,v) and each color c
-    for (u, v) in problem.edges() {
+    for (u, v) in problem.graph().edges() {
         for c in 0..k {
             constraints.push(LinearConstraint::le(
                 vec![(var_index(u, c), 1.0), (var_index(v, c), 1.0)],

@@ -31,7 +31,7 @@
 use problemreductions::export::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::small_graphs::house;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     println!("=== K-Coloring -> QUBO Reduction ===\n");
@@ -98,8 +98,8 @@ pub fn run() {
             problem: KColoring::<K3, SimpleGraph>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
-                "num_vertices": kc.num_vertices(),
-                "num_edges": kc.num_edges(),
+                "num_vertices": kc.graph().num_vertices(),
+                "num_edges": kc.graph().num_edges(),
                 "num_colors": 3,
             }),
         },

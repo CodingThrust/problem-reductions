@@ -8,8 +8,8 @@ fn test_kcoloring_creation() {
     use crate::traits::Problem;
 
     let problem = KColoring::<K3, SimpleGraph>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-    assert_eq!(problem.num_vertices(), 4);
-    assert_eq!(problem.num_edges(), 3);
+    assert_eq!(problem.graph().num_vertices(), 4);
+    assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.num_colors(), 3);
     assert_eq!(problem.dims(), vec![3, 3, 3, 3]);
 }
@@ -126,8 +126,8 @@ fn test_complete_graph_k4() {
 fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
     let problem = KColoring::<K3, SimpleGraph>::from_graph(graph);
-    assert_eq!(problem.num_vertices(), 3);
-    assert_eq!(problem.num_edges(), 2);
+    assert_eq!(problem.graph().num_vertices(), 3);
+    assert_eq!(problem.graph().num_edges(), 2);
 }
 
 #[test]

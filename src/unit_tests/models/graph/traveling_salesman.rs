@@ -17,8 +17,8 @@ fn test_traveling_salesman_creation() {
             (2, 3, 30),
         ],
     );
-    assert_eq!(problem.num_vertices(), 4);
-    assert_eq!(problem.num_edges(), 6);
+    assert_eq!(problem.graph().num_vertices(), 4);
+    assert_eq!(problem.graph().num_edges(), 6);
     assert_eq!(problem.dims().len(), 6);
 }
 
@@ -29,8 +29,8 @@ fn test_traveling_salesman_unweighted() {
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     );
     assert!(!problem.is_weighted());
-    assert_eq!(problem.num_vertices(), 5);
-    assert_eq!(problem.num_edges(), 5);
+    assert_eq!(problem.graph().num_vertices(), 5);
+    assert_eq!(problem.graph().num_edges(), 5);
 }
 
 #[test]
@@ -215,7 +215,7 @@ fn test_edges() {
 fn test_from_graph() {
     let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]);
     let problem = TravelingSalesman::<SimpleGraph, i32>::from_graph(graph, vec![10, 20, 30]);
-    assert_eq!(problem.num_vertices(), 3);
+    assert_eq!(problem.graph().num_vertices(), 3);
     assert_eq!(problem.weights(), vec![10, 20, 30]);
 }
 

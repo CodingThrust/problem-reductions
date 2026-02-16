@@ -9,7 +9,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::types::WeightElement;
 use num_traits::Zero;
 
@@ -55,7 +55,7 @@ impl ReduceTo<SpinGlass<SimpleGraph, i32>> for MaxCut<SimpleGraph, i32> {
     type Result = ReductionMaxCutToSG<i32>;
 
     fn reduce_to(&self) -> Self::Result {
-        let n = self.num_vertices();
+        let n = self.graph().num_vertices();
         let edges_with_weights = self.edges();
 
         // MaxCut: maximize sum of w_ij for edges (i,j) where s_i != s_j

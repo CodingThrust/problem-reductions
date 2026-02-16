@@ -387,8 +387,8 @@ mod kcoloring {
     #[test]
     fn test_creation() {
         let problem = KColoring::<K3, SimpleGraph>::new(4, vec![(0, 1), (1, 2), (2, 3)]);
-        assert_eq!(problem.num_vertices(), 4);
-        assert_eq!(problem.num_edges(), 3);
+        assert_eq!(problem.graph().num_vertices(), 4);
+        assert_eq!(problem.graph().num_edges(), 3);
         assert_eq!(problem.num_colors(), 3);
         assert_eq!(problem.num_variables(), 4);
     }

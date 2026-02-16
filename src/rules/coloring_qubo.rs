@@ -14,7 +14,7 @@ use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
-use crate::topology::SimpleGraph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::variant::{KValue, K2, K3, KN};
 
 /// Result of reducing KColoring to QUBO.
@@ -52,8 +52,8 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
     problem: &KColoring<K, SimpleGraph>,
 ) -> ReductionKColoringToQUBO<K> {
     let k = problem.num_colors();
-    let n = problem.num_vertices();
-    let edges = problem.edges();
+    let n = problem.graph().num_vertices();
+    let edges = problem.graph().edges();
     let nq = n * k;
 
     // Penalty must be large enough to enforce one-hot constraints

@@ -17,7 +17,7 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{Graph, SimpleGraph};
 
 pub fn run() {
     // 1. Create SAT instance: 5-variable, 3-clause formula with unit clauses
@@ -55,8 +55,8 @@ pub fn run() {
     );
     println!(
         "Target: 3-Coloring with {} vertices, {} edges",
-        coloring.num_vertices(),
-        coloring.num_edges()
+        coloring.graph().num_vertices(),
+        coloring.graph().num_edges()
     );
     println!("  Base triangle: TRUE(0), FALSE(1), AUX(2)");
     println!("  Variable gadgets: pos_i and neg_i vertices connected to AUX");
@@ -138,8 +138,8 @@ pub fn run() {
             problem: KColoring::<K3, SimpleGraph>::NAME.to_string(),
             variant: target_variant,
             instance: serde_json::json!({
-                "num_vertices": coloring.num_vertices(),
-                "num_edges": coloring.num_edges(),
+                "num_vertices": coloring.graph().num_vertices(),
+                "num_edges": coloring.graph().num_edges(),
                 "num_colors": 3,
             }),
         },

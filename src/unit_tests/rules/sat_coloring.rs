@@ -1,6 +1,7 @@
 use super::*;
 use crate::models::satisfiability::CNFClause;
 use crate::solvers::BruteForce;
+use crate::topology::Graph;
 use crate::variant::K3;
 include!("../jl_helpers.rs");
 
@@ -39,7 +40,7 @@ fn test_simple_sat_to_coloring() {
 
     // Should have 2*1 + 3 = 5 base vertices
     // Plus edges to set x1 to TRUE (attached to AUX and FALSE)
-    assert!(coloring.num_vertices() >= 5);
+    assert!(coloring.graph().num_vertices() >= 5);
 }
 
 #[test]
@@ -57,7 +58,7 @@ fn test_reduction_structure() {
     // Base vertices: 3 (TRUE, FALSE, AUX) + 2*2 (pos and neg for each var) = 7
     // Each 2-literal clause adds 5 vertices for OR gadget = 2 * 5 = 10
     // Total: 7 + 10 = 17 vertices
-    assert_eq!(coloring.num_vertices(), 17);
+    assert_eq!(coloring.graph().num_vertices(), 17);
     assert_eq!(coloring.num_colors(), 3);
     assert_eq!(reduction.pos_vertices().len(), 2);
     assert_eq!(reduction.neg_vertices().len(), 2);
@@ -112,7 +113,7 @@ fn test_three_literal_clause_structure() {
     // 3-literal clause needs 2 OR gadgets (x1 OR x2, then result OR x3)
     // Each OR gadget adds 5 vertices, so 2*5 = 10
     // Total: 9 + 10 = 19 vertices
-    assert_eq!(coloring.num_vertices(), 19);
+    assert_eq!(coloring.graph().num_vertices(), 19);
     assert_eq!(coloring.num_colors(), 3);
     assert_eq!(reduction.pos_vertices().len(), 3);
     assert_eq!(reduction.neg_vertices().len(), 3);
@@ -128,7 +129,7 @@ fn test_coloring_structure() {
     let coloring = reduction.target_problem();
 
     // Verify coloring has expected structure
-    assert!(coloring.num_vertices() > 0);
+    assert!(coloring.graph().num_vertices() > 0);
     assert_eq!(coloring.num_colors(), 3);
 }
 
@@ -174,7 +175,7 @@ fn test_complex_formula_structure() {
     // Base vertices: 3 + 2*3 = 9
     // 3 clauses each with 2 literals, each needs 1 OR gadget = 3*5 = 15
     // Total: 9 + 15 = 24 vertices
-    assert_eq!(coloring.num_vertices(), 24);
+    assert_eq!(coloring.graph().num_vertices(), 24);
     assert_eq!(coloring.num_colors(), 3);
     assert_eq!(reduction.num_clauses(), 3);
 }
@@ -217,7 +218,7 @@ fn test_empty_sat() {
 
     let coloring = reduction.target_problem();
     // Just the 3 special vertices
-    assert_eq!(coloring.num_vertices(), 3);
+    assert_eq!(coloring.graph().num_vertices(), 3);
 }
 
 #[test]
@@ -269,7 +270,7 @@ fn test_manual_coloring_extraction() {
     // NOT_x1 must have color 1 (connected to 2 and x1=0)
     let valid_coloring = vec![0, 1, 2, 0, 1];
 
-    assert_eq!(coloring.num_vertices(), 5);
+    assert_eq!(coloring.graph().num_vertices(), 5);
     let extracted = reduction.extract_solution(&valid_coloring);
     // x1 should be true (1) because vertex 3 has color 0 which equals TRUE vertex's color
     assert_eq!(extracted, vec![1]);

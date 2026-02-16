@@ -102,24 +102,9 @@ impl<K: KValue, G: Graph> KColoring<K, G> {
         &self.graph
     }
 
-    /// Get the number of vertices.
-    pub fn num_vertices(&self) -> usize {
-        self.graph.num_vertices()
-    }
-
-    /// Get the number of edges.
-    pub fn num_edges(&self) -> usize {
-        self.graph.num_edges()
-    }
-
     /// Get the number of colors.
     pub fn num_colors(&self) -> usize {
         self.num_colors
-    }
-
-    /// Get the edges as a list of (u, v) pairs.
-    pub fn edges(&self) -> Vec<(usize, usize)> {
-        self.graph.edges()
     }
 
     /// Check if a coloring is valid.
