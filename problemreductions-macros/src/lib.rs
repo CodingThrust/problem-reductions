@@ -188,8 +188,13 @@ fn generate_reduction_entry(
                 overhead_fn: || { #overhead },
                 module_path: module_path!(),
                 reduce_fn: |src: &dyn std::any::Any| -> Box<dyn crate::rules::traits::DynReductionResult> {
-                    let src = src.downcast_ref::<#source_type>()
-                        .expect("DynReductionResult: source type mismatch");
+                    let src = src.downcast_ref::<#source_type>().unwrap_or_else(|| {
+                        panic!(
+                            "DynReductionResult: source type mismatch: expected `{}`, got `{}`",
+                            std::any::type_name::<#source_type>(),
+                            std::any::type_name_of_val(src),
+                        )
+                    });
                     Box::new(<#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src))
                 },
             }
