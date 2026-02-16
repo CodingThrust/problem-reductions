@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::types::{Direction, ProblemSize, SolutionSize, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -158,6 +158,13 @@ where
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
+    }
+
+    fn problem_size(&self) -> ProblemSize {
+        ProblemSize::new(vec![
+            ("num_sets", self.num_sets()),
+            ("universe_size", self.universe_size()),
+        ])
     }
 }
 
