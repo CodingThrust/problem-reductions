@@ -10,18 +10,6 @@ use serde::{Deserialize, Serialize};
 ///
 /// The truth table stores the output for each possible input combination.
 /// For n input variables, there are 2^n rows in the table.
-///
-/// # Example
-///
-/// ```
-/// use problemreductions::truth_table::TruthTable;
-///
-/// // Create AND gate truth table
-/// let and_gate = TruthTable::from_outputs(2, vec![false, false, false, true]);
-/// assert!(!and_gate.evaluate(&[false, false]));
-/// assert!(!and_gate.evaluate(&[true, false]));
-/// assert!(and_gate.evaluate(&[true, true]));
-/// ```
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct TruthTable {
     /// Number of input variables.

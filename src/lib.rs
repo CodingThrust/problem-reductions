@@ -64,17 +64,17 @@
 pub mod config;
 pub mod error;
 pub mod export;
-pub mod graph_types;
 pub mod io;
 pub mod models;
-pub mod polynomial;
+pub(crate) mod polynomial;
 pub mod registry;
 pub mod rules;
 pub mod solvers;
 pub mod testing;
 pub mod topology;
 pub mod traits;
-pub mod truth_table;
+#[allow(dead_code)]
+pub(crate) mod truth_table;
 pub mod types;
 pub mod variant;
 
