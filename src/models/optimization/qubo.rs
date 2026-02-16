@@ -4,7 +4,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::types::{Direction, ProblemSize, SolutionSize, WeightElement};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -167,6 +167,10 @@ where
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
+    }
+
+    fn problem_size(&self) -> ProblemSize {
+        ProblemSize::new(vec![("num_vars", self.num_vars())])
     }
 }
 
