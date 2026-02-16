@@ -71,8 +71,10 @@ fn test_find_path_with_cost_function() {
 fn test_multi_step_path() {
     let graph = ReductionGraph::new();
 
-    // Factoring -> CircuitSAT -> SpinGlass is a 2-step path
-    let path = graph.find_shortest_path_by_name("Factoring", "SpinGlass");
+    // Factoring -> CircuitSAT -> SpinGlass<SimpleGraph, i32> is a 2-step path
+    let src = ReductionGraph::variant_to_map(&crate::models::specialized::Factoring::variant());
+    let dst = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, i32>::variant());
+    let path = graph.find_shortest_path("Factoring", &src, "SpinGlass", &dst);
 
     assert!(
         path.is_some(),
@@ -105,7 +107,9 @@ fn test_problem_size_propagation() {
 
     assert!(path.is_some());
 
-    let path2 = graph.find_shortest_path_by_name("MaximumIndependentSet", "MaximumSetPacking");
+    let src2 = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst2 = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
+    let path2 = graph.find_shortest_path("MaximumIndependentSet", &src2, "MaximumSetPacking", &dst2);
     assert!(path2.is_some());
 }
 
@@ -124,7 +128,7 @@ fn test_json_export() {
     assert!(categories.len() >= 3, "Should have multiple categories");
 }
 
-// ---- Path finding (typed API) ----
+// ---- Path finding (variant-level API) ----
 
 #[test]
 fn test_direct_reduction_exists() {
@@ -141,8 +145,10 @@ fn test_direct_reduction_exists() {
 #[test]
 fn test_find_direct_path() {
     let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
 
-    let paths = graph.find_paths::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>();
+    let paths = graph.find_all_paths("MaximumIndependentSet", &src, "MinimumVertexCover", &dst);
     assert!(!paths.is_empty());
     assert!(
         paths.iter().any(|p| p.len() == 1),
@@ -154,13 +160,14 @@ fn test_find_direct_path() {
 #[test]
 fn test_find_indirect_path() {
     let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
 
     // MaximumSetPacking -> MaximumIndependentSet -> MinimumVertexCover
-    let paths = graph.find_paths::<MaximumSetPacking<i32>, MinimumVertexCover<SimpleGraph, i32>>();
+    let paths = graph.find_all_paths("MaximumSetPacking", &src, "MinimumVertexCover", &dst);
     assert!(!paths.is_empty());
 
-    let shortest =
-        graph.find_shortest_path::<MaximumSetPacking<i32>, MinimumVertexCover<SimpleGraph, i32>>();
+    let shortest = graph.find_shortest_path("MaximumSetPacking", &src, "MinimumVertexCover", &dst);
     assert!(shortest.is_some());
     assert_eq!(shortest.unwrap().len(), 2);
 }
@@ -168,26 +175,24 @@ fn test_find_indirect_path() {
 #[test]
 fn test_no_path_exists() {
     let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+    let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
 
-    let paths = graph.find_paths::<QUBO<f64>, MaximumSetPacking<i32>>();
+    let paths = graph.find_all_paths("QUBO", &src, "MaximumSetPacking", &dst);
     assert!(paths.is_empty());
 }
 
 #[test]
 fn test_bidirectional_paths() {
     let graph = ReductionGraph::new();
+    let is_var = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let vc_var = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let sg_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
+    let qubo_var = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
 
-    assert!(!graph
-        .find_paths::<MaximumIndependentSet<SimpleGraph, i32>, MinimumVertexCover<SimpleGraph, i32>>()
-        .is_empty());
-    assert!(!graph
-        .find_paths::<MinimumVertexCover<SimpleGraph, i32>, MaximumIndependentSet<SimpleGraph, i32>>()
-        .is_empty());
+    assert!(!graph.find_all_paths("MaximumIndependentSet", &is_var, "MinimumVertexCover", &vc_var).is_empty());
+    assert!(!graph.find_all_paths("MinimumVertexCover", &vc_var, "MaximumIndependentSet", &is_var).is_empty());
 
-    assert!(!graph
-        .find_paths::<SpinGlass<SimpleGraph, f64>, QUBO<f64>>()
-        .is_empty());
-    assert!(!graph
-        .find_paths::<QUBO<f64>, SpinGlass<SimpleGraph, f64>>()
-        .is_empty());
+    assert!(!graph.find_all_paths("SpinGlass", &sg_var, "QUBO", &qubo_var).is_empty());
+    assert!(!graph.find_all_paths("QUBO", &qubo_var, "SpinGlass", &sg_var).is_empty());
 }

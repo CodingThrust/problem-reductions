@@ -381,70 +381,49 @@ impl ReductionGraph {
         ReductionPath { steps }
     }
 
-    /// Find all paths from source to target type.
+    /// Find all simple paths between two specific problem variants.
     ///
-    /// Uses `Problem::NAME` for lookup. With variant-level nodes, this finds
-    /// paths between any variant of S and any variant of T.
-    pub fn find_paths<S: crate::traits::Problem, T: crate::traits::Problem>(
+    /// Uses `all_simple_paths` on the variant-level graph from the exact
+    /// source variant node to the exact target variant node.
+    pub fn find_all_paths(
         &self,
+        source: &str,
+        source_variant: &BTreeMap<String, String>,
+        target: &str,
+        target_variant: &BTreeMap<String, String>,
     ) -> Vec<ReductionPath> {
-        self.find_paths_by_name(S::NAME, T::NAME)
-    }
-
-    /// Find all paths between problem types by name.
-    pub fn find_paths_by_name(&self, src: &str, dst: &str) -> Vec<ReductionPath> {
-        let src_nodes = match self.name_to_nodes.get(src) {
-            Some(nodes) => nodes.clone(),
+        let src = match self.lookup_node(source, source_variant) {
+            Some(idx) => idx,
             None => return vec![],
         };
-        let dst_nodes = match self.name_to_nodes.get(dst) {
-            Some(nodes) => nodes.clone(),
+        let dst = match self.lookup_node(target, target_variant) {
+            Some(idx) => idx,
             None => return vec![],
         };
 
-        let mut all_paths = Vec::new();
+        let paths: Vec<Vec<NodeIndex>> =
+            all_simple_paths::<Vec<NodeIndex>, _, std::hash::RandomState>(
+                &self.graph, src, dst, 0, None,
+            )
+            .collect();
 
-        for &src_idx in &src_nodes {
-            for &dst_idx in &dst_nodes {
-                let paths: Vec<Vec<NodeIndex>> = all_simple_paths::<
-                    Vec<NodeIndex>,
-                    _,
-                    std::hash::RandomState,
-                >(
-                    &self.graph, src_idx, dst_idx, 0, None
-                )
-                .collect();
-
-                for path in paths {
-                    let steps: Vec<ReductionStep> = path
-                        .iter()
-                        .map(|&idx| {
-                            let node = &self.nodes[self.graph[idx]];
-                            ReductionStep {
-                                name: node.name.to_string(),
-                                variant: node.variant.clone(),
-                            }
-                        })
-                        .collect();
-                    all_paths.push(ReductionPath { steps });
-                }
-            }
-        }
-
-        all_paths
+        paths
+            .iter()
+            .map(|p| self.node_path_to_reduction_path(p))
+            .collect()
     }
 
-    /// Find the shortest path from source to target type.
-    pub fn find_shortest_path<S: crate::traits::Problem, T: crate::traits::Problem>(
+    /// Find the shortest path between two specific problem variants.
+    ///
+    /// Returns the path with the fewest reduction steps.
+    pub fn find_shortest_path(
         &self,
+        source: &str,
+        source_variant: &BTreeMap<String, String>,
+        target: &str,
+        target_variant: &BTreeMap<String, String>,
     ) -> Option<ReductionPath> {
-        let paths = self.find_paths::<S, T>();
-        paths.into_iter().min_by_key(|p| p.len())
-    }
-
-    /// Find the shortest path by name.
-    pub fn find_shortest_path_by_name(&self, src: &str, dst: &str) -> Option<ReductionPath> {
-        let paths = self.find_paths_by_name(src, dst);
+        let paths = self.find_all_paths(source, source_variant, target, target_variant);
         paths.into_iter().min_by_key(|p| p.len())
     }
 
