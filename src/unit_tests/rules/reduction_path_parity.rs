@@ -171,3 +171,52 @@ fn test_jl_parity_factoring_to_spinglass_path() {
         "Should find at least one SpinGlass solution"
     );
 }
+
+/// Test that `find_cheapest_path` works with a real `problem_size()` from a
+/// constructed problem instance, rather than an empty `ProblemSize::new(vec![])`.
+#[test]
+fn test_find_cheapest_path_with_problem_size() {
+    let graph = ReductionGraph::new();
+    let petersen = SimpleGraph::new(
+        10,
+        vec![
+            (0, 1),
+            (0, 4),
+            (0, 5),
+            (1, 2),
+            (1, 6),
+            (2, 3),
+            (2, 7),
+            (3, 4),
+            (3, 8),
+            (4, 9),
+            (5, 7),
+            (5, 8),
+            (6, 8),
+            (6, 9),
+            (7, 9),
+        ],
+    );
+    let source = MaxCut::<SimpleGraph, i32>::unweighted(petersen);
+    let src_var = ReductionGraph::variant_to_map(&MaxCut::<SimpleGraph, i32>::variant());
+    let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
+
+    // Use source.problem_size() instead of ProblemSize::new(vec![])
+    let rpath = graph
+        .find_cheapest_path(
+            "MaxCut",
+            &src_var,
+            "SpinGlass",
+            &dst_var,
+            &source.problem_size(),
+            &MinimizeSteps,
+        )
+        .expect("Should find path MaxCut -> SpinGlass");
+
+    assert!(!rpath.type_names().is_empty());
+
+    // Verify problem_size has expected components
+    let size = source.problem_size();
+    assert_eq!(size.get("num_vertices"), Some(10));
+    assert_eq!(size.get("num_edges"), Some(15));
+}
