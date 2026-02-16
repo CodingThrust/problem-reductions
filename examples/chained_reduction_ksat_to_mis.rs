@@ -57,6 +57,16 @@ pub fn run() {
     // Verify: satisfies the original 3-SAT formula
     assert!(ksat.evaluate(&original));
     // ANCHOR_END: example
+
+    // ANCHOR: overhead
+    // Compose overheads symbolically along the path
+    // Maps source problem variables → final target problem variables
+    let composed = graph.compose_path_overhead(&rpath);
+    for (field, poly) in &composed.output_size {
+        println!("  {} = {}", field, poly);
+    }
+    // ANCHOR_END: overhead
+
     println!("3-SAT solution: {:?}", original);
     println!("Reduction path: {:?}", rpath.type_names());
 }

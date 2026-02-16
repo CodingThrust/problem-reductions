@@ -68,11 +68,26 @@ and MaximumIndependentSet:
 {{#include ../../examples/chained_reduction_ksat_to_mis.rs:imports}}
 
 {{#include ../../examples/chained_reduction_ksat_to_mis.rs:example}}
+
+{{#include ../../examples/chained_reduction_ksat_to_mis.rs:overhead}}
 ```
 
 The `ExecutablePath` handles variant casts (e.g., `K3` → `KN`) and
 cross-problem reductions (e.g., SAT → MIS) uniformly. The `ChainedReduction`
 extracts solutions back through the entire chain in one call.
+
+`compose_path_overhead` composes the per-step polynomial overheads into a
+symbolic formula mapping source variables to final target variables:
+
+```text
+  num_vertices = num_literals
+  num_edges = num_literals^2
+```
+
+This result comes from composing two steps: KSatisfiability → Satisfiability
+is identity (same size fields), then Satisfiability → MIS maps
+`num_vertices = num_literals` and `num_edges = num_literals²`.
+Substituting the identity through gives the final polynomials above.
 
 ## Solvers
 
