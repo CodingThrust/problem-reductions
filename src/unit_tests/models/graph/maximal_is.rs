@@ -163,3 +163,13 @@ fn test_jl_parity_evaluation() {
         assert_eq!(rust_best, jl_best, "MaximalIS best solutions mismatch");
     }
 }
+
+#[test]
+fn test_is_valid_solution() {
+    // Path graph: 0-1-2
+    let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    // Valid: {0, 2} is maximal (independent and no vertex can be added)
+    assert!(problem.is_valid_solution(&[1, 0, 1]));
+    // Invalid: {0} is independent but not maximal (vertex 2 can be added)
+    assert!(!problem.is_valid_solution(&[1, 0, 0]));
+}

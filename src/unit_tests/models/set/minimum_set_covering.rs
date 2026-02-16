@@ -106,3 +106,13 @@ fn test_jl_parity_evaluation() {
         assert_eq!(rust_best, jl_best, "SetCovering best solutions mismatch");
     }
 }
+
+#[test]
+fn test_is_valid_solution() {
+    // Universe: {0,1,2,3}, Sets: {0,1}, {1,2}, {2,3}
+    let problem = MinimumSetCovering::<i32>::new(4, vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
+    // Valid: all sets selected covers {0,1,2,3}
+    assert!(problem.is_valid_solution(&[1, 1, 1]));
+    // Invalid: only set 1 ({1,2}) doesn't cover 0 and 3
+    assert!(!problem.is_valid_solution(&[0, 1, 0]));
+}

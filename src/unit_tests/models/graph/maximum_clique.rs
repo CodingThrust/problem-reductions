@@ -269,3 +269,18 @@ fn test_clique_problem() {
     assert_eq!(p.evaluate(&[1, 0, 0]), SolutionSize::Valid(1));
     assert_eq!(p.direction(), Direction::Maximize);
 }
+
+#[test]
+fn test_is_valid_solution() {
+    // Triangle: 0-1-2 all connected
+    let problem = MaximumClique::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i32; 3],
+    );
+    // Valid: all three form a clique
+    assert!(problem.is_valid_solution(&[1, 1, 1]));
+    // Now path graph: 0-1-2 (no 0-2 edge)
+    let problem2 = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    // Invalid: {0, 2} not adjacent
+    assert!(!problem2.is_valid_solution(&[1, 0, 1]));
+}

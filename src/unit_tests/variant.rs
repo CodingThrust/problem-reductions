@@ -243,7 +243,7 @@ fn test_kvalue_kn() {
 // --- Graph type VariantParam tests ---
 
 use crate::topology::HyperGraph;
-use crate::topology::{Graph, SimpleGraph, UnitDiskGraph};
+use crate::topology::{BipartiteGraph, Graph, PlanarGraph, SimpleGraph, UnitDiskGraph};
 
 #[test]
 fn test_simple_graph_variant_param() {
@@ -264,6 +264,20 @@ fn test_hyper_graph_variant_param() {
     assert_eq!(HyperGraph::CATEGORY, "graph");
     assert_eq!(HyperGraph::VALUE, "HyperGraph");
     assert_eq!(HyperGraph::PARENT_VALUE, None);
+}
+
+#[test]
+fn test_planar_graph_variant_param() {
+    assert_eq!(PlanarGraph::CATEGORY, "graph");
+    assert_eq!(PlanarGraph::VALUE, "PlanarGraph");
+    assert_eq!(PlanarGraph::PARENT_VALUE, Some("SimpleGraph"));
+}
+
+#[test]
+fn test_bipartite_graph_variant_param() {
+    assert_eq!(BipartiteGraph::CATEGORY, "graph");
+    assert_eq!(BipartiteGraph::VALUE, "BipartiteGraph");
+    assert_eq!(BipartiteGraph::PARENT_VALUE, Some("SimpleGraph"));
 }
 
 #[test]

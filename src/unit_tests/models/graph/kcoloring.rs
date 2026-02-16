@@ -178,3 +178,13 @@ fn test_jl_parity_evaluation() {
         assert_eq!(rust_sat, jl_best, "KColoring satisfying solutions mismatch");
     }
 }
+
+#[test]
+fn test_is_valid_solution() {
+    // Path graph: 0-1-2, 3-coloring
+    let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    // Valid: neighbors have different colors
+    assert!(problem.is_valid_solution(&[0, 1, 0]));
+    // Invalid: adjacent vertices 0 and 1 have same color
+    assert!(!problem.is_valid_solution(&[0, 0, 1]));
+}

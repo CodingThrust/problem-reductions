@@ -144,3 +144,13 @@ fn test_jl_parity_evaluation() {
         assert_eq!(rust_best, jl_best, "VC best solutions mismatch");
     }
 }
+
+#[test]
+fn test_is_valid_solution() {
+    // Path graph: 0-1-2
+    let problem = MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    // Valid: {1} covers both edges
+    assert!(problem.is_valid_solution(&[0, 1, 0]));
+    // Invalid: {0} doesn't cover edge (1,2)
+    assert!(!problem.is_valid_solution(&[1, 0, 0]));
+}

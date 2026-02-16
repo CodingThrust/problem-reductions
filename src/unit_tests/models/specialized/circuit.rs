@@ -235,3 +235,18 @@ fn test_circuit_sat_problem() {
     // c=1, x=1, y=0: c = 1 AND 0 = 0 != 1 => not satisfied
     assert!(!p.evaluate(&[1, 1, 0]));
 }
+
+#[test]
+fn test_is_valid_solution() {
+    // c = x AND y
+    let circuit = Circuit::new(vec![Assignment::new(
+        vec!["c".to_string()],
+        BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+    )]);
+    let problem = CircuitSAT::new(circuit);
+    // Variables sorted: c, x, y
+    // Valid: c=1, x=1, y=1 (c = 1 AND 1 = 1)
+    assert!(problem.is_valid_solution(&[1, 1, 1]));
+    // Invalid: c=1, x=1, y=0 (c = 1 AND 0 = 0, but c=1)
+    assert!(!problem.is_valid_solution(&[1, 1, 0]));
+}

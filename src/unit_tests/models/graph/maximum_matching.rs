@@ -153,3 +153,16 @@ fn test_jl_parity_evaluation() {
         assert_eq!(rust_best, jl_best, "Matching best solutions mismatch");
     }
 }
+
+#[test]
+fn test_is_valid_solution() {
+    // Triangle: edges (0,1), (1,2), (0,2) — config is per edge
+    let problem = MaximumMatching::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i32; 3],
+    );
+    // Valid: select edge (0,1) only — no shared vertices
+    assert!(problem.is_valid_solution(&[1, 0, 0]));
+    // Invalid: select edges (0,1) and (1,2) — vertex 1 shared
+    assert!(!problem.is_valid_solution(&[1, 1, 0]));
+}

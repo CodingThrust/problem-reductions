@@ -194,3 +194,16 @@ fn test_jl_parity_evaluation() {
         }
     }
 }
+
+#[test]
+fn test_is_valid_solution() {
+    // (x1 OR x2) AND (NOT x1 OR x3)
+    let problem = Satisfiability::new(
+        3,
+        vec![CNFClause::new(vec![1, 2]), CNFClause::new(vec![-1, 3])],
+    );
+    // Valid: x1=F, x2=T, x3=T → (T) AND (T) = T
+    assert!(problem.is_valid_solution(&[0, 1, 1]));
+    // Invalid: x1=T, x2=F, x3=F → (T) AND (F) = F
+    assert!(!problem.is_valid_solution(&[1, 0, 0]));
+}

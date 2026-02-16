@@ -230,3 +230,16 @@ fn test_jl_parity_evaluation() {
         assert_eq!(rust_best, jl_best, "BicliqueCover best solutions mismatch");
     }
 }
+
+#[test]
+fn test_is_valid_solution() {
+    use crate::topology::BipartiteGraph;
+    // Single edge (0,0) with 1 biclique
+    let graph = BipartiteGraph::new(1, 1, vec![(0, 0)]);
+    let problem = BicliqueCover::new(graph, 1);
+    // 2 vertices (left_0, right_0), 1 biclique → config length = 2
+    // Valid: both vertices in biclique 0 → covers edge (0,0)
+    assert!(problem.is_valid_solution(&[1, 1]));
+    // Invalid: only left vertex in biclique → doesn't form complete bipartite subgraph covering edge
+    assert!(!problem.is_valid_solution(&[1, 0]));
+}

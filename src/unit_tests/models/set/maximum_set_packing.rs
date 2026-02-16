@@ -136,3 +136,13 @@ fn test_jl_parity_evaluation() {
         assert_eq!(rust_best, jl_best, "SetPacking best solutions mismatch");
     }
 }
+
+#[test]
+fn test_is_valid_solution() {
+    // Sets: {0,1}, {1,2}, {3,4}
+    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![3, 4]]);
+    // Valid: select sets 0 and 2 (disjoint: {0,1} and {3,4})
+    assert!(problem.is_valid_solution(&[1, 0, 1]));
+    // Invalid: select sets 0 and 1 (share element 1)
+    assert!(!problem.is_valid_solution(&[1, 1, 0]));
+}

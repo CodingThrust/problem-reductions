@@ -222,3 +222,16 @@ fn test_brute_force_triangle_weighted() {
     assert_eq!(solutions[0], vec![1, 1, 1]);
     assert_eq!(problem.evaluate(&solutions[0]), SolutionSize::Valid(30));
 }
+
+#[test]
+fn test_is_valid_solution() {
+    // K3 triangle: edges (0,1), (0,2), (1,2) — config is per edge
+    let problem = TravelingSalesman::new(
+        SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
+        vec![1, 2, 3],
+    );
+    // Valid: select all 3 edges forms Hamiltonian cycle 0-1-2-0
+    assert!(problem.is_valid_solution(&[1, 1, 1]));
+    // Invalid: select only 2 edges — not a cycle
+    assert!(!problem.is_valid_solution(&[1, 1, 0]));
+}

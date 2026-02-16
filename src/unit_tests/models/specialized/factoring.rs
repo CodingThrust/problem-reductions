@@ -96,3 +96,13 @@ fn test_jl_parity_evaluation() {
         assert_eq!(rust_best, jl_best, "Factoring best solutions mismatch");
     }
 }
+
+#[test]
+fn test_is_valid_solution() {
+    // Factor 15 = 3 × 5, 3 bits each
+    let problem = Factoring::new(3, 3, 15);
+    // Valid: 3 = [1,1,0], 5 = [1,0,1] → config = [1,1,0,1,0,1]
+    assert!(problem.is_valid_solution(&[1, 1, 0, 1, 0, 1]));
+    // Invalid: 2 = [0,1,0], 3 = [1,1,0] → 2*3=6 ≠ 15
+    assert!(!problem.is_valid_solution(&[0, 1, 0, 1, 1, 0]));
+}
