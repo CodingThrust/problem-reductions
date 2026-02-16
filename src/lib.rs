@@ -1,68 +1,21 @@
 //! # Problem Reductions
 //!
-//! A Rust library for reducing NP-hard problems.
+//! NP-hard problem definitions and reductions.
+//! See the [user guide](https://codingthrust.github.io/problem-reductions/) for tutorials and examples.
 //!
-//! This library provides implementations of various NP-hard computational problems
-//! and reduction rules between them. It is designed for algorithm research,
-//! education, and quantum optimization studies.
+//! ## API Overview
 //!
-//! ## Features
+//! | Module | Purpose |
+//! |--------|---------|
+//! | [`models`] | Problem types — [`graph`](models::graph), [`satisfiability`](models::satisfiability), [`set`](models::set), [`optimization`](models::optimization), [`specialized`](models::specialized) |
+//! | [`rules`] | Reduction rules, [`ReductionGraph`](rules::ReductionGraph) for path search |
+//! | [`solvers`] | [`BruteForce`] and [`ILPSolver`](solvers::ILPSolver) |
+//! | [`topology`] | Graph types — [`SimpleGraph`](topology::SimpleGraph), [`HyperGraph`](topology::HyperGraph), [`UnitDiskGraph`](topology::UnitDiskGraph), etc. |
+//! | [`traits`] | Core traits — [`Problem`], [`OptimizationProblem`], [`SatisfactionProblem`] |
+//! | [`types`] | [`SolutionSize`], [`Direction`], [`ProblemSize`], [`WeightElement`] |
+//! | [`variant`] | Variant parameter system for problem type parameterization |
 //!
-//! - **Problem Definitions**: Implementations of 21+ NP-hard problems
-//! - **Reduction Rules**: Transform problems into equivalent problems
-//! - **Solvers**: Brute-force solver for testing and verification
-//! - **Validation**: Utilities to verify solution validity
-//!
-//! ## Example
-//!
-//! ```rust
-//! use problemreductions::prelude::*;
-//! use problemreductions::models::graph::MaximumIndependentSet;
-//! use problemreductions::topology::SimpleGraph;
-//!
-//! // Create an Independent Set problem on a triangle graph
-//! let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
-//!
-//! // Solve with brute force
-//! let solver = BruteForce::new();
-//! let solution = solver.find_best(&problem).unwrap();
-//!
-//! // Maximum independent set in a triangle has size 1
-//! assert_eq!(solution.iter().sum::<usize>(), 1);
-//! ```
-//!
-//! ## Problem Categories
-//!
-//! ### Satisfiability
-//! - SAT: Boolean satisfiability with CNF clauses
-//! - K-SAT: SAT restricted to k-literal clauses
-//! - CircuitSAT: Boolean circuit satisfiability
-//! - Factoring: Integer factorization
-//!
-//! ### Graph Problems
-//! - MaximumIndependentSet: Maximum weight independent set
-//! - MaximalIS: Maximal independent set
-//! - MinimumVertexCover: Minimum weight vertex cover
-//! - MinimumDominatingSet: Minimum dominating set
-//! - MaximumClique: Maximum weight clique
-//! - MaxCut: Maximum cut on weighted graphs
-//! - MaximumMatching: Maximum weight matching
-//! - KColoring: K-vertex coloring
-//! - TravelingSalesman: Minimum weight Hamiltonian cycle
-//!
-//! ### Set Problems
-//! - MinimumSetCovering: Minimum weight set cover
-//! - MaximumSetPacking: Maximum weight set packing
-//!
-//! ### Optimization Problems
-//! - SpinGlass: Ising model Hamiltonian
-//! - QUBO: Quadratic unconstrained binary optimization
-//! - ILP: Integer linear programming
-//!
-//! ### Specialized Problems
-//! - PaintShop: Minimize color switches
-//! - BicliqueCover: Biclique cover on bipartite graphs
-//! - BMF: Boolean matrix factorization
+//! Use [`prelude`] for convenient imports.
 
 pub mod config;
 pub mod error;

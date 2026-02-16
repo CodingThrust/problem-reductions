@@ -1,14 +1,6 @@
 //! Problem model implementations.
 //!
-//! This module contains implementations of various NP-hard problems.
-//!
-//! # Problem Categories
-//!
-//! - **Satisfiability**: SAT, K-SAT, CircuitSAT, Factoring
-//! - **Graph**: MaximumIndependentSet, MaximalIS, MinimumVertexCover, MinimumDominatingSet, KColoring, MaximumMatching, TravelingSalesman
-//! - **Set**: MinimumSetCovering, MaximumSetPacking
-//! - **Optimization**: MaxCut, SpinGlass, QUBO
-//! - **Specialized**: Paintshop, BicliqueCover, BMF
+//! Each sub-module groups related problem types. See individual modules for details.
 
 pub mod graph;
 pub mod optimization;

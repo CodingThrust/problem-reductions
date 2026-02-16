@@ -1,27 +1,12 @@
 //! Graph topology types.
 //!
-//! This module provides the [`Graph`] trait and various graph implementations:
-//!
 //! - [`SimpleGraph`]: Standard unweighted graph (default for most problems)
-//! - [`UnitDiskGraph`]: Vertices with 2D positions, edges based on distance
 //! - [`HyperGraph`]: Edges can connect any number of vertices
-//!
-//! # Design Philosophy
-//!
-//! Following Julia's Graphs.jl pattern, problems are generic over graph type:
-//!
-//! ```
-//! use problemreductions::topology::{Graph, SimpleGraph, UnitDiskGraph};
-//! use problemreductions::models::graph::MaximumIndependentSet;
-//!
-//! // Problems work with any graph type - SimpleGraph by default
-//! let graph = SimpleGraph::new(3, vec![(0, 1)]);
-//! let simple_graph_problem = MaximumIndependentSet::new(graph, vec![1i32; 3]);
-//! assert_eq!(simple_graph_problem.graph().num_vertices(), 3);
-//!
-//! // Different graph topologies enable different reduction algorithms
-//! // (UnitDiskGraph example would require specific constructors)
-//! ```
+//! - [`PlanarGraph`]: Planar graph
+//! - [`BipartiteGraph`]: Bipartite graph
+//! - [`UnitDiskGraph`]: Vertices with 2D positions, edges based on distance
+//! - [`KingsSubgraph`]: 8-connected grid graph (King's graph)
+//! - [`TriangularSubgraph`]: Triangular lattice subgraph
 
 mod bipartite_graph;
 mod graph;
