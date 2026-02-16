@@ -131,3 +131,6 @@ mod test_trait_consistency;
 #[cfg(test)]
 #[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
 mod test_unitdiskmapping_algorithms;
+#[cfg(test)]
+#[path = "unit_tests/problem_size.rs"]
+mod test_problem_size;

@@ -21,6 +21,9 @@ impl Problem for TestSatProblem {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "bool")]
     }
+    fn problem_size(&self) -> crate::types::ProblemSize {
+        crate::types::ProblemSize::new(vec![("num_vars", self.num_vars)])
+    }
 }
 
 #[test]
@@ -79,6 +82,9 @@ impl Problem for TestMaxProblem {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
+    fn problem_size(&self) -> crate::types::ProblemSize {
+        crate::types::ProblemSize::new(vec![("num_vars", self.weights.len())])
+    }
 }
 
 impl OptimizationProblem for TestMaxProblem {
@@ -110,6 +116,9 @@ impl Problem for TestMinProblem {
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
+    }
+    fn problem_size(&self) -> crate::types::ProblemSize {
+        crate::types::ProblemSize::new(vec![("num_vars", self.costs.len())])
     }
 }
 
@@ -161,6 +170,9 @@ impl Problem for MultiDimProblem {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
+    fn problem_size(&self) -> crate::types::ProblemSize {
+        crate::types::ProblemSize::new(vec![("num_dims", self.dims.len())])
+    }
 }
 
 #[test]
@@ -209,6 +221,9 @@ impl Problem for FloatProblem {
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "f64")]
+    }
+    fn problem_size(&self) -> crate::types::ProblemSize {
+        crate::types::ProblemSize::new(vec![("num_vars", self.weights.len())])
     }
 }
 
