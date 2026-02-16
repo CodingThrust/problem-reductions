@@ -6,7 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, ProblemSize, SolutionSize};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -209,12 +209,11 @@ impl Problem for BMF {
         crate::variant_params![]
     }
 
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("m", self.rows()),
-            ("n", self.cols()),
-            ("rank", self.rank()),
-        ])
+    fn problem_size_names() -> &'static [&'static str] {
+        &["m", "n", "rank"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.rows(), self.cols(), self.rank()]
     }
 }
 

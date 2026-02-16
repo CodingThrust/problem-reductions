@@ -9,7 +9,7 @@ use problemreductions::models::satisfiability::*;
 use problemreductions::models::set::*;
 use problemreductions::models::specialized::*;
 use problemreductions::prelude::*;
-use problemreductions::topology::SimpleGraph;
+use problemreductions::topology::{BipartiteGraph, SimpleGraph};
 
 /// Test that all problem types can be instantiated and solved.
 mod all_problems_solvable {
@@ -215,7 +215,7 @@ mod all_problems_solvable {
     #[test]
     fn test_biclique_cover_solvable() {
         // Left vertices: 0, 1; Right vertices: 2, 3
-        let problem = BicliqueCover::new(2, 2, vec![(0, 2), (0, 3), (1, 2), (1, 3)], 1);
+        let problem = BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0), (1, 1)]), 1);
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&problem);
         assert!(!solutions.is_empty());

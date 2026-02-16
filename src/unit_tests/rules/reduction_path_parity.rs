@@ -8,7 +8,7 @@ use crate::models::specialized::Factoring;
 use crate::rules::{MinimizeSteps, ReductionGraph};
 use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
-use crate::traits::Problem;
+use crate::traits::{problem_size, Problem};
 use crate::types::ProblemSize;
 use std::collections::HashSet;
 
@@ -206,7 +206,7 @@ fn test_find_cheapest_path_with_problem_size() {
             &src_var,
             "SpinGlass",
             &dst_var,
-            &source.problem_size(),
+            &problem_size(&source),
             &MinimizeSteps,
         )
         .expect("Should find path MaxCut -> SpinGlass");
@@ -214,7 +214,7 @@ fn test_find_cheapest_path_with_problem_size() {
     assert!(!rpath.type_names().is_empty());
 
     // Verify problem_size has expected components
-    let size = source.problem_size();
+    let size = problem_size(&source);
     assert_eq!(size.get("num_vertices"), Some(10));
     assert_eq!(size.get("num_edges"), Some(15));
 }

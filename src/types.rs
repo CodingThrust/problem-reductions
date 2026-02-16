@@ -200,6 +200,27 @@ impl ProblemSize {
         }
     }
 
+    /// Create from separate names and values arrays.
+    ///
+    /// This is the primary constructor used by the `problem_size()` free function,
+    /// combining type-level names with instance-level values.
+    pub fn from_names_values(names: &[&str], values: &[usize]) -> Self {
+        debug_assert_eq!(
+            names.len(),
+            values.len(),
+            "ProblemSize: names ({}) and values ({}) length mismatch",
+            names.len(),
+            values.len()
+        );
+        Self {
+            components: names
+                .iter()
+                .zip(values.iter())
+                .map(|(k, v)| (k.to_string(), *v))
+                .collect(),
+        }
+    }
+
     /// Get a size component by name.
     pub fn get(&self, name: &str) -> Option<usize> {
         self.components

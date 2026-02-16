@@ -6,7 +6,6 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::Graph;
 use crate::traits::{Problem, SatisfactionProblem};
-use crate::types::ProblemSize;
 use crate::variant::{KValue, VariantParam, KN};
 use serde::{Deserialize, Serialize};
 
@@ -137,12 +136,11 @@ where
         self.is_valid_coloring(config)
     }
 
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vertices", self.graph().num_vertices()),
-            ("num_edges", self.graph().num_edges()),
-            ("num_colors", self.num_colors()),
-        ])
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vertices", "num_edges"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.graph().num_vertices(), self.graph().num_edges()]
     }
 }
 

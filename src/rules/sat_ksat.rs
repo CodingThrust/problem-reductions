@@ -190,6 +190,7 @@ macro_rules! impl_ksat_to_sat {
                                                             ReductionOverhead::new(vec![
                                                                 ("num_clauses", poly!(num_clauses)),
                                                                 ("num_vars", poly!(num_vars)),
+                                                                ("num_literals", poly!(num_literals)),
                                                             ])
                                                         })]
         impl ReduceTo<Satisfiability> for KSatisfiability<$ktype> {

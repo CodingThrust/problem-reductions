@@ -5,7 +5,7 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, ProblemSize, SolutionSize, WeightElement};
+use crate::types::{Direction, SolutionSize, WeightElement};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -224,11 +224,11 @@ where
         crate::variant_params![G, W]
     }
 
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_spins", self.num_spins()),
-            ("num_interactions", self.graph().num_edges()),
-        ])
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_spins", "num_interactions"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.num_spins(), self.graph().num_edges()]
     }
 }
 

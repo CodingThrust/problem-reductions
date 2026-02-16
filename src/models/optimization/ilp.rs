@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, ProblemSize, SolutionSize};
+use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -354,11 +354,11 @@ impl Problem for ILP {
         crate::variant_params![]
     }
 
-    fn problem_size(&self) -> ProblemSize {
-        ProblemSize::new(vec![
-            ("num_vars", self.num_variables()),
-            ("num_constraints", self.constraints.len()),
-        ])
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars", "num_constraints"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.num_variables(), self.constraints.len()]
     }
 }
 

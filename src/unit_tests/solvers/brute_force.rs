@@ -27,8 +27,11 @@ impl Problem for MaxSumOpt {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
-    fn problem_size(&self) -> crate::types::ProblemSize {
-        crate::types::ProblemSize::new(vec![("num_vars", self.weights.len())])
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.weights.len()]
     }
 }
 
@@ -63,8 +66,11 @@ impl Problem for MinSumOpt {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
-    fn problem_size(&self) -> crate::types::ProblemSize {
-        crate::types::ProblemSize::new(vec![("num_vars", self.weights.len())])
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.weights.len()]
     }
 }
 
@@ -94,8 +100,11 @@ impl Problem for SatProblem {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "bool")]
     }
-    fn problem_size(&self) -> crate::types::ProblemSize {
-        crate::types::ProblemSize::new(vec![("num_vars", self.num_vars)])
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.num_vars]
     }
 }
 

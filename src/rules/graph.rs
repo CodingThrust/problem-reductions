@@ -239,13 +239,53 @@ impl ReductionGraph {
                 &mut name_to_nodes,
             );
 
+            // Validate overhead variable names against source/target problem_size_names
+            let overhead = entry.overhead();
+            let source_size_names: HashSet<&str> =
+                (entry.source_size_names_fn)().iter().copied().collect();
+            let target_size_names: HashSet<&str> =
+                (entry.target_size_names_fn)().iter().copied().collect();
+
+            // Overhead input variables must be a subset of source problem_size_names
+            let overhead_inputs = overhead.input_variable_names();
+            let missing_inputs: Vec<_> = overhead_inputs
+                .iter()
+                .filter(|name| !source_size_names.contains(*name))
+                .collect();
+            assert!(
+                missing_inputs.is_empty(),
+                "Reduction {} -> {}: overhead references input variables {:?} \
+                 not in source problem_size_names {:?}",
+                entry.source_name,
+                entry.target_name,
+                missing_inputs,
+                source_size_names,
+            );
+
+            // Overhead output field names must be a subset of target problem_size_names
+            let overhead_outputs: HashSet<&str> =
+                overhead.output_size.iter().map(|(name, _)| *name).collect();
+            let missing_outputs: Vec<_> = overhead_outputs
+                .iter()
+                .filter(|name| !target_size_names.contains(*name))
+                .collect();
+            assert!(
+                missing_outputs.is_empty(),
+                "Reduction {} -> {}: overhead output fields {:?} \
+                 not in target problem_size_names {:?}",
+                entry.source_name,
+                entry.target_name,
+                missing_outputs,
+                target_size_names,
+            );
+
             // Check if edge already exists (avoid duplicates)
             if graph.find_edge(src_idx, dst_idx).is_none() {
                 graph.add_edge(
                     src_idx,
                     dst_idx,
                     ReductionEdgeData {
-                        overhead: entry.overhead(),
+                        overhead,
                         reduce_fn: entry.reduce_fn,
                     },
                 );
@@ -486,6 +526,96 @@ impl ReductionGraph {
     /// Get the number of variant-level nodes.
     pub fn num_variant_nodes(&self) -> usize {
         self.nodes.len()
+    }
+
+    /// Compose overheads along a path symbolically.
+    ///
+    /// Returns a single `ReductionOverhead` whose polynomials map from the
+    /// source problem's size variables directly to the final target's size variables.
+    ///
+    /// Panics if any step in the path does not correspond to an edge in the graph.
+    pub fn compose_path_overhead(&self, path: &ReductionPath) -> ReductionOverhead {
+        if path.steps.len() <= 1 {
+            return ReductionOverhead::default();
+        }
+
+        let node_indices: Vec<NodeIndex> = path
+            .steps
+            .iter()
+            .map(|step| {
+                self.lookup_node(&step.name, &step.variant)
+                    .unwrap_or_else(|| panic!("Node not found: {} {:?}", step.name, step.variant))
+            })
+            .collect();
+
+        let mut composed: Option<ReductionOverhead> = None;
+        for pair in node_indices.windows(2) {
+            let edge_idx = self
+                .graph
+                .find_edge(pair[0], pair[1])
+                .unwrap_or_else(|| {
+                    let src = &self.nodes[self.graph[pair[0]]];
+                    let dst = &self.nodes[self.graph[pair[1]]];
+                    panic!(
+                        "No edge from {} {:?} to {} {:?}",
+                        src.name, src.variant, dst.name, dst.variant
+                    )
+                });
+            let edge_overhead = &self.graph[edge_idx].overhead;
+            composed = Some(match composed {
+                None => edge_overhead.clone(),
+                Some(prev) => prev.compose(edge_overhead),
+            });
+        }
+
+        composed.unwrap_or_default()
+    }
+
+    /// Evaluate the cumulative overhead along a reduction path.
+    ///
+    /// Starting from `input_size`, chains each edge's overhead to compute
+    /// intermediate and final problem sizes. Returns the sizes at each step
+    /// (including the initial input size), so the length is `path.steps.len()`.
+    ///
+    /// Panics if any step in the path does not correspond to an edge in the graph.
+    pub fn evaluate_path_overhead(
+        &self,
+        path: &ReductionPath,
+        input_size: &ProblemSize,
+    ) -> Vec<ProblemSize> {
+        let mut sizes = vec![input_size.clone()];
+        if path.steps.len() <= 1 {
+            return sizes;
+        }
+
+        let node_indices: Vec<NodeIndex> = path
+            .steps
+            .iter()
+            .map(|step| {
+                self.lookup_node(&step.name, &step.variant)
+                    .unwrap_or_else(|| panic!("Node not found: {} {:?}", step.name, step.variant))
+            })
+            .collect();
+
+        let mut current_size = input_size.clone();
+        for pair in node_indices.windows(2) {
+            let edge_idx = self
+                .graph
+                .find_edge(pair[0], pair[1])
+                .unwrap_or_else(|| {
+                    let src = &self.nodes[self.graph[pair[0]]];
+                    let dst = &self.nodes[self.graph[pair[1]]];
+                    panic!(
+                        "No edge from {} {:?} to {} {:?}",
+                        src.name, src.variant, dst.name, dst.variant
+                    )
+                });
+            let overhead = &self.graph[edge_idx].overhead;
+            current_size = overhead.evaluate_output_size(&current_size);
+            sizes.push(current_size.clone());
+        }
+
+        sizes
     }
 }
 
