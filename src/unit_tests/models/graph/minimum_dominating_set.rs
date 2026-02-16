@@ -7,21 +7,26 @@ include!("../../jl_helpers.rs");
 
 #[test]
 fn test_dominating_set_creation() {
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
+    let problem = MinimumDominatingSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1i32; 4],
+    );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
 }
 
 #[test]
 fn test_dominating_set_with_weights() {
-    let problem =
-        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1, 2, 3]);
+    let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1, 2, 3]);
     assert_eq!(problem.weights(), &[1, 2, 3]);
 }
 
 #[test]
 fn test_neighbors() {
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2)]), vec![1i32; 4]);
+    let problem = MinimumDominatingSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 2)]),
+        vec![1i32; 4],
+    );
     let nbrs = problem.neighbors(0);
     assert!(nbrs.contains(&1));
     assert!(nbrs.contains(&2));
@@ -30,7 +35,8 @@ fn test_neighbors() {
 
 #[test]
 fn test_closed_neighborhood() {
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(4, vec![(0, 1), (0, 2)]), vec![1i32; 4]);
+    let problem =
+        MinimumDominatingSet::new(SimpleGraph::new(4, vec![(0, 1), (0, 2)]), vec![1i32; 4]);
     let cn = problem.closed_neighborhood(0);
     assert!(cn.contains(&0));
     assert!(cn.contains(&1));
@@ -96,21 +102,22 @@ fn test_graph_accessor() {
 
 #[test]
 fn test_weights() {
-    let problem =
-        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![5, 10, 15]);
+    let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![5, 10, 15]);
     assert_eq!(problem.weights(), &[5, 10, 15]);
 }
 
 #[test]
 fn test_edges() {
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    let problem =
+        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     let edges = problem.graph().edges();
     assert_eq!(edges.len(), 2);
 }
 
 #[test]
 fn test_has_edge() {
-    let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    let problem =
+        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     assert!(problem.graph().has_edge(0, 1));
     assert!(problem.graph().has_edge(1, 0)); // Undirected
     assert!(problem.graph().has_edge(1, 2));

@@ -20,7 +20,10 @@ pub fn is_independent_set(edges: &[(usize, usize)], config: &[usize]) -> bool {
 /// Solve maximum independent set using ILP.
 /// Returns the size of the MIS.
 pub fn solve_mis(num_vertices: usize, edges: &[(usize, usize)]) -> usize {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(num_vertices, edges.to_vec()), vec![1i32; num_vertices]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(num_vertices, edges.to_vec()),
+        vec![1i32; num_vertices],
+    );
     let reduction = <MaximumIndependentSet<SimpleGraph, i32> as ReduceTo<ILP>>::reduce_to(&problem);
     let solver = ILPSolver::new();
     if let Some(solution) = solver.solve(reduction.target_problem()) {
@@ -32,7 +35,10 @@ pub fn solve_mis(num_vertices: usize, edges: &[(usize, usize)]) -> usize {
 
 /// Solve MIS and return the binary configuration.
 pub fn solve_mis_config(num_vertices: usize, edges: &[(usize, usize)]) -> Vec<usize> {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(num_vertices, edges.to_vec()), vec![1i32; num_vertices]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(num_vertices, edges.to_vec()),
+        vec![1i32; num_vertices],
+    );
     let reduction = <MaximumIndependentSet<SimpleGraph, i32> as ReduceTo<ILP>>::reduce_to(&problem);
     let solver = ILPSolver::new();
     if let Some(solution) = solver.solve(reduction.target_problem()) {

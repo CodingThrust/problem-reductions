@@ -40,7 +40,7 @@ where
     overhead = {
         ReductionOverhead::new(vec![
             ("num_sets", poly!(num_vertices)),
-            ("num_elements", poly!(num_vertices)),
+            ("universe_size", poly!(num_vertices)),
         ])
     }
 )]
@@ -114,7 +114,8 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MaximumSetPacking<i32
             }
         }
 
-        let target = MaximumIndependentSet::new(SimpleGraph::new(n, edges), self.weights_ref().clone());
+        let target =
+            MaximumIndependentSet::new(SimpleGraph::new(n, edges), self.weights_ref().clone());
 
         ReductionSPToIS { target }
     }

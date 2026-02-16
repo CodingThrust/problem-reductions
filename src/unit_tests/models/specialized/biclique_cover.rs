@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::topology::BipartiteGraph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -7,7 +8,8 @@ include!("../../jl_helpers.rs");
 
 #[test]
 fn test_biclique_cover_creation() {
-    let problem = BicliqueCover::new(2, 2, vec![(0, 2), (0, 3), (1, 2)], 2);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0)]);
+    let problem = BicliqueCover::new(graph, 2);
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
     assert_eq!(problem.k(), 2);
@@ -19,7 +21,7 @@ fn test_from_matrix() {
     // Matrix:
     // [[1, 1],
     //  [1, 0]]
-    // Edges: (0,2), (0,3), (1,2)
+    // Edges: (0,0), (0,1), (1,0) in local coords
     let matrix = vec![vec![1, 1], vec![1, 0]];
     let problem = BicliqueCover::from_matrix(&matrix, 2);
     assert_eq!(problem.num_vertices(), 4);
@@ -28,7 +30,8 @@ fn test_from_matrix() {
 
 #[test]
 fn test_get_biclique_memberships() {
-    let problem = BicliqueCover::new(2, 2, vec![(0, 2)], 1);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
+    let problem = BicliqueCover::new(graph, 1);
     // Config: vertex 0 in biclique 0, vertex 2 in biclique 0
     // Variables: [v0_b0, v1_b0, v2_b0, v3_b0]
     let config = vec![1, 0, 1, 0];
@@ -41,7 +44,8 @@ fn test_get_biclique_memberships() {
 
 #[test]
 fn test_is_edge_covered() {
-    let problem = BicliqueCover::new(2, 2, vec![(0, 2)], 1);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
+    let problem = BicliqueCover::new(graph, 1);
     // Put vertex 0 and 2 in biclique 0
     let config = vec![1, 0, 1, 0];
     assert!(problem.is_edge_covered(0, 2, &config));
@@ -53,7 +57,8 @@ fn test_is_edge_covered() {
 
 #[test]
 fn test_is_valid_cover() {
-    let problem = BicliqueCover::new(2, 2, vec![(0, 2), (0, 3)], 1);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1)]);
+    let problem = BicliqueCover::new(graph, 1);
     // Put 0, 2, 3 in biclique 0 -> covers both edges
     let config = vec![1, 0, 1, 1];
     assert!(problem.is_valid_cover(&config));
@@ -65,7 +70,8 @@ fn test_is_valid_cover() {
 
 #[test]
 fn test_evaluate() {
-    let problem = BicliqueCover::new(2, 2, vec![(0, 2)], 1);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
+    let problem = BicliqueCover::new(graph, 1);
 
     // Valid cover with size 2
     assert_eq!(problem.evaluate(&[1, 0, 1, 0]), SolutionSize::Valid(2));
@@ -76,8 +82,9 @@ fn test_evaluate() {
 
 #[test]
 fn test_brute_force_simple() {
-    // Single edge (0, 2) with k=1
-    let problem = BicliqueCover::new(2, 2, vec![(0, 2)], 1);
+    // Single edge (0, 0) in local coords with k=1
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
+    let problem = BicliqueCover::new(graph, 1);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_best(&problem);
@@ -91,8 +98,9 @@ fn test_brute_force_simple() {
 #[test]
 fn test_brute_force_two_bicliques() {
     // Edges that need 2 bicliques to cover efficiently
-    // (0,2), (1,3) - these don't share vertices
-    let problem = BicliqueCover::new(2, 2, vec![(0, 2), (1, 3)], 2);
+    // (0,0), (1,1) in local coords - these don't share vertices
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (1, 1)]);
+    let problem = BicliqueCover::new(graph, 2);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_best(&problem);
@@ -103,7 +111,8 @@ fn test_brute_force_two_bicliques() {
 
 #[test]
 fn test_count_covered_edges() {
-    let problem = BicliqueCover::new(2, 2, vec![(0, 2), (0, 3), (1, 2)], 1);
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0)]);
+    let problem = BicliqueCover::new(graph, 1);
     // Cover only (0,2): put 0 and 2 in biclique
     let config = vec![1, 0, 1, 0];
     assert_eq!(problem.count_covered_edges(&config), 1);
@@ -128,13 +137,15 @@ fn test_is_biclique_cover_function() {
 
 #[test]
 fn test_direction() {
-    let problem = BicliqueCover::new(1, 1, vec![(0, 1)], 1);
+    let graph = BipartiteGraph::new(1, 1, vec![(0, 0)]);
+    let problem = BicliqueCover::new(graph, 1);
     assert_eq!(problem.direction(), Direction::Minimize);
 }
 
 #[test]
 fn test_empty_edges() {
-    let problem = BicliqueCover::new(2, 2, vec![], 1);
+    let graph = BipartiteGraph::new(2, 2, vec![]);
+    let problem = BicliqueCover::new(graph, 1);
     // No edges to cover -> valid with size 0
     assert_eq!(problem.evaluate(&[0, 0, 0, 0]), SolutionSize::Valid(0));
 }
@@ -144,8 +155,9 @@ fn test_biclique_problem() {
     use crate::traits::{OptimizationProblem, Problem};
     use crate::types::Direction;
 
-    // Single edge (0, 2) with k=1, 2 left + 2 right vertices
-    let problem = BicliqueCover::new(2, 2, vec![(0, 2)], 1);
+    // Single edge (0,0) in local coords with k=1, 2 left + 2 right vertices
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0)]);
+    let problem = BicliqueCover::new(graph, 1);
 
     // dims: 4 vertices * 1 biclique = 4 binary variables
     assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
@@ -167,7 +179,8 @@ fn test_biclique_problem() {
     assert_eq!(problem.direction(), Direction::Minimize);
 
     // Test with no edges: any config is valid
-    let empty_problem = BicliqueCover::new(2, 2, vec![], 1);
+    let empty_graph = BipartiteGraph::new(2, 2, vec![]);
+    let empty_problem = BicliqueCover::new(empty_graph, 1);
     assert_eq!(
         empty_problem.evaluate(&[0, 0, 0, 0]),
         SolutionSize::Valid(0)
@@ -176,15 +189,22 @@ fn test_biclique_problem() {
 
 #[test]
 fn test_jl_parity_evaluation() {
-    let data: serde_json::Value =
-        serde_json::from_str(include_str!("../../../../tests/data/jl/biclique_cover.json"))
-            .unwrap();
+    let data: serde_json::Value = serde_json::from_str(include_str!(
+        "../../../../tests/data/jl/biclique_cover.json"
+    ))
+    .unwrap();
     for instance in data["instances"].as_array().unwrap() {
         let left_size = instance["instance"]["left_size"].as_u64().unwrap() as usize;
         let right_size = instance["instance"]["right_size"].as_u64().unwrap() as usize;
-        let edges = jl_parse_edges(&instance["instance"]);
+        let unified_edges = jl_parse_edges(&instance["instance"]);
+        // Convert from unified coords to bipartite-local coords
+        let local_edges: Vec<(usize, usize)> = unified_edges
+            .iter()
+            .map(|&(l, r)| (l, r - left_size))
+            .collect();
         let k = instance["instance"]["k"].as_u64().unwrap() as usize;
-        let problem = BicliqueCover::new(left_size, right_size, edges, k);
+        let graph = BipartiteGraph::new(left_size, right_size, local_edges);
+        let problem = BicliqueCover::new(graph, k);
         for eval in instance["evaluations"].as_array().unwrap() {
             let config = jl_parse_config(&eval["config"]);
             let result = problem.evaluate(&config);
@@ -207,9 +227,6 @@ fn test_jl_parity_evaluation() {
         let best = BruteForce::new().find_all_best(&problem);
         let jl_best = jl_parse_configs_set(&instance["best_solutions"]);
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
-        assert_eq!(
-            rust_best, jl_best,
-            "BicliqueCover best solutions mismatch"
-        );
+        assert_eq!(rust_best, jl_best, "BicliqueCover best solutions mismatch");
     }
 }

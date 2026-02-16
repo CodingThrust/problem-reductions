@@ -197,8 +197,10 @@ fn bench_comparison(c: &mut Criterion) {
     let solver = BruteForce::new();
 
     // MaximumIndependentSet with 8 vertices
-    let is_problem =
-        MaximumIndependentSet::new(SimpleGraph::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]), vec![1i32; 8]);
+    let is_problem = MaximumIndependentSet::new(
+        SimpleGraph::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]),
+        vec![1i32; 8],
+    );
     group.bench_function("MaximumIndependentSet", |b| {
         b.iter(|| solver.find_best(black_box(&is_problem)))
     });
@@ -228,7 +230,10 @@ fn bench_comparison(c: &mut Criterion) {
     });
 
     // MaxCut with 8 vertices
-    let mc_problem = MaxCut::new(SimpleGraph::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]), vec![1, 1, 1, 1]);
+    let mc_problem = MaxCut::new(
+        SimpleGraph::new(8, vec![(0, 1), (2, 3), (4, 5), (6, 7)]),
+        vec![1, 1, 1, 1],
+    );
     group.bench_function("MaxCut", |b| {
         b.iter(|| solver.find_best(black_box(&mc_problem)))
     });

@@ -4,6 +4,7 @@ use crate::polynomial::Polynomial;
 use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
 use std::any::Any;
+use std::collections::HashSet;
 
 /// Overhead specification for a reduction.
 #[derive(Clone, Debug, Default, serde::Serialize)]
@@ -40,6 +41,47 @@ impl ReductionOverhead {
             .collect();
         ProblemSize::new(fields)
     }
+
+    /// Collect all input variable names referenced by the overhead polynomials.
+    pub fn input_variable_names(&self) -> HashSet<&'static str> {
+        self.output_size
+            .iter()
+            .flat_map(|(_, poly)| poly.variable_names())
+            .collect()
+    }
+
+    /// Compose two overheads: substitute self's output into `next`'s input.
+    ///
+    /// Returns a new overhead whose polynomials map from self's input variables
+    /// directly to `next`'s output variables.
+    pub fn compose(&self, next: &ReductionOverhead) -> ReductionOverhead {
+        use std::collections::HashMap;
+
+        // Build substitution map: output field name → output polynomial
+        let mapping: HashMap<&str, &Polynomial> = self
+            .output_size
+            .iter()
+            .map(|(name, poly)| (*name, poly))
+            .collect();
+
+        let composed = next
+            .output_size
+            .iter()
+            .map(|(name, poly)| (*name, poly.substitute(&mapping)))
+            .collect();
+
+        ReductionOverhead {
+            output_size: composed,
+        }
+    }
+
+    /// Get the polynomial for a named output field.
+    pub fn get(&self, name: &str) -> Option<&Polynomial> {
+        self.output_size
+            .iter()
+            .find(|(n, _)| *n == name)
+            .map(|(_, p)| p)
+    }
 }
 
 /// A registered reduction entry for static inventory registration.
@@ -57,6 +99,10 @@ pub struct ReductionEntry {
     pub overhead_fn: fn() -> ReductionOverhead,
     /// Module path where the reduction is defined (from `module_path!()`).
     pub module_path: &'static str,
+    /// Type-level problem size field names for the source problem.
+    pub source_size_names_fn: fn() -> &'static [&'static str],
+    /// Type-level problem size field names for the target problem.
+    pub target_size_names_fn: fn() -> &'static [&'static str],
     /// Type-erased reduction executor.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls `ReduceTo::reduce_to()`,
     /// and returns the result as a boxed `DynReductionResult`.

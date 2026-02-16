@@ -27,6 +27,12 @@ impl Problem for MaxSumOpt {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.weights.len()]
+    }
 }
 
 impl OptimizationProblem for MaxSumOpt {
@@ -60,6 +66,12 @@ impl Problem for MinSumOpt {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.weights.len()]
+    }
 }
 
 impl OptimizationProblem for MinSumOpt {
@@ -87,6 +99,12 @@ impl Problem for SatProblem {
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "bool")]
+    }
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.num_vars]
     }
 }
 
@@ -246,7 +264,10 @@ fn test_solver_with_real_mis() {
     use crate::traits::Problem;
 
     // Triangle graph: MIS = 1
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i32; 3],
+    );
     let solver = BruteForce::new();
 
     let best = solver.find_all_best(&problem);

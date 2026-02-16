@@ -3,7 +3,7 @@ use crate::models::optimization::*;
 use crate::models::satisfiability::*;
 use crate::models::set::*;
 use crate::models::specialized::*;
-use crate::topology::SimpleGraph;
+use crate::topology::{BipartiteGraph, SimpleGraph};
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -72,7 +72,7 @@ fn test_all_problems_implement_trait_correctly() {
     );
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
     check_problem_trait(&BMF::new(vec![vec![true]], 1), "BMF");
-    check_problem_trait(&BicliqueCover::new(2, 2, vec![(0, 2)], 1), "BicliqueCover");
+    check_problem_trait(&BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1), "BicliqueCover");
     check_problem_trait(&Factoring::new(6, 2, 2), "Factoring");
 
     let circuit = Circuit::new(vec![Assignment::new(
@@ -118,7 +118,7 @@ fn test_direction() {
     );
     assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
     assert_eq!(
-        BicliqueCover::new(2, 2, vec![(0, 2)], 1).direction(),
+        BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1).direction(),
         Direction::Minimize
     );
 

@@ -223,6 +223,13 @@ where
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![G, W]
     }
+
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_spins", "num_interactions"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.num_spins(), self.graph().num_edges()]
+    }
 }
 
 impl<G, W> OptimizationProblem for SpinGlass<G, W>

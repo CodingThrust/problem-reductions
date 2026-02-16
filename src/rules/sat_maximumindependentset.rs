@@ -155,7 +155,10 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for Satisfiability {
             }
         }
 
-        let target = MaximumIndependentSet::new(SimpleGraph::new(vertex_count, edges), vec![1i32; vertex_count]);
+        let target = MaximumIndependentSet::new(
+            SimpleGraph::new(vertex_count, edges),
+            vec![1i32; vertex_count],
+        );
 
         ReductionSATToIS {
             target,

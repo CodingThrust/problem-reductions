@@ -4,6 +4,7 @@
 //! (complete bipartite subgraphs) needed to cover all edges of a bipartite graph.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::topology::BipartiteGraph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -32,11 +33,13 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::specialized::BicliqueCover;
+/// use problemreductions::topology::BipartiteGraph;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
-/// // Bipartite graph: L = {0, 1}, R = {2, 3}
-/// // Edges: (0,2), (0,3), (1,2)
-/// let problem = BicliqueCover::new(2, 2, vec![(0, 2), (0, 3), (1, 2)], 2);
+/// // Bipartite graph: L = {0, 1}, R = {0, 1}
+/// // Edges: (0,0), (0,1), (1,0) in bipartite-local coordinates
+/// let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1), (1, 0)]);
+/// let problem = BicliqueCover::new(graph, 2);
 ///
 /// let solver = BruteForce::new();
 /// let solutions = solver.find_all_best(&problem);
@@ -48,13 +51,8 @@ inventory::submit! {
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct BicliqueCover {
-    /// Number of vertices in the left partition.
-    left_size: usize,
-    /// Number of vertices in the right partition.
-    right_size: usize,
-    /// Edges as (left_vertex, right_vertex) pairs.
-    /// Left vertices are 0..left_size, right are left_size..left_size+right_size.
-    edges: Vec<(usize, usize)>,
+    /// The bipartite graph.
+    graph: BipartiteGraph,
     /// Number of bicliques to use.
     k: usize,
 }
@@ -63,34 +61,10 @@ impl BicliqueCover {
     /// Create a new Biclique Cover problem.
     ///
     /// # Arguments
-    /// * `left_size` - Number of vertices in left partition (0 to left_size-1)
-    /// * `right_size` - Number of vertices in right partition (left_size to left_size+right_size-1)
-    /// * `edges` - Edges as (left, right) pairs
+    /// * `graph` - The bipartite graph
     /// * `k` - Number of bicliques
-    pub fn new(left_size: usize, right_size: usize, edges: Vec<(usize, usize)>, k: usize) -> Self {
-        // Validate edges are between left and right partitions
-        for &(l, r) in &edges {
-            assert!(
-                l < left_size,
-                "Left vertex {} out of bounds (max {})",
-                l,
-                left_size - 1
-            );
-            assert!(
-                r >= left_size && r < left_size + right_size,
-                "Right vertex {} out of bounds (should be in {}..{})",
-                r,
-                left_size,
-                left_size + right_size
-            );
-        }
-
-        Self {
-            left_size,
-            right_size,
-            edges,
-            k,
-        }
+    pub fn new(graph: BipartiteGraph, k: usize) -> Self {
+        Self { graph, k }
     }
 
     /// Create from a bipartite adjacency matrix.
@@ -104,27 +78,40 @@ impl BicliqueCover {
         for (i, row) in matrix.iter().enumerate() {
             for (j, &val) in row.iter().enumerate() {
                 if val != 0 {
-                    edges.push((i, left_size + j));
+                    edges.push((i, j));
                 }
             }
         }
 
         Self {
-            left_size,
-            right_size,
-            edges,
+            graph: BipartiteGraph::new(left_size, right_size, edges),
             k,
         }
     }
 
+    /// Get the bipartite graph.
+    pub fn graph(&self) -> &BipartiteGraph {
+        &self.graph
+    }
+
+    /// Get the left partition size.
+    pub fn left_size(&self) -> usize {
+        self.graph.left_size()
+    }
+
+    /// Get the right partition size.
+    pub fn right_size(&self) -> usize {
+        self.graph.right_size()
+    }
+
     /// Get the number of vertices.
     pub fn num_vertices(&self) -> usize {
-        self.left_size + self.right_size
+        self.graph.left_size() + self.graph.right_size()
     }
 
     /// Get the number of edges.
     pub fn num_edges(&self) -> usize {
-        self.edges.len()
+        self.graph.left_edges().len()
     }
 
     /// Get k (number of bicliques).
@@ -142,6 +129,7 @@ impl BicliqueCover {
         config: &[usize],
     ) -> (Vec<HashSet<usize>>, Vec<HashSet<usize>>) {
         let n = self.num_vertices();
+        let left_size = self.graph.left_size();
         let mut left_bicliques: Vec<HashSet<usize>> = vec![HashSet::new(); self.k];
         let mut right_bicliques: Vec<HashSet<usize>> = vec![HashSet::new(); self.k];
 
@@ -149,7 +137,7 @@ impl BicliqueCover {
             for b in 0..self.k {
                 let idx = v * self.k + b;
                 if config.get(idx).copied().unwrap_or(0) == 1 {
-                    if v < self.left_size {
+                    if v < left_size {
                         left_bicliques[b].insert(v);
                     } else {
                         right_bicliques[b].insert(v);
@@ -162,6 +150,8 @@ impl BicliqueCover {
     }
 
     /// Check if an edge is covered by the bicliques.
+    ///
+    /// Takes edge endpoints in unified vertex space.
     fn is_edge_covered(&self, left: usize, right: usize, config: &[usize]) -> bool {
         let (left_bicliques, right_bicliques) = self.get_biclique_memberships(config);
 
@@ -176,14 +166,18 @@ impl BicliqueCover {
 
     /// Check if all edges are covered.
     pub fn is_valid_cover(&self, config: &[usize]) -> bool {
-        self.edges
+        use crate::topology::Graph;
+        self.graph
+            .edges()
             .iter()
             .all(|&(l, r)| self.is_edge_covered(l, r, config))
     }
 
     /// Count covered edges.
     pub fn count_covered_edges(&self, config: &[usize]) -> usize {
-        self.edges
+        use crate::topology::Graph;
+        self.graph
+            .edges()
             .iter()
             .filter(|&&(l, r)| self.is_edge_covered(l, r, config))
             .count()
@@ -227,6 +221,13 @@ impl Problem for BicliqueCover {
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
+    }
+
+    fn problem_size_names() -> &'static [&'static str] {
+        &["left_size", "right_size", "num_edges", "rank"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.left_size(), self.right_size(), self.num_edges(), self.k()]
     }
 }
 

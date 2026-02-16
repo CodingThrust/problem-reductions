@@ -7,7 +7,10 @@ use crate::types::SolutionSize;
 fn test_clique_creation() {
     use crate::traits::Problem;
 
-    let problem = MaximumClique::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
+    let problem = MaximumClique::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1i32; 4],
+    );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.dims(), vec![2, 2, 2, 2]);
@@ -41,7 +44,10 @@ fn test_evaluate_valid() {
     use crate::traits::Problem;
 
     // Complete graph K3 (triangle)
-    let problem = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
+    let problem = MaximumClique::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i32; 3],
+    );
 
     // Valid: all three form a clique
     assert_eq!(problem.evaluate(&[1, 1, 1]), SolutionSize::Valid(3));
@@ -92,7 +98,10 @@ fn test_weighted_solution() {
 #[test]
 fn test_brute_force_triangle() {
     // Triangle graph (K3): max clique is all 3 vertices
-    let problem = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
+    let problem = MaximumClique::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i32; 3],
+    );
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_best(&problem);
@@ -123,8 +132,7 @@ fn test_brute_force_weighted() {
     use crate::traits::Problem;
 
     // Path with weights: vertex 1 has high weight
-    let problem =
-        MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 100, 1]);
+    let problem = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 100, 1]);
     let solver = BruteForce::new();
 
     let solutions = solver.find_all_best(&problem);
@@ -250,7 +258,10 @@ fn test_clique_problem() {
     use crate::types::Direction;
 
     // Triangle graph: all pairs connected
-    let p = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1i32; 3]);
+    let p = MaximumClique::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i32; 3],
+    );
     assert_eq!(p.dims(), vec![2, 2, 2]);
     // Valid clique: select all 3 vertices (triangle is a clique)
     assert_eq!(p.evaluate(&[1, 1, 1]), SolutionSize::Valid(3));

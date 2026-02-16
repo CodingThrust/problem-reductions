@@ -14,8 +14,10 @@ fn k4_tsp() -> TravelingSalesman<SimpleGraph, i32> {
 #[test]
 fn test_reduction_creates_valid_ilp_c4() {
     // C4 cycle: 4 vertices, 4 edges. Unique Hamiltonian cycle (the cycle itself).
-    let problem =
-        TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]));
+    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+        4,
+        vec![(0, 1), (1, 2), (2, 3), (3, 0)],
+    ));
     let reduction: ReductionTSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -32,8 +34,10 @@ fn test_reduction_creates_valid_ilp_c4() {
 #[test]
 fn test_reduction_c4_closed_loop() {
     // C4 cycle with unit weights: optimal tour cost = 4
-    let problem =
-        TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]));
+    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+        4,
+        vec![(0, 1), (1, 2), (2, 3), (3, 0)],
+    ));
     let reduction: ReductionTSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
@@ -75,9 +79,10 @@ fn test_reduction_k4_weighted_closed_loop() {
 #[test]
 fn test_reduction_c5_unweighted_closed_loop() {
     // C5 cycle with unit weights
-    let problem = TravelingSalesman::<_, i32>::unit_weights(
-        SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
-    );
+    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+        5,
+        vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
+    ));
 
     let reduction: ReductionTSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
@@ -93,8 +98,10 @@ fn test_reduction_c5_unweighted_closed_loop() {
 #[test]
 fn test_no_hamiltonian_cycle_infeasible() {
     // Path graph 0-1-2-3: no Hamiltonian cycle exists
-    let problem =
-        TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+        4,
+        vec![(0, 1), (1, 2), (2, 3)],
+    ));
 
     let reduction: ReductionTSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
@@ -110,8 +117,10 @@ fn test_no_hamiltonian_cycle_infeasible() {
 #[test]
 fn test_solution_extraction_structure() {
     // C4 cycle: verify extraction produces correct edge selection format
-    let problem =
-        TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (3, 0)]));
+    let problem = TravelingSalesman::<_, i32>::unit_weights(SimpleGraph::new(
+        4,
+        vec![(0, 1), (1, 2), (2, 3), (3, 0)],
+    ));
     let reduction: ReductionTSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 

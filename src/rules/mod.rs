@@ -68,6 +68,8 @@ pub use graph::{
     ChainedReduction, EdgeJson, ExecutablePath, NodeJson, ReductionGraph, ReductionGraphJson,
     ReductionPath, ReductionStep,
 };
+#[cfg(test)]
+pub(crate) use graph::validate_overhead_variables;
 pub use ksatisfiability_qubo::{Reduction3SATToQUBO, ReductionKSatToQUBO};
 pub use maximumindependentset_gridgraph::{ReductionISSimpleToGrid, ReductionISUnitDiskToGrid};
 pub use maximumindependentset_maximumsetpacking::{ReductionISToSP, ReductionSPToIS};

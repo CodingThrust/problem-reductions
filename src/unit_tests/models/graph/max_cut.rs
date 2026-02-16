@@ -7,7 +7,10 @@ include!("../../jl_helpers.rs");
 fn test_maxcut_creation() {
     use crate::traits::Problem;
 
-    let problem = MaxCut::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1, 2, 3]);
+    let problem = MaxCut::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1, 2, 3],
+    );
     assert_eq!(problem.graph().num_vertices(), 4);
     assert_eq!(problem.graph().num_edges(), 3);
     assert_eq!(problem.dims(), vec![2, 2, 2, 2]);

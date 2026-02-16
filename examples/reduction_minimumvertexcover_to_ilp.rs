@@ -21,7 +21,10 @@ use problemreductions::topology::{Graph, SimpleGraph};
 pub fn run() {
     // 1. Create VC instance: Petersen graph (10 vertices, 15 edges), VC=6
     let (num_vertices, edges) = petersen();
-    let vc = MinimumVertexCover::new(SimpleGraph::new(num_vertices, edges.clone()), vec![1i32; num_vertices]);
+    let vc = MinimumVertexCover::new(
+        SimpleGraph::new(num_vertices, edges.clone()),
+        vec![1i32; num_vertices],
+    );
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&vc);

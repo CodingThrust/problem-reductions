@@ -21,7 +21,10 @@ use problemreductions::topology::{Graph, SimpleGraph};
 pub fn run() {
     // 1. Create MinimumDominatingSet instance: Petersen graph
     let (num_vertices, edges) = petersen();
-    let ds = MinimumDominatingSet::new(SimpleGraph::new(num_vertices, edges.clone()), vec![1i32; num_vertices]);
+    let ds = MinimumDominatingSet::new(
+        SimpleGraph::new(num_vertices, edges.clone()),
+        vec![1i32; num_vertices],
+    );
 
     // 2. Reduce to ILP
     let reduction = ReduceTo::<ILP>::reduce_to(&ds);

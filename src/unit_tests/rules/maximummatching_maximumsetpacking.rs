@@ -8,7 +8,8 @@ include!("../jl_helpers.rs");
 #[test]
 fn test_matching_to_setpacking_structure() {
     // Path graph 0-1-2
-    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    let matching =
+        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
     let sp = reduction.target_problem();
 
@@ -24,8 +25,10 @@ fn test_matching_to_setpacking_structure() {
 #[test]
 fn test_matching_to_setpacking_weighted() {
     // Weighted edges: heavy edge should win over multiple light edges
-    let matching =
-        MaximumMatching::new(SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3)]), vec![100, 1, 1]);
+    let matching = MaximumMatching::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (1, 3)]),
+        vec![100, 1, 1],
+    );
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
     let sp = reduction.target_problem();
 
@@ -52,7 +55,8 @@ fn test_matching_to_setpacking_weighted() {
 
 #[test]
 fn test_matching_to_setpacking_solution_extraction() {
-    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
+    let matching =
+        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
 
     // Test solution extraction is 1:1
@@ -93,7 +97,8 @@ fn test_matching_to_setpacking_single_edge() {
 #[test]
 fn test_matching_to_setpacking_disjoint_edges() {
     // Two disjoint edges: 0-1 and 2-3
-    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (2, 3)]));
+    let matching =
+        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (2, 3)]));
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
     let sp = reduction.target_problem();
 
@@ -106,7 +111,8 @@ fn test_matching_to_setpacking_disjoint_edges() {
 
 #[test]
 fn test_reduction_structure() {
-    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3)]));
+    let matching =
+        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3)]));
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
     let sp = reduction.target_problem();
 
@@ -117,7 +123,8 @@ fn test_reduction_structure() {
 #[test]
 fn test_matching_to_setpacking_star() {
     // Star graph: center vertex 0 connected to 1, 2, 3
-    let matching = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
+    let matching =
+        MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&matching);
     let sp = reduction.target_problem();
 

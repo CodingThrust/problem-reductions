@@ -187,6 +187,8 @@ fn generate_reduction_entry(
                 target_variant_fn: || { #target_variant_body },
                 overhead_fn: || { #overhead },
                 module_path: module_path!(),
+                source_size_names_fn: || { <#source_type as crate::traits::Problem>::problem_size_names() },
+                target_size_names_fn: || { <#target_type as crate::traits::Problem>::problem_size_names() },
                 reduce_fn: |src: &dyn std::any::Any| -> Box<dyn crate::rules::traits::DynReductionResult> {
                     let src = src.downcast_ref::<#source_type>().unwrap_or_else(|| {
                         panic!(

@@ -176,6 +176,13 @@ impl Problem for PaintShop {
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
+
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_cars", "num_sequence"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.num_cars(), self.sequence_len()]
+    }
 }
 
 impl OptimizationProblem for PaintShop {

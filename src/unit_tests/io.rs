@@ -6,7 +6,8 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 #[test]
 fn test_to_json() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     let json = to_json(&problem);
     assert!(json.is_ok());
     let json = json.unwrap();
@@ -15,7 +16,8 @@ fn test_to_json() {
 
 #[test]
 fn test_from_json() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     let json = to_json(&problem).unwrap();
     let restored: MaximumIndependentSet<SimpleGraph, i32> = from_json(&json).unwrap();
     assert_eq!(restored.graph().num_vertices(), 3);
@@ -33,7 +35,10 @@ fn test_json_compact() {
 
 #[test]
 fn test_file_roundtrip() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]), vec![1i32; 4]);
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1i32; 4],
+    );
     let ts = SystemTime::now()
         .duration_since(UNIX_EPOCH)
         .unwrap()

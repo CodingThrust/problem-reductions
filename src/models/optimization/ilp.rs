@@ -353,6 +353,13 @@ impl Problem for ILP {
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
+
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars", "num_constraints"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![self.num_variables(), self.constraints.len()]
+    }
 }
 
 impl OptimizationProblem for ILP {

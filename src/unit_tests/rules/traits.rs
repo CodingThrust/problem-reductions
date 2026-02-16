@@ -23,6 +23,12 @@ impl Problem for SourceProblem {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![2]
+    }
 }
 
 impl Problem for TargetProblem {
@@ -36,6 +42,12 @@ impl Problem for TargetProblem {
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
+    }
+    fn problem_size_names() -> &'static [&'static str] {
+        &["num_vars"]
+    }
+    fn problem_size_values(&self) -> Vec<usize> {
+        vec![2]
     }
 }
 
