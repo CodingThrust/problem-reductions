@@ -31,7 +31,7 @@ pub trait Problem: Clone {
     fn problem_size_values(&self) -> Vec<usize>;
 }
 
-/// Combine type-level names and instance-level values into a [`ProblemSize`].
+/// Combine type-level names and instance-level values into a [`crate::types::ProblemSize`].
 pub fn problem_size<P: Problem>(p: &P) -> crate::types::ProblemSize {
     crate::types::ProblemSize::from_names_values(P::problem_size_names(), &p.problem_size_values())
 }

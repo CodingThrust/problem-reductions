@@ -35,6 +35,9 @@ make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 make test clippy  # Must pass before PR
 ```
 
+## Git Safety
+- **NEVER force push** (`git push --force`, `git push -f`, `git push --force-with-lease`). This is an absolute rule with no exceptions. Force push can silently destroy other people's work and stashed changes.
+
 ## Architecture
 
 ### Core Modules

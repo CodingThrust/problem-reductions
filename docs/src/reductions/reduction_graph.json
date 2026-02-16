@@ -228,7 +228,11 @@
       "target": 0,
       "overhead": [
         {
-          "field": "num_gates",
+          "field": "num_variables",
+          "formula": "num_bits_first * num_bits_second"
+        },
+        {
+          "field": "num_assignments",
           "formula": "num_bits_first * num_bits_second"
         }
       ],
@@ -269,8 +273,8 @@
           "formula": "num_vertices"
         },
         {
-          "field": "num_colors",
-          "formula": "num_colors"
+          "field": "num_edges",
+          "formula": "num_edges"
         }
       ],
       "doc_path": "rules/kcoloring_casts/index.html"
@@ -281,11 +285,11 @@
       "overhead": [
         {
           "field": "num_vars",
-          "formula": "num_vertices * num_colors"
+          "formula": "num_vertices^2"
         },
         {
           "field": "num_constraints",
-          "formula": "num_vertices + num_edges * num_colors"
+          "formula": "num_vertices + num_vertices * num_edges"
         }
       ],
       "doc_path": "rules/coloring_ilp/index.html"
@@ -296,7 +300,7 @@
       "overhead": [
         {
           "field": "num_vars",
-          "formula": "num_vertices * num_colors"
+          "formula": "num_vertices^2"
         }
       ],
       "doc_path": "rules/coloring_qubo/index.html"
@@ -338,6 +342,10 @@
         {
           "field": "num_vars",
           "formula": "num_vars"
+        },
+        {
+          "field": "num_literals",
+          "formula": "num_literals"
         }
       ],
       "doc_path": "rules/sat_ksat/index.html"
@@ -379,6 +387,10 @@
         {
           "field": "num_vars",
           "formula": "num_vars"
+        },
+        {
+          "field": "num_literals",
+          "formula": "num_literals"
         }
       ],
       "doc_path": "rules/sat_ksat/index.html"
@@ -394,6 +406,10 @@
         {
           "field": "num_vars",
           "formula": "num_vars"
+        },
+        {
+          "field": "num_literals",
+          "formula": "num_literals"
         }
       ],
       "doc_path": "rules/sat_ksat/index.html"
@@ -497,7 +513,7 @@
           "formula": "num_vertices"
         },
         {
-          "field": "num_elements",
+          "field": "universe_size",
           "formula": "num_vertices"
         }
       ],
@@ -598,7 +614,7 @@
           "formula": "num_edges"
         },
         {
-          "field": "num_elements",
+          "field": "universe_size",
           "formula": "num_vertices"
         }
       ],
@@ -654,8 +670,8 @@
           "formula": "num_sets"
         },
         {
-          "field": "num_elements",
-          "formula": "num_elements"
+          "field": "universe_size",
+          "formula": "universe_size"
         }
       ],
       "doc_path": "rules/maximumsetpacking_casts/index.html"
@@ -729,7 +745,7 @@
           "formula": "num_vertices"
         },
         {
-          "field": "num_elements",
+          "field": "universe_size",
           "formula": "num_edges"
         }
       ],
@@ -763,7 +779,11 @@
       "overhead": [
         {
           "field": "num_variables",
-          "formula": "num_variables + num_clauses + 1"
+          "formula": "num_vars + num_clauses + 1"
+        },
+        {
+          "field": "num_assignments",
+          "formula": "num_clauses + 2"
         }
       ],
       "doc_path": "rules/sat_circuitsat/index.html"
@@ -777,8 +797,8 @@
           "formula": "2 * num_vars + 5 * num_literals - 5 * num_clauses + 3"
         },
         {
-          "field": "num_colors",
-          "formula": "3"
+          "field": "num_edges",
+          "formula": "3 * num_vars + 11 * num_literals - 9 * num_clauses + 3"
         }
       ],
       "doc_path": "rules/sat_coloring/index.html"

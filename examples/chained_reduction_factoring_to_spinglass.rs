@@ -14,6 +14,7 @@ use problemreductions::types::ProblemSize;
 
 pub fn run() {
     // ANCHOR: example
+    // ANCHOR: step1
     let graph = ReductionGraph::new();
 
     // Find reduction path: Factoring -> ... -> SpinGlass
@@ -29,19 +30,44 @@ pub fn run() {
             &MinimizeSteps,
         )
         .unwrap();
-    println!("Reduction path: {:?}", rpath.type_names());
+    println!("  {}", rpath);
+    // ANCHOR_END: step1
 
+    // ANCHOR: step2
     // Create: factor 6 = p × q with 2-bit factors (mirrors Julia's Factoring(2, 2, 6))
     let factoring = Factoring::new(2, 2, 6);
+    // ANCHOR_END: step2
 
+    // ANCHOR: step3
     // Solve Factoring via ILP
     let solver = ILPSolver::new();
     let solution = solver.solve_reduced(&factoring).unwrap();
+    // ANCHOR_END: step3
 
+    // ANCHOR: step4
     // Extract and display the factors
     let (p, q) = factoring.read_factors(&solution);
     println!("{} = {} × {}", factoring.target(), p, q);
     assert_eq!(p * q, 6, "Factors should multiply to 6");
+    // ANCHOR_END: step4
+
+    // ANCHOR: overhead
+    // Print per-edge overhead polynomials
+    let edge_overheads = graph.path_overheads(&rpath);
+    for (i, overhead) in edge_overheads.iter().enumerate() {
+        println!("{} → {}:", rpath.steps[i], rpath.steps[i + 1]);
+        for (field, poly) in &overhead.output_size {
+            println!("  {} = {}", field, poly);
+        }
+    }
+
+    // Compose overheads symbolically along the full path
+    let composed = graph.compose_path_overhead(&rpath);
+    println!("Composed (source → target):");
+    for (field, poly) in &composed.output_size {
+        println!("  {} = {}", field, poly);
+    }
+    // ANCHOR_END: overhead
     // ANCHOR_END: example
 }
 
