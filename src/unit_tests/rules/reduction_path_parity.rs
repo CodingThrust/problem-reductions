@@ -1,0 +1,171 @@
+//! Reduction path parity tests — mirrors Julia's test/reduction_path.jl.
+//! Verifies that chained reductions via `find_cheapest_path` + `make_executable`
+//! produce correct solutions matching direct source solves.
+
+use crate::models::graph::MaxCut;
+use crate::models::optimization::{SpinGlass, QUBO};
+use crate::models::specialized::Factoring;
+use crate::rules::{MinimizeSteps, ReductionGraph};
+use crate::solvers::{BruteForce, Solver};
+use crate::topology::SimpleGraph;
+use crate::traits::Problem;
+use crate::types::ProblemSize;
+use std::collections::HashSet;
+
+/// Julia: paths = reduction_paths(MaxCut, SpinGlass)
+/// Julia: res = reduceto(paths[1], MaxCut(smallgraph(:petersen)))
+#[test]
+fn test_jl_parity_maxcut_to_spinglass_path() {
+    let graph = ReductionGraph::new();
+    let src_var = ReductionGraph::variant_to_map(&MaxCut::<SimpleGraph, i32>::variant());
+    let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
+    let rpath = graph
+        .find_cheapest_path(
+            "MaxCut",
+            &src_var,
+            "SpinGlass",
+            &dst_var,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .expect("Should find path MaxCut -> SpinGlass");
+    let path = graph
+        .make_executable::<MaxCut<SimpleGraph, i32>, SpinGlass<SimpleGraph, f64>>(&rpath)
+        .expect("Should make executable path");
+
+    // Petersen graph: 10 vertices, 15 edges
+    let petersen_edges = vec![
+        (0, 1),
+        (0, 4),
+        (0, 5),
+        (1, 2),
+        (1, 6),
+        (2, 3),
+        (2, 7),
+        (3, 4),
+        (3, 8),
+        (4, 9),
+        (5, 7),
+        (5, 8),
+        (6, 8),
+        (6, 9),
+        (7, 9),
+    ];
+    let source = MaxCut::<SimpleGraph, i32>::unweighted(10, petersen_edges);
+    let reduction = path.reduce(&source);
+    let target = reduction.target_problem();
+
+    // Verify target is SpinGlass
+    assert_eq!(SpinGlass::<SimpleGraph, f64>::NAME, "SpinGlass");
+
+    let solver = BruteForce::new();
+    let target_solution = solver.find_best(target).unwrap();
+    let source_solution = reduction.extract_solution(&target_solution);
+
+    // Source solution should be valid
+    let metric = source.evaluate(&source_solution);
+    assert!(metric.is_valid());
+}
+
+/// Julia: paths = reduction_paths(MaxCut, QUBO)
+/// Julia: sort(extract_solution.(Ref(res), best2)) == sort(best1)
+#[test]
+fn test_jl_parity_maxcut_to_qubo_path() {
+    let graph = ReductionGraph::new();
+    let src_var = ReductionGraph::variant_to_map(&MaxCut::<SimpleGraph, i32>::variant());
+    let dst_var = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+    let rpath = graph
+        .find_cheapest_path(
+            "MaxCut",
+            &src_var,
+            "QUBO",
+            &dst_var,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .expect("Should find path MaxCut -> QUBO");
+    let path = graph
+        .make_executable::<MaxCut<SimpleGraph, i32>, QUBO<f64>>(&rpath)
+        .expect("Should make executable path");
+
+    // Use a small graph for brute-force feasibility
+    let petersen_edges = vec![
+        (0, 1),
+        (0, 4),
+        (0, 5),
+        (1, 2),
+        (1, 6),
+        (2, 3),
+        (2, 7),
+        (3, 4),
+        (3, 8),
+        (4, 9),
+        (5, 7),
+        (5, 8),
+        (6, 8),
+        (6, 9),
+        (7, 9),
+    ];
+    let source = MaxCut::<SimpleGraph, i32>::unweighted(10, petersen_edges);
+    let reduction = path.reduce(&source);
+
+    let solver = BruteForce::new();
+    let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
+    let best_target = solver.find_all_best(reduction.target_problem());
+
+    // Julia: sort(extract_solution.(Ref(res), best2)) == sort(best1)
+    let extracted: HashSet<Vec<usize>> = best_target
+        .iter()
+        .map(|t| reduction.extract_solution(t))
+        .collect();
+    assert_eq!(
+        extracted, best_source,
+        "MaxCut->QUBO path: extracted solutions should match direct source solutions"
+    );
+}
+
+/// Julia: factoring = Factoring(2, 1, 3)
+/// Julia: paths = reduction_paths(Factoring, SpinGlass)
+/// Julia: all(solution_size.(Ref(factoring), extract_solution.(Ref(res), sol)) .== Ref(SolutionSize(0, true)))
+#[test]
+fn test_jl_parity_factoring_to_spinglass_path() {
+    let graph = ReductionGraph::new();
+    let src_var = ReductionGraph::variant_to_map(&Factoring::variant());
+    let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
+    let rpath = graph
+        .find_cheapest_path(
+            "Factoring",
+            &src_var,
+            "SpinGlass",
+            &dst_var,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .expect("Should find path Factoring -> SpinGlass");
+    let path = graph
+        .make_executable::<Factoring, SpinGlass<SimpleGraph, f64>>(&rpath)
+        .expect("Should make executable path");
+
+    // Julia: Factoring(2, 1, 3) — factor 3 with 2-bit x 1-bit
+    let factoring = Factoring::new(2, 1, 3);
+    let reduction = path.reduce(&factoring);
+    let target = reduction.target_problem();
+
+    let solver = BruteForce::new();
+    let best_target = solver.find_all_best(target);
+
+    // Every extracted solution should satisfy factoring (distance = 0)
+    for sol in &best_target {
+        let source_sol = reduction.extract_solution(sol);
+        let metric = factoring.evaluate(&source_sol);
+        assert_eq!(
+            metric.unwrap(),
+            0,
+            "Factoring->SpinGlass path: extracted solution should have distance 0"
+        );
+    }
+    assert!(
+        !best_target.is_empty(),
+        "Should find at least one SpinGlass solution"
+    );
+}

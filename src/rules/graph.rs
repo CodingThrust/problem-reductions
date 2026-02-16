@@ -825,3 +825,7 @@ impl ReductionGraph {
 #[cfg(test)]
 #[path = "../unit_tests/rules/graph.rs"]
 mod tests;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/reduction_path_parity.rs"]
+mod reduction_path_parity_tests;
