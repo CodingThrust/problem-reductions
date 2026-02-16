@@ -167,6 +167,56 @@ struct VariantNode {
     variant: BTreeMap<String, String>,
 }
 
+/// Validate that a reduction's overhead variables are consistent with source/target size names.
+///
+/// Checks:
+/// - Overhead input variables are a subset of `source_size_names`
+/// - Overhead output fields are a subset of `target_size_names` (skipped if `target_size_names` is empty)
+///
+/// Panics with a descriptive message on mismatch.
+pub(crate) fn validate_overhead_variables(
+    source_name: &str,
+    target_name: &str,
+    overhead: &ReductionOverhead,
+    source_size_names: &[&str],
+    target_size_names: &[&str],
+) {
+    let source_set: HashSet<&str> = source_size_names.iter().copied().collect();
+    let overhead_inputs = overhead.input_variable_names();
+    let missing_inputs: Vec<_> = overhead_inputs
+        .iter()
+        .filter(|name| !source_set.contains(*name))
+        .collect();
+    assert!(
+        missing_inputs.is_empty(),
+        "Reduction {} -> {}: overhead references input variables {:?} \
+         not in source problem_size_names {:?}",
+        source_name,
+        target_name,
+        missing_inputs,
+        source_set,
+    );
+
+    if !target_size_names.is_empty() {
+        let target_set: HashSet<&str> = target_size_names.iter().copied().collect();
+        let overhead_outputs: HashSet<&str> =
+            overhead.output_size.iter().map(|(name, _)| *name).collect();
+        let missing_outputs: Vec<_> = overhead_outputs
+            .iter()
+            .filter(|name| !target_set.contains(*name))
+            .collect();
+        assert!(
+            missing_outputs.is_empty(),
+            "Reduction {} -> {}: overhead output fields {:?} \
+             not in target problem_size_names {:?}",
+            source_name,
+            target_name,
+            missing_outputs,
+            target_set,
+        );
+    }
+}
+
 /// Runtime graph of all registered reductions.
 ///
 /// Uses variant-level nodes: each node is a unique `(problem_name, variant)` pair.
@@ -239,44 +289,13 @@ impl ReductionGraph {
                 &mut name_to_nodes,
             );
 
-            // Validate overhead variable names against source/target problem_size_names
             let overhead = entry.overhead();
-            let source_size_names: HashSet<&str> =
-                (entry.source_size_names_fn)().iter().copied().collect();
-            let target_size_names: HashSet<&str> =
-                (entry.target_size_names_fn)().iter().copied().collect();
-
-            // Overhead input variables must be a subset of source problem_size_names
-            let overhead_inputs = overhead.input_variable_names();
-            let missing_inputs: Vec<_> = overhead_inputs
-                .iter()
-                .filter(|name| !source_size_names.contains(*name))
-                .collect();
-            assert!(
-                missing_inputs.is_empty(),
-                "Reduction {} -> {}: overhead references input variables {:?} \
-                 not in source problem_size_names {:?}",
+            validate_overhead_variables(
                 entry.source_name,
                 entry.target_name,
-                missing_inputs,
-                source_size_names,
-            );
-
-            // Overhead output field names must be a subset of target problem_size_names
-            let overhead_outputs: HashSet<&str> =
-                overhead.output_size.iter().map(|(name, _)| *name).collect();
-            let missing_outputs: Vec<_> = overhead_outputs
-                .iter()
-                .filter(|name| !target_size_names.contains(*name))
-                .collect();
-            assert!(
-                missing_outputs.is_empty(),
-                "Reduction {} -> {}: overhead output fields {:?} \
-                 not in target problem_size_names {:?}",
-                entry.source_name,
-                entry.target_name,
-                missing_outputs,
-                target_size_names,
+                &overhead,
+                (entry.source_size_names_fn)(),
+                (entry.target_size_names_fn)(),
             );
 
             // Check if edge already exists (avoid duplicates)
@@ -341,27 +360,20 @@ impl ReductionGraph {
 
         // Validate: when input_size is non-empty, check outgoing edges
         if !input_size.components.is_empty() {
-            let size_names: std::collections::HashSet<&str> = input_size
+            let size_names: Vec<&str> = input_size
                 .components
                 .iter()
                 .map(|(k, _)| k.as_str())
                 .collect();
             for edge_ref in self.graph.edges(src) {
-                let missing: Vec<_> = edge_ref
-                    .weight()
-                    .overhead
-                    .input_variable_names()
-                    .into_iter()
-                    .filter(|name| !size_names.contains(name))
-                    .collect();
-                if !missing.is_empty() {
-                    let target_node = &self.nodes[self.graph[edge_ref.target()]];
-                    panic!(
-                        "Overhead for {} -> {} references variables {:?} \
-                         not in source problem_size() components {:?}",
-                        source, target_node.name, missing, size_names,
-                    );
-                }
+                let target_node = &self.nodes[self.graph[edge_ref.target()]];
+                validate_overhead_variables(
+                    source,
+                    target_node.name,
+                    &edge_ref.weight().overhead,
+                    &size_names,
+                    &[], // skip output validation at query time
+                );
             }
         }
 

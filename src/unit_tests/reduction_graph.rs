@@ -334,3 +334,88 @@ fn test_3sat_to_mis_triangular_overhead() {
         poly!(num_literals ^ 2)
     );
 }
+
+// ---- Overhead validation ----
+
+#[test]
+fn test_validate_overhead_variables_valid() {
+    use crate::rules::validate_overhead_variables;
+    use crate::rules::registry::ReductionOverhead;
+
+    let overhead = ReductionOverhead::new(vec![
+        ("num_vertices", poly!(num_vars)),
+        ("num_edges", poly!(num_vars ^ 2)),
+    ]);
+    // Should not panic: inputs {num_vars} ⊆ source, outputs {num_vertices, num_edges} ⊆ target
+    validate_overhead_variables(
+        "Source",
+        "Target",
+        &overhead,
+        &["num_vars", "num_clauses"],
+        &["num_vertices", "num_edges"],
+    );
+}
+
+#[test]
+#[should_panic(expected = "overhead references input variables")]
+fn test_validate_overhead_variables_missing_input() {
+    use crate::rules::validate_overhead_variables;
+    use crate::rules::registry::ReductionOverhead;
+
+    let overhead = ReductionOverhead::new(vec![
+        ("num_vertices", poly!(num_colors)),
+    ]);
+    validate_overhead_variables(
+        "Source",
+        "Target",
+        &overhead,
+        &["num_vars", "num_clauses"],  // no "num_colors"
+        &["num_vertices"],
+    );
+}
+
+#[test]
+#[should_panic(expected = "overhead output fields")]
+fn test_validate_overhead_variables_missing_output() {
+    use crate::rules::validate_overhead_variables;
+    use crate::rules::registry::ReductionOverhead;
+
+    let overhead = ReductionOverhead::new(vec![
+        ("num_gates", poly!(num_vars)),
+    ]);
+    validate_overhead_variables(
+        "Source",
+        "Target",
+        &overhead,
+        &["num_vars"],
+        &["num_vertices", "num_edges"],  // no "num_gates"
+    );
+}
+
+#[test]
+fn test_validate_overhead_variables_skips_output_when_empty() {
+    use crate::rules::validate_overhead_variables;
+    use crate::rules::registry::ReductionOverhead;
+
+    let overhead = ReductionOverhead::new(vec![
+        ("anything", poly!(num_vars)),
+    ]);
+    // Should not panic: target_size_names is empty so output check is skipped
+    validate_overhead_variables(
+        "Source",
+        "Target",
+        &overhead,
+        &["num_vars"],
+        &[],
+    );
+}
+
+#[test]
+fn test_validate_overhead_variables_identity() {
+    use crate::rules::validate_overhead_variables;
+    use crate::rules::registry::ReductionOverhead;
+
+    let names = &["num_vertices", "num_edges"];
+    let overhead = ReductionOverhead::identity(names);
+    validate_overhead_variables("A", "B", &overhead, names, names);
+}
