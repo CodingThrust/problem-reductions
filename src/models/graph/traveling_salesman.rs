@@ -103,16 +103,12 @@ impl<G: Graph, W: Clone + Default> TravelingSalesman<G, W> {
         self.edge_weights.clone()
     }
 
-    /// Check if the problem has non-uniform weights.
+    /// Check if the problem uses a non-unit weight type.
     pub fn is_weighted(&self) -> bool
     where
-        W: PartialEq,
+        W: WeightElement,
     {
-        if self.edge_weights.is_empty() {
-            return false;
-        }
-        let first = &self.edge_weights[0];
-        !self.edge_weights.iter().all(|w| w == first)
+        !W::IS_UNIT
     }
 
     /// Check if a configuration forms a valid Hamiltonian cycle.

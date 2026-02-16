@@ -23,8 +23,9 @@ fn test_independent_set_with_weights() {
 
 #[test]
 fn test_independent_set_unweighted() {
+    // i32 type is always considered weighted, even with uniform values
     let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
-    assert!(!problem.is_weighted());
+    assert!(problem.is_weighted());
 }
 
 #[test]

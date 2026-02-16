@@ -38,8 +38,9 @@ mod maximum_independent_set {
 
     #[test]
     fn test_unweighted() {
+        // i32 type is always considered weighted, even with uniform values
         let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
-        assert!(!problem.is_weighted());
+        assert!(problem.is_weighted());
     }
 
     #[test]
@@ -365,8 +366,9 @@ mod minimum_vertex_cover {
 
     #[test]
     fn test_is_weighted_empty() {
+        // i32 type is always considered weighted, even with empty weights
         let problem = MinimumVertexCover::new(SimpleGraph::new(0, vec![]), vec![0i32; 0]);
-        assert!(!problem.is_weighted());
+        assert!(problem.is_weighted());
     }
 
     #[test]

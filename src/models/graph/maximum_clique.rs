@@ -81,16 +81,12 @@ impl<G: Graph, W: Clone + Default> MaximumClique<G, W> {
         &self.weights
     }
 
-    /// Check if the problem has non-uniform weights.
+    /// Check if the problem uses a non-unit weight type.
     pub fn is_weighted(&self) -> bool
     where
-        W: PartialEq,
+        W: WeightElement,
     {
-        if self.weights.is_empty() {
-            return false;
-        }
-        let first = &self.weights[0];
-        !self.weights.iter().all(|w| w == first)
+        !W::IS_UNIT
     }
 }
 

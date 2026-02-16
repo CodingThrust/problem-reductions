@@ -22,10 +22,11 @@ fn test_traveling_salesman_creation() {
 
 #[test]
 fn test_traveling_salesman_unit_weights() {
+    // i32 type is always considered weighted, even with uniform values
     let problem = TravelingSalesman::<_, i32>::unit_weights(
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
     );
-    assert!(!problem.is_weighted());
+    assert!(problem.is_weighted());
     assert_eq!(problem.graph().num_vertices(), 5);
     assert_eq!(problem.graph().num_edges(), 5);
 }

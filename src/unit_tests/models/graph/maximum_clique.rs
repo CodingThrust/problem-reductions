@@ -22,8 +22,9 @@ fn test_clique_with_weights() {
 
 #[test]
 fn test_clique_unweighted() {
+    // i32 type is always considered weighted, even with uniform values
     let problem = MaximumClique::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
-    assert!(!problem.is_weighted());
+    assert!(problem.is_weighted());
 }
 
 #[test]

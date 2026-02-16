@@ -82,14 +82,16 @@ fn test_weights() {
 
 #[test]
 fn test_is_weighted() {
+    // i32 type is always considered weighted
     let problem = MaximalIS::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
-    assert!(!problem.is_weighted()); // Initially uniform
+    assert!(problem.is_weighted());
 }
 
 #[test]
 fn test_is_weighted_empty() {
+    // i32 type is always considered weighted, even with empty weights
     let problem = MaximalIS::new(SimpleGraph::new(0, vec![]), vec![0i32; 0]);
-    assert!(!problem.is_weighted());
+    assert!(problem.is_weighted());
 }
 
 #[test]
