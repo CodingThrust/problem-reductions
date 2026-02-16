@@ -128,3 +128,12 @@ fn test_jl_parity_evaluation() {
         assert_eq!(rust_best, jl_best, "MaxCut best solutions mismatch");
     }
 }
+
+#[test]
+fn test_cut_size_method() {
+    let problem = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]), vec![1, 2, 3]);
+    // Partition {0} vs {1, 2}: cuts edges (0,1)=1 and (0,2)=3
+    assert_eq!(problem.cut_size(&[0, 1, 1]), 4);
+    // All same partition: no edges cut
+    assert_eq!(problem.cut_size(&[0, 0, 0]), 0);
+}
