@@ -59,7 +59,8 @@ mod minimumvertexcover_ilp;
 mod travelingsalesman_ilp;
 
 pub use graph::{
-    ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionPath, ReductionStep,
+    NeighborInfo, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionPath,
+    ReductionStep, TraversalDirection,
 };
 #[cfg(test)]
 pub(crate) use graph::validate_overhead_variables;

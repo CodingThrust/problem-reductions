@@ -3,8 +3,9 @@
 use crate::models::satisfiability::KSatisfiability;
 use crate::poly;
 use crate::prelude::*;
-use crate::rules::{MinimizeSteps, ReductionGraph};
+use crate::rules::{MinimizeSteps, ReductionGraph, TraversalDirection};
 use crate::topology::{SimpleGraph, TriangularSubgraph};
+use std::collections::BTreeMap;
 use crate::traits::problem_size;
 use crate::types::ProblemSize;
 use crate::variant::K3;
@@ -444,4 +445,88 @@ fn test_validate_overhead_variables_identity() {
     let names = &["num_vertices", "num_edges"];
     let overhead = ReductionOverhead::identity(names);
     validate_overhead_variables("A", "B", &overhead, names, names);
+}
+
+// ---- k-neighbor BFS ----
+
+#[test]
+fn test_k_neighbors_outgoing() {
+    let graph = ReductionGraph::new();
+    let variants = graph.variants_for("MaximumIndependentSet");
+    assert!(!variants.is_empty());
+    let default_variant = &variants[0];
+
+    // 1-hop outgoing: should include direct reduction targets
+    let neighbors = graph.k_neighbors(
+        "MaximumIndependentSet",
+        default_variant,
+        1,
+        TraversalDirection::Outgoing,
+    );
+    assert!(!neighbors.is_empty());
+    assert!(neighbors.iter().all(|n| n.hops == 1));
+
+    // 2-hop outgoing: should include more problems
+    let neighbors_2 = graph.k_neighbors(
+        "MaximumIndependentSet",
+        default_variant,
+        2,
+        TraversalDirection::Outgoing,
+    );
+    assert!(neighbors_2.len() >= neighbors.len());
+}
+
+#[test]
+fn test_k_neighbors_incoming() {
+    let graph = ReductionGraph::new();
+    let variants = graph.variants_for("QUBO");
+    assert!(!variants.is_empty());
+
+    let neighbors = graph.k_neighbors(
+        "QUBO",
+        &variants[0],
+        1,
+        TraversalDirection::Incoming,
+    );
+    // QUBO is a common target — should have incoming reductions
+    assert!(!neighbors.is_empty());
+}
+
+#[test]
+fn test_k_neighbors_both() {
+    let graph = ReductionGraph::new();
+    let variants = graph.variants_for("MaximumIndependentSet");
+    let default_variant = &variants[0];
+
+    let out_only = graph.k_neighbors(
+        "MaximumIndependentSet", default_variant, 1, TraversalDirection::Outgoing,
+    );
+    let in_only = graph.k_neighbors(
+        "MaximumIndependentSet", default_variant, 1, TraversalDirection::Incoming,
+    );
+    let both = graph.k_neighbors(
+        "MaximumIndependentSet", default_variant, 1, TraversalDirection::Both,
+    );
+    // Both should be >= max of either direction
+    assert!(both.len() >= out_only.len());
+    assert!(both.len() >= in_only.len());
+}
+
+#[test]
+fn test_k_neighbors_unknown_problem() {
+    let graph = ReductionGraph::new();
+    let empty = BTreeMap::new();
+    let neighbors = graph.k_neighbors("NonExistent", &empty, 2, TraversalDirection::Outgoing);
+    assert!(neighbors.is_empty());
+}
+
+#[test]
+fn test_k_neighbors_zero_hops() {
+    let graph = ReductionGraph::new();
+    let variants = graph.variants_for("MaximumIndependentSet");
+    let default_variant = &variants[0];
+    let neighbors = graph.k_neighbors(
+        "MaximumIndependentSet", default_variant, 0, TraversalDirection::Outgoing,
+    );
+    assert!(neighbors.is_empty());
 }

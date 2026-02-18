@@ -210,6 +210,28 @@ struct VariantNode {
     variant: BTreeMap<String, String>,
 }
 
+/// Information about a neighbor in the reduction graph.
+#[derive(Debug, Clone)]
+pub struct NeighborInfo {
+    /// Problem name.
+    pub name: &'static str,
+    /// Variant attributes.
+    pub variant: BTreeMap<String, String>,
+    /// Hop distance from the source.
+    pub hops: usize,
+}
+
+/// Direction for graph traversal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TraversalDirection {
+    /// Follow outgoing edges (what can this reduce to?).
+    Outgoing,
+    /// Follow incoming edges (what can reduce to this?).
+    Incoming,
+    /// Follow edges in both directions.
+    Both,
+}
+
 /// Validate that a reduction's overhead variables are consistent with source/target size names.
 ///
 /// Checks:
@@ -705,6 +727,79 @@ impl ReductionGraph {
                 }
             })
             .collect()
+    }
+
+    /// Find the NodeIndex for a specific (name, variant) pair.
+    pub fn find_node_index(&self, name: &str, variant: &BTreeMap<String, String>) -> Option<NodeIndex> {
+        self.name_to_nodes.get(name).and_then(|indices| {
+            indices.iter().find(|&&idx| {
+                let node = &self.nodes[self.graph[idx]];
+                node.variant == *variant
+            }).copied()
+        })
+    }
+
+    /// Get neighbors of a node in a specific direction.
+    pub fn neighbor_indices(&self, idx: NodeIndex, dir: petgraph::Direction) -> Vec<NodeIndex> {
+        self.graph.neighbors_directed(idx, dir).collect()
+    }
+
+    /// Get the problem name for a node index.
+    pub fn node_name(&self, idx: NodeIndex) -> &str {
+        self.nodes[self.graph[idx]].name
+    }
+
+    /// Find all problems reachable within `max_hops` edges from a starting node.
+    ///
+    /// Returns neighbors sorted by (hops, name). The starting node itself is excluded.
+    /// If a node is reachable at multiple distances, it appears at the shortest distance only.
+    pub fn k_neighbors(
+        &self,
+        name: &str,
+        variant: &BTreeMap<String, String>,
+        max_hops: usize,
+        direction: TraversalDirection,
+    ) -> Vec<NeighborInfo> {
+        use std::collections::VecDeque;
+
+        let Some(start_idx) = self.find_node_index(name, variant) else {
+            return vec![];
+        };
+
+        let mut visited: HashSet<NodeIndex> = HashSet::new();
+        visited.insert(start_idx);
+        let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
+        queue.push_back((start_idx, 0));
+        let mut results: Vec<NeighborInfo> = Vec::new();
+
+        while let Some((node_idx, hops)) = queue.pop_front() {
+            if hops >= max_hops {
+                continue;
+            }
+
+            let directions: Vec<petgraph::Direction> = match direction {
+                TraversalDirection::Outgoing => vec![petgraph::Direction::Outgoing],
+                TraversalDirection::Incoming => vec![petgraph::Direction::Incoming],
+                TraversalDirection::Both => vec![petgraph::Direction::Outgoing, petgraph::Direction::Incoming],
+            };
+
+            for dir in directions {
+                for neighbor_idx in self.graph.neighbors_directed(node_idx, dir) {
+                    if visited.insert(neighbor_idx) {
+                        let neighbor_node = &self.nodes[self.graph[neighbor_idx]];
+                        results.push(NeighborInfo {
+                            name: neighbor_node.name,
+                            variant: neighbor_node.variant.clone(),
+                            hops: hops + 1,
+                        });
+                        queue.push_back((neighbor_idx, hops + 1));
+                    }
+                }
+            }
+        }
+
+        results.sort_by(|a, b| a.hops.cmp(&b.hops).then_with(|| a.name.cmp(b.name)));
+        results
     }
 }
 
