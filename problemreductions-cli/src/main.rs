@@ -1,3 +1,6 @@
+mod output;
+mod problem_name;
+
 use clap::Parser;
 
 #[derive(Parser)]
