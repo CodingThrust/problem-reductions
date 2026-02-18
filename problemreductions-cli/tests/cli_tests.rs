@@ -435,3 +435,778 @@ fn test_create_qubo() {
 
     std::fs::remove_file(&output_file).ok();
 }
+
+// ---- Solve command tests ----
+
+#[test]
+fn test_solve_brute_force() {
+    // Create a small MIS problem, then solve it
+    let problem_file = std::env::temp_dir().join("pred_test_solve_bf.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("brute-force"));
+    assert!(stdout.contains("Solution"));
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_ilp() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_ilp.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap(), "--solver", "ilp"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("ilp"));
+    assert!(stdout.contains("Solution"));
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_ilp_default() {
+    // Default solver is ilp
+    let problem_file = std::env::temp_dir().join("pred_test_solve_default.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("reduced to ILP"));
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_json_output() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_json_in.json");
+    let result_file = std::env::temp_dir().join("pred_test_solve_json_out.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "-o",
+            result_file.to_str().unwrap(),
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(result_file.exists());
+
+    let content = std::fs::read_to_string(&result_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert!(json["solution"].is_array());
+    assert_eq!(json["solver"], "brute-force");
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).ok();
+}
+
+#[test]
+fn test_solve_bundle() {
+    // Create → Reduce → Solve bundle
+    let problem_file = std::env::temp_dir().join("pred_test_solve_bundle_in.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_solve_bundle.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let reduce_out = pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduce_out.status.success(),
+        "reduce stderr: {}",
+        String::from_utf8_lossy(&reduce_out.stderr)
+    );
+
+    // Solve the bundle with brute-force
+    let output = pred()
+        .args([
+            "solve",
+            bundle_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Source"));
+    assert!(stdout.contains("Target"));
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+}
+
+#[test]
+fn test_solve_bundle_ilp() {
+    // Create → Reduce → Solve bundle with ILP
+    // Use MVC as target since it has an ILP reduction path (QUBO does not)
+    let problem_file = std::env::temp_dir().join("pred_test_solve_bundle_ilp_in.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_solve_bundle_ilp.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let reduce_out = pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "MVC",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduce_out.status.success(),
+        "reduce stderr: {}",
+        String::from_utf8_lossy(&reduce_out.stderr)
+    );
+
+    let output = pred()
+        .args([
+            "solve",
+            bundle_file.to_str().unwrap(),
+            "--solver",
+            "ilp",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Source"));
+    assert!(stdout.contains("Target"));
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+}
+
+#[test]
+fn test_solve_unknown_solver() {
+    let problem_file = std::env::temp_dir().join("pred_test_solve_unknown.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "unknown-solver",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Unknown solver"));
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+// ---- Create command: more problem types ----
+
+#[test]
+fn test_create_maxcut() {
+    let output_file = std::env::temp_dir().join("pred_test_create_maxcut.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MaxCut",
+            "--edges",
+            "0-1,1-2,2-0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MaxCut");
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_mvc() {
+    let output_file = std::env::temp_dir().join("pred_test_create_mvc.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MVC",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MinimumVertexCover");
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_kcoloring() {
+    let output_file = std::env::temp_dir().join("pred_test_create_kcol.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "KColoring",
+            "--edges",
+            "0-1,1-2,2-0",
+            "--k",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "KColoring");
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_spinglass() {
+    let output_file = std::env::temp_dir().join("pred_test_create_sg.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SpinGlass",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SpinGlass");
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_3sat() {
+    let output_file = std::env::temp_dir().join("pred_test_create_3sat.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "3SAT",
+            "--num-vars",
+            "3",
+            "--clauses",
+            "1,2,3;-1,2,-3",
+            "--k",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "KSatisfiability");
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_maximum_matching() {
+    let output_file = std::env::temp_dir().join("pred_test_create_mm.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MaximumMatching",
+            "--edges",
+            "0-1,1-2,2-3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MaximumMatching");
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_with_edge_weights() {
+    let output_file = std::env::temp_dir().join("pred_test_create_ew.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MaxCut",
+            "--edges",
+            "0-1,1-2,2-0",
+            "--weights",
+            "2,3,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_without_output() {
+    // Create without -o prints to stdout
+    let output = pred()
+        .args(["create", "MIS", "--edges", "0-1,1-2"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Created"));
+}
+
+// ---- Error cases ----
+
+#[test]
+fn test_create_unknown_problem() {
+    let output = pred()
+        .args(["create", "NonExistent", "--edges", "0-1"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+}
+
+#[test]
+fn test_create_missing_edges() {
+    let output = pred().args(["create", "MIS"]).output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--edges"));
+}
+
+#[test]
+fn test_create_kcoloring_missing_k() {
+    let output = pred()
+        .args(["create", "KColoring", "--edges", "0-1,1-2"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--k"));
+}
+
+#[test]
+fn test_evaluate_wrong_config_length() {
+    let problem_file = std::env::temp_dir().join("pred_test_eval_wrong_len.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "evaluate",
+            problem_file.to_str().unwrap(),
+            "--config",
+            "1,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("variables"));
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_evaluate_json_output() {
+    let problem_file = std::env::temp_dir().join("pred_test_eval_json_in.json");
+    let result_file = std::env::temp_dir().join("pred_test_eval_json_out.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "-o",
+            result_file.to_str().unwrap(),
+            "evaluate",
+            problem_file.to_str().unwrap(),
+            "--config",
+            "1,0,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(result_file.exists());
+    let content = std::fs::read_to_string(&result_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert!(json["config"].is_array());
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).ok();
+}
+
+#[test]
+fn test_path_unknown_source() {
+    let output = pred()
+        .args(["path", "NonExistent", "QUBO"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Unknown source"));
+}
+
+#[test]
+fn test_path_unknown_target() {
+    let output = pred()
+        .args(["path", "MIS", "NonExistent"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Unknown target"));
+}
+
+#[test]
+fn test_path_with_cost_minimize_field() {
+    let output = pred()
+        .args([
+            "path",
+            "MIS",
+            "QUBO",
+            "--cost",
+            "minimize:num_variables",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Path"));
+}
+
+#[test]
+fn test_path_unknown_cost() {
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--cost", "bad-cost"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Unknown cost function"));
+}
+
+#[test]
+fn test_show_json_output() {
+    let tmp = std::env::temp_dir().join("pred_test_show.json");
+    let output = pred()
+        .args(["-o", tmp.to_str().unwrap(), "show", "MIS"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(tmp.exists());
+    let content = std::fs::read_to_string(&tmp).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["name"], "MaximumIndependentSet");
+    assert!(json["variants"].is_array());
+    assert!(json["reduces_to"].is_array());
+    std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
+fn test_show_size_fields() {
+    let output = pred().args(["show", "MIS"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Size fields"));
+}
+
+#[test]
+fn test_reduce_unknown_target() {
+    let problem_file = std::env::temp_dir().join("pred_test_reduce_unknown.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "NonExistent",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_reduce_stdout() {
+    // Reduce without -o prints to stdout
+    let problem_file = std::env::temp_dir().join("pred_test_reduce_stdout.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(json["source"].is_object());
+    assert!(json["target"].is_object());
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+// ---- Help message tests ----
+
+#[test]
+fn test_incorrect_command_shows_help() {
+    // Missing required arguments should show after_help
+    let output = pred()
+        .args(["solve"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    // The subcommand help hint should be shown
+    assert!(
+        stderr.contains("pred create") || stderr.contains("pred solve") || stderr.contains("Usage"),
+        "stderr should contain help: {stderr}"
+    );
+}
+
+#[test]
+fn test_subcommand_help() {
+    let output = pred().args(["solve", "--help"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("brute-force"));
+    assert!(stdout.contains("pred create"));
+}

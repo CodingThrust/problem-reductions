@@ -89,7 +89,6 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
         for f in size_fields {
             text.push_str(&format!("  {f}\n"));
         }
-        text.push_str("  Use with: pred path <SRC> <DST> --cost minimize:<field>\n");
     }
 
     // Show reductions from/to this problem
