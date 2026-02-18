@@ -17,7 +17,9 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Graph { command } => match command {
             GraphCommands::List => commands::graph::list(&out),
-            GraphCommands::Show { problem, variants } => todo!("graph show"),
+            GraphCommands::Show { problem, variants } => {
+                commands::graph::show(&problem, variants, &out)
+            }
             GraphCommands::Path {
                 source,
                 target,
