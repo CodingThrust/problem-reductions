@@ -1,5 +1,6 @@
 mod cli;
 mod commands;
+mod dispatch;
 mod output;
 mod problem_name;
 
@@ -17,9 +18,7 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::Graph { command } => match command {
             GraphCommands::List => commands::graph::list(&out),
-            GraphCommands::Show { problem, variants } => {
-                commands::graph::show(&problem, variants, &out)
-            }
+            GraphCommands::Show { problem } => commands::graph::show(&problem, &out),
             GraphCommands::Path {
                 source,
                 target,
