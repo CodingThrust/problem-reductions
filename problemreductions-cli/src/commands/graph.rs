@@ -239,7 +239,13 @@ fn format_path_text(
     for i in 0..steps.len().saturating_sub(1) {
         let from = &steps[i];
         let to = &steps[i + 1];
-        text.push_str(&format!("\n  Step {}: {} → {}\n", i + 1, from, to));
+        text.push_str(&format!(
+            "\n  {}: {} {} {}\n",
+            crate::output::fmt_section(&format!("Step {}", i + 1)),
+            crate::output::fmt_problem_name(&from.to_string()),
+            crate::output::fmt_outgoing("→"),
+            crate::output::fmt_problem_name(&to.to_string()),
+        ));
         let oh = &overheads[i];
         for (field, poly) in &oh.output_size {
             text.push_str(&format!("    {field} = {poly}\n"));
