@@ -27,7 +27,7 @@ fn main() -> anyhow::Result<()> {
             GraphCommands::Export { output } => commands::graph::export(&output),
         },
         Commands::Solve(_args) => todo!("solve"),
-        Commands::Reduce(_args) => todo!("reduce"),
+        Commands::Reduce(args) => commands::reduce::reduce(&args.input, &args.to, &out),
         Commands::Evaluate(args) => commands::evaluate::evaluate(&args.input, &args.config, &out),
         Commands::Schema(args) => commands::schema::schema(&args.problem, &out),
     }
