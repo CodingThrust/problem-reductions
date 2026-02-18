@@ -5,7 +5,7 @@ mod output;
 mod problem_name;
 
 use cli::{Cli, Commands};
-use clap::Parser;
+use clap::{CommandFactory, Parser};
 use output::OutputConfig;
 
 fn main() -> anyhow::Result<()> {
@@ -46,5 +46,10 @@ fn main() -> anyhow::Result<()> {
             commands::reduce::reduce(&args.input, &args.to, args.via.as_deref(), &out)
         }
         Commands::Evaluate(args) => commands::evaluate::evaluate(&args.input, &args.config, &out),
+        Commands::Completions { shell } => {
+            let mut cmd = Cli::command();
+            clap_complete::generate(shell, &mut cmd, "pred", &mut std::io::stdout());
+            Ok(())
+        }
     }
 }
