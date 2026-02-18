@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata
+.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata cli
 
 # Default target
 help:
@@ -24,6 +24,7 @@ help:
 	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
 	@echo "  jl-testdata  - Regenerate Julia parity test data (requires julia)"
 	@echo "  release V=x.y.z - Tag and push a new release (triggers CI publish)"
+	@echo "  cli          - Build the pred CLI tool"
 	@echo "  run-plan   - Execute a plan with Claude autorun (latest plan in docs/plans/)"
 
 # Build the project
@@ -134,6 +135,10 @@ endif
 	git tag -a "v$(V)" -m "Release v$(V)"
 	git push origin main --tags
 	@echo "v$(V) pushed — CI will publish to crates.io"
+
+# Build the pred CLI tool
+cli:
+	cargo build -p problemreductions-cli --release
 
 # Generate Rust mapping JSON exports for all graphs and modes
 GRAPHS := diamond bull house petersen
