@@ -9,6 +9,17 @@ pub struct ProblemSpec {
     pub variant_values: Vec<String>,
 }
 
+/// Alias entries: (alias, canonical_name). Only includes short aliases,
+/// not the lowercase identity mappings.
+pub const ALIASES: &[(&str, &str)] = &[
+    ("MIS", "MaximumIndependentSet"),
+    ("MVC", "MinimumVertexCover"),
+    ("SAT", "Satisfiability"),
+    ("3SAT", "KSatisfiability"),
+    ("KSAT", "KSatisfiability"),
+    ("TSP", "TravelingSalesman"),
+];
+
 /// Resolve a short alias to the canonical problem name.
 pub fn resolve_alias(input: &str) -> String {
     match input.to_lowercase().as_str() {
@@ -37,6 +48,15 @@ pub fn resolve_alias(input: &str) -> String {
         "bicliquecover" => "BicliqueCover".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
+}
+
+/// Return the short aliases for a canonical problem name, if any.
+pub fn aliases_for(canonical: &str) -> Vec<&'static str> {
+    ALIASES
+        .iter()
+        .filter(|(_, name)| *name == canonical)
+        .map(|(alias, _)| *alias)
+        .collect()
 }
 
 /// Parse a problem spec string like "MIS/UnitDiskGraph/i32" into name + variant values.

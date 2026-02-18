@@ -41,9 +41,6 @@ pub enum GraphCommands {
     Show {
         /// Problem name (e.g., MIS, QUBO, MIS/UnitDiskGraph)
         problem: String,
-        /// List all variants
-        #[arg(long)]
-        variants: bool,
     },
     /// Find the cheapest reduction path
     Path {
@@ -57,8 +54,8 @@ pub enum GraphCommands {
     },
     /// Export the reduction graph to JSON
     Export {
-        /// Output file path
-        #[arg(long, default_value = "reduction_graph.json")]
+        /// Output file path (default: reduction_graph.json)
+        #[arg(default_value = "reduction_graph.json")]
         output: PathBuf,
     },
 }

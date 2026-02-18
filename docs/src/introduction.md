@@ -34,7 +34,7 @@
 </div>
 <div id="cy-tooltip"></div>
 
-For theoretical background and correctness proofs, see the [PDF manual](https://codingthrust.github.io/problem-reductions/reductions.pdf).
+You can also explore this graph from the terminal with the [CLI tool](./cli.md). For theoretical background and correctness proofs, see the [PDF manual](https://codingthrust.github.io/problem-reductions/reductions.pdf).
 
 ## Our Vision
 

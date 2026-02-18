@@ -1,5 +1,5 @@
 use crate::output::OutputConfig;
-use crate::problem_name::{parse_problem_spec, resolve_variant};
+use crate::problem_name::{aliases_for, parse_problem_spec, resolve_variant};
 use anyhow::Result;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::types::ProblemSize;
@@ -20,20 +20,28 @@ pub fn list(out: &OutputConfig) -> Result<()> {
     );
 
     for name in &types {
-        text.push_str(&format!("  {name}\n"));
+        let aliases = aliases_for(name);
+        if aliases.is_empty() {
+            text.push_str(&format!("  {name}\n"));
+        } else {
+            text.push_str(&format!("  {name} ({})\n", aliases.join(", ")));
+        }
     }
 
     let json = serde_json::json!({
         "num_types": graph.num_types(),
         "num_reductions": graph.num_reductions(),
         "num_variant_nodes": graph.num_variant_nodes(),
-        "problems": types,
+        "problems": types.iter().map(|name| {
+            let aliases = aliases_for(name);
+            serde_json::json!({ "name": name, "aliases": aliases })
+        }).collect::<Vec<_>>(),
     });
 
     out.emit_with_default_name("pred_graph_list.json", &text, &json)
 }
 
-pub fn show(problem: &str, show_variants: bool, out: &OutputConfig) -> Result<()> {
+pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     let spec = parse_problem_spec(problem)?;
     let graph = ReductionGraph::new();
     let graph_json: serde_json::Value = serde_json::from_str(&graph.to_json_string()?)?;
@@ -53,21 +61,20 @@ pub fn show(problem: &str, show_variants: bool, out: &OutputConfig) -> Result<()
 
     let mut text = format!("{}\n", spec.name);
 
-    if show_variants {
-        text.push_str(&format!("\nVariants ({}):\n", matching_nodes.len()));
-        for (_, node) in &matching_nodes {
-            let variant = &node["variant"];
-            if variant.as_object().is_none_or(|v| v.is_empty()) {
-                text.push_str("  (no variants)\n");
-            } else {
-                let pairs: Vec<String> = variant
-                    .as_object()
-                    .unwrap()
-                    .iter()
-                    .map(|(k, v)| format!("{}={}", k, v.as_str().unwrap_or("")))
-                    .collect();
-                text.push_str(&format!("  {{{}}}\n", pairs.join(", ")));
-            }
+    // Always show variants
+    text.push_str(&format!("\nVariants ({}):\n", matching_nodes.len()));
+    for (_, node) in &matching_nodes {
+        let variant = &node["variant"];
+        if variant.as_object().is_none_or(|v| v.is_empty()) {
+            text.push_str("  (default)\n");
+        } else {
+            let pairs: Vec<String> = variant
+                .as_object()
+                .unwrap()
+                .iter()
+                .map(|(k, v)| format!("{}={}", k, v.as_str().unwrap_or("")))
+                .collect();
+            text.push_str(&format!("  {{{}}}\n", pairs.join(", ")));
         }
     }
 
@@ -85,53 +92,58 @@ pub fn show(problem: &str, show_variants: bool, out: &OutputConfig) -> Result<()
 
     text.push_str(&format!("\nReduces to ({}):\n", outgoing.len()));
     for edge in &outgoing {
+        let source = &nodes[edge["source"].as_u64().unwrap() as usize];
         let target = &nodes[edge["target"].as_u64().unwrap() as usize];
-        text.push_str(&format!("  -> {}", target["name"].as_str().unwrap()));
-        let variant = &target["variant"];
-        if let Some(obj) = variant.as_object() {
-            if !obj.is_empty() {
-                let pairs: Vec<String> = obj
-                    .iter()
-                    .map(|(k, v)| format!("{}={}", k, v.as_str().unwrap_or("")))
-                    .collect();
-                text.push_str(&format!(" {{{}}}", pairs.join(", ")));
-            }
-        }
-        text.push('\n');
+        text.push_str(&format!(
+            "  {} -> {}\n",
+            format_node(source),
+            format_node(target)
+        ));
     }
 
     text.push_str(&format!("\nReduces from ({}):\n", incoming.len()));
     for edge in &incoming {
         let source = &nodes[edge["source"].as_u64().unwrap() as usize];
-        text.push_str(&format!("  <- {}", source["name"].as_str().unwrap()));
-        let variant = &source["variant"];
-        if let Some(obj) = variant.as_object() {
-            if !obj.is_empty() {
-                let pairs: Vec<String> = obj
-                    .iter()
-                    .map(|(k, v)| format!("{}={}", k, v.as_str().unwrap_or("")))
-                    .collect();
-                text.push_str(&format!(" {{{}}}", pairs.join(", ")));
-            }
-        }
-        text.push('\n');
+        let target = &nodes[edge["target"].as_u64().unwrap() as usize];
+        text.push_str(&format!(
+            "  {} -> {}\n",
+            format_node(source),
+            format_node(target)
+        ));
     }
 
     let json = serde_json::json!({
         "name": spec.name,
         "variants": matching_nodes.iter().map(|(_, n)| &n["variant"]).collect::<Vec<_>>(),
         "reduces_to": outgoing.iter().map(|e| {
+            let s = &nodes[e["source"].as_u64().unwrap() as usize];
             let t = &nodes[e["target"].as_u64().unwrap() as usize];
-            serde_json::json!({"name": t["name"], "variant": t["variant"]})
+            serde_json::json!({"source": {"name": s["name"], "variant": s["variant"]}, "target": {"name": t["name"], "variant": t["variant"]}})
         }).collect::<Vec<_>>(),
         "reduces_from": incoming.iter().map(|e| {
             let s = &nodes[e["source"].as_u64().unwrap() as usize];
-            serde_json::json!({"name": s["name"], "variant": s["variant"]})
+            let t = &nodes[e["target"].as_u64().unwrap() as usize];
+            serde_json::json!({"source": {"name": s["name"], "variant": s["variant"]}, "target": {"name": t["name"], "variant": t["variant"]}})
         }).collect::<Vec<_>>(),
     });
 
     let default_name = format!("pred_show_{}.json", spec.name);
     out.emit_with_default_name(&default_name, &text, &json)
+}
+
+fn format_node(node: &serde_json::Value) -> String {
+    let name = node["name"].as_str().unwrap_or("");
+    let variant = &node["variant"];
+    if let Some(obj) = variant.as_object() {
+        if !obj.is_empty() {
+            let pairs: Vec<String> = obj
+                .iter()
+                .map(|(k, v)| format!("{}={}", k, v.as_str().unwrap_or("")))
+                .collect();
+            return format!("{name} {{{}}}", pairs.join(", "));
+        }
+    }
+    name.to_string()
 }
 
 fn collect_variants(nodes: &[serde_json::Value], name: &str) -> Vec<BTreeMap<String, String>> {
@@ -222,11 +234,19 @@ pub fn path(source: &str, target: &str, cost: &str, out: &OutputConfig) -> Resul
 
     match best_path {
         Some(ref reduction_path) => {
-            let text = format!(
-                "Path ({} steps): {}",
+            let mut text = format!(
+                "Path ({} steps): {}\n",
                 reduction_path.len(),
                 reduction_path
             );
+
+            // Show step-by-step details
+            let steps = &reduction_path.steps;
+            for i in 0..steps.len().saturating_sub(1) {
+                let from = &steps[i];
+                let to = &steps[i + 1];
+                text.push_str(&format!("\n  Step {}: {} → {}\n", i + 1, from, to));
+            }
 
             let steps_json: Vec<serde_json::Value> = reduction_path
                 .steps
