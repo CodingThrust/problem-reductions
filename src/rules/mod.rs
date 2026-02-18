@@ -56,6 +56,8 @@ mod minimumsetcovering_ilp;
 #[cfg(feature = "ilp-solver")]
 mod minimumvertexcover_ilp;
 #[cfg(feature = "ilp-solver")]
+mod qubo_ilp;
+#[cfg(feature = "ilp-solver")]
 mod travelingsalesman_ilp;
 
 pub use graph::{
