@@ -5,6 +5,7 @@
 # User Guide
 
 - [Getting Started](./getting-started.md)
+- [CLI Tool](./cli.md)
 - [Design](./design.md)
 
 # Developer Guide
