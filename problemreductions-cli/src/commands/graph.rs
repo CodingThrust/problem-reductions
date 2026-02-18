@@ -2,9 +2,9 @@ use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_variant};
 use anyhow::{Context, Result};
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph};
+use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph, TraversalDirection};
 use problemreductions::types::ProblemSize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 
 pub fn list(out: &OutputConfig) -> Result<()> {
@@ -119,13 +119,17 @@ pub fn list(out: &OutputConfig) -> Result<()> {
     out.emit_with_default_name("pred_graph_list.json", &text, &json)
 }
 
-pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
+pub fn show(problem: &str, hops: Option<usize>, direction: &str, out: &OutputConfig) -> Result<()> {
     let spec = parse_problem_spec(problem)?;
     let graph = ReductionGraph::new();
 
     let variants = graph.variants_for(&spec.name);
     if variants.is_empty() {
         anyhow::bail!("Unknown problem: {}", spec.name);
+    }
+
+    if let Some(max_hops) = hops {
+        return show_neighbors(&graph, &spec, &variants, max_hops, direction, out);
     }
 
     let mut text = format!("{}\n", crate::output::fmt_problem_name(&spec.name));
@@ -484,4 +488,190 @@ pub fn export(output: &Path) -> Result<()> {
     );
 
     Ok(())
+}
+
+fn parse_direction(s: &str) -> Result<TraversalDirection> {
+    match s {
+        "out" => Ok(TraversalDirection::Outgoing),
+        "in" => Ok(TraversalDirection::Incoming),
+        "both" => Ok(TraversalDirection::Both),
+        _ => anyhow::bail!(
+            "Unknown direction: {}. Use 'out', 'in', or 'both'.",
+            s
+        ),
+    }
+}
+
+fn show_neighbors(
+    graph: &ReductionGraph,
+    spec: &crate::problem_name::ProblemSpec,
+    variants: &[BTreeMap<String, String>],
+    max_hops: usize,
+    direction_str: &str,
+    out: &OutputConfig,
+) -> Result<()> {
+    let direction = parse_direction(direction_str)?;
+
+    let variant = if spec.variant_values.is_empty() {
+        variants[0].clone()
+    } else {
+        resolve_variant(spec, variants)?
+    };
+
+    let neighbors = graph.k_neighbors(&spec.name, &variant, max_hops, direction);
+
+    let dir_label = match direction {
+        TraversalDirection::Outgoing => "outgoing",
+        TraversalDirection::Incoming => "incoming",
+        TraversalDirection::Both => "both directions",
+    };
+
+    // Build tree structure via BFS with parent tracking
+    let tree = build_neighbor_tree(graph, &spec.name, &variant, max_hops, direction);
+
+    let mut text = format!(
+        "{} — {}-hop neighbors ({})\n\n",
+        crate::output::fmt_problem_name(&spec.name),
+        max_hops,
+        dir_label,
+    );
+
+    text.push_str(&crate::output::fmt_problem_name(&spec.name));
+    text.push('\n');
+    render_tree(&tree, &mut text, "");
+
+    // Count unique problem names
+    let unique_names: HashSet<&str> = neighbors.iter().map(|n| n.name).collect();
+    text.push_str(&format!(
+        "\n{} reachable problems in {} hops\n",
+        unique_names.len(),
+        max_hops,
+    ));
+
+    let json = serde_json::json!({
+        "source": spec.name,
+        "hops": max_hops,
+        "direction": direction_str,
+        "neighbors": neighbors.iter().map(|n| {
+            serde_json::json!({
+                "name": n.name,
+                "variant": n.variant,
+                "hops": n.hops,
+            })
+        }).collect::<Vec<_>>(),
+    });
+
+    let default_name = format!("pred_show_{}_hops{}.json", spec.name, max_hops);
+    out.emit_with_default_name(&default_name, &text, &json)
+}
+
+/// Tree node for neighbor rendering.
+struct TreeNode {
+    name: String,
+    children: Vec<TreeNode>,
+}
+
+/// Build a tree of neighbors via BFS, tracking parent relationships.
+fn build_neighbor_tree(
+    graph: &ReductionGraph,
+    name: &str,
+    variant: &BTreeMap<String, String>,
+    max_hops: usize,
+    direction: TraversalDirection,
+) -> Vec<TreeNode> {
+    use std::collections::VecDeque;
+
+    let Some(start_idx) = graph.find_node_index(name, variant) else {
+        return vec![];
+    };
+
+    let mut visited: HashSet<petgraph::graph::NodeIndex> = HashSet::new();
+    visited.insert(start_idx);
+
+    let mut queue: VecDeque<(petgraph::graph::NodeIndex, usize)> = VecDeque::new();
+    queue.push_back((start_idx, 0));
+
+    // Map from node_idx -> children node indices
+    let mut node_children: HashMap<petgraph::graph::NodeIndex, Vec<petgraph::graph::NodeIndex>> =
+        HashMap::new();
+
+    while let Some((node_idx, depth)) = queue.pop_front() {
+        if depth >= max_hops {
+            continue;
+        }
+
+        let directions: Vec<petgraph::Direction> = match direction {
+            TraversalDirection::Outgoing => vec![petgraph::Direction::Outgoing],
+            TraversalDirection::Incoming => vec![petgraph::Direction::Incoming],
+            TraversalDirection::Both => {
+                vec![petgraph::Direction::Outgoing, petgraph::Direction::Incoming]
+            }
+        };
+
+        let mut children = Vec::new();
+        for dir in directions {
+            for neighbor_idx in graph.neighbor_indices(node_idx, dir) {
+                if visited.insert(neighbor_idx) {
+                    children.push(neighbor_idx);
+                    queue.push_back((neighbor_idx, depth + 1));
+                }
+            }
+        }
+        children.sort_by(|a, b| {
+            let na = graph.node_name(*a);
+            let nb = graph.node_name(*b);
+            na.cmp(nb)
+        });
+        node_children.insert(node_idx, children);
+    }
+
+    // Recursively build TreeNode from start's children
+    fn build_tree(
+        idx: petgraph::graph::NodeIndex,
+        node_children: &HashMap<petgraph::graph::NodeIndex, Vec<petgraph::graph::NodeIndex>>,
+        graph: &ReductionGraph,
+    ) -> TreeNode {
+        let children = node_children
+            .get(&idx)
+            .map(|cs| {
+                cs.iter()
+                    .map(|&c| build_tree(c, node_children, graph))
+                    .collect()
+            })
+            .unwrap_or_default();
+        TreeNode {
+            name: graph.node_name(idx).to_string(),
+            children,
+        }
+    }
+
+    node_children
+        .get(&start_idx)
+        .map(|cs| {
+            cs.iter()
+                .map(|&c| build_tree(c, &node_children, graph))
+                .collect()
+        })
+        .unwrap_or_default()
+}
+
+/// Render a tree with box-drawing characters.
+fn render_tree(nodes: &[TreeNode], text: &mut String, prefix: &str) {
+    for (i, node) in nodes.iter().enumerate() {
+        let is_last = i == nodes.len() - 1;
+        let connector = if is_last { "└── " } else { "├── " };
+        let child_prefix = if is_last { "    " } else { "│   " };
+
+        text.push_str(&format!(
+            "{}{}{}\n",
+            crate::output::fmt_dim(prefix),
+            crate::output::fmt_dim(connector),
+            crate::output::fmt_problem_name(&node.name),
+        ));
+
+        if !node.children.is_empty() {
+            let new_prefix = format!("{}{}", prefix, child_prefix);
+            render_tree(&node.children, text, &new_prefix);
+        }
+    }
 }

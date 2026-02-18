@@ -39,11 +39,19 @@ Examples:
   pred show MIS                   # using alias
   pred show MaximumIndependentSet # full name
   pred show MIS/UnitDiskGraph     # specific graph variant
+  pred show MIS --hops 2          # 2-hop outgoing neighbor tree
+  pred show MIS --hops 2 --direction in  # incoming neighbors
 
 Use `pred list` to see all available problem types and aliases.")]
     Show {
         /// Problem name or alias (e.g., MIS, QUBO, MIS/UnitDiskGraph)
         problem: String,
+        /// Explore k-hop neighbors in the reduction graph
+        #[arg(long)]
+        hops: Option<usize>,
+        /// Direction for neighbor exploration: out, in, both [default: out]
+        #[arg(long, default_value = "out")]
+        direction: String,
     },
 
     /// Find the cheapest reduction path between two problems

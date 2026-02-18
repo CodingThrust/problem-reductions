@@ -32,7 +32,9 @@ fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::List => commands::graph::list(&out),
-        Commands::Show { problem } => commands::graph::show(&problem, &out),
+        Commands::Show { problem, hops, direction } => {
+            commands::graph::show(&problem, hops, &direction, &out)
+        }
         Commands::Path {
             source,
             target,
