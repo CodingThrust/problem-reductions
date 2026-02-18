@@ -669,6 +669,22 @@ impl ReductionGraph {
             .collect()
     }
 
+    /// Get the problem size field names for a problem type.
+    ///
+    /// Returns the static `problem_size_names()` by finding a reduction entry
+    /// where this problem is the source or target.
+    pub fn size_field_names(&self, name: &str) -> &'static [&'static str] {
+        for entry in inventory::iter::<ReductionEntry> {
+            if entry.source_name == name {
+                return (entry.source_size_names_fn)();
+            }
+            if entry.target_name == name {
+                return (entry.target_size_names_fn)();
+            }
+        }
+        &[]
+    }
+
     /// Get all incoming reductions to a problem (across all its variants).
     pub fn incoming_reductions(&self, name: &str) -> Vec<ReductionEdgeInfo> {
         let Some(indices) = self.name_to_nodes.get(name) else {

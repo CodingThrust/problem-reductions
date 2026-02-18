@@ -2,7 +2,7 @@ use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_variant};
 use anyhow::{Context, Result};
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{MinimizeSteps, ReductionGraph};
+use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph};
 use problemreductions::types::ProblemSize;
 use std::collections::BTreeMap;
 use std::path::Path;
@@ -82,6 +82,16 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
         }
     }
 
+    // Show size fields (used with `pred path --cost minimize:<field>`)
+    let size_fields = graph.size_field_names(&spec.name);
+    if !size_fields.is_empty() {
+        text.push_str(&format!("\nSize fields ({}):\n", size_fields.len()));
+        for f in size_fields {
+            text.push_str(&format!("  {f}\n"));
+        }
+        text.push_str("  Use with: pred path <SRC> <DST> --cost minimize:<field>\n");
+    }
+
     // Show reductions from/to this problem
     let outgoing = graph.outgoing_reductions(&spec.name);
     let incoming = graph.incoming_reductions(&spec.name);
@@ -111,6 +121,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     let mut json = serde_json::json!({
         "name": spec.name,
         "variants": variants,
+        "size_fields": size_fields,
         "reduces_to": outgoing.iter().map(|e| {
             serde_json::json!({"source": {"name": e.source_name, "variant": e.source_variant}, "target": {"name": e.target_name, "variant": e.target_variant}})
         }).collect::<Vec<_>>(),
@@ -244,25 +255,36 @@ pub fn path(source: &str, target: &str, cost: &str, all: bool, out: &OutputConfi
     };
 
     let input_size = ProblemSize::new(vec![]);
+
+    // Parse cost function once (validate before the search loop)
+    enum CostChoice {
+        Steps,
+        Field(&'static str),
+    }
+    let cost_choice = if cost == "minimize-steps" {
+        CostChoice::Steps
+    } else if let Some(field) = cost.strip_prefix("minimize:") {
+        // Leak the field name to get &'static str (fine for a CLI that exits immediately)
+        CostChoice::Field(Box::leak(field.to_string().into_boxed_str()))
+    } else {
+        anyhow::bail!(
+            "Unknown cost function: {}. Use 'minimize-steps' or 'minimize:<field>'",
+            cost
+        );
+    };
+
     let mut best_path: Option<problemreductions::rules::ReductionPath> = None;
 
     for sv in &src_resolved {
         for dv in &dst_resolved {
-            if cost != "minimize-steps" && !cost.starts_with("minimize:") {
-                anyhow::bail!(
-                    "Unknown cost function: {}. Use 'minimize-steps' or 'minimize:<field>'",
-                    cost
-                );
-            }
-            // TODO: use field-specific cost when concrete input size is available
-            let found = graph.find_cheapest_path(
-                &src_spec.name,
-                sv,
-                &dst_spec.name,
-                dv,
-                &input_size,
-                &MinimizeSteps,
-            );
+            let found = match cost_choice {
+                CostChoice::Steps => graph.find_cheapest_path(
+                    &src_spec.name, sv, &dst_spec.name, dv, &input_size, &MinimizeSteps,
+                ),
+                CostChoice::Field(f) => graph.find_cheapest_path(
+                    &src_spec.name, sv, &dst_spec.name, dv, &input_size, &Minimize(f),
+                ),
+            };
 
             if let Some(p) = found {
                 let is_better = best_path.as_ref().is_none_or(|bp| p.len() < bp.len());
