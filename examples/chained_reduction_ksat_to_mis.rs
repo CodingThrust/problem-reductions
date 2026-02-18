@@ -1,6 +1,6 @@
-// # Chained Reduction: 3-SAT → MIS via Executable Paths
+// # Chained Reduction: 3-SAT → MIS via Reduction Chains
 //
-// Demonstrates the `find_cheapest_path` + `make_executable` API to chain
+// Demonstrates the `find_cheapest_path` + `reduce_along_path` API to chain
 // reductions automatically: KSatisfiability<K3> → Satisfiability → MIS.
 // The target MIS is then solved via `ILPSolver::solve_reduced`.
 
@@ -31,9 +31,6 @@ pub fn run() {
             &MinimizeSteps,
         )
         .unwrap();
-    let path = graph
-        .make_executable::<KSatisfiability<K3>, MaximumIndependentSet<SimpleGraph, i32>>(&rpath)
-        .unwrap();
 
     // Create: 3-SAT formula (a∨b∨¬c)∧(¬a∨¬b∨¬c)∧(¬a∨b∨c)∧(a∨¬b∨c)
     let ksat = KSatisfiability::<K3>::new(
@@ -46,14 +43,16 @@ pub fn run() {
         ],
     );
 
-    // Reduce: the executable path handles all intermediate steps
-    let reduction = path.reduce(&ksat);
-    let target = reduction.target_problem();
+    // Reduce: the reduction chain handles all intermediate steps
+    let chain = graph
+        .reduce_along_path(&rpath, &ksat as &dyn std::any::Any)
+        .unwrap();
+    let target: &MaximumIndependentSet<SimpleGraph, i32> = chain.target_problem();
 
     // Solve the target MIS via ILP
     let solver = ILPSolver::new();
     let solution = solver.solve_reduced(target).unwrap();
-    let original = reduction.extract_solution(&solution);
+    let original = chain.extract_solution(&solution);
 
     // Verify: satisfies the original 3-SAT formula
     assert!(ksat.evaluate(&original));

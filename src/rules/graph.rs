@@ -11,7 +11,6 @@
 use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::rules::traits::DynReductionResult;
-use crate::traits::Problem;
 use crate::types::ProblemSize;
 use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
@@ -21,7 +20,7 @@ use serde::Serialize;
 use std::any::Any;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
-use std::marker::PhantomData;
+
 
 /// Internal edge data combining overhead and executable reduce function.
 #[derive(Clone)]
@@ -855,63 +854,34 @@ pub struct MatchedEntry {
     pub overhead: ReductionOverhead,
 }
 
-/// Type alias for a dynamically-dispatched reduce function pointer.
-type ReduceFn = fn(&dyn Any) -> Box<dyn DynReductionResult>;
-
-/// A typed, executable reduction path from source type `S` to target type `T`.
-pub struct ExecutablePath<S: Problem, T: Problem> {
-    edge_fns: Vec<ReduceFn>,
-    _phantom: PhantomData<(S, T)>,
-}
-
-impl<S: Problem + 'static, T: Problem + 'static> ExecutablePath<S, T> {
-    /// Execute the reduction path on a source problem instance.
-    pub fn reduce(&self, source: &S) -> ChainedReduction<S, T> {
-        let mut steps: Vec<Box<dyn DynReductionResult>> = Vec::new();
-        let step = (self.edge_fns[0])(source as &dyn Any);
-        steps.push(step);
-        for edge_fn in &self.edge_fns[1..] {
-            let step = {
-                let prev_target = steps.last().unwrap().target_problem_any();
-                edge_fn(prev_target)
-            };
-            steps.push(step);
-        }
-        ChainedReduction {
-            steps,
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Number of reduction steps in the path.
-    pub fn len(&self) -> usize {
-        self.edge_fns.len()
-    }
-
-    /// Whether the path is empty (zero steps).
-    pub fn is_empty(&self) -> bool {
-        self.edge_fns.is_empty()
-    }
-}
-
-/// A composed reduction from source type `S` to target type `T`.
-pub struct ChainedReduction<S: Problem, T: Problem> {
+/// A composed reduction chain produced by [`ReductionGraph::reduce_along_path`].
+///
+/// Holds the intermediate reduction results from executing a multi-step
+/// reduction path. Provides access to the final target problem and
+/// solution extraction back to the source problem space.
+pub struct ReductionChain {
     steps: Vec<Box<dyn DynReductionResult>>,
-    _phantom: PhantomData<(S, T)>,
 }
 
-impl<S: Problem, T: Problem + 'static> ChainedReduction<S, T> {
-    /// Get a reference to the target problem.
-    pub fn target_problem(&self) -> &T {
+impl ReductionChain {
+    /// Get the final target problem as a type-erased reference.
+    pub fn target_problem_any(&self) -> &dyn Any {
         self.steps
             .last()
-            .expect("ChainedReduction has no steps")
+            .expect("ReductionChain has no steps")
             .target_problem_any()
-            .downcast_ref::<T>()
-            .expect("final step target type mismatch")
     }
 
-    /// Extract a solution from target space to source space.
+    /// Get a typed reference to the final target problem.
+    ///
+    /// Panics if the actual target type does not match `T`.
+    pub fn target_problem<T: 'static>(&self) -> &T {
+        self.target_problem_any()
+            .downcast_ref::<T>()
+            .expect("ReductionChain target type mismatch")
+    }
+
+    /// Extract a solution from target space back to source space.
     pub fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         self.steps
             .iter()
@@ -923,16 +893,28 @@ impl<S: Problem, T: Problem + 'static> ChainedReduction<S, T> {
 }
 
 impl ReductionGraph {
-    /// Convert a `ReductionPath` into a typed, executable path.
+    /// Execute a reduction path on a source problem instance.
     ///
-    /// Looks up each edge's `reduce_fn` from the graph along the path steps.
-    pub fn make_executable<S: Problem, T: Problem>(
+    /// Looks up each edge's `reduce_fn`, chains them, and returns the
+    /// resulting [`ReductionChain`]. The source must be passed as `&dyn Any`
+    /// (use `&problem as &dyn Any` or pass a concrete reference directly).
+    ///
+    /// # Example
+    ///
+    /// ```text
+    /// let chain = graph.reduce_along_path(&path, &source_problem)?;
+    /// let target: &QUBO<f64> = chain.target_problem();
+    /// let source_solution = chain.extract_solution(&target_solution);
+    /// ```
+    pub fn reduce_along_path(
         &self,
         path: &ReductionPath,
-    ) -> Option<ExecutablePath<S, T>> {
+        source: &dyn Any,
+    ) -> Option<ReductionChain> {
         if path.steps.len() < 2 {
             return None;
         }
+        // Collect edge reduce_fns
         let mut edge_fns = Vec::new();
         for window in path.steps.windows(2) {
             let src = self.lookup_node(&window[0].name, &window[0].variant)?;
@@ -940,10 +922,18 @@ impl ReductionGraph {
             let edge_idx = self.graph.find_edge(src, dst)?;
             edge_fns.push(self.graph[edge_idx].reduce_fn);
         }
-        Some(ExecutablePath {
-            edge_fns,
-            _phantom: PhantomData,
-        })
+        // Execute the chain
+        let mut steps: Vec<Box<dyn DynReductionResult>> = Vec::new();
+        let step = (edge_fns[0])(source);
+        steps.push(step);
+        for edge_fn in &edge_fns[1..] {
+            let step = {
+                let prev_target = steps.last().unwrap().target_problem_any();
+                edge_fn(prev_target)
+            };
+            steps.push(step);
+        }
+        Some(ReductionChain { steps })
     }
 }
 
