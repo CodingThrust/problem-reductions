@@ -1,4 +1,6 @@
 use anyhow::Context;
+use owo_colors::OwoColorize;
+use std::io::IsTerminal;
 use std::path::PathBuf;
 
 /// Output configuration derived from CLI flags.
@@ -26,5 +28,59 @@ impl OutputConfig {
             println!("{human_text}");
         }
         Ok(())
+    }
+}
+
+/// Whether colored output should be used (TTY + not NO_COLOR).
+pub fn use_color() -> bool {
+    std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none()
+}
+
+/// Format a problem name (bold when color is enabled).
+pub fn fmt_problem_name(name: &str) -> String {
+    if use_color() {
+        format!("{}", name.bold())
+    } else {
+        name.to_string()
+    }
+}
+
+/// Format a section header (cyan when color is enabled).
+pub fn fmt_section(text: &str) -> String {
+    if use_color() {
+        format!("{}", text.cyan())
+    } else {
+        text.to_string()
+    }
+}
+
+/// Format an outgoing arrow (green when color is enabled).
+pub fn fmt_arrow_out() -> &'static str {
+    // We return static str, so we use ANSI directly for the arrow
+    "\u{2192}"
+}
+
+pub fn fmt_outgoing(text: &str) -> String {
+    if use_color() {
+        format!("{}", text.green())
+    } else {
+        text.to_string()
+    }
+}
+
+pub fn fmt_incoming(text: &str) -> String {
+    if use_color() {
+        format!("{}", text.red())
+    } else {
+        text.to_string()
+    }
+}
+
+/// Format dim text (for aliases, tree branches).
+pub fn fmt_dim(text: &str) -> String {
+    if use_color() {
+        format!("{}", text.dimmed())
+    } else {
+        text.to_string()
     }
 }
