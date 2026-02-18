@@ -35,27 +35,27 @@ mod traits;
 
 pub mod unitdiskmapping;
 
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod coloring_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod factoring_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod ilp_qubo;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod maximumclique_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod maximumindependentset_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod maximummatching_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod maximumsetpacking_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod minimumdominatingset_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod minimumsetcovering_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod minimumvertexcover_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod travelingsalesman_ilp;
 
 pub use graph::{

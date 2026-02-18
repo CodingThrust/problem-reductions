@@ -243,6 +243,69 @@ fn test_reduce() {
 }
 
 #[test]
+fn test_reduce_via_path() {
+    // 1. Create problem
+    let problem_file = std::env::temp_dir().join("pred_test_reduce_via_in.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2,2-3",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    // 2. Generate path file
+    let path_file = std::env::temp_dir().join("pred_test_reduce_via_path.json");
+    let path_out = pred()
+        .args([
+            "path",
+            "MIS",
+            "QUBO",
+            "-o",
+            path_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(path_out.status.success());
+
+    // 3. Reduce via path file
+    let output_file = std::env::temp_dir().join("pred_test_reduce_via_out.json");
+    let reduce_out = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+            "--via",
+            path_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduce_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&reduce_out.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let bundle: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(bundle["source"]["type"], "MaximumIndependentSet");
+    assert_eq!(bundle["target"]["type"], "QUBO");
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&path_file).ok();
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
 fn test_create_mis() {
     let output_file = std::env::temp_dir().join("pred_test_create_mis.json");
     let output = pred()

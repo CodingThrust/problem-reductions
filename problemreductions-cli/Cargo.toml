@@ -9,8 +9,17 @@ license = "MIT"
 name = "pred"
 path = "src/main.rs"
 
+[features]
+default = ["highs"]
+highs = ["problemreductions/ilp-highs"]
+coin-cbc = ["problemreductions/ilp-coin-cbc"]
+clarabel = ["problemreductions/ilp-clarabel"]
+scip = ["problemreductions/ilp-scip"]
+lpsolve = ["problemreductions/ilp-lpsolve"]
+microlp = ["problemreductions/ilp-microlp"]
+
 [dependencies]
-problemreductions = { path = "..", features = ["ilp"] }
+problemreductions = { path = "..", default-features = false }
 clap = { version = "4", features = ["derive"] }
 anyhow = "1"
 serde = { version = "1", features = ["derive"] }

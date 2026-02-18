@@ -3,12 +3,58 @@ use crate::dispatch::{
 };
 use crate::output::OutputConfig;
 use crate::problem_name::parse_problem_spec;
-use anyhow::Result;
-use problemreductions::rules::{MinimizeSteps, ReductionGraph};
+use anyhow::{Context, Result};
+use problemreductions::rules::{MinimizeSteps, ReductionGraph, ReductionPath, ReductionStep};
 use problemreductions::types::ProblemSize;
+use std::collections::BTreeMap;
 use std::path::Path;
 
-pub fn reduce(input: &Path, target: &str, out: &OutputConfig) -> Result<()> {
+/// Parse a path JSON file (produced by `pred path ... -o`) into a ReductionPath.
+fn load_path_file(path_file: &Path) -> Result<ReductionPath> {
+    let content =
+        std::fs::read_to_string(path_file).context("Failed to read path file")?;
+    let json: serde_json::Value =
+        serde_json::from_str(&content).context("Failed to parse path file")?;
+
+    let path_array = json["path"]
+        .as_array()
+        .ok_or_else(|| anyhow::anyhow!("Path file missing 'path' array"))?;
+
+    let mut steps: Vec<ReductionStep> = Vec::new();
+    for (i, entry) in path_array.iter().enumerate() {
+        if i == 0 {
+            let from = &entry["from"];
+            steps.push(parse_path_node(from)?);
+        }
+        let to = &entry["to"];
+        steps.push(parse_path_node(to)?);
+    }
+
+    if steps.len() < 2 {
+        anyhow::bail!("Path file must contain at least one reduction step");
+    }
+
+    Ok(ReductionPath { steps })
+}
+
+fn parse_path_node(node: &serde_json::Value) -> Result<ReductionStep> {
+    let name = node["name"]
+        .as_str()
+        .ok_or_else(|| anyhow::anyhow!("Path node missing 'name'"))?
+        .to_string();
+    let variant: BTreeMap<String, String> = node
+        .get("variant")
+        .and_then(|v| serde_json::from_value(v.clone()).ok())
+        .unwrap_or_default();
+    Ok(ReductionStep { name, variant })
+}
+
+pub fn reduce(
+    input: &Path,
+    target: &str,
+    via: Option<&Path>,
+    out: &OutputConfig,
+) -> Result<()> {
     // 1. Load source problem
     let content = std::fs::read_to_string(input)?;
     let problem_json: ProblemJson = serde_json::from_str(&content)?;
@@ -31,35 +77,67 @@ pub fn reduce(input: &Path, target: &str, out: &OutputConfig) -> Result<()> {
         anyhow::bail!("Unknown target problem: {}", dst_spec.name);
     }
 
-    // 3. Find reduction path
-    let input_size = ProblemSize::new(vec![]);
-    let mut best_path = None;
+    // 3. Get reduction path: from --via file or auto-discover
+    let reduction_path = if let Some(path_file) = via {
+        let path = load_path_file(path_file)?;
+        // Validate that the path starts with the source and ends with the target
+        let first = path.steps.first().unwrap();
+        let last = path.steps.last().unwrap();
+        if first.name != source_name || first.variant != source_variant {
+            anyhow::bail!(
+                "Path file starts with {} {} but source problem is {} {}",
+                first.name,
+                format_variant(&first.variant),
+                source_name,
+                format_variant(&source_variant),
+            );
+        }
+        if last.name != dst_spec.name {
+            anyhow::bail!(
+                "Path file ends with {} but target is {}",
+                last.name,
+                dst_spec.name,
+            );
+        }
+        path
+    } else {
+        // Auto-discover cheapest path
+        let input_size = ProblemSize::new(vec![]);
+        let mut best_path = None;
 
-    for dv in &dst_variants {
-        if let Some(p) = graph.find_cheapest_path(
-            source_name,
-            &source_variant,
-            &dst_spec.name,
-            dv,
-            &input_size,
-            &MinimizeSteps,
-        ) {
-            let is_better = best_path
-                .as_ref()
-                .is_none_or(|bp: &problemreductions::rules::ReductionPath| p.len() < bp.len());
-            if is_better {
-                best_path = Some(p);
+        for dv in &dst_variants {
+            if let Some(p) = graph.find_cheapest_path(
+                source_name,
+                &source_variant,
+                &dst_spec.name,
+                dv,
+                &input_size,
+                &MinimizeSteps,
+            ) {
+                let is_better = best_path
+                    .as_ref()
+                    .is_none_or(|bp: &ReductionPath| p.len() < bp.len());
+                if is_better {
+                    best_path = Some(p);
+                }
             }
         }
-    }
 
-    let reduction_path = best_path.ok_or_else(|| {
-        anyhow::anyhow!(
-            "No reduction path from {} to {}",
-            source_name,
-            dst_spec.name
-        )
-    })?;
+        best_path.ok_or_else(|| {
+            anyhow::anyhow!(
+                "No reduction path from {} to {}\n\n\
+                 Hint: generate a path file first, then pass it with --via:\n\
+                   pred path {} {} -o path.json\n\
+                   pred reduce {} --to {} --via path.json -o reduced.json",
+                source_name,
+                dst_spec.name,
+                source_name,
+                dst_spec.name,
+                input.display(),
+                dst_spec.name,
+            )
+        })?
+    };
 
     // 4. Execute reduction chain via reduce_along_path
     let chain = graph
@@ -96,14 +174,32 @@ pub fn reduce(input: &Path, target: &str, out: &OutputConfig) -> Result<()> {
             .collect(),
     };
 
-    let text = format!(
-        "Reduced {} to {} ({} steps)\nBundle written with source + target + path.",
-        source_name,
-        target_step.name,
-        reduction_path.len(),
-    );
-
     let json = serde_json::to_value(&bundle)?;
-    let default_name = format!("pred_reduce_{}_to_{}.json", source_name, dst_spec.name);
-    out.emit_with_default_name(&default_name, &text, &json)
+
+    if let Some(ref path) = out.output {
+        let content =
+            serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
+        std::fs::write(path, &content)
+            .with_context(|| format!("Failed to write {}", path.display()))?;
+        eprintln!(
+            "Reduced {} to {} ({} steps)\nWrote {}",
+            source_name,
+            target_step.name,
+            reduction_path.len(),
+            path.display(),
+        );
+    } else {
+        println!("{}", serde_json::to_string_pretty(&json)?);
+    }
+
+    Ok(())
+}
+
+fn format_variant(v: &BTreeMap<String, String>) -> String {
+    if v.is_empty() {
+        "(default)".to_string()
+    } else {
+        let pairs: Vec<String> = v.iter().map(|(k, val)| format!("{k}={val}")).collect();
+        format!("{{{}}}", pairs.join(", "))
+    }
 }

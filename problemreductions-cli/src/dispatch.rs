@@ -1,15 +1,19 @@
 use anyhow::{bail, Result};
 use problemreductions::prelude::*;
 use problemreductions::models::optimization::ILP;
+use problemreductions::rules::{MinimizeSteps, ReductionGraph};
+use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
 use problemreductions::topology::{
     KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
+use problemreductions::types::ProblemSize;
 use problemreductions::variant::{K2, K3, KN};
 use serde::Serialize;
 use serde_json::Value;
 use std::any::Any;
 use std::collections::BTreeMap;
 use std::fmt;
+use std::ops::Deref;
 
 use crate::problem_name::resolve_alias;
 
@@ -52,14 +56,108 @@ where
     }
 }
 
-fn deser<T: Problem + Serialize + serde::de::DeserializeOwned + 'static>(
-    data: Value,
-) -> Result<Box<dyn DynProblem>>
+fn deser_opt<T>(data: Value) -> Result<LoadedProblem>
 where
+    T: OptimizationProblem + Serialize + serde::de::DeserializeOwned + 'static,
     T::Metric: fmt::Debug,
 {
     let problem: T = serde_json::from_value(data)?;
-    Ok(Box::new(problem))
+    Ok(LoadedProblem {
+        inner: Box::new(problem),
+        brute_force_fn: bf_opt::<T>,
+    })
+}
+
+fn deser_sat<T>(data: Value) -> Result<LoadedProblem>
+where
+    T: Problem<Metric = bool> + Serialize + serde::de::DeserializeOwned + 'static,
+{
+    let problem: T = serde_json::from_value(data)?;
+    Ok(LoadedProblem {
+        inner: Box::new(problem),
+        brute_force_fn: bf_sat::<T>,
+    })
+}
+
+fn bf_opt<T>(any: &dyn Any) -> Option<SolveResult>
+where
+    T: OptimizationProblem + 'static,
+    T::Metric: fmt::Debug,
+{
+    let p = any.downcast_ref::<T>()?;
+    let config = BruteForce::new().find_best(p)?;
+    let evaluation = format!("{:?}", p.evaluate(&config));
+    Some(SolveResult { config, evaluation })
+}
+
+fn bf_sat<T>(any: &dyn Any) -> Option<SolveResult>
+where
+    T: Problem<Metric = bool> + 'static,
+{
+    let p = any.downcast_ref::<T>()?;
+    let config = BruteForce::new().find_satisfying(p)?;
+    let evaluation = format!("{:?}", p.evaluate(&config));
+    Some(SolveResult { config, evaluation })
+}
+
+/// Loaded problem with type-erased solve capability.
+pub struct LoadedProblem {
+    inner: Box<dyn DynProblem>,
+    brute_force_fn: fn(&dyn Any) -> Option<SolveResult>,
+}
+
+impl Deref for LoadedProblem {
+    type Target = dyn DynProblem;
+    fn deref(&self) -> &(dyn DynProblem + 'static) {
+        &*self.inner
+    }
+}
+
+impl LoadedProblem {
+    pub fn solve_brute_force(&self) -> Result<SolveResult> {
+        (self.brute_force_fn)(self.inner.as_any())
+            .ok_or_else(|| anyhow::anyhow!("No solution found"))
+    }
+
+    /// Solve using the ILP solver. If the problem is not ILP, auto-reduce to ILP first.
+    pub fn solve_with_ilp(&self) -> Result<SolveResult> {
+        let name = self.problem_name();
+        if name == "ILP" {
+            return solve_ilp(self.as_any());
+        }
+
+        // Auto-reduce to ILP, solve, and map solution back
+        let source_variant = self.variant_map();
+        let graph = ReductionGraph::new();
+        let ilp_variants = graph.variants_for("ILP");
+        let input_size = ProblemSize::new(vec![]);
+
+        let mut best_path = None;
+        for dv in &ilp_variants {
+            if let Some(p) = graph.find_cheapest_path(
+                name, &source_variant, "ILP", dv, &input_size, &MinimizeSteps,
+            ) {
+                let is_better = best_path
+                    .as_ref()
+                    .is_none_or(|bp: &problemreductions::rules::ReductionPath| p.len() < bp.len());
+                if is_better {
+                    best_path = Some(p);
+                }
+            }
+        }
+
+        let reduction_path = best_path
+            .ok_or_else(|| anyhow::anyhow!("No reduction path from {} to ILP", name))?;
+
+        let chain = graph
+            .reduce_along_path(&reduction_path, self.as_any())
+            .ok_or_else(|| anyhow::anyhow!("Failed to execute reduction chain to ILP"))?;
+
+        let ilp_result = solve_ilp(chain.target_problem_any())?;
+        let config = chain.extract_solution(&ilp_result.config);
+        let evaluation = self.evaluate_dyn(&config);
+        Ok(SolveResult { config, evaluation })
+    }
 }
 
 fn graph_variant(variant: &BTreeMap<String, String>) -> &str {
@@ -74,44 +172,44 @@ pub fn load_problem(
     name: &str,
     variant: &BTreeMap<String, String>,
     data: Value,
-) -> Result<Box<dyn DynProblem>> {
+) -> Result<LoadedProblem> {
     let canonical = resolve_alias(name);
     match canonical.as_str() {
         "MaximumIndependentSet" => match graph_variant(variant) {
-            "KingsSubgraph" => deser::<MaximumIndependentSet<KingsSubgraph, i32>>(data),
-            "TriangularSubgraph" => deser::<MaximumIndependentSet<TriangularSubgraph, i32>>(data),
-            "UnitDiskGraph" => deser::<MaximumIndependentSet<UnitDiskGraph, i32>>(data),
-            _ => deser::<MaximumIndependentSet<SimpleGraph, i32>>(data),
+            "KingsSubgraph" => deser_opt::<MaximumIndependentSet<KingsSubgraph, i32>>(data),
+            "TriangularSubgraph" => deser_opt::<MaximumIndependentSet<TriangularSubgraph, i32>>(data),
+            "UnitDiskGraph" => deser_opt::<MaximumIndependentSet<UnitDiskGraph, i32>>(data),
+            _ => deser_opt::<MaximumIndependentSet<SimpleGraph, i32>>(data),
         },
-        "MinimumVertexCover" => deser::<MinimumVertexCover<SimpleGraph, i32>>(data),
-        "MaximumClique" => deser::<MaximumClique<SimpleGraph, i32>>(data),
-        "MaximumMatching" => deser::<MaximumMatching<SimpleGraph, i32>>(data),
-        "MinimumDominatingSet" => deser::<MinimumDominatingSet<SimpleGraph, i32>>(data),
-        "MaxCut" => deser::<MaxCut<SimpleGraph, i32>>(data),
-        "TravelingSalesman" => deser::<TravelingSalesman<SimpleGraph, i32>>(data),
+        "MinimumVertexCover" => deser_opt::<MinimumVertexCover<SimpleGraph, i32>>(data),
+        "MaximumClique" => deser_opt::<MaximumClique<SimpleGraph, i32>>(data),
+        "MaximumMatching" => deser_opt::<MaximumMatching<SimpleGraph, i32>>(data),
+        "MinimumDominatingSet" => deser_opt::<MinimumDominatingSet<SimpleGraph, i32>>(data),
+        "MaxCut" => deser_opt::<MaxCut<SimpleGraph, i32>>(data),
+        "TravelingSalesman" => deser_opt::<TravelingSalesman<SimpleGraph, i32>>(data),
         "KColoring" => match variant.get("k").map(|s| s.as_str()) {
-            Some("K3") => deser::<KColoring<K3, SimpleGraph>>(data),
-            _ => deser::<KColoring<KN, SimpleGraph>>(data),
+            Some("K3") => deser_sat::<KColoring<K3, SimpleGraph>>(data),
+            _ => deser_sat::<KColoring<KN, SimpleGraph>>(data),
         },
-        "MaximumSetPacking" => deser::<MaximumSetPacking<i32>>(data),
-        "MinimumSetCovering" => deser::<MinimumSetCovering<i32>>(data),
-        "QUBO" => deser::<QUBO<f64>>(data),
+        "MaximumSetPacking" => deser_opt::<MaximumSetPacking<i32>>(data),
+        "MinimumSetCovering" => deser_opt::<MinimumSetCovering<i32>>(data),
+        "QUBO" => deser_opt::<QUBO<f64>>(data),
         "SpinGlass" => match variant.get("weight").map(|s| s.as_str()) {
-            Some("f64") => deser::<SpinGlass<SimpleGraph, f64>>(data),
-            _ => deser::<SpinGlass<SimpleGraph, i32>>(data),
+            Some("f64") => deser_opt::<SpinGlass<SimpleGraph, f64>>(data),
+            _ => deser_opt::<SpinGlass<SimpleGraph, i32>>(data),
         },
-        "Satisfiability" => deser::<Satisfiability>(data),
+        "Satisfiability" => deser_sat::<Satisfiability>(data),
         "KSatisfiability" => match variant.get("k").map(|s| s.as_str()) {
-            Some("K2") => deser::<KSatisfiability<K2>>(data),
-            Some("K3") => deser::<KSatisfiability<K3>>(data),
-            _ => deser::<KSatisfiability<KN>>(data),
+            Some("K2") => deser_sat::<KSatisfiability<K2>>(data),
+            Some("K3") => deser_sat::<KSatisfiability<K3>>(data),
+            _ => deser_sat::<KSatisfiability<KN>>(data),
         },
-        "CircuitSAT" => deser::<CircuitSAT>(data),
-        "Factoring" => deser::<Factoring>(data),
-        "ILP" => deser::<ILP>(data),
-        "BicliqueCover" => deser::<BicliqueCover>(data),
-        "BMF" => deser::<BMF>(data),
-        "PaintShop" => deser::<PaintShop>(data),
+        "CircuitSAT" => deser_sat::<CircuitSAT>(data),
+        "Factoring" => deser_opt::<Factoring>(data),
+        "ILP" => deser_opt::<ILP>(data),
+        "BicliqueCover" => deser_opt::<BicliqueCover>(data),
+        "BMF" => deser_opt::<BMF>(data),
+        "PaintShop" => deser_opt::<PaintShop>(data),
         _ => bail!("Unknown problem type: {canonical}"),
     }
 }
@@ -204,3 +302,25 @@ pub struct PathStep {
     pub name: String,
     pub variant: BTreeMap<String, String>,
 }
+
+/// Result of solving a problem.
+pub struct SolveResult {
+    /// The solution configuration.
+    pub config: Vec<usize>,
+    /// Evaluation of the solution.
+    pub evaluation: String,
+}
+
+/// Solve an ILP problem directly. The input must be an `ILP` instance.
+fn solve_ilp(any: &dyn Any) -> Result<SolveResult> {
+    let problem = any
+        .downcast_ref::<ILP>()
+        .ok_or_else(|| anyhow::anyhow!("Internal error: expected ILP problem instance"))?;
+    let solver = ILPSolver::new();
+    let config = solver
+        .solve(problem)
+        .ok_or_else(|| anyhow::anyhow!("ILP solver found no feasible solution"))?;
+    let evaluation = format!("{:?}", problem.evaluate(&config));
+    Ok(SolveResult { config, evaluation })
+}
+

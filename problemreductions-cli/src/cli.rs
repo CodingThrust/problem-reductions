@@ -23,7 +23,12 @@ pub enum Commands {
         problem: String,
     },
     /// Find the cheapest reduction path between two problems
-    #[command(after_help = "Example: pred path MIS QUBO\n        pred path MIS QUBO --all")]
+    #[command(after_help = "\
+Examples:
+  pred path MIS QUBO                            # cheapest path
+  pred path MIS QUBO --all                      # all paths
+  pred path MIS QUBO -o path.json               # save path for `pred reduce --via`
+  pred path MIS QUBO --all -o paths/            # save all paths to a folder")]
     Path {
         /// Source problem (e.g., MIS, MIS/UnitDiskGraph)
         source: String,
@@ -48,7 +53,7 @@ pub enum Commands {
     Evaluate(EvaluateArgs),
     /// Reduce a problem instance to a target type
     Reduce(ReduceArgs),
-    /// Solve a problem instance (not yet implemented)
+    /// Solve a problem instance
     Solve(SolveArgs),
 }
 
@@ -82,38 +87,60 @@ pub struct CreateArgs {
 }
 
 #[derive(clap::Args)]
+#[command(after_help = "\
+Examples:
+  pred solve problem.json                         # ILP solver (default)
+  pred solve problem.json --solver brute-force   # brute-force solver
+  pred solve reduced.json                        # solve a reduction bundle
+  pred solve reduced.json -o solution.json       # save result to file
+
+Typical workflow:
+  pred create MIS --edges 0-1,1-2,2-3 -o problem.json
+  pred solve problem.json
+
+Solve via reduction:
+  pred reduce problem.json --to QUBO -o reduced.json
+  pred solve reduced.json
+
+Input can be a problem JSON (from `pred create`) or a reduction bundle (from `pred reduce`).
+When given a bundle, the target problem is solved and the solution is mapped back to the source.
+
+ILP backend (default: HiGHS). To use a different backend:
+  cargo install problemreductions-cli --features coin-cbc
+  cargo install problemreductions-cli --features scip
+  cargo install problemreductions-cli --no-default-features --features clarabel")]
 pub struct SolveArgs {
-    /// Path to a JSON problem file
-    pub input: Option<PathBuf>,
-    /// Problem type for inline construction (e.g., MIS)
-    #[arg(long)]
-    pub problem: Option<String>,
-    /// Edges for inline graph problems (e.g., 0-1,1-2,2-0)
-    #[arg(long)]
-    pub edges: Option<String>,
-    /// Weights for inline problems (e.g., 1,1,1)
-    #[arg(long)]
-    pub weights: Option<String>,
-    /// Target problem to reduce to before solving
-    #[arg(long)]
-    pub via: Option<String>,
-    /// Solver to use
-    #[arg(long, default_value = "brute-force")]
+    /// Path to a problem JSON file or reduction bundle JSON
+    pub input: PathBuf,
+    /// Solver to use: ilp or brute-force
+    #[arg(long, default_value = "ilp")]
     pub solver: String,
 }
 
 #[derive(clap::Args)]
-#[command(after_help = "Example: pred reduce problem.json --to QUBO -o reduced.json")]
+#[command(after_help = "\
+Examples:
+  pred reduce problem.json --to QUBO -o reduced.json
+  pred reduce problem.json --to QUBO --via path.json -o reduced.json
+
+Use `pred create` to create a problem instance first.
+Use `pred path <SOURCE> <TARGET> -o path.json` to generate a path file.")]
 pub struct ReduceArgs {
     /// Path to a problem JSON file (created via `pred create`)
     pub input: PathBuf,
     /// Target problem type (e.g., QUBO, SpinGlass)
     #[arg(long)]
     pub to: String,
+    /// Path file specifying the reduction route (created via `pred path ... -o`)
+    #[arg(long)]
+    pub via: Option<PathBuf>,
 }
 
 #[derive(clap::Args)]
-#[command(after_help = "Example: pred evaluate problem.json --config 1,0,1,0")]
+#[command(after_help = "\
+Example: pred evaluate problem.json --config 1,0,1,0
+
+Use `pred create` to create a problem instance first.")]
 pub struct EvaluateArgs {
     /// Path to a problem JSON file (created via `pred create`)
     pub input: PathBuf,

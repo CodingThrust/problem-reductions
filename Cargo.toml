@@ -12,8 +12,15 @@ keywords = ["np-hard", "optimization", "reduction", "sat", "graph"]
 categories = ["algorithms", "science"]
 
 [features]
-default = ["ilp"]
-ilp = ["good_lp"]
+default = ["ilp-highs"]
+ilp = ["ilp-highs"]  # backward compat shorthand
+ilp-solver = []      # marker: enables ILP solver code
+ilp-highs = ["ilp-solver", "dep:good_lp", "good_lp/highs"]
+ilp-coin-cbc = ["ilp-solver", "dep:good_lp", "good_lp/coin_cbc"]
+ilp-clarabel = ["ilp-solver", "dep:good_lp", "good_lp/clarabel"]
+ilp-scip = ["ilp-solver", "dep:good_lp", "good_lp/scip"]
+ilp-lpsolve = ["ilp-solver", "dep:good_lp", "good_lp/lpsolve"]
+ilp-microlp = ["ilp-solver", "dep:good_lp", "good_lp/microlp"]
 
 [dependencies]
 petgraph = { version = "0.8", features = ["serde-1"] }
@@ -22,7 +29,7 @@ serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 thiserror = "2.0"
 num-traits = "0.2"
-good_lp = { version = "1.8", default-features = false, features = ["highs"], optional = true }
+good_lp = { version = "1.8", default-features = false, optional = true }
 inventory = "0.3"
 ordered-float = "5.0"
 rand = "0.9"

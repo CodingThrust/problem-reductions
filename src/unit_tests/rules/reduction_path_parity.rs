@@ -125,7 +125,7 @@ fn test_jl_parity_maxcut_to_qubo_path() {
 /// Julia: factoring = Factoring(2, 1, 3)
 /// Julia: paths = reduction_paths(Factoring, SpinGlass)
 /// Julia: all(solution_size.(Ref(factoring), extract_solution.(Ref(res), sol)) .== Ref(SolutionSize(0, true)))
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_jl_parity_factoring_to_spinglass_path() {
     use crate::solvers::ILPSolver;

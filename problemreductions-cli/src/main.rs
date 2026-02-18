@@ -21,18 +21,35 @@ fn main() -> anyhow::Result<()> {
             let msg = e.to_string();
             eprint!("{e}");
             // Append usage examples based on which subcommand failed
-            if msg.contains("pred path") {
-                eprintln!("Example: pred path MIS QUBO");
-            } else if msg.contains("pred show") {
-                eprintln!("Example: pred show MIS");
-            } else if msg.contains("pred create") {
-                eprintln!("Example: pred create MIS --edges 0-1,1-2,2-3 -o problem.json");
-            } else if msg.contains("pred evaluate") {
-                eprintln!("Example: pred evaluate problem.json --config 1,0,1,0");
+            let hint = if msg.contains("pred solve") {
+                Some("\
+Examples:
+  pred solve problem.json
+  pred solve problem.json --solver brute-force
+  pred solve reduced.json
+Use `pred create` to create a problem, or `pred reduce` to create a bundle.")
             } else if msg.contains("pred reduce") {
-                eprintln!("Example: pred reduce problem.json --to QUBO -o reduced.json");
+                Some("\
+Examples:
+  pred reduce problem.json --to QUBO -o reduced.json
+  pred reduce problem.json --to QUBO --via path.json -o reduced.json
+Use `pred create` to create a problem instance first.
+Use `pred path <SOURCE> <TARGET> -o path.json` to generate a path file.")
+            } else if msg.contains("pred create") {
+                Some("Example: pred create MIS --edges 0-1,1-2,2-3 -o problem.json")
+            } else if msg.contains("pred evaluate") {
+                Some("Example: pred evaluate problem.json --config 1,0,1,0")
+            } else if msg.contains("pred path") {
+                Some("Example: pred path MIS QUBO")
+            } else if msg.contains("pred show") {
+                Some("Example: pred show MIS")
             } else if msg.contains("pred export-graph") {
-                eprintln!("Example: pred export-graph reduction_graph.json");
+                Some("Example: pred export-graph reduction_graph.json")
+            } else {
+                None
+            };
+            if let Some(hint) = hint {
+                eprintln!("\n{hint}");
             }
             std::process::exit(e.exit_code());
         }
@@ -53,10 +70,10 @@ fn main() -> anyhow::Result<()> {
         } => commands::graph::path(&source, &target, &cost, all, &out),
         Commands::ExportGraph { output } => commands::graph::export(&output),
         Commands::Create(args) => commands::create::create(&args, &out),
-        Commands::Solve(_args) => {
-            anyhow::bail!("The 'solve' command is not yet implemented")
+        Commands::Solve(args) => commands::solve::solve(&args.input, &args.solver, &out),
+        Commands::Reduce(args) => {
+            commands::reduce::reduce(&args.input, &args.to, args.via.as_deref(), &out)
         }
-        Commands::Reduce(args) => commands::reduce::reduce(&args.input, &args.to, &out),
         Commands::Evaluate(args) => commands::evaluate::evaluate(&args.input, &args.config, &out),
     }
 }
