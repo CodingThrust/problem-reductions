@@ -128,7 +128,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
         anyhow::bail!("Unknown problem: {}", spec.name);
     }
 
-    let mut text = format!("{}\n", spec.name);
+    let mut text = format!("{}\n", crate::output::fmt_problem_name(&spec.name));
 
     // Show description from schema
     let schemas = collect_schemas();
@@ -140,14 +140,14 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     }
 
     // Show variants
-    text.push_str(&format!("\nVariants ({}):\n", variants.len()));
+    text.push_str(&format!("\n{}\n", crate::output::fmt_section(&format!("Variants ({}):", variants.len()))));
     for v in &variants {
         text.push_str(&format!("  {}\n", format_variant(v)));
     }
 
     // Show fields from schema (right after variants)
     if let Some(s) = schema {
-        text.push_str(&format!("\nFields ({}):\n", s.fields.len()));
+        text.push_str(&format!("\n{}\n", crate::output::fmt_section(&format!("Fields ({}):", s.fields.len()))));
         for field in &s.fields {
             text.push_str(&format!("  {} ({})", field.name, field.type_name));
             if !field.description.is_empty() {
@@ -160,7 +160,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     // Show size fields (used with `pred path --cost minimize:<field>`)
     let size_fields = graph.size_field_names(&spec.name);
     if !size_fields.is_empty() {
-        text.push_str(&format!("\nSize fields ({}):\n", size_fields.len()));
+        text.push_str(&format!("\n{}\n", crate::output::fmt_section(&format!("Size fields ({}):", size_fields.len()))));
         for f in size_fields {
             text.push_str(&format!("  {f}\n"));
         }
@@ -170,23 +170,25 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     let outgoing = graph.outgoing_reductions(&spec.name);
     let incoming = graph.incoming_reductions(&spec.name);
 
-    text.push_str(&format!("\nReduces to ({}):\n", outgoing.len()));
+    text.push_str(&format!("\n{}\n", crate::output::fmt_section(&format!("Reduces to ({}):", outgoing.len()))));
     for e in &outgoing {
         text.push_str(&format!(
-            "  {} {} -> {} {}\n",
+            "  {} {} {} {} {}\n",
             e.source_name,
             format_variant(&e.source_variant),
-            e.target_name,
+            crate::output::fmt_outgoing("\u{2192}"),
+            crate::output::fmt_problem_name(e.target_name),
             format_variant(&e.target_variant),
         ));
     }
 
-    text.push_str(&format!("\nReduces from ({}):\n", incoming.len()));
+    text.push_str(&format!("\n{}\n", crate::output::fmt_section(&format!("Reduces from ({}):", incoming.len()))));
     for e in &incoming {
         text.push_str(&format!(
-            "  {} {} -> {} {}\n",
-            e.source_name,
+            "  {} {} {} {} {}\n",
+            crate::output::fmt_problem_name(e.source_name),
             format_variant(&e.source_variant),
+            crate::output::fmt_incoming("\u{2192}"),
             e.target_name,
             format_variant(&e.target_variant),
         ));
