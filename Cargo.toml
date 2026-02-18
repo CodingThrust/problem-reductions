@@ -1,5 +1,5 @@
 [workspace]
-members = [".", "problemreductions-macros"]
+members = [".", "problemreductions-macros", "problemreductions-cli"]
 
 [package]
 name = "problemreductions"
