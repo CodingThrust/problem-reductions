@@ -1210,3 +1210,34 @@ fn test_subcommand_help() {
     assert!(stdout.contains("brute-force"));
     assert!(stdout.contains("pred create"));
 }
+
+// ---- Shell completions tests ----
+
+#[test]
+fn test_completions_bash() {
+    let output = pred().args(["completions", "bash"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Bash completions should reference the binary name
+    assert!(stdout.contains("pred"), "completions should reference 'pred'");
+}
+
+#[test]
+fn test_completions_zsh() {
+    let output = pred().args(["completions", "zsh"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("pred"));
+}
+
+#[test]
+fn test_completions_fish() {
+    let output = pred().args(["completions", "fish"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("pred"));
+}
