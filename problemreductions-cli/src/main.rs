@@ -1,4 +1,5 @@
 mod cli;
+mod commands;
 mod output;
 mod problem_name;
 
@@ -15,7 +16,7 @@ fn main() -> anyhow::Result<()> {
 
     match cli.command {
         Commands::Graph { command } => match command {
-            GraphCommands::List => todo!("graph list"),
+            GraphCommands::List => commands::graph::list(&out),
             GraphCommands::Show { problem, variants } => todo!("graph show"),
             GraphCommands::Path {
                 source,
