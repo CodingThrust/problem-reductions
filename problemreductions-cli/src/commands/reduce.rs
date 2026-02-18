@@ -6,7 +6,6 @@ use crate::problem_name::parse_problem_spec;
 use anyhow::Result;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::types::ProblemSize;
-use std::collections::BTreeMap;
 use std::path::Path;
 
 pub fn reduce(input: &Path, target: &str, out: &OutputConfig) -> Result<()> {
@@ -27,26 +26,7 @@ pub fn reduce(input: &Path, target: &str, out: &OutputConfig) -> Result<()> {
     let dst_spec = parse_problem_spec(target)?;
     let graph = ReductionGraph::new();
 
-    // Resolve target variant (use default if not specified)
-    let graph_json_str = graph.to_json_string()?;
-    let graph_json: serde_json::Value = serde_json::from_str(&graph_json_str)?;
-    let nodes = graph_json["nodes"].as_array().unwrap();
-
-    let dst_variants: Vec<BTreeMap<String, String>> = nodes
-        .iter()
-        .filter(|n| n["name"].as_str() == Some(&dst_spec.name))
-        .map(|n| {
-            n["variant"]
-                .as_object()
-                .map(|obj| {
-                    obj.iter()
-                        .map(|(k, v)| (k.clone(), v.as_str().unwrap_or("").to_string()))
-                        .collect()
-                })
-                .unwrap_or_default()
-        })
-        .collect();
-
+    let dst_variants = graph.variants_for(&dst_spec.name);
     if dst_variants.is_empty() {
         anyhow::bail!("Unknown target problem: {}", dst_spec.name);
     }

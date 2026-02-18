@@ -4,28 +4,22 @@ use std::path::PathBuf;
 /// Output configuration derived from CLI flags.
 #[derive(Debug, Clone)]
 pub struct OutputConfig {
-    /// If true, output as JSON to a file.
-    pub json: bool,
-    /// Custom output file path. If None, a default name is used.
+    /// Output file path. When set, output is saved as JSON.
     pub output: Option<PathBuf>,
 }
 
 impl OutputConfig {
-    /// Emit with a custom default filename.
+    /// Emit output: if `-o` is set, save as JSON; otherwise print human text.
     pub fn emit_with_default_name(
         &self,
-        default_name: &str,
+        _default_name: &str,
         human_text: &str,
         json_value: &serde_json::Value,
     ) -> anyhow::Result<()> {
-        if self.json {
-            let path = self
-                .output
-                .clone()
-                .unwrap_or_else(|| PathBuf::from(default_name));
+        if let Some(ref path) = self.output {
             let content =
                 serde_json::to_string_pretty(json_value).context("Failed to serialize JSON")?;
-            std::fs::write(&path, &content)
+            std::fs::write(path, &content)
                 .with_context(|| format!("Failed to write {}", path.display()))?;
             eprintln!("Wrote {}", path.display());
         } else {

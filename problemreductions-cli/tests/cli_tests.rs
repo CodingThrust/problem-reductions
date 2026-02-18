@@ -13,8 +13,8 @@ fn test_help() {
 }
 
 #[test]
-fn test_graph_list() {
-    let output = pred().args(["graph", "list"]).output().unwrap();
+fn test_list() {
+    let output = pred().args(["list"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("MaximumIndependentSet"));
@@ -22,8 +22,8 @@ fn test_graph_list() {
 }
 
 #[test]
-fn test_graph_show() {
-    let output = pred().args(["graph", "show", "MIS"]).output().unwrap();
+fn test_show() {
+    let output = pred().args(["show", "MIS"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("MaximumIndependentSet"));
@@ -31,22 +31,16 @@ fn test_graph_show() {
 }
 
 #[test]
-fn test_graph_show_variants() {
-    let output = pred()
-        .args(["graph", "show", "MIS"])
-        .output()
-        .unwrap();
+fn test_show_variants() {
+    let output = pred().args(["show", "MIS"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("Variants"));
 }
 
 #[test]
-fn test_graph_path() {
-    let output = pred()
-        .args(["graph", "path", "MIS", "QUBO"])
-        .output()
-        .unwrap();
+fn test_path() {
+    let output = pred().args(["path", "MIS", "QUBO"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("Path"));
@@ -54,10 +48,70 @@ fn test_graph_path() {
 }
 
 #[test]
-fn test_graph_export() {
+fn test_path_save() {
+    let tmp = std::env::temp_dir().join("pred_test_path.json");
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "-o", tmp.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    assert!(tmp.exists());
+    let content = std::fs::read_to_string(&tmp).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert!(json["path"].is_array());
+    std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
+fn test_path_all() {
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--all"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Found"));
+    assert!(stdout.contains("paths from"));
+}
+
+#[test]
+fn test_path_all_save() {
+    let dir = std::env::temp_dir().join("pred_test_all_paths");
+    let _ = std::fs::remove_dir_all(&dir);
+    let output = pred()
+        .args([
+            "path",
+            "MIS",
+            "QUBO",
+            "--all",
+            "-o",
+            dir.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(dir.is_dir());
+    let entries: Vec<_> = std::fs::read_dir(&dir).unwrap().collect();
+    assert!(entries.len() > 1, "expected multiple path files");
+
+    // Verify first file is valid JSON
+    let first = dir.join("path_1.json");
+    let content = std::fs::read_to_string(&first).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert!(json["path"].is_array());
+
+    std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn test_export() {
     let tmp = std::env::temp_dir().join("pred_test_export.json");
     let output = pred()
-        .args(["graph", "export", tmp.to_str().unwrap()])
+        .args(["export-graph", tmp.to_str().unwrap()])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -69,25 +123,20 @@ fn test_graph_export() {
 }
 
 #[test]
-fn test_schema() {
-    let output = pred().args(["schema", "MIS"]).output().unwrap();
+fn test_show_includes_fields() {
+    let output = pred().args(["show", "MIS"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("MaximumIndependentSet"));
     assert!(stdout.contains("Fields"));
+    assert!(stdout.contains("graph"));
+    assert!(stdout.contains("weights"));
 }
 
 #[test]
-fn test_graph_list_json() {
+fn test_list_json() {
     let tmp = std::env::temp_dir().join("pred_test_list.json");
     let output = pred()
-        .args([
-            "--json",
-            "--output",
-            tmp.to_str().unwrap(),
-            "graph",
-            "list",
-        ])
+        .args(["--output", tmp.to_str().unwrap(), "list"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -100,7 +149,7 @@ fn test_graph_list_json() {
 
 #[test]
 fn test_unknown_problem() {
-    let output = pred().args(["graph", "show", "NonExistent"]).output().unwrap();
+    let output = pred().args(["show", "NonExistent"]).output().unwrap();
     assert!(!output.status.success());
 }
 
@@ -167,7 +216,6 @@ fn test_reduce() {
 
     let output = pred()
         .args([
-            "--json",
             "-o",
             output_file.to_str().unwrap(),
             "reduce",
@@ -191,5 +239,136 @@ fn test_reduce() {
     assert!(bundle["path"].is_array());
 
     std::fs::remove_file(&input).ok();
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_mis() {
+    let output_file = std::env::temp_dir().join("pred_test_create_mis.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2,2-3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert!(json["data"].is_object());
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_then_evaluate() {
+    // Create a problem
+    let problem_file = std::env::temp_dir().join("pred_test_create_eval.json");
+    let create_output = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_output.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create_output.stderr)
+    );
+
+    // Evaluate with the created problem
+    let eval_output = pred()
+        .args([
+            "evaluate",
+            problem_file.to_str().unwrap(),
+            "--config",
+            "1,0,1,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        eval_output.status.success(),
+        "evaluate stderr: {}",
+        String::from_utf8_lossy(&eval_output.stderr)
+    );
+    let stdout = String::from_utf8(eval_output.stdout).unwrap();
+    assert!(stdout.contains("Valid"));
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_create_sat() {
+    let output_file = std::env::temp_dir().join("pred_test_create_sat.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SAT",
+            "--num-vars",
+            "3",
+            "--clauses",
+            "1,2;-1,3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "Satisfiability");
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_qubo() {
+    let output_file = std::env::temp_dir().join("pred_test_create_qubo.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "QUBO",
+            "--matrix",
+            "1,0.5;0.5,2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "QUBO");
+
     std::fs::remove_file(&output_file).ok();
 }

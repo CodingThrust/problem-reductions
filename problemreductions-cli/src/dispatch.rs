@@ -14,6 +14,7 @@ use std::fmt;
 use crate::problem_name::resolve_alias;
 
 /// Type-erased problem for CLI dispatch.
+#[allow(dead_code)]
 pub trait DynProblem: Any {
     fn evaluate_dyn(&self, config: &[usize]) -> String;
     fn serialize_json(&self) -> Value;
@@ -61,7 +62,7 @@ where
     Ok(Box::new(problem))
 }
 
-fn graph_variant<'a>(variant: &'a BTreeMap<String, String>) -> &'a str {
+fn graph_variant(variant: &BTreeMap<String, String>) -> &str {
     variant
         .get("graph")
         .map(|s| s.as_str())

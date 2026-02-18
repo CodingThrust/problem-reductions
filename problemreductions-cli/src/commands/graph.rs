@@ -1,6 +1,7 @@
 use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_variant};
-use anyhow::Result;
+use anyhow::{Context, Result};
+use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::types::ProblemSize;
 use std::collections::BTreeMap;
@@ -28,6 +29,8 @@ pub fn list(out: &OutputConfig) -> Result<()> {
         }
     }
 
+    text.push_str("\nUse `pred show <problem>` to see variants, reductions, and fields.\n");
+
     let json = serde_json::json!({
         "num_types": graph.num_types(),
         "num_reductions": graph.num_reductions(),
@@ -44,145 +47,190 @@ pub fn list(out: &OutputConfig) -> Result<()> {
 pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     let spec = parse_problem_spec(problem)?;
     let graph = ReductionGraph::new();
-    let graph_json: serde_json::Value = serde_json::from_str(&graph.to_json_string()?)?;
-    let nodes = graph_json["nodes"].as_array().unwrap();
-    let edges = graph_json["edges"].as_array().unwrap();
 
-    // Find all nodes matching this problem name
-    let matching_nodes: Vec<(usize, &serde_json::Value)> = nodes
-        .iter()
-        .enumerate()
-        .filter(|(_, n)| n["name"].as_str() == Some(&spec.name))
-        .collect();
-
-    if matching_nodes.is_empty() {
+    let variants = graph.variants_for(&spec.name);
+    if variants.is_empty() {
         anyhow::bail!("Unknown problem: {}", spec.name);
     }
 
     let mut text = format!("{}\n", spec.name);
 
-    // Always show variants
-    text.push_str(&format!("\nVariants ({}):\n", matching_nodes.len()));
-    for (_, node) in &matching_nodes {
-        let variant = &node["variant"];
-        if variant.as_object().is_none_or(|v| v.is_empty()) {
-            text.push_str("  (default)\n");
-        } else {
-            let pairs: Vec<String> = variant
-                .as_object()
-                .unwrap()
-                .iter()
-                .map(|(k, v)| format!("{}={}", k, v.as_str().unwrap_or("")))
-                .collect();
-            text.push_str(&format!("  {{{}}}\n", pairs.join(", ")));
+    // Show description from schema
+    let schemas = collect_schemas();
+    let schema = schemas.iter().find(|s| s.name == spec.name);
+    if let Some(s) = schema {
+        if !s.description.is_empty() {
+            text.push_str(&format!("  {}\n", s.description));
+        }
+    }
+
+    // Show variants
+    text.push_str(&format!("\nVariants ({}):\n", variants.len()));
+    for v in &variants {
+        text.push_str(&format!("  {}\n", format_variant(v)));
+    }
+
+    // Show fields from schema (right after variants)
+    if let Some(s) = schema {
+        text.push_str(&format!("\nFields ({}):\n", s.fields.len()));
+        for field in &s.fields {
+            text.push_str(&format!("  {} ({})", field.name, field.type_name));
+            if !field.description.is_empty() {
+                text.push_str(&format!(" -- {}", field.description));
+            }
+            text.push('\n');
         }
     }
 
     // Show reductions from/to this problem
-    let node_indices: Vec<usize> = matching_nodes.iter().map(|(i, _)| *i).collect();
-
-    let outgoing: Vec<&serde_json::Value> = edges
-        .iter()
-        .filter(|e| node_indices.contains(&(e["source"].as_u64().unwrap() as usize)))
-        .collect();
-    let incoming: Vec<&serde_json::Value> = edges
-        .iter()
-        .filter(|e| node_indices.contains(&(e["target"].as_u64().unwrap() as usize)))
-        .collect();
+    let outgoing = graph.outgoing_reductions(&spec.name);
+    let incoming = graph.incoming_reductions(&spec.name);
 
     text.push_str(&format!("\nReduces to ({}):\n", outgoing.len()));
-    for edge in &outgoing {
-        let source = &nodes[edge["source"].as_u64().unwrap() as usize];
-        let target = &nodes[edge["target"].as_u64().unwrap() as usize];
+    for e in &outgoing {
         text.push_str(&format!(
-            "  {} -> {}\n",
-            format_node(source),
-            format_node(target)
+            "  {} {} -> {} {}\n",
+            e.source_name,
+            format_variant(&e.source_variant),
+            e.target_name,
+            format_variant(&e.target_variant),
         ));
     }
 
     text.push_str(&format!("\nReduces from ({}):\n", incoming.len()));
-    for edge in &incoming {
-        let source = &nodes[edge["source"].as_u64().unwrap() as usize];
-        let target = &nodes[edge["target"].as_u64().unwrap() as usize];
+    for e in &incoming {
         text.push_str(&format!(
-            "  {} -> {}\n",
-            format_node(source),
-            format_node(target)
+            "  {} {} -> {} {}\n",
+            e.source_name,
+            format_variant(&e.source_variant),
+            e.target_name,
+            format_variant(&e.target_variant),
         ));
     }
 
-    let json = serde_json::json!({
+    let mut json = serde_json::json!({
         "name": spec.name,
-        "variants": matching_nodes.iter().map(|(_, n)| &n["variant"]).collect::<Vec<_>>(),
+        "variants": variants,
         "reduces_to": outgoing.iter().map(|e| {
-            let s = &nodes[e["source"].as_u64().unwrap() as usize];
-            let t = &nodes[e["target"].as_u64().unwrap() as usize];
-            serde_json::json!({"source": {"name": s["name"], "variant": s["variant"]}, "target": {"name": t["name"], "variant": t["variant"]}})
+            serde_json::json!({"source": {"name": e.source_name, "variant": e.source_variant}, "target": {"name": e.target_name, "variant": e.target_variant}})
         }).collect::<Vec<_>>(),
         "reduces_from": incoming.iter().map(|e| {
-            let s = &nodes[e["source"].as_u64().unwrap() as usize];
-            let t = &nodes[e["target"].as_u64().unwrap() as usize];
-            serde_json::json!({"source": {"name": s["name"], "variant": s["variant"]}, "target": {"name": t["name"], "variant": t["variant"]}})
+            serde_json::json!({"source": {"name": e.source_name, "variant": e.source_variant}, "target": {"name": e.target_name, "variant": e.target_variant}})
         }).collect::<Vec<_>>(),
     });
+    if let Some(s) = schema {
+        if let (Some(obj), Ok(schema_val)) = (json.as_object_mut(), serde_json::to_value(s)) {
+            obj.insert("schema".to_string(), schema_val);
+        }
+    }
 
     let default_name = format!("pred_show_{}.json", spec.name);
     out.emit_with_default_name(&default_name, &text, &json)
 }
 
-fn format_node(node: &serde_json::Value) -> String {
-    let name = node["name"].as_str().unwrap_or("");
-    let variant = &node["variant"];
-    if let Some(obj) = variant.as_object() {
-        if !obj.is_empty() {
-            let pairs: Vec<String> = obj
-                .iter()
-                .map(|(k, v)| format!("{}={}", k, v.as_str().unwrap_or("")))
-                .collect();
-            return format!("{name} {{{}}}", pairs.join(", "));
+fn format_variant(v: &BTreeMap<String, String>) -> String {
+    if v.is_empty() {
+        "(default)".to_string()
+    } else {
+        let pairs: Vec<String> = v.iter().map(|(k, val)| format!("{k}={val}")).collect();
+        format!("{{{}}}", pairs.join(", "))
+    }
+}
+
+fn format_path_text(
+    graph: &ReductionGraph,
+    reduction_path: &problemreductions::rules::ReductionPath,
+) -> String {
+    let mut text = format!(
+        "Path ({} steps): {}\n",
+        reduction_path.len(),
+        reduction_path
+    );
+
+    let overheads = graph.path_overheads(reduction_path);
+    let steps = &reduction_path.steps;
+    for i in 0..steps.len().saturating_sub(1) {
+        let from = &steps[i];
+        let to = &steps[i + 1];
+        text.push_str(&format!("\n  Step {}: {} → {}\n", i + 1, from, to));
+        let oh = &overheads[i];
+        for (field, poly) in &oh.output_size {
+            text.push_str(&format!("    {field} = {poly}\n"));
         }
     }
-    name.to_string()
+
+    text
 }
 
-fn collect_variants(nodes: &[serde_json::Value], name: &str) -> Vec<BTreeMap<String, String>> {
-    nodes
-        .iter()
-        .filter(|n| n["name"].as_str() == Some(name))
-        .map(|n| {
-            n["variant"]
-                .as_object()
-                .map(|obj| {
-                    obj.iter()
-                        .map(|(k, v)| (k.clone(), v.as_str().unwrap_or("").to_string()))
-                        .collect()
-                })
-                .unwrap_or_default()
+fn format_path_json(
+    graph: &ReductionGraph,
+    reduction_path: &problemreductions::rules::ReductionPath,
+) -> serde_json::Value {
+    let overheads = graph.path_overheads(reduction_path);
+    let steps_json: Vec<serde_json::Value> = reduction_path
+        .steps
+        .windows(2)
+        .zip(overheads.iter())
+        .enumerate()
+        .map(|(i, (pair, oh))| {
+            serde_json::json!({
+                "from": {"name": pair[0].name, "variant": pair[0].variant},
+                "to": {"name": pair[1].name, "variant": pair[1].variant},
+                "step": i + 1,
+                "overhead": oh.output_size.iter().map(|(field, poly)| {
+                    serde_json::json!({"field": field, "formula": poly.to_string()})
+                }).collect::<Vec<_>>(),
+            })
         })
-        .collect()
+        .collect();
+
+    serde_json::json!({
+        "steps": reduction_path.len(),
+        "path": steps_json,
+    })
 }
 
-pub fn path(source: &str, target: &str, cost: &str, out: &OutputConfig) -> Result<()> {
+pub fn path(source: &str, target: &str, cost: &str, all: bool, out: &OutputConfig) -> Result<()> {
     let src_spec = parse_problem_spec(source)?;
     let dst_spec = parse_problem_spec(target)?;
     let graph = ReductionGraph::new();
-    let graph_json: serde_json::Value = serde_json::from_str(&graph.to_json_string()?)?;
-    let nodes = graph_json["nodes"].as_array().unwrap();
 
-    let src_variants = collect_variants(nodes, &src_spec.name);
-    let dst_variants = collect_variants(nodes, &dst_spec.name);
+    let src_variants = graph.variants_for(&src_spec.name);
+    let dst_variants = graph.variants_for(&dst_spec.name);
 
     if src_variants.is_empty() {
-        anyhow::bail!("Unknown problem: {}", src_spec.name);
+        anyhow::bail!(
+            "Unknown source problem: {}\n\n\
+             Usage: pred path <SOURCE> <TARGET>\n\
+             Example: pred path MIS QUBO\n\n\
+             Run `pred list` to see all available problems.",
+            src_spec.name
+        );
     }
     if dst_variants.is_empty() {
-        anyhow::bail!("Unknown problem: {}", dst_spec.name);
+        anyhow::bail!(
+            "Unknown target problem: {}\n\n\
+             Usage: pred path <SOURCE> <TARGET>\n\
+             Example: pred path MIS QUBO\n\n\
+             Run `pred list` to see all available problems.",
+            dst_spec.name
+        );
     }
 
-    let input_size = ProblemSize::new(vec![]);
-
-    let mut best_path: Option<problemreductions::rules::ReductionPath> = None;
+    if all {
+        // --all uses only the specified variant or the first (default) one
+        let sv = if src_spec.variant_values.is_empty() {
+            src_variants[0].clone()
+        } else {
+            resolve_variant(&src_spec, &src_variants)?
+        };
+        let dv = if dst_spec.variant_values.is_empty() {
+            dst_variants[0].clone()
+        } else {
+            resolve_variant(&dst_spec, &dst_variants)?
+        };
+        return path_all(&graph, &src_spec.name, &sv, &dst_spec.name, &dv, out);
+    }
 
     let src_resolved = if src_spec.variant_values.is_empty() {
         src_variants.clone()
@@ -195,33 +243,26 @@ pub fn path(source: &str, target: &str, cost: &str, out: &OutputConfig) -> Resul
         vec![resolve_variant(&dst_spec, &dst_variants)?]
     };
 
+    let input_size = ProblemSize::new(vec![]);
+    let mut best_path: Option<problemreductions::rules::ReductionPath> = None;
+
     for sv in &src_resolved {
         for dv in &dst_resolved {
-            let found = if cost == "minimize-steps" {
-                graph.find_cheapest_path(
-                    &src_spec.name,
-                    sv,
-                    &dst_spec.name,
-                    dv,
-                    &input_size,
-                    &MinimizeSteps,
-                )
-            } else if cost.starts_with("minimize:") {
-                // Without concrete input size, fall back to minimize-steps
-                graph.find_cheapest_path(
-                    &src_spec.name,
-                    sv,
-                    &dst_spec.name,
-                    dv,
-                    &input_size,
-                    &MinimizeSteps,
-                )
-            } else {
+            if cost != "minimize-steps" && !cost.starts_with("minimize:") {
                 anyhow::bail!(
                     "Unknown cost function: {}. Use 'minimize-steps' or 'minimize:<field>'",
                     cost
                 );
-            };
+            }
+            // TODO: use field-specific cost when concrete input size is available
+            let found = graph.find_cheapest_path(
+                &src_spec.name,
+                sv,
+                &dst_spec.name,
+                dv,
+                &input_size,
+                &MinimizeSteps,
+            );
 
             if let Some(p) = found {
                 let is_better = best_path.as_ref().is_none_or(|bp| p.len() < bp.len());
@@ -234,45 +275,89 @@ pub fn path(source: &str, target: &str, cost: &str, out: &OutputConfig) -> Resul
 
     match best_path {
         Some(ref reduction_path) => {
-            let mut text = format!(
-                "Path ({} steps): {}\n",
-                reduction_path.len(),
-                reduction_path
-            );
-
-            // Show step-by-step details
-            let steps = &reduction_path.steps;
-            for i in 0..steps.len().saturating_sub(1) {
-                let from = &steps[i];
-                let to = &steps[i + 1];
-                text.push_str(&format!("\n  Step {}: {} → {}\n", i + 1, from, to));
+            let text = format_path_text(&graph, reduction_path);
+            if let Some(ref path) = out.output {
+                let json = format_path_json(&graph, reduction_path);
+                let content =
+                    serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
+                std::fs::write(path, &content)
+                    .with_context(|| format!("Failed to write {}", path.display()))?;
+                eprintln!("Wrote {}", path.display());
+            } else {
+                println!("{text}");
             }
-
-            let steps_json: Vec<serde_json::Value> = reduction_path
-                .steps
-                .iter()
-                .map(|s| {
-                    serde_json::json!({
-                        "name": s.name,
-                        "variant": s.variant,
-                    })
-                })
-                .collect();
-
-            let json = serde_json::json!({
-                "steps": reduction_path.len(),
-                "path": steps_json,
-            });
-
-            let default_name =
-                format!("pred_path_{}_to_{}.json", src_spec.name, dst_spec.name);
-            out.emit_with_default_name(&default_name, &text, &json)
+            Ok(())
         }
         None => {
-            eprintln!("No path found from {} to {}", src_spec.name, dst_spec.name);
-            std::process::exit(1);
+            anyhow::bail!(
+                "No reduction path from {} to {}\n\n\
+                 Usage: pred path <SOURCE> <TARGET>\n\
+                 Example: pred path MIS QUBO\n\n\
+                 Run `pred show {}` and `pred show {}` to check available reductions.",
+                src_spec.name,
+                dst_spec.name,
+                src_spec.name,
+                dst_spec.name,
+            );
         }
     }
+}
+
+fn path_all(
+    graph: &ReductionGraph,
+    src_name: &str,
+    src_variant: &BTreeMap<String, String>,
+    dst_name: &str,
+    dst_variant: &BTreeMap<String, String>,
+    out: &OutputConfig,
+) -> Result<()> {
+    let mut all_paths = graph.find_all_paths(src_name, src_variant, dst_name, dst_variant);
+
+    if all_paths.is_empty() {
+        anyhow::bail!(
+            "No reduction path from {} to {}\n\n\
+             Usage: pred path <SOURCE> <TARGET> --all\n\
+             Example: pred path MIS QUBO --all\n\n\
+             Run `pred show {}` and `pred show {}` to check available reductions.",
+            src_name,
+            dst_name,
+            src_name,
+            dst_name,
+        );
+    }
+
+    // Sort by path length (shortest first)
+    all_paths.sort_by_key(|p| p.len());
+
+    let mut text = format!("Found {} paths from {} to {}:\n", all_paths.len(), src_name, dst_name);
+    for (idx, p) in all_paths.iter().enumerate() {
+        text.push_str(&format!("\n--- Path {} ---\n", idx + 1));
+        text.push_str(&format_path_text(graph, p));
+    }
+
+    if let Some(ref dir) = out.output {
+        // -o specifies the output folder; save each path as a separate JSON file
+        std::fs::create_dir_all(dir)
+            .with_context(|| format!("Failed to create directory {}", dir.display()))?;
+
+        for (idx, p) in all_paths.iter().enumerate() {
+            let json = format_path_json(graph, p);
+            let file = dir.join(format!("path_{}.json", idx + 1));
+            let content =
+                serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
+            std::fs::write(&file, &content)
+                .with_context(|| format!("Failed to write {}", file.display()))?;
+        }
+        eprintln!(
+            "Wrote {} path files to {}",
+            all_paths.len(),
+            dir.display()
+        );
+    } else {
+        println!("{text}");
+    }
+
+    Ok(())
 }
 
 pub fn export(output: &Path) -> Result<()> {

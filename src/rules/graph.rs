@@ -22,6 +22,16 @@ use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
 
 
+/// A source/target pair from the reduction graph, returned by
+/// [`ReductionGraph::outgoing_reductions`] and [`ReductionGraph::incoming_reductions`].
+#[derive(Debug, Clone)]
+pub struct ReductionEdgeInfo {
+    pub source_name: &'static str,
+    pub source_variant: BTreeMap<String, String>,
+    pub target_name: &'static str,
+    pub target_variant: BTreeMap<String, String>,
+}
+
 /// Internal edge data combining overhead and executable reduce function.
 #[derive(Clone)]
 pub(crate) struct ReductionEdgeData {
@@ -622,6 +632,64 @@ impl ReductionGraph {
             .unwrap_or_default()
     }
 
+    /// Get all variant maps registered for a problem name.
+    ///
+    /// Returns an empty `Vec` if the name is not found.
+    pub fn variants_for(&self, name: &str) -> Vec<BTreeMap<String, String>> {
+        self.name_to_nodes
+            .get(name)
+            .map(|indices| {
+                indices
+                    .iter()
+                    .map(|&idx| self.nodes[self.graph[idx]].variant.clone())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Get all outgoing reductions from a problem (across all its variants).
+    pub fn outgoing_reductions(&self, name: &str) -> Vec<ReductionEdgeInfo> {
+        let Some(indices) = self.name_to_nodes.get(name) else {
+            return vec![];
+        };
+        let index_set: HashSet<NodeIndex> = indices.iter().copied().collect();
+        self.graph
+            .edge_references()
+            .filter(|e| index_set.contains(&e.source()))
+            .map(|e| {
+                let src = &self.nodes[self.graph[e.source()]];
+                let dst = &self.nodes[self.graph[e.target()]];
+                ReductionEdgeInfo {
+                    source_name: src.name,
+                    source_variant: src.variant.clone(),
+                    target_name: dst.name,
+                    target_variant: dst.variant.clone(),
+                }
+            })
+            .collect()
+    }
+
+    /// Get all incoming reductions to a problem (across all its variants).
+    pub fn incoming_reductions(&self, name: &str) -> Vec<ReductionEdgeInfo> {
+        let Some(indices) = self.name_to_nodes.get(name) else {
+            return vec![];
+        };
+        let index_set: HashSet<NodeIndex> = indices.iter().copied().collect();
+        self.graph
+            .edge_references()
+            .filter(|e| index_set.contains(&e.target()))
+            .map(|e| {
+                let src = &self.nodes[self.graph[e.source()]];
+                let dst = &self.nodes[self.graph[e.target()]];
+                ReductionEdgeInfo {
+                    source_name: src.name,
+                    source_variant: src.variant.clone(),
+                    target_name: dst.name,
+                    target_variant: dst.variant.clone(),
+                }
+            })
+            .collect()
+    }
 }
 
 impl Default for ReductionGraph {
