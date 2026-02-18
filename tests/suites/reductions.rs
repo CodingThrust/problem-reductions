@@ -3,7 +3,7 @@
 //! These tests verify that reduction chains work correctly and
 //! solutions can be properly extracted through the reduction pipeline.
 
-use problemreductions::models::optimization::{ILP, LinearConstraint, ObjectiveSense};
+use problemreductions::models::optimization::{LinearConstraint, ObjectiveSense, ILP};
 use problemreductions::prelude::*;
 use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::variant::{K2, K3};

@@ -79,14 +79,7 @@ fn test_path_all_save() {
     let dir = std::env::temp_dir().join("pred_test_all_paths");
     let _ = std::fs::remove_dir_all(&dir);
     let output = pred()
-        .args([
-            "path",
-            "MIS",
-            "QUBO",
-            "--all",
-            "-o",
-            dir.to_str().unwrap(),
-        ])
+        .args(["path", "MIS", "QUBO", "--all", "-o", dir.to_str().unwrap()])
         .output()
         .unwrap();
     assert!(
@@ -262,13 +255,7 @@ fn test_reduce_via_path() {
     // 2. Generate path file
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_path.json");
     let path_out = pred()
-        .args([
-            "path",
-            "MIS",
-            "QUBO",
-            "-o",
-            path_file.to_str().unwrap(),
-        ])
+        .args(["path", "MIS", "QUBO", "-o", path_file.to_str().unwrap()])
         .output()
         .unwrap();
     assert!(path_out.status.success());
@@ -681,12 +668,7 @@ fn test_solve_bundle_ilp() {
     );
 
     let output = pred()
-        .args([
-            "solve",
-            bundle_file.to_str().unwrap(),
-            "--solver",
-            "ilp",
-        ])
+        .args(["solve", bundle_file.to_str().unwrap(), "--solver", "ilp"])
         .output()
         .unwrap();
     assert!(
@@ -1061,13 +1043,7 @@ fn test_path_unknown_target() {
 #[test]
 fn test_path_with_cost_minimize_field() {
     let output = pred()
-        .args([
-            "path",
-            "MIS",
-            "QUBO",
-            "--cost",
-            "minimize:num_variables",
-        ])
+        .args(["path", "MIS", "QUBO", "--cost", "minimize:num_variables"])
         .output()
         .unwrap();
     assert!(
@@ -1163,12 +1139,7 @@ fn test_reduce_stdout() {
     assert!(create_out.status.success());
 
     let output = pred()
-        .args([
-            "reduce",
-            problem_file.to_str().unwrap(),
-            "--to",
-            "QUBO",
-        ])
+        .args(["reduce", problem_file.to_str().unwrap(), "--to", "QUBO"])
         .output()
         .unwrap();
     assert!(
@@ -1189,10 +1160,7 @@ fn test_reduce_stdout() {
 #[test]
 fn test_incorrect_command_shows_help() {
     // Missing required arguments should show after_help
-    let output = pred()
-        .args(["solve"])
-        .output()
-        .unwrap();
+    let output = pred().args(["solve"]).output().unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     // The subcommand help hint should be shown
@@ -1223,7 +1191,10 @@ fn test_completions_bash() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     // Bash completions should reference the binary name
-    assert!(stdout.contains("pred"), "completions should reference 'pred'");
+    assert!(
+        stdout.contains("pred"),
+        "completions should reference 'pred'"
+    );
 }
 
 #[test]

@@ -5,10 +5,10 @@ use crate::poly;
 use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph, TraversalDirection};
 use crate::topology::{SimpleGraph, TriangularSubgraph};
-use std::collections::BTreeMap;
 use crate::traits::problem_size;
 use crate::types::ProblemSize;
 use crate::variant::K3;
+use std::collections::BTreeMap;
 
 // ---- Discovery and registration ----
 
@@ -318,11 +318,7 @@ fn test_3sat_to_mis_triangular_overhead() {
     // Path: K3SAT → SAT → MIS{SimpleGraph,i32} → MIS{TriangularSubgraph,i32}
     assert_eq!(
         path.type_names(),
-        vec![
-            "KSatisfiability",
-            "Satisfiability",
-            "MaximumIndependentSet"
-        ]
+        vec!["KSatisfiability", "Satisfiability", "MaximumIndependentSet"]
     );
     assert_eq!(path.len(), 3);
 
@@ -331,17 +327,38 @@ fn test_3sat_to_mis_triangular_overhead() {
     assert_eq!(edges.len(), 3);
 
     // Edge 0: K3SAT → SAT (identity)
-    assert_eq!(edges[0].get("num_vars").unwrap().normalized(), poly!(num_vars));
-    assert_eq!(edges[0].get("num_clauses").unwrap().normalized(), poly!(num_clauses));
-    assert_eq!(edges[0].get("num_literals").unwrap().normalized(), poly!(num_literals));
+    assert_eq!(
+        edges[0].get("num_vars").unwrap().normalized(),
+        poly!(num_vars)
+    );
+    assert_eq!(
+        edges[0].get("num_clauses").unwrap().normalized(),
+        poly!(num_clauses)
+    );
+    assert_eq!(
+        edges[0].get("num_literals").unwrap().normalized(),
+        poly!(num_literals)
+    );
 
     // Edge 1: SAT → MIS{SimpleGraph,i32}
-    assert_eq!(edges[1].get("num_vertices").unwrap().normalized(), poly!(num_literals));
-    assert_eq!(edges[1].get("num_edges").unwrap().normalized(), poly!(num_literals ^ 2));
+    assert_eq!(
+        edges[1].get("num_vertices").unwrap().normalized(),
+        poly!(num_literals)
+    );
+    assert_eq!(
+        edges[1].get("num_edges").unwrap().normalized(),
+        poly!(num_literals ^ 2)
+    );
 
     // Edge 2: MIS{SimpleGraph,i32} → MIS{TriangularSubgraph,i32}
-    assert_eq!(edges[2].get("num_vertices").unwrap().normalized(), poly!(num_vertices ^ 2));
-    assert_eq!(edges[2].get("num_edges").unwrap().normalized(), poly!(num_vertices ^ 2));
+    assert_eq!(
+        edges[2].get("num_vertices").unwrap().normalized(),
+        poly!(num_vertices ^ 2)
+    );
+    assert_eq!(
+        edges[2].get("num_edges").unwrap().normalized(),
+        poly!(num_vertices ^ 2)
+    );
 
     // Compose overheads symbolically along the path.
     // The composed overhead maps 3-SAT input variables to final MIS{Triangular} output.
@@ -366,8 +383,8 @@ fn test_3sat_to_mis_triangular_overhead() {
 
 #[test]
 fn test_validate_overhead_variables_valid() {
-    use crate::rules::validate_overhead_variables;
     use crate::rules::registry::ReductionOverhead;
+    use crate::rules::validate_overhead_variables;
 
     let overhead = ReductionOverhead::new(vec![
         ("num_vertices", poly!(num_vars)),
@@ -386,17 +403,15 @@ fn test_validate_overhead_variables_valid() {
 #[test]
 #[should_panic(expected = "overhead references input variables")]
 fn test_validate_overhead_variables_missing_input() {
-    use crate::rules::validate_overhead_variables;
     use crate::rules::registry::ReductionOverhead;
+    use crate::rules::validate_overhead_variables;
 
-    let overhead = ReductionOverhead::new(vec![
-        ("num_vertices", poly!(num_colors)),
-    ]);
+    let overhead = ReductionOverhead::new(vec![("num_vertices", poly!(num_colors))]);
     validate_overhead_variables(
         "Source",
         "Target",
         &overhead,
-        &["num_vars", "num_clauses"],  // no "num_colors"
+        &["num_vars", "num_clauses"], // no "num_colors"
         &["num_vertices"],
     );
 }
@@ -404,43 +419,33 @@ fn test_validate_overhead_variables_missing_input() {
 #[test]
 #[should_panic(expected = "overhead output fields")]
 fn test_validate_overhead_variables_missing_output() {
-    use crate::rules::validate_overhead_variables;
     use crate::rules::registry::ReductionOverhead;
+    use crate::rules::validate_overhead_variables;
 
-    let overhead = ReductionOverhead::new(vec![
-        ("num_gates", poly!(num_vars)),
-    ]);
+    let overhead = ReductionOverhead::new(vec![("num_gates", poly!(num_vars))]);
     validate_overhead_variables(
         "Source",
         "Target",
         &overhead,
         &["num_vars"],
-        &["num_vertices", "num_edges"],  // no "num_gates"
+        &["num_vertices", "num_edges"], // no "num_gates"
     );
 }
 
 #[test]
 fn test_validate_overhead_variables_skips_output_when_empty() {
-    use crate::rules::validate_overhead_variables;
     use crate::rules::registry::ReductionOverhead;
+    use crate::rules::validate_overhead_variables;
 
-    let overhead = ReductionOverhead::new(vec![
-        ("anything", poly!(num_vars)),
-    ]);
+    let overhead = ReductionOverhead::new(vec![("anything", poly!(num_vars))]);
     // Should not panic: target_size_names is empty so output check is skipped
-    validate_overhead_variables(
-        "Source",
-        "Target",
-        &overhead,
-        &["num_vars"],
-        &[],
-    );
+    validate_overhead_variables("Source", "Target", &overhead, &["num_vars"], &[]);
 }
 
 #[test]
 fn test_validate_overhead_variables_identity() {
-    use crate::rules::validate_overhead_variables;
     use crate::rules::registry::ReductionOverhead;
+    use crate::rules::validate_overhead_variables;
 
     let names = &["num_vertices", "num_edges"];
     let overhead = ReductionOverhead::identity(names);
@@ -482,12 +487,7 @@ fn test_k_neighbors_incoming() {
     let variants = graph.variants_for("QUBO");
     assert!(!variants.is_empty());
 
-    let neighbors = graph.k_neighbors(
-        "QUBO",
-        &variants[0],
-        1,
-        TraversalDirection::Incoming,
-    );
+    let neighbors = graph.k_neighbors("QUBO", &variants[0], 1, TraversalDirection::Incoming);
     // QUBO is a common target — should have incoming reductions
     assert!(!neighbors.is_empty());
 }
@@ -499,13 +499,22 @@ fn test_k_neighbors_both() {
     let default_variant = &variants[0];
 
     let out_only = graph.k_neighbors(
-        "MaximumIndependentSet", default_variant, 1, TraversalDirection::Outgoing,
+        "MaximumIndependentSet",
+        default_variant,
+        1,
+        TraversalDirection::Outgoing,
     );
     let in_only = graph.k_neighbors(
-        "MaximumIndependentSet", default_variant, 1, TraversalDirection::Incoming,
+        "MaximumIndependentSet",
+        default_variant,
+        1,
+        TraversalDirection::Incoming,
     );
     let both = graph.k_neighbors(
-        "MaximumIndependentSet", default_variant, 1, TraversalDirection::Both,
+        "MaximumIndependentSet",
+        default_variant,
+        1,
+        TraversalDirection::Both,
     );
     // Both should be >= max of either direction
     assert!(both.len() >= out_only.len());
@@ -526,7 +535,10 @@ fn test_k_neighbors_zero_hops() {
     let variants = graph.variants_for("MaximumIndependentSet");
     let default_variant = &variants[0];
     let neighbors = graph.k_neighbors(
-        "MaximumIndependentSet", default_variant, 0, TraversalDirection::Outgoing,
+        "MaximumIndependentSet",
+        default_variant,
+        0,
+        TraversalDirection::Outgoing,
     );
     assert!(neighbors.is_empty());
 }

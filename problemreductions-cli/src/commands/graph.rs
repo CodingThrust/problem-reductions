@@ -91,10 +91,7 @@ pub fn list(out: &OutputConfig) -> Result<()> {
         let colored_alias = crate::output::fmt_dim(&padded_alias);
         text.push_str(&format!(
             "  {}  {}  {:>8}  {:>10}\n",
-            colored_name,
-            colored_alias,
-            row.num_variants,
-            row.num_reduces_to,
+            colored_name, colored_alias, row.num_variants, row.num_reduces_to,
         ));
     }
 
@@ -144,14 +141,20 @@ pub fn show(problem: &str, hops: Option<usize>, direction: &str, out: &OutputCon
     }
 
     // Show variants
-    text.push_str(&format!("\n{}\n", crate::output::fmt_section(&format!("Variants ({}):", variants.len()))));
+    text.push_str(&format!(
+        "\n{}\n",
+        crate::output::fmt_section(&format!("Variants ({}):", variants.len()))
+    ));
     for v in &variants {
         text.push_str(&format!("  {}\n", format_variant(v)));
     }
 
     // Show fields from schema (right after variants)
     if let Some(s) = schema {
-        text.push_str(&format!("\n{}\n", crate::output::fmt_section(&format!("Fields ({}):", s.fields.len()))));
+        text.push_str(&format!(
+            "\n{}\n",
+            crate::output::fmt_section(&format!("Fields ({}):", s.fields.len()))
+        ));
         for field in &s.fields {
             text.push_str(&format!("  {} ({})", field.name, field.type_name));
             if !field.description.is_empty() {
@@ -164,7 +167,10 @@ pub fn show(problem: &str, hops: Option<usize>, direction: &str, out: &OutputCon
     // Show size fields (used with `pred path --cost minimize:<field>`)
     let size_fields = graph.size_field_names(&spec.name);
     if !size_fields.is_empty() {
-        text.push_str(&format!("\n{}\n", crate::output::fmt_section(&format!("Size fields ({}):", size_fields.len()))));
+        text.push_str(&format!(
+            "\n{}\n",
+            crate::output::fmt_section(&format!("Size fields ({}):", size_fields.len()))
+        ));
         for f in size_fields {
             text.push_str(&format!("  {f}\n"));
         }
@@ -174,7 +180,10 @@ pub fn show(problem: &str, hops: Option<usize>, direction: &str, out: &OutputCon
     let outgoing = graph.outgoing_reductions(&spec.name);
     let incoming = graph.incoming_reductions(&spec.name);
 
-    text.push_str(&format!("\n{}\n", crate::output::fmt_section(&format!("Reduces to ({}):", outgoing.len()))));
+    text.push_str(&format!(
+        "\n{}\n",
+        crate::output::fmt_section(&format!("Reduces to ({}):", outgoing.len()))
+    ));
     for e in &outgoing {
         text.push_str(&format!(
             "  {} {} {} {} {}\n",
@@ -186,7 +195,10 @@ pub fn show(problem: &str, hops: Option<usize>, direction: &str, out: &OutputCon
         ));
     }
 
-    text.push_str(&format!("\n{}\n", crate::output::fmt_section(&format!("Reduces from ({}):", incoming.len()))));
+    text.push_str(&format!(
+        "\n{}\n",
+        crate::output::fmt_section(&format!("Reduces from ({}):", incoming.len()))
+    ));
     for e in &incoming {
         text.push_str(&format!(
             "  {} {} {} {} {}\n",
@@ -365,10 +377,20 @@ pub fn path(source: &str, target: &str, cost: &str, all: bool, out: &OutputConfi
         for dv in &dst_resolved {
             let found = match cost_choice {
                 CostChoice::Steps => graph.find_cheapest_path(
-                    &src_spec.name, sv, &dst_spec.name, dv, &input_size, &MinimizeSteps,
+                    &src_spec.name,
+                    sv,
+                    &dst_spec.name,
+                    dv,
+                    &input_size,
+                    &MinimizeSteps,
                 ),
                 CostChoice::Field(f) => graph.find_cheapest_path(
-                    &src_spec.name, sv, &dst_spec.name, dv, &input_size, &Minimize(f),
+                    &src_spec.name,
+                    sv,
+                    &dst_spec.name,
+                    dv,
+                    &input_size,
+                    &Minimize(f),
                 ),
             };
 
@@ -437,7 +459,12 @@ fn path_all(
     // Sort by path length (shortest first)
     all_paths.sort_by_key(|p| p.len());
 
-    let mut text = format!("Found {} paths from {} to {}:\n", all_paths.len(), src_name, dst_name);
+    let mut text = format!(
+        "Found {} paths from {} to {}:\n",
+        all_paths.len(),
+        src_name,
+        dst_name
+    );
     for (idx, p) in all_paths.iter().enumerate() {
         text.push_str(&format!("\n--- Path {} ---\n", idx + 1));
         text.push_str(&format_path_text(graph, p));
@@ -456,11 +483,7 @@ fn path_all(
             std::fs::write(&file, &content)
                 .with_context(|| format!("Failed to write {}", file.display()))?;
         }
-        eprintln!(
-            "Wrote {} path files to {}",
-            all_paths.len(),
-            dir.display()
-        );
+        eprintln!("Wrote {} path files to {}", all_paths.len(), dir.display());
     } else {
         println!("{text}");
     }
@@ -495,10 +518,7 @@ fn parse_direction(s: &str) -> Result<TraversalDirection> {
         "out" => Ok(TraversalDirection::Outgoing),
         "in" => Ok(TraversalDirection::Incoming),
         "both" => Ok(TraversalDirection::Both),
-        _ => anyhow::bail!(
-            "Unknown direction: {}. Use 'out', 'in', or 'both'.",
-            s
-        ),
+        _ => anyhow::bail!("Unknown direction: {}. Use 'out', 'in', or 'both'.", s),
     }
 }
 

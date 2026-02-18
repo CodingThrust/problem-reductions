@@ -4,8 +4,8 @@ mod dispatch;
 mod output;
 mod problem_name;
 
-use cli::{Cli, Commands};
 use clap::{CommandFactory, Parser};
+use cli::{Cli, Commands};
 use output::OutputConfig;
 
 fn main() -> anyhow::Result<()> {
@@ -26,15 +26,15 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let out = OutputConfig {
-        output: cli.output,
-    };
+    let out = OutputConfig { output: cli.output };
 
     match cli.command {
         Commands::List => commands::graph::list(&out),
-        Commands::Show { problem, hops, direction } => {
-            commands::graph::show(&problem, hops, &direction, &out)
-        }
+        Commands::Show {
+            problem,
+            hops,
+            direction,
+        } => commands::graph::show(&problem, hops, &direction, &out),
         Commands::Path {
             source,
             target,

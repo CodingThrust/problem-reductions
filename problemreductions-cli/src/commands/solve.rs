@@ -15,8 +15,7 @@ enum SolveInput {
 fn parse_input(path: &Path) -> Result<SolveInput> {
     let content = std::fs::read_to_string(path)
         .with_context(|| format!("Failed to read {}", path.display()))?;
-    let json: serde_json::Value =
-        serde_json::from_str(&content).context("Failed to parse JSON")?;
+    let json: serde_json::Value = serde_json::from_str(&content).context("Failed to parse JSON")?;
 
     // Reduction bundles have "source", "target", and "path" fields
     if json.get("source").is_some() && json.get("target").is_some() && json.get("path").is_some() {
@@ -41,12 +40,14 @@ pub fn solve(input: &Path, solver_name: &str, out: &OutputConfig) -> Result<()> 
     let parsed = parse_input(input)?;
 
     match parsed {
-        SolveInput::Problem(problem_json) => {
-            solve_problem(&problem_json.problem_type, &problem_json.variant, problem_json.data, solver_name, out)
-        }
-        SolveInput::Bundle(bundle) => {
-            solve_bundle(bundle, solver_name, out)
-        }
+        SolveInput::Problem(problem_json) => solve_problem(
+            &problem_json.problem_type,
+            &problem_json.variant,
+            problem_json.data,
+            solver_name,
+            out,
+        ),
+        SolveInput::Bundle(bundle) => solve_bundle(bundle, solver_name, out),
     }
 }
 
@@ -146,7 +147,9 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
 
     let chain = graph
         .reduce_along_path(&reduction_path, source.as_any())
-        .ok_or_else(|| anyhow::anyhow!("Failed to re-execute reduction chain for solution extraction"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!("Failed to re-execute reduction chain for solution extraction")
+        })?;
 
     // 4. Extract solution back to source problem space
     let source_config = chain.extract_solution(&target_result.config);

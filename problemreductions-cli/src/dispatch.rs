@@ -1,11 +1,9 @@
 use anyhow::{bail, Result};
-use problemreductions::prelude::*;
 use problemreductions::models::optimization::ILP;
+use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
-use problemreductions::topology::{
-    KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
-};
+use problemreductions::topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use problemreductions::types::ProblemSize;
 use problemreductions::variant::{K2, K3, KN};
 use serde::Serialize;
@@ -135,7 +133,12 @@ impl LoadedProblem {
         let mut best_path = None;
         for dv in &ilp_variants {
             if let Some(p) = graph.find_cheapest_path(
-                name, &source_variant, "ILP", dv, &input_size, &MinimizeSteps,
+                name,
+                &source_variant,
+                "ILP",
+                dv,
+                &input_size,
+                &MinimizeSteps,
             ) {
                 let is_better = best_path
                     .as_ref()
@@ -146,8 +149,8 @@ impl LoadedProblem {
             }
         }
 
-        let reduction_path = best_path
-            .ok_or_else(|| anyhow::anyhow!("No reduction path from {} to ILP", name))?;
+        let reduction_path =
+            best_path.ok_or_else(|| anyhow::anyhow!("No reduction path from {} to ILP", name))?;
 
         let chain = graph
             .reduce_along_path(&reduction_path, self.as_any())
@@ -177,7 +180,9 @@ pub fn load_problem(
     match canonical.as_str() {
         "MaximumIndependentSet" => match graph_variant(variant) {
             "KingsSubgraph" => deser_opt::<MaximumIndependentSet<KingsSubgraph, i32>>(data),
-            "TriangularSubgraph" => deser_opt::<MaximumIndependentSet<TriangularSubgraph, i32>>(data),
+            "TriangularSubgraph" => {
+                deser_opt::<MaximumIndependentSet<TriangularSubgraph, i32>>(data)
+            }
             "UnitDiskGraph" => deser_opt::<MaximumIndependentSet<UnitDiskGraph, i32>>(data),
             _ => deser_opt::<MaximumIndependentSet<SimpleGraph, i32>>(data),
         },
@@ -323,4 +328,3 @@ fn solve_ilp(any: &dyn Any) -> Result<SolveResult> {
     let evaluation = format!("{:?}", problem.evaluate(&config));
     Ok(SolveResult { config, evaluation })
 }
-

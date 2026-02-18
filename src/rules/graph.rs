@@ -21,7 +21,6 @@ use std::any::Any;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
 
-
 /// A source/target pair from the reduction graph, returned by
 /// [`ReductionGraph::outgoing_reductions`] and [`ReductionGraph::incoming_reductions`].
 #[derive(Debug, Clone)]
@@ -627,17 +626,14 @@ impl ReductionGraph {
         node_indices
             .windows(2)
             .map(|pair| {
-                let edge_idx = self
-                    .graph
-                    .find_edge(pair[0], pair[1])
-                    .unwrap_or_else(|| {
-                        let src = &self.nodes[self.graph[pair[0]]];
-                        let dst = &self.nodes[self.graph[pair[1]]];
-                        panic!(
-                            "No edge from {} {:?} to {} {:?}",
-                            src.name, src.variant, dst.name, dst.variant
-                        )
-                    });
+                let edge_idx = self.graph.find_edge(pair[0], pair[1]).unwrap_or_else(|| {
+                    let src = &self.nodes[self.graph[pair[0]]];
+                    let dst = &self.nodes[self.graph[pair[1]]];
+                    panic!(
+                        "No edge from {} {:?} to {} {:?}",
+                        src.name, src.variant, dst.name, dst.variant
+                    )
+                });
                 self.graph[edge_idx].overhead.clone()
             })
             .collect()
@@ -730,12 +726,19 @@ impl ReductionGraph {
     }
 
     /// Find the NodeIndex for a specific (name, variant) pair.
-    pub fn find_node_index(&self, name: &str, variant: &BTreeMap<String, String>) -> Option<NodeIndex> {
+    pub fn find_node_index(
+        &self,
+        name: &str,
+        variant: &BTreeMap<String, String>,
+    ) -> Option<NodeIndex> {
         self.name_to_nodes.get(name).and_then(|indices| {
-            indices.iter().find(|&&idx| {
-                let node = &self.nodes[self.graph[idx]];
-                node.variant == *variant
-            }).copied()
+            indices
+                .iter()
+                .find(|&&idx| {
+                    let node = &self.nodes[self.graph[idx]];
+                    node.variant == *variant
+                })
+                .copied()
         })
     }
 
@@ -780,7 +783,9 @@ impl ReductionGraph {
             let directions: Vec<petgraph::Direction> = match direction {
                 TraversalDirection::Outgoing => vec![petgraph::Direction::Outgoing],
                 TraversalDirection::Incoming => vec![petgraph::Direction::Incoming],
-                TraversalDirection::Both => vec![petgraph::Direction::Outgoing, petgraph::Direction::Incoming],
+                TraversalDirection::Both => {
+                    vec![petgraph::Direction::Outgoing, petgraph::Direction::Incoming]
+                }
             };
 
             for dir in directions {

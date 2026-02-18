@@ -165,7 +165,8 @@ fn test_jl_parity_evaluation() {
 #[test]
 fn test_is_valid_solution() {
     // Path graph: 0-1-2
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    let problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
     // Valid: {0, 2} is independent
     assert!(problem.is_valid_solution(&[1, 0, 1]));
     // Invalid: {0, 1} are adjacent

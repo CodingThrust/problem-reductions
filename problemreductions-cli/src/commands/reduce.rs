@@ -11,8 +11,7 @@ use std::path::Path;
 
 /// Parse a path JSON file (produced by `pred path ... -o`) into a ReductionPath.
 fn load_path_file(path_file: &Path) -> Result<ReductionPath> {
-    let content =
-        std::fs::read_to_string(path_file).context("Failed to read path file")?;
+    let content = std::fs::read_to_string(path_file).context("Failed to read path file")?;
     let json: serde_json::Value =
         serde_json::from_str(&content).context("Failed to parse path file")?;
 
@@ -49,12 +48,7 @@ fn parse_path_node(node: &serde_json::Value) -> Result<ReductionStep> {
     Ok(ReductionStep { name, variant })
 }
 
-pub fn reduce(
-    input: &Path,
-    target: &str,
-    via: Option<&Path>,
-    out: &OutputConfig,
-) -> Result<()> {
+pub fn reduce(input: &Path, target: &str, via: Option<&Path>, out: &OutputConfig) -> Result<()> {
     // 1. Load source problem
     let content = std::fs::read_to_string(input)?;
     let problem_json: ProblemJson = serde_json::from_str(&content)?;
@@ -177,8 +171,7 @@ pub fn reduce(
     let json = serde_json::to_value(&bundle)?;
 
     if let Some(ref path) = out.output {
-        let content =
-            serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
+        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
         std::fs::write(path, &content)
             .with_context(|| format!("Failed to write {}", path.display()))?;
         eprintln!(

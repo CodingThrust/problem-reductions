@@ -14,7 +14,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
     let (data, variant) = match canonical.as_str() {
         // Graph problems with vertex weights
-        "MaximumIndependentSet" | "MinimumVertexCover" | "MaximumClique"
+        "MaximumIndependentSet"
+        | "MinimumVertexCover"
+        | "MaximumClique"
         | "MinimumDominatingSet" => {
             let (graph, n) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
@@ -25,16 +27,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_vertex_weights(args, n)?;
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
             let data = match canonical.as_str() {
-                "MaximumIndependentSet" => {
-                    ser(MaximumIndependentSet::new(graph, weights))?
-                }
-                "MinimumVertexCover" => {
-                    ser(MinimumVertexCover::new(graph, weights))?
-                }
+                "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
+                "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
                 "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
-                "MinimumDominatingSet" => {
-                    ser(MinimumDominatingSet::new(graph, weights))?
-                }
+                "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
                 _ => unreachable!(),
             };
             (data, variant)
