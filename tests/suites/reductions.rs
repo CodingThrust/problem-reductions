@@ -664,7 +664,7 @@ mod qubo_reductions {
         assert_eq!(&our_config, gt_config);
     }
 
-    #[cfg(feature = "ilp")]
+    #[cfg(feature = "ilp-solver")]
     #[derive(Deserialize)]
     struct ILPToQuboData {
         source: ILPSource,
@@ -672,7 +672,7 @@ mod qubo_reductions {
         qubo_optimal: QuboOptimal,
     }
 
-    #[cfg(feature = "ilp")]
+    #[cfg(feature = "ilp-solver")]
     #[derive(Deserialize)]
     struct ILPSource {
         num_variables: usize,
@@ -682,7 +682,7 @@ mod qubo_reductions {
         constraint_signs: Vec<i32>,
     }
 
-    #[cfg(feature = "ilp")]
+    #[cfg(feature = "ilp-solver")]
     #[test]
     fn test_ilp_to_qubo_ground_truth() {
         let json = std::fs::read_to_string("tests/data/qubo/ilp_to_qubo.json").unwrap();

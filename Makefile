@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata
+.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata cli
 
 # Default target
 help:
@@ -24,15 +24,16 @@ help:
 	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
 	@echo "  jl-testdata  - Regenerate Julia parity test data (requires julia)"
 	@echo "  release V=x.y.z - Tag and push a new release (triggers CI publish)"
+	@echo "  cli          - Build the pred CLI tool"
 	@echo "  run-plan   - Execute a plan with Claude autorun (latest plan in docs/plans/)"
 
 # Build the project
 build:
-	cargo build --all-features
+	cargo build --features ilp-highs
 
 # Run all tests (including ignored tests)
 test:
-	cargo test --all-features -- --include-ignored
+	cargo test --features ilp-highs -- --include-ignored
 
 # Format code
 fmt:
@@ -44,14 +45,14 @@ fmt-check:
 
 # Run clippy
 clippy:
-	cargo clippy --all-targets --all-features -- -D warnings
+	cargo clippy --all-targets --features ilp-highs -- -D warnings
 
 # Build mdBook documentation
 doc:
 	cargo run --example export_graph
 	cargo run --example export_schemas
 	mdbook build docs
-	RUSTDOCFLAGS="--default-theme=dark" cargo doc --all-features --no-deps
+	RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps
 	rm -rf docs/book/api
 	cp -r target/doc docs/book/api
 
@@ -70,7 +71,7 @@ diagrams:
 mdbook:
 	cargo run --example export_graph
 	cargo run --example export_schemas
-	RUSTDOCFLAGS="--default-theme=dark" cargo doc --all-features --no-deps
+	RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps
 	mdbook build
 	rm -rf book/api
 	cp -r target/doc book/api
@@ -85,9 +86,9 @@ examples:
 	@mkdir -p docs/paper/examples
 	@for example in $(REDUCTION_EXAMPLES); do \
 		echo "Running $$example..."; \
-		cargo run --all-features --example $$example || exit 1; \
+		cargo run --features ilp-highs --example $$example || exit 1; \
 	done
-	cargo run --all-features --example export_petersen_mapping
+	cargo run --features ilp-highs --example export_petersen_mapping
 
 # Export problem schemas to JSON
 export-schemas:
@@ -102,7 +103,7 @@ paper: examples
 # Generate coverage report (requires: cargo install cargo-llvm-cov)
 coverage:
 	@command -v cargo-llvm-cov >/dev/null 2>&1 || { echo "Installing cargo-llvm-cov..."; cargo install cargo-llvm-cov; }
-	cargo llvm-cov --all-features --workspace --html --open
+	cargo llvm-cov --features ilp-highs --workspace --html --open
 
 # Clean build artifacts
 clean:
@@ -134,6 +135,10 @@ endif
 	git tag -a "v$(V)" -m "Release v$(V)"
 	git push origin main --tags
 	@echo "v$(V) pushed — CI will publish to crates.io"
+
+# Build the pred CLI tool
+cli:
+	cargo build -p problemreductions-cli --release
 
 # Generate Rust mapping JSON exports for all graphs and modes
 GRAPHS := diamond bull house petersen

@@ -149,6 +149,13 @@ See Key Patterns above for solver API signatures. Follow the reference files for
 
 Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). Integration tests in `tests/suites/`, consolidated through `tests/main.rs`. Example tests in `tests/suites/examples.rs` using `include!` for direct invocation.
 
+## Documentation Locations
+- `README.md` — Project overview and quickstart
+- `.claude/` — Claude Code instructions and skills
+- `docs/book/` — mdBook user documentation (built with `make doc`)
+- `docs/paper/reductions.typ` — Typst paper with problem definitions and reduction theorems
+- `examples/` — Reduction example code (also used in paper and tests)
+
 ## Documentation Requirements
 
 **Reference:** search `docs/paper/reductions.typ` for `MinimumVertexCover` `MaximumIndependentSet` to see a complete problem-def + reduction-rule example.

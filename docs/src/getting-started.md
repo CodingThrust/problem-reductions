@@ -212,6 +212,7 @@ The library exports machine-readable metadata useful for tooling and research:
 
 ## Next Steps
 
+- Try the [CLI tool](./cli.md) to explore problems and reduction paths from your terminal
 - Explore the [interactive reduction graph](./introduction.html) to discover available reductions
 - Read the [Design](./design.md) guide for implementation details
 - Browse the [API Reference](./api.html) for full documentation

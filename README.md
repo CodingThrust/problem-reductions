@@ -15,6 +15,8 @@ Download [PDF manual](https://codingthrust.github.io/problem-reductions/reductio
 
 ## Installation
 
+### As a library
+
 Add to your `Cargo.toml`:
 
 ```toml
@@ -22,7 +24,23 @@ Add to your `Cargo.toml`:
 problemreductions = "0.2"
 ```
 
-See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples and the reduction workflow.
+### CLI tool
+
+Install the `pred` command-line tool for exploring the reduction graph from your terminal:
+
+```bash
+cargo install --git https://github.com/CodingThrust/problem-reductions problemreductions-cli
+```
+
+Or build from source:
+
+```bash
+git clone https://github.com/CodingThrust/problem-reductions
+cd problem-reductions
+make cli    # builds target/release/pred
+```
+
+See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).
 
 ## Contributing
 

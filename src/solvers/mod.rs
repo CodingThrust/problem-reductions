@@ -2,12 +2,12 @@
 
 mod brute_force;
 
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 pub mod ilp;
 
 pub use brute_force::BruteForce;
 
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 pub use ilp::ILPSolver;
 
 use crate::traits::{OptimizationProblem, Problem};
