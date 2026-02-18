@@ -13,31 +13,106 @@ pub fn list(out: &OutputConfig) -> Result<()> {
     let mut types = graph.problem_types();
     types.sort();
 
-    let mut text = format!(
-        "Registered problems: {} types, {} reductions, {} variant nodes\n\n",
+    // Collect data for each problem
+    struct Row {
+        name: String,
+        aliases: Vec<&'static str>,
+        num_variants: usize,
+        num_reduces_to: usize,
+    }
+    let rows: Vec<Row> = types
+        .iter()
+        .map(|name| {
+            let aliases = aliases_for(name);
+            let num_variants = graph.variants_for(name).len();
+            let num_reduces_to = graph.outgoing_reductions(name).len();
+            Row {
+                name: name.to_string(),
+                aliases,
+                num_variants,
+                num_reduces_to,
+            }
+        })
+        .collect();
+
+    // Compute column widths
+    let name_width = rows.iter().map(|r| r.name.len()).max().unwrap_or(7).max(7);
+    let alias_width = rows
+        .iter()
+        .map(|r| {
+            if r.aliases.is_empty() {
+                0
+            } else {
+                r.aliases.join(", ").len()
+            }
+        })
+        .max()
+        .unwrap_or(7)
+        .max(7);
+
+    let summary = format!(
+        "Registered problems: {} types, {} reductions, {} variant nodes\n",
         graph.num_types(),
         graph.num_reductions(),
         graph.num_variant_nodes(),
     );
 
-    for name in &types {
-        let aliases = aliases_for(name);
-        if aliases.is_empty() {
-            text.push_str(&format!("  {name}\n"));
+    let mut text = String::new();
+    text.push_str(&crate::output::fmt_section(&summary));
+    text.push_str(&format!(
+        "\n  {:<name_w$}  {:<alias_w$}  {:>8}  {:>10}\n",
+        "Problem",
+        "Aliases",
+        "Variants",
+        "Reduces to",
+        name_w = name_width,
+        alias_w = alias_width,
+    ));
+    text.push_str(&format!(
+        "  {:<name_w$}  {:<alias_w$}  {:>8}  {:>10}\n",
+        "─".repeat(name_width),
+        "─".repeat(alias_width),
+        "────────",
+        "──────────",
+        name_w = name_width,
+        alias_w = alias_width,
+    ));
+
+    for row in &rows {
+        let alias_str = if row.aliases.is_empty() {
+            String::new()
         } else {
-            text.push_str(&format!("  {name} ({})\n", aliases.join(", ")));
-        }
+            row.aliases.join(", ")
+        };
+        // Refined approach: pad first, then colorize
+        let padded_name = format!("{:<name_w$}", row.name, name_w = name_width);
+        let colored_name = crate::output::fmt_problem_name(&padded_name);
+        let padded_alias = format!("{:<alias_w$}", alias_str, alias_w = alias_width);
+        let colored_alias = crate::output::fmt_dim(&padded_alias);
+        text.push_str(&format!(
+            "  {}  {}  {:>8}  {:>10}\n",
+            colored_name,
+            colored_alias,
+            row.num_variants,
+            row.num_reduces_to,
+        ));
     }
 
-    text.push_str("\nUse `pred show <problem>` to see variants, reductions, and fields.\n");
+    text.push_str(&format!(
+        "\nUse `pred show <problem>` to see variants, reductions, and fields.\n"
+    ));
 
     let json = serde_json::json!({
         "num_types": graph.num_types(),
         "num_reductions": graph.num_reductions(),
         "num_variant_nodes": graph.num_variant_nodes(),
-        "problems": types.iter().map(|name| {
-            let aliases = aliases_for(name);
-            serde_json::json!({ "name": name, "aliases": aliases })
+        "problems": rows.iter().map(|r| {
+            serde_json::json!({
+                "name": r.name,
+                "aliases": r.aliases,
+                "num_variants": r.num_variants,
+                "num_reduces_to": r.num_reduces_to,
+            })
         }).collect::<Vec<_>>(),
     });
 
