@@ -28,7 +28,7 @@ fn main() -> anyhow::Result<()> {
         },
         Commands::Solve(_args) => todo!("solve"),
         Commands::Reduce(_args) => todo!("reduce"),
-        Commands::Evaluate(_args) => todo!("evaluate"),
+        Commands::Evaluate(args) => commands::evaluate::evaluate(&args.input, &args.config, &out),
         Commands::Schema(args) => commands::schema::schema(&args.problem, &out),
     }
 }
