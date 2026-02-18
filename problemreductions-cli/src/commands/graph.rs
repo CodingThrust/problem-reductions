@@ -4,7 +4,7 @@ use anyhow::Result;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::types::ProblemSize;
 use std::collections::BTreeMap;
-use std::path::PathBuf;
+use std::path::Path;
 
 pub fn list(out: &OutputConfig) -> Result<()> {
     let graph = ReductionGraph::new();
@@ -57,7 +57,7 @@ pub fn show(problem: &str, show_variants: bool, out: &OutputConfig) -> Result<()
         text.push_str(&format!("\nVariants ({}):\n", matching_nodes.len()));
         for (_, node) in &matching_nodes {
             let variant = &node["variant"];
-            if variant.as_object().map_or(true, |v| v.is_empty()) {
+            if variant.as_object().is_none_or(|v| v.is_empty()) {
                 text.push_str("  (no variants)\n");
             } else {
                 let pairs: Vec<String> = variant
@@ -212,7 +212,7 @@ pub fn path(source: &str, target: &str, cost: &str, out: &OutputConfig) -> Resul
             };
 
             if let Some(p) = found {
-                let is_better = best_path.as_ref().map_or(true, |bp| p.len() < bp.len());
+                let is_better = best_path.as_ref().is_none_or(|bp| p.len() < bp.len());
                 if is_better {
                     best_path = Some(p);
                 }
@@ -255,7 +255,7 @@ pub fn path(source: &str, target: &str, cost: &str, out: &OutputConfig) -> Resul
     }
 }
 
-pub fn export(output: &PathBuf) -> Result<()> {
+pub fn export(output: &Path) -> Result<()> {
     let graph = ReductionGraph::new();
 
     if let Some(parent) = output.parent() {

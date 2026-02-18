@@ -11,24 +11,6 @@ pub struct OutputConfig {
 }
 
 impl OutputConfig {
-    /// Print text to stdout (human-readable mode) or save JSON to file.
-    pub fn emit(&self, human_text: &str, json_value: &serde_json::Value) -> anyhow::Result<()> {
-        if self.json {
-            let path = self
-                .output
-                .clone()
-                .unwrap_or_else(|| PathBuf::from("pred_output.json"));
-            let content =
-                serde_json::to_string_pretty(json_value).context("Failed to serialize JSON")?;
-            std::fs::write(&path, &content)
-                .with_context(|| format!("Failed to write {}", path.display()))?;
-            eprintln!("Wrote {}", path.display());
-        } else {
-            println!("{human_text}");
-        }
-        Ok(())
-    }
-
     /// Emit with a custom default filename.
     pub fn emit_with_default_name(
         &self,
