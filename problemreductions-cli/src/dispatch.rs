@@ -1,4 +1,4 @@
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use problemreductions::models::optimization::ILP;
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
@@ -12,8 +12,24 @@ use std::any::Any;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::ops::Deref;
+use std::path::Path;
 
 use crate::problem_name::resolve_alias;
+
+/// Read input from a file, or from stdin if the path is "-".
+pub fn read_input(path: &Path) -> Result<String> {
+    if path.as_os_str() == "-" {
+        use std::io::Read;
+        let mut buf = String::new();
+        std::io::stdin()
+            .read_to_string(&mut buf)
+            .context("Failed to read from stdin")?;
+        Ok(buf)
+    } else {
+        std::fs::read_to_string(path)
+            .with_context(|| format!("Failed to read {}", path.display()))
+    }
+}
 
 /// Type-erased problem for CLI dispatch.
 #[allow(dead_code)]
@@ -24,6 +40,9 @@ pub trait DynProblem: Any {
     fn dims_dyn(&self) -> Vec<usize>;
     fn problem_name(&self) -> &'static str;
     fn variant_map(&self) -> BTreeMap<String, String>;
+    fn problem_size_names_dyn(&self) -> &'static [&'static str];
+    fn problem_size_values_dyn(&self) -> Vec<usize>;
+    fn num_variables_dyn(&self) -> usize;
 }
 
 impl<T> DynProblem for T
@@ -51,6 +70,15 @@ where
             .into_iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+    fn problem_size_names_dyn(&self) -> &'static [&'static str] {
+        T::problem_size_names()
+    }
+    fn problem_size_values_dyn(&self) -> Vec<usize> {
+        self.problem_size_values()
+    }
+    fn num_variables_dyn(&self) -> usize {
+        self.num_variables()
     }
 }
 
@@ -215,7 +243,7 @@ pub fn load_problem(
         "BicliqueCover" => deser_opt::<BicliqueCover>(data),
         "BMF" => deser_opt::<BMF>(data),
         "PaintShop" => deser_opt::<PaintShop>(data),
-        _ => bail!("Unknown problem type: {canonical}"),
+        _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
 
@@ -265,7 +293,7 @@ pub fn serialize_any_problem(
         "BicliqueCover" => try_ser::<BicliqueCover>(any),
         "BMF" => try_ser::<BMF>(any),
         "PaintShop" => try_ser::<PaintShop>(any),
-        _ => bail!("Unknown problem type: {canonical}"),
+        _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
 

@@ -157,6 +157,75 @@ impl clap::builder::TypedValueParser for ProblemNameParser {
     }
 }
 
+/// Find the closest matching problem names using edit distance.
+pub fn suggest_problem_name(input: &str) -> Vec<String> {
+    let graph = problemreductions::rules::ReductionGraph::new();
+    let all_names = graph.problem_types();
+
+    let input_lower = input.to_lowercase();
+    let mut suggestions: Vec<(String, usize)> = Vec::new();
+
+    for name in all_names {
+        let dist = edit_distance(&input_lower, &name.to_lowercase());
+        if dist <= 3 {
+            suggestions.push((name.to_string(), dist));
+        }
+    }
+
+    // Also check aliases
+    for (alias, canonical) in ALIASES {
+        let dist = edit_distance(&input_lower, &alias.to_lowercase());
+        if dist <= 2 {
+            suggestions.push((canonical.to_string(), dist));
+        }
+    }
+
+    suggestions.sort_by_key(|(_, d)| *d);
+    suggestions.dedup_by_key(|(n, _)| n.clone());
+    suggestions.into_iter().map(|(n, _)| n).take(3).collect()
+}
+
+/// Simple Levenshtein edit distance.
+fn edit_distance(a: &str, b: &str) -> usize {
+    let a: Vec<char> = a.chars().collect();
+    let b: Vec<char> = b.chars().collect();
+    let n = a.len();
+    let m = b.len();
+    let mut dp = vec![vec![0usize; m + 1]; n + 1];
+
+    for (i, row) in dp.iter_mut().enumerate().take(n + 1) {
+        row[0] = i;
+    }
+    for j in 0..=m {
+        dp[0][j] = j;
+    }
+
+    for i in 1..=n {
+        for j in 1..=m {
+            let cost = if a[i - 1] == b[j - 1] { 0 } else { 1 };
+            dp[i][j] = (dp[i - 1][j] + 1)
+                .min(dp[i][j - 1] + 1)
+                .min(dp[i - 1][j - 1] + cost);
+        }
+    }
+
+    dp[n][m]
+}
+
+/// Format an error message for an unknown problem name with suggestions.
+pub fn unknown_problem_error(input: &str) -> String {
+    let suggestions = suggest_problem_name(input);
+    let mut msg = format!("Unknown problem: {input}");
+    if !suggestions.is_empty() {
+        msg.push_str(&format!(
+            "\n\nDid you mean: {}?",
+            suggestions.join(", ")
+        ));
+    }
+    msg.push_str("\n\nRun `pred list` to see all available problems.");
+    msg
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -203,5 +272,44 @@ mod tests {
         let spec = parse_problem_spec("3SAT").unwrap();
         assert_eq!(spec.name, "KSatisfiability");
         assert_eq!(spec.variant_values, vec!["K3"]);
+    }
+
+    #[test]
+    fn test_suggest_problem_name_close() {
+        // "MISs" is 1 edit from "MIS" alias -> should suggest MaximumIndependentSet
+        let suggestions = suggest_problem_name("MISs");
+        assert!(!suggestions.is_empty());
+    }
+
+    #[test]
+    fn test_suggest_problem_name_far() {
+        // Totally unrelated name should not match anything
+        let suggestions = suggest_problem_name("xyzxyzxyz");
+        assert!(suggestions.is_empty());
+    }
+
+    #[test]
+    fn test_unknown_problem_error_with_suggestions() {
+        let msg = unknown_problem_error("MISs");
+        assert!(msg.contains("Unknown problem: MISs"));
+        assert!(msg.contains("Did you mean"));
+        assert!(msg.contains("pred list"));
+    }
+
+    #[test]
+    fn test_unknown_problem_error_no_suggestions() {
+        let msg = unknown_problem_error("xyzxyzxyz");
+        assert!(msg.contains("Unknown problem: xyzxyzxyz"));
+        assert!(!msg.contains("Did you mean"));
+        assert!(msg.contains("pred list"));
+    }
+
+    #[test]
+    fn test_edit_distance() {
+        assert_eq!(edit_distance("", ""), 0);
+        assert_eq!(edit_distance("abc", "abc"), 0);
+        assert_eq!(edit_distance("abc", "ab"), 1);
+        assert_eq!(edit_distance("abc", "axc"), 1);
+        assert_eq!(edit_distance("kitten", "sitting"), 3);
     }
 }

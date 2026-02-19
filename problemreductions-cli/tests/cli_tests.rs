@@ -160,6 +160,39 @@ fn test_list_json() {
 fn test_unknown_problem() {
     let output = pred().args(["show", "NonExistent"]).output().unwrap();
     assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("pred list"),
+        "Unknown problem error should suggest `pred list`, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_unknown_problem_suggests() {
+    // "MISs" is close to "MIS" alias -> should suggest MaximumIndependentSet
+    let output = pred().args(["show", "MISs"]).output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Did you mean"),
+        "Close misspelling should trigger 'Did you mean', got: {stderr}"
+    );
+    assert!(
+        stderr.contains("pred list"),
+        "Should always suggest `pred list`, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_unknown_problem_no_match() {
+    // Totally unrelated name should still suggest pred list
+    let output = pred().args(["show", "xyzxyzxyz"]).output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("pred list"),
+        "Should suggest `pred list` even with no fuzzy matches, got: {stderr}"
+    );
 }
 
 #[test]
@@ -1166,7 +1199,14 @@ fn test_path_unknown_source() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Unknown source"));
+    assert!(
+        stderr.contains("Unknown problem"),
+        "stderr should contain 'Unknown problem', got: {stderr}"
+    );
+    assert!(
+        stderr.contains("pred list"),
+        "stderr should suggest `pred list`, got: {stderr}"
+    );
 }
 
 #[test]
@@ -1177,7 +1217,14 @@ fn test_path_unknown_target() {
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Unknown target"));
+    assert!(
+        stderr.contains("Unknown problem"),
+        "stderr should contain 'Unknown problem', got: {stderr}"
+    );
+    assert!(
+        stderr.contains("pred list"),
+        "stderr should suggest `pred list`, got: {stderr}"
+    );
 }
 
 #[test]
@@ -1279,7 +1326,7 @@ fn test_reduce_stdout() {
     assert!(create_out.status.success());
 
     let output = pred()
-        .args(["reduce", problem_file.to_str().unwrap(), "--to", "QUBO"])
+        .args(["reduce", problem_file.to_str().unwrap(), "--to", "QUBO", "--json"])
         .output()
         .unwrap();
     assert!(
@@ -1291,6 +1338,54 @@ fn test_reduce_stdout() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert!(json["source"].is_object());
     assert!(json["target"].is_object());
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_reduce_human_output() {
+    // Without --json or -o, reduce shows human-readable summary
+    let problem_file = std::env::temp_dir().join("pred_test_reduce_human.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args(["reduce", problem_file.to_str().unwrap(), "--to", "QUBO"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Reduced"),
+        "expected 'Reduced' in stdout, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("MaximumIndependentSet"),
+        "expected 'MaximumIndependentSet' in stdout, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("QUBO"),
+        "expected 'QUBO' in stdout, got: {stdout}"
+    );
+    // Should NOT be parseable as JSON
+    assert!(
+        serde_json::from_str::<serde_json::Value>(&stdout).is_err(),
+        "stdout should not be valid JSON in human-readable mode, got: {stdout}"
+    );
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -1656,4 +1751,326 @@ fn test_quiet_still_shows_stdout() {
     );
 
     std::fs::remove_file(&problem_file).ok();
+}
+
+// ---- Stdin/pipe support tests ----
+
+#[test]
+fn test_create_pipe_to_solve() {
+    // pred create MIS --edges 0-1,1-2 | pred solve - --solver brute-force
+    let create_out = pred()
+        .args(["create", "MIS", "--edges", "0-1,1-2"])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    use std::io::Write;
+    let mut child = pred()
+        .args(["solve", "-", "--solver", "brute-force"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&create_out.stdout)
+        .unwrap();
+    let solve_result = child.wait_with_output().unwrap();
+    assert!(
+        solve_result.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&solve_result.stderr)
+    );
+    let stdout = String::from_utf8(solve_result.stdout).unwrap();
+    assert!(
+        stdout.contains("Solution"),
+        "stdout should contain Solution, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_create_pipe_to_evaluate() {
+    // pred create MIS --edges 0-1,1-2 | pred evaluate - --config 1,0,1
+    let create_out = pred()
+        .args(["create", "MIS", "--edges", "0-1,1-2"])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    use std::io::Write;
+    let mut child = pred()
+        .args(["evaluate", "-", "--config", "1,0,1"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&create_out.stdout)
+        .unwrap();
+    let eval_result = child.wait_with_output().unwrap();
+    assert!(
+        eval_result.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&eval_result.stderr)
+    );
+    let stdout = String::from_utf8(eval_result.stdout).unwrap();
+    assert!(
+        stdout.contains("Valid"),
+        "stdout should contain Valid, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_create_pipe_to_reduce() {
+    // pred create MIS --edges 0-1,1-2 | pred reduce - --to QUBO
+    let create_out = pred()
+        .args(["create", "MIS", "--edges", "0-1,1-2"])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "create stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    use std::io::Write;
+    let mut child = pred()
+        .args(["reduce", "-", "--to", "QUBO", "--json"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&create_out.stdout)
+        .unwrap();
+    let reduce_result = child.wait_with_output().unwrap();
+    assert!(
+        reduce_result.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&reduce_result.stderr)
+    );
+    let stdout = String::from_utf8(reduce_result.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert!(
+        json["source"].is_object(),
+        "expected source object in reduction bundle, got: {stdout}"
+    );
+}
+
+// ---- Inspect command tests ----
+
+#[test]
+fn test_inspect_problem() {
+    let problem_file = std::env::temp_dir().join("pred_test_inspect.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2,2-3",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args(["inspect", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Type: MaximumIndependentSet"),
+        "expected 'Type: MaximumIndependentSet', got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Size:"),
+        "expected 'Size:', got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Variables:"),
+        "expected 'Variables:', got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Solvers:"),
+        "expected 'Solvers:', got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Reduces to:"),
+        "expected 'Reduces to:', got: {stdout}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_inspect_bundle() {
+    let problem_file = std::env::temp_dir().join("pred_test_inspect_bundle_p.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_inspect_bundle.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let reduce_out = pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduce_out.status.success(),
+        "reduce stderr: {}",
+        String::from_utf8_lossy(&reduce_out.stderr)
+    );
+
+    let output = pred()
+        .args(["inspect", bundle_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Bundle"),
+        "expected 'Bundle' in output, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Source:"),
+        "expected 'Source:' in output, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Target:"),
+        "expected 'Target:' in output, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("Path:"),
+        "expected 'Path:' in output, got: {stdout}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+}
+
+#[test]
+fn test_inspect_stdin() {
+    // Test pipe: create | inspect -
+    let create_out = pred()
+        .args(["create", "MIS", "--edges", "0-1,1-2"])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    use std::io::Write;
+    let mut child = pred()
+        .args(["inspect", "-"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&create_out.stdout)
+        .unwrap();
+    let result = child.wait_with_output().unwrap();
+    assert!(
+        result.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&result.stderr)
+    );
+    let stdout = String::from_utf8(result.stdout).unwrap();
+    assert!(
+        stdout.contains("MaximumIndependentSet"),
+        "expected 'MaximumIndependentSet', got: {stdout}"
+    );
+}
+
+#[test]
+fn test_inspect_json_output() {
+    let problem_file = std::env::temp_dir().join("pred_test_inspect_json_in.json");
+    let result_file = std::env::temp_dir().join("pred_test_inspect_json_out.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2,2-3",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "-o",
+            result_file.to_str().unwrap(),
+            "inspect",
+            problem_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(result_file.exists());
+
+    let content = std::fs::read_to_string(&result_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["kind"], "problem");
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert!(json["size"].is_array());
+    assert!(json["solvers"].is_array());
+    assert!(json["reduces_to"].is_array());
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).ok();
 }

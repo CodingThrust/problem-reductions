@@ -5,7 +5,6 @@ use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph, TraversalDirection};
 use problemreductions::types::ProblemSize;
 use std::collections::{BTreeMap, HashMap, HashSet};
-use std::path::Path;
 
 pub fn list(out: &OutputConfig) -> Result<()> {
     use crate::output::{format_table, Align};
@@ -103,7 +102,7 @@ pub fn show(problem: &str, hops: Option<usize>, direction: &str, out: &OutputCon
 
     let variants = graph.variants_for(&spec.name);
     if variants.is_empty() {
-        anyhow::bail!("Unknown problem: {}", spec.name);
+        anyhow::bail!("{}", crate::problem_name::unknown_problem_error(&spec.name));
     }
 
     if let Some(max_hops) = hops {
@@ -290,20 +289,14 @@ pub fn path(source: &str, target: &str, cost: &str, all: bool, out: &OutputConfi
 
     if src_variants.is_empty() {
         anyhow::bail!(
-            "Unknown source problem: {}\n\n\
-             Usage: pred path <SOURCE> <TARGET>\n\
-             Example: pred path MIS QUBO\n\n\
-             Run `pred list` to see all available problems.",
-            src_spec.name
+            "{}\n\nUsage: pred path <SOURCE> <TARGET>\nExample: pred path MIS QUBO",
+            crate::problem_name::unknown_problem_error(&src_spec.name)
         );
     }
     if dst_variants.is_empty() {
         anyhow::bail!(
-            "Unknown target problem: {}\n\n\
-             Usage: pred path <SOURCE> <TARGET>\n\
-             Example: pred path MIS QUBO\n\n\
-             Run `pred list` to see all available problems.",
-            dst_spec.name
+            "{}\n\nUsage: pred path <SOURCE> <TARGET>\nExample: pred path MIS QUBO",
+            crate::problem_name::unknown_problem_error(&dst_spec.name)
         );
     }
 
@@ -476,26 +469,24 @@ fn path_all(
     Ok(())
 }
 
-pub fn export(output: &Path, out: &OutputConfig) -> Result<()> {
+pub fn export(out: &OutputConfig) -> Result<()> {
     let graph = ReductionGraph::new();
 
-    if let Some(parent) = output.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-
-    graph
-        .to_json_file(output)
+    let json_str = graph
+        .to_json_string()
         .map_err(|e| anyhow::anyhow!("Failed to export: {}", e))?;
+    let json: serde_json::Value =
+        serde_json::from_str(&json_str).map_err(|e| anyhow::anyhow!("Failed to parse: {}", e))?;
 
-    out.info(&format!(
-        "Exported reduction graph ({} types, {} reductions, {} variant nodes) to {}",
+    let text = format!(
+        "Reduction graph: {} types, {} reductions, {} variant nodes\n\
+         Use -o to save as JSON.",
         graph.num_types(),
         graph.num_reductions(),
         graph.num_variant_nodes(),
-        output.display()
-    ));
+    );
 
-    Ok(())
+    out.emit_with_default_name("reduction_graph.json", &text, &json)
 }
 
 fn parse_direction(s: &str) -> Result<TraversalDirection> {

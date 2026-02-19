@@ -154,8 +154,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         }
 
         _ => bail!(
-            "Unknown or unsupported problem type for create: {}",
-            canonical
+            "{}",
+            crate::problem_name::unknown_problem_error(&canonical)
         ),
     };
 

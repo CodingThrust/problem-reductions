@@ -1,5 +1,6 @@
 use crate::dispatch::{
-    load_problem, serialize_any_problem, PathStep, ProblemJson, ProblemJsonOutput, ReductionBundle,
+    load_problem, read_input, serialize_any_problem, PathStep, ProblemJson, ProblemJsonOutput,
+    ReductionBundle,
 };
 use crate::output::OutputConfig;
 use crate::problem_name::parse_problem_spec;
@@ -52,10 +53,11 @@ pub fn reduce(
     input: &Path,
     target: Option<&str>,
     via: Option<&Path>,
+    json_output: bool,
     out: &OutputConfig,
 ) -> Result<()> {
     // 1. Load source problem
-    let content = std::fs::read_to_string(input)?;
+    let content = read_input(input)?;
     let problem_json: ProblemJson = serde_json::from_str(&content)?;
 
     let source = load_problem(
@@ -108,7 +110,7 @@ pub fn reduce(
         let dst_spec = parse_problem_spec(target)?;
         let dst_variants = graph.variants_for(&dst_spec.name);
         if dst_variants.is_empty() {
-            anyhow::bail!("Unknown target problem: {}", dst_spec.name);
+            anyhow::bail!("{}", crate::problem_name::unknown_problem_error(&dst_spec.name));
         }
 
         // Auto-discover cheapest path
@@ -186,6 +188,7 @@ pub fn reduce(
     let json = serde_json::to_value(&bundle)?;
 
     if let Some(ref path) = out.output {
+        // -o given: write JSON to file
         let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
         std::fs::write(path, &content)
             .with_context(|| format!("Failed to write {}", path.display()))?;
@@ -196,8 +199,22 @@ pub fn reduce(
             reduction_path.len(),
             path.display(),
         ));
-    } else {
+    } else if json_output {
+        // --json given: print raw JSON to stdout
         println!("{}", serde_json::to_string_pretty(&json)?);
+    } else {
+        // Default: human-readable summary
+        let mut text = format!(
+            "Reduced {} to {} ({} steps)\n",
+            source_name,
+            target_step.name,
+            reduction_path.len(),
+        );
+        text.push_str(&format!("\nPath: {}\n", reduction_path));
+        text.push_str(
+            "\nUse -o to save the reduction bundle as JSON, or --json to print JSON to stdout.",
+        );
+        println!("{text}");
     }
 
     Ok(())
