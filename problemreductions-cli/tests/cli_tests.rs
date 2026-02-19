@@ -2346,3 +2346,169 @@ fn test_create_random_default_edge_prob() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
 }
+
+// ---- Factoring create tests (P8) ----
+
+#[test]
+fn test_create_factoring() {
+    let output = pred()
+        .args([
+            "create",
+            "Factoring",
+            "--target",
+            "15",
+            "--bits-m",
+            "4",
+            "--bits-n",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "Factoring");
+    assert!(json["data"].is_object());
+}
+
+#[test]
+fn test_create_factoring_with_bits() {
+    let output_file = std::env::temp_dir().join("pred_test_create_factoring.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "Factoring",
+            "--target",
+            "15",
+            "--bits-m",
+            "4",
+            "--bits-n",
+            "4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "Factoring");
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_factoring_missing_target() {
+    let output = pred().args(["create", "Factoring"]).output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--target"),
+        "expected '--target' in error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_factoring_missing_bits() {
+    let output = pred()
+        .args(["create", "Factoring", "--target", "15"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--bits-m"),
+        "expected '--bits-m' in error, got: {stderr}"
+    );
+}
+
+// ---- Timeout tests (H3) ----
+
+#[test]
+fn test_solve_timeout_succeeds() {
+    // Small problem with generous timeout should succeed
+    let problem_file = std::env::temp_dir().join("pred_test_solve_timeout.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+            "--timeout",
+            "30",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Solution"),
+        "expected Solution in stdout, got: {stdout}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_timeout_zero_means_no_limit() {
+    // --timeout 0 is the default (no limit), should work normally
+    let problem_file = std::env::temp_dir().join("pred_test_solve_timeout0.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+            "--timeout",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Solution"));
+
+    std::fs::remove_file(&problem_file).ok();
+}

@@ -77,13 +77,15 @@ Status legend: `[x]` = approved, `[ ]` = pending, `[-]` = rejected
 ---
 
 ### P8. `create Factoring` is a dead end
-- [ ] approve
+- [x] approve
 
 **Problem:** `pred create Factoring` gives `"Factoring requires complex construction — use a JSON file instead"` but doesn't say what the JSON format should be.
 
 **Proposed fix:** Add a `pred show Factoring` schema reference in the error message: `"See pred show Factoring for the expected JSON format, or check the documentation."`.
 
 **Comment**: We should allow users to create complex problems from CLI directly.
+
+**Resolution:** Added `--target`, `--bits-m`, `--bits-n` flags to `pred create Factoring`. All three are required. Usage: `pred create Factoring --target 15 --bits-m 4 --bits-n 4`.
 
 ---
 
@@ -157,12 +159,14 @@ Reduces to: ILP, MinimumVertexCover, QUBO, MaximumSetPacking
 ---
 
 ### H3. No progress feedback for long operations
-- [ ] approve
+- [x] approve
 
 **Problem:** Brute-force on large instances or multi-step reductions give no feedback until completion. The user doesn't know if the tool is working or stuck.
 
 **Proposed fix:** Show a brief progress line on stderr for brute-force (e.g., `"Exploring 2^20 configurations..."`) and for multi-step reductions (e.g., `"Step 1/3: MIS → MVC..."`).
 
 **Comment**: Not very useful. Consider allowing users to add a time limit for job.
+
+**Resolution:** Added `--timeout <seconds>` flag to `pred solve`. When set, the solver is run on a separate thread with a timeout. Default is 0 (no limit). Usage: `pred solve problem.json --timeout 30`.
 
 ---

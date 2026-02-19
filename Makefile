@@ -254,6 +254,8 @@ cli-demo: cli
 	$$PRED create MaxCut --edges 0-1,1-2,2-0 -o $(CLI_DEMO_DIR)/maxcut.json; \
 	$$PRED create MVC --edges 0-1,1-2,2-3 -o $(CLI_DEMO_DIR)/mvc.json; \
 	$$PRED create MaximumMatching --edges 0-1,1-2,2-3 -o $(CLI_DEMO_DIR)/matching.json; \
+	$$PRED create Factoring --target 15 --bits-m 4 --bits-n 4 -o $(CLI_DEMO_DIR)/factoring.json; \
+	$$PRED create Factoring --target 21 --bits-m 3 --bits-n 3 -o $(CLI_DEMO_DIR)/factoring2.json; \
 	\
 	echo ""; \
 	echo "--- 9. evaluate: test configurations ---"; \

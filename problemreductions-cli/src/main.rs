@@ -47,7 +47,9 @@ fn main() -> anyhow::Result<()> {
         Commands::ExportGraph => commands::graph::export(&out),
         Commands::Inspect(args) => commands::inspect::inspect(&args.input, &out),
         Commands::Create(args) => commands::create::create(&args, &out),
-        Commands::Solve(args) => commands::solve::solve(&args.input, &args.solver, &out),
+        Commands::Solve(args) => {
+            commands::solve::solve(&args.input, &args.solver, args.timeout, &out)
+        }
         Commands::Reduce(args) => commands::reduce::reduce(
             &args.input,
             args.to.as_deref(),

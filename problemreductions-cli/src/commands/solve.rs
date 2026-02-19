@@ -3,6 +3,7 @@ use crate::output::OutputConfig;
 use anyhow::{Context, Result};
 use problemreductions::rules::ReductionGraph;
 use std::path::Path;
+use std::time::Duration;
 
 /// Input can be either a problem JSON or a reduction bundle JSON.
 enum SolveInput {
@@ -28,7 +29,7 @@ fn parse_input(path: &Path) -> Result<SolveInput> {
     }
 }
 
-pub fn solve(input: &Path, solver_name: &str, out: &OutputConfig) -> Result<()> {
+pub fn solve(input: &Path, solver_name: &str, timeout: u64, out: &OutputConfig) -> Result<()> {
     if solver_name != "brute-force" && solver_name != "ilp" {
         anyhow::bail!(
             "Unknown solver: {}. Available solvers: brute-force, ilp",
@@ -38,15 +39,34 @@ pub fn solve(input: &Path, solver_name: &str, out: &OutputConfig) -> Result<()> 
 
     let parsed = parse_input(input)?;
 
-    match parsed {
-        SolveInput::Problem(problem_json) => solve_problem(
-            &problem_json.problem_type,
-            &problem_json.variant,
-            problem_json.data,
-            solver_name,
-            out,
-        ),
-        SolveInput::Bundle(bundle) => solve_bundle(bundle, solver_name, out),
+    if timeout > 0 {
+        let solver_name = solver_name.to_string();
+        let out = out.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let result = match parsed {
+                SolveInput::Problem(pj) => solve_problem(
+                    &pj.problem_type,
+                    &pj.variant,
+                    pj.data,
+                    &solver_name,
+                    &out,
+                ),
+                SolveInput::Bundle(b) => solve_bundle(b, &solver_name, &out),
+            };
+            tx.send(result).ok();
+        });
+        match rx.recv_timeout(Duration::from_secs(timeout)) {
+            Ok(result) => result,
+            Err(_) => anyhow::bail!("Solve timed out after {} seconds", timeout),
+        }
+    } else {
+        match parsed {
+            SolveInput::Problem(pj) => {
+                solve_problem(&pj.problem_type, &pj.variant, pj.data, solver_name, out)
+            }
+            SolveInput::Bundle(b) => solve_bundle(b, solver_name, out),
+        }
     }
 }
 

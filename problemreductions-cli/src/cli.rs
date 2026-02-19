@@ -175,6 +175,11 @@ Options by problem type:
     --edges       Edge list [required]
     --k           Number of colors [required]
 
+Factoring:
+  --target        Number to factor [required]
+  --bits-m        Bits for first factor [required]
+  --bits-n        Bits for second factor [required]
+
 Random generation (graph-based problems only):
   --random        Generate a random Erdos-Renyi graph instance
   --num-vertices  Number of vertices [required with --random]
@@ -189,6 +194,7 @@ Examples:
   pred create KColoring --k 3 --edges 0-1,1-2,2-0 -o kcol.json
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
   pred create MIS --random --num-vertices 10 --seed 42 -o big.json
+  pred create Factoring --target 15 --bits-m 4 --bits-n 4
 
 Output (`-o`) uses the standard problem JSON format:
   {\"type\": \"...\", \"variant\": {...}, \"data\": {...}}")]
@@ -226,6 +232,15 @@ pub struct CreateArgs {
     /// Random seed for reproducibility
     #[arg(long)]
     pub seed: Option<u64>,
+    /// Target number to factor (for Factoring)
+    #[arg(long)]
+    pub target: Option<u64>,
+    /// Bits for first factor (for Factoring)
+    #[arg(long)]
+    pub bits_m: Option<usize>,
+    /// Bits for second factor (for Factoring)
+    #[arg(long)]
+    pub bits_n: Option<usize>,
 }
 
 #[derive(clap::Args)]
@@ -236,6 +251,7 @@ Examples:
   pred solve reduced.json                        # solve a reduction bundle
   pred solve reduced.json -o solution.json       # save result to file
   pred create MIS --edges 0-1,1-2 | pred solve - # read from stdin
+  pred solve problem.json --timeout 10           # abort after 10 seconds
 
 Typical workflow:
   pred create MIS --edges 0-1,1-2,2-3 -o problem.json
@@ -259,6 +275,9 @@ pub struct SolveArgs {
     /// Solver: ilp (default) or brute-force
     #[arg(long, default_value = "ilp")]
     pub solver: String,
+    /// Timeout in seconds (0 = no limit) [default: 0]
+    #[arg(long, default_value = "0")]
+    pub timeout: u64,
 }
 
 #[derive(clap::Args)]

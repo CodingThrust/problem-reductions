@@ -238,6 +238,8 @@ pred create QUBO --matrix "1,0.5;0.5,2" -o qubo.json
 pred create KColoring --k 3 --edges 0-1,1-2,2-0 -o kcol.json
 pred create SpinGlass --edges 0-1,1-2 -o sg.json
 pred create MaxCut --edges 0-1,1-2,2-0 -o maxcut.json
+pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
+pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 ```
 
 Generate random instances for graph-based problems:
@@ -344,6 +346,7 @@ Solve a problem instance using ILP (default) or brute-force:
 ```bash
 pred solve problem.json                         # ILP solver (default)
 pred solve problem.json --solver brute-force    # brute-force solver
+pred solve problem.json --timeout 30            # abort after 30 seconds
 ```
 
 Stdin is supported with `-`:
