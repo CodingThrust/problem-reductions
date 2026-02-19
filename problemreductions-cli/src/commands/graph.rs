@@ -183,11 +183,11 @@ pub fn show(problem: &str, hops: Option<usize>, direction: &str, out: &OutputCon
     for e in &incoming {
         text.push_str(&format!(
             "  {} {} {} {} {}\n",
-            crate::output::fmt_problem_name(e.source_name),
-            format_variant(&e.source_variant),
-            crate::output::fmt_incoming("\u{2192}"),
             e.target_name,
             format_variant(&e.target_variant),
+            crate::output::fmt_outgoing("\u{2190}"),
+            crate::output::fmt_problem_name(e.source_name),
+            format_variant(&e.source_variant),
         ));
     }
 

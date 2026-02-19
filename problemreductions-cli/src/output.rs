@@ -62,14 +62,6 @@ pub fn fmt_outgoing(text: &str) -> String {
     }
 }
 
-pub fn fmt_incoming(text: &str) -> String {
-    if use_color() {
-        format!("{}", text.red())
-    } else {
-        text.to_string()
-    }
-}
-
 /// Format dim text (for aliases, tree branches).
 pub fn fmt_dim(text: &str) -> String {
     if use_color() {
