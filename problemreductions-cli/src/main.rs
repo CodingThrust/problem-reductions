@@ -29,6 +29,7 @@ fn main() -> anyhow::Result<()> {
     let out = OutputConfig {
         output: cli.output,
         quiet: cli.quiet,
+        json: cli.json,
     };
 
     match cli.command {
@@ -50,13 +51,9 @@ fn main() -> anyhow::Result<()> {
         Commands::Solve(args) => {
             commands::solve::solve(&args.input, &args.solver, args.timeout, &out)
         }
-        Commands::Reduce(args) => commands::reduce::reduce(
-            &args.input,
-            args.to.as_deref(),
-            args.via.as_deref(),
-            args.json,
-            &out,
-        ),
+        Commands::Reduce(args) => {
+            commands::reduce::reduce(&args.input, args.to.as_deref(), args.via.as_deref(), &out)
+        }
         Commands::Evaluate(args) => commands::evaluate::evaluate(&args.input, &args.config, &out),
         Commands::Completions { shell } => {
             let shell = shell

@@ -53,7 +53,6 @@ pub fn reduce(
     input: &Path,
     target: Option<&str>,
     via: Option<&Path>,
-    json_output: bool,
     out: &OutputConfig,
 ) -> Result<()> {
     // 1. Load source problem
@@ -190,35 +189,18 @@ pub fn reduce(
 
     let json = serde_json::to_value(&bundle)?;
 
-    if let Some(ref path) = out.output {
-        // -o given: write JSON to file
-        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
-        std::fs::write(path, &content)
-            .with_context(|| format!("Failed to write {}", path.display()))?;
-        out.info(&format!(
-            "Reduced {} to {} ({} steps)\nWrote {}",
-            source_name,
-            target_step.name,
-            reduction_path.len(),
-            path.display(),
-        ));
-    } else if json_output {
-        // --json given: print raw JSON to stdout
-        println!("{}", serde_json::to_string_pretty(&json)?);
-    } else {
-        // Default: human-readable summary
-        let mut text = format!(
-            "Reduced {} to {} ({} steps)\n",
-            source_name,
-            target_step.name,
-            reduction_path.len(),
-        );
-        text.push_str(&format!("\nPath: {}\n", reduction_path));
-        text.push_str(
-            "\nUse -o to save the reduction bundle as JSON, or --json to print JSON to stdout.",
-        );
-        println!("{text}");
-    }
+    let mut text = format!(
+        "Reduced {} to {} ({} steps)\n",
+        source_name,
+        target_step.name,
+        reduction_path.len(),
+    );
+    text.push_str(&format!("\nPath: {}\n", reduction_path));
+    text.push_str(
+        "\nHint: use -o to save the reduction bundle as JSON, or --json to print JSON to stdout.",
+    );
+
+    out.emit_with_default_name("", &text, &json)?;
 
     Ok(())
 }

@@ -391,17 +391,8 @@ pub fn path(source: &str, target: &str, cost: &str, all: bool, out: &OutputConfi
     match best_path {
         Some(ref reduction_path) => {
             let text = format_path_text(&graph, reduction_path);
-            if let Some(ref path) = out.output {
-                let json = format_path_json(&graph, reduction_path);
-                let content =
-                    serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
-                std::fs::write(path, &content)
-                    .with_context(|| format!("Failed to write {}", path.display()))?;
-                out.info(&format!("Wrote {}", path.display()));
-            } else {
-                println!("{text}");
-            }
-            Ok(())
+            let json = format_path_json(&graph, reduction_path);
+            out.emit_with_default_name("", &text, &json)
         }
         None => {
             anyhow::bail!(
@@ -455,16 +446,22 @@ fn path_all(
         text.push_str(&format_path_text(graph, p));
     }
 
+    let json: serde_json::Value = all_paths
+        .iter()
+        .map(|p| format_path_json(graph, p))
+        .collect::<Vec<_>>()
+        .into();
+
     if let Some(ref dir) = out.output {
         // -o specifies the output folder; save each path as a separate JSON file
         std::fs::create_dir_all(dir)
             .with_context(|| format!("Failed to create directory {}", dir.display()))?;
 
         for (idx, p) in all_paths.iter().enumerate() {
-            let json = format_path_json(graph, p);
+            let path_json = format_path_json(graph, p);
             let file = dir.join(format!("path_{}.json", idx + 1));
             let content =
-                serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
+                serde_json::to_string_pretty(&path_json).context("Failed to serialize JSON")?;
             std::fs::write(&file, &content)
                 .with_context(|| format!("Failed to write {}", file.display()))?;
         }
@@ -473,6 +470,11 @@ fn path_all(
             all_paths.len(),
             dir.display()
         ));
+    } else if out.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?
+        );
     } else {
         println!("{text}");
     }

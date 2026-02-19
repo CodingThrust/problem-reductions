@@ -10,6 +10,8 @@ pub struct OutputConfig {
     pub output: Option<PathBuf>,
     /// Suppress informational messages on stderr.
     pub quiet: bool,
+    /// Output JSON to stdout instead of human-readable text.
+    pub json: bool,
 }
 
 impl OutputConfig {
@@ -20,7 +22,8 @@ impl OutputConfig {
         }
     }
 
-    /// Emit output: if `-o` is set, save as JSON; otherwise print human text.
+    /// Emit output: `-o` saves JSON to file, `--json` prints JSON to stdout,
+    /// otherwise prints human-readable text.
     pub fn emit_with_default_name(
         &self,
         _default_name: &str,
@@ -33,6 +36,11 @@ impl OutputConfig {
             std::fs::write(path, &content)
                 .with_context(|| format!("Failed to write {}", path.display()))?;
             self.info(&format!("Wrote {}", path.display()));
+        } else if self.json {
+            println!(
+                "{}",
+                serde_json::to_string_pretty(json_value).context("Failed to serialize JSON")?
+            );
         } else {
             println!("{human_text}");
         }

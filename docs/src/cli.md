@@ -65,6 +65,7 @@ pred create MIS --edges 0-1,1-2,2-3 | pred reduce - --to QUBO | pred solve -
 | Flag | Description |
 |------|-------------|
 | `-o, --output <FILE>` | Save JSON output to a file |
+| `--json` | Output JSON to stdout instead of human-readable text |
 | `-q, --quiet` | Suppress informational messages on stderr |
 
 ## Commands
@@ -313,13 +314,6 @@ Use a specific reduction path (from `pred path -o`). The target is inferred from
 pred reduce problem.json --via path.json -o reduced.json
 ```
 
-Without `-o`, a human-readable summary is shown. Use `--json` to output raw JSON to stdout:
-
-```bash
-pred reduce problem.json --to QUBO          # human-readable summary
-pred reduce problem.json --to QUBO --json   # raw JSON to stdout
-```
-
 Stdin is supported with `-`:
 
 ```bash
@@ -401,13 +395,21 @@ If the shell argument is omitted, `pred completions` auto-detects your current s
 
 ## JSON Output
 
-All commands support `-o` to write JSON output to a file:
+All commands support `-o` to write JSON to a file and `--json` to print JSON to stdout:
 
 ```bash
-pred list -o problems.json
-pred show MIS -o mis.json
-pred path MIS QUBO -o path.json
-pred solve problem.json -o solution.json
+pred list -o problems.json       # save to file
+pred list --json                 # print JSON to stdout
+pred show MIS --json             # works on any command
+pred path MIS QUBO --json
+pred solve problem.json --json
+```
+
+This is useful for scripting and piping:
+
+```bash
+pred list --json | jq '.problems[].name'
+pred path MIS QUBO --json | jq '.path'
 ```
 
 ## Problem Name Aliases

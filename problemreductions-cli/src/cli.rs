@@ -17,6 +17,10 @@ Piping (use - to read from stdin):
   pred create MIS --edges 0-1,1-2 | pred evaluate - --config 1,0,1
   pred create MIS --edges 0-1,1-2 | pred reduce - --to QUBO
 
+JSON output (any command):
+  pred list --json                 # JSON to stdout
+  pred show MIS --json | jq '.'   # pipe to jq
+
 Use `pred <command> --help` for detailed usage of each command.
 Use `pred list` to see all available problem types.
 
@@ -31,6 +35,10 @@ pub struct Cli {
     /// Suppress informational messages on stderr
     #[arg(long, short, global = true)]
     pub quiet: bool,
+
+    /// Output JSON to stdout instead of human-readable text
+    #[arg(long, global = true)]
+    pub json: bool,
 
     #[command(subcommand)]
     pub command: Commands,
@@ -302,9 +310,6 @@ pub struct ReduceArgs {
     /// Reduction route file (from `pred path ... -o`)
     #[arg(long)]
     pub via: Option<PathBuf>,
-    /// Output raw JSON to stdout instead of human-readable summary
-    #[arg(long)]
-    pub json: bool,
 }
 
 #[derive(clap::Args)]
