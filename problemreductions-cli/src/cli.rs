@@ -94,6 +94,22 @@ Example:
     Reduce(ReduceArgs),
     /// Solve a problem instance
     Solve(SolveArgs),
+    /// Print shell completions to stdout (auto-detects shell)
+    #[command(after_help = "\
+Setup: add one line to your shell rc file:
+
+  # bash (~/.bashrc)
+  eval \"$(pred completions bash)\"
+
+  # zsh (~/.zshrc)
+  eval \"$(pred completions zsh)\"
+
+  # fish (~/.config/fish/config.fish)
+  pred completions fish | source")]
+    Completions {
+        /// Shell type (bash, zsh, fish, etc.). Auto-detected if omitted.
+        shell: Option<clap_complete::Shell>,
+    },
 }
 
 #[derive(clap::Args)]

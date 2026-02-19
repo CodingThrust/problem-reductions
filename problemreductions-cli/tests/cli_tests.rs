@@ -1179,6 +1179,33 @@ fn test_subcommand_help() {
     assert!(stdout.contains("pred create"));
 }
 
+// ---- Shell completions tests ----
+
+#[test]
+fn test_completions_bash() {
+    let output = pred().args(["completions", "bash"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("pred"), "completions should reference 'pred'");
+}
+
+#[test]
+fn test_completions_auto_detect() {
+    // Without explicit shell arg, should still succeed (falls back to bash)
+    let output = pred().args(["completions"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("pred"));
+}
+
 // ---- k-neighbor exploration tests ----
 
 #[test]

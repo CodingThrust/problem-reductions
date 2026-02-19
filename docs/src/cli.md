@@ -303,6 +303,23 @@ Source evaluation: Valid(2)
 > Some problems (e.g., QUBO, SpinGlass, MaxCut, CircuitSAT) do not have this path yet.
 > Use `--solver brute-force` for these, or reduce to a problem that supports ILP first.
 
+## Shell Completions
+
+Enable tab completion by adding one line to your shell config:
+
+```bash
+# bash (~/.bashrc)
+eval "$(pred completions bash)"
+
+# zsh (~/.zshrc)
+eval "$(pred completions zsh)"
+
+# fish (~/.config/fish/config.fish)
+pred completions fish | source
+```
+
+If the shell argument is omitted, `pred completions` auto-detects your current shell.
+
 ## JSON Output
 
 All commands support `-o` to write JSON output to a file:
