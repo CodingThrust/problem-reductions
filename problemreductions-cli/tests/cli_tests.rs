@@ -1326,7 +1326,13 @@ fn test_reduce_stdout() {
     assert!(create_out.status.success());
 
     let output = pred()
-        .args(["reduce", problem_file.to_str().unwrap(), "--to", "QUBO", "--json"])
+        .args([
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+            "--json",
+        ])
         .output()
         .unwrap();
     assert!(
@@ -1541,7 +1547,10 @@ fn test_completions_bash() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("pred"), "completions should reference 'pred'");
+    assert!(
+        stdout.contains("pred"),
+        "completions should reference 'pred'"
+    );
 }
 
 #[test]
@@ -1908,10 +1917,7 @@ fn test_inspect_problem() {
         stdout.contains("Type: MaximumIndependentSet"),
         "expected 'Type: MaximumIndependentSet', got: {stdout}"
     );
-    assert!(
-        stdout.contains("Size:"),
-        "expected 'Size:', got: {stdout}"
-    );
+    assert!(stdout.contains("Size:"), "expected 'Size:', got: {stdout}");
     assert!(
         stdout.contains("Variables:"),
         "expected 'Variables:', got: {stdout}"
@@ -2073,4 +2079,244 @@ fn test_inspect_json_output() {
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();
+}
+
+// ---- Random generation tests ----
+
+#[test]
+fn test_create_random_mis() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS",
+            "--random",
+            "--num-vertices",
+            "10",
+            "--edge-prob",
+            "0.3",
+            "--seed",
+            "42",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert!(json["data"].is_object());
+}
+
+#[test]
+fn test_create_random_deterministic() {
+    // Same seed should produce identical output
+    let out1 = pred()
+        .args([
+            "create",
+            "MIS",
+            "--random",
+            "--num-vertices",
+            "5",
+            "--seed",
+            "123",
+        ])
+        .output()
+        .unwrap();
+    let out2 = pred()
+        .args([
+            "create",
+            "MIS",
+            "--random",
+            "--num-vertices",
+            "5",
+            "--seed",
+            "123",
+        ])
+        .output()
+        .unwrap();
+    assert!(out1.status.success());
+    assert!(out2.status.success());
+    assert_eq!(out1.stdout, out2.stdout);
+}
+
+#[test]
+fn test_create_random_missing_num_vertices() {
+    let output = pred().args(["create", "MIS", "--random"]).output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--num-vertices"),
+        "expected '--num-vertices' in error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_random_maxcut() {
+    let output = pred()
+        .args([
+            "create",
+            "MaxCut",
+            "--random",
+            "--num-vertices",
+            "5",
+            "--seed",
+            "42",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaxCut");
+}
+
+#[test]
+fn test_create_random_unsupported() {
+    let output = pred()
+        .args(["create", "SAT", "--random", "--num-vertices", "5"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("not supported"),
+        "expected 'not supported' in error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_random_invalid_edge_prob() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS",
+            "--random",
+            "--num-vertices",
+            "5",
+            "--edge-prob",
+            "1.5",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--edge-prob must be between"),
+        "expected edge-prob validation error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_random_spinglass() {
+    let output = pred()
+        .args([
+            "create",
+            "SpinGlass",
+            "--random",
+            "--num-vertices",
+            "5",
+            "--seed",
+            "42",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "SpinGlass");
+}
+
+#[test]
+fn test_create_random_kcoloring() {
+    let output = pred()
+        .args([
+            "create",
+            "KColoring",
+            "--random",
+            "--num-vertices",
+            "5",
+            "--seed",
+            "42",
+            "--k",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "KColoring");
+}
+
+#[test]
+fn test_create_random_to_file() {
+    let output_file = std::env::temp_dir().join("pred_test_create_random.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--random",
+            "--num-vertices",
+            "8",
+            "--edge-prob",
+            "0.4",
+            "--seed",
+            "99",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_random_default_edge_prob() {
+    // Without --edge-prob, defaults to 0.5
+    let output = pred()
+        .args([
+            "create",
+            "MIS",
+            "--random",
+            "--num-vertices",
+            "5",
+            "--seed",
+            "42",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
 }

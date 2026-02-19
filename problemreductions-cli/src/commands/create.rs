@@ -12,6 +12,10 @@ use std::collections::BTreeMap;
 pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     let canonical = resolve_alias(&args.problem);
 
+    if args.random {
+        return create_random(args, &canonical, out);
+    }
+
     let (data, variant) = match canonical.as_str() {
         // Graph problems with vertex weights
         "MaximumIndependentSet"
@@ -153,10 +157,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             bail!("Factoring requires complex construction — use a JSON file instead");
         }
 
-        _ => bail!(
-            "{}",
-            crate::problem_name::unknown_problem_error(&canonical)
-        ),
+        _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     };
 
     let output = ProblemJsonOutput {
@@ -168,8 +169,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     let json = serde_json::to_value(&output)?;
 
     if let Some(ref path) = out.output {
-        let content =
-            serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
+        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
         std::fs::write(path, &content)
             .with_context(|| format!("Failed to write {}", path.display()))?;
         out.info(&format!("Wrote {}", path.display()));
@@ -305,4 +305,137 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
                 .collect()
         })
         .collect()
+}
+
+/// Generate a random Erdos-Renyi graph using a simple LCG PRNG (no external dependency).
+fn create_random_graph(num_vertices: usize, edge_prob: f64, seed: Option<u64>) -> SimpleGraph {
+    let mut state: u64 = seed.unwrap_or_else(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as u64
+    });
+
+    let mut edges = Vec::new();
+    for i in 0..num_vertices {
+        for j in (i + 1)..num_vertices {
+            // LCG step
+            state = state
+                .wrapping_mul(6364136223846793005)
+                .wrapping_add(1442695040888963407);
+            let rand_val = (state >> 33) as f64 / (1u64 << 31) as f64;
+            if rand_val < edge_prob {
+                edges.push((i, j));
+            }
+        }
+    }
+
+    SimpleGraph::new(num_vertices, edges)
+}
+
+/// Handle `pred create <PROBLEM> --random ...`
+fn create_random(args: &CreateArgs, canonical: &str, out: &OutputConfig) -> Result<()> {
+    let num_vertices = args.num_vertices.ok_or_else(|| {
+        anyhow::anyhow!(
+            "--random requires --num-vertices\n\n\
+             Usage: pred create {} --random --num-vertices 10 [--edge-prob 0.3] [--seed 42]",
+            args.problem
+        )
+    })?;
+    let edge_prob = args.edge_prob.unwrap_or(0.5);
+    if !(0.0..=1.0).contains(&edge_prob) {
+        bail!("--edge-prob must be between 0.0 and 1.0");
+    }
+
+    let graph = create_random_graph(num_vertices, edge_prob, args.seed);
+    let num_edges = graph.num_edges();
+
+    let (data, variant) = match canonical {
+        // Graph problems with vertex weights
+        "MaximumIndependentSet"
+        | "MinimumVertexCover"
+        | "MaximumClique"
+        | "MinimumDominatingSet" => {
+            let weights = vec![1i32; num_vertices];
+            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+            let data = match canonical {
+                "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
+                "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
+                "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
+                "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
+                _ => unreachable!(),
+            };
+            (data, variant)
+        }
+
+        // Graph problems with edge weights
+        "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
+            let edge_weights = vec![1i32; num_edges];
+            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+            let data = match canonical {
+                "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
+                "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
+                "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
+                _ => unreachable!(),
+            };
+            (data, variant)
+        }
+
+        // SpinGlass
+        "SpinGlass" => {
+            let couplings = vec![1i32; num_edges];
+            let fields = vec![0i32; num_vertices];
+            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+            (
+                ser(SpinGlass::from_graph(graph, couplings, fields))?,
+                variant,
+            )
+        }
+
+        // KColoring
+        "KColoring" => {
+            let k = args.k.unwrap_or(3);
+            let variant;
+            let data;
+            match k {
+                2 => {
+                    variant = variant_map(&[("k", "K2"), ("graph", "SimpleGraph")]);
+                    data = ser(KColoring::<K2, SimpleGraph>::new(graph))?;
+                }
+                3 => {
+                    variant = variant_map(&[("k", "K3"), ("graph", "SimpleGraph")]);
+                    data = ser(KColoring::<K3, SimpleGraph>::new(graph))?;
+                }
+                _ => {
+                    variant = variant_map(&[("k", "KN"), ("graph", "SimpleGraph")]);
+                    data = ser(KColoring::<KN, SimpleGraph>::with_k(graph, k))?;
+                }
+            }
+            (data, variant)
+        }
+
+        _ => bail!(
+            "Random generation is not supported for {canonical}. \
+             Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
+             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman)"
+        ),
+    };
+
+    let output = ProblemJsonOutput {
+        problem_type: canonical.to_string(),
+        variant,
+        data,
+    };
+
+    let json = serde_json::to_value(&output)?;
+
+    if let Some(ref path) = out.output {
+        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
+        std::fs::write(path, &content)
+            .with_context(|| format!("Failed to write {}", path.display()))?;
+        out.info(&format!("Wrote {}", path.display()));
+    } else {
+        println!("{}", serde_json::to_string_pretty(&json)?);
+    }
+    Ok(())
 }
