@@ -81,3 +81,4 @@ docs/paper/examples/
 # Claude Code logs
 claude-output.log
 .worktrees/
+.worktree/

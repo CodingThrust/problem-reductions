@@ -4,7 +4,9 @@
 Rust library for NP-hard problem reductions. Implements computational problems with reduction rules for transforming between equivalent formulations.
 
 ## Skills
-When resolving an issue with pull request, please use [issue-to-pr](skills/issue-to-pr.md) skill to convert the issue into a pull request with a plan.
+- [issue-to-pr](skills/issue-to-pr.md) -- Convert a GitHub issue into a PR with an implementation plan. Validates the issue against the appropriate checklist, then dispatches to `add-model` or `add-rule`.
+- [add-model](skills/add-model.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
+- [add-rule](skills/add-rule.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 
 ## Commands
 ```bash
