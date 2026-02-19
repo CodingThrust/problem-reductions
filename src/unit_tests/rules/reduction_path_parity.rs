@@ -152,7 +152,10 @@ fn test_jl_parity_factoring_to_spinglass_path() {
     let target: &SpinGlass<SimpleGraph, f64> = chain.target_problem();
 
     // Verify reduction produces a valid SpinGlass problem
-    assert!(target.num_variables() > 0, "SpinGlass should have variables");
+    assert!(
+        target.num_variables() > 0,
+        "SpinGlass should have variables"
+    );
 
     // Solve Factoring directly via ILP (fast) and verify path solution extraction
     let ilp_solver = ILPSolver::new();

@@ -233,7 +233,12 @@ impl Problem for BicliqueCover {
         &["left_size", "right_size", "num_edges", "rank"]
     }
     fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.left_size(), self.right_size(), self.num_edges(), self.k()]
+        vec![
+            self.left_size(),
+            self.right_size(),
+            self.num_edges(),
+            self.k(),
+        ]
     }
 }
 

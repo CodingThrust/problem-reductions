@@ -62,11 +62,12 @@ mod qubo_ilp;
 #[cfg(feature = "ilp-solver")]
 mod travelingsalesman_ilp;
 
-pub use graph::{
-    ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionPath, ReductionStep,
-};
 #[cfg(test)]
 pub(crate) use graph::validate_overhead_variables;
+pub use graph::{
+    NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionPath,
+    ReductionStep, TraversalDirection,
+};
 pub use traits::{ReduceTo, ReductionAutoCast, ReductionResult};
 
 /// Generates a variant-cast `ReduceTo` impl with `#[reduction]` registration.
@@ -116,4 +117,3 @@ macro_rules! impl_variant_reduction {
         }
     };
 }
-

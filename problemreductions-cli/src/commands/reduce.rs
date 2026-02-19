@@ -1,5 +1,6 @@
 use crate::dispatch::{
-    load_problem, serialize_any_problem, PathStep, ProblemJson, ProblemJsonOutput, ReductionBundle,
+    load_problem, read_input, serialize_any_problem, PathStep, ProblemJson, ProblemJsonOutput,
+    ReductionBundle,
 };
 use crate::output::OutputConfig;
 use crate::problem_name::parse_problem_spec;
@@ -11,8 +12,7 @@ use std::path::Path;
 
 /// Parse a path JSON file (produced by `pred path ... -o`) into a ReductionPath.
 fn load_path_file(path_file: &Path) -> Result<ReductionPath> {
-    let content =
-        std::fs::read_to_string(path_file).context("Failed to read path file")?;
+    let content = std::fs::read_to_string(path_file).context("Failed to read path file")?;
     let json: serde_json::Value =
         serde_json::from_str(&content).context("Failed to parse path file")?;
 
@@ -51,12 +51,12 @@ fn parse_path_node(node: &serde_json::Value) -> Result<ReductionStep> {
 
 pub fn reduce(
     input: &Path,
-    target: &str,
+    target: Option<&str>,
     via: Option<&Path>,
     out: &OutputConfig,
 ) -> Result<()> {
     // 1. Load source problem
-    let content = std::fs::read_to_string(input)?;
+    let content = read_input(input)?;
     let problem_json: ProblemJson = serde_json::from_str(&content)?;
 
     let source = load_problem(
@@ -67,20 +67,12 @@ pub fn reduce(
 
     let source_name = source.problem_name();
     let source_variant = source.variant_map();
-
-    // 2. Parse target spec
-    let dst_spec = parse_problem_spec(target)?;
     let graph = ReductionGraph::new();
-
-    let dst_variants = graph.variants_for(&dst_spec.name);
-    if dst_variants.is_empty() {
-        anyhow::bail!("Unknown target problem: {}", dst_spec.name);
-    }
 
     // 3. Get reduction path: from --via file or auto-discover
     let reduction_path = if let Some(path_file) = via {
         let path = load_path_file(path_file)?;
-        // Validate that the path starts with the source and ends with the target
+        // Validate that the path starts with the source
         let first = path.steps.first().unwrap();
         let last = path.steps.last().unwrap();
         if first.name != source_name || first.variant != source_variant {
@@ -92,15 +84,37 @@ pub fn reduce(
                 format_variant(&source_variant),
             );
         }
-        if last.name != dst_spec.name {
-            anyhow::bail!(
-                "Path file ends with {} but target is {}",
-                last.name,
-                dst_spec.name,
-            );
+        // If --to is given, validate it matches the path's target
+        if let Some(target) = target {
+            let dst_spec = parse_problem_spec(target)?;
+            if last.name != dst_spec.name {
+                anyhow::bail!(
+                    "Path file ends with {} but --to specifies {}",
+                    last.name,
+                    dst_spec.name,
+                );
+            }
         }
         path
     } else {
+        // --to is required when --via is not given
+        let target = target.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Either --to or --via is required.\n\n\
+                 Usage:\n\
+                   pred reduce problem.json --to QUBO\n\
+                   pred reduce problem.json --via path.json"
+            )
+        })?;
+        let dst_spec = parse_problem_spec(target)?;
+        let dst_variants = graph.variants_for(&dst_spec.name);
+        if dst_variants.is_empty() {
+            anyhow::bail!(
+                "{}",
+                crate::problem_name::unknown_problem_error(&dst_spec.name)
+            );
+        }
+
         // Auto-discover cheapest path
         let input_size = ProblemSize::new(vec![]);
         let mut best_path = None;
@@ -128,13 +142,12 @@ pub fn reduce(
                 "No reduction path from {} to {}\n\n\
                  Hint: generate a path file first, then pass it with --via:\n\
                    pred path {} {} -o path.json\n\
-                   pred reduce {} --to {} --via path.json -o reduced.json",
+                   pred reduce {} --via path.json -o reduced.json",
                 source_name,
                 dst_spec.name,
                 source_name,
                 dst_spec.name,
                 input.display(),
-                dst_spec.name,
             )
         })?
     };
@@ -176,21 +189,18 @@ pub fn reduce(
 
     let json = serde_json::to_value(&bundle)?;
 
-    if let Some(ref path) = out.output {
-        let content =
-            serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
-        std::fs::write(path, &content)
-            .with_context(|| format!("Failed to write {}", path.display()))?;
-        eprintln!(
-            "Reduced {} to {} ({} steps)\nWrote {}",
-            source_name,
-            target_step.name,
-            reduction_path.len(),
-            path.display(),
-        );
-    } else {
-        println!("{}", serde_json::to_string_pretty(&json)?);
-    }
+    let mut text = format!(
+        "Reduced {} to {} ({} steps)\n",
+        source_name,
+        target_step.name,
+        reduction_path.len(),
+    );
+    text.push_str(&format!("\nPath: {}\n", reduction_path));
+    text.push_str(
+        "\nHint: use -o to save the reduction bundle as JSON, or --json to print JSON to stdout.",
+    );
+
+    out.emit_with_default_name("", &text, &json)?;
 
     Ok(())
 }

@@ -88,15 +88,9 @@ impl ReduceTo<ILP> for QUBO<f64> {
         for (k, &(i, j, _)) in off_diag.iter().enumerate() {
             let y_k = n + k;
             // y_k ≤ x_i
-            constraints.push(LinearConstraint::le(
-                vec![(y_k, 1.0), (i, -1.0)],
-                0.0,
-            ));
+            constraints.push(LinearConstraint::le(vec![(y_k, 1.0), (i, -1.0)], 0.0));
             // y_k ≤ x_j
-            constraints.push(LinearConstraint::le(
-                vec![(y_k, 1.0), (j, -1.0)],
-                0.0,
-            ));
+            constraints.push(LinearConstraint::le(vec![(y_k, 1.0), (j, -1.0)], 0.0));
             // y_k ≥ x_i + x_j - 1
             constraints.push(LinearConstraint::ge(
                 vec![(y_k, 1.0), (i, -1.0), (j, -1.0)],
@@ -104,7 +98,13 @@ impl ReduceTo<ILP> for QUBO<f64> {
             ));
         }
 
-        let target = ILP::new(total_vars, bounds, constraints, objective, ObjectiveSense::Minimize);
+        let target = ILP::new(
+            total_vars,
+            bounds,
+            constraints,
+            objective,
+            ObjectiveSense::Minimize,
+        );
         ReductionQUBOToILP {
             target,
             num_original: n,

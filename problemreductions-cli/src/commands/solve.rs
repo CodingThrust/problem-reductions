@@ -1,8 +1,9 @@
-use crate::dispatch::{load_problem, ProblemJson, ReductionBundle};
+use crate::dispatch::{load_problem, read_input, ProblemJson, ReductionBundle};
 use crate::output::OutputConfig;
 use anyhow::{Context, Result};
 use problemreductions::rules::ReductionGraph;
 use std::path::Path;
+use std::time::Duration;
 
 /// Input can be either a problem JSON or a reduction bundle JSON.
 enum SolveInput {
@@ -13,10 +14,8 @@ enum SolveInput {
 }
 
 fn parse_input(path: &Path) -> Result<SolveInput> {
-    let content = std::fs::read_to_string(path)
-        .with_context(|| format!("Failed to read {}", path.display()))?;
-    let json: serde_json::Value =
-        serde_json::from_str(&content).context("Failed to parse JSON")?;
+    let content = read_input(path)?;
+    let json: serde_json::Value = serde_json::from_str(&content).context("Failed to parse JSON")?;
 
     // Reduction bundles have "source", "target", and "path" fields
     if json.get("source").is_some() && json.get("target").is_some() && json.get("path").is_some() {
@@ -30,7 +29,7 @@ fn parse_input(path: &Path) -> Result<SolveInput> {
     }
 }
 
-pub fn solve(input: &Path, solver_name: &str, out: &OutputConfig) -> Result<()> {
+pub fn solve(input: &Path, solver_name: &str, timeout: u64, out: &OutputConfig) -> Result<()> {
     if solver_name != "brute-force" && solver_name != "ilp" {
         anyhow::bail!(
             "Unknown solver: {}. Available solvers: brute-force, ilp",
@@ -40,12 +39,33 @@ pub fn solve(input: &Path, solver_name: &str, out: &OutputConfig) -> Result<()> 
 
     let parsed = parse_input(input)?;
 
-    match parsed {
-        SolveInput::Problem(problem_json) => {
-            solve_problem(&problem_json.problem_type, &problem_json.variant, problem_json.data, solver_name, out)
+    if timeout > 0 {
+        let solver_name = solver_name.to_string();
+        let out = out.clone();
+        let (tx, rx) = std::sync::mpsc::channel();
+        std::thread::spawn(move || {
+            let result = match parsed {
+                SolveInput::Problem(pj) => solve_problem(
+                    &pj.problem_type,
+                    &pj.variant,
+                    pj.data,
+                    &solver_name,
+                    &out,
+                ),
+                SolveInput::Bundle(b) => solve_bundle(b, &solver_name, &out),
+            };
+            tx.send(result).ok();
+        });
+        match rx.recv_timeout(Duration::from_secs(timeout)) {
+            Ok(result) => result,
+            Err(_) => anyhow::bail!("Solve timed out after {} seconds", timeout),
         }
-        SolveInput::Bundle(bundle) => {
-            solve_bundle(bundle, solver_name, out)
+    } else {
+        match parsed {
+            SolveInput::Problem(pj) => {
+                solve_problem(&pj.problem_type, &pj.variant, pj.data, solver_name, out)
+            }
+            SolveInput::Bundle(b) => solve_bundle(b, solver_name, out),
         }
     }
 }
@@ -74,32 +94,37 @@ fn solve_problem(
                 "solution": result.config,
                 "evaluation": result.evaluation,
             });
-            out.emit_with_default_name("", &text, &json)
+            let result = out.emit_with_default_name("", &text, &json);
+            if out.output.is_none() && crate::output::stderr_is_tty() {
+                out.info("\nHint: use -o to save full solution details as JSON.");
+            }
+            result
         }
         "ilp" => {
             let result = problem.solve_with_ilp()?;
-            let reduced = name != "ILP";
-            let text = if reduced {
-                format!(
-                    "Problem: {} (reduced to ILP)\nSolver: ilp\nSolution: {:?}\nEvaluation: {}",
-                    name, result.config, result.evaluation,
-                )
+            let solver_desc = if name == "ILP" {
+                "ilp".to_string()
             } else {
-                format!(
-                    "Problem: ILP\nSolver: ilp\nSolution: {:?}\nEvaluation: {}",
-                    result.config, result.evaluation,
-                )
+                "ilp (via ILP)".to_string()
             };
+            let text = format!(
+                "Problem: {}\nSolver: {}\nSolution: {:?}\nEvaluation: {}",
+                name, solver_desc, result.config, result.evaluation,
+            );
             let mut json = serde_json::json!({
                 "problem": name,
                 "solver": "ilp",
                 "solution": result.config,
                 "evaluation": result.evaluation,
             });
-            if reduced {
+            if name != "ILP" {
                 json["reduced_to"] = serde_json::json!("ILP");
             }
-            out.emit_with_default_name("", &text, &json)
+            let result = out.emit_with_default_name("", &text, &json);
+            if out.output.is_none() && crate::output::stderr_is_tty() {
+                out.info("\nHint: use -o to save full solution details as JSON.");
+            }
+            result
         }
         _ => unreachable!(),
     }
@@ -146,36 +171,36 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
 
     let chain = graph
         .reduce_along_path(&reduction_path, source.as_any())
-        .ok_or_else(|| anyhow::anyhow!("Failed to re-execute reduction chain for solution extraction"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!("Failed to re-execute reduction chain for solution extraction")
+        })?;
 
     // 4. Extract solution back to source problem space
     let source_config = chain.extract_solution(&target_result.config);
     let source_eval = source.evaluate_dyn(&source_config);
 
+    let solver_desc = format!("{} (via {})", solver_name, target_name);
     let text = format!(
-        "Source: {}\nTarget: {} (solved with {})\nTarget solution: {:?}\nTarget evaluation: {}\nSource solution: {:?}\nSource evaluation: {}",
-        source_name,
-        target_name,
-        solver_name,
-        target_result.config,
-        target_result.evaluation,
-        source_config,
-        source_eval,
+        "Problem: {}\nSolver: {}\nSolution: {:?}\nEvaluation: {}",
+        source_name, solver_desc, source_config, source_eval,
     );
 
     let json = serde_json::json!({
-        "source": {
-            "problem": source_name,
-            "solution": source_config,
-            "evaluation": source_eval,
-        },
-        "target": {
+        "problem": source_name,
+        "solver": solver_name,
+        "reduced_to": target_name,
+        "solution": source_config,
+        "evaluation": source_eval,
+        "intermediate": {
             "problem": target_name,
-            "solver": solver_name,
             "solution": target_result.config,
             "evaluation": target_result.evaluation,
         },
     });
 
-    out.emit_with_default_name("", &text, &json)
+    let result = out.emit_with_default_name("", &text, &json);
+    if out.output.is_none() && crate::output::stderr_is_tty() {
+        out.info("\nHint: use -o to save full solution details (including intermediate results) as JSON.");
+    }
+    result
 }

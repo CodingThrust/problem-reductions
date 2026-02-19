@@ -1,10 +1,10 @@
-use crate::dispatch::{load_problem, ProblemJson};
+use crate::dispatch::{load_problem, read_input, ProblemJson};
 use crate::output::OutputConfig;
 use anyhow::Result;
 use std::path::Path;
 
 pub fn evaluate(input: &Path, config_str: &str, out: &OutputConfig) -> Result<()> {
-    let content = std::fs::read_to_string(input)?;
+    let content = read_input(input)?;
     let problem_json: ProblemJson = serde_json::from_str(&content)?;
 
     let problem = load_problem(

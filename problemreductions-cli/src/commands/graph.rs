@@ -2,42 +2,94 @@ use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_variant};
 use anyhow::{Context, Result};
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph};
+use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph, TraversalDirection};
 use problemreductions::types::ProblemSize;
-use std::collections::BTreeMap;
-use std::path::Path;
+use std::collections::{BTreeMap, HashSet};
 
 pub fn list(out: &OutputConfig) -> Result<()> {
+    use crate::output::{format_table, Align};
+
     let graph = ReductionGraph::new();
 
     let mut types = graph.problem_types();
     types.sort();
 
-    let mut text = format!(
-        "Registered problems: {} types, {} reductions, {} variant nodes\n\n",
+    // Collect data for each problem
+    struct RowData {
+        name: String,
+        aliases: Vec<&'static str>,
+        num_variants: usize,
+        num_reduces_to: usize,
+    }
+    let data: Vec<RowData> = types
+        .iter()
+        .map(|name| {
+            let aliases = aliases_for(name);
+            let num_variants = graph.variants_for(name).len();
+            let num_reduces_to = graph.outgoing_reductions(name).len();
+            RowData {
+                name: name.to_string(),
+                aliases,
+                num_variants,
+                num_reduces_to,
+            }
+        })
+        .collect();
+
+    let summary = format!(
+        "Registered problems: {} types, {} reductions, {} variant nodes\n",
         graph.num_types(),
         graph.num_reductions(),
         graph.num_variant_nodes(),
     );
 
-    for name in &types {
-        let aliases = aliases_for(name);
-        if aliases.is_empty() {
-            text.push_str(&format!("  {name}\n"));
-        } else {
-            text.push_str(&format!("  {name} ({})\n", aliases.join(", ")));
-        }
-    }
+    let columns: Vec<(&str, Align, usize)> = vec![
+        ("Problem", Align::Left, 7),
+        ("Aliases", Align::Left, 7),
+        ("Variants", Align::Right, 8),
+        ("Reduces to", Align::Right, 10),
+    ];
 
+    let rows: Vec<Vec<String>> = data
+        .iter()
+        .map(|r| {
+            vec![
+                r.name.clone(),
+                if r.aliases.is_empty() {
+                    String::new()
+                } else {
+                    r.aliases.join(", ")
+                },
+                r.num_variants.to_string(),
+                r.num_reduces_to.to_string(),
+            ]
+        })
+        .collect();
+
+    let color_fns: Vec<Option<crate::output::CellFormatter>> = vec![
+        Some(crate::output::fmt_problem_name),
+        None,
+        None,
+        None,
+    ];
+
+    let mut text = String::new();
+    text.push_str(&crate::output::fmt_section(&summary));
+    text.push('\n');
+    text.push_str(&format_table(&columns, &rows, &color_fns));
     text.push_str("\nUse `pred show <problem>` to see variants, reductions, and fields.\n");
 
     let json = serde_json::json!({
         "num_types": graph.num_types(),
         "num_reductions": graph.num_reductions(),
         "num_variant_nodes": graph.num_variant_nodes(),
-        "problems": types.iter().map(|name| {
-            let aliases = aliases_for(name);
-            serde_json::json!({ "name": name, "aliases": aliases })
+        "problems": data.iter().map(|r| {
+            serde_json::json!({
+                "name": r.name,
+                "aliases": r.aliases,
+                "num_variants": r.num_variants,
+                "num_reduces_to": r.num_reduces_to,
+            })
         }).collect::<Vec<_>>(),
     });
 
@@ -50,10 +102,10 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
 
     let variants = graph.variants_for(&spec.name);
     if variants.is_empty() {
-        anyhow::bail!("Unknown problem: {}", spec.name);
+        anyhow::bail!("{}", crate::problem_name::unknown_problem_error(&spec.name));
     }
 
-    let mut text = format!("{}\n", spec.name);
+    let mut text = format!("{}\n", crate::output::fmt_problem_name(&spec.name));
 
     // Show description from schema
     let schemas = collect_schemas();
@@ -65,14 +117,20 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     }
 
     // Show variants
-    text.push_str(&format!("\nVariants ({}):\n", variants.len()));
+    text.push_str(&format!(
+        "\n{}\n",
+        crate::output::fmt_section(&format!("Variants ({}):", variants.len()))
+    ));
     for v in &variants {
         text.push_str(&format!("  {}\n", format_variant(v)));
     }
 
     // Show fields from schema (right after variants)
     if let Some(s) = schema {
-        text.push_str(&format!("\nFields ({}):\n", s.fields.len()));
+        text.push_str(&format!(
+            "\n{}\n",
+            crate::output::fmt_section(&format!("Fields ({}):", s.fields.len()))
+        ));
         for field in &s.fields {
             text.push_str(&format!("  {} ({})", field.name, field.type_name));
             if !field.description.is_empty() {
@@ -85,7 +143,10 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     // Show size fields (used with `pred path --cost minimize:<field>`)
     let size_fields = graph.size_field_names(&spec.name);
     if !size_fields.is_empty() {
-        text.push_str(&format!("\nSize fields ({}):\n", size_fields.len()));
+        text.push_str(&format!(
+            "\n{}\n",
+            crate::output::fmt_section(&format!("Size fields ({}):", size_fields.len()))
+        ));
         for f in size_fields {
             text.push_str(&format!("  {f}\n"));
         }
@@ -95,25 +156,29 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     let outgoing = graph.outgoing_reductions(&spec.name);
     let incoming = graph.incoming_reductions(&spec.name);
 
-    text.push_str(&format!("\nReduces to ({}):\n", outgoing.len()));
+    text.push_str(&format!(
+        "\n{}\n",
+        crate::output::fmt_section(&format!("Reduces to ({}):", outgoing.len()))
+    ));
     for e in &outgoing {
         text.push_str(&format!(
-            "  {} {} -> {} {}\n",
-            e.source_name,
-            format_variant(&e.source_variant),
-            e.target_name,
-            format_variant(&e.target_variant),
+            "  {} {} {}\n",
+            fmt_node(e.source_name, &e.source_variant),
+            crate::output::fmt_outgoing("\u{2192}"),
+            fmt_node(e.target_name, &e.target_variant),
         ));
     }
 
-    text.push_str(&format!("\nReduces from ({}):\n", incoming.len()));
+    text.push_str(&format!(
+        "\n{}\n",
+        crate::output::fmt_section(&format!("Reduces from ({}):", incoming.len()))
+    ));
     for e in &incoming {
         text.push_str(&format!(
-            "  {} {} -> {} {}\n",
-            e.source_name,
-            format_variant(&e.source_variant),
-            e.target_name,
-            format_variant(&e.target_variant),
+            "  {} {} {}\n",
+            fmt_node(e.target_name, &e.target_variant),
+            crate::output::fmt_outgoing("\u{2190}"),
+            fmt_node(e.source_name, &e.source_variant),
         ));
     }
 
@@ -147,22 +212,47 @@ fn format_variant(v: &BTreeMap<String, String>) -> String {
     }
 }
 
+/// Format a problem node as **bold name** + plain variant.
+/// This is the single source of truth for "name {variant}" display.
+fn fmt_node(name: &str, variant: &BTreeMap<String, String>) -> String {
+    format!(
+        "{} {}",
+        crate::output::fmt_problem_name(name),
+        format_variant(variant),
+    )
+}
+
 fn format_path_text(
     graph: &ReductionGraph,
     reduction_path: &problemreductions::rules::ReductionPath,
 ) -> String {
-    let mut text = format!(
-        "Path ({} steps): {}\n",
-        reduction_path.len(),
-        reduction_path
-    );
+    // Build formatted path header: Name {v} → Name {v} → ...
+    let path_summary = {
+        let steps = &reduction_path.steps;
+        let mut parts = Vec::new();
+        let mut prev_name = "";
+        for step in steps {
+            if step.name != prev_name {
+                parts.push(fmt_node(&step.name, &step.variant));
+                prev_name = &step.name;
+            }
+        }
+        parts.join(&format!(" {} ", crate::output::fmt_outgoing("→")))
+    };
+    let mut text = format!("Path ({} steps): {}\n", reduction_path.len(), path_summary);
 
     let overheads = graph.path_overheads(reduction_path);
     let steps = &reduction_path.steps;
     for i in 0..steps.len().saturating_sub(1) {
         let from = &steps[i];
         let to = &steps[i + 1];
-        text.push_str(&format!("\n  Step {}: {} → {}\n", i + 1, from, to));
+        text.push_str(&format!(
+            "\n  {}: {} {} {}\n",
+            crate::output::fmt_section(&format!("Step {}", i + 1)),
+            fmt_node(&from.name, &from.variant),
+            crate::output::fmt_outgoing("→"),
+            fmt_node(&to.name, &to.variant),
+        ));
         let oh = &overheads[i];
         for (field, poly) in &oh.output_size {
             text.push_str(&format!("    {field} = {poly}\n"));
@@ -210,20 +300,14 @@ pub fn path(source: &str, target: &str, cost: &str, all: bool, out: &OutputConfi
 
     if src_variants.is_empty() {
         anyhow::bail!(
-            "Unknown source problem: {}\n\n\
-             Usage: pred path <SOURCE> <TARGET>\n\
-             Example: pred path MIS QUBO\n\n\
-             Run `pred list` to see all available problems.",
-            src_spec.name
+            "{}\n\nUsage: pred path <SOURCE> <TARGET>\nExample: pred path MIS QUBO",
+            crate::problem_name::unknown_problem_error(&src_spec.name)
         );
     }
     if dst_variants.is_empty() {
         anyhow::bail!(
-            "Unknown target problem: {}\n\n\
-             Usage: pred path <SOURCE> <TARGET>\n\
-             Example: pred path MIS QUBO\n\n\
-             Run `pred list` to see all available problems.",
-            dst_spec.name
+            "{}\n\nUsage: pred path <SOURCE> <TARGET>\nExample: pred path MIS QUBO",
+            crate::problem_name::unknown_problem_error(&dst_spec.name)
         );
     }
 
@@ -278,10 +362,20 @@ pub fn path(source: &str, target: &str, cost: &str, all: bool, out: &OutputConfi
         for dv in &dst_resolved {
             let found = match cost_choice {
                 CostChoice::Steps => graph.find_cheapest_path(
-                    &src_spec.name, sv, &dst_spec.name, dv, &input_size, &MinimizeSteps,
+                    &src_spec.name,
+                    sv,
+                    &dst_spec.name,
+                    dv,
+                    &input_size,
+                    &MinimizeSteps,
                 ),
                 CostChoice::Field(f) => graph.find_cheapest_path(
-                    &src_spec.name, sv, &dst_spec.name, dv, &input_size, &Minimize(f),
+                    &src_spec.name,
+                    sv,
+                    &dst_spec.name,
+                    dv,
+                    &input_size,
+                    &Minimize(f),
                 ),
             };
 
@@ -297,17 +391,8 @@ pub fn path(source: &str, target: &str, cost: &str, all: bool, out: &OutputConfi
     match best_path {
         Some(ref reduction_path) => {
             let text = format_path_text(&graph, reduction_path);
-            if let Some(ref path) = out.output {
-                let json = format_path_json(&graph, reduction_path);
-                let content =
-                    serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
-                std::fs::write(path, &content)
-                    .with_context(|| format!("Failed to write {}", path.display()))?;
-                eprintln!("Wrote {}", path.display());
-            } else {
-                println!("{text}");
-            }
-            Ok(())
+            let json = format_path_json(&graph, reduction_path);
+            out.emit_with_default_name("", &text, &json)
         }
         None => {
             anyhow::bail!(
@@ -350,11 +435,22 @@ fn path_all(
     // Sort by path length (shortest first)
     all_paths.sort_by_key(|p| p.len());
 
-    let mut text = format!("Found {} paths from {} to {}:\n", all_paths.len(), src_name, dst_name);
+    let mut text = format!(
+        "Found {} paths from {} to {}:\n",
+        all_paths.len(),
+        src_name,
+        dst_name
+    );
     for (idx, p) in all_paths.iter().enumerate() {
         text.push_str(&format!("\n--- Path {} ---\n", idx + 1));
         text.push_str(&format_path_text(graph, p));
     }
+
+    let json: serde_json::Value = all_paths
+        .iter()
+        .map(|p| format_path_json(graph, p))
+        .collect::<Vec<_>>()
+        .into();
 
     if let Some(ref dir) = out.output {
         // -o specifies the output folder; save each path as a separate JSON file
@@ -362,17 +458,22 @@ fn path_all(
             .with_context(|| format!("Failed to create directory {}", dir.display()))?;
 
         for (idx, p) in all_paths.iter().enumerate() {
-            let json = format_path_json(graph, p);
+            let path_json = format_path_json(graph, p);
             let file = dir.join(format!("path_{}.json", idx + 1));
             let content =
-                serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
+                serde_json::to_string_pretty(&path_json).context("Failed to serialize JSON")?;
             std::fs::write(&file, &content)
                 .with_context(|| format!("Failed to write {}", file.display()))?;
         }
-        eprintln!(
+        out.info(&format!(
             "Wrote {} path files to {}",
             all_paths.len(),
             dir.display()
+        ));
+    } else if out.json {
+        println!(
+            "{}",
+            serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?
         );
     } else {
         println!("{text}");
@@ -381,24 +482,125 @@ fn path_all(
     Ok(())
 }
 
-pub fn export(output: &Path) -> Result<()> {
+pub fn export(out: &OutputConfig) -> Result<()> {
     let graph = ReductionGraph::new();
 
-    if let Some(parent) = output.parent() {
-        std::fs::create_dir_all(parent)?;
-    }
-
-    graph
-        .to_json_file(output)
+    let json_str = graph
+        .to_json_string()
         .map_err(|e| anyhow::anyhow!("Failed to export: {}", e))?;
+    let json: serde_json::Value =
+        serde_json::from_str(&json_str).map_err(|e| anyhow::anyhow!("Failed to parse: {}", e))?;
 
-    eprintln!(
-        "Exported reduction graph ({} types, {} reductions, {} variant nodes) to {}",
+    let text = format!(
+        "Reduction graph: {} types, {} reductions, {} variant nodes\n\
+         Use -o to save as JSON.",
         graph.num_types(),
         graph.num_reductions(),
         graph.num_variant_nodes(),
-        output.display()
     );
 
-    Ok(())
+    out.emit_with_default_name("reduction_graph.json", &text, &json)
+}
+
+fn parse_direction(s: &str) -> Result<TraversalDirection> {
+    match s {
+        "out" => Ok(TraversalDirection::Outgoing),
+        "in" => Ok(TraversalDirection::Incoming),
+        "both" => Ok(TraversalDirection::Both),
+        _ => anyhow::bail!("Unknown direction: {}. Use 'out', 'in', or 'both'.", s),
+    }
+}
+
+pub fn neighbors(
+    problem: &str,
+    max_hops: usize,
+    direction_str: &str,
+    out: &OutputConfig,
+) -> Result<()> {
+    let spec = parse_problem_spec(problem)?;
+    let graph = ReductionGraph::new();
+
+    let variants = graph.variants_for(&spec.name);
+    if variants.is_empty() {
+        anyhow::bail!("{}", crate::problem_name::unknown_problem_error(&spec.name));
+    }
+
+    let direction = parse_direction(direction_str)?;
+
+    let variant = if spec.variant_values.is_empty() {
+        variants[0].clone()
+    } else {
+        resolve_variant(&spec, &variants)?
+    };
+
+    let neighbors = graph.k_neighbors(&spec.name, &variant, max_hops, direction);
+
+    let dir_label = match direction {
+        TraversalDirection::Outgoing => "outgoing",
+        TraversalDirection::Incoming => "incoming",
+        TraversalDirection::Both => "both directions",
+    };
+
+    // Build tree structure via BFS with parent tracking
+    let tree = graph.k_neighbor_tree(&spec.name, &variant, max_hops, direction);
+
+    let root_label = fmt_node(&spec.name, &variant);
+
+    let mut text = format!(
+        "{} — {}-hop neighbors ({})\n\n",
+        crate::output::fmt_problem_name(&spec.name),
+        max_hops,
+        dir_label,
+    );
+
+    text.push_str(&root_label);
+    text.push('\n');
+    render_tree(&tree, &mut text, "");
+
+    // Count unique problem names
+    let unique_names: HashSet<&str> = neighbors.iter().map(|n| n.name).collect();
+    text.push_str(&format!(
+        "\n{} reachable problems in {} hops\n",
+        unique_names.len(),
+        max_hops,
+    ));
+
+    let json = serde_json::json!({
+        "source": spec.name,
+        "hops": max_hops,
+        "direction": direction_str,
+        "neighbors": neighbors.iter().map(|n| {
+            serde_json::json!({
+                "name": n.name,
+                "variant": n.variant,
+                "hops": n.hops,
+            })
+        }).collect::<Vec<_>>(),
+    });
+
+    let default_name = format!("pred_{}_{}_{}.json", direction_str, spec.name, max_hops);
+    out.emit_with_default_name(&default_name, &text, &json)
+}
+
+use problemreductions::rules::NeighborTree;
+
+/// Render a tree with box-drawing characters.
+fn render_tree(nodes: &[NeighborTree], text: &mut String, prefix: &str) {
+    for (i, node) in nodes.iter().enumerate() {
+        let is_last = i == nodes.len() - 1;
+        let connector = if is_last { "└── " } else { "├── " };
+        let child_prefix = if is_last { "    " } else { "│   " };
+
+        text.push_str(&format!(
+            "{}{}{}\n",
+            crate::output::fmt_dim(prefix),
+            crate::output::fmt_dim(connector),
+            fmt_node(&node.name, &node.variant),
+        ));
+
+        if !node.children.is_empty() {
+            let new_prefix = format!("{}{}", prefix, child_prefix);
+            render_tree(&node.children, text, &new_prefix);
+        }
+    }
 }

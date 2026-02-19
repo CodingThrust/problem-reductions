@@ -1,11 +1,9 @@
-use anyhow::{bail, Result};
-use problemreductions::prelude::*;
+use anyhow::{bail, Context, Result};
 use problemreductions::models::optimization::ILP;
+use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
-use problemreductions::topology::{
-    KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
-};
+use problemreductions::topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use problemreductions::types::ProblemSize;
 use problemreductions::variant::{K2, K3, KN};
 use serde::Serialize;
@@ -14,8 +12,23 @@ use std::any::Any;
 use std::collections::BTreeMap;
 use std::fmt;
 use std::ops::Deref;
+use std::path::Path;
 
 use crate::problem_name::resolve_alias;
+
+/// Read input from a file, or from stdin if the path is "-".
+pub fn read_input(path: &Path) -> Result<String> {
+    if path.as_os_str() == "-" {
+        use std::io::Read;
+        let mut buf = String::new();
+        std::io::stdin()
+            .read_to_string(&mut buf)
+            .context("Failed to read from stdin")?;
+        Ok(buf)
+    } else {
+        std::fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))
+    }
+}
 
 /// Type-erased problem for CLI dispatch.
 #[allow(dead_code)]
@@ -26,6 +39,9 @@ pub trait DynProblem: Any {
     fn dims_dyn(&self) -> Vec<usize>;
     fn problem_name(&self) -> &'static str;
     fn variant_map(&self) -> BTreeMap<String, String>;
+    fn problem_size_names_dyn(&self) -> &'static [&'static str];
+    fn problem_size_values_dyn(&self) -> Vec<usize>;
+    fn num_variables_dyn(&self) -> usize;
 }
 
 impl<T> DynProblem for T
@@ -53,6 +69,15 @@ where
             .into_iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
+    }
+    fn problem_size_names_dyn(&self) -> &'static [&'static str] {
+        T::problem_size_names()
+    }
+    fn problem_size_values_dyn(&self) -> Vec<usize> {
+        self.problem_size_values()
+    }
+    fn num_variables_dyn(&self) -> usize {
+        self.num_variables()
     }
 }
 
@@ -135,7 +160,12 @@ impl LoadedProblem {
         let mut best_path = None;
         for dv in &ilp_variants {
             if let Some(p) = graph.find_cheapest_path(
-                name, &source_variant, "ILP", dv, &input_size, &MinimizeSteps,
+                name,
+                &source_variant,
+                "ILP",
+                dv,
+                &input_size,
+                &MinimizeSteps,
             ) {
                 let is_better = best_path
                     .as_ref()
@@ -146,8 +176,8 @@ impl LoadedProblem {
             }
         }
 
-        let reduction_path = best_path
-            .ok_or_else(|| anyhow::anyhow!("No reduction path from {} to ILP", name))?;
+        let reduction_path =
+            best_path.ok_or_else(|| anyhow::anyhow!("No reduction path from {} to ILP", name))?;
 
         let chain = graph
             .reduce_along_path(&reduction_path, self.as_any())
@@ -177,7 +207,9 @@ pub fn load_problem(
     match canonical.as_str() {
         "MaximumIndependentSet" => match graph_variant(variant) {
             "KingsSubgraph" => deser_opt::<MaximumIndependentSet<KingsSubgraph, i32>>(data),
-            "TriangularSubgraph" => deser_opt::<MaximumIndependentSet<TriangularSubgraph, i32>>(data),
+            "TriangularSubgraph" => {
+                deser_opt::<MaximumIndependentSet<TriangularSubgraph, i32>>(data)
+            }
             "UnitDiskGraph" => deser_opt::<MaximumIndependentSet<UnitDiskGraph, i32>>(data),
             _ => deser_opt::<MaximumIndependentSet<SimpleGraph, i32>>(data),
         },
@@ -210,7 +242,7 @@ pub fn load_problem(
         "BicliqueCover" => deser_opt::<BicliqueCover>(data),
         "BMF" => deser_opt::<BMF>(data),
         "PaintShop" => deser_opt::<PaintShop>(data),
-        _ => bail!("Unknown problem type: {canonical}"),
+        _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
 
@@ -260,7 +292,7 @@ pub fn serialize_any_problem(
         "BicliqueCover" => try_ser::<BicliqueCover>(any),
         "BMF" => try_ser::<BMF>(any),
         "PaintShop" => try_ser::<PaintShop>(any),
-        _ => bail!("Unknown problem type: {canonical}"),
+        _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
 
@@ -323,4 +355,3 @@ fn solve_ilp(any: &dyn Any) -> Result<SolveResult> {
     let evaluation = format!("{:?}", problem.evaluate(&config));
     Ok(SolveResult { config, evaluation })
 }
-
