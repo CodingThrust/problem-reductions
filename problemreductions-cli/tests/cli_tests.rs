@@ -1234,6 +1234,122 @@ fn test_reduce_stdout() {
     std::fs::remove_file(&problem_file).ok();
 }
 
+// ---- Hint suppression tests ----
+
+#[test]
+fn test_solve_no_hint_when_piped() {
+    // When stderr is a pipe (not a TTY), the solve hint should be suppressed.
+    // In tests, subprocess stderr is captured via pipe, so it's not a TTY.
+    let problem_file = std::env::temp_dir().join("pred_test_solve_no_hint.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    // Solve without -o (brute-force)
+    let output = pred()
+        .args([
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("Hint:"),
+        "Hint should not appear when stderr is piped, got: {stderr}"
+    );
+
+    // Solve without -o (ilp)
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap(), "--solver", "ilp"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("Hint:"),
+        "Hint should not appear when stderr is piped, got: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_bundle_no_hint_when_piped() {
+    // Bundle solve path: hint should also be suppressed when piped.
+    let problem_file = std::env::temp_dir().join("pred_test_solve_bundle_no_hint.json");
+    let bundle_file = std::env::temp_dir().join("pred_test_solve_bundle_no_hint_bundle.json");
+
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let reduce_out = pred()
+        .args([
+            "-o",
+            bundle_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "QUBO",
+        ])
+        .output()
+        .unwrap();
+    assert!(reduce_out.status.success());
+
+    let output = pred()
+        .args([
+            "solve",
+            bundle_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("Hint:"),
+        "Hint should not appear when stderr is piped, got: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&bundle_file).ok();
+}
+
 // ---- Help message tests ----
 
 #[test]

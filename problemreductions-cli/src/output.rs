@@ -36,6 +36,11 @@ pub fn use_color() -> bool {
     std::io::stdout().is_terminal() && std::env::var_os("NO_COLOR").is_none()
 }
 
+/// Whether stderr is connected to a TTY (used to suppress hints in piped output).
+pub fn stderr_is_tty() -> bool {
+    std::io::stderr().is_terminal()
+}
+
 /// Format a problem name (bold when color is enabled).
 pub fn fmt_problem_name(name: &str) -> String {
     if use_color() {
