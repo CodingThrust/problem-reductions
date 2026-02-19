@@ -75,10 +75,11 @@ fn solve_problem(
                 "solution": result.config,
                 "evaluation": result.evaluation,
             });
+            let result = out.emit_with_default_name("", &text, &json);
             if out.output.is_none() {
                 eprintln!("\nHint: use -o to save full solution details as JSON.");
             }
-            out.emit_with_default_name("", &text, &json)
+            result
         }
         "ilp" => {
             let result = problem.solve_with_ilp()?;
@@ -95,10 +96,11 @@ fn solve_problem(
             if name != "ILP" {
                 json["reduced_to"] = serde_json::json!("ILP");
             }
+            let result = out.emit_with_default_name("", &text, &json);
             if out.output.is_none() {
                 eprintln!("\nHint: use -o to save full solution details as JSON.");
             }
-            out.emit_with_default_name("", &text, &json)
+            result
         }
         _ => unreachable!(),
     }
@@ -172,8 +174,9 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
         },
     });
 
+    let result = out.emit_with_default_name("", &text, &json);
     if out.output.is_none() {
         eprintln!("\nHint: use -o to save full solution details (including intermediate results) as JSON.");
     }
-    out.emit_with_default_name("", &text, &json)
+    result
 }
