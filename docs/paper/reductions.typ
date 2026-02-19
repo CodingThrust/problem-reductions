@@ -608,6 +608,57 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Discard slack variables: return $bold(x)' [0..n]$.
 ]
 
+#let qubo_ilp = load-example("qubo_to_ilp")
+#let qubo_ilp_r = load-results("qubo_to_ilp")
+#let qubo_ilp_sol = qubo_ilp_r.solutions.at(0)
+#reduction-rule("QUBO", "ILP",
+  example: true,
+  example-caption: [4-variable QUBO with 3 quadratic terms],
+  extra: [
+    Source: $n = #qubo_ilp.source.instance.num_vars$ binary variables, 3 off-diagonal terms \
+    Target: #qubo_ilp.target.instance.num_vars ILP variables ($#qubo_ilp.source.instance.num_vars$ original $+ #(qubo_ilp.target.instance.num_vars - qubo_ilp.source.instance.num_vars)$ auxiliary), 9 McCormick constraints \
+    Optimal: $bold(x) = (#qubo_ilp_sol.source_config.map(str).join(", "))$ ($#qubo_ilp_r.solutions.len()$-fold degenerate) #sym.checkmark
+  ],
+)[
+  McCormick linearization: for each product $x_i x_j$ ($i < j$) with $Q_(i j) != 0$, introduce auxiliary $y_(i j)$ with three linear constraints.
+][
+  _Diagonal terms._ For binary $x_i$: $Q_(i i) x_i^2 = Q_(i i) x_i$, which is directly linear.
+
+  _Off-diagonal terms._ For each non-zero $Q_(i j)$ ($i < j$), introduce binary $y_(i j) = x_i dot x_j$ with McCormick constraints:
+  $ y_(i j) <= x_i, quad y_(i j) <= x_j, quad y_(i j) >= x_i + x_j - 1 $
+  These constraints enforce $y_(i j) = x_i x_j$ for binary variables.
+
+  _ILP formulation._ Minimize $sum_i Q_(i i) x_i + sum_(i < j) Q_(i j) y_(i j)$ subject to the McCormick constraints and $x_i, y_(i j) in {0, 1}$.
+
+  _Solution extraction._ Return the first $n$ variables (discard auxiliary $y_(i j)$).
+]
+
+#let cs_ilp = load-example("circuitsat_to_ilp")
+#let cs_ilp_r = load-results("circuitsat_to_ilp")
+#reduction-rule("CircuitSAT", "ILP",
+  example: true,
+  example-caption: [1-bit full adder to ILP],
+  extra: [
+    Circuit: #cs_ilp.source.instance.num_gates gates (2 XOR, 2 AND, 1 OR), #cs_ilp.source.instance.num_variables variables \
+    Target: #cs_ilp.target.instance.num_vars ILP variables (circuit vars $+$ auxiliary), trivial objective \
+    #cs_ilp_r.solutions.len() feasible solutions ($= 2^3$ valid input combinations for the full adder) #sym.checkmark
+  ],
+)[
+  Each gate maps to linear constraints over binary variables; any feasible ILP solution is a satisfying circuit assignment.
+][
+  _Tseitin flattening._ Recursively assign an ILP variable to each expression node. Named circuit variables keep their identity; internal nodes get auxiliary variables.
+
+  _Gate encodings_ (output $c$, inputs $a_1, ..., a_k$, all binary):
+  - NOT: $c + a = 1$
+  - AND: $c <= a_i$ ($forall i$), $c >= sum a_i - (k - 1)$
+  - OR: $c >= a_i$ ($forall i$), $c <= sum a_i$
+  - XOR (binary, chained pairwise): $c <= a + b$, $c >= a - b$, $c >= b - a$, $c <= 2 - a - b$
+
+  _Objective._ Minimize $0$ (feasibility problem): any feasible solution satisfies the circuit.
+
+  _Solution extraction._ Return values of the named circuit variables.
+]
+
 == Non-Trivial Reductions
 
 #let sat_mis = load-example("satisfiability_to_maximumindependentset")
