@@ -1,4 +1,4 @@
-use crate::dispatch::{load_problem, ProblemJson, ReductionBundle};
+use crate::dispatch::{load_problem, read_input, ProblemJson, ReductionBundle};
 use crate::output::OutputConfig;
 use anyhow::{Context, Result};
 use problemreductions::rules::ReductionGraph;
@@ -13,8 +13,7 @@ enum SolveInput {
 }
 
 fn parse_input(path: &Path) -> Result<SolveInput> {
-    let content = std::fs::read_to_string(path)
-        .with_context(|| format!("Failed to read {}", path.display()))?;
+    let content = read_input(path)?;
     let json: serde_json::Value = serde_json::from_str(&content).context("Failed to parse JSON")?;
 
     // Reduction bundles have "source", "target", and "path" fields

@@ -110,7 +110,10 @@ pub fn reduce(
         let dst_spec = parse_problem_spec(target)?;
         let dst_variants = graph.variants_for(&dst_spec.name);
         if dst_variants.is_empty() {
-            anyhow::bail!("{}", crate::problem_name::unknown_problem_error(&dst_spec.name));
+            anyhow::bail!(
+                "{}",
+                crate::problem_name::unknown_problem_error(&dst_spec.name)
+            );
         }
 
         // Auto-discover cheapest path

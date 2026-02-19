@@ -26,8 +26,7 @@ pub fn read_input(path: &Path) -> Result<String> {
             .context("Failed to read from stdin")?;
         Ok(buf)
     } else {
-        std::fs::read_to_string(path)
-            .with_context(|| format!("Failed to read {}", path.display()))
+        std::fs::read_to_string(path).with_context(|| format!("Failed to read {}", path.display()))
     }
 }
 

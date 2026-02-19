@@ -44,12 +44,17 @@ fn main() -> anyhow::Result<()> {
             cost,
             all,
         } => commands::graph::path(&source, &target, &cost, all, &out),
-        Commands::ExportGraph { output } => commands::graph::export(&output, &out),
+        Commands::ExportGraph => commands::graph::export(&out),
+        Commands::Inspect(args) => commands::inspect::inspect(&args.input, &out),
         Commands::Create(args) => commands::create::create(&args, &out),
         Commands::Solve(args) => commands::solve::solve(&args.input, &args.solver, &out),
-        Commands::Reduce(args) => {
-            commands::reduce::reduce(&args.input, args.to.as_deref(), args.via.as_deref(), &out)
-        }
+        Commands::Reduce(args) => commands::reduce::reduce(
+            &args.input,
+            args.to.as_deref(),
+            args.via.as_deref(),
+            args.json,
+            &out,
+        ),
         Commands::Evaluate(args) => commands::evaluate::evaluate(&args.input, &args.config, &out),
         Commands::Completions { shell } => {
             let shell = shell

@@ -217,10 +217,7 @@ pub fn unknown_problem_error(input: &str) -> String {
     let suggestions = suggest_problem_name(input);
     let mut msg = format!("Unknown problem: {input}");
     if !suggestions.is_empty() {
-        msg.push_str(&format!(
-            "\n\nDid you mean: {}?",
-            suggestions.join(", ")
-        ));
+        msg.push_str(&format!("\n\nDid you mean: {}?", suggestions.join(", ")));
     }
     msg.push_str("\n\nRun `pred list` to see all available problems.");
     msg
