@@ -75,30 +75,28 @@ fn solve_problem(
                 "solution": result.config,
                 "evaluation": result.evaluation,
             });
+            if out.output.is_none() {
+                eprintln!("\nHint: use -o to save full solution details as JSON.");
+            }
             out.emit_with_default_name("", &text, &json)
         }
         "ilp" => {
             let result = problem.solve_with_ilp()?;
-            let reduced = name != "ILP";
-            let text = if reduced {
-                format!(
-                    "Problem: {} (reduced to ILP)\nSolver: ilp\nSolution: {:?}\nEvaluation: {}",
-                    name, result.config, result.evaluation,
-                )
-            } else {
-                format!(
-                    "Problem: ILP\nSolver: ilp\nSolution: {:?}\nEvaluation: {}",
-                    result.config, result.evaluation,
-                )
-            };
+            let text = format!(
+                "Problem: {}\nSolver: ilp\nSolution: {:?}\nEvaluation: {}",
+                name, result.config, result.evaluation,
+            );
             let mut json = serde_json::json!({
                 "problem": name,
                 "solver": "ilp",
                 "solution": result.config,
                 "evaluation": result.evaluation,
             });
-            if reduced {
+            if name != "ILP" {
                 json["reduced_to"] = serde_json::json!("ILP");
+            }
+            if out.output.is_none() {
+                eprintln!("\nHint: use -o to save full solution details as JSON.");
             }
             out.emit_with_default_name("", &text, &json)
         }
@@ -155,30 +153,27 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
     let source_config = chain.extract_solution(&target_result.config);
     let source_eval = source.evaluate_dyn(&source_config);
 
+    let solver_desc = format!("{} (via {})", solver_name, target_name);
     let text = format!(
-        "Source: {}\nTarget: {} (solved with {})\nTarget solution: {:?}\nTarget evaluation: {}\nSource solution: {:?}\nSource evaluation: {}",
-        source_name,
-        target_name,
-        solver_name,
-        target_result.config,
-        target_result.evaluation,
-        source_config,
-        source_eval,
+        "Problem: {}\nSolver: {}\nSolution: {:?}\nEvaluation: {}",
+        source_name, solver_desc, source_config, source_eval,
     );
 
     let json = serde_json::json!({
-        "source": {
-            "problem": source_name,
-            "solution": source_config,
-            "evaluation": source_eval,
-        },
-        "target": {
+        "problem": source_name,
+        "solver": solver_name,
+        "reduced_to": target_name,
+        "solution": source_config,
+        "evaluation": source_eval,
+        "intermediate": {
             "problem": target_name,
-            "solver": solver_name,
             "solution": target_result.config,
             "evaluation": target_result.evaluation,
         },
     });
 
+    if out.output.is_none() {
+        eprintln!("\nHint: use -o to save full solution details (including intermediate results) as JSON.");
+    }
     out.emit_with_default_name("", &text, &json)
 }

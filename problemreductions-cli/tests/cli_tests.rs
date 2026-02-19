@@ -601,7 +601,7 @@ fn test_solve_ilp_default() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("reduced to ILP"));
+    assert!(stdout.contains("Solver: ilp"));
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -702,8 +702,8 @@ fn test_solve_bundle() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Source"));
-    assert!(stdout.contains("Target"));
+    assert!(stdout.contains("Problem"));
+    assert!(stdout.contains("via"));
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
@@ -756,8 +756,8 @@ fn test_solve_bundle_ilp() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Source"));
-    assert!(stdout.contains("Target"));
+    assert!(stdout.contains("Problem"));
+    assert!(stdout.contains("via"));
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
