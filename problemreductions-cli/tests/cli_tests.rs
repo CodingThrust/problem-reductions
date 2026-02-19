@@ -104,7 +104,7 @@ fn test_path_all_save() {
 fn test_export() {
     let tmp = std::env::temp_dir().join("pred_test_export.json");
     let output = pred()
-        .args(["export-graph", tmp.to_str().unwrap()])
+        .args(["export-graph", "-o", tmp.to_str().unwrap()])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -113,6 +113,22 @@ fn test_export() {
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert!(json["nodes"].is_array());
     std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
+fn test_export_stdout() {
+    let output = pred().args(["export-graph"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Without -o, export-graph prints human-readable summary to stdout
+    assert!(
+        stdout.contains("Reduction graph:"),
+        "stdout should contain summary, got: {stdout}"
+    );
 }
 
 #[test]
@@ -1022,7 +1038,7 @@ fn test_create_with_edge_weights() {
 
 #[test]
 fn test_create_without_output() {
-    // Create without -o prints to stdout
+    // Create without -o prints JSON to stdout (not just "Created ...")
     let output = pred()
         .args(["create", "MIS", "--edges", "0-1,1-2"])
         .output()
@@ -1033,7 +1049,9 @@ fn test_create_without_output() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Created"));
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert!(json["data"].is_object());
 }
 
 // ---- Error cases ----

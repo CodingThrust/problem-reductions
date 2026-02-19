@@ -2,7 +2,7 @@ use crate::cli::CreateArgs;
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
 use crate::problem_name::resolve_alias;
-use anyhow::{bail, Result};
+use anyhow::{bail, Context, Result};
 use problemreductions::prelude::*;
 use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::variant::{K2, K3, KN};
@@ -166,9 +166,18 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     };
 
     let json = serde_json::to_value(&output)?;
-    let text = format!("Created {} instance", canonical);
-    let default_name = format!("pred_{}.json", canonical.to_lowercase());
-    out.emit_with_default_name(&default_name, &text, &json)
+
+    if let Some(ref path) = out.output {
+        let content =
+            serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
+        std::fs::write(path, &content)
+            .with_context(|| format!("Failed to write {}", path.display()))?;
+        out.info(&format!("Wrote {}", path.display()));
+    } else {
+        // Print JSON to stdout so data is not lost (consistent with reduce)
+        println!("{}", serde_json::to_string_pretty(&json)?);
+    }
+    Ok(())
 }
 
 fn ser<T: Serialize>(problem: T) -> Result<serde_json::Value> {
