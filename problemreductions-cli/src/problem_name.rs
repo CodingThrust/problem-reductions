@@ -1,4 +1,5 @@
 use std::collections::BTreeMap;
+use std::ffi::OsStr;
 
 /// A parsed problem specification: name + optional variant values.
 #[derive(Debug, Clone)]
@@ -123,6 +124,37 @@ pub fn resolve_variant(
     }
 
     Ok(result)
+}
+
+/// A value parser that accepts any string but provides problem names as
+/// completion candidates for shell completion scripts.
+#[derive(Clone)]
+pub struct ProblemNameParser;
+
+impl clap::builder::TypedValueParser for ProblemNameParser {
+    type Value = String;
+
+    fn parse_ref(
+        &self,
+        _cmd: &clap::Command,
+        _arg: Option<&clap::Arg>,
+        value: &OsStr,
+    ) -> Result<String, clap::Error> {
+        Ok(value.to_string_lossy().to_string())
+    }
+
+    fn possible_values(&self) -> Option<Box<dyn Iterator<Item = clap::builder::PossibleValue>>> {
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let mut names: Vec<&'static str> = graph.problem_types();
+        for (alias, _) in ALIASES {
+            names.push(alias);
+        }
+        names.sort();
+        names.dedup();
+        Some(Box::new(
+            names.into_iter().map(clap::builder::PossibleValue::new),
+        ))
+    }
 }
 
 #[cfg(test)]

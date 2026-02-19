@@ -45,6 +45,7 @@ Examples:
 Use `pred list` to see all available problem types and aliases.")]
     Show {
         /// Problem name or alias (e.g., MIS, QUBO, MIS/UnitDiskGraph)
+        #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         problem: String,
         /// Explore k-hop neighbors in the reduction graph
         #[arg(long)]
@@ -66,8 +67,10 @@ Examples:
 Use `pred list` to see available problems.")]
     Path {
         /// Source problem (e.g., MIS, MIS/UnitDiskGraph)
+        #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         source: String,
         /// Target problem (e.g., QUBO)
+        #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         target: String,
         /// Cost function [default: minimize-steps]
         #[arg(long, default_value = "minimize-steps")]
@@ -138,6 +141,7 @@ Output (`-o`) uses the standard problem JSON format:
   {\"type\": \"...\", \"variant\": {...}, \"data\": {...}}")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT)
+    #[arg(value_parser = crate::problem_name::ProblemNameParser)]
     pub problem: String,
     /// Edges for graph problems (e.g., 0-1,1-2,2-3)
     #[arg(long)]
@@ -206,7 +210,7 @@ pub struct ReduceArgs {
     /// Problem JSON file (from `pred create`)
     pub input: PathBuf,
     /// Target problem type (e.g., QUBO, SpinGlass)
-    #[arg(long)]
+    #[arg(long, value_parser = crate::problem_name::ProblemNameParser)]
     pub to: String,
     /// Reduction route file (from `pred path ... -o`)
     #[arg(long)]
