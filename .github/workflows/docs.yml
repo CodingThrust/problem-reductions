@@ -45,7 +45,7 @@ jobs:
         run: make examples && typst compile --root docs docs/paper/reductions.typ book/reductions.pdf
 
       - name: Build rustdoc
-        run: RUSTDOCFLAGS="--default-theme=dark" cargo doc --all-features --no-deps
+        run: RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps
 
       - name: Combine documentation
         run: |
