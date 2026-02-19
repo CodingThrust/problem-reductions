@@ -54,7 +54,18 @@ pred evaluate problem.json --config 1,0,1,0
 # Reduce to another problem type and solve via brute-force
 pred reduce problem.json --to QUBO -o reduced.json
 pred solve reduced.json --solver brute-force
+
+# Pipe commands together (use - to read from stdin)
+pred create MIS --edges 0-1,1-2,2-3 | pred solve -
+pred create MIS --edges 0-1,1-2,2-3 | pred reduce - --to QUBO | pred solve -
 ```
+
+## Global Flags
+
+| Flag | Description |
+|------|-------------|
+| `-o, --output <FILE>` | Save JSON output to a file |
+| `-q, --quiet` | Suppress informational messages on stderr |
 
 ## Commands
 
@@ -124,30 +135,42 @@ Reduces from (9):
   ...
 ```
 
-Explore neighbors within k hops in the reduction graph:
+### `pred to` — Explore outgoing neighbors
+
+Explore which problems a given problem can reduce **to** within k hops. Each node in the tree shows its variant (graph type, weight type, etc.).
 
 ```bash
-$ pred show MIS --hops 2
-MaximumIndependentSet — 2-hop neighbors (outgoing)
+$ pred to MIS --hops 2
+MaximumIndependentSet {graph=SimpleGraph, weight=i32} — 2-hop neighbors (outgoing)
 
-MaximumIndependentSet
-├── MaximumIndependentSet
-└── MaximumIndependentSet
-    ├── ILP
-    ├── MaximumIndependentSet
-    ├── MaximumSetPacking
-    ├── MinimumVertexCover
-    └── QUBO
+MaximumIndependentSet {graph=SimpleGraph, weight=i32}
+├── ILP (default)
+├── MaximumIndependentSet {graph=KingsSubgraph, weight=i32}
+│   └── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
+├── MaximumIndependentSet {graph=TriangularSubgraph, weight=i32}
+│   └── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
+├── MinimumVertexCover {graph=SimpleGraph, weight=i32}
+│   ├── ILP (default)
+│   └── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
+└── QUBO {weight=f64}
 
 5 reachable problems in 2 hops
 ```
 
-Use `--direction` to control traversal direction:
+### `pred from` — Explore incoming neighbors
+
+Explore which problems can reduce **from** (i.e., reduce into) the given problem:
 
 ```bash
-pred show MIS --hops 2 --direction out    # outgoing neighbors (default)
-pred show QUBO --hops 1 --direction in    # incoming neighbors
-pred show MIS --hops 1 --direction both   # both directions
+$ pred from QUBO --hops 1
+QUBO {weight=f64} — 1-hop neighbors (incoming)
+
+QUBO {weight=f64}
+├── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
+├── MinimumVertexCover {graph=SimpleGraph, weight=i32}
+└── SpinGlass {graph=SimpleGraph, weight=f64}
+
+3 reachable problems in 1 hops
 ```
 
 ### `pred path` — Find a reduction path
@@ -199,7 +222,8 @@ Use `pred show <problem>` to see which size fields are available.
 Export the full reduction graph as JSON:
 
 ```bash
-pred export-graph reduction_graph.json
+pred export-graph                           # print to stdout
+pred export-graph -o reduction_graph.json   # save to file
 ```
 
 ### `pred create` — Create a problem instance
@@ -214,6 +238,21 @@ pred create QUBO --matrix "1,0.5;0.5,2" -o qubo.json
 pred create KColoring --k 3 --edges 0-1,1-2,2-0 -o kcol.json
 pred create SpinGlass --edges 0-1,1-2 -o sg.json
 pred create MaxCut --edges 0-1,1-2,2-0 -o maxcut.json
+```
+
+Generate random instances for graph-based problems:
+
+```bash
+pred create MIS --random --num-vertices 10 --edge-prob 0.3
+pred create MIS --random --num-vertices 100 --seed 42 -o big.json
+pred create MaxCut --random --num-vertices 20 --edge-prob 0.5 -o maxcut.json
+```
+
+Without `-o`, the problem JSON is printed to stdout, which can be piped to other commands:
+
+```bash
+pred create MIS --edges 0-1,1-2,2-3 | pred solve -
+pred create MIS --random --num-vertices 10 | pred inspect -
 ```
 
 The output file uses a standard wrapper format:
@@ -235,6 +274,29 @@ $ pred evaluate problem.json --config 1,0,1,0
 Valid(2)
 ```
 
+Stdin is supported with `-`:
+
+```bash
+pred create MIS --edges 0-1,1-2,2-3 | pred evaluate - --config 1,0,1,0
+```
+
+### `pred inspect` — Inspect a problem file
+
+Show a summary of what's inside a problem JSON or reduction bundle:
+
+```bash
+$ pred inspect problem.json
+Type: MaximumIndependentSet {graph=SimpleGraph, weight=i32}
+Size: 5 vertices, 5 edges
+```
+
+Works with reduction bundles and stdin:
+
+```bash
+pred inspect bundle.json
+pred create MIS --edges 0-1,1-2 | pred inspect -
+```
+
 ### `pred reduce` — Reduce a problem
 
 Reduce a problem to a target type. Outputs a reduction bundle containing source, target, and path:
@@ -249,10 +311,17 @@ Use a specific reduction path (from `pred path -o`). The target is inferred from
 pred reduce problem.json --via path.json -o reduced.json
 ```
 
-Without `-o`, the bundle JSON is printed to stdout:
+Without `-o`, a human-readable summary is shown. Use `--json` to output raw JSON to stdout:
 
 ```bash
-pred reduce problem.json --to QUBO
+pred reduce problem.json --to QUBO          # human-readable summary
+pred reduce problem.json --to QUBO --json   # raw JSON to stdout
+```
+
+Stdin is supported with `-`:
+
+```bash
+pred create MIS --edges 0-1,1-2,2-3 | pred reduce - --to QUBO
 ```
 
 The bundle contains everything needed to map solutions back:
@@ -277,7 +346,14 @@ pred solve problem.json                         # ILP solver (default)
 pred solve problem.json --solver brute-force    # brute-force solver
 ```
 
-When the problem is not ILP, the solver automatically reduces it to ILP, solves, and maps the solution back:
+Stdin is supported with `-`:
+
+```bash
+pred create MIS --edges 0-1,1-2,2-3 | pred solve -
+pred create MIS --edges 0-1,1-2,2-3 | pred solve - --solver brute-force
+```
+
+When the problem is not ILP, the solver automatically reduces it to ILP, solves, and maps the solution back. The auto-reduction is shown in the output:
 
 ```bash
 $ pred solve problem.json
@@ -344,3 +420,12 @@ You can use short aliases instead of full problem names (shown in `pred list`):
 | `TSP` | `TravelingSalesman` |
 
 You can also specify variants with a slash: `MIS/UnitDiskGraph`, `SpinGlass/SimpleGraph`.
+
+If you mistype a problem name, `pred` will suggest the closest match:
+
+```bash
+$ pred show MaxIndependentSet
+Error: Unknown problem: MaxIndependentSet
+  Did you mean: MaximumIndependentSet?
+  Run `pred list` to see all available problem types.
+```

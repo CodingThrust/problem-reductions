@@ -744,6 +744,11 @@ impl ReductionGraph {
         self.nodes[self.graph[idx]].name
     }
 
+    /// Get the variant map for a node index.
+    pub fn node_variant(&self, idx: NodeIndex) -> &BTreeMap<String, String> {
+        &self.nodes[self.graph[idx]].variant
+    }
+
     /// Find all problems reachable within `max_hops` edges from a starting node.
     ///
     /// Returns neighbors sorted by (hops, name). The starting node itself is excluded.

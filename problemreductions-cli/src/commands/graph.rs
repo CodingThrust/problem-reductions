@@ -96,17 +96,13 @@ pub fn list(out: &OutputConfig) -> Result<()> {
     out.emit_with_default_name("pred_graph_list.json", &text, &json)
 }
 
-pub fn show(problem: &str, hops: Option<usize>, direction: &str, out: &OutputConfig) -> Result<()> {
+pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     let spec = parse_problem_spec(problem)?;
     let graph = ReductionGraph::new();
 
     let variants = graph.variants_for(&spec.name);
     if variants.is_empty() {
         anyhow::bail!("{}", crate::problem_name::unknown_problem_error(&spec.name));
-    }
-
-    if let Some(max_hops) = hops {
-        return show_neighbors(&graph, &spec, &variants, max_hops, direction, out);
     }
 
     let mut text = format!("{}\n", crate::output::fmt_problem_name(&spec.name));
@@ -498,20 +494,26 @@ fn parse_direction(s: &str) -> Result<TraversalDirection> {
     }
 }
 
-fn show_neighbors(
-    graph: &ReductionGraph,
-    spec: &crate::problem_name::ProblemSpec,
-    variants: &[BTreeMap<String, String>],
+pub fn neighbors(
+    problem: &str,
     max_hops: usize,
     direction_str: &str,
     out: &OutputConfig,
 ) -> Result<()> {
+    let spec = parse_problem_spec(problem)?;
+    let graph = ReductionGraph::new();
+
+    let variants = graph.variants_for(&spec.name);
+    if variants.is_empty() {
+        anyhow::bail!("{}", crate::problem_name::unknown_problem_error(&spec.name));
+    }
+
     let direction = parse_direction(direction_str)?;
 
     let variant = if spec.variant_values.is_empty() {
         variants[0].clone()
     } else {
-        resolve_variant(spec, variants)?
+        resolve_variant(&spec, &variants)?
     };
 
     let neighbors = graph.k_neighbors(&spec.name, &variant, max_hops, direction);
@@ -523,7 +525,13 @@ fn show_neighbors(
     };
 
     // Build tree structure via BFS with parent tracking
-    let tree = build_neighbor_tree(graph, &spec.name, &variant, max_hops, direction);
+    let tree = build_neighbor_tree(&graph, &spec.name, &variant, max_hops, direction);
+
+    let root_label = format!(
+        "{} {}",
+        crate::output::fmt_problem_name(&spec.name),
+        crate::output::fmt_dim(&format_variant(&variant)),
+    );
 
     let mut text = format!(
         "{} — {}-hop neighbors ({})\n\n",
@@ -532,7 +540,7 @@ fn show_neighbors(
         dir_label,
     );
 
-    text.push_str(&crate::output::fmt_problem_name(&spec.name));
+    text.push_str(&root_label);
     text.push('\n');
     render_tree(&tree, &mut text, "");
 
@@ -557,13 +565,14 @@ fn show_neighbors(
         }).collect::<Vec<_>>(),
     });
 
-    let default_name = format!("pred_show_{}_hops{}.json", spec.name, max_hops);
+    let default_name = format!("pred_{}_{}_{}.json", direction_str, spec.name, max_hops);
     out.emit_with_default_name(&default_name, &text, &json)
 }
 
 /// Tree node for neighbor rendering.
 struct TreeNode {
     name: String,
+    variant: BTreeMap<String, String>,
     children: Vec<TreeNode>,
 }
 
@@ -637,6 +646,7 @@ fn build_neighbor_tree(
             .unwrap_or_default();
         TreeNode {
             name: graph.node_name(idx).to_string(),
+            variant: graph.node_variant(idx).clone(),
             children,
         }
     }
@@ -658,11 +668,13 @@ fn render_tree(nodes: &[TreeNode], text: &mut String, prefix: &str) {
         let connector = if is_last { "└── " } else { "├── " };
         let child_prefix = if is_last { "    " } else { "│   " };
 
+        let variant_str = format_variant(&node.variant);
         text.push_str(&format!(
-            "{}{}{}\n",
+            "{}{}{} {}\n",
             crate::output::fmt_dim(prefix),
             crate::output::fmt_dim(connector),
             crate::output::fmt_problem_name(&node.name),
+            crate::output::fmt_dim(&variant_str),
         ));
 
         if !node.children.is_empty() {

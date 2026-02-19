@@ -51,20 +51,48 @@ Examples:
   pred show MIS                   # using alias
   pred show MaximumIndependentSet # full name
   pred show MIS/UnitDiskGraph     # specific graph variant
-  pred show MIS --hops 2          # 2-hop outgoing neighbor tree
-  pred show MIS --hops 2 --direction in  # incoming neighbors
 
-Use `pred list` to see all available problem types and aliases.")]
+Use `pred list` to see all available problem types and aliases.
+Use `pred to MIS --hops 2` to explore outgoing neighbors.
+Use `pred from QUBO --hops 1` to explore incoming neighbors.")]
     Show {
         /// Problem name or alias (e.g., MIS, QUBO, MIS/UnitDiskGraph)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         problem: String,
-        /// Explore k-hop neighbors in the reduction graph
-        #[arg(long)]
-        hops: Option<usize>,
-        /// Direction for neighbor exploration: out, in, both [default: out]
-        #[arg(long, default_value = "out")]
-        direction: String,
+    },
+
+    /// Explore outgoing neighbors in the reduction graph (problems this reduces TO)
+    #[command(after_help = "\
+Examples:
+  pred to MIS              # 1-hop outgoing neighbors
+  pred to MIS --hops 2     # 2-hop outgoing neighbors
+  pred to MIS -o out.json  # save as JSON
+
+Use `pred from <problem>` for incoming neighbors.")]
+    To {
+        /// Problem name or alias (e.g., MIS, QUBO, MIS/UnitDiskGraph)
+        #[arg(value_parser = crate::problem_name::ProblemNameParser)]
+        problem: String,
+        /// Number of hops to explore [default: 1]
+        #[arg(long, default_value = "1")]
+        hops: usize,
+    },
+
+    /// Explore incoming neighbors in the reduction graph (problems that reduce FROM this)
+    #[command(after_help = "\
+Examples:
+  pred from QUBO              # 1-hop incoming neighbors
+  pred from QUBO --hops 2     # 2-hop incoming neighbors
+  pred from QUBO -o in.json   # save as JSON
+
+Use `pred to <problem>` for outgoing neighbors.")]
+    From {
+        /// Problem name or alias (e.g., MIS, QUBO, MIS/UnitDiskGraph)
+        #[arg(value_parser = crate::problem_name::ProblemNameParser)]
+        problem: String,
+        /// Number of hops to explore [default: 1]
+        #[arg(long, default_value = "1")]
+        hops: usize,
     },
 
     /// Find the cheapest reduction path between two problems
@@ -292,6 +320,8 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
         ("pred inspect", "inspect"),
         ("pred path", "path"),
         ("pred show", "show"),
+        ("pred to", "to"),
+        ("pred from", "from"),
         ("pred export-graph", "export-graph"),
     ];
     let cmd = Cli::command();

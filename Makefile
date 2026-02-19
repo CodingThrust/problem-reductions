@@ -218,13 +218,13 @@ cli-demo: cli
 	$$PRED show MIS -o $(CLI_DEMO_DIR)/mis_info.json; \
 	\
 	echo ""; \
-	echo "--- 3. show --hops: explore 2-hop neighborhood ---"; \
-	$$PRED show MIS --hops 2; \
-	$$PRED show MIS --hops 2 -o $(CLI_DEMO_DIR)/mis_hops.json; \
+	echo "--- 3. to: explore 2-hop outgoing neighborhood ---"; \
+	$$PRED to MIS --hops 2; \
+	$$PRED to MIS --hops 2 -o $(CLI_DEMO_DIR)/mis_hops.json; \
 	\
 	echo ""; \
-	echo "--- 4. show --direction: incoming neighbors ---"; \
-	$$PRED show QUBO --hops 1 --direction in; \
+	echo "--- 4. from: incoming neighbors ---"; \
+	$$PRED from QUBO --hops 1; \
 	\
 	echo ""; \
 	echo "--- 5. path: find reduction paths ---"; \

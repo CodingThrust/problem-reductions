@@ -1566,12 +1566,12 @@ fn test_completions_auto_detect() {
     assert!(stdout.contains("pred"));
 }
 
-// ---- k-neighbor exploration tests ----
+// ---- k-neighbor exploration tests (pred to / pred from) ----
 
 #[test]
-fn test_show_hops_outgoing() {
+fn test_to_outgoing() {
     let output = pred()
-        .args(["show", "MIS", "--hops", "2"])
+        .args(["to", "MIS", "--hops", "2"])
         .output()
         .unwrap();
     assert!(
@@ -1587,9 +1587,9 @@ fn test_show_hops_outgoing() {
 }
 
 #[test]
-fn test_show_hops_incoming() {
+fn test_from_incoming() {
     let output = pred()
-        .args(["show", "QUBO", "--hops", "1", "--direction", "in"])
+        .args(["from", "QUBO", "--hops", "1"])
         .output()
         .unwrap();
     assert!(
@@ -1603,25 +1603,10 @@ fn test_show_hops_incoming() {
 }
 
 #[test]
-fn test_show_hops_both() {
+fn test_to_json() {
+    let tmp = std::env::temp_dir().join("pred_test_to_hops.json");
     let output = pred()
-        .args(["show", "MIS", "--hops", "1", "--direction", "both"])
-        .output()
-        .unwrap();
-    assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
-    );
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("both directions"));
-}
-
-#[test]
-fn test_show_hops_json() {
-    let tmp = std::env::temp_dir().join("pred_test_show_hops.json");
-    let output = pred()
-        .args(["-o", tmp.to_str().unwrap(), "show", "MIS", "--hops", "2"])
+        .args(["-o", tmp.to_str().unwrap(), "to", "MIS", "--hops", "2"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -1635,14 +1620,55 @@ fn test_show_hops_json() {
 }
 
 #[test]
-fn test_show_hops_bad_direction() {
+fn test_to_shows_variant_info() {
     let output = pred()
-        .args(["show", "MIS", "--hops", "1", "--direction", "bad"])
+        .args(["to", "MIS", "--hops", "1"])
         .output()
         .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("Unknown direction"));
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Variant info should appear in the tree output
+    assert!(
+        stdout.contains("{graph=") || stdout.contains("(default)"),
+        "expected variant info in tree output, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_from_shows_variant_info() {
+    let output = pred()
+        .args(["from", "QUBO", "--hops", "1"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    // Variant info should appear in the tree output
+    assert!(
+        stdout.contains("{graph=") || stdout.contains("{weight=") || stdout.contains("(default)"),
+        "expected variant info in tree output, got: {stdout}"
+    );
+}
+
+#[test]
+fn test_to_default_hops() {
+    // Default --hops is 1
+    let output = pred().args(["to", "MIS"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("1-hop"));
+    assert!(stdout.contains("reachable problems"));
 }
 
 // ---- Quiet mode tests ----
