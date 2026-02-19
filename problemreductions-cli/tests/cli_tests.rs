@@ -293,6 +293,85 @@ fn test_reduce_via_path() {
 }
 
 #[test]
+fn test_reduce_via_infer_target() {
+    // --via without --to: target is inferred from the path file
+    let problem_file = std::env::temp_dir().join("pred_test_reduce_via_infer_in.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2,2-3",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let path_file = std::env::temp_dir().join("pred_test_reduce_via_infer_path.json");
+    let path_out = pred()
+        .args(["path", "MIS", "QUBO", "-o", path_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(path_out.status.success());
+
+    let output_file = std::env::temp_dir().join("pred_test_reduce_via_infer_out.json");
+    let reduce_out = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--via",
+            path_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        reduce_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&reduce_out.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let bundle: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(bundle["source"]["type"], "MaximumIndependentSet");
+    assert_eq!(bundle["target"]["type"], "QUBO");
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&path_file).ok();
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_reduce_missing_to_and_via() {
+    let problem_file = std::env::temp_dir().join("pred_test_reduce_missing.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args(["reduce", problem_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--to") || stderr.contains("--via"));
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
 fn test_create_mis() {
     let output_file = std::env::temp_dir().join("pred_test_create_mis.json");
     let output = pred()

@@ -45,7 +45,7 @@ fn main() -> anyhow::Result<()> {
         Commands::Create(args) => commands::create::create(&args, &out),
         Commands::Solve(args) => commands::solve::solve(&args.input, &args.solver, &out),
         Commands::Reduce(args) => {
-            commands::reduce::reduce(&args.input, &args.to, args.via.as_deref(), &out)
+            commands::reduce::reduce(&args.input, args.to.as_deref(), args.via.as_deref(), &out)
         }
         Commands::Evaluate(args) => commands::evaluate::evaluate(&args.input, &args.config, &out),
         Commands::Completions { shell } => {

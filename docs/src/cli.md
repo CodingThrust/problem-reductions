@@ -243,10 +243,10 @@ Reduce a problem to a target type. Outputs a reduction bundle containing source,
 pred reduce problem.json --to QUBO -o reduced.json
 ```
 
-Use a specific reduction path (from `pred path -o`):
+Use a specific reduction path (from `pred path -o`). The target is inferred from the path file, so `--to` is not needed:
 
 ```bash
-pred reduce problem.json --to QUBO --via path.json -o reduced.json
+pred reduce problem.json --via path.json -o reduced.json
 ```
 
 Without `-o`, the bundle JSON is printed to stdout:

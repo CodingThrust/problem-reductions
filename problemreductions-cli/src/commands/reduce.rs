@@ -48,7 +48,12 @@ fn parse_path_node(node: &serde_json::Value) -> Result<ReductionStep> {
     Ok(ReductionStep { name, variant })
 }
 
-pub fn reduce(input: &Path, target: &str, via: Option<&Path>, out: &OutputConfig) -> Result<()> {
+pub fn reduce(
+    input: &Path,
+    target: Option<&str>,
+    via: Option<&Path>,
+    out: &OutputConfig,
+) -> Result<()> {
     // 1. Load source problem
     let content = std::fs::read_to_string(input)?;
     let problem_json: ProblemJson = serde_json::from_str(&content)?;
@@ -61,20 +66,12 @@ pub fn reduce(input: &Path, target: &str, via: Option<&Path>, out: &OutputConfig
 
     let source_name = source.problem_name();
     let source_variant = source.variant_map();
-
-    // 2. Parse target spec
-    let dst_spec = parse_problem_spec(target)?;
     let graph = ReductionGraph::new();
-
-    let dst_variants = graph.variants_for(&dst_spec.name);
-    if dst_variants.is_empty() {
-        anyhow::bail!("Unknown target problem: {}", dst_spec.name);
-    }
 
     // 3. Get reduction path: from --via file or auto-discover
     let reduction_path = if let Some(path_file) = via {
         let path = load_path_file(path_file)?;
-        // Validate that the path starts with the source and ends with the target
+        // Validate that the path starts with the source
         let first = path.steps.first().unwrap();
         let last = path.steps.last().unwrap();
         if first.name != source_name || first.variant != source_variant {
@@ -86,15 +83,34 @@ pub fn reduce(input: &Path, target: &str, via: Option<&Path>, out: &OutputConfig
                 format_variant(&source_variant),
             );
         }
-        if last.name != dst_spec.name {
-            anyhow::bail!(
-                "Path file ends with {} but target is {}",
-                last.name,
-                dst_spec.name,
-            );
+        // If --to is given, validate it matches the path's target
+        if let Some(target) = target {
+            let dst_spec = parse_problem_spec(target)?;
+            if last.name != dst_spec.name {
+                anyhow::bail!(
+                    "Path file ends with {} but --to specifies {}",
+                    last.name,
+                    dst_spec.name,
+                );
+            }
         }
         path
     } else {
+        // --to is required when --via is not given
+        let target = target.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Either --to or --via is required.\n\n\
+                 Usage:\n\
+                   pred reduce problem.json --to QUBO\n\
+                   pred reduce problem.json --via path.json"
+            )
+        })?;
+        let dst_spec = parse_problem_spec(target)?;
+        let dst_variants = graph.variants_for(&dst_spec.name);
+        if dst_variants.is_empty() {
+            anyhow::bail!("Unknown target problem: {}", dst_spec.name);
+        }
+
         // Auto-discover cheapest path
         let input_size = ProblemSize::new(vec![]);
         let mut best_path = None;
@@ -122,13 +138,12 @@ pub fn reduce(input: &Path, target: &str, via: Option<&Path>, out: &OutputConfig
                 "No reduction path from {} to {}\n\n\
                  Hint: generate a path file first, then pass it with --via:\n\
                    pred path {} {} -o path.json\n\
-                   pred reduce {} --to {} --via path.json -o reduced.json",
+                   pred reduce {} --via path.json -o reduced.json",
                 source_name,
                 dst_spec.name,
                 source_name,
                 dst_spec.name,
                 input.display(),
-                dst_spec.name,
             )
         })?
     };

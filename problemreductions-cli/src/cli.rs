@@ -203,18 +203,19 @@ pub struct SolveArgs {
 Examples:
   pred reduce problem.json --to QUBO -o reduced.json
   pred reduce problem.json --to ILP -o reduced.json
-  pred reduce problem.json --to QUBO --via path.json -o reduced.json
+  pred reduce problem.json --via path.json -o reduced.json
 
 Input: a problem JSON from `pred create`.
 The --via path file is from `pred path <SRC> <DST> -o path.json`.
+When --via is given, --to is inferred from the path file.
 Output is a reduction bundle with source, target, and path.
 Use `pred solve reduced.json` to solve and map the solution back.")]
 pub struct ReduceArgs {
     /// Problem JSON file (from `pred create`)
     pub input: PathBuf,
-    /// Target problem type (e.g., QUBO, SpinGlass)
+    /// Target problem type (e.g., QUBO, SpinGlass). Inferred from --via if omitted.
     #[arg(long, value_parser = crate::problem_name::ProblemNameParser)]
-    pub to: String,
+    pub to: Option<String>,
     /// Reduction route file (from `pred path ... -o`)
     #[arg(long)]
     pub via: Option<PathBuf>,
