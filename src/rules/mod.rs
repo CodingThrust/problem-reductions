@@ -36,6 +36,8 @@ mod traits;
 pub mod unitdiskmapping;
 
 #[cfg(feature = "ilp-solver")]
+mod circuit_ilp;
+#[cfg(feature = "ilp-solver")]
 mod coloring_ilp;
 #[cfg(feature = "ilp-solver")]
 mod factoring_ilp;
@@ -55,6 +57,8 @@ mod minimumdominatingset_ilp;
 mod minimumsetcovering_ilp;
 #[cfg(feature = "ilp-solver")]
 mod minimumvertexcover_ilp;
+#[cfg(feature = "ilp-solver")]
+mod qubo_ilp;
 #[cfg(feature = "ilp-solver")]
 mod travelingsalesman_ilp;
 

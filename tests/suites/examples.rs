@@ -12,6 +12,7 @@ macro_rules! example_test {
 
 example_test!(chained_reduction_factoring_to_spinglass);
 example_test!(chained_reduction_ksat_to_mis);
+example_test!(reduction_circuitsat_to_ilp);
 example_test!(reduction_circuitsat_to_spinglass);
 example_test!(reduction_factoring_to_circuitsat);
 example_test!(reduction_factoring_to_ilp);
@@ -35,6 +36,7 @@ example_test!(reduction_minimumvertexcover_to_ilp);
 example_test!(reduction_minimumvertexcover_to_maximumindependentset);
 example_test!(reduction_minimumvertexcover_to_minimumsetcovering);
 example_test!(reduction_minimumvertexcover_to_qubo);
+example_test!(reduction_qubo_to_ilp);
 example_test!(reduction_qubo_to_spinglass);
 example_test!(reduction_satisfiability_to_kcoloring);
 example_test!(reduction_satisfiability_to_ksatisfiability);
@@ -61,6 +63,7 @@ example_fn!(
     test_chained_reduction_ksat_to_mis,
     chained_reduction_ksat_to_mis
 );
+example_fn!(test_circuitsat_to_ilp, reduction_circuitsat_to_ilp);
 example_fn!(
     test_circuitsat_to_spinglass,
     reduction_circuitsat_to_spinglass
@@ -135,6 +138,7 @@ example_fn!(
     test_minimumvertexcover_to_qubo,
     reduction_minimumvertexcover_to_qubo
 );
+example_fn!(test_qubo_to_ilp, reduction_qubo_to_ilp);
 example_fn!(test_qubo_to_spinglass, reduction_qubo_to_spinglass);
 example_fn!(
     test_satisfiability_to_kcoloring,
