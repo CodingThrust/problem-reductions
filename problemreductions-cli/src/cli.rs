@@ -13,7 +13,10 @@ Typical workflow:
   pred evaluate problem.json --config 1,0,1,0
 
 Use `pred <command> --help` for detailed usage of each command.
-Use `pred list` to see all available problem types."
+Use `pred list` to see all available problem types.
+
+Enable tab completion:
+  eval \"$(pred completions)\"     # add to ~/.bashrc or ~/.zshrc"
 )]
 pub struct Cli {
     /// Output file path (implies JSON output)
