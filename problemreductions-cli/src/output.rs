@@ -8,9 +8,18 @@ use std::path::PathBuf;
 pub struct OutputConfig {
     /// Output file path. When set, output is saved as JSON.
     pub output: Option<PathBuf>,
+    /// Suppress informational messages on stderr.
+    pub quiet: bool,
 }
 
 impl OutputConfig {
+    /// Print an informational message to stderr, unless quiet mode is on.
+    pub fn info(&self, msg: &str) {
+        if !self.quiet {
+            eprintln!("{msg}");
+        }
+    }
+
     /// Emit output: if `-o` is set, save as JSON; otherwise print human text.
     pub fn emit_with_default_name(
         &self,
@@ -23,7 +32,7 @@ impl OutputConfig {
                 serde_json::to_string_pretty(json_value).context("Failed to serialize JSON")?;
             std::fs::write(path, &content)
                 .with_context(|| format!("Failed to write {}", path.display()))?;
-            eprintln!("Wrote {}", path.display());
+            self.info(&format!("Wrote {}", path.display()));
         } else {
             println!("{human_text}");
         }

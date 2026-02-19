@@ -189,13 +189,13 @@ pub fn reduce(
         let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
         std::fs::write(path, &content)
             .with_context(|| format!("Failed to write {}", path.display()))?;
-        eprintln!(
+        out.info(&format!(
             "Reduced {} to {} ({} steps)\nWrote {}",
             source_name,
             target_step.name,
             reduction_path.len(),
             path.display(),
-        );
+        ));
     } else {
         println!("{}", serde_json::to_string_pretty(&json)?);
     }

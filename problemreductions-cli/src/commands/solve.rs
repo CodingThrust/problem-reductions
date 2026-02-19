@@ -77,7 +77,7 @@ fn solve_problem(
             });
             let result = out.emit_with_default_name("", &text, &json);
             if out.output.is_none() && crate::output::stderr_is_tty() {
-                eprintln!("\nHint: use -o to save full solution details as JSON.");
+                out.info("\nHint: use -o to save full solution details as JSON.");
             }
             result
         }
@@ -103,7 +103,7 @@ fn solve_problem(
             }
             let result = out.emit_with_default_name("", &text, &json);
             if out.output.is_none() && crate::output::stderr_is_tty() {
-                eprintln!("\nHint: use -o to save full solution details as JSON.");
+                out.info("\nHint: use -o to save full solution details as JSON.");
             }
             result
         }
@@ -181,7 +181,7 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
 
     let result = out.emit_with_default_name("", &text, &json);
     if out.output.is_none() && crate::output::stderr_is_tty() {
-        eprintln!("\nHint: use -o to save full solution details (including intermediate results) as JSON.");
+        out.info("\nHint: use -o to save full solution details (including intermediate results) as JSON.");
     }
     result
 }

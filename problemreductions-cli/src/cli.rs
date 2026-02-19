@@ -23,6 +23,10 @@ pub struct Cli {
     #[arg(long, short, global = true)]
     pub output: Option<PathBuf>,
 
+    /// Suppress informational messages on stderr
+    #[arg(long, short, global = true)]
+    pub quiet: bool,
+
     #[command(subcommand)]
     pub command: Commands,
 }

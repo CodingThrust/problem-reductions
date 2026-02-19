@@ -1522,3 +1522,120 @@ fn test_show_hops_bad_direction() {
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("Unknown direction"));
 }
+
+// ---- Quiet mode tests ----
+
+#[test]
+fn test_quiet_suppresses_hints() {
+    // Solve with -q: even if stderr were a TTY, quiet suppresses hints.
+    // In tests stderr is a pipe so hints are already suppressed by TTY check,
+    // but we verify -q is accepted and doesn't break anything.
+    let problem_file = std::env::temp_dir().join("pred_test_quiet_hint.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "-q",
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("Hint:"),
+        "Hint should be suppressed with -q, got: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_quiet_suppresses_wrote() {
+    // Create with -q -o: the "Wrote ..." message should be suppressed.
+    let output_file = std::env::temp_dir().join("pred_test_quiet_wrote.json");
+    let output = pred()
+        .args([
+            "-q",
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("Wrote"),
+        "\"Wrote\" message should be suppressed with -q, got: {stderr}"
+    );
+    assert!(output_file.exists());
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_quiet_still_shows_stdout() {
+    // Solve with -q: stdout should still contain the solution output.
+    let problem_file = std::env::temp_dir().join("pred_test_quiet_stdout.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args([
+            "-q",
+            "solve",
+            problem_file.to_str().unwrap(),
+            "--solver",
+            "brute-force",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Solution"),
+        "stdout should still contain solution with -q, got: {stdout}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}

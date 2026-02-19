@@ -26,7 +26,10 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
-    let out = OutputConfig { output: cli.output };
+    let out = OutputConfig {
+        output: cli.output,
+        quiet: cli.quiet,
+    };
 
     match cli.command {
         Commands::List => commands::graph::list(&out),
@@ -41,7 +44,7 @@ fn main() -> anyhow::Result<()> {
             cost,
             all,
         } => commands::graph::path(&source, &target, &cost, all, &out),
-        Commands::ExportGraph { output } => commands::graph::export(&output),
+        Commands::ExportGraph { output } => commands::graph::export(&output, &out),
         Commands::Create(args) => commands::create::create(&args, &out),
         Commands::Solve(args) => commands::solve::solve(&args.input, &args.solver, &out),
         Commands::Reduce(args) => {

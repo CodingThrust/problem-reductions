@@ -393,7 +393,7 @@ pub fn path(source: &str, target: &str, cost: &str, all: bool, out: &OutputConfi
                     serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
                 std::fs::write(path, &content)
                     .with_context(|| format!("Failed to write {}", path.display()))?;
-                eprintln!("Wrote {}", path.display());
+                out.info(&format!("Wrote {}", path.display()));
             } else {
                 println!("{text}");
             }
@@ -464,7 +464,11 @@ fn path_all(
             std::fs::write(&file, &content)
                 .with_context(|| format!("Failed to write {}", file.display()))?;
         }
-        eprintln!("Wrote {} path files to {}", all_paths.len(), dir.display());
+        out.info(&format!(
+            "Wrote {} path files to {}",
+            all_paths.len(),
+            dir.display()
+        ));
     } else {
         println!("{text}");
     }
@@ -472,7 +476,7 @@ fn path_all(
     Ok(())
 }
 
-pub fn export(output: &Path) -> Result<()> {
+pub fn export(output: &Path, out: &OutputConfig) -> Result<()> {
     let graph = ReductionGraph::new();
 
     if let Some(parent) = output.parent() {
@@ -483,13 +487,13 @@ pub fn export(output: &Path) -> Result<()> {
         .to_json_file(output)
         .map_err(|e| anyhow::anyhow!("Failed to export: {}", e))?;
 
-    eprintln!(
+    out.info(&format!(
         "Exported reduction graph ({} types, {} reductions, {} variant nodes) to {}",
         graph.num_types(),
         graph.num_reductions(),
         graph.num_variant_nodes(),
         output.display()
-    );
+    ));
 
     Ok(())
 }
