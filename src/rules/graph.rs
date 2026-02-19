@@ -11,7 +11,6 @@
 use crate::rules::cost::PathCostFn;
 use crate::rules::registry::{ReductionEntry, ReductionOverhead};
 use crate::rules::traits::DynReductionResult;
-use crate::traits::Problem;
 use crate::types::ProblemSize;
 use ordered_float::OrderedFloat;
 use petgraph::algo::all_simple_paths;
@@ -21,7 +20,16 @@ use serde::Serialize;
 use std::any::Any;
 use std::cmp::Reverse;
 use std::collections::{BTreeMap, BinaryHeap, HashMap, HashSet};
-use std::marker::PhantomData;
+
+/// A source/target pair from the reduction graph, returned by
+/// [`ReductionGraph::outgoing_reductions`] and [`ReductionGraph::incoming_reductions`].
+#[derive(Debug, Clone)]
+pub struct ReductionEdgeInfo {
+    pub source_name: &'static str,
+    pub source_variant: BTreeMap<String, String>,
+    pub target_name: &'static str,
+    pub target_variant: BTreeMap<String, String>,
+}
 
 /// Internal edge data combining overhead and executable reduce function.
 #[derive(Clone)]
@@ -199,6 +207,39 @@ pub(crate) fn classify_problem_category(module_path: &str) -> &str {
 struct VariantNode {
     name: &'static str,
     variant: BTreeMap<String, String>,
+}
+
+/// Information about a neighbor in the reduction graph.
+#[derive(Debug, Clone)]
+pub struct NeighborInfo {
+    /// Problem name.
+    pub name: &'static str,
+    /// Variant attributes.
+    pub variant: BTreeMap<String, String>,
+    /// Hop distance from the source.
+    pub hops: usize,
+}
+
+/// Direction for graph traversal.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum TraversalDirection {
+    /// Follow outgoing edges (what can this reduce to?).
+    Outgoing,
+    /// Follow incoming edges (what can reduce to this?).
+    Incoming,
+    /// Follow edges in both directions.
+    Both,
+}
+
+/// A tree node for neighbor traversal results.
+#[derive(Debug, Clone)]
+pub struct NeighborTree {
+    /// Problem name.
+    pub name: String,
+    /// Variant attributes.
+    pub variant: BTreeMap<String, String>,
+    /// Child nodes (sorted by name).
+    pub children: Vec<NeighborTree>,
 }
 
 /// Validate that a reduction's overhead variables are consistent with source/target size names.
@@ -596,17 +637,14 @@ impl ReductionGraph {
         node_indices
             .windows(2)
             .map(|pair| {
-                let edge_idx = self
-                    .graph
-                    .find_edge(pair[0], pair[1])
-                    .unwrap_or_else(|| {
-                        let src = &self.nodes[self.graph[pair[0]]];
-                        let dst = &self.nodes[self.graph[pair[1]]];
-                        panic!(
-                            "No edge from {} {:?} to {} {:?}",
-                            src.name, src.variant, dst.name, dst.variant
-                        )
-                    });
+                let edge_idx = self.graph.find_edge(pair[0], pair[1]).unwrap_or_else(|| {
+                    let src = &self.nodes[self.graph[pair[0]]];
+                    let dst = &self.nodes[self.graph[pair[1]]];
+                    panic!(
+                        "No edge from {} {:?} to {} {:?}",
+                        src.name, src.variant, dst.name, dst.variant
+                    )
+                });
                 self.graph[edge_idx].overhead.clone()
             })
             .collect()
@@ -623,6 +661,220 @@ impl ReductionGraph {
             .unwrap_or_default()
     }
 
+    /// Get all variant maps registered for a problem name.
+    ///
+    /// Returns an empty `Vec` if the name is not found.
+    pub fn variants_for(&self, name: &str) -> Vec<BTreeMap<String, String>> {
+        self.name_to_nodes
+            .get(name)
+            .map(|indices| {
+                indices
+                    .iter()
+                    .map(|&idx| self.nodes[self.graph[idx]].variant.clone())
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
+
+    /// Get all outgoing reductions from a problem (across all its variants).
+    pub fn outgoing_reductions(&self, name: &str) -> Vec<ReductionEdgeInfo> {
+        let Some(indices) = self.name_to_nodes.get(name) else {
+            return vec![];
+        };
+        let index_set: HashSet<NodeIndex> = indices.iter().copied().collect();
+        self.graph
+            .edge_references()
+            .filter(|e| index_set.contains(&e.source()))
+            .map(|e| {
+                let src = &self.nodes[self.graph[e.source()]];
+                let dst = &self.nodes[self.graph[e.target()]];
+                ReductionEdgeInfo {
+                    source_name: src.name,
+                    source_variant: src.variant.clone(),
+                    target_name: dst.name,
+                    target_variant: dst.variant.clone(),
+                }
+            })
+            .collect()
+    }
+
+    /// Get the problem size field names for a problem type.
+    ///
+    /// Returns the static `problem_size_names()` by finding a reduction entry
+    /// where this problem is the source or target.
+    pub fn size_field_names(&self, name: &str) -> &'static [&'static str] {
+        for entry in inventory::iter::<ReductionEntry> {
+            if entry.source_name == name {
+                return (entry.source_size_names_fn)();
+            }
+            if entry.target_name == name {
+                return (entry.target_size_names_fn)();
+            }
+        }
+        &[]
+    }
+
+    /// Get all incoming reductions to a problem (across all its variants).
+    pub fn incoming_reductions(&self, name: &str) -> Vec<ReductionEdgeInfo> {
+        let Some(indices) = self.name_to_nodes.get(name) else {
+            return vec![];
+        };
+        let index_set: HashSet<NodeIndex> = indices.iter().copied().collect();
+        self.graph
+            .edge_references()
+            .filter(|e| index_set.contains(&e.target()))
+            .map(|e| {
+                let src = &self.nodes[self.graph[e.source()]];
+                let dst = &self.nodes[self.graph[e.target()]];
+                ReductionEdgeInfo {
+                    source_name: src.name,
+                    source_variant: src.variant.clone(),
+                    target_name: dst.name,
+                    target_variant: dst.variant.clone(),
+                }
+            })
+            .collect()
+    }
+
+    /// Find all problems reachable within `max_hops` edges from a starting node.
+    ///
+    /// Returns neighbors sorted by (hops, name). The starting node itself is excluded.
+    /// If a node is reachable at multiple distances, it appears at the shortest distance only.
+    pub fn k_neighbors(
+        &self,
+        name: &str,
+        variant: &BTreeMap<String, String>,
+        max_hops: usize,
+        direction: TraversalDirection,
+    ) -> Vec<NeighborInfo> {
+        use std::collections::VecDeque;
+
+        let Some(start_idx) = self.lookup_node(name, variant) else {
+            return vec![];
+        };
+
+        let mut visited: HashSet<NodeIndex> = HashSet::new();
+        visited.insert(start_idx);
+        let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
+        queue.push_back((start_idx, 0));
+        let mut results: Vec<NeighborInfo> = Vec::new();
+
+        while let Some((node_idx, hops)) = queue.pop_front() {
+            if hops >= max_hops {
+                continue;
+            }
+
+            let directions: Vec<petgraph::Direction> = match direction {
+                TraversalDirection::Outgoing => vec![petgraph::Direction::Outgoing],
+                TraversalDirection::Incoming => vec![petgraph::Direction::Incoming],
+                TraversalDirection::Both => {
+                    vec![petgraph::Direction::Outgoing, petgraph::Direction::Incoming]
+                }
+            };
+
+            for dir in directions {
+                for neighbor_idx in self.graph.neighbors_directed(node_idx, dir) {
+                    if visited.insert(neighbor_idx) {
+                        let neighbor_node = &self.nodes[self.graph[neighbor_idx]];
+                        results.push(NeighborInfo {
+                            name: neighbor_node.name,
+                            variant: neighbor_node.variant.clone(),
+                            hops: hops + 1,
+                        });
+                        queue.push_back((neighbor_idx, hops + 1));
+                    }
+                }
+            }
+        }
+
+        results.sort_by(|a, b| a.hops.cmp(&b.hops).then_with(|| a.name.cmp(b.name)));
+        results
+    }
+
+    /// Build a tree of neighbors via BFS with parent tracking.
+    ///
+    /// Returns the children of the starting node as a forest of `NeighborTree` nodes.
+    /// Each node appears at most once (shortest-path tree). Children are sorted by name.
+    pub fn k_neighbor_tree(
+        &self,
+        name: &str,
+        variant: &BTreeMap<String, String>,
+        max_hops: usize,
+        direction: TraversalDirection,
+    ) -> Vec<NeighborTree> {
+        use std::collections::VecDeque;
+
+        let Some(start_idx) = self.lookup_node(name, variant) else {
+            return vec![];
+        };
+
+        let mut visited: HashSet<NodeIndex> = HashSet::new();
+        visited.insert(start_idx);
+
+        let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
+        queue.push_back((start_idx, 0));
+
+        // Map from node_idx -> children node indices
+        let mut node_children: HashMap<NodeIndex, Vec<NodeIndex>> = HashMap::new();
+
+        while let Some((node_idx, depth)) = queue.pop_front() {
+            if depth >= max_hops {
+                continue;
+            }
+
+            let directions: Vec<petgraph::Direction> = match direction {
+                TraversalDirection::Outgoing => vec![petgraph::Direction::Outgoing],
+                TraversalDirection::Incoming => vec![petgraph::Direction::Incoming],
+                TraversalDirection::Both => {
+                    vec![petgraph::Direction::Outgoing, petgraph::Direction::Incoming]
+                }
+            };
+
+            let mut children = Vec::new();
+            for dir in directions {
+                for neighbor_idx in self.graph.neighbors_directed(node_idx, dir) {
+                    if visited.insert(neighbor_idx) {
+                        children.push(neighbor_idx);
+                        queue.push_back((neighbor_idx, depth + 1));
+                    }
+                }
+            }
+            children.sort_by(|a, b| {
+                self.nodes[self.graph[*a]]
+                    .name
+                    .cmp(self.nodes[self.graph[*b]].name)
+            });
+            node_children.insert(node_idx, children);
+        }
+
+        // Recursively build NeighborTree from BFS parent map.
+        fn build(
+            idx: NodeIndex,
+            node_children: &HashMap<NodeIndex, Vec<NodeIndex>>,
+            nodes: &[VariantNode],
+            graph: &DiGraph<usize, ReductionEdgeData>,
+        ) -> NeighborTree {
+            let children = node_children
+                .get(&idx)
+                .map(|cs| cs.iter().map(|&c| build(c, node_children, nodes, graph)).collect())
+                .unwrap_or_default();
+            let node = &nodes[graph[idx]];
+            NeighborTree {
+                name: node.name.to_string(),
+                variant: node.variant.clone(),
+                children,
+            }
+        }
+
+        node_children
+            .get(&start_idx)
+            .map(|cs| {
+                cs.iter()
+                    .map(|&c| build(c, &node_children, &self.nodes, &self.graph))
+                    .collect()
+            })
+            .unwrap_or_default()
+    }
 }
 
 impl Default for ReductionGraph {
@@ -855,63 +1107,34 @@ pub struct MatchedEntry {
     pub overhead: ReductionOverhead,
 }
 
-/// Type alias for a dynamically-dispatched reduce function pointer.
-type ReduceFn = fn(&dyn Any) -> Box<dyn DynReductionResult>;
-
-/// A typed, executable reduction path from source type `S` to target type `T`.
-pub struct ExecutablePath<S: Problem, T: Problem> {
-    edge_fns: Vec<ReduceFn>,
-    _phantom: PhantomData<(S, T)>,
-}
-
-impl<S: Problem + 'static, T: Problem + 'static> ExecutablePath<S, T> {
-    /// Execute the reduction path on a source problem instance.
-    pub fn reduce(&self, source: &S) -> ChainedReduction<S, T> {
-        let mut steps: Vec<Box<dyn DynReductionResult>> = Vec::new();
-        let step = (self.edge_fns[0])(source as &dyn Any);
-        steps.push(step);
-        for edge_fn in &self.edge_fns[1..] {
-            let step = {
-                let prev_target = steps.last().unwrap().target_problem_any();
-                edge_fn(prev_target)
-            };
-            steps.push(step);
-        }
-        ChainedReduction {
-            steps,
-            _phantom: PhantomData,
-        }
-    }
-
-    /// Number of reduction steps in the path.
-    pub fn len(&self) -> usize {
-        self.edge_fns.len()
-    }
-
-    /// Whether the path is empty (zero steps).
-    pub fn is_empty(&self) -> bool {
-        self.edge_fns.is_empty()
-    }
-}
-
-/// A composed reduction from source type `S` to target type `T`.
-pub struct ChainedReduction<S: Problem, T: Problem> {
+/// A composed reduction chain produced by [`ReductionGraph::reduce_along_path`].
+///
+/// Holds the intermediate reduction results from executing a multi-step
+/// reduction path. Provides access to the final target problem and
+/// solution extraction back to the source problem space.
+pub struct ReductionChain {
     steps: Vec<Box<dyn DynReductionResult>>,
-    _phantom: PhantomData<(S, T)>,
 }
 
-impl<S: Problem, T: Problem + 'static> ChainedReduction<S, T> {
-    /// Get a reference to the target problem.
-    pub fn target_problem(&self) -> &T {
+impl ReductionChain {
+    /// Get the final target problem as a type-erased reference.
+    pub fn target_problem_any(&self) -> &dyn Any {
         self.steps
             .last()
-            .expect("ChainedReduction has no steps")
+            .expect("ReductionChain has no steps")
             .target_problem_any()
-            .downcast_ref::<T>()
-            .expect("final step target type mismatch")
     }
 
-    /// Extract a solution from target space to source space.
+    /// Get a typed reference to the final target problem.
+    ///
+    /// Panics if the actual target type does not match `T`.
+    pub fn target_problem<T: 'static>(&self) -> &T {
+        self.target_problem_any()
+            .downcast_ref::<T>()
+            .expect("ReductionChain target type mismatch")
+    }
+
+    /// Extract a solution from target space back to source space.
     pub fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
         self.steps
             .iter()
@@ -923,16 +1146,28 @@ impl<S: Problem, T: Problem + 'static> ChainedReduction<S, T> {
 }
 
 impl ReductionGraph {
-    /// Convert a `ReductionPath` into a typed, executable path.
+    /// Execute a reduction path on a source problem instance.
     ///
-    /// Looks up each edge's `reduce_fn` from the graph along the path steps.
-    pub fn make_executable<S: Problem, T: Problem>(
+    /// Looks up each edge's `reduce_fn`, chains them, and returns the
+    /// resulting [`ReductionChain`]. The source must be passed as `&dyn Any`
+    /// (use `&problem as &dyn Any` or pass a concrete reference directly).
+    ///
+    /// # Example
+    ///
+    /// ```text
+    /// let chain = graph.reduce_along_path(&path, &source_problem)?;
+    /// let target: &QUBO<f64> = chain.target_problem();
+    /// let source_solution = chain.extract_solution(&target_solution);
+    /// ```
+    pub fn reduce_along_path(
         &self,
         path: &ReductionPath,
-    ) -> Option<ExecutablePath<S, T>> {
+        source: &dyn Any,
+    ) -> Option<ReductionChain> {
         if path.steps.len() < 2 {
             return None;
         }
+        // Collect edge reduce_fns
         let mut edge_fns = Vec::new();
         for window in path.steps.windows(2) {
             let src = self.lookup_node(&window[0].name, &window[0].variant)?;
@@ -940,10 +1175,18 @@ impl ReductionGraph {
             let edge_idx = self.graph.find_edge(src, dst)?;
             edge_fns.push(self.graph[edge_idx].reduce_fn);
         }
-        Some(ExecutablePath {
-            edge_fns,
-            _phantom: PhantomData,
-        })
+        // Execute the chain
+        let mut steps: Vec<Box<dyn DynReductionResult>> = Vec::new();
+        let step = (edge_fns[0])(source);
+        steps.push(step);
+        for edge_fn in &edge_fns[1..] {
+            let step = {
+                let prev_target = steps.last().unwrap().target_problem_any();
+                edge_fn(prev_target)
+            };
+            steps.push(step);
+        }
+        Some(ReductionChain { steps })
     }
 }
 

@@ -100,7 +100,7 @@ impl<S: Problem, T: Problem> ReductionResult for ReductionAutoCast<S, T> {
 /// Type-erased reduction result for runtime-discovered paths.
 ///
 /// Implemented automatically for all `ReductionResult` types via blanket impl.
-/// Used internally by `ExecutablePath` and `ChainedReduction`.
+/// Used internally by `ReductionChain`.
 pub trait DynReductionResult {
     /// Get the target problem as a type-erased reference.
     fn target_problem_any(&self) -> &dyn Any;

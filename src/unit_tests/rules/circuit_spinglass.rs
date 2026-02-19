@@ -147,7 +147,7 @@ fn test_constant_true() {
         BooleanExpr::constant(true),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction = problem.reduce_to();
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&problem);
     let sg = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -174,7 +174,7 @@ fn test_constant_false() {
         BooleanExpr::constant(false),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction = problem.reduce_to();
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&problem);
     let sg = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -205,7 +205,7 @@ fn test_multi_input_and() {
         ]),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction = problem.reduce_to();
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&problem);
     let sg = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -238,7 +238,7 @@ fn test_reduction_result_methods() {
         BooleanExpr::var("x"),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction = problem.reduce_to();
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&problem);
 
     // Test target_problem and extract_solution work
     let sg = reduction.target_problem();
@@ -249,7 +249,7 @@ fn test_reduction_result_methods() {
 fn test_empty_circuit() {
     let circuit = Circuit::new(vec![]);
     let problem = CircuitSAT::new(circuit);
-    let reduction = problem.reduce_to();
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&problem);
     let sg = reduction.target_problem();
 
     // Empty circuit should result in empty SpinGlass
@@ -263,7 +263,7 @@ fn test_solution_extraction() {
         BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
     )]);
     let problem = CircuitSAT::new(circuit);
-    let reduction = problem.reduce_to();
+    let reduction = ReduceTo::<SpinGlass<SimpleGraph, i32>>::reduce_to(&problem);
 
     // The source variables are c, x, y (sorted)
     assert_eq!(reduction.source_variables, vec!["c", "x", "y"]);

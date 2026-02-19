@@ -20,12 +20,12 @@ pub fn run() {
     let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant()); // {graph: "SimpleGraph", weight: "f64"}
     let rpath = graph
         .find_cheapest_path(
-            "Factoring",              // source problem name
-            &src_var,                 // source variant map
-            "SpinGlass",              // target problem name
-            &dst_var,                 // target variant map
+            "Factoring",               // source problem name
+            &src_var,                  // source variant map
+            "SpinGlass",               // target problem name
+            &dst_var,                  // target variant map
             &ProblemSize::new(vec![]), // input size (empty = unknown)
-            &MinimizeSteps,           // cost function: fewest hops
+            &MinimizeSteps,            // cost function: fewest hops
         )
         .unwrap();
     println!("  {}", rpath);

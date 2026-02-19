@@ -72,7 +72,10 @@ fn test_all_problems_implement_trait_correctly() {
     );
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
     check_problem_trait(&BMF::new(vec![vec![true]], 1), "BMF");
-    check_problem_trait(&BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1), "BicliqueCover");
+    check_problem_trait(
+        &BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1),
+        "BicliqueCover",
+    );
     check_problem_trait(&Factoring::new(6, 2, 2), "Factoring");
 
     let circuit = Circuit::new(vec![Assignment::new(

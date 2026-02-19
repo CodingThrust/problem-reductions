@@ -210,6 +210,21 @@
   "edges": [
     {
       "source": 0,
+      "target": 2,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_variables + num_assignments"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_variables + num_assignments"
+        }
+      ],
+      "doc_path": "rules/circuit_ilp/index.html"
+    },
+    {
+      "source": 0,
       "target": 23,
       "overhead": [
         {
@@ -761,6 +776,21 @@
         }
       ],
       "doc_path": "rules/minimumvertexcover_qubo/index.html"
+    },
+    {
+      "source": 20,
+      "target": 2,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_vars^2"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_vars^2"
+        }
+      ],
+      "doc_path": "rules/qubo_ilp/index.html"
     },
     {
       "source": 20,

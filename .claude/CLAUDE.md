@@ -27,6 +27,8 @@ make diagrams      # Generate SVG diagrams from Typst (light + dark)
 make examples      # Generate example JSON for paper
 make compare       # Generate and compare Rust mapping exports
 make jl-testdata   # Regenerate Julia parity test data (requires julia)
+make cli           # Build the pred CLI tool (release mode)
+make cli-demo      # Run closed-loop CLI demo (exercises all commands)
 make run-plan      # Execute a plan with Claude autorun
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 ```
@@ -48,6 +50,7 @@ make test clippy  # Must pass before PR
 - `src/traits.rs` - `Problem`, `OptimizationProblem`, `SatisfactionProblem` traits
 - `src/rules/traits.rs` - `ReduceTo<T>`, `ReductionResult` traits
 - `src/registry/` - Compile-time reduction metadata collection
+- `problemreductions-cli/` - `pred` CLI tool (separate crate in workspace)
 - `src/unit_tests/` - Unit test files (mirroring `src/` structure, referenced via `#[path]`)
 - `tests/main.rs` - Integration tests (modules in `tests/suites/`); example tests use `include!` for direct invocation (no subprocess)
 - `tests/data/` - Ground truth JSON for integration tests
@@ -148,6 +151,13 @@ See Key Patterns above for solver API signatures. Follow the reference files for
 ### File Organization
 
 Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). Integration tests in `tests/suites/`, consolidated through `tests/main.rs`. Example tests in `tests/suites/examples.rs` using `include!` for direct invocation.
+
+## Documentation Locations
+- `README.md` — Project overview and quickstart
+- `.claude/` — Claude Code instructions and skills
+- `docs/book/` — mdBook user documentation (built with `make doc`)
+- `docs/paper/reductions.typ` — Typst paper with problem definitions and reduction theorems
+- `examples/` — Reduction example code (also used in paper and tests)
 
 ## Documentation Requirements
 

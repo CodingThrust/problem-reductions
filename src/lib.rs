@@ -44,7 +44,7 @@ pub mod prelude {
     pub use crate::models::optimization::{SpinGlass, QUBO};
     pub use crate::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
-    pub use crate::models::specialized::{BicliqueCover, BMF, CircuitSAT, Factoring, PaintShop};
+    pub use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
 
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};

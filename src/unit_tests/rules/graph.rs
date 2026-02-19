@@ -793,7 +793,7 @@ fn test_classify_problem_category() {
 }
 
 #[test]
-fn test_make_executable_direct() {
+fn test_reduce_along_path_direct() {
     let graph = ReductionGraph::new();
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
@@ -807,15 +807,17 @@ fn test_make_executable_direct() {
             &MinimizeSteps,
         )
         .unwrap();
-    let path = graph.make_executable::<
-        MaximumIndependentSet<SimpleGraph, i32>,
-        MinimumVertexCover<SimpleGraph, i32>,
-    >(&rpath);
-    assert!(path.is_some());
+    // Just verify the path can produce a chain with a dummy source
+    let source = MaximumIndependentSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1i32; 4],
+    );
+    let chain = graph.reduce_along_path(&rpath, &source as &dyn std::any::Any);
+    assert!(chain.is_some());
 }
 
 #[test]
-fn test_chained_reduction_direct() {
+fn test_reduction_chain_direct() {
     use crate::solvers::{BruteForce, Solver};
     use crate::traits::Problem;
 
@@ -832,29 +834,25 @@ fn test_chained_reduction_direct() {
             &MinimizeSteps,
         )
         .unwrap();
-    let path = graph
-        .make_executable::<
-            MaximumIndependentSet<SimpleGraph, i32>,
-            MinimumVertexCover<SimpleGraph, i32>,
-        >(&rpath)
-        .unwrap();
 
     let problem = MaximumIndependentSet::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1i32; 4],
     );
-    let reduction = path.reduce(&problem);
-    let target = reduction.target_problem();
+    let chain = graph
+        .reduce_along_path(&rpath, &problem as &dyn std::any::Any)
+        .unwrap();
+    let target: &MinimumVertexCover<SimpleGraph, i32> = chain.target_problem();
 
     let solver = BruteForce::new();
     let target_solution = solver.find_best(target).unwrap();
-    let source_solution = reduction.extract_solution(&target_solution);
+    let source_solution = chain.extract_solution(&target_solution);
     let metric = problem.evaluate(&source_solution);
     assert!(metric.is_valid());
 }
 
 #[test]
-fn test_chained_reduction_multi_step() {
+fn test_reduction_chain_multi_step() {
     use crate::solvers::{BruteForce, Solver};
     use crate::traits::Problem;
 
@@ -871,26 +869,25 @@ fn test_chained_reduction_multi_step() {
             &MinimizeSteps,
         )
         .unwrap();
-    let path = graph
-        .make_executable::<MaximumIndependentSet<SimpleGraph, i32>, MaximumSetPacking<i32>>(&rpath)
-        .unwrap();
 
     let problem = MaximumIndependentSet::new(
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1i32; 4],
     );
-    let reduction = path.reduce(&problem);
-    let target = reduction.target_problem();
+    let chain = graph
+        .reduce_along_path(&rpath, &problem as &dyn std::any::Any)
+        .unwrap();
+    let target: &MaximumSetPacking<i32> = chain.target_problem();
 
     let solver = BruteForce::new();
     let target_solution = solver.find_best(target).unwrap();
-    let source_solution = reduction.extract_solution(&target_solution);
+    let source_solution = chain.extract_solution(&target_solution);
     let metric = problem.evaluate(&source_solution);
     assert!(metric.is_valid());
 }
 
 #[test]
-fn test_chained_reduction_with_variant_casts() {
+fn test_reduction_chain_with_variant_casts() {
     use crate::models::satisfiability::{CNFClause, KSatisfiability};
     use crate::rules::MinimizeSteps;
     use crate::solvers::{BruteForce, Solver};
@@ -924,23 +921,18 @@ fn test_chained_reduction_with_variant_casts() {
         "Path should cross variant cast boundary (at least 2 steps)"
     );
 
-    let path = graph
-        .make_executable::<
-            MaximumIndependentSet<UnitDiskGraph, i32>,
-            MinimumVertexCover<SimpleGraph, i32>,
-        >(&rpath)
-        .unwrap();
-
     // Create a small UnitDiskGraph MIS problem (triangle of close nodes)
     let udg = UnitDiskGraph::new(vec![(0.0, 0.0), (0.5, 0.0), (0.25, 0.4)], 1.0);
     let mis = MaximumIndependentSet::new(udg, vec![1i32, 1, 1]);
 
-    let reduction = path.reduce(&mis);
-    let target = reduction.target_problem();
+    let chain = graph
+        .reduce_along_path(&rpath, &mis as &dyn std::any::Any)
+        .unwrap();
+    let target: &MinimumVertexCover<SimpleGraph, i32> = chain.target_problem();
 
     let solver = BruteForce::new();
     let target_solution = solver.find_best(target).unwrap();
-    let source_solution = reduction.extract_solution(&target_solution);
+    let source_solution = chain.extract_solution(&target_solution);
     let metric = mis.evaluate(&source_solution);
     assert!(metric.is_valid());
 
@@ -964,12 +956,6 @@ fn test_chained_reduction_with_variant_casts() {
         "Should find path from KSat<K3> to MIS"
     );
     let ksat_rpath = ksat_rpath.unwrap();
-    let ksat_path = graph
-        .make_executable::<
-            KSatisfiability<crate::variant::K3>,
-            MaximumIndependentSet<SimpleGraph, i32>,
-        >(&ksat_rpath)
-        .unwrap();
 
     // Create a 3-SAT formula
     let ksat = KSatisfiability::<crate::variant::K3>::new(
@@ -982,11 +968,13 @@ fn test_chained_reduction_with_variant_casts() {
         ],
     );
 
-    let reduction = ksat_path.reduce(&ksat);
-    let target = reduction.target_problem();
+    let ksat_chain = graph
+        .reduce_along_path(&ksat_rpath, &ksat as &dyn std::any::Any)
+        .unwrap();
+    let target: &MaximumIndependentSet<SimpleGraph, i32> = ksat_chain.target_problem();
 
     let target_solution = solver.find_best(target).unwrap();
-    let original_solution = reduction.extract_solution(&target_solution);
+    let original_solution = ksat_chain.extract_solution(&target_solution);
 
     // Verify the extracted solution satisfies the original 3-SAT formula
     assert!(ksat.evaluate(&original_solution));

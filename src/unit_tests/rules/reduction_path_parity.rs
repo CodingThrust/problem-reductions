@@ -1,5 +1,5 @@
 //! Reduction path parity tests — mirrors Julia's test/reduction_path.jl.
-//! Verifies that chained reductions via `find_cheapest_path` + `make_executable`
+//! Verifies that chained reductions via `find_cheapest_path` + `reduce_along_path`
 //! produce correct solutions matching direct source solves.
 
 use crate::models::graph::MaxCut;
@@ -29,9 +29,6 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
             &MinimizeSteps,
         )
         .expect("Should find path MaxCut -> SpinGlass");
-    let path = graph
-        .make_executable::<MaxCut<SimpleGraph, i32>, SpinGlass<SimpleGraph, f64>>(&rpath)
-        .expect("Should make executable path");
 
     // Petersen graph: 10 vertices, 15 edges
     let petersen_edges = vec![
@@ -52,15 +49,17 @@ fn test_jl_parity_maxcut_to_spinglass_path() {
         (7, 9),
     ];
     let source = MaxCut::<SimpleGraph, i32>::unweighted(SimpleGraph::new(10, petersen_edges));
-    let reduction = path.reduce(&source);
-    let target = reduction.target_problem();
+    let chain = graph
+        .reduce_along_path(&rpath, &source as &dyn std::any::Any)
+        .expect("Should reduce along path");
+    let target: &SpinGlass<SimpleGraph, f64> = chain.target_problem();
 
     // Verify target is SpinGlass
     assert_eq!(SpinGlass::<SimpleGraph, f64>::NAME, "SpinGlass");
 
     let solver = BruteForce::new();
     let target_solution = solver.find_best(target).unwrap();
-    let source_solution = reduction.extract_solution(&target_solution);
+    let source_solution = chain.extract_solution(&target_solution);
 
     // Source solution should be valid
     let metric = source.evaluate(&source_solution);
@@ -84,9 +83,6 @@ fn test_jl_parity_maxcut_to_qubo_path() {
             &MinimizeSteps,
         )
         .expect("Should find path MaxCut -> QUBO");
-    let path = graph
-        .make_executable::<MaxCut<SimpleGraph, i32>, QUBO<f64>>(&rpath)
-        .expect("Should make executable path");
 
     // Use a small graph for brute-force feasibility
     let petersen_edges = vec![
@@ -107,16 +103,18 @@ fn test_jl_parity_maxcut_to_qubo_path() {
         (7, 9),
     ];
     let source = MaxCut::<SimpleGraph, i32>::unweighted(SimpleGraph::new(10, petersen_edges));
-    let reduction = path.reduce(&source);
+    let chain = graph
+        .reduce_along_path(&rpath, &source as &dyn std::any::Any)
+        .expect("Should reduce along path");
 
     let solver = BruteForce::new();
     let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-    let best_target = solver.find_all_best(reduction.target_problem());
+    let best_target = solver.find_all_best(chain.target_problem::<QUBO<f64>>());
 
     // Julia: sort(extract_solution.(Ref(res), best2)) == sort(best1)
     let extracted: HashSet<Vec<usize>> = best_target
         .iter()
-        .map(|t| reduction.extract_solution(t))
+        .map(|t| chain.extract_solution(t))
         .collect();
     assert_eq!(
         extracted, best_source,
@@ -127,7 +125,7 @@ fn test_jl_parity_maxcut_to_qubo_path() {
 /// Julia: factoring = Factoring(2, 1, 3)
 /// Julia: paths = reduction_paths(Factoring, SpinGlass)
 /// Julia: all(solution_size.(Ref(factoring), extract_solution.(Ref(res), sol)) .== Ref(SolutionSize(0, true)))
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 #[test]
 fn test_jl_parity_factoring_to_spinglass_path() {
     use crate::solvers::ILPSolver;
@@ -145,17 +143,19 @@ fn test_jl_parity_factoring_to_spinglass_path() {
             &MinimizeSteps,
         )
         .expect("Should find path Factoring -> SpinGlass");
-    let path = graph
-        .make_executable::<Factoring, SpinGlass<SimpleGraph, f64>>(&rpath)
-        .expect("Should make executable path");
 
     // Julia: Factoring(2, 1, 3) — factor 3 with 2-bit x 1-bit
     let factoring = Factoring::new(2, 1, 3);
-    let reduction = path.reduce(&factoring);
-    let target = reduction.target_problem();
+    let chain = graph
+        .reduce_along_path(&rpath, &factoring as &dyn std::any::Any)
+        .expect("Should reduce along path");
+    let target: &SpinGlass<SimpleGraph, f64> = chain.target_problem();
 
     // Verify reduction produces a valid SpinGlass problem
-    assert!(target.num_variables() > 0, "SpinGlass should have variables");
+    assert!(
+        target.num_variables() > 0,
+        "SpinGlass should have variables"
+    );
 
     // Solve Factoring directly via ILP (fast) and verify path solution extraction
     let ilp_solver = ILPSolver::new();

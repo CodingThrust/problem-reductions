@@ -35,34 +35,39 @@ mod traits;
 
 pub mod unitdiskmapping;
 
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
+mod circuit_ilp;
+#[cfg(feature = "ilp-solver")]
 mod coloring_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod factoring_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod ilp_qubo;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod maximumclique_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod maximumindependentset_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod maximummatching_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod maximumsetpacking_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod minimumdominatingset_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod minimumsetcovering_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
 mod minimumvertexcover_ilp;
-#[cfg(feature = "ilp")]
+#[cfg(feature = "ilp-solver")]
+mod qubo_ilp;
+#[cfg(feature = "ilp-solver")]
 mod travelingsalesman_ilp;
 
-pub use graph::{
-    ChainedReduction, ExecutablePath, ReductionGraph, ReductionPath, ReductionStep,
-};
 #[cfg(test)]
 pub(crate) use graph::validate_overhead_variables;
+pub use graph::{
+    NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionPath,
+    ReductionStep, TraversalDirection,
+};
 pub use traits::{ReduceTo, ReductionAutoCast, ReductionResult};
 
 /// Generates a variant-cast `ReduceTo` impl with `#[reduction]` registration.
@@ -112,4 +117,3 @@ macro_rules! impl_variant_reduction {
         }
     };
 }
-
