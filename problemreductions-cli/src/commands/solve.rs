@@ -83,9 +83,14 @@ fn solve_problem(
         }
         "ilp" => {
             let result = problem.solve_with_ilp()?;
+            let solver_desc = if name == "ILP" {
+                "ilp".to_string()
+            } else {
+                "ilp (via ILP)".to_string()
+            };
             let text = format!(
-                "Problem: {}\nSolver: ilp\nSolution: {:?}\nEvaluation: {}",
-                name, result.config, result.evaluation,
+                "Problem: {}\nSolver: {}\nSolution: {:?}\nEvaluation: {}",
+                name, solver_desc, result.config, result.evaluation,
             );
             let mut json = serde_json::json!({
                 "problem": name,

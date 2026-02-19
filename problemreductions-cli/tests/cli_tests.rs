@@ -570,6 +570,10 @@ fn test_solve_ilp() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("ilp"));
     assert!(stdout.contains("Solution"));
+    assert!(
+        stdout.contains("via ILP"),
+        "MIS solved with ILP should show auto-reduction: {stdout}"
+    );
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -601,7 +605,46 @@ fn test_solve_ilp_default() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Solver: ilp"));
+    assert!(
+        stdout.contains("Solver: ilp (via ILP)"),
+        "MIS with default solver should show auto-reduction: {stdout}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+}
+
+#[test]
+fn test_solve_ilp_shows_via_ilp() {
+    // When solving a non-ILP problem with ILP solver, output should show "via ILP"
+    let problem_file = std::env::temp_dir().join("pred_test_solve_via_ilp.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS",
+            "--edges",
+            "0-1,1-2",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let output = pred()
+        .args(["solve", problem_file.to_str().unwrap(), "--solver", "ilp"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("Solver: ilp (via ILP)"),
+        "Non-ILP problem solved with ILP should show auto-reduction indicator, got: {stdout}"
+    );
+    assert!(stdout.contains("Problem: MaximumIndependentSet"));
 
     std::fs::remove_file(&problem_file).ok();
 }
