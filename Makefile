@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata cli
+.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata cli cli-demo
 
 # Default target
 help:
@@ -25,6 +25,7 @@ help:
 	@echo "  jl-testdata  - Regenerate Julia parity test data (requires julia)"
 	@echo "  release V=x.y.z - Tag and push a new release (triggers CI publish)"
 	@echo "  cli          - Build the pred CLI tool"
+	@echo "  cli-demo     - Run closed-loop CLI demo (build + exercise all commands)"
 	@echo "  run-plan   - Execute a plan with Claude autorun (latest plan in docs/plans/)"
 
 # Build the project
@@ -196,3 +197,138 @@ run-plan:
 		--verbose \
 		--max-turns 500 \
 		-p "$$PROMPT" 2>&1 | tee "$(OUTPUT)"
+
+# Closed-loop CLI demo: exercises all commands end-to-end
+PRED := cargo run -p problemreductions-cli --release --
+CLI_DEMO_DIR := /tmp/pred-cli-demo
+cli-demo: cli
+	@echo "=== pred CLI closed-loop demo ==="
+	@rm -rf $(CLI_DEMO_DIR) && mkdir -p $(CLI_DEMO_DIR)
+	@set -e; \
+	PRED="./target/release/pred"; \
+	\
+	echo ""; \
+	echo "--- 1. list: all registered problems ---"; \
+	$$PRED list; \
+	$$PRED list -o $(CLI_DEMO_DIR)/problems.json; \
+	\
+	echo ""; \
+	echo "--- 2. show: inspect MIS (variants, fields, reductions) ---"; \
+	$$PRED show MIS; \
+	$$PRED show MIS -o $(CLI_DEMO_DIR)/mis_info.json; \
+	\
+	echo ""; \
+	echo "--- 3. show --hops: explore 2-hop neighborhood ---"; \
+	$$PRED show MIS --hops 2; \
+	$$PRED show MIS --hops 2 -o $(CLI_DEMO_DIR)/mis_hops.json; \
+	\
+	echo ""; \
+	echo "--- 4. show --direction: incoming neighbors ---"; \
+	$$PRED show QUBO --hops 1 --direction in; \
+	\
+	echo ""; \
+	echo "--- 5. path: find reduction paths ---"; \
+	$$PRED path MIS QUBO; \
+	$$PRED path MIS QUBO -o $(CLI_DEMO_DIR)/path_mis_qubo.json; \
+	$$PRED path Factoring SpinGlass; \
+	$$PRED path MIS QUBO --cost minimize:num_variables; \
+	\
+	echo ""; \
+	echo "--- 6. path --all: enumerate all paths ---"; \
+	$$PRED path MIS QUBO --all; \
+	$$PRED path MIS QUBO --all -o $(CLI_DEMO_DIR)/all_paths/; \
+	\
+	echo ""; \
+	echo "--- 7. export-graph: full reduction graph ---"; \
+	$$PRED export-graph -o $(CLI_DEMO_DIR)/graph.json; \
+	\
+	echo ""; \
+	echo "--- 8. create: build problem instances ---"; \
+	$$PRED create MIS --edges 0-1,1-2,2-3,3-4,4-0 -o $(CLI_DEMO_DIR)/mis.json; \
+	$$PRED create MIS --edges 0-1,1-2,2-3 --weights 2,1,3,1 -o $(CLI_DEMO_DIR)/mis_weighted.json; \
+	$$PRED create SAT --num-vars 3 --clauses "1,2;-1,3;2,-3" -o $(CLI_DEMO_DIR)/sat.json; \
+	$$PRED create 3SAT --num-vars 4 --clauses "1,2,3;-1,2,-3;1,-2,3" -o $(CLI_DEMO_DIR)/3sat.json; \
+	$$PRED create QUBO --matrix "1,-0.5;-0.5,2" -o $(CLI_DEMO_DIR)/qubo.json; \
+	$$PRED create KColoring --k 3 --edges 0-1,1-2,2-0 -o $(CLI_DEMO_DIR)/kcol.json; \
+	$$PRED create SpinGlass --edges 0-1,1-2 -o $(CLI_DEMO_DIR)/sg.json; \
+	$$PRED create MaxCut --edges 0-1,1-2,2-0 -o $(CLI_DEMO_DIR)/maxcut.json; \
+	$$PRED create MVC --edges 0-1,1-2,2-3 -o $(CLI_DEMO_DIR)/mvc.json; \
+	$$PRED create MaximumMatching --edges 0-1,1-2,2-3 -o $(CLI_DEMO_DIR)/matching.json; \
+	\
+	echo ""; \
+	echo "--- 9. evaluate: test configurations ---"; \
+	$$PRED evaluate $(CLI_DEMO_DIR)/mis.json --config 1,0,1,0,0; \
+	$$PRED evaluate $(CLI_DEMO_DIR)/mis.json --config 1,1,0,0,0; \
+	$$PRED evaluate $(CLI_DEMO_DIR)/sat.json --config 0,1,1; \
+	$$PRED evaluate $(CLI_DEMO_DIR)/mis.json --config 1,0,1,0,0 -o $(CLI_DEMO_DIR)/eval.json; \
+	\
+	echo ""; \
+	echo "--- 10. solve: direct ILP (auto-reduces to ILP) ---"; \
+	$$PRED solve $(CLI_DEMO_DIR)/mis.json; \
+	$$PRED solve $(CLI_DEMO_DIR)/mis.json -o $(CLI_DEMO_DIR)/sol_ilp.json; \
+	\
+	echo ""; \
+	echo "--- 11. solve: brute-force ---"; \
+	$$PRED solve $(CLI_DEMO_DIR)/mis.json --solver brute-force; \
+	\
+	echo ""; \
+	echo "--- 12. solve: weighted MIS ---"; \
+	$$PRED solve $(CLI_DEMO_DIR)/mis_weighted.json; \
+	\
+	echo ""; \
+	echo "--- 13. reduce: MIS → QUBO (auto-discover path) ---"; \
+	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --to QUBO -o $(CLI_DEMO_DIR)/bundle_qubo.json; \
+	\
+	echo ""; \
+	echo "--- 14. solve bundle: brute-force on reduced QUBO ---"; \
+	$$PRED solve $(CLI_DEMO_DIR)/bundle_qubo.json --solver brute-force; \
+	\
+	echo ""; \
+	echo "--- 15. reduce --via: use explicit path file ---"; \
+	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --via $(CLI_DEMO_DIR)/path_mis_qubo.json -o $(CLI_DEMO_DIR)/bundle_via.json; \
+	\
+	echo ""; \
+	echo "--- 16. solve bundle with ILP: MIS → MVC → ILP ---"; \
+	$$PRED reduce $(CLI_DEMO_DIR)/mis.json --to MVC -o $(CLI_DEMO_DIR)/bundle_mvc.json; \
+	$$PRED solve $(CLI_DEMO_DIR)/bundle_mvc.json --solver ilp; \
+	\
+	echo ""; \
+	echo "--- 17. solve: other problem types ---"; \
+	$$PRED solve $(CLI_DEMO_DIR)/sat.json --solver brute-force; \
+	$$PRED solve $(CLI_DEMO_DIR)/kcol.json --solver brute-force; \
+	$$PRED solve $(CLI_DEMO_DIR)/maxcut.json --solver brute-force; \
+	$$PRED solve $(CLI_DEMO_DIR)/mvc.json; \
+	\
+	echo ""; \
+	echo "--- 18. closed-loop: create → reduce → solve → verify ---"; \
+	echo "Creating a 6-vertex graph..."; \
+	$$PRED create MIS --edges 0-1,1-2,2-3,3-4,4-5,0-5,1-4 -o $(CLI_DEMO_DIR)/big.json; \
+	echo "Solving with ILP..."; \
+	$$PRED solve $(CLI_DEMO_DIR)/big.json -o $(CLI_DEMO_DIR)/big_sol.json; \
+	echo "Reducing to QUBO and solving with brute-force..."; \
+	$$PRED reduce $(CLI_DEMO_DIR)/big.json --to QUBO -o $(CLI_DEMO_DIR)/big_qubo.json; \
+	$$PRED solve $(CLI_DEMO_DIR)/big_qubo.json --solver brute-force -o $(CLI_DEMO_DIR)/big_qubo_sol.json; \
+	echo "Verifying both solutions have the same evaluation..."; \
+	ILP_EVAL=$$(jq -r '.evaluation' $(CLI_DEMO_DIR)/big_sol.json); \
+	BF_EVAL=$$(jq -r '.evaluation' $(CLI_DEMO_DIR)/big_qubo_sol.json); \
+	echo "  ILP solution evaluation:         $$ILP_EVAL"; \
+	echo "  Brute-force (via QUBO) evaluation: $$BF_EVAL"; \
+	if [ "$$ILP_EVAL" = "$$BF_EVAL" ]; then \
+		echo "  ✅ Solutions agree!"; \
+	else \
+		echo "  ❌ Solutions disagree!" && exit 1; \
+	fi; \
+	\
+	echo ""; \
+	echo "--- 19. show with alias and variant slash syntax ---"; \
+	$$PRED show MIS/UnitDiskGraph; \
+	\
+	echo ""; \
+	echo "--- 20. completions: generate shell completions ---"; \
+	$$PRED completions bash > /dev/null && echo "bash completions: OK"; \
+	$$PRED completions zsh > /dev/null && echo "zsh completions:  OK"; \
+	$$PRED completions fish > /dev/null && echo "fish completions: OK"; \
+	\
+	echo ""; \
+	echo "=== Demo complete: $$(ls $(CLI_DEMO_DIR)/*.json | wc -l | tr -d ' ') JSON files in $(CLI_DEMO_DIR) ==="
+	@echo "=== All 20 steps passed ✅ ==="
