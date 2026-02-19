@@ -231,6 +231,17 @@ pub enum TraversalDirection {
     Both,
 }
 
+/// A tree node for neighbor traversal results.
+#[derive(Debug, Clone)]
+pub struct NeighborTree {
+    /// Problem name.
+    pub name: String,
+    /// Variant attributes.
+    pub variant: BTreeMap<String, String>,
+    /// Child nodes (sorted by name).
+    pub children: Vec<NeighborTree>,
+}
+
 /// Validate that a reduction's overhead variables are consistent with source/target size names.
 ///
 /// Checks:
@@ -725,30 +736,6 @@ impl ReductionGraph {
             .collect()
     }
 
-    /// Find the NodeIndex for a specific (name, variant) pair.
-    pub fn find_node_index(
-        &self,
-        name: &str,
-        variant: &BTreeMap<String, String>,
-    ) -> Option<NodeIndex> {
-        self.lookup_node(name, variant)
-    }
-
-    /// Get neighbors of a node in a specific direction.
-    pub fn neighbor_indices(&self, idx: NodeIndex, dir: petgraph::Direction) -> Vec<NodeIndex> {
-        self.graph.neighbors_directed(idx, dir).collect()
-    }
-
-    /// Get the problem name for a node index.
-    pub fn node_name(&self, idx: NodeIndex) -> &str {
-        self.nodes[self.graph[idx]].name
-    }
-
-    /// Get the variant map for a node index.
-    pub fn node_variant(&self, idx: NodeIndex) -> &BTreeMap<String, String> {
-        &self.nodes[self.graph[idx]].variant
-    }
-
     /// Find all problems reachable within `max_hops` edges from a starting node.
     ///
     /// Returns neighbors sorted by (hops, name). The starting node itself is excluded.
@@ -762,7 +749,7 @@ impl ReductionGraph {
     ) -> Vec<NeighborInfo> {
         use std::collections::VecDeque;
 
-        let Some(start_idx) = self.find_node_index(name, variant) else {
+        let Some(start_idx) = self.lookup_node(name, variant) else {
             return vec![];
         };
 
@@ -802,6 +789,91 @@ impl ReductionGraph {
 
         results.sort_by(|a, b| a.hops.cmp(&b.hops).then_with(|| a.name.cmp(b.name)));
         results
+    }
+
+    /// Build a tree of neighbors via BFS with parent tracking.
+    ///
+    /// Returns the children of the starting node as a forest of `NeighborTree` nodes.
+    /// Each node appears at most once (shortest-path tree). Children are sorted by name.
+    pub fn k_neighbor_tree(
+        &self,
+        name: &str,
+        variant: &BTreeMap<String, String>,
+        max_hops: usize,
+        direction: TraversalDirection,
+    ) -> Vec<NeighborTree> {
+        use std::collections::VecDeque;
+
+        let Some(start_idx) = self.lookup_node(name, variant) else {
+            return vec![];
+        };
+
+        let mut visited: HashSet<NodeIndex> = HashSet::new();
+        visited.insert(start_idx);
+
+        let mut queue: VecDeque<(NodeIndex, usize)> = VecDeque::new();
+        queue.push_back((start_idx, 0));
+
+        // Map from node_idx -> children node indices
+        let mut node_children: HashMap<NodeIndex, Vec<NodeIndex>> = HashMap::new();
+
+        while let Some((node_idx, depth)) = queue.pop_front() {
+            if depth >= max_hops {
+                continue;
+            }
+
+            let directions: Vec<petgraph::Direction> = match direction {
+                TraversalDirection::Outgoing => vec![petgraph::Direction::Outgoing],
+                TraversalDirection::Incoming => vec![petgraph::Direction::Incoming],
+                TraversalDirection::Both => {
+                    vec![petgraph::Direction::Outgoing, petgraph::Direction::Incoming]
+                }
+            };
+
+            let mut children = Vec::new();
+            for dir in directions {
+                for neighbor_idx in self.graph.neighbors_directed(node_idx, dir) {
+                    if visited.insert(neighbor_idx) {
+                        children.push(neighbor_idx);
+                        queue.push_back((neighbor_idx, depth + 1));
+                    }
+                }
+            }
+            children.sort_by(|a, b| {
+                self.nodes[self.graph[*a]]
+                    .name
+                    .cmp(self.nodes[self.graph[*b]].name)
+            });
+            node_children.insert(node_idx, children);
+        }
+
+        // Recursively build NeighborTree from BFS parent map.
+        fn build(
+            idx: NodeIndex,
+            node_children: &HashMap<NodeIndex, Vec<NodeIndex>>,
+            nodes: &[VariantNode],
+            graph: &DiGraph<usize, ReductionEdgeData>,
+        ) -> NeighborTree {
+            let children = node_children
+                .get(&idx)
+                .map(|cs| cs.iter().map(|&c| build(c, node_children, nodes, graph)).collect())
+                .unwrap_or_default();
+            let node = &nodes[graph[idx]];
+            NeighborTree {
+                name: node.name.to_string(),
+                variant: node.variant.clone(),
+                children,
+            }
+        }
+
+        node_children
+            .get(&start_idx)
+            .map(|cs| {
+                cs.iter()
+                    .map(|&c| build(c, &node_children, &self.nodes, &self.graph))
+                    .collect()
+            })
+            .unwrap_or_default()
     }
 }
 

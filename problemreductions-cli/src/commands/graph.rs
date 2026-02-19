@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph, TraversalDirection};
 use problemreductions::types::ProblemSize;
-use std::collections::{BTreeMap, HashMap, HashSet};
+use std::collections::{BTreeMap, HashSet};
 
 pub fn list(out: &OutputConfig) -> Result<()> {
     use crate::output::{format_table, Align};
@@ -68,7 +68,7 @@ pub fn list(out: &OutputConfig) -> Result<()> {
 
     let color_fns: Vec<Option<crate::output::CellFormatter>> = vec![
         Some(crate::output::fmt_problem_name),
-        Some(crate::output::fmt_dim),
+        None,
         None,
         None,
     ];
@@ -162,12 +162,10 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     ));
     for e in &outgoing {
         text.push_str(&format!(
-            "  {} {} {} {} {}\n",
-            e.source_name,
-            format_variant(&e.source_variant),
+            "  {} {} {}\n",
+            fmt_node(e.source_name, &e.source_variant),
             crate::output::fmt_outgoing("\u{2192}"),
-            crate::output::fmt_problem_name(e.target_name),
-            format_variant(&e.target_variant),
+            fmt_node(e.target_name, &e.target_variant),
         ));
     }
 
@@ -177,12 +175,10 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     ));
     for e in &incoming {
         text.push_str(&format!(
-            "  {} {} {} {} {}\n",
-            e.target_name,
-            format_variant(&e.target_variant),
+            "  {} {} {}\n",
+            fmt_node(e.target_name, &e.target_variant),
             crate::output::fmt_outgoing("\u{2190}"),
-            crate::output::fmt_problem_name(e.source_name),
-            format_variant(&e.source_variant),
+            fmt_node(e.source_name, &e.source_variant),
         ));
     }
 
@@ -216,15 +212,34 @@ fn format_variant(v: &BTreeMap<String, String>) -> String {
     }
 }
 
+/// Format a problem node as **bold name** + plain variant.
+/// This is the single source of truth for "name {variant}" display.
+fn fmt_node(name: &str, variant: &BTreeMap<String, String>) -> String {
+    format!(
+        "{} {}",
+        crate::output::fmt_problem_name(name),
+        format_variant(variant),
+    )
+}
+
 fn format_path_text(
     graph: &ReductionGraph,
     reduction_path: &problemreductions::rules::ReductionPath,
 ) -> String {
-    let mut text = format!(
-        "Path ({} steps): {}\n",
-        reduction_path.len(),
-        reduction_path
-    );
+    // Build formatted path header: Name {v} → Name {v} → ...
+    let path_summary = {
+        let steps = &reduction_path.steps;
+        let mut parts = Vec::new();
+        let mut prev_name = "";
+        for step in steps {
+            if step.name != prev_name {
+                parts.push(fmt_node(&step.name, &step.variant));
+                prev_name = &step.name;
+            }
+        }
+        parts.join(&format!(" {} ", crate::output::fmt_outgoing("→")))
+    };
+    let mut text = format!("Path ({} steps): {}\n", reduction_path.len(), path_summary);
 
     let overheads = graph.path_overheads(reduction_path);
     let steps = &reduction_path.steps;
@@ -234,9 +249,9 @@ fn format_path_text(
         text.push_str(&format!(
             "\n  {}: {} {} {}\n",
             crate::output::fmt_section(&format!("Step {}", i + 1)),
-            crate::output::fmt_problem_name(&from.to_string()),
+            fmt_node(&from.name, &from.variant),
             crate::output::fmt_outgoing("→"),
-            crate::output::fmt_problem_name(&to.to_string()),
+            fmt_node(&to.name, &to.variant),
         ));
         let oh = &overheads[i];
         for (field, poly) in &oh.output_size {
@@ -525,13 +540,9 @@ pub fn neighbors(
     };
 
     // Build tree structure via BFS with parent tracking
-    let tree = build_neighbor_tree(&graph, &spec.name, &variant, max_hops, direction);
+    let tree = graph.k_neighbor_tree(&spec.name, &variant, max_hops, direction);
 
-    let root_label = format!(
-        "{} {}",
-        crate::output::fmt_problem_name(&spec.name),
-        crate::output::fmt_dim(&format_variant(&variant)),
-    );
+    let root_label = fmt_node(&spec.name, &variant);
 
     let mut text = format!(
         "{} — {}-hop neighbors ({})\n\n",
@@ -569,112 +580,20 @@ pub fn neighbors(
     out.emit_with_default_name(&default_name, &text, &json)
 }
 
-/// Tree node for neighbor rendering.
-struct TreeNode {
-    name: String,
-    variant: BTreeMap<String, String>,
-    children: Vec<TreeNode>,
-}
-
-/// Build a tree of neighbors via BFS, tracking parent relationships.
-fn build_neighbor_tree(
-    graph: &ReductionGraph,
-    name: &str,
-    variant: &BTreeMap<String, String>,
-    max_hops: usize,
-    direction: TraversalDirection,
-) -> Vec<TreeNode> {
-    use std::collections::VecDeque;
-
-    let Some(start_idx) = graph.find_node_index(name, variant) else {
-        return vec![];
-    };
-
-    let mut visited: HashSet<petgraph::graph::NodeIndex> = HashSet::new();
-    visited.insert(start_idx);
-
-    let mut queue: VecDeque<(petgraph::graph::NodeIndex, usize)> = VecDeque::new();
-    queue.push_back((start_idx, 0));
-
-    // Map from node_idx -> children node indices
-    let mut node_children: HashMap<petgraph::graph::NodeIndex, Vec<petgraph::graph::NodeIndex>> =
-        HashMap::new();
-
-    while let Some((node_idx, depth)) = queue.pop_front() {
-        if depth >= max_hops {
-            continue;
-        }
-
-        let directions: Vec<petgraph::Direction> = match direction {
-            TraversalDirection::Outgoing => vec![petgraph::Direction::Outgoing],
-            TraversalDirection::Incoming => vec![petgraph::Direction::Incoming],
-            TraversalDirection::Both => {
-                vec![petgraph::Direction::Outgoing, petgraph::Direction::Incoming]
-            }
-        };
-
-        let mut children = Vec::new();
-        for dir in directions {
-            for neighbor_idx in graph.neighbor_indices(node_idx, dir) {
-                if visited.insert(neighbor_idx) {
-                    children.push(neighbor_idx);
-                    queue.push_back((neighbor_idx, depth + 1));
-                }
-            }
-        }
-        children.sort_by(|a, b| {
-            let na = graph.node_name(*a);
-            let nb = graph.node_name(*b);
-            na.cmp(nb)
-        });
-        node_children.insert(node_idx, children);
-    }
-
-    // Recursively build TreeNode from start's children
-    fn build_tree(
-        idx: petgraph::graph::NodeIndex,
-        node_children: &HashMap<petgraph::graph::NodeIndex, Vec<petgraph::graph::NodeIndex>>,
-        graph: &ReductionGraph,
-    ) -> TreeNode {
-        let children = node_children
-            .get(&idx)
-            .map(|cs| {
-                cs.iter()
-                    .map(|&c| build_tree(c, node_children, graph))
-                    .collect()
-            })
-            .unwrap_or_default();
-        TreeNode {
-            name: graph.node_name(idx).to_string(),
-            variant: graph.node_variant(idx).clone(),
-            children,
-        }
-    }
-
-    node_children
-        .get(&start_idx)
-        .map(|cs| {
-            cs.iter()
-                .map(|&c| build_tree(c, &node_children, graph))
-                .collect()
-        })
-        .unwrap_or_default()
-}
+use problemreductions::rules::NeighborTree;
 
 /// Render a tree with box-drawing characters.
-fn render_tree(nodes: &[TreeNode], text: &mut String, prefix: &str) {
+fn render_tree(nodes: &[NeighborTree], text: &mut String, prefix: &str) {
     for (i, node) in nodes.iter().enumerate() {
         let is_last = i == nodes.len() - 1;
         let connector = if is_last { "└── " } else { "├── " };
         let child_prefix = if is_last { "    " } else { "│   " };
 
-        let variant_str = format_variant(&node.variant);
         text.push_str(&format!(
-            "{}{}{} {}\n",
+            "{}{}{}\n",
             crate::output::fmt_dim(prefix),
             crate::output::fmt_dim(connector),
-            crate::output::fmt_problem_name(&node.name),
-            crate::output::fmt_dim(&variant_str),
+            fmt_node(&node.name, &node.variant),
         ));
 
         if !node.children.is_empty() {
