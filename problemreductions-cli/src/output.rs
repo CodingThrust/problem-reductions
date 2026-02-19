@@ -54,12 +54,6 @@ pub fn fmt_section(text: &str) -> String {
     }
 }
 
-/// Format an outgoing arrow (green when color is enabled).
-pub fn fmt_arrow_out() -> &'static str {
-    // We return static str, so we use ANSI directly for the arrow
-    "\u{2192}"
-}
-
 pub fn fmt_outgoing(text: &str) -> String {
     if use_color() {
         format!("{}", text.green())
@@ -83,4 +77,84 @@ pub fn fmt_dim(text: &str) -> String {
     } else {
         text.to_string()
     }
+}
+
+/// Function that transforms cell text for display (e.g., adding color).
+pub type CellFormatter = fn(&str) -> String;
+
+/// Column alignment specification for table formatting.
+pub enum Align {
+    Left,
+    Right,
+}
+
+/// Format data as an aligned table.
+///
+/// Each column is defined by a `(header, alignment, width)` tuple.
+/// `width` is auto-expanded to fit the header. Rows provide one string per column.
+/// An optional `color_fn` can transform cell text for display (widths are computed
+/// on the raw text before coloring).
+pub fn format_table(
+    columns: &[(&str, Align, usize)],
+    rows: &[Vec<String>],
+    color_fns: &[Option<CellFormatter>],
+) -> String {
+    // Compute actual column widths (max of header width, specified width, and data width)
+    let widths: Vec<usize> = columns
+        .iter()
+        .enumerate()
+        .map(|(i, (header, _, min_w))| {
+            let data_max = rows.iter().map(|r| r[i].len()).max().unwrap_or(0);
+            data_max.max(*min_w).max(header.len())
+        })
+        .collect();
+
+    let mut text = String::new();
+
+    // Header
+    text.push_str("  ");
+    for (i, (header, align, _)) in columns.iter().enumerate() {
+        if i > 0 {
+            text.push_str("  ");
+        }
+        match align {
+            Align::Left => text.push_str(&format!("{:<w$}", header, w = widths[i])),
+            Align::Right => text.push_str(&format!("{:>w$}", header, w = widths[i])),
+        }
+    }
+    text.push('\n');
+
+    // Separator
+    text.push_str("  ");
+    for (i, _) in columns.iter().enumerate() {
+        if i > 0 {
+            text.push_str("  ");
+        }
+        text.push_str(&"─".repeat(widths[i]));
+    }
+    text.push('\n');
+
+    // Data rows
+    for row in rows {
+        text.push_str("  ");
+        for (i, (_, align, _)) in columns.iter().enumerate() {
+            if i > 0 {
+                text.push_str("  ");
+            }
+            let cell = &row[i];
+            let padded = match align {
+                Align::Left => format!("{:<w$}", cell, w = widths[i]),
+                Align::Right => format!("{:>w$}", cell, w = widths[i]),
+            };
+            if let Some(Some(f)) = color_fns.get(i) {
+                // Pad first, then colorize (so ANSI codes don't affect width)
+                text.push_str(&f(&padded));
+            } else {
+                text.push_str(&padded);
+            }
+        }
+        text.push('\n');
+    }
+
+    text
 }

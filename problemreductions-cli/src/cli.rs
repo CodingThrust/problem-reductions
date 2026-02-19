@@ -94,16 +94,6 @@ Example:
     Reduce(ReduceArgs),
     /// Solve a problem instance
     Solve(SolveArgs),
-    /// Generate shell completions for bash, zsh, fish, etc.
-    #[command(after_help = "\
-Examples:
-  pred completions bash > ~/.local/share/bash-completion/completions/pred
-  pred completions zsh > ~/.zfunc/_pred
-  pred completions fish > ~/.config/fish/completions/pred.fish")]
-    Completions {
-        /// Shell type
-        shell: clap_complete::Shell,
-    },
 }
 
 #[derive(clap::Args)]

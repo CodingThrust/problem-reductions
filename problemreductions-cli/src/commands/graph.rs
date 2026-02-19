@@ -8,25 +8,27 @@ use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 
 pub fn list(out: &OutputConfig) -> Result<()> {
+    use crate::output::{format_table, Align};
+
     let graph = ReductionGraph::new();
 
     let mut types = graph.problem_types();
     types.sort();
 
     // Collect data for each problem
-    struct Row {
+    struct RowData {
         name: String,
         aliases: Vec<&'static str>,
         num_variants: usize,
         num_reduces_to: usize,
     }
-    let rows: Vec<Row> = types
+    let data: Vec<RowData> = types
         .iter()
         .map(|name| {
             let aliases = aliases_for(name);
             let num_variants = graph.variants_for(name).len();
             let num_reduces_to = graph.outgoing_reductions(name).len();
-            Row {
+            RowData {
                 name: name.to_string(),
                 aliases,
                 num_variants,
@@ -35,21 +37,6 @@ pub fn list(out: &OutputConfig) -> Result<()> {
         })
         .collect();
 
-    // Compute column widths
-    let name_width = rows.iter().map(|r| r.name.len()).max().unwrap_or(7).max(7);
-    let alias_width = rows
-        .iter()
-        .map(|r| {
-            if r.aliases.is_empty() {
-                0
-            } else {
-                r.aliases.join(", ").len()
-            }
-        })
-        .max()
-        .unwrap_or(7)
-        .max(7);
-
     let summary = format!(
         "Registered problems: {} types, {} reductions, {} variant nodes\n",
         graph.num_types(),
@@ -57,53 +44,47 @@ pub fn list(out: &OutputConfig) -> Result<()> {
         graph.num_variant_nodes(),
     );
 
+    let columns: Vec<(&str, Align, usize)> = vec![
+        ("Problem", Align::Left, 7),
+        ("Aliases", Align::Left, 7),
+        ("Variants", Align::Right, 8),
+        ("Reduces to", Align::Right, 10),
+    ];
+
+    let rows: Vec<Vec<String>> = data
+        .iter()
+        .map(|r| {
+            vec![
+                r.name.clone(),
+                if r.aliases.is_empty() {
+                    String::new()
+                } else {
+                    r.aliases.join(", ")
+                },
+                r.num_variants.to_string(),
+                r.num_reduces_to.to_string(),
+            ]
+        })
+        .collect();
+
+    let color_fns: Vec<Option<crate::output::CellFormatter>> = vec![
+        Some(crate::output::fmt_problem_name),
+        Some(crate::output::fmt_dim),
+        None,
+        None,
+    ];
+
     let mut text = String::new();
     text.push_str(&crate::output::fmt_section(&summary));
-    text.push_str(&format!(
-        "\n  {:<name_w$}  {:<alias_w$}  {:>8}  {:>10}\n",
-        "Problem",
-        "Aliases",
-        "Variants",
-        "Reduces to",
-        name_w = name_width,
-        alias_w = alias_width,
-    ));
-    text.push_str(&format!(
-        "  {:<name_w$}  {:<alias_w$}  {:>8}  {:>10}\n",
-        "─".repeat(name_width),
-        "─".repeat(alias_width),
-        "────────",
-        "──────────",
-        name_w = name_width,
-        alias_w = alias_width,
-    ));
-
-    for row in &rows {
-        let alias_str = if row.aliases.is_empty() {
-            String::new()
-        } else {
-            row.aliases.join(", ")
-        };
-        // Refined approach: pad first, then colorize
-        let padded_name = format!("{:<name_w$}", row.name, name_w = name_width);
-        let colored_name = crate::output::fmt_problem_name(&padded_name);
-        let padded_alias = format!("{:<alias_w$}", alias_str, alias_w = alias_width);
-        let colored_alias = crate::output::fmt_dim(&padded_alias);
-        text.push_str(&format!(
-            "  {}  {}  {:>8}  {:>10}\n",
-            colored_name, colored_alias, row.num_variants, row.num_reduces_to,
-        ));
-    }
-
-    text.push_str(&format!(
-        "\nUse `pred show <problem>` to see variants, reductions, and fields.\n"
-    ));
+    text.push('\n');
+    text.push_str(&format_table(&columns, &rows, &color_fns));
+    text.push_str("\nUse `pred show <problem>` to see variants, reductions, and fields.\n");
 
     let json = serde_json::json!({
         "num_types": graph.num_types(),
         "num_reductions": graph.num_reductions(),
         "num_variant_nodes": graph.num_variant_nodes(),
-        "problems": rows.iter().map(|r| {
+        "problems": data.iter().map(|r| {
             serde_json::json!({
                 "name": r.name,
                 "aliases": r.aliases,

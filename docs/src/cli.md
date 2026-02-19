@@ -66,23 +66,25 @@ Lists all registered problem types with their short aliases.
 $ pred list
 Registered problems: 17 types, 48 reductions, 25 variant nodes
 
-  CircuitSAT
-  Factoring
-  ILP
-  KColoring
-  KSatisfiability (3SAT, KSAT)
-  MaxCut
-  MaximumClique
-  MaximumIndependentSet (MIS)
-  MaximumMatching
-  MaximumSetPacking
-  MinimumDominatingSet
-  MinimumSetCovering
-  MinimumVertexCover (MVC)
-  QUBO
-  Satisfiability (SAT)
-  SpinGlass
-  TravelingSalesman (TSP)
+  Problem                Aliases     Variants  Reduces to
+  ─────────────────────  ──────────  ────────  ──────────
+  CircuitSAT                                1           1
+  Factoring                                 1           2
+  ILP                                       1           1
+  KColoring                                 2           3
+  KSatisfiability        3SAT, KSAT         3           7
+  MaxCut                                    1           1
+  MaximumClique                             1           1
+  MaximumIndependentSet  MIS                4          10
+  MaximumMatching                           1           2
+  MaximumSetPacking                         2           4
+  MinimumDominatingSet                      1           1
+  MinimumSetCovering                        1           1
+  MinimumVertexCover     MVC                1           4
+  QUBO                                      1           1
+  Satisfiability         SAT                1           5
+  SpinGlass                                 2           3
+  TravelingSalesman      TSP                1           1
 
 Use `pred show <problem>` to see variants, reductions, and fields.
 ```
@@ -111,15 +113,41 @@ Size fields (2):
   num_edges
 
 Reduces to (10):
-  MaximumIndependentSet {graph=SimpleGraph, weight=i32} -> MinimumVertexCover ...
-  MaximumIndependentSet {graph=SimpleGraph, weight=i32} -> ILP (default)
-  MaximumIndependentSet {graph=SimpleGraph, weight=i32} -> QUBO {weight=f64}
+  MaximumIndependentSet {graph=SimpleGraph, weight=i32} → MinimumVertexCover ...
+  MaximumIndependentSet {graph=SimpleGraph, weight=i32} → ILP (default)
+  MaximumIndependentSet {graph=SimpleGraph, weight=i32} → QUBO {weight=f64}
   ...
 
 Reduces from (9):
-  MinimumVertexCover {graph=SimpleGraph, weight=i32} -> MaximumIndependentSet ...
-  Satisfiability (default) -> MaximumIndependentSet {graph=SimpleGraph, weight=i32}
+  MinimumVertexCover {graph=SimpleGraph, weight=i32} → MaximumIndependentSet ...
+  Satisfiability (default) → MaximumIndependentSet {graph=SimpleGraph, weight=i32}
   ...
+```
+
+Explore neighbors within k hops in the reduction graph:
+
+```bash
+$ pred show MIS --hops 2
+MaximumIndependentSet — 2-hop neighbors (outgoing)
+
+MaximumIndependentSet
+├── MaximumIndependentSet
+└── MaximumIndependentSet
+    ├── ILP
+    ├── MaximumIndependentSet
+    ├── MaximumSetPacking
+    ├── MinimumVertexCover
+    └── QUBO
+
+5 reachable problems in 2 hops
+```
+
+Use `--direction` to control traversal direction:
+
+```bash
+pred show MIS --hops 2 --direction out    # outgoing neighbors (default)
+pred show QUBO --hops 1 --direction in    # incoming neighbors
+pred show MIS --hops 1 --direction both   # both directions
 ```
 
 ### `pred path` — Find a reduction path

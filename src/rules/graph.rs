@@ -731,15 +731,7 @@ impl ReductionGraph {
         name: &str,
         variant: &BTreeMap<String, String>,
     ) -> Option<NodeIndex> {
-        self.name_to_nodes.get(name).and_then(|indices| {
-            indices
-                .iter()
-                .find(|&&idx| {
-                    let node = &self.nodes[self.graph[idx]];
-                    node.variant == *variant
-                })
-                .copied()
-        })
+        self.lookup_node(name, variant)
     }
 
     /// Get neighbors of a node in a specific direction.
