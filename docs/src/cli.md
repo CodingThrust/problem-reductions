@@ -4,10 +4,10 @@ The `pred` command-line tool lets you explore the reduction graph, create proble
 
 ## Installation
 
-Install from the repository:
+Install from crates.io:
 
 ```bash
-cargo install --git https://github.com/CodingThrust/problem-reductions problemreductions-cli
+cargo install problemreductions-cli
 ```
 
 Or build from source:

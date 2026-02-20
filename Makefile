@@ -129,9 +129,11 @@ endif
 	@echo "Releasing v$(V)..."
 	sed -i '' 's/^version = ".*"/version = "$(V)"/' Cargo.toml
 	sed -i '' 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
+	sed -i '' 's/^version = ".*"/version = "$(V)"/' problemreductions-cli/Cargo.toml
 	sed -i '' 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
+	sed -i '' 's/problemreductions = { version = "[^"]*"/problemreductions = { version = "$(V)"/' problemreductions-cli/Cargo.toml
 	cargo check
-	git add Cargo.toml problemreductions-macros/Cargo.toml
+	git add Cargo.toml problemreductions-macros/Cargo.toml problemreductions-cli/Cargo.toml
 	git commit -m "release: v$(V)"
 	git tag -a "v$(V)" -m "Release v$(V)"
 	git push origin main --tags

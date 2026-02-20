@@ -36,6 +36,4 @@ Both must pass with zero warnings before proceeding.
 make release V=x.y.z
 ```
 
-This target bumps versions in `Cargo.toml` and `problemreductions-macros/Cargo.toml`, runs `cargo check`, commits, tags, and pushes. CI publishes to crates.io.
-
-**Note:** `problemreductions-cli` has its own independent version and is not published to crates.io.
+This target bumps versions in `Cargo.toml`, `problemreductions-macros/Cargo.toml`, and `problemreductions-cli/Cargo.toml`, runs `cargo check`, commits, tags, and pushes. CI publishes all three crates to crates.io.

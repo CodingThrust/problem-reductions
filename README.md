@@ -29,7 +29,7 @@ problemreductions = "0.2"
 Install the `pred` command-line tool for exploring the reduction graph from your terminal:
 
 ```bash
-cargo install --git https://github.com/CodingThrust/problem-reductions problemreductions-cli
+cargo install problemreductions-cli
 ```
 
 Or build from source:
