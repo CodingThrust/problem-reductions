@@ -3,7 +3,7 @@ members = [".", "problemreductions-macros", "problemreductions-cli"]
 
 [package]
 name = "problemreductions"
-version = "0.2.0"
+version = "0.3.0"
 edition = "2021"
 description = "A library for reducing NP-hard problems"
 license = "MIT"
@@ -33,7 +33,7 @@ good_lp = { version = "1.8", default-features = false, optional = true }
 inventory = "0.3"
 ordered-float = "5.0"
 rand = "0.9"
-problemreductions-macros = { version = "0.2.0", path = "problemreductions-macros" }
+problemreductions-macros = { version = "0.3.0", path = "problemreductions-macros" }
 
 [dev-dependencies]
 proptest = "1.0"

@@ -127,9 +127,9 @@ ifndef V
 	$(error Usage: make release V=x.y.z)
 endif
 	@echo "Releasing v$(V)..."
-	sed -i 's/^version = ".*"/version = "$(V)"/' Cargo.toml
-	sed -i 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
-	sed -i 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
+	sed -i '' 's/^version = ".*"/version = "$(V)"/' Cargo.toml
+	sed -i '' 's/^version = ".*"/version = "$(V)"/' problemreductions-macros/Cargo.toml
+	sed -i '' 's/problemreductions-macros = { version = "[^"]*"/problemreductions-macros = { version = "$(V)"/' Cargo.toml
 	cargo check
 	git add Cargo.toml problemreductions-macros/Cargo.toml
 	git commit -m "release: v$(V)"
