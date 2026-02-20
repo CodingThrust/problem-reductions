@@ -52,7 +52,16 @@ See the [Getting Started](https://codingthrust.github.io/problem-reductions/gett
 
 1. **Open an issue** using the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template. Fill in all sections — the templates guide you through the required information (definition, algorithm, size overhead, example instance, etc.).
 
-2. Our AI agents will pick-up the issue and generate a plan to implement the reduction rule.
+   **Hint:** If you use Claude Code / OpenCode / Codex (assume `gh` CLI tool and `superpowers` plugin are installed), you can just type:
+   ```
+   File an issue on CodingThrust/problem-reductions, using the "Model" issue template, about the Closest Vector Problem. Brainstorm with me.
+   ```
+   ```
+   File an issue on CodingThrust/problem-reductions, using the "Rule" issue template, about reduction from Closest Vector Problem to QUBO. Brainstorm with me.
+   ```
+   Then AI agents will guide you to fill in the issue template.
+
+2. Our AI agents will pick up the issue and generate a plan to implement the reduction rule.
 3. You will be mentioned in the pull request, provide feedback to the AI agents. If you are satisfied with the plan, you can merge the PR.
 
 Optionally, if you prefer to **implement yourself**, I will recommend you to use the [superpowers:brainstorming](https://github.com/obra/superpowers) skill to help you write a detailed plan. Create a PR and let maintainers help review and merge the PR.
