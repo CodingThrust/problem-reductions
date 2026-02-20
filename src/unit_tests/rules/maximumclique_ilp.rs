@@ -109,7 +109,7 @@ fn test_reduction_weighted() {
 }
 
 #[test]
-fn test_ilp_solution_equals_brute_force_triangle() {
+fn test_maximumclique_to_ilp_closed_loop() {
     // Triangle graph (K3): max clique = 3 vertices
     let problem: MaximumClique<SimpleGraph, i32> = MaximumClique::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),

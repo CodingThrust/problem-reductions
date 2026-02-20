@@ -3,7 +3,7 @@ use crate::solvers::BruteForce;
 include!("../jl_helpers.rs");
 
 #[test]
-fn test_weighted_reduction() {
+fn test_maximumindependentset_to_maximumsetpacking_closed_loop() {
     let is_problem =
         MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![10, 20, 30]);
     let reduction = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&is_problem);

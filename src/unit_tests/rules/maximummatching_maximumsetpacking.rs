@@ -6,7 +6,7 @@ use crate::types::SolutionSize;
 include!("../jl_helpers.rs");
 
 #[test]
-fn test_matching_to_setpacking_structure() {
+fn test_maximummatching_to_maximumsetpacking_closed_loop() {
     // Path graph 0-1-2
     let matching =
         MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));

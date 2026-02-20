@@ -32,7 +32,7 @@ fn test_special_vertex_accessors() {
 }
 
 #[test]
-fn test_simple_sat_to_coloring() {
+fn test_sat_to_coloring_closed_loop() {
     // Simple SAT: (x1) - one clause with one literal
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
     let reduction = ReduceTo::<KColoring<K3, SimpleGraph>>::reduce_to(&sat);

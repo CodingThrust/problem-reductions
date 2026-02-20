@@ -47,7 +47,7 @@ fn test_reduction_weighted() {
 }
 
 #[test]
-fn test_ilp_solution_equals_brute_force_chain() {
+fn test_maximumsetpacking_to_ilp_closed_loop() {
     // Chain: {0,1}, {1,2}, {2,3} - can select at most 2 non-adjacent sets
     let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3]]);
     let reduction: ReductionSPToILP = ReduceTo::<ILP>::reduce_to(&problem);

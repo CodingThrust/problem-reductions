@@ -3,7 +3,7 @@ use crate::solvers::BruteForce;
 include!("../jl_helpers.rs");
 
 #[test]
-fn test_spinglass_to_maxcut_no_onsite() {
+fn test_spinglass_to_maxcut_closed_loop() {
     // SpinGlass without onsite terms
     let sg = SpinGlass::<SimpleGraph, i32>::new(3, vec![((0, 1), 1), ((1, 2), 1)], vec![0, 0, 0]);
     let reduction = ReduceTo::<MaxCut<SimpleGraph, i32>>::reduce_to(&sg);

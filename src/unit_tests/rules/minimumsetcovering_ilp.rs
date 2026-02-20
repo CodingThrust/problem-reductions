@@ -46,7 +46,7 @@ fn test_reduction_weighted() {
 }
 
 #[test]
-fn test_ilp_solution_equals_brute_force_simple() {
+fn test_minimumsetcovering_to_ilp_closed_loop() {
     // Universe: {0, 1, 2}, Sets: S0={0,1}, S1={1,2}, S2={0,2}
     // Minimum cover: any 2 sets work
     let problem = MinimumSetCovering::<i32>::new(3, vec![vec![0, 1], vec![1, 2], vec![0, 2]]);

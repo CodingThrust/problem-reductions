@@ -129,7 +129,7 @@ fn test_factorization_6_satisfies_circuit() {
 }
 
 #[test]
-fn test_factorization_15_satisfies_circuit() {
+fn test_factoring_to_circuit_closed_loop() {
     let factoring = Factoring::new(4, 4, 15);
     let reduction = ReduceTo::<CircuitSAT>::reduce_to(&factoring);
 

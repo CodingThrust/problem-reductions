@@ -49,7 +49,7 @@ fn test_reduction_path_graph() {
 }
 
 #[test]
-fn test_ilp_solution_equals_brute_force_triangle() {
+fn test_coloring_to_ilp_closed_loop() {
     // Triangle needs 3 colors
     let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
     let reduction = ReduceTo::<ILP>::reduce_to(&problem);

@@ -102,7 +102,7 @@ fn test_sat_to_3sat_single_literal() {
 }
 
 #[test]
-fn test_sat_to_3sat_preserves_satisfiability() {
+fn test_sat_to_ksat_closed_loop() {
     // Create a SAT formula and verify the 3-SAT version is equisatisfiable
     let sat = Satisfiability::new(
         3,

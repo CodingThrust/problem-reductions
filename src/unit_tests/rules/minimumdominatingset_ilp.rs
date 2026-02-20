@@ -51,7 +51,7 @@ fn test_reduction_weighted() {
 }
 
 #[test]
-fn test_ilp_solution_equals_brute_force_star() {
+fn test_minimumdominatingset_to_ilp_closed_loop() {
     // Star graph: center vertex 0 connected to all others
     // Minimum dominating set is just the center (weight 1)
     let problem = MinimumDominatingSet::new(
