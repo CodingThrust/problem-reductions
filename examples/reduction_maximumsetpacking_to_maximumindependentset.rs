@@ -7,11 +7,11 @@
 // the maximum independent set size.
 //
 // ## This Example
-// - Instance: 4 sets over universe {0,...,5}
-//   - S0 = {0, 1}, S1 = {1, 2}, S2 = {3, 4}, S3 = {4, 5}
-// - Conflict edges: (0,1) share element 1, (2,3) share element 4
-// - Source MaximumSetPacking: max packing size 2 (e.g., S0+S2, S0+S3, S1+S2, S1+S3)
-// - Target MaximumIndependentSet: 4 vertices, 2 edges, max IS size 2
+// - Instance: 5 sets over universe {0,...,7}, with varying sizes (2 and 3)
+//   - S0 = {0, 1, 2}, S1 = {2, 3}, S2 = {4, 5, 6}, S3 = {1, 5, 7}, S4 = {3, 6}
+// - Conflict edges: (0,1) share 2, (0,3) share 1, (1,4) share 3, (2,3) share 5, (2,4) share 6
+// - Source MaximumSetPacking: max packing size 2 (e.g., S0+S2, S1+S3, S3+S4, ...)
+// - Target MaximumIndependentSet: 5 vertices, 5 edges, max IS size 2
 //
 // ## Output
 // Exports `docs/paper/examples/maximumsetpacking_to_maximumindependentset.json` and
@@ -26,12 +26,13 @@ use problemreductions::topology::{Graph, SimpleGraph};
 pub fn run() {
     println!("\n=== Set Packing -> Independent Set Reduction ===\n");
 
-    // 1. Create MaximumSetPacking instance: 4 sets over universe {0,...,5}
+    // 1. Create MaximumSetPacking instance: 5 sets over universe {0,...,7}
     let sets = vec![
-        vec![0, 1], // S0
-        vec![1, 2], // S1 (overlaps S0 at 1)
-        vec![3, 4], // S2 (disjoint from S0, S1)
-        vec![4, 5], // S3 (overlaps S2 at 4)
+        vec![0, 1, 2], // S0 (size 3)
+        vec![2, 3],    // S1 (size 2, overlaps S0 at 2)
+        vec![4, 5, 6], // S2 (size 3, disjoint from S0, S1)
+        vec![1, 5, 7], // S3 (size 3, overlaps S0 at 1, S2 at 5)
+        vec![3, 6],    // S4 (size 2, overlaps S1 at 3, S2 at 6)
     ];
     let num_sets = sets.len();
     let sp = MaximumSetPacking::with_weights(sets.clone(), vec![1i32; num_sets]);
@@ -136,7 +137,7 @@ pub fn run() {
     let name = "maximumsetpacking_to_maximumindependentset";
     write_example(name, &data, &results);
 
-    println!("\nDone: SetPacking(4 sets) optimal=2 maps to IS(4 vertices, 2 edges) optimal=2");
+    println!("\nDone: SetPacking(5 sets) optimal=2 maps to IS(5 vertices, 5 edges) optimal=2");
 }
 
 fn main() {
