@@ -8,6 +8,7 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [add-model](skills/add-model.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [add-rule](skills/add-rule.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [review-implementation](skills/review-implementation.md) -- Review a model or rule implementation for completeness. Auto-detects type from changed files. Called automatically at the end of `add-model`/`add-rule`, or standalone via `/review-implementation`.
+- [release](skills/release.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
 
 ## Commands
 ```bash
