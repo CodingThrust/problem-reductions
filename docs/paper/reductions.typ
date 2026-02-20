@@ -45,6 +45,10 @@
   "Factoring": [Factoring],
   "KingsSubgraph": [King's Subgraph MIS],
   "TriangularSubgraph": [Triangular Subgraph MIS],
+  "MaximalIS": [Maximal Independent Set],
+  "BMF": [Boolean Matrix Factorization],
+  "PaintShop": [Paint Shop],
+  "BicliqueCover": [Biclique Cover],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -335,6 +339,10 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
   Given $G = (V, E)$, find $K subset.eq V$ maximizing $|K|$ such that all pairs in $K$ are adjacent: $forall u, v in K: (u, v) in E$. Equivalent to MIS on the complement graph $overline(G)$.
 ]
 
+#problem-def("MaximalIS")[
+  Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that $S$ is independent ($forall u, v in S: (u, v) in.not E$) and maximal (no vertex $u in V backslash S$ can be added to $S$ while maintaining independence).
+]
+
 
 == Set Problems
 
@@ -376,6 +384,20 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #problem-def("Factoring")[
   Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
+]
+
+== Specialized Problems
+
+#problem-def("BMF")[
+  Given an $m times n$ boolean matrix $A$ and rank $k$, find boolean matrices $B in {0,1}^(m times k)$ and $C in {0,1}^(k times n)$ minimizing the Hamming distance $d_H (A, B circle.tiny C)$, where the boolean product $(B circle.tiny C)_(i j) = or.big_ell (B_(i ell) and C_(ell j))$.
+]
+
+#problem-def("PaintShop")[
+  Given a sequence of $2n$ positions where each of $n$ cars appears exactly twice, assign a binary color to each car (each car's two occurrences receive opposite colors) to minimize the number of color changes between consecutive positions.
+]
+
+#problem-def("BicliqueCover")[
+  Given a bipartite graph $G = (L, R, E)$ and integer $k$, find $k$ bicliques $(L_1, R_1), dots, (L_k, R_k)$ that cover all edges ($E subset.eq union.big_i L_i times R_i$) while minimizing the total size $sum_i (|L_i| + |R_i|)$.
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper
@@ -754,6 +776,15 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   $ (ell_1 or ... or ell_(k-1) or y_1) and (overline(y_1) or ell_k or ... or y_2) and ... and (overline(y_(r-k)) or ell_(r-k+2) or ... or ell_r) $
 
   _Correctness._ Original clause true $arrow.l.r$ auxiliary chain can propagate truth through new clauses.
+]
+
+#reduction-rule("Satisfiability", "CircuitSAT",
+  example: true,
+  example-caption: [3-variable SAT formula to boolean circuit],
+)[
+  Each CNF clause $C_i = (ell_(i 1) or dots or ell_(i m_i))$ becomes an OR gate $g_i$, and a final AND gate computes $g_1 and dots and g_k$, constrained to output _true_.
+][
+  The circuit is satisfiable iff the CNF formula is satisfiable, since the AND-of-ORs structure is preserved exactly. Variable mapping: SAT variable $x_j$ maps to circuit input $x_j$; ancilla variables are the clause gate outputs and the final AND output.
 ]
 
 #let cs_sg = load-example("circuitsat_to_spinglass")
