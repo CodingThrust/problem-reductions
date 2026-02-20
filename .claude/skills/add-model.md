@@ -114,6 +114,8 @@ Update `docs/paper/reductions.typ`:
 make test clippy  # Must pass
 ```
 
+Then run the [review-implementation](review-implementation.md) skill to verify all structural and semantic checks pass.
+
 ## Naming Conventions
 
 - Struct names use explicit optimization prefixes: `MaximumX`, `MinimumX`

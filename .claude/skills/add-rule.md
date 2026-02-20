@@ -155,6 +155,8 @@ cargo run --example export_graph  # Update reduction_graph.json
 make test clippy                  # Must pass
 ```
 
+Then run the [review-implementation](review-implementation.md) skill to verify all structural and semantic checks pass.
+
 ## Solver Rules
 
 - If the target problem already has a solver, use it directly.
