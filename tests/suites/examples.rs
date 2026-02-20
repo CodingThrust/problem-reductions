@@ -20,6 +20,7 @@ example_test!(reduction_ilp_to_qubo);
 example_test!(reduction_kcoloring_to_ilp);
 example_test!(reduction_kcoloring_to_qubo);
 example_test!(reduction_ksatisfiability_to_qubo);
+example_test!(reduction_ksatisfiability_to_satisfiability);
 example_test!(reduction_maxcut_to_spinglass);
 example_test!(reduction_maximumclique_to_ilp);
 example_test!(reduction_maximumindependentset_to_ilp);
@@ -29,6 +30,7 @@ example_test!(reduction_maximumindependentset_to_qubo);
 example_test!(reduction_maximummatching_to_ilp);
 example_test!(reduction_maximummatching_to_maximumsetpacking);
 example_test!(reduction_maximumsetpacking_to_ilp);
+example_test!(reduction_maximumsetpacking_to_maximumindependentset);
 example_test!(reduction_maximumsetpacking_to_qubo);
 example_test!(reduction_minimumdominatingset_to_ilp);
 example_test!(reduction_minimumsetcovering_to_ilp);
@@ -39,6 +41,7 @@ example_test!(reduction_minimumvertexcover_to_qubo);
 example_test!(reduction_qubo_to_ilp);
 example_test!(reduction_qubo_to_spinglass);
 example_test!(reduction_satisfiability_to_kcoloring);
+example_test!(reduction_satisfiability_to_circuitsat);
 example_test!(reduction_satisfiability_to_ksatisfiability);
 example_test!(reduction_satisfiability_to_maximumindependentset);
 example_test!(reduction_satisfiability_to_minimumdominatingset);
@@ -80,6 +83,10 @@ example_fn!(
     test_ksatisfiability_to_qubo,
     reduction_ksatisfiability_to_qubo
 );
+example_fn!(
+    test_ksatisfiability_to_satisfiability,
+    reduction_ksatisfiability_to_satisfiability
+);
 example_fn!(test_maxcut_to_spinglass, reduction_maxcut_to_spinglass);
 example_fn!(test_maximumclique_to_ilp, reduction_maximumclique_to_ilp);
 example_fn!(
@@ -111,6 +118,10 @@ example_fn!(
     reduction_maximumsetpacking_to_ilp
 );
 example_fn!(
+    test_maximumsetpacking_to_maximumindependentset,
+    reduction_maximumsetpacking_to_maximumindependentset
+);
+example_fn!(
     test_maximumsetpacking_to_qubo,
     reduction_maximumsetpacking_to_qubo
 );
@@ -140,6 +151,10 @@ example_fn!(
 );
 example_fn!(test_qubo_to_ilp, reduction_qubo_to_ilp);
 example_fn!(test_qubo_to_spinglass, reduction_qubo_to_spinglass);
+example_fn!(
+    test_satisfiability_to_circuitsat,
+    reduction_satisfiability_to_circuitsat
+);
 example_fn!(
     test_satisfiability_to_kcoloring,
     reduction_satisfiability_to_kcoloring

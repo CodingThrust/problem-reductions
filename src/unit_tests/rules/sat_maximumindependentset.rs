@@ -42,7 +42,7 @@ fn test_boolvar_complement() {
 }
 
 #[test]
-fn test_simple_sat_to_is() {
+fn test_sat_to_maximumindependentset_closed_loop() {
     // Simple SAT: (x1) - one clause with one literal
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
     let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);

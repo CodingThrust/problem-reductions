@@ -51,7 +51,7 @@ fn test_reduction_weighted() {
 }
 
 #[test]
-fn test_ilp_solution_equals_brute_force_triangle() {
+fn test_minimumvertexcover_to_ilp_closed_loop() {
     // Triangle graph: min VC = 2 vertices
     let problem = MinimumVertexCover::new(
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),

@@ -49,7 +49,7 @@ fn test_reduction_weighted() {
 }
 
 #[test]
-fn test_ilp_solution_equals_brute_force_triangle() {
+fn test_maximummatching_to_ilp_closed_loop() {
     // Triangle graph: max matching = 1 edge
     let problem =
         MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));

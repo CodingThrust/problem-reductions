@@ -4,7 +4,7 @@ use crate::traits::Problem;
 include!("../jl_helpers.rs");
 
 #[test]
-fn test_antiferromagnetic() {
+fn test_spinglass_to_qubo_closed_loop() {
     // Antiferromagnetic: J > 0, prefers anti-aligned spins
     let sg = SpinGlass::<SimpleGraph, f64>::new(2, vec![((0, 1), 1.0)], vec![0.0, 0.0]);
     let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&sg);

@@ -218,6 +218,7 @@ pub fn load_problem(
         "MaximumMatching" => deser_opt::<MaximumMatching<SimpleGraph, i32>>(data),
         "MinimumDominatingSet" => deser_opt::<MinimumDominatingSet<SimpleGraph, i32>>(data),
         "MaxCut" => deser_opt::<MaxCut<SimpleGraph, i32>>(data),
+        "MaximalIS" => deser_opt::<MaximalIS<SimpleGraph, i32>>(data),
         "TravelingSalesman" => deser_opt::<TravelingSalesman<SimpleGraph, i32>>(data),
         "KColoring" => match variant.get("k").map(|s| s.as_str()) {
             Some("K3") => deser_sat::<KColoring<K3, SimpleGraph>>(data),
@@ -265,6 +266,7 @@ pub fn serialize_any_problem(
         "MaximumMatching" => try_ser::<MaximumMatching<SimpleGraph, i32>>(any),
         "MinimumDominatingSet" => try_ser::<MinimumDominatingSet<SimpleGraph, i32>>(any),
         "MaxCut" => try_ser::<MaxCut<SimpleGraph, i32>>(any),
+        "MaximalIS" => try_ser::<MaximalIS<SimpleGraph, i32>>(any),
         "TravelingSalesman" => try_ser::<TravelingSalesman<SimpleGraph, i32>>(any),
         "KColoring" => match variant.get("k").map(|s| s.as_str()) {
             Some("K3") => try_ser::<KColoring<K3, SimpleGraph>>(any),

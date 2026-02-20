@@ -10,10 +10,10 @@ pub mod specialized;
 
 // Re-export commonly used types
 pub use graph::{
-    KColoring, MaxCut, MaximalIS, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
-    MinimumVertexCover, TravelingSalesman,
+    KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
+    MinimumDominatingSet, MinimumVertexCover, TravelingSalesman,
 };
-pub use optimization::{SpinGlass, QUBO};
-pub use satisfiability::{CNFClause, Satisfiability};
+pub use optimization::{SpinGlass, ILP, QUBO};
+pub use satisfiability::{CNFClause, KSatisfiability, Satisfiability};
 pub use set::{MaximumSetPacking, MinimumSetCovering};
 pub use specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};

@@ -165,7 +165,7 @@ fn test_infeasible_target_too_large() {
 }
 
 #[test]
-fn test_ilp_matches_brute_force() {
+fn test_factoring_to_ilp_closed_loop() {
     let problem = Factoring::new(2, 2, 6);
     let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
     let ilp = reduction.target_problem();

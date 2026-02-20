@@ -3,7 +3,7 @@ use crate::solvers::BruteForce;
 include!("../jl_helpers.rs");
 
 #[test]
-fn test_vc_to_sc_basic() {
+fn test_minimumvertexcover_to_minimumsetcovering_closed_loop() {
     // Path graph 0-1-2 with edges (0,1) and (1,2)
     // Vertex 0 covers edge 0
     // Vertex 1 covers edges 0 and 1

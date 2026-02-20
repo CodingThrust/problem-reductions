@@ -6,7 +6,7 @@ use crate::traits::Problem;
 include!("../jl_helpers.rs");
 
 #[test]
-fn test_simple_sat_to_ds() {
+fn test_sat_to_minimumdominatingset_closed_loop() {
     // Simple SAT: (x1) - one variable, one clause
     let sat = Satisfiability::new(1, vec![CNFClause::new(vec![1])]);
     let reduction = ReduceTo::<MinimumDominatingSet<SimpleGraph, i32>>::reduce_to(&sat);

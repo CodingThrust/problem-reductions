@@ -46,7 +46,7 @@ where
 }
 
 #[test]
-fn test_and_gadget() {
+fn test_circuit_to_spinglass_closed_loop() {
     let gadget: LogicGadget<i32> = and_gadget();
     assert_eq!(gadget.num_spins(), 3);
     assert_eq!(gadget.inputs, vec![0, 1]);
