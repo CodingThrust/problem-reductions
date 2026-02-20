@@ -50,6 +50,24 @@ Connect fields to the symbols defined above.
 | <!-- e.g. graph --> | <!-- e.g. SimpleGraph --> | <!-- e.g. the graph G=(V,E) --> |
 | <!-- e.g. weights --> | <!-- e.g. Vec<W> --> | <!-- e.g. vertex weights w_i for each i ∈ V (weighted variant only) --> |
 
+## Problem Size
+
+<!--
+Size metrics characterize instance complexity and are used for reduction overhead analysis.
+List the named fields returned by `problem_size_names()` / `problem_size_values()`.
+Use symbols defined above.
+
+Examples:
+- Graph problems: num_vertices = |V|, num_edges = |E|
+- SAT problems: num_vars, num_clauses, num_literals
+- Set problems: num_sets, universe_size
+-->
+
+| Metric | Expression | Description |
+|--------|------------|-------------|
+| <!-- e.g. num_vertices --> | <!-- e.g. \|V\| --> | <!-- e.g. number of vertices in the graph --> |
+| <!-- e.g. num_edges --> | <!-- e.g. \|E\| --> | <!-- e.g. number of edges in the graph --> |
+
 ## Complexity
 
 - **Decision complexity:** <!-- e.g. NP-complete, NP-hard, P, etc. -->
