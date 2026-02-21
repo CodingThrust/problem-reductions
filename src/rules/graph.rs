@@ -513,7 +513,10 @@ impl ReductionGraph {
 
                 let edge_cost = cost_fn.edge_cost(overhead, &current_size);
                 let new_cost = cost.0 + edge_cost;
-                let new_size = overhead.evaluate_output_size(&current_size);
+                let new_size = match overhead.evaluate_output_size(&current_size) {
+                    Ok(s) => s,
+                    Err(_) => continue,
+                };
 
                 if new_cost < *costs.get(&next).unwrap_or(&f64::INFINITY) {
                     costs.insert(next, new_cost);

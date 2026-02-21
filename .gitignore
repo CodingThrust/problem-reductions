@@ -82,3 +82,4 @@ docs/paper/examples/
 claude-output.log
 .worktrees/
 .worktree/
+mydocs/

@@ -15,7 +15,7 @@
 //! minimize Σ_i Q_ii · x_i + Σ_{i<j} Q_ij · y_{ij}
 
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP, QUBO};
-use crate::poly;
+
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -43,8 +43,8 @@ impl ReductionResult for ReductionQUBOToILP {
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_vars ^ 2)),
-            ("num_constraints", poly!(num_vars ^ 2)),
+            ("num_vars", "num_vars ^ 2"),
+            ("num_constraints", "num_vars ^ 2"),
         ])
     }
 )]

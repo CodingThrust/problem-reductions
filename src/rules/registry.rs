@@ -67,7 +67,7 @@ impl ReductionOverhead {
     }
 
     /// Collect all input variable names referenced by the overhead expressions.
-    pub fn input_variable_names(&self) -> HashSet<&'static str> {
+    pub fn input_variable_names(&self) -> HashSet<&str> {
         self.output_size
             .iter()
             .flat_map(|(_, expr)| expr.variable_names())

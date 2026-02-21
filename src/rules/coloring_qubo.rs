@@ -106,7 +106,7 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
 
 // Register only the KN variant in the reduction graph
 #[reduction(
-    overhead = { ReductionOverhead::new(vec![("num_vars", "num_vertices * num_colors")]) }
+    overhead = { ReductionOverhead::new(vec![("num_vars", "num_vertices ^ 2")]) }
 )]
 impl ReduceTo<QUBO<f64>> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToQUBO<KN>;
