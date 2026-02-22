@@ -44,13 +44,27 @@ See the [Getting Started](https://codingthrust.github.io/problem-reductions/gett
 
 ## MCP Server (AI Integration)
 
-The `pred` CLI includes a built-in [MCP](https://modelcontextprotocol.io/) server for AI assistant integration:
+The `pred` CLI includes a built-in [MCP](https://modelcontextprotocol.io/) server for AI assistant integration (Claude Code, Cursor, Windsurf, OpenCode, etc.):
+
+```bash
+# Automatic setup via Smithery
+npx -y @smithery/cli install problemreductions --client claude
+```
+
+Or configure manually — add to your client's MCP config file:
 
 ```json
 {"mcpServers": {"problemreductions": {"command": "pred", "args": ["mcp"]}}}
 ```
 
-See the [MCP documentation](https://codingthrust.github.io/problem-reductions/mcp.html) for available tools, prompts, and configuration details.
+| Client | Config file |
+|--------|------------|
+| Claude Code / Desktop | `.mcp.json` or `~/.claude/mcp.json` |
+| Cursor | `.cursor/mcp.json` |
+| Windsurf | `~/.codeium/windsurf/mcp_config.json` |
+| OpenCode | `opencode.json` (use `{"mcp": {"problemreductions": {"type": "local", "command": ["pred", "mcp"]}}}`) |
+
+See the [MCP documentation](https://codingthrust.github.io/problem-reductions/mcp.html) for available tools, prompts, and full configuration details.
 
 ## Contributing
 

@@ -1,6 +1,6 @@
 # MCP Server
 
-The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open standard that allows AI assistants to interact with external tools and data sources. The `pred` CLI includes a built-in MCP server that exposes the full reduction graph, problem creation, solving, and reduction capabilities to any MCP-compatible AI assistant (such as Claude Code, Cursor, or Windsurf).
+The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open standard that allows AI assistants to interact with external tools and data sources. The `pred` CLI includes a built-in MCP server that exposes the full reduction graph, problem creation, solving, and reduction capabilities to any MCP-compatible AI assistant (such as Claude Code, Cursor, Windsurf, or OpenCode).
 
 ## Installation
 
