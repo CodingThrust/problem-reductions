@@ -11,8 +11,9 @@ name = "pred"
 path = "src/main.rs"
 
 [features]
-default = ["highs"]
+default = ["highs", "mcp"]
 highs = ["problemreductions/ilp-highs"]
+mcp = ["dep:rmcp", "dep:tokio", "dep:schemars", "dep:tracing", "dep:tracing-subscriber"]
 coin-cbc = ["problemreductions/ilp-coin-cbc"]
 clarabel = ["problemreductions/ilp-clarabel"]
 scip = ["problemreductions/ilp-scip"]
@@ -27,3 +28,8 @@ serde = { version = "1", features = ["derive"] }
 serde_json = "1"
 clap_complete = "4"
 owo-colors = { version = "4", features = ["supports-colors"] }
+rmcp = { version = "0.16", features = ["server", "macros", "transport-io"], optional = true }
+tokio = { version = "1", features = ["full"], optional = true }
+schemars = { version = "1.0", optional = true }
+tracing = { version = "0.1", optional = true }
+tracing-subscriber = { version = "0.3", optional = true }
