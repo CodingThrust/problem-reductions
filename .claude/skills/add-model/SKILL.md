@@ -114,7 +114,7 @@ Update `docs/paper/reductions.typ`:
 make test clippy  # Must pass
 ```
 
-Then run the [review-implementation](review-implementation.md) skill to verify all structural and semantic checks pass.
+Then run the [review-implementation](../review-implementation/SKILL.md) skill to verify all structural and semantic checks pass.
 
 ## Naming Conventions
 

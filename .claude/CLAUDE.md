@@ -4,11 +4,11 @@
 Rust library for NP-hard problem reductions. Implements computational problems with reduction rules for transforming between equivalent formulations.
 
 ## Skills
-- [issue-to-pr](skills/issue-to-pr.md) -- Convert a GitHub issue into a PR with an implementation plan. Validates the issue against the appropriate checklist, then dispatches to `add-model` or `add-rule`.
-- [add-model](skills/add-model.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
-- [add-rule](skills/add-rule.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
-- [review-implementation](skills/review-implementation.md) -- Review a model or rule implementation for completeness. Auto-detects type from changed files. Called automatically at the end of `add-model`/`add-rule`, or standalone via `/review-implementation`.
-- [release](skills/release.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
+- [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. Validates the issue against the appropriate checklist, then dispatches to `add-model` or `add-rule`.
+- [add-model](skills/add-model/SKILL.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
+- [add-rule](skills/add-rule/SKILL.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
+- [review-implementation](skills/review-implementation/SKILL.md) -- Review a model or rule implementation for completeness. Auto-detects type from changed files. Called automatically at the end of `add-model`/`add-rule`, or standalone via `/review-implementation`.
+- [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
 
 ## Commands
 ```bash
@@ -35,11 +35,6 @@ make cli           # Build the pred CLI tool (release mode)
 make cli-demo      # Run closed-loop CLI demo (exercises all commands)
 make run-plan      # Execute a plan with Claude autorun
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
-```
-
-## Verify Changes
-```bash
-make test clippy  # Must pass before PR
 ```
 
 ## Git Safety
