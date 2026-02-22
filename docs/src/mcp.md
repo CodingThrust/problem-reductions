@@ -4,16 +4,6 @@ The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open 
 
 ## Installation
 
-### Via Smithery (automatic)
-
-Install and configure for your AI assistant in one command:
-
-```bash
-npx -y @smithery/cli install problemreductions --client claude
-```
-
-Supported clients: `claude`, `cursor`, `windsurf`, `opencode`.
-
 ### Via cargo
 
 ```bash

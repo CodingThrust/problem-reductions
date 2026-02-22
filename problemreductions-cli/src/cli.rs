@@ -156,10 +156,7 @@ Examples:
 Start a stdio-based MCP server that exposes problem reduction tools
 to any MCP-compatible AI assistant.
 
-Quick setup (via Smithery):
-  npx -y @smithery/cli install problemreductions --client claude
-
-Manual configuration:
+Configuration:
 
   Claude Code / Claude Desktop (.mcp.json or ~/.claude/mcp.json):
     { \"mcpServers\": { \"problemreductions\": {
