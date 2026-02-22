@@ -8,7 +8,6 @@
 
 use crate::models::optimization::SpinGlass;
 use crate::models::specialized::{Assignment, BooleanExpr, BooleanOp, CircuitSAT};
-use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -416,8 +415,8 @@ where
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_spins", poly!(num_assignments)),
-            ("num_interactions", poly!(num_assignments)),
+            ("num_spins", "num_assignments"),
+            ("num_interactions", "num_assignments"),
         ])
     }
 )]

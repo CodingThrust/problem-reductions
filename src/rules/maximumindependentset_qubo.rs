@@ -7,7 +7,6 @@
 
 use crate::models::graph::MaximumIndependentSet;
 use crate::models::optimization::QUBO;
-use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -32,7 +31,7 @@ impl ReductionResult for ReductionISToQUBO {
 }
 
 #[reduction(
-    overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vertices))]) }
+    overhead = { ReductionOverhead::new(vec![("num_vars", "num_vertices")]) }
 )]
 impl ReduceTo<QUBO<f64>> for MaximumIndependentSet<SimpleGraph, i32> {
     type Result = ReductionISToQUBO;

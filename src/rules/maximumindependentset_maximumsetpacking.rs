@@ -5,7 +5,6 @@
 
 use crate::models::graph::MaximumIndependentSet;
 use crate::models::set::MaximumSetPacking;
-use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -39,8 +38,8 @@ where
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_sets", poly!(num_vertices)),
-            ("universe_size", poly!(num_vertices)),
+            ("num_sets", "num_vertices"),
+            ("universe_size", "num_vertices"),
         ])
     }
 )]
@@ -90,8 +89,8 @@ where
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_sets)),
-            ("num_edges", poly!(num_sets)),
+            ("num_vertices", "num_sets"),
+            ("num_edges", "num_sets"),
         ])
     }
 )]

@@ -34,7 +34,10 @@ fn load_path_file(path_file: &Path) -> Result<ReductionPath> {
         anyhow::bail!("Path file must contain at least one reduction step");
     }
 
-    Ok(ReductionPath { steps })
+    Ok(ReductionPath {
+        steps,
+        overheads: vec![],
+    })
 }
 
 fn parse_path_node(node: &serde_json::Value) -> Result<ReductionStep> {

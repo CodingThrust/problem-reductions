@@ -1,7 +1,6 @@
 //! Tests for ReductionGraph: discovery, path finding, and typed API.
 
 use crate::models::satisfiability::KSatisfiability;
-use crate::poly;
 use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph, TraversalDirection};
 use crate::topology::{SimpleGraph, TriangularSubgraph};
@@ -327,37 +326,34 @@ fn test_3sat_to_mis_triangular_overhead() {
     assert_eq!(edges.len(), 3);
 
     // Edge 0: K3SAT → SAT (identity)
+    assert_eq!(edges[0].get("num_vars").unwrap().to_string(), "num_vars");
     assert_eq!(
-        edges[0].get("num_vars").unwrap().normalized(),
-        poly!(num_vars)
+        edges[0].get("num_clauses").unwrap().to_string(),
+        "num_clauses"
     );
     assert_eq!(
-        edges[0].get("num_clauses").unwrap().normalized(),
-        poly!(num_clauses)
-    );
-    assert_eq!(
-        edges[0].get("num_literals").unwrap().normalized(),
-        poly!(num_literals)
+        edges[0].get("num_literals").unwrap().to_string(),
+        "num_literals"
     );
 
     // Edge 1: SAT → MIS{SimpleGraph,i32}
     assert_eq!(
-        edges[1].get("num_vertices").unwrap().normalized(),
-        poly!(num_literals)
+        edges[1].get("num_vertices").unwrap().to_string(),
+        "num_literals"
     );
     assert_eq!(
-        edges[1].get("num_edges").unwrap().normalized(),
-        poly!(num_literals ^ 2)
+        edges[1].get("num_edges").unwrap().to_string(),
+        "num_literals ^ 2"
     );
 
     // Edge 2: MIS{SimpleGraph,i32} → MIS{TriangularSubgraph,i32}
     assert_eq!(
-        edges[2].get("num_vertices").unwrap().normalized(),
-        poly!(num_vertices ^ 2)
+        edges[2].get("num_vertices").unwrap().to_string(),
+        "num_vertices * num_vertices"
     );
     assert_eq!(
-        edges[2].get("num_edges").unwrap().normalized(),
-        poly!(num_vertices ^ 2)
+        edges[2].get("num_edges").unwrap().to_string(),
+        "num_vertices * num_vertices"
     );
 
     // Compose overheads symbolically along the path.
@@ -370,12 +366,12 @@ fn test_3sat_to_mis_triangular_overhead() {
     // Composed: num_vertices = L², num_edges = L²
     let composed = graph.compose_path_overhead(&path);
     assert_eq!(
-        composed.get("num_vertices").unwrap().normalized(),
-        poly!(num_literals ^ 2)
+        composed.get("num_vertices").unwrap().to_string(),
+        "num_literals * num_literals"
     );
     assert_eq!(
-        composed.get("num_edges").unwrap().normalized(),
-        poly!(num_literals ^ 2)
+        composed.get("num_edges").unwrap().to_string(),
+        "num_literals * num_literals"
     );
 }
 
@@ -387,8 +383,8 @@ fn test_validate_overhead_variables_valid() {
     use crate::rules::validate_overhead_variables;
 
     let overhead = ReductionOverhead::new(vec![
-        ("num_vertices", poly!(num_vars)),
-        ("num_edges", poly!(num_vars ^ 2)),
+        ("num_vertices", "num_vars"),
+        ("num_edges", "num_vars ^ 2"),
     ]);
     // Should not panic: inputs {num_vars} ⊆ source, outputs {num_vertices, num_edges} ⊆ target
     validate_overhead_variables(
@@ -406,7 +402,7 @@ fn test_validate_overhead_variables_missing_input() {
     use crate::rules::registry::ReductionOverhead;
     use crate::rules::validate_overhead_variables;
 
-    let overhead = ReductionOverhead::new(vec![("num_vertices", poly!(num_colors))]);
+    let overhead = ReductionOverhead::new(vec![("num_vertices", "num_colors")]);
     validate_overhead_variables(
         "Source",
         "Target",
@@ -422,7 +418,7 @@ fn test_validate_overhead_variables_missing_output() {
     use crate::rules::registry::ReductionOverhead;
     use crate::rules::validate_overhead_variables;
 
-    let overhead = ReductionOverhead::new(vec![("num_gates", poly!(num_vars))]);
+    let overhead = ReductionOverhead::new(vec![("num_gates", "num_vars")]);
     validate_overhead_variables(
         "Source",
         "Target",
@@ -437,7 +433,7 @@ fn test_validate_overhead_variables_skips_output_when_empty() {
     use crate::rules::registry::ReductionOverhead;
     use crate::rules::validate_overhead_variables;
 
-    let overhead = ReductionOverhead::new(vec![("anything", poly!(num_vars))]);
+    let overhead = ReductionOverhead::new(vec![("anything", "num_vars")]);
     // Should not panic: target_size_names is empty so output check is skipped
     validate_overhead_variables("Source", "Target", &overhead, &["num_vars"], &[]);
 }

@@ -7,7 +7,6 @@
 
 use crate::models::graph::MaximumIndependentSet;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
-use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -44,8 +43,8 @@ impl ReductionResult for ReductionISToILP {
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_vertices)),
-            ("num_constraints", poly!(num_edges)),
+            ("num_vars", "num_vertices"),
+            ("num_constraints", "num_edges"),
         ])
     }
 )]

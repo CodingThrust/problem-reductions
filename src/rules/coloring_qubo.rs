@@ -10,7 +10,6 @@
 
 use crate::models::graph::KColoring;
 use crate::models::optimization::QUBO;
-use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -107,7 +106,7 @@ fn reduce_kcoloring_to_qubo<K: KValue>(
 
 // Register only the KN variant in the reduction graph
 #[reduction(
-    overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vertices ^ 2))]) }
+    overhead = { ReductionOverhead::new(vec![("num_vars", "num_vertices ^ 2")]) }
 )]
 impl ReduceTo<QUBO<f64>> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToQUBO<KN>;

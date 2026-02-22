@@ -45,13 +45,9 @@ pub fn solve(input: &Path, solver_name: &str, timeout: u64, out: &OutputConfig) 
         let (tx, rx) = std::sync::mpsc::channel();
         std::thread::spawn(move || {
             let result = match parsed {
-                SolveInput::Problem(pj) => solve_problem(
-                    &pj.problem_type,
-                    &pj.variant,
-                    pj.data,
-                    &solver_name,
-                    &out,
-                ),
+                SolveInput::Problem(pj) => {
+                    solve_problem(&pj.problem_type, &pj.variant, pj.data, &solver_name, &out)
+                }
                 SolveInput::Bundle(b) => solve_bundle(b, &solver_name, &out),
             };
             tx.send(result).ok();
@@ -167,6 +163,7 @@ fn solve_bundle(bundle: ReductionBundle, solver_name: &str, out: &OutputConfig) 
                 variant: s.variant.clone(),
             })
             .collect(),
+        overheads: vec![],
     };
 
     let chain = graph

@@ -97,7 +97,7 @@ pub(crate) struct EdgeJson {
     pub(crate) source: usize,
     /// Index into the `nodes` array for the target problem variant.
     pub(crate) target: usize,
-    /// Reduction overhead: output size as polynomials of input size.
+    /// Reduction overhead: output size as expressions of input size.
     pub(crate) overhead: Vec<OverheadFieldJson>,
     /// Relative rustdoc path for the reduction module.
     pub(crate) doc_path: String,
@@ -108,6 +108,8 @@ pub(crate) struct EdgeJson {
 pub struct ReductionPath {
     /// Variant-level steps in the path.
     pub steps: Vec<ReductionStep>,
+    /// Overhead for each edge in the path (length = steps.len() - 1).
+    pub overheads: Vec<ReductionOverhead>,
 }
 
 impl ReductionPath {
@@ -144,6 +146,15 @@ impl ReductionPath {
             }
         }
         names
+    }
+
+    /// Evaluate the end-to-end overhead by chaining each step's overhead.
+    pub fn evaluate(&self, input: &ProblemSize) -> Result<ProblemSize, crate::expr::EvalError> {
+        let mut current = input.clone();
+        for overhead in &self.overheads {
+            current = overhead.evaluate_output_size(&current)?;
+        }
+        Ok(current)
     }
 }
 
@@ -502,7 +513,10 @@ impl ReductionGraph {
 
                 let edge_cost = cost_fn.edge_cost(overhead, &current_size);
                 let new_cost = cost.0 + edge_cost;
-                let new_size = overhead.evaluate_output_size(&current_size);
+                let new_size = match overhead.evaluate_output_size(&current_size) {
+                    Ok(s) => s,
+                    Err(_) => continue,
+                };
 
                 if new_cost < *costs.get(&next).unwrap_or(&f64::INFINITY) {
                     costs.insert(next, new_cost);
@@ -528,7 +542,14 @@ impl ReductionGraph {
                 }
             })
             .collect();
-        ReductionPath { steps }
+        let overheads = node_path
+            .windows(2)
+            .map(|w| {
+                let edge_idx = self.graph.find_edge(w[0], w[1]).unwrap();
+                self.graph[edge_idx].overhead.clone()
+            })
+            .collect();
+        ReductionPath { steps, overheads }
     }
 
     /// Find all simple paths between two specific problem variants.
@@ -856,7 +877,11 @@ impl ReductionGraph {
         ) -> NeighborTree {
             let children = node_children
                 .get(&idx)
-                .map(|cs| cs.iter().map(|&c| build(c, node_children, nodes, graph)).collect())
+                .map(|cs| {
+                    cs.iter()
+                        .map(|&c| build(c, node_children, nodes, graph))
+                        .collect()
+                })
                 .unwrap_or_default();
             let node = &nodes[graph[idx]];
             NeighborTree {

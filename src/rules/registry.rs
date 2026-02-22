@@ -1,6 +1,6 @@
 //! Automatic reduction registration via inventory.
 
-use crate::polynomial::Polynomial;
+use crate::expr::{EvalError, Expr, Func};
 use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
 use std::any::Any;
@@ -9,65 +9,89 @@ use std::collections::HashSet;
 /// Overhead specification for a reduction.
 #[derive(Clone, Debug, Default, serde::Serialize)]
 pub struct ReductionOverhead {
-    /// Output size as polynomials of input size variables.
-    /// Each entry is (output_field_name, polynomial).
-    pub output_size: Vec<(&'static str, Polynomial)>,
+    /// Output size as symbolic expressions of input size variables.
+    /// Each entry is (output_field_name, expression).
+    pub output_size: Vec<(&'static str, Expr)>,
 }
 
 impl ReductionOverhead {
-    pub fn new(output_size: Vec<(&'static str, Polynomial)>) -> Self {
-        Self { output_size }
+    pub fn new(specs: Vec<(&'static str, &'static str)>) -> Self {
+        Self {
+            output_size: specs
+                .into_iter()
+                .map(|(field, expr_str)| {
+                    let expr = Expr::parse(expr_str).unwrap_or_else(|e| {
+                        panic!("invalid overhead expression for '{field}': {e}")
+                    });
+                    (field, expr)
+                })
+                .collect(),
+        }
     }
 
     /// Identity overhead: each output field equals the same-named input field.
     /// Used by variant cast reductions where problem size doesn't change.
     pub fn identity(fields: &[&'static str]) -> Self {
         Self {
-            output_size: fields.iter().map(|&f| (f, Polynomial::var(f))).collect(),
+            output_size: fields
+                .iter()
+                .map(|&f| {
+                    let expr = Expr::parse(f)
+                        .unwrap_or_else(|e| panic!("invalid identity field name '{f}': {e}"));
+                    (f, expr)
+                })
+                .collect(),
         }
     }
 
     /// Evaluate output size given input size.
     ///
-    /// Uses `round()` for the f64 to usize conversion because polynomial coefficients
+    /// Uses `round()` for the f64 to usize conversion because expression coefficients
     /// are typically integers (1, 2, 3, 7, 21, etc.) and any fractional results come
     /// from floating-point arithmetic imprecision, not intentional fractions.
-    /// For problem sizes, rounding to nearest integer is the most intuitive behavior.
-    pub fn evaluate_output_size(&self, input: &ProblemSize) -> ProblemSize {
-        let fields: Vec<_> = self
-            .output_size
-            .iter()
-            .map(|(name, poly)| (*name, poly.evaluate(input).round() as usize))
-            .collect();
-        ProblemSize::new(fields)
+    pub fn evaluate_output_size(&self, input: &ProblemSize) -> Result<ProblemSize, EvalError> {
+        let mut fields = Vec::new();
+        for (name, expr) in &self.output_size {
+            let val = expr.evaluate(input)?;
+            let rounded = val.round();
+            if !rounded.is_finite() || rounded < 0.0 || rounded > usize::MAX as f64 {
+                return Err(EvalError::Domain {
+                    func: Func::Floor,
+                    detail: format!("overhead for '{name}' produced out-of-range value: {val}")
+                        .into(),
+                });
+            }
+            fields.push((*name, rounded as usize));
+        }
+        Ok(ProblemSize::new(fields))
     }
 
-    /// Collect all input variable names referenced by the overhead polynomials.
-    pub fn input_variable_names(&self) -> HashSet<&'static str> {
+    /// Collect all input variable names referenced by the overhead expressions.
+    pub fn input_variable_names(&self) -> HashSet<&str> {
         self.output_size
             .iter()
-            .flat_map(|(_, poly)| poly.variable_names())
+            .flat_map(|(_, expr)| expr.variable_names())
             .collect()
     }
 
     /// Compose two overheads: substitute self's output into `next`'s input.
     ///
-    /// Returns a new overhead whose polynomials map from self's input variables
+    /// Returns a new overhead whose expressions map from self's input variables
     /// directly to `next`'s output variables.
     pub fn compose(&self, next: &ReductionOverhead) -> ReductionOverhead {
         use std::collections::HashMap;
 
-        // Build substitution map: output field name → output polynomial
-        let mapping: HashMap<&str, &Polynomial> = self
+        // Build substitution map: output field name → output expression
+        let mapping: HashMap<&str, &Expr> = self
             .output_size
             .iter()
-            .map(|(name, poly)| (*name, poly))
+            .map(|(name, expr)| (*name, expr))
             .collect();
 
         let composed = next
             .output_size
             .iter()
-            .map(|(name, poly)| (*name, poly.substitute(&mapping)))
+            .map(|(name, expr)| (*name, expr.substitute(&mapping)))
             .collect();
 
         ReductionOverhead {
@@ -75,12 +99,12 @@ impl ReductionOverhead {
         }
     }
 
-    /// Get the polynomial for a named output field.
-    pub fn get(&self, name: &str) -> Option<&Polynomial> {
+    /// Get the expression for a named output field.
+    pub fn get(&self, name: &str) -> Option<&Expr> {
         self.output_size
             .iter()
             .find(|(n, _)| *n == name)
-            .map(|(_, p)| p)
+            .map(|(_, e)| e)
     }
 }
 

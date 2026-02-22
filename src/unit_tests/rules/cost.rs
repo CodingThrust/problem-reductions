@@ -1,11 +1,7 @@
 use super::*;
-use crate::polynomial::Polynomial;
 
 fn test_overhead() -> ReductionOverhead {
-    ReductionOverhead::new(vec![
-        ("n", Polynomial::var("n").scale(2.0)),
-        ("m", Polynomial::var("m")),
-    ])
+    ReductionOverhead::new(vec![("n", "2 * n"), ("m", "m")])
 }
 
 #[test]
@@ -29,7 +25,9 @@ fn test_minimize_steps() {
 #[test]
 fn test_custom_cost() {
     let cost_fn = CustomCost(|overhead: &ReductionOverhead, size: &ProblemSize| {
-        let output = overhead.evaluate_output_size(size);
+        let output = overhead
+            .evaluate_output_size(size)
+            .expect("overhead evaluation failed");
         (output.get("n").unwrap_or(0) + output.get("m").unwrap_or(0)) as f64
     });
     let size = ProblemSize::new(vec![("n", 10), ("m", 5)]);

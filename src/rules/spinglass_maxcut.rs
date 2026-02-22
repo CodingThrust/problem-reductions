@@ -5,7 +5,6 @@
 
 use crate::models::graph::MaxCut;
 use crate::models::optimization::SpinGlass;
-use crate::poly;
 use crate::reduction;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -46,8 +45,8 @@ where
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_spins", poly!(num_vertices)),
-            ("num_interactions", poly!(num_edges)),
+            ("num_spins", "num_vertices"),
+            ("num_interactions", "num_edges"),
         ])
     }
 )]
@@ -137,8 +136,8 @@ where
 #[reduction(
     overhead = {
         ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_spins)),
-            ("num_edges", poly!(num_interactions)),
+            ("num_vertices", "num_spins"),
+            ("num_edges", "num_interactions"),
         ])
     }
 )]
