@@ -1,6 +1,8 @@
 mod cli;
 mod commands;
 mod dispatch;
+#[cfg(feature = "mcp")]
+mod mcp;
 mod output;
 mod problem_name;
 
@@ -55,6 +57,8 @@ fn main() -> anyhow::Result<()> {
             commands::reduce::reduce(&args.input, args.to.as_deref(), args.via.as_deref(), &out)
         }
         Commands::Evaluate(args) => commands::evaluate::evaluate(&args.input, &args.config, &out),
+        #[cfg(feature = "mcp")]
+        Commands::Mcp => mcp::run(),
         Commands::Completions { shell } => {
             let shell = shell
                 .or_else(clap_complete::Shell::from_env)

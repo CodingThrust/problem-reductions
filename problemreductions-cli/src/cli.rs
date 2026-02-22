@@ -150,6 +150,25 @@ Examples:
     Inspect(InspectArgs),
     /// Solve a problem instance
     Solve(SolveArgs),
+    /// Start MCP (Model Context Protocol) server for AI assistant integration
+    #[cfg(feature = "mcp")]
+    #[command(after_help = "\
+Start a stdio-based MCP server that exposes problem reduction tools
+to AI assistants like Claude Desktop and Claude Code.
+
+Configuration (Claude Code .mcp.json):
+  {
+    \"mcpServers\": {
+      \"problemreductions\": {
+        \"command\": \"pred\",
+        \"args\": [\"mcp\"]
+      }
+    }
+  }
+
+Test with MCP Inspector:
+  npx @modelcontextprotocol/inspector pred mcp")]
+    Mcp,
     /// Print shell completions to stdout (auto-detects shell)
     #[command(after_help = "\
 Setup: add one line to your shell rc file:
