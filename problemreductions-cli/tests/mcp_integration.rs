@@ -226,8 +226,8 @@ mod mcp_tests {
 
         assert_eq!(
             prompts.len(),
-            3,
-            "Expected 3 prompts, got {}: {:?}",
+            7,
+            "Expected 7 prompts, got {}: {:?}",
             prompts.len(),
             prompts
                 .iter()
@@ -236,9 +236,13 @@ mod mcp_tests {
         );
 
         let prompt_names: Vec<&str> = prompts.iter().filter_map(|p| p["name"].as_str()).collect();
-        assert!(prompt_names.contains(&"analyze_problem"));
-        assert!(prompt_names.contains(&"reduction_walkthrough"));
-        assert!(prompt_names.contains(&"explore_graph"));
+        assert!(prompt_names.contains(&"what_is"));
+        assert!(prompt_names.contains(&"model_my_problem"));
+        assert!(prompt_names.contains(&"compare"));
+        assert!(prompt_names.contains(&"reduce"));
+        assert!(prompt_names.contains(&"solve"));
+        assert!(prompt_names.contains(&"find_reduction"));
+        assert!(prompt_names.contains(&"overview"));
 
         shutdown(stdin, child);
     }
