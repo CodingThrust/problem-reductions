@@ -2,67 +2,80 @@
 
 The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open standard that allows AI assistants to interact with external tools and data sources. The `pred` CLI includes a built-in MCP server that exposes the full reduction graph, problem creation, solving, and reduction capabilities to any MCP-compatible AI assistant (such as Claude Code, Cursor, Windsurf, or OpenCode).
 
+## Walkthrough
+
+A complete session showing how an AI assistant uses MCP tools behind the scenes to answer your questions.
+
+**You:** Create a weighted MIS problem on a 4-vertex graph with edges 0-1, 1-2, 2-3, 3-0, 0-2 and weights [1, 2, 3, 4], explain the result.
+
+> **Assistant:** I created a Maximum Independent Set instance on a SimpleGraph with 4 vertices, 5 edges, and integer weights [1, 2, 3, 4]. Each vertex has a weight, and the goal is to find a subset of non-adjacent vertices that maximizes total weight.
+
+**You:** What can I do with this problem? Explain the result.
+
+> **Assistant:** This instance has 4 binary variables (one per vertex). It can be reduced to 5 other problem types: ILP, MaximumSetPacking, MinimumVertexCover, QUBO, and other MIS variants. You can solve it directly using either an ILP solver or brute-force search.
+
+**You:** Check if selecting vertices 1 and 3 is a valid solution, explain the result.
+
+> **Assistant:** Yes! Selecting vertices 1 and 3 (configuration [0,1,0,1]) is a valid independent set — these two vertices are not adjacent. The total weight is 2 + 4 = 6.
+
+**You:** Reduce this to QUBO, explain the result.
+
+> **Assistant:** Done. The MIS instance was transformed into a 4x4 QUBO matrix:
+>
+> ```
+> [-1.0, 11.0, 11.0, 11.0]
+> [ 0.0, -2.0, 11.0,  0.0]
+> [ 0.0,  0.0, -3.0, 11.0]
+> [ 0.0,  0.0,  0.0, -4.0]
+> ```
+>
+> The diagonal entries (-1, -2, -3, -4) encode vertex weights negated for minimization. The off-diagonal entries (11.0) are large penalties on edges — selecting two adjacent vertices would incur a penalty that outweighs any benefit. The reduction path is: MaximumIndependentSet → QUBO.
+
+**You:** Now solve it through the reduction, explain the result.
+
+> **Assistant:** The brute-force solver found the optimal solution by solving the QUBO, then mapping the result back to the original MIS:
+>
+> - **QUBO solution:** [0,1,0,1] with objective -6.0 (minimization)
+> - **MIS solution:** vertices {1, 3} with weight **6** (maximization)
+>
+> The QUBO objective of -6.0 corresponds to the MIS maximum of 6 — the reduction correctly inverts the sign. This confirms that {1, 3} is the optimal independent set.
+
 ## Installation
 
-### Via cargo
+Install via cargo:
 
 ```bash
 cargo install problemreductions-cli
 ```
 
-### From source
+Or build from source:
 
 ```bash
 git clone https://github.com/CodingThrust/problem-reductions
 cd problem-reductions
-make cli    # builds target/release/pred
+make cli    # builds and installs target/release/pred
 ```
 
 ## Configuration
 
-### Claude Code / Claude Desktop
+### Claude Code
 
-Add to your project's `.mcp.json` (or `~/.claude/mcp.json` for global):
+```bash
+# Project-scoped (current project only)
+claude mcp add --scope project problemreductions -- pred mcp
 
-```json
-{
-  "mcpServers": {
-    "problemreductions": {
-      "command": "pred",
-      "args": ["mcp"]
-    }
-  }
-}
+# User-scoped (all projects)
+claude mcp add --scope user problemreductions -- pred mcp
 ```
 
-### Cursor
+### Cursor / Windsurf
 
-Add to `.cursor/mcp.json` in your project root (or `~/.cursor/mcp.json` for global):
-
-```json
-{
-  "mcpServers": {
-    "problemreductions": {
-      "command": "pred",
-      "args": ["mcp"]
-    }
-  }
-}
-```
-
-### Windsurf
-
-Add to `~/.codeium/windsurf/mcp_config.json`:
+Add to the appropriate config file:
+- **Cursor:** `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global)
+- **Windsurf:** `~/.codeium/windsurf/mcp_config.json`
 
 ```json
-{
-  "mcpServers": {
-    "problemreductions": {
-      "command": "pred",
-      "args": ["mcp"]
-    }
-  }
-}
+{ "mcpServers": { "problemreductions": { "command": "pred", "args": ["mcp"] } } }
 ```
 
 ### OpenCode
@@ -70,25 +83,12 @@ Add to `~/.codeium/windsurf/mcp_config.json`:
 Add to `opencode.json` in your project root:
 
 ```json
-{
-  "mcp": {
-    "problemreductions": {
-      "type": "local",
-      "command": ["pred", "mcp"]
-    }
-  }
-}
+{ "mcp": { "problemreductions": { "type": "local", "command": ["pred", "mcp"] } } }
 ```
 
 ### Generic MCP Client
 
-Any MCP client that supports the stdio transport can connect to the server by running:
-
-```bash
-pred mcp
-```
-
-The server communicates over stdin/stdout using the MCP JSON-RPC protocol.
+Any MCP client that supports the stdio transport can connect by running `pred mcp`. The server communicates over stdin/stdout using the MCP JSON-RPC protocol.
 
 ## Available Tools
 
@@ -116,51 +116,14 @@ The MCP server provides 10 tools organized into two categories: **graph query to
 
 ## Available Prompts
 
-The server provides 3 prompt templates that guide the AI assistant through common workflows:
+The server provides 7 task-oriented prompt templates:
 
 | Prompt | Arguments | Description |
 |--------|-----------|-------------|
-| `analyze_problem` | `problem_type` (required) | Analyze a problem type: show its definition, variants, size fields, and reduction edges |
-| `reduction_walkthrough` | `source` (required), `target` (required) | End-to-end reduction walkthrough: find a path, create an instance, reduce it, and solve the result |
-| `explore_graph` | *(none)* | Explore the reduction graph: list all problems, export the graph, and analyze its structure |
-
-## Example Usage
-
-Once configured, you can interact with the reduction graph naturally through your AI assistant:
-
-```
-> What problems can MaximumIndependentSet reduce to?
-
-> Walk me through reducing a 5-vertex MIS instance to QUBO
-
-> Create a random graph with 8 vertices and solve the MaxCut problem on it
-
-> Find all reduction paths from Satisfiability to SpinGlass
-```
-
-The AI assistant will automatically call the appropriate MCP tools to answer your questions, create problem instances, perform reductions, and solve problems.
-
-## Testing with MCP Inspector
-
-You can test the MCP server using the [MCP Inspector](https://github.com/modelcontextprotocol/inspector):
-
-```bash
-npx @modelcontextprotocol/inspector pred mcp
-```
-
-This opens a web UI where you can:
-
-1. Browse the list of available tools and their schemas
-2. Call tools with custom parameters and inspect the JSON responses
-3. Browse and invoke prompt templates
-4. Verify the server is working correctly before configuring your AI assistant
-
-## Running MCP Tests
-
-To run the MCP server test suite:
-
-```bash
-make mcp-test
-```
-
-This runs both unit tests (tool logic) and integration tests (MCP protocol-level tool calls).
+| `what_is` | `problem_type` (required) | Explain a problem type |
+| `model_my_problem` | `description` (required) | Map a real-world problem to an NP-hard type |
+| `compare` | `problem_a` (required), `problem_b` (required) | Compare two problem types |
+| `reduce` | `source` (required), `target` (required) | Step-by-step reduction walkthrough |
+| `solve` | `problem_type` (required), `params` (required) | Create and solve a problem instance |
+| `find_reduction` | `source` (required), `target` (required) | Find the best reduction path between two problems |
+| `overview` | *(none)* | Explore the full landscape of NP-hard problems |
