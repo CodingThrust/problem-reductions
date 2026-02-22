@@ -154,17 +154,23 @@ Examples:
     #[cfg(feature = "mcp")]
     #[command(after_help = "\
 Start a stdio-based MCP server that exposes problem reduction tools
-to AI assistants like Claude Desktop and Claude Code.
+to any MCP-compatible AI assistant.
 
-Configuration (Claude Code .mcp.json):
-  {
-    \"mcpServers\": {
-      \"problemreductions\": {
-        \"command\": \"pred\",
-        \"args\": [\"mcp\"]
-      }
-    }
-  }
+Claude Code / Claude Desktop (.mcp.json or ~/.claude/mcp.json):
+  { \"mcpServers\": { \"problemreductions\": {
+      \"command\": \"pred\", \"args\": [\"mcp\"] } } }
+
+Cursor (.cursor/mcp.json):
+  { \"mcpServers\": { \"problemreductions\": {
+      \"command\": \"pred\", \"args\": [\"mcp\"] } } }
+
+Windsurf (~/.codeium/windsurf/mcp_config.json):
+  { \"mcpServers\": { \"problemreductions\": {
+      \"command\": \"pred\", \"args\": [\"mcp\"] } } }
+
+OpenCode (opencode.json):
+  { \"mcp\": { \"problemreductions\": {
+      \"type\": \"local\", \"command\": [\"pred\", \"mcp\"] } } }
 
 Test with MCP Inspector:
   npx @modelcontextprotocol/inspector pred mcp")]
