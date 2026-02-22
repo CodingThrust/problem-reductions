@@ -33,7 +33,7 @@ A complete session showing how an AI assistant uses MCP tools behind the scenes 
 
 **You:** Now solve it through the reduction, explain the result.
 
-> **Assistant:** The brute-force solver found the optimal solution by solving the QUBO, then mapping the result back to the original MIS:
+> **Assistant:** The ILP solver found the optimal solution by solving the QUBO, then mapping the result back to the original MIS:
 >
 > - **QUBO solution:** [0,1,0,1] with objective -6.0 (minimization)
 > - **MIS solution:** vertices {1, 3} with weight **6** (maximization)
