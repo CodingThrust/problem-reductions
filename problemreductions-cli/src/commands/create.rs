@@ -155,15 +155,15 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // Factoring
         "Factoring" => {
             let usage = "Usage: pred create Factoring --target 15 --bits-m 4 --bits-n 4";
-            let target = args.target.ok_or_else(|| {
-                anyhow::anyhow!("Factoring requires --target\n\n{usage}")
-            })?;
-            let m = args.bits_m.ok_or_else(|| {
-                anyhow::anyhow!("Factoring requires --bits-m\n\n{usage}")
-            })?;
-            let n = args.bits_n.ok_or_else(|| {
-                anyhow::anyhow!("Factoring requires --bits-n\n\n{usage}")
-            })?;
+            let target = args
+                .target
+                .ok_or_else(|| anyhow::anyhow!("Factoring requires --target\n\n{usage}"))?;
+            let m = args
+                .bits_m
+                .ok_or_else(|| anyhow::anyhow!("Factoring requires --bits-m\n\n{usage}"))?;
+            let n = args
+                .bits_n
+                .ok_or_else(|| anyhow::anyhow!("Factoring requires --bits-n\n\n{usage}"))?;
             let variant = BTreeMap::new();
             (ser(Factoring::new(m, n, target))?, variant)
         }

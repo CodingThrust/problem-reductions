@@ -1570,10 +1570,7 @@ fn test_completions_auto_detect() {
 
 #[test]
 fn test_to_outgoing() {
-    let output = pred()
-        .args(["to", "MIS", "--hops", "2"])
-        .output()
-        .unwrap();
+    let output = pred().args(["to", "MIS", "--hops", "2"]).output().unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -1621,10 +1618,7 @@ fn test_to_json() {
 
 #[test]
 fn test_to_shows_variant_info() {
-    let output = pred()
-        .args(["to", "MIS", "--hops", "1"])
-        .output()
-        .unwrap();
+    let output = pred().args(["to", "MIS", "--hops", "1"]).output().unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
