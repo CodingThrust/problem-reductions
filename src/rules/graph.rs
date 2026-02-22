@@ -856,7 +856,11 @@ impl ReductionGraph {
         ) -> NeighborTree {
             let children = node_children
                 .get(&idx)
-                .map(|cs| cs.iter().map(|&c| build(c, node_children, nodes, graph)).collect())
+                .map(|cs| {
+                    cs.iter()
+                        .map(|&c| build(c, node_children, nodes, graph))
+                        .collect()
+                })
                 .unwrap_or_default();
             let node = &nodes[graph[idx]];
             NeighborTree {

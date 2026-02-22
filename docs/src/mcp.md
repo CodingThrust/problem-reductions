@@ -1,16 +1,16 @@
 # MCP Server
 
-The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open standard that allows AI assistants to interact with external tools and data sources. The `pred` CLI includes a built-in MCP server that exposes the full reduction graph, problem creation, solving, and reduction capabilities to any MCP-compatible AI assistant (such as Claude Code, Cursor, or Windsurf).
+The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open standard that allows AI assistants to interact with external tools and data sources. The `pred` CLI includes a built-in MCP server that exposes the full reduction graph, problem creation, solving, and reduction capabilities to any MCP-compatible AI assistant (such as Claude Code, Cursor, Windsurf, or OpenCode).
 
 ## Installation
 
-Install the `pred` CLI tool:
+### Via cargo
 
 ```bash
 cargo install problemreductions-cli
 ```
 
-Or build from source:
+### From source
 
 ```bash
 git clone https://github.com/CodingThrust/problem-reductions
@@ -20,9 +20,9 @@ make cli    # builds target/release/pred
 
 ## Configuration
 
-### Claude Code
+### Claude Code / Claude Desktop
 
-Add the following to your project's `.mcp.json` file (or `~/.claude/mcp.json` for global configuration):
+Add to your project's `.mcp.json` (or `~/.claude/mcp.json` for global):
 
 ```json
 {
@@ -30,6 +30,51 @@ Add the following to your project's `.mcp.json` file (or `~/.claude/mcp.json` fo
     "problemreductions": {
       "command": "pred",
       "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Cursor
+
+Add to `.cursor/mcp.json` in your project root (or `~/.cursor/mcp.json` for global):
+
+```json
+{
+  "mcpServers": {
+    "problemreductions": {
+      "command": "pred",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### Windsurf
+
+Add to `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{
+  "mcpServers": {
+    "problemreductions": {
+      "command": "pred",
+      "args": ["mcp"]
+    }
+  }
+}
+```
+
+### OpenCode
+
+Add to `opencode.json` in your project root:
+
+```json
+{
+  "mcp": {
+    "problemreductions": {
+      "type": "local",
+      "command": ["pred", "mcp"]
     }
   }
 }
@@ -79,9 +124,9 @@ The server provides 3 prompt templates that guide the AI assistant through commo
 | `reduction_walkthrough` | `source` (required), `target` (required) | End-to-end reduction walkthrough: find a path, create an instance, reduce it, and solve the result |
 | `explore_graph` | *(none)* | Explore the reduction graph: list all problems, export the graph, and analyze its structure |
 
-## Example Usage with Claude Code
+## Example Usage
 
-Once configured, you can interact with the reduction graph naturally through conversation:
+Once configured, you can interact with the reduction graph naturally through your AI assistant:
 
 ```
 > What problems can MaximumIndependentSet reduce to?

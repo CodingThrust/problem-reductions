@@ -38,9 +38,7 @@ fn main() -> anyhow::Result<()> {
         Commands::List => commands::graph::list(&out),
         Commands::Show { problem } => commands::graph::show(&problem, &out),
         Commands::To { problem, hops } => commands::graph::neighbors(&problem, hops, "out", &out),
-        Commands::From { problem, hops } => {
-            commands::graph::neighbors(&problem, hops, "in", &out)
-        }
+        Commands::From { problem, hops } => commands::graph::neighbors(&problem, hops, "in", &out),
         Commands::Path {
             source,
             target,
