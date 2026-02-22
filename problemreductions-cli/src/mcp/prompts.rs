@@ -1,6 +1,4 @@
-use rmcp::model::{
-    GetPromptResult, Prompt, PromptArgument, PromptMessage, PromptMessageRole,
-};
+use rmcp::model::{GetPromptResult, Prompt, PromptArgument, PromptMessage, PromptMessageRole};
 
 /// Return the list of available MCP prompt templates.
 pub fn list_prompts() -> Vec<Prompt> {

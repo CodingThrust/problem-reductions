@@ -66,12 +66,8 @@ pub fn list(out: &OutputConfig) -> Result<()> {
         })
         .collect();
 
-    let color_fns: Vec<Option<crate::output::CellFormatter>> = vec![
-        Some(crate::output::fmt_problem_name),
-        None,
-        None,
-        None,
-    ];
+    let color_fns: Vec<Option<crate::output::CellFormatter>> =
+        vec![Some(crate::output::fmt_problem_name), None, None, None];
 
     let mut text = String::new();
     text.push_str(&crate::output::fmt_section(&summary));

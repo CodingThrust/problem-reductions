@@ -1,13 +1,13 @@
 use problemreductions::models::graph::{
-    KColoring, MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching,
-    MinimumDominatingSet, MinimumVertexCover, TravelingSalesman,
+    KColoring, MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
+    MinimumVertexCover, TravelingSalesman,
 };
 use problemreductions::models::optimization::{SpinGlass, QUBO};
 use problemreductions::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
 use problemreductions::models::specialized::Factoring;
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{
-    Minimize, MinimizeSteps, ReductionGraph, ReductionPath, TraversalDirection,
+    CustomCost, MinimizeSteps, ReductionGraph, ReductionPath, TraversalDirection,
 };
 use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::types::ProblemSize;
@@ -302,14 +302,10 @@ impl McpServer {
 
         let input_size = ProblemSize::new(vec![]);
 
-        enum CostChoice {
-            Steps,
-            Field(&'static str),
-        }
-        let cost_choice = if cost == "minimize-steps" {
-            CostChoice::Steps
+        let cost_field: Option<String> = if cost == "minimize-steps" {
+            None
         } else if let Some(field) = cost.strip_prefix("minimize:") {
-            CostChoice::Field(Box::leak(field.to_string().into_boxed_str()))
+            Some(field.to_string())
         } else {
             anyhow::bail!(
                 "Unknown cost function: {}. Use 'minimize-steps' or 'minimize:<field>'",
@@ -321,8 +317,8 @@ impl McpServer {
 
         for sv in &src_resolved {
             for dv in &dst_resolved {
-                let found = match cost_choice {
-                    CostChoice::Steps => graph.find_cheapest_path(
+                let found = match cost_field {
+                    None => graph.find_cheapest_path(
                         &src_spec.name,
                         sv,
                         &dst_spec.name,
@@ -330,14 +326,22 @@ impl McpServer {
                         &input_size,
                         &MinimizeSteps,
                     ),
-                    CostChoice::Field(f) => graph.find_cheapest_path(
-                        &src_spec.name,
-                        sv,
-                        &dst_spec.name,
-                        dv,
-                        &input_size,
-                        &Minimize(f),
-                    ),
+                    Some(ref f) => {
+                        let cost_fn = CustomCost(
+                            |overhead: &problemreductions::rules::ReductionOverhead,
+                             size: &ProblemSize| {
+                                overhead.evaluate_output_size(size).get(f).unwrap_or(0) as f64
+                            },
+                        );
+                        graph.find_cheapest_path(
+                            &src_spec.name,
+                            sv,
+                            &dst_spec.name,
+                            dv,
+                            &input_size,
+                            &cost_fn,
+                        )
+                    }
                 };
                 if let Some(p) = found {
                     let is_better = best_path.as_ref().is_none_or(|bp| p.len() < bp.len());
@@ -391,61 +395,31 @@ impl McpServer {
         }
 
         let (data, variant) = match canonical.as_str() {
-            // Graph problems with vertex weights
-            "MaximumIndependentSet" | "MinimumVertexCover" | "MaximumClique"
+            "MaximumIndependentSet"
+            | "MinimumVertexCover"
+            | "MaximumClique"
             | "MinimumDominatingSet" => {
                 let (graph, n) = parse_graph_from_params(params)?;
                 let weights = parse_vertex_weights_from_params(params, n)?;
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                let data = match canonical.as_str() {
-                    "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
-                    "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
-                    "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
-                    "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
-                    _ => unreachable!(),
-                };
-                (data, variant)
+                ser_vertex_weight_problem(&canonical, graph, weights)?
             }
 
-            // Graph problems with edge weights
             "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
                 let (graph, _) = parse_graph_from_params(params)?;
                 let edge_weights = parse_edge_weights_from_params(params, graph.num_edges())?;
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                let data = match canonical.as_str() {
-                    "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
-                    "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
-                    "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
-                    _ => unreachable!(),
-                };
-                (data, variant)
+                ser_edge_weight_problem(&canonical, graph, edge_weights)?
             }
 
-            // KColoring
             "KColoring" => {
                 let (graph, _) = parse_graph_from_params(params)?;
                 let k = params
                     .get("k")
                     .and_then(|v| v.as_u64())
-                    .map(|v| v as usize);
-                let variant;
-                let data;
-                match k {
-                    Some(2) => {
-                        variant = variant_map(&[("k", "K2"), ("graph", "SimpleGraph")]);
-                        data = ser(KColoring::<K2, SimpleGraph>::new(graph))?;
-                    }
-                    Some(3) => {
-                        variant = variant_map(&[("k", "K3"), ("graph", "SimpleGraph")]);
-                        data = ser(KColoring::<K3, SimpleGraph>::new(graph))?;
-                    }
-                    Some(kv) => {
-                        variant = variant_map(&[("k", "KN"), ("graph", "SimpleGraph")]);
-                        data = ser(KColoring::<KN, SimpleGraph>::with_k(graph, kv))?;
-                    }
-                    None => anyhow::bail!("KColoring requires 'k' parameter (number of colors)"),
-                }
-                (data, variant)
+                    .map(|v| v as usize)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("KColoring requires 'k' parameter (number of colors)")
+                    })?;
+                ser_kcoloring(graph, k)?
             }
 
             // SAT
@@ -466,10 +440,7 @@ impl McpServer {
                     .map(|v| v as usize)
                     .ok_or_else(|| anyhow::anyhow!("KSatisfiability requires 'num_vars'"))?;
                 let clauses = parse_clauses_from_params(params)?;
-                let k = params
-                    .get("k")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as usize);
+                let k = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
                 let variant;
                 let data;
                 match k {
@@ -536,7 +507,7 @@ impl McpServer {
             variant,
             data,
         };
-        Ok(serde_json::to_string_pretty(&serde_json::to_value(&output)?)?)
+        Ok(serde_json::to_string_pretty(&output)?)
     }
 
     fn create_random_inner(
@@ -558,37 +529,22 @@ impl McpServer {
         if !(0.0..=1.0).contains(&edge_prob) {
             anyhow::bail!("edge_prob must be between 0.0 and 1.0");
         }
-        let seed = params
-            .get("seed")
-            .and_then(|v| v.as_u64());
+        let seed = params.get("seed").and_then(|v| v.as_u64());
 
         let graph = create_random_graph(num_vertices, edge_prob, seed);
         let num_edges = graph.num_edges();
 
         let (data, variant) = match canonical {
-            "MaximumIndependentSet" | "MinimumVertexCover" | "MaximumClique"
+            "MaximumIndependentSet"
+            | "MinimumVertexCover"
+            | "MaximumClique"
             | "MinimumDominatingSet" => {
                 let weights = vec![1i32; num_vertices];
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                let data = match canonical {
-                    "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
-                    "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
-                    "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
-                    "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
-                    _ => unreachable!(),
-                };
-                (data, variant)
+                ser_vertex_weight_problem(canonical, graph, weights)?
             }
             "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
                 let edge_weights = vec![1i32; num_edges];
-                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                let data = match canonical {
-                    "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
-                    "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
-                    "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
-                    _ => unreachable!(),
-                };
-                (data, variant)
+                ser_edge_weight_problem(canonical, graph, edge_weights)?
             }
             "SpinGlass" => {
                 let couplings = vec![1i32; num_edges];
@@ -605,23 +561,7 @@ impl McpServer {
                     .and_then(|v| v.as_u64())
                     .map(|v| v as usize)
                     .unwrap_or(3);
-                let variant;
-                let data;
-                match k {
-                    2 => {
-                        variant = variant_map(&[("k", "K2"), ("graph", "SimpleGraph")]);
-                        data = ser(KColoring::<K2, SimpleGraph>::new(graph))?;
-                    }
-                    3 => {
-                        variant = variant_map(&[("k", "K3"), ("graph", "SimpleGraph")]);
-                        data = ser(KColoring::<K3, SimpleGraph>::new(graph))?;
-                    }
-                    _ => {
-                        variant = variant_map(&[("k", "KN"), ("graph", "SimpleGraph")]);
-                        data = ser(KColoring::<KN, SimpleGraph>::with_k(graph, k))?;
-                    }
-                }
-                (data, variant)
+                ser_kcoloring(graph, k)?
             }
             _ => anyhow::bail!(
                 "Random generation is not supported for {}. \
@@ -636,7 +576,7 @@ impl McpServer {
             variant,
             data,
         };
-        Ok(serde_json::to_string_pretty(&serde_json::to_value(&output)?)?)
+        Ok(serde_json::to_string_pretty(&output)?)
     }
 
     pub fn inspect_problem_inner(&self, problem_json: &str) -> anyhow::Result<String> {
@@ -687,11 +627,7 @@ impl McpServer {
         Ok(serde_json::to_string_pretty(&result)?)
     }
 
-    pub fn evaluate_inner(
-        &self,
-        problem_json: &str,
-        config: &[usize],
-    ) -> anyhow::Result<String> {
+    pub fn evaluate_inner(&self, problem_json: &str, config: &[usize]) -> anyhow::Result<String> {
         let pj: ProblemJson = serde_json::from_str(problem_json)?;
         let problem = load_problem(&pj.problem_type, &pj.variant, pj.data)?;
 
@@ -792,7 +728,7 @@ impl McpServer {
                 .collect(),
         };
 
-        Ok(serde_json::to_string_pretty(&serde_json::to_value(&bundle)?)?)
+        Ok(serde_json::to_string_pretty(&bundle)?)
     }
 
     pub fn solve_inner(
@@ -946,10 +882,7 @@ impl McpServer {
         name = "evaluate",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
-    fn evaluate(
-        &self,
-        Parameters(params): Parameters<EvaluateParams>,
-    ) -> Result<String, String> {
+    fn evaluate(&self, Parameters(params): Parameters<EvaluateParams>) -> Result<String, String> {
         self.evaluate_inner(&params.problem_json, &params.config)
             .map_err(|e| e.to_string())
     }
@@ -959,10 +892,7 @@ impl McpServer {
         name = "reduce",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
-    fn reduce(
-        &self,
-        Parameters(params): Parameters<ReduceParams>,
-    ) -> Result<String, String> {
+    fn reduce(&self, Parameters(params): Parameters<ReduceParams>) -> Result<String, String> {
         self.reduce_inner(&params.problem_json, &params.target)
             .map_err(|e| e.to_string())
     }
@@ -972,10 +902,7 @@ impl McpServer {
         name = "solve",
         annotations(read_only_hint = true, open_world_hint = false)
     )]
-    fn solve(
-        &self,
-        Parameters(params): Parameters<SolveParams>,
-    ) -> Result<String, String> {
+    fn solve(&self, Parameters(params): Parameters<SolveParams>) -> Result<String, String> {
         self.solve_inner(
             &params.problem_json,
             params.solver.as_deref(),
@@ -1032,10 +959,7 @@ impl rmcp::ServerHandler for McpServer {
     ) -> Result<rmcp::model::GetPromptResult, rmcp::ErrorData> {
         let args = request.arguments.unwrap_or_default();
         super::prompts::get_prompt(&request.name, &args).ok_or_else(|| {
-            rmcp::ErrorData::invalid_params(
-                format!("Unknown prompt: {}", request.name),
-                None,
-            )
+            rmcp::ErrorData::invalid_params(format!("Unknown prompt: {}", request.name), None)
         })
     }
 }
@@ -1096,12 +1020,68 @@ fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         .collect()
 }
 
+/// Serialize a vertex-weight graph problem (MIS, MVC, MaxClique, MinDomSet).
+fn ser_vertex_weight_problem(
+    canonical: &str,
+    graph: SimpleGraph,
+    weights: Vec<i32>,
+) -> anyhow::Result<(serde_json::Value, BTreeMap<String, String>)> {
+    let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+    let data = match canonical {
+        "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
+        "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
+        "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
+        "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
+        _ => unreachable!(),
+    };
+    Ok((data, variant))
+}
+
+/// Serialize an edge-weight graph problem (MaxCut, MaximumMatching, TravelingSalesman).
+fn ser_edge_weight_problem(
+    canonical: &str,
+    graph: SimpleGraph,
+    edge_weights: Vec<i32>,
+) -> anyhow::Result<(serde_json::Value, BTreeMap<String, String>)> {
+    let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+    let data = match canonical {
+        "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
+        "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
+        "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
+        _ => unreachable!(),
+    };
+    Ok((data, variant))
+}
+
+/// Serialize a KColoring problem with the appropriate K variant.
+fn ser_kcoloring(
+    graph: SimpleGraph,
+    k: usize,
+) -> anyhow::Result<(serde_json::Value, BTreeMap<String, String>)> {
+    match k {
+        2 => Ok((
+            ser(KColoring::<K2, SimpleGraph>::new(graph))?,
+            variant_map(&[("k", "K2"), ("graph", "SimpleGraph")]),
+        )),
+        3 => Ok((
+            ser(KColoring::<K3, SimpleGraph>::new(graph))?,
+            variant_map(&[("k", "K3"), ("graph", "SimpleGraph")]),
+        )),
+        _ => Ok((
+            ser(KColoring::<KN, SimpleGraph>::with_k(graph, k))?,
+            variant_map(&[("k", "KN"), ("graph", "SimpleGraph")]),
+        )),
+    }
+}
+
 /// Parse `edges` field from JSON params into a SimpleGraph.
 fn parse_graph_from_params(params: &serde_json::Value) -> anyhow::Result<(SimpleGraph, usize)> {
     let edges_str = params
         .get("edges")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("This problem requires 'edges' parameter (e.g., \"0-1,1-2,2-3\")"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!("This problem requires 'edges' parameter (e.g., \"0-1,1-2,2-3\")")
+        })?;
 
     let edges: Vec<(usize, usize)> = edges_str
         .split(',')
@@ -1179,7 +1159,9 @@ fn parse_clauses_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<C
     let clauses_str = params
         .get("clauses")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("SAT problems require 'clauses' parameter (e.g., \"1,2;-1,3\")"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!("SAT problems require 'clauses' parameter (e.g., \"1,2;-1,3\")")
+        })?;
 
     clauses_str
         .split(';')
@@ -1199,7 +1181,9 @@ fn parse_matrix_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<Ve
     let matrix_str = params
         .get("matrix")
         .and_then(|v| v.as_str())
-        .ok_or_else(|| anyhow::anyhow!("QUBO requires 'matrix' parameter (e.g., \"1,0.5;0.5,2\")"))?;
+        .ok_or_else(|| {
+            anyhow::anyhow!("QUBO requires 'matrix' parameter (e.g., \"1,0.5;0.5,2\")")
+        })?;
 
     matrix_str
         .split(';')
