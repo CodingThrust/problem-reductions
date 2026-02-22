@@ -1,10 +1,38 @@
 # MCP Server
 
-The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open standard that allows AI assistants to interact with external tools and data sources. The `pred` CLI includes a built-in MCP server that exposes the full reduction graph, problem creation, solving, and reduction capabilities to any MCP-compatible AI assistant (such as Claude Code, Cursor, Windsurf, or OpenCode).
+The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open standard that allows AI assistants to interact with external tools and data sources. The `pred` CLI includes a built-in MCP server that exposes the full reduction graph, problem creation, solving, and reduction capabilities to any MCP-compatible AI assistant.
+
+## Setup
+
+Install the `pred` CLI, then configure your AI assistant:
+
+```bash
+cargo install problemreductions-cli
+```
+
+**Claude Code:**
+
+```bash
+claude mcp add --scope user problemreductions -- pred mcp
+```
+
+**Cursor / Windsurf** — add to `.cursor/mcp.json` or `~/.codeium/windsurf/mcp_config.json`:
+
+```json
+{ "mcpServers": { "problemreductions": { "command": "pred", "args": ["mcp"] } } }
+```
+
+**OpenCode** — add to `opencode.json`:
+
+```json
+{ "mcp": { "problemreductions": { "type": "local", "command": ["pred", "mcp"] } } }
+```
+
+Restart your AI assistant after configuration.
 
 ## Walkthrough
 
-A complete session showing how an AI assistant uses MCP tools behind the scenes to answer your questions.
+A complete Claude Code session showing how the AI assistant uses MCP tools behind the scenes to answer your questions.
 
 **You:** Create a weighted MIS problem on a 4-vertex graph with edges 0-1, 1-2, 2-3, 3-0, 0-2 and weights [1, 2, 3, 4], explain the result.
 
@@ -39,56 +67,6 @@ A complete session showing how an AI assistant uses MCP tools behind the scenes 
 > - **MIS solution:** vertices {1, 3} with weight **6** (maximization)
 >
 > The QUBO objective of -6.0 corresponds to the MIS maximum of 6 — the reduction correctly inverts the sign. This confirms that {1, 3} is the optimal independent set.
-
-## Installation
-
-Install via cargo:
-
-```bash
-cargo install problemreductions-cli
-```
-
-Or build from source:
-
-```bash
-git clone https://github.com/CodingThrust/problem-reductions
-cd problem-reductions
-make cli    # builds and installs target/release/pred
-```
-
-## Configuration
-
-### Claude Code
-
-```bash
-# Project-scoped (current project only)
-claude mcp add --scope project problemreductions -- pred mcp
-
-# User-scoped (all projects)
-claude mcp add --scope user problemreductions -- pred mcp
-```
-
-### Cursor / Windsurf
-
-Add to the appropriate config file:
-- **Cursor:** `.cursor/mcp.json` (project) or `~/.cursor/mcp.json` (global)
-- **Windsurf:** `~/.codeium/windsurf/mcp_config.json`
-
-```json
-{ "mcpServers": { "problemreductions": { "command": "pred", "args": ["mcp"] } } }
-```
-
-### OpenCode
-
-Add to `opencode.json` in your project root:
-
-```json
-{ "mcp": { "problemreductions": { "type": "local", "command": ["pred", "mcp"] } } }
-```
-
-### Generic MCP Client
-
-Any MCP client that supports the stdio transport can connect by running `pred mcp`. The server communicates over stdin/stdout using the MCP JSON-RPC protocol.
 
 ## Available Tools
 
