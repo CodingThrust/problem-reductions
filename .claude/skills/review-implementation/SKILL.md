@@ -97,6 +97,10 @@ Read the implementation files and assess:
 3. **Example quality** -- Is it tutorial-style? Does it use the instance from the issue? Does the JSON export include both source and target data?
 4. **Paper quality** -- Is the reduction-rule statement precise? Is the proof sketch sound? Is the example figure clear?
 
+### Code Quality Principles (applies to both Models and Rules):
+1. **DRY (Don't Repeat Yourself)** -- Is there duplicated logic that should be extracted into a shared helper, utility function, or common module? Check for copy-pasted code blocks across files (e.g., similar graph construction, weight handling, or solution extraction patterns). If duplication is found, suggest extracting shared logic.
+2. **KISS (Keep It Simple, Stupid)** -- Is the implementation unnecessarily complex? Look for: over-engineered abstractions, convoluted control flow, premature generalization, or layers of indirection that add no value. The implementation should be as simple as possible while remaining correct and maintainable.
+
 ## Output Format
 
 Present results as:
@@ -119,7 +123,9 @@ Present results as:
 ### Semantic Review
 - evaluate() correctness: OK
 - dims() correctness: OK
-- [any issues found]
+- DRY compliance: OK / [duplicated logic found in ...]
+- KISS compliance: OK / [unnecessary complexity found in ...]
+- [any other issues found]
 
 ### Summary
 - X/Y structural checks passed
