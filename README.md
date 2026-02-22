@@ -42,6 +42,16 @@ make cli    # builds target/release/pred
 
 See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).
 
+## MCP Server (AI Integration)
+
+The `pred` CLI includes a built-in [MCP](https://modelcontextprotocol.io/) server for AI assistant integration:
+
+```json
+{"mcpServers": {"problemreductions": {"command": "pred", "args": ["mcp"]}}}
+```
+
+See the [MCP documentation](https://codingthrust.github.io/problem-reductions/mcp.html) for available tools, prompts, and configuration details.
+
 ## Contributing
 
 ### Authorship Recognition

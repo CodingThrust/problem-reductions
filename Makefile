@@ -1,12 +1,13 @@
 # Makefile for problemreductions
 
-.PHONY: help build test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata cli cli-demo
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata cli cli-demo
 
 # Default target
 help:
 	@echo "Available targets:"
 	@echo "  build        - Build the project"
 	@echo "  test         - Run all tests"
+	@echo "  mcp-test     - Run MCP server tests"
 	@echo "  fmt          - Format code with rustfmt"
 	@echo "  fmt-check    - Check code formatting"
 	@echo "  clippy       - Run clippy lints"
@@ -35,6 +36,10 @@ build:
 # Run all tests (including ignored tests)
 test:
 	cargo test --features ilp-highs -- --include-ignored
+
+# Run MCP server tests
+mcp-test:  ## Run MCP server tests
+	cargo test --features mcp -p problemreductions-cli mcp
 
 # Format code
 fmt:

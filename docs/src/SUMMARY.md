@@ -6,6 +6,7 @@
 
 - [Getting Started](./getting-started.md)
 - [CLI Tool](./cli.md)
+- [MCP Server](./mcp.md)
 - [Design](./design.md)
 
 # Developer Guide
