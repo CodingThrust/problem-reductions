@@ -1,3 +1,4 @@
+mod prompts;
 #[cfg(test)]
 mod tests;
 mod tools;

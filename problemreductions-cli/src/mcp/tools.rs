@@ -996,6 +996,7 @@ impl rmcp::ServerHandler for McpServer {
             protocol_version: rmcp::model::ProtocolVersion::V_2025_03_26,
             capabilities: rmcp::model::ServerCapabilities {
                 tools: Some(rmcp::model::ToolsCapability::default()),
+                prompts: Some(rmcp::model::PromptsCapability::default()),
                 ..Default::default()
             },
             server_info: rmcp::model::Implementation {
@@ -1012,6 +1013,30 @@ impl rmcp::ServerHandler for McpServer {
                     .into(),
             ),
         }
+    }
+
+    async fn list_prompts(
+        &self,
+        _request: Option<rmcp::model::PaginatedRequestParams>,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<rmcp::model::ListPromptsResult, rmcp::ErrorData> {
+        Ok(rmcp::model::ListPromptsResult::with_all_items(
+            super::prompts::list_prompts(),
+        ))
+    }
+
+    async fn get_prompt(
+        &self,
+        request: rmcp::model::GetPromptRequestParams,
+        _context: rmcp::service::RequestContext<rmcp::RoleServer>,
+    ) -> Result<rmcp::model::GetPromptResult, rmcp::ErrorData> {
+        let args = request.arguments.unwrap_or_default();
+        super::prompts::get_prompt(&request.name, &args).ok_or_else(|| {
+            rmcp::ErrorData::invalid_params(
+                format!("Unknown prompt: {}", request.name),
+                None,
+            )
+        })
     }
 }
 
