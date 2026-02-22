@@ -156,21 +156,26 @@ Examples:
 Start a stdio-based MCP server that exposes problem reduction tools
 to any MCP-compatible AI assistant.
 
-Claude Code / Claude Desktop (.mcp.json or ~/.claude/mcp.json):
-  { \"mcpServers\": { \"problemreductions\": {
-      \"command\": \"pred\", \"args\": [\"mcp\"] } } }
+Quick setup (via Smithery):
+  npx -y @smithery/cli install problemreductions --client claude
 
-Cursor (.cursor/mcp.json):
-  { \"mcpServers\": { \"problemreductions\": {
-      \"command\": \"pred\", \"args\": [\"mcp\"] } } }
+Manual configuration:
 
-Windsurf (~/.codeium/windsurf/mcp_config.json):
-  { \"mcpServers\": { \"problemreductions\": {
-      \"command\": \"pred\", \"args\": [\"mcp\"] } } }
+  Claude Code / Claude Desktop (.mcp.json or ~/.claude/mcp.json):
+    { \"mcpServers\": { \"problemreductions\": {
+        \"command\": \"pred\", \"args\": [\"mcp\"] } } }
 
-OpenCode (opencode.json):
-  { \"mcp\": { \"problemreductions\": {
-      \"type\": \"local\", \"command\": [\"pred\", \"mcp\"] } } }
+  Cursor (.cursor/mcp.json):
+    { \"mcpServers\": { \"problemreductions\": {
+        \"command\": \"pred\", \"args\": [\"mcp\"] } } }
+
+  Windsurf (~/.codeium/windsurf/mcp_config.json):
+    { \"mcpServers\": { \"problemreductions\": {
+        \"command\": \"pred\", \"args\": [\"mcp\"] } } }
+
+  OpenCode (opencode.json):
+    { \"mcp\": { \"problemreductions\": {
+        \"type\": \"local\", \"command\": [\"pred\", \"mcp\"] } } }
 
 Test with MCP Inspector:
   npx @modelcontextprotocol/inspector pred mcp")]

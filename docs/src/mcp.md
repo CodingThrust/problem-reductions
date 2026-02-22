@@ -4,13 +4,23 @@ The [Model Context Protocol (MCP)](https://modelcontextprotocol.io/) is an open 
 
 ## Installation
 
-Install the `pred` CLI tool:
+### Via Smithery (automatic)
+
+Install and configure for your AI assistant in one command:
+
+```bash
+npx -y @smithery/cli install problemreductions --client claude
+```
+
+Supported clients: `claude`, `cursor`, `windsurf`, `opencode`.
+
+### Via cargo
 
 ```bash
 cargo install problemreductions-cli
 ```
 
-Or build from source:
+### From source
 
 ```bash
 git clone https://github.com/CodingThrust/problem-reductions
