@@ -3,6 +3,8 @@
 //! This crate provides the `#[reduction]` attribute macro that automatically
 //! generates `ReductionEntry` registrations from `ReduceTo` impl blocks.
 
+pub(crate) mod parser;
+
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
