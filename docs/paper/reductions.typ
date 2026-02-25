@@ -49,6 +49,7 @@
   "BMF": [Boolean Matrix Factorization],
   "PaintShop": [Paint Shop],
   "BicliqueCover": [Biclique Cover],
+  "BinPacking": [Bin Packing],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -398,6 +399,10 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #problem-def("BicliqueCover")[
   Given a bipartite graph $G = (L, R, E)$ and integer $k$, find $k$ bicliques $(L_1, R_1), dots, (L_k, R_k)$ that cover all edges ($E subset.eq union.big_i L_i times R_i$) while minimizing the total size $sum_i (|L_i| + |R_i|)$.
+]
+
+#problem-def("BinPacking")[
+  Given $n$ items with sizes $s_1, dots, s_n in RR^+$ and bin capacity $C > 0$, find an assignment $x: {1, dots, n} -> {1, dots, n}$ minimizing $|{x(i) : i = 1, dots, n}|$ (number of distinct bins used) subject to $forall j: sum_(i: x(i) = j) s_i lt.eq C$.
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper

@@ -6,7 +6,7 @@
 //! - [`QUBO`]: Quadratic Unconstrained Binary Optimization
 //! - [`ILP`]: Integer Linear Programming
 
-pub(crate) mod bin_packing;
+mod bin_packing;
 mod ilp;
 mod qubo;
 mod spin_glass;
