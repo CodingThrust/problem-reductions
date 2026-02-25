@@ -74,7 +74,7 @@ impl ReductionResult for ReductionTSPToILP {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
+        ReductionOverhead::from_polynomials(vec![
             // num_vars = n^2 + 2*m*n
             ("num_vars", Polynomial::var_pow("num_vertices", 2) + Polynomial {
                 terms: vec![Monomial {

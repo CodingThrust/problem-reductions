@@ -302,36 +302,38 @@ impl Add for Polynomial {
     }
 }
 
-/// Convenience macro for building polynomials.
+/// Convenience macro for building overhead expressions.
+///
+/// Produces `Expr` values (via `From<Polynomial>` conversion).
 #[macro_export]
 macro_rules! poly {
     // Single variable: poly!(n)
     ($name:ident) => {
-        $crate::polynomial::Polynomial::var(stringify!($name))
+        $crate::expr::Expr::from($crate::polynomial::Polynomial::var(stringify!($name)))
     };
     // Variable with exponent: poly!(n^2)
     ($name:ident ^ $exp:literal) => {
-        $crate::polynomial::Polynomial::var_pow(stringify!($name), $exp)
+        $crate::expr::Expr::from($crate::polynomial::Polynomial::var_pow(stringify!($name), $exp))
     };
     // Constant: poly!(5)
     ($c:literal) => {
-        $crate::polynomial::Polynomial::constant($c as f64)
+        $crate::expr::Expr::from($crate::polynomial::Polynomial::constant($c as f64))
     };
     // Scaled variable: poly!(3 * n)
     ($c:literal * $name:ident) => {
-        $crate::polynomial::Polynomial::var(stringify!($name)).scale($c as f64)
+        $crate::expr::Expr::from($crate::polynomial::Polynomial::var(stringify!($name)).scale($c as f64))
     };
     // Scaled variable with exponent: poly!(9 * n^2)
     ($c:literal * $name:ident ^ $exp:literal) => {
-        $crate::polynomial::Polynomial::var_pow(stringify!($name), $exp).scale($c as f64)
+        $crate::expr::Expr::from($crate::polynomial::Polynomial::var_pow(stringify!($name), $exp).scale($c as f64))
     };
     // Product of two variables: poly!(a * b)
     ($a:ident * $b:ident) => {
-        $crate::polynomial::Polynomial::var_product(stringify!($a), stringify!($b))
+        $crate::expr::Expr::from($crate::polynomial::Polynomial::var_product(stringify!($a), stringify!($b)))
     };
     // Scaled product of two variables: poly!(3 * a * b)
     ($c:literal * $a:ident * $b:ident) => {
-        $crate::polynomial::Polynomial::var_product(stringify!($a), stringify!($b)).scale($c as f64)
+        $crate::expr::Expr::from($crate::polynomial::Polynomial::var_product(stringify!($a), stringify!($b)).scale($c as f64))
     };
 }
 

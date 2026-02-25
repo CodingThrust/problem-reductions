@@ -94,7 +94,7 @@ impl ReductionResult for ReductionFactoringToILP {
 }
 
 #[reduction(overhead = {
-    ReductionOverhead::new(vec![
+    ReductionOverhead::from_polynomials(vec![
         // num_vars = m + n + m*n + num_carries where num_carries = max(m+n, target_bits)
         // For feasible instances, target_bits <= m+n, so this is 2(m+n) + m*n
         ("num_vars", Polynomial {

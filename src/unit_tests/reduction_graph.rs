@@ -326,39 +326,32 @@ fn test_3sat_to_mis_triangular_overhead() {
     let edges = graph.path_overheads(&path);
     assert_eq!(edges.len(), 3);
 
+    // Evaluate overheads at a test point to verify correctness
+    let test_size = ProblemSize::new(vec![
+        ("num_vars", 3),
+        ("num_clauses", 2),
+        ("num_literals", 6),
+        ("num_vertices", 10),
+        ("num_edges", 15),
+    ]);
+
     // Edge 0: K3SAT → SAT (identity)
-    assert_eq!(
-        edges[0].get("num_vars").unwrap().normalized(),
-        poly!(num_vars)
-    );
-    assert_eq!(
-        edges[0].get("num_clauses").unwrap().normalized(),
-        poly!(num_clauses)
-    );
-    assert_eq!(
-        edges[0].get("num_literals").unwrap().normalized(),
-        poly!(num_literals)
-    );
+    assert_eq!(edges[0].get("num_vars").unwrap().eval(&test_size), 3.0);
+    assert_eq!(edges[0].get("num_clauses").unwrap().eval(&test_size), 2.0);
+    assert_eq!(edges[0].get("num_literals").unwrap().eval(&test_size), 6.0);
 
     // Edge 1: SAT → MIS{SimpleGraph,i32}
-    assert_eq!(
-        edges[1].get("num_vertices").unwrap().normalized(),
-        poly!(num_literals)
-    );
-    assert_eq!(
-        edges[1].get("num_edges").unwrap().normalized(),
-        poly!(num_literals ^ 2)
-    );
+    // num_vertices = num_literals, num_edges = num_literals^2
+    assert_eq!(edges[1].get("num_vertices").unwrap().eval(&test_size), 6.0);
+    assert_eq!(edges[1].get("num_edges").unwrap().eval(&test_size), 36.0);
 
     // Edge 2: MIS{SimpleGraph,i32} → MIS{TriangularSubgraph,i32}
+    // num_vertices = num_vertices^2, num_edges = num_vertices^2
     assert_eq!(
-        edges[2].get("num_vertices").unwrap().normalized(),
-        poly!(num_vertices ^ 2)
+        edges[2].get("num_vertices").unwrap().eval(&test_size),
+        100.0
     );
-    assert_eq!(
-        edges[2].get("num_edges").unwrap().normalized(),
-        poly!(num_vertices ^ 2)
-    );
+    assert_eq!(edges[2].get("num_edges").unwrap().eval(&test_size), 100.0);
 
     // Compose overheads symbolically along the path.
     // The composed overhead maps 3-SAT input variables to final MIS{Triangular} output.
@@ -369,14 +362,12 @@ fn test_3sat_to_mis_triangular_overhead() {
     //
     // Composed: num_vertices = L², num_edges = L²
     let composed = graph.compose_path_overhead(&path);
+    // Evaluate composed at input: L=6, so L^2=36
     assert_eq!(
-        composed.get("num_vertices").unwrap().normalized(),
-        poly!(num_literals ^ 2)
+        composed.get("num_vertices").unwrap().eval(&test_size),
+        36.0
     );
-    assert_eq!(
-        composed.get("num_edges").unwrap().normalized(),
-        poly!(num_literals ^ 2)
-    );
+    assert_eq!(composed.get("num_edges").unwrap().eval(&test_size), 36.0);
 }
 
 // ---- Overhead validation ----

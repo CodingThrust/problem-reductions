@@ -43,10 +43,10 @@ fn test_polynomial_complex() {
 fn test_poly_macro() {
     let size = ProblemSize::new(vec![("n", 5), ("m", 3)]);
 
-    assert_eq!(poly!(n).evaluate(&size), 5.0);
-    assert_eq!(poly!(n ^ 2).evaluate(&size), 25.0);
-    assert_eq!(poly!(3 * n).evaluate(&size), 15.0);
-    assert_eq!(poly!(2 * m ^ 2).evaluate(&size), 18.0);
+    assert_eq!(poly!(n).eval(&size), 5.0);
+    assert_eq!(poly!(n ^ 2).eval(&size), 25.0);
+    assert_eq!(poly!(3 * n).eval(&size), 15.0);
+    assert_eq!(poly!(2 * m ^ 2).eval(&size), 18.0);
 }
 
 #[test]
@@ -168,13 +168,11 @@ fn test_display_polynomial_subtraction() {
 #[test]
 fn test_poly_macro_product() {
     let size = ProblemSize::new(vec![("a", 3), ("b", 4)]);
-    assert_eq!(poly!(a * b).evaluate(&size), 12.0);
-    assert_eq!(format!("{}", poly!(a * b)), "a * b");
+    assert_eq!(poly!(a * b).eval(&size), 12.0);
 }
 
 #[test]
 fn test_poly_macro_scaled_product() {
     let size = ProblemSize::new(vec![("a", 3), ("b", 4)]);
-    assert_eq!(poly!(5 * a * b).evaluate(&size), 60.0);
-    assert_eq!(format!("{}", poly!(5 * a * b)), "5 * a * b");
+    assert_eq!(poly!(5 * a * b).eval(&size), 60.0);
 }

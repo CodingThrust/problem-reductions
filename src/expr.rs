@@ -41,6 +41,11 @@ impl Expr {
         Expr::Pow(Box::new(base), Box::new(exp))
     }
 
+    /// Multiply expression by a scalar constant.
+    pub fn scale(self, c: f64) -> Self {
+        Expr::mul(Expr::Const(c), self)
+    }
+
     /// Evaluate the expression given concrete variable values.
     pub fn eval(&self, vars: &ProblemSize) -> f64 {
         match self {
@@ -150,6 +155,48 @@ impl fmt::Display for Expr {
             Expr::Log(a) => write!(f, "log({a})"),
             Expr::Sqrt(a) => write!(f, "sqrt({a})"),
         }
+    }
+}
+
+impl std::ops::Add for Expr {
+    type Output = Self;
+
+    fn add(self, other: Self) -> Self {
+        Expr::Add(Box::new(self), Box::new(other))
+    }
+}
+
+impl From<crate::polynomial::Polynomial> for Expr {
+    fn from(poly: crate::polynomial::Polynomial) -> Self {
+        let terms: Vec<Expr> = poly
+            .terms
+            .iter()
+            .map(|mono| {
+                // Build monomial: coefficient * Π(var^exp)
+                let mut expr = Expr::Const(mono.coefficient);
+                for &(name, exp) in &mono.variables {
+                    let var_expr = if exp == 1 {
+                        Expr::Var(name)
+                    } else {
+                        Expr::pow(Expr::Var(name), Expr::Const(exp as f64))
+                    };
+                    expr = Expr::mul(expr, var_expr);
+                }
+                // Simplify `1.0 * x` to just `x` for single-variable monomials
+                if let Expr::Mul(ref a, ref b) = expr {
+                    if matches!(a.as_ref(), Expr::Const(c) if (*c - 1.0).abs() < 1e-15) {
+                        return b.as_ref().clone();
+                    }
+                }
+                expr
+            })
+            .collect();
+
+        if terms.is_empty() {
+            return Expr::Const(0.0);
+        }
+
+        terms.into_iter().reduce(Expr::add).unwrap()
     }
 }
 
