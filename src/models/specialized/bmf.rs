@@ -221,12 +221,6 @@ impl Problem for BMF {
         crate::variant_params![]
     }
 
-    fn problem_size_names() -> &'static [&'static str] {
-        &["m", "n", "rank"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.rows(), self.cols(), self.rank()]
-    }
 }
 
 impl OptimizationProblem for BMF {

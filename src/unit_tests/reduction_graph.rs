@@ -1,11 +1,9 @@
 //! Tests for ReductionGraph: discovery, path finding, and typed API.
 
 use crate::models::satisfiability::KSatisfiability;
-use crate::poly;
 use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph, TraversalDirection};
 use crate::topology::{SimpleGraph, TriangularSubgraph};
-use crate::traits::problem_size;
 use crate::types::ProblemSize;
 use crate::variant::K3;
 use std::collections::BTreeMap;
@@ -291,17 +289,14 @@ fn test_3sat_to_mis_triangular_overhead() {
     );
 
     // 3-SAT instance: 3 variables, 2 clauses, 6 literals
-    let source = KSatisfiability::<K3>::new(
+    let _source = KSatisfiability::<K3>::new(
         3,
         vec![
             CNFClause::new(vec![1, 2, 3]),
             CNFClause::new(vec![-1, -2, -3]),
         ],
     );
-    let input_size = problem_size(&source);
-    assert_eq!(input_size.get("num_vars"), Some(3));
-    assert_eq!(input_size.get("num_clauses"), Some(2));
-    assert_eq!(input_size.get("num_literals"), Some(6));
+    let input_size = ProblemSize::new(vec![("num_vars", 3), ("num_clauses", 2), ("num_literals", 6)]);
 
     // Find the shortest path
     let path = graph
@@ -368,79 +363,6 @@ fn test_3sat_to_mis_triangular_overhead() {
         36.0
     );
     assert_eq!(composed.get("num_edges").unwrap().eval(&test_size), 36.0);
-}
-
-// ---- Overhead validation ----
-
-#[test]
-fn test_validate_overhead_variables_valid() {
-    use crate::rules::registry::ReductionOverhead;
-    use crate::rules::validate_overhead_variables;
-
-    let overhead = ReductionOverhead::new(vec![
-        ("num_vertices", poly!(num_vars)),
-        ("num_edges", poly!(num_vars ^ 2)),
-    ]);
-    // Should not panic: inputs {num_vars} ⊆ source, outputs {num_vertices, num_edges} ⊆ target
-    validate_overhead_variables(
-        "Source",
-        "Target",
-        &overhead,
-        &["num_vars", "num_clauses"],
-        &["num_vertices", "num_edges"],
-    );
-}
-
-#[test]
-#[should_panic(expected = "overhead references input variables")]
-fn test_validate_overhead_variables_missing_input() {
-    use crate::rules::registry::ReductionOverhead;
-    use crate::rules::validate_overhead_variables;
-
-    let overhead = ReductionOverhead::new(vec![("num_vertices", poly!(num_colors))]);
-    validate_overhead_variables(
-        "Source",
-        "Target",
-        &overhead,
-        &["num_vars", "num_clauses"], // no "num_colors"
-        &["num_vertices"],
-    );
-}
-
-#[test]
-#[should_panic(expected = "overhead output fields")]
-fn test_validate_overhead_variables_missing_output() {
-    use crate::rules::registry::ReductionOverhead;
-    use crate::rules::validate_overhead_variables;
-
-    let overhead = ReductionOverhead::new(vec![("num_gates", poly!(num_vars))]);
-    validate_overhead_variables(
-        "Source",
-        "Target",
-        &overhead,
-        &["num_vars"],
-        &["num_vertices", "num_edges"], // no "num_gates"
-    );
-}
-
-#[test]
-fn test_validate_overhead_variables_skips_output_when_empty() {
-    use crate::rules::registry::ReductionOverhead;
-    use crate::rules::validate_overhead_variables;
-
-    let overhead = ReductionOverhead::new(vec![("anything", poly!(num_vars))]);
-    // Should not panic: target_size_names is empty so output check is skipped
-    validate_overhead_variables("Source", "Target", &overhead, &["num_vars"], &[]);
-}
-
-#[test]
-fn test_validate_overhead_variables_identity() {
-    use crate::rules::registry::ReductionOverhead;
-    use crate::rules::validate_overhead_variables;
-
-    let names = &["num_vertices", "num_edges"];
-    let overhead = ReductionOverhead::identity(names);
-    validate_overhead_variables("A", "B", &overhead, names, names);
 }
 
 // ---- k-neighbor BFS ----

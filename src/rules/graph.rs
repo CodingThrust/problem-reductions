@@ -242,56 +242,6 @@ pub struct NeighborTree {
     pub children: Vec<NeighborTree>,
 }
 
-/// Validate that a reduction's overhead variables are consistent with source/target size names.
-///
-/// Checks:
-/// - Overhead input variables are a subset of `source_size_names`
-/// - Overhead output fields are a subset of `target_size_names` (skipped if `target_size_names` is empty)
-///
-/// Panics with a descriptive message on mismatch.
-pub(crate) fn validate_overhead_variables(
-    source_name: &str,
-    target_name: &str,
-    overhead: &ReductionOverhead,
-    source_size_names: &[&str],
-    target_size_names: &[&str],
-) {
-    let source_set: HashSet<&str> = source_size_names.iter().copied().collect();
-    let overhead_inputs = overhead.input_variable_names();
-    let missing_inputs: Vec<_> = overhead_inputs
-        .iter()
-        .filter(|name| !source_set.contains(*name))
-        .collect();
-    assert!(
-        missing_inputs.is_empty(),
-        "Reduction {} -> {}: overhead references input variables {:?} \
-         not in source problem_size_names {:?}",
-        source_name,
-        target_name,
-        missing_inputs,
-        source_set,
-    );
-
-    if !target_size_names.is_empty() {
-        let target_set: HashSet<&str> = target_size_names.iter().copied().collect();
-        let overhead_outputs: HashSet<&str> =
-            overhead.output_size.iter().map(|(name, _)| *name).collect();
-        let missing_outputs: Vec<_> = overhead_outputs
-            .iter()
-            .filter(|name| !target_set.contains(*name))
-            .collect();
-        assert!(
-            missing_outputs.is_empty(),
-            "Reduction {} -> {}: overhead output fields {:?} \
-             not in target problem_size_names {:?}",
-            source_name,
-            target_name,
-            missing_outputs,
-            target_set,
-        );
-    }
-}
-
 /// Runtime graph of all registered reductions.
 ///
 /// Uses variant-level nodes: each node is a unique `(problem_name, variant)` pair.
@@ -365,13 +315,6 @@ impl ReductionGraph {
             );
 
             let overhead = entry.overhead();
-            validate_overhead_variables(
-                entry.source_name,
-                entry.target_name,
-                &overhead,
-                (entry.source_size_names_fn)(),
-                (entry.target_size_names_fn)(),
-            );
 
             // Check if edge already exists (avoid duplicates)
             if graph.find_edge(src_idx, dst_idx).is_none() {
@@ -432,26 +375,6 @@ impl ReductionGraph {
         cost_fn: &C,
     ) -> Option<ReductionPath> {
         let src = self.lookup_node(source, source_variant)?;
-
-        // Validate: when input_size is non-empty, check outgoing edges
-        if !input_size.components.is_empty() {
-            let size_names: Vec<&str> = input_size
-                .components
-                .iter()
-                .map(|(k, _)| k.as_str())
-                .collect();
-            for edge_ref in self.graph.edges(src) {
-                let target_node = &self.nodes[self.graph[edge_ref.target()]];
-                validate_overhead_variables(
-                    source,
-                    target_node.name,
-                    &edge_ref.weight().overhead,
-                    &size_names,
-                    &[], // skip output validation at query time
-                );
-            }
-        }
-
         let dst = self.lookup_node(target, target_variant)?;
         let node_path = self.dijkstra(src, dst, input_size, cost_fn)?;
         Some(self.node_path_to_reduction_path(&node_path))
@@ -700,18 +623,20 @@ impl ReductionGraph {
 
     /// Get the problem size field names for a problem type.
     ///
-    /// Returns the static `problem_size_names()` by finding a reduction entry
-    /// where this problem is the source or target.
-    pub fn size_field_names(&self, name: &str) -> &'static [&'static str] {
+    /// Derives size fields from the overhead expressions of reduction entries
+    /// where this problem appears as source or target.
+    pub fn size_field_names(&self, name: &str) -> Vec<&'static str> {
         for entry in inventory::iter::<ReductionEntry> {
             if entry.source_name == name {
-                return (entry.source_size_names_fn)();
+                let overhead = entry.overhead();
+                return overhead.output_size.iter().map(|(name, _)| *name).collect();
             }
             if entry.target_name == name {
-                return (entry.target_size_names_fn)();
+                let overhead = entry.overhead();
+                return overhead.output_size.iter().map(|(name, _)| *name).collect();
             }
         }
-        &[]
+        vec![]
     }
 
     /// Get all incoming reductions to a problem (across all its variants).

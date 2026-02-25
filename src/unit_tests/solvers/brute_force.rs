@@ -27,12 +27,6 @@ impl Problem for MaxSumOpt {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vars"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.weights.len()]
-    }
 }
 
 impl OptimizationProblem for MaxSumOpt {
@@ -66,12 +60,6 @@ impl Problem for MinSumOpt {
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "i32")]
     }
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vars"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.weights.len()]
-    }
 }
 
 impl OptimizationProblem for MinSumOpt {
@@ -99,12 +87,6 @@ impl Problem for SatProblem {
     }
     fn variant() -> Vec<(&'static str, &'static str)> {
         vec![("graph", "SimpleGraph"), ("weight", "bool")]
-    }
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vars"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.num_vars]
     }
 }
 

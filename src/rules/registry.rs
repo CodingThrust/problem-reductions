@@ -110,10 +110,6 @@ pub struct ReductionEntry {
     pub overhead_fn: fn() -> ReductionOverhead,
     /// Module path where the reduction is defined (from `module_path!()`).
     pub module_path: &'static str,
-    /// Type-level problem size field names for the source problem.
-    pub source_size_names_fn: fn() -> &'static [&'static str],
-    /// Type-level problem size field names for the target problem.
-    pub target_size_names_fn: fn() -> &'static [&'static str],
     /// Type-erased reduction executor.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls `ReduceTo::reduce_to()`,
     /// and returns the result as a boxed `DynReductionResult`.

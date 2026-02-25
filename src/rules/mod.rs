@@ -62,8 +62,6 @@ mod qubo_ilp;
 #[cfg(feature = "ilp-solver")]
 mod travelingsalesman_ilp;
 
-#[cfg(test)]
-pub(crate) use graph::validate_overhead_variables;
 pub use graph::{
     NeighborInfo, NeighborTree, ReductionChain, ReductionEdgeInfo, ReductionGraph, ReductionPath,
     ReductionStep, TraversalDirection,

@@ -166,12 +166,6 @@ where
         crate::variant_params![W]
     }
 
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_sets", "universe_size"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.num_sets(), self.universe_size()]
-    }
 }
 
 impl<W> OptimizationProblem for MinimumSetCovering<W>

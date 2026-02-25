@@ -153,12 +153,6 @@ where
         self.is_valid_coloring(config)
     }
 
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vertices", "num_edges"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.graph().num_vertices(), self.graph().num_edges()]
-    }
 }
 
 impl<K: KValue, G: Graph + VariantParam> SatisfactionProblem for KColoring<K, G> {}

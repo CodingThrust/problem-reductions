@@ -153,12 +153,6 @@ impl Problem for Factoring {
         crate::variant_params![]
     }
 
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_bits_first", "num_bits_second"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.m(), self.n()]
-    }
 }
 
 impl OptimizationProblem for Factoring {

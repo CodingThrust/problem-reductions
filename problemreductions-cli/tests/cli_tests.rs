@@ -2093,7 +2093,7 @@ fn test_inspect_json_output() {
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["kind"], "problem");
     assert_eq!(json["type"], "MaximumIndependentSet");
-    assert!(json["size"].is_array());
+    assert!(json["size_fields"].is_array());
     assert!(json["solvers"].is_array());
     assert!(json["reduces_to"].is_array());
 

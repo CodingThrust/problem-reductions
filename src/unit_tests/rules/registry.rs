@@ -32,8 +32,6 @@ fn test_reduction_entry_overhead() {
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead_fn: || ReductionOverhead::new(vec![("n", poly!(2 * n))]),
         module_path: "test::module",
-        source_size_names_fn: || &["n"],
-        target_size_names_fn: || &["n"],
         reduce_fn: dummy_reduce_fn,
     };
 
@@ -52,8 +50,6 @@ fn test_reduction_entry_debug() {
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
-        source_size_names_fn: || &[],
-        target_size_names_fn: || &[],
         reduce_fn: dummy_reduce_fn,
     };
 
@@ -71,8 +67,6 @@ fn test_is_base_reduction_unweighted() {
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
-        source_size_names_fn: || &[],
-        target_size_names_fn: || &[],
         reduce_fn: dummy_reduce_fn,
     };
     assert!(entry.is_base_reduction());
@@ -87,8 +81,6 @@ fn test_is_base_reduction_source_weighted() {
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
-        source_size_names_fn: || &[],
-        target_size_names_fn: || &[],
         reduce_fn: dummy_reduce_fn,
     };
     assert!(!entry.is_base_reduction());
@@ -103,8 +95,6 @@ fn test_is_base_reduction_target_weighted() {
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "f64")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
-        source_size_names_fn: || &[],
-        target_size_names_fn: || &[],
         reduce_fn: dummy_reduce_fn,
     };
     assert!(!entry.is_base_reduction());
@@ -119,8 +109,6 @@ fn test_is_base_reduction_both_weighted() {
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "f64")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
-        source_size_names_fn: || &[],
-        target_size_names_fn: || &[],
         reduce_fn: dummy_reduce_fn,
     };
     assert!(!entry.is_base_reduction());
@@ -136,8 +124,6 @@ fn test_is_base_reduction_no_weight_key() {
         target_variant_fn: || vec![("graph", "SimpleGraph")],
         overhead_fn: || ReductionOverhead::default(),
         module_path: "test::module",
-        source_size_names_fn: || &[],
-        target_size_names_fn: || &[],
         reduce_fn: dummy_reduce_fn,
     };
     assert!(entry.is_base_reduction());

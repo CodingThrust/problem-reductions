@@ -605,8 +605,7 @@ impl McpServer {
         let variant = problem.variant_map();
         let graph = ReductionGraph::new();
 
-        let size_names = problem.problem_size_names_dyn();
-        let size_values = problem.problem_size_values_dyn();
+        let size_fields = graph.size_field_names(name);
 
         let outgoing = graph.outgoing_reductions(name);
         let mut targets: Vec<String> = outgoing.iter().map(|e| e.target_name.to_string()).collect();
@@ -617,9 +616,7 @@ impl McpServer {
             "kind": "problem",
             "type": name,
             "variant": variant,
-            "size": size_names.iter().zip(size_values.iter())
-                .map(|(n, v)| serde_json::json!({"field": n, "value": v}))
-                .collect::<Vec<_>>(),
+            "size_fields": size_fields,
             "num_variables": problem.num_variables_dyn(),
             "solvers": ["ilp", "brute-force"],
             "reduces_to": targets,

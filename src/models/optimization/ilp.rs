@@ -326,7 +326,7 @@ impl ILP {
         self.num_vars
     }
 
-    /// Get the number of variables (alias matching `problem_size_names`).
+    /// Get the number of variables.
     pub fn num_vars(&self) -> usize {
         self.num_variables()
     }
@@ -364,12 +364,6 @@ impl Problem for ILP {
         crate::variant_params![]
     }
 
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vars", "num_constraints"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.num_variables(), self.constraints.len()]
-    }
 }
 
 impl OptimizationProblem for ILP {
