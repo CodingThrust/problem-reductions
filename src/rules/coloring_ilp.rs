@@ -9,9 +9,7 @@
 
 use crate::models::graph::KColoring;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::variant::{KValue, K1, K2, K3, K4, KN};
@@ -124,10 +122,8 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
 // Register only the KN variant in the reduction graph
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_vertices ^ 2)),
-            ("num_constraints", poly!(num_vertices) + poly!(num_vertices * num_edges)),
-        ])
+        num_vars = "num_vertices^2",
+        num_constraints = "num_vertices + num_vertices * num_edges",
     }
 )]
 impl ReduceTo<ILP> for KColoring<KN, SimpleGraph> {

@@ -8,9 +8,7 @@
 
 use crate::models::graph::MaximumMatching;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
@@ -44,10 +42,8 @@ impl ReductionResult for ReductionMatchingToILP {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_edges)),
-            ("num_constraints", poly!(num_vertices)),
-        ])
+        num_vars = "num_edges",
+        num_constraints = "num_vertices",
     }
 )]
 impl ReduceTo<ILP> for MaximumMatching<SimpleGraph, i32> {

@@ -4,9 +4,7 @@
 //! Maps an arbitrary graph's MIS problem to an equivalent weighted MIS on a grid graph.
 
 use crate::models::graph::MaximumIndependentSet;
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::rules::unitdiskmapping::ksg;
 use crate::topology::{Graph, KingsSubgraph, SimpleGraph, UnitDiskGraph};
@@ -33,10 +31,8 @@ impl ReductionResult for ReductionISSimpleToGrid {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_vertices * num_vertices)),
-            ("num_edges", poly!(num_vertices * num_vertices)),
-        ])
+        num_vertices = "num_vertices * num_vertices",
+        num_edges = "num_vertices * num_vertices",
     }
 )]
 impl ReduceTo<MaximumIndependentSet<KingsSubgraph, i32>>
@@ -80,10 +76,8 @@ impl ReductionResult for ReductionISUnitDiskToGrid {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_vertices * num_vertices)),
-            ("num_edges", poly!(num_vertices * num_vertices)),
-        ])
+        num_vertices = "num_vertices * num_vertices",
+        num_edges = "num_vertices * num_vertices",
     }
 )]
 impl ReduceTo<MaximumIndependentSet<KingsSubgraph, i32>>

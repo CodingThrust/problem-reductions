@@ -5,9 +5,7 @@
 
 use crate::models::graph::MaximumIndependentSet;
 use crate::models::set::MaximumSetPacking;
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::WeightElement;
@@ -38,10 +36,8 @@ where
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_sets", poly!(num_vertices)),
-            ("universe_size", poly!(num_vertices)),
-        ])
+        num_sets = "num_vertices",
+        universe_size = "num_vertices",
     }
 )]
 impl ReduceTo<MaximumSetPacking<i32>> for MaximumIndependentSet<SimpleGraph, i32> {
@@ -89,10 +85,8 @@ where
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_sets)),
-            ("num_edges", poly!(num_sets)),
-        ])
+        num_vertices = "num_sets",
+        num_edges = "num_sets",
     }
 )]
 impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MaximumSetPacking<i32> {

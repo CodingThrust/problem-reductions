@@ -7,9 +7,7 @@
 
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::models::set::MinimumSetCovering;
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing MinimumSetCovering to ILP.
@@ -42,10 +40,8 @@ impl ReductionResult for ReductionSCToILP {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_sets)),
-            ("num_constraints", poly!(universe_size)),
-        ])
+        num_vars = "num_sets",
+        num_constraints = "universe_size",
     }
 )]
 impl ReduceTo<ILP> for MinimumSetCovering<i32> {

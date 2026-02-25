@@ -10,9 +10,7 @@
 
 use crate::models::graph::MaximumIndependentSet;
 use crate::models::satisfiability::Satisfiability;
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
 
@@ -111,10 +109,8 @@ impl ReductionSATToIS {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_literals)),
-            ("num_edges", poly!(num_literals ^ 2)),
-        ])
+        num_vertices = "num_literals",
+        num_edges = "num_literals^2",
     }
 )]
 impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for Satisfiability {

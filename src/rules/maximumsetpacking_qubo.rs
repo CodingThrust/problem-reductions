@@ -8,9 +8,7 @@
 
 use crate::models::optimization::QUBO;
 use crate::models::set::MaximumSetPacking;
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing `MaximumSetPacking<f64>` to `QUBO<f64>`.
@@ -33,7 +31,7 @@ impl ReductionResult for ReductionSPToQUBO {
 }
 
 #[reduction(
-    overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_sets))]) }
+    overhead = { num_vars = "num_sets" }
 )]
 impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {
     type Result = ReductionSPToQUBO;

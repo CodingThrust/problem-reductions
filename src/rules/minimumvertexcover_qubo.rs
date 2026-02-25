@@ -8,9 +8,7 @@
 
 use crate::models::graph::MinimumVertexCover;
 use crate::models::optimization::QUBO;
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
@@ -34,7 +32,7 @@ impl ReductionResult for ReductionVCToQUBO {
 }
 
 #[reduction(
-    overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vertices))]) }
+    overhead = { num_vars = "num_vertices" }
 )]
 impl ReduceTo<QUBO<f64>> for MinimumVertexCover<SimpleGraph, i32> {
     type Result = ReductionVCToQUBO;

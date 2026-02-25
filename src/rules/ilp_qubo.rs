@@ -10,9 +10,7 @@
 //! Slack variables: ceil(log2(slack_range)) bits per inequality constraint.
 
 use crate::models::optimization::{Comparison, ObjectiveSense, ILP, QUBO};
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 
 /// Result of reducing binary ILP to QUBO.
@@ -37,7 +35,7 @@ impl ReductionResult for ReductionILPToQUBO {
 }
 
 #[reduction(
-    overhead = { ReductionOverhead::new(vec![("num_vars", poly!(num_vars))]) }
+    overhead = { num_vars = "num_vars" }
 )]
 impl ReduceTo<QUBO<f64>> for ILP {
     type Result = ReductionILPToQUBO;

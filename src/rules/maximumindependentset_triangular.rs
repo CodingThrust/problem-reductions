@@ -5,9 +5,7 @@
 //! triangular lattice grid graph.
 
 use crate::models::graph::MaximumIndependentSet;
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::rules::unitdiskmapping::ksg;
 use crate::rules::unitdiskmapping::triangular;
@@ -35,10 +33,8 @@ impl ReductionResult for ReductionISSimpleToTriangular {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_vertices * num_vertices)),
-            ("num_edges", poly!(num_vertices * num_vertices)),
-        ])
+        num_vertices = "num_vertices * num_vertices",
+        num_edges = "num_vertices * num_vertices",
     }
 )]
 impl ReduceTo<MaximumIndependentSet<TriangularSubgraph, i32>>

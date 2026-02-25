@@ -6,9 +6,7 @@
 //! Transformation: s = 2x - 1 (so x=0 -> s=-1, x=1 -> s=+1)
 
 use crate::models::optimization::{SpinGlass, QUBO};
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
 
@@ -34,9 +32,7 @@ impl ReductionResult for ReductionQUBOToSG {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_spins", poly!(num_vars)),
-        ])
+        num_spins = "num_vars",
     }
 )]
 impl ReduceTo<SpinGlass<SimpleGraph, f64>> for QUBO<f64> {
@@ -111,9 +107,7 @@ impl ReductionResult for ReductionSGToQUBO {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_spins)),
-        ])
+        num_vars = "num_spins",
     }
 )]
 impl ReduceTo<QUBO<f64>> for SpinGlass<SimpleGraph, f64> {

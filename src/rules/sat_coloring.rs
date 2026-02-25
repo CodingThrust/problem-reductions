@@ -10,9 +10,7 @@
 
 use crate::models::graph::KColoring;
 use crate::models::satisfiability::Satisfiability;
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
@@ -298,12 +296,8 @@ impl ReductionSATToColoring {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            // 2*num_vars + 3 (base) + 5*(num_literals - num_clauses) (OR gadgets)
-            ("num_vertices", poly!(2 * num_vars) + poly!(5 * num_literals) + poly!(num_clauses).scale(-5.0) + poly!(3)),
-            // 3 (triangle) + 3*num_vars + 11*(num_literals - num_clauses) (OR gadgets) + 2*num_clauses (set_true)
-            ("num_edges", poly!(3 * num_vars) + poly!(11 * num_literals) + poly!(num_clauses).scale(-9.0) + poly!(3)),
-        ])
+        num_vertices = "2 * num_vars + 5 * num_literals + -5 * num_clauses + 3",
+        num_edges = "3 * num_vars + 11 * num_literals + -9 * num_clauses + 3",
     }
 )]
 impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {
