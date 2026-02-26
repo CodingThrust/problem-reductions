@@ -1937,7 +1937,10 @@ fn test_inspect_problem() {
         stdout.contains("Type: MaximumIndependentSet"),
         "expected 'Type: MaximumIndependentSet', got: {stdout}"
     );
-    assert!(stdout.contains("Size:"), "expected 'Size:', got: {stdout}");
+    assert!(
+        stdout.contains("Size fields:"),
+        "expected 'Size fields:', got: {stdout}"
+    );
     assert!(
         stdout.contains("Variables:"),
         "expected 'Variables:', got: {stdout}"
