@@ -188,3 +188,10 @@ fn test_is_valid_solution() {
     // Invalid: adjacent vertices 0 and 1 have same color
     assert!(!problem.is_valid_solution(&[0, 0, 1]));
 }
+
+#[test]
+fn test_size_getters() {
+    let problem = KColoring::<K3, _>::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]));
+    assert_eq!(problem.num_vertices(), 3);
+    assert_eq!(problem.num_edges(), 2);
+}

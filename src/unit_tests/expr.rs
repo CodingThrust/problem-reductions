@@ -141,4 +141,108 @@ fn test_expr_is_polynomial() {
     assert!(Expr::pow(Expr::Var("n"), Expr::Const(2.0)).is_polynomial());
     assert!(!Expr::Exp(Box::new(Expr::Var("n"))).is_polynomial());
     assert!(!Expr::Log(Box::new(Expr::Var("n"))).is_polynomial());
+    assert!(!Expr::Sqrt(Box::new(Expr::Var("n"))).is_polynomial());
+}
+
+#[test]
+fn test_expr_display_fractional_constant() {
+    assert_eq!(format!("{}", Expr::Const(2.75)), "2.75");
+    assert_eq!(format!("{}", Expr::Const(0.5)), "0.5");
+}
+
+#[test]
+fn test_expr_display_log() {
+    let e = Expr::Log(Box::new(Expr::Var("n")));
+    assert_eq!(format!("{e}"), "log(n)");
+}
+
+#[test]
+fn test_expr_display_sqrt() {
+    let e = Expr::Sqrt(Box::new(Expr::Var("n")));
+    assert_eq!(format!("{e}"), "sqrt(n)");
+}
+
+#[test]
+fn test_expr_display_mul_with_add_parenthesization() {
+    // (a + b) * c should parenthesize the left side
+    let e = Expr::mul(Expr::add(Expr::Var("a"), Expr::Var("b")), Expr::Var("c"));
+    assert_eq!(format!("{e}"), "(a + b) * c");
+
+    // c * (a + b) should parenthesize the right side
+    let e = Expr::mul(Expr::Var("c"), Expr::add(Expr::Var("a"), Expr::Var("b")));
+    assert_eq!(format!("{e}"), "c * (a + b)");
+
+    // (a + b) * (c + d) should parenthesize both sides
+    let e = Expr::mul(
+        Expr::add(Expr::Var("a"), Expr::Var("b")),
+        Expr::add(Expr::Var("c"), Expr::Var("d")),
+    );
+    assert_eq!(format!("{e}"), "(a + b) * (c + d)");
+}
+
+#[test]
+fn test_expr_display_pow_with_complex_base() {
+    // (a + b)^2
+    let e = Expr::pow(Expr::add(Expr::Var("a"), Expr::Var("b")), Expr::Const(2.0));
+    assert_eq!(format!("{e}"), "(a + b)^2");
+
+    // (a * b)^2
+    let e = Expr::pow(Expr::mul(Expr::Var("a"), Expr::Var("b")), Expr::Const(2.0));
+    assert_eq!(format!("{e}"), "(a * b)^2");
+}
+
+#[test]
+fn test_expr_eval_missing_variable() {
+    // Missing variable should default to 0
+    let e = Expr::Var("missing");
+    let size = ProblemSize::new(vec![("other", 5)]);
+    assert_eq!(e.eval(&size), 0.0);
+}
+
+#[test]
+fn test_expr_scale() {
+    let e = Expr::Var("n").scale(3.0);
+    let size = ProblemSize::new(vec![("n", 5)]);
+    assert_eq!(e.eval(&size), 15.0);
+}
+
+#[test]
+fn test_expr_ops_add_trait() {
+    let a = Expr::Var("a");
+    let b = Expr::Var("b");
+    let e = a + b; // uses std::ops::Add
+    let size = ProblemSize::new(vec![("a", 3), ("b", 4)]);
+    assert_eq!(e.eval(&size), 7.0);
+}
+
+#[test]
+fn test_expr_substitute_exp_log_sqrt() {
+    let replacement = Expr::Const(2.0);
+    let mut mapping = HashMap::new();
+    mapping.insert("n", &replacement);
+
+    let e = Expr::Exp(Box::new(Expr::Var("n")));
+    let result = e.substitute(&mapping);
+    let size = ProblemSize::new(vec![]);
+    assert!((result.eval(&size) - 2.0_f64.exp()).abs() < 1e-10);
+
+    let e = Expr::Log(Box::new(Expr::Var("n")));
+    let result = e.substitute(&mapping);
+    assert!((result.eval(&size) - 2.0_f64.ln()).abs() < 1e-10);
+
+    let e = Expr::Sqrt(Box::new(Expr::Var("n")));
+    let result = e.substitute(&mapping);
+    assert!((result.eval(&size) - 2.0_f64.sqrt()).abs() < 1e-10);
+}
+
+#[test]
+fn test_expr_variables_exp_log_sqrt() {
+    let e = Expr::Exp(Box::new(Expr::Var("a")));
+    assert_eq!(e.variables(), HashSet::from(["a"]));
+
+    let e = Expr::Log(Box::new(Expr::Var("b")));
+    assert_eq!(e.variables(), HashSet::from(["b"]));
+
+    let e = Expr::Sqrt(Box::new(Expr::Var("c")));
+    assert_eq!(e.variables(), HashSet::from(["c"]));
 }

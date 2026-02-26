@@ -106,3 +106,10 @@ fn test_is_valid_solution() {
     // Invalid: 2 = [0,1,0], 3 = [1,1,0] → 2*3=6 ≠ 15
     assert!(!problem.is_valid_solution(&[0, 1, 0, 1, 1, 0]));
 }
+
+#[test]
+fn test_size_getters() {
+    let problem = Factoring::new(3, 3, 15);
+    assert_eq!(problem.num_bits_first(), 3);
+    assert_eq!(problem.num_bits_second(), 3);
+}

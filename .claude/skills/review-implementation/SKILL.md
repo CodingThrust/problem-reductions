@@ -88,12 +88,12 @@ Read the implementation files and assess:
 ### For Models:
 1. **`evaluate()` correctness** -- Does it check feasibility before computing the objective? Does it return `SolutionSize::Invalid` / `false` for infeasible configs?
 2. **`dims()` correctness** -- Does it return the actual configuration space? (e.g., `vec![2; n]` for binary)
-3. **`problem_size_names`/`problem_size_values` consistency** -- Do the names match what `ReductionOverhead` uses?
+3. **Size getter consistency** -- Do the inherent getter methods (e.g., `num_vertices()`, `num_edges()`) match names used in overhead expressions?
 4. **Weight handling** -- Are weights managed via inherent methods, not traits?
 
 ### For Rules:
 1. **`extract_solution` correctness** -- Does it correctly invert the reduction? Does the returned solution have the right length (source dimensions)?
-2. **Overhead accuracy** -- Does `poly!(...)` reflect the actual size relationship?
+2. **Overhead accuracy** -- Does the `overhead = { field = "expr" }` reflect the actual size relationship?
 3. **Example quality** -- Is it tutorial-style? Does it use the instance from the issue? Does the JSON export include both source and target data?
 4. **Paper quality** -- Is the reduction-rule statement precise? Is the proof sketch sound? Is the example figure clear?
 

@@ -169,3 +169,11 @@ fn test_is_valid_solution() {
     // Invalid: {0} doesn't dominate vertex 2
     assert!(!problem.is_valid_solution(&[1, 0, 0]));
 }
+
+#[test]
+fn test_size_getters() {
+    let problem =
+        MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    assert_eq!(problem.num_vertices(), 3);
+    assert_eq!(problem.num_edges(), 2);
+}

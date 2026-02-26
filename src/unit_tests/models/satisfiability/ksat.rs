@@ -212,3 +212,17 @@ fn test_kn_from_k3_clauses() {
         assert_eq!(k3.evaluate(config), kn.evaluate(config));
     }
 }
+
+#[test]
+fn test_size_getters() {
+    let problem = KSatisfiability::<K3>::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, 2, 3]),
+            CNFClause::new(vec![-1, -2, 3]),
+        ],
+    );
+    assert_eq!(problem.num_vars(), 3);
+    assert_eq!(problem.num_clauses(), 2);
+    assert_eq!(problem.num_literals(), 6); // 3 + 3
+}

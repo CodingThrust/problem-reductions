@@ -54,7 +54,7 @@ Connect fields to the symbols defined above.
 
 <!--
 Size metrics characterize instance complexity and are used for reduction overhead analysis.
-List the named fields returned by `problem_size_names()` / `problem_size_values()`.
+List the named getter methods (e.g., num_vertices(), num_edges()) that the problem type provides.
 Use symbols defined above.
 
 Examples:

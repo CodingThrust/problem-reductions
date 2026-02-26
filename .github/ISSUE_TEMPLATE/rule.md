@@ -26,9 +26,9 @@ Solution extraction follows from the variable mapping, no need to describe separ
 
 ## Size Overhead
 
-<!-- How large is the target instance as a polynomial of the source size?
+<!-- How large is the target instance relative to the source size?
 Use the symbols defined in the Reduction Algorithm above.
-Also provide the code-level metric name (from the problem's `problem_size()` method). -->
+Also provide the code-level metric name (matching the problem's inherent getter methods, e.g., num_vertices, num_edges). -->
 
 | Target metric (code name) | Polynomial (using symbols above) |
 |----------------------------|----------------------------------|
