@@ -15,6 +15,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
     args.graph.is_none()
         && args.weights.is_none()
         && args.edge_weights.is_none()
+        && args.couplings.is_none()
+        && args.fields.is_none()
         && args.clauses.is_none()
         && args.num_vars.is_none()
         && args.matrix.is_none()
@@ -51,21 +53,10 @@ fn example_for(canonical: &str) -> &'static str {
         "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
-        "SpinGlass" => "--graph 0-1,1-2 --edge-weights 1,1",
+        "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
         _ => "",
-    }
-}
-
-/// Map schema field names to CLI flag names where they differ.
-/// Returns None to skip a field (no corresponding CLI flag).
-fn schema_to_cli_flag<'a>(problem: &str, field_name: &'a str) -> Option<&'a str> {
-    match (problem, field_name) {
-        // SpinGlass schema uses "couplings"/"fields" but CLI uses graph + edge-weights
-        ("SpinGlass", "couplings") => Some("edge-weights"),
-        ("SpinGlass", "fields") => None, // no CLI flag for external fields
-        _ => Some(field_name),
     }
 }
 
@@ -77,15 +68,13 @@ fn print_problem_help(canonical: &str) -> Result<()> {
         eprintln!("{}\n  {}\n", canonical, s.description);
         eprintln!("Parameters:");
         for field in &s.fields {
-            if let Some(flag) = schema_to_cli_flag(canonical, &field.name) {
-                let hint = type_format_hint(&field.type_name);
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    flag.replace('_', "-"),
-                    field.description,
-                    hint
-                );
-            }
+            let hint = type_format_hint(&field.type_name);
+            eprintln!(
+                "  --{:<16} {} ({})",
+                field.name.replace('_', "-"),
+                field.description,
+                hint
+            );
         }
     } else {
         eprintln!("{canonical}\n");
@@ -233,12 +222,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "SpinGlass" => {
             let (graph, n) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create SpinGlass --graph 0-1,1-2 [--edge-weights 1,1]"
+                    "{e}\n\nUsage: pred create SpinGlass --graph 0-1,1-2 [--couplings 1,1] [--fields 0,0,0]"
                 )
             })?;
-            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
-            let fields = vec![0i32; n];
-            let couplings = edge_weights;
+            let couplings = parse_couplings(args, graph.num_edges())?;
+            let fields = parse_fields(args, n)?;
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
             (
                 ser(SpinGlass::from_graph(graph, couplings, fields))?,
@@ -365,6 +353,40 @@ fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
             Ok(weights)
         }
         None => Ok(vec![1i32; num_edges]),
+    }
+}
+
+/// Parse `--couplings` as SpinGlass pairwise couplings (i32), defaulting to all 1s.
+fn parse_couplings(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
+    match &args.couplings {
+        Some(w) => {
+            let vals: Vec<i32> = w
+                .split(',')
+                .map(|s| s.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if vals.len() != num_edges {
+                bail!("Expected {} couplings but got {}", num_edges, vals.len());
+            }
+            Ok(vals)
+        }
+        None => Ok(vec![1i32; num_edges]),
+    }
+}
+
+/// Parse `--fields` as SpinGlass on-site fields (i32), defaulting to all 0s.
+fn parse_fields(args: &CreateArgs, num_vertices: usize) -> Result<Vec<i32>> {
+    match &args.fields {
+        Some(w) => {
+            let vals: Vec<i32> = w
+                .split(',')
+                .map(|s| s.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if vals.len() != num_vertices {
+                bail!("Expected {} fields but got {}", num_vertices, vals.len());
+            }
+            Ok(vals)
+        }
+        None => Ok(vec![0i32; num_vertices]),
     }
 }
 

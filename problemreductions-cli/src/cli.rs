@@ -212,6 +212,7 @@ Examples:
   pred create QUBO --matrix \"1,0.5;0.5,2\" -o qubo.json
   pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
   pred create MaxCut --graph 0-1,1-2 --edge-weights 2,3
+  pred create SpinGlass --graph 0-1,1-2 --couplings 1,-1
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
   pred create Factoring --target 15 --m 4 --n 4
 
@@ -230,6 +231,12 @@ pub struct CreateArgs {
     /// Edge weights (e.g., 2,3,1) [default: all 1s]
     #[arg(long)]
     pub edge_weights: Option<String>,
+    /// Pairwise couplings J_ij for SpinGlass (e.g., 1,-1,1) [default: all 1s]
+    #[arg(long)]
+    pub couplings: Option<String>,
+    /// On-site fields h_i for SpinGlass (e.g., 0,0,1) [default: all 0s]
+    #[arg(long)]
+    pub fields: Option<String>,
     /// Clauses for SAT problems (semicolon-separated, e.g., "1,2;-1,3")
     #[arg(long)]
     pub clauses: Option<String>,
