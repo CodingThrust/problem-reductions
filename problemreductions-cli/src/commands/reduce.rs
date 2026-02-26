@@ -77,7 +77,7 @@ pub fn reduce(
         let last = path.steps.last().unwrap();
         if first.name != source_name || first.variant != source_variant {
             anyhow::bail!(
-                "Path file starts with {} {} but source problem is {} {}",
+                "Path file starts with {}{} but source problem is {}{}",
                 first.name,
                 format_variant(&first.variant),
                 source_name,

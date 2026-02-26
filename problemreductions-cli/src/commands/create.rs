@@ -22,6 +22,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.target.is_none()
         && args.m.is_none()
         && args.n.is_none()
+        && args.num_vertices.is_none()
+        && args.edge_prob.is_none()
+        && args.seed.is_none()
 }
 
 fn type_format_hint(type_name: &str) -> &'static str {
@@ -55,6 +58,17 @@ fn example_for(canonical: &str) -> &'static str {
     }
 }
 
+/// Map schema field names to CLI flag names where they differ.
+/// Returns None to skip a field (no corresponding CLI flag).
+fn schema_to_cli_flag<'a>(problem: &str, field_name: &'a str) -> Option<&'a str> {
+    match (problem, field_name) {
+        // SpinGlass schema uses "couplings"/"fields" but CLI uses graph + edge-weights
+        ("SpinGlass", "couplings") => Some("edge-weights"),
+        ("SpinGlass", "fields") => None, // no CLI flag for external fields
+        _ => Some(field_name),
+    }
+}
+
 fn print_problem_help(canonical: &str) -> Result<()> {
     let schemas = collect_schemas();
     let schema = schemas.iter().find(|s| s.name == canonical);
@@ -63,13 +77,15 @@ fn print_problem_help(canonical: &str) -> Result<()> {
         eprintln!("{}\n  {}\n", canonical, s.description);
         eprintln!("Parameters:");
         for field in &s.fields {
-            let hint = type_format_hint(&field.type_name);
-            eprintln!(
-                "  --{:<16} {} ({})",
-                field.name.replace('_', "-"),
-                field.description,
-                hint
-            );
+            if let Some(flag) = schema_to_cli_flag(canonical, &field.name) {
+                let hint = type_format_hint(&field.type_name);
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    flag.replace('_', "-"),
+                    field.description,
+                    hint
+                );
+            }
         }
     } else {
         eprintln!("{canonical}\n");
