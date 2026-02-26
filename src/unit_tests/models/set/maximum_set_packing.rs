@@ -146,3 +146,17 @@ fn test_is_valid_solution() {
     // Invalid: select sets 0 and 1 (share element 1)
     assert!(!problem.is_valid_solution(&[1, 1, 0]));
 }
+
+#[test]
+fn test_size_getters() {
+    // Sets: {0,1}, {2,3}, {4,5} — universe is {0..6}
+    let problem = MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![2, 3], vec![4, 5]]);
+    assert_eq!(problem.num_sets(), 3);
+    assert_eq!(problem.universe_size(), 6);
+}
+
+#[test]
+fn test_universe_size_empty() {
+    let problem = MaximumSetPacking::<i32>::new(vec![]);
+    assert_eq!(problem.universe_size(), 0);
+}

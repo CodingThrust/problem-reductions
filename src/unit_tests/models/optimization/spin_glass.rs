@@ -136,3 +136,14 @@ fn test_jl_parity_evaluation() {
         assert_eq!(rust_best, jl_best, "SpinGlass best solutions mismatch");
     }
 }
+
+#[test]
+fn test_size_getters() {
+    let problem = SpinGlass::<SimpleGraph, f64>::new(
+        3,
+        vec![((0, 1), 1.0), ((1, 2), -1.0)],
+        vec![0.0, 0.0, 0.0],
+    );
+    assert_eq!(problem.num_spins(), 3);
+    assert_eq!(problem.num_interactions(), 2);
+}

@@ -172,3 +172,13 @@ fn test_is_valid_solution() {
     // Invalid: {0, 1} are adjacent
     assert!(!problem.is_valid_solution(&[1, 1, 0]));
 }
+
+#[test]
+fn test_size_getters() {
+    let problem = MaximumIndependentSet::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+        vec![1i32; 4],
+    );
+    assert_eq!(problem.num_vertices(), 4);
+    assert_eq!(problem.num_edges(), 3);
+}

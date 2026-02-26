@@ -57,7 +57,7 @@ Create `src/models/<category>/<name>.rs`:
 // 1. inventory::submit! for ProblemSchemaEntry
 // 2. Struct definition with #[derive(Debug, Clone, Serialize, Deserialize)]
 // 3. Constructor (new) + accessor methods
-// 4. Problem trait impl (NAME, Metric, dims, evaluate, variant, problem_size_names, problem_size_values)
+// 4. Problem trait impl (NAME, Metric, dims, evaluate, variant)
 // 5. OptimizationProblem or SatisfactionProblem impl
 // 6. #[cfg(test)] #[path = "..."] mod tests;
 ```

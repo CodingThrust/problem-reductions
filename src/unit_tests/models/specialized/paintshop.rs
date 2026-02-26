@@ -130,3 +130,10 @@ fn test_jl_parity_evaluation() {
         assert_eq!(rust_best, jl_best, "PaintShop best solutions mismatch");
     }
 }
+
+#[test]
+fn test_size_getters() {
+    let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
+    assert_eq!(problem.num_sequence(), 4);
+    assert_eq!(problem.num_cars(), 2);
+}

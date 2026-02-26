@@ -184,14 +184,10 @@ impl<W: WeightElement + VariantParam> ReductionResult for ReductionISToVC<W> {
 The `#[reduction]` attribute on the `ReduceTo<T>` impl registers the reduction in the global registry (via `inventory`):
 
 ```rust,ignore
-#[reduction(
-    overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_vertices)),
-            ("num_edges", poly!(num_edges)),
-        ])
-    }
-)]
+#[reduction(overhead = {
+    num_vertices = "num_vertices",
+    num_edges = "num_edges",
+})]
 impl ReduceTo<MinimumVertexCover<SimpleGraph, i32>>
     for MaximumIndependentSet<SimpleGraph, i32>
 {
@@ -212,10 +208,12 @@ inventory::submit! {
         target_name: "MinimumVertexCover",
         source_variant_fn: || <MaximumIndependentSet<SimpleGraph, i32> as Problem>::variant(),
         target_variant_fn: || <MinimumVertexCover<SimpleGraph, i32> as Problem>::variant(),
-        overhead_fn: || ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_vertices)),
-            ("num_edges", poly!(num_edges)),
-        ]),
+        overhead_fn: || ReductionOverhead {
+            output_size: vec![
+                ("num_vertices", Expr::Var("num_vertices")),
+                ("num_edges", Expr::Var("num_edges")),
+            ],
+        },
         module_path: module_path!(),
         reduce_fn: |src: &dyn Any| -> Box<dyn DynReductionResult> {
             let src = src.downcast_ref::<MaximumIndependentSet<SimpleGraph, i32>>().unwrap();
@@ -296,23 +294,17 @@ For full type control, you can also chain `ReduceTo::reduce_to()` calls manually
 <details>
 <summary>Overhead evaluation</summary>
 
-Each reduction declares how the output problem size relates to the input, expressed as polynomials. The `poly!` macro provides concise syntax:
+Each reduction declares how the output problem size relates to the input, expressed as symbolic `Expr` expressions. The `#[reduction]` macro parses overhead strings at compile time:
 
 ```rust,ignore
-poly!(num_vertices)              // p(x) = num_vertices
-poly!(num_vertices ^ 2)          // p(x) = num_vertices²
-poly!(3 * num_edges)             // p(x) = 3 × num_edges
-poly!(num_vertices * num_edges)  // p(x) = num_vertices × num_edges
+#[reduction(overhead = {
+    num_vars = "num_vertices + num_edges",
+    num_clauses = "3 * num_edges",
+})]
+impl ReduceTo<Target> for Source { ... }
 ```
 
-A `ReductionOverhead` pairs output field names with their polynomials:
-
-```rust,ignore
-ReductionOverhead::new(vec![
-    ("num_vars", poly!(num_vertices) + poly!(num_edges)),
-    ("num_clauses", poly!(3 * num_edges)),
-])
-```
+Expressions support: constants, variables, `+`, `*`, `^`, `exp()`, `log()`, `sqrt()`. Each problem type provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) that the overhead expressions reference.
 
 `evaluate_output_size(input)` substitutes input values:
 

@@ -243,3 +243,13 @@ fn test_is_valid_solution() {
     // Invalid: only left vertex in biclique → doesn't form complete bipartite subgraph covering edge
     assert!(!problem.is_valid_solution(&[1, 0]));
 }
+
+#[test]
+fn test_size_getters() {
+    let graph = BipartiteGraph::new(2, 2, vec![(0, 0), (0, 1)]);
+    let problem = BicliqueCover::new(graph, 1);
+    assert_eq!(problem.num_vertices(), 4); // 2 left + 2 right
+    assert_eq!(problem.num_edges(), 2);
+    assert_eq!(problem.k(), 1);
+    assert_eq!(problem.rank(), 1);
+}

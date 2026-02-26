@@ -243,3 +243,13 @@ fn test_jl_parity_evaluation() {
         assert_eq!(rust_best, jl_best, "BMF best solutions mismatch");
     }
 }
+
+#[test]
+fn test_size_getters() {
+    let problem = BMF::new(
+        vec![vec![true, false], vec![false, true], vec![true, true]],
+        1,
+    );
+    assert_eq!(problem.m(), 3); // rows
+    assert_eq!(problem.n(), 2); // cols
+}

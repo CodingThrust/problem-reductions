@@ -250,3 +250,14 @@ fn test_is_valid_solution() {
     // Invalid: c=1, x=1, y=0 (c = 1 AND 0 = 0, but c=1)
     assert!(!problem.is_valid_solution(&[1, 1, 0]));
 }
+
+#[test]
+fn test_size_getters() {
+    // c = x AND y → variables: c, x, y
+    let circuit = Circuit::new(vec![Assignment::new(
+        vec!["c".to_string()],
+        BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),
+    )]);
+    let problem = CircuitSAT::new(circuit);
+    assert_eq!(problem.num_variables(), 3);
+}
