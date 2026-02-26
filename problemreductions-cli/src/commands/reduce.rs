@@ -207,9 +207,9 @@ pub fn reduce(
 
 fn format_variant(v: &BTreeMap<String, String>) -> String {
     if v.is_empty() {
-        "(default)".to_string()
+        String::new()
     } else {
-        let pairs: Vec<String> = v.iter().map(|(k, val)| format!("{k}={val}")).collect();
-        format!("{{{}}}", pairs.join(", "))
+        let vals: Vec<&str> = v.values().map(|v| v.as_str()).collect();
+        format!("/{}", vals.join("/"))
     }
 }

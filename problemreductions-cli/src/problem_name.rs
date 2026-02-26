@@ -79,8 +79,9 @@ pub fn parse_problem_spec(input: &str) -> anyhow::Result<ProblemSpec> {
     })
 }
 
-/// Build a variant BTreeMap by matching positional values against a problem's
-/// known variant keys from the reduction graph.
+/// Build a variant BTreeMap by matching specified values against a problem's
+/// known variants from the reduction graph. Uses value-based matching:
+/// each specified value must appear as a value in the variant map.
 pub fn resolve_variant(
     spec: &ProblemSpec,
     known_variants: &[BTreeMap<String, String>],
@@ -90,40 +91,31 @@ pub fn resolve_variant(
         return Ok(known_variants.first().cloned().unwrap_or_default());
     }
 
-    // Get the variant keys from the first known variant
-    let keys: Vec<String> = known_variants
-        .first()
-        .map(|v| v.keys().cloned().collect())
-        .unwrap_or_default();
+    // Value-based matching: find variant containing ALL specified values
+    let matches: Vec<_> = known_variants
+        .iter()
+        .filter(|v| {
+            spec.variant_values
+                .iter()
+                .all(|sv| v.values().any(|vv| vv == sv))
+        })
+        .collect();
 
-    if spec.variant_values.len() > keys.len() {
-        anyhow::bail!(
-            "Too many variant values for {}: expected at most {} but got {}",
+    match matches.len() {
+        1 => Ok(matches[0].clone()),
+        0 => anyhow::bail!(
+            "No variant of {} matches values {:?}. Known variants: {:?}",
             spec.name,
-            keys.len(),
-            spec.variant_values.len()
-        );
-    }
-
-    // Build the variant map: fill specified positions, use defaults for the rest
-    let mut result = known_variants.first().cloned().unwrap_or_default();
-    for (i, value) in spec.variant_values.iter().enumerate() {
-        if let Some(key) = keys.get(i) {
-            result.insert(key.clone(), value.clone());
-        }
-    }
-
-    // Verify this variant exists
-    if !known_variants.contains(&result) {
-        anyhow::bail!(
-            "Unknown variant for {}: {:?}. Known variants: {:?}",
-            spec.name,
-            result,
+            spec.variant_values,
             known_variants
-        );
+        ),
+        _ => anyhow::bail!(
+            "Ambiguous variant for {} with values {:?}. Matches: {:?}",
+            spec.name,
+            spec.variant_values,
+            matches
+        ),
     }
-
-    Ok(result)
 }
 
 /// A value parser that accepts any string but provides problem names as

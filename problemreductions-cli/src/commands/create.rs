@@ -4,16 +4,96 @@ use crate::output::OutputConfig;
 use crate::problem_name::resolve_alias;
 use anyhow::{bail, Context, Result};
 use problemreductions::prelude::*;
+use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::variant::{K2, K3, KN};
 use serde::Serialize;
 use std::collections::BTreeMap;
+
+/// Check if all data flags are None (no problem-specific input provided).
+fn all_data_flags_empty(args: &CreateArgs) -> bool {
+    args.graph.is_none()
+        && args.weights.is_none()
+        && args.edge_weights.is_none()
+        && args.clauses.is_none()
+        && args.num_vars.is_none()
+        && args.matrix.is_none()
+        && args.k.is_none()
+        && args.target.is_none()
+        && args.m.is_none()
+        && args.n.is_none()
+}
+
+fn type_format_hint(type_name: &str) -> &'static str {
+    match type_name {
+        "G" => "edge list: 0-1,1-2,2-3",
+        "Vec<W>" => "comma-separated: 1,2,3",
+        "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
+        "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
+        "usize" => "integer",
+        "u64" => "integer",
+        _ => "value",
+    }
+}
+
+fn example_for(canonical: &str) -> &'static str {
+    match canonical {
+        "MaximumIndependentSet"
+        | "MinimumVertexCover"
+        | "MaximumClique"
+        | "MinimumDominatingSet" => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
+        "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
+            "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
+        }
+        "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
+        "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
+        "QUBO" => "--matrix \"1,0.5;0.5,2\"",
+        "SpinGlass" => "--graph 0-1,1-2 --edge-weights 1,1",
+        "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
+        "Factoring" => "--target 15 --m 4 --n 4",
+        _ => "",
+    }
+}
+
+fn print_problem_help(canonical: &str) -> Result<()> {
+    let schemas = collect_schemas();
+    let schema = schemas.iter().find(|s| s.name == canonical);
+
+    if let Some(s) = schema {
+        eprintln!("{}\n  {}\n", canonical, s.description);
+        eprintln!("Parameters:");
+        for field in &s.fields {
+            let hint = type_format_hint(&field.type_name);
+            eprintln!(
+                "  --{:<16} {} ({})",
+                field.name.replace('_', "-"),
+                field.description,
+                hint
+            );
+        }
+    } else {
+        eprintln!("{canonical}\n");
+        eprintln!("No schema information available.");
+    }
+
+    let example = example_for(canonical);
+    if !example.is_empty() {
+        eprintln!("\nExample:");
+        eprintln!("  pred create {} {}", canonical, example);
+    }
+    Ok(())
+}
 
 pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     let canonical = resolve_alias(&args.problem);
 
     if args.random {
         return create_random(args, &canonical, out);
+    }
+
+    // Show schema-driven help when no data flags are provided
+    if all_data_flags_empty(args) {
+        return print_problem_help(&canonical);
     }
 
     let (data, variant) = match canonical.as_str() {
@@ -24,7 +104,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         | "MinimumDominatingSet" => {
             let (graph, n) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create {} --edges 0-1,1-2,2-3 [--weights 1,1,1,1] --json -o problem.json",
+                    "{e}\n\nUsage: pred create {} --graph 0-1,1-2,2-3 [--weights 1,1,1,1]",
                     args.problem
                 )
             })?;
@@ -44,7 +124,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create {} --edges 0-1,1-2,2-3 [--weights 1,1,1] --json -o problem.json",
+                    "{e}\n\nUsage: pred create {} --graph 0-1,1-2,2-3 [--edge-weights 1,1,1]",
                     args.problem
                 )
             })?;
@@ -62,9 +142,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         // KColoring
         "KColoring" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
-                anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create KColoring --edges 0-1,1-2,2-0 --k 3 --json -o problem.json"
-                )
+                anyhow::anyhow!("{e}\n\nUsage: pred create KColoring --graph 0-1,1-2,2-0 --k 3")
             })?;
             let variant;
             let data;
@@ -83,7 +161,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 }
                 None => bail!(
                     "KColoring requires --k <num_colors>\n\n\
-                     Usage: pred create KColoring --edges 0-1,1-2,2-0 --k 3 --json -o problem.json"
+                     Usage: pred create KColoring --graph 0-1,1-2,2-0 --k 3"
                 ),
             }
             (data, variant)
@@ -94,7 +172,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let num_vars = args.num_vars.ok_or_else(|| {
                 anyhow::anyhow!(
                     "Satisfiability requires --num-vars\n\n\
-                     Usage: pred create SAT --num-vars 3 --clauses \"1,2;-1,3\" --json -o problem.json"
+                     Usage: pred create SAT --num-vars 3 --clauses \"1,2;-1,3\""
                 )
             })?;
             let clauses = parse_clauses(args)?;
@@ -105,7 +183,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let num_vars = args.num_vars.ok_or_else(|| {
                 anyhow::anyhow!(
                     "KSatisfiability requires --num-vars\n\n\
-                     Usage: pred create 3SAT --num-vars 3 --clauses \"1,2,3;-1,2,-3\" --json -o problem.json"
+                     Usage: pred create 3SAT --num-vars 3 --clauses \"1,2,3;-1,2,-3\""
                 )
             })?;
             let clauses = parse_clauses(args)?;
@@ -139,7 +217,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "SpinGlass" => {
             let (graph, n) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create SpinGlass --edges 0-1,1-2 [--weights 1,1] --json -o problem.json"
+                    "{e}\n\nUsage: pred create SpinGlass --graph 0-1,1-2 [--edge-weights 1,1]"
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
@@ -154,16 +232,16 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // Factoring
         "Factoring" => {
-            let usage = "Usage: pred create Factoring --target 15 --bits-m 4 --bits-n 4";
+            let usage = "Usage: pred create Factoring --target 15 --m 4 --n 4";
             let target = args
                 .target
                 .ok_or_else(|| anyhow::anyhow!("Factoring requires --target\n\n{usage}"))?;
             let m = args
-                .bits_m
-                .ok_or_else(|| anyhow::anyhow!("Factoring requires --bits-m\n\n{usage}"))?;
+                .m
+                .ok_or_else(|| anyhow::anyhow!("Factoring requires --m\n\n{usage}"))?;
             let n = args
-                .bits_n
-                .ok_or_else(|| anyhow::anyhow!("Factoring requires --bits-n\n\n{usage}"))?;
+                .n
+                .ok_or_else(|| anyhow::anyhow!("Factoring requires --n\n\n{usage}"))?;
             let variant = BTreeMap::new();
             (ser(Factoring::new(m, n, target))?, variant)
         }
@@ -202,12 +280,12 @@ fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         .collect()
 }
 
-/// Parse `--edges` into a SimpleGraph, inferring num_vertices from max index.
+/// Parse `--graph` into a SimpleGraph, inferring num_vertices from max index.
 fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
     let edges_str = args
-        .edges
+        .graph
         .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("This problem requires --edges (e.g., 0-1,1-2,2-3)"))?;
+        .ok_or_else(|| anyhow::anyhow!("This problem requires --graph (e.g., 0-1,1-2,2-3)"))?;
 
     let edges: Vec<(usize, usize)> = edges_str
         .split(',')
@@ -253,9 +331,9 @@ fn parse_vertex_weights(args: &CreateArgs, num_vertices: usize) -> Result<Vec<i3
     }
 }
 
-/// Parse `--weights` as edge weights (i32), defaulting to all 1s.
+/// Parse `--edge-weights` as edge weights (i32), defaulting to all 1s.
 fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
-    match &args.weights {
+    match &args.edge_weights {
         Some(w) => {
             let weights: Vec<i32> = w
                 .split(',')
