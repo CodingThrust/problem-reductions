@@ -42,6 +42,13 @@ pub trait OptimizationProblem: Problem<Metric = crate::types::SolutionSize<Self:
 /// `true` if the configuration satisfies all constraints, `false` otherwise.
 pub trait SatisfactionProblem: Problem<Metric = bool> {}
 
+/// Marker trait for explicitly declared problem variants.
+///
+/// Implemented automatically by [`declare_variants!`] for each concrete type.
+/// The [`#[reduction]`] proc macro checks this trait at compile time to ensure
+/// all reduction source/target types have been declared.
+pub trait DeclaredVariant {}
+
 #[cfg(test)]
 #[path = "unit_tests/traits.rs"]
 mod tests;
