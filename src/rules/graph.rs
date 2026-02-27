@@ -615,9 +615,12 @@ impl ReductionGraph {
 
     /// Get all variant maps registered for a problem name.
     ///
-    /// Returns an empty `Vec` if the name is not found.
+    /// Returns variants sorted deterministically: the "default" variant
+    /// (SimpleGraph, i32, etc.) comes first, then remaining variants
+    /// in lexicographic order.
     pub fn variants_for(&self, name: &str) -> Vec<BTreeMap<String, String>> {
-        self.name_to_nodes
+        let mut variants: Vec<BTreeMap<String, String>> = self
+            .name_to_nodes
             .get(name)
             .map(|indices| {
                 indices
@@ -625,7 +628,20 @@ impl ReductionGraph {
                     .map(|&idx| self.nodes[self.graph[idx]].variant.clone())
                     .collect()
             })
-            .unwrap_or_default()
+            .unwrap_or_default();
+        // Sort deterministically: default variant values (SimpleGraph, i32, KN)
+        // sort first so callers can rely on variants[0] being the "base" variant.
+        variants.sort_by(|a, b| {
+            fn default_rank(v: &BTreeMap<String, String>) -> usize {
+                v.values()
+                    .filter(|val| !["SimpleGraph", "i32", "KN"].contains(&val.as_str()))
+                    .count()
+            }
+            default_rank(a)
+                .cmp(&default_rank(b))
+                .then_with(|| a.cmp(b))
+        });
+        variants
     }
 
     /// Get the complexity expression for a specific variant.
