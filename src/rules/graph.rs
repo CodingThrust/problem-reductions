@@ -77,6 +77,8 @@ pub(crate) struct NodeJson {
     pub(crate) category: String,
     /// Relative rustdoc path (e.g., "models/graph/maximum_independent_set").
     pub(crate) doc_path: String,
+    /// Worst-case time complexity expression (empty if not declared).
+    pub(crate) complexity: String,
 }
 
 /// Internal reference to a problem variant, used as HashMap key.
@@ -896,6 +898,7 @@ impl ReductionGraph {
                         variant: node.variant.clone(),
                         category,
                         doc_path,
+                        complexity: node.complexity.to_string(),
                     },
                 )
             })
