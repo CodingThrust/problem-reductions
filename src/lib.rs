@@ -68,6 +68,9 @@ pub use types::{
 // Re-export proc macro for reduction registration
 pub use problemreductions_macros::reduction;
 
+// Re-export inventory so `declare_variants!` can use `$crate::inventory::submit!`
+pub use inventory;
+
 #[cfg(test)]
 #[path = "unit_tests/graph_models.rs"]
 mod test_graph_models;
