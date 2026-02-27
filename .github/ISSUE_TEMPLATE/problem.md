@@ -50,29 +50,17 @@ Connect fields to the symbols defined above.
 | <!-- e.g. graph --> | <!-- e.g. SimpleGraph --> | <!-- e.g. the graph G=(V,E) --> |
 | <!-- e.g. weights --> | <!-- e.g. Vec<W> --> | <!-- e.g. vertex weights w_i for each i ∈ V (weighted variant only) --> |
 
-## Problem Size
-
-<!--
-Size metrics characterize instance complexity and are used for reduction overhead analysis.
-List the named getter methods (e.g., num_vertices(), num_edges()) that the problem type provides.
-Use symbols defined above.
-
-Examples:
-- Graph problems: num_vertices = |V|, num_edges = |E|
-- SAT problems: num_vars, num_clauses, num_literals
-- Set problems: num_sets, universe_size
--->
-
-| Metric | Expression | Description |
-|--------|------------|-------------|
-| <!-- e.g. num_vertices --> | <!-- e.g. \|V\| --> | <!-- e.g. number of vertices in the graph --> |
-| <!-- e.g. num_edges --> | <!-- e.g. \|E\| --> | <!-- e.g. number of edges in the graph --> |
-
 ## Complexity
 
-- **Decision complexity:** <!-- e.g. NP-complete, NP-hard, P, etc. -->
 - **Best known exact algorithm:** <!-- e.g. O(1.1996^n) by Xiao & Nagamochi (2017), where n = |V| -->
-- **Best known approximation:** <!-- e.g. no PTAS unless P=NP; or 2-approximation via greedy -->
+- **References:** <!-- URL or citation for complexity results -->
+
+## Extra Remark
+
+<!--
+Optional notes about the problem that are worth mentioning in the paper or rustdoc.
+E.g. historical context, notable applications, relationship to other problems, or special properties.
+-->
 
 ## How to solve
 <!--

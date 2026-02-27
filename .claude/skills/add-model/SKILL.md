@@ -23,7 +23,7 @@ Before any implementation, collect all required information. If called from `iss
 | 6 | **Configuration space** | What `dims()` returns | `vec![2; num_vertices]` for binary vertex selection |
 | 7 | **Feasibility check** | How to validate a configuration | "All selected vertices must be pairwise adjacent" |
 | 8 | **Objective function** | How to compute the metric | "Sum of weights of selected vertices" |
-| 9 | **Complexity class** | NP-hard, NP-complete, etc. | NP-hard |
+| 9 | **Best known exact algorithm** | Complexity with variable definitions | "O(1.1996^n) by Xiao & Nagamochi (2017), where n = \|V\|" |
 | 10 | **Solving strategy** | How it can be solved | "BruteForce works; ILP reduction available" |
 | 11 | **Category** | Which sub-module under `src/models/` | `graph`, `optimization`, `satisfiability`, `set`, `specialized` |
 
@@ -47,6 +47,22 @@ Choose the appropriate sub-module under `src/models/`:
 - `satisfiability/` -- boolean satisfaction problems (SAT, k-SAT)
 - `set/` -- set-based problems (set packing, set cover)
 - `specialized/` -- problems that don't fit other categories (factoring, circuit, paintshop)
+
+## Step 1.5: Infer problem size getters
+
+From the **best known exact algorithm** complexity (item 9), infer what problem size getter methods the struct should expose. The variables used in the complexity expression define the natural size metrics.
+
+**How to infer:**
+- Parse the complexity expression for variable names (e.g., `O(1.1996^n)` where `n = |V|` → `num_vertices`)
+- Each variable that measures a distinct dimension of the input becomes a getter method
+- Common mappings:
+  - `n = |V|` → `num_vertices()`
+  - `m = |E|` → `num_edges()`
+  - `n` (number of variables) → `num_vars()`
+  - `m` (number of clauses) → `num_clauses()`
+  - `k` (number of sets) → `num_sets()`
+
+These getters are used by the overhead system for reduction overhead expressions. Implement them as inherent methods on the struct.
 
 ## Step 2: Implement the model
 
