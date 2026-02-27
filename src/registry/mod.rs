@@ -46,6 +46,8 @@
 
 mod info;
 mod schema;
+pub mod variant;
 
 pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
 pub use schema::{collect_schemas, FieldInfoJson, ProblemSchemaEntry, ProblemSchemaJson};
+pub use variant::VariantEntry;
