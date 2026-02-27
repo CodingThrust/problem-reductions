@@ -117,17 +117,12 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
         "\n{}\n",
         crate::output::fmt_section(&format!("Variants ({}):", variants.len()))
     ));
-    let default_variant = variants.first().cloned().unwrap_or_default();
     for v in &variants {
-        let slash = variant_to_slash(v, &default_variant);
-        let label = if slash.is_empty() {
-            format!("  {}", crate::output::fmt_problem_name(&spec.name))
-        } else {
-            format!(
-                "  {}",
-                crate::output::fmt_problem_name(&format!("{}{}", spec.name, slash))
-            )
-        };
+        let slash = variant_to_full_slash(v);
+        let label = format!(
+            "  {}",
+            crate::output::fmt_problem_name(&format!("{}{}", spec.name, slash))
+        );
         text.push_str(&format!("{label}\n"));
     }
 
@@ -207,6 +202,17 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
 
     let default_name = format!("pred_show_{}.json", spec.name);
     out.emit_with_default_name(&default_name, &text, &json)
+}
+
+/// Convert a variant BTreeMap to slash notation showing ALL values.
+/// E.g., {graph: "SimpleGraph", weight: "i32"} → "/SimpleGraph/i32".
+fn variant_to_full_slash(variant: &BTreeMap<String, String>) -> String {
+    if variant.is_empty() {
+        String::new()
+    } else {
+        let vals: Vec<&str> = variant.values().map(|v| v.as_str()).collect();
+        format!("/{}", vals.join("/"))
+    }
 }
 
 /// Convert a variant BTreeMap to slash notation showing only non-default values.
