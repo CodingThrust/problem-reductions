@@ -105,7 +105,7 @@ pub fn run() {
 
     // 5. Export JSON
     let source_variant = variant_to_map(Satisfiability::variant());
-    let target_variant = variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let target_variant = variant_to_map(MaximumIndependentSet::<SimpleGraph, One>::variant());
     let overhead = lookup_overhead(
         "Satisfiability",
         &source_variant,

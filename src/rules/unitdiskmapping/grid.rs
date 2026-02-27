@@ -181,6 +181,20 @@ impl MappingGrid {
         coords
     }
 
+    /// Check if any doubled or connected cells remain in the grid.
+    /// Returns true if the mapping is not fully resolved.
+    /// Matches Julia's `GridGraph()` assertion.
+    pub fn has_unresolved_cells(&self) -> bool {
+        self.content.iter().any(|row| {
+            row.iter().any(|cell| {
+                matches!(
+                    cell,
+                    CellState::Doubled { .. } | CellState::Connected { .. }
+                )
+            })
+        })
+    }
+
     /// Get all doubled cell coordinates.
     /// Returns a set of (row, col) for cells in the Doubled state.
     pub fn doubled_cells(&self) -> std::collections::HashSet<(usize, usize)> {
