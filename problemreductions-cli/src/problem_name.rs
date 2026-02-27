@@ -109,12 +109,33 @@ pub fn resolve_variant(
             spec.variant_values,
             known_variants
         ),
-        _ => anyhow::bail!(
-            "Ambiguous variant for {} with values {:?}. Matches: {:?}",
-            spec.name,
-            spec.variant_values,
-            matches
-        ),
+        _ => {
+            // When ambiguous, use the same default ranking as the reduction graph:
+            // variants whose remaining (unmatched) fields are closest to defaults
+            // (SimpleGraph, One, KN) win. This matches variants_for() sort order.
+            let default_rank = |v: &BTreeMap<String, String>| -> usize {
+                v.values()
+                    .filter(|val| {
+                        !spec.variant_values.contains(val)
+                            && !["SimpleGraph", "One", "KN"].contains(&val.as_str())
+                    })
+                    .count()
+            };
+            let min_rank = matches.iter().map(|v| default_rank(v)).min().unwrap();
+            let best: Vec<_> = matches
+                .iter()
+                .filter(|v| default_rank(v) == min_rank)
+                .collect();
+            if best.len() == 1 {
+                return Ok((*best[0]).clone());
+            }
+            anyhow::bail!(
+                "Ambiguous variant for {} with values {:?}. Matches: {:?}",
+                spec.name,
+                spec.variant_values,
+                matches
+            )
+        }
     }
 }
 

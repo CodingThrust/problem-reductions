@@ -629,12 +629,12 @@ impl ReductionGraph {
                     .collect()
             })
             .unwrap_or_default();
-        // Sort deterministically: default variant values (SimpleGraph, i32, KN)
+        // Sort deterministically: default variant values (SimpleGraph, One, KN)
         // sort first so callers can rely on variants[0] being the "base" variant.
         variants.sort_by(|a, b| {
             fn default_rank(v: &BTreeMap<String, String>) -> usize {
                 v.values()
-                    .filter(|val| !["SimpleGraph", "i32", "KN"].contains(&val.as_str()))
+                    .filter(|val| !["SimpleGraph", "One", "KN"].contains(&val.as_str()))
                     .count()
             }
             default_rank(a).cmp(&default_rank(b)).then_with(|| a.cmp(b))

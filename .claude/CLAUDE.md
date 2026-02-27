@@ -121,8 +121,9 @@ Problem types use explicit optimization prefixes:
 ### Problem Variant IDs
 Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Base: `MaximumIndependentSet` (empty variant = defaults)
-- Graph variant: `MaximumIndependentSet {graph: "GridGraph", weight: "i32"}`
+- Graph variant: `MaximumIndependentSet {graph: "KingsSubgraph", weight: "One"}`
 - Weight variant: `MaximumIndependentSet {graph: "SimpleGraph", weight: "f64"}`
+- Default variant ranking: `SimpleGraph`, `One`, `KN` are considered default values; variants with the most default values sort first
 - Nodes come exclusively from `#[reduction]` registrations; natural edges between same-name variants are inferred from the graph/weight subtype partial order
 
 ## Conventions
