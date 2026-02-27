@@ -376,6 +376,10 @@ impl OptimizationProblem for ILP {
     }
 }
 
+crate::declare_variants! {
+    ILP => "exp(num_variables)",
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/optimization/ilp.rs"]
 mod tests;

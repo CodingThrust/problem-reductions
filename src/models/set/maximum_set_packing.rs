@@ -173,6 +173,11 @@ where
     }
 }
 
+crate::declare_variants! {
+    MaximumSetPacking<i32> => "2^num_sets",
+    MaximumSetPacking<f64> => "2^num_sets",
+}
+
 /// Check if a selection forms a valid set packing (pairwise disjoint).
 fn is_valid_packing(sets: &[Vec<usize>], config: &[usize]) -> bool {
     let selected_sets: Vec<_> = config

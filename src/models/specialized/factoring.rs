@@ -162,6 +162,10 @@ impl OptimizationProblem for Factoring {
     }
 }
 
+crate::declare_variants! {
+    Factoring => "exp(sqrt(num_bits))",
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/specialized/factoring.rs"]
 mod tests;

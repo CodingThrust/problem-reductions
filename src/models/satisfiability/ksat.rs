@@ -7,7 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
-use crate::variant::KValue;
+use crate::variant::{KValue, K2, K3, KN};
 use serde::{Deserialize, Serialize};
 
 use super::CNFClause;
@@ -182,6 +182,12 @@ impl<K: KValue> Problem for KSatisfiability<K> {
 }
 
 impl<K: KValue> SatisfactionProblem for KSatisfiability<K> {}
+
+crate::declare_variants! {
+    KSatisfiability<KN> => "2^num_variables",
+    KSatisfiability<K2> => "2^num_variables",
+    KSatisfiability<K3> => "2^num_variables",
+}
 
 #[cfg(test)]
 #[path = "../../unit_tests/models/satisfiability/ksat.rs"]

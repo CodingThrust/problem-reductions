@@ -250,6 +250,11 @@ where
     }
 }
 
+crate::declare_variants! {
+    SpinGlass<SimpleGraph, i32> => "2^num_vertices",
+    SpinGlass<SimpleGraph, f64> => "2^num_vertices",
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/optimization/spin_glass.rs"]
 mod tests;

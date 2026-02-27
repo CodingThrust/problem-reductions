@@ -299,6 +299,10 @@ impl Problem for CircuitSAT {
 
 impl SatisfactionProblem for CircuitSAT {}
 
+crate::declare_variants! {
+    CircuitSAT => "2^num_inputs",
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/specialized/circuit.rs"]
 mod tests;

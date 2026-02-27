@@ -188,6 +188,10 @@ where
     }
 }
 
+crate::declare_variants! {
+    QUBO<f64> => "2^num_vars",
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/optimization/qubo.rs"]
 mod tests;
