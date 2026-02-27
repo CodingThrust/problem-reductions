@@ -1062,9 +1062,7 @@ fn test_variant_entry_complexity_available() {
         "VariantEntry inventory should not be empty"
     );
 
-    let mis_entry = entries
-        .iter()
-        .find(|e| e.name == "MaximumIndependentSet");
+    let mis_entry = entries.iter().find(|e| e.name == "MaximumIndependentSet");
     assert!(mis_entry.is_some(), "MIS should have a VariantEntry");
     assert!(
         !mis_entry.unwrap().complexity.is_empty(),
@@ -1075,8 +1073,7 @@ fn test_variant_entry_complexity_available() {
 #[test]
 fn test_variant_complexity() {
     let graph = ReductionGraph::new();
-    let variant =
-        ReductionGraph::variant_to_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+    let variant = ReductionGraph::variant_to_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
     let complexity = graph.variant_complexity("MaximumIndependentSet", &variant);
     assert_eq!(complexity, Some("2^num_vertices"));
 }

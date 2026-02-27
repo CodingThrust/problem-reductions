@@ -212,9 +212,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             .overhead
             .output_size
             .iter()
-            .map(|(field, poly)| {
-                serde_json::json!({"field": field, "formula": poly.to_string()})
-            })
+            .map(|(field, poly)| serde_json::json!({"field": field, "formula": poly.to_string()}))
             .collect();
         serde_json::json!({
             "source": {"name": e.source_name, "variant": e.source_variant},

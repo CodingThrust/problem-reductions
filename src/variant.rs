@@ -154,7 +154,7 @@ impl_variant_param!(K1, "k", parent: KN, cast: |_| KN, k: Some(1));
 ///
 /// # Example
 ///
-/// ```ignore
+/// ```text
 /// declare_variants! {
 ///     MaximumIndependentSet<SimpleGraph, i32>   => "2^num_vertices",
 ///     MaximumIndependentSet<KingsSubgraph, i32> => "2^num_vertices",

@@ -277,13 +277,13 @@ impl ReductionGraph {
         let mut name_to_nodes: HashMap<&'static str, Vec<NodeIndex>> = HashMap::new();
 
         // Helper to ensure a variant node exists in the graph.
-        let mut ensure_node = |name: &'static str,
-                               variant: BTreeMap<String, String>,
-                               complexity: &'static str,
-                               nodes: &mut Vec<VariantNode>,
-                               graph: &mut DiGraph<usize, ReductionEdgeData>,
-                               node_index: &mut HashMap<VariantRef, NodeIndex>,
-                               name_to_nodes: &mut HashMap<&'static str, Vec<NodeIndex>>|
+        let ensure_node = |name: &'static str,
+                           variant: BTreeMap<String, String>,
+                           complexity: &'static str,
+                           nodes: &mut Vec<VariantNode>,
+                           graph: &mut DiGraph<usize, ReductionEdgeData>,
+                           node_index: &mut HashMap<VariantRef, NodeIndex>,
+                           name_to_nodes: &mut HashMap<&'static str, Vec<NodeIndex>>|
          -> NodeIndex {
             let vref = VariantRef {
                 name: name.to_string(),
@@ -637,9 +637,7 @@ impl ReductionGraph {
                     .filter(|val| !["SimpleGraph", "i32", "KN"].contains(&val.as_str()))
                     .count()
             }
-            default_rank(a)
-                .cmp(&default_rank(b))
-                .then_with(|| a.cmp(b))
+            default_rank(a).cmp(&default_rank(b)).then_with(|| a.cmp(b))
         });
         variants
     }
