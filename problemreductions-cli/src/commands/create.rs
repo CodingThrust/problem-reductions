@@ -1,7 +1,7 @@
 use crate::cli::CreateArgs;
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
-use crate::problem_name::resolve_alias;
+use crate::problem_name::{parse_problem_spec, resolve_variant};
 use anyhow::{bail, Context, Result};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -90,16 +90,26 @@ fn print_problem_help(canonical: &str) -> Result<()> {
 }
 
 pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
-    let canonical = resolve_alias(&args.problem);
+    let spec = parse_problem_spec(&args.problem)?;
+    let canonical = &spec.name;
 
     if args.random {
-        return create_random(args, &canonical, out);
+        return create_random(args, canonical, out);
     }
 
     // Show schema-driven help when no data flags are provided
     if all_data_flags_empty(args) {
-        return print_problem_help(&canonical);
+        return print_problem_help(canonical);
     }
+
+    // Resolve variant from spec (e.g., MIS/KingsSubgraph → {graph: "KingsSubgraph", weight: "i32"})
+    let graph = problemreductions::rules::ReductionGraph::new();
+    let known_variants = graph.variants_for(canonical);
+    let resolved_variant = if known_variants.is_empty() {
+        BTreeMap::new()
+    } else {
+        resolve_variant(&spec, &known_variants)?
+    };
 
     let (data, variant) = match canonical.as_str() {
         // Graph problems with vertex weights
@@ -114,7 +124,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let weights = parse_vertex_weights(args, n)?;
-            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
             let data = match canonical.as_str() {
                 "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
                 "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
@@ -122,7 +131,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
                 _ => unreachable!(),
             };
-            (data, variant)
+            (data, resolved_variant.clone())
         }
 
         // Graph problems with edge weights
@@ -134,14 +143,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
-            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
             let data = match canonical.as_str() {
                 "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
                 "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
                 "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,
                 _ => unreachable!(),
             };
-            (data, variant)
+            (data, resolved_variant.clone())
         }
 
         // KColoring
@@ -149,27 +157,16 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!("{e}\n\nUsage: pred create KColoring --graph 0-1,1-2,2-0 --k 3")
             })?;
-            let variant;
-            let data;
-            match args.k {
-                Some(2) => {
-                    variant = variant_map(&[("k", "K2"), ("graph", "SimpleGraph")]);
-                    data = ser(KColoring::<K2, SimpleGraph>::new(graph))?;
-                }
-                Some(3) => {
-                    variant = variant_map(&[("k", "K3"), ("graph", "SimpleGraph")]);
-                    data = ser(KColoring::<K3, SimpleGraph>::new(graph))?;
-                }
-                Some(k) => {
-                    variant = variant_map(&[("k", "KN"), ("graph", "SimpleGraph")]);
-                    data = ser(KColoring::<KN, SimpleGraph>::with_k(graph, k))?;
-                }
+            let data = match args.k {
+                Some(2) => ser(KColoring::<K2, SimpleGraph>::new(graph))?,
+                Some(3) => ser(KColoring::<K3, SimpleGraph>::new(graph))?,
+                Some(k) => ser(KColoring::<KN, SimpleGraph>::with_k(graph, k))?,
                 None => bail!(
                     "KColoring requires --k <num_colors>\n\n\
                      Usage: pred create KColoring --graph 0-1,1-2,2-0 --k 3"
                 ),
-            }
-            (data, variant)
+            };
+            (data, resolved_variant.clone())
         }
 
         // SAT
@@ -181,8 +178,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let clauses = parse_clauses(args)?;
-            let variant = BTreeMap::new();
-            (ser(Satisfiability::new(num_vars, clauses))?, variant)
+            (
+                ser(Satisfiability::new(num_vars, clauses))?,
+                resolved_variant.clone(),
+            )
         }
         "KSatisfiability" => {
             let num_vars = args.num_vars.ok_or_else(|| {
@@ -192,30 +191,18 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let clauses = parse_clauses(args)?;
-            let variant;
-            let data;
-            match args.k {
-                Some(2) => {
-                    variant = variant_map(&[("k", "K2")]);
-                    data = ser(KSatisfiability::<K2>::new(num_vars, clauses))?;
-                }
-                Some(3) => {
-                    variant = variant_map(&[("k", "K3")]);
-                    data = ser(KSatisfiability::<K3>::new(num_vars, clauses))?;
-                }
-                _ => {
-                    variant = variant_map(&[("k", "KN")]);
-                    data = ser(KSatisfiability::<KN>::new(num_vars, clauses))?;
-                }
-            }
-            (data, variant)
+            let data = match args.k {
+                Some(2) => ser(KSatisfiability::<K2>::new(num_vars, clauses))?,
+                Some(3) => ser(KSatisfiability::<K3>::new(num_vars, clauses))?,
+                _ => ser(KSatisfiability::<KN>::new(num_vars, clauses))?,
+            };
+            (data, resolved_variant.clone())
         }
 
         // QUBO
         "QUBO" => {
             let matrix = parse_matrix(args)?;
-            let variant = BTreeMap::new();
-            (ser(QUBO::from_matrix(matrix))?, variant)
+            (ser(QUBO::from_matrix(matrix))?, resolved_variant.clone())
         }
 
         // SpinGlass
@@ -227,10 +214,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let couplings = parse_couplings(args, graph.num_edges())?;
             let fields = parse_fields(args, n)?;
-            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
             (
                 ser(SpinGlass::from_graph(graph, couplings, fields))?,
-                variant,
+                resolved_variant.clone(),
             )
         }
 
@@ -246,15 +232,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let n = args
                 .n
                 .ok_or_else(|| anyhow::anyhow!("Factoring requires --n\n\n{usage}"))?;
-            let variant = BTreeMap::new();
-            (ser(Factoring::new(m, n, target))?, variant)
+            (ser(Factoring::new(m, n, target))?, resolved_variant.clone())
         }
 
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     };
 
     let output = ProblemJsonOutput {
-        problem_type: canonical.clone(),
+        problem_type: canonical.to_string(),
         variant,
         data,
     };
