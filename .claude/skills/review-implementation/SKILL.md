@@ -136,6 +136,10 @@ After each batch in the executing-plans flow, the main agent should:
 3. Fix findings before reporting to user
 4. Include review results in the batch report
 
+### Copilot Review (after PR creation)
+
+After creating a PR (from any flow), run `make copilot-review` to request GitHub Copilot code review on the PR.
+
 ### With add-model / add-rule
 
 At the end of these skills (after their verify step), invoke `/review-implementation` which dispatches subagents as described above.
