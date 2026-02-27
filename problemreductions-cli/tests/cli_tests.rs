@@ -2552,3 +2552,242 @@ fn test_solve_timeout_zero_means_no_limit() {
 
     std::fs::remove_file(&problem_file).ok();
 }
+
+// ---------------------------------------------------------------------------
+// Geometry-based graph tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_create_mis_kings_subgraph() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/KingsSubgraph",
+            "--positions",
+            "0,0;1,0;1,1;0,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "KingsSubgraph");
+    assert!(json["data"].is_object());
+}
+
+#[test]
+fn test_create_mis_triangular_subgraph() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/TriangularSubgraph",
+            "--positions",
+            "0,0;0,1;1,0;1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "TriangularSubgraph");
+}
+
+#[test]
+fn test_create_mis_unit_disk_graph() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/UnitDiskGraph",
+            "--positions",
+            "0,0;1,0;0.5,0.8",
+            "--radius",
+            "1.5",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "UnitDiskGraph");
+}
+
+#[test]
+fn test_create_mvc_kings_subgraph_unsupported_variant() {
+    // MVC doesn't have a KingsSubgraph variant registered
+    let output = pred()
+        .args(["create", "MVC/KingsSubgraph", "--positions", "0,0;1,0;1,1"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("No variant"),
+        "should mention variant mismatch: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_mis_unit_disk_graph_default_radius() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/UnitDiskGraph",
+            "--positions",
+            "0,0;0.5,0;1,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "UnitDiskGraph");
+}
+
+#[test]
+fn test_create_mis_kings_subgraph_with_weights() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/KingsSubgraph",
+            "--positions",
+            "0,0;1,0;1,1",
+            "--weights",
+            "2,3,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "KingsSubgraph");
+}
+
+#[test]
+fn test_create_random_kings_subgraph() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/KingsSubgraph",
+            "--random",
+            "--num-vertices",
+            "10",
+            "--seed",
+            "42",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "KingsSubgraph");
+}
+
+#[test]
+fn test_create_random_triangular_subgraph() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/TriangularSubgraph",
+            "--random",
+            "--num-vertices",
+            "8",
+            "--seed",
+            "42",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "TriangularSubgraph");
+}
+
+#[test]
+fn test_create_random_unit_disk_graph() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/UnitDiskGraph",
+            "--random",
+            "--num-vertices",
+            "10",
+            "--radius",
+            "1.5",
+            "--seed",
+            "42",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "UnitDiskGraph");
+}
+
+#[test]
+fn test_create_kings_subgraph_help() {
+    let output = pred()
+        .args(["create", "MIS/KingsSubgraph"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("positions") || stderr.contains("MaximumIndependentSet"),
+        "stderr should show help: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_geometry_graph_missing_positions() {
+    let output = pred()
+        .args(["create", "MIS/KingsSubgraph", "--weights", "1,2,3"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("--positions"),
+        "should mention --positions: {stderr}"
+    );
+}

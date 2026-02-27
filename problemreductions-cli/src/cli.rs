@@ -197,27 +197,32 @@ Setup: add one line to your shell rc file:
 
 #[derive(clap::Args)]
 #[command(after_help = "\
-Run `pred create <PROBLEM>` without arguments to see problem-specific parameters.
+TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
+     Not every flag applies to every problem — the above list shows ALL flags.
 
-Random generation (graph-based problems only):
-  --random        Generate a random Erdos-Renyi graph instance
-  --num-vertices  Number of vertices [required with --random]
-  --edge-prob     Edge probability (0.0 to 1.0) [default: 0.5]
-  --seed          Random seed for reproducibility
+Flags by problem type:
+  MIS, MVC, MaxClique, MinDomSet  --graph, --weights
+  MaxCut, MaxMatching, TSP        --graph, --edge-weights
+  SAT, 3SAT/KSAT                  --num-vars, --clauses [--k]
+  QUBO                            --matrix
+  SpinGlass                       --graph, --couplings, --fields
+  KColoring                       --graph, --k
+  Factoring                       --target, --m, --n
+
+Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
+  KingsSubgraph, TriangularSubgraph   --positions (integer x,y pairs)
+  UnitDiskGraph                        --positions (float x,y pairs) [--radius]
+
+Random generation:
+  --random --num-vertices N [--edge-prob 0.5] [--seed 42]
 
 Examples:
-  pred create MIS --graph 0-1,1-2,2-3 -o problem.json
-  pred create MIS --graph 0-1,1-2 --weights 2,1,3 -o weighted.json
-  pred create SAT --num-vars 3 --clauses \"1,2;-1,3\" -o sat.json
-  pred create QUBO --matrix \"1,0.5;0.5,2\" -o qubo.json
-  pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
-  pred create MaxCut --graph 0-1,1-2 --edge-weights 2,3
-  pred create SpinGlass --graph 0-1,1-2 --couplings 1,-1
-  pred create MIS --random --num-vertices 10 --edge-prob 0.3
-  pred create Factoring --target 15 --m 4 --n 4
-
-Output (`-o`) uses the standard problem JSON format:
-  {\"type\": \"...\", \"variant\": {...}, \"data\": {...}}")]
+  pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
+  pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
+  pred create QUBO --matrix \"1,0.5;0.5,2\"
+  pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
+  pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
+  pred create MIS --random --num-vertices 10 --edge-prob 0.3")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT)
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -270,6 +275,12 @@ pub struct CreateArgs {
     /// Bits for second factor (for Factoring)
     #[arg(long)]
     pub n: Option<usize>,
+    /// Vertex positions for geometry-based graphs (semicolon-separated x,y pairs, e.g., "0,0;1,0;1,1")
+    #[arg(long)]
+    pub positions: Option<String>,
+    /// Radius for UnitDiskGraph [default: 1.0]
+    #[arg(long)]
+    pub radius: Option<f64>,
 }
 
 #[derive(clap::Args)]

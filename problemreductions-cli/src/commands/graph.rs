@@ -163,11 +163,21 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     ));
     for e in &outgoing {
         text.push_str(&format!(
-            "  {} {} {}\n",
+            "  {} {} {}",
             fmt_node(&graph, e.source_name, &e.source_variant),
             crate::output::fmt_outgoing("\u{2192}"),
             fmt_node(&graph, e.target_name, &e.target_variant),
         ));
+        let oh_parts: Vec<String> = e
+            .overhead
+            .output_size
+            .iter()
+            .map(|(field, poly)| format!("{field} = {poly}"))
+            .collect();
+        if !oh_parts.is_empty() {
+            text.push_str(&format!("  ({})", oh_parts.join(", ")));
+        }
+        text.push('\n');
     }
 
     text.push_str(&format!(
@@ -176,23 +186,44 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     ));
     for e in &incoming {
         text.push_str(&format!(
-            "  {} {} {}\n",
+            "  {} {} {}",
             fmt_node(&graph, e.source_name, &e.source_variant),
             crate::output::fmt_outgoing("\u{2192}"),
             fmt_node(&graph, e.target_name, &e.target_variant),
         ));
+        let oh_parts: Vec<String> = e
+            .overhead
+            .output_size
+            .iter()
+            .map(|(field, poly)| format!("{field} = {poly}"))
+            .collect();
+        if !oh_parts.is_empty() {
+            text.push_str(&format!("  ({})", oh_parts.join(", ")));
+        }
+        text.push('\n');
     }
 
+    let edge_to_json = |e: &problemreductions::rules::ReductionEdgeInfo| {
+        let overhead: Vec<serde_json::Value> = e
+            .overhead
+            .output_size
+            .iter()
+            .map(|(field, poly)| {
+                serde_json::json!({"field": field, "formula": poly.to_string()})
+            })
+            .collect();
+        serde_json::json!({
+            "source": {"name": e.source_name, "variant": e.source_variant},
+            "target": {"name": e.target_name, "variant": e.target_variant},
+            "overhead": overhead,
+        })
+    };
     let mut json = serde_json::json!({
         "name": spec.name,
         "variants": variants,
         "size_fields": size_fields,
-        "reduces_to": outgoing.iter().map(|e| {
-            serde_json::json!({"source": {"name": e.source_name, "variant": e.source_variant}, "target": {"name": e.target_name, "variant": e.target_variant}})
-        }).collect::<Vec<_>>(),
-        "reduces_from": incoming.iter().map(|e| {
-            serde_json::json!({"source": {"name": e.source_name, "variant": e.source_variant}, "target": {"name": e.target_name, "variant": e.target_variant}})
-        }).collect::<Vec<_>>(),
+        "reduces_to": outgoing.iter().map(&edge_to_json).collect::<Vec<_>>(),
+        "reduces_from": incoming.iter().map(&edge_to_json).collect::<Vec<_>>(),
     });
     if let Some(s) = schema {
         if let (Some(obj), Ok(schema_val)) = (json.as_object_mut(), serde_json::to_value(s)) {

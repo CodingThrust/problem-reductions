@@ -29,6 +29,7 @@ pub struct ReductionEdgeInfo {
     pub source_variant: BTreeMap<String, String>,
     pub target_name: &'static str,
     pub target_variant: BTreeMap<String, String>,
+    pub overhead: ReductionOverhead,
 }
 
 /// Internal edge data combining overhead and executable reduce function.
@@ -616,6 +617,7 @@ impl ReductionGraph {
                     source_variant: src.variant.clone(),
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
+                    overhead: self.graph[e.id()].overhead.clone(),
                 }
             })
             .collect()
@@ -662,6 +664,7 @@ impl ReductionGraph {
                     source_variant: src.variant.clone(),
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
+                    overhead: self.graph[e.id()].overhead.clone(),
                 }
             })
             .collect()

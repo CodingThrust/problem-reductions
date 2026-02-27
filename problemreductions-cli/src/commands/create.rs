@@ -5,7 +5,9 @@ use crate::problem_name::{parse_problem_spec, resolve_variant};
 use anyhow::{bail, Context, Result};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
-use problemreductions::topology::{Graph, SimpleGraph};
+use problemreductions::topology::{
+    Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
+};
 use problemreductions::variant::{K2, K3, KN};
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -27,11 +29,17 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.num_vertices.is_none()
         && args.edge_prob.is_none()
         && args.seed.is_none()
+        && args.positions.is_none()
+        && args.radius.is_none()
 }
 
-fn type_format_hint(type_name: &str) -> &'static str {
+fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
     match type_name {
-        "G" => "edge list: 0-1,1-2,2-3",
+        "G" => match graph_type {
+            Some("KingsSubgraph" | "TriangularSubgraph") => "integer positions: \"0,0;1,0;1,1\"",
+            Some("UnitDiskGraph") => "float positions: \"0.0,0.0;1.0,0.0\"",
+            _ => "edge list: 0-1,1-2,2-3",
+        },
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
@@ -41,12 +49,17 @@ fn type_format_hint(type_name: &str) -> &'static str {
     }
 }
 
-fn example_for(canonical: &str) -> &'static str {
+fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
     match canonical {
         "MaximumIndependentSet"
         | "MinimumVertexCover"
         | "MaximumClique"
-        | "MinimumDominatingSet" => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
+        | "MinimumDominatingSet" => match graph_type {
+            Some("KingsSubgraph") => "--positions \"0,0;1,0;1,1;0,1\"",
+            Some("TriangularSubgraph") => "--positions \"0,0;0,1;1,0;1,1\"",
+            Some("UnitDiskGraph") => "--positions \"0,0;1,0;0.5,0.8\" --radius 1.5",
+            _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
+        },
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
@@ -60,7 +73,11 @@ fn example_for(canonical: &str) -> &'static str {
     }
 }
 
-fn print_problem_help(canonical: &str) -> Result<()> {
+fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
+    let is_geometry = matches!(
+        graph_type,
+        Some("KingsSubgraph" | "TriangularSubgraph" | "UnitDiskGraph")
+    );
     let schemas = collect_schemas();
     let schema = schemas.iter().find(|s| s.name == canonical);
 
@@ -68,48 +85,78 @@ fn print_problem_help(canonical: &str) -> Result<()> {
         eprintln!("{}\n  {}\n", canonical, s.description);
         eprintln!("Parameters:");
         for field in &s.fields {
-            let hint = type_format_hint(&field.type_name);
-            eprintln!(
-                "  --{:<16} {} ({})",
-                field.name.replace('_', "-"),
-                field.description,
-                hint
-            );
+            // For geometry variants, show --positions instead of --graph
+            if field.type_name == "G" && is_geometry {
+                let hint = type_format_hint(&field.type_name, graph_type);
+                eprintln!("  --{:<16} {} ({hint})", "positions", field.description);
+                if graph_type == Some("UnitDiskGraph") {
+                    eprintln!("  --{:<16} Distance threshold [default: 1.0]", "radius");
+                }
+            } else {
+                let hint = type_format_hint(&field.type_name, graph_type);
+                eprintln!(
+                    "  --{:<16} {} ({})",
+                    field.name.replace('_', "-"),
+                    field.description,
+                    hint
+                );
+            }
         }
     } else {
         eprintln!("{canonical}\n");
         eprintln!("No schema information available.");
     }
 
-    let example = example_for(canonical);
+    let example = example_for(canonical, graph_type);
     if !example.is_empty() {
         eprintln!("\nExample:");
-        eprintln!("  pred create {} {}", canonical, example);
+        eprintln!(
+            "  pred create {} {}",
+            match graph_type {
+                Some(g) => format!("{canonical}/{g}"),
+                None => canonical.to_string(),
+            },
+            example
+        );
     }
     Ok(())
+}
+
+/// Resolve the graph type from the variant map (e.g., "KingsSubgraph", "UnitDiskGraph", or "SimpleGraph").
+fn resolved_graph_type(variant: &BTreeMap<String, String>) -> &str {
+    variant
+        .get("graph")
+        .map(|s| s.as_str())
+        .unwrap_or("SimpleGraph")
 }
 
 pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     let spec = parse_problem_spec(&args.problem)?;
     let canonical = &spec.name;
 
-    if args.random {
-        return create_random(args, canonical, out);
-    }
-
-    // Show schema-driven help when no data flags are provided
-    if all_data_flags_empty(args) {
-        return print_problem_help(canonical);
-    }
-
-    // Resolve variant from spec (e.g., MIS/KingsSubgraph → {graph: "KingsSubgraph", weight: "i32"})
-    let graph = problemreductions::rules::ReductionGraph::new();
-    let known_variants = graph.variants_for(canonical);
+    // Resolve variant early so random and help can use it
+    let rgraph = problemreductions::rules::ReductionGraph::new();
+    let known_variants = rgraph.variants_for(canonical);
     let resolved_variant = if known_variants.is_empty() {
         BTreeMap::new()
     } else {
         resolve_variant(&spec, &known_variants)?
     };
+    let graph_type = resolved_graph_type(&resolved_variant);
+
+    if args.random {
+        return create_random(args, canonical, &resolved_variant, out);
+    }
+
+    // Show schema-driven help when no data flags are provided
+    if all_data_flags_empty(args) {
+        let gt = if graph_type != "SimpleGraph" {
+            Some(graph_type)
+        } else {
+            None
+        };
+        return print_problem_help(canonical, gt);
+    }
 
     let (data, variant) = match canonical.as_str() {
         // Graph problems with vertex weights
@@ -117,21 +164,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         | "MinimumVertexCover"
         | "MaximumClique"
         | "MinimumDominatingSet" => {
-            let (graph, n) = parse_graph(args).map_err(|e| {
-                anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create {} --graph 0-1,1-2,2-3 [--weights 1,1,1,1]",
-                    args.problem
-                )
-            })?;
-            let weights = parse_vertex_weights(args, n)?;
-            let data = match canonical.as_str() {
-                "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
-                "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
-                "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
-                "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
-                _ => unreachable!(),
-            };
-            (data, resolved_variant.clone())
+            create_vertex_weight_problem(args, canonical, graph_type, &resolved_variant)?
         }
 
         // Graph problems with edge weights
@@ -235,7 +268,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(Factoring::new(m, n, target))?, resolved_variant.clone())
         }
 
-        _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
+        _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
     };
 
     let output = ProblemJsonOutput {
@@ -256,6 +289,81 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         println!("{}", serde_json::to_string_pretty(&json)?);
     }
     Ok(())
+}
+
+/// Create a vertex-weight problem dispatching on geometry graph type.
+fn create_vertex_weight_problem(
+    args: &CreateArgs,
+    canonical: &str,
+    graph_type: &str,
+    resolved_variant: &BTreeMap<String, String>,
+) -> Result<(serde_json::Value, BTreeMap<String, String>)> {
+    match graph_type {
+        "KingsSubgraph" => {
+            let positions = parse_int_positions(args)?;
+            let n = positions.len();
+            let graph = KingsSubgraph::new(positions);
+            let weights = parse_vertex_weights(args, n)?;
+            Ok((
+                ser_vertex_weight_problem_with(canonical, graph, weights)?,
+                resolved_variant.clone(),
+            ))
+        }
+        "TriangularSubgraph" => {
+            let positions = parse_int_positions(args)?;
+            let n = positions.len();
+            let graph = TriangularSubgraph::new(positions);
+            let weights = parse_vertex_weights(args, n)?;
+            Ok((
+                ser_vertex_weight_problem_with(canonical, graph, weights)?,
+                resolved_variant.clone(),
+            ))
+        }
+        "UnitDiskGraph" => {
+            let positions = parse_float_positions(args)?;
+            let n = positions.len();
+            let radius = args.radius.unwrap_or(1.0);
+            let graph = UnitDiskGraph::new(positions, radius);
+            let weights = parse_vertex_weights(args, n)?;
+            Ok((
+                ser_vertex_weight_problem_with(canonical, graph, weights)?,
+                resolved_variant.clone(),
+            ))
+        }
+        _ => {
+            // SimpleGraph path (existing)
+            let (graph, n) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create {} --graph 0-1,1-2,2-3 [--weights 1,1,1,1]",
+                    args.problem
+                )
+            })?;
+            let weights = parse_vertex_weights(args, n)?;
+            let data = match canonical {
+                "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
+                "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
+                "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
+                "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
+                _ => unreachable!(),
+            };
+            Ok((data, resolved_variant.clone()))
+        }
+    }
+}
+
+/// Serialize a vertex-weight problem with a generic graph type.
+fn ser_vertex_weight_problem_with<G: Graph + Serialize>(
+    canonical: &str,
+    graph: G,
+    weights: Vec<i32>,
+) -> Result<serde_json::Value> {
+    match canonical {
+        "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights)),
+        "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights)),
+        "MaximumClique" => ser(MaximumClique::new(graph, weights)),
+        "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights)),
+        _ => unreachable!(),
+    }
 }
 
 fn ser<T: Serialize>(problem: T) -> Result<serde_json::Value> {
@@ -297,6 +405,50 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
         .unwrap_or(0);
 
     Ok((SimpleGraph::new(num_vertices, edges), num_vertices))
+}
+
+/// Parse semicolon-separated x,y pairs from a string.
+fn parse_positions<T: std::str::FromStr>(pos_str: &str, example: &str) -> Result<Vec<(T, T)>>
+where
+    T::Err: std::fmt::Display,
+{
+    pos_str
+        .split(';')
+        .map(|pair| {
+            let parts: Vec<&str> = pair.trim().split(',').collect();
+            if parts.len() != 2 {
+                bail!(
+                    "Invalid position '{}': expected format x,y (e.g., {example})",
+                    pair.trim()
+                );
+            }
+            let x: T = parts[0]
+                .trim()
+                .parse()
+                .map_err(|e| anyhow::anyhow!("Invalid x in '{}': {e}", pair.trim()))?;
+            let y: T = parts[1]
+                .trim()
+                .parse()
+                .map_err(|e| anyhow::anyhow!("Invalid y in '{}': {e}", pair.trim()))?;
+            Ok((x, y))
+        })
+        .collect()
+}
+
+/// Parse `--positions` as integer grid positions.
+fn parse_int_positions(args: &CreateArgs) -> Result<Vec<(i32, i32)>> {
+    let pos_str = args.positions.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("This variant requires --positions (e.g., \"0,0;1,0;1,1\")")
+    })?;
+    parse_positions(pos_str, "0,0")
+}
+
+/// Parse `--positions` as float positions.
+fn parse_float_positions(args: &CreateArgs) -> Result<Vec<(f64, f64)>> {
+    let pos_str = args.positions.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("This variant requires --positions (e.g., \"0.0,0.0;1.0,0.0;0.5,0.87\")")
+    })?;
+    parse_positions(pos_str, "0.0,0.0")
 }
 
 /// Parse `--weights` as vertex weights (i32), defaulting to all 1s.
@@ -445,8 +597,57 @@ fn create_random_graph(num_vertices: usize, edge_prob: f64, seed: Option<u64>) -
     SimpleGraph::new(num_vertices, edges)
 }
 
+/// LCG PRNG step — returns next state and a uniform f64 in [0, 1).
+fn lcg_step(state: &mut u64) -> f64 {
+    *state = state
+        .wrapping_mul(6364136223846793005)
+        .wrapping_add(1442695040888963407);
+    (*state >> 33) as f64 / (1u64 << 31) as f64
+}
+
+/// Initialize LCG state from seed or system time.
+fn lcg_init(seed: Option<u64>) -> u64 {
+    seed.unwrap_or_else(|| {
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos() as u64
+    })
+}
+
+/// Generate random unique integer positions on a grid for KingsSubgraph/TriangularSubgraph.
+fn create_random_int_positions(num_vertices: usize, seed: Option<u64>) -> Vec<(i32, i32)> {
+    let mut state = lcg_init(seed);
+    let grid_size = (num_vertices as f64).sqrt().ceil() as i32 + 1;
+    let mut positions = std::collections::BTreeSet::new();
+    while positions.len() < num_vertices {
+        let x = (lcg_step(&mut state) * grid_size as f64) as i32;
+        let y = (lcg_step(&mut state) * grid_size as f64) as i32;
+        positions.insert((x, y));
+    }
+    positions.into_iter().collect()
+}
+
+/// Generate random float positions in [0, sqrt(N)] x [0, sqrt(N)] for UnitDiskGraph.
+fn create_random_float_positions(num_vertices: usize, seed: Option<u64>) -> Vec<(f64, f64)> {
+    let mut state = lcg_init(seed);
+    let side = (num_vertices as f64).sqrt();
+    (0..num_vertices)
+        .map(|_| {
+            let x = lcg_step(&mut state) * side;
+            let y = lcg_step(&mut state) * side;
+            (x, y)
+        })
+        .collect()
+}
+
 /// Handle `pred create <PROBLEM> --random ...`
-fn create_random(args: &CreateArgs, canonical: &str, out: &OutputConfig) -> Result<()> {
+fn create_random(
+    args: &CreateArgs,
+    canonical: &str,
+    resolved_variant: &BTreeMap<String, String>,
+    out: &OutputConfig,
+) -> Result<()> {
     let num_vertices = args.num_vertices.ok_or_else(|| {
         anyhow::anyhow!(
             "--random requires --num-vertices\n\n\
@@ -454,13 +655,8 @@ fn create_random(args: &CreateArgs, canonical: &str, out: &OutputConfig) -> Resu
             args.problem
         )
     })?;
-    let edge_prob = args.edge_prob.unwrap_or(0.5);
-    if !(0.0..=1.0).contains(&edge_prob) {
-        bail!("--edge-prob must be between 0.0 and 1.0");
-    }
 
-    let graph = create_random_graph(num_vertices, edge_prob, args.seed);
-    let num_edges = graph.num_edges();
+    let graph_type = resolved_graph_type(resolved_variant);
 
     let (data, variant) = match canonical {
         // Graph problems with vertex weights
@@ -469,19 +665,59 @@ fn create_random(args: &CreateArgs, canonical: &str, out: &OutputConfig) -> Resu
         | "MaximumClique"
         | "MinimumDominatingSet" => {
             let weights = vec![1i32; num_vertices];
-            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-            let data = match canonical {
-                "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
-                "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
-                "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
-                "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
-                _ => unreachable!(),
-            };
-            (data, variant)
+            match graph_type {
+                "KingsSubgraph" => {
+                    let positions = create_random_int_positions(num_vertices, args.seed);
+                    let graph = KingsSubgraph::new(positions);
+                    (
+                        ser_vertex_weight_problem_with(canonical, graph, weights)?,
+                        resolved_variant.clone(),
+                    )
+                }
+                "TriangularSubgraph" => {
+                    let positions = create_random_int_positions(num_vertices, args.seed);
+                    let graph = TriangularSubgraph::new(positions);
+                    (
+                        ser_vertex_weight_problem_with(canonical, graph, weights)?,
+                        resolved_variant.clone(),
+                    )
+                }
+                "UnitDiskGraph" => {
+                    let radius = args.radius.unwrap_or(1.0);
+                    let positions = create_random_float_positions(num_vertices, args.seed);
+                    let graph = UnitDiskGraph::new(positions, radius);
+                    (
+                        ser_vertex_weight_problem_with(canonical, graph, weights)?,
+                        resolved_variant.clone(),
+                    )
+                }
+                _ => {
+                    let edge_prob = args.edge_prob.unwrap_or(0.5);
+                    if !(0.0..=1.0).contains(&edge_prob) {
+                        bail!("--edge-prob must be between 0.0 and 1.0");
+                    }
+                    let graph = create_random_graph(num_vertices, edge_prob, args.seed);
+                    let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+                    let data = match canonical {
+                        "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
+                        "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
+                        "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
+                        "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
+                        _ => unreachable!(),
+                    };
+                    (data, variant)
+                }
+            }
         }
 
         // Graph problems with edge weights
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = create_random_graph(num_vertices, edge_prob, args.seed);
+            let num_edges = graph.num_edges();
             let edge_weights = vec![1i32; num_edges];
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
             let data = match canonical {
@@ -495,6 +731,12 @@ fn create_random(args: &CreateArgs, canonical: &str, out: &OutputConfig) -> Resu
 
         // SpinGlass
         "SpinGlass" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = create_random_graph(num_vertices, edge_prob, args.seed);
+            let num_edges = graph.num_edges();
             let couplings = vec![1i32; num_edges];
             let fields = vec![0i32; num_vertices];
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
@@ -506,6 +748,11 @@ fn create_random(args: &CreateArgs, canonical: &str, out: &OutputConfig) -> Resu
 
         // KColoring
         "KColoring" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = create_random_graph(num_vertices, edge_prob, args.seed);
             let k = args.k.unwrap_or(3);
             let variant;
             let data;
