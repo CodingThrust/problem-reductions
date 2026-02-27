@@ -1,9 +1,10 @@
+use crate::util;
 use problemreductions::models::graph::{
-    KColoring, MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
+    MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
     MinimumVertexCover, TravelingSalesman,
 };
 use problemreductions::models::optimization::{SpinGlass, QUBO};
-use problemreductions::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
+use problemreductions::models::satisfiability::{CNFClause, Satisfiability};
 use problemreductions::models::specialized::Factoring;
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{
@@ -13,7 +14,6 @@ use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
 use problemreductions::types::ProblemSize;
-use problemreductions::variant::{K2, K3, KN};
 use rmcp::handler::server::router::tool::ToolRouter;
 use rmcp::handler::server::wrapper::Parameters;
 use rmcp::tool;
@@ -437,14 +437,10 @@ impl McpServer {
 
             "KColoring" => {
                 let (graph, _) = parse_graph_from_params(params)?;
-                let k = params
-                    .get("k")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as usize)
-                    .ok_or_else(|| {
-                        anyhow::anyhow!("KColoring requires 'k' parameter (number of colors)")
-                    })?;
-                ser_kcoloring(graph, k)?
+                let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
+                let (k, _variant) =
+                    util::validate_k_param(&resolved_variant, k_flag, None, "KColoring")?;
+                util::ser_kcoloring(graph, k)?
             }
 
             // SAT
@@ -465,24 +461,10 @@ impl McpServer {
                     .map(|v| v as usize)
                     .ok_or_else(|| anyhow::anyhow!("KSatisfiability requires 'num_vars'"))?;
                 let clauses = parse_clauses_from_params(params)?;
-                let k = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
-                let variant;
-                let data;
-                match k {
-                    Some(2) => {
-                        variant = variant_map(&[("k", "K2")]);
-                        data = ser(KSatisfiability::<K2>::new(num_vars, clauses))?;
-                    }
-                    Some(3) => {
-                        variant = variant_map(&[("k", "K3")]);
-                        data = ser(KSatisfiability::<K3>::new(num_vars, clauses))?;
-                    }
-                    _ => {
-                        variant = variant_map(&[("k", "KN")]);
-                        data = ser(KSatisfiability::<KN>::new(num_vars, clauses))?;
-                    }
-                }
-                (data, variant)
+                let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
+                let (k, _variant) =
+                    util::validate_k_param(&resolved_variant, k_flag, Some(3), "KSatisfiability")?;
+                util::ser_ksat(num_vars, clauses, k)?
             }
 
             // QUBO
@@ -562,7 +544,7 @@ impl McpServer {
                 let weights = vec![1i32; num_vertices];
                 match graph_type {
                     "KingsSubgraph" => {
-                        let positions = create_random_int_positions(num_vertices, seed);
+                        let positions = util::create_random_int_positions(num_vertices, seed);
                         let graph = KingsSubgraph::new(positions);
                         (
                             ser_vertex_weight_problem_generic(canonical, graph, weights)?,
@@ -570,7 +552,7 @@ impl McpServer {
                         )
                     }
                     "TriangularSubgraph" => {
-                        let positions = create_random_int_positions(num_vertices, seed);
+                        let positions = util::create_random_int_positions(num_vertices, seed);
                         let graph = TriangularSubgraph::new(positions);
                         (
                             ser_vertex_weight_problem_generic(canonical, graph, weights)?,
@@ -579,7 +561,7 @@ impl McpServer {
                     }
                     "UnitDiskGraph" => {
                         let radius = params.get("radius").and_then(|v| v.as_f64()).unwrap_or(1.0);
-                        let positions = create_random_float_positions(num_vertices, seed);
+                        let positions = util::create_random_float_positions(num_vertices, seed);
                         let graph = UnitDiskGraph::new(positions, radius);
                         (
                             ser_vertex_weight_problem_generic(canonical, graph, weights)?,
@@ -594,7 +576,7 @@ impl McpServer {
                         if !(0.0..=1.0).contains(&edge_prob) {
                             anyhow::bail!("edge_prob must be between 0.0 and 1.0");
                         }
-                        let graph = create_random_graph(num_vertices, edge_prob, seed);
+                        let graph = util::create_random_graph(num_vertices, edge_prob, seed);
                         ser_vertex_weight_problem(canonical, graph, weights)?
                     }
                 }
@@ -607,7 +589,7 @@ impl McpServer {
                 if !(0.0..=1.0).contains(&edge_prob) {
                     anyhow::bail!("edge_prob must be between 0.0 and 1.0");
                 }
-                let graph = create_random_graph(num_vertices, edge_prob, seed);
+                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
                 let num_edges = graph.num_edges();
                 let edge_weights = vec![1i32; num_edges];
                 ser_edge_weight_problem(canonical, graph, edge_weights)?
@@ -620,7 +602,7 @@ impl McpServer {
                 if !(0.0..=1.0).contains(&edge_prob) {
                     anyhow::bail!("edge_prob must be between 0.0 and 1.0");
                 }
-                let graph = create_random_graph(num_vertices, edge_prob, seed);
+                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
                 let num_edges = graph.num_edges();
                 let couplings = vec![1i32; num_edges];
                 let fields = vec![0i32; num_vertices];
@@ -638,13 +620,11 @@ impl McpServer {
                 if !(0.0..=1.0).contains(&edge_prob) {
                     anyhow::bail!("edge_prob must be between 0.0 and 1.0");
                 }
-                let graph = create_random_graph(num_vertices, edge_prob, seed);
-                let k = params
-                    .get("k")
-                    .and_then(|v| v.as_u64())
-                    .map(|v| v as usize)
-                    .unwrap_or(3);
-                ser_kcoloring(graph, k)?
+                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
+                let k_flag = params.get("k").and_then(|v| v.as_u64()).map(|v| v as usize);
+                let (k, _variant) =
+                    util::validate_k_param(resolved_variant, k_flag, Some(3), "KColoring")?;
+                util::ser_kcoloring(graph, k)?
             }
             _ => anyhow::bail!(
                 "Random generation is not supported for {}. \
@@ -1090,14 +1070,11 @@ fn format_path_json(
 // ---------------------------------------------------------------------------
 
 fn ser<T: Serialize>(problem: T) -> anyhow::Result<serde_json::Value> {
-    Ok(serde_json::to_value(problem)?)
+    util::ser(problem)
 }
 
 fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
-    pairs
-        .iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect()
+    util::variant_map(pairs)
 }
 
 /// Serialize a vertex-weight graph problem (MIS, MVC, MaxClique, MinDomSet).
@@ -1131,27 +1108,6 @@ fn ser_edge_weight_problem(
         _ => unreachable!(),
     };
     Ok((data, variant))
-}
-
-/// Serialize a KColoring problem with the appropriate K variant.
-fn ser_kcoloring(
-    graph: SimpleGraph,
-    k: usize,
-) -> anyhow::Result<(serde_json::Value, BTreeMap<String, String>)> {
-    match k {
-        2 => Ok((
-            ser(KColoring::<K2, SimpleGraph>::new(graph))?,
-            variant_map(&[("k", "K2"), ("graph", "SimpleGraph")]),
-        )),
-        3 => Ok((
-            ser(KColoring::<K3, SimpleGraph>::new(graph))?,
-            variant_map(&[("k", "K3"), ("graph", "SimpleGraph")]),
-        )),
-        _ => Ok((
-            ser(KColoring::<KN, SimpleGraph>::with_k(graph, k))?,
-            variant_map(&[("k", "KN"), ("graph", "SimpleGraph")]),
-        )),
-    }
 }
 
 /// Serialize a vertex-weight problem with a generic graph type.
@@ -1216,31 +1172,6 @@ fn create_vertex_weight_from_params(
     }
 }
 
-/// Parse semicolon-separated x,y pairs from a string.
-fn parse_positions<T: std::str::FromStr>(pos_str: &str) -> anyhow::Result<Vec<(T, T)>>
-where
-    T::Err: std::fmt::Display,
-{
-    pos_str
-        .split(';')
-        .map(|pair| {
-            let parts: Vec<&str> = pair.trim().split(',').collect();
-            if parts.len() != 2 {
-                anyhow::bail!("Invalid position '{}': expected format x,y", pair.trim());
-            }
-            let x: T = parts[0]
-                .trim()
-                .parse()
-                .map_err(|e| anyhow::anyhow!("Invalid x in '{}': {e}", pair.trim()))?;
-            let y: T = parts[1]
-                .trim()
-                .parse()
-                .map_err(|e| anyhow::anyhow!("Invalid y in '{}': {e}", pair.trim()))?;
-            Ok((x, y))
-        })
-        .collect()
-}
-
 /// Extract and parse 'positions' param as integer grid positions.
 fn parse_int_positions_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<(i32, i32)>> {
     let pos_str = params
@@ -1249,7 +1180,7 @@ fn parse_int_positions_from_params(params: &serde_json::Value) -> anyhow::Result
         .ok_or_else(|| {
             anyhow::anyhow!("This variant requires 'positions' parameter (e.g., \"0,0;1,0;1,1\")")
         })?;
-    parse_positions(pos_str)
+    util::parse_positions(pos_str, "0,0;1,0;1,1")
 }
 
 /// Extract and parse 'positions' param as float positions.
@@ -1264,51 +1195,7 @@ fn parse_float_positions_from_params(
                 "This variant requires 'positions' parameter (e.g., \"0.0,0.0;1.0,0.0\")"
             )
         })?;
-    parse_positions(pos_str)
-}
-
-/// Generate random unique integer positions on a grid.
-fn create_random_int_positions(num_vertices: usize, seed: Option<u64>) -> Vec<(i32, i32)> {
-    let mut state = lcg_init(seed);
-    let grid_size = (num_vertices as f64).sqrt().ceil() as i32 + 1;
-    let mut positions = std::collections::BTreeSet::new();
-    while positions.len() < num_vertices {
-        let x = (lcg_step(&mut state) * grid_size as f64) as i32;
-        let y = (lcg_step(&mut state) * grid_size as f64) as i32;
-        positions.insert((x, y));
-    }
-    positions.into_iter().collect()
-}
-
-/// Generate random float positions in [0, sqrt(N)] x [0, sqrt(N)].
-fn create_random_float_positions(num_vertices: usize, seed: Option<u64>) -> Vec<(f64, f64)> {
-    let mut state = lcg_init(seed);
-    let side = (num_vertices as f64).sqrt();
-    (0..num_vertices)
-        .map(|_| {
-            let x = lcg_step(&mut state) * side;
-            let y = lcg_step(&mut state) * side;
-            (x, y)
-        })
-        .collect()
-}
-
-/// LCG PRNG step.
-fn lcg_step(state: &mut u64) -> f64 {
-    *state = state
-        .wrapping_mul(6364136223846793005)
-        .wrapping_add(1442695040888963407);
-    (*state >> 33) as f64 / (1u64 << 31) as f64
-}
-
-/// Initialize LCG state.
-fn lcg_init(seed: Option<u64>) -> u64 {
-    seed.unwrap_or_else(|| {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as u64
-    })
+    util::parse_positions(pos_str, "0.0,0.0;1.0,0.0")
 }
 
 /// Parse `edges` field from JSON params into a SimpleGraph.
@@ -1435,32 +1322,6 @@ fn parse_matrix_from_params(params: &serde_json::Value) -> anyhow::Result<Vec<Ve
                 .collect()
         })
         .collect()
-}
-
-/// Generate a random Erdos-Renyi graph using a simple LCG PRNG (no external dependency).
-fn create_random_graph(num_vertices: usize, edge_prob: f64, seed: Option<u64>) -> SimpleGraph {
-    let mut state: u64 = seed.unwrap_or_else(|| {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as u64
-    });
-
-    let mut edges = Vec::new();
-    for i in 0..num_vertices {
-        for j in (i + 1)..num_vertices {
-            // LCG step
-            state = state
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1442695040888963407);
-            let rand_val = (state >> 33) as f64 / (1u64 << 31) as f64;
-            if rand_val < edge_prob {
-                edges.push((i, j));
-            }
-        }
-    }
-
-    SimpleGraph::new(num_vertices, edges)
 }
 
 /// Solve a plain problem and return JSON string.

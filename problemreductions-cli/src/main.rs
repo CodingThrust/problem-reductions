@@ -5,6 +5,7 @@ mod dispatch;
 mod mcp;
 mod output;
 mod problem_name;
+mod util;
 
 use clap::{CommandFactory, Parser};
 use cli::{Cli, Commands};

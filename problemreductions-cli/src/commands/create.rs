@@ -2,13 +2,13 @@ use crate::cli::CreateArgs;
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
 use crate::problem_name::{parse_problem_spec, resolve_variant};
+use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
-use problemreductions::variant::{K2, K3, KN};
 use serde::Serialize;
 use std::collections::BTreeMap;
 
@@ -190,16 +190,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!("{e}\n\nUsage: pred create KColoring --graph 0-1,1-2,2-0 --k 3")
             })?;
-            let data = match args.k {
-                Some(2) => ser(KColoring::<K2, SimpleGraph>::new(graph))?,
-                Some(3) => ser(KColoring::<K3, SimpleGraph>::new(graph))?,
-                Some(k) => ser(KColoring::<KN, SimpleGraph>::with_k(graph, k))?,
-                None => bail!(
-                    "KColoring requires --k <num_colors>\n\n\
-                     Usage: pred create KColoring --graph 0-1,1-2,2-0 --k 3"
-                ),
-            };
-            (data, resolved_variant.clone())
+            let (k, _variant) =
+                util::validate_k_param(&resolved_variant, args.k, None, "KColoring")?;
+            util::ser_kcoloring(graph, k)?
         }
 
         // SAT
@@ -224,12 +217,9 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let clauses = parse_clauses(args)?;
-            let data = match args.k {
-                Some(2) => ser(KSatisfiability::<K2>::new(num_vars, clauses))?,
-                Some(3) => ser(KSatisfiability::<K3>::new(num_vars, clauses))?,
-                _ => ser(KSatisfiability::<KN>::new(num_vars, clauses))?,
-            };
-            (data, resolved_variant.clone())
+            let (k, _variant) =
+                util::validate_k_param(&resolved_variant, args.k, Some(3), "KSatisfiability")?;
+            util::ser_ksat(num_vars, clauses, k)?
         }
 
         // QUBO
@@ -367,14 +357,11 @@ fn ser_vertex_weight_problem_with<G: Graph + Serialize>(
 }
 
 fn ser<T: Serialize>(problem: T) -> Result<serde_json::Value> {
-    Ok(serde_json::to_value(problem)?)
+    util::ser(problem)
 }
 
 fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
-    pairs
-        .iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
-        .collect()
+    util::variant_map(pairs)
 }
 
 /// Parse `--graph` into a SimpleGraph, inferring num_vertices from max index.
@@ -407,40 +394,12 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
     Ok((SimpleGraph::new(num_vertices, edges), num_vertices))
 }
 
-/// Parse semicolon-separated x,y pairs from a string.
-fn parse_positions<T: std::str::FromStr>(pos_str: &str, example: &str) -> Result<Vec<(T, T)>>
-where
-    T::Err: std::fmt::Display,
-{
-    pos_str
-        .split(';')
-        .map(|pair| {
-            let parts: Vec<&str> = pair.trim().split(',').collect();
-            if parts.len() != 2 {
-                bail!(
-                    "Invalid position '{}': expected format x,y (e.g., {example})",
-                    pair.trim()
-                );
-            }
-            let x: T = parts[0]
-                .trim()
-                .parse()
-                .map_err(|e| anyhow::anyhow!("Invalid x in '{}': {e}", pair.trim()))?;
-            let y: T = parts[1]
-                .trim()
-                .parse()
-                .map_err(|e| anyhow::anyhow!("Invalid y in '{}': {e}", pair.trim()))?;
-            Ok((x, y))
-        })
-        .collect()
-}
-
 /// Parse `--positions` as integer grid positions.
 fn parse_int_positions(args: &CreateArgs) -> Result<Vec<(i32, i32)>> {
     let pos_str = args.positions.as_deref().ok_or_else(|| {
         anyhow::anyhow!("This variant requires --positions (e.g., \"0,0;1,0;1,1\")")
     })?;
-    parse_positions(pos_str, "0,0")
+    util::parse_positions(pos_str, "0,0")
 }
 
 /// Parse `--positions` as float positions.
@@ -448,7 +407,7 @@ fn parse_float_positions(args: &CreateArgs) -> Result<Vec<(f64, f64)>> {
     let pos_str = args.positions.as_deref().ok_or_else(|| {
         anyhow::anyhow!("This variant requires --positions (e.g., \"0.0,0.0;1.0,0.0;0.5,0.87\")")
     })?;
-    parse_positions(pos_str, "0.0,0.0")
+    util::parse_positions(pos_str, "0.0,0.0")
 }
 
 /// Parse `--weights` as vertex weights (i32), defaulting to all 1s.
@@ -571,74 +530,16 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
         .collect()
 }
 
-/// Generate a random Erdos-Renyi graph using a simple LCG PRNG (no external dependency).
 fn create_random_graph(num_vertices: usize, edge_prob: f64, seed: Option<u64>) -> SimpleGraph {
-    let mut state: u64 = seed.unwrap_or_else(|| {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as u64
-    });
-
-    let mut edges = Vec::new();
-    for i in 0..num_vertices {
-        for j in (i + 1)..num_vertices {
-            // LCG step
-            state = state
-                .wrapping_mul(6364136223846793005)
-                .wrapping_add(1442695040888963407);
-            let rand_val = (state >> 33) as f64 / (1u64 << 31) as f64;
-            if rand_val < edge_prob {
-                edges.push((i, j));
-            }
-        }
-    }
-
-    SimpleGraph::new(num_vertices, edges)
+    util::create_random_graph(num_vertices, edge_prob, seed)
 }
 
-/// LCG PRNG step — returns next state and a uniform f64 in [0, 1).
-fn lcg_step(state: &mut u64) -> f64 {
-    *state = state
-        .wrapping_mul(6364136223846793005)
-        .wrapping_add(1442695040888963407);
-    (*state >> 33) as f64 / (1u64 << 31) as f64
-}
-
-/// Initialize LCG state from seed or system time.
-fn lcg_init(seed: Option<u64>) -> u64 {
-    seed.unwrap_or_else(|| {
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as u64
-    })
-}
-
-/// Generate random unique integer positions on a grid for KingsSubgraph/TriangularSubgraph.
 fn create_random_int_positions(num_vertices: usize, seed: Option<u64>) -> Vec<(i32, i32)> {
-    let mut state = lcg_init(seed);
-    let grid_size = (num_vertices as f64).sqrt().ceil() as i32 + 1;
-    let mut positions = std::collections::BTreeSet::new();
-    while positions.len() < num_vertices {
-        let x = (lcg_step(&mut state) * grid_size as f64) as i32;
-        let y = (lcg_step(&mut state) * grid_size as f64) as i32;
-        positions.insert((x, y));
-    }
-    positions.into_iter().collect()
+    util::create_random_int_positions(num_vertices, seed)
 }
 
-/// Generate random float positions in [0, sqrt(N)] x [0, sqrt(N)] for UnitDiskGraph.
 fn create_random_float_positions(num_vertices: usize, seed: Option<u64>) -> Vec<(f64, f64)> {
-    let mut state = lcg_init(seed);
-    let side = (num_vertices as f64).sqrt();
-    (0..num_vertices)
-        .map(|_| {
-            let x = lcg_step(&mut state) * side;
-            let y = lcg_step(&mut state) * side;
-            (x, y)
-        })
-        .collect()
+    util::create_random_float_positions(num_vertices, seed)
 }
 
 /// Handle `pred create <PROBLEM> --random ...`
@@ -753,24 +654,9 @@ fn create_random(
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
             let graph = create_random_graph(num_vertices, edge_prob, args.seed);
-            let k = args.k.unwrap_or(3);
-            let variant;
-            let data;
-            match k {
-                2 => {
-                    variant = variant_map(&[("k", "K2"), ("graph", "SimpleGraph")]);
-                    data = ser(KColoring::<K2, SimpleGraph>::new(graph))?;
-                }
-                3 => {
-                    variant = variant_map(&[("k", "K3"), ("graph", "SimpleGraph")]);
-                    data = ser(KColoring::<K3, SimpleGraph>::new(graph))?;
-                }
-                _ => {
-                    variant = variant_map(&[("k", "KN"), ("graph", "SimpleGraph")]);
-                    data = ser(KColoring::<KN, SimpleGraph>::with_k(graph, k))?;
-                }
-            }
-            (data, variant)
+            let (k, _variant) =
+                util::validate_k_param(resolved_variant, args.k, Some(3), "KColoring")?;
+            util::ser_kcoloring(graph, k)?
         }
 
         _ => bail!(
