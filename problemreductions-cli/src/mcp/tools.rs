@@ -192,15 +192,23 @@ impl McpServer {
             "variants": variants_json,
             "size_fields": &size_fields,
             "reduces_to": outgoing.iter().map(|e| {
+                let overhead: Vec<serde_json::Value> = e.overhead.output_size.iter()
+                    .map(|(field, poly)| serde_json::json!({"field": field, "formula": poly.to_string()}))
+                    .collect();
                 serde_json::json!({
                     "source": {"name": e.source_name, "variant": e.source_variant},
                     "target": {"name": e.target_name, "variant": e.target_variant},
+                    "overhead": overhead,
                 })
             }).collect::<Vec<_>>(),
             "reduces_from": incoming.iter().map(|e| {
+                let overhead: Vec<serde_json::Value> = e.overhead.output_size.iter()
+                    .map(|(field, poly)| serde_json::json!({"field": field, "formula": poly.to_string()}))
+                    .collect();
                 serde_json::json!({
                     "source": {"name": e.source_name, "variant": e.source_variant},
                     "target": {"name": e.target_name, "variant": e.target_variant},
+                    "overhead": overhead,
                 })
             }).collect::<Vec<_>>(),
         });

@@ -56,7 +56,7 @@ macro_rules! declare_variants {
 declare_variants! {
     MaximumIndependentSet<SimpleGraph, i32>    => "2^num_vertices",
     MaximumIndependentSet<KingsSubgraph, i32>  => "2^num_vertices",
-    MaximumIndependentSet<UnitDiskGraph, f64>  => "2^num_vertices",
+    MaximumIndependentSet<UnitDiskGraph, i32>  => "2^num_vertices",
 }
 ```
 

@@ -530,18 +530,6 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
         .collect()
 }
 
-fn create_random_graph(num_vertices: usize, edge_prob: f64, seed: Option<u64>) -> SimpleGraph {
-    util::create_random_graph(num_vertices, edge_prob, seed)
-}
-
-fn create_random_int_positions(num_vertices: usize, seed: Option<u64>) -> Vec<(i32, i32)> {
-    util::create_random_int_positions(num_vertices, seed)
-}
-
-fn create_random_float_positions(num_vertices: usize, seed: Option<u64>) -> Vec<(f64, f64)> {
-    util::create_random_float_positions(num_vertices, seed)
-}
-
 /// Handle `pred create <PROBLEM> --random ...`
 fn create_random(
     args: &CreateArgs,
@@ -568,7 +556,7 @@ fn create_random(
             let weights = vec![1i32; num_vertices];
             match graph_type {
                 "KingsSubgraph" => {
-                    let positions = create_random_int_positions(num_vertices, args.seed);
+                    let positions = util::create_random_int_positions(num_vertices, args.seed);
                     let graph = KingsSubgraph::new(positions);
                     (
                         ser_vertex_weight_problem_with(canonical, graph, weights)?,
@@ -576,7 +564,7 @@ fn create_random(
                     )
                 }
                 "TriangularSubgraph" => {
-                    let positions = create_random_int_positions(num_vertices, args.seed);
+                    let positions = util::create_random_int_positions(num_vertices, args.seed);
                     let graph = TriangularSubgraph::new(positions);
                     (
                         ser_vertex_weight_problem_with(canonical, graph, weights)?,
@@ -585,7 +573,7 @@ fn create_random(
                 }
                 "UnitDiskGraph" => {
                     let radius = args.radius.unwrap_or(1.0);
-                    let positions = create_random_float_positions(num_vertices, args.seed);
+                    let positions = util::create_random_float_positions(num_vertices, args.seed);
                     let graph = UnitDiskGraph::new(positions, radius);
                     (
                         ser_vertex_weight_problem_with(canonical, graph, weights)?,
@@ -597,7 +585,7 @@ fn create_random(
                     if !(0.0..=1.0).contains(&edge_prob) {
                         bail!("--edge-prob must be between 0.0 and 1.0");
                     }
-                    let graph = create_random_graph(num_vertices, edge_prob, args.seed);
+                    let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
                     let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
                     let data = match canonical {
                         "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
@@ -617,7 +605,7 @@ fn create_random(
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let num_edges = graph.num_edges();
             let edge_weights = vec![1i32; num_edges];
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
@@ -636,7 +624,7 @@ fn create_random(
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let num_edges = graph.num_edges();
             let couplings = vec![1i32; num_edges];
             let fields = vec![0i32; num_vertices];
@@ -653,7 +641,7 @@ fn create_random(
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = create_random_graph(num_vertices, edge_prob, args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let (k, _variant) =
                 util::validate_k_param(resolved_variant, args.k, Some(3), "KColoring")?;
             util::ser_kcoloring(graph, k)?
