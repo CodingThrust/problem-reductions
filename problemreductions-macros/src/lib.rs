@@ -280,6 +280,14 @@ fn generate_reduction_entry(
                 },
             }
         }
+
+        const _: () = {
+            fn _assert_declared_variant<T: crate::traits::DeclaredVariant>() {}
+            fn _check() {
+                _assert_declared_variant::<#source_type>();
+                _assert_declared_variant::<#target_type>();
+            }
+        };
     };
 
     Ok(output)
