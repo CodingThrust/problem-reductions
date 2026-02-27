@@ -123,7 +123,11 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             "  {}",
             crate::output::fmt_problem_name(&format!("{}{}", spec.name, slash))
         );
-        text.push_str(&format!("{label}\n"));
+        if let Some(c) = graph.variant_complexity(&spec.name, v) {
+            text.push_str(&format!("{label}  complexity: {c}\n"));
+        } else {
+            text.push_str(&format!("{label}\n"));
+        }
     }
 
     // Show fields from schema (right after variants)
@@ -218,9 +222,20 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             "overhead": overhead,
         })
     };
+    let variants_json: Vec<serde_json::Value> = variants
+        .iter()
+        .map(|v| {
+            let complexity = graph.variant_complexity(&spec.name, v).unwrap_or("");
+            serde_json::json!({
+                "variant": v,
+                "complexity": complexity,
+            })
+        })
+        .collect();
+
     let mut json = serde_json::json!({
         "name": spec.name,
-        "variants": variants,
+        "variants": variants_json,
         "size_fields": size_fields,
         "reduces_to": outgoing.iter().map(&edge_to_json).collect::<Vec<_>>(),
         "reduces_from": incoming.iter().map(&edge_to_json).collect::<Vec<_>>(),

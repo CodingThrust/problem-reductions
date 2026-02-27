@@ -176,9 +176,20 @@ impl McpServer {
         let incoming = graph.incoming_reductions(&spec.name);
         let size_fields = graph.size_field_names(&spec.name);
 
+        let variants_json: Vec<serde_json::Value> = variants
+            .iter()
+            .map(|v| {
+                let complexity = graph.variant_complexity(&spec.name, v).unwrap_or("");
+                serde_json::json!({
+                    "variant": v,
+                    "complexity": complexity,
+                })
+            })
+            .collect();
+
         let mut json = serde_json::json!({
             "name": spec.name,
-            "variants": variants,
+            "variants": variants_json,
             "size_fields": &size_fields,
             "reduces_to": outgoing.iter().map(|e| {
                 serde_json::json!({
