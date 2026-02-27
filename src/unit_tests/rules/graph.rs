@@ -1051,3 +1051,32 @@ fn test_overhead_variables_are_consistent() {
         }
     }
 }
+
+#[test]
+fn test_variant_entry_complexity_available() {
+    let entries: Vec<_> = inventory::iter::<crate::registry::VariantEntry>
+        .into_iter()
+        .collect();
+    assert!(
+        !entries.is_empty(),
+        "VariantEntry inventory should not be empty"
+    );
+
+    let mis_entry = entries
+        .iter()
+        .find(|e| e.name == "MaximumIndependentSet");
+    assert!(mis_entry.is_some(), "MIS should have a VariantEntry");
+    assert!(
+        !mis_entry.unwrap().complexity.is_empty(),
+        "complexity should not be empty"
+    );
+}
+
+#[test]
+fn test_variant_complexity() {
+    let graph = ReductionGraph::new();
+    let variant =
+        ReductionGraph::variant_to_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+    let complexity = graph.variant_complexity("MaximumIndependentSet", &variant);
+    assert_eq!(complexity, Some("2^num_vertices"));
+}

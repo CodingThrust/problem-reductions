@@ -1,10 +1,14 @@
 //! Runtime reduction graph for discovering and executing reduction paths.
 //!
 //! The graph uses variant-level nodes: each node is a unique `(problem_name, variant)` pair.
+//! Nodes are built in two phases:
+//! 1. From `VariantEntry` inventory (with complexity metadata)
+//! 2. From `ReductionEntry` inventory (fallback for backwards compatibility)
+//!
 //! Edges come exclusively from `#[reduction]` registrations via `inventory::iter::<ReductionEntry>`.
 //!
 //! This module implements:
-//! - Variant-level graph construction from `ReductionEntry` inventory
+//! - Variant-level graph construction from `VariantEntry` and `ReductionEntry` inventory
 //! - Dijkstra's algorithm with custom cost functions for optimal paths
 //! - JSON export for documentation and visualization
 
@@ -208,6 +212,7 @@ pub(crate) fn classify_problem_category(module_path: &str) -> &str {
 struct VariantNode {
     name: &'static str,
     variant: BTreeMap<String, String>,
+    complexity: &'static str,
 }
 
 /// Information about a neighbor in the reduction graph.
@@ -270,12 +275,13 @@ impl ReductionGraph {
         let mut name_to_nodes: HashMap<&'static str, Vec<NodeIndex>> = HashMap::new();
 
         // Helper to ensure a variant node exists in the graph.
-        let ensure_node = |name: &'static str,
-                           variant: BTreeMap<String, String>,
-                           nodes: &mut Vec<VariantNode>,
-                           graph: &mut DiGraph<usize, ReductionEdgeData>,
-                           node_index: &mut HashMap<VariantRef, NodeIndex>,
-                           name_to_nodes: &mut HashMap<&'static str, Vec<NodeIndex>>|
+        let mut ensure_node = |name: &'static str,
+                               variant: BTreeMap<String, String>,
+                               complexity: &'static str,
+                               nodes: &mut Vec<VariantNode>,
+                               graph: &mut DiGraph<usize, ReductionEdgeData>,
+                               node_index: &mut HashMap<VariantRef, NodeIndex>,
+                               name_to_nodes: &mut HashMap<&'static str, Vec<NodeIndex>>|
          -> NodeIndex {
             let vref = VariantRef {
                 name: name.to_string(),
@@ -285,7 +291,11 @@ impl ReductionGraph {
                 idx
             } else {
                 let node_id = nodes.len();
-                nodes.push(VariantNode { name, variant });
+                nodes.push(VariantNode {
+                    name,
+                    variant,
+                    complexity,
+                });
                 let idx = graph.add_node(node_id);
                 node_index.insert(vref, idx);
                 name_to_nodes.entry(name).or_default().push(idx);
@@ -293,14 +303,31 @@ impl ReductionGraph {
             }
         };
 
-        // Register reductions from inventory (auto-discovery)
+        // Phase 1: Build nodes from VariantEntry inventory
+        for entry in inventory::iter::<crate::registry::VariantEntry> {
+            let variant = Self::variant_to_map(&entry.variant());
+            ensure_node(
+                entry.name,
+                variant,
+                entry.complexity,
+                &mut nodes,
+                &mut graph,
+                &mut node_index,
+                &mut name_to_nodes,
+            );
+        }
+
+        // Phase 2: Build edges from ReductionEntry inventory
         for entry in inventory::iter::<ReductionEntry> {
             let source_variant = Self::variant_to_map(&entry.source_variant());
             let target_variant = Self::variant_to_map(&entry.target_variant());
 
+            // Nodes should already exist from Phase 1.
+            // Fall back to creating them with empty complexity for backwards compatibility.
             let src_idx = ensure_node(
                 entry.source_name,
                 source_variant,
+                "",
                 &mut nodes,
                 &mut graph,
                 &mut node_index,
@@ -309,6 +336,7 @@ impl ReductionGraph {
             let dst_idx = ensure_node(
                 entry.target_name,
                 target_variant,
+                "",
                 &mut nodes,
                 &mut graph,
                 &mut node_index,
@@ -316,8 +344,6 @@ impl ReductionGraph {
             );
 
             let overhead = entry.overhead();
-
-            // Check if edge already exists (avoid duplicates)
             if graph.find_edge(src_idx, dst_idx).is_none() {
                 graph.add_edge(
                     src_idx,
@@ -598,6 +624,21 @@ impl ReductionGraph {
                     .collect()
             })
             .unwrap_or_default()
+    }
+
+    /// Get the complexity expression for a specific variant.
+    pub fn variant_complexity(
+        &self,
+        name: &str,
+        variant: &BTreeMap<String, String>,
+    ) -> Option<&'static str> {
+        let idx = self.lookup_node(name, variant)?;
+        let node = &self.nodes[self.graph[idx]];
+        if node.complexity.is_empty() {
+            None
+        } else {
+            Some(node.complexity)
+        }
     }
 
     /// Get all outgoing reductions from a problem (across all its variants).
