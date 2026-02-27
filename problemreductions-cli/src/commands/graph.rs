@@ -614,11 +614,10 @@ pub fn neighbors(
 
     let root_label = fmt_node(&graph, &spec.name, &variant);
 
+    let header_label = fmt_node(&graph, &spec.name, &variant);
     let mut text = format!(
         "{} — {}-hop neighbors ({})\n\n",
-        crate::output::fmt_problem_name(&spec.name),
-        max_hops,
-        dir_label,
+        header_label, max_hops, dir_label,
     );
 
     text.push_str(&root_label);

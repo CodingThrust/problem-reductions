@@ -43,7 +43,7 @@ pub fn run() {
     );
 
     // 2. Reduce to Independent Set
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat);
     let is = reduction.target_problem();
 
     println!("\n=== Problem Transformation ===");

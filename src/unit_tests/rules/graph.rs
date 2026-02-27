@@ -7,7 +7,7 @@ use crate::rules::graph::{classify_problem_category, ReductionStep};
 use crate::rules::registry::ReductionEntry;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
-use crate::types::ProblemSize;
+use crate::types::{One, ProblemSize};
 use std::collections::BTreeMap;
 
 #[test]
@@ -316,7 +316,7 @@ fn test_sat_based_reductions() {
     let graph = ReductionGraph::new();
 
     // SAT -> IS
-    assert!(graph.has_direct_reduction::<Satisfiability, MaximumIndependentSet<SimpleGraph, i32>>());
+    assert!(graph.has_direct_reduction::<Satisfiability, MaximumIndependentSet<SimpleGraph, One>>());
 
     // SAT -> KColoring
     assert!(graph.has_direct_reduction::<Satisfiability, KColoring<K3, SimpleGraph>>());
