@@ -4,7 +4,7 @@
 //! that maximizes the total weight of edges crossing the partition.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -212,6 +212,10 @@ where
         }
     }
     total
+}
+
+crate::declare_variants! {
+    MaxCut<SimpleGraph, i32> => "2^num_vertices",
 }
 
 #[cfg(test)]

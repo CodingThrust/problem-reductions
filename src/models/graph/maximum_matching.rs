@@ -4,7 +4,7 @@
 //! such that no two edges share a vertex.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -217,6 +217,10 @@ where
     fn direction(&self) -> Direction {
         Direction::Maximize
     }
+}
+
+crate::declare_variants! {
+    MaximumMatching<SimpleGraph, i32> => "2^num_vertices",
 }
 
 /// Check if a selection of edges forms a valid matching.

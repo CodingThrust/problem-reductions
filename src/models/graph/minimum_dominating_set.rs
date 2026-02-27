@@ -4,7 +4,7 @@
 //! such that every vertex is either in the set or adjacent to a vertex in the set.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -167,6 +167,10 @@ where
     fn direction(&self) -> Direction {
         Direction::Minimize
     }
+}
+
+crate::declare_variants! {
+    MinimumDominatingSet<SimpleGraph, i32> => "2^num_vertices",
 }
 
 /// Check if a set of vertices is a dominating set.

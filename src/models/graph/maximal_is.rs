@@ -4,7 +4,7 @@
 //! cannot be extended by adding any other vertex.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -213,6 +213,10 @@ pub(crate) fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool])
     }
 
     true
+}
+
+crate::declare_variants! {
+    MaximalIS<SimpleGraph, i32> => "2^num_vertices",
 }
 
 #[cfg(test)]

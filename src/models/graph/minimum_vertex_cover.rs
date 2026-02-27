@@ -4,7 +4,7 @@
 //! such that every edge has at least one endpoint in the subset.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -154,6 +154,10 @@ fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
         }
     }
     true
+}
+
+crate::declare_variants! {
+    MinimumVertexCover<SimpleGraph, i32> => "2^num_vertices",
 }
 
 /// Check if a set of vertices forms a vertex cover.

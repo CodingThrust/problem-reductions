@@ -4,9 +4,9 @@
 //! such that no two adjacent vertices have the same color.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
-use crate::variant::{KValue, VariantParam, KN};
+use crate::variant::{KValue, VariantParam, K2, K3, K4, K5, KN};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -181,6 +181,14 @@ pub(crate) fn is_valid_coloring<G: Graph>(
         }
     }
     true
+}
+
+crate::declare_variants! {
+    KColoring<KN, SimpleGraph> => "k^num_vertices",
+    KColoring<K2, SimpleGraph> => "2^num_vertices",
+    KColoring<K3, SimpleGraph> => "3^num_vertices",
+    KColoring<K4, SimpleGraph> => "4^num_vertices",
+    KColoring<K5, SimpleGraph> => "5^num_vertices",
 }
 
 #[cfg(test)]

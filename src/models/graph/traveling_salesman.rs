@@ -4,7 +4,7 @@
 //! that visits every vertex exactly once.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -250,6 +250,10 @@ pub(crate) fn is_hamiltonian_cycle<G: Graph>(graph: &G, selected: &[bool]) -> bo
     }
 
     visit_count == n
+}
+
+crate::declare_variants! {
+    TravelingSalesman<SimpleGraph, i32> => "num_vertices!",
 }
 
 #[cfg(test)]
