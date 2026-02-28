@@ -11,6 +11,8 @@ Batch-process open `[Model]` and `[Rule]` issues end-to-end: plan, implement, re
 
 You are the **outer orchestrator**. For each issue you invoke existing skills and shell out to subprocesses. You never implement code directly — `make run-plan` does the heavy lifting in a separate Claude session.
 
+**Batch context:** When invoking sub-skills (like `issue-to-pr`), you are running in batch mode. Auto-approve any confirmation prompts from sub-skills — do not wait for user input mid-batch.
+
 ## Step 0: Discover and Order Issues
 
 ```bash
@@ -20,13 +22,19 @@ gh issue list --state open --limit 50 --json number,title
 
 Filter to issues whose title contains `[Model]` or `[Rule]`. Partition into two buckets, sort each by issue number ascending. Final order: **all Models first, then all Rules**.
 
+**Check for existing PRs:** For each issue, check if a PR already exists:
+```bash
+gh pr list --search "Fixes #<number>" --state open --json number,headRefName
+```
+If a PR exists, mark the issue as `resume` — skip Step 1 (plan) and jump to Step 2 (execute) or Step 4 (fix loop) depending on whether the PR already has implementation commits.
+
 Present the ordered list to the user for confirmation before starting:
 
 ```
 Batch plan:
   Models:
     #108  [Model] LongestCommonSubsequence
-    #103  [Model] SubsetSum
+    #103  [Model] SubsetSum          (has open PR #115 — will resume)
   Rules:
     #109  [Rule] LCS → MIS
     #110  [Rule] LCS → ILP
@@ -44,6 +52,15 @@ For the current issue:
 
 ```bash
 git checkout main && git pull origin main
+```
+
+**Check for stale branches:** If a branch `issue-<number>-*` exists with no open PR, delete it to start fresh:
+```bash
+STALE=$(git branch --list "issue-<number>-*" | head -1 | xargs)
+if [ -n "$STALE" ]; then
+    git branch -D "$STALE"
+    git push origin --delete "$STALE" 2>/dev/null || true
+fi
 ```
 
 Invoke the `issue-to-pr` skill with the issue number. This creates a branch, writes a plan to `docs/plans/`, and opens a PR.
@@ -69,18 +86,10 @@ This spawns a new Claude session (up to 500 turns) that reads the plan and imple
 
 ## Step 3: Review
 
-After execution completes, ensure changes are committed and pushed:
+After execution completes, push and request Copilot review:
 
 ```bash
-# Check for uncommitted changes
-git add -A && git diff --cached --quiet || git commit -m "Implement #<number>: <title>
-
-Co-Authored-By: Claude Opus 4.6 <noreply@anthropic.com>"
 git push
-```
-
-Request Copilot review:
-```bash
 make copilot-review
 ```
 
@@ -88,32 +97,54 @@ make copilot-review
 
 ```dot
 digraph fix_loop {
-    "Wait 5 min" [shape=box];
+    "Poll CI until done" [shape=box];
     "Run fix-pr" [shape=box];
     "Push changes" [shape=box];
-    "Wait 5 min for CI" [shape=box];
+    "Poll CI until done (2)" [shape=box];
     "CI green?" [shape=diamond];
     "Retries < 3?" [shape=diamond];
     "Proceed to merge" [shape=doublecircle];
     "Give up" [shape=doublecircle];
 
-    "Wait 5 min" -> "Run fix-pr";
+    "Poll CI until done" -> "Run fix-pr";
     "Run fix-pr" -> "Push changes";
-    "Push changes" -> "Wait 5 min for CI";
-    "Wait 5 min for CI" -> "CI green?";
+    "Push changes" -> "Poll CI until done (2)";
+    "Poll CI until done (2)" -> "CI green?";
     "CI green?" -> "Proceed to merge" [label="yes"];
     "CI green?" -> "Retries < 3?" [label="no"];
-    "Retries < 3?" -> "Wait 5 min" [label="yes"];
+    "Retries < 3?" -> "Poll CI until done" [label="yes, re-run fix-pr"];
     "Retries < 3?" -> "Give up" [label="no"];
 }
 ```
 
 For each retry:
 
-1. **Wait 5 minutes** for Copilot review and CI to arrive:
+1. **Wait for CI to complete** (poll every 30s, up to 15 minutes):
    ```bash
-   sleep 300
+   REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+   for i in $(seq 1 30); do
+       sleep 30
+       HEAD_SHA=$(gh api repos/$REPO/pulls/$PR | python3 -c "import sys,json; print(json.load(sys.stdin)['head']['sha'])")
+       STATUS=$(gh api repos/$REPO/commits/$HEAD_SHA/check-runs | python3 -c "
+   import sys,json
+   runs = json.load(sys.stdin)['check_runs']
+   failed = [r['name'] for r in runs if r.get('conclusion') not in ('success', 'skipped', None)]
+   pending = [r['name'] for r in runs if r.get('conclusion') is None and r['status'] != 'completed']
+   if pending:
+       print('PENDING')
+   elif failed:
+       print('FAILED')
+   else:
+       print('GREEN')
+   ")
+       if [ "$STATUS" != "PENDING" ]; then break; fi
+   done
    ```
+
+   - If `GREEN` on the **first** iteration (before any fix-pr): skip the fix loop entirely, proceed to merge.
+   - If `GREEN` after a fix-pr pass: break out of loop, proceed to merge.
+   - If `FAILED`: continue to step 2.
+   - If still `PENDING` after 15 min: treat as `FAILED`.
 
 2. **Invoke `/fix-pr`** to address review comments, CI failures, and coverage gaps.
 
@@ -122,42 +153,29 @@ For each retry:
    git push
    ```
 
-4. **Wait 5 minutes** for CI to re-run:
-   ```bash
-   sleep 300
-   ```
-
-5. **Check CI status:**
-   ```bash
-   REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-   HEAD_SHA=$(gh api repos/$REPO/pulls/$PR | python3 -c "import sys,json; print(json.load(sys.stdin)['head']['sha'])")
-   gh api repos/$REPO/commits/$HEAD_SHA/check-runs | python3 -c "
-   import sys,json
-   runs = json.load(sys.stdin)['check_runs']
-   failed = [r['name'] for r in runs if r.get('conclusion') not in ('success', 'skipped', None)]
-   pending = [r['name'] for r in runs if r.get('conclusion') is None and r['status'] != 'completed']
-   if pending:
-       print('PENDING: ' + ', '.join(pending))
-   elif failed:
-       print('FAILED: ' + ', '.join(failed))
-   else:
-       print('GREEN')
-   "
-   ```
-
-   - If `GREEN`: break out of loop, proceed to merge.
-   - If `PENDING`: wait another 2 minutes, re-check once.
-   - If `FAILED`: increment retry counter, continue loop.
+4. Increment retry counter. If `< 3`, go back to step 1 (poll CI). If `= 3`, give up.
 
 **After 3 failed retries:** record status as `fix-pr failed (3 retries)`, leave PR open, move to next issue.
 
 ## Step 5: Merge
 
 ```bash
-gh pr merge $PR --squash --delete-branch
+gh pr merge $PR --squash --delete-branch --auto
 ```
 
+The `--auto` flag tells GitHub to merge once all required checks pass, avoiding a race between CI completion and the merge command.
+
 **If merge fails** (e.g., conflict): record status as `merge failed`, leave PR open, move to next issue.
+
+Wait for the auto-merge to complete before proceeding:
+```bash
+for i in $(seq 1 20); do
+    sleep 15
+    STATE=$(gh pr view $PR --json state --jq .state)
+    if [ "$STATE" = "MERGED" ]; then break; fi
+    if [ "$STATE" = "CLOSED" ]; then break; fi  # merge conflict closed it
+done
+```
 
 ## Step 6: Sync
 
@@ -179,7 +197,7 @@ After all issues are processed, print the summary table:
 | Issue | Title                              | Status                    |
 |-------|------------------------------------|---------------------------|
 | #108  | [Model] LCS                        | merged                    |
-| #103  | [Model] SubsetSum                  | merged                    |
+| #103  | [Model] SubsetSum                  | merged (resumed PR #115)  |
 | #109  | [Rule] LCS → MIS                  | merged                    |
 | #110  | [Rule] LCS → ILP                  | fix-pr failed (3 retries) |
 | #97   | [Rule] BinPacking → ILP           | merged                    |
@@ -193,8 +211,10 @@ Completed: 4/6 | Skipped: 1 | Failed: 1
 | Name | Value | Rationale |
 |------|-------|-----------|
 | `MAX_RETRIES` | 3 | Most issues fix in 1-2 rounds |
-| `CI_WAIT` | 5 min | GitHub Actions typical completion time |
-| `PENDING_EXTRA_WAIT` | 2 min | One grace period for slow CI |
+| `CI_POLL_INTERVAL` | 30s | Frequent enough to react quickly |
+| `CI_POLL_MAX` | 15 min | Upper bound for CI completion |
+| `MERGE_POLL_INTERVAL` | 15s | Wait for auto-merge to land |
+| `MERGE_POLL_MAX` | 5 min | Upper bound for merge completion |
 
 ## Common Failure Modes
 
@@ -205,3 +225,5 @@ Completed: 4/6 | Skipped: 1 | Failed: 1
 | CI red after 3 retries | Deep bug or flaky test | Leave PR open for human review |
 | Merge conflict | Concurrent push to main | Leave PR open; manual rebase needed |
 | Rule fails because model missing | Model issue was skipped earlier | Expected; skip rule too |
+| Stale branch from previous run | Previous meta-power run failed mid-issue | Auto-cleaned in Step 1 |
+| PR already exists for issue | Previous partial attempt | Resumed from existing PR |
