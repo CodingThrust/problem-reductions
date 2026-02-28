@@ -647,32 +647,35 @@ Integer Linear Programming is a universal modeling framework: virtually every NP
 
   #figure(
     canvas(length: 0.8cm, {
+      import draw: *
       // Lattice points: B*(x1,x2) = x1*(2,0) + x2*(1,2)
       for x1 in range(0, 3) {
         for x2 in range(0, 3) {
           let px = x1 * 2 + x2 * 1
           let py = x2 * 2
           let is-closest = (x1 == 1 and x2 == 1)
-          draw.circle(
+          let nm = "p" + str(x1) + str(x2)
+          circle(
             (px, py),
             radius: if is-closest { 0.15 } else { 0.08 },
             fill: if is-closest { graph-colors.at(0) } else { luma(180) },
             stroke: if is-closest { 0.8pt + graph-colors.at(0) } else { 0.4pt + luma(120) },
+            name: nm,
           )
         }
       }
       // Target vector
-      draw.circle((2.8, 1.5), radius: 0.1, fill: graph-colors.at(1), stroke: none)
-      draw.content((2.8, 1.05), text(7pt)[$bold(t)$])
+      circle((2.8, 1.5), radius: 0.1, fill: graph-colors.at(1), stroke: none, name: "target")
+      content((rel: (0, -0.45), to: "target"), text(7pt)[$bold(t)$])
       // Dashed line from target to closest point
-      draw.line((2.8, 1.5), (3, 2), stroke: stroke(paint: graph-colors.at(0), thickness: 0.8pt, dash: "dashed"))
+      line("target", "p11", stroke: (paint: graph-colors.at(0), thickness: 0.8pt, dash: "dashed"))
       // Basis vectors as arrows from origin
-      draw.line((0, 0), (2, 0), mark: (end: ">"), stroke: 0.8pt + luma(100))
-      draw.content((1.0, -0.35), text(7pt)[$bold(b)_1$])
-      draw.line((0, 0), (1, 2), mark: (end: ">"), stroke: 0.8pt + luma(100))
-      draw.content((0.2, 1.1), text(7pt)[$bold(b)_2$])
+      line("p00", "p10", mark: (end: "straight"), stroke: 0.8pt + luma(100), name: "b1")
+      content((rel: (0, -0.35), to: "b1.mid"), text(7pt)[$bold(b)_1$])
+      line("p00", "p01", mark: (end: "straight"), stroke: 0.8pt + luma(100), name: "b2")
+      content((rel: (-0.3, 0), to: "b2.mid"), text(7pt)[$bold(b)_2$])
       // Label closest point
-      draw.content((3.45, 2.3), text(7pt)[$bold(B)(1,1)^top$])
+      content((rel: (0.45, 0.3), to: "p11"), text(7pt)[$bold(B)(1,1)^top$])
     }),
     caption: [2D lattice with basis $bold(b)_1 = (2, 0)^top$, $bold(b)_2 = (1, 2)^top$. Target $bold(t) = (2.8, 1.5)^top$ (red) and closest lattice point $bold(B)(1,1)^top = (3, 2)^top$ (blue). Distance $norm(bold(B)(1,1)^top - bold(t))_2 approx 0.539$.],
   ) <fig:cvp-example>
