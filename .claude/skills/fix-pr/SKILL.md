@@ -23,13 +23,13 @@ Three sources of feedback to check:
 
 ```bash
 # Copilot and user inline review comments (on code lines)
-gh api repos/{owner}/{repo}/pulls/$PR/comments --jq '.[] | "[\(.user.login)] \(.path):\(.line // .original_line) — \(.body)"'
+gh api repos/{owner}/{repo}/pulls/$PR/comments --jq '.[] | "[" + .user.login + "] " + .path + ":" + ((.line // .original_line) | tostring) + " — " + .body'
 
 # Review-level comments (top-level review body)
-gh api repos/{owner}/{repo}/pulls/$PR/reviews --jq '.[] | select(.body != "") | "[\(.user.login)] \(.state): \(.body)"'
+gh api repos/{owner}/{repo}/pulls/$PR/reviews --jq '.[] | select(.body != "") | "[" + .user.login + "] " + .state + ": " + .body'
 
 # Issue-level comments (general discussion)
-gh api repos/{owner}/{repo}/issues/$PR/comments --jq '.[] | select(.user.login | test("codecov|copilot") | not) | "[\(.user.login)] \(.body)"'
+gh api repos/{owner}/{repo}/issues/$PR/comments --jq '.[] | select(.user.login | test("codecov|copilot") | not) | "[" + .user.login + "] " + .body'
 ```
 
 ### 1b. Check CI Status
@@ -37,7 +37,7 @@ gh api repos/{owner}/{repo}/issues/$PR/comments --jq '.[] | select(.user.login |
 ```bash
 # All check runs on the PR head
 gh api repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs \
-  --jq '.check_runs[] | "\(.name): \(.conclusion // .status)"'
+  --jq '.check_runs[] | .name + ": " + (.conclusion // .status)'
 ```
 
 ### 1c. Check Codecov Report
@@ -104,7 +104,7 @@ For detailed line-by-line coverage, use the Codecov API:
 # Get file-level coverage for the PR
 gh api repos/{owner}/{repo}/pulls/$PR/comments \
   --jq '.[] | select(.user.login == "codecov[bot]") | .body' \
-  | grep -oP 'filepath=\K[^&]+'
+  | sed -n 's/.*filepath=\([^&]*\).*/\1/p'
 ```
 
 Then read the source files and identify which new/changed lines lack test coverage.

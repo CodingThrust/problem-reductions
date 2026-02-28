@@ -173,19 +173,23 @@
   fill: rgb("#f8f8f8"),
   stroke: (left: 2pt + rgb("#4a86e8")),
   inset: (x: 1em, y: 0.8em),
+  breakable: true,
   base_level: 1,
 )
 
 // Problem definition wrapper: auto-adds schema, complexity, reductions list, and label
-#let problem-def(name, body) = {
+#let problem-def(name, def, body) = {
   let lbl = label("def:" + name)
   let title = display-name.at(name)
   [#definition(title)[
-    #body
-    #render-schema(name)
+    #def
     #render-complexity(name)
     #render-reductions(name)
-  ] #lbl]
+    #render-schema(name)
+
+    #body
+  ]
+  #lbl]
 }
 
 // Find edge in graph-data by source/target names
@@ -328,47 +332,74 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #problem-def("MaximumIndependentSet")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
-  One of Karp's 21 NP-complete problems @karp1972. Best known: $O^*(1.1996^n)$ via measure-and-conquer branching @xiao2017. Solvable in polynomial time on bipartite, interval, and cograph classes.
+][
+One of Karp's 21 NP-complete problems @karp1972, MIS appears in wireless network scheduling, register allocation, and coding theory @shannon1956. Solvable in polynomial time on bipartite graphs (König's theorem), interval graphs, chordal graphs, and cographs. The best known algorithm runs in $O^*(1.1996^n)$ time via measure-and-conquer branching @xiao2017.
+
+*Example.* Consider the Petersen graph $G$ with $n = 10$ vertices, $|E| = 15$ edges, and unit weights $w(v) = 1$ for all $v in V$. The graph is 3-regular (every vertex has degree 3). A maximum independent set is $S = {v_1, v_3, v_5, v_9}$ with $w(S) = sum_(v in S) w(v) = 4 = alpha(G)$. No two vertices in $S$ share an edge, and no vertex can be added without violating independence.
+
+#figure({
+  let pg = petersen-graph()
+  let mis = (1, 3, 5, 9)
+  canvas(length: 1cm, {
+    for (u, v) in pg.edges { g-edge(pg.vertices.at(u), pg.vertices.at(v)) }
+    for (k, pos) in pg.vertices.enumerate() {
+      let s = mis.contains(k)
+      g-node(pos, name: "v" + str(k),
+        fill: if s { graph-colors.at(0) } else { white },
+        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+    }
+  })
+},
+caption: [The Petersen graph with a maximum independent set $S = {v_1, v_3, v_5, v_9}$ shown in blue ($alpha(G) = 4$). Outer vertices $v_0, ..., v_4$ form a pentagon; inner vertices $v_5, ..., v_9$ form a pentagram. Unit weights $w(v_i) = 1$.],
+) <fig:petersen-mis>
 ]
 
 #problem-def("MinimumVertexCover")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
-  Best known: $O^*(1.1996^n)$ via MIS complement ($|"VC"| + |"IS"| = n$) @xiao2017. A central problem in parameterized complexity: admits FPT algorithms in $O^*(1.2738^k)$ time parameterized by solution size $k$.
+][
+Best known: $O^*(1.1996^n)$ via MIS complement ($|"VC"| + |"IS"| = n$) @xiao2017. A central problem in parameterized complexity: admits FPT algorithms in $O^*(1.2738^k)$ time parameterized by solution size $k$.
 ]
 
 #problem-def("MaxCut")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find partition $(S, overline(S))$ maximizing $sum_((u,v) in E: u in S, v in overline(S)) w(u, v)$.
-  Best known: $O^*(2^(omega n slash 3))$ via algebraic 2-CSP techniques @williams2005, where $omega < 2.372$ is the matrix multiplication exponent; requires exponential space. Polynomial-time solvable on planar graphs. The Goemans-Williamson SDP relaxation achieves a 0.878-approximation @goemans1995.
-]
+][
 
+Best known: $O^*(2^(omega n slash 3))$ via algebraic 2-CSP techniques @williams2005, where $omega < 2.372$ is the matrix multiplication exponent; requires exponential space. Polynomial-time solvable on planar graphs. The Goemans-Williamson SDP relaxation achieves a 0.878-approximation @goemans1995.
+]
 #problem-def("KColoring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
-  Deciding $k$-colorability is NP-complete for $k >= 3$ @garey1979. Best known: $O(n+m)$ for $k=2$ (equivalent to bipartiteness testing by BFS); $O^*(1.3289^n)$ for $k=3$ @beigel2005; $O^*(1.7159^n)$ for $k=4$ @wu2024; $O^*((2-epsilon)^n)$ for $k=5$, the first to break the $2^n$ barrier @zamir2021; $O^*(2^n)$ in general via inclusion-exclusion over independent sets @bjorklund2009.
-]
+][
 
+Deciding $k$-colorability is NP-complete for $k >= 3$ @garey1979. Best known: $O(n+m)$ for $k=2$ (equivalent to bipartiteness testing by BFS); $O^*(1.3289^n)$ for $k=3$ @beigel2005; $O^*(1.7159^n)$ for $k=4$ @wu2024; $O^*((2-epsilon)^n)$ for $k=5$, the first to break the $2^n$ barrier @zamir2021; $O^*(2^n)$ in general via inclusion-exclusion over independent sets @bjorklund2009.
+]
 #problem-def("MinimumDominatingSet")[
   Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall v in V: v in S or exists u in S: (u, v) in E$.
-  Best known: $O^*(1.4969^n)$ via branch-and-reduce with measure and conquer @vanrooij2011. W[2]-complete when parameterized by solution size, making it strictly harder than Vertex Cover in the parameterized hierarchy.
-]
+][
 
+Best known: $O^*(1.4969^n)$ via branch-and-reduce with measure and conquer @vanrooij2011. W[2]-complete when parameterized by solution size, making it strictly harder than Vertex Cover in the parameterized hierarchy.
+]
 #problem-def("MaximumMatching")[
   Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
-  Solvable in polynomial time $O(n^3)$ by Edmonds' blossom algorithm @edmonds1965, which introduced the technique of shrinking odd cycles into pseudo-nodes. Unlike most combinatorial optimization problems on general graphs, maximum matching is not NP-hard.
+][
+Solvable in polynomial time $O(n^3)$ by Edmonds' blossom algorithm @edmonds1965, which introduced the technique of shrinking odd cycles into pseudo-nodes. Unlike most combinatorial optimization problems on general graphs, maximum matching is not NP-hard.
 ]
 
 #problem-def("TravelingSalesman")[
   Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $sum_(e in C) w(e)$.
-  Best known: $O^*(2^n)$ via Held-Karp dynamic programming @heldkarp1962, requiring $O^*(2^n)$ space. No $O^*((2-epsilon)^n)$ time algorithm is known.
+][
+Best known: $O^*(2^n)$ via Held-Karp dynamic programming @heldkarp1962, requiring $O^*(2^n)$ space. No $O^*((2-epsilon)^n)$ time algorithm is known.
 ]
-
 #problem-def("MaximumClique")[
   Given $G = (V, E)$, find $K subset.eq V$ maximizing $|K|$ such that all pairs in $K$ are adjacent: $forall u, v in K: (u, v) in E$. Equivalent to MIS on the complement graph $overline(G)$.
-  Best known: $O^*(1.1996^n)$ via complement reduction to MIS @xiao2017. Robson's direct algorithm achieves $O^*(1.2109^n)$ @robson1986 using exponential space.
-]
+][
 
+Best known: $O^*(1.1996^n)$ via complement reduction to MIS @xiao2017. Robson's direct algorithm achieves $O^*(1.2109^n)$ @robson1986 using exponential space.
+]
 #problem-def("MaximalIS")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that $S$ is independent ($forall u, v in S: (u, v) in.not E$) and maximal (no vertex $u in V backslash S$ can be added to $S$ while maintaining independence).
-  Best known: $O^*(3^(n slash 3))$ for enumerating all maximal independent sets @tomita2006. This bound is tight: Moon and Moser @moonmoser1965 showed that every $n$-vertex graph has at most $3^(n slash 3)$ maximal independent sets, achieved by disjoint triangles.
+][
+
+Best known: $O^*(3^(n slash 3))$ for enumerating all maximal independent sets @tomita2006. This bound is tight: Moon and Moser @moonmoser1965 showed that every $n$-vertex graph has at most $3^(n slash 3)$ maximal independent sets, achieved by disjoint triangles.
 ]
 
 
@@ -376,68 +407,82 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 
 #problem-def("MaximumSetPacking")[
   Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
-  One of Karp's 21 NP-complete problems @karp1972. Generalizes maximum matching (the special case where all sets have size 2, solvable in polynomial time). The optimization version is as hard to approximate as maximum clique. Best known: $O^*(2^m)$.
+][
+One of Karp's 21 NP-complete problems @karp1972. Generalizes maximum matching (the special case where all sets have size 2, solvable in polynomial time). The optimization version is as hard to approximate as maximum clique. Best known: $O^*(2^m)$.
 ]
 
 #problem-def("MinimumSetCovering")[
   Given universe $U$, collection $cal(S)$ with weights $w: cal(S) -> RR$, find $cal(C) subset.eq cal(S)$ minimizing $sum_(S in cal(C)) w(S)$ s.t. $union.big_(S in cal(C)) S = U$.
-  Best known: $O^*(2^m)$. The greedy algorithm achieves an $O(ln n)$-approximation where $n = |U|$, which is essentially optimal: cannot be approximated within $(1-o(1)) ln n$ unless P = NP.
+][
+Best known: $O^*(2^m)$. The greedy algorithm achieves an $O(ln n)$-approximation where $n = |U|$, which is essentially optimal: cannot be approximated within $(1-o(1)) ln n$ unless P = NP.
 ]
 
 == Optimization Problems
 
 #problem-def("SpinGlass")[
   Given $n$ spin variables $s_i in {-1, +1}$, pairwise couplings $J_(i j) in RR$, and external fields $h_i in RR$, minimize the Hamiltonian (energy function): $H(bold(s)) = -sum_((i,j)) J_(i j) s_i s_j - sum_i h_i s_i$.
-  NP-hard on general graphs @barahona1982; best known $O^*(2^n)$. On planar graphs without external field ($h_i = 0$), solvable in polynomial time via reduction to minimum-weight perfect matching. Central to statistical physics and quantum computing.
+][
+NP-hard on general graphs @barahona1982; best known $O^*(2^n)$. On planar graphs without external field ($h_i = 0$), solvable in polynomial time via reduction to minimum-weight perfect matching. Central to statistical physics and quantum computing.
 ]
 
 #problem-def("QUBO")[
   Given $n$ binary variables $x_i in {0, 1}$, upper-triangular matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables).
-  Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The native formulation for quantum annealing hardware and a standard target for penalty-method reductions @glover2019. Best known: $O^*(2^n)$.
+][
+Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The native formulation for quantum annealing hardware and a standard target for penalty-method reductions @glover2019. Best known: $O^*(2^n)$.
 ]
 
 #problem-def("ILP")[
   Given $n$ integer variables $bold(x) in ZZ^n$, constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x)$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$ and variable bounds.
-  Best known: $O^*(n^n)$ @dadush2012. When the number of integer variables $n$ is fixed, solvable in polynomial time by Lenstra's algorithm @lenstra1983 using the geometry of numbers, making ILP fixed-parameter tractable in $n$.
+][
+Best known: $O^*(n^n)$ @dadush2012. When the number of integer variables $n$ is fixed, solvable in polynomial time by Lenstra's algorithm @lenstra1983 using the geometry of numbers, making ILP fixed-parameter tractable in $n$.
 ]
 
 == Satisfiability Problems
 
 #problem-def("Satisfiability")[
   Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 1$ (all clauses satisfied).
-  Best known: $O^*(2^n)$. The Strong Exponential Time Hypothesis (SETH) @impagliazzo2001 conjectures that no $O^*((2-epsilon)^n)$ algorithm exists for general CNF-SAT. Despite this worst-case hardness, conflict-driven clause learning (CDCL) solvers handle large practical instances efficiently.
+][
+Best known: $O^*(2^n)$. The Strong Exponential Time Hypothesis (SETH) @impagliazzo2001 conjectures that no $O^*((2-epsilon)^n)$ algorithm exists for general CNF-SAT. Despite this worst-case hardness, conflict-driven clause learning (CDCL) solvers handle large practical instances efficiently.
 ]
 
 #problem-def("KSatisfiability")[
   SAT with exactly $k$ literals per clause.
-  $O(n+m)$ for $k=2$ via implication graph SCC decomposition @aspvall1979. $O^*(1.307^n)$ for $k=3$ via biased-PPSZ @hansen2019. Under SETH, $k$-SAT requires time $O^*(c_k^n)$ with $c_k -> 2$ as $k -> infinity$.
+][
+$O(n+m)$ for $k=2$ via implication graph SCC decomposition @aspvall1979. $O^*(1.307^n)$ for $k=3$ via biased-PPSZ @hansen2019. Under SETH, $k$-SAT requires time $O^*(c_k^n)$ with $c_k -> 2$ as $k -> infinity$.
 ]
 
 #problem-def("CircuitSAT")[
   Given a Boolean circuit $C$ composed of logic gates (AND, OR, NOT, XOR) with $n$ input variables, find an input assignment $bold(x) in {0,1}^n$ such that $C(bold(x)) = 1$.
-  NP-complete by the Cook-Levin theorem @cook1971, which established NP-completeness by showing any NP computation can be expressed as a boolean circuit. Reducible to CNF-SAT via the Tseitin transformation. Best known: $O^*(2^n)$.
+][
+
+NP-complete by the Cook-Levin theorem @cook1971, which established NP-completeness by showing any NP computation can be expressed as a boolean circuit. Reducible to CNF-SAT via the Tseitin transformation. Best known: $O^*(2^n)$.
 ]
 
 #problem-def("Factoring")[
   Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
-  Sub-exponential classically: $e^(O(b^(1 slash 3)(log b)^(2 slash 3)))$ via the General Number Field Sieve @lenstra1993, where $b$ is the bit length. Solvable in polynomial time on a quantum computer by Shor's algorithm @shor1994. Not known to be NP-complete; factoring lies in NP $inter$ co-NP.
+][
+Sub-exponential classically: $e^(O(b^(1 slash 3)(log b)^(2 slash 3)))$ via the General Number Field Sieve @lenstra1993, where $b$ is the bit length. Solvable in polynomial time on a quantum computer by Shor's algorithm @shor1994. Not known to be NP-complete; factoring lies in NP $inter$ co-NP.
 ]
 
 == Specialized Problems
 
 #problem-def("BMF")[
   Given an $m times n$ boolean matrix $A$ and rank $k$, find boolean matrices $B in {0,1}^(m times k)$ and $C in {0,1}^(k times n)$ minimizing the Hamming distance $d_H (A, B circle.tiny C)$, where the boolean product $(B circle.tiny C)_(i j) = or.big_ell (B_(i ell) and C_(ell j))$.
-  NP-hard, even to approximate. Arises in data mining, text mining, and recommender systems. Best known: $O^*(2^n)$; practical algorithms use greedy rank-1 extraction.
+][
+NP-hard, even to approximate. Arises in data mining, text mining, and recommender systems. Best known: $O^*(2^n)$; practical algorithms use greedy rank-1 extraction.
 ]
 
 #problem-def("PaintShop")[
   Given a sequence of $2n$ positions where each of $n$ cars appears exactly twice, assign a binary color to each car (each car's two occurrences receive opposite colors) to minimize the number of color changes between consecutive positions.
-  NP-hard and APX-hard @epping2004. Arises in automotive manufacturing where color changes require setup time and increase paint waste. A natural benchmark for quantum annealing. Best known: $O^*(2^n)$.
+][
+NP-hard and APX-hard @epping2004. Arises in automotive manufacturing where color changes require setup time and increase paint waste. A natural benchmark for quantum annealing. Best known: $O^*(2^n)$.
 ]
 
 #problem-def("BicliqueCover")[
   Given a bipartite graph $G = (L, R, E)$ and integer $k$, find $k$ bicliques $(L_1, R_1), dots, (L_k, R_k)$ that cover all edges ($E subset.eq union.big_i L_i times R_i$) while minimizing the total size $sum_i (|L_i| + |R_i|)$.
-  NP-hard; connected to the Boolean rank of binary matrices and nondeterministic communication complexity. Best known: $O^*(2^n)$.
+][
+
+NP-hard; connected to the Boolean rank of binary matrices and nondeterministic communication complexity. Best known: $O^*(2^n)$.
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper

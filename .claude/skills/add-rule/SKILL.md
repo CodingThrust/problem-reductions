@@ -129,20 +129,7 @@ example_fn!(test_<source>_to_<target>, reduction_<source>_to_<target>);
 
 ## Step 5: Document in paper
 
-Update `docs/paper/reductions.typ`:
-
-```typst
-#reduction-rule("Source", "Target",
-  example: true,
-  example-caption: [Caption text],
-)[
-  Reduction rule statement...
-][
-  Proof sketch...
-]
-```
-
-Present the example in tutorial style with clear intuition. Reference the KColoring -> QUBO section for style guidance.
+Invoke the `/write-rule-in-paper` skill to write the reduction-rule entry in `docs/paper/reductions.typ`. That skill covers the full authoring process: complexity citation, self-contained proof, detailed worked example, and verification checklist.
 
 ## Step 6: Regenerate graph and verify
 
