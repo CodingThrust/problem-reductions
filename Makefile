@@ -192,9 +192,9 @@ run-plan:
 	BRANCH=$$(git branch --show-current); \
 	PLAN_FILE="$(PLAN_FILE)"; \
 	if [ "$(AGENT_TYPE)" = "claude" ]; then \
-		PROCESS="1. Read the plan file$${NL}2. Choose the right skill to execute: use /add-model for new problem models, /add-rule for new reduction rules, or /subagent-driven-development for other tasks$${NL}3. Push: git push origin $$BRANCH$${NL}4. Create a pull request"; \
+		PROCESS="1. Read the plan file$${NL}2. Execute the plan — it specifies which skill(s) to use$${NL}3. Push: git push origin $$BRANCH$${NL}4. If a PR already exists for this branch, skip. Otherwise create one."; \
 	else \
-		PROCESS="1. Read the plan file$${NL}2. Execute the tasks step by step. For each task, implement and test before moving on.$${NL}3. Push: git push origin $$BRANCH$${NL}4. Create a pull request"; \
+		PROCESS="1. Read the plan file$${NL}2. Execute the tasks step by step. For each task, implement and test before moving on.$${NL}3. Push: git push origin $$BRANCH$${NL}4. If a PR already exists for this branch, skip. Otherwise create one."; \
 	fi; \
 	PROMPT="Execute the plan in '$$PLAN_FILE'."; \
 	if [ -n "$(INSTRUCTIONS)" ]; then \
