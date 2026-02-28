@@ -27,7 +27,7 @@ make mdbook         # Build and serve mdBook with live reload
 make paper          # Build Typst paper (runs examples + exports first)
 make coverage       # Generate coverage report (>95% required)
 make check          # Quick pre-commit check (fmt + clippy + test)
-make rust-export    # Generate Rust mapping JSON exports
+make rust-export    # Generate Julia parity test data (mapping stages)
 make export-schemas # Regenerate problem schemas JSON
 make qubo-testdata  # Regenerate QUBO ground truth JSON
 make clean          # Clean build artifacts
@@ -91,6 +91,8 @@ enum Direction { Maximize, Minimize }
 ```
 
 ### Key Patterns
+- `variant_params!` macro implements `Problem::variant()` — e.g., `crate::variant_params![G, W]` for two type params, `crate::variant_params![]` for none (see `src/variant.rs`)
+- `declare_variants!` macro registers concrete type instantiations with best-known complexity — must appear in every model file (see `src/models/graph/maximum_independent_set.rs`)
 - Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
 - `ReductionResult` provides `target_problem()` and `extract_solution()`
 - `Solver::find_best()` → `Option<Vec<usize>>` for optimization problems; `Solver::find_satisfying()` → `Option<Vec<usize>>` for `Metric = bool`
