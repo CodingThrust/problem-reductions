@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::types::{Direction, One, SolutionSize, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -174,6 +174,7 @@ where
 }
 
 crate::declare_variants! {
+    MaximumSetPacking<One> => "2^num_sets",
     MaximumSetPacking<i32> => "2^num_sets",
     MaximumSetPacking<f64> => "2^num_sets",
 }

@@ -1,89 +1,5 @@
 //! Configuration utilities for problem solving.
 
-/// Iterator over all possible configurations for a given number of variables and flavors.
-///
-/// Generates configurations in lexicographic order, from [0, 0, ..., 0] to
-/// [num_flavors-1, num_flavors-1, ..., num_flavors-1].
-pub struct ConfigIterator {
-    num_variables: usize,
-    num_flavors: usize,
-    current: Option<Vec<usize>>,
-    total_configs: usize,
-    current_index: usize,
-}
-
-impl ConfigIterator {
-    /// Create a new configuration iterator.
-    ///
-    /// For 0 variables, produces exactly one configuration (the empty config).
-    /// For 0 flavors with non-zero variables, produces no configurations.
-    pub fn new(num_variables: usize, num_flavors: usize) -> Self {
-        let total_configs = if num_variables == 0 {
-            // 0 variables means exactly 1 configuration: the empty config
-            1
-        } else if num_flavors == 0 {
-            // Non-zero variables with 0 flavors means no valid configs
-            0
-        } else {
-            num_flavors.pow(num_variables as u32)
-        };
-        let current = if total_configs == 0 {
-            None
-        } else {
-            Some(vec![0; num_variables])
-        };
-        Self {
-            num_variables,
-            num_flavors,
-            current,
-            total_configs,
-            current_index: 0,
-        }
-    }
-
-    /// Returns the total number of configurations.
-    pub fn total(&self) -> usize {
-        self.total_configs
-    }
-}
-
-impl Iterator for ConfigIterator {
-    type Item = Vec<usize>;
-
-    fn next(&mut self) -> Option<Self::Item> {
-        let current = self.current.take()?;
-        let result = current.clone();
-
-        // Advance to next configuration
-        let mut next = current;
-        let mut carry = true;
-        for i in (0..self.num_variables).rev() {
-            if carry {
-                next[i] += 1;
-                if next[i] >= self.num_flavors {
-                    next[i] = 0;
-                } else {
-                    carry = false;
-                }
-            }
-        }
-
-        self.current_index += 1;
-        if self.current_index < self.total_configs {
-            self.current = Some(next);
-        }
-
-        Some(result)
-    }
-
-    fn size_hint(&self) -> (usize, Option<usize>) {
-        let remaining = self.total_configs - self.current_index;
-        (remaining, Some(remaining))
-    }
-}
-
-impl ExactSizeIterator for ConfigIterator {}
-
 /// Convert a configuration index to a configuration vector.
 ///
 /// The index is treated as a number in base `num_flavors`.
@@ -122,8 +38,7 @@ pub(crate) fn bits_to_config(bits: &[bool]) -> Vec<usize> {
 
 /// Iterator over all configurations for per-variable dimension sizes.
 ///
-/// Unlike `ConfigIterator` which assumes uniform flavors, this supports
-/// different cardinalities per variable (e.g., `dims = [2, 3, 2]`).
+/// Supports different cardinalities per variable (e.g., `dims = [2, 3, 2]`).
 pub struct DimsIterator {
     dims: Vec<usize>,
     current: Option<Vec<usize>>,

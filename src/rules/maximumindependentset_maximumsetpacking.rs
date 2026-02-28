@@ -8,7 +8,7 @@ use crate::models::set::MaximumSetPacking;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
-use crate::types::WeightElement;
+use crate::types::{One, WeightElement};
 use std::collections::HashSet;
 
 /// Result of reducing MaximumIndependentSet to MaximumSetPacking.
@@ -34,31 +34,33 @@ where
     }
 }
 
-#[reduction(
-    overhead = {
-        num_sets = "num_vertices",
-        universe_size = "num_vertices",
-    }
-)]
-impl ReduceTo<MaximumSetPacking<i32>> for MaximumIndependentSet<SimpleGraph, i32> {
-    type Result = ReductionISToSP<i32>;
+macro_rules! impl_is_to_sp {
+    ($W:ty) => {
+        #[reduction(overhead = { num_sets = "num_vertices", universe_size = "num_vertices" })]
+        impl ReduceTo<MaximumSetPacking<$W>> for MaximumIndependentSet<SimpleGraph, $W> {
+            type Result = ReductionISToSP<$W>;
 
-    fn reduce_to(&self) -> Self::Result {
-        let edges = self.graph().edges();
-        let n = self.graph().num_vertices();
+            fn reduce_to(&self) -> Self::Result {
+                let edges = self.graph().edges();
+                let n = self.graph().num_vertices();
 
-        // For each vertex, collect the indices of its incident edges
-        let mut sets: Vec<Vec<usize>> = vec![Vec::new(); n];
-        for (edge_idx, &(u, v)) in edges.iter().enumerate() {
-            sets[u].push(edge_idx);
-            sets[v].push(edge_idx);
+                // For each vertex, collect the indices of its incident edges
+                let mut sets: Vec<Vec<usize>> = vec![Vec::new(); n];
+                for (edge_idx, &(u, v)) in edges.iter().enumerate() {
+                    sets[u].push(edge_idx);
+                    sets[v].push(edge_idx);
+                }
+
+                let target = MaximumSetPacking::with_weights(sets, self.weights().to_vec());
+
+                ReductionISToSP { target }
+            }
         }
-
-        let target = MaximumSetPacking::with_weights(sets, self.weights().to_vec());
-
-        ReductionISToSP { target }
-    }
+    };
 }
+
+impl_is_to_sp!(i32);
+impl_is_to_sp!(One);
 
 /// Result of reducing MaximumSetPacking to MaximumIndependentSet.
 #[derive(Debug, Clone)]
@@ -83,37 +85,41 @@ where
     }
 }
 
-#[reduction(
-    overhead = {
-        num_vertices = "num_sets",
-        num_edges = "num_sets",
-    }
-)]
-impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MaximumSetPacking<i32> {
-    type Result = ReductionSPToIS<i32>;
+macro_rules! impl_sp_to_is {
+    ($W:ty) => {
+        #[reduction(overhead = { num_vertices = "num_sets", num_edges = "num_sets" })]
+        impl ReduceTo<MaximumIndependentSet<SimpleGraph, $W>> for MaximumSetPacking<$W> {
+            type Result = ReductionSPToIS<$W>;
 
-    fn reduce_to(&self) -> Self::Result {
-        let sets = self.sets();
-        let n = sets.len();
+            fn reduce_to(&self) -> Self::Result {
+                let sets = self.sets();
+                let n = sets.len();
 
-        // Create edges between sets that overlap
-        let mut edges = Vec::new();
-        for (i, set_i_vec) in sets.iter().enumerate() {
-            let set_i: HashSet<_> = set_i_vec.iter().collect();
-            for (j, set_j) in sets.iter().enumerate().skip(i + 1) {
-                // Check if sets[i] and sets[j] overlap
-                if set_j.iter().any(|elem| set_i.contains(elem)) {
-                    edges.push((i, j));
+                // Create edges between sets that overlap
+                let mut edges = Vec::new();
+                for (i, set_i_vec) in sets.iter().enumerate() {
+                    let set_i: HashSet<_> = set_i_vec.iter().collect();
+                    for (j, set_j) in sets.iter().enumerate().skip(i + 1) {
+                        // Check if sets[i] and sets[j] overlap
+                        if set_j.iter().any(|elem| set_i.contains(elem)) {
+                            edges.push((i, j));
+                        }
+                    }
                 }
+
+                let target = MaximumIndependentSet::new(
+                    SimpleGraph::new(n, edges),
+                    self.weights_ref().clone(),
+                );
+
+                ReductionSPToIS { target }
             }
         }
-
-        let target =
-            MaximumIndependentSet::new(SimpleGraph::new(n, edges), self.weights_ref().clone());
-
-        ReductionSPToIS { target }
-    }
+    };
 }
+
+impl_sp_to_is!(i32);
+impl_sp_to_is!(One);
 
 #[cfg(test)]
 #[path = "../unit_tests/rules/maximumindependentset_maximumsetpacking.rs"]

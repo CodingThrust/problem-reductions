@@ -26,7 +26,6 @@ pub mod models;
 pub mod registry;
 pub mod rules;
 pub mod solvers;
-pub mod testing;
 pub mod topology;
 pub mod traits;
 #[allow(dead_code)]

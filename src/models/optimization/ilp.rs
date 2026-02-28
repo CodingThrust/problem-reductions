@@ -136,7 +136,7 @@ pub struct LinearConstraint {
 
 impl LinearConstraint {
     /// Create a new linear constraint.
-    pub fn new(terms: Vec<(usize, f64)>, cmp: Comparison, rhs: f64) -> Self {
+    pub(crate) fn new(terms: Vec<(usize, f64)>, cmp: Comparison, rhs: f64) -> Self {
         Self { terms, cmp, rhs }
     }
 

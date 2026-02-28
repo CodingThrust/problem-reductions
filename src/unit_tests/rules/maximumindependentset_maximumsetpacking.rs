@@ -1,5 +1,6 @@
 use super::*;
 use crate::solvers::BruteForce;
+use crate::types::One;
 include!("../jl_helpers.rs");
 
 #[test]
@@ -166,4 +167,46 @@ fn test_jl_parity_doc_is_to_setpacking() {
     for case in data["cases"].as_array().unwrap() {
         assert_eq!(best_source, jl_parse_configs_set(&case["best_source"]));
     }
+}
+
+#[test]
+fn test_maximumindependentset_one_to_maximumsetpacking_closed_loop() {
+    // Path graph: 0-1-2 with unit weights (MIS = 2: select vertices 0, 2)
+    let is_problem = MaximumIndependentSet::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        vec![One; 3],
+    );
+    let reduction = ReduceTo::<MaximumSetPacking<One>>::reduce_to(&is_problem);
+    let sp_problem = reduction.target_problem();
+
+    assert_eq!(sp_problem.num_sets(), 3);
+
+    let solver = BruteForce::new();
+    let sp_solutions = solver.find_all_best(sp_problem);
+    assert!(!sp_solutions.is_empty());
+
+    let original_solution = reduction.extract_solution(&sp_solutions[0]);
+    assert_eq!(original_solution.len(), 3);
+    let size: usize = original_solution.iter().sum();
+    assert_eq!(size, 2, "Max IS in path of 3 should be 2");
+}
+
+#[test]
+fn test_maximumsetpacking_one_to_maximumindependentset_closed_loop() {
+    // Disjoint sets: S0={0,1}, S1={1,2}, S2={3,4} — S0 and S1 overlap
+    let sets = vec![vec![0, 1], vec![1, 2], vec![3, 4]];
+    let sp_problem = MaximumSetPacking::with_weights(sets, vec![One; 3]);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sp_problem);
+    let is_problem = reduction.target_problem();
+
+    assert_eq!(is_problem.graph().num_vertices(), 3);
+
+    let solver = BruteForce::new();
+    let is_solutions = solver.find_all_best(is_problem);
+    assert!(!is_solutions.is_empty());
+
+    let original_solution = reduction.extract_solution(&is_solutions[0]);
+    assert_eq!(original_solution.len(), 3);
+    let size: usize = original_solution.iter().sum();
+    assert_eq!(size, 2, "Max set packing should select 2 non-overlapping sets");
 }
