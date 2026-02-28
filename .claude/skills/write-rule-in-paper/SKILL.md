@@ -17,7 +17,7 @@ Before using this skill, ensure:
 - The reduction is implemented and tested (`src/rules/<source>_<target>.rs`)
 - An example program exists (`examples/reduction_<source>_to_<target>.rs`)
 - Example JSON is generated (`make examples`)
-- The reduction graph is up to date (`make rust-export`)
+- The reduction graph and schemas are up to date (`cargo run --example export_graph && cargo run --example export_schemas`)
 
 ## Step 1: Load Example Data
 

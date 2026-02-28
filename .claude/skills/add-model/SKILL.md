@@ -84,6 +84,7 @@ Key decisions:
 - **Weight management:** use inherent methods (`weights()`, `set_weights()`, `is_weighted()`), NOT traits
 - **`dims()`:** returns the configuration space dimensions (e.g., `vec![2; n]` for binary variables)
 - **`evaluate()`:** must check feasibility first, then compute objective
+- **`variant()`:** use the `variant_params!` macro — e.g., `crate::variant_params![G, W]` for `Problem<G, W>`, or `crate::variant_params![]` for problems with no type parameters. Each type parameter must implement `VariantParam` (already done for standard types like `SimpleGraph`, `i32`, `One`). See `src/variant.rs`.
 
 ## Step 2.5: Register variant complexity
 

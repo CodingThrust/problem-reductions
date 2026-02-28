@@ -12,7 +12,7 @@ Full authoring guide for writing a `problem-def` entry in `docs/paper/reductions
 Before using this skill, ensure:
 - The problem model is implemented (`src/models/<category>/<name>.rs`)
 - The problem is registered with schema and variant metadata
-- JSON exports are up to date (`make rust-export && make export-schemas`)
+- JSON exports are up to date (`cargo run --example export_graph && cargo run --example export_schemas`)
 
 ## Reference Example
 
@@ -161,10 +161,7 @@ This can be woven into the example text (as MIS does: "$w(S) = sum_(v in S) w(v)
 ## Step 4: Build and Verify
 
 ```bash
-# Regenerate exports (if not already done)
-make rust-export && make export-schemas
-
-# Build the paper
+# Build the paper (auto-runs export_graph + export_schemas)
 make paper
 ```
 

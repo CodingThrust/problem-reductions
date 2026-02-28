@@ -81,8 +81,13 @@ Include the concrete details from the issue (problem definition, reduction algor
 
 Create a pull request with only the plan file.
 
+**Pre-flight checks** (before creating the branch):
+1. Verify clean working tree: `git status --porcelain` must be empty. If not, STOP and ask user to stash or commit.
+2. Check if branch already exists: `git rev-parse --verify issue-<number>-<slug> 2>/dev/null`. If it exists, switch to it with `git checkout` (no `-b`) instead of creating a new one.
+
 ```bash
-# Create branch
+# Create branch (from main)
+git checkout main
 git checkout -b issue-<number>-<slug>
 
 # Stage the plan file
@@ -131,3 +136,5 @@ Created PR #45: Fix #42: Add IndependentSet -> QUBO reduction
 | Generic plan | Use specifics from the issue, mapped to add-model/add-rule steps |
 | Skipping CLI registration in plan | add-model requires CLI dispatch updates -- include in plan |
 | Not verifying facts from issue | Use WebSearch/WebFetch to cross-check claims |
+| Branch already exists on retry | Check with `git rev-parse --verify` before `git checkout -b` |
+| Dirty working tree | Verify `git status --porcelain` is empty before branching |
