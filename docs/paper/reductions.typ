@@ -50,6 +50,7 @@
   "PaintShop": [Paint Shop],
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
+  "ClosestVectorProblem": [Closest Vector Problem],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -635,6 +636,14 @@ Integer Linear Programming is a universal modeling framework: virtually every NP
   }),
   caption: [ILP feasible region (green) with constraints $x_1 + x_2 <= 5$ (blue) and $4x_1 + 7x_2 <= 28$ (orange). Hollow circles mark the integer lattice. The LP relaxation optimum $p_1 = (7 slash 3, 8 slash 3)$ is non-integral; the ILP optimum $bold(x)^* = (3, 2)$ gives $bold(c)^top bold(x)^* = -27$.],
 ) <fig:ilp-example>
+]
+
+#problem-def("ClosestVectorProblem")[
+  Given a lattice basis $bold(B) in RR^(m times n)$ (columns $bold(b)_1, dots, bold(b)_n in RR^m$ spanning lattice $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$) and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2$.
+][
+  The Closest Vector Problem is a fundamental lattice problem, proven NP-hard by van Emde Boas @vanemde1981. CVP plays a central role in lattice-based cryptography and the geometry of numbers. Kannan's algorithm @kannan1987 solves CVP in $O^*(n^n)$ time using the Hermite normal form, later improved to $O^*(2^n)$ via the randomized sieve of Micciancio and Voulgaris @micciancio2010. CVP is closely related to the Shortest Vector Problem (SVP) and integer programming: Lenstra's algorithm for fixed-dimensional ILP @lenstra1983 proceeds via CVP in the dual lattice.
+
+  *Example.* Consider the 2D lattice with basis $bold(b)_1 = (2, 0)^top$, $bold(b)_2 = (1, 2)^top$ and target $bold(t) = (2.8, 1.5)^top$. The lattice points near $bold(t)$ include $bold(B)(1, 0)^top = (2, 0)^top$, $bold(B)(1, 1)^top = (3, 2)^top$, and $bold(B)(0, 1)^top = (1, 2)^top$. The closest is $bold(B)(1, 1)^top = (3, 2)^top$ with distance $norm((0.2, 0.5))_2 approx 0.539$.
 ]
 
 == Satisfiability Problems
