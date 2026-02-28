@@ -2,7 +2,7 @@
 #let graph-data = json("../src/reductions/reduction_graph.json")
 #import "@preview/cetz:0.4.2": canvas, draw
 #import "@preview/ctheorems:1.1.3": thmbox, thmplain, thmproof, thmrules
-#import "lib.typ": g-node, g-edge, petersen-graph, house-graph, octahedral-graph, draw-grid-graph, draw-triangular-graph, graph-colors, selem, sregion
+#import "lib.typ": g-node, g-edge, petersen-graph, house-graph, octahedral-graph, draw-grid-graph, draw-triangular-graph, graph-colors, selem, sregion, draw-node-highlight, draw-edge-highlight, draw-node-colors, sregion-selected, sregion-dimmed, gate-and, gate-or, gate-xor
 
 #set page(paper: "a4", margin: (x: 2cm, y: 2.5cm))
 #set text(font: "New Computer Modern", size: 10pt)
@@ -339,16 +339,7 @@ One of Karp's 21 NP-complete problems @karp1972, MIS appears in wireless network
 
 #figure({
   let pg = petersen-graph()
-  let mis = (1, 3, 5, 9)
-  canvas(length: 1cm, {
-    for (u, v) in pg.edges { g-edge(pg.vertices.at(u), pg.vertices.at(v)) }
-    for (k, pos) in pg.vertices.enumerate() {
-      let s = mis.contains(k)
-      g-node(pos, name: "v" + str(k),
-        fill: if s { graph-colors.at(0) } else { white },
-        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-    }
-  })
+  draw-node-highlight(pg.vertices, pg.edges, (1, 3, 5, 9))
 },
 caption: [The Petersen graph with a maximum independent set $S = {v_1, v_3, v_5, v_9}$ shown in blue ($alpha(G) = 4$). Outer vertices $v_0, ..., v_4$ form a pentagon; inner vertices $v_5, ..., v_9$ form a pentagram. Unit weights $w(v_i) = 1$.],
 ) <fig:petersen-mis>
@@ -363,16 +354,7 @@ One of Karp's 21 NP-complete problems @karp1972. Vertex Cover is the complement 
 
 #figure({
   let hg = house-graph()
-  let vc = (0, 3, 4)
-  canvas(length: 1cm, {
-    for (u, v) in hg.edges { g-edge(hg.vertices.at(u), hg.vertices.at(v)) }
-    for (k, pos) in hg.vertices.enumerate() {
-      let s = vc.contains(k)
-      g-node(pos, name: "v" + str(k),
-        fill: if s { graph-colors.at(0) } else { white },
-        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-    }
-  })
+  draw-node-highlight(hg.vertices, hg.edges, (0, 3, 4))
 },
 caption: [The house graph with a minimum vertex cover $S = {v_0, v_3, v_4}$ shown in blue ($w(S) = 3$). Every edge is incident to at least one blue vertex.],
 ) <fig:house-vc>
@@ -388,19 +370,8 @@ Max-Cut is NP-hard on general graphs @barahona1982 but polynomial-time solvable 
 #figure({
   let hg = house-graph()
   let side-s = (0, 3)
-  canvas(length: 1cm, {
-    for (u, v) in hg.edges {
-      let cut = (side-s.contains(u) and not side-s.contains(v)) or (side-s.contains(v) and not side-s.contains(u))
-      g-edge(hg.vertices.at(u), hg.vertices.at(v),
-        stroke: if cut { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
-    }
-    for (k, pos) in hg.vertices.enumerate() {
-      let s = side-s.contains(k)
-      g-node(pos, name: "v" + str(k),
-        fill: if s { graph-colors.at(0) } else { white },
-        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-    }
-  })
+  let cut-edges = hg.edges.filter(e => side-s.contains(e.at(0)) != side-s.contains(e.at(1)))
+  draw-edge-highlight(hg.vertices, hg.edges, cut-edges, side-s)
 },
 caption: [The house graph with max cut $S = {v_0, v_3}$ (blue) vs $overline(S) = {v_1, v_2, v_4}$ (white). Cut edges shown in bold blue; 5 of 6 edges are cut.],
 ) <fig:house-maxcut>
@@ -414,15 +385,7 @@ Graph coloring arises in register allocation, frequency assignment, and scheduli
 
 #figure({
   let hg = house-graph()
-  let colors = (0, 1, 1, 0, 2)
-  canvas(length: 1cm, {
-    for (u, v) in hg.edges { g-edge(hg.vertices.at(u), hg.vertices.at(v)) }
-    for (k, pos) in hg.vertices.enumerate() {
-      g-node(pos, name: "v" + str(k),
-        fill: graph-colors.at(colors.at(k)),
-        label: text(fill: white)[$v_#k$])
-    }
-  })
+  draw-node-colors(hg.vertices, hg.edges, (0, 1, 1, 0, 2))
 },
 caption: [A proper 3-coloring of the house graph. Colors: $c(v_0) = c(v_3) = 1$ (blue), $c(v_1) = c(v_2) = 2$ (red), $c(v_4) = 3$ (teal). Zero conflicts.],
 ) <fig:house-coloring>
@@ -436,16 +399,7 @@ Dominating Set models facility location: each vertex in $S$ "covers" itself and 
 
 #figure({
   let hg = house-graph()
-  let ds = (2, 3)
-  canvas(length: 1cm, {
-    for (u, v) in hg.edges { g-edge(hg.vertices.at(u), hg.vertices.at(v)) }
-    for (k, pos) in hg.vertices.enumerate() {
-      let s = ds.contains(k)
-      g-node(pos, name: "v" + str(k),
-        fill: if s { graph-colors.at(0) } else { white },
-        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-    }
-  })
+  draw-node-highlight(hg.vertices, hg.edges, (2, 3))
 },
 caption: [The house graph with minimum dominating set $S = {v_2, v_3}$ (blue, $gamma(G) = 2$). Every white vertex is adjacent to at least one blue vertex.],
 ) <fig:house-ds>
@@ -459,21 +413,7 @@ Unlike most combinatorial optimization problems on general graphs, maximum match
 
 #figure({
   let hg = house-graph()
-  let matching = ((0, 1), (2, 4))
-  canvas(length: 1cm, {
-    for (u, v) in hg.edges {
-      let matched = matching.any(m => (m.at(0) == u and m.at(1) == v) or (m.at(0) == v and m.at(1) == u))
-      g-edge(hg.vertices.at(u), hg.vertices.at(v),
-        stroke: if matched { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
-    }
-    let matched-v = (0, 1, 2, 4)
-    for (k, pos) in hg.vertices.enumerate() {
-      let s = matched-v.contains(k)
-      g-node(pos, name: "v" + str(k),
-        fill: if s { graph-colors.at(0) } else { white },
-        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-    }
-  })
+  draw-edge-highlight(hg.vertices, hg.edges, ((0, 1), (2, 4)), (0, 1, 2, 4))
 },
 caption: [The house graph with a maximum matching $M = {(v_0, v_1), (v_2, v_4)}$ (blue edges, $w(M) = 2$). Matched vertices shown in blue; $v_3$ is unmatched.],
 ) <fig:house-matching>
@@ -522,21 +462,7 @@ Maximum Clique arises in social network analysis (finding tightly-connected comm
 
 #figure({
   let hg = house-graph()
-  let clique = (2, 3, 4)
-  let clique-edges = ((2,3), (2,4), (3,4))
-  canvas(length: 1cm, {
-    for (u, v) in hg.edges {
-      let in-clique = clique-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
-      g-edge(hg.vertices.at(u), hg.vertices.at(v),
-        stroke: if in-clique { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
-    }
-    for (k, pos) in hg.vertices.enumerate() {
-      let s = clique.contains(k)
-      g-node(pos, name: "v" + str(k),
-        fill: if s { graph-colors.at(0) } else { white },
-        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-    }
-  })
+  draw-edge-highlight(hg.vertices, hg.edges, ((2,3), (2,4), (3,4)), (2, 3, 4))
 },
 caption: [The house graph with maximum clique $K = {v_2, v_3, v_4}$ (blue, $omega(G) = 3$). All edges within the clique are shown in bold blue.],
 ) <fig:house-clique>
@@ -549,18 +475,7 @@ The maximality constraint (no vertex can be added) distinguishes this from MIS, 
 *Example.* Consider the path graph $P_5$ with $n = 5$ vertices, edges $(v_i, v_(i+1))$ for $i = 0, ..., 3$, and unit weights $w(v) = 1$. The set $S = {v_1, v_3}$ is a maximal independent set: no two vertices in $S$ are adjacent, and neither $v_0$ (adjacent to $v_1$), $v_2$ (adjacent to both), nor $v_4$ (adjacent to $v_3$) can be added. However, $S' = {v_0, v_2, v_4}$ with $w(S') = 3$ is a strictly larger maximal IS, illustrating that maximality does not imply maximum weight.
 
 #figure({
-  let verts = ((0, 0), (1, 0), (2, 0), (3, 0), (4, 0))
-  let edges = ((0,1),(1,2),(2,3),(3,4))
-  let mis = (1, 3)
-  canvas(length: 1cm, {
-    for (u, v) in edges { g-edge(verts.at(u), verts.at(v)) }
-    for (k, pos) in verts.enumerate() {
-      let s = mis.contains(k)
-      g-node(pos, name: "v" + str(k),
-        fill: if s { graph-colors.at(0) } else { white },
-        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-    }
-  })
+  draw-node-highlight(((0, 0), (1, 0), (2, 0), (3, 0), (4, 0)), ((0,1),(1,2),(2,3),(3,4)), (1, 3))
 },
 caption: [Path $P_5$ with maximal IS $S = {v_1, v_3}$ (blue, $w(S) = 2$). $S$ is maximal — no white vertex can be added — but not maximum: ${v_0, v_2, v_4}$ achieves $w = 3$.],
 ) <fig:path-maximal-is>
@@ -582,22 +497,10 @@ One of Karp's 21 NP-complete problems @karp1972. Generalizes maximum matching (t
     let elems = ((0, 0), (1, 0), (2, 0), (3, 0), (4, 0))
     // Set regions: S1={1,2}, S2={2,3}, S3={3,4}, S4={4,5}
     // Selected packing {S1, S3} in blue, others in gray
-    sregion(((0, 0), (1, 0)),
-      label: [$S_1$],
-      fill: graph-colors.at(0).transparentize(80%),
-      stroke: 1.2pt + graph-colors.at(0))
-    sregion(((1, 0), (2, 0)),
-      label: [$S_2$],
-      fill: rgb("#999").transparentize(90%),
-      stroke: 0.8pt + rgb("#999"))
-    sregion(((2, 0), (3, 0)),
-      label: [$S_3$],
-      fill: graph-colors.at(0).transparentize(80%),
-      stroke: 1.2pt + graph-colors.at(0))
-    sregion(((3, 0), (4, 0)),
-      label: [$S_4$],
-      fill: rgb("#999").transparentize(90%),
-      stroke: 0.8pt + rgb("#999"))
+    sregion(((0, 0), (1, 0)), label: [$S_1$], ..sregion-selected)
+    sregion(((1, 0), (2, 0)), label: [$S_2$], ..sregion-dimmed)
+    sregion(((2, 0), (3, 0)), label: [$S_3$], ..sregion-selected)
+    sregion(((3, 0), (4, 0)), label: [$S_4$], ..sregion-dimmed)
     // Elements
     for (k, pos) in elems.enumerate() {
       selem(pos, label: [#(k + 1)], fill: black)
@@ -625,18 +528,9 @@ One of Karp's 21 NP-complete problems @karp1972. Arises in facility location, cr
       (1.7, 0.4),    // 5: only S3
     )
     // Set regions: S1={1,2,3}, S2={2,4}, S3={3,4,5}
-    sregion((elems.at(0), elems.at(1), elems.at(2)), pad: 0.4,
-      label: [$S_1$],
-      fill: graph-colors.at(0).transparentize(80%),
-      stroke: 1.2pt + graph-colors.at(0))
-    sregion((elems.at(1), elems.at(3)), pad: 0.35,
-      label: [$S_2$],
-      fill: rgb("#999").transparentize(90%),
-      stroke: 0.8pt + rgb("#999"))
-    sregion((elems.at(2), elems.at(3), elems.at(4)), pad: 0.4,
-      label: [$S_3$],
-      fill: graph-colors.at(0).transparentize(80%),
-      stroke: 1.2pt + graph-colors.at(0))
+    sregion((elems.at(0), elems.at(1), elems.at(2)), pad: 0.4, label: [$S_1$], ..sregion-selected)
+    sregion((elems.at(1), elems.at(3)), pad: 0.35, label: [$S_2$], ..sregion-dimmed)
+    sregion((elems.at(2), elems.at(3), elems.at(4)), pad: 0.4, label: [$S_3$], ..sregion-selected)
     // Elements
     for (k, pos) in elems.enumerate() {
       selem(pos, label: [#(k + 1)], fill: black)
@@ -692,7 +586,54 @@ Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The 
 ][
 Integer Linear Programming is a universal modeling framework: virtually every NP-hard combinatorial optimization problem admits an ILP formulation. Relaxing integrality to $bold(x) in RR^n$ yields a linear program solvable in polynomial time, forming the basis of branch-and-bound solvers. When the number of integer variables $n$ is fixed, ILP is solvable in polynomial time by Lenstra's algorithm @lenstra1983 using the geometry of numbers, making it fixed-parameter tractable in $n$. The best known general algorithm achieves $O^*(n^n)$ via an FPT algorithm based on lattice techniques @dadush2012.
 
-*Example.* Minimize $bold(c)^top bold(x) = -x_1 - 2x_2$ subject to $x_1 + x_2 <= 4$, $x_1 <= 3$, $x_2 <= 3$, $x_1, x_2 >= 0$, $bold(x) in ZZ^2$. The LP relaxation optimum is $(1, 3)$ with value $-7$, which is already integral. Thus the ILP optimum is $bold(x)^* = (1, 3)$ with $bold(c)^top bold(x)^* = -7$.
+*Example.* Minimize $bold(c)^top bold(x) = -5x_1 - 6x_2$ subject to $x_1 + x_2 <= 5$, $4x_1 + 7x_2 <= 28$, $x_1, x_2 >= 0$, $bold(x) in ZZ^2$. The LP relaxation optimum is $p_1 = (7 slash 3, 8 slash 3) approx (2.33, 2.67)$ with value $approx -27.67$, which is non-integral. Branch-and-bound yields the ILP optimum $bold(x)^* = (3, 2)$ with $bold(c)^top bold(x)^* = -27$.
+
+#figure(
+  canvas(length: 0.8cm, {
+    // Axes
+    draw.line((-0.3, 0), (5.5, 0), mark: (end: "straight"), stroke: 0.6pt)
+    draw.line((0, -0.3), (0, 4.8), mark: (end: "straight"), stroke: 0.6pt)
+    draw.content((5.7, -0.15), text(8pt)[$x_1$])
+    draw.content((-0.15, 5.0), text(8pt)[$x_2$])
+    // Tick marks
+    for i in range(1, 6) {
+      draw.line((i, -0.08), (i, 0.08), stroke: 0.4pt)
+      draw.content((i, -0.35), text(6pt)[#i])
+    }
+    for i in range(1, 5) {
+      draw.line((-0.08, i), (0.08, i), stroke: 0.4pt)
+      draw.content((-0.35, i), text(6pt)[#i])
+    }
+    // Feasible region polygon: (0,0) → (5,0) → (7/3, 8/3) → (0, 4)
+    draw.line((0,0), (5,0), (7/3, 8/3), (0, 4), close: true,
+      fill: green.lighten(70%), stroke: none)
+    // Constraint lines (extending beyond feasible region)
+    draw.line((0, 5), (5, 0), stroke: graph-colors.at(0))  // x1 + x2 = 5
+    draw.line((0, 4), (5.25, 1), stroke: orange)            // 4x1 + 7x2 = 28
+    // Objective function level curve (dashed): -5x1 - 6x2 = -23, i.e. x2 = (23 - 5x1)/6
+    draw.line((0, 23/6), (23/5, 0), stroke: (paint: luma(80), dash: "dashed"))
+    // Gradient direction arrow
+    draw.line((1.5, 2.5), (1.1, 1.9), mark: (end: "straight"), stroke: 1pt + luma(80))
+    draw.content((0.7, 1.75), text(6pt, fill: luma(80))[$bold(c)$])
+    // Constraint labels
+    draw.content((4.3, 1.0), text(6pt, fill: graph-colors.at(0))[$x_1 + x_2 = 5$], anchor: "west")
+    draw.content((4.5, 1.7), text(6pt, fill: orange)[$4x_1 + 7x_2 = 28$], anchor: "west")
+    draw.content((1.2, 4.3), text(6pt, fill: luma(80))[objective], anchor: "south")
+    // Integer lattice points (hollow circles)
+    for x1 in range(6) {
+      for x2 in range(5) {
+        draw.circle((x1, x2), radius: 0.06, fill: none, stroke: 0.4pt + luma(120))
+      }
+    }
+    // LP optimum (fractional, non-integer)
+    draw.circle((7/3, 8/3), radius: 0.1, fill: graph-colors.at(1), stroke: none)
+    draw.content((7/3 + 0.3, 8/3 + 0.3), text(7pt)[$p_1$])
+    // ILP optimum (integer)
+    draw.circle((3, 2), radius: 0.1, fill: graph-colors.at(1), stroke: none)
+    draw.content((3.3, 2.3), text(7pt)[$bold(x)^*$])
+  }),
+  caption: [ILP feasible region (green) with constraints $x_1 + x_2 <= 5$ (blue) and $4x_1 + 7x_2 <= 28$ (orange). Hollow circles mark the integer lattice. The LP relaxation optimum $p_1 = (7 slash 3, 8 slash 3)$ is non-integral; the ILP optimum $bold(x)^* = (3, 2)$ gives $bold(c)^top bold(x)^* = -27$.],
+) <fig:ilp-example>
 ]
 
 == Satisfiability Problems
@@ -719,6 +660,34 @@ The restriction of SAT to exactly $k$ literals per clause reveals a sharp comple
 Circuit Satisfiability is the most natural NP-complete problem: the Cook-Levin theorem @cook1971 proves NP-completeness by showing any nondeterministic polynomial-time computation can be encoded as a Boolean circuit. CircuitSAT is strictly more succinct than CNF-SAT, since a circuit with $g$ gates may require an exponentially larger CNF formula without auxiliary variables. The Tseitin transformation reduces CircuitSAT to CNF-SAT with only $O(g)$ clauses by introducing one auxiliary variable per gate. The best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[No algorithm improving on brute-force is known for general circuits.].
 
 *Example.* Consider the circuit $C(x_1, x_2) = (x_1 "AND" x_2) "XOR" (x_1 "OR" x_2)$ with $n = 2$ inputs. Evaluating: $C(0,0) = (0) "XOR" (0) = 0$, $C(0,1) = (0) "XOR" (1) = 1$, $C(1,0) = (0) "XOR" (1) = 1$, $C(1,1) = (1) "XOR" (1) = 0$. The satisfying assignments are $(0, 1)$ and $(1, 0)$ -- precisely the inputs where exactly one variable is true.
+
+#figure(
+  canvas(length: 1cm, {
+    // Gate positions: AND/OR vertically stacked, XOR to the right
+    // With inputs=2, w=0.8: h = max(0.5, 0.7) = 0.7, ports at ±0.175 from center
+    gate-and((2, 0.8), name: "and")
+    gate-or((2, -0.8), name: "or")
+    gate-xor((4.5, 0), name: "xor")
+    // AND → XOR, OR → XOR (right-angle routing)
+    draw.line("and.out", (3.5, 0.8), (3.5, 0.175), "xor.in0")
+    draw.line("or.out", (3.5, -0.8), (3.5, -0.175), "xor.in1")
+    // Output wire and label
+    draw.line("xor.out", (5.5, 0), mark: (end: ">"))
+    draw.content((5.8, 0), text(8pt)[$C$])
+    // x1 fork: to and.in0 (y = 0.975) and or.in0 (y = −0.625)
+    draw.line((0, 0.975), (0.8, 0.975), "and.in0")
+    draw.line((0.8, 0.975), (0.8, -0.625), "or.in0")
+    draw.circle((0.8, 0.975), radius: 0.04, fill: black, stroke: none)
+    // x2 fork: to or.in1 (y = −0.975) and and.in1 (y = 0.625)
+    draw.line((0, -0.975), (0.5, -0.975), "or.in1")
+    draw.line((0.5, -0.975), (0.5, 0.625), "and.in1")
+    draw.circle((0.5, -0.975), radius: 0.04, fill: black, stroke: none)
+    // Input labels
+    draw.content((-0.3, 0.975), text(8pt)[$x_1$])
+    draw.content((-0.3, -0.975), text(8pt)[$x_2$])
+  }),
+  caption: [Circuit $C(x_1, x_2) = (x_1 and x_2) xor (x_1 or x_2)$. Junction dots mark where inputs fork to both gates. Satisfying assignments: $(0,1)$ and $(1,0)$.],
+) <fig:circuit-sat>
 ]
 
 #problem-def("Factoring")[

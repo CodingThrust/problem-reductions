@@ -147,6 +147,168 @@
   }
 }
 
+// ── High-level graph drawing helpers ─────────────────────────────
+// Wrappers around g-node/g-edge for common visualization patterns.
+
+// Draw graph with a highlighted node subset (blue fill, white for others).
+#let draw-node-highlight(vertices, edges, highlights) = canvas(length: 1cm, {
+  for (u, v) in edges { g-edge(vertices.at(u), vertices.at(v)) }
+  for (k, pos) in vertices.enumerate() {
+    let s = highlights.contains(k)
+    g-node(pos, name: "v" + str(k),
+      fill: if s { graph-colors.at(0) } else { white },
+      label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+  }
+})
+
+// Draw graph with highlighted edges (bold blue vs gray) and nodes.
+#let draw-edge-highlight(vertices, edges, edge-highlights, node-highlights) = canvas(length: 1cm, {
+  for (u, v) in edges {
+    let h = edge-highlights.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+    g-edge(vertices.at(u), vertices.at(v),
+      stroke: if h { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
+  }
+  for (k, pos) in vertices.enumerate() {
+    let s = node-highlights.contains(k)
+    g-node(pos, name: "v" + str(k),
+      fill: if s { graph-colors.at(0) } else { white },
+      label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+  }
+})
+
+// Draw graph with per-node coloring from a color-index array.
+#let draw-node-colors(vertices, edges, colors) = canvas(length: 1cm, {
+  for (u, v) in edges { g-edge(vertices.at(u), vertices.at(v)) }
+  for (k, pos) in vertices.enumerate() {
+    g-node(pos, name: "v" + str(k),
+      fill: graph-colors.at(colors.at(k)),
+      label: text(fill: white)[$v_#k$])
+  }
+})
+
+// ── Set region style presets ─────────────────────────────────────
+// Spread into sregion() calls: sregion(positions, ..sregion-selected, label: [$S_1$])
+#let sregion-selected = (
+  fill: graph-colors.at(0).transparentize(80%),
+  stroke: 1.2pt + graph-colors.at(0),
+)
+#let sregion-dimmed = (
+  fill: rgb("#999").transparentize(90%),
+  stroke: 0.8pt + rgb("#999"),
+)
+
+// ── Logic gate primitives ────────────────────────────────────────
+// For circuit diagrams (CircuitSAT examples).
+// Each gate is a CetZ group with named anchors: in0, in1, ..., out.
+
+// Cubic bezier point at parameter t ∈ [0, 1]
+#let bezier-at(p0, c1, c2, p3, t) = {
+  let u = 1 - t
+  let uu = u * u
+  let tt = t * t
+  (
+    uu * u * p0.at(0) + 3 * uu * t * c1.at(0) + 3 * u * tt * c2.at(0) + tt * t * p3.at(0),
+    uu * u * p0.at(1) + 3 * uu * t * c1.at(1) + 3 * u * tt * c2.at(1) + tt * t * p3.at(1),
+  )
+}
+
+// Concave-curve control points for OR/XOR left edge
+#let or-left-curve(w, r, d, dx: 0) = {
+  let x = -w / 2 - dx
+  ((x, -r), (x + d, -r / 3), (x + d, r / 3), (x, r))
+}
+
+// AND gate: D-shape (flat left + semicircular right)
+#let gate-and(
+  pos,
+  inputs: 2,
+  w: 0.8,
+  h: auto,
+  name: none,
+  fill: white,
+  stroke: 0.5pt,
+) = {
+  let h = if h == auto { calc.max(0.5, 0.3 * inputs + 0.1) } else { h }
+  let r = h / 2
+  draw.group(name: name, {
+    draw.set-origin(pos)
+    draw.anchor("default", (0, 0))
+    draw.merge-path(close: true, fill: fill, stroke: stroke, {
+      draw.line((-w / 2, -r), (-w / 2, r), (w / 2 - r, r))
+      draw.arc((), start: 90deg, stop: -90deg, radius: r)
+    })
+    for i in range(inputs) {
+      draw.anchor("in" + str(i), (-w / 2, r - (i + 0.5) * h / inputs))
+    }
+    draw.anchor("out", (w / 2, 0))
+  })
+}
+
+// OR gate: curved body with pointed output
+#let gate-or(
+  pos,
+  inputs: 2,
+  w: 0.8,
+  h: auto,
+  name: none,
+  fill: white,
+  stroke: 0.5pt,
+) = {
+  let h = if h == auto { calc.max(0.5, 0.3 * inputs + 0.1) } else { h }
+  let r = h / 2
+  let d = w / 6
+  let (bl, lc1, lc2, tl) = or-left-curve(w, r, d)
+  let tip = (w / 2, 0)
+  draw.group(name: name, {
+    draw.set-origin(pos)
+    draw.anchor("default", (0, 0))
+    draw.merge-path(close: true, fill: fill, stroke: stroke, {
+      draw.bezier(bl, tl, lc1, lc2)
+      draw.bezier(tl, tip, (-w / 6, r), (w / 4, r / 2))
+      draw.bezier(tip, bl, (w / 4, -r / 2), (-w / 6, -r))
+    })
+    for i in range(inputs) {
+      let t = 1 - (i + 0.5) / inputs
+      draw.anchor("in" + str(i), bezier-at(bl, lc1, lc2, tl, t))
+    }
+    draw.anchor("out", tip)
+  })
+}
+
+// XOR gate: OR shape + extra concave curve on left
+#let gate-xor(
+  pos,
+  inputs: 2,
+  w: 0.8,
+  h: auto,
+  name: none,
+  fill: white,
+  stroke: 0.5pt,
+) = {
+  let h = if h == auto { calc.max(0.5, 0.3 * inputs + 0.1) } else { h }
+  let r = h / 2
+  let d = w / 6
+  let gap = 0.15
+  let (bl, lc1, lc2, tl) = or-left-curve(w, r, d)
+  let (ebl, ec1, ec2, etl) = or-left-curve(w, r, d, dx: gap)
+  let tip = (w / 2, 0)
+  draw.group(name: name, {
+    draw.set-origin(pos)
+    draw.anchor("default", (0, 0))
+    draw.merge-path(close: true, fill: fill, stroke: stroke, {
+      draw.bezier(bl, tl, lc1, lc2)
+      draw.bezier(tl, tip, (-w / 6, r), (w / 4, r / 2))
+      draw.bezier(tip, bl, (w / 4, -r / 2), (-w / 6, -r))
+    })
+    draw.bezier(ebl, etl, ec1, ec2, stroke: stroke)
+    for i in range(inputs) {
+      let t = 1 - (i + 0.5) / inputs
+      draw.anchor("in" + str(i), bezier-at(ebl, ec1, ec2, etl, t))
+    }
+    draw.anchor("out", tip)
+  })
+}
+
 // ── Grid graph functions (JSON-driven) ─────────────────────────
 // Extract positions from JSON, draw with dense styling via g-node/g-edge.
 
