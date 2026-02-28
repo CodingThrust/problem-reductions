@@ -90,7 +90,7 @@
 
 // ── Set diagram primitives ──────────────────────────────────────
 // For visualizing set packing, set covering, and similar problems.
-// Elements are small labeled dots; sets are elliptical regions.
+// Elements are small labeled dots; sets are smooth hobby-curve blobs.
 
 // Draw a universe element as a labeled dot.
 //   pos: (x, y) position
@@ -114,28 +114,35 @@
   }
 }
 
-// Draw a set region as a labeled ellipse.
-//   center: (x, y) center of the ellipse
-//   rx, ry: horizontal and vertical radii
+// Draw a set region as an ellipse enclosing given positions.
+//   positions: array of (x, y) positions the set should enclose
+//   pad: padding distance around the bounding box
 //   label: set label (e.g., [$S_1$]), placed above the ellipse
 //   fill: translucent fill color
 //   stroke: border stroke
 #let sregion(
-  center,
-  rx: 0.5,
-  ry: 0.4,
+  positions,
+  pad: 0.3,
   label: none,
   fill: rgb("#4e79a7").transparentize(80%),
   stroke: 0.8pt + rgb("#4e79a7"),
   label-size: 8pt,
   label-anchor: "south",
 ) = {
-  draw.circle(center, radius: (rx, ry), fill: fill, stroke: stroke)
+  if positions.len() == 0 { return }
+
+  let xs = positions.map(p => p.at(0))
+  let ys = positions.map(p => p.at(1))
+  let cx = (calc.min(..xs) + calc.max(..xs)) / 2
+  let cy = (calc.min(..ys) + calc.max(..ys)) / 2
+  let rx = (calc.max(..xs) - calc.min(..xs)) / 2 + pad
+  let ry = (calc.max(..ys) - calc.min(..ys)) / 2 + pad
+
+  draw.circle((cx, cy), radius: (rx, ry), fill: fill, stroke: stroke)
   if label != none {
     draw.content(
-      (center.at(0), center.at(1) + ry + 0.15),
-      text(label-size, label),
-      anchor: label-anchor,
+      (cx, cy + ry + 0.15),
+      text(label-size, label), anchor: label-anchor,
     )
   }
 }

@@ -408,7 +408,7 @@ caption: [The house graph with max cut $S = {v_0, v_3}$ (blue) vs $overline(S) =
 #problem-def("KColoring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
 ][
-Graph coloring arises in register allocation, frequency assignment, and scheduling @garey1979. Deciding $k$-colorability is NP-complete for $k >= 3$. Best known: $O(n+m)$ for $k=2$ (bipartiteness testing by BFS); $O^*(1.3289^n)$ for $k=3$ @beigel2005; $O^*(1.7159^n)$ for $k=4$ @wu2024; $O^*((2-epsilon)^n)$ for $k=5$ @zamir2021; $O^*(2^n)$ in general via inclusion-exclusion @bjorklund2009.
+Graph coloring arises in register allocation, frequency assignment, and scheduling @garey1979. Deciding $k$-colorability is NP-complete for $k >= 3$ but solvable in $O(n+m)$ for $k=2$ via bipartiteness testing. For $k = 3$, the best known algorithm runs in $O^*(1.3289^n)$ @beigel2005; for $k = 4$ in $O^*(1.7159^n)$ @wu2024; for $k = 5$ in $O^*((2-epsilon)^n)$ @zamir2021. In general, inclusion-exclusion achieves $O^*(2^n)$ @bjorklund2009.
 
 *Example.* Consider the house graph $G$ with $k = 3$ colors. The coloring $c(v_0) = 1$, $c(v_1) = 2$, $c(v_2) = 2$, $c(v_3) = 1$, $c(v_4) = 3$ is proper: no adjacent pair shares a color, so the number of conflicts is 0. The house graph has chromatic number $chi(G) = 3$ because the triangle $(v_2, v_3, v_4)$ requires 3 colors.
 
@@ -430,7 +430,7 @@ caption: [A proper 3-coloring of the house graph. Colors: $c(v_0) = c(v_3) = 1$ 
 #problem-def("MinimumDominatingSet")[
   Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall v in V: v in S or exists u in S: (u, v) in E$.
 ][
-Dominating Set models facility location: each vertex in $S$ "covers" itself and its neighbors. Applications include wireless sensor placement and social network influence maximization. W[2]-complete when parameterized by solution size $k$, making it strictly harder than Vertex Cover in the parameterized hierarchy. The best known exact algorithm runs in $O^*(1.4969^n)$ via branch-and-reduce @vanrooij2011.
+Dominating Set models facility location: each vertex in $S$ "covers" itself and its neighbors. Applications include wireless sensor placement and social network influence maximization. W[2]-complete when parameterized by solution size $k$, making it strictly harder than Vertex Cover in the parameterized hierarchy. The best known exact algorithm runs in $O^*(1.4969^n)$ via measure-and-conquer @vanrooij2011.
 
 *Example.* Consider the house graph $G$ with $n = 5$ vertices and unit weights $w(v) = 1$. The set $S = {v_2, v_3}$ is a minimum dominating set with $w(S) = 2$: vertex $v_2$ dominates ${v_0, v_4}$ and $v_3$ dominates ${v_1}$ (both also dominate each other). No single vertex can dominate all others, so $gamma(G) = 2$.
 
@@ -516,7 +516,7 @@ caption: [Complete graph $K_4$ with weighted edges. The optimal tour $v_0 -> v_1
 #problem-def("MaximumClique")[
   Given $G = (V, E)$, find $K subset.eq V$ maximizing $|K|$ such that all pairs in $K$ are adjacent: $forall u, v in K: (u, v) in E$. Equivalent to MIS on the complement graph $overline(G)$.
 ][
-Maximum Clique arises in social network analysis (finding tightly-connected communities), bioinformatics (protein interaction clusters), and coding theory. The problem is equivalent to Maximum Independent Set on the complement graph $overline(G)$. The best known algorithm runs in $O^*(1.1996^n)$ via this complement reduction @xiao2017; Robson's direct algorithm achieves $O^*(1.2109^n)$ @robson1986 using exponential space.
+Maximum Clique arises in social network analysis (finding tightly-connected communities), bioinformatics (protein interaction clusters), and coding theory. The problem is equivalent to Maximum Independent Set on the complement graph $overline(G)$. The best known algorithm runs in $O^*(1.1996^n)$ via the complement reduction to MIS @xiao2017. Robson's direct backtracking algorithm achieves $O^*(1.1888^n)$ using exponential space @robson2001.
 
 *Example.* Consider the house graph $G$ with $n = 5$ vertices and $|E| = 6$ edges. The triangle $K = {v_2, v_3, v_4}$ is a maximum clique of size $omega(G) = 3$: all three pairs $(v_2, v_3)$, $(v_2, v_4)$, $(v_3, v_4)$ are edges. No 4-clique exists because vertices $v_0$ and $v_1$ each have degree 2 and are not adjacent to all of ${v_2, v_3, v_4}$.
 
@@ -572,7 +572,7 @@ caption: [Path $P_5$ with maximal IS $S = {v_1, v_3}$ (blue, $w(S) = 2$). $S$ is
 #problem-def("MaximumSetPacking")[
   Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
 ][
-One of Karp's 21 NP-complete problems @karp1972. Generalizes maximum matching (the special case where all sets have size 2, solvable in polynomial time). Applications include resource allocation, VLSI design, and frequency assignment. The optimization version is as hard to approximate as maximum clique. Best known: $O^*(2^m)$ by exhaustive enumeration over the $m$ sets.
+One of Karp's 21 NP-complete problems @karp1972. Generalizes maximum matching (the special case where all sets have size 2, solvable in polynomial time). Applications include resource allocation, VLSI design, and frequency assignment. The optimization version is as hard to approximate as maximum clique. The best known exact algorithm runs in $O^*(2^m)$ by brute-force enumeration over the $m$ sets#footnote[No algorithm improving on brute-force enumeration is known for general weighted set packing.].
 
 *Example.* Let $U = {1, 2, 3, 4, 5}$ and $cal(S) = {S_1, S_2, S_3, S_4}$ with $S_1 = {1, 2}$, $S_2 = {2, 3}$, $S_3 = {3, 4}$, $S_4 = {4, 5}$, and unit weights $w(S_i) = 1$. A maximum packing is $cal(P) = {S_1, S_3}$ with $w(cal(P)) = 2$: $S_1 inter S_3 = emptyset$. Adding $S_2$ would conflict with both ($S_1 inter S_2 = {2}$, $S_2 inter S_3 = {3}$), and $S_4$ conflicts with $S_3$ ($S_3 inter S_4 = {4}$). The alternative packing ${S_2, S_4}$ also achieves weight 2.
 
@@ -582,19 +582,19 @@ One of Karp's 21 NP-complete problems @karp1972. Generalizes maximum matching (t
     let elems = ((0, 0), (1, 0), (2, 0), (3, 0), (4, 0))
     // Set regions: S1={1,2}, S2={2,3}, S3={3,4}, S4={4,5}
     // Selected packing {S1, S3} in blue, others in gray
-    sregion((0.5, 0), rx: 0.7, ry: 0.45,
+    sregion(((0, 0), (1, 0)),
       label: [$S_1$],
       fill: graph-colors.at(0).transparentize(80%),
       stroke: 1.2pt + graph-colors.at(0))
-    sregion((1.5, 0), rx: 0.7, ry: 0.35,
+    sregion(((1, 0), (2, 0)),
       label: [$S_2$],
       fill: rgb("#999").transparentize(90%),
       stroke: 0.8pt + rgb("#999"))
-    sregion((2.5, 0), rx: 0.7, ry: 0.45,
+    sregion(((2, 0), (3, 0)),
       label: [$S_3$],
       fill: graph-colors.at(0).transparentize(80%),
       stroke: 1.2pt + graph-colors.at(0))
-    sregion((3.5, 0), rx: 0.7, ry: 0.35,
+    sregion(((3, 0), (4, 0)),
       label: [$S_4$],
       fill: rgb("#999").transparentize(90%),
       stroke: 0.8pt + rgb("#999"))
@@ -610,25 +610,30 @@ One of Karp's 21 NP-complete problems @karp1972. Generalizes maximum matching (t
 #problem-def("MinimumSetCovering")[
   Given universe $U$, collection $cal(S)$ with weights $w: cal(S) -> RR$, find $cal(C) subset.eq cal(S)$ minimizing $sum_(S in cal(C)) w(S)$ s.t. $union.big_(S in cal(C)) S = U$.
 ][
-One of Karp's 21 NP-complete problems @karp1972. Arises in facility location, crew scheduling, and test suite minimization. The greedy algorithm achieves an $O(ln n)$-approximation where $n = |U|$, which is essentially optimal: cannot be approximated within $(1-o(1)) ln n$ unless P = NP. Best known exact algorithm: $O^*(2^m)$ by exhaustive enumeration over the $m$ sets.
+One of Karp's 21 NP-complete problems @karp1972. Arises in facility location, crew scheduling, and test suite minimization. The greedy algorithm achieves an $O(ln n)$-approximation where $n = |U|$, which is essentially optimal: cannot be approximated within $(1-o(1)) ln n$ unless P = NP. The best known exact algorithm runs in $O^*(2^m)$ by brute-force enumeration over the $m$ sets#footnote[No algorithm improving on brute-force enumeration is known for general weighted set covering.].
 
 *Example.* Let $U = {1, 2, 3, 4, 5}$ and $cal(S) = {S_1, S_2, S_3}$ with $S_1 = {1, 2, 3}$, $S_2 = {2, 4}$, $S_3 = {3, 4, 5}$, and unit weights $w(S_i) = 1$. A minimum cover is $cal(C) = {S_1, S_3}$ with $w(cal(C)) = 2$: $S_1 union S_3 = {1, 2, 3, 4, 5} = U$. No single set covers all of $U$, so at least two sets are required.
 
 #figure(
   canvas(length: 1cm, {
-    // Element positions
-    let elems = ((0, 0), (1, 0), (2, 0), (3, 0), (4, 0))
+    // 2D layout: S1={1,2,3} left, S3={3,4,5} right, S2={2,4} bridging bottom
+    let elems = (
+      (-1.2, 0.4),   // 1: only S1
+      (-0.5, -0.4),  // 2: S1 ∩ S2
+      (0.3, 0.4),    // 3: S1 ∩ S3
+      (1.0, -0.4),   // 4: S2 ∩ S3
+      (1.7, 0.4),    // 5: only S3
+    )
     // Set regions: S1={1,2,3}, S2={2,4}, S3={3,4,5}
-    // Selected cover {S1, S3} in blue, S2 in gray
-    sregion((1, 0), rx: 1.2, ry: 0.45,
+    sregion((elems.at(0), elems.at(1), elems.at(2)), pad: 0.4,
       label: [$S_1$],
       fill: graph-colors.at(0).transparentize(80%),
       stroke: 1.2pt + graph-colors.at(0))
-    sregion((1.8, 0.5), rx: 1.2, ry: 0.4,
+    sregion((elems.at(1), elems.at(3)), pad: 0.35,
       label: [$S_2$],
       fill: rgb("#999").transparentize(90%),
       stroke: 0.8pt + rgb("#999"))
-    sregion((3, 0), rx: 1.2, ry: 0.45,
+    sregion((elems.at(2), elems.at(3), elems.at(4)), pad: 0.4,
       label: [$S_3$],
       fill: graph-colors.at(0).transparentize(80%),
       stroke: 1.2pt + graph-colors.at(0))
@@ -646,15 +651,38 @@ One of Karp's 21 NP-complete problems @karp1972. Arises in facility location, cr
 #problem-def("SpinGlass")[
   Given $n$ spin variables $s_i in {-1, +1}$, pairwise couplings $J_(i j) in RR$, and external fields $h_i in RR$, minimize the Hamiltonian (energy function): $H(bold(s)) = -sum_((i,j)) J_(i j) s_i s_j - sum_i h_i s_i$.
 ][
-The Ising spin glass is the canonical model in statistical mechanics for disordered magnetic systems @barahona1982. Ground-state computation is NP-hard on general interaction graphs but polynomial-time solvable on planar graphs without external field ($h_i = 0$) via reduction to minimum-weight perfect matching. Central to quantum annealing, where hardware natively encodes spin Hamiltonians. Best known: $O^*(2^n)$.
+The Ising spin glass is the canonical model in statistical mechanics for disordered magnetic systems @barahona1982. Ground-state computation is NP-hard on general interaction graphs but polynomial-time solvable on planar graphs without external field ($h_i = 0$) via reduction to minimum-weight perfect matching. Central to quantum annealing, where hardware natively encodes spin Hamiltonians. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[On general interaction graphs, no algorithm improving on brute-force enumeration is known.].
 
-*Example.* Consider $n = 3$ spins with couplings $J_(12) = 1$, $J_(23) = -1$, $J_(13) = 1$ and no external field ($h_i = 0$). The Hamiltonian is $H(bold(s)) = -s_1 s_2 + s_2 s_3 - s_1 s_3$. For $bold(s) = (+1, +1, +1)$: $H = -1 + 1 - 1 = -1$. For $bold(s) = (+1, +1, -1)$: $H = -1 - 1 + 1 = -1$. Both are ground states with $H = -1$. The frustrated coupling $J_(23) = -1$ prevents all three pairs from being simultaneously satisfied.
+*Example.* Consider $n = 5$ spins on a triangular lattice with uniform antiferromagnetic couplings $J_(i j) = -1$ for all edges and no external field ($h_i = 0$). The Hamiltonian simplifies to $H(bold(s)) = sum_((i,j)) s_i s_j$, which counts parallel pairs minus antiparallel pairs. The lattice contains 7 edges and 3 triangular faces; since each triangle cannot have all three pairs antiparallel, frustration is unavoidable. A ground state is $bold(s) = (+, -, +, +, -)$ achieving $H = -3$: five edges are satisfied (antiparallel) and two are frustrated (parallel). No configuration can satisfy more than 5 of 7 edges.
+
+#figure(
+  canvas(length: 1cm, {
+    let h = calc.sqrt(3) / 2
+    let pos = ((0, h), (1, h), (2, h), (0.5, 0), (1.5, 0))
+    let edges = ((0,1), (1,2), (3,4), (0,3), (1,3), (1,4), (2,4))
+    let spins = (1, -1, 1, 1, -1)
+    // Draw edges: black solid = satisfied, dashed gray = frustrated
+    for (u, v) in edges {
+      let sat = spins.at(u) * spins.at(v) < 0
+      g-edge(pos.at(u), pos.at(v),
+        stroke: if sat { 1pt + black } else { (paint: rgb("#cc4444"), thickness: 1.2pt, dash: "dashed") })
+    }
+    // Draw spins: blue = +1, red = −1
+    for (k, p) in pos.enumerate() {
+      let up = spins.at(k) > 0
+      g-node(p, name: "s" + str(k), radius: 0.22,
+        fill: if up { graph-colors.at(0) } else { graph-colors.at(1) },
+        label: text(fill: white, if up { $+$ } else { $-$ }))
+    }
+  }),
+  caption: [Triangular lattice with $n = 5$ spins and antiferromagnetic couplings ($J = -1$). Ground state $bold(s) = (+, -, +, +, -)$ with $H = -3$. Solid edges: satisfied (antiparallel); dashed red: frustrated (parallel).],
+) <fig:spin-glass>
 ]
 
 #problem-def("QUBO")[
   Given $n$ binary variables $x_i in {0, 1}$, upper-triangular matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables).
 ][
-Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The native formulation for quantum annealing hardware (e.g., D-Wave) and a standard target for penalty-method reductions @glover2019. QUBO unifies many combinatorial problems into a single unconstrained binary framework, making it a universal intermediate representation for quantum and classical optimization. Best known: $O^*(2^n)$.
+Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The native formulation for quantum annealing hardware (e.g., D-Wave) and a standard target for penalty-method reductions @glover2019. QUBO unifies many combinatorial problems into a single unconstrained binary framework, making it a universal intermediate representation for quantum and classical optimization. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[QUBO inherits the Ising model's complexity; no algorithm improving on brute-force is known for the general case.].
 
 *Example.* Consider $n = 3$ with $Q = mat(-1, 2, 0; 0, -1, 2; 0, 0, -1)$. The objective is $f(bold(x)) = -x_1 - x_2 - x_3 + 2x_1 x_2 + 2x_2 x_3$. Evaluating all $2^3$ assignments: $f(0,0,0) = 0$, $f(1,0,0) = -1$, $f(0,1,0) = -1$, $f(0,0,1) = -1$, $f(1,1,0) = 0$, $f(0,1,1) = 0$, $f(1,0,1) = -2$, $f(1,1,1) = 1$. The minimum is $f^* = -2$ at $bold(x)^* = (1, 0, 1)$: selecting $x_1$ and $x_3$ avoids the penalty terms $2x_1 x_2$ and $2x_2 x_3$.
 ]
@@ -662,7 +690,7 @@ Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The 
 #problem-def("ILP")[
   Given $n$ integer variables $bold(x) in ZZ^n$, constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x)$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$ and variable bounds.
 ][
-Integer Linear Programming is a universal modeling framework: virtually every NP-hard combinatorial optimization problem admits an ILP formulation. Relaxing integrality to $bold(x) in RR^n$ yields a linear program solvable in polynomial time, forming the basis of branch-and-bound solvers. When the number of integer variables $n$ is fixed, ILP is solvable in polynomial time by Lenstra's algorithm @lenstra1983 using the geometry of numbers, making it fixed-parameter tractable in $n$. Best known: $O^*(n^n)$ @dadush2012.
+Integer Linear Programming is a universal modeling framework: virtually every NP-hard combinatorial optimization problem admits an ILP formulation. Relaxing integrality to $bold(x) in RR^n$ yields a linear program solvable in polynomial time, forming the basis of branch-and-bound solvers. When the number of integer variables $n$ is fixed, ILP is solvable in polynomial time by Lenstra's algorithm @lenstra1983 using the geometry of numbers, making it fixed-parameter tractable in $n$. The best known general algorithm achieves $O^*(n^n)$ via an FPT algorithm based on lattice techniques @dadush2012.
 
 *Example.* Minimize $bold(c)^top bold(x) = -x_1 - 2x_2$ subject to $x_1 + x_2 <= 4$, $x_1 <= 3$, $x_2 <= 3$, $x_1, x_2 >= 0$, $bold(x) in ZZ^2$. The LP relaxation optimum is $(1, 3)$ with value $-7$, which is already integral. Thus the ILP optimum is $bold(x)^* = (1, 3)$ with $bold(c)^top bold(x)^* = -7$.
 ]
@@ -672,7 +700,7 @@ Integer Linear Programming is a universal modeling framework: virtually every NP
 #problem-def("Satisfiability")[
   Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 1$ (all clauses satisfied).
 ][
-The Boolean Satisfiability Problem (SAT) is the first problem proven NP-complete @cook1971. SAT serves as the foundation of NP-completeness theory: showing a new problem NP-hard typically proceeds by reduction from SAT or one of its variants. Despite worst-case hardness, conflict-driven clause learning (CDCL) solvers handle industrial instances with millions of variables. The Strong Exponential Time Hypothesis (SETH) @impagliazzo2001 conjectures that no $O^*((2-epsilon)^n)$ algorithm exists for general CNF-SAT. Best known: $O^*(2^n)$.
+The Boolean Satisfiability Problem (SAT) is the first problem proven NP-complete @cook1971. SAT serves as the foundation of NP-completeness theory: showing a new problem NP-hard typically proceeds by reduction from SAT or one of its variants. Despite worst-case hardness, conflict-driven clause learning (CDCL) solvers handle industrial instances with millions of variables. The Strong Exponential Time Hypothesis (SETH) @impagliazzo2001 conjectures that no $O^*((2-epsilon)^n)$ algorithm exists for general CNF-SAT, and the best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[SETH conjectures this is optimal; no $O^*((2-epsilon)^n)$ algorithm is known.].
 
 *Example.* Consider $phi = (x_1 or x_2) and (not x_1 or x_3) and (not x_2 or not x_3)$ with $n = 3$ variables and $m = 3$ clauses. The assignment $(x_1, x_2, x_3) = (1, 0, 1)$ satisfies all clauses: $C_1 = (1 or 0) = 1$, $C_2 = (0 or 1) = 1$, $C_3 = (1 or 0) = 1$. Hence $phi(1, 0, 1) = 1$.
 ]
@@ -680,7 +708,7 @@ The Boolean Satisfiability Problem (SAT) is the first problem proven NP-complete
 #problem-def("KSatisfiability")[
   SAT with exactly $k$ literals per clause.
 ][
-The restriction of SAT to exactly $k$ literals per clause reveals a sharp complexity transition: 2-SAT is polynomial-time solvable via implication graph SCC decomposition @aspvall1979 in $O(n+m)$, while $k$-SAT for $k >= 3$ is NP-complete. Random $k$-SAT exhibits a satisfiability threshold at clause density $m slash n approx 2^k ln 2$, a key phenomenon in computational phase transitions. Best known: $O^*(1.307^n)$ for $k=3$ via biased-PPSZ @hansen2019. Under SETH, $k$-SAT requires time $O^*(c_k^n)$ with $c_k -> 2$ as $k -> infinity$.
+The restriction of SAT to exactly $k$ literals per clause reveals a sharp complexity transition: 2-SAT is polynomial-time solvable via implication graph SCC decomposition @aspvall1979 in $O(n+m)$, while $k$-SAT for $k >= 3$ is NP-complete. Random $k$-SAT exhibits a satisfiability threshold at clause density $m slash n approx 2^k ln 2$, a key phenomenon in computational phase transitions. The best known algorithm for 3-SAT runs in $O^*(1.307^n)$ via biased-PPSZ @hansen2019. Under SETH, $k$-SAT requires time $O^*(c_k^n)$ with $c_k -> 2$ as $k -> infinity$.
 
 *Example.* Consider the 3-SAT formula $phi = (x_1 or x_2 or x_3) and (not x_1 or not x_2 or x_3) and (x_1 or not x_2 or not x_3)$ with $n = 3$ variables and $m = 3$ clauses, each containing exactly 3 literals. The assignment $(x_1, x_2, x_3) = (1, 0, 1)$ satisfies all clauses: $C_1 = (1 or 0 or 1) = 1$, $C_2 = (0 or 1 or 1) = 1$, $C_3 = (1 or 1 or 0) = 1$.
 ]
@@ -688,7 +716,7 @@ The restriction of SAT to exactly $k$ literals per clause reveals a sharp comple
 #problem-def("CircuitSAT")[
   Given a Boolean circuit $C$ composed of logic gates (AND, OR, NOT, XOR) with $n$ input variables, find an input assignment $bold(x) in {0,1}^n$ such that $C(bold(x)) = 1$.
 ][
-Circuit Satisfiability is the most natural NP-complete problem: the Cook-Levin theorem @cook1971 proves NP-completeness by showing any nondeterministic polynomial-time computation can be encoded as a Boolean circuit. CircuitSAT is strictly more succinct than CNF-SAT, since a circuit with $g$ gates may require an exponentially larger CNF formula without auxiliary variables. The Tseitin transformation reduces CircuitSAT to CNF-SAT with only $O(g)$ clauses by introducing one auxiliary variable per gate. Best known: $O^*(2^n)$.
+Circuit Satisfiability is the most natural NP-complete problem: the Cook-Levin theorem @cook1971 proves NP-completeness by showing any nondeterministic polynomial-time computation can be encoded as a Boolean circuit. CircuitSAT is strictly more succinct than CNF-SAT, since a circuit with $g$ gates may require an exponentially larger CNF formula without auxiliary variables. The Tseitin transformation reduces CircuitSAT to CNF-SAT with only $O(g)$ clauses by introducing one auxiliary variable per gate. The best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[No algorithm improving on brute-force is known for general circuits.].
 
 *Example.* Consider the circuit $C(x_1, x_2) = (x_1 "AND" x_2) "XOR" (x_1 "OR" x_2)$ with $n = 2$ inputs. Evaluating: $C(0,0) = (0) "XOR" (0) = 0$, $C(0,1) = (0) "XOR" (1) = 1$, $C(1,0) = (0) "XOR" (1) = 1$, $C(1,1) = (1) "XOR" (1) = 0$. The satisfying assignments are $(0, 1)$ and $(1, 0)$ -- precisely the inputs where exactly one variable is true.
 ]
@@ -706,25 +734,102 @@ The hardness of integer factorization underpins RSA cryptography and other publi
 #problem-def("BMF")[
   Given an $m times n$ boolean matrix $A$ and rank $k$, find boolean matrices $B in {0,1}^(m times k)$ and $C in {0,1}^(k times n)$ minimizing the Hamming distance $d_H (A, B circle.tiny C)$, where the boolean product $(B circle.tiny C)_(i j) = or.big_ell (B_(i ell) and C_(ell j))$.
 ][
-Boolean Matrix Factorization decomposes binary data into interpretable boolean factors, unlike real-valued SVD which loses the discrete structure. NP-hard even to approximate, BMF arises in data mining, text classification, and role-based access control where factors correspond to latent binary features. Practical algorithms use greedy rank-1 extraction or alternating fixed-point methods. Best known: $O^*(2^(m k + k n))$ by exhaustive search over $B$ and $C$.
+Boolean Matrix Factorization decomposes binary data into interpretable boolean factors, unlike real-valued SVD which loses the discrete structure. NP-hard even to approximate, BMF arises in data mining, text classification, and role-based access control where factors correspond to latent binary features. Practical algorithms use greedy rank-1 extraction or alternating fixed-point methods. The best known exact algorithm runs in $O^*(2^(m k + k n))$ by brute-force search over $B$ and $C$#footnote[No algorithm improving on brute-force enumeration is known for general BMF.].
 
 *Example.* Let $A = mat(1, 1, 0; 1, 1, 1; 0, 1, 1)$ and $k = 2$. Set $B = mat(1, 0; 1, 1; 0, 1)$ and $C = mat(1, 1, 0; 0, 1, 1)$. Then $B circle.tiny C = mat(1, 1, 0; 1, 1, 1; 0, 1, 1) = A$, achieving Hamming distance $d_H = 0$ (exact factorization). The two boolean factors capture overlapping row/column patterns: factor 1 selects rows ${1, 2}$ and columns ${1, 2}$; factor 2 selects rows ${2, 3}$ and columns ${2, 3}$.
+
+#figure(
+  {
+    let cell(val, x, y, color) = {
+      let f = if val == 1 { color.transparentize(30%) } else { white }
+      box(width: 0.45cm, height: 0.45cm, fill: f, stroke: 0.4pt + luma(180),
+        align(center + horizon, text(7pt, if val == 1 { [1] } else { [0] })))
+    }
+    let mat-grid(data, color) = {
+      grid(columns: data.at(0).len(), column-gutter: 0pt, row-gutter: 0pt,
+        ..data.flatten().enumerate().map(((i, v)) => {
+          cell(v, calc.rem(i, data.at(0).len()), int(i / data.at(0).len()), color)
+        }))
+    }
+    let A = ((1,1,0),(1,1,1),(0,1,1))
+    let B = ((1,0),(1,1),(0,1))
+    let C = ((1,1,0),(0,1,1))
+    set text(8pt)
+    align(center, stack(dir: ltr, spacing: 0.3cm,
+      [$A =$], mat-grid(A, graph-colors.at(0)),
+      [$= B circle.tiny C =$],
+      mat-grid(B, graph-colors.at(1)),
+      [$circle.tiny$],
+      mat-grid(C, rgb("#76b7b2")),
+    ))
+  },
+  caption: [Boolean matrix factorization: $A = B circle.tiny C$ with rank $k = 2$. Factor 1 (red) covers the top-left block; factor 2 (teal) covers the bottom-right block.],
+) <fig:bmf>
 ]
 
 #problem-def("PaintShop")[
   Given a sequence of $2n$ positions where each of $n$ cars appears exactly twice, assign a binary color to each car (each car's two occurrences receive opposite colors) to minimize the number of color changes between consecutive positions.
 ][
-NP-hard and APX-hard @epping2004. Arises in automotive manufacturing where color changes between consecutive cars on an assembly line require costly purging of paint nozzles. Each car appears twice in the sequence (two coats), and each car's two occurrences must receive opposite colors (one per side). A natural benchmark for quantum annealing due to its binary structure and industrial relevance. Best known: $O^*(2^n)$.
+NP-hard and APX-hard @epping2004. Arises in automotive manufacturing where color changes between consecutive cars on an assembly line require costly purging of paint nozzles. Each car appears twice in the sequence (two coats), and each car's two occurrences must receive opposite colors (one per side). A natural benchmark for quantum annealing due to its binary structure and industrial relevance. The best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[No algorithm improving on brute-force is known for general Paint Shop.].
 
 *Example.* Consider $n = 3$ cars with sequence $(A, B, A, C, B, C)$. Each car gets one occurrence colored 0 and the other colored 1. The assignment $A: 0\/1$, $B: 0\/1$, $C: 1\/0$ yields color sequence $(0, 0, 1, 1, 1, 0)$ with 2 color changes (positions $2 -> 3$ and $5 -> 6$). The alternative $A: 1\/0$, $B: 0\/1$, $C: 0\/1$ yields $(1, 0, 0, 0, 1, 1)$ with 2 changes. The minimum is 2 changes.
+
+#figure(
+  {
+    let cars = ("A", "B", "A", "C", "B", "C")
+    let colors = (0, 0, 1, 1, 1, 0)  // optimal assignment
+    let blue = graph-colors.at(0)
+    let red = graph-colors.at(1)
+    align(center, stack(dir: ltr, spacing: 0pt,
+      ..cars.zip(colors).enumerate().map(((i, (car, c))) => {
+        let fill = if c == 0 { white } else { blue.transparentize(40%) }
+        let change = if i > 0 and colors.at(i) != colors.at(i - 1) {
+          place(dx: -0.08cm, dy: 0.55cm, text(6pt, fill: red, weight: "bold")[×])
+        }
+        stack(dir: ttb, spacing: 0.08cm,
+          box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+            align(center + horizon, text(8pt, weight: "bold", car))),
+          text(6pt, fill: luma(100), str(c)),
+          change,
+        )
+      })))
+  },
+  caption: [Paint Shop: sequence $(A, B, A, C, B, C)$ with optimal coloring. White = color 0, blue = color 1. Two color changes (marked ×) at positions $2 -> 3$ and $5 -> 6$.],
+) <fig:paintshop>
 ]
 
 #problem-def("BicliqueCover")[
   Given a bipartite graph $G = (L, R, E)$ and integer $k$, find $k$ bicliques $(L_1, R_1), dots, (L_k, R_k)$ that cover all edges ($E subset.eq union.big_i L_i times R_i$) while minimizing the total size $sum_i (|L_i| + |R_i|)$.
 ][
-Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipartite graph as a Boolean sum of rank-1 binary matrices, connecting it to Boolean matrix rank and nondeterministic communication complexity. Applications include data compression, database optimization (covering queries with materialized views), and bioinformatics (gene expression biclustering). NP-hard even for fixed $k >= 2$. Best known: $O^*(2^(|L| + |R|))$.
+Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipartite graph as a Boolean sum of rank-1 binary matrices, connecting it to Boolean matrix rank and nondeterministic communication complexity. Applications include data compression, database optimization (covering queries with materialized views), and bioinformatics (gene expression biclustering). NP-hard even for fixed $k >= 2$. The best known algorithm runs in $O^*(2^(|L| + |R|))$ by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for general Biclique Cover.].
 
 *Example.* Consider $G = (L, R, E)$ with $L = {ell_1, ell_2}$, $R = {r_1, r_2, r_3}$, and edges $E = {(ell_1, r_1), (ell_1, r_2), (ell_2, r_2), (ell_2, r_3)}$. A biclique cover with $k = 2$: $(L_1, R_1) = ({ell_1}, {r_1, r_2})$ covering edges ${(ell_1, r_1), (ell_1, r_2)}$, and $(L_2, R_2) = ({ell_2}, {r_2, r_3})$ covering ${(ell_2, r_2), (ell_2, r_3)}$. Total size $= (1+2) + (1+2) = 6$. Merging into a single biclique is impossible since $(ell_1, r_3) in.not E$.
+
+#figure(
+  canvas(length: 1cm, {
+    // Bipartite layout: L on left, R on right
+    let lpos = ((0, 1), (0, 0))           // l1, l2
+    let rpos = ((2.5, 1.5), (2.5, 0.5), (2.5, -0.5))  // r1, r2, r3
+    let edges = ((0, 0), (0, 1), (1, 1), (1, 2))  // (li, rj) pairs
+    // Biclique 1: l1-{r1,r2} in blue; Biclique 2: l2-{r2,r3} in teal
+    let bc1 = ((0,0), (0,1))
+    let bc2 = ((1,1), (1,2))
+    for (li, rj) in edges {
+      let is-bc1 = bc1.contains((li, rj))
+      let c = if is-bc1 { graph-colors.at(0) } else { rgb("#76b7b2") }
+      g-edge(lpos.at(li), rpos.at(rj), stroke: 1.5pt + c)
+    }
+    // L nodes
+    for (k, p) in lpos.enumerate() {
+      g-node(p, name: "l" + str(k), fill: luma(240), label: $ell_#(k+1)$)
+    }
+    // R nodes
+    for (k, p) in rpos.enumerate() {
+      g-node(p, name: "r" + str(k), fill: luma(240), label: $r_#(k+1)$)
+    }
+  }),
+  caption: [Biclique cover of a bipartite graph: biclique 1 (blue) $= ({ell_1}, {r_1, r_2})$, biclique 2 (teal) $= ({ell_2}, {r_2, r_3})$. Edge $(ell_1, r_3)$ is absent, preventing a single biclique.],
+) <fig:biclique-cover>
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper

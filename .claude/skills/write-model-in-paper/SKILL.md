@@ -87,26 +87,36 @@ The body goes AFTER the auto-generated sections (complexity, reductions, schema)
 
 If the user provides specific justification or motivation, incorporate it here.
 
-### 3b. Best Known Algorithms (Structured)
+### 3b. Best Known Algorithms
 
-List the best known algorithms with complexity and citation. Use this format:
+Must clearly state which algorithm gives the best complexity and cite reference. Add a warning as footnote if no reliable reference is found.
+
+Integrate algorithm complexity naturally into the background prose — do NOT append a terse "Best known: $O^*(...)$" at the end:
 
 ```typst
+% Good: names the algorithm, cites reference
 The best known algorithm runs in $O^*(1.1996^n)$ time via measure-and-conquer
 branching @xiao2017.
+
+% Good: brute-force with footnote when no better algorithm is known
+The best known algorithm runs in $O^*(2^n)$ by brute-force
+enumeration#footnote[No algorithm improving on brute-force is known for ...].
+
+% Bad: terse appendage, no algorithm name, no reference
+Best known: $O^*(2^n)$.
 ```
 
-For problems with multiple notable algorithms or special cases, list them:
-
+For problems with multiple notable algorithms or special cases, weave them into the text:
 ```typst
-Best known: $O(n+m)$ for $k=2$ (bipartiteness testing); $O^*(1.3289^n)$ for
-$k=3$ @beigel2005; $O^*(1.7159^n)$ for $k=4$ @wu2024; $O^*(2^n)$ in general
-via inclusion-exclusion @bjorklund2009.
+Solvable in $O(n+m)$ for $k=2$ via bipartiteness testing. For $k=3$, the best
+known algorithm runs in $O^*(1.3289^n)$ @beigel2005; in general, inclusion-exclusion
+achieves $O^*(2^n)$ @bjorklund2009.
 ```
 
 **Citation rules:**
-- Every complexity claim MUST have a citation (`@key`)
-- If no verifiable source exists, add footnote: `#footnote[Complexity not independently verified from literature.]`
+- Every complexity claim MUST have a citation (`@key`) identifying the algorithm
+- If the best known is brute-force enumeration with no specialized algorithm, add footnote: `#footnote[No algorithm improving on brute-force enumeration is known for ...]`
+- If a reference exists but has not been independently verified, add footnote: `#footnote[Complexity not independently verified from literature.]`
 - Include approximation results where relevant (e.g., "0.878-approximation @goemans1995")
 
 **Consistency note:** The auto-generated complexity table (from `declare_variants!`) also shows complexity per variant. The written text and the auto-generated table may overlap. Keep both — the written text provides references and context; the auto-generated table provides per-variant detail. A future verification step will check consistency between them.
