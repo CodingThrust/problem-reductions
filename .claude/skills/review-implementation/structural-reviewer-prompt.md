@@ -30,7 +30,7 @@ Given: problem name `P` = `{PROBLEM_NAME}`, category `C` = `{CATEGORY}`, file st
 | 2 | `inventory::submit!` present | `Grep("inventory::submit", file)` |
 | 3 | `#[derive(...Serialize, Deserialize)]` on struct | `Grep("Serialize.*Deserialize", file)` |
 | 4 | `Problem` trait impl | `Grep("impl.*Problem for.*{P}", file)` |
-| 5 | `OptimizationProblem` or `SatisfactionProblem` impl | `Grep("(OptimizationProblem\|SatisfactionProblem).*for.*{P}", file)` |
+| 5 | `OptimizationProblem` or `SatisfactionProblem` impl | `Grep("(OptimizationProblem|SatisfactionProblem).*for.*{P}", file)` |
 | 6 | `#[cfg(test)]` + `#[path = "..."]` test link | `Grep("#\\[path =", file)` |
 | 7 | Test file exists | `Glob("src/unit_tests/models/{C}/{F}.rs")` |
 | 8 | Test has creation test | `Grep("fn test_.*creation\|fn test_{F}.*basic", test_file)` |

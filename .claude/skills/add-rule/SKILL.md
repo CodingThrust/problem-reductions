@@ -131,11 +131,12 @@ example_fn!(test_<source>_to_<target>, reduction_<source>_to_<target>);
 
 Invoke the `/write-rule-in-paper` skill to write the reduction-rule entry in `docs/paper/reductions.typ`. That skill covers the full authoring process: complexity citation, self-contained proof, detailed worked example, and verification checklist.
 
-## Step 6: Regenerate graph and verify
+## Step 6: Regenerate exports and verify
 
 ```bash
-cargo run --example export_graph  # Update reduction_graph.json
-make test clippy                  # Must pass
+cargo run --example export_graph    # Update reduction_graph.json
+cargo run --example export_schemas  # Update problem schemas
+make test clippy                    # Must pass
 ```
 
 Then run the [review-implementation](../review-implementation/SKILL.md) skill to verify all structural and semantic checks pass.

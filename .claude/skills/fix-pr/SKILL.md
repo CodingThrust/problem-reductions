@@ -11,14 +11,17 @@ Resolve PR review comments, fix CI failures, and address codecov coverage gaps f
 
 **IMPORTANT:** Do NOT use `gh api --jq` for extracting data — it uses a built-in jq that
 chokes on response bodies containing backslashes (common in Copilot code suggestions).
-Always pipe to `python3 -c` instead.
+Always pipe to `python3 -c` instead. (`gh pr view --jq` is fine — only `gh api --jq` is affected.)
 
 ```bash
+# Get repo identifiers
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)  # e.g., "owner/repo"
+
 # Get PR number
 PR=$(gh pr view --json number --jq .number)
 
 # Get PR head SHA (on remote)
-HEAD_SHA=$(gh api repos/{owner}/{repo}/pulls/$PR | python3 -c "import sys,json; print(json.load(sys.stdin)['head']['sha'])")
+HEAD_SHA=$(gh api repos/$REPO/pulls/$PR | python3 -c "import sys,json; print(json.load(sys.stdin)['head']['sha'])")
 ```
 
 ### 1a. Fetch Review Comments
@@ -27,7 +30,7 @@ Three sources of feedback to check:
 
 ```bash
 # Copilot and user inline review comments (on code lines)
-gh api repos/{owner}/{repo}/pulls/$PR/comments | python3 -c "
+gh api repos/$REPO/pulls/$PR/comments | python3 -c "
 import sys,json
 for c in json.load(sys.stdin):
     line = c.get('line') or c.get('original_line') or '?'
@@ -35,7 +38,7 @@ for c in json.load(sys.stdin):
 "
 
 # Review-level comments (top-level review body)
-gh api repos/{owner}/{repo}/pulls/$PR/reviews | python3 -c "
+gh api repos/$REPO/pulls/$PR/reviews | python3 -c "
 import sys,json
 for r in json.load(sys.stdin):
     if r.get('body'):
@@ -43,7 +46,7 @@ for r in json.load(sys.stdin):
 "
 
 # Issue-level comments (general discussion, excluding bots)
-gh api repos/{owner}/{repo}/issues/$PR/comments | python3 -c "
+gh api repos/$REPO/issues/$PR/comments | python3 -c "
 import sys,json
 for c in json.load(sys.stdin):
     login = c['user']['login']
@@ -56,7 +59,7 @@ for c in json.load(sys.stdin):
 
 ```bash
 # All check runs on the PR head
-gh api repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs | python3 -c "
+gh api repos/$REPO/commits/$HEAD_SHA/check-runs | python3 -c "
 import sys,json
 for cr in json.load(sys.stdin)['check_runs']:
     print(f'{cr[\"name\"]}: {cr.get(\"conclusion\") or cr[\"status\"]}')
@@ -67,7 +70,7 @@ for cr in json.load(sys.stdin)['check_runs']:
 
 ```bash
 # Codecov bot comment with coverage diff
-gh api repos/{owner}/{repo}/issues/$PR/comments | python3 -c "
+gh api repos/$REPO/issues/$PR/comments | python3 -c "
 import sys,json
 for c in json.load(sys.stdin):
     if c['user']['login'] == 'codecov[bot]':
@@ -129,7 +132,7 @@ For detailed line-by-line coverage, use the Codecov API:
 
 ```bash
 # Get file-level coverage for the PR
-gh api repos/{owner}/{repo}/issues/$PR/comments | python3 -c "
+gh api repos/$REPO/issues/$PR/comments | python3 -c "
 import sys,json,re
 for c in json.load(sys.stdin):
     if c['user']['login'] == 'codecov[bot]':

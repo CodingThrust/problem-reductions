@@ -21,9 +21,7 @@ Dispatches two parallel review subagents with fresh context (no implementation h
 Determine whether new model/rule files were added:
 
 ```bash
-# Check for NEW files (not just modifications)
-git diff --name-only --diff-filter=A HEAD~1..HEAD
-# Also check against main for branch-level changes
+# Check for NEW files across the entire branch
 git diff --name-only --diff-filter=A main..HEAD
 ```
 
@@ -77,7 +75,7 @@ If an issue is found, pass it as `{ISSUE_CONTEXT}` to both subagents. If not, se
 
 ### Structural Reviewer (if new model/rule detected)
 
-Dispatch using `Task` tool with `subagent_type="superpowers:code-reviewer"`:
+Dispatch using `Agent` tool with `subagent_type="superpowers:code-reviewer"`:
 
 - Read `structural-reviewer-prompt.md` from this skill directory
 - Fill placeholders:
@@ -90,7 +88,7 @@ Dispatch using `Task` tool with `subagent_type="superpowers:code-reviewer"`:
 
 ### Quality Reviewer (always)
 
-Dispatch using `Task` tool with `subagent_type="superpowers:code-reviewer"`:
+Dispatch using `Agent` tool with `subagent_type="superpowers:code-reviewer"`:
 
 - Read `quality-reviewer-prompt.md` from this skill directory
 - Fill placeholders:
@@ -101,7 +99,7 @@ Dispatch using `Task` tool with `subagent_type="superpowers:code-reviewer"`:
   - `{ISSUE_CONTEXT}` -> full issue title + body (or "No linked issue found.")
 - Prompt = filled template
 
-**Both subagents must be dispatched in parallel** (single message, two Task tool calls).
+**Both subagents must be dispatched in parallel** (single message with two Agent tool calls — use `run_in_background: true` on one, foreground on the other, then read the background result with `TaskOutput`).
 
 ## Step 4: Collect and Address Findings
 
