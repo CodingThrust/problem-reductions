@@ -105,10 +105,10 @@ fn test_pathwidth_greedy() {
 
 #[test]
 fn test_greedy_with_restarts_zero_clamps_to_one() {
-    match PathDecompositionMethod::greedy_with_restarts(0) {
-        PathDecompositionMethod::Greedy { nrepeat } => assert_eq!(nrepeat, 1),
-        _ => panic!("expected Greedy variant"),
-    }
+    assert!(matches!(
+        PathDecompositionMethod::greedy_with_restarts(0),
+        PathDecompositionMethod::Greedy { nrepeat: 1 }
+    ));
 }
 
 #[test]

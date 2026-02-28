@@ -48,7 +48,7 @@ pub fn resolve_alias(input: &str) -> String {
         "paintshop" => "PaintShop".to_string(),
         "bmf" => "BMF".to_string(),
         "bicliquecover" => "BicliqueCover".to_string(),
-        "binpacking" => "BinPacking".to_string(),
+        "bp" | "binpacking" => "BinPacking".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
 }
