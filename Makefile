@@ -153,6 +153,7 @@ cli:
 GRAPHS := diamond bull house petersen
 MODES := unweighted weighted triangular
 rust-export:
+	@mkdir -p tests/julia
 	@for graph in $(GRAPHS); do \
 		for mode in $(MODES); do \
 			echo "Exporting $$graph ($$mode)..."; \

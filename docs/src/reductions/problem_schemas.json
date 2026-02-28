@@ -84,6 +84,27 @@
     ]
   },
   {
+    "name": "ClosestVectorProblem",
+    "description": "Find the closest lattice point to a target vector",
+    "fields": [
+      {
+        "name": "basis",
+        "type_name": "Vec<Vec<T>>",
+        "description": "Basis matrix B as column vectors"
+      },
+      {
+        "name": "target",
+        "type_name": "Vec<f64>",
+        "description": "Target vector t"
+      },
+      {
+        "name": "bounds",
+        "type_name": "Vec<VarBounds>",
+        "description": "Integer bounds per variable"
+      }
+    ]
+  },
+  {
     "name": "Factoring",
     "description": "Factor a composite integer into two factors",
     "fields": [
