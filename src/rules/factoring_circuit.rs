@@ -176,7 +176,7 @@ fn build_multiplier_cell(
 
 #[reduction(overhead = {
     num_variables = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second",
-    num_assignments = "6 * num_bits_first * num_bits_second",
+    num_assignments = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second",
 })]
 impl ReduceTo<CircuitSAT> for Factoring {
     type Result = ReductionFactoringToCircuit;

@@ -59,7 +59,7 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html",
-      "complexity": "2^num_vertices"
+      "complexity": "(2-epsilon)^num_vertices"
     },
     {
       "name": "KColoring",
@@ -352,7 +352,7 @@
         },
         {
           "field": "num_assignments",
-          "formula": "6 * num_bits_first * num_bits_second"
+          "formula": "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second"
         }
       ],
       "doc_path": "rules/factoring_circuit/index.html"

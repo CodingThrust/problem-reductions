@@ -172,10 +172,8 @@ fn test_jl_parity_doc_is_to_setpacking() {
 #[test]
 fn test_maximumindependentset_one_to_maximumsetpacking_closed_loop() {
     // Path graph: 0-1-2 with unit weights (MIS = 2: select vertices 0, 2)
-    let is_problem = MaximumIndependentSet::new(
-        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
-        vec![One; 3],
-    );
+    let is_problem =
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]);
     let reduction = ReduceTo::<MaximumSetPacking<One>>::reduce_to(&is_problem);
     let sp_problem = reduction.target_problem();
 
@@ -208,5 +206,8 @@ fn test_maximumsetpacking_one_to_maximumindependentset_closed_loop() {
     let original_solution = reduction.extract_solution(&is_solutions[0]);
     assert_eq!(original_solution.len(), 3);
     let size: usize = original_solution.iter().sum();
-    assert_eq!(size, 2, "Max set packing should select 2 non-overlapping sets");
+    assert_eq!(
+        size, 2,
+        "Max set packing should select 2 non-overlapping sets"
+    );
 }

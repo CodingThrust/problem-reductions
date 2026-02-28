@@ -22,3 +22,7 @@ impl_variant_reduction!(
         src.sets().to_vec(),
         src.weights_ref().iter().map(|w| w.cast_to_parent()).collect())
 );
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/maximumsetpacking_casts.rs"]
+mod tests;

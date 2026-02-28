@@ -188,7 +188,7 @@ crate::declare_variants! {
     KColoring<K2, SimpleGraph> => "num_vertices + num_edges",
     KColoring<K3, SimpleGraph> => "1.3289^num_vertices",
     KColoring<K4, SimpleGraph> => "1.7159^num_vertices",
-    KColoring<K5, SimpleGraph> => "2^num_vertices",
+    KColoring<K5, SimpleGraph> => "(2-epsilon)^num_vertices",
 }
 
 #[cfg(test)]
