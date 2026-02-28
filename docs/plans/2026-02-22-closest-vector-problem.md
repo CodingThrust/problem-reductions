@@ -21,7 +21,6 @@ Create `src/unit_tests/models/optimization/closest_vector_problem.rs`:
 
 ```rust
 use super::*;
-use crate::models::optimization::VarBounds;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -161,7 +160,7 @@ git commit -m "feat: add ClosestVectorProblem struct and constructor"
 
 ---
 
-### Task 2: Implement Problem and OptimizationProblem traits
+### Task 2: Implement Problem and OptimizationProblem traits with declare_variants!
 
 **Files:**
 - Modify: `src/models/optimization/closest_vector_problem.rs`
@@ -216,10 +215,15 @@ Expected: FAIL (trait not implemented)
 
 **Step 3: Implement the traits**
 
-Add to `src/models/optimization/closest_vector_problem.rs`, requiring `T: Into<f64> + Clone`:
+Add to `src/models/optimization/closest_vector_problem.rs`.
+
+Note: `T` must have `crate::variant::VariantParam` trait bound (category "weight") for the variant system to work. Follow the SpinGlass pattern.
 
 ```rust
-impl<T: Clone + Into<f64> + Serialize + for<'de> Deserialize<'de> + std::fmt::Debug + 'static> Problem for ClosestVectorProblem<T> {
+impl<T> Problem for ClosestVectorProblem<T>
+where
+    T: Clone + Into<f64> + crate::variant::VariantParam + Serialize + for<'de> Deserialize<'de> + std::fmt::Debug + 'static,
+{
     const NAME: &'static str = "ClosestVectorProblem";
     type Metric = SolutionSize<f64>;
 
@@ -236,16 +240,13 @@ impl<T: Clone + Into<f64> + Serialize + for<'de> Deserialize<'de> + std::fmt::De
 
     fn evaluate(&self, config: &[usize]) -> SolutionSize<f64> {
         let values = self.config_to_values(config);
-        // Compute Bx - t, then ‖Bx - t‖₂
         let m = self.ambient_dimension();
         let mut diff = vec![0.0f64; m];
-        // Bx = sum_i x_i * basis[i]
         for (i, &x_i) in values.iter().enumerate() {
             for (j, b_ji) in self.basis[i].iter().enumerate() {
                 diff[j] += x_i as f64 * (*b_ji).clone().into();
             }
         }
-        // diff = Bx - t
         for j in 0..m {
             diff[j] -= self.target[j];
         }
@@ -254,19 +255,14 @@ impl<T: Clone + Into<f64> + Serialize + for<'de> Deserialize<'de> + std::fmt::De
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        crate::variant_params![]
-    }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_basis_vectors", "ambient_dimension"]
-    }
-
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.num_basis_vectors(), self.ambient_dimension()]
+        crate::variant_params![T]
     }
 }
 
-impl<T: Clone + Into<f64> + Serialize + for<'de> Deserialize<'de> + std::fmt::Debug + 'static> OptimizationProblem for ClosestVectorProblem<T> {
+impl<T> OptimizationProblem for ClosestVectorProblem<T>
+where
+    T: Clone + Into<f64> + crate::variant::VariantParam + Serialize + for<'de> Deserialize<'de> + std::fmt::Debug + 'static,
+{
     type Value = f64;
 
     fn direction(&self) -> Direction {
@@ -274,10 +270,21 @@ impl<T: Clone + Into<f64> + Serialize + for<'de> Deserialize<'de> + std::fmt::De
     }
 }
 
+crate::declare_variants! {
+    ClosestVectorProblem<i32> => "exp(num_basis_vectors)",
+    ClosestVectorProblem<f64> => "exp(num_basis_vectors)",
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/optimization/closest_vector_problem.rs"]
 mod tests;
 ```
+
+**Notes on changes from original plan:**
+- **Added `crate::variant::VariantParam` trait bound** on `T` (required by refactored variant system, per Copilot review)
+- **Changed `variant_params![]` to `variant_params![T]`** since CVP is parameterized by element type `T` which maps to "weight" category (per Copilot review)
+- **Removed `problem_size_names()` / `problem_size_values()`** — these methods were removed from the `Problem` trait. Size getters are now inherent methods only (already have `num_basis_vectors()` and `ambient_dimension()`)
+- **Added `declare_variants!`** block registering both `i32` and `f64` concrete variants with complexity metadata. CVP complexity is `exp(num_basis_vectors)` — exact CVP is NP-hard under randomized reductions and the best known exact algorithms have exponential complexity in the lattice dimension
 
 **Step 4: Run tests to verify they pass**
 
@@ -344,14 +351,20 @@ Add import at top:
 use problemreductions::models::optimization::ClosestVectorProblem;
 ```
 
-Add match arm in `load_problem()` (after the `"ILP"` arm):
+Add match arm in `load_problem()` (after the `"ILP"` arm), supporting both i32 and f64 via variant map (following SpinGlass pattern, per Copilot review):
 ```rust
-"ClosestVectorProblem" => deser_opt::<ClosestVectorProblem<i32>>(data),
+"ClosestVectorProblem" => match variant.get("weight").map(|s| s.as_str()) {
+    Some("f64") => deser_opt::<ClosestVectorProblem<f64>>(data),
+    _ => deser_opt::<ClosestVectorProblem<i32>>(data),
+},
 ```
 
-Add match arm in `serialize_any_problem()` (after the `"ILP"` arm):
+Add match arm in `serialize_any_problem()` (after the `"ILP"` arm), same pattern (per Copilot review):
 ```rust
-"ClosestVectorProblem" => try_ser::<ClosestVectorProblem<i32>>(data),
+"ClosestVectorProblem" => match variant.get("weight").map(|s| s.as_str()) {
+    Some("f64") => try_ser::<ClosestVectorProblem<f64>>(any),
+    _ => try_ser::<ClosestVectorProblem<i32>>(any),
+},
 ```
 
 **Step 2: Update `problemreductions-cli/src/problem_name.rs`**
@@ -448,16 +461,6 @@ fn test_cvp_2d_identity() {
 }
 
 #[test]
-fn test_cvp_problem_size() {
-    let basis = vec![vec![1, 0, 0], vec![0, 1, 0]]; // 2 vectors in R^3
-    let target = vec![0.5, 0.5, 0.5];
-    let bounds = vec![VarBounds::bounded(0, 2), VarBounds::bounded(0, 2)];
-    let cvp = ClosestVectorProblem::new(basis, target, bounds);
-    assert_eq!(ClosestVectorProblem::<i32>::problem_size_names(), &["num_basis_vectors", "ambient_dimension"]);
-    assert_eq!(cvp.problem_size_values(), vec![2, 3]);
-}
-
-#[test]
 fn test_cvp_evaluate_exact_solution() {
     // Target is exactly a lattice point: t = (2, 2), basis = identity
     let basis = vec![vec![1, 0], vec![0, 1]];
@@ -529,7 +532,7 @@ Add a `#problem-def` block (after the ILP definition, in the optimization sectio
 
 **Step 3: Verify paper builds**
 
-Run: `make doc 2>&1 | tail -10`
+Run: `make paper 2>&1 | tail -10`
 Expected: successful build (warnings about missing reductions are OK for a new problem with no reduction rules yet)
 
 **Step 4: Commit**
