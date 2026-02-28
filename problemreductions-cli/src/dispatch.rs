@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use problemreductions::models::optimization::ILP;
+use problemreductions::models::optimization::{BinPacking, ILP};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
@@ -235,6 +235,10 @@ pub fn load_problem(
         "BicliqueCover" => deser_opt::<BicliqueCover>(data),
         "BMF" => deser_opt::<BMF>(data),
         "PaintShop" => deser_opt::<PaintShop>(data),
+        "BinPacking" => match variant.get("weight").map(|s| s.as_str()) {
+            Some("f64") => deser_opt::<BinPacking<f64>>(data),
+            _ => deser_opt::<BinPacking<i32>>(data),
+        },
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
@@ -286,6 +290,10 @@ pub fn serialize_any_problem(
         "BicliqueCover" => try_ser::<BicliqueCover>(any),
         "BMF" => try_ser::<BMF>(any),
         "PaintShop" => try_ser::<PaintShop>(any),
+        "BinPacking" => match variant.get("weight").map(|s| s.as_str()) {
+            Some("f64") => try_ser::<BinPacking<f64>>(any),
+            _ => try_ser::<BinPacking<i32>>(any),
+        },
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }

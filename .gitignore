@@ -84,3 +84,4 @@ claude-output.log
 .worktrees/
 .worktree/
 *.json
+.claude/worktrees/

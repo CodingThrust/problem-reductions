@@ -52,6 +52,22 @@
     ]
   },
   {
+    "name": "BinPacking",
+    "description": "Assign items to bins minimizing number of bins used, subject to capacity",
+    "fields": [
+      {
+        "name": "sizes",
+        "type_name": "Vec<W>",
+        "description": "Item sizes s_i for each item"
+      },
+      {
+        "name": "capacity",
+        "type_name": "W",
+        "description": "Bin capacity C"
+      }
+    ]
+  },
+  {
     "name": "CircuitSAT",
     "description": "Find satisfying input to a boolean circuit",
     "fields": [

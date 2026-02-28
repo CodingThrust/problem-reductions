@@ -189,12 +189,13 @@ PLAN_FILE ?= $(shell ls -t docs/plans/*.md 2>/dev/null | head -1)
 run-plan:
 	@NL=$$'\n'; \
 	BRANCH=$$(git branch --show-current); \
+	PLAN_FILE="$(PLAN_FILE)"; \
 	if [ "$(AGENT_TYPE)" = "claude" ]; then \
-		PROCESS="1. Read the plan file$${NL}2. Use /subagent-driven-development to execute tasks$${NL}3. Push: git push origin $$BRANCH$${NL}4. Create a pull request"; \
+		PROCESS="1. Read the plan file$${NL}2. Choose the right skill to execute: use /add-model for new problem models, /add-rule for new reduction rules, or /subagent-driven-development for other tasks$${NL}3. Push: git push origin $$BRANCH$${NL}4. Create a pull request"; \
 	else \
 		PROCESS="1. Read the plan file$${NL}2. Execute the tasks step by step. For each task, implement and test before moving on.$${NL}3. Push: git push origin $$BRANCH$${NL}4. Create a pull request"; \
 	fi; \
-	PROMPT="Execute the plan in '$${PLAN_FILE}'."; \
+	PROMPT="Execute the plan in '$$PLAN_FILE'."; \
 	if [ -n "$(INSTRUCTIONS)" ]; then \
 		PROMPT="$${PROMPT}$${NL}$${NL}## Additional Instructions$${NL}$(INSTRUCTIONS)"; \
 	fi; \

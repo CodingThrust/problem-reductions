@@ -104,6 +104,26 @@ fn test_pathwidth_greedy() {
 }
 
 #[test]
+fn test_greedy_with_restarts_zero_clamps_to_one() {
+    assert!(matches!(
+        PathDecompositionMethod::greedy_with_restarts(0),
+        PathDecompositionMethod::Greedy { nrepeat: 1 }
+    ));
+}
+
+#[test]
+fn test_pathwidth_greedy_zero_restarts_produces_complete_layout() {
+    let n = 5;
+    let edges: Vec<(usize, usize)> = (0..n - 1).map(|i| (i, i + 1)).collect();
+    let layout = pathwidth(n, &edges, PathDecompositionMethod::Greedy { nrepeat: 0 });
+
+    assert_eq!(layout.vertices.len(), n);
+    assert_eq!(layout.vsep(), 1);
+    let verified = verify_vsep(n, &edges, &layout.vertices);
+    assert_eq!(verified, layout.vsep());
+}
+
+#[test]
 fn test_pathwidth_minhthi() {
     let edges = vec![(0, 1), (1, 2)];
     let layout = pathwidth(3, &edges, PathDecompositionMethod::MinhThiTrick);

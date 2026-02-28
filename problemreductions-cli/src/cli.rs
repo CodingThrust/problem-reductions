@@ -136,7 +136,7 @@ Examples:
     ExportGraph,
 
     /// Create a problem instance and save as JSON
-    Create(CreateArgs),
+    Create(Box<CreateArgs>),
     /// Evaluate a configuration against a problem instance JSON file
     Evaluate(EvaluateArgs),
     /// Reduce a problem instance to a target type
