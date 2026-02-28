@@ -9,12 +9,16 @@ Resolve PR review comments, fix CI failures, and address codecov coverage gaps f
 
 ## Step 1: Gather PR State
 
+**IMPORTANT:** Do NOT use `gh api --jq` for extracting data — it uses a built-in jq that
+chokes on response bodies containing backslashes (common in Copilot code suggestions).
+Always pipe to `python3 -c` instead.
+
 ```bash
 # Get PR number
 PR=$(gh pr view --json number --jq .number)
 
 # Get PR head SHA (on remote)
-HEAD_SHA=$(gh api repos/{owner}/{repo}/pulls/$PR --jq '.head.sha')
+HEAD_SHA=$(gh api repos/{owner}/{repo}/pulls/$PR | python3 -c "import sys,json; print(json.load(sys.stdin)['head']['sha'])")
 ```
 
 ### 1a. Fetch Review Comments
@@ -23,29 +27,52 @@ Three sources of feedback to check:
 
 ```bash
 # Copilot and user inline review comments (on code lines)
-gh api repos/{owner}/{repo}/pulls/$PR/comments --jq '.[] | "[" + .user.login + "] " + .path + ":" + ((.line // .original_line) | tostring) + " — " + .body'
+gh api repos/{owner}/{repo}/pulls/$PR/comments | python3 -c "
+import sys,json
+for c in json.load(sys.stdin):
+    line = c.get('line') or c.get('original_line') or '?'
+    print(f'[{c[\"user\"][\"login\"]}] {c[\"path\"]}:{line} — {c[\"body\"]}')
+"
 
 # Review-level comments (top-level review body)
-gh api repos/{owner}/{repo}/pulls/$PR/reviews --jq '.[] | select(.body != "") | "[" + .user.login + "] " + .state + ": " + .body'
+gh api repos/{owner}/{repo}/pulls/$PR/reviews | python3 -c "
+import sys,json
+for r in json.load(sys.stdin):
+    if r.get('body'):
+        print(f'[{r[\"user\"][\"login\"]}] {r[\"state\"]}: {r[\"body\"]}')
+"
 
-# Issue-level comments (general discussion)
-gh api repos/{owner}/{repo}/issues/$PR/comments --jq '.[] | select(.user.login | test("codecov|copilot") | not) | "[" + .user.login + "] " + .body'
+# Issue-level comments (general discussion, excluding bots)
+gh api repos/{owner}/{repo}/issues/$PR/comments | python3 -c "
+import sys,json
+for c in json.load(sys.stdin):
+    login = c['user']['login']
+    if 'codecov' not in login and 'copilot' not in login:
+        print(f'[{login}] {c[\"body\"]}')
+"
 ```
 
 ### 1b. Check CI Status
 
 ```bash
 # All check runs on the PR head
-gh api repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs \
-  --jq '.check_runs[] | .name + ": " + (.conclusion // .status)'
+gh api repos/{owner}/{repo}/commits/$HEAD_SHA/check-runs | python3 -c "
+import sys,json
+for cr in json.load(sys.stdin)['check_runs']:
+    print(f'{cr[\"name\"]}: {cr.get(\"conclusion\") or cr[\"status\"]}')
+"
 ```
 
 ### 1c. Check Codecov Report
 
 ```bash
 # Codecov bot comment with coverage diff
-gh api repos/{owner}/{repo}/issues/$PR/comments \
-  --jq '.[] | select(.user.login == "codecov[bot]") | .body'
+gh api repos/{owner}/{repo}/issues/$PR/comments | python3 -c "
+import sys,json
+for c in json.load(sys.stdin):
+    if c['user']['login'] == 'codecov[bot]':
+        print(c['body'])
+"
 ```
 
 ## Step 2: Triage and Prioritize
@@ -102,9 +129,13 @@ For detailed line-by-line coverage, use the Codecov API:
 
 ```bash
 # Get file-level coverage for the PR
-gh api repos/{owner}/{repo}/pulls/$PR/comments \
-  --jq '.[] | select(.user.login == "codecov[bot]") | .body' \
-  | sed -n 's/.*filepath=\([^&]*\).*/\1/p'
+gh api repos/{owner}/{repo}/issues/$PR/comments | python3 -c "
+import sys,json,re
+for c in json.load(sys.stdin):
+    if c['user']['login'] == 'codecov[bot]':
+        for m in re.findall(r'filepath=([^&\"]+)', c['body']):
+            print(m)
+"
 ```
 
 Then read the source files and identify which new/changed lines lack test coverage.
