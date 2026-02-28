@@ -268,7 +268,7 @@ fn variant_to_slash(
 ) -> String {
     let diffs: Vec<&str> = variant
         .iter()
-        .filter(|(k, v)| default.get(*k).map_or(true, |dv| dv != *v))
+        .filter(|(k, v)| default.get(*k) != Some(*v))
         .map(|(_, v)| v.as_str())
         .collect();
     if diffs.is_empty() {

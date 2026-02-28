@@ -395,7 +395,10 @@ impl PathDecompositionMethod {
 
     /// Create a greedy method with specified number of restarts.
     pub fn greedy_with_restarts(nrepeat: usize) -> Self {
-        PathDecompositionMethod::Greedy { nrepeat }
+        // Zero restarts would skip greedy_decompose entirely and produce an empty layout.
+        PathDecompositionMethod::Greedy {
+            nrepeat: nrepeat.max(1),
+        }
     }
 }
 
@@ -433,6 +436,8 @@ pub fn pathwidth(
     };
     match method {
         PathDecompositionMethod::Greedy { nrepeat } => {
+            // Defend against direct enum construction with nrepeat = 0.
+            let nrepeat = nrepeat.max(1);
             let mut best: Option<Layout> = None;
             for _ in 0..nrepeat {
                 let layout = greedy_decompose(num_vertices, edges);

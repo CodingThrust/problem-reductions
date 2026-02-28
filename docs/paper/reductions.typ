@@ -49,6 +49,7 @@
   "BMF": [Boolean Matrix Factorization],
   "PaintShop": [Paint Shop],
   "BicliqueCover": [Biclique Cover],
+  "BinPacking": [Bin Packing],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -799,6 +800,46 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   }),
   caption: [Biclique cover of a bipartite graph: biclique 1 (blue) $= ({ell_1}, {r_1, r_2})$, biclique 2 (teal) $= ({ell_2}, {r_2, r_3})$. Edge $(ell_1, r_3)$ is absent, preventing a single biclique.],
 ) <fig:biclique-cover>
+]
+
+#problem-def("BinPacking")[
+  Given $n$ items with sizes $s_1, dots, s_n in RR^+$ and bin capacity $C > 0$, find an assignment $x: {1, dots, n} -> NN$ minimizing $|{x(i) : i = 1, dots, n}|$ (the number of distinct bins used) subject to $forall j: sum_(i: x(i) = j) s_i lt.eq C$.
+][
+  Bin Packing is one of the classical NP-hard optimization problems @garey1979, with applications in logistics, cutting stock, and cloud resource allocation. The best known exact algorithm runs in $O^*(2^n)$ time via inclusion-exclusion over set partitions @bjorklund2009.
+
+  *Example.* Consider $n = 6$ items with sizes $(6, 6, 5, 5, 4, 4)$ and capacity $C = 10$. The lower bound is $ceil(30 slash 10) = 3$ bins. An optimal packing uses exactly 3 bins: $B_1 = {6, 4}$, $B_2 = {6, 4}$, $B_3 = {5, 5}$, each with total load $10 = C$.
+
+  #figure({
+    canvas(length: 1cm, {
+      let s = 0.28
+      let w = 1.0
+      let gap = 0.6
+      let bins = ((6, 4), (6, 4), (5, 5))
+      let fills = (
+        (graph-colors.at(0), graph-colors.at(1)),
+        (graph-colors.at(0), graph-colors.at(1)),
+        (graph-colors.at(2), graph-colors.at(2)),
+      )
+      for i in range(3) {
+        let x = i * (w + gap)
+        draw.rect((x, 0), (x + w, 10 * s), stroke: 0.8pt + black)
+        let y = 0
+        for j in range(bins.at(i).len()) {
+          let sz = bins.at(i).at(j)
+          let c = fills.at(i).at(j)
+          draw.rect((x, y), (x + w, y + sz * s), stroke: 0.4pt, fill: c)
+          draw.content((x + w / 2, y + sz * s / 2), text(8pt, fill: white)[#sz])
+          y += sz * s
+        }
+        draw.content((x + w / 2, -0.3), text(8pt)[$B_#(i + 1)$])
+      }
+      draw.line((-0.15, 10 * s), (2 * (w + gap) + w + 0.15, 10 * s),
+        stroke: (dash: "dashed", paint: luma(150), thickness: 0.5pt))
+      draw.content((-0.5, 10 * s), text(7pt)[$C$])
+    })
+  },
+  caption: [Optimal packing of items with sizes $(6, 6, 5, 5, 4, 4)$ into 3 bins of capacity $C = 10$. Numbers indicate item sizes; all bins are fully utilized.],
+  ) <fig:binpacking-example>
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper
