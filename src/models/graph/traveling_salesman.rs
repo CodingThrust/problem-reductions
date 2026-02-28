@@ -253,7 +253,7 @@ pub(crate) fn is_hamiltonian_cycle<G: Graph>(graph: &G, selected: &[bool]) -> bo
 }
 
 crate::declare_variants! {
-    TravelingSalesman<SimpleGraph, i32> => "num_vertices!",
+    TravelingSalesman<SimpleGraph, i32> => "2^num_vertices",
 }
 
 #[cfg(test)]

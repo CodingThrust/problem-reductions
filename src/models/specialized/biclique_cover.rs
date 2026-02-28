@@ -243,6 +243,10 @@ impl OptimizationProblem for BicliqueCover {
     }
 }
 
+crate::declare_variants! {
+    BicliqueCover => "2^num_vertices",
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/specialized/biclique_cover.rs"]
 mod tests;

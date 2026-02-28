@@ -163,7 +163,7 @@ impl OptimizationProblem for Factoring {
 }
 
 crate::declare_variants! {
-    Factoring => "exp(sqrt(num_bits))",
+    Factoring => "exp(num_bits^(1/3) * log(num_bits)^(2/3))",
 }
 
 #[cfg(test)]

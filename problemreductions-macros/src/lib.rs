@@ -253,7 +253,12 @@ fn generate_reduction_entry(
     let overhead = match &attrs.overhead {
         Some(OverheadSpec::Legacy(tokens)) => tokens.clone(),
         Some(OverheadSpec::Parsed(fields)) => generate_parsed_overhead(fields)?,
-        None => quote! { crate::rules::registry::ReductionOverhead::default() },
+        None => {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "#[reduction] requires overhead = { ... }. Specify overhead expressions for all target problem size fields.",
+            ));
+        }
     };
 
     // Generate the combined output

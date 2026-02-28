@@ -1082,7 +1082,7 @@ fn test_variant_complexity() {
     let graph = ReductionGraph::new();
     let variant = ReductionGraph::variant_to_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
     let complexity = graph.variant_complexity("MaximumIndependentSet", &variant);
-    assert_eq!(complexity, Some("2^num_vertices"));
+    assert_eq!(complexity, Some("1.1996^num_vertices"));
 
     // Unknown problem returns None
     let unknown = BTreeMap::new();

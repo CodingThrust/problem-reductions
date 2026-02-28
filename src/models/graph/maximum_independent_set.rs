@@ -160,13 +160,13 @@ fn is_independent_set_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    MaximumIndependentSet<SimpleGraph, i32>        => "2^num_vertices",
-    MaximumIndependentSet<SimpleGraph, One>         => "2^num_vertices",
-    MaximumIndependentSet<KingsSubgraph, i32>      => "2^num_vertices",
-    MaximumIndependentSet<KingsSubgraph, One>       => "2^num_vertices",
-    MaximumIndependentSet<TriangularSubgraph, i32> => "2^num_vertices",
-    MaximumIndependentSet<UnitDiskGraph, i32>      => "2^num_vertices",
-    MaximumIndependentSet<UnitDiskGraph, One>       => "2^num_vertices",
+    MaximumIndependentSet<SimpleGraph, i32>        => "1.1996^num_vertices",
+    MaximumIndependentSet<SimpleGraph, One>         => "1.1996^num_vertices",
+    MaximumIndependentSet<KingsSubgraph, i32>      => "1.1996^num_vertices",
+    MaximumIndependentSet<KingsSubgraph, One>       => "1.1996^num_vertices",
+    MaximumIndependentSet<TriangularSubgraph, i32> => "1.1996^num_vertices",
+    MaximumIndependentSet<UnitDiskGraph, i32>      => "1.1996^num_vertices",
+    MaximumIndependentSet<UnitDiskGraph, One>       => "1.1996^num_vertices",
 }
 
 /// Check if a set of vertices forms an independent set.

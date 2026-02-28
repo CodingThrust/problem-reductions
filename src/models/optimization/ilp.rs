@@ -377,7 +377,7 @@ impl OptimizationProblem for ILP {
 }
 
 crate::declare_variants! {
-    ILP => "exp(num_variables)",
+    ILP => "num_variables^num_variables",
 }
 
 #[cfg(test)]

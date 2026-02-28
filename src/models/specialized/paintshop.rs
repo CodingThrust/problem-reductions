@@ -192,6 +192,10 @@ impl OptimizationProblem for PaintShop {
     }
 }
 
+crate::declare_variants! {
+    PaintShop => "2^num_cars",
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/specialized/paintshop.rs"]
 mod tests;

@@ -230,6 +230,10 @@ impl OptimizationProblem for BMF {
     }
 }
 
+crate::declare_variants! {
+    BMF => "2^(rows * rank + rank * cols)",
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/specialized/bmf.rs"]
 mod tests;
