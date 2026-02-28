@@ -4,7 +4,7 @@
 //! cannot be extended by adding any other vertex.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -129,6 +129,18 @@ impl<G: Graph, W: Clone + Default> MaximalIS<G, W> {
     }
 }
 
+impl<G: Graph, W: WeightElement> MaximalIS<G, W> {
+    /// Get the number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.graph().num_vertices()
+    }
+
+    /// Get the number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.graph().num_edges()
+    }
+}
+
 impl<G, W> Problem for MaximalIS<G, W>
 where
     G: Graph + crate::variant::VariantParam,
@@ -156,13 +168,6 @@ where
             }
         }
         SolutionSize::Valid(total)
-    }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vertices", "num_edges"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.graph().num_vertices(), self.graph().num_edges()]
     }
 }
 
@@ -208,6 +213,10 @@ pub(crate) fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool])
     }
 
     true
+}
+
+crate::declare_variants! {
+    MaximalIS<SimpleGraph, i32> => "2^num_vertices",
 }
 
 #[cfg(test)]

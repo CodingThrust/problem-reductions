@@ -165,13 +165,6 @@ where
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_sets", "universe_size"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.num_sets(), self.universe_size()]
-    }
 }
 
 impl<W> OptimizationProblem for MinimumSetCovering<W>
@@ -183,6 +176,10 @@ where
     fn direction(&self) -> Direction {
         Direction::Minimize
     }
+}
+
+crate::declare_variants! {
+    MinimumSetCovering<i32> => "2^num_sets",
 }
 
 /// Check if a selection of sets forms a valid set cover.

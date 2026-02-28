@@ -7,9 +7,7 @@
 //! K-SAT -> SAT: Trivial embedding (K-SAT is a special case of SAT)
 
 use crate::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::variant::{KValue, K2, K3, KN};
 
@@ -112,12 +110,11 @@ fn add_clause_to_ksat(
 /// because the `#[reduction]` proc macro requires concrete types.
 macro_rules! impl_sat_to_ksat {
     ($ktype:ty, $k:expr) => {
+        #[rustfmt::skip]
         #[reduction(overhead = {
-                                    ReductionOverhead::new(vec![
-                                        ("num_clauses", poly!(num_clauses) + poly!(num_literals)),
-                                        ("num_vars", poly!(num_vars) + poly!(num_literals)),
-                                    ])
-                                })]
+            num_clauses = "4 * num_clauses + num_literals",
+            num_vars = "num_vars + 3 * num_clauses + num_literals",
+        })]
         impl ReduceTo<KSatisfiability<$ktype>> for Satisfiability {
             type Result = ReductionSATToKSAT<$ktype>;
 
@@ -186,13 +183,12 @@ fn reduce_ksat_to_sat<K: KValue>(ksat: &KSatisfiability<K>) -> ReductionKSATToSA
 /// The `#[reduction]` macro requires concrete types.
 macro_rules! impl_ksat_to_sat {
     ($ktype:ty) => {
+#[rustfmt::skip]
         #[reduction(overhead = {
-                                                            ReductionOverhead::new(vec![
-                                                                ("num_clauses", poly!(num_clauses)),
-                                                                ("num_vars", poly!(num_vars)),
-                                                                ("num_literals", poly!(num_literals)),
-                                                            ])
-                                                        })]
+            num_clauses = "num_clauses",
+            num_vars = "num_vars",
+            num_literals = "num_literals",
+        })]
         impl ReduceTo<Satisfiability> for KSatisfiability<$ktype> {
             type Result = ReductionKSATToSAT<$ktype>;
 

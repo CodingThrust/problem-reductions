@@ -168,13 +168,6 @@ where
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vars"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.num_vars()]
-    }
 }
 
 impl<W> OptimizationProblem for QUBO<W>
@@ -193,6 +186,10 @@ where
     fn direction(&self) -> Direction {
         Direction::Minimize
     }
+}
+
+crate::declare_variants! {
+    QUBO<f64> => "2^num_vars",
 }
 
 #[cfg(test)]

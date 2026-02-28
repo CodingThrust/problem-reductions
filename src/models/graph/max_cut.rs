@@ -4,7 +4,7 @@
 //! that maximizes the total weight of edges crossing the partition.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -147,6 +147,18 @@ impl<G: Graph, W: Clone + Default> MaxCut<G, W> {
     }
 }
 
+impl<G: Graph, W: WeightElement> MaxCut<G, W> {
+    /// Get the number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.graph().num_vertices()
+    }
+
+    /// Get the number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.graph().num_edges()
+    }
+}
+
 impl<G, W> Problem for MaxCut<G, W>
 where
     G: Graph + crate::variant::VariantParam,
@@ -167,13 +179,6 @@ where
         // All cuts are valid, so always return Valid
         let partition: Vec<bool> = config.iter().map(|&c| c != 0).collect();
         SolutionSize::Valid(cut_size(&self.graph, &self.edge_weights, &partition))
-    }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vertices", "num_edges"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.graph().num_vertices(), self.graph().num_edges()]
     }
 }
 
@@ -207,6 +212,10 @@ where
         }
     }
     total
+}
+
+crate::declare_variants! {
+    MaxCut<SimpleGraph, i32> => "2^num_vertices",
 }
 
 #[cfg(test)]

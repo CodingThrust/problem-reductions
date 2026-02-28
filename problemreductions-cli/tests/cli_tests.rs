@@ -27,7 +27,7 @@ fn test_show() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("MaximumIndependentSet"));
-    assert!(stdout.contains("Reduces to"));
+    assert!(stdout.contains("Outgoing reductions"));
 }
 
 #[test]
@@ -294,7 +294,7 @@ fn test_reduce_via_path() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2,2-3",
         ])
         .output()
@@ -351,7 +351,7 @@ fn test_reduce_via_infer_target() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2,2-3",
         ])
         .output()
@@ -402,7 +402,7 @@ fn test_reduce_missing_to_and_via() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1",
         ])
         .output()
@@ -429,7 +429,7 @@ fn test_create_mis() {
             output_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2,2-3",
         ])
         .output()
@@ -459,7 +459,7 @@ fn test_create_then_evaluate() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2,2-3",
             "--weights",
             "1,1,1,1",
@@ -563,7 +563,7 @@ fn test_solve_brute_force() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -600,7 +600,7 @@ fn test_solve_ilp() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -637,7 +637,7 @@ fn test_solve_ilp_default() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -672,7 +672,7 @@ fn test_solve_ilp_shows_via_ilp() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -708,7 +708,7 @@ fn test_solve_json_output() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -754,7 +754,7 @@ fn test_solve_bundle() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -814,7 +814,7 @@ fn test_solve_bundle_ilp() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -864,7 +864,7 @@ fn test_solve_unknown_solver() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -898,7 +898,7 @@ fn test_create_maxcut() {
             output_file.to_str().unwrap(),
             "create",
             "MaxCut",
-            "--edges",
+            "--graph",
             "0-1,1-2,2-0",
         ])
         .output()
@@ -923,7 +923,7 @@ fn test_create_mvc() {
             output_file.to_str().unwrap(),
             "create",
             "MVC",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -948,7 +948,7 @@ fn test_create_kcoloring() {
             output_file.to_str().unwrap(),
             "create",
             "KColoring",
-            "--edges",
+            "--graph",
             "0-1,1-2,2-0",
             "--k",
             "3",
@@ -975,7 +975,7 @@ fn test_create_spinglass() {
             output_file.to_str().unwrap(),
             "create",
             "SpinGlass",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -1029,7 +1029,7 @@ fn test_create_maximum_matching() {
             output_file.to_str().unwrap(),
             "create",
             "MaximumMatching",
-            "--edges",
+            "--graph",
             "0-1,1-2,2-3",
         ])
         .output()
@@ -1054,9 +1054,9 @@ fn test_create_with_edge_weights() {
             output_file.to_str().unwrap(),
             "create",
             "MaxCut",
-            "--edges",
+            "--graph",
             "0-1,1-2,2-0",
-            "--weights",
+            "--edge-weights",
             "2,3,1",
         ])
         .output()
@@ -1073,7 +1073,7 @@ fn test_create_with_edge_weights() {
 fn test_create_without_output() {
     // Create without -o prints JSON to stdout (not just "Created ...")
     let output = pred()
-        .args(["create", "MIS", "--edges", "0-1,1-2"])
+        .args(["create", "MIS", "--graph", "0-1,1-2"])
         .output()
         .unwrap();
     assert!(
@@ -1092,24 +1092,40 @@ fn test_create_without_output() {
 #[test]
 fn test_create_unknown_problem() {
     let output = pred()
-        .args(["create", "NonExistent", "--edges", "0-1"])
+        .args(["create", "NonExistent", "--graph", "0-1"])
         .output()
         .unwrap();
     assert!(!output.status.success());
 }
 
 #[test]
-fn test_create_missing_edges() {
+fn test_create_no_flags_shows_help() {
+    // pred create MIS with no data flags shows schema-driven help
     let output = pred().args(["create", "MIS"]).output().unwrap();
-    assert!(!output.status.success());
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("--edges"));
+    assert!(
+        stderr.contains("--graph"),
+        "expected '--graph' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--weights"),
+        "expected '--weights' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("Example:"),
+        "expected 'Example:' in help output, got: {stderr}"
+    );
 }
 
 #[test]
 fn test_create_kcoloring_missing_k() {
     let output = pred()
-        .args(["create", "KColoring", "--edges", "0-1,1-2"])
+        .args(["create", "KColoring", "--graph", "0-1,1-2"])
         .output()
         .unwrap();
     assert!(!output.status.success());
@@ -1126,7 +1142,7 @@ fn test_evaluate_wrong_config_length() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -1159,7 +1175,7 @@ fn test_evaluate_json_output() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -1287,7 +1303,7 @@ fn test_reduce_unknown_target() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1",
         ])
         .output()
@@ -1318,7 +1334,7 @@ fn test_reduce_stdout() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -1358,7 +1374,7 @@ fn test_reduce_human_output() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -1409,7 +1425,7 @@ fn test_solve_no_hint_when_piped() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -1468,7 +1484,7 @@ fn test_solve_bundle_no_hint_when_piped() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -1569,7 +1585,8 @@ fn test_completions_auto_detect() {
 // ---- k-neighbor exploration tests (pred to / pred from) ----
 
 #[test]
-fn test_to_outgoing() {
+fn test_to_incoming() {
+    // `pred to MIS` shows what reduces TO MIS (incoming neighbors)
     let output = pred().args(["to", "MIS", "--hops", "2"]).output().unwrap();
     assert!(
         output.status.success(),
@@ -1578,15 +1595,17 @@ fn test_to_outgoing() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("MaximumIndependentSet"));
+    assert!(stdout.contains("incoming"));
     assert!(stdout.contains("reachable problems"));
     // Should contain tree characters
     assert!(stdout.contains("├── ") || stdout.contains("└── "));
 }
 
 #[test]
-fn test_from_incoming() {
+fn test_from_outgoing() {
+    // `pred from MIS` shows what MIS reduces to (outgoing neighbors)
     let output = pred()
-        .args(["from", "QUBO", "--hops", "1"])
+        .args(["from", "MIS", "--hops", "1"])
         .output()
         .unwrap();
     assert!(
@@ -1595,8 +1614,8 @@ fn test_from_incoming() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("QUBO"));
-    assert!(stdout.contains("incoming"));
+    assert!(stdout.contains("MaximumIndependentSet"));
+    assert!(stdout.contains("outgoing"));
 }
 
 #[test]
@@ -1625,17 +1644,17 @@ fn test_to_shows_variant_info() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    // Variant info should appear in the tree output
+    // Slash notation: either base name or Name/Variant
     assert!(
-        stdout.contains("{graph=") || stdout.contains("(default)"),
-        "expected variant info in tree output, got: {stdout}"
+        stdout.contains("MaximumIndependentSet"),
+        "expected problem name in tree output, got: {stdout}"
     );
 }
 
 #[test]
 fn test_from_shows_variant_info() {
     let output = pred()
-        .args(["from", "QUBO", "--hops", "1"])
+        .args(["from", "MIS", "--hops", "1"])
         .output()
         .unwrap();
     assert!(
@@ -1644,10 +1663,10 @@ fn test_from_shows_variant_info() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    // Variant info should appear in the tree output
+    // Slash notation: either base name or Name/Variant
     assert!(
-        stdout.contains("{graph=") || stdout.contains("{weight=") || stdout.contains("(default)"),
-        "expected variant info in tree output, got: {stdout}"
+        stdout.contains("MaximumIndependentSet"),
+        "expected problem name in tree output, got: {stdout}"
     );
 }
 
@@ -1679,7 +1698,7 @@ fn test_quiet_suppresses_hints() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -1721,7 +1740,7 @@ fn test_quiet_suppresses_wrote() {
             output_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -1751,7 +1770,7 @@ fn test_quiet_still_shows_stdout() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -1786,9 +1805,9 @@ fn test_quiet_still_shows_stdout() {
 
 #[test]
 fn test_create_pipe_to_solve() {
-    // pred create MIS --edges 0-1,1-2 | pred solve - --solver brute-force
+    // pred create MIS --graph 0-1,1-2 | pred solve - --solver brute-force
     let create_out = pred()
-        .args(["create", "MIS", "--edges", "0-1,1-2"])
+        .args(["create", "MIS", "--graph", "0-1,1-2"])
         .output()
         .unwrap();
     assert!(
@@ -1826,9 +1845,9 @@ fn test_create_pipe_to_solve() {
 
 #[test]
 fn test_create_pipe_to_evaluate() {
-    // pred create MIS --edges 0-1,1-2 | pred evaluate - --config 1,0,1
+    // pred create MIS --graph 0-1,1-2 | pred evaluate - --config 1,0,1
     let create_out = pred()
-        .args(["create", "MIS", "--edges", "0-1,1-2"])
+        .args(["create", "MIS", "--graph", "0-1,1-2"])
         .output()
         .unwrap();
     assert!(
@@ -1866,9 +1885,9 @@ fn test_create_pipe_to_evaluate() {
 
 #[test]
 fn test_create_pipe_to_reduce() {
-    // pred create MIS --edges 0-1,1-2 | pred reduce - --to QUBO
+    // pred create MIS --graph 0-1,1-2 | pred reduce - --to QUBO
     let create_out = pred()
-        .args(["create", "MIS", "--edges", "0-1,1-2"])
+        .args(["create", "MIS", "--graph", "0-1,1-2"])
         .output()
         .unwrap();
     assert!(
@@ -1916,7 +1935,7 @@ fn test_inspect_problem() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2,2-3",
         ])
         .output()
@@ -1937,7 +1956,10 @@ fn test_inspect_problem() {
         stdout.contains("Type: MaximumIndependentSet"),
         "expected 'Type: MaximumIndependentSet', got: {stdout}"
     );
-    assert!(stdout.contains("Size:"), "expected 'Size:', got: {stdout}");
+    assert!(
+        stdout.contains("Size fields:"),
+        "expected 'Size fields:', got: {stdout}"
+    );
     assert!(
         stdout.contains("Variables:"),
         "expected 'Variables:', got: {stdout}"
@@ -1965,7 +1987,7 @@ fn test_inspect_bundle() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -2024,7 +2046,7 @@ fn test_inspect_bundle() {
 fn test_inspect_stdin() {
     // Test pipe: create | inspect -
     let create_out = pred()
-        .args(["create", "MIS", "--edges", "0-1,1-2"])
+        .args(["create", "MIS", "--graph", "0-1,1-2"])
         .output()
         .unwrap();
     assert!(create_out.status.success());
@@ -2066,7 +2088,7 @@ fn test_inspect_json_output() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2,2-3",
         ])
         .output()
@@ -2093,7 +2115,22 @@ fn test_inspect_json_output() {
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["kind"], "problem");
     assert_eq!(json["type"], "MaximumIndependentSet");
-    assert!(json["size"].is_array());
+    let size_fields: Vec<&str> = json["size_fields"]
+        .as_array()
+        .expect("size_fields should be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        size_fields.contains(&"num_vertices"),
+        "MIS size_fields should contain num_vertices, got: {:?}",
+        size_fields
+    );
+    assert!(
+        size_fields.contains(&"num_edges"),
+        "MIS size_fields should contain num_edges, got: {:?}",
+        size_fields
+    );
     assert!(json["solvers"].is_array());
     assert!(json["reduces_to"].is_array());
 
@@ -2351,9 +2388,9 @@ fn test_create_factoring() {
             "Factoring",
             "--target",
             "15",
-            "--bits-m",
+            "--m",
             "4",
-            "--bits-n",
+            "--n",
             "4",
         ])
         .output()
@@ -2380,9 +2417,9 @@ fn test_create_factoring_with_bits() {
             "Factoring",
             "--target",
             "15",
-            "--bits-m",
+            "--m",
             "4",
-            "--bits-n",
+            "--n",
             "4",
         ])
         .output()
@@ -2400,13 +2437,22 @@ fn test_create_factoring_with_bits() {
 }
 
 #[test]
-fn test_create_factoring_missing_target() {
+fn test_create_factoring_no_flags_shows_help() {
+    // pred create Factoring with no data flags shows schema-driven help
     let output = pred().args(["create", "Factoring"]).output().unwrap();
-    assert!(!output.status.success());
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
         stderr.contains("--target"),
-        "expected '--target' in error, got: {stderr}"
+        "expected '--target' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--m"),
+        "expected '--m' in help output, got: {stderr}"
     );
 }
 
@@ -2419,8 +2465,8 @@ fn test_create_factoring_missing_bits() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("--bits-m"),
-        "expected '--bits-m' in error, got: {stderr}"
+        stderr.contains("--m"),
+        "expected '--m' in error, got: {stderr}"
     );
 }
 
@@ -2436,7 +2482,7 @@ fn test_solve_timeout_succeeds() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -2478,7 +2524,7 @@ fn test_solve_timeout_zero_means_no_limit() {
             problem_file.to_str().unwrap(),
             "create",
             "MIS",
-            "--edges",
+            "--graph",
             "0-1,1-2",
         ])
         .output()
@@ -2505,4 +2551,243 @@ fn test_solve_timeout_zero_means_no_limit() {
     assert!(stdout.contains("Solution"));
 
     std::fs::remove_file(&problem_file).ok();
+}
+
+// ---------------------------------------------------------------------------
+// Geometry-based graph tests
+// ---------------------------------------------------------------------------
+
+#[test]
+fn test_create_mis_kings_subgraph() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/KingsSubgraph",
+            "--positions",
+            "0,0;1,0;1,1;0,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "KingsSubgraph");
+    assert!(json["data"].is_object());
+}
+
+#[test]
+fn test_create_mis_triangular_subgraph() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/TriangularSubgraph",
+            "--positions",
+            "0,0;0,1;1,0;1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "TriangularSubgraph");
+}
+
+#[test]
+fn test_create_mis_unit_disk_graph() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/UnitDiskGraph",
+            "--positions",
+            "0,0;1,0;0.5,0.8",
+            "--radius",
+            "1.5",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "UnitDiskGraph");
+}
+
+#[test]
+fn test_create_mvc_kings_subgraph_unsupported_variant() {
+    // MVC doesn't have a KingsSubgraph variant registered
+    let output = pred()
+        .args(["create", "MVC/KingsSubgraph", "--positions", "0,0;1,0;1,1"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("No variant"),
+        "should mention variant mismatch: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_mis_unit_disk_graph_default_radius() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/UnitDiskGraph",
+            "--positions",
+            "0,0;0.5,0;1,0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "UnitDiskGraph");
+}
+
+#[test]
+fn test_create_mis_kings_subgraph_with_weights() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/KingsSubgraph",
+            "--positions",
+            "0,0;1,0;1,1",
+            "--weights",
+            "2,3,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "KingsSubgraph");
+}
+
+#[test]
+fn test_create_random_kings_subgraph() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/KingsSubgraph",
+            "--random",
+            "--num-vertices",
+            "10",
+            "--seed",
+            "42",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "KingsSubgraph");
+}
+
+#[test]
+fn test_create_random_triangular_subgraph() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/TriangularSubgraph",
+            "--random",
+            "--num-vertices",
+            "8",
+            "--seed",
+            "42",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "TriangularSubgraph");
+}
+
+#[test]
+fn test_create_random_unit_disk_graph() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/UnitDiskGraph",
+            "--random",
+            "--num-vertices",
+            "10",
+            "--radius",
+            "1.5",
+            "--seed",
+            "42",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "UnitDiskGraph");
+}
+
+#[test]
+fn test_create_kings_subgraph_help() {
+    let output = pred()
+        .args(["create", "MIS/KingsSubgraph"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("positions") || stderr.contains("MaximumIndependentSet"),
+        "stderr should show help: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_geometry_graph_missing_positions() {
+    let output = pred()
+        .args(["create", "MIS/KingsSubgraph", "--weights", "1,2,3"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("--positions"),
+        "should mention --positions: {stderr}"
+    );
 }

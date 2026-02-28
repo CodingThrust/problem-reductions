@@ -118,7 +118,16 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
         crate::output::fmt_section(&format!("Variants ({}):", variants.len()))
     ));
     for v in &variants {
-        text.push_str(&format!("  {}\n", format_variant(v)));
+        let slash = variant_to_full_slash(v);
+        let label = format!(
+            "  {}",
+            crate::output::fmt_problem_name(&format!("{}{}", spec.name, slash))
+        );
+        if let Some(c) = graph.variant_complexity(&spec.name, v) {
+            text.push_str(&format!("{label}  complexity: {c}\n"));
+        } else {
+            text.push_str(&format!("{label}\n"));
+        }
     }
 
     // Show fields from schema (right after variants)
@@ -143,7 +152,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             "\n{}\n",
             crate::output::fmt_section(&format!("Size fields ({}):", size_fields.len()))
         ));
-        for f in size_fields {
+        for f in &size_fields {
             text.push_str(&format!("  {f}\n"));
         }
     }
@@ -154,40 +163,80 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
 
     text.push_str(&format!(
         "\n{}\n",
-        crate::output::fmt_section(&format!("Reduces to ({}):", outgoing.len()))
+        crate::output::fmt_section(&format!("Outgoing reductions ({}):", outgoing.len()))
     ));
     for e in &outgoing {
         text.push_str(&format!(
-            "  {} {} {}\n",
-            fmt_node(e.source_name, &e.source_variant),
+            "  {} {} {}",
+            fmt_node(&graph, e.source_name, &e.source_variant),
             crate::output::fmt_outgoing("\u{2192}"),
-            fmt_node(e.target_name, &e.target_variant),
+            fmt_node(&graph, e.target_name, &e.target_variant),
         ));
+        let oh_parts: Vec<String> = e
+            .overhead
+            .output_size
+            .iter()
+            .map(|(field, poly)| format!("{field} = {poly}"))
+            .collect();
+        if !oh_parts.is_empty() {
+            text.push_str(&format!("  ({})", oh_parts.join(", ")));
+        }
+        text.push('\n');
     }
 
     text.push_str(&format!(
         "\n{}\n",
-        crate::output::fmt_section(&format!("Reduces from ({}):", incoming.len()))
+        crate::output::fmt_section(&format!("Incoming reductions ({}):", incoming.len()))
     ));
     for e in &incoming {
         text.push_str(&format!(
-            "  {} {} {}\n",
-            fmt_node(e.target_name, &e.target_variant),
-            crate::output::fmt_outgoing("\u{2190}"),
-            fmt_node(e.source_name, &e.source_variant),
+            "  {} {} {}",
+            fmt_node(&graph, e.source_name, &e.source_variant),
+            crate::output::fmt_outgoing("\u{2192}"),
+            fmt_node(&graph, e.target_name, &e.target_variant),
         ));
+        let oh_parts: Vec<String> = e
+            .overhead
+            .output_size
+            .iter()
+            .map(|(field, poly)| format!("{field} = {poly}"))
+            .collect();
+        if !oh_parts.is_empty() {
+            text.push_str(&format!("  ({})", oh_parts.join(", ")));
+        }
+        text.push('\n');
     }
+
+    let edge_to_json = |e: &problemreductions::rules::ReductionEdgeInfo| {
+        let overhead: Vec<serde_json::Value> = e
+            .overhead
+            .output_size
+            .iter()
+            .map(|(field, poly)| serde_json::json!({"field": field, "formula": poly.to_string()}))
+            .collect();
+        serde_json::json!({
+            "source": {"name": e.source_name, "variant": e.source_variant},
+            "target": {"name": e.target_name, "variant": e.target_variant},
+            "overhead": overhead,
+        })
+    };
+    let variants_json: Vec<serde_json::Value> = variants
+        .iter()
+        .map(|v| {
+            let complexity = graph.variant_complexity(&spec.name, v).unwrap_or("");
+            serde_json::json!({
+                "variant": v,
+                "complexity": complexity,
+            })
+        })
+        .collect();
 
     let mut json = serde_json::json!({
         "name": spec.name,
-        "variants": variants,
+        "variants": variants_json,
         "size_fields": size_fields,
-        "reduces_to": outgoing.iter().map(|e| {
-            serde_json::json!({"source": {"name": e.source_name, "variant": e.source_variant}, "target": {"name": e.target_name, "variant": e.target_variant}})
-        }).collect::<Vec<_>>(),
-        "reduces_from": incoming.iter().map(|e| {
-            serde_json::json!({"source": {"name": e.source_name, "variant": e.source_variant}, "target": {"name": e.target_name, "variant": e.target_variant}})
-        }).collect::<Vec<_>>(),
+        "reduces_to": outgoing.iter().map(&edge_to_json).collect::<Vec<_>>(),
+        "reduces_from": incoming.iter().map(&edge_to_json).collect::<Vec<_>>(),
     });
     if let Some(s) = schema {
         if let (Some(obj), Ok(schema_val)) = (json.as_object_mut(), serde_json::to_value(s)) {
@@ -199,23 +248,46 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     out.emit_with_default_name(&default_name, &text, &json)
 }
 
-fn format_variant(v: &BTreeMap<String, String>) -> String {
-    if v.is_empty() {
-        "(default)".to_string()
+/// Convert a variant BTreeMap to slash notation showing ALL values.
+/// E.g., {graph: "SimpleGraph", weight: "i32"} → "/SimpleGraph/i32".
+fn variant_to_full_slash(variant: &BTreeMap<String, String>) -> String {
+    if variant.is_empty() {
+        String::new()
     } else {
-        let pairs: Vec<String> = v.iter().map(|(k, val)| format!("{k}={val}")).collect();
-        format!("{{{}}}", pairs.join(", "))
+        let vals: Vec<&str> = variant.values().map(|v| v.as_str()).collect();
+        format!("/{}", vals.join("/"))
     }
 }
 
-/// Format a problem node as **bold name** + plain variant.
-/// This is the single source of truth for "name {variant}" display.
-fn fmt_node(name: &str, variant: &BTreeMap<String, String>) -> String {
-    format!(
-        "{} {}",
-        crate::output::fmt_problem_name(name),
-        format_variant(variant),
-    )
+/// Convert a variant BTreeMap to slash notation showing only non-default values.
+/// Given default {graph: "SimpleGraph", weight: "i32"} and variant {graph: "UnitDiskGraph", weight: "i32"},
+/// returns "/UnitDiskGraph".
+fn variant_to_slash(
+    variant: &BTreeMap<String, String>,
+    default: &BTreeMap<String, String>,
+) -> String {
+    let diffs: Vec<&str> = variant
+        .iter()
+        .filter(|(k, v)| default.get(*k).map_or(true, |dv| dv != *v))
+        .map(|(_, v)| v.as_str())
+        .collect();
+    if diffs.is_empty() {
+        String::new()
+    } else {
+        format!("/{}", diffs.join("/"))
+    }
+}
+
+/// Format a problem node as **bold name/variant** in slash notation.
+/// This is the single source of truth for "name/variant" display.
+fn fmt_node(graph: &ReductionGraph, name: &str, variant: &BTreeMap<String, String>) -> String {
+    let default = graph
+        .variants_for(name)
+        .first()
+        .cloned()
+        .unwrap_or_default();
+    let slash = variant_to_slash(variant, &default);
+    crate::output::fmt_problem_name(&format!("{name}{slash}"))
 }
 
 fn format_path_text(
@@ -229,7 +301,7 @@ fn format_path_text(
         let mut prev_name = "";
         for step in steps {
             if step.name != prev_name {
-                parts.push(fmt_node(&step.name, &step.variant));
+                parts.push(fmt_node(graph, &step.name, &step.variant));
                 prev_name = &step.name;
             }
         }
@@ -245,9 +317,9 @@ fn format_path_text(
         text.push_str(&format!(
             "\n  {}: {} {} {}\n",
             crate::output::fmt_section(&format!("Step {}", i + 1)),
-            fmt_node(&from.name, &from.variant),
+            fmt_node(graph, &from.name, &from.variant),
             crate::output::fmt_outgoing("→"),
-            fmt_node(&to.name, &to.variant),
+            fmt_node(graph, &to.name, &to.variant),
         ));
         let oh = &overheads[i];
         for (field, poly) in &oh.output_size {
@@ -540,18 +612,17 @@ pub fn neighbors(
     // Build tree structure via BFS with parent tracking
     let tree = graph.k_neighbor_tree(&spec.name, &variant, max_hops, direction);
 
-    let root_label = fmt_node(&spec.name, &variant);
+    let root_label = fmt_node(&graph, &spec.name, &variant);
 
+    let header_label = fmt_node(&graph, &spec.name, &variant);
     let mut text = format!(
         "{} — {}-hop neighbors ({})\n\n",
-        crate::output::fmt_problem_name(&spec.name),
-        max_hops,
-        dir_label,
+        header_label, max_hops, dir_label,
     );
 
     text.push_str(&root_label);
     text.push('\n');
-    render_tree(&tree, &mut text, "");
+    render_tree(&graph, &tree, &mut text, "");
 
     // Count unique problem names
     let unique_names: HashSet<&str> = neighbors.iter().map(|n| n.name).collect();
@@ -581,7 +652,7 @@ pub fn neighbors(
 use problemreductions::rules::NeighborTree;
 
 /// Render a tree with box-drawing characters.
-fn render_tree(nodes: &[NeighborTree], text: &mut String, prefix: &str) {
+fn render_tree(graph: &ReductionGraph, nodes: &[NeighborTree], text: &mut String, prefix: &str) {
     for (i, node) in nodes.iter().enumerate() {
         let is_last = i == nodes.len() - 1;
         let connector = if is_last { "└── " } else { "├── " };
@@ -591,12 +662,12 @@ fn render_tree(nodes: &[NeighborTree], text: &mut String, prefix: &str) {
             "{}{}{}\n",
             crate::output::fmt_dim(prefix),
             crate::output::fmt_dim(connector),
-            fmt_node(&node.name, &node.variant),
+            fmt_node(graph, &node.name, &node.variant),
         ));
 
         if !node.children.is_empty() {
             let new_prefix = format!("{}{}", prefix, child_prefix);
-            render_tree(&node.children, text, &new_prefix);
+            render_tree(graph, &node.children, text, &new_prefix);
         }
     }
 }

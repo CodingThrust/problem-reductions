@@ -1,10 +1,10 @@
 use super::*;
-use crate::polynomial::Polynomial;
+use crate::expr::Expr;
 
 fn test_overhead() -> ReductionOverhead {
     ReductionOverhead::new(vec![
-        ("n", Polynomial::var("n").scale(2.0)),
-        ("m", Polynomial::var("m")),
+        ("n", Expr::mul(Expr::Const(2.0), Expr::Var("n"))),
+        ("m", Expr::Var("m")),
     ])
 }
 

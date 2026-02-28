@@ -75,6 +75,16 @@ impl Factoring {
         self.n
     }
 
+    /// Get the number of bits for the first factor (alias for `m()`).
+    pub fn num_bits_first(&self) -> usize {
+        self.m()
+    }
+
+    /// Get the number of bits for the second factor (alias for `n()`).
+    pub fn num_bits_second(&self) -> usize {
+        self.n()
+    }
+
     /// Get the target number to factor.
     pub fn target(&self) -> u64 {
         self.target
@@ -142,13 +152,6 @@ impl Problem for Factoring {
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_bits_first", "num_bits_second"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.m(), self.n()]
-    }
 }
 
 impl OptimizationProblem for Factoring {
@@ -157,6 +160,10 @@ impl OptimizationProblem for Factoring {
     fn direction(&self) -> Direction {
         Direction::Minimize
     }
+}
+
+crate::declare_variants! {
+    Factoring => "exp(sqrt(num_bits))",
 }
 
 #[cfg(test)]

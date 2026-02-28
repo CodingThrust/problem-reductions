@@ -1,12 +1,13 @@
 use super::*;
 use crate::models::graph::MaximumIndependentSet;
 use crate::topology::{Graph, SimpleGraph, TriangularSubgraph};
+use crate::types::One;
 
 #[test]
-fn test_mis_simple_to_triangular_closed_loop() {
+fn test_mis_simple_one_to_triangular_closed_loop() {
     // Path graph: 0-1-2
     let problem =
-        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![One; 3]);
     let result = ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i32>>::reduce_to(&problem);
     let target = result.target_problem();
 
@@ -20,9 +21,9 @@ fn test_mis_simple_to_triangular_closed_loop() {
 }
 
 #[test]
-fn test_mis_simple_to_triangular_graph_methods() {
+fn test_mis_simple_one_to_triangular_graph_methods() {
     // Single edge graph: 0-1
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]);
+    let problem = MaximumIndependentSet::new(SimpleGraph::new(2, vec![(0, 1)]), vec![One; 2]);
     let result = ReduceTo::<MaximumIndependentSet<TriangularSubgraph, i32>>::reduce_to(&problem);
     let target = result.target_problem();
     let graph = target.graph();

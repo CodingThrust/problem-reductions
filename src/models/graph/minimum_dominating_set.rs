@@ -4,7 +4,7 @@
 //! such that every vertex is either in the set or adjacent to a vertex in the set.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -115,6 +115,18 @@ impl<G: Graph, W: Clone + Default> MinimumDominatingSet<G, W> {
     }
 }
 
+impl<G: Graph, W: WeightElement> MinimumDominatingSet<G, W> {
+    /// Get the number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.graph().num_vertices()
+    }
+
+    /// Get the number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.graph().num_edges()
+    }
+}
+
 impl<G, W> Problem for MinimumDominatingSet<G, W>
 where
     G: Graph + crate::variant::VariantParam,
@@ -143,13 +155,6 @@ where
         }
         SolutionSize::Valid(total)
     }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vertices", "num_edges"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.graph().num_vertices(), self.graph().num_edges()]
-    }
 }
 
 impl<G, W> OptimizationProblem for MinimumDominatingSet<G, W>
@@ -162,6 +167,10 @@ where
     fn direction(&self) -> Direction {
         Direction::Minimize
     }
+}
+
+crate::declare_variants! {
+    MinimumDominatingSet<SimpleGraph, i32> => "2^num_vertices",
 }
 
 /// Check if a set of vertices is a dominating set.

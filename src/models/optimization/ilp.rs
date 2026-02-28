@@ -136,7 +136,7 @@ pub struct LinearConstraint {
 
 impl LinearConstraint {
     /// Create a new linear constraint.
-    pub fn new(terms: Vec<(usize, f64)>, cmp: Comparison, rhs: f64) -> Self {
+    pub(crate) fn new(terms: Vec<(usize, f64)>, cmp: Comparison, rhs: f64) -> Self {
         Self { terms, cmp, rhs }
     }
 
@@ -325,6 +325,16 @@ impl ILP {
     pub fn num_variables(&self) -> usize {
         self.num_vars
     }
+
+    /// Get the number of variables.
+    pub fn num_vars(&self) -> usize {
+        self.num_variables()
+    }
+
+    /// Get the number of constraints.
+    pub fn num_constraints(&self) -> usize {
+        self.constraints.len()
+    }
 }
 
 impl Problem for ILP {
@@ -353,13 +363,6 @@ impl Problem for ILP {
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
     }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vars", "num_constraints"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.num_variables(), self.constraints.len()]
-    }
 }
 
 impl OptimizationProblem for ILP {
@@ -371,6 +374,10 @@ impl OptimizationProblem for ILP {
             ObjectiveSense::Minimize => Direction::Minimize,
         }
     }
+}
+
+crate::declare_variants! {
+    ILP => "exp(num_variables)",
 }
 
 #[cfg(test)]

@@ -16,9 +16,7 @@
 
 use crate::models::graph::MinimumDominatingSet;
 use crate::models::satisfiability::Satisfiability;
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
@@ -115,10 +113,8 @@ impl ReductionSATToDS {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vertices", poly!(3 * num_vars) + poly!(num_clauses)),
-            ("num_edges", poly!(3 * num_vars) + poly!(num_literals)),
-        ])
+        num_vertices = "3 * num_vars + num_clauses",
+        num_edges = "3 * num_vars + num_literals",
     }
 )]
 impl ReduceTo<MinimumDominatingSet<SimpleGraph, i32>> for Satisfiability {

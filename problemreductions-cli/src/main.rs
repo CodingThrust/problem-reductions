@@ -5,6 +5,7 @@ mod dispatch;
 mod mcp;
 mod output;
 mod problem_name;
+mod util;
 
 use clap::{CommandFactory, Parser};
 use cli::{Cli, Commands};
@@ -37,8 +38,8 @@ fn main() -> anyhow::Result<()> {
     match cli.command {
         Commands::List => commands::graph::list(&out),
         Commands::Show { problem } => commands::graph::show(&problem, &out),
-        Commands::To { problem, hops } => commands::graph::neighbors(&problem, hops, "out", &out),
-        Commands::From { problem, hops } => commands::graph::neighbors(&problem, hops, "in", &out),
+        Commands::To { problem, hops } => commands::graph::neighbors(&problem, hops, "in", &out),
+        Commands::From { problem, hops } => commands::graph::neighbors(&problem, hops, "out", &out),
         Commands::Path {
             source,
             target,

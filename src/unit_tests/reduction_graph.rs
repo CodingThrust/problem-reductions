@@ -1,11 +1,9 @@
 //! Tests for ReductionGraph: discovery, path finding, and typed API.
 
 use crate::models::satisfiability::KSatisfiability;
-use crate::poly;
 use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph, TraversalDirection};
 use crate::topology::{SimpleGraph, TriangularSubgraph};
-use crate::traits::problem_size;
 use crate::types::ProblemSize;
 use crate::variant::K3;
 use std::collections::BTreeMap;
@@ -291,17 +289,18 @@ fn test_3sat_to_mis_triangular_overhead() {
     );
 
     // 3-SAT instance: 3 variables, 2 clauses, 6 literals
-    let source = KSatisfiability::<K3>::new(
+    let _source = KSatisfiability::<K3>::new(
         3,
         vec![
             CNFClause::new(vec![1, 2, 3]),
             CNFClause::new(vec![-1, -2, -3]),
         ],
     );
-    let input_size = problem_size(&source);
-    assert_eq!(input_size.get("num_vars"), Some(3));
-    assert_eq!(input_size.get("num_clauses"), Some(2));
-    assert_eq!(input_size.get("num_literals"), Some(6));
+    let input_size = ProblemSize::new(vec![
+        ("num_vars", 3),
+        ("num_clauses", 2),
+        ("num_literals", 6),
+    ]);
 
     // Find the shortest path
     let path = graph
@@ -315,7 +314,7 @@ fn test_3sat_to_mis_triangular_overhead() {
         )
         .expect("Should find path from 3-SAT to MIS on triangular lattice");
 
-    // Path: K3SAT → SAT → MIS{SimpleGraph,i32} → MIS{TriangularSubgraph,i32}
+    // Path: K3SAT → SAT → MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
     assert_eq!(
         path.type_names(),
         vec!["KSatisfiability", "Satisfiability", "MaximumIndependentSet"]
@@ -326,130 +325,45 @@ fn test_3sat_to_mis_triangular_overhead() {
     let edges = graph.path_overheads(&path);
     assert_eq!(edges.len(), 3);
 
+    // Evaluate overheads at a test point to verify correctness
+    let test_size = ProblemSize::new(vec![
+        ("num_vars", 3),
+        ("num_clauses", 2),
+        ("num_literals", 6),
+        ("num_vertices", 10),
+        ("num_edges", 15),
+    ]);
+
     // Edge 0: K3SAT → SAT (identity)
-    assert_eq!(
-        edges[0].get("num_vars").unwrap().normalized(),
-        poly!(num_vars)
-    );
-    assert_eq!(
-        edges[0].get("num_clauses").unwrap().normalized(),
-        poly!(num_clauses)
-    );
-    assert_eq!(
-        edges[0].get("num_literals").unwrap().normalized(),
-        poly!(num_literals)
-    );
+    assert_eq!(edges[0].get("num_vars").unwrap().eval(&test_size), 3.0);
+    assert_eq!(edges[0].get("num_clauses").unwrap().eval(&test_size), 2.0);
+    assert_eq!(edges[0].get("num_literals").unwrap().eval(&test_size), 6.0);
 
-    // Edge 1: SAT → MIS{SimpleGraph,i32}
-    assert_eq!(
-        edges[1].get("num_vertices").unwrap().normalized(),
-        poly!(num_literals)
-    );
-    assert_eq!(
-        edges[1].get("num_edges").unwrap().normalized(),
-        poly!(num_literals ^ 2)
-    );
+    // Edge 1: SAT → MIS{SimpleGraph,One}
+    // num_vertices = num_literals, num_edges = num_literals^2
+    assert_eq!(edges[1].get("num_vertices").unwrap().eval(&test_size), 6.0);
+    assert_eq!(edges[1].get("num_edges").unwrap().eval(&test_size), 36.0);
 
-    // Edge 2: MIS{SimpleGraph,i32} → MIS{TriangularSubgraph,i32}
+    // Edge 2: MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
+    // num_vertices = num_vertices^2, num_edges = num_vertices^2
     assert_eq!(
-        edges[2].get("num_vertices").unwrap().normalized(),
-        poly!(num_vertices ^ 2)
+        edges[2].get("num_vertices").unwrap().eval(&test_size),
+        100.0
     );
-    assert_eq!(
-        edges[2].get("num_edges").unwrap().normalized(),
-        poly!(num_vertices ^ 2)
-    );
+    assert_eq!(edges[2].get("num_edges").unwrap().eval(&test_size), 100.0);
 
     // Compose overheads symbolically along the path.
     // The composed overhead maps 3-SAT input variables to final MIS{Triangular} output.
     //
-    // K3SAT → SAT:      {num_clauses: C, num_vars: V, num_literals: L}  (identity)
-    // SAT → MIS:         {num_vertices: L, num_edges: L²}
-    // MIS → MIS{Tri}:    {num_vertices: num_vertices², num_edges: num_vertices²}
+    // K3SAT → SAT:         {num_clauses: C, num_vars: V, num_literals: L}  (identity)
+    // SAT → MIS{SG,One}:   {num_vertices: L, num_edges: L²}
+    // MIS{SG,One→Tri}:     {num_vertices: V², num_edges: V²}
     //
     // Composed: num_vertices = L², num_edges = L²
     let composed = graph.compose_path_overhead(&path);
-    assert_eq!(
-        composed.get("num_vertices").unwrap().normalized(),
-        poly!(num_literals ^ 2)
-    );
-    assert_eq!(
-        composed.get("num_edges").unwrap().normalized(),
-        poly!(num_literals ^ 2)
-    );
-}
-
-// ---- Overhead validation ----
-
-#[test]
-fn test_validate_overhead_variables_valid() {
-    use crate::rules::registry::ReductionOverhead;
-    use crate::rules::validate_overhead_variables;
-
-    let overhead = ReductionOverhead::new(vec![
-        ("num_vertices", poly!(num_vars)),
-        ("num_edges", poly!(num_vars ^ 2)),
-    ]);
-    // Should not panic: inputs {num_vars} ⊆ source, outputs {num_vertices, num_edges} ⊆ target
-    validate_overhead_variables(
-        "Source",
-        "Target",
-        &overhead,
-        &["num_vars", "num_clauses"],
-        &["num_vertices", "num_edges"],
-    );
-}
-
-#[test]
-#[should_panic(expected = "overhead references input variables")]
-fn test_validate_overhead_variables_missing_input() {
-    use crate::rules::registry::ReductionOverhead;
-    use crate::rules::validate_overhead_variables;
-
-    let overhead = ReductionOverhead::new(vec![("num_vertices", poly!(num_colors))]);
-    validate_overhead_variables(
-        "Source",
-        "Target",
-        &overhead,
-        &["num_vars", "num_clauses"], // no "num_colors"
-        &["num_vertices"],
-    );
-}
-
-#[test]
-#[should_panic(expected = "overhead output fields")]
-fn test_validate_overhead_variables_missing_output() {
-    use crate::rules::registry::ReductionOverhead;
-    use crate::rules::validate_overhead_variables;
-
-    let overhead = ReductionOverhead::new(vec![("num_gates", poly!(num_vars))]);
-    validate_overhead_variables(
-        "Source",
-        "Target",
-        &overhead,
-        &["num_vars"],
-        &["num_vertices", "num_edges"], // no "num_gates"
-    );
-}
-
-#[test]
-fn test_validate_overhead_variables_skips_output_when_empty() {
-    use crate::rules::registry::ReductionOverhead;
-    use crate::rules::validate_overhead_variables;
-
-    let overhead = ReductionOverhead::new(vec![("anything", poly!(num_vars))]);
-    // Should not panic: target_size_names is empty so output check is skipped
-    validate_overhead_variables("Source", "Target", &overhead, &["num_vars"], &[]);
-}
-
-#[test]
-fn test_validate_overhead_variables_identity() {
-    use crate::rules::registry::ReductionOverhead;
-    use crate::rules::validate_overhead_variables;
-
-    let names = &["num_vertices", "num_edges"];
-    let overhead = ReductionOverhead::identity(names);
-    validate_overhead_variables("A", "B", &overhead, names, names);
+    // Evaluate composed at input: L=6, so L^2=36
+    assert_eq!(composed.get("num_vertices").unwrap().eval(&test_size), 36.0);
+    assert_eq!(composed.get("num_edges").unwrap().eval(&test_size), 36.0);
 }
 
 // ---- k-neighbor BFS ----

@@ -235,3 +235,13 @@ fn test_is_valid_solution() {
     // Invalid: select only 2 edges — not a cycle
     assert!(!problem.is_valid_solution(&[1, 1, 0]));
 }
+
+#[test]
+fn test_size_getters() {
+    let problem = TravelingSalesman::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+        vec![1i32; 3],
+    );
+    assert_eq!(problem.num_vertices(), 3);
+    assert_eq!(problem.num_edges(), 3);
+}

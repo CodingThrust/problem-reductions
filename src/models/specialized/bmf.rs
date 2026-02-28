@@ -98,6 +98,16 @@ impl BMF {
         self.k
     }
 
+    /// Get the number of rows (alias for `rows()`).
+    pub fn m(&self) -> usize {
+        self.rows()
+    }
+
+    /// Get the number of columns (alias for `cols()`).
+    pub fn n(&self) -> usize {
+        self.cols()
+    }
+
     /// Get the target matrix.
     pub fn matrix(&self) -> &[Vec<bool>] {
         &self.matrix
@@ -209,13 +219,6 @@ impl Problem for BMF {
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
-    }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["m", "n", "rank"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.rows(), self.cols(), self.rank()]
     }
 }
 

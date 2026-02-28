@@ -10,11 +10,10 @@
 
 use crate::models::graph::MaximumIndependentSet;
 use crate::models::satisfiability::Satisfiability;
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;
+use crate::types::One;
 
 /// A literal in the SAT problem, representing a variable or its negation.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -55,7 +54,7 @@ impl BoolVar {
 #[derive(Debug, Clone)]
 pub struct ReductionSATToIS {
     /// The target MaximumIndependentSet problem.
-    target: MaximumIndependentSet<SimpleGraph, i32>,
+    target: MaximumIndependentSet<SimpleGraph, One>,
     /// Mapping from vertex index to the literal it represents.
     literals: Vec<BoolVar>,
     /// The number of variables in the source SAT problem.
@@ -66,7 +65,7 @@ pub struct ReductionSATToIS {
 
 impl ReductionResult for ReductionSATToIS {
     type Source = Satisfiability;
-    type Target = MaximumIndependentSet<SimpleGraph, i32>;
+    type Target = MaximumIndependentSet<SimpleGraph, One>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -111,13 +110,11 @@ impl ReductionSATToIS {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_literals)),
-            ("num_edges", poly!(num_literals ^ 2)),
-        ])
+        num_vertices = "num_literals",
+        num_edges = "num_literals^2",
     }
 )]
-impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for Satisfiability {
+impl ReduceTo<MaximumIndependentSet<SimpleGraph, One>> for Satisfiability {
     type Result = ReductionSATToIS;
 
     fn reduce_to(&self) -> Self::Result {
@@ -157,7 +154,7 @@ impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for Satisfiability {
 
         let target = MaximumIndependentSet::new(
             SimpleGraph::new(vertex_count, edges),
-            vec![1i32; vertex_count],
+            vec![One; vertex_count],
         );
 
         ReductionSATToIS {

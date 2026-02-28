@@ -5,9 +5,7 @@
 
 use crate::models::graph::MaximumMatching;
 use crate::models::set::MaximumSetPacking;
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::WeightElement;
@@ -39,10 +37,8 @@ where
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_sets", poly!(num_edges)),
-            ("universe_size", poly!(num_vertices)),
-        ])
+        num_sets = "num_edges",
+        universe_size = "num_vertices",
     }
 )]
 impl ReduceTo<MaximumSetPacking<i32>> for MaximumMatching<SimpleGraph, i32> {

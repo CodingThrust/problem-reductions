@@ -25,9 +25,7 @@ pub fn list_prompts() -> Vec<Prompt> {
             Some(vec![PromptArgument {
                 name: "description".into(),
                 title: None,
-                description: Some(
-                    "Free-text description of your real-world problem".into(),
-                ),
+                description: Some("Free-text description of your real-world problem".into()),
                 required: Some(true),
             }]),
         ),
@@ -114,9 +112,7 @@ pub fn list_prompts() -> Vec<Prompt> {
         ),
         Prompt::new(
             "overview",
-            Some(
-                "Explore the full landscape of NP-hard problems and reductions in the graph",
-            ),
+            Some("Explore the full landscape of NP-hard problems and reductions in the graph"),
             None,
         ),
     ]
@@ -266,10 +262,7 @@ pub fn get_prompt(
                 .unwrap_or("QUBO");
 
             Some(GetPromptResult {
-                description: Some(format!(
-                    "Find reduction path from {} to {}",
-                    source, target
-                )),
+                description: Some(format!("Find reduction path from {} to {}", source, target)),
                 messages: vec![PromptMessage::new_text(
                     PromptMessageRole::User,
                     format!(

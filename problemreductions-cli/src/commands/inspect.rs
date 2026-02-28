@@ -33,16 +33,10 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
 
     let mut text = format!("Type: {}{}\n", name, variant_str);
 
-    // Size info
-    let size_names = problem.problem_size_names_dyn();
-    let size_values = problem.problem_size_values_dyn();
-    if !size_names.is_empty() {
-        let sizes: Vec<String> = size_names
-            .iter()
-            .zip(size_values.iter())
-            .map(|(n, v)| format!("{} {}", v, n))
-            .collect();
-        text.push_str(&format!("Size: {}\n", sizes.join(", ")));
+    // Size fields from the reduction graph
+    let size_fields = graph.size_field_names(name);
+    if !size_fields.is_empty() {
+        text.push_str(&format!("Size fields: {}\n", size_fields.join(", ")));
     }
     text.push_str(&format!("Variables: {}\n", problem.num_variables_dyn()));
 
@@ -60,9 +54,7 @@ fn inspect_problem(pj: &ProblemJson, out: &OutputConfig) -> Result<()> {
         "kind": "problem",
         "type": name,
         "variant": variant,
-        "size": size_names.iter().zip(size_values.iter())
-            .map(|(n, v)| serde_json::json!({"field": n, "value": v}))
-            .collect::<Vec<_>>(),
+        "size_fields": size_fields,
         "num_variables": problem.num_variables_dyn(),
         "solvers": ["ilp", "brute-force"],
         "reduces_to": targets,

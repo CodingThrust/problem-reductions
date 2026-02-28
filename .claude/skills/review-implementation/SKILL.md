@@ -1,141 +1,149 @@
 ---
 name: review-implementation
-description: Use after implementing a model or rule to verify completeness and correctness before committing
+description: Use after implementing a model, rule, or any code change to verify completeness and correctness before committing
 ---
 
 # Review Implementation
 
-Automated review checklist for verifying that a new model or rule implementation is complete. Run this after finishing `add-model` or `add-rule`, before committing.
+Dispatches two parallel review subagents with fresh context (no implementation history bias):
+- **Structural reviewer** -- model/rule checklists + semantic correctness (only for new models/rules)
+- **Quality reviewer** -- DRY, KISS, HC/LC, HCI, test quality (always)
 
 ## Invocation
 
-Auto-detects the implementation type from changed files. Can also be invoked with an explicit argument:
-- `/review-implementation` -- auto-detect from `git diff`
+- `/review-implementation` -- auto-detect from git diff
 - `/review-implementation model MaximumClique` -- review a specific model
 - `/review-implementation rule mis_qubo` -- review a specific rule
+- `/review-implementation generic` -- code quality only (no structural checklist)
 
 ## Step 1: Detect What Changed
 
-Use `git diff --name-only` (against main branch or last commit) to identify:
-- Files in `src/models/` -> model review
-- Files in `src/rules/` (not `mod.rs`, `traits.rs`, `cost.rs`, `graph.rs`, `registry.rs`) -> rule review
-- Both -> run both reviews
+Determine whether new model/rule files were added:
+
+```bash
+# Check for NEW files (not just modifications)
+git diff --name-only --diff-filter=A HEAD~1..HEAD
+# Also check against main for branch-level changes
+git diff --name-only --diff-filter=A main..HEAD
+```
+
+Detection rules:
+- New file in `src/models/` (not `mod.rs`) -> **model review** (structural + quality)
+- New file in `src/rules/` (not `mod.rs`, `traits.rs`, `cost.rs`, `graph.rs`, `registry.rs`) -> **rule review** (structural + quality)
+- Only modified files (no new model/rule) -> **quality review only**
+- Both new model and rule files -> dispatch structural for both + quality
+- Explicit argument overrides auto-detection
 
 Extract the problem name(s) and rule source/target from the file paths.
 
-## Step 2: Run Structural Checks
+## Step 2: Prepare Subagent Context
 
-For each detected change, run the appropriate checklist below. Report results as a table with pass/fail per item.
-
-### Model Checklist
-
-Given: problem name `P`, category `C`, file stem `F` (snake_case).
-
-| # | Check | Verification method |
-|---|-------|-------------------|
-| 1 | Model file exists | `Glob("src/models/{C}/{F}.rs")` |
-| 2 | `inventory::submit!` present | `Grep("inventory::submit", file)` |
-| 3 | `#[derive(...Serialize, Deserialize)]` on struct | `Grep("Serialize.*Deserialize", file)` |
-| 4 | `Problem` trait impl | `Grep("impl.*Problem for.*{P}", file)` |
-| 5 | `OptimizationProblem` or `SatisfactionProblem` impl | `Grep("(OptimizationProblem\|SatisfactionProblem).*for.*{P}", file)` |
-| 6 | `#[cfg(test)]` + `#[path = "..."]` test link | `Grep("#\\[path =", file)` |
-| 7 | Test file exists | `Glob("src/unit_tests/models/{C}/{F}.rs")` |
-| 8 | Test has creation test | `Grep("fn test_.*creation\|fn test_{F}.*basic", test_file)` |
-| 9 | Test has evaluation test | `Grep("fn test_.*evaluat", test_file)` |
-| 10 | Registered in `{C}/mod.rs` | `Grep("mod {F}", "src/models/{C}/mod.rs")` |
-| 11 | Re-exported in `models/mod.rs` | `Grep("{P}", "src/models/mod.rs")` |
-| 12 | CLI `load_problem` arm | `Grep('"{P}"', "problemreductions-cli/src/dispatch.rs")` |
-| 13 | CLI `serialize_any_problem` arm | `Grep('"{P}".*try_ser', "problemreductions-cli/src/dispatch.rs")` |
-| 14 | CLI `resolve_alias` entry | `Grep("{P}", "problemreductions-cli/src/problem_name.rs")` |
-| 15 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
-| 16 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
-
-### Rule Checklist
-
-Given: source `S`, target `T`, rule file stem `R` = `{s}_{t}` (lowercase), example stem `E` = `reduction_{s}_to_{t}`.
-
-| # | Check | Verification method |
-|---|-------|-------------------|
-| 1 | Rule file exists | `Glob("src/rules/{R}.rs")` |
-| 2 | `#[reduction(...)]` macro present | `Grep("#\\[reduction", file)` |
-| 3 | `ReductionResult` impl present | `Grep("impl.*ReductionResult", file)` |
-| 4 | `ReduceTo` impl present | `Grep("impl.*ReduceTo", file)` |
-| 5 | `#[cfg(test)]` + `#[path = "..."]` test link | `Grep("#\\[path =", file)` |
-| 6 | Test file exists | `Glob("src/unit_tests/rules/{R}.rs")` |
-| 7 | Closed-loop test present | `Grep("fn test_.*closed_loop\|fn test_.*to_.*basic", test_file)` |
-| 8 | Registered in `rules/mod.rs` | `Grep("mod {R}", "src/rules/mod.rs")` |
-| 9 | Example file exists | `Glob("examples/{E}.rs")` |
-| 10 | Example has `pub fn run()` | `Grep("pub fn run", example_file)` |
-| 11 | Example has `fn main()` | `Grep("fn main", example_file)` |
-| 12 | `example_test!` registered | `Grep("example_test!\\({E}\\)", "tests/suites/examples.rs")` |
-| 13 | `example_fn!` registered | `Grep("example_fn!.*{E}", "tests/suites/examples.rs")` |
-| 14 | Paper `reduction-rule` entry | `Grep('reduction-rule.*"{S}".*"{T}"', "docs/paper/reductions.typ")` |
-
-## Step 3: Run Build Checks
-
-After structural checks, run:
+Get the git SHAs for the review range:
 
 ```bash
-make test clippy
+BASE_SHA=$(git merge-base main HEAD)  # or HEAD~N for batch reviews
+HEAD_SHA=$(git rev-parse HEAD)
 ```
 
-Report pass/fail. If tests fail, identify which tests and suggest fixes.
+Get the diff summary and changed file list:
 
-## Step 4: Semantic Review (AI Judgment)
+```bash
+git diff --stat $BASE_SHA..$HEAD_SHA
+git diff --name-only $BASE_SHA..$HEAD_SHA
+```
 
-Read the implementation files and assess:
+## Step 3: Dispatch Subagents in Parallel
 
-### For Models:
-1. **`evaluate()` correctness** -- Does it check feasibility before computing the objective? Does it return `SolutionSize::Invalid` / `false` for infeasible configs?
-2. **`dims()` correctness** -- Does it return the actual configuration space? (e.g., `vec![2; n]` for binary)
-3. **`problem_size_names`/`problem_size_values` consistency** -- Do the names match what `ReductionOverhead` uses?
-4. **Weight handling** -- Are weights managed via inherent methods, not traits?
+### Structural Reviewer (if new model/rule detected)
 
-### For Rules:
-1. **`extract_solution` correctness** -- Does it correctly invert the reduction? Does the returned solution have the right length (source dimensions)?
-2. **Overhead accuracy** -- Does `poly!(...)` reflect the actual size relationship?
-3. **Example quality** -- Is it tutorial-style? Does it use the instance from the issue? Does the JSON export include both source and target data?
-4. **Paper quality** -- Is the reduction-rule statement precise? Is the proof sketch sound? Is the example figure clear?
+Dispatch using `Task` tool with `subagent_type="superpowers:code-reviewer"`:
 
-### Code Quality Principles (applies to both Models and Rules):
-1. **DRY (Don't Repeat Yourself)** -- Is there duplicated logic that should be extracted into a shared helper, utility function, or common module? Check for copy-pasted code blocks across files (e.g., similar graph construction, weight handling, or solution extraction patterns). If duplication is found, suggest extracting shared logic.
-2. **KISS (Keep It Simple, Stupid)** -- Is the implementation unnecessarily complex? Look for: over-engineered abstractions, convoluted control flow, premature generalization, or layers of indirection that add no value. The implementation should be as simple as possible while remaining correct and maintainable.
+- Read `structural-reviewer-prompt.md` from this skill directory
+- Fill placeholders:
+  - `{REVIEW_TYPE}` -> "model", "rule", or "model + rule"
+  - `{REVIEW_PARAMS}` -> summary of what's being reviewed
+  - `{PROBLEM_NAME}`, `{CATEGORY}`, `{FILE_STEM}` -> for model reviews
+  - `{SOURCE}`, `{TARGET}`, `{RULE_STEM}`, `{EXAMPLE_STEM}` -> for rule reviews
+- Prompt = filled template
 
-## Output Format
+### Quality Reviewer (always)
 
-Present results as:
+Dispatch using `Task` tool with `subagent_type="superpowers:code-reviewer"`:
+
+- Read `quality-reviewer-prompt.md` from this skill directory
+- Fill placeholders:
+  - `{DIFF_SUMMARY}` -> output of `git diff --stat`
+  - `{CHANGED_FILES}` -> list of changed files
+  - `{PLAN_STEP}` -> description of what was implemented (or "standalone review")
+  - `{BASE_SHA}`, `{HEAD_SHA}` -> git range
+- Prompt = filled template
+
+**Both subagents must be dispatched in parallel** (single message, two Task tool calls).
+
+## Step 4: Collect and Address Findings
+
+When both subagents return:
+
+1. **Parse results** -- identify FAIL/ISSUE items from both reports
+2. **Fix automatically** -- structural FAILs (missing registration, missing file), clear semantic issues, Important+ quality issues
+3. **Report to user** -- ambiguous semantic issues, Minor quality items, anything you're unsure about
+4. **Present consolidated report** combining both reviews
+
+## Step 5: Present Consolidated Report
+
+Merge both subagent outputs into a single report:
 
 ```
-## Review: [Model/Rule] [Name]
+## Review: [Model/Rule/Generic] [Name]
 
-### Structural Completeness
+### Structural Completeness (from structural reviewer)
 | # | Check | Status |
 |---|-------|--------|
-| 1 | Model file exists | PASS |
-| 2 | inventory::submit! | PASS |
-| ... | ... | ... |
-| N | Paper entry | FAIL -- missing display-name |
+...
 
-### Build Status
-- `make test`: PASS
-- `make clippy`: PASS
+### Build Status (from structural reviewer)
+- `make test`: PASS / FAIL
+- `make clippy`: PASS / FAIL
 
-### Semantic Review
-- evaluate() correctness: OK
-- dims() correctness: OK
-- DRY compliance: OK / [duplicated logic found in ...]
-- KISS compliance: OK / [unnecessary complexity found in ...]
-- [any other issues found]
+### Semantic Review (from structural reviewer)
+...
 
-### Summary
-- X/Y structural checks passed
-- [list of action items for any failures]
+### Code Quality (from quality reviewer)
+- DRY: OK / ...
+- KISS: OK / ...
+- HC/LC: OK / ...
+
+### HCI (from quality reviewer, if CLI/MCP changed)
+...
+
+### Test Quality (from quality reviewer)
+...
+
+### Fixes Applied
+- [list of issues automatically fixed by main agent]
+
+### Remaining Items (needs user decision)
+- [list of issues that need user input]
 ```
 
-## Integration with Other Skills
+## Integration
 
-This skill is called automatically at the end of:
-- `add-model` (after Step 7: Verify)
-- `add-rule` (after Step 6: Verify)
+### With executing-plans
 
-It can also be invoked standalone via `/review-implementation`.
+After each batch in the executing-plans flow, the main agent should:
+1. Record `BASE_SHA` before the batch starts
+2. After batch completes, follow Steps 1-5 above
+3. Fix findings before reporting to user
+4. Include review results in the batch report
+
+### Copilot Review (after PR creation)
+
+After creating a PR (from any flow), run `make copilot-review` to request GitHub Copilot code review on the PR.
+
+### With add-model / add-rule
+
+At the end of these skills (after their verify step), invoke `/review-implementation` which dispatches subagents as described above.
+
+### Standalone
+
+Invoke directly via `/review-implementation` for any code change.

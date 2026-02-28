@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata cli cli-demo
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata cli cli-demo copilot-review
 
 # Default target
 help:
@@ -28,6 +28,7 @@ help:
 	@echo "  cli          - Build the pred CLI tool"
 	@echo "  cli-demo     - Run closed-loop CLI demo (build + exercise all commands)"
 	@echo "  run-plan   - Execute a plan with Claude autorun (latest plan in docs/plans/)"
+	@echo "  copilot-review - Request Copilot code review on current PR"
 
 # Build the project
 build:
@@ -341,3 +342,10 @@ cli-demo: cli
 	echo ""; \
 	echo "=== Demo complete: $$(ls $(CLI_DEMO_DIR)/*.json | wc -l | tr -d ' ') JSON files in $(CLI_DEMO_DIR) ==="
 	@echo "=== All 20 steps passed ✅ ==="
+
+# Request Copilot code review on the current PR
+# Requires: gh extension install ChrisCarini/gh-copilot-review
+copilot-review:
+	@PR=$$(gh pr view --json number --jq .number 2>/dev/null) || { echo "No PR found for current branch"; exit 1; }; \
+	echo "Requesting Copilot review on PR #$$PR..."; \
+	gh copilot-review $$PR

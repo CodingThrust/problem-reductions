@@ -140,3 +140,10 @@ fn test_cut_size_method() {
     // All same partition: no edges cut
     assert_eq!(problem.cut_size(&[0, 0, 0]), 0);
 }
+
+#[test]
+fn test_size_getters() {
+    let problem = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 2]);
+    assert_eq!(problem.num_vertices(), 3);
+    assert_eq!(problem.num_edges(), 2);
+}

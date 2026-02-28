@@ -4,7 +4,7 @@
 //! such that no two edges share a vertex.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -163,6 +163,18 @@ impl<G: Graph, W: Clone + Default> MaximumMatching<G, W> {
     }
 }
 
+impl<G: Graph, W: WeightElement> MaximumMatching<G, W> {
+    /// Get the number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.graph().num_vertices()
+    }
+
+    /// Get the number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.graph().num_edges()
+    }
+}
+
 impl<G, W> Problem for MaximumMatching<G, W>
 where
     G: Graph + crate::variant::VariantParam,
@@ -193,13 +205,6 @@ where
         }
         SolutionSize::Valid(total)
     }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vertices", "num_edges"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.graph().num_vertices(), self.graph().num_edges()]
-    }
 }
 
 impl<G, W> OptimizationProblem for MaximumMatching<G, W>
@@ -212,6 +217,10 @@ where
     fn direction(&self) -> Direction {
         Direction::Maximize
     }
+}
+
+crate::declare_variants! {
+    MaximumMatching<SimpleGraph, i32> => "num_vertices^3",
 }
 
 /// Check if a selection of edges forms a valid matching.

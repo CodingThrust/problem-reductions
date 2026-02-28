@@ -1,6 +1,6 @@
 //! Automatic reduction registration via inventory.
 
-use crate::polynomial::Polynomial;
+use crate::expr::Expr;
 use crate::rules::traits::DynReductionResult;
 use crate::types::ProblemSize;
 use std::any::Any;
@@ -9,13 +9,13 @@ use std::collections::HashSet;
 /// Overhead specification for a reduction.
 #[derive(Clone, Debug, Default, serde::Serialize)]
 pub struct ReductionOverhead {
-    /// Output size as polynomials of input size variables.
-    /// Each entry is (output_field_name, polynomial).
-    pub output_size: Vec<(&'static str, Polynomial)>,
+    /// Output size as expressions of input size variables.
+    /// Each entry is (output_field_name, expression).
+    pub output_size: Vec<(&'static str, Expr)>,
 }
 
 impl ReductionOverhead {
-    pub fn new(output_size: Vec<(&'static str, Polynomial)>) -> Self {
+    pub fn new(output_size: Vec<(&'static str, Expr)>) -> Self {
         Self { output_size }
     }
 
@@ -23,51 +23,50 @@ impl ReductionOverhead {
     /// Used by variant cast reductions where problem size doesn't change.
     pub fn identity(fields: &[&'static str]) -> Self {
         Self {
-            output_size: fields.iter().map(|&f| (f, Polynomial::var(f))).collect(),
+            output_size: fields.iter().map(|&f| (f, Expr::Var(f))).collect(),
         }
     }
 
     /// Evaluate output size given input size.
     ///
-    /// Uses `round()` for the f64 to usize conversion because polynomial coefficients
-    /// are typically integers (1, 2, 3, 7, 21, etc.) and any fractional results come
-    /// from floating-point arithmetic imprecision, not intentional fractions.
-    /// For problem sizes, rounding to nearest integer is the most intuitive behavior.
+    /// Uses `round()` for the f64 to usize conversion because expression values
+    /// are typically integers and any fractional results come from floating-point
+    /// arithmetic imprecision, not intentional fractions.
     pub fn evaluate_output_size(&self, input: &ProblemSize) -> ProblemSize {
         let fields: Vec<_> = self
             .output_size
             .iter()
-            .map(|(name, poly)| (*name, poly.evaluate(input).round() as usize))
+            .map(|(name, expr)| (*name, expr.eval(input).round() as usize))
             .collect();
         ProblemSize::new(fields)
     }
 
-    /// Collect all input variable names referenced by the overhead polynomials.
+    /// Collect all input variable names referenced by the overhead expressions.
     pub fn input_variable_names(&self) -> HashSet<&'static str> {
         self.output_size
             .iter()
-            .flat_map(|(_, poly)| poly.variable_names())
+            .flat_map(|(_, expr)| expr.variables())
             .collect()
     }
 
     /// Compose two overheads: substitute self's output into `next`'s input.
     ///
-    /// Returns a new overhead whose polynomials map from self's input variables
+    /// Returns a new overhead whose expressions map from self's input variables
     /// directly to `next`'s output variables.
     pub fn compose(&self, next: &ReductionOverhead) -> ReductionOverhead {
         use std::collections::HashMap;
 
-        // Build substitution map: output field name → output polynomial
-        let mapping: HashMap<&str, &Polynomial> = self
+        // Build substitution map: output field name → output expression
+        let mapping: HashMap<&str, &Expr> = self
             .output_size
             .iter()
-            .map(|(name, poly)| (*name, poly))
+            .map(|(name, expr)| (*name, expr))
             .collect();
 
         let composed = next
             .output_size
             .iter()
-            .map(|(name, poly)| (*name, poly.substitute(&mapping)))
+            .map(|(name, expr)| (*name, expr.substitute(&mapping)))
             .collect();
 
         ReductionOverhead {
@@ -75,12 +74,12 @@ impl ReductionOverhead {
         }
     }
 
-    /// Get the polynomial for a named output field.
-    pub fn get(&self, name: &str) -> Option<&Polynomial> {
+    /// Get the expression for a named output field.
+    pub fn get(&self, name: &str) -> Option<&Expr> {
         self.output_size
             .iter()
             .find(|(n, _)| *n == name)
-            .map(|(_, p)| p)
+            .map(|(_, e)| e)
     }
 }
 
@@ -99,10 +98,6 @@ pub struct ReductionEntry {
     pub overhead_fn: fn() -> ReductionOverhead,
     /// Module path where the reduction is defined (from `module_path!()`).
     pub module_path: &'static str,
-    /// Type-level problem size field names for the source problem.
-    pub source_size_names_fn: fn() -> &'static [&'static str],
-    /// Type-level problem size field names for the target problem.
-    pub target_size_names_fn: fn() -> &'static [&'static str],
     /// Type-erased reduction executor.
     /// Takes a `&dyn Any` (must be `&SourceType`), calls `ReduceTo::reduce_to()`,
     /// and returns the result as a boxed `DynReductionResult`.
