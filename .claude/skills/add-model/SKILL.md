@@ -120,9 +120,7 @@ Link the test file via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom o
 
 ## Step 6: Document in paper
 
-Update `docs/paper/reductions.typ`:
-- Add to the `display-name` dictionary: `"ProblemName": [Display Name],`
-- Add a `#problem-def("ProblemName")[...]` block with the mathematical definition
+Invoke the `/write-model-in-paper` skill to write the problem-def entry in `docs/paper/reductions.typ`. That skill covers the full authoring process: formal definition, background, example with visualization, algorithm list, and verification checklist.
 
 ## Step 7: Verify
 

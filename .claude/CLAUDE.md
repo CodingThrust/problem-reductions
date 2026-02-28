@@ -9,6 +9,7 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [add-rule](skills/add-rule/SKILL.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [review-implementation](skills/review-implementation/SKILL.md) -- Review implementation completeness by dispatching parallel subagents (structural + quality) with fresh context. Auto-detects new models/rules from git diff. Called automatically at the end of `add-model`/`add-rule`, after each `executing-plans` batch, or standalone via `/review-implementation`.
 - [fix-pr](skills/fix-pr/SKILL.md) -- Resolve PR review comments (user + Copilot), fix CI failures, and address codecov coverage gaps. Uses `gh api` for codecov (not local `cargo-llvm-cov`).
+- [write-model-in-paper](skills/write-model-in-paper/SKILL.md) -- Write or improve a problem-def entry in the Typst paper. Covers formal definition, background, example with visualization, and algorithm list.
 - [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper. Covers complexity citation, self-contained proof, detailed example, and verification.
 - [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
 

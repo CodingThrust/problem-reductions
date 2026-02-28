@@ -7,6 +7,10 @@ description: Use when writing or improving a reduction-rule entry in the Typst p
 
 Full authoring guide for writing a `reduction-rule` entry in `docs/paper/reductions.typ`. Covers Typst mechanics, writing quality, and verification.
 
+## Reference Example
+
+**KColoring → QUBO** in `docs/paper/reductions.typ` is the gold-standard reduction example. Search for `reduction-rule("KColoring", "QUBO"` to see the complete entry. Use it as a template for style, depth, and structure.
+
 ## Prerequisites
 
 Before using this skill, ensure:
@@ -232,12 +236,5 @@ make paper
 - [ ] **Solution count**: `solutions.len()` stated with combinatorial explanation
 - [ ] **Paper compiles**: `make paper` succeeds without errors
 - [ ] **Completeness check**: no new warnings about missing edges in the paper
-
-## Reference: Complete Example (KColoring → QUBO)
-
-The KColoring → QUBO entry in `reductions.typ` is the gold-standard reference. Search for `"KColoring", "QUBO"` in the file to see:
-- Theorem body with construction summary and overhead
-- Proof with _Construction_, _One-hot expansion_, _Edge penalty_, _Solution extraction_
-- Detailed 4-step worked example with graph visualization and solution count
 
 For simpler reductions, see MinimumVertexCover ↔ MaximumIndependentSet as a minimal example.

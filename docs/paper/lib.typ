@@ -88,6 +88,58 @@
   (vertices: vertices, edges: edges)
 }
 
+// ── Set diagram primitives ──────────────────────────────────────
+// For visualizing set packing, set covering, and similar problems.
+// Elements are small labeled dots; sets are elliptical regions.
+
+// Draw a universe element as a labeled dot.
+//   pos: (x, y) position
+//   label: content label (e.g., [$1$])
+//   name: CetZ element name
+//   fill: dot fill color
+#let selem(
+  pos,
+  label: none,
+  name: none,
+  fill: black,
+  radius: 0.06,
+  label-size: 7pt,
+) = {
+  draw.circle(pos, radius: radius, fill: fill, stroke: none, name: name)
+  if label != none {
+    draw.content(
+      (pos.at(0), pos.at(1) - 0.22),
+      text(label-size, label),
+    )
+  }
+}
+
+// Draw a set region as a labeled ellipse.
+//   center: (x, y) center of the ellipse
+//   rx, ry: horizontal and vertical radii
+//   label: set label (e.g., [$S_1$]), placed above the ellipse
+//   fill: translucent fill color
+//   stroke: border stroke
+#let sregion(
+  center,
+  rx: 0.5,
+  ry: 0.4,
+  label: none,
+  fill: rgb("#4e79a7").transparentize(80%),
+  stroke: 0.8pt + rgb("#4e79a7"),
+  label-size: 8pt,
+  label-anchor: "south",
+) = {
+  draw.circle(center, radius: (rx, ry), fill: fill, stroke: stroke)
+  if label != none {
+    draw.content(
+      (center.at(0), center.at(1) + ry + 0.15),
+      text(label-size, label),
+      anchor: label-anchor,
+    )
+  }
+}
+
 // ── Grid graph functions (JSON-driven) ─────────────────────────
 // Extract positions from JSON, draw with dense styling via g-node/g-edge.
 
