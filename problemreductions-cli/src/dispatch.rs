@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use problemreductions::models::optimization::{BinPacking, ILP};
+use problemreductions::models::optimization::{BinPacking, ClosestVectorProblem, ILP};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
@@ -239,6 +239,10 @@ pub fn load_problem(
             Some("f64") => deser_opt::<BinPacking<f64>>(data),
             _ => deser_opt::<BinPacking<i32>>(data),
         },
+        "ClosestVectorProblem" => match variant.get("weight").map(|s| s.as_str()) {
+            Some("f64") => deser_opt::<ClosestVectorProblem<f64>>(data),
+            _ => deser_opt::<ClosestVectorProblem<i32>>(data),
+        },
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
@@ -293,6 +297,10 @@ pub fn serialize_any_problem(
         "BinPacking" => match variant.get("weight").map(|s| s.as_str()) {
             Some("f64") => try_ser::<BinPacking<f64>>(any),
             _ => try_ser::<BinPacking<i32>>(any),
+        },
+        "ClosestVectorProblem" => match variant.get("weight").map(|s| s.as_str()) {
+            Some("f64") => try_ser::<ClosestVectorProblem<f64>>(any),
+            _ => try_ser::<ClosestVectorProblem<i32>>(any),
         },
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }

@@ -50,6 +50,7 @@
   "PaintShop": [Paint Shop],
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
+  "ClosestVectorProblem": [Closest Vector Problem],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -635,6 +636,49 @@ Integer Linear Programming is a universal modeling framework: virtually every NP
   }),
   caption: [ILP feasible region (green) with constraints $x_1 + x_2 <= 5$ (blue) and $4x_1 + 7x_2 <= 28$ (orange). Hollow circles mark the integer lattice. The LP relaxation optimum $p_1 = (7 slash 3, 8 slash 3)$ is non-integral; the ILP optimum $bold(x)^* = (3, 2)$ gives $bold(c)^top bold(x)^* = -27$.],
 ) <fig:ilp-example>
+]
+
+#problem-def("ClosestVectorProblem")[
+  Given a lattice basis $bold(B) in RR^(m times n)$ (columns $bold(b)_1, dots, bold(b)_n in RR^m$ spanning lattice $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$) and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2$.
+][
+  The Closest Vector Problem is a fundamental lattice problem, proven NP-hard by van Emde Boas @vanemde1981. CVP appears in lattice-based cryptography, coding theory, and integer programming @lenstra1983. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$ using Voronoi cell computations, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
+
+  *Example.* Consider the 2D lattice with basis $bold(b)_1 = (2, 0)^top$, $bold(b)_2 = (1, 2)^top$ and target $bold(t) = (2.8, 1.5)^top$. The lattice points near $bold(t)$ include $bold(B)(1, 0)^top = (2, 0)^top$, $bold(B)(0, 1)^top = (1, 2)^top$, and $bold(B)(1, 1)^top = (3, 2)^top$. The closest is $bold(B)(1, 1)^top = (3, 2)^top$ with distance $norm(bold(B)(1,1)^top - bold(t))_2 = norm((0.2, 0.5))_2 = sqrt(0.04 + 0.25) approx 0.539$.
+
+  #figure(
+    canvas(length: 0.8cm, {
+      import draw: *
+      // Lattice points: B*(x1,x2) = x1*(2,0) + x2*(1,2)
+      for x1 in range(0, 3) {
+        for x2 in range(0, 3) {
+          let px = x1 * 2 + x2 * 1
+          let py = x2 * 2
+          let is-closest = (x1 == 1 and x2 == 1)
+          let nm = "p" + str(x1) + str(x2)
+          circle(
+            (px, py),
+            radius: if is-closest { 0.15 } else { 0.08 },
+            fill: if is-closest { graph-colors.at(0) } else { luma(180) },
+            stroke: if is-closest { 0.8pt + graph-colors.at(0) } else { 0.4pt + luma(120) },
+            name: nm,
+          )
+        }
+      }
+      // Target vector
+      circle((2.8, 1.5), radius: 0.1, fill: graph-colors.at(1), stroke: none, name: "target")
+      content((rel: (0, -0.45), to: "target"), text(7pt)[$bold(t)$])
+      // Dashed line from target to closest point
+      line("target", "p11", stroke: (paint: graph-colors.at(0), thickness: 0.8pt, dash: "dashed"))
+      // Basis vectors as arrows from origin
+      line("p00", "p10", mark: (end: "straight"), stroke: 0.8pt + luma(100), name: "b1")
+      content((rel: (0, -0.35), to: "b1.mid"), text(7pt)[$bold(b)_1$])
+      line("p00", "p01", mark: (end: "straight"), stroke: 0.8pt + luma(100), name: "b2")
+      content((rel: (-0.3, 0), to: "b2.mid"), text(7pt)[$bold(b)_2$])
+      // Label closest point
+      content((rel: (0.45, 0.3), to: "p11"), text(7pt)[$bold(B)(1,1)^top$])
+    }),
+    caption: [2D lattice with basis $bold(b)_1 = (2, 0)^top$, $bold(b)_2 = (1, 2)^top$. Target $bold(t) = (2.8, 1.5)^top$ (red) and closest lattice point $bold(B)(1,1)^top = (3, 2)^top$ (blue). Distance $norm(bold(B)(1,1)^top - bold(t))_2 approx 0.539$.],
+  ) <fig:cvp-example>
 ]
 
 == Satisfiability Problems
