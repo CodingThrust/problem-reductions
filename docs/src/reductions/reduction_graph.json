@@ -29,7 +29,7 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html",
-      "complexity": "2^num_vertices"
+      "complexity": "num_vertices + num_edges"
     },
     {
       "name": "KColoring",
@@ -39,7 +39,7 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html",
-      "complexity": "3^num_vertices"
+      "complexity": "1.3289^num_vertices"
     },
     {
       "name": "KColoring",
@@ -49,7 +49,7 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html",
-      "complexity": "4^num_vertices"
+      "complexity": "1.7159^num_vertices"
     },
     {
       "name": "KColoring",
@@ -59,7 +59,7 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html",
-      "complexity": "5^num_vertices"
+      "complexity": "2^num_vertices"
     },
     {
       "name": "KColoring",
@@ -69,7 +69,7 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html",
-      "complexity": "k^num_vertices"
+      "complexity": "2^num_vertices"
     },
     {
       "name": "KSatisfiability",
@@ -78,7 +78,7 @@
       },
       "category": "satisfiability",
       "doc_path": "models/satisfiability/struct.KSatisfiability.html",
-      "complexity": "2^num_variables"
+      "complexity": "num_variables + num_clauses"
     },
     {
       "name": "KSatisfiability",
@@ -206,7 +206,7 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.MaximumMatching.html",
-      "complexity": "2^num_vertices"
+      "complexity": "num_vertices^3"
     },
     {
       "name": "MaximumSetPacking",
@@ -348,11 +348,11 @@
       "overhead": [
         {
           "field": "num_variables",
-          "formula": "num_bits_first * num_bits_second"
+          "formula": "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second"
         },
         {
           "field": "num_assignments",
-          "formula": "num_bits_first * num_bits_second"
+          "formula": "6 * num_bits_first * num_bits_second"
         }
       ],
       "doc_path": "rules/factoring_circuit/index.html"
@@ -678,7 +678,7 @@
         },
         {
           "field": "universe_size",
-          "formula": "num_vertices"
+          "formula": "num_edges"
         }
       ],
       "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
@@ -708,7 +708,7 @@
         },
         {
           "field": "universe_size",
-          "formula": "num_vertices"
+          "formula": "num_edges"
         }
       ],
       "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
@@ -839,7 +839,7 @@
         },
         {
           "field": "num_edges",
-          "formula": "num_sets"
+          "formula": "num_sets^2"
         }
       ],
       "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
@@ -895,7 +895,7 @@
         },
         {
           "field": "num_edges",
-          "formula": "num_sets"
+          "formula": "num_sets^2"
         }
       ],
       "doc_path": "rules/maximumindependentset_maximumsetpacking/index.html"
@@ -1063,11 +1063,11 @@
       "overhead": [
         {
           "field": "num_clauses",
-          "formula": "num_clauses + num_literals"
+          "formula": "4 * num_clauses + num_literals"
         },
         {
           "field": "num_vars",
-          "formula": "num_vars + num_literals"
+          "formula": "num_vars + 3 * num_clauses + num_literals"
         }
       ],
       "doc_path": "rules/sat_ksat/index.html"

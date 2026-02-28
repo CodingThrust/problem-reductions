@@ -112,8 +112,8 @@ macro_rules! impl_sat_to_ksat {
     ($ktype:ty, $k:expr) => {
         #[rustfmt::skip]
         #[reduction(overhead = {
-            num_clauses = "num_clauses + num_literals",
-            num_vars = "num_vars + num_literals",
+            num_clauses = "4 * num_clauses + num_literals",
+            num_vars = "num_vars + 3 * num_clauses + num_literals",
         })]
         impl ReduceTo<KSatisfiability<$ktype>> for Satisfiability {
             type Result = ReductionSATToKSAT<$ktype>;

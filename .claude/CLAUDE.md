@@ -205,3 +205,19 @@ Also add to the `display-name` dictionary:
 ```
 
 Every directed reduction in the graph needs its own `reduction-rule` entry. The paper auto-checks completeness against `reduction_graph.json`.
+
+## Complexity Verification Requirements
+
+### Variant Worst-Case Complexity (`declare_variants!`)
+The complexity string represents the **worst-case time complexity of the best known algorithm** for that problem variant. To verify correctness:
+1. Identify the best known exact algorithm for the problem (name, author, year, citation)
+2. Confirm the worst-case time bound from the original paper or a survey
+3. Check that polynomial-time problems (e.g., MaximumMatching, 2-SAT, 2-Coloring) are NOT declared with exponential complexity
+4. For NP-hard problems, verify the base of the exponential matches the literature (e.g., 1.1996^n for MIS, not 2^n)
+
+### Reduction Overhead (`#[reduction(overhead = {...})]`)
+Overhead expressions describe how target problem size relates to source problem size. To verify correctness:
+1. Read the `reduce_to()` implementation and count the actual output sizes
+2. Check that each field (e.g., `num_vertices`, `num_edges`, `num_sets`) matches the constructed target problem
+3. Watch for common errors: universe elements mismatch (edge indices vs vertex indices), worst-case edge counts in intersection graphs (quadratic, not linear), constant factors in circuit constructions
+4. Test with concrete small instances: construct a source problem, run the reduction, and compare target sizes against the formula
