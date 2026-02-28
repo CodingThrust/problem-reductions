@@ -89,6 +89,49 @@ fn test_bin_packing_brute_force_small() {
 }
 
 #[test]
+fn test_bin_packing_empty_items() {
+    let problem = BinPacking::new(Vec::<i32>::new(), 10);
+    assert_eq!(problem.num_items(), 0);
+    assert_eq!(problem.dims(), Vec::<usize>::new());
+    let result = problem.evaluate(&[]);
+    assert!(result.is_valid());
+    assert_eq!(result.unwrap(), 0);
+}
+
+#[test]
+fn test_bin_packing_wrong_config_length() {
+    let problem = BinPacking::new(vec![3, 3, 4], 7);
+    assert!(!problem.evaluate(&[0, 1]).is_valid());
+    assert!(!problem.evaluate(&[0, 1, 2, 3]).is_valid());
+}
+
+#[test]
+fn test_bin_packing_out_of_range_bin() {
+    let problem = BinPacking::new(vec![3, 3, 4], 7);
+    // Bin index 3 is out of range for 3 items (valid range 0..3)
+    assert!(!problem.evaluate(&[0, 1, 3]).is_valid());
+}
+
+#[test]
+fn test_bin_packing_f64() {
+    let problem = BinPacking::new(vec![2.5, 3.5, 4.0], 7.0);
+    // All fit in one bin: 2.5 + 3.5 + 4.0 = 10.0 > 7.0
+    assert!(!problem.evaluate(&[0, 0, 0]).is_valid());
+    // Two bins: {2.5, 3.5} = 6.0, {4.0} = 4.0
+    let result = problem.evaluate(&[0, 0, 1]);
+    assert!(result.is_valid());
+    assert_eq!(result.unwrap(), 2);
+}
+
+#[test]
+fn test_bin_packing_variant() {
+    let v = <BinPacking<i32> as Problem>::variant();
+    assert_eq!(v, vec![("weight", "i32")]);
+    let v64 = <BinPacking<f64> as Problem>::variant();
+    assert_eq!(v64, vec![("weight", "f64")]);
+}
+
+#[test]
 fn test_bin_packing_serialization() {
     let problem = BinPacking::new(vec![6, 6, 5, 5, 4, 4], 10);
     let json = serde_json::to_value(&problem).unwrap();

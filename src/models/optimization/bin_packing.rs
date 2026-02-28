@@ -56,7 +56,7 @@ pub struct BinPacking<W> {
     capacity: W,
 }
 
-impl<W: Clone + Default> BinPacking<W> {
+impl<W: Clone> BinPacking<W> {
     /// Create a Bin Packing problem from item sizes and capacity.
     pub fn new(sizes: Vec<W>, capacity: W) -> Self {
         Self { sizes, capacity }
@@ -101,13 +101,6 @@ where
         }
         let num_bins = count_bins(config);
         SolutionSize::Valid(num_bins as i32)
-    }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_items"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.num_items()]
     }
 }
 
@@ -155,6 +148,11 @@ fn count_bins(config: &[usize]) -> usize {
         }
     }
     used.iter().filter(|&&u| u).count()
+}
+
+crate::declare_variants! {
+    BinPacking<i32> => "2^num_items",
+    BinPacking<f64> => "2^num_items",
 }
 
 #[cfg(test)]
