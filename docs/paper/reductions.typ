@@ -335,7 +335,7 @@ In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| 
 #problem-def("MaximumIndependentSet")[
   Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
 ][
-One of Karp's 21 NP-complete problems @karp1972, MIS appears in wireless network scheduling, register allocation, and coding theory @shannon1956. Solvable in polynomial time on bipartite graphs (König's theorem), interval graphs, chordal graphs, and cographs. The best known algorithm runs in $O^*(1.1996^n)$ time via measure-and-conquer branching @xiao2017.
+One of Karp's 21 NP-complete problems @karp1972, MIS appears in wireless network scheduling, register allocation, and coding theory @shannon1956. Solvable in polynomial time on bipartite graphs (König's theorem), interval graphs, chordal graphs, and cographs. The best known algorithm runs in $O^*(1.1996^n)$ time via measure-and-conquer branching @xiao2017. On geometric graphs (King's subgraph, triangular subgraph, unit disk graphs), MIS admits subexponential $O^*(c^sqrt(n))$ algorithms for some constant $c$, via geometric separation @alber2004.
 
 *Example.* Consider the Petersen graph $G$ with $n = 10$ vertices, $|E| = 15$ edges, and unit weights $w(v) = 1$ for all $v in V$. The graph is 3-regular (every vertex has degree 3). A maximum independent set is $S = {v_1, v_3, v_5, v_9}$ with $w(S) = sum_(v in S) w(v) = 4 = alpha(G)$. No two vertices in $S$ share an edge, and no vertex can be added without violating independence.
 
