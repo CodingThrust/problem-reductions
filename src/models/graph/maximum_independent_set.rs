@@ -4,9 +4,9 @@
 //! such that no two vertices in the subset are adjacent.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::types::{Direction, One, SolutionSize, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
@@ -95,6 +95,18 @@ impl<G: Graph, W: Clone + Default> MaximumIndependentSet<G, W> {
     }
 }
 
+impl<G: Graph, W: WeightElement> MaximumIndependentSet<G, W> {
+    /// Get the number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.graph().num_vertices()
+    }
+
+    /// Get the number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.graph().num_edges()
+    }
+}
+
 impl<G, W> Problem for MaximumIndependentSet<G, W>
 where
     G: Graph + crate::variant::VariantParam,
@@ -123,13 +135,6 @@ where
         }
         SolutionSize::Valid(total)
     }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vertices", "num_edges"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.graph().num_vertices(), self.graph().num_edges()]
-    }
 }
 
 impl<G, W> OptimizationProblem for MaximumIndependentSet<G, W>
@@ -152,6 +157,16 @@ fn is_independent_set_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
         }
     }
     true
+}
+
+crate::declare_variants! {
+    MaximumIndependentSet<SimpleGraph, i32>        => "2^num_vertices",
+    MaximumIndependentSet<SimpleGraph, One>         => "2^num_vertices",
+    MaximumIndependentSet<KingsSubgraph, i32>      => "2^num_vertices",
+    MaximumIndependentSet<KingsSubgraph, One>       => "2^num_vertices",
+    MaximumIndependentSet<TriangularSubgraph, i32> => "2^num_vertices",
+    MaximumIndependentSet<UnitDiskGraph, i32>      => "2^num_vertices",
+    MaximumIndependentSet<UnitDiskGraph, One>       => "2^num_vertices",
 }
 
 /// Check if a set of vertices forms an independent set.

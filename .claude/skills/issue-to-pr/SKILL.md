@@ -38,8 +38,8 @@ Present issue summary to user.
 ### 3. Classify and Validate
 
 Determine the issue type from its title/labels:
-- **`[Model]`** issues -> validate against the checklist in [add-model](add-model.md) Step 0
-- **`[Rule]`** issues -> validate against the checklist in [add-rule](add-rule.md) Step 0
+- **`[Model]`** issues -> validate against the checklist in [add-model](../add-model/SKILL.md) Step 0
+- **`[Rule]`** issues -> validate against the checklist in [add-rule](../add-rule/SKILL.md) Step 0
 
 Check every item in the relevant checklist against the issue body. Verify facts provided by the user -- feel free to use `WebSearch` and `WebFetch` to cross-check claims.
 
@@ -62,8 +62,8 @@ Write plan to `docs/plans/YYYY-MM-DD-<slug>.md` using `superpowers:writing-plans
 
 The plan MUST reference the appropriate implementation skill and follow its steps:
 
-- **For `[Model]` issues:** Follow [add-model](add-model.md) Steps 1-7 as the action pipeline
-- **For `[Rule]` issues:** Follow [add-rule](add-rule.md) Steps 1-6 as the action pipeline
+- **For `[Model]` issues:** Follow [add-model](../add-model/SKILL.md) Steps 1-7 as the action pipeline
+- **For `[Rule]` issues:** Follow [add-rule](../add-rule/SKILL.md) Steps 1-6 as the action pipeline
 
 Include the concrete details from the issue (problem definition, reduction algorithm, example, etc.) mapped onto each step.
 

@@ -5,9 +5,7 @@
 
 use crate::models::graph::MinimumVertexCover;
 use crate::models::set::MinimumSetCovering;
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::WeightElement;
@@ -38,10 +36,8 @@ where
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_sets", poly!(num_vertices)),
-            ("universe_size", poly!(num_edges)),
-        ])
+        num_sets = "num_vertices",
+        universe_size = "num_edges",
     }
 )]
 impl ReduceTo<MinimumSetCovering<i32>> for MinimumVertexCover<SimpleGraph, i32> {

@@ -22,18 +22,6 @@ pub trait Problem: Clone {
     /// Used for generating variant IDs in the reduction graph schema.
     /// Returns pairs like `[("graph", "SimpleGraph"), ("weight", "i32")]`.
     fn variant() -> Vec<(&'static str, &'static str)>;
-    /// Type-level: fixed field names for this problem type's size metrics.
-    ///
-    /// Every instance of this problem type uses the same set of field names,
-    /// so this is a static method.
-    fn problem_size_names() -> &'static [&'static str];
-    /// Instance-level: values for each size field (same order as `problem_size_names()`).
-    fn problem_size_values(&self) -> Vec<usize>;
-}
-
-/// Combine type-level names and instance-level values into a [`crate::types::ProblemSize`].
-pub fn problem_size<P: Problem>(p: &P) -> crate::types::ProblemSize {
-    crate::types::ProblemSize::from_names_values(P::problem_size_names(), &p.problem_size_values())
 }
 
 /// Extension for problems with a numeric objective to optimize.
@@ -53,6 +41,13 @@ pub trait OptimizationProblem: Problem<Metric = crate::types::SolutionSize<Self:
 /// Satisfaction problems evaluate configurations to `bool`:
 /// `true` if the configuration satisfies all constraints, `false` otherwise.
 pub trait SatisfactionProblem: Problem<Metric = bool> {}
+
+/// Marker trait for explicitly declared problem variants.
+///
+/// Implemented automatically by [`declare_variants!`] for each concrete type.
+/// The [`#[reduction]`] proc macro checks this trait at compile time to ensure
+/// all reduction source/target types have been declared.
+pub trait DeclaredVariant {}
 
 #[cfg(test)]
 #[path = "unit_tests/traits.rs"]

@@ -5,9 +5,7 @@
 
 use crate::models::satisfiability::Satisfiability;
 use crate::models::specialized::{Assignment, BooleanExpr, Circuit, CircuitSAT};
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 
@@ -37,10 +35,8 @@ impl ReductionResult for ReductionSATToCircuit {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_variables", poly!(num_vars) + poly!(num_clauses) + poly!(1)),
-            ("num_assignments", poly!(num_clauses) + poly!(2)),
-        ])
+        num_variables = "num_vars + num_clauses + 1",
+        num_assignments = "num_clauses + 2",
     }
 )]
 impl ReduceTo<CircuitSAT> for Satisfiability {

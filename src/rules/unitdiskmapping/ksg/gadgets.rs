@@ -1635,7 +1635,7 @@ fn apply_gadget_boxed(pattern: &dyn KsgPatternBoxed, grid: &mut MappingGrid, i: 
             let state = match cell {
                 PatternCell::Empty => CellState::Empty,
                 PatternCell::Occupied => CellState::Occupied { weight: 1 },
-                PatternCell::Doubled => CellState::Doubled { weight: 2 },
+                PatternCell::Doubled => CellState::Doubled { weight: 1 },
                 PatternCell::Connected => CellState::Connected { weight: 1 },
             };
             grid.set(grid_r, grid_c, state);

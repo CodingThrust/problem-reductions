@@ -4,9 +4,9 @@
 //! such that no two adjacent vertices have the same color.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
-use crate::topology::Graph;
+use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
-use crate::variant::{KValue, VariantParam, KN};
+use crate::variant::{KValue, VariantParam, K2, K3, K4, K5, KN};
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -122,6 +122,18 @@ impl<G: Graph> KColoring<KN, G> {
     }
 }
 
+impl<K: KValue, G: Graph> KColoring<K, G> {
+    /// Get the number of vertices in the underlying graph.
+    pub fn num_vertices(&self) -> usize {
+        self.graph().num_vertices()
+    }
+
+    /// Get the number of edges in the underlying graph.
+    pub fn num_edges(&self) -> usize {
+        self.graph().num_edges()
+    }
+}
+
 impl<K: KValue, G> Problem for KColoring<K, G>
 where
     G: Graph + VariantParam,
@@ -139,13 +151,6 @@ where
 
     fn evaluate(&self, config: &[usize]) -> bool {
         self.is_valid_coloring(config)
-    }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vertices", "num_edges"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.graph().num_vertices(), self.graph().num_edges()]
     }
 }
 
@@ -176,6 +181,14 @@ pub(crate) fn is_valid_coloring<G: Graph>(
         }
     }
     true
+}
+
+crate::declare_variants! {
+    KColoring<KN, SimpleGraph> => "2^num_vertices",
+    KColoring<K2, SimpleGraph> => "num_vertices + num_edges",
+    KColoring<K3, SimpleGraph> => "1.3289^num_vertices",
+    KColoring<K4, SimpleGraph> => "1.7159^num_vertices",
+    KColoring<K5, SimpleGraph> => "(2-epsilon)^num_vertices",
 }
 
 #[cfg(test)]

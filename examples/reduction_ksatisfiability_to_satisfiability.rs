@@ -38,7 +38,11 @@ pub fn run() {
 
     let ksat = KSatisfiability::<K3>::new(4, clauses);
 
-    println!("Source: KSatisfiability<K3> with {} variables, {} clauses", ksat.num_vars(), ksat.num_clauses());
+    println!(
+        "Source: KSatisfiability<K3> with {} variables, {} clauses",
+        ksat.num_vars(),
+        ksat.num_clauses()
+    );
     for (i, c) in clause_strings.iter().enumerate() {
         println!("  C{}: {}", i + 1, c);
     }
@@ -75,13 +79,7 @@ pub fn run() {
         let assignment: Vec<String> = ksat_sol
             .iter()
             .enumerate()
-            .map(|(i, &v)| {
-                format!(
-                    "x{}={}",
-                    i + 1,
-                    if v == 1 { "T" } else { "F" }
-                )
-            })
+            .map(|(i, &v)| format!("x{}={}", i + 1, if v == 1 { "T" } else { "F" }))
             .collect();
         println!("  [{}] -> valid: {}", assignment.join(", "), valid);
         assert!(valid, "Extracted K-SAT solution must be valid");

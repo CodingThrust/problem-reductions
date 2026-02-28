@@ -43,7 +43,7 @@ pub fn run() {
     );
 
     // 2. Reduce to Independent Set
-    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, i32>>::reduce_to(&sat);
+    let reduction = ReduceTo::<MaximumIndependentSet<SimpleGraph, One>>::reduce_to(&sat);
     let is = reduction.target_problem();
 
     println!("\n=== Problem Transformation ===");
@@ -105,7 +105,7 @@ pub fn run() {
 
     // 5. Export JSON
     let source_variant = variant_to_map(Satisfiability::variant());
-    let target_variant = variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let target_variant = variant_to_map(MaximumIndependentSet::<SimpleGraph, One>::variant());
     let overhead = lookup_overhead(
         "Satisfiability",
         &source_variant,

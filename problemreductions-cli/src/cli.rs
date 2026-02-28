@@ -8,14 +8,14 @@ use std::path::PathBuf;
     version,
     after_help = "\
 Typical workflow:
-  pred create MIS --edges 0-1,1-2,2-3 -o problem.json
+  pred create MIS --graph 0-1,1-2,2-3 -o problem.json
   pred solve problem.json
   pred evaluate problem.json --config 1,0,1,0
 
 Piping (use - to read from stdin):
-  pred create MIS --edges 0-1,1-2 | pred solve -
-  pred create MIS --edges 0-1,1-2 | pred evaluate - --config 1,0,1
-  pred create MIS --edges 0-1,1-2 | pred reduce - --to QUBO
+  pred create MIS --graph 0-1,1-2 | pred solve -
+  pred create MIS --graph 0-1,1-2 | pred evaluate - --config 1,0,1
+  pred create MIS --graph 0-1,1-2 | pred reduce - --to QUBO
 
 JSON output (any command):
   pred list --json                 # JSON to stdout
@@ -61,22 +61,22 @@ Examples:
   pred show MIS/UnitDiskGraph     # specific graph variant
 
 Use `pred list` to see all available problem types and aliases.
-Use `pred to MIS --hops 2` to explore outgoing neighbors.
-Use `pred from QUBO --hops 1` to explore incoming neighbors.")]
+Use `pred to MIS --hops 2` to explore what reduces to MIS.
+Use `pred from QUBO --hops 1` to explore what QUBO reduces to.")]
     Show {
         /// Problem name or alias (e.g., MIS, QUBO, MIS/UnitDiskGraph)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         problem: String,
     },
 
-    /// Explore outgoing neighbors in the reduction graph (problems this reduces TO)
+    /// Explore problems that reduce TO this one (incoming neighbors)
     #[command(after_help = "\
 Examples:
-  pred to MIS              # 1-hop outgoing neighbors
-  pred to MIS --hops 2     # 2-hop outgoing neighbors
+  pred to MIS              # what reduces to MIS? (1 hop)
+  pred to MIS --hops 2     # 2-hop incoming neighbors
   pred to MIS -o out.json  # save as JSON
 
-Use `pred from <problem>` for incoming neighbors.")]
+Use `pred from <problem>` for outgoing neighbors (what this reduces to).")]
     To {
         /// Problem name or alias (e.g., MIS, QUBO, MIS/UnitDiskGraph)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -86,14 +86,14 @@ Use `pred from <problem>` for incoming neighbors.")]
         hops: usize,
     },
 
-    /// Explore incoming neighbors in the reduction graph (problems that reduce FROM this)
+    /// Explore problems this reduces to, starting FROM it (outgoing neighbors)
     #[command(after_help = "\
 Examples:
-  pred from QUBO              # 1-hop incoming neighbors
-  pred from QUBO --hops 2     # 2-hop incoming neighbors
-  pred from QUBO -o in.json   # save as JSON
+  pred from MIS              # what does MIS reduce to? (1 hop)
+  pred from MIS --hops 2     # 2-hop outgoing neighbors
+  pred from MIS -o out.json  # save as JSON
 
-Use `pred to <problem>` for outgoing neighbors.")]
+Use `pred to <problem>` for incoming neighbors (what reduces to this).")]
     From {
         /// Problem name or alias (e.g., MIS, QUBO, MIS/UnitDiskGraph)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -146,7 +146,7 @@ Examples:
 Examples:
   pred inspect problem.json
   pred inspect bundle.json
-  pred create MIS --edges 0-1,1-2 | pred inspect -")]
+  pred create MIS --graph 0-1,1-2 | pred inspect -")]
     Inspect(InspectArgs),
     /// Solve a problem instance
     Solve(SolveArgs),
@@ -154,17 +154,25 @@ Examples:
     #[cfg(feature = "mcp")]
     #[command(after_help = "\
 Start a stdio-based MCP server that exposes problem reduction tools
-to AI assistants like Claude Desktop and Claude Code.
+to any MCP-compatible AI assistant.
 
-Configuration (Claude Code .mcp.json):
-  {
-    \"mcpServers\": {
-      \"problemreductions\": {
-        \"command\": \"pred\",
-        \"args\": [\"mcp\"]
-      }
-    }
-  }
+Configuration:
+
+  Claude Code / Claude Desktop (.mcp.json or ~/.claude/mcp.json):
+    { \"mcpServers\": { \"problemreductions\": {
+        \"command\": \"pred\", \"args\": [\"mcp\"] } } }
+
+  Cursor (.cursor/mcp.json):
+    { \"mcpServers\": { \"problemreductions\": {
+        \"command\": \"pred\", \"args\": [\"mcp\"] } } }
+
+  Windsurf (~/.codeium/windsurf/mcp_config.json):
+    { \"mcpServers\": { \"problemreductions\": {
+        \"command\": \"pred\", \"args\": [\"mcp\"] } } }
+
+  OpenCode (opencode.json):
+    { \"mcp\": { \"problemreductions\": {
+        \"type\": \"local\", \"command\": [\"pred\", \"mcp\"] } } }
 
 Test with MCP Inspector:
   npx @modelcontextprotocol/inspector pred mcp")]
@@ -189,52 +197,51 @@ Setup: add one line to your shell rc file:
 
 #[derive(clap::Args)]
 #[command(after_help = "\
-Options by problem type:
-  Graph problems (MIS, MVC, MaxCut, MaxClique, ...):
-    --edges       Edge list, e.g., 0-1,1-2,2-3 [required]
-    --weights     Vertex weights, e.g., 2,1,3,1 [default: all 1s]
-  SAT problems (SAT, 3SAT, KSAT):
-    --num-vars    Number of variables [required]
-    --clauses     Semicolon-separated clauses, e.g., \"1,2;-1,3\" [required]
-  QUBO:
-    --matrix      Semicolon-separated rows, e.g., \"1,0.5;0.5,2\" [required]
-  KColoring:
-    --edges       Edge list [required]
-    --k           Number of colors [required]
+TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
+     Not every flag applies to every problem — the above list shows ALL flags.
 
-Factoring:
-  --target        Number to factor [required]
-  --bits-m        Bits for first factor [required]
-  --bits-n        Bits for second factor [required]
+Flags by problem type:
+  MIS, MVC, MaxClique, MinDomSet  --graph, --weights
+  MaxCut, MaxMatching, TSP        --graph, --edge-weights
+  SAT, 3SAT/KSAT                  --num-vars, --clauses [--k]
+  QUBO                            --matrix
+  SpinGlass                       --graph, --couplings, --fields
+  KColoring                       --graph, --k
+  Factoring                       --target, --m, --n
 
-Random generation (graph-based problems only):
-  --random        Generate a random Erdos-Renyi graph instance
-  --num-vertices  Number of vertices [required with --random]
-  --edge-prob     Edge probability (0.0 to 1.0) [default: 0.5]
-  --seed          Random seed for reproducibility
+Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
+  KingsSubgraph, TriangularSubgraph   --positions (integer x,y pairs)
+  UnitDiskGraph                        --positions (float x,y pairs) [--radius]
+
+Random generation:
+  --random --num-vertices N [--edge-prob 0.5] [--seed 42]
 
 Examples:
-  pred create MIS --edges 0-1,1-2,2-3 -o problem.json
-  pred create MIS --edges 0-1,1-2 --weights 2,1,3 -o weighted.json
-  pred create SAT --num-vars 3 --clauses \"1,2;-1,3\" -o sat.json
-  pred create QUBO --matrix \"1,0.5;0.5,2\" -o qubo.json
-  pred create KColoring --k 3 --edges 0-1,1-2,2-0 -o kcol.json
-  pred create MIS --random --num-vertices 10 --edge-prob 0.3
-  pred create MIS --random --num-vertices 10 --seed 42 -o big.json
-  pred create Factoring --target 15 --bits-m 4 --bits-n 4
-
-Output (`-o`) uses the standard problem JSON format:
-  {\"type\": \"...\", \"variant\": {...}, \"data\": {...}}")]
+  pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
+  pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
+  pred create QUBO --matrix \"1,0.5;0.5,2\"
+  pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
+  pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
+  pred create MIS --random --num-vertices 10 --edge-prob 0.3")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT)
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
     pub problem: String,
-    /// Edges for graph problems (e.g., 0-1,1-2,2-3)
+    /// Graph edge list (e.g., 0-1,1-2,2-3)
     #[arg(long)]
-    pub edges: Option<String>,
+    pub graph: Option<String>,
     /// Vertex weights (e.g., 1,1,1,1) [default: all 1s]
     #[arg(long)]
     pub weights: Option<String>,
+    /// Edge weights (e.g., 2,3,1) [default: all 1s]
+    #[arg(long)]
+    pub edge_weights: Option<String>,
+    /// Pairwise couplings J_ij for SpinGlass (e.g., 1,-1,1) [default: all 1s]
+    #[arg(long)]
+    pub couplings: Option<String>,
+    /// On-site fields h_i for SpinGlass (e.g., 0,0,1) [default: all 0s]
+    #[arg(long)]
+    pub fields: Option<String>,
     /// Clauses for SAT problems (semicolon-separated, e.g., "1,2;-1,3")
     #[arg(long)]
     pub clauses: Option<String>,
@@ -264,10 +271,16 @@ pub struct CreateArgs {
     pub target: Option<u64>,
     /// Bits for first factor (for Factoring)
     #[arg(long)]
-    pub bits_m: Option<usize>,
+    pub m: Option<usize>,
     /// Bits for second factor (for Factoring)
     #[arg(long)]
-    pub bits_n: Option<usize>,
+    pub n: Option<usize>,
+    /// Vertex positions for geometry-based graphs (semicolon-separated x,y pairs, e.g., "0,0;1,0;1,1")
+    #[arg(long)]
+    pub positions: Option<String>,
+    /// Radius for UnitDiskGraph [default: 1.0]
+    #[arg(long)]
+    pub radius: Option<f64>,
 }
 
 #[derive(clap::Args)]
@@ -277,11 +290,11 @@ Examples:
   pred solve problem.json --solver brute-force   # brute-force (exhaustive search)
   pred solve reduced.json                        # solve a reduction bundle
   pred solve reduced.json -o solution.json       # save result to file
-  pred create MIS --edges 0-1,1-2 | pred solve - # read from stdin
+  pred create MIS --graph 0-1,1-2 | pred solve - # read from stdin
   pred solve problem.json --timeout 10           # abort after 10 seconds
 
 Typical workflow:
-  pred create MIS --edges 0-1,1-2,2-3 -o problem.json
+  pred create MIS --graph 0-1,1-2,2-3 -o problem.json
   pred solve problem.json
 
 Solve via explicit reduction:
@@ -313,7 +326,7 @@ Examples:
   pred reduce problem.json --to QUBO -o reduced.json
   pred reduce problem.json --to ILP -o reduced.json
   pred reduce problem.json --via path.json -o reduced.json
-  pred create MIS --edges 0-1,1-2 | pred reduce - --to QUBO  # read from stdin
+  pred create MIS --graph 0-1,1-2 | pred reduce - --to QUBO  # read from stdin
 
 Input: a problem JSON from `pred create`. Use - to read from stdin.
 The --via path file is from `pred path <SRC> <DST> -o path.json`.
@@ -342,7 +355,7 @@ pub struct InspectArgs {
 Examples:
   pred evaluate problem.json --config 1,0,1,0
   pred evaluate problem.json --config 1,0,1,0 -o result.json
-  pred create MIS --edges 0-1,1-2 | pred evaluate - --config 1,0,1  # read from stdin
+  pred create MIS --graph 0-1,1-2 | pred evaluate - --config 1,0,1  # read from stdin
 
 Input: a problem JSON from `pred create`. Use - to read from stdin.")]
 pub struct EvaluateArgs {

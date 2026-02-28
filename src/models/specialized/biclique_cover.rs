@@ -119,6 +119,11 @@ impl BicliqueCover {
         self.k
     }
 
+    /// Get the rank (alias for `k()`).
+    pub fn rank(&self) -> usize {
+        self.k()
+    }
+
     /// Convert a configuration to biclique memberships.
     ///
     /// Config is a flat array where each vertex has k binary variables
@@ -227,18 +232,6 @@ impl Problem for BicliqueCover {
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
-    }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["left_size", "right_size", "num_edges", "rank"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![
-            self.left_size(),
-            self.right_size(),
-            self.num_edges(),
-            self.k(),
-        ]
     }
 }
 

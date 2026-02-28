@@ -32,7 +32,7 @@ num-traits = "0.2"
 good_lp = { version = "1.8", default-features = false, optional = true }
 inventory = "0.3"
 ordered-float = "5.0"
-rand = "0.9"
+rand = "0.10"
 problemreductions-macros = { version = "0.3.0", path = "problemreductions-macros" }
 
 [dev-dependencies]

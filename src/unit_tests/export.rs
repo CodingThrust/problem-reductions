@@ -1,5 +1,5 @@
 use super::*;
-use crate::polynomial::Polynomial;
+use crate::expr::Expr;
 use crate::rules::registry::ReductionOverhead;
 
 #[test]
@@ -13,58 +13,42 @@ fn test_overhead_to_json_empty() {
 fn test_overhead_to_json_single_field() {
     let overhead = ReductionOverhead::new(vec![(
         "num_vertices",
-        Polynomial::var("n") + Polynomial::var("m"),
+        Expr::add(Expr::Var("n"), Expr::Var("m")),
     )]);
     let entries = overhead_to_json(&overhead);
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].field, "num_vertices");
-    assert_eq!(entries[0].polynomial.len(), 2);
-
-    // Check first monomial: 1*n
-    assert_eq!(entries[0].polynomial[0].coefficient, 1.0);
-    assert_eq!(
-        entries[0].polynomial[0].variables,
-        vec![("n".to_string(), 1)]
-    );
-
-    // Check second monomial: 1*m
-    assert_eq!(entries[0].polynomial[1].coefficient, 1.0);
-    assert_eq!(
-        entries[0].polynomial[1].variables,
-        vec![("m".to_string(), 1)]
-    );
+    assert_eq!(entries[0].formula, "n + m");
 }
 
 #[test]
-fn test_overhead_to_json_constant_monomial() {
-    let overhead = ReductionOverhead::new(vec![("num_vars", Polynomial::constant(42.0))]);
+fn test_overhead_to_json_constant() {
+    let overhead = ReductionOverhead::new(vec![("num_vars", Expr::Const(42.0))]);
     let entries = overhead_to_json(&overhead);
     assert_eq!(entries.len(), 1);
     assert_eq!(entries[0].field, "num_vars");
-    assert_eq!(entries[0].polynomial.len(), 1);
-    assert_eq!(entries[0].polynomial[0].coefficient, 42.0);
-    assert!(entries[0].polynomial[0].variables.is_empty());
+    assert_eq!(entries[0].formula, "42");
 }
 
 #[test]
 fn test_overhead_to_json_scaled_power() {
-    let overhead =
-        ReductionOverhead::new(vec![("num_edges", Polynomial::var_pow("n", 2).scale(3.0))]);
+    let overhead = ReductionOverhead::new(vec![(
+        "num_edges",
+        Expr::mul(
+            Expr::Const(3.0),
+            Expr::pow(Expr::Var("n"), Expr::Const(2.0)),
+        ),
+    )]);
     let entries = overhead_to_json(&overhead);
     assert_eq!(entries.len(), 1);
-    assert_eq!(entries[0].polynomial.len(), 1);
-    assert_eq!(entries[0].polynomial[0].coefficient, 3.0);
-    assert_eq!(
-        entries[0].polynomial[0].variables,
-        vec![("n".to_string(), 2)]
-    );
+    assert_eq!(entries[0].formula, "3 * n^2");
 }
 
 #[test]
 fn test_overhead_to_json_multiple_fields() {
     let overhead = ReductionOverhead::new(vec![
-        ("num_vertices", Polynomial::var("n")),
-        ("num_edges", Polynomial::var_pow("n", 2)),
+        ("num_vertices", Expr::Var("n")),
+        ("num_edges", Expr::pow(Expr::Var("n"), Expr::Const(2.0))),
     ]);
     let entries = overhead_to_json(&overhead);
     assert_eq!(entries.len(), 2);
@@ -190,15 +174,13 @@ fn test_reduction_data_serialization() {
         },
         overhead: vec![OverheadEntry {
             field: "num_vertices".to_string(),
-            polynomial: vec![MonomialJson {
-                coefficient: 1.0,
-                variables: vec![("n".to_string(), 1)],
-            }],
+            expr: Expr::Var("n"),
+            formula: "n".to_string(),
         }],
     };
     let json = serde_json::to_value(&data).unwrap();
     assert_eq!(json["overhead"][0]["field"], "num_vertices");
-    assert_eq!(json["overhead"][0]["polynomial"][0]["coefficient"], 1.0);
+    assert_eq!(json["overhead"][0]["formula"], "n");
 }
 
 #[test]

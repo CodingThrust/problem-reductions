@@ -5,9 +5,10 @@
 //! - `<name>.json` — reduction structure (source, target, overhead)
 //! - `<name>.result.json` — runtime solutions
 //!
-//! The schema mirrors the internal types: `ReductionOverhead` for polynomials,
+//! The schema mirrors the internal types: `ReductionOverhead` for expressions,
 //! `Problem::variant()` for problem variants, and `Problem::NAME` for problem names.
 
+use crate::expr::Expr;
 use crate::rules::registry::ReductionOverhead;
 use crate::rules::ReductionGraph;
 use serde::Serialize;
@@ -26,18 +27,12 @@ pub struct ProblemSide {
     pub instance: serde_json::Value,
 }
 
-/// A monomial in JSON: coefficient × Π(variable^exponent).
-#[derive(Serialize, Clone, Debug)]
-pub struct MonomialJson {
-    pub coefficient: f64,
-    pub variables: Vec<(String, u8)>,
-}
-
-/// One output field mapped to a polynomial.
+/// One output field mapped to an expression.
 #[derive(Serialize, Clone, Debug)]
 pub struct OverheadEntry {
     pub field: String,
-    pub polynomial: Vec<MonomialJson>,
+    pub expr: Expr,
+    pub formula: String,
 }
 
 /// Top-level reduction structure (written to `<name>.json`).
@@ -66,20 +61,10 @@ pub fn overhead_to_json(overhead: &ReductionOverhead) -> Vec<OverheadEntry> {
     overhead
         .output_size
         .iter()
-        .map(|(field, poly)| OverheadEntry {
+        .map(|(field, expr)| OverheadEntry {
             field: field.to_string(),
-            polynomial: poly
-                .terms
-                .iter()
-                .map(|m| MonomialJson {
-                    coefficient: m.coefficient,
-                    variables: m
-                        .variables
-                        .iter()
-                        .map(|(name, exp)| (name.to_string(), *exp))
-                        .collect(),
-                })
-                .collect(),
+            formula: expr.to_string(),
+            expr: expr.clone(),
         })
         .collect()
 }

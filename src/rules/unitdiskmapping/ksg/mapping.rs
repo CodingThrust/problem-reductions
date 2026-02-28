@@ -593,16 +593,26 @@ pub fn map_unweighted_with_order(
     let gadget_overhead: i32 = tape.iter().map(tape_entry_mis_overhead).sum();
     let mis_overhead = copyline_overhead + gadget_overhead;
 
-    // Extract positions and weights from occupied cells
-    let (positions, node_weights): (Vec<(i32, i32)>, Vec<i32>) = grid
+    // Assert all doubled/connected cells have been resolved by gadgets.
+    // Matches Julia's `GridGraph()` check: "This mapping is not done yet!"
+    debug_assert!(
+        !grid.has_unresolved_cells(),
+        "Mapping is not done: doubled or connected cells remain after gadget application"
+    );
+
+    // Extract positions from occupied cells.
+    // In unweighted mode, all node weights are 1 — matching Julia's behavior where
+    // `node(::Type{<:UnWeightedNode}, i, j, w) = Node(i, j)` ignores the weight parameter.
+    let positions: Vec<(i32, i32)> = grid
         .occupied_coords()
         .into_iter()
         .filter_map(|(row, col)| {
             grid.get(row, col)
-                .map(|cell| ((row as i32, col as i32), cell.weight()))
+                .filter(|cell| cell.weight() > 0)
+                .map(|_| (row as i32, col as i32))
         })
-        .filter(|&(_, w)| w > 0)
-        .unzip();
+        .collect();
+    let node_weights = vec![1i32; positions.len()];
 
     MappingResult {
         positions,
@@ -684,6 +694,12 @@ pub fn map_weighted_with_order(
     // Add MIS overhead from weighted gadgets
     let gadget_overhead: i32 = tape.iter().map(weighted_tape_entry_mis_overhead).sum();
     let mis_overhead = copyline_overhead + gadget_overhead;
+
+    // Assert all doubled/connected cells have been resolved by gadgets.
+    debug_assert!(
+        !grid.has_unresolved_cells(),
+        "Mapping is not done: doubled or connected cells remain after gadget application"
+    );
 
     // Extract positions and weights from occupied cells
     let (positions, node_weights): (Vec<(i32, i32)>, Vec<i32>) = grid

@@ -7,7 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
-use crate::variant::KValue;
+use crate::variant::{KValue, K2, K3, KN};
 use serde::{Deserialize, Serialize};
 
 use super::CNFClause;
@@ -139,6 +139,11 @@ impl<K: KValue> KSatisfiability<K> {
         self.clauses.get(index)
     }
 
+    /// Get the total number of literals across all clauses.
+    pub fn num_literals(&self) -> usize {
+        self.clauses().iter().map(|c| c.len()).sum()
+    }
+
     /// Count satisfied clauses for an assignment.
     pub fn count_satisfied(&self, assignment: &[bool]) -> usize {
         self.clauses
@@ -171,20 +176,18 @@ impl<K: KValue> Problem for KSatisfiability<K> {
         self.is_satisfying(&assignment)
     }
 
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_vars", "num_clauses", "num_literals"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        let num_literals: usize = self.clauses().iter().map(|c| c.len()).sum();
-        vec![self.num_vars(), self.num_clauses(), num_literals]
-    }
-
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![K]
     }
 }
 
 impl<K: KValue> SatisfactionProblem for KSatisfiability<K> {}
+
+crate::declare_variants! {
+    KSatisfiability<KN> => "2^num_variables",
+    KSatisfiability<K2> => "num_variables + num_clauses",
+    KSatisfiability<K3> => "2^num_variables",
+}
 
 #[cfg(test)]
 #[path = "../../unit_tests/models/satisfiability/ksat.rs"]

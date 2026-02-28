@@ -20,7 +20,7 @@ Before any implementation, collect all required information. If called from `iss
 | 3 | **Reduction algorithm** | How to transform source instance to target | "Copy graph and weights; IS on same graph as VC" |
 | 4 | **Solution extraction** | How to map target solution back to source | "Complement: `1 - x` for each variable" |
 | 5 | **Correctness argument** | Why the reduction preserves optimality | "S is independent set iff V\S is vertex cover" |
-| 6 | **Size overhead** | How target size relates to source size | `num_vertices: poly!(num_vertices), num_edges: poly!(num_edges)` |
+| 6 | **Size overhead** | How target size relates to source size | `num_vertices = "num_vertices", num_edges = "num_edges"` |
 | 7 | **Concrete example** | A small worked-out instance (tutorial style, clear intuition) | "Triangle graph: VC={0,1} -> IS={2}" |
 | 8 | **Solving strategy** | How to solve the target problem | "BruteForce, or existing ILP reduction" |
 | 9 | **Reference** | Paper, textbook, or URL for the reduction | URL or citation |
@@ -75,13 +75,9 @@ impl ReductionResult for ReductionXToY {
 
 **ReduceTo with `#[reduction]` macro:**
 ```rust
-#[reduction(
-    overhead = {
-        ReductionOverhead::new(vec![
-            ("field_name", poly!(source_field)),
-        ])
-    }
-)]
+#[reduction(overhead = {
+    field_name = "source_field",
+})]
 impl ReduceTo<TargetType> for SourceType {
     type Result = ReductionXToY;
     fn reduce_to(&self) -> Self::Result { ... }
@@ -133,20 +129,7 @@ example_fn!(test_<source>_to_<target>, reduction_<source>_to_<target>);
 
 ## Step 5: Document in paper
 
-Update `docs/paper/reductions.typ`:
-
-```typst
-#reduction-rule("Source", "Target",
-  example: true,
-  example-caption: [Caption text],
-)[
-  Reduction rule statement...
-][
-  Proof sketch...
-]
-```
-
-Present the example in tutorial style with clear intuition. Reference the KColoring -> QUBO section for style guidance.
+Invoke the `/write-rule-in-paper` skill to write the reduction-rule entry in `docs/paper/reductions.typ`. That skill covers the full authoring process: complexity citation, self-contained proof, detailed worked example, and verification checklist.
 
 ## Step 6: Regenerate graph and verify
 
@@ -155,7 +138,7 @@ cargo run --example export_graph  # Update reduction_graph.json
 make test clippy                  # Must pass
 ```
 
-Then run the [review-implementation](review-implementation.md) skill to verify all structural and semantic checks pass.
+Then run the [review-implementation](../review-implementation/SKILL.md) skill to verify all structural and semantic checks pass.
 
 ## Solver Rules
 
@@ -180,7 +163,7 @@ Adding a reduction rule does NOT require CLI changes -- the reduction graph is a
 | Mistake | Fix |
 |---------|-----|
 | Forgetting `#[reduction(...)]` macro | Required for compile-time registration in the reduction graph |
-| Wrong overhead polynomial | Must accurately reflect the size relationship |
+| Wrong overhead expression | Must accurately reflect the size relationship |
 | Missing `extract_solution` mapping state | Store any index maps needed in the ReductionResult struct |
 | Example missing `pub fn run()` | Required for the test harness (`include!` pattern) |
 | Not registering example in `tests/suites/examples.rs` | Must add both `example_test!` and `example_fn!` |

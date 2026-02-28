@@ -8,7 +8,7 @@ use crate::models::specialized::Factoring;
 use crate::rules::{MinimizeSteps, ReductionGraph};
 use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
-use crate::traits::{problem_size, Problem};
+use crate::traits::Problem;
 use crate::types::ProblemSize;
 use std::collections::HashSet;
 
@@ -170,8 +170,8 @@ fn test_jl_parity_factoring_to_spinglass_path() {
     );
 }
 
-/// Test that `find_cheapest_path` works with a real `problem_size()` from a
-/// constructed problem instance, rather than an empty `ProblemSize::new(vec![])`.
+/// Test that `find_cheapest_path` works with a concrete `ProblemSize` input,
+/// rather than an empty `ProblemSize::new(vec![])`.
 #[test]
 fn test_find_cheapest_path_with_problem_size() {
     let graph = ReductionGraph::new();
@@ -195,26 +195,21 @@ fn test_find_cheapest_path_with_problem_size() {
             (7, 9),
         ],
     );
-    let source = MaxCut::<SimpleGraph, i32>::unweighted(petersen);
+    let _source = MaxCut::<SimpleGraph, i32>::unweighted(petersen);
     let src_var = ReductionGraph::variant_to_map(&MaxCut::<SimpleGraph, i32>::variant());
     let dst_var = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, f64>::variant());
 
-    // Use source.problem_size() instead of ProblemSize::new(vec![])
+    let input_size = ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 15)]);
     let rpath = graph
         .find_cheapest_path(
             "MaxCut",
             &src_var,
             "SpinGlass",
             &dst_var,
-            &problem_size(&source),
+            &input_size,
             &MinimizeSteps,
         )
         .expect("Should find path MaxCut -> SpinGlass");
 
     assert!(!rpath.type_names().is_empty());
-
-    // Verify problem_size has expected components
-    let size = problem_size(&source);
-    assert_eq!(size.get("num_vertices"), Some(10));
-    assert_eq!(size.get("num_edges"), Some(15));
 }

@@ -1,38 +1,26 @@
----
-name: review-implementation
-description: Use after implementing a model or rule to verify completeness and correctness before committing
----
+# Structural & Semantic Review Agent
 
-# Review Implementation
+You are reviewing a new model or rule implementation for structural completeness and semantic correctness in the `problemreductions` Rust codebase.
 
-Automated review checklist for verifying that a new model or rule implementation is complete. Run this after finishing `add-model` or `add-rule`, before committing.
+## Review Type: {REVIEW_TYPE}
 
-## Invocation
+{REVIEW_PARAMS}
 
-Auto-detects the implementation type from changed files. Can also be invoked with an explicit argument:
-- `/review-implementation` -- auto-detect from `git diff`
-- `/review-implementation model MaximumClique` -- review a specific model
-- `/review-implementation rule mis_qubo` -- review a specific rule
+## Instructions
 
-## Step 1: Detect What Changed
+1. Run the structural checklist below using Grep and Glob tools
+2. Run `make test clippy` to verify build
+3. Read the implementation files and perform semantic review
+4. Output results in the structured format at the end
 
-Use `git diff --name-only` (against main branch or last commit) to identify:
-- Files in `src/models/` -> model review
-- Files in `src/rules/` (not `mod.rs`, `traits.rs`, `cost.rs`, `graph.rs`, `registry.rs`) -> rule review
-- Both -> run both reviews
+## Model Checklist
 
-Extract the problem name(s) and rule source/target from the file paths.
+Only run this section if REVIEW_TYPE includes "model".
 
-## Step 2: Run Structural Checks
+Given: problem name `P` = `{PROBLEM_NAME}`, category `C` = `{CATEGORY}`, file stem `F` = `{FILE_STEM}`.
 
-For each detected change, run the appropriate checklist below. Report results as a table with pass/fail per item.
-
-### Model Checklist
-
-Given: problem name `P`, category `C`, file stem `F` (snake_case).
-
-| # | Check | Verification method |
-|---|-------|-------------------|
+| # | Check | How to verify |
+|---|-------|--------------|
 | 1 | Model file exists | `Glob("src/models/{C}/{F}.rs")` |
 | 2 | `inventory::submit!` present | `Grep("inventory::submit", file)` |
 | 3 | `#[derive(...Serialize, Deserialize)]` on struct | `Grep("Serialize.*Deserialize", file)` |
@@ -50,12 +38,14 @@ Given: problem name `P`, category `C`, file stem `F` (snake_case).
 | 15 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
 | 16 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
 
-### Rule Checklist
+## Rule Checklist
 
-Given: source `S`, target `T`, rule file stem `R` = `{s}_{t}` (lowercase), example stem `E` = `reduction_{s}_to_{t}`.
+Only run this section if REVIEW_TYPE includes "rule".
 
-| # | Check | Verification method |
-|---|-------|-------------------|
+Given: source `S` = `{SOURCE}`, target `T` = `{TARGET}`, rule file stem `R` = `{RULE_STEM}`, example stem `E` = `{EXAMPLE_STEM}`.
+
+| # | Check | How to verify |
+|---|-------|--------------|
 | 1 | Rule file exists | `Glob("src/rules/{R}.rs")` |
 | 2 | `#[reduction(...)]` macro present | `Grep("#\\[reduction", file)` |
 | 3 | `ReductionResult` impl present | `Grep("impl.*ReductionResult", file)` |
@@ -71,65 +61,51 @@ Given: source `S`, target `T`, rule file stem `R` = `{s}_{t}` (lowercase), examp
 | 13 | `example_fn!` registered | `Grep("example_fn!.*{E}", "tests/suites/examples.rs")` |
 | 14 | Paper `reduction-rule` entry | `Grep('reduction-rule.*"{S}".*"{T}"', "docs/paper/reductions.typ")` |
 
-## Step 3: Run Build Checks
+## Build Check
 
-After structural checks, run:
-
+Run:
 ```bash
 make test clippy
 ```
 
-Report pass/fail. If tests fail, identify which tests and suggest fixes.
+Report pass/fail. If tests fail, identify which tests.
 
-## Step 4: Semantic Review (AI Judgment)
-
-Read the implementation files and assess:
+## Semantic Review
 
 ### For Models:
 1. **`evaluate()` correctness** -- Does it check feasibility before computing the objective? Does it return `SolutionSize::Invalid` / `false` for infeasible configs?
 2. **`dims()` correctness** -- Does it return the actual configuration space? (e.g., `vec![2; n]` for binary)
-3. **`problem_size_names`/`problem_size_values` consistency** -- Do the names match what `ReductionOverhead` uses?
+3. **Size getter consistency** -- Do inherent getter methods (e.g., `num_vertices()`, `num_edges()`) match names used in overhead expressions?
 4. **Weight handling** -- Are weights managed via inherent methods, not traits?
 
 ### For Rules:
 1. **`extract_solution` correctness** -- Does it correctly invert the reduction? Does the returned solution have the right length (source dimensions)?
-2. **Overhead accuracy** -- Does `poly!(...)` reflect the actual size relationship?
-3. **Example quality** -- Is it tutorial-style? Does it use the instance from the issue? Does the JSON export include both source and target data?
-4. **Paper quality** -- Is the reduction-rule statement precise? Is the proof sketch sound? Is the example figure clear?
+2. **Overhead accuracy** -- Does `overhead = { field = "expr" }` reflect the actual size relationship?
+3. **Example quality** -- Is it tutorial-style? Does the JSON export include both source and target data?
+4. **Paper quality** -- Is the reduction-rule statement precise? Is the proof sketch sound?
 
 ## Output Format
 
-Present results as:
+You MUST output in this exact format:
 
 ```
-## Review: [Model/Rule] [Name]
+## Review: {REVIEW_TYPE} {PROBLEM_NAME}
 
 ### Structural Completeness
 | # | Check | Status |
 |---|-------|--------|
-| 1 | Model file exists | PASS |
-| 2 | inventory::submit! | PASS |
-| ... | ... | ... |
-| N | Paper entry | FAIL -- missing display-name |
+| 1 | ... | PASS / FAIL -- reason |
 
 ### Build Status
-- `make test`: PASS
-- `make clippy`: PASS
+- `make test`: PASS / FAIL
+- `make clippy`: PASS / FAIL
 
 ### Semantic Review
-- evaluate() correctness: OK
-- dims() correctness: OK
-- [any issues found]
+- evaluate()/extract_solution correctness: OK / ISSUE -- description
+- dims() correctness: OK / ISSUE -- description
+- [other checks]: OK / ISSUE -- description
 
 ### Summary
 - X/Y structural checks passed
 - [list of action items for any failures]
 ```
-
-## Integration with Other Skills
-
-This skill is called automatically at the end of:
-- `add-model` (after Step 7: Verify)
-- `add-rule` (after Step 6: Verify)
-
-It can also be invoked standalone via `/review-implementation`.

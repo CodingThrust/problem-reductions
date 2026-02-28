@@ -3,9 +3,7 @@
 //! These problems are complements: a set S is an independent set iff V\S is a vertex cover.
 
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 use crate::types::WeightElement;
@@ -36,10 +34,8 @@ where
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_vertices)),
-            ("num_edges", poly!(num_edges)),
-        ])
+        num_vertices = "num_vertices",
+        num_edges = "num_edges",
     }
 )]
 impl ReduceTo<MinimumVertexCover<SimpleGraph, i32>> for MaximumIndependentSet<SimpleGraph, i32> {
@@ -79,10 +75,8 @@ where
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vertices", poly!(num_vertices)),
-            ("num_edges", poly!(num_edges)),
-        ])
+        num_vertices = "num_vertices",
+        num_edges = "num_edges",
     }
 )]
 impl ReduceTo<MaximumIndependentSet<SimpleGraph, i32>> for MinimumVertexCover<SimpleGraph, i32> {

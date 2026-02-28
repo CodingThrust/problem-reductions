@@ -3,6 +3,8 @@
 //! This crate provides the `#[reduction]` attribute macro that automatically
 //! generates `ReductionEntry` registrations from `ReduceTo` impl blocks.
 
+pub(crate) mod parser;
+
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
@@ -20,7 +22,20 @@ use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Typ
 ///
 /// # Attributes
 ///
-/// - `overhead = { expr }` — overhead specification (required for non-trivial reductions)
+/// - `overhead = { expr }` — overhead specification
+///
+/// ## New syntax (preferred):
+/// ```ignore
+/// #[reduction(overhead = {
+///     num_vars = "num_vertices^2",
+///     num_constraints = "num_edges",
+/// })]
+/// ```
+///
+/// ## Legacy syntax (still supported):
+/// ```ignore
+/// #[reduction(overhead = { ReductionOverhead::new(vec![...]) })]
+/// ```
 #[proc_macro_attribute]
 pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
     let attrs = parse_macro_input!(attr as ReductionAttrs);
@@ -32,9 +47,17 @@ pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
     }
 }
 
+/// Overhead specification: either new parsed syntax or legacy raw tokens.
+enum OverheadSpec {
+    /// Legacy syntax: raw token stream (e.g., `ReductionOverhead::new(...)`)
+    Legacy(TokenStream2),
+    /// New syntax: list of (field_name, expression_string) pairs
+    Parsed(Vec<(String, String)>),
+}
+
 /// Parsed attributes from #[reduction(...)]
 struct ReductionAttrs {
-    overhead: Option<TokenStream2>,
+    overhead: Option<OverheadSpec>,
 }
 
 impl syn::parse::Parse for ReductionAttrs {
@@ -49,7 +72,7 @@ impl syn::parse::Parse for ReductionAttrs {
                 "overhead" => {
                     let content;
                     syn::braced!(content in input);
-                    attrs.overhead = Some(content.parse()?);
+                    attrs.overhead = Some(parse_overhead_content(&content)?);
                 }
                 _ => {
                     return Err(syn::Error::new(
@@ -65,6 +88,40 @@ impl syn::parse::Parse for ReductionAttrs {
         }
 
         Ok(attrs)
+    }
+}
+
+/// Detect and parse the overhead content as either new or legacy syntax.
+///
+/// New syntax detection: the first tokens are `ident = "string_literal"`.
+/// Legacy syntax: everything else (starts with a path like `ReductionOverhead::...`).
+fn parse_overhead_content(content: syn::parse::ParseStream) -> syn::Result<OverheadSpec> {
+    // Fork to peek ahead without consuming
+    let fork = content.fork();
+
+    // Try to detect new syntax: ident = "string"
+    let is_new_syntax = fork.parse::<syn::Ident>().is_ok()
+        && fork.parse::<syn::Token![=]>().is_ok()
+        && fork.parse::<syn::LitStr>().is_ok();
+
+    if is_new_syntax {
+        // Parse new syntax: field_name = "expression", ...
+        let mut fields = Vec::new();
+        while !content.is_empty() {
+            let field_name: syn::Ident = content.parse()?;
+            content.parse::<syn::Token![=]>()?;
+            let expr_str: syn::LitStr = content.parse()?;
+            fields.push((field_name.to_string(), expr_str.value()));
+
+            if content.peek(syn::Token![,]) {
+                content.parse::<syn::Token![,]>()?;
+            }
+        }
+        Ok(OverheadSpec::Parsed(fields))
+    } else {
+        // Legacy syntax: parse as raw token stream
+        let tokens: TokenStream2 = content.parse()?;
+        Ok(OverheadSpec::Legacy(tokens))
     }
 }
 
@@ -137,6 +194,30 @@ fn make_variant_fn_body(ty: &Type, type_generics: &HashSet<String>) -> syn::Resu
     Ok(quote! { <#ty as crate::traits::Problem>::variant() })
 }
 
+/// Generate overhead code from the new parsed syntax.
+///
+/// Produces a `ReductionOverhead` constructor that uses `Expr` AST values.
+fn generate_parsed_overhead(fields: &[(String, String)]) -> syn::Result<TokenStream2> {
+    let mut field_tokens = Vec::new();
+
+    for (field_name, expr_str) in fields {
+        let parsed = parser::parse_expr(expr_str).map_err(|e| {
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!("error parsing overhead expression \"{expr_str}\": {e}"),
+            )
+        })?;
+
+        let expr_ast = parsed.to_expr_tokens();
+        let name_lit = field_name.as_str();
+        field_tokens.push(quote! { (#name_lit, #expr_ast) });
+    }
+
+    Ok(quote! {
+        crate::rules::registry::ReductionOverhead::new(vec![#(#field_tokens),*])
+    })
+}
+
 /// Generate the reduction entry code
 fn generate_reduction_entry(
     attrs: &ReductionAttrs,
@@ -169,11 +250,11 @@ fn generate_reduction_entry(
     let target_variant_body = make_variant_fn_body(&target_type, &type_generics)?;
 
     // Generate overhead or use default
-    let overhead = attrs.overhead.clone().unwrap_or_else(|| {
-        quote! {
-            crate::rules::registry::ReductionOverhead::default()
-        }
-    });
+    let overhead = match &attrs.overhead {
+        Some(OverheadSpec::Legacy(tokens)) => tokens.clone(),
+        Some(OverheadSpec::Parsed(fields)) => generate_parsed_overhead(fields)?,
+        None => quote! { crate::rules::registry::ReductionOverhead::default() },
+    };
 
     // Generate the combined output
     let output = quote! {
@@ -187,8 +268,6 @@ fn generate_reduction_entry(
                 target_variant_fn: || { #target_variant_body },
                 overhead_fn: || { #overhead },
                 module_path: module_path!(),
-                source_size_names_fn: || { <#source_type as crate::traits::Problem>::problem_size_names() },
-                target_size_names_fn: || { <#target_type as crate::traits::Problem>::problem_size_names() },
                 reduce_fn: |src: &dyn std::any::Any| -> Box<dyn crate::rules::traits::DynReductionResult> {
                     let src = src.downcast_ref::<#source_type>().unwrap_or_else(|| {
                         panic!(
@@ -201,6 +280,14 @@ fn generate_reduction_entry(
                 },
             }
         }
+
+        const _: () = {
+            fn _assert_declared_variant<T: crate::traits::DeclaredVariant>() {}
+            fn _check() {
+                _assert_declared_variant::<#source_type>();
+                _assert_declared_variant::<#target_type>();
+            }
+        };
     };
 
     Ok(output)

@@ -5,7 +5,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize, WeightElement};
+use crate::types::{Direction, One, SolutionSize, WeightElement};
 use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
@@ -113,6 +113,15 @@ impl<W: Clone + Default> MaximumSetPacking<W> {
         pairs
     }
 
+    /// Get the universe size (one more than the maximum element across all sets).
+    pub fn universe_size(&self) -> usize {
+        self.sets()
+            .iter()
+            .flat_map(|s| s.iter())
+            .max()
+            .map_or(0, |&m| m + 1)
+    }
+
     /// Get a reference to the weights vector.
     pub fn weights_ref(&self) -> &Vec<W> {
         &self.weights
@@ -151,19 +160,6 @@ where
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![W]
     }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_sets", "universe_size"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        let universe_size = self
-            .sets()
-            .iter()
-            .flat_map(|s| s.iter())
-            .max()
-            .map_or(0, |&m| m + 1);
-        vec![self.num_sets(), universe_size]
-    }
 }
 
 impl<W> OptimizationProblem for MaximumSetPacking<W>
@@ -175,6 +171,12 @@ where
     fn direction(&self) -> Direction {
         Direction::Maximize
     }
+}
+
+crate::declare_variants! {
+    MaximumSetPacking<One> => "2^num_sets",
+    MaximumSetPacking<i32> => "2^num_sets",
+    MaximumSetPacking<f64> => "2^num_sets",
 }
 
 /// Check if a selection forms a valid set packing (pairwise disjoint).

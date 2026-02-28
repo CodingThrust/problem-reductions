@@ -8,9 +8,7 @@
 
 use crate::models::graph::MinimumDominatingSet;
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
 
@@ -45,10 +43,8 @@ impl ReductionResult for ReductionDSToILP {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_vertices)),
-            ("num_constraints", poly!(num_vertices)),
-        ])
+        num_vars = "num_vertices",
+        num_constraints = "num_vertices",
     }
 )]
 impl ReduceTo<ILP> for MinimumDominatingSet<SimpleGraph, i32> {

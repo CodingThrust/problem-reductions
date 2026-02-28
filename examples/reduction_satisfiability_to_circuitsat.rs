@@ -23,9 +23,9 @@ pub fn run() {
     let sat = Satisfiability::new(
         3,
         vec![
-            CNFClause::new(vec![1, -2, 3]),  // x1 v ~x2 v x3
-            CNFClause::new(vec![-1, 2]),     // ~x1 v x2
-            CNFClause::new(vec![2, 3]),      // x2 v x3
+            CNFClause::new(vec![1, -2, 3]), // x1 v ~x2 v x3
+            CNFClause::new(vec![-1, 2]),    // ~x1 v x2
+            CNFClause::new(vec![2, 3]),     // x2 v x3
         ],
     );
 
@@ -53,10 +53,7 @@ pub fn run() {
         circuit_sat.num_variables(),
         circuit_sat.circuit().num_assignments()
     );
-    println!(
-        "  Variables: {:?}",
-        circuit_sat.variable_names()
-    );
+    println!("  Variables: {:?}", circuit_sat.variable_names());
     println!("  Each clause becomes an OR gate; a final AND gate combines them.");
 
     // 3. Solve the target CircuitSAT problem (satisfaction problem)

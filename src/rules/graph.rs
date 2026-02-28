@@ -1,10 +1,14 @@
 //! Runtime reduction graph for discovering and executing reduction paths.
 //!
 //! The graph uses variant-level nodes: each node is a unique `(problem_name, variant)` pair.
+//! Nodes are built in two phases:
+//! 1. From `VariantEntry` inventory (with complexity metadata)
+//! 2. From `ReductionEntry` inventory (fallback for backwards compatibility)
+//!
 //! Edges come exclusively from `#[reduction]` registrations via `inventory::iter::<ReductionEntry>`.
 //!
 //! This module implements:
-//! - Variant-level graph construction from `ReductionEntry` inventory
+//! - Variant-level graph construction from `VariantEntry` and `ReductionEntry` inventory
 //! - Dijkstra's algorithm with custom cost functions for optimal paths
 //! - JSON export for documentation and visualization
 
@@ -29,6 +33,7 @@ pub struct ReductionEdgeInfo {
     pub source_variant: BTreeMap<String, String>,
     pub target_name: &'static str,
     pub target_variant: BTreeMap<String, String>,
+    pub overhead: ReductionOverhead,
 }
 
 /// Internal edge data combining overhead and executable reduce function.
@@ -72,6 +77,8 @@ pub(crate) struct NodeJson {
     pub(crate) category: String,
     /// Relative rustdoc path (e.g., "models/graph/maximum_independent_set").
     pub(crate) doc_path: String,
+    /// Worst-case time complexity expression (empty if not declared).
+    pub(crate) complexity: String,
 }
 
 /// Internal reference to a problem variant, used as HashMap key.
@@ -97,7 +104,7 @@ pub(crate) struct EdgeJson {
     pub(crate) source: usize,
     /// Index into the `nodes` array for the target problem variant.
     pub(crate) target: usize,
-    /// Reduction overhead: output size as polynomials of input size.
+    /// Reduction overhead: output size as expressions of input size.
     pub(crate) overhead: Vec<OverheadFieldJson>,
     /// Relative rustdoc path for the reduction module.
     pub(crate) doc_path: String,
@@ -207,6 +214,7 @@ pub(crate) fn classify_problem_category(module_path: &str) -> &str {
 struct VariantNode {
     name: &'static str,
     variant: BTreeMap<String, String>,
+    complexity: &'static str,
 }
 
 /// Information about a neighbor in the reduction graph.
@@ -242,56 +250,6 @@ pub struct NeighborTree {
     pub children: Vec<NeighborTree>,
 }
 
-/// Validate that a reduction's overhead variables are consistent with source/target size names.
-///
-/// Checks:
-/// - Overhead input variables are a subset of `source_size_names`
-/// - Overhead output fields are a subset of `target_size_names` (skipped if `target_size_names` is empty)
-///
-/// Panics with a descriptive message on mismatch.
-pub(crate) fn validate_overhead_variables(
-    source_name: &str,
-    target_name: &str,
-    overhead: &ReductionOverhead,
-    source_size_names: &[&str],
-    target_size_names: &[&str],
-) {
-    let source_set: HashSet<&str> = source_size_names.iter().copied().collect();
-    let overhead_inputs = overhead.input_variable_names();
-    let missing_inputs: Vec<_> = overhead_inputs
-        .iter()
-        .filter(|name| !source_set.contains(*name))
-        .collect();
-    assert!(
-        missing_inputs.is_empty(),
-        "Reduction {} -> {}: overhead references input variables {:?} \
-         not in source problem_size_names {:?}",
-        source_name,
-        target_name,
-        missing_inputs,
-        source_set,
-    );
-
-    if !target_size_names.is_empty() {
-        let target_set: HashSet<&str> = target_size_names.iter().copied().collect();
-        let overhead_outputs: HashSet<&str> =
-            overhead.output_size.iter().map(|(name, _)| *name).collect();
-        let missing_outputs: Vec<_> = overhead_outputs
-            .iter()
-            .filter(|name| !target_set.contains(*name))
-            .collect();
-        assert!(
-            missing_outputs.is_empty(),
-            "Reduction {} -> {}: overhead output fields {:?} \
-             not in target problem_size_names {:?}",
-            source_name,
-            target_name,
-            missing_outputs,
-            target_set,
-        );
-    }
-}
-
 /// Runtime graph of all registered reductions.
 ///
 /// Uses variant-level nodes: each node is a unique `(problem_name, variant)` pair.
@@ -321,6 +279,7 @@ impl ReductionGraph {
         // Helper to ensure a variant node exists in the graph.
         let ensure_node = |name: &'static str,
                            variant: BTreeMap<String, String>,
+                           complexity: &'static str,
                            nodes: &mut Vec<VariantNode>,
                            graph: &mut DiGraph<usize, ReductionEdgeData>,
                            node_index: &mut HashMap<VariantRef, NodeIndex>,
@@ -334,7 +293,11 @@ impl ReductionGraph {
                 idx
             } else {
                 let node_id = nodes.len();
-                nodes.push(VariantNode { name, variant });
+                nodes.push(VariantNode {
+                    name,
+                    variant,
+                    complexity,
+                });
                 let idx = graph.add_node(node_id);
                 node_index.insert(vref, idx);
                 name_to_nodes.entry(name).or_default().push(idx);
@@ -342,14 +305,31 @@ impl ReductionGraph {
             }
         };
 
-        // Register reductions from inventory (auto-discovery)
+        // Phase 1: Build nodes from VariantEntry inventory
+        for entry in inventory::iter::<crate::registry::VariantEntry> {
+            let variant = Self::variant_to_map(&entry.variant());
+            ensure_node(
+                entry.name,
+                variant,
+                entry.complexity,
+                &mut nodes,
+                &mut graph,
+                &mut node_index,
+                &mut name_to_nodes,
+            );
+        }
+
+        // Phase 2: Build edges from ReductionEntry inventory
         for entry in inventory::iter::<ReductionEntry> {
             let source_variant = Self::variant_to_map(&entry.source_variant());
             let target_variant = Self::variant_to_map(&entry.target_variant());
 
+            // Nodes should already exist from Phase 1.
+            // Fall back to creating them with empty complexity for backwards compatibility.
             let src_idx = ensure_node(
                 entry.source_name,
                 source_variant,
+                "",
                 &mut nodes,
                 &mut graph,
                 &mut node_index,
@@ -358,6 +338,7 @@ impl ReductionGraph {
             let dst_idx = ensure_node(
                 entry.target_name,
                 target_variant,
+                "",
                 &mut nodes,
                 &mut graph,
                 &mut node_index,
@@ -365,15 +346,6 @@ impl ReductionGraph {
             );
 
             let overhead = entry.overhead();
-            validate_overhead_variables(
-                entry.source_name,
-                entry.target_name,
-                &overhead,
-                (entry.source_size_names_fn)(),
-                (entry.target_size_names_fn)(),
-            );
-
-            // Check if edge already exists (avoid duplicates)
             if graph.find_edge(src_idx, dst_idx).is_none() {
                 graph.add_edge(
                     src_idx,
@@ -432,26 +404,6 @@ impl ReductionGraph {
         cost_fn: &C,
     ) -> Option<ReductionPath> {
         let src = self.lookup_node(source, source_variant)?;
-
-        // Validate: when input_size is non-empty, check outgoing edges
-        if !input_size.components.is_empty() {
-            let size_names: Vec<&str> = input_size
-                .components
-                .iter()
-                .map(|(k, _)| k.as_str())
-                .collect();
-            for edge_ref in self.graph.edges(src) {
-                let target_node = &self.nodes[self.graph[edge_ref.target()]];
-                validate_overhead_variables(
-                    source,
-                    target_node.name,
-                    &edge_ref.weight().overhead,
-                    &size_names,
-                    &[], // skip output validation at query time
-                );
-            }
-        }
-
         let dst = self.lookup_node(target, target_variant)?;
         let node_path = self.dijkstra(src, dst, input_size, cost_fn)?;
         Some(self.node_path_to_reduction_path(&node_path))
@@ -615,7 +567,7 @@ impl ReductionGraph {
         self.nodes.len()
     }
 
-    /// Get the per-edge overhead polynomials along a reduction path.
+    /// Get the per-edge overhead expressions along a reduction path.
     ///
     /// Returns one `ReductionOverhead` per edge (i.e., `path.steps.len() - 1` items).
     ///
@@ -652,7 +604,7 @@ impl ReductionGraph {
 
     /// Compose overheads along a path symbolically.
     ///
-    /// Returns a single `ReductionOverhead` whose polynomials map from the
+    /// Returns a single `ReductionOverhead` whose expressions map from the
     /// source problem's size variables directly to the final target's size variables.
     pub fn compose_path_overhead(&self, path: &ReductionPath) -> ReductionOverhead {
         self.path_overheads(path)
@@ -663,9 +615,12 @@ impl ReductionGraph {
 
     /// Get all variant maps registered for a problem name.
     ///
-    /// Returns an empty `Vec` if the name is not found.
+    /// Returns variants sorted deterministically: the "default" variant
+    /// (SimpleGraph, i32, etc.) comes first, then remaining variants
+    /// in lexicographic order.
     pub fn variants_for(&self, name: &str) -> Vec<BTreeMap<String, String>> {
-        self.name_to_nodes
+        let mut variants: Vec<BTreeMap<String, String>> = self
+            .name_to_nodes
             .get(name)
             .map(|indices| {
                 indices
@@ -673,7 +628,33 @@ impl ReductionGraph {
                     .map(|&idx| self.nodes[self.graph[idx]].variant.clone())
                     .collect()
             })
-            .unwrap_or_default()
+            .unwrap_or_default();
+        // Sort deterministically: default variant values (SimpleGraph, One, KN)
+        // sort first so callers can rely on variants[0] being the "base" variant.
+        variants.sort_by(|a, b| {
+            fn default_rank(v: &BTreeMap<String, String>) -> usize {
+                v.values()
+                    .filter(|val| !["SimpleGraph", "One", "KN"].contains(&val.as_str()))
+                    .count()
+            }
+            default_rank(a).cmp(&default_rank(b)).then_with(|| a.cmp(b))
+        });
+        variants
+    }
+
+    /// Get the complexity expression for a specific variant.
+    pub fn variant_complexity(
+        &self,
+        name: &str,
+        variant: &BTreeMap<String, String>,
+    ) -> Option<&'static str> {
+        let idx = self.lookup_node(name, variant)?;
+        let node = &self.nodes[self.graph[idx]];
+        if node.complexity.is_empty() {
+            None
+        } else {
+            Some(node.complexity)
+        }
     }
 
     /// Get all outgoing reductions from a problem (across all its variants).
@@ -693,6 +674,7 @@ impl ReductionGraph {
                     source_variant: src.variant.clone(),
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
+                    overhead: self.graph[e.id()].overhead.clone(),
                 }
             })
             .collect()
@@ -700,18 +682,26 @@ impl ReductionGraph {
 
     /// Get the problem size field names for a problem type.
     ///
-    /// Returns the static `problem_size_names()` by finding a reduction entry
-    /// where this problem is the source or target.
-    pub fn size_field_names(&self, name: &str) -> &'static [&'static str] {
+    /// Derives size fields from the overhead expressions of reduction entries
+    /// where this problem appears as source or target. When the problem is a
+    /// source, its size fields are the input variables referenced in the overhead
+    /// expressions. When it's a target, its size fields are the output field names.
+    pub fn size_field_names(&self, name: &str) -> Vec<&'static str> {
+        let mut fields = std::collections::HashSet::new();
         for entry in inventory::iter::<ReductionEntry> {
             if entry.source_name == name {
-                return (entry.source_size_names_fn)();
+                // Source's size fields are the input variables of the overhead.
+                fields.extend(entry.overhead().input_variable_names());
             }
             if entry.target_name == name {
-                return (entry.target_size_names_fn)();
+                // Target's size fields are the output field names.
+                let overhead = entry.overhead();
+                fields.extend(overhead.output_size.iter().map(|(name, _)| *name));
             }
         }
-        &[]
+        let mut result: Vec<&'static str> = fields.into_iter().collect();
+        result.sort_unstable();
+        result
     }
 
     /// Get all incoming reductions to a problem (across all its variants).
@@ -731,6 +721,7 @@ impl ReductionGraph {
                     source_variant: src.variant.clone(),
                     target_name: dst.name,
                     target_variant: dst.variant.clone(),
+                    overhead: self.graph[e.id()].overhead.clone(),
                 }
             })
             .collect()
@@ -856,7 +847,11 @@ impl ReductionGraph {
         ) -> NeighborTree {
             let children = node_children
                 .get(&idx)
-                .map(|cs| cs.iter().map(|&c| build(c, node_children, nodes, graph)).collect())
+                .map(|cs| {
+                    cs.iter()
+                        .map(|&c| build(c, node_children, nodes, graph))
+                        .collect()
+                })
                 .unwrap_or_default();
             let node = &nodes[graph[idx]];
             NeighborTree {
@@ -917,6 +912,7 @@ impl ReductionGraph {
                         variant: node.variant.clone(),
                         category,
                         doc_path,
+                        complexity: node.complexity.to_string(),
                     },
                 )
             })
@@ -1055,7 +1051,7 @@ impl ReductionGraph {
     /// falls back to a name-only match (returning the first entry whose source and
     /// target names match). This is intentional: specific variants (e.g., `K3`) may
     /// not have their own `#[reduction]` entry, but the general variant (`KN`) covers
-    /// them with the same overhead polynomial. The fallback is safe because cross-name
+    /// them with the same overhead expression. The fallback is safe because cross-name
     /// reductions share the same overhead regardless of source variant; it is only
     /// used by the JSON export pipeline (`export::lookup_overhead`).
     pub fn find_best_entry(

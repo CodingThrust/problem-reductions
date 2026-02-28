@@ -39,8 +39,6 @@ pub trait DynProblem: Any {
     fn dims_dyn(&self) -> Vec<usize>;
     fn problem_name(&self) -> &'static str;
     fn variant_map(&self) -> BTreeMap<String, String>;
-    fn problem_size_names_dyn(&self) -> &'static [&'static str];
-    fn problem_size_values_dyn(&self) -> Vec<usize>;
     fn num_variables_dyn(&self) -> usize;
 }
 
@@ -69,12 +67,6 @@ where
             .into_iter()
             .map(|(k, v)| (k.to_string(), v.to_string()))
             .collect()
-    }
-    fn problem_size_names_dyn(&self) -> &'static [&'static str] {
-        T::problem_size_names()
-    }
-    fn problem_size_values_dyn(&self) -> Vec<usize> {
-        self.problem_size_values()
     }
     fn num_variables_dyn(&self) -> usize {
         self.num_variables()

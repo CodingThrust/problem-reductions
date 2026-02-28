@@ -119,6 +119,11 @@ impl PaintShop {
         self.sequence_indices.len()
     }
 
+    /// Get the sequence length (alias for `sequence_len()`).
+    pub fn num_sequence(&self) -> usize {
+        self.sequence_len()
+    }
+
     /// Get the number of unique cars.
     pub fn num_cars(&self) -> usize {
         self.num_cars
@@ -176,13 +181,6 @@ impl Problem for PaintShop {
 
     fn variant() -> Vec<(&'static str, &'static str)> {
         crate::variant_params![]
-    }
-
-    fn problem_size_names() -> &'static [&'static str] {
-        &["num_cars", "num_sequence"]
-    }
-    fn problem_size_values(&self) -> Vec<usize> {
-        vec![self.num_cars(), self.sequence_len()]
     }
 }
 

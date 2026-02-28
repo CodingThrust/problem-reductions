@@ -4,11 +4,14 @@
 Rust library for NP-hard problem reductions. Implements computational problems with reduction rules for transforming between equivalent formulations.
 
 ## Skills
-- [issue-to-pr](skills/issue-to-pr.md) -- Convert a GitHub issue into a PR with an implementation plan. Validates the issue against the appropriate checklist, then dispatches to `add-model` or `add-rule`.
-- [add-model](skills/add-model.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
-- [add-rule](skills/add-rule.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
-- [review-implementation](skills/review-implementation.md) -- Review a model or rule implementation for completeness. Auto-detects type from changed files. Called automatically at the end of `add-model`/`add-rule`, or standalone via `/review-implementation`.
-- [release](skills/release.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
+- [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. Validates the issue against the appropriate checklist, then dispatches to `add-model` or `add-rule`.
+- [add-model](skills/add-model/SKILL.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
+- [add-rule](skills/add-rule/SKILL.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
+- [review-implementation](skills/review-implementation/SKILL.md) -- Review implementation completeness by dispatching parallel subagents (structural + quality) with fresh context. Auto-detects new models/rules from git diff. Called automatically at the end of `add-model`/`add-rule`, after each `executing-plans` batch, or standalone via `/review-implementation`.
+- [fix-pr](skills/fix-pr/SKILL.md) -- Resolve PR review comments (user + Copilot), fix CI failures, and address codecov coverage gaps. Uses `gh api` for codecov (not local `cargo-llvm-cov`).
+- [write-model-in-paper](skills/write-model-in-paper/SKILL.md) -- Write or improve a problem-def entry in the Typst paper. Covers formal definition, background, example with visualization, and algorithm list.
+- [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper. Covers complexity citation, self-contained proof, detailed example, and verification.
+- [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
 
 ## Commands
 ```bash
@@ -33,13 +36,10 @@ make compare       # Generate and compare Rust mapping exports
 make jl-testdata   # Regenerate Julia parity test data (requires julia)
 make cli           # Build the pred CLI tool (release mode)
 make cli-demo      # Run closed-loop CLI demo (exercises all commands)
+make mcp-test      # Run MCP server tests (unit + integration)
 make run-plan      # Execute a plan with Claude autorun
+make copilot-review # Request Copilot code review on current PR
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
-```
-
-## Verify Changes
-```bash
-make test clippy  # Must pass before PR
 ```
 
 ## Git Safety
@@ -71,9 +71,7 @@ Problem (core trait — all problems must implement)
 ├── fn dims(&self) -> Vec<usize>       // config space: [2, 2, 2] for 3 binary variables
 ├── fn evaluate(&self, config) -> Metric
 ├── fn variant() -> Vec<(&str, &str)>  // e.g., [("graph","SimpleGraph"), ("weight","i32")]
-├── fn num_variables(&self) -> usize   // default: dims().len()
-├── fn problem_size_names() -> &[&str] // static field names for size metrics
-└── fn problem_size_values(&self) -> Vec<usize>  // instance-level size values
+└── fn num_variables(&self) -> usize   // default: dims().len()
 
 OptimizationProblem : Problem<Metric = SolutionSize<Self::Value>> (extension for optimization)
 │
@@ -102,6 +100,20 @@ enum Direction { Maximize, Minimize }
 - Weight management via inherent methods (`weights()`, `set_weights()`, `is_weighted()`), not traits
 - `NumericSize` supertrait bundles common numeric bounds (`Clone + Default + PartialOrd + Num + Zero + Bounded + AddAssign + 'static`)
 
+### Overhead System
+Reduction overhead is expressed using `Expr` AST (in `src/expr.rs`) with the `#[reduction]` macro:
+```rust
+#[reduction(overhead = {
+    num_vertices = "num_vertices + num_clauses",
+    num_edges = "3 * num_clauses",
+})]
+impl ReduceTo<Target> for Source { ... }
+```
+- Expression strings are parsed at compile time by a Pratt parser in the proc macro crate
+- Each problem type provides inherent getter methods (e.g., `num_vertices()`, `num_edges()`) that the overhead expressions reference
+- `ReductionOverhead` stores `Vec<(&'static str, Expr)>` — field name to symbolic expression mappings
+- Expressions support: constants, variables, `+`, `*`, `^`, `exp()`, `log()`, `sqrt()`
+
 ### Problem Names
 Problem types use explicit optimization prefixes:
 - `MaximumIndependentSet`, `MaximumClique`, `MaximumMatching`, `MaximumSetPacking`
@@ -111,8 +123,9 @@ Problem types use explicit optimization prefixes:
 ### Problem Variant IDs
 Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Base: `MaximumIndependentSet` (empty variant = defaults)
-- Graph variant: `MaximumIndependentSet {graph: "GridGraph", weight: "i32"}`
+- Graph variant: `MaximumIndependentSet {graph: "KingsSubgraph", weight: "One"}`
 - Weight variant: `MaximumIndependentSet {graph: "SimpleGraph", weight: "f64"}`
+- Default variant ranking: `SimpleGraph`, `One`, `KN` are considered default values; variants with the most default values sort first
 - Nodes come exclusively from `#[reduction]` registrations; natural edges between same-name variants are inferred from the graph/weight subtype partial order
 
 ## Conventions
@@ -194,3 +207,19 @@ Also add to the `display-name` dictionary:
 ```
 
 Every directed reduction in the graph needs its own `reduction-rule` entry. The paper auto-checks completeness against `reduction_graph.json`.
+
+## Complexity Verification Requirements
+
+### Variant Worst-Case Complexity (`declare_variants!`)
+The complexity string represents the **worst-case time complexity of the best known algorithm** for that problem variant. To verify correctness:
+1. Identify the best known exact algorithm for the problem (name, author, year, citation)
+2. Confirm the worst-case time bound from the original paper or a survey
+3. Check that polynomial-time problems (e.g., MaximumMatching, 2-SAT, 2-Coloring) are NOT declared with exponential complexity
+4. For NP-hard problems, verify the base of the exponential matches the literature (e.g., 1.1996^n for MIS, not 2^n)
+
+### Reduction Overhead (`#[reduction(overhead = {...})]`)
+Overhead expressions describe how target problem size relates to source problem size. To verify correctness:
+1. Read the `reduce_to()` implementation and count the actual output sizes
+2. Check that each field (e.g., `num_vertices`, `num_edges`, `num_sets`) matches the constructed target problem
+3. Watch for common errors: universe elements mismatch (edge indices vs vertex indices), worst-case edge counts in intersection graphs (quadratic, not linear), constant factors in circuit constructions
+4. Test with concrete small instances: construct a source problem, run the reduction, and compare target sizes against the formula

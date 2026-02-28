@@ -48,7 +48,11 @@ pub fn run() {
 
     println!("\nTarget: MaximumIndependentSet");
     println!("  Vertices: {}", target.graph().num_vertices());
-    println!("  Edges: {} {:?}", target.graph().num_edges(), target.graph().edges());
+    println!(
+        "  Edges: {} {:?}",
+        target.graph().num_edges(),
+        target.graph().edges()
+    );
 
     // 3. Solve the target problem
     let solver = BruteForce::new();

@@ -6,6 +6,7 @@ Cargo.lock
 
 # Developer-specific Claude Code settings
 .claude/settings.local.json
+.claude/mcp.json
 
 # IDE
 .idea/
@@ -82,3 +83,4 @@ docs/paper/examples/
 claude-output.log
 .worktrees/
 .worktree/
+*.json

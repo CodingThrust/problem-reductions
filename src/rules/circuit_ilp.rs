@@ -16,9 +16,7 @@
 
 use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::models::specialized::{BooleanExpr, BooleanOp, CircuitSAT};
-use crate::poly;
 use crate::reduction;
-use crate::rules::registry::ReductionOverhead;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use std::collections::HashMap;
 
@@ -174,10 +172,8 @@ impl ILPBuilder {
 
 #[reduction(
     overhead = {
-        ReductionOverhead::new(vec![
-            ("num_vars", poly!(num_variables) + poly!(num_assignments)),
-            ("num_constraints", poly!(num_variables) + poly!(num_assignments)),
-        ])
+        num_vars = "num_variables + num_assignments",
+        num_constraints = "num_variables + num_assignments",
     }
 )]
 impl ReduceTo<ILP> for CircuitSAT {

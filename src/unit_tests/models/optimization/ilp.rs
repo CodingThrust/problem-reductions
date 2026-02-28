@@ -542,3 +542,20 @@ fn test_ilp_problem_minimize() {
     assert_eq!(Problem::evaluate(&ilp, &[1, 1]), SolutionSize::Valid(2.0));
     assert_eq!(ilp.direction(), Direction::Minimize);
 }
+
+#[test]
+fn test_size_getters() {
+    let ilp = ILP::new(
+        2,
+        vec![VarBounds::binary(); 2],
+        vec![
+            LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 3.0),
+            LinearConstraint::le(vec![(0, 1.0)], 2.0),
+        ],
+        vec![(0, 1.0), (1, 2.0)],
+        ObjectiveSense::Maximize,
+    );
+    assert_eq!(ilp.num_vars(), 2);
+    assert_eq!(ilp.num_variables(), 2);
+    assert_eq!(ilp.num_constraints(), 2);
+}
