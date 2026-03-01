@@ -1,5 +1,6 @@
 use anyhow::{bail, Context, Result};
-use problemreductions::models::optimization::{BinPacking, ClosestVectorProblem, ILP};
+use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
+use problemreductions::models::misc::BinPacking;
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};

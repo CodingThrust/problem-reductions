@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::satisfiability::CNFClause;
+use crate::models::formula::CNFClause;
 use crate::solvers::BruteForce;
 use crate::topology::Graph;
 use crate::variant::K3;

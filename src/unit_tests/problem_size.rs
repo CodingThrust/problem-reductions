@@ -1,10 +1,10 @@
 //! Tests for problem_size() free function and Problem size implementations.
 
+use crate::models::algebraic::*;
+use crate::models::formula::*;
 use crate::models::graph::*;
-use crate::models::optimization::*;
-use crate::models::satisfiability::*;
+use crate::models::misc::*;
 use crate::models::set::*;
-use crate::models::specialized::*;
 use crate::topology::{BipartiteGraph, SimpleGraph};
 use crate::traits::{problem_size, Problem};
 
@@ -94,7 +94,7 @@ fn test_problem_size_tsp() {
 
 #[test]
 fn test_problem_size_sat() {
-    use crate::models::satisfiability::CNFClause;
+    use crate::models::formula::CNFClause;
     let sat = Satisfiability::new(
         3,
         vec![CNFClause::new(vec![1, -2]), CNFClause::new(vec![2, 3])],
@@ -107,7 +107,7 @@ fn test_problem_size_sat() {
 
 #[test]
 fn test_problem_size_ksat() {
-    use crate::models::satisfiability::CNFClause;
+    use crate::models::formula::CNFClause;
     use crate::variant::K3;
     let ksat = KSatisfiability::<K3>::new(
         3,
@@ -143,7 +143,7 @@ fn test_problem_size_spinglass() {
 
 #[test]
 fn test_problem_size_ilp() {
-    use crate::models::optimization::{LinearConstraint, ObjectiveSense};
+    use crate::models::algebraic::{LinearConstraint, ObjectiveSense};
     let ilp = ILP::binary(
         2,
         vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 3.0)],
@@ -165,7 +165,7 @@ fn test_problem_size_factoring() {
 
 #[test]
 fn test_problem_size_circuitsat() {
-    use crate::models::specialized::{Assignment, BooleanExpr, Circuit};
+    use crate::models::formula::{Assignment, BooleanExpr, Circuit};
     let circuit = Circuit::new(vec![Assignment::new(
         vec!["c".to_string()],
         BooleanExpr::and(vec![BooleanExpr::var("x"), BooleanExpr::var("y")]),

@@ -32,7 +32,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::specialized::BicliqueCover;
+/// use problemreductions::models::graph::BicliqueCover;
 /// use problemreductions::topology::BipartiteGraph;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///

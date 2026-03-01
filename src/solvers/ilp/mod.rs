@@ -6,7 +6,7 @@
 //! # Example
 //!
 //! ```rust,ignore
-//! use problemreductions::models::optimization::{ILP, VarBounds, LinearConstraint, ObjectiveSense};
+//! use problemreductions::models::algebraic::{ILP, VarBounds, LinearConstraint, ObjectiveSense};
 //! use problemreductions::solvers::ILPSolver;
 //!
 //! // Create a simple ILP: maximize x0 + 2*x1 subject to x0 + x1 <= 1

@@ -2,9 +2,9 @@
 //! Verifies that chained reductions via `find_cheapest_path` + `reduce_along_path`
 //! produce correct solutions matching direct source solves.
 
-use crate::models::graph::MaxCut;
-use crate::models::optimization::{SpinGlass, QUBO};
-use crate::models::specialized::Factoring;
+use crate::models::algebraic::QUBO;
+use crate::models::graph::{MaxCut, SpinGlass};
+use crate::models::misc::Factoring;
 use crate::rules::{MinimizeSteps, ReductionGraph};
 use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;

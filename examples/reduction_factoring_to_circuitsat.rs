@@ -19,7 +19,7 @@
 // Exports `docs/paper/examples/factoring_to_circuitsat.json` and `factoring_to_circuitsat.result.json`.
 
 use problemreductions::export::*;
-use problemreductions::models::specialized::Circuit;
+use problemreductions::models::formula::Circuit;
 use problemreductions::prelude::*;
 use std::collections::HashMap;
 

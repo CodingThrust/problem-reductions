@@ -34,7 +34,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::specialized::BMF;
+/// use problemreductions::models::algebraic::BMF;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // 2x2 identity matrix

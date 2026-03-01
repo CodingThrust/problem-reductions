@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::optimization::{LinearConstraint, VarBounds};
+use crate::models::algebraic::{LinearConstraint, VarBounds};
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 

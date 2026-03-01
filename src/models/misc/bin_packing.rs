@@ -39,7 +39,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::optimization::BinPacking;
+/// use problemreductions::models::misc::BinPacking;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // 4 items with sizes [3, 3, 2, 2], capacity 5

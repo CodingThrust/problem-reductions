@@ -3,9 +3,10 @@ use problemreductions::models::graph::{
     MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
     MinimumVertexCover, TravelingSalesman,
 };
-use problemreductions::models::optimization::{SpinGlass, QUBO};
-use problemreductions::models::satisfiability::{CNFClause, Satisfiability};
-use problemreductions::models::specialized::Factoring;
+use problemreductions::models::algebraic::QUBO;
+use problemreductions::models::formula::{CNFClause, Satisfiability};
+use problemreductions::models::graph::SpinGlass;
+use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{
     CustomCost, MinimizeSteps, ReductionGraph, ReductionPath, TraversalDirection,

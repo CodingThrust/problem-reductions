@@ -1,6 +1,6 @@
 //! Common test utilities for mapping tests.
 
-use crate::models::optimization::{LinearConstraint, ObjectiveSense, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::MaximumIndependentSet;
 use crate::rules::unitdiskmapping::MappingResult;
 use crate::rules::{ReduceTo, ReductionResult};

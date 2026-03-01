@@ -33,7 +33,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::specialized::PaintShop;
+/// use problemreductions::models::misc::PaintShop;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Sequence: a, b, a, c, c, b

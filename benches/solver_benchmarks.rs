@@ -1,11 +1,10 @@
 //! Benchmarks for the BruteForce solver on various problem types.
 
 use criterion::{criterion_group, criterion_main, BenchmarkId, Criterion};
+use problemreductions::models::formula::*;
 use problemreductions::models::graph::*;
-use problemreductions::models::optimization::*;
-use problemreductions::models::satisfiability::*;
+use problemreductions::models::misc::*;
 use problemreductions::models::set::*;
-use problemreductions::models::specialized::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 use problemreductions::variant::K3;

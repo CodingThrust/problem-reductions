@@ -1,6 +1,6 @@
 use super::*;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
-use crate::models::optimization::QUBO;
+use crate::models::algebraic::QUBO;
 use crate::models::set::MaximumSetPacking;
 use crate::rules::cost::MinimizeSteps;
 use crate::rules::graph::{classify_problem_category, ReductionStep};
@@ -82,7 +82,7 @@ fn test_variant_level_paths() {
     let src = ReductionGraph::variant_to_map(
         &crate::models::graph::MaxCut::<SimpleGraph, i32>::variant(),
     );
-    let dst = ReductionGraph::variant_to_map(&crate::models::optimization::SpinGlass::<
+    let dst = ReductionGraph::variant_to_map(&crate::models::graph::SpinGlass::<
         SimpleGraph,
         i32,
     >::variant());
@@ -94,7 +94,7 @@ fn test_variant_level_paths() {
     let src_f64 = ReductionGraph::variant_to_map(
         &crate::models::graph::MaxCut::<SimpleGraph, f64>::variant(),
     );
-    let dst_f64 = ReductionGraph::variant_to_map(&crate::models::optimization::SpinGlass::<
+    let dst_f64 = ReductionGraph::variant_to_map(&crate::models::graph::SpinGlass::<
         SimpleGraph,
         f64,
     >::variant());
@@ -110,7 +110,7 @@ fn test_find_shortest_path_variants() {
     let src = ReductionGraph::variant_to_map(
         &crate::models::graph::MaxCut::<SimpleGraph, i32>::variant(),
     );
-    let dst = ReductionGraph::variant_to_map(&crate::models::optimization::SpinGlass::<
+    let dst = ReductionGraph::variant_to_map(&crate::models::graph::SpinGlass::<
         SimpleGraph,
         i32,
     >::variant());
@@ -125,8 +125,8 @@ fn test_find_shortest_path_variants() {
     assert!(shortest.is_some());
     assert_eq!(shortest.unwrap().len(), 1); // Direct path
 
-    let src = ReductionGraph::variant_to_map(&crate::models::specialized::Factoring::variant());
-    let dst = ReductionGraph::variant_to_map(&crate::models::optimization::SpinGlass::<
+    let src = ReductionGraph::variant_to_map(&crate::models::misc::Factoring::variant());
+    let dst = ReductionGraph::variant_to_map(&crate::models::graph::SpinGlass::<
         SimpleGraph,
         i32,
     >::variant());
@@ -216,7 +216,7 @@ fn test_to_json() {
     assert!(json.nodes.len() >= 10);
     assert!(json.nodes.iter().any(|n| n.name == "MaximumIndependentSet"));
     assert!(json.nodes.iter().any(|n| n.category == "graph"));
-    assert!(json.nodes.iter().any(|n| n.category == "optimization"));
+    assert!(json.nodes.iter().any(|n| n.category == "algebraic"));
 
     // Check edges
     assert!(json.edges.len() >= 10);
@@ -268,18 +268,18 @@ fn test_category_from_module_path() {
         "set"
     );
     assert_eq!(
-        ReductionGraph::category_from_module_path("problemreductions::models::optimization::qubo"),
-        "optimization"
+        ReductionGraph::category_from_module_path("problemreductions::models::algebraic::qubo"),
+        "algebraic"
     );
     assert_eq!(
-        ReductionGraph::category_from_module_path("problemreductions::models::satisfiability::sat"),
-        "satisfiability"
+        ReductionGraph::category_from_module_path("problemreductions::models::formula::sat"),
+        "formula"
     );
     assert_eq!(
         ReductionGraph::category_from_module_path(
-            "problemreductions::models::specialized::factoring"
+            "problemreductions::models::misc::factoring"
         ),
-        "specialized"
+        "misc"
     );
     // Fallback for unexpected format
     assert_eq!(
@@ -299,10 +299,10 @@ fn test_doc_path_from_module_path() {
     );
     assert_eq!(
         ReductionGraph::doc_path_from_module_path(
-            "problemreductions::models::optimization::qubo",
+            "problemreductions::models::algebraic::qubo",
             "QUBO"
         ),
-        "models/optimization/struct.QUBO.html"
+        "models/algebraic/struct.QUBO.html"
     );
 }
 
@@ -310,7 +310,7 @@ fn test_doc_path_from_module_path() {
 fn test_sat_based_reductions() {
     use crate::models::graph::KColoring;
     use crate::models::graph::MinimumDominatingSet;
-    use crate::models::satisfiability::Satisfiability;
+    use crate::models::formula::Satisfiability;
     use crate::variant::K3;
 
     let graph = ReductionGraph::new();
@@ -327,8 +327,9 @@ fn test_sat_based_reductions() {
 
 #[test]
 fn test_circuit_reductions() {
-    use crate::models::optimization::SpinGlass;
-    use crate::models::specialized::{CircuitSAT, Factoring};
+    use crate::models::formula::CircuitSAT;
+    use crate::models::graph::SpinGlass;
+    use crate::models::misc::Factoring;
 
     let graph = ReductionGraph::new();
 
@@ -359,7 +360,8 @@ fn test_circuit_reductions() {
 #[test]
 fn test_optimization_reductions() {
     use crate::models::graph::MaxCut;
-    use crate::models::optimization::{SpinGlass, QUBO};
+    use crate::models::algebraic::QUBO;
+    use crate::models::graph::SpinGlass;
 
     let graph = ReductionGraph::new();
 
@@ -374,7 +376,7 @@ fn test_optimization_reductions() {
 
 #[test]
 fn test_ksat_reductions() {
-    use crate::models::satisfiability::{KSatisfiability, Satisfiability};
+    use crate::models::formula::{KSatisfiability, Satisfiability};
     use crate::variant::K3;
 
     let graph = ReductionGraph::new();
@@ -394,9 +396,9 @@ fn test_all_categories_present() {
 
     assert!(categories.contains("graph"));
     assert!(categories.contains("set"));
-    assert!(categories.contains("optimization"));
-    assert!(categories.contains("satisfiability"));
-    assert!(categories.contains("specialized"));
+    assert!(categories.contains("algebraic"));
+    assert!(categories.contains("formula"));
+    assert!(categories.contains("misc"));
 }
 
 #[test]
@@ -499,7 +501,7 @@ fn test_category_derived_from_schema() {
     let graph = ReductionGraph::new();
     let json = graph.to_json();
     let circuit = json.nodes.iter().find(|n| n.name == "CircuitSAT").unwrap();
-    assert_eq!(circuit.category, "specialized");
+    assert_eq!(circuit.category, "formula");
 }
 
 #[test]
@@ -779,16 +781,16 @@ fn test_classify_problem_category() {
         "graph"
     );
     assert_eq!(
-        classify_problem_category("problemreductions::models::satisfiability::satisfiability"),
-        "satisfiability"
+        classify_problem_category("problemreductions::models::formula::satisfiability"),
+        "formula"
     );
     assert_eq!(
         classify_problem_category("problemreductions::models::set::maximum_set_packing"),
         "set"
     );
     assert_eq!(
-        classify_problem_category("problemreductions::models::optimization::qubo"),
-        "optimization"
+        classify_problem_category("problemreductions::models::algebraic::qubo"),
+        "algebraic"
     );
     assert_eq!(classify_problem_category("unknown::path"), "other");
 }
@@ -889,7 +891,7 @@ fn test_reduction_chain_multi_step() {
 
 #[test]
 fn test_reduction_chain_with_variant_casts() {
-    use crate::models::satisfiability::{CNFClause, KSatisfiability};
+    use crate::models::formula::{CNFClause, KSatisfiability};
     use crate::rules::MinimizeSteps;
     use crate::solvers::{BruteForce, Solver};
     use crate::topology::UnitDiskGraph;

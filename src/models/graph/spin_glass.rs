@@ -42,7 +42,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::optimization::SpinGlass;
+/// use problemreductions::models::graph::SpinGlass;
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///

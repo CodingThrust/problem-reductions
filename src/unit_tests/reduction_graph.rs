@@ -1,6 +1,6 @@
 //! Tests for ReductionGraph: discovery, path finding, and typed API.
 
-use crate::models::satisfiability::KSatisfiability;
+use crate::models::formula::KSatisfiability;
 use crate::prelude::*;
 use crate::rules::{MinimizeSteps, ReductionGraph, TraversalDirection};
 use crate::topology::{SimpleGraph, TriangularSubgraph};
@@ -74,7 +74,7 @@ fn test_multi_step_path() {
     let graph = ReductionGraph::new();
 
     // Factoring -> CircuitSAT -> SpinGlass<SimpleGraph, i32> is a 2-step path
-    let src = ReductionGraph::variant_to_map(&crate::models::specialized::Factoring::variant());
+    let src = ReductionGraph::variant_to_map(&crate::models::misc::Factoring::variant());
     let dst = ReductionGraph::variant_to_map(&SpinGlass::<SimpleGraph, i32>::variant());
     let path = graph.find_cheapest_path(
         "Factoring",
@@ -279,7 +279,7 @@ fn test_reduction_path_display() {
 
 #[test]
 fn test_3sat_to_mis_triangular_overhead() {
-    use crate::models::satisfiability::CNFClause;
+    use crate::models::formula::CNFClause;
 
     let graph = ReductionGraph::new();
 

@@ -81,7 +81,7 @@ fn jl_parse_sets(val: &serde_json::Value) -> Vec<Vec<usize>> {
 #[allow(dead_code)]
 fn jl_parse_sat_clauses(
     instance: &serde_json::Value,
-) -> (usize, Vec<crate::models::satisfiability::CNFClause>) {
+) -> (usize, Vec<crate::models::formula::CNFClause>) {
     let num_vars = instance["num_variables"]
         .as_u64()
         .expect("num_variables should be a u64") as usize;
@@ -105,7 +105,7 @@ fn jl_parse_sat_clauses(
                     if negated { -var } else { var }
                 })
                 .collect();
-            crate::models::satisfiability::CNFClause::new(literals)
+            crate::models::formula::CNFClause::new(literals)
         })
         .collect();
     (num_vars, clauses)

@@ -262,7 +262,7 @@ fn test_solver_with_real_mis() {
 
 #[test]
 fn test_solver_with_real_sat() {
-    use crate::models::satisfiability::{CNFClause, Satisfiability};
+    use crate::models::formula::{CNFClause, Satisfiability};
     use crate::traits::Problem;
 
     // (x1 OR x2) AND (NOT x1 OR NOT x2)

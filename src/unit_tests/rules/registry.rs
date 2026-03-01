@@ -231,7 +231,7 @@ fn test_overhead_eval_fn_cross_check_mis_to_mvc() {
 
 #[test]
 fn test_overhead_eval_fn_cross_check_factoring_to_ilp() {
-    use crate::models::specialized::Factoring;
+    use crate::models::misc::Factoring;
 
     let problem = Factoring::new(3, 4, 42);
 
@@ -273,7 +273,7 @@ fn test_complexity_eval_fn_cross_check_mis() {
 
 #[test]
 fn test_complexity_eval_fn_cross_check_factoring() {
-    use crate::models::specialized::Factoring;
+    use crate::models::misc::Factoring;
     use crate::registry::VariantEntry;
 
     let problem = Factoring::new(8, 8, 100);

@@ -1,8 +1,8 @@
+use crate::models::algebraic::*;
+use crate::models::formula::*;
 use crate::models::graph::*;
-use crate::models::optimization::*;
-use crate::models::satisfiability::*;
+use crate::models::misc::*;
 use crate::models::set::*;
-use crate::models::specialized::*;
 use crate::topology::{BipartiteGraph, SimpleGraph};
 use crate::traits::Problem;
 use crate::variant::K3;

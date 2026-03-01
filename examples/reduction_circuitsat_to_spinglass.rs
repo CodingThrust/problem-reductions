@@ -17,7 +17,7 @@
 // Exports `docs/paper/examples/circuitsat_to_spinglass.json` and `circuitsat_to_spinglass.result.json`.
 
 use problemreductions::export::*;
-use problemreductions::models::specialized::{Assignment, BooleanExpr, Circuit};
+use problemreductions::models::formula::{Assignment, BooleanExpr, Circuit};
 use problemreductions::prelude::*;
 use problemreductions::topology::{Graph, SimpleGraph};
 

@@ -195,7 +195,7 @@ impl Circuit {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::specialized::{CircuitSAT, BooleanExpr, Assignment, Circuit};
+/// use problemreductions::models::formula::{CircuitSAT, BooleanExpr, Assignment, Circuit};
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Create a simple circuit: c = x AND y

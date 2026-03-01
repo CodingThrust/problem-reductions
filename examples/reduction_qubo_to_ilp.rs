@@ -26,7 +26,7 @@
 // ```
 
 use problemreductions::export::*;
-use problemreductions::models::optimization::ILP;
+use problemreductions::models::algebraic::ILP;
 use problemreductions::prelude::*;
 
 pub fn run() {

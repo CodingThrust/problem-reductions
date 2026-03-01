@@ -37,7 +37,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::satisfiability::{KSatisfiability, CNFClause};
+/// use problemreductions::models::formula::{KSatisfiability, CNFClause};
 /// use problemreductions::variant::K3;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///

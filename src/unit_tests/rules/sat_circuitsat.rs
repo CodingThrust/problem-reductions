@@ -1,6 +1,5 @@
 use super::*;
-use crate::models::satisfiability::{CNFClause, Satisfiability};
-use crate::models::specialized::CircuitSAT;
+use crate::models::formula::{CNFClause, CircuitSAT, Satisfiability};
 use crate::rules::ReduceTo;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;

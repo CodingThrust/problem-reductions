@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::specialized::{Assignment, BooleanExpr, Circuit, CircuitSAT};
+use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
 use crate::solvers::BruteForce;
 use std::collections::HashSet;
 

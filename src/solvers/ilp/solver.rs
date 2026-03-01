@@ -1,6 +1,6 @@
 //! ILP solver implementation using HiGHS.
 
-use crate::models::optimization::{Comparison, ObjectiveSense, ILP};
+use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
 use crate::rules::{ReduceTo, ReductionResult};
 use good_lp::{default_solver, variable, ProblemVariables, Solution, SolverModel, Variable};
 
@@ -11,7 +11,7 @@ use good_lp::{default_solver, variable, ProblemVariables, Solution, SolverModel,
 /// # Example
 ///
 /// ```rust,ignore
-/// use problemreductions::models::optimization::{ILP, VarBounds, LinearConstraint, ObjectiveSense};
+/// use problemreductions::models::algebraic::{ILP, VarBounds, LinearConstraint, ObjectiveSense};
 /// use problemreductions::solvers::ILPSolver;
 ///
 /// // Create a simple ILP: maximize x0 + 2*x1 subject to x0 + x1 <= 1

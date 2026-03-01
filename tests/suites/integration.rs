@@ -3,11 +3,11 @@
 //! These tests verify that all problem types work correctly with the
 //! BruteForce solver and that related problems have consistent solutions.
 
+use problemreductions::models::algebraic::*;
+use problemreductions::models::formula::*;
 use problemreductions::models::graph::*;
-use problemreductions::models::optimization::*;
-use problemreductions::models::satisfiability::*;
+use problemreductions::models::misc::*;
 use problemreductions::models::set::*;
-use problemreductions::models::specialized::*;
 use problemreductions::prelude::*;
 use problemreductions::topology::{BipartiteGraph, SimpleGraph};
 use problemreductions::variant::K3;

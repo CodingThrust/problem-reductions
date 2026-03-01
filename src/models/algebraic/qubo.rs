@@ -33,7 +33,7 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::optimization::QUBO;
+/// use problemreductions::models::algebraic::QUBO;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Q matrix: minimize x0 - 2*x1 + x0*x1

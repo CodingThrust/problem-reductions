@@ -83,10 +83,11 @@ fn test_variant_for_problems() {
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumDominatingSet, MinimumVertexCover,
     };
-    use crate::models::optimization::{SpinGlass, QUBO};
-    use crate::models::satisfiability::{KSatisfiability, Satisfiability};
+    use crate::models::algebraic::{BMF, QUBO};
+    use crate::models::formula::{CircuitSAT, KSatisfiability, Satisfiability};
+    use crate::models::graph::{BicliqueCover, SpinGlass};
+    use crate::models::misc::{Factoring, PaintShop};
     use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
-    use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
     use crate::topology::SimpleGraph;
     use crate::traits::Problem;
 

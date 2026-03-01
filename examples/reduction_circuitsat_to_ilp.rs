@@ -23,8 +23,8 @@
 // ```
 
 use problemreductions::export::*;
-use problemreductions::models::optimization::ILP;
-use problemreductions::models::specialized::{Assignment, BooleanExpr, Circuit};
+use problemreductions::models::algebraic::ILP;
+use problemreductions::models::formula::{Assignment, BooleanExpr, Circuit};
 use problemreductions::prelude::*;
 
 pub fn run() {

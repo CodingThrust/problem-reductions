@@ -3,7 +3,7 @@
 //! Given a lattice basis B and target vector t, find integer coefficients x
 //! minimizing ‖Bx - t‖₂.
 
-use crate::models::optimization::VarBounds;
+use crate::models::algebraic::VarBounds;
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};

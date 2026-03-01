@@ -1,5 +1,5 @@
 use super::*;
-use crate::models::specialized::Circuit;
+use crate::models::formula::Circuit;
 use crate::solvers::BruteForce;
 use crate::types::{NumericSize, WeightElement};
 use num_traits::Num;
@@ -276,7 +276,7 @@ fn test_solution_extraction() {
 
 #[test]
 fn test_jl_parity_circuitsat_to_spinglass() {
-    use crate::models::specialized::{Assignment, BooleanExpr, Circuit};
+    use crate::models::formula::{Assignment, BooleanExpr, Circuit};
     let a = BooleanExpr::var("a");
     let b = BooleanExpr::var("b");
     let c = BooleanExpr::var("c");

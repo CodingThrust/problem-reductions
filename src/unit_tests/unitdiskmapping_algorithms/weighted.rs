@@ -657,7 +657,7 @@ fn test_square_danglinleg_weights() {
 #[test]
 fn test_weighted_map_config_back_standard_graphs() {
     use super::common::{is_independent_set, solve_mis};
-    use crate::models::optimization::{LinearConstraint, ObjectiveSense, ILP};
+    use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
     use crate::solvers::ILPSolver;
     use crate::topology::smallgraph;
 

@@ -16,7 +16,7 @@
 // Exports `docs/paper/examples/kcoloring_to_ilp.json` and `kcoloring_to_ilp.result.json`.
 
 use problemreductions::export::*;
-use problemreductions::models::optimization::ILP;
+use problemreductions::models::algebraic::ILP;
 use problemreductions::prelude::*;
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::small_graphs::petersen;
