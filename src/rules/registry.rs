@@ -102,6 +102,10 @@ pub struct ReductionEntry {
     /// Takes a `&dyn Any` (must be `&SourceType`), calls `ReduceTo::reduce_to()`,
     /// and returns the result as a boxed `DynReductionResult`.
     pub reduce_fn: fn(&dyn Any) -> Box<dyn DynReductionResult>,
+    /// Compiled overhead evaluation function.
+    /// Takes a `&dyn Any` (must be `&SourceType`), calls getter methods directly,
+    /// and returns the computed target problem size.
+    pub overhead_eval_fn: fn(&dyn Any) -> ProblemSize,
 }
 
 impl ReductionEntry {

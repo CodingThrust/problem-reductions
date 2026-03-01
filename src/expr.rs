@@ -103,6 +103,18 @@ impl Expr {
         }
     }
 
+    /// Parse an expression string into an `Expr` at runtime.
+    ///
+    /// Variable names are leaked to `&'static str` since `Expr::Var` requires static
+    /// lifetimes. Intended for testing and runtime evaluation, not hot paths.
+    ///
+    /// # Panics
+    /// Panics if the expression string has invalid syntax.
+    pub fn parse(input: &str) -> Expr {
+        parse_to_expr(input)
+            .unwrap_or_else(|e| panic!("failed to parse expression \"{input}\": {e}"))
+    }
+
     /// Check if this expression is a polynomial (no exp/log/sqrt, integer exponents only).
     pub fn is_polynomial(&self) -> bool {
         match self {
@@ -163,6 +175,211 @@ impl std::ops::Add for Expr {
 
     fn add(self, other: Self) -> Self {
         Expr::Add(Box::new(self), Box::new(other))
+    }
+}
+
+// --- Runtime expression parser ---
+
+/// Parse an expression string into an `Expr`.
+///
+/// Uses the same grammar as the proc macro parser. Variable names are leaked
+/// to `&'static str` for compatibility with `Expr::Var`.
+fn parse_to_expr(input: &str) -> Result<Expr, String> {
+    let tokens = tokenize_expr(input)?;
+    let mut parser = ExprParser::new(tokens);
+    let expr = parser.parse_additive()?;
+    if parser.pos != parser.tokens.len() {
+        return Err(format!("trailing tokens at position {}", parser.pos));
+    }
+    Ok(expr)
+}
+
+#[derive(Debug, Clone, PartialEq)]
+enum ExprToken {
+    Number(f64),
+    Ident(String),
+    Plus,
+    Minus,
+    Star,
+    Slash,
+    Caret,
+    LParen,
+    RParen,
+}
+
+fn tokenize_expr(input: &str) -> Result<Vec<ExprToken>, String> {
+    let mut tokens = Vec::new();
+    let mut chars = input.chars().peekable();
+    while let Some(&ch) = chars.peek() {
+        match ch {
+            ' ' | '\t' | '\n' => {
+                chars.next();
+            }
+            '+' => {
+                chars.next();
+                tokens.push(ExprToken::Plus);
+            }
+            '-' => {
+                chars.next();
+                tokens.push(ExprToken::Minus);
+            }
+            '*' => {
+                chars.next();
+                tokens.push(ExprToken::Star);
+            }
+            '/' => {
+                chars.next();
+                tokens.push(ExprToken::Slash);
+            }
+            '^' => {
+                chars.next();
+                tokens.push(ExprToken::Caret);
+            }
+            '(' => {
+                chars.next();
+                tokens.push(ExprToken::LParen);
+            }
+            ')' => {
+                chars.next();
+                tokens.push(ExprToken::RParen);
+            }
+            c if c.is_ascii_digit() || c == '.' => {
+                let mut num = String::new();
+                while let Some(&c) = chars.peek() {
+                    if c.is_ascii_digit() || c == '.' {
+                        num.push(c);
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+                tokens.push(ExprToken::Number(
+                    num.parse().map_err(|_| format!("invalid number: {num}"))?,
+                ));
+            }
+            c if c.is_ascii_alphabetic() || c == '_' => {
+                let mut ident = String::new();
+                while let Some(&c) = chars.peek() {
+                    if c.is_ascii_alphanumeric() || c == '_' {
+                        ident.push(c);
+                        chars.next();
+                    } else {
+                        break;
+                    }
+                }
+                tokens.push(ExprToken::Ident(ident));
+            }
+            _ => return Err(format!("unexpected character: '{ch}'")),
+        }
+    }
+    Ok(tokens)
+}
+
+struct ExprParser {
+    tokens: Vec<ExprToken>,
+    pos: usize,
+}
+
+impl ExprParser {
+    fn new(tokens: Vec<ExprToken>) -> Self {
+        Self { tokens, pos: 0 }
+    }
+
+    fn peek(&self) -> Option<&ExprToken> {
+        self.tokens.get(self.pos)
+    }
+
+    fn advance(&mut self) -> Option<ExprToken> {
+        let tok = self.tokens.get(self.pos).cloned();
+        self.pos += 1;
+        tok
+    }
+
+    fn expect(&mut self, expected: &ExprToken) -> Result<(), String> {
+        match self.advance() {
+            Some(ref tok) if tok == expected => Ok(()),
+            Some(tok) => Err(format!("expected {expected:?}, got {tok:?}")),
+            None => Err(format!("expected {expected:?}, got end of input")),
+        }
+    }
+
+    fn parse_additive(&mut self) -> Result<Expr, String> {
+        let mut left = self.parse_multiplicative()?;
+        while matches!(self.peek(), Some(ExprToken::Plus) | Some(ExprToken::Minus)) {
+            let op = self.advance().unwrap();
+            let right = self.parse_multiplicative()?;
+            left = match op {
+                ExprToken::Plus => Expr::add(left, right),
+                ExprToken::Minus => Expr::add(left, Expr::mul(Expr::Const(-1.0), right)),
+                _ => unreachable!(),
+            };
+        }
+        Ok(left)
+    }
+
+    fn parse_multiplicative(&mut self) -> Result<Expr, String> {
+        let mut left = self.parse_power()?;
+        while matches!(self.peek(), Some(ExprToken::Star) | Some(ExprToken::Slash)) {
+            let op = self.advance().unwrap();
+            let right = self.parse_power()?;
+            left = match op {
+                ExprToken::Star => Expr::mul(left, right),
+                ExprToken::Slash => Expr::mul(left, Expr::pow(right, Expr::Const(-1.0))),
+                _ => unreachable!(),
+            };
+        }
+        Ok(left)
+    }
+
+    fn parse_power(&mut self) -> Result<Expr, String> {
+        let base = self.parse_unary()?;
+        if matches!(self.peek(), Some(ExprToken::Caret)) {
+            self.advance();
+            let exp = self.parse_power()?; // right-associative
+            Ok(Expr::pow(base, exp))
+        } else {
+            Ok(base)
+        }
+    }
+
+    fn parse_unary(&mut self) -> Result<Expr, String> {
+        if matches!(self.peek(), Some(ExprToken::Minus)) {
+            self.advance();
+            let expr = self.parse_unary()?;
+            Ok(Expr::mul(Expr::Const(-1.0), expr))
+        } else {
+            self.parse_primary()
+        }
+    }
+
+    fn parse_primary(&mut self) -> Result<Expr, String> {
+        match self.advance() {
+            Some(ExprToken::Number(n)) => Ok(Expr::Const(n)),
+            Some(ExprToken::Ident(name)) => {
+                if matches!(self.peek(), Some(ExprToken::LParen)) {
+                    self.advance();
+                    let arg = self.parse_additive()?;
+                    self.expect(&ExprToken::RParen)?;
+                    match name.as_str() {
+                        "exp" => Ok(Expr::Exp(Box::new(arg))),
+                        "log" => Ok(Expr::Log(Box::new(arg))),
+                        "sqrt" => Ok(Expr::Sqrt(Box::new(arg))),
+                        _ => Err(format!("unknown function: {name}")),
+                    }
+                } else {
+                    // Leak the string to get &'static str for Expr::Var
+                    let leaked: &'static str = Box::leak(name.into_boxed_str());
+                    Ok(Expr::Var(leaked))
+                }
+            }
+            Some(ExprToken::LParen) => {
+                let expr = self.parse_additive()?;
+                self.expect(&ExprToken::RParen)?;
+                Ok(expr)
+            }
+            Some(tok) => Err(format!("unexpected token: {tok:?}")),
+            None => Err("unexpected end of input".to_string()),
+        }
     }
 }
 

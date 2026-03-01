@@ -73,7 +73,7 @@ impl ReductionResult for ReductionXToY {
 }
 ```
 
-**ReduceTo with `#[reduction]` macro:**
+**ReduceTo with `#[reduction]` macro** (overhead is **required**):
 ```rust
 #[reduction(overhead = {
     field_name = "source_field",

@@ -64,8 +64,8 @@ pub use types::{
     Direction, NumericSize, One, ProblemSize, SolutionSize, Unweighted, WeightElement,
 };
 
-// Re-export proc macro for reduction registration
-pub use problemreductions_macros::reduction;
+// Re-export proc macros for reduction registration and variant declaration
+pub use problemreductions_macros::{declare_variants, reduction};
 
 // Re-export inventory so `declare_variants!` can use `$crate::inventory::submit!`
 pub use inventory;

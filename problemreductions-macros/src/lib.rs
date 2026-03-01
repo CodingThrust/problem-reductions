@@ -1,7 +1,9 @@
 //! Procedural macros for problemreductions.
 //!
 //! This crate provides the `#[reduction]` attribute macro that automatically
-//! generates `ReductionEntry` registrations from `ReduceTo` impl blocks.
+//! generates `ReductionEntry` registrations from `ReduceTo` impl blocks,
+//! and the `declare_variants!` proc macro for compile-time validated variant
+//! registration.
 
 pub(crate) mod parser;
 
@@ -218,6 +220,38 @@ fn generate_parsed_overhead(fields: &[(String, String)]) -> syn::Result<TokenStr
     })
 }
 
+/// Generate a compiled overhead evaluation function from parsed overhead fields.
+///
+/// Produces a closure that downcasts `&dyn Any` to `&SourceType`, calls getter methods
+/// for each variable in the expressions, and returns a `ProblemSize`.
+fn generate_overhead_eval_fn(
+    fields: &[(String, String)],
+    source_type: &Type,
+) -> syn::Result<TokenStream2> {
+    let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
+
+    let mut field_eval_tokens = Vec::new();
+    for (field_name, expr_str) in fields {
+        let parsed = parser::parse_expr(expr_str).map_err(|e| {
+            syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!("error parsing overhead expression \"{expr_str}\": {e}"),
+            )
+        })?;
+
+        let eval_tokens = parsed.to_eval_tokens(&src_ident);
+        let name_lit = field_name.as_str();
+        field_eval_tokens.push(quote! { (#name_lit, (#eval_tokens).round() as usize) });
+    }
+
+    Ok(quote! {
+        |__any_src: &dyn std::any::Any| -> crate::types::ProblemSize {
+            let #src_ident = __any_src.downcast_ref::<#source_type>().unwrap();
+            crate::types::ProblemSize::new(vec![#(#field_eval_tokens),*])
+        }
+    })
+}
+
 /// Generate the reduction entry code
 fn generate_reduction_entry(
     attrs: &ReductionAttrs,
@@ -249,14 +283,26 @@ fn generate_reduction_entry(
     let source_variant_body = make_variant_fn_body(source_type, &type_generics)?;
     let target_variant_body = make_variant_fn_body(&target_type, &type_generics)?;
 
-    // Generate overhead or use default
-    let overhead = match &attrs.overhead {
-        Some(OverheadSpec::Legacy(tokens)) => tokens.clone(),
-        Some(OverheadSpec::Parsed(fields)) => generate_parsed_overhead(fields)?,
+    // Generate overhead and eval fn
+    let (overhead, overhead_eval_fn) = match &attrs.overhead {
+        Some(OverheadSpec::Legacy(tokens)) => {
+            let eval_fn = quote! {
+                |_: &dyn std::any::Any| -> crate::types::ProblemSize {
+                    panic!("overhead_eval_fn not available for legacy overhead syntax; \
+                            migrate to parsed syntax: field = \"expression\"")
+                }
+            };
+            (tokens.clone(), eval_fn)
+        }
+        Some(OverheadSpec::Parsed(fields)) => {
+            let overhead_tokens = generate_parsed_overhead(fields)?;
+            let eval_fn = generate_overhead_eval_fn(fields, source_type)?;
+            (overhead_tokens, eval_fn)
+        }
         None => {
             return Err(syn::Error::new(
                 proc_macro2::Span::call_site(),
-                "#[reduction] requires overhead = { ... }. Specify overhead expressions for all target problem size fields.",
+                "Missing overhead specification. Use #[reduction(overhead = { ... })] and specify overhead expressions for all target problem size fields.",
             ));
         }
     };
@@ -283,6 +329,7 @@ fn generate_reduction_entry(
                     });
                     Box::new(<#source_type as crate::rules::ReduceTo<#target_type>>::reduce_to(src))
                 },
+                overhead_eval_fn: #overhead_eval_fn,
             }
         }
 
@@ -319,4 +366,144 @@ fn extract_target_from_trait(path: &Path) -> syn::Result<Type> {
         segment,
         "Expected ReduceTo<Target> with type parameter",
     ))
+}
+
+// --- declare_variants! proc macro ---
+
+/// Input for the `declare_variants!` proc macro.
+struct DeclareVariantsInput {
+    entries: Vec<DeclareVariantEntry>,
+}
+
+/// A single entry: `Type => "complexity_string"`.
+struct DeclareVariantEntry {
+    ty: Type,
+    complexity: syn::LitStr,
+}
+
+impl syn::parse::Parse for DeclareVariantsInput {
+    fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
+        let mut entries = Vec::new();
+        while !input.is_empty() {
+            let ty: Type = input.parse()?;
+            input.parse::<syn::Token![=>]>()?;
+            let complexity: syn::LitStr = input.parse()?;
+            entries.push(DeclareVariantEntry { ty, complexity });
+
+            if input.peek(syn::Token![,]) {
+                input.parse::<syn::Token![,]>()?;
+            }
+        }
+        Ok(DeclareVariantsInput { entries })
+    }
+}
+
+/// Declare explicit problem variants with per-variant complexity metadata.
+///
+/// Each entry generates:
+/// 1. A `DeclaredVariant` trait impl for compile-time checking
+/// 2. A `VariantEntry` inventory submission for runtime graph building
+/// 3. A compiled `complexity_eval_fn` that calls getter methods
+/// 4. A const validation block verifying all variable names are valid getters
+///
+/// Complexity strings must use only numeric literals and getter method names.
+/// Mathematical constants (epsilon, omega, etc.) should be inlined as numbers
+/// and documented in comments or docstrings.
+///
+/// # Example
+///
+/// ```ignore
+/// declare_variants! {
+///     MaximumIndependentSet<SimpleGraph, i32>   => "1.1996^num_vertices",
+///     MaximumIndependentSet<KingsSubgraph, i32> => "2^sqrt(num_vertices)",
+/// }
+/// ```
+#[proc_macro]
+pub fn declare_variants(input: TokenStream) -> TokenStream {
+    let input = parse_macro_input!(input as DeclareVariantsInput);
+    match generate_declare_variants(&input) {
+        Ok(tokens) => tokens.into(),
+        Err(e) => e.to_compile_error().into(),
+    }
+}
+
+/// Generate code for all `declare_variants!` entries.
+fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenStream2> {
+    let mut output = TokenStream2::new();
+
+    for entry in &input.entries {
+        let ty = &entry.ty;
+        let complexity_str = entry.complexity.value();
+
+        // Parse the complexity expression to validate syntax
+        let parsed = parser::parse_expr(&complexity_str).map_err(|e| {
+            syn::Error::new(
+                entry.complexity.span(),
+                format!("invalid complexity expression \"{complexity_str}\": {e}"),
+            )
+        })?;
+
+        // Generate getter validation for all variables
+        let vars = parsed.variables();
+        let validation = if vars.is_empty() {
+            quote! {}
+        } else {
+            let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
+            let getter_checks: Vec<_> = vars
+                .iter()
+                .map(|var| {
+                    let getter = syn::Ident::new(var, proc_macro2::Span::call_site());
+                    quote! { let _ = #src_ident.#getter(); }
+                })
+                .collect();
+
+            quote! {
+                const _: () = {
+                    #[allow(unused)]
+                    fn _validate_complexity(#src_ident: &#ty) {
+                        #(#getter_checks)*
+                    }
+                };
+            }
+        };
+
+        // Generate compiled complexity eval fn
+        let complexity_eval_fn = generate_complexity_eval_fn(&parsed, ty)?;
+
+        output.extend(quote! {
+            impl crate::traits::DeclaredVariant for #ty {}
+
+            crate::inventory::submit! {
+                crate::registry::VariantEntry {
+                    name: <#ty as crate::traits::Problem>::NAME,
+                    variant_fn: || <#ty as crate::traits::Problem>::variant(),
+                    complexity: #complexity_str,
+                    complexity_eval_fn: #complexity_eval_fn,
+                }
+            }
+
+            #validation
+        });
+    }
+
+    Ok(output)
+}
+
+/// Generate a compiled complexity evaluation function.
+///
+/// Produces a closure that downcasts `&dyn Any` to the problem type, calls getter
+/// methods for all variables, and returns the worst-case time complexity as f64.
+fn generate_complexity_eval_fn(
+    parsed: &parser::ParsedExpr,
+    ty: &Type,
+) -> syn::Result<TokenStream2> {
+    let src_ident = syn::Ident::new("__src", proc_macro2::Span::call_site());
+    let eval_tokens = parsed.to_eval_tokens(&src_ident);
+
+    Ok(quote! {
+        |__any_src: &dyn std::any::Any| -> f64 {
+            let #src_ident = __any_src.downcast_ref::<#ty>().unwrap();
+            #eval_tokens
+        }
+    })
 }

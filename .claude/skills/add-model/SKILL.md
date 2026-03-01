@@ -97,9 +97,11 @@ crate::declare_variants! {
 }
 ```
 
-- The complexity string references the getter method names from Step 1.5 (e.g., `num_vertices`)
+- The complexity string references the getter method names from Step 1.5 (e.g., `num_vertices`) — variable names are validated at compile time against actual getters, so typos cause compile errors
 - One entry per supported `(graph, weight)` combination
-- The string is parsed as an `Expr` AST — supports `+`, `*`, `^`, `exp()`, `log()`, `sqrt()`
+- The string is parsed as an `Expr` AST — supports `+`, `-`, `*`, `/`, `^`, `exp()`, `log()`, `sqrt()`
+- Use only concrete numeric values (e.g., `"1.1996^num_vertices"`, not `"(2-epsilon)^num_vertices"`)
+- A compiled `complexity_eval_fn` is auto-generated alongside the symbolic expression
 - See `src/models/graph/maximum_independent_set.rs` for the reference pattern
 
 ## Step 3: Register the model

@@ -215,7 +215,7 @@ where
 }
 
 crate::declare_variants! {
-    MaxCut<SimpleGraph, i32> => "2^(omega * num_vertices / 3)",
+    MaxCut<SimpleGraph, i32> => "2^(2.372 * num_vertices / 3)",
 }
 
 #[cfg(test)]

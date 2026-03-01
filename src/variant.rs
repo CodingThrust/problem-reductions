@@ -146,37 +146,6 @@ impl_variant_param!(K3, "k", parent: KN, cast: |_| KN, k: Some(3));
 impl_variant_param!(K2, "k", parent: KN, cast: |_| KN, k: Some(2));
 impl_variant_param!(K1, "k", parent: KN, cast: |_| KN, k: Some(1));
 
-/// Declare explicit problem variants with per-variant complexity metadata.
-///
-/// Each entry generates:
-/// 1. A `DeclaredVariant` trait impl for compile-time checking
-/// 2. A `VariantEntry` inventory submission for runtime graph building
-///
-/// # Example
-///
-/// ```text
-/// declare_variants! {
-///     MaximumIndependentSet<SimpleGraph, i32>   => "2^num_vertices",
-///     MaximumIndependentSet<KingsSubgraph, i32> => "2^num_vertices",
-/// }
-/// ```
-#[macro_export]
-macro_rules! declare_variants {
-    ($($ty:ty => $complexity:expr),+ $(,)?) => {
-        $(
-            impl $crate::traits::DeclaredVariant for $ty {}
-
-            $crate::inventory::submit! {
-                $crate::registry::VariantEntry {
-                    name: <$ty as $crate::traits::Problem>::NAME,
-                    variant_fn: || <$ty as $crate::traits::Problem>::variant(),
-                    complexity: $complexity,
-                }
-            }
-        )+
-    };
-}
-
 #[cfg(test)]
 #[path = "unit_tests/variant.rs"]
 mod tests;

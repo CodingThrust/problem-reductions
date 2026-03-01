@@ -1,5 +1,7 @@
 //! Explicit variant registration via inventory.
 
+use std::any::Any;
+
 /// A registered problem variant entry.
 ///
 /// Submitted by [`declare_variants!`] for each concrete problem type.
@@ -11,6 +13,10 @@ pub struct VariantEntry {
     pub variant_fn: fn() -> Vec<(&'static str, &'static str)>,
     /// Worst-case time complexity expression (e.g., `"2^num_vertices"`).
     pub complexity: &'static str,
+    /// Compiled complexity evaluation function.
+    /// Takes a `&dyn Any` (must be `&ProblemType`), calls getter methods directly,
+    /// and returns the estimated worst-case time as f64.
+    pub complexity_eval_fn: fn(&dyn Any) -> f64,
 }
 
 impl VariantEntry {

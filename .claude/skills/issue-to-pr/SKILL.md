@@ -88,7 +88,7 @@ Create a pull request with only the plan file.
 ```bash
 # Create branch (from main)
 git checkout main
-git checkout -b issue-<number>-<slug>
+git rev-parse --verify issue-<number>-<slug> 2>/dev/null && git checkout issue-<number>-<slug> || git checkout -b issue-<number>-<slug>
 
 # Stage the plan file
 git add docs/plans/<plan-file>.md

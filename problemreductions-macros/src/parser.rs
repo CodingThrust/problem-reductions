@@ -236,7 +236,6 @@ pub fn parse_expr(input: &str) -> Result<ParsedExpr, String> {
     Ok(expr)
 }
 
-#[allow(dead_code)]
 impl ParsedExpr {
     /// Generate TokenStream that constructs an `Expr` value.
     pub fn to_expr_tokens(&self) -> TokenStream {

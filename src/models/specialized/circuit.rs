@@ -243,6 +243,11 @@ impl CircuitSAT {
         self.variables.len()
     }
 
+    /// Get the number of assignments (constraints) in the circuit.
+    pub fn num_assignments(&self) -> usize {
+        self.circuit.num_assignments()
+    }
+
     /// Check if a configuration is a valid satisfying assignment.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
         self.count_satisfied(config) == self.circuit.num_assignments()
@@ -300,7 +305,7 @@ impl Problem for CircuitSAT {
 impl SatisfactionProblem for CircuitSAT {}
 
 crate::declare_variants! {
-    CircuitSAT => "2^num_inputs",
+    CircuitSAT => "2^num_variables",
 }
 
 #[cfg(test)]

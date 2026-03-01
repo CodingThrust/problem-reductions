@@ -251,8 +251,8 @@ where
 }
 
 crate::declare_variants! {
-    SpinGlass<SimpleGraph, i32> => "2^num_vertices",
-    SpinGlass<SimpleGraph, f64> => "2^num_vertices",
+    SpinGlass<SimpleGraph, i32> => "2^num_spins",
+    SpinGlass<SimpleGraph, f64> => "2^num_spins",
 }
 
 #[cfg(test)]

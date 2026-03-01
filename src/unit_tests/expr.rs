@@ -246,3 +246,357 @@ fn test_expr_variables_exp_log_sqrt() {
     let e = Expr::Sqrt(Box::new(Expr::Var("c")));
     assert_eq!(e.variables(), HashSet::from(["c"]));
 }
+
+// --- Runtime parser tests (Expr::parse / parse_to_expr) ---
+
+/// Helper: parse and evaluate with given variable bindings.
+fn parse_eval(input: &str, vars: &[(&str, usize)]) -> f64 {
+    let expr = Expr::parse(input);
+    let size = ProblemSize::new(vars.to_vec());
+    expr.eval(&size)
+}
+
+/// Like parse_eval but accepts f64 variable values for testing transcendental functions.
+fn parse_eval_f64(input: &str, vars: &[(&str, f64)]) -> f64 {
+    let expr = Expr::parse(input);
+    // Build a ProblemSize-compatible evaluation by using substitute + eval
+    // Since ProblemSize only stores usize, we substitute variables with Const nodes.
+    let mut mapping = std::collections::HashMap::new();
+    let exprs: Vec<Expr> = vars.iter().map(|(_, v)| Expr::Const(*v)).collect();
+    for ((name, _), expr) in vars.iter().zip(exprs.iter()) {
+        mapping.insert(*name, expr);
+    }
+    expr.substitute(&mapping).eval(&ProblemSize::new(vec![]))
+}
+
+// -- Tokenizer coverage --
+
+#[test]
+fn test_parse_number_integer() {
+    assert_eq!(parse_eval("42", &[]), 42.0);
+}
+
+#[test]
+fn test_parse_number_decimal() {
+    assert!((parse_eval("1.1996", &[]) - 1.1996).abs() < 1e-10);
+}
+
+#[test]
+fn test_parse_variable() {
+    assert_eq!(parse_eval("n", &[("n", 7)]), 7.0);
+}
+
+#[test]
+fn test_parse_variable_with_underscore() {
+    assert_eq!(parse_eval("num_vertices", &[("num_vertices", 10)]), 10.0);
+}
+
+#[test]
+fn test_parse_whitespace_handling() {
+    // Tabs, spaces, newlines should all be skipped
+    assert_eq!(parse_eval("  n\t+\n m ", &[("n", 3), ("m", 4)]), 7.0);
+}
+
+#[test]
+fn test_parse_tokenize_invalid_char() {
+    assert!(parse_to_expr("n @ m").is_err());
+}
+
+#[test]
+fn test_parse_tokenize_invalid_number() {
+    assert!(parse_to_expr("1.2.3").is_err());
+}
+
+// -- Additive: +, - --
+
+#[test]
+fn test_parse_addition() {
+    assert_eq!(parse_eval("n + 3", &[("n", 7)]), 10.0);
+}
+
+#[test]
+fn test_parse_subtraction() {
+    assert_eq!(parse_eval("n - 3", &[("n", 10)]), 7.0);
+}
+
+#[test]
+fn test_parse_chained_addition() {
+    assert_eq!(
+        parse_eval("a + b + c", &[("a", 1), ("b", 2), ("c", 3)]),
+        6.0
+    );
+}
+
+#[test]
+fn test_parse_mixed_add_sub() {
+    assert_eq!(
+        parse_eval("a + b - c", &[("a", 10), ("b", 3), ("c", 5)]),
+        8.0
+    );
+}
+
+// -- Multiplicative: *, / --
+
+#[test]
+fn test_parse_multiplication() {
+    assert_eq!(parse_eval("3 * n", &[("n", 5)]), 15.0);
+}
+
+#[test]
+fn test_parse_division() {
+    assert_eq!(parse_eval("n / 2", &[("n", 10)]), 5.0);
+}
+
+#[test]
+fn test_parse_chained_multiplication() {
+    assert_eq!(
+        parse_eval("a * b * c", &[("a", 2), ("b", 3), ("c", 4)]),
+        24.0
+    );
+}
+
+#[test]
+fn test_parse_mixed_mul_div() {
+    assert_eq!(parse_eval("12 / 3 * 2", &[]), 8.0);
+}
+
+// -- Power: ^ (right-associative) --
+
+#[test]
+fn test_parse_power() {
+    assert_eq!(parse_eval("n^2", &[("n", 4)]), 16.0);
+}
+
+#[test]
+fn test_parse_power_right_associative() {
+    // 2^3^2 = 2^(3^2) = 2^9 = 512, NOT (2^3)^2 = 64
+    assert_eq!(parse_eval("2^3^2", &[]), 512.0);
+}
+
+#[test]
+fn test_parse_fractional_exponent() {
+    // 8^(1/3) = 2.0
+    assert!((parse_eval("8^(1/3)", &[]) - 2.0).abs() < 1e-10);
+}
+
+// -- Unary minus --
+
+#[test]
+fn test_parse_unary_minus() {
+    assert_eq!(parse_eval("-5", &[]), -5.0);
+}
+
+#[test]
+fn test_parse_unary_minus_variable() {
+    assert_eq!(parse_eval("-n", &[("n", 3)]), -3.0);
+}
+
+#[test]
+fn test_parse_double_unary_minus() {
+    // --n = -(-n) = n
+    assert_eq!(parse_eval("--n", &[("n", 7)]), 7.0);
+}
+
+// -- Functions: exp, log, sqrt --
+
+#[test]
+fn test_parse_exp() {
+    assert!((parse_eval("exp(1)", &[]) - std::f64::consts::E).abs() < 1e-10);
+}
+
+#[test]
+fn test_parse_log() {
+    assert_eq!(parse_eval("log(1)", &[]), 0.0);
+    // log(e) = ln(e) = 1
+    assert!((parse_eval_f64("log(x)", &[("x", std::f64::consts::E)]) - 1.0).abs() < 1e-10);
+}
+
+#[test]
+fn test_parse_sqrt() {
+    assert_eq!(parse_eval("sqrt(9)", &[]), 3.0);
+}
+
+#[test]
+fn test_parse_unknown_function() {
+    assert!(parse_to_expr("foo(3)").is_err());
+    let err = parse_to_expr("foo(3)").unwrap_err();
+    assert!(err.contains("unknown function"), "got: {err}");
+}
+
+#[test]
+fn test_parse_nested_functions() {
+    // exp(log(n)) = n
+    assert!((parse_eval("exp(log(7))", &[]) - 7.0).abs() < 1e-10);
+}
+
+#[test]
+fn test_parse_function_with_complex_arg() {
+    // sqrt(n^2 + m^2) for 3-4-5 triangle
+    assert_eq!(parse_eval("sqrt(n^2 + m^2)", &[("n", 3), ("m", 4)]), 5.0);
+}
+
+// -- Parentheses --
+
+#[test]
+fn test_parse_parenthesized_expression() {
+    // (n + m) * 2
+    assert_eq!(parse_eval("(n + m) * 2", &[("n", 3), ("m", 4)]), 14.0);
+}
+
+#[test]
+fn test_parse_nested_parentheses() {
+    assert_eq!(parse_eval("((n + 1) * 2)", &[("n", 4)]), 10.0);
+}
+
+// -- Operator precedence --
+
+#[test]
+fn test_parse_precedence_add_mul() {
+    // n + 3 * m = n + (3*m), not (n+3)*m
+    assert_eq!(parse_eval("n + 3 * m", &[("n", 1), ("m", 2)]), 7.0);
+}
+
+#[test]
+fn test_parse_precedence_mul_pow() {
+    // 3 * n^2 = 3 * (n^2), not (3*n)^2
+    assert_eq!(parse_eval("3 * n^2", &[("n", 4)]), 48.0);
+}
+
+#[test]
+fn test_parse_precedence_unary_pow() {
+    // In our parser, unary minus binds tighter than ^: -n^2 = (-n)^2
+    assert_eq!(parse_eval("-n^2", &[("n", 3)]), 9.0);
+    // Use parens for math convention: -(n^2) = -9
+    assert_eq!(parse_eval("-(n^2)", &[("n", 3)]), -9.0);
+}
+
+// -- Error cases --
+
+#[test]
+fn test_parse_trailing_tokens_error() {
+    let err = parse_to_expr("n m").unwrap_err();
+    assert!(err.contains("trailing"), "got: {err}");
+}
+
+#[test]
+fn test_parse_unexpected_token_error() {
+    let err = parse_to_expr(")").unwrap_err();
+    assert!(err.contains("unexpected token"), "got: {err}");
+}
+
+#[test]
+fn test_parse_empty_input_error() {
+    let err = parse_to_expr("").unwrap_err();
+    assert!(err.contains("end of input"), "got: {err}");
+}
+
+#[test]
+fn test_parse_unclosed_paren_error() {
+    let err = parse_to_expr("(n + m").unwrap_err();
+    assert!(err.contains("expected"), "got: {err}");
+}
+
+#[test]
+fn test_parse_unclosed_function_error() {
+    let err = parse_to_expr("exp(n").unwrap_err();
+    assert!(err.contains("expected"), "got: {err}");
+}
+
+#[test]
+fn test_parse_expect_mismatch() {
+    // "exp(n]" — expects RParen, gets unexpected token ']'
+    // Actually ']' is an invalid char so tokenizer catches it first.
+    // Use "exp(n +" to trigger expect mismatch (expects RParen, gets Plus).
+    let err = parse_to_expr("exp(n +").unwrap_err();
+    assert!(
+        err.contains("expected") || err.contains("end of input"),
+        "got: {err}"
+    );
+}
+
+#[test]
+#[should_panic(expected = "failed to parse")]
+fn test_parse_panics_on_invalid() {
+    Expr::parse("@@@");
+}
+
+// -- Real-world complexity strings --
+
+#[test]
+fn test_parse_real_complexity_mis() {
+    // "1.1996^num_vertices" — MIS best known
+    let val = parse_eval("1.1996^num_vertices", &[("num_vertices", 10)]);
+    assert!((val - 1.1996_f64.powf(10.0)).abs() < 1e-6);
+}
+
+#[test]
+fn test_parse_real_complexity_maxcut() {
+    // "2^(2.372 * num_vertices / 3)" — MaxCut
+    let val = parse_eval("2^(2.372 * num_vertices / 3)", &[("num_vertices", 9)]);
+    let expected = 2.0_f64.powf(2.372 * 9.0 / 3.0);
+    assert!((val - expected).abs() < 1e-6);
+}
+
+#[test]
+fn test_parse_real_complexity_factoring() {
+    // "exp((m + n)^(1/3) * log(m + n)^(2/3))" — GNFS
+    let val = parse_eval(
+        "exp((m + n)^(1/3) * log(m + n)^(2/3))",
+        &[("m", 8), ("n", 8)],
+    );
+    let mn = 16.0_f64;
+    let expected = f64::exp(mn.powf(1.0 / 3.0) * f64::ln(mn).powf(2.0 / 3.0));
+    assert!((val - expected).abs() < 1e-6);
+}
+
+#[test]
+fn test_parse_real_complexity_polynomial() {
+    // "num_vertices^3" — MaximumMatching
+    assert_eq!(parse_eval("num_vertices^3", &[("num_vertices", 5)]), 125.0);
+}
+
+#[test]
+fn test_parse_real_complexity_linear() {
+    // "num_vertices + num_edges" — 2-Coloring
+    assert_eq!(
+        parse_eval(
+            "num_vertices + num_edges",
+            &[("num_vertices", 10), ("num_edges", 15)]
+        ),
+        25.0
+    );
+}
+
+#[test]
+fn test_parse_real_overhead_factoring() {
+    // "2 * num_bits_first + 2 * num_bits_second + num_bits_first * num_bits_second"
+    let val = parse_eval(
+        "2 * num_bits_first + 2 * num_bits_second + num_bits_first * num_bits_second",
+        &[("num_bits_first", 3), ("num_bits_second", 4)],
+    );
+    // 2*3 + 2*4 + 3*4 = 6 + 8 + 12 = 26
+    assert_eq!(val, 26.0);
+}
+
+#[test]
+fn test_parse_real_overhead_sat_to_ksat() {
+    // "4 * num_clauses + num_literals"
+    assert_eq!(
+        parse_eval(
+            "4 * num_clauses + num_literals",
+            &[("num_clauses", 5), ("num_literals", 12)]
+        ),
+        32.0
+    );
+}
+
+#[test]
+fn test_parse_real_complexity_bmf() {
+    // "2^(rows * rank + rank * cols)"
+    let val = parse_eval(
+        "2^(rows * rank + rank * cols)",
+        &[("rows", 3), ("rank", 2), ("cols", 4)],
+    );
+    // 2^(3*2 + 2*4) = 2^(6+8) = 2^14 = 16384
+    assert_eq!(val, 16384.0);
+}
