@@ -39,7 +39,7 @@ A path graph `0–1–2–3` has 4 vertices and 3 edges.
 
 ```rust,ignore
 use problemreductions::prelude::*;
-use problemreductions::models::optimization::ILP;
+use problemreductions::models::algebraic::ILP;
 use problemreductions::solvers::ILPSolver;
 use problemreductions::topology::SimpleGraph;
 
