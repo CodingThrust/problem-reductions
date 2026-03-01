@@ -67,7 +67,7 @@ See the [MCP documentation](https://codingthrust.github.io/problem-reductions/mc
 
 1. **File an issue** — use the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template. Describe the problem or reduction you have in mind — the template guides you through the details.
 2. **We implement it** — for reasonable requests, maintainers tag the issue `implement` and AI agents generate a tested implementation.
-3. **We present it to you** — all issue contributors are invited to community calls (coming soon via [Zulip](https://zulip.com/)), where maintainers walk through the implementation — documentation, CLI behavior, correctness — and you provide feedback.
+3. **We present it to you** — all issue contributors are invited to community calls (via [Zulip](https://problem-reductions.zulipchat.com/)), where maintainers walk through the implementation — documentation, CLI behavior, correctness — and you provide feedback.
 
 **Authorship:** contribute 10 non-trivial reduction rules and you'll be added to the author list of the [paper](https://codingthrust.github.io/problem-reductions/reductions.pdf).
 
