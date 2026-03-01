@@ -1,19 +1,19 @@
 //! Problem model implementations.
 //!
-//! Each sub-module groups related problem types. See individual modules for details.
+//! Each sub-module groups related problem types by input structure.
 
+pub mod algebraic;
+pub mod formula;
 pub mod graph;
-pub mod optimization;
-pub mod satisfiability;
+pub mod misc;
 pub mod set;
-pub mod specialized;
 
 // Re-export commonly used types
+pub use algebraic::{ClosestVectorProblem, ILP, QUBO, BMF};
+pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
-    KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-    MinimumDominatingSet, MinimumVertexCover, TravelingSalesman,
+    BicliqueCover, KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
+    MaximumMatching, MinimumDominatingSet, MinimumVertexCover, SpinGlass, TravelingSalesman,
 };
-pub use optimization::{BinPacking, ClosestVectorProblem, SpinGlass, ILP, QUBO};
-pub use satisfiability::{CNFClause, KSatisfiability, Satisfiability};
+pub use misc::{BinPacking, Factoring, PaintShop};
 pub use set::{MaximumSetPacking, MinimumSetCovering};
-pub use specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
