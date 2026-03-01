@@ -14,12 +14,12 @@ document.addEventListener('DOMContentLoaded', function() {
   }
 
   var categoryColors = {
-    graph: '#c8f0c8', set: '#f0c8c8', optimization: '#f0f0a0',
-    satisfiability: '#c8c8f0', specialized: '#f0c8e0'
+    graph: '#c8f0c8', set: '#f0c8c8', algebraic: '#f0f0a0',
+    formula: '#c8c8f0', misc: '#f0c8e0'
   };
   var categoryBorders = {
-    graph: '#4a8c4a', set: '#8c4a4a', optimization: '#8c8c4a',
-    satisfiability: '#4a4a8c', specialized: '#8c4a6a'
+    graph: '#4a8c4a', set: '#8c4a4a', algebraic: '#8c8c4a',
+    formula: '#4a4a8c', misc: '#8c4a6a'
   };
 
   function variantId(name, variant) {
