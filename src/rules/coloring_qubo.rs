@@ -8,8 +8,8 @@
 //!
 //! QUBO has n*K variables.
 
-use crate::models::graph::KColoring;
 use crate::models::algebraic::QUBO;
+use crate::models::graph::KColoring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};

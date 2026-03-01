@@ -8,8 +8,8 @@
 //! 3. For each clause, build an OR-gadget that forces output to be TRUE color
 //!    - The OR-gadget is built recursively for multi-literal clauses
 
-use crate::models::graph::KColoring;
 use crate::models::formula::Satisfiability;
+use crate::models::graph::KColoring;
 use crate::reduction;
 use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};

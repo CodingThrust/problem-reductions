@@ -5,8 +5,8 @@
 //!
 //! Q[i][i] = -w_i, Q[i][j] = P for edges. P = 1 + Σ w_i.
 
-use crate::models::graph::MaximumIndependentSet;
 use crate::models::algebraic::QUBO;
+use crate::models::graph::MaximumIndependentSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};

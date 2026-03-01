@@ -14,8 +14,8 @@
 //! - Selecting the negative literal vertex means the variable is false
 //! - Selecting the dummy vertex means the variable can be either (unused in any clause)
 
-use crate::models::graph::MinimumDominatingSet;
 use crate::models::formula::Satisfiability;
+use crate::models::graph::MinimumDominatingSet;
 use crate::reduction;
 use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};

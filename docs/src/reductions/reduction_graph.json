@@ -3,15 +3,15 @@
     {
       "name": "BMF",
       "variant": {},
-      "category": "specialized",
-      "doc_path": "models/specialized/struct.BMF.html",
+      "category": "algebraic",
+      "doc_path": "models/algebraic/struct.BMF.html",
       "complexity": "2^(rows * rank + rank * cols)"
     },
     {
       "name": "BicliqueCover",
       "variant": {},
-      "category": "specialized",
-      "doc_path": "models/specialized/struct.BicliqueCover.html",
+      "category": "graph",
+      "doc_path": "models/graph/struct.BicliqueCover.html",
       "complexity": "2^num_vertices"
     },
     {
@@ -19,8 +19,8 @@
       "variant": {
         "weight": "f64"
       },
-      "category": "optimization",
-      "doc_path": "models/optimization/struct.BinPacking.html",
+      "category": "misc",
+      "doc_path": "models/misc/struct.BinPacking.html",
       "complexity": "2^num_items"
     },
     {
@@ -28,15 +28,15 @@
       "variant": {
         "weight": "i32"
       },
-      "category": "optimization",
-      "doc_path": "models/optimization/struct.BinPacking.html",
+      "category": "misc",
+      "doc_path": "models/misc/struct.BinPacking.html",
       "complexity": "2^num_items"
     },
     {
       "name": "CircuitSAT",
       "variant": {},
-      "category": "specialized",
-      "doc_path": "models/specialized/struct.CircuitSAT.html",
+      "category": "formula",
+      "doc_path": "models/formula/struct.CircuitSAT.html",
       "complexity": "2^num_variables"
     },
     {
@@ -44,8 +44,8 @@
       "variant": {
         "weight": "f64"
       },
-      "category": "optimization",
-      "doc_path": "models/optimization/struct.ClosestVectorProblem.html",
+      "category": "algebraic",
+      "doc_path": "models/algebraic/struct.ClosestVectorProblem.html",
       "complexity": "2^num_basis_vectors"
     },
     {
@@ -53,22 +53,22 @@
       "variant": {
         "weight": "i32"
       },
-      "category": "optimization",
-      "doc_path": "models/optimization/struct.ClosestVectorProblem.html",
+      "category": "algebraic",
+      "doc_path": "models/algebraic/struct.ClosestVectorProblem.html",
       "complexity": "2^num_basis_vectors"
     },
     {
       "name": "Factoring",
       "variant": {},
-      "category": "specialized",
-      "doc_path": "models/specialized/struct.Factoring.html",
+      "category": "misc",
+      "doc_path": "models/misc/struct.Factoring.html",
       "complexity": "exp((m + n)^(1/3) * log(m + n)^(2/3))"
     },
     {
       "name": "ILP",
       "variant": {},
-      "category": "optimization",
-      "doc_path": "models/optimization/struct.ILP.html",
+      "category": "algebraic",
+      "doc_path": "models/algebraic/struct.ILP.html",
       "complexity": "num_variables^num_variables"
     },
     {
@@ -126,8 +126,8 @@
       "variant": {
         "k": "K2"
       },
-      "category": "satisfiability",
-      "doc_path": "models/satisfiability/struct.KSatisfiability.html",
+      "category": "formula",
+      "doc_path": "models/formula/struct.KSatisfiability.html",
       "complexity": "num_variables + num_clauses"
     },
     {
@@ -135,8 +135,8 @@
       "variant": {
         "k": "K3"
       },
-      "category": "satisfiability",
-      "doc_path": "models/satisfiability/struct.KSatisfiability.html",
+      "category": "formula",
+      "doc_path": "models/formula/struct.KSatisfiability.html",
       "complexity": "1.307^num_variables"
     },
     {
@@ -144,8 +144,8 @@
       "variant": {
         "k": "KN"
       },
-      "category": "satisfiability",
-      "doc_path": "models/satisfiability/struct.KSatisfiability.html",
+      "category": "formula",
+      "doc_path": "models/formula/struct.KSatisfiability.html",
       "complexity": "2^num_variables"
     },
     {
@@ -317,8 +317,8 @@
     {
       "name": "PaintShop",
       "variant": {},
-      "category": "specialized",
-      "doc_path": "models/specialized/struct.PaintShop.html",
+      "category": "misc",
+      "doc_path": "models/misc/struct.PaintShop.html",
       "complexity": "2^num_cars"
     },
     {
@@ -326,15 +326,15 @@
       "variant": {
         "weight": "f64"
       },
-      "category": "optimization",
-      "doc_path": "models/optimization/struct.QUBO.html",
+      "category": "algebraic",
+      "doc_path": "models/algebraic/struct.QUBO.html",
       "complexity": "2^num_vars"
     },
     {
       "name": "Satisfiability",
       "variant": {},
-      "category": "satisfiability",
-      "doc_path": "models/satisfiability/struct.Satisfiability.html",
+      "category": "formula",
+      "doc_path": "models/formula/struct.Satisfiability.html",
       "complexity": "2^num_variables"
     },
     {
@@ -343,8 +343,8 @@
         "graph": "SimpleGraph",
         "weight": "f64"
       },
-      "category": "optimization",
-      "doc_path": "models/optimization/struct.SpinGlass.html",
+      "category": "graph",
+      "doc_path": "models/graph/struct.SpinGlass.html",
       "complexity": "2^num_spins"
     },
     {
@@ -353,8 +353,8 @@
         "graph": "SimpleGraph",
         "weight": "i32"
       },
-      "category": "optimization",
-      "doc_path": "models/optimization/struct.SpinGlass.html",
+      "category": "graph",
+      "doc_path": "models/graph/struct.SpinGlass.html",
       "complexity": "2^num_spins"
     },
     {

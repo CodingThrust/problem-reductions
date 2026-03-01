@@ -6,8 +6,8 @@
 //!   at most one can be in the clique
 //! - Objective: Maximize the sum of weights of selected vertices
 
-use crate::models::graph::MaximumClique;
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::graph::MaximumClique;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};

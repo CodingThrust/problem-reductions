@@ -6,8 +6,8 @@
 //! Each logic gate is encoded as a SpinGlass Hamiltonian where the ground
 //! states correspond to valid input/output combinations.
 
-use crate::models::graph::SpinGlass;
 use crate::models::formula::{Assignment, BooleanExpr, BooleanOp, CircuitSAT};
+use crate::models::graph::SpinGlass;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;

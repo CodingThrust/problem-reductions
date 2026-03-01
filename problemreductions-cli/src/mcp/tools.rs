@@ -1,11 +1,10 @@
 use crate::util;
-use problemreductions::models::graph::{
-    MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
-    MinimumVertexCover, TravelingSalesman,
-};
 use problemreductions::models::algebraic::QUBO;
 use problemreductions::models::formula::{CNFClause, Satisfiability};
-use problemreductions::models::graph::SpinGlass;
+use problemreductions::models::graph::{
+    MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
+    MinimumVertexCover, SpinGlass, TravelingSalesman,
+};
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{

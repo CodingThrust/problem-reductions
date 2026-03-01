@@ -79,13 +79,13 @@ fn test_variant_params_macro_multiple() {
 
 #[test]
 fn test_variant_for_problems() {
+    use crate::models::algebraic::{BMF, QUBO};
+    use crate::models::formula::{CircuitSAT, KSatisfiability, Satisfiability};
+    use crate::models::graph::{BicliqueCover, SpinGlass};
     use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumDominatingSet, MinimumVertexCover,
     };
-    use crate::models::algebraic::{BMF, QUBO};
-    use crate::models::formula::{CircuitSAT, KSatisfiability, Satisfiability};
-    use crate::models::graph::{BicliqueCover, SpinGlass};
     use crate::models::misc::{Factoring, PaintShop};
     use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
     use crate::topology::SimpleGraph;

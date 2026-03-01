@@ -8,8 +8,8 @@
 //! A satisfying assignment corresponds to an independent set of size = num_clauses,
 //! where we pick exactly one literal from each clause.
 
-use crate::models::graph::MaximumIndependentSet;
 use crate::models::formula::Satisfiability;
+use crate::models::graph::MaximumIndependentSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;

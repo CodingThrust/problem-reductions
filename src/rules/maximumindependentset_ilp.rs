@@ -5,8 +5,8 @@
 //! - Constraints: x_u + x_v <= 1 for each edge (u, v) - at most one endpoint can be selected
 //! - Objective: Maximize the sum of weights of selected vertices
 
-use crate::models::graph::MaximumIndependentSet;
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::graph::MaximumIndependentSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};

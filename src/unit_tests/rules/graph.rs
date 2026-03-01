@@ -1,6 +1,6 @@
 use super::*;
-use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::algebraic::QUBO;
+use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::set::MaximumSetPacking;
 use crate::rules::cost::MinimizeSteps;
 use crate::rules::graph::{classify_problem_category, ReductionStep};
@@ -82,10 +82,9 @@ fn test_variant_level_paths() {
     let src = ReductionGraph::variant_to_map(
         &crate::models::graph::MaxCut::<SimpleGraph, i32>::variant(),
     );
-    let dst = ReductionGraph::variant_to_map(&crate::models::graph::SpinGlass::<
-        SimpleGraph,
-        i32,
-    >::variant());
+    let dst = ReductionGraph::variant_to_map(
+        &crate::models::graph::SpinGlass::<SimpleGraph, i32>::variant(),
+    );
     let paths = graph.find_all_paths("MaxCut", &src, "SpinGlass", &dst);
     assert!(!paths.is_empty());
     assert_eq!(paths[0].type_names(), vec!["MaxCut", "SpinGlass"]);
@@ -110,10 +109,9 @@ fn test_find_shortest_path_variants() {
     let src = ReductionGraph::variant_to_map(
         &crate::models::graph::MaxCut::<SimpleGraph, i32>::variant(),
     );
-    let dst = ReductionGraph::variant_to_map(&crate::models::graph::SpinGlass::<
-        SimpleGraph,
-        i32,
-    >::variant());
+    let dst = ReductionGraph::variant_to_map(
+        &crate::models::graph::SpinGlass::<SimpleGraph, i32>::variant(),
+    );
     let shortest = graph.find_cheapest_path(
         "MaxCut",
         &src,
@@ -126,10 +124,9 @@ fn test_find_shortest_path_variants() {
     assert_eq!(shortest.unwrap().len(), 1); // Direct path
 
     let src = ReductionGraph::variant_to_map(&crate::models::misc::Factoring::variant());
-    let dst = ReductionGraph::variant_to_map(&crate::models::graph::SpinGlass::<
-        SimpleGraph,
-        i32,
-    >::variant());
+    let dst = ReductionGraph::variant_to_map(
+        &crate::models::graph::SpinGlass::<SimpleGraph, i32>::variant(),
+    );
     let shortest = graph.find_cheapest_path(
         "Factoring",
         &src,
@@ -276,9 +273,7 @@ fn test_category_from_module_path() {
         "formula"
     );
     assert_eq!(
-        ReductionGraph::category_from_module_path(
-            "problemreductions::models::misc::factoring"
-        ),
+        ReductionGraph::category_from_module_path("problemreductions::models::misc::factoring"),
         "misc"
     );
     // Fallback for unexpected format
@@ -308,9 +303,9 @@ fn test_doc_path_from_module_path() {
 
 #[test]
 fn test_sat_based_reductions() {
+    use crate::models::formula::Satisfiability;
     use crate::models::graph::KColoring;
     use crate::models::graph::MinimumDominatingSet;
-    use crate::models::formula::Satisfiability;
     use crate::variant::K3;
 
     let graph = ReductionGraph::new();
@@ -359,8 +354,8 @@ fn test_circuit_reductions() {
 
 #[test]
 fn test_optimization_reductions() {
-    use crate::models::graph::MaxCut;
     use crate::models::algebraic::QUBO;
+    use crate::models::graph::MaxCut;
     use crate::models::graph::SpinGlass;
 
     let graph = ReductionGraph::new();
