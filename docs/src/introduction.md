@@ -67,12 +67,8 @@ This library is the foundation of that effort: an open-source, extensible reduct
 ### How it works
 
 1. **File an issue** — use the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template. Describe the problem or reduction you have in mind; the template guides you through the details.
-2. **We implement it** — for reasonable requests, maintainers tag the issue `implement` and AI agents generate a tested pull request.
-3. **You review it** — you'll be mentioned on the PR to provide feedback. We iterate until you're satisfied.
-
-### Community calls
-
-Coming soon via [Zulip](https://zulip.com/). All issue contributors will be invited. Maintainers walk through recent implementations so you can ask questions and give feedback in real time.
+2. **We implement it** — for reasonable requests, maintainers tag the issue `implement` and AI agents generate a tested implementation.
+3. **We present it to you** — all issue contributors are invited to community calls (coming soon via [Zulip](https://zulip.com/)), where maintainers walk through the implementation — documentation, CLI behavior, correctness — and you provide feedback.
 
 ### Authorship
 
