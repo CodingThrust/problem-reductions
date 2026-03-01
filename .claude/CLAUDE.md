@@ -49,7 +49,12 @@ make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 ## Architecture
 
 ### Core Modules
-- `src/models/` - Problem implementations (SAT, Graph, Set, Optimization)
+- `src/models/` - Problem implementations organized by input structure:
+  - `graph/` - Problems on graphs (MIS, MaxClique, MaxCut, MinVC, MinDS, MaxMatching, MaximalIS, KColoring, TSP, SpinGlass, BicliqueCover)
+  - `formula/` - Logical formulas and circuits (SAT, k-SAT, CircuitSAT)
+  - `set/` - Set systems (MinSetCovering, MaxSetPacking)
+  - `algebraic/` - Matrices, linear systems, lattices (QUBO, ILP, CVP, BMF)
+  - `misc/` - Unique input structures (BinPacking, PaintShop, Factoring)
 - `src/rules/` - Reduction rules + inventory registration
 - `src/solvers/` - BruteForce solver, ILP solver (feature-gated)
 - `src/traits.rs` - `Problem`, `OptimizationProblem`, `SatisfactionProblem` traits
@@ -140,7 +145,7 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 
 ### File Naming
 - Reduction files: `src/rules/<source>_<target>.rs` (e.g., `maximumindependentset_qubo.rs`)
-- Model files: `src/models/<category>/<name>.rs` (e.g., `maximum_independent_set.rs`)
+- Model files: `src/models/<category>/<name>.rs` — category is by input structure: `graph/` (graph input), `formula/` (boolean formula/circuit), `set/` (universe + subsets), `algebraic/` (matrix/linear system/lattice), `misc/` (other)
 - Example files: `examples/reduction_<source>_to_<target>.rs` (must have `pub fn run()` + `fn main() { run() }`)
 - Test naming: `test_<source>_to_<target>_closed_loop`
 
