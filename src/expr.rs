@@ -105,8 +105,11 @@ impl Expr {
 
     /// Parse an expression string into an `Expr` at runtime.
     ///
-    /// Variable names are leaked to `&'static str` since `Expr::Var` requires static
-    /// lifetimes. Intended for testing and runtime evaluation, not hot paths.
+    /// **Memory note:** Variable names are leaked to `&'static str` via `Box::leak`
+    /// since `Expr::Var` requires static lifetimes. Each unique variable name leaks
+    /// a small allocation that is never freed. This is acceptable for testing and
+    /// one-time cross-check evaluation, but should not be used in hot loops with
+    /// dynamic input.
     ///
     /// # Panics
     /// Panics if the expression string has invalid syntax.

@@ -33,7 +33,7 @@ Given: problem name `P` = `{PROBLEM_NAME}`, category `C` = `{CATEGORY}`, file st
 | 5 | `OptimizationProblem` or `SatisfactionProblem` impl | `Grep("(OptimizationProblem|SatisfactionProblem).*for.*{P}", file)` |
 | 6 | `#[cfg(test)]` + `#[path = "..."]` test link | `Grep("#\\[path =", file)` |
 | 7 | Test file exists | `Glob("src/unit_tests/models/{C}/{F}.rs")` |
-| 8 | Test has creation test | `Grep("fn test_.*creation\|fn test_{F}.*basic", test_file)` |
+| 8 | Test has creation test | `Grep("fn test_.*creation|fn test_{F}.*basic", test_file)` |
 | 9 | Test has evaluation test | `Grep("fn test_.*evaluat", test_file)` |
 | 10 | Registered in `{C}/mod.rs` | `Grep("mod {F}", "src/models/{C}/mod.rs")` |
 | 11 | Re-exported in `models/mod.rs` | `Grep("{P}", "src/models/mod.rs")` |

@@ -37,7 +37,7 @@
       "variant": {},
       "category": "specialized",
       "doc_path": "models/specialized/struct.CircuitSAT.html",
-      "complexity": "2^num_inputs"
+      "complexity": "2^num_variables"
     },
     {
       "name": "ClosestVectorProblem",
@@ -62,7 +62,7 @@
       "variant": {},
       "category": "specialized",
       "doc_path": "models/specialized/struct.Factoring.html",
-      "complexity": "exp(num_bits^(1/3) * log(num_bits)^(2/3))"
+      "complexity": "exp((m + n)^(1/3) * log(m + n)^(2/3))"
     },
     {
       "name": "ILP",
@@ -109,7 +109,7 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.KColoring.html",
-      "complexity": "(2-epsilon)^num_vertices"
+      "complexity": "2^num_vertices"
     },
     {
       "name": "KColoring",
@@ -156,7 +156,7 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.MaxCut.html",
-      "complexity": "2^(omega * num_vertices / 3)"
+      "complexity": "2^(2.372 * num_vertices / 3)"
     },
     {
       "name": "MaximalIS",
@@ -345,7 +345,7 @@
       },
       "category": "optimization",
       "doc_path": "models/optimization/struct.SpinGlass.html",
-      "complexity": "2^num_vertices"
+      "complexity": "2^num_spins"
     },
     {
       "name": "SpinGlass",
@@ -355,7 +355,7 @@
       },
       "category": "optimization",
       "doc_path": "models/optimization/struct.SpinGlass.html",
-      "complexity": "2^num_vertices"
+      "complexity": "2^num_spins"
     },
     {
       "name": "TravelingSalesman",
