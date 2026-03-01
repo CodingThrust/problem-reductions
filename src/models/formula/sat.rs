@@ -225,5 +225,5 @@ pub(crate) fn is_satisfying_assignment(
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/satisfiability/sat.rs"]
+#[path = "../../unit_tests/models/formula/sat.rs"]
 mod tests;

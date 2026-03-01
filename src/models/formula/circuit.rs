@@ -309,5 +309,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/specialized/circuit.rs"]
+#[path = "../../unit_tests/models/formula/circuit.rs"]
 mod tests;

@@ -381,5 +381,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/optimization/ilp.rs"]
+#[path = "../../unit_tests/models/algebraic/ilp.rs"]
 mod tests;

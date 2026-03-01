@@ -193,5 +193,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/optimization/qubo.rs"]
+#[path = "../../unit_tests/models/algebraic/qubo.rs"]
 mod tests;

@@ -156,5 +156,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/optimization/bin_packing.rs"]
+#[path = "../../unit_tests/models/misc/bin_packing.rs"]
 mod tests;

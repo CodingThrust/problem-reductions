@@ -235,5 +235,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/specialized/bmf.rs"]
+#[path = "../../unit_tests/models/algebraic/bmf.rs"]
 mod tests;

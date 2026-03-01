@@ -178,5 +178,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/optimization/closest_vector_problem.rs"]
+#[path = "../../unit_tests/models/algebraic/closest_vector_problem.rs"]
 mod tests;

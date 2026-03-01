@@ -197,5 +197,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/specialized/paintshop.rs"]
+#[path = "../../unit_tests/models/misc/paintshop.rs"]
 mod tests;

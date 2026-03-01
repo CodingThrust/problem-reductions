@@ -190,5 +190,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/satisfiability/ksat.rs"]
+#[path = "../../unit_tests/models/formula/ksat.rs"]
 mod tests;

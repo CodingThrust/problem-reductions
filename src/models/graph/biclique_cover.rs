@@ -248,5 +248,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/specialized/biclique_cover.rs"]
+#[path = "../../unit_tests/models/graph/biclique_cover.rs"]
 mod tests;

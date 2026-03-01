@@ -167,5 +167,5 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/specialized/factoring.rs"]
+#[path = "../../unit_tests/models/misc/factoring.rs"]
 mod tests;
