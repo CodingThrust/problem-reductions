@@ -3,6 +3,9 @@ description: Use when editing Typst files — covers general patterns, CeTZ draw
 globs: ["*.typ"]
 ---
 
+---
+globs: "*.typ"
+---
 # Typst Editing Reference
 
 Reference files: ~/Documents/private-note/notes/typst-learn/ (typst-tricks.typ, typst-drawing.typ, typst-my-utils.typ)
