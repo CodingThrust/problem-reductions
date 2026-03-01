@@ -7,7 +7,7 @@
 //!
 //! | Module | Purpose |
 //! |--------|---------|
-//! | [`models`] | Problem types — [`graph`](models::graph), [`satisfiability`](models::satisfiability), [`set`](models::set), [`optimization`](models::optimization), [`specialized`](models::specialized) |
+//! | [`models`] | Problem types — [`graph`](models::graph), [`formula`](models::formula), [`set`](models::set), [`algebraic`](models::algebraic), [`misc`](models::misc) |
 //! | [`rules`] | Reduction rules, [`ReductionGraph`](rules::ReductionGraph) for path search |
 //! | [`solvers`] | [`BruteForce`] and [`ILPSolver`](solvers::ILPSolver) |
 //! | [`topology`] | Graph types — [`SimpleGraph`](topology::SimpleGraph), [`HyperGraph`](topology::HyperGraph), [`UnitDiskGraph`](topology::UnitDiskGraph), etc. |
@@ -40,10 +40,11 @@ pub mod prelude {
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumDominatingSet, MinimumVertexCover, TravelingSalesman,
     };
-    pub use crate::models::optimization::{SpinGlass, QUBO};
-    pub use crate::models::satisfiability::{CNFClause, KSatisfiability, Satisfiability};
+    pub use crate::models::algebraic::{QUBO, BMF};
+    pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
+    pub use crate::models::graph::{BicliqueCover, SpinGlass};
+    pub use crate::models::misc::{BinPacking, Factoring, PaintShop};
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
-    pub use crate::models::specialized::{BicliqueCover, CircuitSAT, Factoring, PaintShop, BMF};
 
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
