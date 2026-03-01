@@ -9,7 +9,7 @@
 //! where we pick exactly one literal from each clause.
 
 use crate::models::graph::MaximumIndependentSet;
-use crate::models::satisfiability::Satisfiability;
+use crate::models::formula::Satisfiability;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;

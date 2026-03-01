@@ -14,8 +14,8 @@
 //! ## Objective
 //! Trivial (minimize 0): any feasible ILP solution is a satisfying assignment.
 
-use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
-use crate::models::specialized::{BooleanExpr, BooleanOp, CircuitSAT};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::formula::{BooleanExpr, BooleanOp, CircuitSAT};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use std::collections::HashMap;

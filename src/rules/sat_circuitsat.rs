@@ -3,8 +3,8 @@
 //! Converts a CNF formula into a boolean circuit by creating
 //! an OR gate for each clause and a final AND gate.
 
-use crate::models::satisfiability::Satisfiability;
-use crate::models::specialized::{Assignment, BooleanExpr, Circuit, CircuitSAT};
+use crate::models::formula::Satisfiability;
+use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;

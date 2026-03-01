@@ -5,7 +5,7 @@
 //! - Constraints: For each element e: sum_{j: e in set_j} x_j >= 1 (element must be covered)
 //! - Objective: Minimize the sum of weights of selected sets
 
-use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::models::set::MinimumSetCovering;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

@@ -1,7 +1,7 @@
 //! Variant cast reductions for SpinGlass.
 
 use crate::impl_variant_reduction;
-use crate::models::optimization::SpinGlass;
+use crate::models::graph::SpinGlass;
 use crate::topology::SimpleGraph;
 use crate::variant::CastToParent;
 

@@ -7,7 +7,8 @@
 //! The multiplier circuit uses an array multiplier structure with
 //! carry propagation, building up partial products row by row.
 
-use crate::models::specialized::{Assignment, BooleanExpr, Circuit, CircuitSAT, Factoring};
+use crate::models::formula::{Assignment, BooleanExpr, Circuit, CircuitSAT};
+use crate::models::misc::Factoring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 /// Result of reducing Factoring to CircuitSAT.

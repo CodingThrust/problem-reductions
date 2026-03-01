@@ -9,7 +9,7 @@
 //! For Minimize sense, c is negated (convert to maximization).
 //! Slack variables: ceil(log2(slack_range)) bits per inequality constraint.
 
-use crate::models::optimization::{Comparison, ObjectiveSense, ILP, QUBO};
+use crate::models::algebraic::{Comparison, ObjectiveSense, ILP, QUBO};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 

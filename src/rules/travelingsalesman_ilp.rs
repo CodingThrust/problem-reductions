@@ -6,7 +6,7 @@
 //! - Objective: minimize total edge weight of the tour
 
 use crate::models::graph::TravelingSalesman;
-use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};

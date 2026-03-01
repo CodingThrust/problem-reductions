@@ -9,7 +9,7 @@
 //!    - The OR-gadget is built recursively for multi-literal clauses
 
 use crate::models::graph::KColoring;
-use crate::models::satisfiability::Satisfiability;
+use crate::models::formula::Satisfiability;
 use crate::reduction;
 use crate::rules::sat_maximumindependentset::BoolVar;
 use crate::rules::traits::{ReduceTo, ReductionResult};

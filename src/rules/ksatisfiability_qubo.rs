@@ -12,8 +12,8 @@
 //!
 //! CNFClause uses 1-indexed signed integers: positive = variable, negative = negated.
 
-use crate::models::optimization::QUBO;
-use crate::models::satisfiability::KSatisfiability;
+use crate::models::algebraic::QUBO;
+use crate::models::formula::KSatisfiability;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::variant::{K2, K3};
@@ -265,7 +265,7 @@ fn add_3sat_clause_penalty(matrix: &mut [Vec<f64>], lits: &[i32], aux_var: usize
 /// Returns (matrix, num_source_vars) where matrix is (n + aux) x (n + aux).
 fn build_qubo_matrix(
     num_vars: usize,
-    clauses: &[crate::models::satisfiability::CNFClause],
+    clauses: &[crate::models::formula::CNFClause],
     k: usize,
 ) -> Vec<Vec<f64>> {
     match k {

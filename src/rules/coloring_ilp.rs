@@ -8,7 +8,7 @@
 //! - Objective: None (feasibility problem, minimize 0)
 
 use crate::models::graph::KColoring;
-use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};

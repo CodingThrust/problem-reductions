@@ -1,7 +1,7 @@
 //! Variant cast reductions for KSatisfiability.
 
 use crate::impl_variant_reduction;
-use crate::models::satisfiability::KSatisfiability;
+use crate::models::formula::KSatisfiability;
 use crate::variant::{K2, K3, KN};
 
 impl_variant_reduction!(

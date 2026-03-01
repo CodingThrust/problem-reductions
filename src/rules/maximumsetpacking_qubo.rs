@@ -6,7 +6,7 @@
 //!
 //! Q[i][i] = -w_i, Q[i][j] = P for overlapping pairs. P = 1 + Σ w_i.
 
-use crate::models::optimization::QUBO;
+use crate::models::algebraic::QUBO;
 use crate::models::set::MaximumSetPacking;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

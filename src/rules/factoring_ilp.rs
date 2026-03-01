@@ -17,8 +17,8 @@
 //! 2. Bit-position sums: Σ_{i+j=k} z_ij + c_{k-1} = N_k + 2·c_k
 //! 3. No overflow: c_{m+n-1} = 0
 
-use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
-use crate::models::specialized::Factoring;
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::misc::Factoring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use std::cmp::min;

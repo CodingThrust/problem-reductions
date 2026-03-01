@@ -7,7 +7,7 @@
 //! P = 1 + Σ w_i.
 
 use crate::models::graph::MinimumVertexCover;
-use crate::models::optimization::QUBO;
+use crate::models::algebraic::QUBO;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};

@@ -14,7 +14,7 @@
 //! ## Objective
 //! minimize Σ_i Q_ii · x_i + Σ_{i<j} Q_ij · y_{ij}
 
-use crate::models::optimization::{LinearConstraint, ObjectiveSense, VarBounds, ILP, QUBO};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP, QUBO};
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 

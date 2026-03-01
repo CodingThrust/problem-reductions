@@ -5,7 +5,8 @@
 //!
 //! Transformation: s = 2x - 1 (so x=0 -> s=-1, x=1 -> s=+1)
 
-use crate::models::optimization::{SpinGlass, QUBO};
+use crate::models::algebraic::QUBO;
+use crate::models::graph::SpinGlass;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::SimpleGraph;

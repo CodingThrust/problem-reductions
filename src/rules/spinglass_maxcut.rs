@@ -4,7 +4,7 @@
 //! SpinGlass -> MaxCut: Requires ancilla vertex for onsite terms.
 
 use crate::models::graph::MaxCut;
-use crate::models::optimization::SpinGlass;
+use crate::models::graph::SpinGlass;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::topology::{Graph, SimpleGraph};
