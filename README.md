@@ -63,31 +63,22 @@ See the [MCP documentation](https://codingthrust.github.io/problem-reductions/mc
 
 ## Contributing
 
-### Authorship Recognition
+**No programming experience required.** You contribute domain knowledge; we handle the implementation.
 
-**Contribute 10 non-trivial reduction rules and you will be automatically added to the author list of the paper.** AI tools handle the implementation — contributors focus on designing correct reductions and test cases.
+1. **File an issue** — use the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template. Describe the problem or reduction you have in mind — the template guides you through the details.
+2. **We implement it** — for reasonable requests, maintainers tag the issue `implement` and AI agents generate a tested pull request.
+3. **You review it** — you'll be mentioned on the PR to provide feedback. We present the implementation and iterate until you're satisfied.
 
-### How to Contribute
+**Community calls** (coming soon via [Zulip](https://zulip.com/)): all issue contributors will be invited. Maintainers walk through recent implementations so you can ask questions and give feedback in real time.
 
-1. **Open an issue** using the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template. Fill in all sections — the templates guide you through the required information (definition, algorithm, size overhead, example instance, etc.).
+**Authorship:** contribute 10 non-trivial reduction rules and you'll be added to the author list of the [paper](https://codingthrust.github.io/problem-reductions/reductions.pdf).
 
-   **Hint:** If you use Claude Code / OpenCode / Codex (assume `gh` CLI tool and `superpowers` plugin are installed), you can just type:
-   ```
-   File an issue on CodingThrust/problem-reductions, using the "Model" issue template, about the Closest Vector Problem. Brainstorm with me.
-   ```
-   ```
-   File an issue on CodingThrust/problem-reductions, using the "Rule" issue template, about reduction from Closest Vector Problem to QUBO. Brainstorm with me.
-   ```
-   Then AI agents will guide you to fill in the issue template.
+> **Tip:** If you use Claude Code / OpenCode / Codex, you can file issues interactively:
+> ```
+> File an issue on CodingThrust/problem-reductions, using the "Model" issue template, about the Closest Vector Problem. Brainstorm with me.
+> ```
 
-2. Our AI agents will pick up the issue and generate a plan to implement the reduction rule.
-3. You will be mentioned in the pull request, provide feedback to the AI agents. If you are satisfied with the plan, you can merge the PR.
-
-Optionally, if you prefer to **implement yourself**, I will recommend you to use the [superpowers:brainstorming](https://github.com/obra/superpowers) skill to help you write a detailed plan. Create a PR and let maintainers help review and merge the PR.
-
-### Developer Commands
-
-Run `make help` to see all available targets. See [CLAUDE.md](https://codingthrust.github.io/problem-reductions/claude.html) for the full command list and architecture details.
+If you prefer to **implement yourself**, see the [Design](https://codingthrust.github.io/problem-reductions/design.html) guide. Run `make help` to see available developer commands.
 
 ## Acknowledgments
 

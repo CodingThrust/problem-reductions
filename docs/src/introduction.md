@@ -14,10 +14,10 @@
 <div id="cy-controls">
   <div id="legend">
     <span class="swatch" style="background:#c8f0c8;"></span>Graph
+    <span class="swatch" style="background:#c8c8f0;"></span>Formula
     <span class="swatch" style="background:#f0c8c8;"></span>Set
-    <span class="swatch" style="background:#f0f0a0;"></span>Optimization
-    <span class="swatch" style="background:#c8c8f0;"></span>Satisfiability
-    <span class="swatch" style="background:#f0c8e0;"></span>Specialized
+    <span class="swatch" style="background:#f0f0a0;"></span>Algebraic
+    <span class="swatch" style="background:#f0c8e0;"></span>Misc
     <span style="display:inline-block;width:20px;height:0;border-top:2px dashed #bbb;margin-left:10px;margin-right:3px;vertical-align:middle;"></span>Variant Cast
   </div>
   <div>
@@ -62,14 +62,21 @@ This library is the foundation of that effort: an open-source, extensible reduct
 
 ## Call for Contributions
 
-> **Everyone can contribute — no programming experience required.** If you know a computational problem or a reduction rule, just describe it in a GitHub issue. AI will generate a tested pull request for you to review.
->
-> **Contribute 10 non-trivial reduction rules and you will be automatically added to the author list of the [paper](https://codingthrust.github.io/problem-reductions/reductions.pdf).**
+> **No programming experience required.** You contribute domain knowledge — we handle the implementation.
 
-1. **Open an issue** using the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template
-2. **Fill in all sections** — definition, algorithm, size overhead, example instance
-3. **Review AI-generated code** — AI generates code and you can comment on the pull request
-4. **Merge** — ask maintainers' assistance to merge once you are satisfied
+### How it works
+
+1. **File an issue** — use the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template. Describe the problem or reduction you have in mind; the template guides you through the details.
+2. **We implement it** — for reasonable requests, maintainers tag the issue `implement` and AI agents generate a tested pull request.
+3. **You review it** — you'll be mentioned on the PR to provide feedback. We iterate until you're satisfied.
+
+### Community calls
+
+Coming soon via [Zulip](https://zulip.com/). All issue contributors will be invited. Maintainers walk through recent implementations so you can ask questions and give feedback in real time.
+
+### Authorship
+
+Contribute 10 non-trivial reduction rules and you'll be added to the author list of the [paper](https://codingthrust.github.io/problem-reductions/reductions.pdf).
 
 For manual implementation, see the [Design](./design.md#contributing) guide.
 

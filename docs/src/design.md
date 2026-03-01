@@ -17,7 +17,7 @@ This guide covers the library internals for contributors.
 
 | Module | Purpose |
 |--------|---------|
-| [`src/models/`](#problem-model) | Problem type implementations (SAT, Graph, Set, Optimization) |
+| [`src/models/`](#problem-model) | Problem implementations by input structure: `graph/`, `formula/`, `set/`, `algebraic/`, `misc/` |
 | [`src/rules/`](#reduction-rules) | Reduction rules with `ReduceTo` implementations |
 | [`src/registry/`](#reduction-graph) | Reduction graph metadata (collected via `inventory`) |
 | [`src/solvers/`](#solvers) | BruteForce and ILP solvers |
