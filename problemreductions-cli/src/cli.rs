@@ -81,7 +81,7 @@ Use `pred from <problem>` for outgoing neighbors (what this reduces to).")]
         /// Problem name or alias (e.g., MIS, QUBO, MIS/UnitDiskGraph)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         problem: String,
-        /// Number of hops to explore [default: 1]
+        /// Number of hops to explore
         #[arg(long, default_value = "1")]
         hops: usize,
     },
@@ -98,7 +98,7 @@ Use `pred to <problem>` for incoming neighbors (what reduces to this).")]
         /// Problem name or alias (e.g., MIS, QUBO, MIS/UnitDiskGraph)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         problem: String,
-        /// Number of hops to explore [default: 1]
+        /// Number of hops to explore
         #[arg(long, default_value = "1")]
         hops: usize,
     },

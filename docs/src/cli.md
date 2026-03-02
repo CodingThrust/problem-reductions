@@ -40,7 +40,7 @@ Available backends: `highs` (default), `coin-cbc`, `clarabel`, `scip`, `lpsolve`
 
 ```bash
 # Create a Maximum Independent Set problem
-pred create MIS --edges 0-1,1-2,2-3 -o problem.json
+pred create MIS --graph 0-1,1-2,2-3 -o problem.json
 
 # Solve it (auto-reduces to ILP)
 pred solve problem.json
@@ -56,8 +56,8 @@ pred reduce problem.json --to QUBO -o reduced.json
 pred solve reduced.json --solver brute-force
 
 # Pipe commands together (use - to read from stdin)
-pred create MIS --edges 0-1,1-2,2-3 | pred solve -
-pred create MIS --edges 0-1,1-2,2-3 | pred reduce - --to QUBO | pred solve -
+pred create MIS --graph 0-1,1-2,2-3 | pred solve -
+pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --to QUBO | pred solve -
 ```
 
 ## Global Flags
@@ -232,13 +232,13 @@ pred export-graph -o reduction_graph.json   # save to file
 Construct a problem instance from CLI arguments and save as JSON:
 
 ```bash
-pred create MIS --edges 0-1,1-2,2-3 -o problem.json
-pred create MIS --edges 0-1,1-2,2-3 --weights 2,1,3,1 -o problem.json
+pred create MIS --graph 0-1,1-2,2-3 -o problem.json
+pred create MIS --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o problem.json
 pred create SAT --num-vars 3 --clauses "1,2;-1,3" -o sat.json
 pred create QUBO --matrix "1,0.5;0.5,2" -o qubo.json
-pred create KColoring --k 3 --edges 0-1,1-2,2-0 -o kcol.json
-pred create SpinGlass --edges 0-1,1-2 -o sg.json
-pred create MaxCut --edges 0-1,1-2,2-0 -o maxcut.json
+pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
+pred create SpinGlass --graph 0-1,1-2 -o sg.json
+pred create MaxCut --graph 0-1,1-2,2-0 -o maxcut.json
 pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
 pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 ```
@@ -254,7 +254,7 @@ pred create MaxCut --random --num-vertices 20 --edge-prob 0.5 -o maxcut.json
 Without `-o`, the problem JSON is printed to stdout, which can be piped to other commands:
 
 ```bash
-pred create MIS --edges 0-1,1-2,2-3 | pred solve -
+pred create MIS --graph 0-1,1-2,2-3 | pred solve -
 pred create MIS --random --num-vertices 10 | pred inspect -
 ```
 
@@ -280,7 +280,7 @@ Valid(2)
 Stdin is supported with `-`:
 
 ```bash
-pred create MIS --edges 0-1,1-2,2-3 | pred evaluate - --config 1,0,1,0
+pred create MIS --graph 0-1,1-2,2-3 | pred evaluate - --config 1,0,1,0
 ```
 
 ### `pred inspect` — Inspect a problem file
@@ -297,7 +297,7 @@ Works with reduction bundles and stdin:
 
 ```bash
 pred inspect bundle.json
-pred create MIS --edges 0-1,1-2 | pred inspect -
+pred create MIS --graph 0-1,1-2 | pred inspect -
 ```
 
 ### `pred reduce` — Reduce a problem
@@ -317,7 +317,7 @@ pred reduce problem.json --via path.json -o reduced.json
 Stdin is supported with `-`:
 
 ```bash
-pred create MIS --edges 0-1,1-2,2-3 | pred reduce - --to QUBO
+pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --to QUBO
 ```
 
 The bundle contains everything needed to map solutions back:
@@ -346,8 +346,8 @@ pred solve problem.json --timeout 30            # abort after 30 seconds
 Stdin is supported with `-`:
 
 ```bash
-pred create MIS --edges 0-1,1-2,2-3 | pred solve -
-pred create MIS --edges 0-1,1-2,2-3 | pred solve - --solver brute-force
+pred create MIS --graph 0-1,1-2,2-3 | pred solve -
+pred create MIS --graph 0-1,1-2,2-3 | pred solve - --solver brute-force
 ```
 
 When the problem is not ILP, the solver automatically reduces it to ILP, solves, and maps the solution back. The auto-reduction is shown in the output:
@@ -429,8 +429,10 @@ You can also specify variants with a slash: `MIS/UnitDiskGraph`, `SpinGlass/Simp
 If you mistype a problem name, `pred` will suggest the closest match:
 
 ```bash
-$ pred show MaxIndependentSet
-Error: Unknown problem: MaxIndependentSet
-  Did you mean: MaximumIndependentSet?
-  Run `pred list` to see all available problem types.
+$ pred show MaximumIndependentSe
+Error: Unknown problem: MaximumIndependentSe
+
+Did you mean: MaximumIndependentSet?
+
+Run `pred list` to see all available problems.
 ```

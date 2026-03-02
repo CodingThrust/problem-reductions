@@ -12,6 +12,9 @@ pub struct OutputConfig {
     pub quiet: bool,
     /// Output JSON to stdout instead of human-readable text.
     pub json: bool,
+    /// When true, auto-output JSON if stdout is not a TTY (piped).
+    /// Used for data-producing commands (reduce, solve, evaluate, inspect).
+    pub auto_json: bool,
 }
 
 impl OutputConfig {
@@ -36,7 +39,7 @@ impl OutputConfig {
             std::fs::write(path, &content)
                 .with_context(|| format!("Failed to write {}", path.display()))?;
             self.info(&format!("Wrote {}", path.display()));
-        } else if self.json {
+        } else if self.json || (self.auto_json && !std::io::stdout().is_terminal()) {
             println!(
                 "{}",
                 serde_json::to_string_pretty(json_value).context("Failed to serialize JSON")?

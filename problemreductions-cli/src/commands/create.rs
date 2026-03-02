@@ -235,12 +235,26 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     "{e}\n\nUsage: pred create SpinGlass --graph 0-1,1-2 [--couplings 1,1] [--fields 0,0,0]"
                 )
             })?;
-            let couplings = parse_couplings(args, graph.num_edges())?;
-            let fields = parse_fields(args, n)?;
-            (
-                ser(SpinGlass::from_graph(graph, couplings, fields))?,
-                resolved_variant.clone(),
-            )
+            let use_f64 = resolved_variant.get("weight").is_some_and(|w| w == "f64")
+                || has_float_syntax(&args.couplings)
+                || has_float_syntax(&args.fields);
+            if use_f64 {
+                let couplings = parse_couplings_f64(args, graph.num_edges())?;
+                let fields = parse_fields_f64(args, n)?;
+                let mut variant = resolved_variant.clone();
+                variant.insert("weight".to_string(), "f64".to_string());
+                (
+                    ser(SpinGlass::from_graph(graph, couplings, fields))?,
+                    variant,
+                )
+            } else {
+                let couplings = parse_couplings(args, graph.num_edges())?;
+                let fields = parse_fields(args, n)?;
+                (
+                    ser(SpinGlass::from_graph(graph, couplings, fields))?,
+                    resolved_variant.clone(),
+                )
+            }
         }
 
         // Factoring
@@ -483,6 +497,45 @@ fn parse_fields(args: &CreateArgs, num_vertices: usize) -> Result<Vec<i32>> {
             Ok(vals)
         }
         None => Ok(vec![0i32; num_vertices]),
+    }
+}
+
+/// Check if a CLI string value contains float syntax (a decimal point).
+fn has_float_syntax(value: &Option<String>) -> bool {
+    value.as_ref().is_some_and(|s| s.contains('.'))
+}
+
+/// Parse `--couplings` as SpinGlass pairwise couplings (f64), defaulting to all 1.0.
+fn parse_couplings_f64(args: &CreateArgs, num_edges: usize) -> Result<Vec<f64>> {
+    match &args.couplings {
+        Some(w) => {
+            let vals: Vec<f64> = w
+                .split(',')
+                .map(|s| s.trim().parse::<f64>())
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if vals.len() != num_edges {
+                bail!("Expected {} couplings but got {}", num_edges, vals.len());
+            }
+            Ok(vals)
+        }
+        None => Ok(vec![1.0f64; num_edges]),
+    }
+}
+
+/// Parse `--fields` as SpinGlass on-site fields (f64), defaulting to all 0.0.
+fn parse_fields_f64(args: &CreateArgs, num_vertices: usize) -> Result<Vec<f64>> {
+    match &args.fields {
+        Some(w) => {
+            let vals: Vec<f64> = w
+                .split(',')
+                .map(|s| s.trim().parse::<f64>())
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if vals.len() != num_vertices {
+                bail!("Expected {} fields but got {}", num_vertices, vals.len());
+            }
+            Ok(vals)
+        }
+        None => Ok(vec![0.0f64; num_vertices]),
     }
 }
 

@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph, TraversalDirection};
 use problemreductions::types::ProblemSize;
-use std::collections::{BTreeMap, HashSet};
+use std::collections::BTreeMap;
 
 pub fn list(out: &OutputConfig) -> Result<()> {
     use crate::output::{format_table, Align};
@@ -250,7 +250,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
 
 /// Convert a variant BTreeMap to slash notation showing ALL values.
 /// E.g., {graph: "SimpleGraph", weight: "i32"} → "/SimpleGraph/i32".
-fn variant_to_full_slash(variant: &BTreeMap<String, String>) -> String {
+pub(crate) fn variant_to_full_slash(variant: &BTreeMap<String, String>) -> String {
     if variant.is_empty() {
         String::new()
     } else {
@@ -259,34 +259,11 @@ fn variant_to_full_slash(variant: &BTreeMap<String, String>) -> String {
     }
 }
 
-/// Convert a variant BTreeMap to slash notation showing only non-default values.
-/// Given default {graph: "SimpleGraph", weight: "i32"} and variant {graph: "UnitDiskGraph", weight: "i32"},
-/// returns "/UnitDiskGraph".
-fn variant_to_slash(
-    variant: &BTreeMap<String, String>,
-    default: &BTreeMap<String, String>,
-) -> String {
-    let diffs: Vec<&str> = variant
-        .iter()
-        .filter(|(k, v)| default.get(*k) != Some(*v))
-        .map(|(_, v)| v.as_str())
-        .collect();
-    if diffs.is_empty() {
-        String::new()
-    } else {
-        format!("/{}", diffs.join("/"))
-    }
-}
 
 /// Format a problem node as **bold name/variant** in slash notation.
 /// This is the single source of truth for "name/variant" display.
-fn fmt_node(graph: &ReductionGraph, name: &str, variant: &BTreeMap<String, String>) -> String {
-    let default = graph
-        .variants_for(name)
-        .first()
-        .cloned()
-        .unwrap_or_default();
-    let slash = variant_to_slash(variant, &default);
+fn fmt_node(_graph: &ReductionGraph, name: &str, variant: &BTreeMap<String, String>) -> String {
+    let slash = variant_to_full_slash(variant);
     crate::output::fmt_problem_name(&format!("{name}{slash}"))
 }
 
@@ -624,11 +601,9 @@ pub fn neighbors(
     text.push('\n');
     render_tree(&graph, &tree, &mut text, "");
 
-    // Count unique problem names
-    let unique_names: HashSet<&str> = neighbors.iter().map(|n| n.name).collect();
     text.push_str(&format!(
-        "\n{} reachable problems in {} hops\n",
-        unique_names.len(),
+        "\n{} reachable nodes in {} hops\n",
+        neighbors.len(),
         max_hops,
     ));
 

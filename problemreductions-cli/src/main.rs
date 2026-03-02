@@ -29,10 +29,17 @@ fn main() -> anyhow::Result<()> {
         }
     };
 
+    // Data-producing commands auto-output JSON when piped
+    let auto_json = matches!(
+        cli.command,
+        Commands::Reduce(_) | Commands::Solve(_) | Commands::Evaluate(_) | Commands::Inspect(_)
+    );
+
     let out = OutputConfig {
         output: cli.output,
         quiet: cli.quiet,
         json: cli.json,
+        auto_json,
     };
 
     match cli.command {

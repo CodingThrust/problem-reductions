@@ -585,8 +585,9 @@ fn test_solve_brute_force() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("brute-force"));
-    assert!(stdout.contains("Solution"));
+    // auto_json: data commands output JSON when stdout is not a TTY (as in tests)
+    assert!(stdout.contains("\"solver\": \"brute-force\""));
+    assert!(stdout.contains("\"solution\""));
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -617,10 +618,10 @@ fn test_solve_ilp() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("ilp"));
-    assert!(stdout.contains("Solution"));
+    assert!(stdout.contains("\"solver\": \"ilp\""));
+    assert!(stdout.contains("\"solution\""));
     assert!(
-        stdout.contains("via ILP"),
+        stdout.contains("\"reduced_to\": \"ILP\""),
         "MIS solved with ILP should show auto-reduction: {stdout}"
     );
 
@@ -654,8 +655,9 @@ fn test_solve_ilp_default() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
+    // auto_json: data commands output JSON when stdout is not a TTY
     assert!(
-        stdout.contains("Solver: ilp (via ILP)"),
+        stdout.contains("\"solver\": \"ilp\"") && stdout.contains("\"reduced_to\": \"ILP\""),
         "MIS with default solver should show auto-reduction: {stdout}"
     );
 
@@ -689,11 +691,12 @@ fn test_solve_ilp_shows_via_ilp() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
+    // auto_json: data commands output JSON when stdout is not a TTY
     assert!(
-        stdout.contains("Solver: ilp (via ILP)"),
+        stdout.contains("\"reduced_to\": \"ILP\""),
         "Non-ILP problem solved with ILP should show auto-reduction indicator, got: {stdout}"
     );
-    assert!(stdout.contains("Problem: MaximumIndependentSet"));
+    assert!(stdout.contains("\"problem\": \"MaximumIndependentSet\""));
 
     std::fs::remove_file(&problem_file).ok();
 }
@@ -794,8 +797,9 @@ fn test_solve_bundle() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Problem"));
-    assert!(stdout.contains("via"));
+    // auto_json: data commands output JSON when stdout is not a TTY
+    assert!(stdout.contains("\"problem\""));
+    assert!(stdout.contains("\"solution\""));
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
@@ -848,8 +852,9 @@ fn test_solve_bundle_ilp() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Problem"));
-    assert!(stdout.contains("via"));
+    // auto_json: data commands output JSON when stdout is not a TTY
+    assert!(stdout.contains("\"problem\""));
+    assert!(stdout.contains("\"solution\""));
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&bundle_file).ok();
@@ -1365,8 +1370,8 @@ fn test_reduce_stdout() {
 }
 
 #[test]
-fn test_reduce_human_output() {
-    // Without --json or -o, reduce shows human-readable summary
+fn test_reduce_auto_json_output() {
+    // auto_json: reduce outputs JSON when stdout is not a TTY (as in tests)
     let problem_file = std::env::temp_dir().join("pred_test_reduce_human.json");
     let create_out = pred()
         .args([
@@ -1392,10 +1397,6 @@ fn test_reduce_human_output() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("Reduced"),
-        "expected 'Reduced' in stdout, got: {stdout}"
-    );
-    assert!(
         stdout.contains("MaximumIndependentSet"),
         "expected 'MaximumIndependentSet' in stdout, got: {stdout}"
     );
@@ -1403,10 +1404,10 @@ fn test_reduce_human_output() {
         stdout.contains("QUBO"),
         "expected 'QUBO' in stdout, got: {stdout}"
     );
-    // Should NOT be parseable as JSON
+    // auto_json: should be valid JSON when stdout is not a TTY
     assert!(
-        serde_json::from_str::<serde_json::Value>(&stdout).is_err(),
-        "stdout should not be valid JSON in human-readable mode, got: {stdout}"
+        serde_json::from_str::<serde_json::Value>(&stdout).is_ok(),
+        "stdout should be valid JSON with auto_json, got: {stdout}"
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -1596,7 +1597,7 @@ fn test_to_incoming() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("MaximumIndependentSet"));
     assert!(stdout.contains("incoming"));
-    assert!(stdout.contains("reachable problems"));
+    assert!(stdout.contains("reachable nodes"));
     // Should contain tree characters
     assert!(stdout.contains("├── ") || stdout.contains("└── "));
 }
@@ -1681,7 +1682,7 @@ fn test_to_default_hops() {
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("1-hop"));
-    assert!(stdout.contains("reachable problems"));
+    assert!(stdout.contains("reachable nodes"));
 }
 
 // ---- Quiet mode tests ----
@@ -1793,8 +1794,9 @@ fn test_quiet_still_shows_stdout() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
+    // auto_json: data commands output JSON when stdout is not a TTY
     assert!(
-        stdout.contains("Solution"),
+        stdout.contains("\"solution\""),
         "stdout should still contain solution with -q, got: {stdout}"
     );
 
@@ -1837,9 +1839,10 @@ fn test_create_pipe_to_solve() {
         String::from_utf8_lossy(&solve_result.stderr)
     );
     let stdout = String::from_utf8(solve_result.stdout).unwrap();
+    // auto_json: data commands output JSON when stdout is not a TTY
     assert!(
-        stdout.contains("Solution"),
-        "stdout should contain Solution, got: {stdout}"
+        stdout.contains("\"solution\""),
+        "stdout should contain solution, got: {stdout}"
     );
 }
 
@@ -1952,25 +1955,18 @@ fn test_inspect_problem() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
+    // auto_json: data commands output JSON when stdout is not a TTY
     assert!(
-        stdout.contains("Type: MaximumIndependentSet"),
-        "expected 'Type: MaximumIndependentSet', got: {stdout}"
+        stdout.contains("MaximumIndependentSet"),
+        "expected 'MaximumIndependentSet', got: {stdout}"
     );
     assert!(
-        stdout.contains("Size fields:"),
-        "expected 'Size fields:', got: {stdout}"
+        stdout.contains("\"kind\""),
+        "expected '\"kind\"', got: {stdout}"
     );
     assert!(
-        stdout.contains("Variables:"),
-        "expected 'Variables:', got: {stdout}"
-    );
-    assert!(
-        stdout.contains("Solvers:"),
-        "expected 'Solvers:', got: {stdout}"
-    );
-    assert!(
-        stdout.contains("Reduces to:"),
-        "expected 'Reduces to:', got: {stdout}"
+        serde_json::from_str::<serde_json::Value>(&stdout).is_ok(),
+        "expected valid JSON, got: {stdout}"
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -2021,21 +2017,18 @@ fn test_inspect_bundle() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
+    // auto_json: data commands output JSON when stdout is not a TTY
     assert!(
-        stdout.contains("Bundle"),
-        "expected 'Bundle' in output, got: {stdout}"
+        stdout.contains("\"kind\": \"bundle\""),
+        "expected '\"kind\": \"bundle\"' in output, got: {stdout}"
     );
     assert!(
-        stdout.contains("Source:"),
-        "expected 'Source:' in output, got: {stdout}"
+        stdout.contains("\"source\""),
+        "expected '\"source\"' in output, got: {stdout}"
     );
     assert!(
-        stdout.contains("Target:"),
-        "expected 'Target:' in output, got: {stdout}"
-    );
-    assert!(
-        stdout.contains("Path:"),
-        "expected 'Path:' in output, got: {stdout}"
+        stdout.contains("\"target\""),
+        "expected '\"target\"' in output, got: {stdout}"
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -2506,9 +2499,10 @@ fn test_solve_timeout_succeeds() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
+    // auto_json: data commands output JSON when stdout is not a TTY
     assert!(
-        stdout.contains("Solution"),
-        "expected Solution in stdout, got: {stdout}"
+        stdout.contains("\"solution\""),
+        "expected solution in stdout, got: {stdout}"
     );
 
     std::fs::remove_file(&problem_file).ok();
@@ -2548,7 +2542,8 @@ fn test_solve_timeout_zero_means_no_limit() {
         String::from_utf8_lossy(&output.stderr)
     );
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Solution"));
+    // auto_json: data commands output JSON when stdout is not a TTY
+    assert!(stdout.contains("\"solution\""));
 
     std::fs::remove_file(&problem_file).ok();
 }

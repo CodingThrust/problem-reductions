@@ -79,9 +79,9 @@ pub fn reduce(
             anyhow::bail!(
                 "Path file starts with {}{} but source problem is {}{}",
                 first.name,
-                format_variant(&first.variant),
+                variant_to_full_slash(&first.variant),
                 source_name,
-                format_variant(&source_variant),
+                variant_to_full_slash(&source_variant),
             );
         }
         // If --to is given, validate it matches the path's target
@@ -205,11 +205,4 @@ pub fn reduce(
     Ok(())
 }
 
-fn format_variant(v: &BTreeMap<String, String>) -> String {
-    if v.is_empty() {
-        String::new()
-    } else {
-        let vals: Vec<&str> = v.values().map(|v| v.as_str()).collect();
-        format!("/{}", vals.join("/"))
-    }
-}
+use super::graph::variant_to_full_slash;
