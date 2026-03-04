@@ -86,6 +86,15 @@ impl Knapsack {
     pub fn num_items(&self) -> usize {
         self.weights.len()
     }
+
+    /// Returns the number of binary slack bits needed for QUBO encoding: floor(log2(C)) + 1.
+    pub fn num_slack_bits(&self) -> usize {
+        if self.capacity <= 0 {
+            1
+        } else {
+            ((self.capacity as f64).log2().floor() as usize) + 1
+        }
+    }
 }
 
 impl Problem for Knapsack {

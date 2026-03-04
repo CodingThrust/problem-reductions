@@ -9,6 +9,7 @@ mod circuit_spinglass;
 mod coloring_qubo;
 mod factoring_circuit;
 mod graph;
+mod knapsack_qubo;
 mod kcoloring_casts;
 mod ksatisfiability_casts;
 mod ksatisfiability_qubo;
