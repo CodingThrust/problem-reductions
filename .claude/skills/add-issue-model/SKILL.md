@@ -40,14 +40,14 @@ Use `WebSearch` and `WebFetch` to fill all sections from the upstream template (
 | **Motivation** | One sentence: why include this problem? | E.g. "Widely used in network design and has known reductions to QUBO." |
 | **Definition — Name** | Use `Maximum*`/`Minimum*` prefix for optimization. Check CLAUDE.md "Problem Names" | E.g. `MaximumIndependentSet` |
 | **Definition — Reference** | URL or citation for the formal definition | Must be a real, accessible URL |
-| **Definition — Formal** | Input, feasibility constraints, and objective. Define ALL symbols before using them | E.g. "Given G=(V,E) where V is vertex set and E is edge set, find S ⊆ V such that..." |
-| **Variables — Count** | Number of variables in configuration vector | E.g. `n = \|V\|` (one variable per vertex) |
-| **Variables — Domain** | Per-variable domain | E.g. `binary {0,1}` or `{0,...,K-1}` for K colors |
-| **Variables — Meaning** | What each variable represents | E.g. `x_i = 1 if vertex i ∈ S` |
+| **Definition — Formal** | Input, feasibility constraints, and objective. Define ALL symbols before using them. Use LaTeX math (`$...$` inline, `$$...$$` display) | E.g. "Given $G=(V,E)$ where $V$ is vertex set and $E$ is edge set, find $S \subseteq V$ such that..." |
+| **Variables — Count** | Number of variables in configuration vector | E.g. $n = |V|$ (one variable per vertex) |
+| **Variables — Domain** | Per-variable domain | E.g. binary $\{0,1\}$ or $\{0,\ldots,K-1\}$ for $K$ colors |
+| **Variables — Meaning** | What each variable represents | E.g. $x_i = 1$ if vertex $i \in S$ |
 | **Schema — Type name** | Rust struct name | Must match the Definition Name |
 | **Schema — Variants** | Graph topology variants, weighted/unweighted | E.g. `SimpleGraph, GridGraph; weighted or unweighted` |
 | **Schema — Fields table** | `\| Field \| Type \| Description \|` for each struct field | Connect fields to symbols defined in Definition |
-| **Complexity** | Best known exact algorithm with concrete numbers | E.g. `O(1.1996^n)` by Xiao & Nagamochi (2017). **No symbolic constants.** |
+| **Complexity** | Best known exact algorithm with concrete numbers | E.g. $O(1.1996^n)$ by Xiao & Nagamochi (2017). **No symbolic constants.** |
 | **Complexity — References** | URL for complexity results | Must be citable |
 | **Extra Remark** | Optional: historical context, applications, relationships | Can be brief or empty |
 | **How to solve** | Check applicable boxes | BruteForce / ILP reduction / Other |
@@ -55,12 +55,14 @@ Use `WebSearch` and `WebFetch` to fill all sections from the upstream template (
 
 **Citation rule:** Every complexity claim and reference MUST include a URL.
 
+**Formatting rule:** All mathematical expressions MUST use GitHub LaTeX rendering: `$...$` for inline math (e.g., $G=(V,E)$, $x_i$, $O(1.1996^n)$) and `$$...$$` for display equations. Never use plain text for math.
+
 ## Step 3: Verify Algorithm Correctness
 
 For the Complexity section:
 - Cross-check the complexity claim against at least 2 independent sources
-- Ensure the complexity uses concrete numeric values (e.g., `1.1996^n`), not symbolic constants
-- Verify the variable in the complexity expression maps to a natural size getter (e.g., `n = |V|` → `num_vertices`)
+- Ensure the complexity uses concrete numeric values (e.g., $1.1996^n$), not symbolic constants
+- Verify the variable in the complexity expression maps to a natural size getter (e.g., $n = |V|$ → `num_vertices`)
 
 ## Step 4: Draft and File Issue
 
@@ -80,13 +82,13 @@ gh issue create --repo CodingThrust/problem-reductions \
 **Name:** ProblemName
 **Reference:** [citation](url)
 
-<formal definition with all symbols defined>
+<formal definition with all symbols defined, using LaTeX: $G=(V,E)$, $S \subseteq V$, etc.>
 
 ## Variables
 
-- **Count:** n = |V| (one variable per vertex)
-- **Per-variable domain:** binary {0,1}
-- **Meaning:** x_i = 1 if vertex i is selected
+- **Count:** $n = |V|$ (one variable per vertex)
+- **Per-variable domain:** binary $\{0,1\}$
+- **Meaning:** $x_i = 1$ if vertex $i$ is selected
 
 ## Schema (data type)
 
@@ -95,12 +97,12 @@ gh issue create --repo CodingThrust/problem-reductions \
 
 | Field | Type | Description |
 |-------|------|-------------|
-| graph | SimpleGraph | the graph G=(V,E) |
-| weights | Vec<W> | vertex weights w_i (weighted variant only) |
+| graph | SimpleGraph | the graph $G=(V,E)$ |
+| weights | Vec<W> | vertex weights $w_i$ (weighted variant only) |
 
 ## Complexity
 
-- **Best known exact algorithm:** O(1.1996^n) by Author (Year), where n = |V|
+- **Best known exact algorithm:** $O(1.1996^n)$ by Author (Year), where $n = |V|$
 - **References:** [paper](url)
 
 ## Extra Remark
@@ -128,7 +130,8 @@ Report the created issue number and URL.
 |---------|-----|
 | Using custom format instead of template | Must match `.github/ISSUE_TEMPLATE/problem.md` sections exactly |
 | Missing complexity citation | Every algorithm claim needs author + year + URL |
-| Symbolic constants in complexity | Use concrete numbers: `1.1996^n` not `(2-epsilon)^n` |
+| Symbolic constants in complexity | Use concrete numbers: $1.1996^n$ not $(2-\epsilon)^n$ |
+| Plain text math | Use LaTeX: `$G=(V,E)$` not `G=(V,E)` |
 | Undefined symbols in definition | Define ALL symbols (G, V, E, S, etc.) before using them |
 | Trivial example instance | Use non-trivial instance (e.g., Petersen graph, not triangle) |
 | Not checking repo first | Always run Step 1 before researching |

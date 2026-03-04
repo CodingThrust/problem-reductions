@@ -49,12 +49,14 @@ Use `WebSearch` and `WebFetch` to fill all sections from the upstream template (
 | **Target** | Target problem name | Must exist in repo or have open issue |
 | **Motivation** | One sentence: why is this reduction useful? | E.g. "Enables solving MIS on quantum annealers via QUBO formulation." |
 | **Reference** | URL, paper, or textbook citation | Must be a real, accessible reference |
-| **Reduction Algorithm** | Three parts: (1) Define notation — list ALL symbols for source and target instances. (2) Variable mapping — how source variables map to target variables. (3) Constraint/objective transformation — formulas, penalty terms, etc. | Solution extraction follows from variable mapping, no need to describe separately |
+| **Reduction Algorithm** | Three parts: (1) Define notation — list ALL symbols for source and target instances. (2) Variable mapping — how source variables map to target variables. (3) Constraint/objective transformation — formulas, penalty terms, etc. Use LaTeX math (`$...$` inline, `$$...$$` display). | Solution extraction follows from variable mapping, no need to describe separately |
 | **Size Overhead** | Table: `\| Target metric (code name) \| Polynomial (using symbols) \|` | Code names must match the target problem's getter methods (e.g., `num_vertices`, `num_edges`) |
 | **Validation Method** | How to verify correctness beyond closed-loop testing | E.g. compare with ProblemReductions.jl, external solver, known results |
 | **Example** | Small but non-trivial source instance for the paper illustration | Must be small enough for brute-force but large enough to exercise the reduction meaningfully. Provide as many details as possible — this appears in the paper and is used by AI to generate example code. |
 
 **Citation rule:** Every claim MUST include a URL.
+
+**Formatting rule:** All mathematical expressions MUST use GitHub LaTeX rendering: `$...$` for inline math (e.g., $G=(V,E)$, $x_i$, $Q_{ij}$) and `$$...$$` for display equations. Never use plain text for math.
 
 ## Step 3: Verify Example Correctness
 
@@ -91,21 +93,21 @@ gh issue create --repo CodingThrust/problem-reductions \
 ## Reduction Algorithm
 
 **Notation:**
-- Source instance: G=(V,E), n=|V|, m=|E|
+- Source instance: $G=(V,E)$, $n=|V|$, $m=|E|$
 - Target instance: ...
 
 **Variable mapping:**
-<how source variables map to target variables>
+<how source variables map to target variables, using LaTeX: $x_i$, $Q_{ij}$, etc.>
 
 **Constraint/objective transformation:**
-<formulas, penalty terms, proof of correctness>
+<formulas in LaTeX, penalty terms, proof of correctness>
 
 ## Size Overhead
 
 | Target metric (code name) | Polynomial (using symbols above) |
 |----------------------------|----------------------------------|
-| num_vertices | n = |V| |
-| num_edges | m + ... |
+| `num_vertices` | $n = |V|$ |
+| `num_edges` | $m + \ldots$ |
 
 ## Validation Method
 
@@ -137,3 +139,4 @@ Report the created issue number and URL.
 | Missing validation method | Must describe how to cross-check beyond closed-loop |
 | Wrong overhead code names | Must match actual getter methods on target type |
 | Missing label | Use `--label "rule"` to match template metadata |
+| Plain text math | Use LaTeX: `$G=(V,E)$` not `G=(V,E)`, `$\sum w_{ij}$` not `sum w_ij` |

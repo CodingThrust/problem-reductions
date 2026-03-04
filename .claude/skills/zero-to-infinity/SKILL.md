@@ -66,14 +66,15 @@ ls src/rules/
 # Open issues (increase limit to 200)
 gh issue list --state open --limit 200 --json title,number
 
-# Closed issues
-gh issue list --state closed --limit 200 --json title,number
+# NOTE: Only open issues are excluded (not closed — those may have been rejected/abandoned)
 ```
 
 Build a named **exclusion set** containing:
 - Every implemented model name (from filenames)
 - Every implemented rule (source→target pairs from filenames)
-- Every issue title mentioning a problem or rule name
+- Every open issue title mentioning a problem or rule name (both `[Model]` and `[Rule]`)
+
+**New candidates must NOT overlap with this exclusion set.** A candidate is excluded if it matches ANY of: an implemented model/rule OR an open issue. Closed issues are NOT excluded (they may have been rejected or abandoned).
 
 **Pass this exclusion set to both discovery channels.**
 
