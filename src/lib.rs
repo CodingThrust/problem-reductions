@@ -36,40 +36,40 @@ pub mod variant;
 /// Prelude module for convenient imports.
 pub mod prelude {
     // Problem types
-    pub use crate::models::algebraic::{BMF, QUBO};
-    pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
-    pub use crate::models::graph::{BicliqueCover, SpinGlass};
-    pub use crate::models::graph::{
-        KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumDominatingSet, MinimumVertexCover, TravelingSalesman,
-    };
-    pub use crate::models::misc::{BinPacking, Factoring, PaintShop};
-    pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
-
-    // Core traits
-    pub use crate::rules::{ReduceTo, ReductionResult};
-    pub use crate::solvers::{BruteForce, Solver};
-    pub use crate::traits::{OptimizationProblem, Problem, SatisfactionProblem};
-
     // Types
     pub use crate::error::{ProblemError, Result};
-    pub use crate::types::{Direction, One, ProblemSize, SolutionSize, Unweighted};
+    // Core traits
+    pub use crate::rules::{ReduceTo, ReductionResult};
+    pub use crate::{
+        models::{
+            algebraic::{BMF, QUBO},
+            formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability},
+            graph::{
+                BicliqueCover, KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
+                MaximumMatching, MinimumDominatingSet, MinimumVertexCover, SpinGlass,
+                TravelingSalesman,
+            },
+            misc::{BinPacking, Factoring, LongestCommonSubsequence, PaintShop},
+            set::{MaximumSetPacking, MinimumSetCovering},
+        },
+        solvers::{BruteForce, Solver},
+        traits::{OptimizationProblem, Problem, SatisfactionProblem},
+        types::{Direction, One, ProblemSize, SolutionSize, Unweighted},
+    };
 }
 
 // Re-export commonly used items at crate root
 pub use error::{ProblemError, Result};
+// Re-export inventory so `declare_variants!` can use `$crate::inventory::submit!`
+pub use inventory;
+// Re-export proc macros for reduction registration and variant declaration
+pub use problemreductions_macros::{declare_variants, reduction};
 pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::{OptimizationProblem, Problem, SatisfactionProblem};
 pub use types::{
     Direction, NumericSize, One, ProblemSize, SolutionSize, Unweighted, WeightElement,
 };
-
-// Re-export proc macros for reduction registration and variant declaration
-pub use problemreductions_macros::{declare_variants, reduction};
-
-// Re-export inventory so `declare_variants!` can use `$crate::inventory::submit!`
-pub use inventory;
 
 #[cfg(test)]
 #[path = "unit_tests/graph_models.rs"]

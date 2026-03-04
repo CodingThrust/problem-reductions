@@ -1,5 +1,4 @@
-use std::collections::BTreeMap;
-use std::ffi::OsStr;
+use std::{collections::BTreeMap, ffi::OsStr};
 
 /// A parsed problem specification: name + optional variant values.
 #[derive(Debug, Clone)]
@@ -21,6 +20,7 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("TSP", "TravelingSalesman"),
     ("BP", "BinPacking"),
     ("CVP", "ClosestVectorProblem"),
+    ("LCS", "LongestCommonSubsequence"),
 ];
 
 /// Resolve a short alias to the canonical problem name.
@@ -51,6 +51,7 @@ pub fn resolve_alias(input: &str) -> String {
         "bicliquecover" => "BicliqueCover".to_string(),
         "bp" | "binpacking" => "BinPacking".to_string(),
         "cvp" | "closestvectorproblem" => "ClosestVectorProblem".to_string(),
+        "lcs" | "longestcommonsubsequence" => "LongestCommonSubsequence".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
 }

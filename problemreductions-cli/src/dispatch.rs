@@ -1,19 +1,20 @@
+use std::{any::Any, collections::BTreeMap, fmt, ops::Deref, path::Path};
+
 use anyhow::{bail, Context, Result};
-use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
-use problemreductions::models::misc::BinPacking;
-use problemreductions::prelude::*;
-use problemreductions::rules::{MinimizeSteps, ReductionGraph};
-use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
-use problemreductions::topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
-use problemreductions::types::ProblemSize;
-use problemreductions::variant::{K2, K3, KN};
+use problemreductions::{
+    models::{
+        algebraic::{ClosestVectorProblem, ILP},
+        misc::{BinPacking, LongestCommonSubsequence},
+    },
+    prelude::*,
+    rules::{MinimizeSteps, ReductionGraph},
+    solvers::{BruteForce, ILPSolver, Solver},
+    topology::{KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph},
+    types::ProblemSize,
+    variant::{K2, K3, KN},
+};
 use serde::Serialize;
 use serde_json::Value;
-use std::any::Any;
-use std::collections::BTreeMap;
-use std::fmt;
-use std::ops::Deref;
-use std::path::Path;
 
 use crate::problem_name::resolve_alias;
 
@@ -244,6 +245,7 @@ pub fn load_problem(
             Some("f64") => deser_opt::<ClosestVectorProblem<f64>>(data),
             _ => deser_opt::<ClosestVectorProblem<i32>>(data),
         },
+        "LongestCommonSubsequence" => deser_opt::<LongestCommonSubsequence>(data),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
@@ -303,6 +305,7 @@ pub fn serialize_any_problem(
             Some("f64") => try_ser::<ClosestVectorProblem<f64>>(any),
             _ => try_ser::<ClosestVectorProblem<i32>>(any),
         },
+        "LongestCommonSubsequence" => try_ser::<LongestCommonSubsequence>(any),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
