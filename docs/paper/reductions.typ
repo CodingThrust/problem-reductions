@@ -51,6 +51,7 @@
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "LongestCommonSubsequence": [Longest Common Subsequence],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -884,6 +885,46 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   },
   caption: [Optimal packing of items with sizes $(6, 6, 5, 5, 4, 4)$ into 3 bins of capacity $C = 10$. Numbers indicate item sizes; all bins are fully utilized.],
   ) <fig:binpacking-example>
+]
+
+#problem-def("LongestCommonSubsequence")[
+  Given a finite alphabet $Sigma$ and $k$ strings $s_1, dots, s_k$ over $Sigma$, find a longest string $w$ that is a subsequence of every $s_i$. A string $w$ is a _subsequence_ of $s$ if $w$ can be obtained by deleting zero or more characters from $s$ without changing the order of the remaining characters.
+][
+  The Longest Common Subsequence (LCS) problem is one of the fundamental string problems in computer science, listed as SR10 in @garey1979. For $k = 2$ strings, it is solvable in $O(m n)$ time via dynamic programming @wagner1974. However, Maier @maier1978 proved that the problem is NP-hard when $k$ is part of the input, even over a binary alphabet. LCS is central to diff and version control (e.g., `git diff`), bioinformatics (DNA/protein alignment), and data compression. The best known exact algorithm for the general $k$-string case runs in $O^*(2^n)$ by brute-force enumeration over subsequences of the shortest string#footnote[No algorithm improving on brute-force enumeration is known for the general $k$-string LCS.], where $n$ is the total length of all strings.
+
+  *Example.* Consider $k = 3$ strings over $Sigma = {A, B, C, D}$: $s_1 = mono("ABCDAB")$, $s_2 = mono("BDCABA")$, $s_3 = mono("BCADBA")$. An optimal common subsequence is $w = mono("BCAB")$ with length 4. We verify that $w$ is a subsequence of each string by identifying matching positions:
+
+  #figure({
+    canvas(length: 1cm, {
+      let strings = (
+        ("A", "B", "C", "D", "A", "B"),
+        ("B", "D", "C", "A", "B", "A"),
+        ("B", "C", "A", "D", "B", "A"),
+      )
+      let labels = ($s_1$, $s_2$, $s_3$)
+      // Positions matched in each string for BCAB
+      let matched = ((1, 2, 4, 5), (0, 2, 3, 4), (0, 1, 2, 4))
+      let dx = 0.7
+      let dy = -1.2
+      for si in range(3) {
+        let y = si * dy
+        draw.content((-0.6, y), labels.at(si))
+        for ci in range(strings.at(si).len()) {
+          let x = ci * dx
+          let is-matched = ci in matched.at(si)
+          let fill-color = if is-matched { graph-colors.at(0) } else { luma(230) }
+          let text-color = if is-matched { white } else { black }
+          draw.rect((x - 0.25, y - 0.25), (x + 0.25, y + 0.25),
+            fill: fill-color, stroke: 0.4pt + luma(120), radius: 2pt)
+          draw.content((x, y), text(9pt, fill: text-color, font: "DejaVu Sans Mono")[#strings.at(si).at(ci)])
+        }
+      }
+      draw.content((strings.at(0).len() * dx / 2 - 0.15, 3 * dy + 0.1),
+        text(8pt)[$w = mono("BCAB"), |w| = 4$])
+    })
+  },
+  caption: [Longest Common Subsequence of three strings. Blue cells mark the positions forming the common subsequence $w = mono("BCAB")$ of length 4.],
+  ) <fig:lcs-example>
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper
