@@ -18,8 +18,7 @@ fn test_knapsack_to_qubo_closed_loop() {
         .iter()
         .map(|t| reduction.extract_solution(t))
         .collect();
-    let source_set: std::collections::HashSet<Vec<usize>> =
-        best_source.into_iter().collect();
+    let source_set: std::collections::HashSet<Vec<usize>> = best_source.into_iter().collect();
 
     assert!(extracted.is_subset(&source_set));
     assert!(!extracted.is_empty());
