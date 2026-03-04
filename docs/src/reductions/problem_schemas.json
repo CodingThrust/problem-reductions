@@ -184,6 +184,17 @@
     ]
   },
   {
+    "name": "LongestCommonSubsequence",
+    "description": "Find the longest common subsequence of k strings",
+    "fields": [
+      {
+        "name": "strings",
+        "type_name": "Vec<Vec<u8>>",
+        "description": "The input strings (at least 2)"
+      }
+    ]
+  },
+  {
     "name": "MaxCut",
     "description": "Find maximum weight cut in a graph",
     "fields": [
