@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
-use problemreductions::models::misc::BinPacking;
+use problemreductions::models::misc::{BinPacking, Knapsack};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
@@ -244,6 +244,7 @@ pub fn load_problem(
             Some("f64") => deser_opt::<ClosestVectorProblem<f64>>(data),
             _ => deser_opt::<ClosestVectorProblem<i32>>(data),
         },
+        "Knapsack" => deser_opt::<Knapsack>(data),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
@@ -303,6 +304,7 @@ pub fn serialize_any_problem(
             Some("f64") => try_ser::<ClosestVectorProblem<f64>>(any),
             _ => try_ser::<ClosestVectorProblem<i32>>(any),
         },
+        "Knapsack" => try_ser::<Knapsack>(any),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
