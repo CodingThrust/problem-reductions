@@ -598,6 +598,20 @@
       "doc_path": "rules/sat_ksat/index.html"
     },
     {
+<<<<<<< HEAD
+=======
+      "source": 17,
+      "target": 36,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_items + num_slack_bits"
+        }
+      ],
+      "doc_path": "rules/knapsack_qubo/index.html"
+    },
+    {
+>>>>>>> a598c56 (chore: regenerate reduction graph after Knapsack->QUBO rule)
       "source": 18,
       "target": 39,
       "overhead": [
