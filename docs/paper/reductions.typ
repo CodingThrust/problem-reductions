@@ -51,6 +51,7 @@
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "LongestCommonSubsequence": [Longest Common Subsequence],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -886,6 +887,45 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   ) <fig:binpacking-example>
 ]
 
+#problem-def("LongestCommonSubsequence")[
+  Given $k >= 2$ strings $s_1, dots, s_k$ over a finite alphabet $Sigma$, find a longest string $w$ that is a subsequence of every $s_i$. A string $w$ is a subsequence of $s$ if $w$ can be obtained by deleting zero or more characters from $s$ without changing the order of the remaining characters.
+][
+The Longest Common Subsequence problem is one of Garey and Johnson's classical NP-hard problems (SR10) @garey1979 for $k >= 3$ strings. For $k = 2$, it is solvable in $O(n_1 n_2)$ time via dynamic programming @wagner1974. LCS is foundational to diff and version control (comparing text files), bioinformatics (DNA/protein sequence alignment), and data compression. Not approximable within $n^(1/4 - epsilon)$ for any $epsilon > 0$ @jiang1995. The best known exact algorithm for $k$ strings uses dynamic programming in $O(product_(i=1)^k n_i)$ time, which is polynomial for fixed $k$ but exponential in $k$ @maier1978.
+
+*Example.* Consider $k = 2$ strings over $Sigma = {A, B, C}$: $s_1 = mono("ABAC")$ and $s_2 = mono("BACA")$. The longest common subsequence is $w = mono("BAC")$ (length 3), verified as a subsequence of both: $s_1 = A bold("B") bold("A") bold("C")$ (positions 1, 2, 3) and $s_2 = bold("B") bold("A") bold("C") A$ (positions 0, 1, 2).
+
+#figure(
+  {
+    let s1 = "ABAC".clusters()
+    let s2 = "BACA".clusters()
+    let lcs-pos1 = (1, 2, 3)  // positions of BAC in s1
+    let lcs-pos2 = (0, 1, 2)  // positions of BAC in s2
+    let blue = graph-colors.at(0)
+    align(center, stack(dir: ttb, spacing: 0.4cm,
+      // s1
+      stack(dir: ltr, spacing: 0pt,
+        box(width: 0.7cm, height: 0.45cm, align(center + horizon, text(8pt)[$s_1:$])),
+        ..s1.enumerate().map(((i, c)) => {
+          let fill = if i in lcs-pos1 { blue.transparentize(40%) } else { white }
+          box(width: 0.5cm, height: 0.45cm, fill: fill, stroke: 0.4pt + luma(180),
+            align(center + horizon, text(8pt, weight: if i in lcs-pos1 { "bold" } else { "regular" }, c)))
+        }),
+      ),
+      // s2
+      stack(dir: ltr, spacing: 0pt,
+        box(width: 0.7cm, height: 0.45cm, align(center + horizon, text(8pt)[$s_2:$])),
+        ..s2.enumerate().map(((i, c)) => {
+          let fill = if i in lcs-pos2 { blue.transparentize(40%) } else { white }
+          box(width: 0.5cm, height: 0.45cm, fill: fill, stroke: 0.4pt + luma(180),
+            align(center + horizon, text(8pt, weight: if i in lcs-pos2 { "bold" } else { "regular" }, c)))
+        }),
+      ),
+    ))
+  },
+  caption: [LCS of $s_1 = mono("ABAC")$ and $s_2 = mono("BACA")$: the common subsequence $mono("BAC")$ (highlighted) has length 3.],
+) <fig:lcs-example>
+]
+
 // Completeness check: warn about problem types in JSON but missing from paper
 #{
   let json-models = {
@@ -1258,6 +1298,47 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) A satisfying assignment selects one true literal per clause; these vertices form an IS of size $m$ (no clause edges by selection, no conflict edges by consistency). ($arrow.l.double$) An IS of size $m$ must contain exactly one vertex per clause (by clause cliques); the corresponding literals are consistent (by conflict edges) and satisfy $phi$.
 
   _Solution extraction._ For $v_(j,i) in S$ with literal $x_k$: set $x_k = 1$; for $overline(x_k)$: set $x_k = 0$.
+]
+
+#let lcs_mis = load-example("lcs_to_maximumindependentset")
+#let lcs_mis_r = load-results("lcs_to_maximumindependentset")
+#let lcs_mis_sol = lcs_mis_r.solutions.at(0)
+#reduction-rule("LongestCommonSubsequence", "MaximumIndependentSet",
+  example: true,
+  example-caption: [LCS of $mono("ABAC")$ and $mono("BACA")$ to conflict graph],
+  extra: [
+    *Step 1 --- Match nodes.* For each pair of positions $(p_1, p_2)$ with $s_1[p_1] = s_2[p_2]$, create a vertex. Characters A, B, C appear in both strings, yielding #lcs_mis.target.instance.num_vertices match nodes:
+
+    #align(center, table(
+      columns: (auto, auto, auto, auto),
+      inset: 4pt,
+      align: center,
+      table.header([*Node*], [$s_1$ pos], [$s_2$ pos], [*Char*]),
+      [$v_0$], [0], [1], [A],
+      [$v_1$], [0], [3], [A],
+      [$v_2$], [2], [1], [A],
+      [$v_3$], [2], [3], [A],
+      [$v_4$], [1], [0], [B],
+      [$v_5$], [3], [2], [C],
+    ))
+
+    *Step 2 --- Conflict edges.* Two nodes conflict if their position differences are inconsistent (crossing or collision). This yields #lcs_mis.target.instance.num_edges conflict edges. For example, $v_0 = (0, 1)$ and $v_4 = (1, 0)$ cross: $s_1$ goes forward ($0 < 1$) but $s_2$ goes backward ($1 > 0$).
+
+    *Step 3 --- Verify solution.* Maximum IS: ${v_4, v_2, v_5}$ (size 3). These nodes have positions $(1, 0)$, $(2, 1)$, $(3, 2)$ --- all consistently ordered. The extracted common subsequence is $mono("BAC")$, matching the LCS. \
+    *Count:* #lcs_mis_r.solutions.len() optimal solution(s) #sym.checkmark
+  ],
+)[
+  @apostolico1987 Two positions in different strings can contribute to a common subsequence only if they hold the same character and their relative ordering is consistent across all strings. The _match graph_ encodes these constraints: vertices represent character-matching position tuples, and edges forbid incompatible pairs. An independent set of compatible position tuples directly yields a common subsequence, so the LCS length equals the maximum independent set size.
+][
+  _Construction._ For $k$ strings $s_1, dots, s_k$ of lengths $n_1, dots, n_k$:
+
+  _Vertices:_ For each $k$-tuple $(p_1, dots, p_k)$ with $s_1[p_1] = s_2[p_2] = dots = s_k[p_k]$, create a vertex. Total: $|V| <= product_(i=1)^k n_i$.
+
+  _Edges:_ $(u, v) in E$ iff the tuples $u = (a_1, dots, a_k)$ and $v = (b_1, dots, b_k)$ _conflict_ --- i.e., it is NOT the case that $a_i < b_i$ for all $i$, AND NOT the case that $b_i < a_i$ for all $i$. This means either some positions cross ($a_i < b_i$ but $a_j > b_j$) or collide ($a_i = b_i$ for some $i$).
+
+  _Correctness._ ($arrow.r.double$) A common subsequence of length $L$ selects $L$ position tuples that are pairwise consistently ordered --- they form an IS of size $L$. ($arrow.l.double$) An IS of size $L$ consists of $L$ pairwise non-conflicting tuples, which can be sorted into a consistent order, yielding a common subsequence of length $L$.
+
+  _Solution extraction._ For each selected vertex, read the position in the shortest string; set the corresponding binary variable to 1.
 ]
 
 #let sat_kc = load-example("satisfiability_to_kcoloring")
