@@ -184,6 +184,27 @@
     ]
   },
   {
+    "name": "Knapsack",
+    "description": "Select items to maximize total value subject to weight capacity constraint",
+    "fields": [
+      {
+        "name": "weights",
+        "type_name": "Vec<i64>",
+        "description": "Item weights w_i"
+      },
+      {
+        "name": "values",
+        "type_name": "Vec<i64>",
+        "description": "Item values v_i"
+      },
+      {
+        "name": "capacity",
+        "type_name": "i64",
+        "description": "Knapsack capacity C"
+      }
+    ]
+  },
+  {
     "name": "MaxCut",
     "description": "Find maximum weight cut in a graph",
     "fields": [
