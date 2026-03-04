@@ -19,6 +19,7 @@ example_test!(reduction_factoring_to_ilp);
 example_test!(reduction_ilp_to_qubo);
 example_test!(reduction_kcoloring_to_ilp);
 example_test!(reduction_kcoloring_to_qubo);
+example_test!(reduction_knapsack_to_qubo);
 example_test!(reduction_ksatisfiability_to_qubo);
 example_test!(reduction_ksatisfiability_to_satisfiability);
 example_test!(reduction_maxcut_to_spinglass);
@@ -79,6 +80,7 @@ example_fn!(test_factoring_to_ilp, reduction_factoring_to_ilp);
 example_fn!(test_ilp_to_qubo, reduction_ilp_to_qubo);
 example_fn!(test_kcoloring_to_ilp, reduction_kcoloring_to_ilp);
 example_fn!(test_kcoloring_to_qubo, reduction_kcoloring_to_qubo);
+example_fn!(test_knapsack_to_qubo, reduction_knapsack_to_qubo);
 example_fn!(
     test_ksatisfiability_to_qubo,
     reduction_ksatisfiability_to_qubo

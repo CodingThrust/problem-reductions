@@ -10,6 +10,7 @@ mod coloring_qubo;
 mod factoring_circuit;
 mod graph;
 mod kcoloring_casts;
+mod knapsack_qubo;
 mod ksatisfiability_casts;
 mod ksatisfiability_qubo;
 mod maximumindependentset_casts;

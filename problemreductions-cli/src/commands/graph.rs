@@ -259,7 +259,6 @@ pub(crate) fn variant_to_full_slash(variant: &BTreeMap<String, String>) -> Strin
     }
 }
 
-
 /// Format a problem node as **bold name/variant** in slash notation.
 /// This is the single source of truth for "name/variant" display.
 fn fmt_node(_graph: &ReductionGraph, name: &str, variant: &BTreeMap<String, String>) -> String {
