@@ -87,6 +87,41 @@ fn test_knapsack_serialization() {
 }
 
 #[test]
+fn test_knapsack_zero_capacity() {
+    // Capacity 0: only empty set is feasible
+    let problem = Knapsack::new(vec![1, 2], vec![10, 20], 0);
+    assert_eq!(problem.evaluate(&[0, 0]), SolutionSize::Valid(0));
+    assert_eq!(problem.evaluate(&[1, 0]), SolutionSize::Invalid);
+    let solver = BruteForce::new();
+    let solution = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(0));
+}
+
+#[test]
+fn test_knapsack_single_item() {
+    // Single item that fits
+    let problem = Knapsack::new(vec![3], vec![5], 3);
+    assert_eq!(problem.evaluate(&[1]), SolutionSize::Valid(5));
+    assert_eq!(problem.evaluate(&[0]), SolutionSize::Valid(0));
+    let solver = BruteForce::new();
+    let solution = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(5));
+}
+
+#[test]
+fn test_knapsack_greedy_not_optimal() {
+    // Classic case where greedy by value/weight ratio is suboptimal:
+    // Item 0: w=6, v=7, ratio=1.17 (greedy picks this first, then nothing else fits)
+    // Item 1: w=5, v=5, ratio=1.00
+    // Item 2: w=5, v=5, ratio=1.00
+    // Capacity=10. Greedy: {0} value=7. Optimal: {1,2} value=10.
+    let problem = Knapsack::new(vec![6, 5, 5], vec![7, 5, 5], 10);
+    let solver = BruteForce::new();
+    let solution = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&solution), SolutionSize::Valid(10));
+}
+
+#[test]
 #[should_panic(expected = "weights and values must have the same length")]
 fn test_knapsack_mismatched_lengths() {
     Knapsack::new(vec![1, 2], vec![3], 5);
