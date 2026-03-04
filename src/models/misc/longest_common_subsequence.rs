@@ -159,7 +159,7 @@ impl OptimizationProblem for LongestCommonSubsequence {
 }
 
 crate::declare_variants! {
-    LongestCommonSubsequence => "2^total_length",
+    LongestCommonSubsequence => "(total_length / num_strings)^num_strings",
 }
 
 #[cfg(test)]

@@ -78,14 +78,10 @@ fn test_lcs_brute_force() {
 #[test]
 fn test_lcs_three_strings() {
     // "ABCDAB", "BDCABA", "BCADBA"
-    // The shortest is any of them (all length 6), let's use these.
-    // Known LCS of these three is "BCBA" (length 4) or similar.
-    // Actually let's verify: LCS of ABCDAB, BDCABA, BCADBA
-    // A common subsequence of length 4: "BDAB"? Let's check:
-    //   ABCDAB: B(1) D(3) A(4) B(5) - yes
-    //   BDCABA: B(0) D(1) A(3) B(4) - yes
-    //   BCADBA: B(0) D(4) ... wait, we need positions in order.
-    // Let me just trust the brute force solver.
+    // Known LCS = "BCAB" (length 4), verified:
+    //   ABCDAB: B(1) C(2) A(4) B(5) ✓
+    //   BDCABA: B(0) C(2) A(3) B(4) ✓
+    //   BCADBA: B(0) C(1) A(2) B(4) ✓
     let problem = LongestCommonSubsequence::new(vec![
         vec![b'A', b'B', b'C', b'D', b'A', b'B'],
         vec![b'B', b'D', b'C', b'A', b'B', b'A'],
@@ -94,11 +90,7 @@ fn test_lcs_three_strings() {
     let solver = BruteForce::new();
     let solution = solver.find_best(&problem).expect("should find a solution");
     let metric = problem.evaluate(&solution);
-    assert!(metric.is_valid());
-    // The LCS length should be at least 2 and at most 6
-    let len = metric.unwrap();
-    assert!(len >= 2, "LCS should be at least 2, got {}", len);
-    assert!(len <= 6, "LCS should be at most 6, got {}", len);
+    assert_eq!(metric, SolutionSize::Valid(4));
 }
 
 #[test]
