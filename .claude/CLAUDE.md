@@ -12,6 +12,7 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [write-model-in-paper](skills/write-model-in-paper/SKILL.md) -- Write or improve a problem-def entry in the Typst paper. Covers formal definition, background, example with visualization, and algorithm list.
 - [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper. Covers complexity citation, self-contained proof, detailed example, and verification.
 - [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
+- [check-issue](skills/check-issue/SKILL.md) -- Quality gate for `[Rule]` and `[Model]` issues. Checks usefulness, non-triviality, correctness of literature, and writing quality. Posts structured report and adds failure labels.
 - [meta-power](skills/meta-power/SKILL.md) -- Batch-resolve all open `[Model]` and `[Rule]` issues autonomously: plan, implement, review, fix CI, merge — in dependency order (models first).
 
 ## Commands
