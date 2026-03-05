@@ -1067,9 +1067,17 @@ fn format_path_json(
         })
         .collect();
 
+    let composed = graph.compose_path_overhead(reduction_path);
+    let overall: Vec<serde_json::Value> = composed
+        .output_size
+        .iter()
+        .map(|(field, poly)| serde_json::json!({"field": field, "formula": poly.to_string()}))
+        .collect();
+
     serde_json::json!({
         "steps": reduction_path.len(),
         "path": steps_json,
+        "overall_overhead": overall,
     })
 }
 

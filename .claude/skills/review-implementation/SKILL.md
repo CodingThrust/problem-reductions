@@ -107,8 +107,9 @@ When both subagents return:
 
 1. **Parse results** -- identify FAIL/ISSUE items from both reports
 2. **Fix automatically** -- structural FAILs (missing registration, missing file), clear semantic issues, Important+ quality issues
-3. **Report to user** -- ambiguous semantic issues, Minor quality items, anything you're unsure about
-4. **Present consolidated report** combining both reviews
+3. **Update complexity review table** -- for any new/modified model or rule, add a row to `docs/src/complexity-review.md` with result PASS/FAIL/UNVERIFIED and review date
+4. **Report to user** -- ambiguous semantic issues, Minor quality items, anything you're unsure about
+5. **Present consolidated report** combining both reviews
 
 ## Step 5: Present Consolidated Report
 
@@ -142,6 +143,12 @@ Merge both subagent outputs into a single report:
 
 ### Test Quality (from quality reviewer)
 ...
+
+### Complexity & Overhead Review
+- Update `docs/src/complexity-review.md` with review results for any new or modified models/rules
+- Models table: verify `declare_variants!` complexity against best known algorithm
+- Rules table: verify `#[reduction(overhead)]` against actual `reduce_to()` code
+- Result: PASS / FAIL / UNVERIFIED
 
 ### Fixes Applied
 - [list of issues automatically fixed by main agent]

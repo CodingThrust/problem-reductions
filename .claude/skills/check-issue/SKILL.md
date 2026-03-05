@@ -69,12 +69,11 @@ Applies when the title contains `[Rule]`.
    pred path <source> <target> --json
    ```
 
-4. Decision:
+4. Decision (principle: new rule must reduce the reduction overhead):
    - **No path exists** → **Pass** (novel reduction)
-   - **Multi-hop path only** (2+ hops) → **Pass** with note: "Currently reachable in N hops; a direct rule adds value"
-   - **Direct path exists** (1 hop) → compare overhead:
+   - **Path exists** → compare overhead:
      - Parse the proposed overhead from the issue's "Size Overhead" table
-     - Get existing overhead from `pred show <target> --json` → `reduces_from[]` where source matches
+     - Parse the overhead of the path.
      - If proposed overhead is **strictly lower** on at least one dimension (and not higher on any) → **Pass** ("improves existing reduction")
      - If overhead is **equal or higher** on all dimensions → **Fail**
      - If overhead comparison is ambiguous (different dimensions, incomparable expressions) → **Warn** with explanation

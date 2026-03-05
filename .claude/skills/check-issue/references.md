@@ -1,17 +1,19 @@
 # Quick Reference: Known Facts for Issue Fact-Checking
 
-Use this file to cross-check claims in `[Rule]` and `[Model]` issues against established results. Built from the Related Projects in README.md.
+Use this file to cross-check claims in `[Rule]` and `[Model]` issues against established results. Built from the Related Projects in README.md. Each entry includes source URLs for traceability.
 
 ---
 
 ## 1. Karp DSL (PLDI 2022)
 
 **Source:** [REA1/karp](https://github.com/REA1/karp) — A Racket DSL for writing and testing Karp reductions between NP-complete problems.
-**Paper:** Zhang, Hartline & Dimoulas, "Karp: A Language for NP Reductions", PLDI 2022.
+**Paper:** Zhang, Hartline & Dimoulas, ["Karp: A Language for NP Reductions"](https://dl.acm.org/doi/abs/10.1145/3519939.3523732), PLDI 2022. ([PDF](https://users.cs.northwestern.edu/~chrdimo/pubs/pldi22-zhd.pdf))
+**Problem definitions:** [karp/problem-definition/](https://github.com/REA1/karp/tree/main/problem-definition)
+**Reduction implementations:** [karp/reduction/](https://github.com/REA1/karp/tree/main/reduction)
 
 ### Karp's 21 NP-Complete Problems
 
-All 21 problems from Karp (1972), which the DSL supports:
+All 21 problems from [Karp (1972)](https://en.wikipedia.org/wiki/Karp%27s_21_NP-complete_problems), which the DSL supports:
 
 | # | Problem | Category |
 |---|---------|----------|
@@ -38,6 +40,8 @@ All 21 problems from Karp (1972), which the DSL supports:
 | 21 | Max Cut | Graph Theory |
 
 ### Karp's Reduction Tree (source → target)
+
+Source: [Wikipedia: Karp's 21 NP-complete problems](https://en.wikipedia.org/wiki/Karp%27s_21_NP-complete_problems)
 
 ```
 SAT
@@ -82,20 +86,22 @@ SAT
 
 ### Key Complexity Classes
 
-| Class | Description |
-|-------|-------------|
-| **P** | Deterministic polynomial time |
-| **NP** | Nondeterministic polynomial time; "yes" certificates verifiable in poly time |
-| **co-NP** | Complements of NP problems |
-| **PSPACE** | Polynomial space (contains NP) |
-| **EXP** | Exponential time |
-| **BPP** | Bounded-error probabilistic polynomial time |
-| **BQP** | Bounded-error quantum polynomial time |
-| **PH** | Polynomial hierarchy |
-| **APX** | Problems with constant-factor approximation |
-| **MAX SNP** | Syntactically defined optimization class |
+| Class | Description | Source |
+|-------|-------------|--------|
+| **P** | Deterministic polynomial time | [P](https://complexityzoo.net/Complexity_Zoo:P#p) |
+| **NP** | Nondeterministic polynomial time; "yes" certificates verifiable in poly time | [NP](https://complexityzoo.net/Complexity_Zoo:N#np) |
+| **co-NP** | Complements of NP problems | [co-NP](https://complexityzoo.net/Complexity_Zoo:C#conp) |
+| **PSPACE** | Polynomial space (contains NP) | [PSPACE](https://complexityzoo.net/Complexity_Zoo:P#pspace) |
+| **EXP** | Exponential time | [EXP](https://complexityzoo.net/Complexity_Zoo:E#exp) |
+| **BPP** | Bounded-error probabilistic polynomial time | [BPP](https://complexityzoo.net/Complexity_Zoo:B#bpp) |
+| **BQP** | Bounded-error quantum polynomial time | [BQP](https://complexityzoo.net/Complexity_Zoo:B#bqp) |
+| **PH** | Polynomial hierarchy | [PH](https://complexityzoo.net/Complexity_Zoo:P#ph) |
+| **APX** | Problems with constant-factor approximation | [APX](https://complexityzoo.net/Complexity_Zoo:A#apx) |
+| **MAX SNP** | Syntactically defined optimization class | [MAX SNP](https://complexityzoo.net/Complexity_Zoo:M#maxsnp) |
 
 ### Canonical NP-Complete Problems (from Complexity Zoo)
+
+Source: [Complexity Zoo: NP](https://complexityzoo.net/Complexity_Zoo:N#np)
 
 - **SAT** (Boolean satisfiability) — the first NP-complete problem (Cook 1971)
 - **3-Colorability** — Can vertices be colored with 3 colors, no adjacent same color?
@@ -116,25 +122,28 @@ SAT
 ## 3. Compendium of NP Optimization Problems
 
 **Source:** [csc.kth.se/tcs/compendium](https://www.csc.kth.se/tcs/compendium/) — Online catalog of NP optimization problems with approximability results (Crescenzi & Kann).
+**Problem list index:** [node6.html](https://www.csc.kth.se/tcs/compendium/node6.html)
 
 ### Problem Categories
 
-| Code | Category | Problem Count |
-|------|----------|---------------|
-| GT | Graph Theory | ~60 |
-| ND | Network Design | ~30 |
-| SP | Sets and Partitions | ~20 |
-| SR | Storage and Retrieval | ~10 |
-| SS | Sequencing and Scheduling | ~20 |
-| MP | Mathematical Programming | ~15 |
-| AN | Algebra and Number Theory | ~10 |
-| GP | Games and Puzzles | ~5 |
-| LO | Logic | ~10 |
-| AL | Automata and Language Theory | ~5 |
-| PO | Program Optimization | ~5 |
-| MS | Miscellaneous | ~10 |
+| Code | Category | Source |
+|------|----------|--------|
+| GT | Graph Theory | [Covering](https://www.csc.kth.se/tcs/compendium/node9.html), [Subgraph](https://www.csc.kth.se/tcs/compendium/node32.html), [Ordering](https://www.csc.kth.se/tcs/compendium/node52.html), [Iso/Homo](https://www.csc.kth.se/tcs/compendium/node56.html), [Connectivity](https://www.csc.kth.se/tcs/compendium/node100.html) |
+| ND | Network Design | [node](https://www.csc.kth.se/tcs/compendium/node104.html) |
+| SP | Sets and Partitions | [node](https://www.csc.kth.se/tcs/compendium/node120.html) |
+| SR | Storage and Retrieval | [node](https://www.csc.kth.se/tcs/compendium/node135.html) |
+| SS | Sequencing and Scheduling | [node](https://www.csc.kth.se/tcs/compendium/node140.html) |
+| MP | Mathematical Programming | [node](https://www.csc.kth.se/tcs/compendium/node155.html) |
+| AN | Algebra and Number Theory | [node](https://www.csc.kth.se/tcs/compendium/node163.html) |
+| GP | Games and Puzzles | [node](https://www.csc.kth.se/tcs/compendium/node167.html) |
+| LO | Logic | [node](https://www.csc.kth.se/tcs/compendium/node170.html) |
+| AL | Automata and Language Theory | [node](https://www.csc.kth.se/tcs/compendium/node175.html) |
+| PO | Program Optimization | [node](https://www.csc.kth.se/tcs/compendium/node178.html) |
+| MS | Miscellaneous | [node](https://www.csc.kth.se/tcs/compendium/node180.html) |
 
 ### Graph Theory: Covering and Partitioning
+
+Source: [node9.html](https://www.csc.kth.se/tcs/compendium/node9.html)
 
 | Problem | Type |
 |---------|------|
@@ -158,6 +167,8 @@ SAT
 
 ### Graph Theory: Subgraph Problems
 
+Source: [node32.html](https://www.csc.kth.se/tcs/compendium/node32.html)
+
 | Problem | Type |
 |---------|------|
 | Maximum Clique | Max |
@@ -175,6 +186,8 @@ SAT
 
 ### Graph Theory: Vertex Ordering
 
+Source: [node52.html](https://www.csc.kth.se/tcs/compendium/node52.html)
+
 | Problem | Type |
 |---------|------|
 | Minimum Bandwidth | Min |
@@ -183,6 +196,8 @@ SAT
 | Minimum Cut Linear Arrangement | Min |
 
 ### Network Design
+
+Source: [node104.html](https://www.csc.kth.se/tcs/compendium/node104.html)
 
 | Problem | Type |
 |---------|------|
@@ -194,6 +209,8 @@ SAT
 | Maximum Priority Flow | Max |
 
 ### Approximability Classes
+
+Source: [node3.html](https://www.csc.kth.se/tcs/compendium/node3.html)
 
 | Class | Meaning |
 |-------|---------|
@@ -208,11 +225,11 @@ SAT
 
 ## 4. Computers and Intractability (Garey & Johnson, 1979)
 
-**Source:** The classic reference cataloging 300+ NP-complete problems with reductions. The most cited book in computer science.
+**Source:** Garey & Johnson, *Computers and Intractability: A Guide to the Theory of NP-Completeness*, W. H. Freeman, 1979. ISBN 0-7167-1045-5. No online version; see [WorldCat](https://www.worldcat.org/title/4527557).
 
 ### Problem Classification (Garey-Johnson numbering)
 
-Uses same category codes as the Compendium (GT, ND, SP, SS, MP, AN, GP, LO, AL, PO, MS).
+Uses same category codes as the Compendium (GT, ND, SP, SS, MP, AN, GP, LO, AL, PO, MS). Problems listed in Appendix A (pp. 187-213).
 
 ### Key Problems and Their GJ Numbers
 
@@ -241,20 +258,22 @@ Uses same category codes as the Compendium (GT, ND, SP, SS, MP, AN, GP, LO, AL, 
 
 ### Classic Reductions from Garey & Johnson
 
-| Source | Target | Method |
-|--------|--------|--------|
-| SAT → 3-SAT | Clause splitting | Auxiliary variables for long clauses |
-| 3-SAT → 3-Coloring | Variable + palette gadget | |
-| 3-SAT → MIS | Clause-variable gadget | Triangle per clause, conflict edges |
-| MIS ↔ Vertex Cover | Complement | IS + VC = n |
-| MIS ↔ Clique | Complement graph | IS in G = Clique in complement(G) |
-| Vertex Cover → Set Cover | Edge-based | Edges as universe, vertex neighborhoods as sets |
-| SAT → Min Dominating Set | Triangle gadget | Variable triangle + clause vertices |
-| Vertex Cover → Feedback Vertex Set | | |
-| Exact Cover → 3D Matching | | |
-| Partition → Bin Packing | | |
-| SAT → 0-1 Integer Programming | Direct encoding | Variables → integers, clauses → constraints |
-| SAT → Max Cut | | |
+Source: Chapter 3, "Proving NP-Completeness Results" (pp. 45-89).
+
+| Source → Target | Method |
+|-----------------|--------|
+| SAT → 3-SAT | Auxiliary variables for long clauses |
+| 3-SAT → 3-Coloring | Variable + palette gadget |
+| 3-SAT → MIS | Triangle per clause, conflict edges |
+| MIS ↔ Vertex Cover | Complement: IS + VC = n |
+| MIS ↔ Clique | IS in G = Clique in complement(G) |
+| Vertex Cover → Set Cover | Edges as universe, vertex neighborhoods as sets |
+| SAT → Min Dominating Set | Variable triangle + clause vertices |
+| Vertex Cover → Feedback Vertex Set | |
+| Exact Cover → 3D Matching | |
+| Partition → Bin Packing | |
+| SAT → 0-1 Integer Programming | Variables → integers, clauses → constraints |
+| SAT → Max Cut | |
 
 ---
 
@@ -262,26 +281,26 @@ Uses same category codes as the Compendium (GT, ND, SP, SS, MP, AN, GP, LO, AL, 
 
 | Our Problem Name | Karp 21 | GJ # | Compendium | Complexity Zoo |
 |-----------------|---------|------|------------|----------------|
-| MaximumIndependentSet | via Clique complement | GT20 | GT: Subgraph | |
-| MinimumVertexCover | #5 Vertex Cover | GT1 | GT: Covering | |
-| MaximumClique | #3 Clique | GT5/GT21 | GT: Subgraph | NP-complete |
-| MaxCut | #21 Max Cut | GT24 | GT: Subgraph | MAX SNP |
-| KColoring | #12 Chromatic Number | GT4 | GT: Covering | NP-complete (k>=3) |
-| MinimumDominatingSet | | GT2 | GT: Covering | |
-| MaximumMatching | | | GT: Covering | **P** (polynomial) |
-| TravelingSalesman | | GT46 | ND | NP-complete |
-| Satisfiability | #1 SAT | LO1 | LO | NP-complete |
-| KSatisfiability | #11 3-SAT | LO2 | LO | NP-complete |
-| MinimumSetCovering | #6 Set Covering | SP5 | SP | |
-| MaximumSetPacking | #4 Set Packing | SP3 | SP | |
-| BinPacking | | SP13 | SP | |
-| ILP | #2 0-1 Integer Prog | MP1 | MP | |
+| MaximumIndependentSet | via Clique complement | GT20 | [GT: Subgraph](https://www.csc.kth.se/tcs/compendium/node32.html) | |
+| MinimumVertexCover | #5 Vertex Cover | GT1 | [GT: Covering](https://www.csc.kth.se/tcs/compendium/node9.html) | |
+| MaximumClique | #3 Clique | GT5/GT21 | [GT: Subgraph](https://www.csc.kth.se/tcs/compendium/node32.html) | [NP-complete](https://complexityzoo.net/Complexity_Zoo:N#np) |
+| MaxCut | #21 Max Cut | GT24 | [GT: Subgraph](https://www.csc.kth.se/tcs/compendium/node32.html) | [MAX SNP](https://complexityzoo.net/Complexity_Zoo:M#maxsnp) |
+| KColoring | #12 Chromatic Number | GT4 | [GT: Covering](https://www.csc.kth.se/tcs/compendium/node9.html) | NP-complete (k>=3) |
+| MinimumDominatingSet | | GT2 | [GT: Covering](https://www.csc.kth.se/tcs/compendium/node9.html) | |
+| MaximumMatching | | | [GT: Covering](https://www.csc.kth.se/tcs/compendium/node9.html) | **P** (polynomial) |
+| TravelingSalesman | | GT46 | [ND](https://www.csc.kth.se/tcs/compendium/node104.html) | [NP-complete](https://complexityzoo.net/Complexity_Zoo:N#np) |
+| Satisfiability | #1 SAT | LO1 | [LO](https://www.csc.kth.se/tcs/compendium/node170.html) | [NP-complete](https://complexityzoo.net/Complexity_Zoo:N#np) |
+| KSatisfiability | #11 3-SAT | LO2 | [LO](https://www.csc.kth.se/tcs/compendium/node170.html) | [NP-complete](https://complexityzoo.net/Complexity_Zoo:N#np) |
+| MinimumSetCovering | #6 Set Covering | SP5 | [SP](https://www.csc.kth.se/tcs/compendium/node120.html) | |
+| MaximumSetPacking | #4 Set Packing | SP3 | [SP](https://www.csc.kth.se/tcs/compendium/node120.html) | |
+| BinPacking | | SP13 | [SP](https://www.csc.kth.se/tcs/compendium/node120.html) | |
+| ILP | #2 0-1 Integer Prog | MP1 | [MP](https://www.csc.kth.se/tcs/compendium/node155.html) | |
 | SpinGlass | | | | |
 | QUBO | | | | |
-| CircuitSAT | | | | NP-complete |
+| CircuitSAT | | | | [NP-complete](https://complexityzoo.net/Complexity_Zoo:N#np) |
 | Factoring | | | | Not known NP-complete |
 | PaintShop | | | | |
 | BMF | | | | |
-| BicliqueCover | | | GT: Covering | |
+| BicliqueCover | | | [GT: Covering](https://www.csc.kth.se/tcs/compendium/node9.html) | |
 | MaximalIS | | | | |
 | CVP | | | | |

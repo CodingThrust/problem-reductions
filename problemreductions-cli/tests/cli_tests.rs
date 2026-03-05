@@ -1275,6 +1275,132 @@ fn test_path_unknown_cost() {
 }
 
 #[test]
+fn test_path_overall_overhead_text() {
+    // Use a multi-step path so the "Overall" section appears
+    let output = pred()
+        .args(["path", "3SAT", "MIS"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("Overall"), "multi-step path should show Overall overhead");
+}
+
+#[test]
+fn test_path_overall_overhead_json() {
+    let tmp = std::env::temp_dir().join("pred_test_path_overall.json");
+    let output = pred()
+        .args(["path", "3SAT", "MIS", "-o", tmp.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let content = std::fs::read_to_string(&tmp).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert!(json["overall_overhead"].is_array(), "JSON should contain overall_overhead");
+    let items = json["overall_overhead"].as_array().unwrap();
+    assert!(!items.is_empty(), "overall_overhead should have entries");
+    assert!(items[0]["field"].is_string());
+    assert!(items[0]["formula"].is_string());
+    std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
+fn test_path_overall_overhead_composition() {
+    // Verify that overall overhead is the symbolic composition of per-step overheads,
+    // not just the last step's overhead. For a multi-step path A→B→C, the overall
+    // should substitute B's output expressions into C's input expressions.
+    let tmp = std::env::temp_dir().join("pred_test_path_composition.json");
+    // 3SAT → SAT → MIS gives a 2-step path where:
+    //   Step 1 (3SAT→SAT): num_literals = num_literals (identity)
+    //   Step 2 (SAT→MIS): num_vertices = num_literals, num_edges = num_literals^2
+    //   Overall: num_vertices = num_literals, num_edges = num_literals^2
+    let output = pred()
+        .args(["path", "3SAT", "MIS", "-o", tmp.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let content = std::fs::read_to_string(&tmp).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+
+    // Must have exactly 2 steps
+    assert_eq!(json["steps"].as_u64().unwrap(), 2);
+
+    // Collect overall overhead into a map
+    let overall: std::collections::HashMap<String, String> = json["overall_overhead"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .map(|e| {
+            (
+                e["field"].as_str().unwrap().to_string(),
+                e["formula"].as_str().unwrap().to_string(),
+            )
+        })
+        .collect();
+
+    // The composed overhead should reference source (3SAT) variables, not intermediate ones.
+    // num_vertices and num_edges should both be expressed in terms of num_literals.
+    assert!(
+        overall.contains_key("num_vertices"),
+        "overall should have num_vertices"
+    );
+    assert!(
+        overall.contains_key("num_edges"),
+        "overall should have num_edges"
+    );
+    assert!(
+        overall["num_vertices"].contains("num_literals"),
+        "num_vertices should be in terms of source vars, got: {}",
+        overall["num_vertices"]
+    );
+    assert!(
+        overall["num_edges"].contains("num_literals"),
+        "num_edges should be in terms of source vars, got: {}",
+        overall["num_edges"]
+    );
+
+    std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
+fn test_path_all_overall_overhead() {
+    // Every path in --all --json output should have overall_overhead
+    let output = pred()
+        .args(["path", "3SAT", "MIS", "--all", "--json"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let paths: Vec<serde_json::Value> = serde_json::from_str(&stdout).unwrap();
+    assert!(!paths.is_empty());
+    for (i, p) in paths.iter().enumerate() {
+        assert!(
+            p["overall_overhead"].is_array(),
+            "path {} missing overall_overhead",
+            i + 1
+        );
+        let items = p["overall_overhead"].as_array().unwrap();
+        assert!(
+            !items.is_empty(),
+            "path {} has empty overall_overhead",
+            i + 1
+        );
+    }
+}
+
+#[test]
+fn test_path_single_step_no_overall_text() {
+    // Single-step path should NOT show the Overall section
+    let output = pred()
+        .args(["path", "MIS", "QUBO"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(!stdout.contains("Overall"), "single-step path should not show Overall");
+}
+
+#[test]
 fn test_show_json_output() {
     let tmp = std::env::temp_dir().join("pred_test_show.json");
     let output = pred()

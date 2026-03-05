@@ -2,28 +2,30 @@
 
 This guide covers the library internals for contributors.
 
-## Module Overview
+## Module Architecture
 
-<div class="theme-light-only">
+<script src="https://unpkg.com/cytoscape@3.30.4/dist/cytoscape.min.js"></script>
 
-![Module Overview](static/module-overview.svg)
-
+<div id="module-graph"></div>
+<div id="mg-controls">
+  <div id="mg-legend">
+    <span class="swatch" style="background:#c8f0c8;"></span>Core
+    <span class="swatch" style="background:#c8c8f0;"></span>Graph Models
+    <span class="swatch" style="background:#d8c8f0;"></span>Formula Models
+    <span class="swatch" style="background:#f0c8c8;"></span>Set Models
+    <span class="swatch" style="background:#f0f0a0;"></span>Algebraic Models
+    <span class="swatch" style="background:#f0c8e0;"></span>Misc Models
+    <span class="swatch" style="background:#f0d8b0;"></span>Rules
+    <span class="swatch" style="background:#b0e0f0;"></span>Registry
+    <span class="swatch" style="background:#d0f0d0;"></span>Solvers
+    <span class="swatch" style="background:#e0e0e0;"></span>Utilities
+  </div>
 </div>
-<div class="theme-dark-only">
-
-![Module Overview](static/module-overview-dark.svg)
-
+<div id="mg-help">
+  Click a module to expand/collapse its public items.
+  Double-click to open rustdoc.
 </div>
-
-| Module | Purpose |
-|--------|---------|
-| [`src/models/`](#problem-model) | Problem implementations by input structure: `graph/`, `formula/`, `set/`, `algebraic/`, `misc/` |
-| [`src/rules/`](#reduction-rules) | Reduction rules with `ReduceTo` implementations |
-| [`src/registry/`](#reduction-graph) | Reduction graph metadata (collected via `inventory`) |
-| [`src/solvers/`](#solvers) | BruteForce and ILP solvers |
-| `src/traits.rs` | Core `Problem`, `OptimizationProblem`, `SatisfactionProblem` traits (see [Problem Model](#problem-model)) |
-| `src/types.rs` | Shared types: `SolutionSize`, `Direction`, `ProblemSize` (see [Problem Model](#problem-model)) |
-| `src/variant.rs` | Variant parameter system (see [Variant System](#variant-system)) |
+<div id="mg-tooltip"></div>
 
 ## Problem Model
 
