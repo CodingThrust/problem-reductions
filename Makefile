@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan diagrams jl-testdata cli cli-demo copilot-review
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue diagrams jl-testdata cli cli-demo copilot-review
 
 # Default target
 help:
@@ -28,6 +28,7 @@ help:
 	@echo "  cli          - Build the pred CLI tool"
 	@echo "  cli-demo     - Run closed-loop CLI demo (build + exercise all commands)"
 	@echo "  run-plan   - Execute a plan with Claude autorun (latest plan in docs/plans/)"
+	@echo "  run-issue N=<number> - Run issue-to-pr --execute for a GitHub issue"
 	@echo "  copilot-review - Request Copilot code review on current PR"
 
 # Build the project
@@ -211,6 +212,17 @@ run-plan:
 		--verbose \
 		--max-turns 500 \
 		-p "$$PROMPT" 2>&1 | tee "$(OUTPUT)"
+
+# Run issue-to-pr --execute for a GitHub issue
+# Usage: make run-issue N=42
+N ?=
+run-issue:
+	@if [ -z "$(N)" ]; then echo "Usage: make run-issue N=<issue-number>"; exit 1; fi
+	claude --dangerously-skip-permissions \
+		--model opus \
+		--verbose \
+		--max-turns 500 \
+		-p "/issue-to-pr $(N) --execute" 2>&1 | tee "issue-$(N)-output.log"
 
 # Closed-loop CLI demo: exercises all commands end-to-end
 PRED := cargo run -p problemreductions-cli --release --

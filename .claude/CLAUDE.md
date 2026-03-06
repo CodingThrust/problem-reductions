@@ -40,6 +40,7 @@ make cli           # Build the pred CLI tool (release mode)
 make cli-demo      # Run closed-loop CLI demo (exercises all commands)
 make mcp-test      # Run MCP server tests (unit + integration)
 make run-plan      # Execute a plan with Claude autorun
+make run-issue N=42 # Run issue-to-pr --execute for a GitHub issue
 make copilot-review # Request Copilot code review on current PR
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 ```
