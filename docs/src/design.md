@@ -10,11 +10,7 @@ This guide covers the library internals for contributors.
 <div id="mg-controls">
   <div id="mg-legend">
     <span class="swatch" style="background:#c8f0c8;"></span>Core
-    <span class="swatch" style="background:#c8c8f0;"></span>Graph Models
-    <span class="swatch" style="background:#d8c8f0;"></span>Formula Models
-    <span class="swatch" style="background:#f0c8c8;"></span>Set Models
-    <span class="swatch" style="background:#f0f0a0;"></span>Algebraic Models
-    <span class="swatch" style="background:#f0c8e0;"></span>Misc Models
+    <span class="swatch" style="background:#c8c8f0;"></span>Models
     <span class="swatch" style="background:#f0d8b0;"></span>Rules
     <span class="swatch" style="background:#b0e0f0;"></span>Registry
     <span class="swatch" style="background:#d0f0d0;"></span>Solvers
