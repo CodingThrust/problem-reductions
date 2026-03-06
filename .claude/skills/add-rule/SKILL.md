@@ -139,7 +139,7 @@ cargo run --example export_schemas  # Update problem schemas
 make test clippy                    # Must pass
 ```
 
-Then run the [review-implementation](../review-implementation/SKILL.md) skill to verify all structural and semantic checks pass.
+If running standalone (not inside `make run-plan`), invoke [review-implementation](../review-implementation/SKILL.md) to verify all structural and semantic checks pass. When running inside a plan, the outer orchestrator handles the review.
 
 ## Solver Rules
 

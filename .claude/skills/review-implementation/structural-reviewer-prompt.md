@@ -98,24 +98,24 @@ Compare the implementation against the requirements in the original issue. The i
 ### For Models (check against issue):
 | # | Check | How to verify |
 |---|-------|--------------|
-| 1 | Problem name matches | Compare struct name against issue item 1 |
-| 2 | Mathematical definition matches | Read `evaluate()` and verify it implements the definition from issue item 2 |
-| 3 | Problem type matches | Verify optimization direction or satisfaction matches issue item 3 |
-| 4 | Type parameters match | Verify struct generics match issue item 4 |
-| 5 | Configuration space matches | Verify `dims()` matches issue item 6 |
-| 6 | Feasibility check matches | Verify `evaluate()` feasibility logic matches issue item 7 |
-| 7 | Objective function matches | Verify `evaluate()` objective logic matches issue item 8 |
-| 8 | Complexity matches | Verify `declare_variants!` complexity string matches issue item 9 |
+| 1 | Problem name matches | Compare struct name against the issue's **Problem name** field |
+| 2 | Mathematical definition matches | Read `evaluate()` and verify it implements the issue's **Mathematical definition** |
+| 3 | Problem type matches | Verify optimization direction or satisfaction matches the issue's **Problem type** |
+| 4 | Type parameters match | Verify struct generics match the issue's **Type parameters** |
+| 5 | Configuration space matches | Verify `dims()` matches the issue's **Configuration space** |
+| 6 | Feasibility check matches | Verify `evaluate()` feasibility logic matches the issue's **Feasibility check** |
+| 7 | Objective function matches | Verify `evaluate()` objective logic matches the issue's **Objective function** |
+| 8 | Complexity matches | Verify `declare_variants!` complexity string matches the issue's **Best known exact algorithm** |
 
 ### For Rules (check against issue):
 | # | Check | How to verify |
 |---|-------|--------------|
-| 1 | Source/target match | Compare `ReduceTo` impl against issue items 1-2 |
-| 2 | Reduction algorithm matches | Read `reduce_to()` and verify it follows the algorithm from issue item 3 |
-| 3 | Solution extraction matches | Read `extract_solution()` and verify it matches issue item 4 |
-| 4 | Correctness preserved | Verify the reduction logic is consistent with the correctness argument in issue item 5 |
-| 5 | Overhead expressions match | Compare `#[reduction(overhead = {...})]` against issue item 6 |
-| 6 | Example matches | Verify the example program uses the instance from issue item 7 |
+| 1 | Source/target match | Compare `ReduceTo` impl against the issue's **Source problem** and **Target problem** |
+| 2 | Reduction algorithm matches | Read `reduce_to()` and verify it follows the issue's **Reduction algorithm** |
+| 3 | Solution extraction matches | Read `extract_solution()` and verify it matches the issue's **Solution extraction** |
+| 4 | Correctness preserved | Verify the reduction logic is consistent with the issue's **Correctness argument** |
+| 5 | Overhead expressions match | Compare `#[reduction(overhead = {...})]` against the issue's **Size overhead** |
+| 6 | Example matches | Verify the example program uses the instance from the issue's **Concrete example** |
 
 Flag any deviation as ISSUE -- the implementation must match what was specified in the issue unless there's a documented reason for the change.
 

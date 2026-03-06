@@ -147,7 +147,7 @@ Invoke the `/write-model-in-paper` skill to write the problem-def entry in `docs
 make test clippy  # Must pass
 ```
 
-Then run the [review-implementation](../review-implementation/SKILL.md) skill to verify all structural and semantic checks pass.
+If running standalone (not inside `make run-plan`), invoke [review-implementation](../review-implementation/SKILL.md) to verify all structural and semantic checks pass. When running inside a plan, the outer orchestrator handles the review.
 
 ## Naming Conventions
 

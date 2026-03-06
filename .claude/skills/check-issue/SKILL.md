@@ -383,11 +383,18 @@ Post a single GitHub comment. The table adapts to the issue type:
 ### Label Application
 
 ```bash
-# Only add labels for FAILED checks (not warnings)
+# Add labels for FAILED checks (not warnings)
 gh issue edit <NUMBER> --add-label "Useless"     # if Check 1 failed
 gh issue edit <NUMBER> --add-label "Trivial"      # if Check 2 failed
 gh issue edit <NUMBER> --add-label "Wrong"        # if Check 3 failed
 gh issue edit <NUMBER> --add-label "PoorWritten"  # if Check 4 failed
+
+# If ALL checks passed (no failures), add the "Good" label
+gh issue edit <NUMBER> --add-label "Good"
+
+# If re-checking after fixes, remove stale failure labels and add "Good" if now passing
+gh issue edit <NUMBER> --remove-label "Useless,Trivial,Wrong,PoorWritten" 2>/dev/null
+gh issue edit <NUMBER> --add-label "Good"
 ```
 
 **Never close the issue.** Labels and comments only.
