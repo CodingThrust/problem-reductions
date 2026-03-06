@@ -95,6 +95,8 @@ Read the "Reduction Algorithm" section and flag as **Fail** if:
 
 If the construction involves gadgets, penalty terms, auxiliary variables, or non-trivial structural transformation → **Pass**.
 
+Note: if a trivial reduction make original disconnected problems connected, it is also **Pass**.
+
 ---
 
 ## Rule Check 3: Correctness (fail label: `Wrong`)
@@ -128,7 +130,7 @@ For each reference, verify:
 
 If any cited fact **cannot be verified** (paper not found, claim not in paper) → **Fail** with specifics.
 
-### 3d: Better Algorithm Discovery
+### 3d: Better Algorithm Discovery (not fatal)
 
 While searching, if you find:
 - A **more recent paper** that supersedes the cited reference

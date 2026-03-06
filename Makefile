@@ -76,10 +76,14 @@ diagrams:
 
 # Build and serve mdBook with API docs
 mdbook:
-	cargo run --example export_graph
-	cargo run --example export_schemas
-	RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps
-	mdbook build
+	@echo "Exporting graph..."
+	@cargo run --example export_graph 2>&1 | tail -1
+	@echo "Exporting schemas..."
+	@cargo run --example export_schemas 2>&1 | tail -1
+	@echo "Building API docs..."
+	@RUSTDOCFLAGS="--default-theme=dark" cargo doc --features ilp-highs --no-deps 2>&1 | tail -1
+	@echo "Building mdBook..."
+	@mdbook build
 	rm -rf book/api
 	cp -r target/doc book/api
 	@-lsof -ti:3001 | xargs kill 2>/dev/null || true
