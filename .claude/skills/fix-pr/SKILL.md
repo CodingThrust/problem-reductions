@@ -26,34 +26,40 @@ HEAD_SHA=$(gh api repos/$REPO/pulls/$PR | python3 -c "import sys,json; print(jso
 
 ### 1a. Fetch Review Comments
 
-Three sources of feedback to check:
+**Check ALL four sources.** User inline comments are the most commonly missed — do not skip any.
 
 ```bash
-# Copilot and user inline review comments (on code lines)
+# 1. Inline review comments on code lines (from ALL reviewers: users AND Copilot)
 gh api repos/$REPO/pulls/$PR/comments | python3 -c "
 import sys,json
-for c in json.load(sys.stdin):
+comments = json.load(sys.stdin)
+print(f'=== Inline comments: {len(comments)} ===')
+for c in comments:
     line = c.get('line') or c.get('original_line') or '?'
-    print(f'[{c[\"user\"][\"login\"]}] {c[\"path\"]}:{line} — {c[\"body\"]}')
+    print(f'[{c[\"user\"][\"login\"]}] {c[\"path\"]}:{line} — {c[\"body\"][:200]}')
 "
 
-# Review-level comments (top-level review body)
+# 2. Review-level comments (top-level review body from formal reviews)
 gh api repos/$REPO/pulls/$PR/reviews | python3 -c "
 import sys,json
-for r in json.load(sys.stdin):
+reviews = json.load(sys.stdin)
+print(f'=== Reviews: {len(reviews)} ===')
+for r in reviews:
     if r.get('body'):
-        print(f'[{r[\"user\"][\"login\"]}] {r[\"state\"]}: {r[\"body\"]}')
+        print(f'[{r[\"user\"][\"login\"]}] {r[\"state\"]}: {r[\"body\"][:200]}')
 "
 
-# Issue-level comments (general discussion, excluding bots)
+# 3. Issue-level comments (general discussion)
 gh api repos/$REPO/issues/$PR/comments | python3 -c "
 import sys,json
-for c in json.load(sys.stdin):
-    login = c['user']['login']
-    if 'codecov' not in login and 'copilot' not in login:
-        print(f'[{login}] {c[\"body\"]}')
+comments = [c for c in json.load(sys.stdin) if 'codecov' not in c['user']['login']]
+print(f'=== Issue comments: {len(comments)} ===')
+for c in comments:
+    print(f'[{c[\"user\"][\"login\"]}] {c[\"body\"][:200]}')
 "
 ```
+
+**Verify counts:** If any source returns 0, confirm it's genuinely empty — don't assume no feedback exists.
 
 ### 1b. Check CI Status
 
@@ -84,10 +90,12 @@ Categorize all findings:
 
 | Priority | Type | Action |
 |----------|------|--------|
-| 1 | CI failures (test/clippy/build) | Fix immediately -- blocks merge |
-| 2 | User review comments | Address each one -- respond on PR |
-| 3 | Copilot review comments | Evaluate validity, fix if correct |
+| 1 | CI failures (test/clippy/build) | Fix immediately — blocks merge |
+| 2 | User inline/review comments | Address each one — highest review priority |
+| 3 | Copilot inline suggestions | Evaluate validity, fix if correct |
 | 4 | Codecov coverage gaps | Add tests for uncovered lines |
+
+**User comments always take priority over bot comments.** A user inline comment requesting file deletion is just as important as a user review requesting a code change.
 
 ## Step 3: Fix CI Failures
 
