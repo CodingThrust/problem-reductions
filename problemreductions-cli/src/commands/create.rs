@@ -4,10 +4,12 @@ use crate::output::OutputConfig;
 use crate::problem_name::{parse_problem_spec, resolve_variant};
 use crate::util;
 use anyhow::{bail, Context, Result};
+use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
+use problemreductions::models::misc::{BinPacking, PaintShop};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
-    Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
+    BipartiteGraph, Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -31,6 +33,17 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.seed.is_none()
         && args.positions.is_none()
         && args.radius.is_none()
+        && args.sizes.is_none()
+        && args.capacity.is_none()
+        && args.sequence.is_none()
+        && args.sets.is_none()
+        && args.universe.is_none()
+        && args.biedges.is_none()
+        && args.left.is_none()
+        && args.right.is_none()
+        && args.rank.is_none()
+        && args.basis.is_none()
+        && args.target_vec.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -155,7 +168,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         } else {
             None
         };
-        return print_problem_help(canonical, gt);
+        print_problem_help(canonical, gt)?;
+        std::process::exit(2);
     }
 
     let (data, variant) = match canonical.as_str() {
@@ -272,6 +286,152 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(Factoring::new(m, n, target))?, resolved_variant.clone())
         }
 
+        // MaximalIS — same as MIS (graph + vertex weights)
+        "MaximalIS" => {
+            create_vertex_weight_problem(args, canonical, graph_type, &resolved_variant)?
+        }
+
+        // BinPacking
+        "BinPacking" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BinPacking requires --sizes and --capacity\n\n\
+                     Usage: pred create BinPacking --sizes 3,3,2,2 --capacity 5"
+                )
+            })?;
+            let cap_str = args.capacity.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BinPacking requires --capacity\n\n\
+                     Usage: pred create BinPacking --sizes 3,3,2,2 --capacity 5"
+                )
+            })?;
+            let use_f64 = sizes_str.contains('.') || cap_str.contains('.');
+            if use_f64 {
+                let sizes: Vec<f64> = util::parse_comma_list(sizes_str)?;
+                let capacity: f64 = cap_str.parse()?;
+                let mut variant = resolved_variant.clone();
+                variant.insert("weight".to_string(), "f64".to_string());
+                (ser(BinPacking::new(sizes, capacity))?, variant)
+            } else {
+                let sizes: Vec<i32> = util::parse_comma_list(sizes_str)?;
+                let capacity: i32 = cap_str.parse()?;
+                (
+                    ser(BinPacking::new(sizes, capacity))?,
+                    resolved_variant.clone(),
+                )
+            }
+        }
+
+        // PaintShop
+        "PaintShop" => {
+            let seq_str = args.sequence.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PaintShop requires --sequence\n\n\
+                     Usage: pred create PaintShop --sequence a,b,a,c,c,b"
+                )
+            })?;
+            let sequence: Vec<String> = seq_str.split(',').map(|s| s.trim().to_string()).collect();
+            (ser(PaintShop::new(sequence))?, resolved_variant.clone())
+        }
+
+        // MaximumSetPacking
+        "MaximumSetPacking" => {
+            let sets = parse_sets(args)?;
+            let num_sets = sets.len();
+            let weights = parse_set_weights(args, num_sets)?;
+            (
+                ser(MaximumSetPacking::with_weights(sets, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumSetCovering
+        "MinimumSetCovering" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumSetCovering requires --universe and --sets\n\n\
+                     Usage: pred create MinimumSetCovering --universe 4 --sets \"0,1;1,2;2,3;0,3\""
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            let num_sets = sets.len();
+            let weights = parse_set_weights(args, num_sets)?;
+            (
+                ser(MinimumSetCovering::with_weights(universe, sets, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // BicliqueCover
+        "BicliqueCover" => {
+            let left = args.left.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BicliqueCover requires --left, --right, --biedges, and --k\n\n\
+                     Usage: pred create BicliqueCover --left 2 --right 2 --biedges 0-0,0-1,1-1 --k 2"
+                )
+            })?;
+            let right = args.right.ok_or_else(|| {
+                anyhow::anyhow!("BicliqueCover requires --right (right partition size)")
+            })?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!("BicliqueCover requires --k (number of bicliques)")
+            })?;
+            let edges_str = args.biedges.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("BicliqueCover requires --biedges (e.g., 0-0,0-1,1-1)")
+            })?;
+            let edges = util::parse_edge_pairs(edges_str)?;
+            let graph = BipartiteGraph::new(left, right, edges);
+            (ser(BicliqueCover::new(graph, k))?, resolved_variant.clone())
+        }
+
+        // BMF
+        "BMF" => {
+            let matrix = parse_bool_matrix(args)?;
+            let rank = args.rank.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "BMF requires --matrix and --rank\n\n\
+                     Usage: pred create BMF --matrix \"1,0;0,1;1,1\" --rank 2"
+                )
+            })?;
+            (ser(BMF::new(matrix, rank))?, resolved_variant.clone())
+        }
+
+        // ClosestVectorProblem
+        "ClosestVectorProblem" => {
+            let basis_str = args.basis.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "CVP requires --basis, --target-vec\n\n\
+                     Usage: pred create CVP --basis \"1,0;0,1\" --target-vec \"0.5,0.5\""
+                )
+            })?;
+            let target_str = args
+                .target_vec
+                .as_deref()
+                .ok_or_else(|| anyhow::anyhow!("CVP requires --target-vec (e.g., \"0.5,0.5\")"))?;
+            let basis: Vec<Vec<i32>> = basis_str
+                .split(';')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<Vec<_>>>()?;
+            let target: Vec<f64> = util::parse_comma_list(target_str)?;
+            let n = basis.len();
+            let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(-10, 10); n];
+            (
+                ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ILP and CircuitSAT have complex input structures not suited for CLI flags.
+        // They are typically created via reductions from other problems.
+        "ILP" | "CircuitSAT" => {
+            bail!(
+                "CLI creation is not yet supported for {canonical}.\n\n\
+                 {canonical} instances are typically created via reduction:\n\
+                   pred create MIS --graph 0-1,1-2 | pred reduce - --to {canonical}\n\n\
+                 Or use the Rust API for direct construction."
+            );
+        }
+
         _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
     };
 
@@ -343,13 +503,7 @@ fn create_vertex_weight_problem(
                 )
             })?;
             let weights = parse_vertex_weights(args, n)?;
-            let data = match canonical {
-                "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
-                "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
-                "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
-                "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
-                _ => unreachable!(),
-            };
+            let data = ser_vertex_weight_problem_with(canonical, graph, weights)?;
             Ok((data, resolved_variant.clone()))
         }
     }
@@ -366,6 +520,7 @@ fn ser_vertex_weight_problem_with<G: Graph + Serialize>(
         "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights)),
         "MaximumClique" => ser(MaximumClique::new(graph, weights)),
         "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights)),
+        "MaximalIS" => ser(MaximalIS::new(graph, weights)),
         _ => unreachable!(),
     }
 }
@@ -560,6 +715,67 @@ fn parse_clauses(args: &CreateArgs) -> Result<Vec<CNFClause>> {
         .collect()
 }
 
+/// Parse `--sets` as semicolon-separated sets of comma-separated usize.
+/// E.g., "0,1;1,2;0,2"
+fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
+    let sets_str = args
+        .sets
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("This problem requires --sets (e.g., \"0,1;1,2;0,2\")"))?;
+    sets_str
+        .split(';')
+        .map(|set| {
+            set.trim()
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid set element: {}", e))
+                })
+                .collect()
+        })
+        .collect()
+}
+
+/// Parse `--weights` for set-based problems (i32), defaulting to all 1s.
+fn parse_set_weights(args: &CreateArgs, num_sets: usize) -> Result<Vec<i32>> {
+    match &args.weights {
+        Some(w) => {
+            let weights: Vec<i32> = util::parse_comma_list(w)?;
+            if weights.len() != num_sets {
+                bail!("Expected {} weights but got {}", num_sets, weights.len());
+            }
+            Ok(weights)
+        }
+        None => Ok(vec![1i32; num_sets]),
+    }
+}
+
+/// Parse `--matrix` as semicolon-separated rows of comma-separated bool values (0/1).
+/// E.g., "1,0;0,1;1,1"
+fn parse_bool_matrix(args: &CreateArgs) -> Result<Vec<Vec<bool>>> {
+    let matrix_str = args
+        .matrix
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("This problem requires --matrix (e.g., \"1,0;0,1;1,1\")"))?;
+    matrix_str
+        .split(';')
+        .map(|row| {
+            row.trim()
+                .split(',')
+                .map(|s| match s.trim() {
+                    "1" | "true" => Ok(true),
+                    "0" | "false" => Ok(false),
+                    other => Err(anyhow::anyhow!(
+                        "Invalid boolean value '{}': expected 0/1 or true/false",
+                        other
+                    )),
+                })
+                .collect()
+        })
+        .collect()
+}
+
 /// Parse `--matrix` as semicolon-separated rows of comma-separated f64 values.
 /// E.g., "1,0.5;0.5,2"
 fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
@@ -605,7 +821,8 @@ fn create_random(
         "MaximumIndependentSet"
         | "MinimumVertexCover"
         | "MaximumClique"
-        | "MinimumDominatingSet" => {
+        | "MinimumDominatingSet"
+        | "MaximalIS" => {
             let weights = vec![1i32; num_vertices];
             match graph_type {
                 "KingsSubgraph" => {
@@ -640,13 +857,7 @@ fn create_random(
                     }
                     let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
                     let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
-                    let data = match canonical {
-                        "MaximumIndependentSet" => ser(MaximumIndependentSet::new(graph, weights))?,
-                        "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights))?,
-                        "MaximumClique" => ser(MaximumClique::new(graph, weights))?,
-                        "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights))?,
-                        _ => unreachable!(),
-                    };
+                    let data = ser_vertex_weight_problem_with(canonical, graph, weights)?;
                     (data, variant)
                 }
             }

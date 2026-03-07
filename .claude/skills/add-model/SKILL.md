@@ -124,6 +124,21 @@ Update the CLI dispatch table so `pred` can load, solve, and serialize the new p
    - Add a lowercase alias mapping in `resolve_alias()` (e.g., `"newproblem" => "NewProblem".to_string()`)
    - Optionally add short aliases to `ALIASES` array (e.g., `("NP", "NewProblem")`)
 
+## Step 4.5: Add CLI creation support
+
+Update `problemreductions-cli/src/commands/create.rs` so `pred create <ProblemName>` works:
+
+1. **Add a match arm** in the `create()` function's main `match canonical.as_str()` block. Parse CLI flags and construct the problem:
+   - Graph-based problems with vertex weights: add to the `"MaximumIndependentSet" | ... | "MaximalIS"` arm
+   - Problems with unique fields: add a new arm that parses the required flags and calls the constructor
+   - See existing arms for patterns (e.g., `"BinPacking"` for simple fields, `"MaximumSetPacking"` for set-based)
+
+2. **Add CLI flags** in `problemreductions-cli/src/cli.rs` (`CreateArgs` struct) if the problem needs flags not already present. Update `all_data_flags_empty()` accordingly.
+
+3. **Update help text** in `CreateArgs`'s `after_help` to document the new problem's flags.
+
+4. **Schema alignment**: The `ProblemSchemaEntry` fields should list **constructor parameters** (what the user provides), not internal derived fields. For example, if `m` and `n` are derived from a matrix, only list `matrix` and `k` in the schema.
+
 ## Step 5: Write unit tests
 
 Create `src/unit_tests/models/<category>/<name>.rs`:
@@ -168,3 +183,5 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 | Forgetting `declare_variants!` | Required for variant complexity metadata used by the paper's auto-generated table |
 | Forgetting CLI dispatch | Must add match arms in `dispatch.rs` (`load_problem` + `serialize_any_problem`) |
 | Forgetting CLI alias | Must add lowercase entry in `problem_name.rs` `resolve_alias()` |
+| Forgetting CLI create | Must add creation handler in `commands/create.rs` and flags in `cli.rs` |
+| Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |

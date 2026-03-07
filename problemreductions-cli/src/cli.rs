@@ -203,11 +203,20 @@ TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
 Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP        --graph, --edge-weights
+  MaximalIS                       --graph, --weights
   SAT, 3SAT/KSAT                  --num-vars, --clauses [--k]
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
   Factoring                       --target, --m, --n
+  BinPacking                      --sizes, --capacity
+  PaintShop                       --sequence
+  MaximumSetPacking               --sets [--weights]
+  MinimumSetCovering              --universe, --sets [--weights]
+  BicliqueCover                   --left, --right, --biedges, --k
+  BMF                             --matrix (0/1), --rank
+  CVP                             --basis, --target-vec
+  ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
   KingsSubgraph, TriangularSubgraph   --positions (integer x,y pairs)
@@ -281,6 +290,39 @@ pub struct CreateArgs {
     /// Radius for UnitDiskGraph [default: 1.0]
     #[arg(long)]
     pub radius: Option<f64>,
+    /// Item sizes for BinPacking (comma-separated, e.g., "3,3,2,2")
+    #[arg(long)]
+    pub sizes: Option<String>,
+    /// Bin capacity for BinPacking
+    #[arg(long)]
+    pub capacity: Option<String>,
+    /// Car paint sequence for PaintShop (comma-separated, each label appears exactly twice, e.g., "a,b,a,c,c,b")
+    #[arg(long)]
+    pub sequence: Option<String>,
+    /// Sets for SetPacking/SetCovering (semicolon-separated, e.g., "0,1;1,2;0,2")
+    #[arg(long)]
+    pub sets: Option<String>,
+    /// Universe size for MinimumSetCovering
+    #[arg(long)]
+    pub universe: Option<usize>,
+    /// Bipartite graph edges for BicliqueCover (e.g., "0-0,0-1,1-2" for left-right pairs)
+    #[arg(long)]
+    pub biedges: Option<String>,
+    /// Left partition size for BicliqueCover
+    #[arg(long)]
+    pub left: Option<usize>,
+    /// Right partition size for BicliqueCover
+    #[arg(long)]
+    pub right: Option<usize>,
+    /// Rank for BMF
+    #[arg(long)]
+    pub rank: Option<usize>,
+    /// Lattice basis for CVP (semicolon-separated column vectors, e.g., "1,0;0,1")
+    #[arg(long)]
+    pub basis: Option<String>,
+    /// Target vector for CVP (comma-separated, e.g., "0.5,0.5")
+    #[arg(long)]
+    pub target_vec: Option<String>,
 }
 
 #[derive(clap::Args)]
@@ -315,7 +357,7 @@ pub struct SolveArgs {
     /// Solver: ilp (default) or brute-force
     #[arg(long, default_value = "ilp")]
     pub solver: String,
-    /// Timeout in seconds (0 = no limit) [default: 0]
+    /// Timeout in seconds (0 = no limit)
     #[arg(long, default_value = "0")]
     pub timeout: u64,
 }
@@ -367,7 +409,13 @@ pub struct EvaluateArgs {
 }
 
 /// Print the after_help text for a subcommand on parse error.
+///
+/// Only matches the first line of the error message. Without this,
+/// bare `pred` (no subcommand) would match "pred solve" in the
+/// top-level workflow examples and incorrectly append the solve
+/// subcommand's help text.
 pub fn print_subcommand_help_hint(error_msg: &str) {
+    let first_line = error_msg.lines().next().unwrap_or("");
     let subcmds = [
         ("pred solve", "solve"),
         ("pred reduce", "reduce"),
@@ -382,7 +430,7 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
     ];
     let cmd = Cli::command();
     for (pattern, name) in subcmds {
-        if error_msg.contains(pattern) {
+        if first_line.contains(pattern) {
             if let Some(sub) = cmd.find_subcommand(name) {
                 if let Some(help) = sub.get_after_help() {
                     eprintln!("\n{help}");

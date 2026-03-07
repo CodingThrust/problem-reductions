@@ -227,3 +227,32 @@ pub fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
         .map(|(k, v)| (k.to_string(), v.to_string()))
         .collect()
 }
+
+/// Parse a comma-separated list of values.
+pub fn parse_comma_list<T: std::str::FromStr>(s: &str) -> Result<Vec<T>>
+where
+    T::Err: std::fmt::Display,
+{
+    s.split(',')
+        .map(|v| {
+            v.trim()
+                .parse::<T>()
+                .map_err(|e| anyhow::anyhow!("Invalid value '{}': {e}", v.trim()))
+        })
+        .collect()
+}
+
+/// Parse edge pairs like "0-1,1-2,2-3" into Vec<(usize, usize)>.
+pub fn parse_edge_pairs(s: &str) -> Result<Vec<(usize, usize)>> {
+    s.split(',')
+        .map(|pair| {
+            let parts: Vec<&str> = pair.trim().split('-').collect();
+            if parts.len() != 2 {
+                bail!("Invalid edge '{}': expected format u-v", pair.trim());
+            }
+            let u: usize = parts[0].parse()?;
+            let v: usize = parts[1].parse()?;
+            Ok((u, v))
+        })
+        .collect()
+}

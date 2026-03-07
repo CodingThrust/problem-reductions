@@ -17,10 +17,7 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Minimize color changes in paint shop sequence",
         fields: &[
-            FieldInfo { name: "sequence_indices", type_name: "Vec<usize>", description: "Car sequence as indices" },
-            FieldInfo { name: "car_labels", type_name: "Vec<String>", description: "Unique car labels" },
-            FieldInfo { name: "is_first", type_name: "Vec<bool>", description: "First occurrence flags" },
-            FieldInfo { name: "num_cars", type_name: "usize", description: "Number of unique cars" },
+            FieldInfo { name: "sequence", type_name: "Vec<String>", description: "Car labels (each must appear exactly twice)" },
         ],
     }
 }

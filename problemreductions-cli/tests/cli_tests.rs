@@ -1277,13 +1277,13 @@ fn test_path_unknown_cost() {
 #[test]
 fn test_path_overall_overhead_text() {
     // Use a multi-step path so the "Overall" section appears
-    let output = pred()
-        .args(["path", "3SAT", "MIS"])
-        .output()
-        .unwrap();
+    let output = pred().args(["path", "3SAT", "MIS"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Overall"), "multi-step path should show Overall overhead");
+    assert!(
+        stdout.contains("Overall"),
+        "multi-step path should show Overall overhead"
+    );
 }
 
 #[test]
@@ -1296,7 +1296,10 @@ fn test_path_overall_overhead_json() {
     assert!(output.status.success());
     let content = std::fs::read_to_string(&tmp).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert!(json["overall_overhead"].is_array(), "JSON should contain overall_overhead");
+    assert!(
+        json["overall_overhead"].is_array(),
+        "JSON should contain overall_overhead"
+    );
     let items = json["overall_overhead"].as_array().unwrap();
     assert!(!items.is_empty(), "overall_overhead should have entries");
     assert!(items[0]["field"].is_string());
@@ -1391,13 +1394,13 @@ fn test_path_all_overall_overhead() {
 #[test]
 fn test_path_single_step_no_overall_text() {
     // Single-step path should NOT show the Overall section
-    let output = pred()
-        .args(["path", "MIS", "QUBO"])
-        .output()
-        .unwrap();
+    let output = pred().args(["path", "MIS", "QUBO"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(!stdout.contains("Overall"), "single-step path should not show Overall");
+    assert!(
+        !stdout.contains("Overall"),
+        "single-step path should not show Overall"
+    );
 }
 
 #[test]

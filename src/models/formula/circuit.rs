@@ -15,7 +15,6 @@ inventory::submit! {
         description: "Find satisfying input to a boolean circuit",
         fields: &[
             FieldInfo { name: "circuit", type_name: "Circuit", description: "The boolean circuit" },
-            FieldInfo { name: "variables", type_name: "Vec<String>", description: "Circuit variable names" },
         ],
     }
 }

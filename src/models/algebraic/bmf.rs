@@ -16,8 +16,6 @@ inventory::submit! {
         description: "Boolean matrix factorization",
         fields: &[
             FieldInfo { name: "matrix", type_name: "Vec<Vec<bool>>", description: "Target boolean matrix A" },
-            FieldInfo { name: "m", type_name: "usize", description: "Number of rows" },
-            FieldInfo { name: "n", type_name: "usize", description: "Number of columns" },
             FieldInfo { name: "k", type_name: "usize", description: "Factorization rank" },
         ],
     }

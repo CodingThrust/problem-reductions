@@ -270,18 +270,18 @@ cli-demo: cli
 	\
 	echo ""; \
 	echo "--- 8. create: build problem instances ---"; \
-	$$PRED create MIS --edges 0-1,1-2,2-3,3-4,4-0 -o $(CLI_DEMO_DIR)/mis.json; \
-	$$PRED create MIS --edges 0-1,1-2,2-3 --weights 2,1,3,1 -o $(CLI_DEMO_DIR)/mis_weighted.json; \
+	$$PRED create MIS --graph 0-1,1-2,2-3,3-4,4-0 -o $(CLI_DEMO_DIR)/mis.json; \
+	$$PRED create MIS --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o $(CLI_DEMO_DIR)/mis_weighted.json; \
 	$$PRED create SAT --num-vars 3 --clauses "1,2;-1,3;2,-3" -o $(CLI_DEMO_DIR)/sat.json; \
 	$$PRED create 3SAT --num-vars 4 --clauses "1,2,3;-1,2,-3;1,-2,3" -o $(CLI_DEMO_DIR)/3sat.json; \
 	$$PRED create QUBO --matrix "1,-0.5;-0.5,2" -o $(CLI_DEMO_DIR)/qubo.json; \
-	$$PRED create KColoring --k 3 --edges 0-1,1-2,2-0 -o $(CLI_DEMO_DIR)/kcol.json; \
-	$$PRED create SpinGlass --edges 0-1,1-2 -o $(CLI_DEMO_DIR)/sg.json; \
-	$$PRED create MaxCut --edges 0-1,1-2,2-0 -o $(CLI_DEMO_DIR)/maxcut.json; \
-	$$PRED create MVC --edges 0-1,1-2,2-3 -o $(CLI_DEMO_DIR)/mvc.json; \
-	$$PRED create MaximumMatching --edges 0-1,1-2,2-3 -o $(CLI_DEMO_DIR)/matching.json; \
-	$$PRED create Factoring --target 15 --bits-m 4 --bits-n 4 -o $(CLI_DEMO_DIR)/factoring.json; \
-	$$PRED create Factoring --target 21 --bits-m 3 --bits-n 3 -o $(CLI_DEMO_DIR)/factoring2.json; \
+	$$PRED create KColoring --k 3 --graph 0-1,1-2,2-0 -o $(CLI_DEMO_DIR)/kcol.json; \
+	$$PRED create SpinGlass --graph 0-1,1-2 -o $(CLI_DEMO_DIR)/sg.json; \
+	$$PRED create MaxCut --graph 0-1,1-2,2-0 -o $(CLI_DEMO_DIR)/maxcut.json; \
+	$$PRED create MVC --graph 0-1,1-2,2-3 -o $(CLI_DEMO_DIR)/mvc.json; \
+	$$PRED create MaximumMatching --graph 0-1,1-2,2-3 -o $(CLI_DEMO_DIR)/matching.json; \
+	$$PRED create Factoring --target 15 --m 4 --n 4 -o $(CLI_DEMO_DIR)/factoring.json; \
+	$$PRED create Factoring --target 21 --m 3 --n 3 -o $(CLI_DEMO_DIR)/factoring2.json; \
 	\
 	echo ""; \
 	echo "--- 9. evaluate: test configurations ---"; \
@@ -330,7 +330,7 @@ cli-demo: cli
 	echo ""; \
 	echo "--- 18. closed-loop: create → reduce → solve → verify ---"; \
 	echo "Creating a 6-vertex graph..."; \
-	$$PRED create MIS --edges 0-1,1-2,2-3,3-4,4-5,0-5,1-4 -o $(CLI_DEMO_DIR)/big.json; \
+	$$PRED create MIS --graph 0-1,1-2,2-3,3-4,4-5,0-5,1-4 -o $(CLI_DEMO_DIR)/big.json; \
 	echo "Solving with ILP..."; \
 	$$PRED solve $(CLI_DEMO_DIR)/big.json -o $(CLI_DEMO_DIR)/big_sol.json; \
 	echo "Reducing to QUBO and solving with brute-force..."; \
