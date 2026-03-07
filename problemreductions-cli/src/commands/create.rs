@@ -44,6 +44,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.rank.is_none()
         && args.basis.is_none()
         && args.target_vec.is_none()
+        && args.bounds.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -425,7 +426,17 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 .collect::<Result<Vec<_>>>()?;
             let target: Vec<f64> = util::parse_comma_list(target_str)?;
             let n = basis.len();
-            let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(-10, 10); n];
+            let (lo, hi) = match args.bounds.as_deref() {
+                Some(s) => {
+                    let parts: Vec<i64> = util::parse_comma_list(s)?;
+                    if parts.len() != 2 {
+                        bail!("--bounds expects \"lower,upper\" (e.g., \"-10,10\")");
+                    }
+                    (parts[0], parts[1])
+                }
+                None => (-10, 10),
+            };
+            let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
                 resolved_variant.clone(),

@@ -215,7 +215,7 @@ Flags by problem type:
   MinimumSetCovering              --universe, --sets [--weights]
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
-  CVP                             --basis, --target-vec
+  CVP                             --basis, --target-vec [--bounds]
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -323,6 +323,9 @@ pub struct CreateArgs {
     /// Target vector for CVP (comma-separated, e.g., "0.5,0.5")
     #[arg(long)]
     pub target_vec: Option<String>,
+    /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
+    #[arg(long, allow_hyphen_values = true)]
+    pub bounds: Option<String>,
 }
 
 #[derive(clap::Args)]
