@@ -1105,12 +1105,11 @@ fn test_create_unknown_problem() {
 
 #[test]
 fn test_create_no_flags_shows_help() {
-    // pred create MIS with no data flags shows schema-driven help
+    // pred create MIS with no data flags shows schema-driven help and exits non-zero
     let output = pred().args(["create", "MIS"]).output().unwrap();
     assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
@@ -2560,12 +2559,11 @@ fn test_create_factoring_with_bits() {
 
 #[test]
 fn test_create_factoring_no_flags_shows_help() {
-    // pred create Factoring with no data flags shows schema-driven help
+    // pred create Factoring with no data flags shows schema-driven help and exits non-zero
     let output = pred().args(["create", "Factoring"]).output().unwrap();
     assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
     );
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
@@ -2894,7 +2892,10 @@ fn test_create_kings_subgraph_help() {
         .args(["create", "MIS/KingsSubgraph"])
         .output()
         .unwrap();
-    assert!(output.status.success());
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help"
+    );
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
         stderr.contains("positions") || stderr.contains("MaximumIndependentSet"),

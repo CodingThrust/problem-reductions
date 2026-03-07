@@ -250,8 +250,8 @@ pub fn parse_edge_pairs(s: &str) -> Result<Vec<(usize, usize)>> {
             if parts.len() != 2 {
                 bail!("Invalid edge '{}': expected format u-v", pair.trim());
             }
-            let u: usize = parts[0].parse()?;
-            let v: usize = parts[1].parse()?;
+            let u: usize = parts[0].trim().parse()?;
+            let v: usize = parts[1].trim().parse()?;
             Ok((u, v))
         })
         .collect()

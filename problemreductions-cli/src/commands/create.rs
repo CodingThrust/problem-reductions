@@ -161,6 +161,17 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         return create_random(args, canonical, &resolved_variant, out);
     }
 
+    // ILP and CircuitSAT have complex input structures not suited for CLI flags.
+    // Check before the empty-flags help so they get a clear message.
+    if canonical == "ILP" || canonical == "CircuitSAT" {
+        bail!(
+            "CLI creation is not yet supported for {canonical}.\n\n\
+             {canonical} instances are typically created via reduction:\n\
+               pred create MIS --graph 0-1,1-2 | pred reduce - --to {canonical}\n\n\
+             Or use the Rust API for direct construction."
+        );
+    }
+
     // Show schema-driven help when no data flags are provided
     if all_data_flags_empty(args) {
         let gt = if graph_type != "SimpleGraph" {
@@ -419,17 +430,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
                 resolved_variant.clone(),
             )
-        }
-
-        // ILP and CircuitSAT have complex input structures not suited for CLI flags.
-        // They are typically created via reductions from other problems.
-        "ILP" | "CircuitSAT" => {
-            bail!(
-                "CLI creation is not yet supported for {canonical}.\n\n\
-                 {canonical} instances are typically created via reduction:\n\
-                   pred create MIS --graph 0-1,1-2 | pred reduce - --to {canonical}\n\n\
-                 Or use the Rust API for direct construction."
-            );
         }
 
         _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
