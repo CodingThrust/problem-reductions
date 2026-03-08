@@ -19,9 +19,7 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("3SAT", "KSatisfiability"),
     ("KSAT", "KSatisfiability"),
     ("TSP", "TravelingSalesman"),
-    ("BP", "BinPacking"),
     ("CVP", "ClosestVectorProblem"),
-    ("KS", "Knapsack"),
     ("MaxMatching", "MaximumMatching"),
 ];
 
@@ -51,9 +49,9 @@ pub fn resolve_alias(input: &str) -> String {
         "paintshop" => "PaintShop".to_string(),
         "bmf" => "BMF".to_string(),
         "bicliquecover" => "BicliqueCover".to_string(),
-        "bp" | "binpacking" => "BinPacking".to_string(),
+        "binpacking" => "BinPacking".to_string(),
         "cvp" | "closestvectorproblem" => "ClosestVectorProblem".to_string(),
-        "ks" | "knapsack" => "Knapsack".to_string(),
+        "knapsack" => "Knapsack".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
 }
