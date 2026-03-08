@@ -9,16 +9,6 @@
         "description": "Target boolean matrix A"
       },
       {
-        "name": "m",
-        "type_name": "usize",
-        "description": "Number of rows"
-      },
-      {
-        "name": "n",
-        "type_name": "usize",
-        "description": "Number of columns"
-      },
-      {
         "name": "k",
         "type_name": "usize",
         "description": "Factorization rank"
@@ -75,11 +65,6 @@
         "name": "circuit",
         "type_name": "Circuit",
         "description": "The boolean circuit"
-      },
-      {
-        "name": "variables",
-        "type_name": "Vec<String>",
-        "description": "Circuit variable names"
       }
     ]
   },
@@ -180,6 +165,27 @@
         "name": "clauses",
         "type_name": "Vec<CNFClause>",
         "description": "Clauses each with exactly K literals"
+      }
+    ]
+  },
+  {
+    "name": "Knapsack",
+    "description": "Select items to maximize total value subject to weight capacity constraint",
+    "fields": [
+      {
+        "name": "weights",
+        "type_name": "Vec<i64>",
+        "description": "Item weights w_i"
+      },
+      {
+        "name": "values",
+        "type_name": "Vec<i64>",
+        "description": "Item values v_i"
+      },
+      {
+        "name": "capacity",
+        "type_name": "i64",
+        "description": "Knapsack capacity C"
       }
     ]
   },
@@ -337,24 +343,9 @@
     "description": "Minimize color changes in paint shop sequence",
     "fields": [
       {
-        "name": "sequence_indices",
-        "type_name": "Vec<usize>",
-        "description": "Car sequence as indices"
-      },
-      {
-        "name": "car_labels",
+        "name": "sequence",
         "type_name": "Vec<String>",
-        "description": "Unique car labels"
-      },
-      {
-        "name": "is_first",
-        "type_name": "Vec<bool>",
-        "description": "First occurrence flags"
-      },
-      {
-        "name": "num_cars",
-        "type_name": "usize",
-        "description": "Number of unique cars"
+        "description": "Car labels (each must appear exactly twice)"
       }
     ]
   },
