@@ -201,9 +201,22 @@ macro_rules! impl_ksat_to_sat {
 
 // Register KN for the reduction graph (covers all K values as the generic entry)
 impl_ksat_to_sat!(KN);
-// Register K3 and K2 as concrete entries (used directly in tests and reductions)
-impl_ksat_to_sat!(K3);
-impl_ksat_to_sat!(K2);
+
+// K3 and K2 keep their ReduceTo<Satisfiability> impls for typed use,
+// but are NOT registered as separate primitive graph edges (KN covers them).
+impl ReduceTo<Satisfiability> for KSatisfiability<K3> {
+    type Result = ReductionKSATToSAT<K3>;
+    fn reduce_to(&self) -> Self::Result {
+        reduce_ksat_to_sat(self)
+    }
+}
+
+impl ReduceTo<Satisfiability> for KSatisfiability<K2> {
+    type Result = ReductionKSATToSAT<K2>;
+    fn reduce_to(&self) -> Self::Result {
+        reduce_ksat_to_sat(self)
+    }
+}
 
 #[cfg(test)]
 #[path = "../unit_tests/rules/sat_ksat.rs"]

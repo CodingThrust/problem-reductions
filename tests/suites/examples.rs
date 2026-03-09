@@ -29,15 +29,12 @@ example_test!(reduction_maximumindependentset_to_minimumvertexcover);
 example_test!(reduction_maximumindependentset_to_qubo);
 example_test!(reduction_maximummatching_to_ilp);
 example_test!(reduction_maximummatching_to_maximumsetpacking);
-example_test!(reduction_maximumsetpacking_to_ilp);
 example_test!(reduction_maximumsetpacking_to_maximumindependentset);
 example_test!(reduction_maximumsetpacking_to_qubo);
 example_test!(reduction_minimumdominatingset_to_ilp);
 example_test!(reduction_minimumsetcovering_to_ilp);
-example_test!(reduction_minimumvertexcover_to_ilp);
 example_test!(reduction_minimumvertexcover_to_maximumindependentset);
 example_test!(reduction_minimumvertexcover_to_minimumsetcovering);
-example_test!(reduction_minimumvertexcover_to_qubo);
 example_test!(reduction_qubo_to_ilp);
 example_test!(reduction_qubo_to_spinglass);
 example_test!(reduction_satisfiability_to_kcoloring);
@@ -114,10 +111,6 @@ example_fn!(
     reduction_maximummatching_to_maximumsetpacking
 );
 example_fn!(
-    test_maximumsetpacking_to_ilp,
-    reduction_maximumsetpacking_to_ilp
-);
-example_fn!(
     test_maximumsetpacking_to_maximumindependentset,
     reduction_maximumsetpacking_to_maximumindependentset
 );
@@ -134,20 +127,12 @@ example_fn!(
     reduction_minimumsetcovering_to_ilp
 );
 example_fn!(
-    test_minimumvertexcover_to_ilp,
-    reduction_minimumvertexcover_to_ilp
-);
-example_fn!(
     test_minimumvertexcover_to_maximumindependentset,
     reduction_minimumvertexcover_to_maximumindependentset
 );
 example_fn!(
     test_minimumvertexcover_to_minimumsetcovering,
     reduction_minimumvertexcover_to_minimumsetcovering
-);
-example_fn!(
-    test_minimumvertexcover_to_qubo,
-    reduction_minimumvertexcover_to_qubo
 );
 example_fn!(test_qubo_to_ilp, reduction_qubo_to_ilp);
 example_fn!(test_qubo_to_spinglass, reduction_qubo_to_spinglass);

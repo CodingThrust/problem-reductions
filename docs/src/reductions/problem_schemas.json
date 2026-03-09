@@ -9,16 +9,6 @@
         "description": "Target boolean matrix A"
       },
       {
-        "name": "m",
-        "type_name": "usize",
-        "description": "Number of rows"
-      },
-      {
-        "name": "n",
-        "type_name": "usize",
-        "description": "Number of columns"
-      },
-      {
         "name": "k",
         "type_name": "usize",
         "description": "Factorization rank"
@@ -75,11 +65,6 @@
         "name": "circuit",
         "type_name": "Circuit",
         "description": "The boolean circuit"
-      },
-      {
-        "name": "variables",
-        "type_name": "Vec<String>",
-        "description": "Circuit variable names"
       }
     ]
   },
@@ -337,24 +322,9 @@
     "description": "Minimize color changes in paint shop sequence",
     "fields": [
       {
-        "name": "sequence_indices",
-        "type_name": "Vec<usize>",
-        "description": "Car sequence as indices"
-      },
-      {
-        "name": "car_labels",
+        "name": "sequence",
         "type_name": "Vec<String>",
-        "description": "Unique car labels"
-      },
-      {
-        "name": "is_first",
-        "type_name": "Vec<bool>",
-        "description": "First occurrence flags"
-      },
-      {
-        "name": "num_cars",
-        "type_name": "usize",
-        "description": "Number of unique cars"
+        "description": "Car labels (each must appear exactly twice)"
       }
     ]
   },

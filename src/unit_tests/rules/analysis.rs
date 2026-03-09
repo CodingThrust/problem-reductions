@@ -218,20 +218,12 @@ fn test_find_dominated_rules_returns_known_set() {
         ("Factoring", "ILP"),
         // K3-SAT → QUBO via SAT → CircuitSAT → SpinGlass chain
         ("KSatisfiability", "QUBO"),
-        // Cast-composed: K2/K3 → KN → Satisfiability
-        ("KSatisfiability", "Satisfiability"),
         // MIS → MVC → ILP is better than direct MIS → ILP
         ("MaximumIndependentSet", "ILP"),
         // Variant cast composed: SimpleGraph/One → KingsSubgraph/One → KingsSubgraph/i32
         ("MaximumIndependentSet", "MaximumIndependentSet"),
         // MIS → MVC → QUBO is better than direct MIS → QUBO
         ("MaximumIndependentSet", "QUBO"),
-        // MSP → MIS → ILP is better than direct MSP → ILP
-        ("MaximumSetPacking", "ILP"),
-        // MVC → MIS → ILP is better than direct MVC → ILP
-        ("MinimumVertexCover", "ILP"),
-        // MVC → MIS → QUBO is better than direct MVC → QUBO
-        ("MinimumVertexCover", "QUBO"),
     ]
     .into_iter()
     .collect();

@@ -1053,19 +1053,6 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Solution extraction._ Return $bold(x)$ directly — each $x_i = 1$ indicates vertex $i$ is in the IS.
 ]
 
-#reduction-rule("MinimumVertexCover", "QUBO")[
-  A vertex cover must include at least one endpoint of every edge. The covering constraint for edge $(i,j)$ — that $x_i = x_j = 0$ is forbidden — translates to the quadratic penalty $(1-x_i)(1-x_j)$, which equals 1 exactly when neither endpoint is selected. The penalty method combines the weight-minimization objective with these coverage penalties into a single QUBO, where diagonal entries reflect the trade-off between vertex cost and coverage benefit, and off-diagonal entries penalize uncovered edges.
-][
-  _Construction._ The VC objective is: minimize $sum_i w_i x_i$ subject to $x_i + x_j >= 1$ for $(i,j) in E$. Applying the penalty method (@sec:penalty-method), the constraint $x_i + x_j >= 1$ is violated iff $x_i = x_j = 0$, with penalty $(1 - x_i)(1 - x_j)$:
-  $ f(bold(x)) = sum_i w_i x_i + P sum_((i,j) in E) (1 - x_i)(1 - x_j) $
-  with $P = 1 + sum_i w_i$. Expanding: $(1 - x_i)(1 - x_j) = 1 - x_i - x_j + x_i x_j$.
-  Summing over all edges, each vertex $i$ appears in $"deg"(i)$ penalty terms. The QUBO coefficients are: diagonal $Q_(i i) = w_i - P dot "deg"(i)$ (objective cost minus linear penalty for coverage), off-diagonal $Q_(i j) = P$ for edges (quadratic penalty). The constant $P |E|$ does not affect the minimizer.
-
-  _Correctness._ ($arrow.r.double$) If $bold(x)$ encodes a minimum vertex cover, every edge has at least one endpoint selected, so all penalty terms $(1-x_i)(1-x_j) = 0$ vanish and $f(bold(x)) = sum_(i in C) w_i$. ($arrow.l.double$) If some edge $(i,j)$ is uncovered ($x_i = x_j = 0$), the penalty $P > sum_i w_i$ exceeds the entire objective range, so $bold(x)$ cannot be a minimizer. Among valid covers (all penalties zero), $f(bold(x)) = sum_(i in C) w_i$ up to a constant, minimized exactly when $C$ is a minimum-weight vertex cover.
-
-  _Solution extraction._ Return $bold(x)$ directly — each $x_i = 1$ indicates vertex $i$ is in the cover.
-]
-
 #let kc_qubo = load-example("kcoloring_to_qubo")
 #let kc_qubo_r = load-results("kcoloring_to_qubo")
 #let kc_qubo_sol = kc_qubo_r.solutions.at(0)
@@ -1518,16 +1505,6 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $S = {v : x_v = 1}$.
 ]
 
-#reduction-rule("MinimumVertexCover", "ILP")[
-  Every edge must be covered by at least one endpoint -- a lower-bound constraint that is directly linear in binary vertex indicators.
-][
-  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v >= 1$ for each $(u, v) in E$. Objective: minimize $sum_v w_v x_v$.
-
-  _Correctness._ ($arrow.r.double$) A vertex cover includes at least one endpoint of every edge, satisfying all constraints. ($arrow.l.double$) Any feasible solution covers every edge; the objective minimizes total weight.
-
-  _Solution extraction._ $C = {v : x_v = 1}$.
-]
-
 #reduction-rule("MaximumMatching", "ILP")[
   Each edge is either selected or not, and each vertex may be incident to at most one selected edge -- a degree-bound constraint that is directly linear in binary edge indicators.
 ][
@@ -1536,16 +1513,6 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A matching has at most one edge per vertex, so all degree constraints hold. ($arrow.l.double$) Any feasible solution is a matching by construction; the objective maximizes total weight.
 
   _Solution extraction._ $M = {e : x_e = 1}$.
-]
-
-#reduction-rule("MaximumSetPacking", "ILP")[
-  Two sets conflict if they share a universe element, and at most one of each conflicting pair may be selected -- the same exclusion structure as independent set on the intersection graph, expressible as pairwise linear constraints.
-][
-  _Construction._ Variables: $x_i in {0, 1}$ for each $S_i in cal(S)$. Constraints: $x_i + x_j <= 1$ for each overlapping pair $S_i, S_j in cal(S)$ with $S_i inter S_j != emptyset$. Objective: maximize $sum_i w_i x_i$.
-
-  _Correctness._ ($arrow.r.double$) A packing has mutually disjoint sets, so no overlapping pair is co-selected. ($arrow.l.double$) Any feasible solution selects only mutually disjoint sets; the objective maximizes total weight.
-
-  _Solution extraction._ $cal(P) = {S_i : x_i = 1}$.
 ]
 
 #reduction-rule("MinimumSetCovering", "ILP")[
@@ -1715,13 +1682,13 @@ The following table shows concrete variable overhead for example instances, gene
   "minimumvertexcover_to_minimumsetcovering",
   "maxcut_to_spinglass", "spinglass_to_maxcut",
   "spinglass_to_qubo", "qubo_to_spinglass",
-  "maximumindependentset_to_qubo", "minimumvertexcover_to_qubo", "kcoloring_to_qubo",
+  "maximumindependentset_to_qubo", "kcoloring_to_qubo",
   "maximumsetpacking_to_qubo", "ksatisfiability_to_qubo", "ilp_to_qubo",
   "satisfiability_to_maximumindependentset", "satisfiability_to_kcoloring", "satisfiability_to_minimumdominatingset", "satisfiability_to_ksatisfiability",
   "circuitsat_to_spinglass", "factoring_to_circuitsat",
-  "maximumindependentset_to_ilp", "minimumvertexcover_to_ilp", "maximummatching_to_ilp",
+  "maximumindependentset_to_ilp", "maximummatching_to_ilp",
   "kcoloring_to_ilp", "factoring_to_ilp",
-  "maximumsetpacking_to_ilp", "minimumsetcovering_to_ilp",
+  "minimumsetcovering_to_ilp",
   "minimumdominatingset_to_ilp", "maximumclique_to_ilp",
   "travelingsalesman_to_ilp",
 )

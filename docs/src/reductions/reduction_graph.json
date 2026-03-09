@@ -508,25 +508,6 @@
       "doc_path": "rules/ksatisfiability_qubo/index.html"
     },
     {
-      "source": 14,
-      "target": 36,
-      "overhead": [
-        {
-          "field": "num_clauses",
-          "formula": "num_clauses"
-        },
-        {
-          "field": "num_vars",
-          "formula": "num_vars"
-        },
-        {
-          "field": "num_literals",
-          "formula": "num_literals"
-        }
-      ],
-      "doc_path": "rules/sat_ksat/index.html"
-    },
-    {
       "source": 15,
       "target": 16,
       "overhead": [
@@ -551,25 +532,6 @@
         }
       ],
       "doc_path": "rules/ksatisfiability_qubo/index.html"
-    },
-    {
-      "source": 15,
-      "target": 36,
-      "overhead": [
-        {
-          "field": "num_clauses",
-          "formula": "num_clauses"
-        },
-        {
-          "field": "num_vars",
-          "formula": "num_vars"
-        },
-        {
-          "field": "num_literals",
-          "formula": "num_literals"
-        }
-      ],
-      "doc_path": "rules/sat_ksat/index.html"
     },
     {
       "source": 16,
@@ -929,21 +891,6 @@
     },
     {
       "source": 30,
-      "target": 8,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_sets"
-        },
-        {
-          "field": "num_constraints",
-          "formula": "num_sets^2"
-        }
-      ],
-      "doc_path": "rules/maximumsetpacking_ilp/index.html"
-    },
-    {
-      "source": 30,
       "target": 23,
       "overhead": [
         {
@@ -1004,21 +951,6 @@
     },
     {
       "source": 33,
-      "target": 8,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_vertices"
-        },
-        {
-          "field": "num_constraints",
-          "formula": "num_edges"
-        }
-      ],
-      "doc_path": "rules/minimumvertexcover_ilp/index.html"
-    },
-    {
-      "source": 33,
       "target": 23,
       "overhead": [
         {
@@ -1046,17 +978,6 @@
         }
       ],
       "doc_path": "rules/minimumvertexcover_minimumsetcovering/index.html"
-    },
-    {
-      "source": 33,
-      "target": 35,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_vertices"
-        }
-      ],
-      "doc_path": "rules/minimumvertexcover_qubo/index.html"
     },
     {
       "source": 35,

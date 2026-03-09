@@ -23,7 +23,6 @@ mod maximumsetpacking_casts;
 mod maximumsetpacking_qubo;
 mod minimumvertexcover_maximumindependentset;
 mod minimumvertexcover_minimumsetcovering;
-mod minimumvertexcover_qubo;
 mod sat_circuitsat;
 mod sat_coloring;
 mod sat_ksat;
@@ -51,13 +50,9 @@ mod maximumindependentset_ilp;
 #[cfg(feature = "ilp-solver")]
 mod maximummatching_ilp;
 #[cfg(feature = "ilp-solver")]
-mod maximumsetpacking_ilp;
-#[cfg(feature = "ilp-solver")]
 mod minimumdominatingset_ilp;
 #[cfg(feature = "ilp-solver")]
 mod minimumsetcovering_ilp;
-#[cfg(feature = "ilp-solver")]
-mod minimumvertexcover_ilp;
 #[cfg(feature = "ilp-solver")]
 mod qubo_ilp;
 #[cfg(feature = "ilp-solver")]

@@ -479,46 +479,6 @@ mod qubo_reductions {
     }
 
     #[derive(Deserialize)]
-    struct VCToQuboData {
-        source: VCSource,
-        qubo_num_vars: usize,
-        qubo_optimal: QuboOptimal,
-    }
-
-    #[derive(Deserialize)]
-    struct VCSource {
-        num_vertices: usize,
-        edges: Vec<(usize, usize)>,
-    }
-
-    #[test]
-    fn test_vc_to_qubo_ground_truth() {
-        let json =
-            std::fs::read_to_string("tests/data/qubo/minimumvertexcover_to_qubo.json").unwrap();
-        let data: VCToQuboData = serde_json::from_str(&json).unwrap();
-
-        let n = data.source.num_vertices;
-        let vc = MinimumVertexCover::new(SimpleGraph::new(n, data.source.edges), vec![1i32; n]);
-        let reduction = ReduceTo::<QUBO>::reduce_to(&vc);
-        let qubo = reduction.target_problem();
-
-        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
-
-        let solver = BruteForce::new();
-        let solutions = solver.find_all_best(qubo);
-
-        for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
-            assert!(vc.evaluate(&extracted).is_valid());
-        }
-
-        // Optimal VC size should match ground truth
-        let gt_vc_size: usize = data.qubo_optimal.configs[0].iter().sum();
-        let our_vc_size: usize = reduction.extract_solution(&solutions[0]).iter().sum();
-        assert_eq!(our_vc_size, gt_vc_size);
-    }
-
-    #[derive(Deserialize)]
     struct ColoringToQuboData {
         source: ColoringSource,
         qubo_num_vars: usize,

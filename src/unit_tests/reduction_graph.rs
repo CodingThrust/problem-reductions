@@ -314,16 +314,16 @@ fn test_3sat_to_mis_triangular_overhead() {
         )
         .expect("Should find path from 3-SAT to MIS on triangular lattice");
 
-    // Path: K3SAT → SAT → MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
+    // Path: K3SAT → KN_SAT (cast) → SAT → MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
     assert_eq!(
         path.type_names(),
         vec!["KSatisfiability", "Satisfiability", "MaximumIndependentSet"]
     );
-    assert_eq!(path.len(), 3);
+    assert_eq!(path.len(), 4);
 
     // Per-edge symbolic overheads
     let edges = graph.path_overheads(&path);
-    assert_eq!(edges.len(), 3);
+    assert_eq!(edges.len(), 4);
 
     // Evaluate overheads at a test point to verify correctness
     let test_size = ProblemSize::new(vec![
@@ -334,30 +334,35 @@ fn test_3sat_to_mis_triangular_overhead() {
         ("num_edges", 15),
     ]);
 
-    // Edge 0: K3SAT → SAT (identity)
+    // Edge 0: K3SAT → KN_SAT (variant cast, identity for num_vars + num_clauses)
     assert_eq!(edges[0].get("num_vars").unwrap().eval(&test_size), 3.0);
     assert_eq!(edges[0].get("num_clauses").unwrap().eval(&test_size), 2.0);
-    assert_eq!(edges[0].get("num_literals").unwrap().eval(&test_size), 6.0);
 
-    // Edge 1: SAT → MIS{SimpleGraph,One}
+    // Edge 1: KN_SAT → SAT (identity)
+    assert_eq!(edges[1].get("num_vars").unwrap().eval(&test_size), 3.0);
+    assert_eq!(edges[1].get("num_clauses").unwrap().eval(&test_size), 2.0);
+    assert_eq!(edges[1].get("num_literals").unwrap().eval(&test_size), 6.0);
+
+    // Edge 2: SAT → MIS{SimpleGraph,One}
     // num_vertices = num_literals, num_edges = num_literals^2
-    assert_eq!(edges[1].get("num_vertices").unwrap().eval(&test_size), 6.0);
-    assert_eq!(edges[1].get("num_edges").unwrap().eval(&test_size), 36.0);
+    assert_eq!(edges[2].get("num_vertices").unwrap().eval(&test_size), 6.0);
+    assert_eq!(edges[2].get("num_edges").unwrap().eval(&test_size), 36.0);
 
-    // Edge 2: MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
+    // Edge 3: MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
     // num_vertices = num_vertices^2, num_edges = num_vertices^2
     assert_eq!(
-        edges[2].get("num_vertices").unwrap().eval(&test_size),
+        edges[3].get("num_vertices").unwrap().eval(&test_size),
         100.0
     );
-    assert_eq!(edges[2].get("num_edges").unwrap().eval(&test_size), 100.0);
+    assert_eq!(edges[3].get("num_edges").unwrap().eval(&test_size), 100.0);
 
     // Compose overheads symbolically along the path.
     // The composed overhead maps 3-SAT input variables to final MIS{Triangular} output.
     //
-    // K3SAT → SAT:         {num_clauses: C, num_vars: V, num_literals: L}  (identity)
-    // SAT → MIS{SG,One}:   {num_vertices: L, num_edges: L²}
-    // MIS{SG,One→Tri}:     {num_vertices: V², num_edges: V²}
+    // K3SAT → KN_SAT:      {num_clauses: C, num_vars: V, num_literals: L}  (identity cast)
+    // KN_SAT → SAT:         {num_clauses: C, num_vars: V, num_literals: L}  (identity)
+    // SAT → MIS{SG,One}:    {num_vertices: L, num_edges: L²}
+    // MIS{SG,One→Tri}:      {num_vertices: V², num_edges: V²}
     //
     // Composed: num_vertices = L², num_edges = L²
     let composed = graph.compose_path_overhead(&path);
