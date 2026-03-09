@@ -6,7 +6,7 @@
 //!   (at most one incident edge can be selected)
 //! - Objective: Maximize the sum of weights of selected edges
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MaximumMatching;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -20,14 +20,14 @@ use crate::topology::{Graph, SimpleGraph};
 /// - The objective maximizes the total weight of selected edges
 #[derive(Debug, Clone)]
 pub struct ReductionMatchingToILP {
-    target: ILP,
+    target: ILP<bool>,
 }
 
 impl ReductionResult for ReductionMatchingToILP {
     type Source = MaximumMatching<SimpleGraph, i32>;
-    type Target = ILP;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -46,14 +46,11 @@ impl ReductionResult for ReductionMatchingToILP {
         num_constraints = "num_vertices",
     }
 )]
-impl ReduceTo<ILP> for MaximumMatching<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i32> {
     type Result = ReductionMatchingToILP;
 
     fn reduce_to(&self) -> Self::Result {
         let num_vars = self.graph().num_edges(); // Number of edges
-
-        // All variables are binary (0 or 1)
-        let bounds = vec![VarBounds::binary(); num_vars];
 
         // Constraints: For each vertex v, sum of incident edge variables <= 1
         // This ensures at most one incident edge is selected per vertex
@@ -77,7 +74,6 @@ impl ReduceTo<ILP> for MaximumMatching<SimpleGraph, i32> {
 
         let target = ILP::new(
             num_vars,
-            bounds,
             constraints,
             objective,
             ObjectiveSense::Maximize,

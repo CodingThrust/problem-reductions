@@ -5,7 +5,7 @@
 //! - Constraints: x_u + x_v <= 1 for each edge (u, v) - at most one endpoint can be selected
 //! - Objective: Maximize the sum of weights of selected vertices
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MaximumIndependentSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -19,14 +19,14 @@ use crate::topology::{Graph, SimpleGraph};
 /// - The objective maximizes the total weight of selected vertices
 #[derive(Debug, Clone)]
 pub struct ReductionISToILP {
-    target: ILP,
+    target: ILP<bool>,
 }
 
 impl ReductionResult for ReductionISToILP {
     type Source = MaximumIndependentSet<SimpleGraph, i32>;
-    type Target = ILP;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -45,14 +45,11 @@ impl ReductionResult for ReductionISToILP {
         num_constraints = "num_edges",
     }
 )]
-impl ReduceTo<ILP> for MaximumIndependentSet<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MaximumIndependentSet<SimpleGraph, i32> {
     type Result = ReductionISToILP;
 
     fn reduce_to(&self) -> Self::Result {
         let num_vars = self.graph().num_vertices();
-
-        // All variables are binary (0 or 1)
-        let bounds = vec![VarBounds::binary(); num_vars];
 
         // Constraints: x_u + x_v <= 1 for each edge (u, v)
         // This ensures at most one endpoint of each edge is selected
@@ -71,13 +68,7 @@ impl ReduceTo<ILP> for MaximumIndependentSet<SimpleGraph, i32> {
             .map(|(i, &w)| (i, w as f64))
             .collect();
 
-        let target = ILP::new(
-            num_vars,
-            bounds,
-            constraints,
-            objective,
-            ObjectiveSense::Maximize,
-        );
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
         ReductionISToILP { target }
     }

@@ -7,7 +7,7 @@
 //!   2. Adjacent vertices have different colors: x_{u,c} + x_{v,c} <= 1 for each edge (u,v) and color c
 //! - Objective: None (feasibility problem, minimize 0)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::KColoring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -22,7 +22,7 @@ use crate::variant::{KValue, K1, K2, K3, K4, KN};
 /// - Constraints ensure adjacent vertices have different colors
 #[derive(Debug, Clone)]
 pub struct ReductionKColoringToILP<K: KValue, G> {
-    target: ILP,
+    target: ILP<bool>,
     num_vertices: usize,
     num_colors: usize,
     _phantom: std::marker::PhantomData<(K, G)>,
@@ -40,9 +40,9 @@ where
     G: Graph + crate::variant::VariantParam,
 {
     type Source = KColoring<K, G>;
-    type Target = ILP;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -76,9 +76,6 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
     // Helper function to get variable index
     let var_index = |v: usize, c: usize| -> usize { v * k + c };
 
-    // All variables are binary (0 or 1)
-    let bounds = vec![VarBounds::binary(); num_vars];
-
     let mut constraints = Vec::new();
 
     // Constraint 1: Each vertex has exactly one color
@@ -105,7 +102,6 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
 
     let target = ILP::new(
         num_vars,
-        bounds,
         constraints,
         objective,
         ObjectiveSense::Minimize,
@@ -126,7 +122,7 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
         num_constraints = "num_vertices + num_vertices * num_edges",
     }
 )]
-impl ReduceTo<ILP> for KColoring<KN, SimpleGraph> {
+impl ReduceTo<ILP<bool>> for KColoring<KN, SimpleGraph> {
     type Result = ReductionKColoringToILP<KN, SimpleGraph>;
 
     fn reduce_to(&self) -> Self::Result {
@@ -137,7 +133,7 @@ impl ReduceTo<ILP> for KColoring<KN, SimpleGraph> {
 // Additional concrete impls for tests (not registered in reduction graph)
 macro_rules! impl_kcoloring_to_ilp {
     ($($ktype:ty),+) => {$(
-        impl ReduceTo<ILP> for KColoring<$ktype, SimpleGraph> {
+        impl ReduceTo<ILP<bool>> for KColoring<$ktype, SimpleGraph> {
             type Result = ReductionKColoringToILP<$ktype, SimpleGraph>;
             fn reduce_to(&self) -> Self::Result { reduce_kcoloring_to_ilp(self) }
         }

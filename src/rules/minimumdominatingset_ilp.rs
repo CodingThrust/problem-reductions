@@ -6,7 +6,7 @@
 //!   (v or at least one of its neighbors must be selected)
 //! - Objective: Minimize the sum of weights of selected vertices
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MinimumDominatingSet;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -21,14 +21,14 @@ use crate::topology::{Graph, SimpleGraph};
 /// - The objective minimizes the total weight of selected vertices
 #[derive(Debug, Clone)]
 pub struct ReductionDSToILP {
-    target: ILP,
+    target: ILP<bool>,
 }
 
 impl ReductionResult for ReductionDSToILP {
     type Source = MinimumDominatingSet<SimpleGraph, i32>;
-    type Target = ILP;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -47,14 +47,11 @@ impl ReductionResult for ReductionDSToILP {
         num_constraints = "num_vertices",
     }
 )]
-impl ReduceTo<ILP> for MinimumDominatingSet<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i32> {
     type Result = ReductionDSToILP;
 
     fn reduce_to(&self) -> Self::Result {
         let num_vars = self.graph().num_vertices();
-
-        // All variables are binary (0 or 1)
-        let bounds = vec![VarBounds::binary(); num_vars];
 
         // Constraints: For each vertex v, x_v + sum_{u in N(v)} x_u >= 1
         // This ensures that v is dominated (either selected or has a selected neighbor)
@@ -79,7 +76,6 @@ impl ReduceTo<ILP> for MinimumDominatingSet<SimpleGraph, i32> {
 
         let target = ILP::new(
             num_vars,
-            bounds,
             constraints,
             objective,
             ObjectiveSense::Minimize,
