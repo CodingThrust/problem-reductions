@@ -143,8 +143,7 @@ fn normalize(expr: &Expr) -> Result<NormalizedPoly, String> {
                 if pb.terms.len() == 1 {
                     let m = &pb.terms[0];
                     let coeff = m.coeff.powf(*c);
-                    let vars: BTreeMap<_, _> =
-                        m.vars.iter().map(|(&v, &e)| (v, e * c)).collect();
+                    let vars: BTreeMap<_, _> = m.vars.iter().map(|(&v, &e)| (v, e * c)).collect();
                     return Ok(NormalizedPoly {
                         terms: vec![Monomial { coeff, vars }],
                     });
@@ -197,11 +196,7 @@ fn monomial_dominated_by(small: &Monomial, big: &Monomial) -> bool {
 /// True iff every positive-coefficient monomial in `a` is dominated by
 /// some positive-coefficient monomial in `b`.
 fn poly_leq(a: &NormalizedPoly, b: &NormalizedPoly) -> bool {
-    let b_positive: Vec<&Monomial> = b
-        .terms
-        .iter()
-        .filter(|m| m.coeff > 1e-15)
-        .collect();
+    let b_positive: Vec<&Monomial> = b.terms.iter().filter(|m| m.coeff > 1e-15).collect();
 
     for a_term in &a.terms {
         if a_term.coeff <= 1e-15 {
@@ -286,9 +281,7 @@ fn path_is_symbolically_trustworthy(path: &ReductionPath) -> Result<(), String> 
         let dst = window[1].name.as_str();
         for &(u_src, u_dst) in UNTRUSTED_EDGES {
             if src == u_src && dst == u_dst {
-                return Err(format!(
-                    "path contains untrustworthy edge: {src} → {dst}"
-                ));
+                return Err(format!("path contains untrustworthy edge: {src} → {dst}"));
             }
         }
     }
@@ -383,23 +376,24 @@ pub fn find_dominated_rules(
 
     // Deterministic output
     dominated.sort_by(|a, b| {
-        (a.source_name, a.target_name, a.dominating_path.len())
-            .cmp(&(b.source_name, b.target_name, b.dominating_path.len()))
+        (a.source_name, a.target_name, a.dominating_path.len()).cmp(&(
+            b.source_name,
+            b.target_name,
+            b.dominating_path.len(),
+        ))
     });
-    unknown.sort_by(|a, b| {
-        (a.source_name, a.target_name).cmp(&(b.source_name, b.target_name))
-    });
+    unknown.sort_by(|a, b| (a.source_name, a.target_name).cmp(&(b.source_name, b.target_name)));
 
     (dominated, unknown)
 }
 
 /// Fields present in both overheads.
 fn common_fields(a: &ReductionOverhead, b: &ReductionOverhead) -> Vec<String> {
-    let b_fields: std::collections::HashSet<&str> =
-        b.output_size.iter().map(|(n, _)| *n).collect();
+    let b_fields: std::collections::HashSet<&str> = b.output_size.iter().map(|(n, _)| *n).collect();
     a.output_size
         .iter()
-        .filter_map(|(f, _)| b_fields.contains(f).then(|| f.to_string()))
+        .filter(|&(f, _)| b_fields.contains(f))
+        .map(|(f, _)| f.to_string())
         .collect()
 }
 

@@ -70,10 +70,7 @@ fn test_compare_overhead_no_common_fields() {
 #[test]
 fn test_compare_overhead_unknown_exp() {
     // exp(n) can't be normalized → Unknown
-    let prim = ReductionOverhead::new(vec![(
-        "num_vars",
-        Expr::Exp(Box::new(Expr::Var("n"))),
-    )]);
+    let prim = ReductionOverhead::new(vec![("num_vars", Expr::Exp(Box::new(Expr::Var("n"))))]);
     let comp = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Unknown);
 }
@@ -81,10 +78,7 @@ fn test_compare_overhead_unknown_exp() {
 #[test]
 fn test_compare_overhead_unknown_log() {
     let prim = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
-    let comp = ReductionOverhead::new(vec![(
-        "num_vars",
-        Expr::Log(Box::new(Expr::Var("n"))),
-    )]);
+    let comp = ReductionOverhead::new(vec![("num_vars", Expr::Log(Box::new(Expr::Var("n"))))]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Unknown);
 }
 
@@ -162,10 +156,7 @@ fn test_compare_overhead_polynomial_expansion() {
     )]);
     let comp = ReductionOverhead::new(vec![(
         "num_vars",
-        Expr::pow(
-            Expr::add(Expr::Var("n"), Expr::Var("m")),
-            Expr::Const(2.0),
-        ),
+        Expr::pow(Expr::add(Expr::Var("n"), Expr::Var("m")), Expr::Const(2.0)),
     )]);
     assert_eq!(
         compare_overhead(&prim, &comp),
@@ -177,10 +168,7 @@ fn test_compare_overhead_polynomial_expansion() {
 fn test_compare_overhead_multi_field_all_smaller() {
     // Both fields: composite has smaller degree → dominated
     let prim = ReductionOverhead::new(vec![
-        (
-            "num_vars",
-            Expr::pow(Expr::Var("n"), Expr::Const(2.0)),
-        ),
+        ("num_vars", Expr::pow(Expr::Var("n"), Expr::Const(2.0))),
         (
             "num_constraints",
             Expr::pow(Expr::Var("n"), Expr::Const(3.0)),
@@ -219,10 +207,7 @@ fn test_find_dominated_rules_returns_known_set() {
     }
     eprintln!("\nUnknown comparisons ({}):", unknown.len());
     for u in &unknown {
-        eprintln!(
-            "  {} -> {}: {}",
-            u.source_name, u.target_name, u.reason,
-        );
+        eprintln!("  {} -> {}: {}", u.source_name, u.target_name, u.reason,);
     }
 
     // ── Allow-list of expected dominated rules ──
