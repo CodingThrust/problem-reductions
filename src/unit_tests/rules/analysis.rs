@@ -1,5 +1,6 @@
 use crate::expr::Expr;
-use crate::rules::analysis::{compare_overhead, ComparisonStatus};
+use crate::rules::analysis::{compare_overhead, find_dominated_rules, ComparisonStatus};
+use crate::rules::graph::ReductionGraph;
 use crate::rules::registry::ReductionOverhead;
 
 // --- Polynomial normalization + comparison tests ---
@@ -190,4 +191,145 @@ fn test_compare_overhead_multi_field_all_smaller() {
         ("num_constraints", Expr::Var("n")),
     ]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
+}
+
+// --- Integration tests: find_dominated_rules ---
+
+use std::collections::BTreeMap;
+
+#[test]
+fn test_find_dominated_rules_returns_known_set() {
+    let graph = ReductionGraph::new();
+    let (dominated, unknown) = find_dominated_rules(&graph);
+
+    // Print for debugging
+    eprintln!("Dominated rules ({}):", dominated.len());
+    for rule in &dominated {
+        let path_str: String = rule
+            .dominating_path
+            .steps
+            .iter()
+            .map(|s| s.to_string())
+            .collect::<Vec<_>>()
+            .join(" -> ");
+        eprintln!(
+            "  {} -> {} dominated by [{}]",
+            rule.source_name, rule.target_name, path_str,
+        );
+    }
+    eprintln!("\nUnknown comparisons ({}):", unknown.len());
+    for u in &unknown {
+        eprintln!(
+            "  {} -> {}: {}",
+            u.source_name, u.target_name, u.reason,
+        );
+    }
+
+    // ── Allow-list of expected dominated rules ──
+    // Keyed by (source_name, target_name).
+    // This list must be updated when new reductions are added.
+    let allowed: std::collections::HashSet<(&str, &str)> = [
+        // Composite through CircuitSAT → ILP is better
+        ("Factoring", "ILP"),
+        // K3-SAT → QUBO via SAT → CircuitSAT → SpinGlass chain
+        ("KSatisfiability", "QUBO"),
+        // Cast-composed: K2/K3 → KN → Satisfiability
+        ("KSatisfiability", "Satisfiability"),
+        // MIS → MVC → ILP is better than direct MIS → ILP
+        ("MaximumIndependentSet", "ILP"),
+        // Variant cast composed: SimpleGraph/One → KingsSubgraph/One → KingsSubgraph/i32
+        ("MaximumIndependentSet", "MaximumIndependentSet"),
+        // MIS → MVC → QUBO is better than direct MIS → QUBO
+        ("MaximumIndependentSet", "QUBO"),
+        // MSP → MIS → ILP is better than direct MSP → ILP
+        ("MaximumSetPacking", "ILP"),
+        // MVC → MIS → ILP is better than direct MVC → ILP
+        ("MinimumVertexCover", "ILP"),
+        // MVC → MIS → QUBO is better than direct MVC → QUBO
+        ("MinimumVertexCover", "QUBO"),
+    ]
+    .into_iter()
+    .collect();
+
+    // Check: no unexpected dominated rules
+    for rule in &dominated {
+        let key = (rule.source_name, rule.target_name);
+        assert!(
+            allowed.contains(&key),
+            "Unexpected dominated rule: {} -> {} (dominated by {})",
+            rule.source_name,
+            rule.target_name,
+            rule.dominating_path
+                .steps
+                .iter()
+                .map(|s| s.to_string())
+                .collect::<Vec<_>>()
+                .join(" -> "),
+        );
+    }
+
+    // Check: no stale entries in allow-list
+    let found: std::collections::HashSet<(&str, &str)> = dominated
+        .iter()
+        .map(|r| (r.source_name, r.target_name))
+        .collect();
+    for &key in &allowed {
+        assert!(
+            found.contains(&key),
+            "Allow-list entry {:?} -> {:?} is stale (no longer dominated)",
+            key.0,
+            key.1,
+        );
+    }
+}
+
+#[test]
+fn test_ilp_qubo_paths_are_unknown() {
+    let graph = ReductionGraph::new();
+    let (_, unknown) = find_dominated_rules(&graph);
+
+    // Any path through ILP → QUBO should be reported as Unknown
+    let ilp_qubo_unknowns: Vec<_> = unknown
+        .iter()
+        .filter(|u| u.reason.contains("ILP"))
+        .collect();
+
+    assert!(
+        !ilp_qubo_unknowns.is_empty(),
+        "Expected at least one Unknown comparison involving ILP -> QUBO"
+    );
+}
+
+#[test]
+fn test_no_duplicate_primitive_rules_per_variant_pair() {
+    use crate::rules::registry::ReductionEntry;
+    use std::collections::HashSet;
+
+    let mut seen = HashSet::new();
+    for entry in inventory::iter::<ReductionEntry> {
+        let src_variant: BTreeMap<String, String> = entry
+            .source_variant()
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        let dst_variant: BTreeMap<String, String> = entry
+            .target_variant()
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect();
+        let key = (
+            entry.source_name,
+            src_variant,
+            entry.target_name,
+            dst_variant,
+        );
+        assert!(
+            seen.insert(key.clone()),
+            "Duplicate primitive rule: {} {:?} -> {} {:?}",
+            key.0,
+            key.1,
+            key.2,
+            key.3,
+        );
+    }
 }
