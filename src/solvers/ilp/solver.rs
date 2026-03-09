@@ -118,7 +118,7 @@ impl ILPSolver {
         Some(result)
     }
 
-    /// Solve any problem that reduces to ILP<bool>.
+    /// Solve any problem that reduces to `ILP<bool>`.
     ///
     /// This method first reduces the problem to a binary ILP, solves the ILP,
     /// and then extracts the solution back to the original problem space.

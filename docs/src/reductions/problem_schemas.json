@@ -120,11 +120,6 @@
         "description": "Number of integer variables"
       },
       {
-        "name": "bounds",
-        "type_name": "Vec<VarBounds>",
-        "description": "Variable bounds"
-      },
-      {
         "name": "constraints",
         "type_name": "Vec<LinearConstraint>",
         "description": "Linear constraints"
