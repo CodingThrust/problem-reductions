@@ -299,6 +299,10 @@ fn path_is_symbolically_trustworthy(path: &ReductionPath) -> Result<(), String> 
 /// For each primitive rule (direct edge), enumerates all alternative paths,
 /// validates trustworthiness, composes overheads, and compares.
 /// Keeps only the best (shortest) dominating path per primitive rule.
+///
+/// Note: iterates the graph's coalesced edges rather than raw `inventory` entries.
+/// This is sound because `test_no_duplicate_primitive_rules_per_variant_pair` guards
+/// the invariant that at most one registration exists per (source_variant, target_variant) pair.
 pub fn find_dominated_rules(
     graph: &ReductionGraph,
 ) -> (Vec<DominatedRule>, Vec<UnknownComparison>) {
