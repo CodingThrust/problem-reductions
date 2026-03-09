@@ -269,10 +269,9 @@ pub fn compare_overhead(
 
 /// Known reduction edges whose symbolic overhead is incomplete.
 ///
-/// ILP → QUBO: the implementation adds slack bits per inequality constraint
-/// whose count depends on coefficient magnitudes, but the symbolic overhead
-/// only records `num_vars = num_vars`.
-const UNTRUSTED_EDGES: &[(&str, &str)] = &[("ILP", "QUBO")];
+/// With `ILP<bool>`, the ILP → QUBO overhead is now accurate (no bounds
+/// ambiguity), so no edges need to be excluded from analysis.
+const UNTRUSTED_EDGES: &[(&str, &str)] = &[];
 
 /// Check whether every edge in a path has trustworthy symbolic overhead.
 fn path_is_symbolically_trustworthy(path: &ReductionPath) -> Result<(), String> {

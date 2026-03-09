@@ -261,23 +261,6 @@ fn test_find_dominated_rules_returns_known_set() {
 }
 
 #[test]
-fn test_ilp_qubo_paths_are_unknown() {
-    let graph = ReductionGraph::new();
-    let (_, unknown) = find_dominated_rules(&graph);
-
-    // Any path through ILP → QUBO should be reported as Unknown
-    let ilp_qubo_unknowns: Vec<_> = unknown
-        .iter()
-        .filter(|u| u.reason.contains("ILP"))
-        .collect();
-
-    assert!(
-        !ilp_qubo_unknowns.is_empty(),
-        "Expected at least one Unknown comparison involving ILP -> QUBO"
-    );
-}
-
-#[test]
 fn test_no_duplicate_primitive_rules_per_variant_pair() {
     use crate::rules::registry::ReductionEntry;
     use std::collections::HashSet;
