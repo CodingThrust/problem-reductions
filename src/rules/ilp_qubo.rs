@@ -21,7 +21,7 @@ pub struct ReductionILPToQUBO {
 }
 
 impl ReductionResult for ReductionILPToQUBO {
-    type Source = ILP;
+    type Source = ILP<bool>;
     type Target = QUBO<f64>;
 
     fn target_problem(&self) -> &Self::Target {
@@ -35,23 +35,15 @@ impl ReductionResult for ReductionILPToQUBO {
 }
 
 #[reduction(
-    overhead = { num_vars = "num_vars" }
+    overhead = { num_vars = "num_vars + num_constraints * num_vars" }
 )]
-impl ReduceTo<QUBO<f64>> for ILP {
+impl ReduceTo<QUBO<f64>> for ILP<bool> {
     type Result = ReductionILPToQUBO;
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_vars;
 
-        // Verify all variables are binary
-        for (i, b) in self.bounds.iter().enumerate() {
-            assert!(
-                b.lower == Some(0) && b.upper == Some(1),
-                "ILP→QUBO requires binary variables (var {} has bounds {:?})",
-                i,
-                b
-            );
-        }
+        // All variables are binary by type — no runtime check needed.
 
         // Build dense constraint matrix A and rhs vector b
         // Also compute slack sizes for inequality constraints
