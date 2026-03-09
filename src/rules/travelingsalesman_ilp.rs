@@ -186,12 +186,7 @@ impl ReduceTo<ILP<bool>> for TravelingSalesman<SimpleGraph, i32> {
             }
         }
 
-        let target = ILP::new(
-            num_vars,
-            constraints,
-            objective,
-            ObjectiveSense::Minimize,
-        );
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
         ReductionTSPToILP {
             target,

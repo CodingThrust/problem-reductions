@@ -100,12 +100,7 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
     // We use an empty objective
     let objective: Vec<(usize, f64)> = vec![];
 
-    let target = ILP::new(
-        num_vars,
-        constraints,
-        objective,
-        ObjectiveSense::Minimize,
-    );
+    let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
     ReductionKColoringToILP {
         target,

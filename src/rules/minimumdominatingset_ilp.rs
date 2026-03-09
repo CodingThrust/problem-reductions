@@ -74,12 +74,7 @@ impl ReduceTo<ILP<bool>> for MinimumDominatingSet<SimpleGraph, i32> {
             .map(|(i, &w)| (i, w as f64))
             .collect();
 
-        let target = ILP::new(
-            num_vars,
-            constraints,
-            objective,
-            ObjectiveSense::Minimize,
-        );
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
         ReductionDSToILP { target }
     }

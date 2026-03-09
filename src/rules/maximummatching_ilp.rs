@@ -72,12 +72,7 @@ impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i32> {
             .map(|(i, &w)| (i, w as f64))
             .collect();
 
-        let target = ILP::new(
-            num_vars,
-            constraints,
-            objective,
-            ObjectiveSense::Maximize,
-        );
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
         ReductionMatchingToILP { target }
     }

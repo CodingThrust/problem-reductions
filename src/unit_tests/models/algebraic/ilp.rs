@@ -359,12 +359,7 @@ fn test_ilp_multiple_constraints() {
 
 #[test]
 fn test_ilp_config_to_values() {
-    let ilp = ILP::<bool>::new(
-        3,
-        vec![],
-        vec![],
-        ObjectiveSense::Minimize,
-    );
+    let ilp = ILP::<bool>::new(3, vec![], vec![], ObjectiveSense::Minimize);
 
     // For binary ILP, config maps directly: config[i] -> value[i] as i64
     assert_eq!(ilp.config_to_values(&[0, 0, 0]), vec![0, 0, 0]);

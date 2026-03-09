@@ -91,12 +91,7 @@ impl ReduceTo<ILP<bool>> for QUBO<f64> {
             ));
         }
 
-        let target = ILP::new(
-            total_vars,
-            constraints,
-            objective,
-            ObjectiveSense::Minimize,
-        );
+        let target = ILP::new(total_vars, constraints, objective, ObjectiveSense::Minimize);
         ReductionQUBOToILP {
             target,
             num_original: n,

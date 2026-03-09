@@ -24,7 +24,8 @@ pub fn solve_mis(num_vertices: usize, edges: &[(usize, usize)]) -> usize {
         SimpleGraph::new(num_vertices, edges.to_vec()),
         vec![1i32; num_vertices],
     );
-    let reduction = <MaximumIndependentSet<SimpleGraph, i32> as ReduceTo<ILP<bool>>>::reduce_to(&problem);
+    let reduction =
+        <MaximumIndependentSet<SimpleGraph, i32> as ReduceTo<ILP<bool>>>::reduce_to(&problem);
     let solver = ILPSolver::new();
     if let Some(solution) = solver.solve(reduction.target_problem()) {
         solution.iter().filter(|&&x| x > 0).count()
@@ -39,7 +40,8 @@ pub fn solve_mis_config(num_vertices: usize, edges: &[(usize, usize)]) -> Vec<us
         SimpleGraph::new(num_vertices, edges.to_vec()),
         vec![1i32; num_vertices],
     );
-    let reduction = <MaximumIndependentSet<SimpleGraph, i32> as ReduceTo<ILP<bool>>>::reduce_to(&problem);
+    let reduction =
+        <MaximumIndependentSet<SimpleGraph, i32> as ReduceTo<ILP<bool>>>::reduce_to(&problem);
     let solver = ILPSolver::new();
     if let Some(solution) = solver.solve(reduction.target_problem()) {
         solution
