@@ -67,7 +67,7 @@ impl ReduceTo<QUBO<f64>> for Knapsack {
             *coeff = self.weights()[i] as f64;
         }
         for j in 0..b {
-            coeffs[n + j] = (1i64 << j) as f64;
+            coeffs[n + j] = (1u64 << j) as f64;
         }
 
         let c_f = c as f64;

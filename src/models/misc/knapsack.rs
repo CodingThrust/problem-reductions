@@ -92,7 +92,7 @@ impl Knapsack {
         if self.capacity <= 0 {
             1
         } else {
-            ((self.capacity as f64).log2().floor() as usize) + 1
+            (u64::BITS - (self.capacity as u64).leading_zeros()) as usize
         }
     }
 }
