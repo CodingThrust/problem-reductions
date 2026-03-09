@@ -1,6 +1,6 @@
 //! Reduction from Factoring to ILP (Integer Linear Programming).
 //!
-//! The Integer Factoring problem can be formulated as a binary ILP using
+//! The Integer Factoring problem can be formulated as an ILP using
 //! McCormick linearization for binary products combined with carry propagation.
 //!
 //! Given target N and bit widths m, n, find factors p (m bits) and q (n bits)
@@ -16,8 +16,10 @@
 //! 1. Product linearization (McCormick): z_ij ≤ p_i, z_ij ≤ q_j, z_ij ≥ p_i + q_j - 1
 //! 2. Bit-position sums: Σ_{i+j=k} z_ij + c_{k-1} = N_k + 2·c_k
 //! 3. No overflow: c_{m+n-1} = 0
+//! 4. Binary bounds: p_i ≤ 1, q_j ≤ 1
+//! 5. Carry bounds: 0 ≤ c_k ≤ min(m, n)
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::Factoring;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -31,7 +33,7 @@ use std::cmp::min;
 /// - Constraints enforce the multiplication equals the target
 #[derive(Debug, Clone)]
 pub struct ReductionFactoringToILP {
-    target: ILP,
+    target: ILP<i32>,
     m: usize, // bits for first factor
     n: usize, // bits for second factor
 }
@@ -62,9 +64,9 @@ impl ReductionFactoringToILP {
 
 impl ReductionResult for ReductionFactoringToILP {
     type Source = Factoring;
-    type Target = ILP;
+    type Target = ILP<i32>;
 
-    fn target_problem(&self) -> &ILP {
+    fn target_problem(&self) -> &ILP<i32> {
         &self.target
     }
 
@@ -93,9 +95,9 @@ impl ReductionResult for ReductionFactoringToILP {
 
 #[reduction(overhead = {
     num_vars = "2 * num_bits_first + 2 * num_bits_second + num_bits_first * num_bits_second",
-    num_constraints = "3 * num_bits_first * num_bits_second + num_bits_first + num_bits_second + 1",
+    num_constraints = "3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 1",
 })]
-impl ReduceTo<ILP> for Factoring {
+impl ReduceTo<ILP<i32>> for Factoring {
     type Result = ReductionFactoringToILP;
 
     fn reduce_to(&self) -> Self::Result {
@@ -128,21 +130,6 @@ impl ReduceTo<ILP> for Factoring {
         let q_var = |j: usize| -> usize { m + j };
         let z_var = |i: usize, j: usize| -> usize { m + n + i * n + j };
         let carry_var = |k: usize| -> usize { m + n + m * n + k };
-
-        // Variable bounds
-        let mut bounds = Vec::with_capacity(num_vars);
-
-        // p_i, q_j, z_ij are binary
-        for _ in 0..(num_p + num_q + num_z) {
-            bounds.push(VarBounds::binary());
-        }
-
-        // c_k are non-negative integers with upper bound min(m, n)
-        // (at most min(m, n) products can contribute to any position)
-        let carry_upper = min(m, n) as i64;
-        for _ in 0..num_carries {
-            bounds.push(VarBounds::bounded(0, carry_upper));
-        }
 
         let mut constraints = Vec::new();
 
@@ -209,16 +196,26 @@ impl ReduceTo<ILP> for Factoring {
             0.0,
         ));
 
+        // Constraint 4: Binary bounds for p_i and q_j (enforce 0/1 in integer domain)
+        for i in 0..m {
+            constraints.push(LinearConstraint::le(vec![(p_var(i), 1.0)], 1.0));
+        }
+        for j in 0..n {
+            constraints.push(LinearConstraint::le(vec![(q_var(j), 1.0)], 1.0));
+        }
+
+        // Constraint 5: Carry bounds (0 ≤ c_k ≤ min(m, n))
+        let carry_upper = min(m, n) as f64;
+        for k in 0..num_carries {
+            let cv = carry_var(k);
+            constraints.push(LinearConstraint::ge(vec![(cv, 1.0)], 0.0));
+            constraints.push(LinearConstraint::le(vec![(cv, 1.0)], carry_upper));
+        }
+
         // Objective: feasibility problem (minimize 0)
         let objective: Vec<(usize, f64)> = vec![];
 
-        let ilp = ILP::new(
-            num_vars,
-            bounds,
-            constraints,
-            objective,
-            ObjectiveSense::Minimize,
-        );
+        let ilp = ILP::<i32>::new(num_vars, constraints, objective, ObjectiveSense::Minimize);
 
         ReductionFactoringToILP { target: ilp, m, n }
     }
