@@ -13,5 +13,5 @@ mod qubo;
 
 pub use bmf::BMF;
 pub use closest_vector_problem::ClosestVectorProblem;
-pub use ilp::{Comparison, LinearConstraint, ObjectiveSense, VarBounds, ILP};
+pub use ilp::{Comparison, LinearConstraint, ObjectiveSense, VarBounds, VariableDomain, ILP};
 pub use qubo::QUBO;
