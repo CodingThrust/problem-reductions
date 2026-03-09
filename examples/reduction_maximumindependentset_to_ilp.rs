@@ -28,7 +28,7 @@ pub fn run() {
     );
 
     // 2. Reduce to ILP
-    let reduction = ReduceTo::<ILP>::reduce_to(&is);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&is);
     let ilp = reduction.target_problem();
 
     // 3. Print transformation
@@ -75,7 +75,7 @@ pub fn run() {
     }
 
     let source_variant = variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let target_variant = variant_to_map(ILP::variant());
+    let target_variant = variant_to_map(ILP::<bool>::variant());
     let overhead = lookup_overhead(
         "MaximumIndependentSet",
         &source_variant,
@@ -95,7 +95,7 @@ pub fn run() {
             }),
         },
         target: ProblemSide {
-            problem: ILP::NAME.to_string(),
+            problem: ILP::<bool>::NAME.to_string(),
             variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,

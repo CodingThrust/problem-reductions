@@ -8,7 +8,7 @@ fn test_ilp_to_qubo_closed_loop() {
     // Binary ILP: maximize x0 + 2*x1 + 3*x2
     // s.t. x0 + x1 <= 1, x1 + x2 <= 1
     // Optimal: x = [1, 0, 1] with obj = 4
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         3,
         vec![
             LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0),
@@ -39,7 +39,7 @@ fn test_ilp_to_qubo_minimize() {
     // Binary ILP: minimize x0 + 2*x1 + 3*x2
     // s.t. x0 + x1 >= 1 (at least one of x0, x1 selected)
     // Optimal: x = [1, 0, 0] with obj = 1
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         3,
         vec![LinearConstraint::ge(vec![(0, 1.0), (1, 1.0)], 1.0)],
         vec![(0, 1.0), (1, 2.0), (2, 3.0)],
@@ -66,7 +66,7 @@ fn test_ilp_to_qubo_equality() {
     // Binary ILP: maximize x0 + x1 + x2
     // s.t. x0 + x1 + x2 = 2
     // Optimal: any 2 of 3 variables = 1
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         3,
         vec![LinearConstraint::eq(
             vec![(0, 1.0), (1, 1.0), (2, 1.0)],
@@ -97,7 +97,7 @@ fn test_ilp_to_qubo_ge_with_slack() {
     // Ge constraint with slack_range > 1 to exercise slack variable code path.
     // 3 vars: minimize x0 + x1 + x2
     // s.t. x0 + x1 + x2 >= 1 (max_lhs=3, b=1, slack_range=2, ns=ceil(log2(3))=2)
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         3,
         vec![LinearConstraint::ge(
             vec![(0, 1.0), (1, 1.0), (2, 1.0)],
@@ -131,7 +131,7 @@ fn test_ilp_to_qubo_le_with_slack() {
     // Le constraint with rhs > 1 to exercise Le slack variable code path.
     // 3 vars: maximize x0 + x1 + x2
     // s.t. x0 + x1 + x2 <= 2 (min_lhs=0, b=2, slack_range=2, ns=ceil(log2(3))=2)
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         3,
         vec![LinearConstraint::le(
             vec![(0, 1.0), (1, 1.0), (2, 1.0)],
@@ -162,7 +162,7 @@ fn test_ilp_to_qubo_le_with_slack() {
 
 #[test]
 fn test_ilp_to_qubo_structure() {
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         3,
         vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
         vec![(0, 1.0), (1, 2.0), (2, 3.0)],

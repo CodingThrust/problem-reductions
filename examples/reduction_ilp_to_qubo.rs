@@ -47,7 +47,7 @@ pub fn run() {
     // Constraint 1: knapsack weight capacity <= 10
     // Constraint 2: category A items (x0, x1, x2) limited to 2
     // Constraint 3: category B items (x3, x4, x5) limited to 2
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         6,
         vec![
             // Knapsack weight constraint: 3x0 + 2x1 + 5x2 + 4x3 + 2x4 + 3x5 <= 10
@@ -69,7 +69,7 @@ pub fn run() {
     let values = [10, 7, 12, 8, 6, 9];
 
     // Reduce to QUBO
-    let reduction = ReduceTo::<QUBO>::reduce_to(&ilp);
+    let reduction = ReduceTo::<QUBO<f64>>::reduce_to(&ilp);
     let qubo = reduction.target_problem();
 
     println!("Source: ILP (binary) with 6 variables, 3 constraints");
@@ -136,14 +136,14 @@ pub fn run() {
     println!("\nVerification passed: all solutions are feasible and optimal");
 
     // Export JSON
-    let source_variant = variant_to_map(ILP::variant());
+    let source_variant = variant_to_map(ILP::<bool>::variant());
     let target_variant = variant_to_map(QUBO::<f64>::variant());
     let overhead = lookup_overhead("ILP", &source_variant, "QUBO", &target_variant)
         .expect("ILP -> QUBO overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {
-            problem: ILP::NAME.to_string(),
+            problem: ILP::<bool>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,

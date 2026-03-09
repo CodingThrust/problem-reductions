@@ -69,7 +69,7 @@ pub fn run() {
     );
 
     // 2. Reduce to ILP
-    let reduction = ReduceTo::<ILP>::reduce_to(&circuit_sat);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&circuit_sat);
     let ilp = reduction.target_problem();
 
     println!("\n=== Problem Transformation ===");
@@ -136,7 +136,7 @@ pub fn run() {
 
     // 5. Export JSON
     let source_variant = variant_to_map(CircuitSAT::variant());
-    let target_variant = variant_to_map(ILP::variant());
+    let target_variant = variant_to_map(ILP::<bool>::variant());
     let overhead = lookup_overhead("CircuitSAT", &source_variant, "ILP", &target_variant)
         .expect("CircuitSAT -> ILP overhead not found");
 
@@ -150,7 +150,7 @@ pub fn run() {
             }),
         },
         target: ProblemSide {
-            problem: ILP::NAME.to_string(),
+            problem: ILP::<bool>::NAME.to_string(),
             variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": ilp.num_variables(),

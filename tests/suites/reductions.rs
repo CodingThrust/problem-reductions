@@ -682,7 +682,7 @@ mod qubo_reductions {
             .collect();
 
         // The qubogen formula maximizes, so this is a Maximize ILP
-        let ilp = ILP::binary(
+        let ilp = ILP::<bool>::new(
             data.source.num_variables,
             constraints,
             objective,

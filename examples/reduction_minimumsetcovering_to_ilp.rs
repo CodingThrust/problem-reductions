@@ -31,7 +31,7 @@ pub fn run() {
     let sc = MinimumSetCovering::<i32>::new(8, sets.clone());
 
     // 2. Reduce to ILP
-    let reduction = ReduceTo::<ILP>::reduce_to(&sc);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&sc);
     let ilp = reduction.target_problem();
 
     // 3. Print transformation
@@ -81,7 +81,7 @@ pub fn run() {
     }
 
     let source_variant = variant_to_map(MinimumSetCovering::<i32>::variant());
-    let target_variant = variant_to_map(ILP::variant());
+    let target_variant = variant_to_map(ILP::<bool>::variant());
     let overhead = lookup_overhead(
         "MinimumSetCovering",
         &source_variant,
@@ -101,7 +101,7 @@ pub fn run() {
             }),
         },
         target: ProblemSide {
-            problem: ILP::NAME.to_string(),
+            problem: ILP::<bool>::NAME.to_string(),
             variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,

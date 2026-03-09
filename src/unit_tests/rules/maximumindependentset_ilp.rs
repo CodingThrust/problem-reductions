@@ -10,7 +10,7 @@ fn test_reduction_creates_valid_ilp() {
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1i32; 3],
     );
-    let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionISToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // Check ILP structure
@@ -22,11 +22,6 @@ fn test_reduction_creates_valid_ilp() {
     );
     assert_eq!(ilp.sense, ObjectiveSense::Maximize, "Should maximize");
 
-    // All variables should be binary
-    for bound in &ilp.bounds {
-        assert_eq!(*bound, VarBounds::binary());
-    }
-
     // Each constraint should be x_i + x_j <= 1
     for constraint in &ilp.constraints {
         assert_eq!(constraint.terms.len(), 2);
@@ -37,7 +32,7 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_reduction_weighted() {
     let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![5, 10, 15]);
-    let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionISToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // Check that weights are correctly transferred to objective
@@ -57,7 +52,7 @@ fn test_maximumindependentset_to_ilp_closed_loop() {
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1i32; 3],
     );
-    let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionISToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -90,7 +85,7 @@ fn test_ilp_solution_equals_brute_force_path() {
         SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
         vec![1i32; 4],
     );
-    let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionISToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -120,7 +115,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     // Max IS by weight: just vertex 1 (weight 100) beats 0+2 (weight 2)
     let problem =
         MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 100, 1]);
-    let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionISToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -144,7 +139,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
 fn test_solution_extraction() {
     let problem =
         MaximumIndependentSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i32; 4]);
-    let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionISToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 0, 0, 1];
@@ -161,7 +156,7 @@ fn test_ilp_structure() {
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
         vec![1i32; 5],
     );
-    let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionISToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 5);
@@ -172,7 +167,7 @@ fn test_ilp_structure() {
 fn test_empty_graph() {
     // Graph with no edges: all vertices can be selected
     let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
-    let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionISToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.constraints.len(), 0);
@@ -195,7 +190,7 @@ fn test_complete_graph() {
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
         vec![1i32; 4],
     );
-    let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionISToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.constraints.len(), 6);
@@ -233,7 +228,7 @@ fn test_bipartite_graph() {
         SimpleGraph::new(4, vec![(0, 2), (0, 3), (1, 2), (1, 3)]),
         vec![1i32; 4],
     );
-    let reduction: ReductionISToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionISToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();

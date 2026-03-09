@@ -27,7 +27,7 @@ pub fn run() {
     let problem = Factoring::new(3, 3, 35);
 
     // 2. Reduce to ILP
-    let reduction = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // 3. Print transformation
@@ -72,7 +72,7 @@ pub fn run() {
     }];
 
     let source_variant = variant_to_map(Factoring::variant());
-    let target_variant = variant_to_map(ILP::variant());
+    let target_variant = variant_to_map(ILP::<i32>::variant());
     let overhead = lookup_overhead("Factoring", &source_variant, "ILP", &target_variant)
         .expect("Factoring -> ILP overhead not found");
 
@@ -87,7 +87,7 @@ pub fn run() {
             }),
         },
         target: ProblemSide {
-            problem: ILP::NAME.to_string(),
+            problem: ILP::<i32>::NAME.to_string(),
             variant: target_variant,
             instance: serde_json::json!({
                 "num_vars": ilp.num_vars,

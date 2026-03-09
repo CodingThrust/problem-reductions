@@ -1,5 +1,5 @@
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
-use crate::rules::ReduceTo;
+use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::traits::Problem;
 
 #[test]
@@ -12,7 +12,7 @@ fn test_ilp_bool_to_ilp_i32_closed_loop() {
         ObjectiveSense::Maximize,
     );
 
-    let result = source.reduce_to();
+    let result = ReduceTo::<ILP<i32>>::reduce_to(&source);
     let target = result.target_problem();
 
     // Target should have same number of variables
@@ -35,7 +35,7 @@ fn test_ilp_bool_to_ilp_i32_closed_loop() {
 #[test]
 fn test_ilp_bool_to_ilp_i32_empty() {
     let source = ILP::<bool>::empty();
-    let result = source.reduce_to();
+    let result = ReduceTo::<ILP<i32>>::reduce_to(&source);
     let target = result.target_problem();
     assert_eq!(target.num_vars, 0);
     assert!(target.constraints.is_empty());
@@ -54,7 +54,7 @@ fn test_ilp_bool_to_ilp_i32_preserves_constraints() {
         ObjectiveSense::Maximize,
     );
 
-    let result = source.reduce_to();
+    let result = ReduceTo::<ILP<i32>>::reduce_to(&source);
     let target = result.target_problem();
 
     // Original 2 constraints + 2 binary bound constraints (x0 <= 1, x1 <= 1)
