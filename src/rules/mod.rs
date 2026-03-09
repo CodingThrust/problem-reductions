@@ -1,5 +1,6 @@
 //! Reduction rules between NP-hard problems.
 
+pub mod analysis;
 pub mod cost;
 pub mod registry;
 pub use cost::{CustomCost, Minimize, MinimizeSteps, PathCostFn};
