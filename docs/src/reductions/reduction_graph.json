@@ -5,6 +5,17 @@
       "variant": {},
       "category": "algebraic",
       "doc_path": "models/algebraic/struct.BMF.html",
+      "complexity": "2^(rows * rank + r
+Exported to: docs/src/reductions/reduction_graph.json
+
+JSON content:
+{
+  "nodes": [
+    {
+      "name": "BMF",
+      "variant": {},
+      "category": "algebraic",
+      "doc_path": "models/algebraic/struct.BMF.html",
       "complexity": "2^(rows * rank + rank * cols)"
     },
     {
@@ -677,21 +688,6 @@
     },
     {
       "source": 24,
-      "target": 23,
-      "overhead": [
-        {
-          "field": "num_vertices",
-          "formula": "num_vertices * num_vertices"
-        },
-        {
-          "field": "num_edges",
-          "formula": "num_vertices * num_vertices"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_gridgraph/index.html"
-    },
-    {
-      "source": 24,
       "target": 25,
       "overhead": [
         {
@@ -764,17 +760,6 @@
         }
       ],
       "doc_path": "rules/minimumvertexcover_maximumindependentset/index.html"
-    },
-    {
-      "source": 25,
-      "target": 37,
-      "overhead": [
-        {
-          "field": "num_vars",
-          "formula": "num_vertices"
-        }
-      ],
-      "doc_path": "rules/maximumindependentset_qubo/index.html"
     },
     {
       "source": 26,
@@ -917,7 +902,7 @@
         },
         {
           "field": "num_constraints",
-          "formula": "num_sets^2"
+          "formula": "universe_size"
         }
       ],
       "doc_path": "rules/maximumsetpacking_ilp/index.html"
@@ -1059,11 +1044,11 @@
       "overhead": [
         {
           "field": "num_vertices",
-          "formula": "2 * num_vars + 5 * num_literals + -1 * 5 * num_clauses + 3"
+          "formula": "num_vars + num_literals"
         },
         {
           "field": "num_edges",
-          "formula": "3 * num_vars + 11 * num_literals + -1 * 9 * num_clauses + 3"
+          "formula": "num_vars + num_literals"
         }
       ],
       "doc_path": "rules/sat_coloring/index.html"

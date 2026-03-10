@@ -1475,11 +1475,11 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 The following reductions to Integer Linear Programming are straightforward formulations where problem constraints map directly to linear inequalities.
 
 #reduction-rule("MaximumSetPacking", "ILP")[
-  Each set is either selected or not, and every overlapping pair forbids selecting both members -- a pairwise conflict constraint that is directly linear in binary indicator variables.
+  Each set is either selected or not, and every universe element may belong to at most one selected set -- an element-based constraint that is directly linear in binary indicator variables.
 ][
-  _Construction._ Variables: $x_i in {0, 1}$ for each set $S_i in cal(S)$. Constraints: $x_i + x_j <= 1$ for each overlapping pair $(S_i, S_j)$. Objective: maximize $sum_i w_i x_i$.
+  _Construction._ Variables: $x_i in {0, 1}$ for each set $S_i in cal(S)$. Constraints: $sum_(S_i in.rev e) x_i <= 1$ for each element $e in U$. Objective: maximize $sum_i w_i x_i$.
 
-  _Correctness._ ($arrow.r.double$) A valid packing chooses pairwise disjoint sets, so no overlapping pair has both indicators equal to $1$. ($arrow.l.double$) Any feasible binary solution selects no overlapping pair, hence the chosen sets are pairwise disjoint; the objective maximizes total weight.
+  _Correctness._ ($arrow.r.double$) A valid packing chooses pairwise disjoint sets, so each element is covered at most once. ($arrow.l.double$) Any feasible binary solution covers each element at most once, hence the chosen sets are pairwise disjoint; the objective maximizes total weight.
 
   _Solution extraction._ $cal(P) = {S_i : x_i = 1}$.
 ]
