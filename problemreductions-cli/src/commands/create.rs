@@ -5,7 +5,7 @@ use crate::problem_name::{parse_problem_spec, resolve_variant};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::misc::{BinPacking, PaintShop};
+use problemreductions::models::misc::{BinPacking, MultiprocessorScheduling, PaintShop};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -45,6 +45,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.lengths.is_none()
+        && args.num_processors.is_none()
+        && args.deadline.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -83,6 +86,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "MultiprocessorScheduling" => "--lengths 4,5,3,2,6 --num-processors 2 --deadline 10",
         _ => "",
     }
 }
@@ -439,6 +443,31 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MultiprocessorScheduling
+        "MultiprocessorScheduling" => {
+            let usage = "Usage: pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10";
+            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MultiprocessorScheduling requires --lengths, --num-processors, and --deadline\n\n{usage}"
+                )
+            })?;
+            let num_processors = args.num_processors.ok_or_else(|| {
+                anyhow::anyhow!("MultiprocessorScheduling requires --num-processors\n\n{usage}")
+            })?;
+            let deadline = args.deadline.ok_or_else(|| {
+                anyhow::anyhow!("MultiprocessorScheduling requires --deadline\n\n{usage}")
+            })?;
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
+            (
+                ser(MultiprocessorScheduling::new(
+                    lengths,
+                    num_processors,
+                    deadline,
+                ))?,
                 resolved_variant.clone(),
             )
         }

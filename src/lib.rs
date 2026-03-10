@@ -43,7 +43,9 @@ pub mod prelude {
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumDominatingSet, MinimumVertexCover, TravelingSalesman,
     };
-    pub use crate::models::misc::{BinPacking, Factoring, Knapsack, PaintShop};
+    pub use crate::models::misc::{
+        BinPacking, Factoring, Knapsack, MultiprocessorScheduling, PaintShop,
+    };
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
 
     // Core traits
