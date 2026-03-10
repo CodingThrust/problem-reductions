@@ -216,6 +216,7 @@ Flags by problem type:
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
+  MultiprocessorScheduling        --lengths, --num-processors, --deadline
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -231,7 +232,8 @@ Examples:
   pred create QUBO --matrix \"1,0.5;0.5,2\"
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
-  pred create MIS --random --num-vertices 10 --edge-prob 0.3")]
+  pred create MIS --random --num-vertices 10 --edge-prob 0.3
+  pred create MultiprocessorScheduling --lengths 4,5,3,2,6 --num-processors 2 --deadline 10")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT)
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -326,6 +328,15 @@ pub struct CreateArgs {
     /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
     #[arg(long, allow_hyphen_values = true)]
     pub bounds: Option<String>,
+    /// Task processing times for MultiprocessorScheduling (comma-separated, e.g., "4,5,3,2,6")
+    #[arg(long)]
+    pub lengths: Option<String>,
+    /// Number of processors for MultiprocessorScheduling
+    #[arg(long)]
+    pub num_processors: Option<u64>,
+    /// Deadline for MultiprocessorScheduling
+    #[arg(long)]
+    pub deadline: Option<u64>,
 }
 
 #[derive(clap::Args)]
