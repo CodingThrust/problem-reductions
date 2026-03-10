@@ -1,6 +1,6 @@
 use crate::models::algebraic::QUBO;
 use crate::models::graph::MaximumIndependentSet;
-use crate::rules::{MinimizeSteps, ReductionChain, ReductionGraph, ReductionPath};
+use crate::rules::{Minimize, ReductionChain, ReductionGraph, ReductionPath};
 use crate::solvers::{BruteForce, Solver};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
@@ -18,8 +18,11 @@ fn reduce_mis_to_qubo(
             &src,
             "QUBO",
             &dst,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
+            &ProblemSize::new(vec![
+                ("num_vertices", problem.graph().num_vertices()),
+                ("num_edges", problem.graph().num_edges()),
+            ]),
+            &Minimize("num_vars"),
         )
         .expect("Should find path MaximumIndependentSet -> QUBO");
     let chain = graph

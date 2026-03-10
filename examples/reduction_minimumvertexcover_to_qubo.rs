@@ -11,7 +11,7 @@
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
-use problemreductions::rules::{MinimizeSteps, ReductionGraph};
+use problemreductions::rules::{Minimize, ReductionGraph};
 use problemreductions::topology::small_graphs::petersen;
 use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::types::ProblemSize;
@@ -35,8 +35,11 @@ pub fn run() {
             &src_variant_bt,
             "QUBO",
             &dst_variant_bt,
-            &ProblemSize::new(vec![]),
-            &MinimizeSteps,
+            &ProblemSize::new(vec![
+                ("num_vertices", vc.graph().num_vertices()),
+                ("num_edges", vc.graph().num_edges()),
+            ]),
+            &Minimize("num_vars"),
         )
         .expect("MinimumVertexCover -> QUBO path not found");
     let reduction = graph

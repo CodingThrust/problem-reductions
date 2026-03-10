@@ -253,10 +253,7 @@ fn test_find_dominated_rules_returns_known_set() {
         // Composite through CircuitSAT → ILP is better
         ("Factoring", "ILP {variable: \"i32\"}"),
         // K3-SAT → QUBO via SAT → CircuitSAT → SpinGlass chain
-        (
-            "KSatisfiability {k: \"K3\"}",
-            "QUBO {weight: \"f64\"}",
-        ),
+        ("KSatisfiability {k: \"K3\"}", "QUBO {weight: \"f64\"}"),
         // Variant cast composed: SimpleGraph/One → KingsSubgraph/One → KingsSubgraph/i32
         (
             "MaximumIndependentSet {graph: \"SimpleGraph\", weight: \"One\"}",

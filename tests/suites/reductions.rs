@@ -5,7 +5,7 @@
 
 use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use problemreductions::prelude::*;
-use problemreductions::rules::{MinimizeSteps, ReductionGraph};
+use problemreductions::rules::{Minimize, ReductionGraph};
 use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::variant::{K2, K3};
 
@@ -464,8 +464,11 @@ mod qubo_reductions {
                 &src,
                 "QUBO",
                 &dst,
-                &ProblemSize::new(vec![]),
-                &MinimizeSteps,
+                &ProblemSize::new(vec![
+                    ("num_vertices", n),
+                    ("num_edges", is.graph().num_edges()),
+                ]),
+                &Minimize("num_vars"),
             )
             .expect("Should find path MaximumIndependentSet -> QUBO");
         let chain = graph

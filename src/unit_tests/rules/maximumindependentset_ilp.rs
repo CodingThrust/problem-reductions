@@ -1,8 +1,8 @@
 use crate::models::algebraic::{ObjectiveSense, ILP};
 use crate::models::graph::MaximumIndependentSet;
 use crate::rules::{MinimizeSteps, ReductionChain, ReductionGraph, ReductionPath};
-use crate::solvers::{BruteForce, ILPSolver, Solver};
-use crate::topology::{Graph, SimpleGraph};
+use crate::solvers::{BruteForce, ILPSolver};
+use crate::topology::SimpleGraph;
 use crate::traits::Problem;
 use crate::types::{ProblemSize, SolutionSize};
 
