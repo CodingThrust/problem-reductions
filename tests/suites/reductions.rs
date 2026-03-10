@@ -722,6 +722,76 @@ mod qubo_reductions {
         let our_config = reduction.extract_solution(&solutions[0]);
         assert_eq!(&our_config, gt_config);
     }
+
+    #[derive(Deserialize)]
+    struct VCToQuboData {
+        source: VCSource,
+        qubo_optimal: QuboOptimal,
+    }
+
+    #[derive(Deserialize)]
+    struct VCSource {
+        num_vertices: usize,
+        edges: Vec<(usize, usize)>,
+    }
+
+    #[test]
+    fn test_vc_to_qubo_ground_truth() {
+        let json =
+            std::fs::read_to_string("tests/data/qubo/minimumvertexcover_to_qubo.json").unwrap();
+        let data: VCToQuboData = serde_json::from_str(&json).unwrap();
+
+        let n = data.source.num_vertices;
+        let vc = MinimumVertexCover::new(SimpleGraph::new(n, data.source.edges), vec![1i32; n]);
+
+        // Find path MVC → ... → QUBO through the reduction graph
+        let graph = ReductionGraph::new();
+        let src =
+            ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+        let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+        let path = graph
+            .find_cheapest_path(
+                "MinimumVertexCover",
+                &src,
+                "QUBO",
+                &dst,
+                &ProblemSize::new(vec![
+                    ("num_vertices", n),
+                    ("num_edges", vc.graph().num_edges()),
+                ]),
+                &Minimize("num_vars"),
+            )
+            .expect("Should find path MVC -> QUBO");
+        assert_eq!(
+            path.type_names(),
+            vec![
+                "MinimumVertexCover",
+                "MaximumIndependentSet",
+                "MaximumSetPacking",
+                "QUBO"
+            ]
+        );
+
+        let chain = graph
+            .reduce_along_path(&path, &vc as &dyn std::any::Any)
+            .expect("Should reduce MVC to QUBO");
+        let qubo: &QUBO<f64> = chain.target_problem();
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_all_best(qubo);
+
+        // Extract back through the full chain to get VC solution
+        for sol in &solutions {
+            let vc_sol = chain.extract_solution(sol);
+            assert!(vc.evaluate(&vc_sol).is_valid());
+        }
+
+        // Optimal VC size should match ground truth
+        let vc_sol = chain.extract_solution(&solutions[0]);
+        let gt_vc_size: usize = data.qubo_optimal.configs[0].iter().sum();
+        let our_vc_size: usize = vc_sol.iter().sum();
+        assert_eq!(our_vc_size, gt_vc_size);
+    }
 }
 
 /// Tests for File I/O with reductions.

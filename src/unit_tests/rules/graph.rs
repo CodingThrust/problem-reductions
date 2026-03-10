@@ -2,7 +2,7 @@ use super::*;
 use crate::models::algebraic::QUBO;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::set::MaximumSetPacking;
-use crate::rules::cost::MinimizeSteps;
+use crate::rules::cost::{Minimize, MinimizeSteps};
 use crate::rules::graph::{classify_problem_category, ReductionStep};
 use crate::rules::registry::ReductionEntry;
 use crate::topology::SimpleGraph;
@@ -715,7 +715,7 @@ fn test_find_cheapest_path_multi_step() {
 #[test]
 fn test_find_cheapest_path_is_to_qubo() {
     let graph = ReductionGraph::new();
-    let cost_fn = MinimizeSteps;
+    let cost_fn = Minimize("num_vars");
     let input_size = crate::types::ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
@@ -737,7 +737,7 @@ fn test_find_cheapest_path_is_to_qubo() {
     );
     assert_eq!(
         path.type_names(),
-        vec!["MaximumIndependentSet", "MaximumSetPacking", "ILP", "QUBO"]
+        vec!["MaximumIndependentSet", "MaximumSetPacking", "QUBO"]
     );
 }
 
