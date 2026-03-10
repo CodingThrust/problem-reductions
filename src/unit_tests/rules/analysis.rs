@@ -3,7 +3,7 @@ use crate::rules::analysis::{compare_overhead, find_dominated_rules, ComparisonS
 use crate::rules::graph::ReductionGraph;
 use crate::rules::registry::ReductionOverhead;
 
-// --- Polynomial normalization + comparison tests ---
+// --- Asymptotic normalization + comparison tests ---
 
 #[test]
 fn test_compare_overhead_equal() {
@@ -69,7 +69,8 @@ fn test_compare_overhead_no_common_fields() {
 
 #[test]
 fn test_compare_overhead_unknown_exp() {
-    // exp(n) can't be normalized → Unknown
+    // Different exponential-vs-polynomial growth is still not decided by the
+    // monomial comparison fallback.
     let prim = ReductionOverhead::new(vec![("num_vars", Expr::Exp(Box::new(Expr::Var("n"))))]);
     let comp = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Unknown);
@@ -80,6 +81,34 @@ fn test_compare_overhead_unknown_log() {
     let prim = ReductionOverhead::new(vec![("num_vars", Expr::Var("n"))]);
     let comp = ReductionOverhead::new(vec![("num_vars", Expr::Log(Box::new(Expr::Var("n"))))]);
     assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Unknown);
+}
+
+#[test]
+fn test_compare_overhead_exp_identity_after_asymptotic_normalization() {
+    let prim = ReductionOverhead::new(vec![("num_vars", Expr::parse("exp(n + m)"))]);
+    let comp = ReductionOverhead::new(vec![("num_vars", Expr::parse("exp(n) * exp(m)"))]);
+    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
+}
+
+#[test]
+fn test_compare_overhead_log_identity_after_asymptotic_normalization() {
+    let prim = ReductionOverhead::new(vec![("num_vars", Expr::parse("log(n)"))]);
+    let comp = ReductionOverhead::new(vec![("num_vars", Expr::parse("log(n^2)"))]);
+    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
+}
+
+#[test]
+fn test_compare_overhead_sqrt_identity_after_asymptotic_normalization() {
+    let prim = ReductionOverhead::new(vec![("num_vars", Expr::parse("sqrt(n * m)"))]);
+    let comp = ReductionOverhead::new(vec![("num_vars", Expr::parse("(n * m)^(1/2)"))]);
+    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
+}
+
+#[test]
+fn test_compare_overhead_additive_constant_after_asymptotic_normalization() {
+    let prim = ReductionOverhead::new(vec![("num_vars", Expr::parse("n"))]);
+    let comp = ReductionOverhead::new(vec![("num_vars", Expr::parse("n + 1"))]);
+    assert_eq!(compare_overhead(&prim, &comp), ComparisonStatus::Dominated);
 }
 
 #[test]

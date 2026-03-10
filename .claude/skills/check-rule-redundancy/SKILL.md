@@ -5,66 +5,91 @@ description: Use when checking if a reduction rule (source-target pair) is redun
 
 # Check Rule Redundancy
 
-Given a source-target pair, determines whether a direct reduction rule is redundant by comparing its overhead against all composite paths through the reduction graph.
+Determines whether reduction rules are redundant (dominated by composite paths through the reduction graph). Can check a single source-target pair or all primitive rules at once.
 
 ## Invocation
 
 ```
-/check-rule-redundancy <source> <target>
+/check-rule-redundancy                  # Check ALL primitive rules
+/check-rule-redundancy <source> <target> # Check a specific rule
 ```
 
 Examples:
 ```
+/check-rule-redundancy
 /check-rule-redundancy MIS ILP
 /check-rule-redundancy MaximumIndependentSet QUBO
-/check-rule-redundancy Factoring ILP
 ```
 
-## Process
+## Mode 1: Check All Rules (no arguments)
+
+When invoked without arguments, run the codebase's `find_dominated_rules` analysis test directly:
+
+```bash
+cargo test test_find_dominated_rules_returns_known_set -- --nocapture 2>&1
+```
+
+This runs the analysis from `src/rules/analysis.rs` which:
+1. Enumerates every primitive reduction rule (direct edge) in the graph
+2. For each, finds all alternative composite paths
+3. Uses polynomial normalization and monomial-dominance to compare overheads
+4. Reports dominated rules and unknown comparisons
+
+Parse the test output and report a summary:
+
+```markdown
+## All Primitive Rules — Redundancy Report
+
+### Dominated Rules (N)
+
+| # | Rule | Dominating Path |
+|---|------|-----------------|
+| 1 | Source -> Target | A -> B -> C |
+
+### Unknown Comparisons (N)
+
+| # | Rule | Reason |
+|---|------|--------|
+| 1 | Source -> Target | expression comparison returned Unknown |
+
+### Allowed (acknowledged) dominated rules
+
+List the entries from the `allowed` set in `test_find_dominated_rules_returns_known_set`
+(file: `src/unit_tests/rules/analysis.rs`).
+
+### Verdict
+
+- If test passes: all dominated rules are acknowledged in the allow-list.
+- If test fails: report the unexpected dominated rule or stale allow-list entry.
+```
+
+## Mode 2: Check Single Rule (source target arguments)
 
 ### Step 1: Resolve Problem Names
 
-Use `pred show` to validate and resolve aliases:
-
-```bash
-pred show <source> --json 2>/dev/null
-pred show <target> --json 2>/dev/null
-```
-
-If either fails, try common aliases (MIS = MaximumIndependentSet, MVC = MinimumVertexCover, SAT = Satisfiability, etc.). Report the resolved names.
+Use MCP tools (`show_problem`) to validate and resolve aliases (MIS = MaximumIndependentSet, MVC = MinimumVertexCover, SAT = Satisfiability, etc.).
 
 ### Step 2: Check if Rule Already Exists
 
-```bash
-pred show <source> --json
-```
-
-Check the output's `reductions` array for a direct edge to `<target>`.
+Use `show_problem` on the source and check its `reduces_to` array for a direct edge to the target.
 
 - **Direct edge exists**: Report "Direct rule `<source> -> <target>` already exists" and proceed to redundancy analysis (Step 3).
 - **No direct edge**: Report "No direct rule from `<source> -> <target>` exists yet." Then check if any path exists:
-  ```bash
-  pred path <source> <target> --json
-  ```
+  - Use `find_path` MCP tool.
   - **Path exists**: Report the cheapest existing path and its overhead. This is the baseline the proposed new rule must beat to be non-redundant.
   - **No path exists**: Report "No path exists — a new rule would be novel (not redundant)." Stop here.
 
 ### Step 3: Find All Paths
 
-```bash
-pred path <source> <target> --all --json
-```
-
-This returns all paths between source and target. The output includes overhead composition for each path.
+Use `find_path` with `all: true` to get all paths between source and target.
 
 ### Step 4: Compare Overheads
 
 For each composite path (length > 1 step):
 
-1. Extract the **overall overhead** from the path JSON
+1. Extract the **overall overhead** from the path result
 2. Extract the **direct rule's overhead** from the single-step path
 3. Compare field by field:
-   - Parse overhead expressions (e.g., `num_vars = n`, `num_constraints = n + m`)
    - For polynomial expressions: compare degree — lower degree means the composite is better
    - For equal-degree polynomials: compare leading coefficients
    - For non-polynomial (exp, log): report as "Unknown — manual review needed"
@@ -87,7 +112,6 @@ Output a structured report:
 | # | Path | Steps | Overhead | Comparison |
 |---|------|-------|----------|------------|
 | 1 | A -> B -> C | 2 | field = expr | Dominates / Worse / Unknown |
-| 2 | A -> D -> E -> C | 3 | field = expr | Dominates / Worse / Unknown |
 
 ### Verdict
 
@@ -114,7 +138,6 @@ If not redundant:
 - "Equal overhead" does not necessarily mean the rule should be removed — direct rules have practical advantages (simpler extraction, fewer steps)
 - The analysis uses asymptotic comparison (big-O), so constant factors are ignored
 - This means the check can produce false alarms, especially when overhead metadata keeps only leading terms or when a long composite path is asymptotically comparable but practically much worse
-- Example false-alarm pattern: `Factoring -> ILP` may be flagged by `Factoring -> CircuitSAT -> ILP<bool> -> ILP<i32>` even though the direct arithmetic ILP is still a meaningful canonical rule
 - Treat "dominated" as "potentially redundant, requires manual review" unless the composite path is also clearly preferable structurally
 - When overhead expressions involve variables from different problems (e.g., `num_vertices` vs `num_clauses`), comparison may not be meaningful — report as Unknown
-- Use the `src/rules/analysis.rs` utility as the ground truth for what the codebase considers dominated. This skill provides a quick CLI-based check for individual rules
+- The ground truth for what the codebase considers dominated is `src/rules/analysis.rs` (`find_dominated_rules`) with the allow-list in `src/unit_tests/rules/analysis.rs` (`test_find_dominated_rules_returns_known_set`)

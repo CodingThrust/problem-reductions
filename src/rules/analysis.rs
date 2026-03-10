@@ -1,13 +1,13 @@
 //! Analysis utilities for the reduction graph.
 //!
 //! Detects primitive reduction rules that are dominated by composite paths,
-//! using polynomial normalization and monomial-dominance comparison.
+//! using asymptotic normalization plus monomial-dominance comparison.
 //!
 //! This analysis is **sound but incomplete**: it reports `Dominated` only when
 //! the symbolic comparison is trustworthy, and `Unknown` when metadata is too
 //! weak to compare safely.
 
-use crate::expr::Expr;
+use crate::expr::{asymptotic_normal_form, Expr};
 use crate::rules::graph::{ReductionGraph, ReductionPath};
 use crate::rules::registry::ReductionOverhead;
 use std::collections::BTreeMap;
@@ -115,7 +115,7 @@ impl NormalizedPoly {
 /// Supports: constants, variables, addition, multiplication,
 /// and powers with non-negative constant exponents.
 /// Returns `Err` for exp, log, sqrt, division, and negative exponents.
-fn normalize(expr: &Expr) -> Result<NormalizedPoly, String> {
+fn normalize_polynomial(expr: &Expr) -> Result<NormalizedPoly, String> {
     match expr {
         Expr::Const(c) => Ok(NormalizedPoly {
             terms: vec![Monomial::constant(*c)],
@@ -124,13 +124,13 @@ fn normalize(expr: &Expr) -> Result<NormalizedPoly, String> {
             terms: vec![Monomial::variable(v)],
         }),
         Expr::Add(a, b) => {
-            let pa = normalize(a)?;
-            let pb = normalize(b)?;
+            let pa = normalize_polynomial(a)?;
+            let pb = normalize_polynomial(b)?;
             Ok(pa.add(pb))
         }
         Expr::Mul(a, b) => {
-            let pa = normalize(a)?;
-            let pb = normalize(b)?;
+            let pa = normalize_polynomial(a)?;
+            let pb = normalize_polynomial(b)?;
             Ok(pa.mul(&pb))
         }
         Expr::Pow(base, exp) => {
@@ -138,7 +138,7 @@ fn normalize(expr: &Expr) -> Result<NormalizedPoly, String> {
                 if *c < 0.0 {
                     return Err(format!("negative exponent: {c}"));
                 }
-                let pb = normalize(base)?;
+                let pb = normalize_polynomial(base)?;
                 // Single monomial: multiply exponents
                 if pb.terms.len() == 1 {
                     let m = &pb.terms[0];
@@ -173,6 +173,10 @@ fn normalize(expr: &Expr) -> Result<NormalizedPoly, String> {
         Expr::Log(_) => Err("log() not supported".into()),
         Expr::Sqrt(_) => Err("sqrt() not supported".into()),
     }
+}
+
+fn prepare_expr_for_comparison(expr: &Expr) -> Expr {
+    asymptotic_normal_form(expr).unwrap_or_else(|_| expr.clone())
 }
 
 // ────────── Monomial-dominance comparison ──────────
@@ -219,7 +223,7 @@ fn poly_leq(a: &NormalizedPoly, b: &NormalizedPoly) -> bool {
 /// Returns `Dominated` if composite ≤ primitive on all common fields.
 /// Returns `NotDominated` if composite is worse on any common field.
 /// Returns `Unknown` if any common field's expressions cannot be normalized
-/// or contain negative coefficients.
+/// into a comparable polynomial form or contain negative coefficients.
 pub fn compare_overhead(
     primitive: &ReductionOverhead,
     composite: &ReductionOverhead,
@@ -238,11 +242,18 @@ pub fn compare_overhead(
         };
         any_common = true;
 
-        let primitive_poly = match normalize(prim_expr) {
+        let primitive_prepared = prepare_expr_for_comparison(prim_expr);
+        let composite_prepared = prepare_expr_for_comparison(comp_expr);
+
+        if primitive_prepared == composite_prepared {
+            continue;
+        }
+
+        let primitive_poly = match normalize_polynomial(&primitive_prepared) {
             Ok(p) => p,
             Err(_) => return ComparisonStatus::Unknown,
         };
-        let composite_poly = match normalize(comp_expr) {
+        let composite_poly = match normalize_polynomial(&composite_prepared) {
             Ok(p) => p,
             Err(_) => return ComparisonStatus::Unknown,
         };

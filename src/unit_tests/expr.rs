@@ -145,6 +145,120 @@ fn test_expr_is_polynomial() {
 }
 
 #[test]
+fn test_expr_is_valid_complexity_notation_simple() {
+    assert!(Expr::Var("n").is_valid_complexity_notation());
+    assert!(Expr::pow(Expr::Var("n"), Expr::Const(2.0)).is_valid_complexity_notation());
+    assert!(Expr::parse("n + m").is_valid_complexity_notation());
+    assert!(Expr::parse("2^n").is_valid_complexity_notation());
+    assert!(Expr::parse("n^(1/3)").is_valid_complexity_notation());
+    assert!(Expr::parse("2^(rows * rank + rank * cols)").is_valid_complexity_notation());
+}
+
+#[test]
+fn test_expr_is_valid_complexity_notation_rejects_constant_factors() {
+    assert!(!Expr::parse("3 * n").is_valid_complexity_notation());
+    assert!(!Expr::parse("n / 3").is_valid_complexity_notation());
+    assert!(!Expr::parse("n - m").is_valid_complexity_notation());
+    assert!(!Expr::parse("2^(2.372 * n / 3)").is_valid_complexity_notation());
+}
+
+#[test]
+fn test_expr_is_valid_complexity_notation_rejects_additive_constants() {
+    assert!(!Expr::parse("n + 1").is_valid_complexity_notation());
+    assert!(!Expr::parse("log(n + 1)").is_valid_complexity_notation());
+    assert!(!Expr::parse("(n + 1)^2").is_valid_complexity_notation());
+    assert!(!Expr::Const(5.0).is_valid_complexity_notation());
+    assert!(Expr::Const(1.0).is_valid_complexity_notation());
+}
+
+#[test]
+fn test_expr_display_pow_with_complex_exponent() {
+    let expr = Expr::pow(Expr::Const(2.0), Expr::add(Expr::Var("m"), Expr::Var("n")));
+    assert_eq!(format!("{expr}"), "2^(m + n)");
+}
+
+#[test]
+fn test_asymptotic_normal_form_drops_constant_factors() {
+    let expr = Expr::parse("3 * num_variables^2");
+    let normalized = asymptotic_normal_form(&expr).unwrap();
+    assert_eq!(normalized.to_string(), "num_variables^2");
+}
+
+#[test]
+fn test_asymptotic_normal_form_drops_additive_constants() {
+    let expr = Expr::parse("num_variables + 1");
+    let normalized = asymptotic_normal_form(&expr).unwrap();
+    assert_eq!(normalized.to_string(), "num_variables");
+}
+
+#[test]
+fn test_asymptotic_normal_form_canonicalizes_commutative_sum() {
+    let a = asymptotic_normal_form(&Expr::parse("n + m")).unwrap();
+    let b = asymptotic_normal_form(&Expr::parse("m + n")).unwrap();
+    assert_eq!(a, b);
+    assert_eq!(a.to_string(), "m + n");
+}
+
+#[test]
+fn test_asymptotic_normal_form_canonicalizes_commutative_product() {
+    let a = asymptotic_normal_form(&Expr::parse("n * m")).unwrap();
+    let b = asymptotic_normal_form(&Expr::parse("m * n")).unwrap();
+    assert_eq!(a, b);
+    assert_eq!(a.to_string(), "m * n");
+}
+
+#[test]
+fn test_asymptotic_normal_form_combines_repeated_factors() {
+    let normalized = asymptotic_normal_form(&Expr::parse("n * n^(1/2)")).unwrap();
+    assert_eq!(normalized.to_string(), "n^1.5");
+}
+
+#[test]
+fn test_asymptotic_normal_form_canonicalizes_exponential_product() {
+    let a = asymptotic_normal_form(&Expr::parse("exp(n) * exp(m)")).unwrap();
+    let b = asymptotic_normal_form(&Expr::parse("exp(n + m)")).unwrap();
+    assert_eq!(a, b);
+    assert_eq!(a.to_string(), "exp(m + n)");
+}
+
+#[test]
+fn test_asymptotic_normal_form_canonicalizes_constant_base_exponential_product() {
+    let a = asymptotic_normal_form(&Expr::parse("2^n * 2^m")).unwrap();
+    let b = asymptotic_normal_form(&Expr::parse("2^(n + m)")).unwrap();
+    assert_eq!(a, b);
+    assert_eq!(a.to_string(), "2^(m + n)");
+}
+
+#[test]
+fn test_asymptotic_normal_form_sqrt_matches_fractional_power() {
+    let a = asymptotic_normal_form(&Expr::parse("sqrt(n * m)")).unwrap();
+    let b = asymptotic_normal_form(&Expr::parse("(n * m)^(1/2)")).unwrap();
+    assert_eq!(a, b);
+}
+
+#[test]
+fn test_asymptotic_normal_form_log_of_power_simplifies() {
+    let normalized = asymptotic_normal_form(&Expr::parse("log(n^2)")).unwrap();
+    assert_eq!(normalized.to_string(), "log(n)");
+}
+
+#[test]
+fn test_asymptotic_normal_form_substitution_is_closed() {
+    let notation = asymptotic_normal_form(&Expr::parse("n * m")).unwrap();
+    let k = Expr::parse("k");
+    let k_squared = Expr::parse("k^2");
+    let mapping = HashMap::from([("n", &k), ("m", &k_squared)]);
+    let substituted = asymptotic_normal_form(&notation.substitute(&mapping)).unwrap();
+    assert_eq!(substituted.to_string(), "k^3");
+}
+
+#[test]
+fn test_asymptotic_normal_form_rejects_negative_forms() {
+    let err = asymptotic_normal_form(&Expr::parse("n - m")).unwrap_err();
+    assert!(matches!(err, AsymptoticAnalysisError::Unsupported(_)));
+}
+
+#[test]
 fn test_expr_display_fractional_constant() {
     assert_eq!(format!("{}", Expr::Const(2.75)), "2.75");
     assert_eq!(format!("{}", Expr::Const(0.5)), "0.5");
