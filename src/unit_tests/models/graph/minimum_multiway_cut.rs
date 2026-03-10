@@ -120,3 +120,17 @@ fn test_minimummultiwaycut_name() {
         "MinimumMultiwayCut"
     );
 }
+
+#[test]
+fn test_minimummultiwaycut_short_config_no_panic() {
+    let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
+    let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
+
+    let short_config = vec![1, 0];
+    let result = problem.evaluate(&short_config);
+    assert_ne!(result, SolutionSize::Valid(0));
+
+    let empty_config: Vec<usize> = vec![];
+    let result = problem.evaluate(&empty_config);
+    assert_ne!(result, SolutionSize::Valid(0));
+}

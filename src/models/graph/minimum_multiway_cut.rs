@@ -121,7 +121,7 @@ fn terminals_separated<G: Graph>(graph: &G, terminals: &[usize], config: &[usize
     // Build adjacency list from non-cut edges
     let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
     for (idx, (u, v)) in edges.iter().enumerate() {
-        if config[idx] == 0 {
+        if config.get(idx).copied().unwrap_or(0) == 0 {
             adj[*u].push(*v);
             adj[*v].push(*u);
         }
@@ -172,7 +172,9 @@ where
         let mut total = W::Sum::zero();
         for (idx, &selected) in config.iter().enumerate() {
             if selected == 1 {
-                total += self.edge_weights[idx].to_sum();
+                if let Some(w) = self.edge_weights.get(idx) {
+                    total += w.to_sum();
+                }
             }
         }
         SolutionSize::Valid(total)
