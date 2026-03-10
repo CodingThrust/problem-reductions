@@ -14,6 +14,9 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
 - [check-issue](skills/check-issue/SKILL.md) -- Quality gate for `[Rule]` and `[Model]` issues. Checks usefulness, non-triviality, correctness of literature, and writing quality. Posts structured report and adds failure labels.
 - [meta-power](skills/meta-power/SKILL.md) -- Batch-resolve all open `[Model]` and `[Rule]` issues autonomously: plan, implement, review, fix CI, merge — in dependency order (models first).
+- [zero-to-infinity](skills/zero-to-infinity/SKILL.md) -- Discover and prioritize new problems and reduction rules based on user-ranked impact dimensions (academia, industry, cross-field, etc.), then file as GitHub issues.
+- [add-issue-model](skills/add-issue-model/SKILL.md) -- File a well-formed `[Model]` GitHub issue with all 11 checklist items, citations, and repo verification.
+- [add-issue-rule](skills/add-issue-rule/SKILL.md) -- File a well-formed `[Rule]` GitHub issue with all 9 checklist items, worked example, correctness argument, and nontriviality check.
 
 ## Commands
 ```bash
