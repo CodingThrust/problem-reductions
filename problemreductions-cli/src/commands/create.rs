@@ -5,7 +5,7 @@ use crate::problem_name::{parse_problem_spec, resolve_variant};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::misc::{BinPacking, PaintShop};
+use problemreductions::models::misc::{BinPacking, PaintShop, SequencingWithinIntervals};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -45,6 +45,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.release_times.is_none()
+        && args.deadlines_flag.is_none()
+        && args.task_lengths.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -59,6 +62,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" => "integer",
         "u64" => "integer",
+        "Vec<u64>" => "comma-separated integers: 0,0,5",
         _ => "value",
     }
 }
@@ -83,6 +87,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
         _ => "",
     }
 }
@@ -439,6 +444,31 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingWithinIntervals
+        "SequencingWithinIntervals" => {
+            let usage = "Usage: pred create SequencingWithinIntervals --release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1";
+            let rt_str = args.release_times.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SequencingWithinIntervals requires --release-times\n\n{usage}")
+            })?;
+            let dl_str = args.deadlines_flag.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SequencingWithinIntervals requires --deadlines\n\n{usage}")
+            })?;
+            let len_str = args.task_lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("SequencingWithinIntervals requires --lengths\n\n{usage}")
+            })?;
+            let release_times: Vec<u64> = util::parse_comma_list(rt_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(dl_str)?;
+            let lengths: Vec<u64> = util::parse_comma_list(len_str)?;
+            (
+                ser(SequencingWithinIntervals::new(
+                    release_times,
+                    deadlines,
+                    lengths,
+                ))?,
                 resolved_variant.clone(),
             )
         }

@@ -216,6 +216,7 @@ Flags by problem type:
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
+  SequencingWithinIntervals       --release-times, --deadlines, --lengths
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -326,6 +327,15 @@ pub struct CreateArgs {
     /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
     #[arg(long, allow_hyphen_values = true)]
     pub bounds: Option<String>,
+    /// Release times for SequencingWithinIntervals (comma-separated, e.g., "0,0,5")
+    #[arg(long)]
+    pub release_times: Option<String>,
+    /// Deadlines for SequencingWithinIntervals (comma-separated, e.g., "11,11,6")
+    #[arg(long = "deadlines")]
+    pub deadlines_flag: Option<String>,
+    /// Processing lengths for SequencingWithinIntervals (comma-separated, e.g., "3,1,1")
+    #[arg(long = "lengths")]
+    pub task_lengths: Option<String>,
 }
 
 #[derive(clap::Args)]
