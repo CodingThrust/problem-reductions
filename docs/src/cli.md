@@ -76,27 +76,35 @@ Lists all registered problem types with their short aliases.
 
 ```bash
 $ pred list
-Registered problems: 17 types, 48 reductions, 25 variant nodes
+Registered problems: 25 types, 58 reductions, 42 variant nodes
 
-  Problem                Aliases     Variants  Reduces to
-  ─────────────────────  ──────────  ────────  ──────────
-  CircuitSAT                                1           1
-  Factoring                                 1           2
-  ILP                                       1           1
-  KColoring                                 2           3
-  KSatisfiability        3SAT, KSAT         3           7
-  MaxCut                                    1           1
-  MaximumClique                             1           1
-  MaximumIndependentSet  MIS                4          10
-  MaximumMatching                           1           2
-  MaximumSetPacking                         2           4
-  MinimumDominatingSet                      1           1
-  MinimumSetCovering                        1           1
-  MinimumVertexCover     MVC                1           4
-  QUBO                                      1           1
-  Satisfiability         SAT                1           5
-  SpinGlass                                 2           3
-  TravelingSalesman      TSP                1           1
+  Problem                Aliases      Variants  Reduces to
+  ─────────────────────  ───────────  ────────  ──────────
+  BMF                                        1           0
+  BicliqueCover                              1           0
+  BinPacking                                 2           0
+  CircuitSAT                                 1           2
+  ClosestVectorProblem   CVP                 2           0
+  Factoring                                  1           2
+  ILP                                        1           1
+  KColoring                                  5           3
+  KSatisfiability        3SAT, KSAT          3           7
+  Knapsack                                   1           0
+  MaxCut                                     1           1
+  MaximalIS                                  1           0
+  MaximumClique                              1           1
+  MaximumIndependentSet  MIS                 7          16
+  MaximumMatching        MaxMatching         1           2
+  MaximumSetPacking                          3           6
+  MinimumDominatingSet                       1           1
+  MinimumMultiwayCut                         1           0
+  MinimumSetCovering                         1           1
+  MinimumVertexCover     MVC                 1           4
+  PaintShop                                  1           0
+  QUBO                                       1           2
+  Satisfiability         SAT                 1           5
+  SpinGlass                                  2           3
+  TravelingSalesman      TSP                 1           1
 
 Use `pred show <problem>` to see variants, reductions, and fields.
 ```
@@ -239,6 +247,7 @@ pred create QUBO --matrix "1,0.5;0.5,2" -o qubo.json
 pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
 pred create SpinGlass --graph 0-1,1-2 -o sg.json
 pred create MaxCut --graph 0-1,1-2,2-0 -o maxcut.json
+pred create MinimumMultiwayCut --graph 0-1,1-2,2-3,3-0 --terminals 0,2 --edge-weights 3,1,2,4 -o mmc.json
 pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
 pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 ```
@@ -423,6 +432,8 @@ You can use short aliases instead of full problem names (shown in `pred list`):
 | `SAT` | `Satisfiability` |
 | `3SAT` / `KSAT` | `KSatisfiability` |
 | `TSP` | `TravelingSalesman` |
+| `CVP` | `ClosestVectorProblem` |
+| `MaxMatching` | `MaximumMatching` |
 
 You can also specify variants with a slash: `MIS/UnitDiskGraph`, `SpinGlass/SimpleGraph`.
 

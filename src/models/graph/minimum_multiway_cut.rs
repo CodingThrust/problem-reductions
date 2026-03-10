@@ -49,6 +49,10 @@ pub struct MinimumMultiwayCut<G, W> {
 impl<G: Graph, W: Clone + Default> MinimumMultiwayCut<G, W> {
     /// Create a MinimumMultiwayCut problem.
     ///
+    /// `edge_weights` must have one entry per edge, in the same order as
+    /// [`Graph::edges()`](crate::topology::Graph::edges). Each binary
+    /// variable corresponds to an edge: 0 = keep, 1 = cut.
+    ///
     /// # Panics
     /// - If `edge_weights.len() != graph.num_edges()`
     /// - If `terminals.len() < 2`
