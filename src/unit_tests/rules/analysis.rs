@@ -1,5 +1,7 @@
 use crate::expr::Expr;
-use crate::rules::analysis::{compare_overhead, find_dominated_rules, ComparisonStatus};
+use crate::rules::analysis::{
+    compare_overhead, find_dominated_rules, format_problem_variant, ComparisonStatus,
+};
 use crate::rules::graph::ReductionGraph;
 use crate::rules::registry::ReductionOverhead;
 
@@ -231,12 +233,19 @@ fn test_find_dominated_rules_returns_known_set() {
             .join(" -> ");
         eprintln!(
             "  {} -> {} dominated by [{}]",
-            rule.source_name, rule.target_name, path_str,
+            rule.source_display(),
+            rule.target_display(),
+            path_str,
         );
     }
     eprintln!("\nUnknown comparisons ({}):", unknown.len());
     for u in &unknown {
-        eprintln!("  {} -> {}: {}", u.source_name, u.target_name, u.reason,);
+        eprintln!(
+            "  {} -> {}: {}",
+            u.source_display(),
+            u.target_display(),
+            u.reason,
+        );
     }
 
     // ── Allow-list of expected dominated rules ──
@@ -249,8 +258,6 @@ fn test_find_dominated_rules_returns_known_set() {
         ("KSatisfiability", "QUBO"),
         // Variant cast composed: SimpleGraph/One → KingsSubgraph/One → KingsSubgraph/i32
         ("MaximumIndependentSet", "MaximumIndependentSet"),
-        // MIS → MVC → QUBO is better than direct MIS → QUBO
-        ("MaximumIndependentSet", "QUBO"),
         // SetPacking → MIS → MVC → SetCover → ILP ties the direct formulation
         ("MaximumSetPacking", "ILP"),
     ]
@@ -263,8 +270,8 @@ fn test_find_dominated_rules_returns_known_set() {
         assert!(
             allowed.contains(&key),
             "Unexpected dominated rule: {} -> {} (dominated by {})",
-            rule.source_name,
-            rule.target_name,
+            format_problem_variant(rule.source_name, &rule.source_variant),
+            format_problem_variant(rule.target_name, &rule.target_variant),
             rule.dominating_path
                 .steps
                 .iter()

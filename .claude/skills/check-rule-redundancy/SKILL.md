@@ -35,6 +35,11 @@ This runs the analysis from `src/rules/analysis.rs` which:
 3. Uses polynomial normalization and monomial-dominance to compare overheads
 4. Reports dominated rules and unknown comparisons
 
+Always report rules with full variant-qualified endpoints, not just base names.
+Use the same display style as `ReductionStep`, e.g.
+`MaximumIndependentSet {graph: "SimpleGraph", weight: "One"} -> MaximumIndependentSet {graph: "KingsSubgraph", weight: "i32"}`.
+Base-name-only summaries are ambiguous and can hide cast-only paths.
+
 Parse the test output and report a summary:
 
 ```markdown
@@ -44,18 +49,18 @@ Parse the test output and report a summary:
 
 | # | Rule | Dominating Path |
 |---|------|-----------------|
-| 1 | Source -> Target | A -> B -> C |
+| 1 | Source {variant...} -> Target {variant...} | A -> B -> C |
 
 ### Unknown Comparisons (N)
 
 | # | Rule | Reason |
 |---|------|--------|
-| 1 | Source -> Target | expression comparison returned Unknown |
+| 1 | Source {variant...} -> Target {variant...} | expression comparison returned Unknown |
 
 ### Allowed (acknowledged) dominated rules
 
 List the entries from the `allowed` set in `test_find_dominated_rules_returns_known_set`
-(file: `src/unit_tests/rules/analysis.rs`).
+(file: `src/unit_tests/rules/analysis.rs`), and note when that allow-list is keyed only by base names while the reported dominated rule is variant-specific.
 
 ### Verdict
 
@@ -105,7 +110,8 @@ Output a structured report:
 
 ### Direct Rule
 - Overhead: [field = expr, ...]
-- Variants: [source variant] -> [target variant]
+- Rule: `Source {variant...} -> Target {variant...}`
+- Overhead: [field = expr, ...]
 
 ### Composite Paths Found: N
 
@@ -122,14 +128,14 @@ Output a structured report:
 ### Recommendation
 
 If redundant:
-> The direct rule `<source> -> <target>` is dominated by the composite path `[path]`.
+> The direct rule `Source {variant...} -> Target {variant...}` is dominated by the composite path `[path]`.
 > Consider removing it unless it provides value for:
 > - Simpler solution extraction (fewer intermediate steps)
 > - Educational/documentation clarity
 > - Better numerical behavior in practice
 
 If not redundant:
-> The direct rule `<source> -> <target>` is not dominated by any composite path.
+> The direct rule `Source {variant...} -> Target {variant...}` is not dominated by any composite path.
 > It provides overhead that cannot be achieved through existing reductions.
 ```
 

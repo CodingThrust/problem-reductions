@@ -726,7 +726,15 @@ fn test_find_cheapest_path_is_to_qubo() {
     );
 
     assert!(path.is_some());
-    assert_eq!(path.unwrap().len(), 1); // Direct path
+    let path = path.unwrap();
+    assert!(
+        path.len() > 1,
+        "MIS -> QUBO should now be discovered through a composite path"
+    );
+    assert_eq!(
+        path.type_names(),
+        vec!["MaximumIndependentSet", "MaximumSetPacking", "QUBO"]
+    );
 }
 
 #[test]

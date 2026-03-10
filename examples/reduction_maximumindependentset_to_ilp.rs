@@ -1,15 +1,16 @@
-// # Independent Set to QUBO via Reduction Path
+// # Independent Set to ILP via Reduction Path
 //
 // ## This Example
 // - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
-// - Source: MaximumIndependentSet with maximum size 4
-// - Target: QUBO reached through the reduction graph
+// - Source IS: max size 4
+// - Target: ILP reached through the reduction graph
 //
 // ## Output
-// Exports `docs/paper/examples/maximumindependentset_to_qubo.json` and
-// `maximumindependentset_to_qubo.result.json`.
+// Exports `docs/paper/examples/maximumindependentset_to_ilp.json` and
+// `maximumindependentset_to_ilp.result.json`.
 
 use problemreductions::export::*;
+use problemreductions::models::algebraic::ILP;
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::topology::small_graphs::petersen;
@@ -17,8 +18,6 @@ use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::types::ProblemSize;
 
 pub fn run() {
-    println!("=== Independent Set -> QUBO Reduction ===\n");
-
     let (num_vertices, edges) = petersen();
     let is = MaximumIndependentSet::new(
         SimpleGraph::new(num_vertices, edges.clone()),
@@ -28,61 +27,63 @@ pub fn run() {
     let graph = ReductionGraph::new();
     let src_variant_bt =
         ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let dst_variant_bt = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+    let dst_variant_bt = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
     let path = graph
         .find_cheapest_path(
             "MaximumIndependentSet",
             &src_variant_bt,
-            "QUBO",
+            "ILP",
             &dst_variant_bt,
             &ProblemSize::new(vec![]),
             &MinimizeSteps,
         )
-        .expect("MaximumIndependentSet -> QUBO path not found");
+        .expect("MaximumIndependentSet -> ILP path not found");
     let reduction = graph
         .reduce_along_path(&path, &is as &dyn std::any::Any)
-        .expect("MaximumIndependentSet -> QUBO path reduction failed");
-    let qubo: &QUBO<f64> = reduction.target_problem();
+        .expect("MaximumIndependentSet -> ILP path reduction failed");
+    let ilp: &ILP<bool> = reduction.target_problem();
 
-    println!("Source: MaximumIndependentSet on Petersen graph (10 vertices, 15 edges)");
+    println!("\n=== Problem Transformation ===");
+    println!(
+        "Source: MaximumIndependentSet with {} variables",
+        is.num_variables()
+    );
     println!("Path: {}", path);
-    println!("Target: QUBO with {} variables", qubo.num_variables());
-    println!("Q matrix:");
-    for row in qubo.matrix() {
-        println!("  {:?}", row);
-    }
+    println!(
+        "Target: ILP with {} variables, {} constraints",
+        ilp.num_vars,
+        ilp.constraints.len()
+    );
 
     let solver = BruteForce::new();
-    let qubo_solutions = solver.find_all_best(qubo);
+    let ilp_solutions = solver.find_all_best(ilp);
+    println!("\n=== Solution ===");
+    println!("ILP solutions found: {}", ilp_solutions.len());
 
-    println!("\nOptimal solutions:");
+    let ilp_solution = &ilp_solutions[0];
+    println!("ILP solution: {:?}", ilp_solution);
+
+    let is_solution = reduction.extract_solution(ilp_solution);
+    println!("Source IS solution: {:?}", is_solution);
+
+    let size = is.evaluate(&is_solution);
+    println!("Solution size: {:?}", size);
+    assert!(size.is_valid());
+    println!("\nReduction verified successfully");
+
     let mut solutions = Vec::new();
-    for sol in &qubo_solutions {
-        let extracted = reduction.extract_solution(sol);
-        let sol_size = is.evaluate(&extracted);
-        assert!(
-            sol_size.is_valid(),
-            "Solution must be valid in source problem"
-        );
-
-        let selected: Vec<usize> = extracted
-            .iter()
-            .enumerate()
-            .filter(|(_, &x)| x == 1)
-            .map(|(i, _)| i)
-            .collect();
-        println!("  Vertices: {:?} (size {})", selected, selected.len());
-
+    for target_config in &ilp_solutions {
+        let source_sol = reduction.extract_solution(target_config);
+        let s = is.evaluate(&source_sol);
+        assert!(s.is_valid());
         solutions.push(SolutionPair {
-            source_config: extracted,
-            target_config: sol.clone(),
+            source_config: source_sol,
+            target_config: target_config.clone(),
         });
     }
 
-    println!("\nVerification passed: all solutions are valid");
-
     let source_variant = variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant());
-    let target_variant = variant_to_map(QUBO::<f64>::variant());
+    let target_variant = variant_to_map(ILP::<bool>::variant());
     let overhead = graph.compose_path_overhead(&path);
 
     let data = ReductionData {
@@ -96,18 +97,18 @@ pub fn run() {
             }),
         },
         target: ProblemSide {
-            problem: QUBO::<f64>::NAME.to_string(),
+            problem: ILP::<bool>::NAME.to_string(),
             variant: target_variant,
             instance: serde_json::json!({
-                "num_vars": qubo.num_vars(),
-                "matrix": qubo.matrix(),
+                "num_vars": ilp.num_vars,
+                "num_constraints": ilp.constraints.len(),
             }),
         },
         overhead: overhead_to_json(&overhead),
     };
 
     let results = ResultData { solutions };
-    write_example("maximumindependentset_to_qubo", &data, &results);
+    write_example("maximumindependentset_to_ilp", &data, &results);
 }
 
 fn main() {

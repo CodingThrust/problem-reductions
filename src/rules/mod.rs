@@ -16,7 +16,6 @@ mod ksatisfiability_qubo;
 mod maximumindependentset_casts;
 mod maximumindependentset_gridgraph;
 mod maximumindependentset_maximumsetpacking;
-mod maximumindependentset_qubo;
 mod maximumindependentset_triangular;
 mod maximummatching_maximumsetpacking;
 mod maximumsetpacking_casts;

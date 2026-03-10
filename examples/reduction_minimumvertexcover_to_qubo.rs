@@ -1,13 +1,13 @@
-// # Independent Set to QUBO via Reduction Path
+// # Vertex Cover to QUBO via Reduction Path
 //
 // ## This Example
-// - Instance: Petersen graph (10 vertices, 15 edges, 3-regular)
-// - Source: MaximumIndependentSet with maximum size 4
+// - Instance: Petersen graph (10 vertices, 15 edges), VC = 6
+// - Source: MinimumVertexCover
 // - Target: QUBO reached through the reduction graph
 //
 // ## Output
-// Exports `docs/paper/examples/maximumindependentset_to_qubo.json` and
-// `maximumindependentset_to_qubo.result.json`.
+// Exports `docs/paper/examples/minimumvertexcover_to_qubo.json` and
+// `minimumvertexcover_to_qubo.result.json`.
 
 use problemreductions::export::*;
 use problemreductions::prelude::*;
@@ -17,34 +17,34 @@ use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::types::ProblemSize;
 
 pub fn run() {
-    println!("=== Independent Set -> QUBO Reduction ===\n");
+    println!("=== Vertex Cover -> QUBO Reduction ===\n");
 
     let (num_vertices, edges) = petersen();
-    let is = MaximumIndependentSet::new(
+    let vc = MinimumVertexCover::new(
         SimpleGraph::new(num_vertices, edges.clone()),
         vec![1i32; num_vertices],
     );
 
     let graph = ReductionGraph::new();
     let src_variant_bt =
-        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+        ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
     let dst_variant_bt = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
     let path = graph
         .find_cheapest_path(
-            "MaximumIndependentSet",
+            "MinimumVertexCover",
             &src_variant_bt,
             "QUBO",
             &dst_variant_bt,
             &ProblemSize::new(vec![]),
             &MinimizeSteps,
         )
-        .expect("MaximumIndependentSet -> QUBO path not found");
+        .expect("MinimumVertexCover -> QUBO path not found");
     let reduction = graph
-        .reduce_along_path(&path, &is as &dyn std::any::Any)
-        .expect("MaximumIndependentSet -> QUBO path reduction failed");
+        .reduce_along_path(&path, &vc as &dyn std::any::Any)
+        .expect("MinimumVertexCover -> QUBO path reduction failed");
     let qubo: &QUBO<f64> = reduction.target_problem();
 
-    println!("Source: MaximumIndependentSet on Petersen graph (10 vertices, 15 edges)");
+    println!("Source: MinimumVertexCover on Petersen graph (10 vertices, 15 edges)");
     println!("Path: {}", path);
     println!("Target: QUBO with {} variables", qubo.num_variables());
     println!("Q matrix:");
@@ -59,19 +59,20 @@ pub fn run() {
     let mut solutions = Vec::new();
     for sol in &qubo_solutions {
         let extracted = reduction.extract_solution(sol);
-        let sol_size = is.evaluate(&extracted);
-        assert!(
-            sol_size.is_valid(),
-            "Solution must be valid in source problem"
-        );
-
         let selected: Vec<usize> = extracted
             .iter()
             .enumerate()
             .filter(|(_, &x)| x == 1)
             .map(|(i, _)| i)
             .collect();
-        println!("  Vertices: {:?} (size {})", selected, selected.len());
+        let size = selected.len();
+        println!("  Cover vertices: {:?} ({} vertices)", selected, size);
+
+        let sol_size = vc.evaluate(&extracted);
+        assert!(
+            sol_size.is_valid(),
+            "Solution must be valid in source problem"
+        );
 
         solutions.push(SolutionPair {
             source_config: extracted,
@@ -81,17 +82,17 @@ pub fn run() {
 
     println!("\nVerification passed: all solutions are valid");
 
-    let source_variant = variant_to_map(MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let source_variant = variant_to_map(MinimumVertexCover::<SimpleGraph, i32>::variant());
     let target_variant = variant_to_map(QUBO::<f64>::variant());
     let overhead = graph.compose_path_overhead(&path);
 
     let data = ReductionData {
         source: ProblemSide {
-            problem: MaximumIndependentSet::<SimpleGraph, i32>::NAME.to_string(),
+            problem: MinimumVertexCover::<SimpleGraph, i32>::NAME.to_string(),
             variant: source_variant,
             instance: serde_json::json!({
-                "num_vertices": is.graph().num_vertices(),
-                "num_edges": is.graph().num_edges(),
+                "num_vertices": vc.graph().num_vertices(),
+                "num_edges": vc.graph().num_edges(),
                 "edges": edges,
             }),
         },
@@ -107,7 +108,7 @@ pub fn run() {
     };
 
     let results = ResultData { solutions };
-    write_example("maximumindependentset_to_qubo", &data, &results);
+    write_example("minimumvertexcover_to_qubo", &data, &results);
 }
 
 fn main() {

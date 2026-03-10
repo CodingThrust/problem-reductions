@@ -11,6 +11,7 @@ use crate::expr::{asymptotic_normal_form, Expr};
 use crate::rules::graph::{ReductionGraph, ReductionPath};
 use crate::rules::registry::ReductionOverhead;
 use std::collections::BTreeMap;
+use std::fmt;
 
 /// Result of comparing one primitive rule against one composite path.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -36,6 +37,22 @@ pub struct DominatedRule {
     pub comparable_fields: Vec<String>,
 }
 
+impl DominatedRule {
+    pub fn source_display(&self) -> String {
+        format_problem_variant(self.source_name, &self.source_variant)
+    }
+
+    pub fn target_display(&self) -> String {
+        format_problem_variant(self.target_name, &self.target_variant)
+    }
+}
+
+impl fmt::Display for DominatedRule {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} -> {}", self.source_display(), self.target_display())
+    }
+}
+
 /// A candidate comparison that could not be decided soundly.
 #[derive(Debug, Clone)]
 pub struct UnknownComparison {
@@ -45,6 +62,35 @@ pub struct UnknownComparison {
     pub target_variant: BTreeMap<String, String>,
     pub candidate_path: ReductionPath,
     pub reason: String,
+}
+
+impl UnknownComparison {
+    pub fn source_display(&self) -> String {
+        format_problem_variant(self.source_name, &self.source_variant)
+    }
+
+    pub fn target_display(&self) -> String {
+        format_problem_variant(self.target_name, &self.target_variant)
+    }
+}
+
+impl fmt::Display for UnknownComparison {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{} -> {}", self.source_display(), self.target_display())
+    }
+}
+
+pub fn format_problem_variant(name: &str, variant: &BTreeMap<String, String>) -> String {
+    if variant.is_empty() {
+        return name.to_string();
+    }
+
+    let vars = variant
+        .iter()
+        .map(|(k, v)| format!("{k}: {v:?}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{name} {{{vars}}}")
 }
 
 // ────────── Polynomial normalization ──────────
@@ -356,13 +402,27 @@ pub fn find_dominated_rules(
 
     // Deterministic output
     dominated.sort_by(|a, b| {
-        (a.source_name, a.target_name, a.dominating_path.len()).cmp(&(
-            b.source_name,
-            b.target_name,
-            b.dominating_path.len(),
-        ))
+        (
+            format_problem_variant(a.source_name, &a.source_variant),
+            format_problem_variant(a.target_name, &a.target_variant),
+            a.dominating_path.len(),
+        )
+            .cmp(&(
+                format_problem_variant(b.source_name, &b.source_variant),
+                format_problem_variant(b.target_name, &b.target_variant),
+                b.dominating_path.len(),
+            ))
     });
-    unknown.sort_by(|a, b| (a.source_name, a.target_name).cmp(&(b.source_name, b.target_name)));
+    unknown.sort_by(|a, b| {
+        (
+            format_problem_variant(a.source_name, &a.source_variant),
+            format_problem_variant(a.target_name, &a.target_variant),
+        )
+            .cmp(&(
+                format_problem_variant(b.source_name, &b.source_variant),
+                format_problem_variant(b.target_name, &b.target_variant),
+            ))
+    });
 
     (dominated, unknown)
 }

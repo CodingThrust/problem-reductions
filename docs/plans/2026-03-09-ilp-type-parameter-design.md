@@ -21,7 +21,7 @@ pub struct ILP<V> {
 ```
 
 - `ILP<bool>`: Binary variables. `dims() = vec![2; n]`. Config `0 → 0`, `1 → 1`.
-- `ILP<i32>`: Non-negative integers `0..2_147_483_647`. `dims() = vec![i32::MAX as usize; n]`. Config index = value. Bounded ranges expressed as constraints (e.g., `x_i <= 5`).
+- `ILP<i32>`: Non-negative integers `0..2_147_483_647`. `dims() = vec![(i32::MAX as usize) + 1; n]`. Config index = value. Bounded ranges expressed as constraints (e.g., `x_i <= 5`).
 
 The `bounds` field is removed entirely.
 

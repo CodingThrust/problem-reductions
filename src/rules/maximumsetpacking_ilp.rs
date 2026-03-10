@@ -2,7 +2,7 @@
 //!
 //! The Set Packing problem can be formulated as a binary ILP:
 //! - Variables: One binary variable per set (0 = not selected, 1 = selected)
-//! - Constraints: x_i + x_j <= 1 for each overlapping pair (i, j)
+//! - Constraints: For each element e, Σ_{i : e ∈ S_i} x_i ≤ 1
 //! - Objective: Maximize the sum of weights of selected sets
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
@@ -14,7 +14,7 @@ use crate::rules::traits::{ReduceTo, ReductionResult};
 ///
 /// This reduction creates a binary ILP where:
 /// - Each set corresponds to a binary variable
-/// - Overlapping pair constraints ensure at most one of each pair is selected
+/// - Element constraints ensure at most one set per element is selected
 /// - The objective maximizes the total weight of selected sets
 #[derive(Debug, Clone)]
 pub struct ReductionSPToILP {
@@ -37,7 +37,7 @@ impl ReductionResult for ReductionSPToILP {
 #[reduction(
     overhead = {
         num_vars = "num_sets",
-        num_constraints = "num_sets^2",
+        num_constraints = "universe_size",
     }
 )]
 impl ReduceTo<ILP<bool>> for MaximumSetPacking<i32> {
@@ -46,10 +46,22 @@ impl ReduceTo<ILP<bool>> for MaximumSetPacking<i32> {
     fn reduce_to(&self) -> Self::Result {
         let num_vars = self.num_sets();
 
-        let constraints: Vec<LinearConstraint> = self
-            .overlapping_pairs()
+        // Build element-to-sets mapping, then create one constraint per element
+        let universe = self.universe_size();
+        let mut elem_to_sets: Vec<Vec<usize>> = vec![Vec::new(); universe];
+        for (i, set) in self.sets().iter().enumerate() {
+            for &e in set {
+                elem_to_sets[e].push(i);
+            }
+        }
+
+        let constraints: Vec<LinearConstraint> = elem_to_sets
             .into_iter()
-            .map(|(i, j)| LinearConstraint::le(vec![(i, 1.0), (j, 1.0)], 1.0))
+            .filter(|sets| sets.len() > 1)
+            .map(|sets| {
+                let terms: Vec<(usize, f64)> = sets.into_iter().map(|i| (i, 1.0)).collect();
+                LinearConstraint::le(terms, 1.0)
+            })
             .collect();
 
         let objective: Vec<(usize, f64)> = self

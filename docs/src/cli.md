@@ -125,9 +125,8 @@ Size fields (2):
   num_edges
 
 Reduces to (10):
+  MaximumIndependentSet {graph=SimpleGraph, weight=i32} → MaximumSetPacking ...
   MaximumIndependentSet {graph=SimpleGraph, weight=i32} → MinimumVertexCover ...
-  MaximumIndependentSet {graph=SimpleGraph, weight=i32} → ILP (default)
-  MaximumIndependentSet {graph=SimpleGraph, weight=i32} → QUBO {weight=f64}
   ...
 
 Reduces from (9):
@@ -145,15 +144,16 @@ $ pred to MIS --hops 2
 MaximumIndependentSet {graph=SimpleGraph, weight=i32} — 2-hop neighbors (outgoing)
 
 MaximumIndependentSet {graph=SimpleGraph, weight=i32}
-├── ILP (default)
+├── MaximumSetPacking {weight=i32}
+│   ├── ILP (default)
+│   ├── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
+│   └── QUBO {weight=f64}
 ├── MaximumIndependentSet {graph=KingsSubgraph, weight=i32}
 │   └── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
 ├── MaximumIndependentSet {graph=TriangularSubgraph, weight=i32}
 │   └── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
 ├── MinimumVertexCover {graph=SimpleGraph, weight=i32}
-│   ├── ILP (default)
 │   └── MaximumIndependentSet {graph=SimpleGraph, weight=i32}
-└── QUBO {weight=f64}
 
 5 reachable problems in 2 hops
 ```
@@ -180,10 +180,14 @@ Find the cheapest chain of reductions between two problems:
 
 ```bash
 $ pred path MIS QUBO
-Path (1 steps): MaximumIndependentSet ... → QUBO {weight: "f64"}
+Path (2 steps): MaximumIndependentSet ... → MaximumSetPacking ... → QUBO {weight: "f64"}
 
-  Step 1: MaximumIndependentSet {graph: "SimpleGraph", weight: "i32"} → QUBO {weight: "f64"}
-    num_vars = num_vertices
+  Step 1: MaximumIndependentSet {graph: "SimpleGraph", weight: "i32"} → MaximumSetPacking {weight: "i32"}
+    num_sets = num_vertices
+    universe_size = num_edges
+
+  Step 2: MaximumSetPacking {weight: "i32"} → QUBO {weight: "f64"}
+    num_vars = num_sets
 ```
 
 Multi-step paths are discovered automatically:

@@ -1032,36 +1032,6 @@ The _penalty method_ @glover2019 @lucas2014 converts a constrained optimization 
 $ f(bold(x)) = "obj"(bold(x)) + P sum_k g_k (bold(x))^2 $
 where $P$ is a penalty weight large enough that any constraint violation costs more than the entire objective range. Since $g_k (bold(x))^2 >= 0$ with equality iff $g_k (bold(x)) = 0$, minimizers of $f$ are feasible and optimal for the original problem. Because binary variables satisfy $x_i^2 = x_i$, the resulting $f$ is a quadratic in $bold(x)$, i.e.\ a QUBO.
 
-#let mis_qubo = load-example("maximumindependentset_to_qubo")
-#let mis_qubo_r = load-results("maximumindependentset_to_qubo")
-#reduction-rule("MaximumIndependentSet", "QUBO",
-  example: true,
-  example-caption: [IS on the Petersen graph ($n = 10$) to QUBO],
-  extra: [
-    *Source edges:* $= {#mis_qubo.source.instance.edges.map(e => $(#e.at(0), #e.at(1))$).join(", ")}$ \
-    *QUBO matrix* ($Q in RR^(#mis_qubo.target.instance.num_vars times #mis_qubo.target.instance.num_vars)$):
-    $ Q = #math.mat(..mis_qubo.target.instance.matrix.map(row => row.map(v => {
-      let r = calc.round(v, digits: 0)
-      [#r]
-    }))) $
-    *Optimal IS* (size #mis_qubo_r.solutions.at(0).source_config.filter(x => x == 1).len()):
-    #mis_qubo_r.solutions.map(sol => {
-      let verts = sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i))
-      $\{#verts.join(", ")\}$
-    }).join(", ")
-  ],
-)[
-  An independent set selects vertices with no two adjacent. Each vertex $i$ gets a binary variable $x_i in {0,1}$ indicating selection, and the objective $sum_i w_i x_i$ rewards large sets. The adjacency constraint $x_i x_j = 0$ for each edge is naturally quadratic, so the penalty method directly yields a QUBO: diagonal entries reward vertex selection, while off-diagonal entries penalize adjacent pairs with a weight large enough to make any edge violation costlier than selecting all vertices.
-][
-  _Construction._ The IS objective is: maximize $sum_i w_i x_i$ subject to $x_i x_j = 0$ for $(i,j) in E$. Applying the penalty method (@sec:penalty-method):
-  $ f(bold(x)) = -sum_i w_i x_i + P sum_((i,j) in E) x_i x_j $
-  with $P = 1 + sum_i w_i$. Reading off the QUBO coefficients: diagonal $Q_(i i) = -w_i$ (linear reward for selection), off-diagonal $Q_(i j) = P$ for edges $i < j$ (quadratic penalty for adjacency).
-
-  _Correctness._ ($arrow.r.double$) If $bold(x)$ encodes a maximum-weight IS $S^*$, then all penalty terms vanish ($x_i x_j = 0$ for all edges), and $f(bold(x)) = -sum_(i in S^*) w_i$. Any non-IS assignment activates at least one penalty $P > sum_i w_i$, yielding $f > 0 >= f(bold(x))$. ($arrow.l.double$) Among feasible assignments (independent sets), the penalty terms vanish and $f(bold(x)) = -sum_(i in S) w_i$, minimized exactly when $S$ is a maximum-weight IS. Thus QUBO minimizers correspond to maximum-weight independent sets.
-
-  _Solution extraction._ Return $bold(x)$ directly — each $x_i = 1$ indicates vertex $i$ is in the IS.
-]
-
 #let kc_qubo = load-example("kcoloring_to_qubo")
 #let kc_qubo_r = load-results("kcoloring_to_qubo")
 #let kc_qubo_sol = kc_qubo_r.solutions.at(0)

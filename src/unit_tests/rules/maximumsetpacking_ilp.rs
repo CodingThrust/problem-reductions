@@ -10,15 +10,16 @@ fn test_reduction_creates_valid_ilp() {
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 3, "Should have one variable per set");
+    // Elements 1 and 2 each appear in 2 sets → 2 element constraints
     assert_eq!(
         ilp.constraints.len(),
         2,
-        "Should have one constraint per overlapping pair"
+        "Should have one constraint per shared element"
     );
     assert_eq!(ilp.sense, ObjectiveSense::Maximize, "Should maximize");
 
     for constraint in &ilp.constraints {
-        assert_eq!(constraint.terms.len(), 2);
+        assert!(constraint.terms.len() >= 2);
         assert!((constraint.rhs - 1.0).abs() < 1e-9);
     }
 }

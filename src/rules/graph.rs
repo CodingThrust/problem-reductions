@@ -1193,3 +1193,19 @@ mod tests;
 #[cfg(test)]
 #[path = "../unit_tests/rules/reduction_path_parity.rs"]
 mod reduction_path_parity_tests;
+
+#[cfg(all(test, feature = "ilp-solver"))]
+#[path = "../unit_tests/rules/maximumindependentset_ilp.rs"]
+mod maximumindependentset_ilp_path_tests;
+
+#[cfg(all(test, feature = "ilp-solver"))]
+#[path = "../unit_tests/rules/minimumvertexcover_ilp.rs"]
+mod minimumvertexcover_ilp_path_tests;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/maximumindependentset_qubo.rs"]
+mod maximumindependentset_qubo_path_tests;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/minimumvertexcover_qubo.rs"]
+mod minimumvertexcover_qubo_path_tests;

@@ -36,7 +36,7 @@ impl VariableDomain for bool {
 }
 
 impl VariableDomain for i32 {
-    const DIMS_PER_VAR: usize = i32::MAX as usize;
+    const DIMS_PER_VAR: usize = (i32::MAX as usize) + 1;
     const NAME: &'static str = "i32";
 }
 ```
@@ -613,7 +613,7 @@ For each file:
 #[test]
 fn test_ilp_i32_dims() {
     let ilp = ILP::<i32>::new(3, vec![], vec![], ObjectiveSense::Minimize);
-    assert_eq!(ilp.dims(), vec![i32::MAX as usize; 3]);
+    assert_eq!(ilp.dims(), vec![(i32::MAX as usize) + 1; 3]);
 }
 ```
 

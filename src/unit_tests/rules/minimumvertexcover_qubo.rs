@@ -1,40 +1,40 @@
 use crate::models::algebraic::QUBO;
-use crate::models::graph::MaximumIndependentSet;
+use crate::models::graph::MinimumVertexCover;
 use crate::rules::{MinimizeSteps, ReductionChain, ReductionGraph, ReductionPath};
 use crate::solvers::{BruteForce, Solver};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::Problem;
 use crate::types::{ProblemSize, SolutionSize};
 
-fn reduce_mis_to_qubo(
-    problem: &MaximumIndependentSet<SimpleGraph, i32>,
+fn reduce_vc_to_qubo(
+    problem: &MinimumVertexCover<SimpleGraph, i32>,
 ) -> (ReductionPath, ReductionChain) {
     let graph = ReductionGraph::new();
-    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let src = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
     let path = graph
         .find_cheapest_path(
-            "MaximumIndependentSet",
+            "MinimumVertexCover",
             &src,
             "QUBO",
             &dst,
             &ProblemSize::new(vec![]),
             &MinimizeSteps,
         )
-        .expect("Should find path MaximumIndependentSet -> QUBO");
+        .expect("Should find path MinimumVertexCover -> QUBO");
     let chain = graph
         .reduce_along_path(&path, problem as &dyn std::any::Any)
-        .expect("Should reduce MaximumIndependentSet to QUBO along path");
+        .expect("Should reduce MinimumVertexCover to QUBO along path");
     (path, chain)
 }
 
 #[test]
-fn test_maximumindependentset_to_qubo_via_path_closed_loop() {
-    let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+fn test_minimumvertexcover_to_qubo_via_path_closed_loop() {
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3), (0, 3)]),
         vec![1i32; 4],
     );
-    let (path, chain) = reduce_mis_to_qubo(&problem);
+    let (path, chain) = reduce_vc_to_qubo(&problem);
     let qubo: &QUBO<f64> = chain.target_problem();
 
     assert!(
@@ -43,7 +43,12 @@ fn test_maximumindependentset_to_qubo_via_path_closed_loop() {
     );
     assert_eq!(
         path.type_names(),
-        vec!["MaximumIndependentSet", "MaximumSetPacking", "QUBO"]
+        vec![
+            "MinimumVertexCover",
+            "MaximumIndependentSet",
+            "MaximumSetPacking",
+            "QUBO",
+        ]
     );
     assert_eq!(qubo.num_variables(), 4);
 
@@ -57,10 +62,10 @@ fn test_maximumindependentset_to_qubo_via_path_closed_loop() {
 }
 
 #[test]
-fn test_maximumindependentset_to_qubo_via_path_weighted() {
+fn test_minimumvertexcover_to_qubo_via_path_weighted() {
     let problem =
-        MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1, 100, 1]);
-    let (_, chain) = reduce_mis_to_qubo(&problem);
+        MinimumVertexCover::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![100, 1, 100]);
+    let (_, chain) = reduce_vc_to_qubo(&problem);
     let qubo: &QUBO<f64> = chain.target_problem();
 
     let solver = BruteForce::new();
@@ -69,22 +74,25 @@ fn test_maximumindependentset_to_qubo_via_path_weighted() {
         .expect("QUBO should be solvable via path");
     let extracted = chain.extract_solution(&qubo_solution);
 
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(100));
+    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
     assert_eq!(extracted, vec![0, 1, 0]);
 }
 
 #[test]
-fn test_maximumindependentset_to_qubo_via_path_empty_graph() {
-    let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![]), vec![1i32; 3]);
-    let (_, chain) = reduce_mis_to_qubo(&problem);
+fn test_minimumvertexcover_to_qubo_via_path_star_graph() {
+    let problem = MinimumVertexCover::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
+        vec![1i32; 4],
+    );
+    let (_, chain) = reduce_vc_to_qubo(&problem);
     let qubo: &QUBO<f64> = chain.target_problem();
 
-    assert_eq!(qubo.num_variables(), 3);
+    assert_eq!(qubo.num_variables(), 4);
 
     let solver = BruteForce::new();
     let qubo_solution = solver.find_best(qubo).expect("QUBO should be solvable");
     let extracted = chain.extract_solution(&qubo_solution);
 
-    assert_eq!(extracted, vec![1, 1, 1]);
-    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(3));
+    assert_eq!(problem.evaluate(&extracted), SolutionSize::Valid(1));
+    assert_eq!(extracted.iter().filter(|&&x| x == 1).count(), 1);
 }

@@ -5,6 +5,7 @@
 
 use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use problemreductions::prelude::*;
+use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::variant::{K2, K3};
 
@@ -453,8 +454,23 @@ mod qubo_reductions {
 
         let n = data.source.num_vertices;
         let is = MaximumIndependentSet::new(SimpleGraph::new(n, data.source.edges), vec![1i32; n]);
-        let reduction = ReduceTo::<QUBO>::reduce_to(&is);
-        let qubo = reduction.target_problem();
+        let graph = ReductionGraph::new();
+        let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+        let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+        let path = graph
+            .find_cheapest_path(
+                "MaximumIndependentSet",
+                &src,
+                "QUBO",
+                &dst,
+                &ProblemSize::new(vec![]),
+                &MinimizeSteps,
+            )
+            .expect("Should find path MaximumIndependentSet -> QUBO");
+        let chain = graph
+            .reduce_along_path(&path, &is as &dyn std::any::Any)
+            .expect("Should reduce MaximumIndependentSet to QUBO");
+        let qubo: &QUBO<f64> = chain.target_problem();
 
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);
 
@@ -463,13 +479,13 @@ mod qubo_reductions {
 
         // All QUBO optimal solutions should extract to valid IS solutions
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
+            let extracted = chain.extract_solution(sol);
             assert!(is.evaluate(&extracted).is_valid());
         }
 
         // Optimal IS size should match ground truth
         let gt_is_size: usize = data.qubo_optimal.configs[0].iter().sum();
-        let our_is_size: usize = reduction.extract_solution(&solutions[0]).iter().sum();
+        let our_is_size: usize = chain.extract_solution(&solutions[0]).iter().sum();
         assert_eq!(our_is_size, gt_is_size);
     }
 

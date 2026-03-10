@@ -57,7 +57,7 @@ A complete Claude Code session showing how the AI assistant uses MCP tools behin
 > [ 0.0,  0.0,  0.0, -4.0]
 > ```
 >
-> The diagonal entries (-1, -2, -3, -4) encode vertex weights negated for minimization. The off-diagonal entries (11.0) are large penalties on edges — selecting two adjacent vertices would incur a penalty that outweighs any benefit. The reduction path is: MaximumIndependentSet → QUBO.
+> The diagonal entries (-1, -2, -3, -4) encode vertex weights negated for minimization. The off-diagonal entries (11.0) are large penalties on edges — selecting two adjacent vertices would incur a penalty that outweighs any benefit. The reduction path is: MaximumIndependentSet → MaximumSetPacking → QUBO.
 
 **You:** Now solve it through the reduction, explain the result.
 
