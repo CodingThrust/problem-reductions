@@ -48,9 +48,9 @@ mod ilp_qubo;
 #[cfg(feature = "ilp-solver")]
 mod maximumclique_ilp;
 #[cfg(feature = "ilp-solver")]
-mod maximumindependentset_ilp;
-#[cfg(feature = "ilp-solver")]
 mod maximummatching_ilp;
+#[cfg(feature = "ilp-solver")]
+mod maximumsetpacking_ilp;
 #[cfg(feature = "ilp-solver")]
 mod minimumdominatingset_ilp;
 #[cfg(feature = "ilp-solver")]

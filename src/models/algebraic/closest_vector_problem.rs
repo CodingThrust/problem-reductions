@@ -3,7 +3,6 @@
 //! Given a lattice basis B and target vector t, find integer coefficients x
 //! minimizing ‖Bx - t‖₂.
 
-use crate::models::algebraic::VarBounds;
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
@@ -19,6 +18,82 @@ inventory::submit! {
             FieldInfo { name: "target", type_name: "Vec<f64>", description: "Target vector t" },
             FieldInfo { name: "bounds", type_name: "Vec<VarBounds>", description: "Integer bounds per variable" },
         ],
+    }
+}
+
+/// Variable bounds (None = unbounded in that direction).
+///
+/// Represents the lower and upper bounds for an integer variable.
+/// A value of `None` indicates the variable is unbounded in that direction.
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq, Serialize, Deserialize)]
+pub struct VarBounds {
+    /// Lower bound (None = -infinity).
+    pub lower: Option<i64>,
+    /// Upper bound (None = +infinity).
+    pub upper: Option<i64>,
+}
+
+impl VarBounds {
+    /// Create bounds for a binary variable: 0 <= x <= 1.
+    pub fn binary() -> Self {
+        Self {
+            lower: Some(0),
+            upper: Some(1),
+        }
+    }
+
+    /// Create bounds for a non-negative variable: x >= 0.
+    pub fn non_negative() -> Self {
+        Self {
+            lower: Some(0),
+            upper: None,
+        }
+    }
+
+    /// Create unbounded variable: -infinity < x < +infinity.
+    pub fn unbounded() -> Self {
+        Self {
+            lower: None,
+            upper: None,
+        }
+    }
+
+    /// Create bounds with explicit lower and upper: lo <= x <= hi.
+    pub fn bounded(lo: i64, hi: i64) -> Self {
+        Self {
+            lower: Some(lo),
+            upper: Some(hi),
+        }
+    }
+
+    /// Check if a value satisfies these bounds.
+    pub fn contains(&self, value: i64) -> bool {
+        if let Some(lo) = self.lower {
+            if value < lo {
+                return false;
+            }
+        }
+        if let Some(hi) = self.upper {
+            if value > hi {
+                return false;
+            }
+        }
+        true
+    }
+
+    /// Get the number of integer values in this bound range.
+    /// Returns None if unbounded in either direction.
+    pub fn num_values(&self) -> Option<usize> {
+        match (self.lower, self.upper) {
+            (Some(lo), Some(hi)) => {
+                if hi >= lo {
+                    Some((hi - lo + 1) as usize)
+                } else {
+                    Some(0)
+                }
+            }
+            _ => None,
+        }
     }
 }
 

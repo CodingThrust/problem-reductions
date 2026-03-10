@@ -1495,14 +1495,14 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 The following reductions to Integer Linear Programming are straightforward formulations where problem constraints map directly to linear inequalities.
 
-#reduction-rule("MaximumIndependentSet", "ILP")[
-  Each vertex is either selected or not, and each edge forbids selecting both endpoints -- a constraint that is directly linear in binary indicator variables.
+#reduction-rule("MaximumSetPacking", "ILP")[
+  Each set is either selected or not, and every overlapping pair forbids selecting both members -- a pairwise conflict constraint that is directly linear in binary indicator variables.
 ][
-  _Construction._ Variables: $x_v in {0, 1}$ for each $v in V$. Constraints: $x_u + x_v <= 1$ for each $(u, v) in E$. Objective: maximize $sum_v w_v x_v$.
+  _Construction._ Variables: $x_i in {0, 1}$ for each set $S_i in cal(S)$. Constraints: $x_i + x_j <= 1$ for each overlapping pair $(S_i, S_j)$. Objective: maximize $sum_i w_i x_i$.
 
-  _Correctness._ ($arrow.r.double$) An independent set has no two adjacent vertices selected, so all edge constraints hold. ($arrow.l.double$) Any feasible binary solution selects no two adjacent vertices, forming an independent set; the objective maximizes total weight.
+  _Correctness._ ($arrow.r.double$) A valid packing chooses pairwise disjoint sets, so no overlapping pair has both indicators equal to $1$. ($arrow.l.double$) Any feasible binary solution selects no overlapping pair, hence the chosen sets are pairwise disjoint; the objective maximizes total weight.
 
-  _Solution extraction._ $S = {v : x_v = 1}$.
+  _Solution extraction._ $cal(P) = {S_i : x_i = 1}$.
 ]
 
 #reduction-rule("MaximumMatching", "ILP")[
@@ -1686,7 +1686,7 @@ The following table shows concrete variable overhead for example instances, gene
   "maximumsetpacking_to_qubo", "ksatisfiability_to_qubo", "ilp_to_qubo",
   "satisfiability_to_maximumindependentset", "satisfiability_to_kcoloring", "satisfiability_to_minimumdominatingset", "satisfiability_to_ksatisfiability",
   "circuitsat_to_spinglass", "factoring_to_circuitsat",
-  "maximumindependentset_to_ilp", "maximummatching_to_ilp",
+  "maximumsetpacking_to_ilp", "maximummatching_to_ilp",
   "kcoloring_to_ilp", "factoring_to_ilp",
   "minimumsetcovering_to_ilp",
   "minimumdominatingset_to_ilp", "maximumclique_to_ilp",

@@ -423,5 +423,5 @@ fn test_size_getters() {
 #[test]
 fn test_ilp_i32_dims() {
     let ilp = ILP::<i32>::new(3, vec![], vec![], ObjectiveSense::Minimize);
-    assert_eq!(ilp.dims(), vec![i32::MAX as usize; 3]);
+    assert_eq!(ilp.dims(), vec![(i32::MAX as usize) + 1; 3]);
 }

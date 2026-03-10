@@ -10,7 +10,7 @@
 //! | [`models`] | Problem types — [`graph`](models::graph), [`formula`](models::formula), [`set`](models::set), [`algebraic`](models::algebraic), [`misc`](models::misc) |
 //! | [`rules`] | Reduction rules, [`ReductionGraph`](rules::ReductionGraph) for path search |
 //! | [`solvers`] | [`BruteForce`] and [`ILPSolver`](solvers::ILPSolver) |
-//! | [`topology`] | Graph types — [`SimpleGraph`](topology::SimpleGraph), [`HyperGraph`](topology::HyperGraph), [`UnitDiskGraph`](topology::UnitDiskGraph), etc. |
+//! | [`topology`] | Graph types — [`SimpleGraph`](topology::SimpleGraph), [`UnitDiskGraph`](topology::UnitDiskGraph), etc. |
 //! | [`traits`] | Core traits — [`Problem`], [`OptimizationProblem`], [`SatisfactionProblem`] |
 //! | [`types`] | [`SolutionSize`], [`Direction`], [`ProblemSize`], [`WeightElement`] |
 //! | [`variant`] | Variant parameter system for problem type parameterization |

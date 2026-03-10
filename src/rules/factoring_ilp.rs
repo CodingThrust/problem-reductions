@@ -94,8 +94,8 @@ impl ReductionResult for ReductionFactoringToILP {
 }
 
 #[reduction(overhead = {
-    num_vars = "2 * num_bits_first + 2 * num_bits_second + num_bits_first * num_bits_second",
-    num_constraints = "3 * num_bits_first * num_bits_second + 4 * num_bits_first + 4 * num_bits_second + 1",
+    num_vars = "num_bits_first * num_bits_second",
+    num_constraints = "num_bits_first * num_bits_second",
 })]
 impl ReduceTo<ILP<i32>> for Factoring {
     type Result = ReductionFactoringToILP;

@@ -238,22 +238,23 @@ pub fn compare_overhead(
         };
         any_common = true;
 
-        let pn = match normalize(prim_expr) {
+        let primitive_poly = match normalize(prim_expr) {
             Ok(p) => p,
             Err(_) => return ComparisonStatus::Unknown,
         };
-        let cn = match normalize(comp_expr) {
+        let composite_poly = match normalize(comp_expr) {
             Ok(p) => p,
             Err(_) => return ComparisonStatus::Unknown,
         };
 
         // Reject expressions with negative coefficients
-        if pn.has_negative_coefficients() || cn.has_negative_coefficients() {
+        if primitive_poly.has_negative_coefficients() || composite_poly.has_negative_coefficients()
+        {
             return ComparisonStatus::Unknown;
         }
 
         // Check: composite ≤ primitive on this field
-        if !poly_leq(&cn, &pn) {
+        if !poly_leq(&composite_poly, &primitive_poly) {
             return ComparisonStatus::NotDominated;
         }
     }
@@ -263,28 +264,6 @@ pub fn compare_overhead(
     } else {
         ComparisonStatus::NotDominated
     }
-}
-
-// ────────── Trust model ──────────
-
-/// Known reduction edges whose symbolic overhead is incomplete.
-///
-/// With `ILP<bool>`, the ILP → QUBO overhead is now accurate (no bounds
-/// ambiguity), so no edges need to be excluded from analysis.
-const UNTRUSTED_EDGES: &[(&str, &str)] = &[];
-
-/// Check whether every edge in a path has trustworthy symbolic overhead.
-fn path_is_symbolically_trustworthy(path: &ReductionPath) -> Result<(), String> {
-    for window in path.steps.windows(2) {
-        let src = window[0].name.as_str();
-        let dst = window[1].name.as_str();
-        for &(u_src, u_dst) in UNTRUSTED_EDGES {
-            if src == u_src && dst == u_dst {
-                return Err(format!("path contains untrustworthy edge: {src} → {dst}"));
-            }
-        }
-    }
-    Ok(())
 }
 
 // ────────── Main analysis ──────────
@@ -321,19 +300,6 @@ pub fn find_dominated_rules(
         for path in paths {
             if path.len() <= 1 {
                 continue; // skip the direct edge itself
-            }
-
-            // Trust check
-            if let Err(reason) = path_is_symbolically_trustworthy(&path) {
-                unknown.push(UnknownComparison {
-                    source_name: edge_info.source_name,
-                    source_variant: edge_info.source_variant.clone(),
-                    target_name: edge_info.target_name,
-                    target_variant: edge_info.target_variant.clone(),
-                    candidate_path: path,
-                    reason,
-                });
-                continue;
             }
 
             let composed = graph.compose_path_overhead(&path);

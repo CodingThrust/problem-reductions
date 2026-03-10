@@ -13,6 +13,7 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper. Covers complexity citation, self-contained proof, detailed example, and verification.
 - [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
 - [check-issue](skills/check-issue/SKILL.md) -- Quality gate for `[Rule]` and `[Model]` issues. Checks usefulness, non-triviality, correctness of literature, and writing quality. Posts structured report and adds failure labels.
+- [check-rule-redundancy](skills/check-rule-redundancy/SKILL.md) -- Check if a reduction rule (source-target pair) is redundant, i.e., dominated by a composite path through other rules.
 - [meta-power](skills/meta-power/SKILL.md) -- Batch-resolve all open `[Model]` and `[Rule]` issues autonomously: plan, implement, review, fix CI, merge — in dependency order (models first).
 
 ## Commands
@@ -104,7 +105,7 @@ enum Direction { Maximize, Minimize }
 - `ReductionResult` provides `target_problem()` and `extract_solution()`
 - `Solver::find_best()` → `Option<Vec<usize>>` for optimization problems; `Solver::find_satisfying()` → `Option<Vec<usize>>` for `Metric = bool`
 - `BruteForce::find_all_best()` / `find_all_satisfying()` return `Vec<Vec<usize>>` for all optimal/satisfying solutions
-- Graph types: HyperGraph, SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
+- Graph types: SimpleGraph, PlanarGraph, BipartiteGraph, UnitDiskGraph, KingsSubgraph, TriangularSubgraph
 - Weight types: `One` (unit weight marker), `i32`, `f64` — all implement `WeightElement` trait
 - `WeightElement` trait: `type Sum: NumericSize` + `fn to_sum(&self)` — converts weight to a summable numeric type
 - Weight management via inherent methods (`weights()`, `set_weights()`, `is_weighted()`), not traits

@@ -381,16 +381,11 @@ mod sg_maxcut_reductions {
 /// Tests for topology types integration.
 mod topology_tests {
     use super::*;
-    use problemreductions::topology::{HyperGraph, UnitDiskGraph};
+    use problemreductions::topology::UnitDiskGraph;
 
     #[test]
-    fn test_hypergraph_to_setpacking() {
-        // HyperGraph can be seen as a MaximumSetPacking problem
-        let hg = HyperGraph::new(5, vec![vec![0, 1, 2], vec![2, 3], vec![3, 4]]);
-
-        // Convert hyperedges to sets for MaximumSetPacking
-        let sets: Vec<Vec<usize>> = hg.edges().to_vec();
-        let sp = MaximumSetPacking::<i32>::new(sets);
+    fn test_setpacking_from_hyperedge_style_input() {
+        let sp = MaximumSetPacking::<i32>::new(vec![vec![0, 1, 2], vec![2, 3], vec![3, 4]]);
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&sp);

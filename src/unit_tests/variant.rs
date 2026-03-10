@@ -243,28 +243,13 @@ fn test_kvalue_kn() {
 
 // --- Graph type VariantParam tests ---
 
-use crate::topology::HyperGraph;
 use crate::topology::{BipartiteGraph, Graph, PlanarGraph, SimpleGraph, UnitDiskGraph};
 
 #[test]
 fn test_simple_graph_variant_param() {
     assert_eq!(SimpleGraph::CATEGORY, "graph");
     assert_eq!(SimpleGraph::VALUE, "SimpleGraph");
-    assert_eq!(SimpleGraph::PARENT_VALUE, Some("HyperGraph"));
-}
-
-#[test]
-fn test_unit_disk_graph_variant_param() {
-    assert_eq!(UnitDiskGraph::CATEGORY, "graph");
-    assert_eq!(UnitDiskGraph::VALUE, "UnitDiskGraph");
-    assert_eq!(UnitDiskGraph::PARENT_VALUE, Some("SimpleGraph"));
-}
-
-#[test]
-fn test_hyper_graph_variant_param() {
-    assert_eq!(HyperGraph::CATEGORY, "graph");
-    assert_eq!(HyperGraph::VALUE, "HyperGraph");
-    assert_eq!(HyperGraph::PARENT_VALUE, None);
+    assert_eq!(SimpleGraph::PARENT_VALUE, None);
 }
 
 #[test]
@@ -282,11 +267,10 @@ fn test_bipartite_graph_variant_param() {
 }
 
 #[test]
-fn test_simple_graph_cast_to_parent() {
-    let sg = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-    let hg: HyperGraph = sg.cast_to_parent();
-    assert_eq!(hg.num_vertices(), 3);
-    assert_eq!(hg.num_edges(), 2);
+fn test_unit_disk_graph_variant_param() {
+    assert_eq!(UnitDiskGraph::CATEGORY, "graph");
+    assert_eq!(UnitDiskGraph::VALUE, "UnitDiskGraph");
+    assert_eq!(UnitDiskGraph::PARENT_VALUE, Some("SimpleGraph"));
 }
 
 #[test]

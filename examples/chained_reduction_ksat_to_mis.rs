@@ -2,9 +2,10 @@
 //
 // Demonstrates the `find_cheapest_path` + `reduce_along_path` API to chain
 // reductions automatically: KSatisfiability<K3> → Satisfiability → MIS.
-// The target MIS is then solved via `ILPSolver::solve_reduced`.
+// The target MIS is then reduced further to ILP and solved there.
 
 // ANCHOR: imports
+use problemreductions::models::algebraic::ILP;
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::ILPSolver;
@@ -49,10 +50,28 @@ pub fn run() {
         .unwrap();
     let target: &MaximumIndependentSet<SimpleGraph, i32> = chain.target_problem();
 
-    // Solve the target MIS via ILP
+    // Reduce the target MIS further to ILP through the registered rule graph.
+    let ilp_var = ReductionGraph::variant_to_map(&ILP::<bool>::variant());
+    let ilp_path = graph
+        .find_cheapest_path(
+            "MaximumIndependentSet",
+            &dst_var,
+            "ILP",
+            &ilp_var,
+            &ProblemSize::new(vec![]),
+            &MinimizeSteps,
+        )
+        .unwrap();
+    let ilp_chain = graph
+        .reduce_along_path(&ilp_path, target as &dyn std::any::Any)
+        .unwrap();
+    let ilp: &ILP<bool> = ilp_chain.target_problem();
+
+    // Solve the target MIS via the derived ILP.
     let solver = ILPSolver::new();
-    let solution = solver.solve_reduced(target).unwrap();
-    let original = chain.extract_solution(&solution);
+    let ilp_solution = solver.solve(ilp).unwrap();
+    let mis_solution = ilp_chain.extract_solution(&ilp_solution);
+    let original = chain.extract_solution(&mis_solution);
 
     // Verify: satisfies the original 3-SAT formula
     assert!(ksat.evaluate(&original));

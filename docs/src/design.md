@@ -66,7 +66,7 @@ A single problem name like `MaximumIndependentSet` can have multiple **variants*
 
 Variant types fall into three categories:
 
-- **Graph type** — `HyperGraph` (root), `SimpleGraph`, `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`.
+- **Graph type** — `SimpleGraph` (root), `PlanarGraph`, `BipartiteGraph`, `UnitDiskGraph`, `KingsSubgraph`, `TriangularSubgraph`.
 - **Weight type** — `One` (unweighted), `i32`, `f64`.
 - **K value** — e.g., `K3` for 3-SAT, `KN` for arbitrary K.
 
@@ -111,14 +111,7 @@ The `impl_variant_param!` macro implements `VariantParam` (and optionally `CastT
 
 ```rust,ignore
 // Root type (no parent):
-impl_variant_param!(HyperGraph, "graph");
-
-// Type with parent (cast closure required):
-impl_variant_param!(SimpleGraph, "graph", parent: HyperGraph,
-    cast: |g| {
-        let edges: Vec<Vec<usize>> = g.edges().into_iter().map(|(u, v)| vec![u, v]).collect();
-        HyperGraph::new(g.num_vertices(), edges)
-    });
+impl_variant_param!(SimpleGraph, "graph");
 
 // K root (arbitrary K):
 impl_variant_param!(KN, "k", k: None);

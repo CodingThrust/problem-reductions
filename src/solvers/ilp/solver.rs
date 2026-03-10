@@ -128,10 +128,13 @@ impl ILPSolver {
     /// ```no_run
     /// use problemreductions::prelude::*;
     /// use problemreductions::solvers::ILPSolver;
-    /// use problemreductions::topology::SimpleGraph;
     ///
-    /// // Create a problem that reduces to ILP (e.g., Independent Set)
-    /// let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    /// // Create a problem that reduces directly to ILP.
+    /// let problem = MaximumSetPacking::<i32>::new(vec![
+    ///     vec![0, 1],
+    ///     vec![1, 2],
+    ///     vec![3, 4],
+    /// ]);
     ///
     /// // Solve using ILP solver
     /// let solver = ILPSolver::new();

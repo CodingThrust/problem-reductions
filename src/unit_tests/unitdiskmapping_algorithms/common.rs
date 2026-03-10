@@ -1,11 +1,28 @@
 //! Common test utilities for mapping tests.
 
 use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
-use crate::models::MaximumIndependentSet;
 use crate::rules::unitdiskmapping::MappingResult;
-use crate::rules::{ReduceTo, ReductionResult};
 use crate::solvers::ILPSolver;
-use crate::topology::SimpleGraph;
+
+fn build_mis_ilp(num_vertices: usize, edges: &[(usize, usize)], weights: &[i32]) -> ILP<bool> {
+    let constraints: Vec<LinearConstraint> = edges
+        .iter()
+        .map(|&(i, j)| LinearConstraint::le(vec![(i, 1.0), (j, 1.0)], 1.0))
+        .collect();
+
+    let objective: Vec<(usize, f64)> = weights
+        .iter()
+        .enumerate()
+        .map(|(i, &w)| (i, w as f64))
+        .collect();
+
+    ILP::<bool>::new(
+        num_vertices,
+        constraints,
+        objective,
+        ObjectiveSense::Maximize,
+    )
+}
 
 /// Check if a configuration is a valid independent set.
 pub fn is_independent_set(edges: &[(usize, usize)], config: &[usize]) -> bool {
@@ -20,14 +37,10 @@ pub fn is_independent_set(edges: &[(usize, usize)], config: &[usize]) -> bool {
 /// Solve maximum independent set using ILP.
 /// Returns the size of the MIS.
 pub fn solve_mis(num_vertices: usize, edges: &[(usize, usize)]) -> usize {
-    let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(num_vertices, edges.to_vec()),
-        vec![1i32; num_vertices],
-    );
-    let reduction =
-        <MaximumIndependentSet<SimpleGraph, i32> as ReduceTo<ILP<bool>>>::reduce_to(&problem);
+    let weights = vec![1; num_vertices];
+    let ilp = build_mis_ilp(num_vertices, edges, &weights);
     let solver = ILPSolver::new();
-    if let Some(solution) = solver.solve(reduction.target_problem()) {
+    if let Some(solution) = solver.solve(&ilp) {
         solution.iter().filter(|&&x| x > 0).count()
     } else {
         0
@@ -36,14 +49,10 @@ pub fn solve_mis(num_vertices: usize, edges: &[(usize, usize)]) -> usize {
 
 /// Solve MIS and return the binary configuration.
 pub fn solve_mis_config(num_vertices: usize, edges: &[(usize, usize)]) -> Vec<usize> {
-    let problem = MaximumIndependentSet::new(
-        SimpleGraph::new(num_vertices, edges.to_vec()),
-        vec![1i32; num_vertices],
-    );
-    let reduction =
-        <MaximumIndependentSet<SimpleGraph, i32> as ReduceTo<ILP<bool>>>::reduce_to(&problem);
+    let weights = vec![1; num_vertices];
+    let ilp = build_mis_ilp(num_vertices, edges, &weights);
     let solver = ILPSolver::new();
-    if let Some(solution) = solver.solve(reduction.target_problem()) {
+    if let Some(solution) = solver.solve(&ilp) {
         solution
             .iter()
             .map(|&x| if x > 0 { 1 } else { 0 })
@@ -77,24 +86,7 @@ pub fn solve_weighted_grid_mis(result: &MappingResult) -> usize {
 /// Solve weighted MIS on a graph using ILP.
 /// Returns the maximum weighted independent set value.
 pub fn solve_weighted_mis(num_vertices: usize, edges: &[(usize, usize)], weights: &[i32]) -> i32 {
-    let constraints: Vec<LinearConstraint> = edges
-        .iter()
-        .map(|&(i, j)| LinearConstraint::le(vec![(i, 1.0), (j, 1.0)], 1.0))
-        .collect();
-
-    let objective: Vec<(usize, f64)> = weights
-        .iter()
-        .enumerate()
-        .map(|(i, &w)| (i, w as f64))
-        .collect();
-
-    let ilp = ILP::<bool>::new(
-        num_vertices,
-        constraints,
-        objective,
-        ObjectiveSense::Maximize,
-    );
-
+    let ilp = build_mis_ilp(num_vertices, edges, weights);
     let solver = ILPSolver::new();
     if let Some(solution) = solver.solve(&ilp) {
         solution
@@ -114,23 +106,7 @@ pub fn solve_weighted_mis_config(
     edges: &[(usize, usize)],
     weights: &[i32],
 ) -> Vec<usize> {
-    let constraints: Vec<LinearConstraint> = edges
-        .iter()
-        .map(|&(i, j)| LinearConstraint::le(vec![(i, 1.0), (j, 1.0)], 1.0))
-        .collect();
-
-    let objective: Vec<(usize, f64)> = weights
-        .iter()
-        .enumerate()
-        .map(|(i, &w)| (i, w as f64))
-        .collect();
-
-    let ilp = ILP::<bool>::new(
-        num_vertices,
-        constraints,
-        objective,
-        ObjectiveSense::Maximize,
-    );
+    let ilp = build_mis_ilp(num_vertices, edges, weights);
 
     let solver = ILPSolver::new();
     if let Some(solution) = solver.solve(&ilp) {

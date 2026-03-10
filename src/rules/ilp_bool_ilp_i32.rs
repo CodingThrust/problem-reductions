@@ -3,6 +3,9 @@
 //! Every binary (0-1) variable is a valid non-negative integer variable.
 //! The constraints carry over unchanged. Additional upper-bound constraints
 //! (x_i <= 1) are added to preserve binary semantics.
+//!
+//! This is a same-name variant cast (ILP → ILP), so by convention it does not
+//! have an example file or a paper `reduction-rule` entry.
 
 use crate::models::algebraic::{LinearConstraint, ILP};
 use crate::reduction;
