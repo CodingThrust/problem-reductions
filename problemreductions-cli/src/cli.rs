@@ -210,6 +210,7 @@ Flags by problem type:
   KColoring                       --graph, --k
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
+  Partition                       --sizes
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]
@@ -229,6 +230,7 @@ Examples:
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
+  pred create Partition --sizes 3,1,1,2,2,1
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3")]
@@ -290,7 +292,7 @@ pub struct CreateArgs {
     /// Radius for UnitDiskGraph [default: 1.0]
     #[arg(long)]
     pub radius: Option<f64>,
-    /// Item sizes for BinPacking (comma-separated, e.g., "3,3,2,2")
+    /// Item sizes for BinPacking/Partition (comma-separated, e.g., "3,3,2,2")
     #[arg(long)]
     pub sizes: Option<String>,
     /// Bin capacity for BinPacking

@@ -40,6 +40,7 @@
   "QUBO": [QUBO],
   "ILP": [Integer Linear Programming],
   "Knapsack": [Knapsack],
+  "Partition": [Partition],
   "Satisfiability": [SAT],
   "KSatisfiability": [$k$-SAT],
   "CircuitSAT": [CircuitSAT],
@@ -893,6 +894,14 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   One of Karp's 21 NP-complete problems @karp1972. Knapsack is only _weakly_ NP-hard: a classical dynamic-programming algorithm runs in $O(n C)$ pseudo-polynomial time, and a fully polynomial-time approximation scheme (FPTAS) achieves $(1 - epsilon)$-optimal value in $O(n^2 slash epsilon)$ time @ibarra1975. The special case $v_i = w_i$ for all $i$ is the Subset Sum problem. Knapsack is also a special case of Integer Linear Programming with a single constraint. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974, which partitions items into two halves and combines sorted sublists.
 
   *Example.* Let $n = 4$ items with weights $(2, 3, 4, 5)$, values $(3, 4, 5, 7)$, and capacity $C = 7$. Selecting $S = {1, 2}$ (items with weights 3 and 4) gives total weight $3 + 4 = 7 lt.eq C$ and total value $4 + 5 = 9$. Selecting $S = {0, 3}$ (weights 2 and 5) gives weight $2 + 5 = 7 lt.eq C$ and value $3 + 7 = 10$, which is optimal.
+]
+
+#problem-def("Partition")[
+  Given a finite set $A = {a_0, dots, a_(n-1)}$ of $n$ positive integers with sizes $s(a_i) in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ such that $sum_(a in A') s(a) = sum_(a in A without A') s(a)$.
+][
+  One of Karp's 21 NP-complete problems @karp1972 (listed as SP12 in Garey & Johnson). Despite being NP-complete, Partition is only _weakly_ NP-hard: a classical dynamic-programming algorithm runs in $O(n dot T)$ pseudo-polynomial time, where $T = sum_i s(a_i)$. A necessary condition for a valid partition is that $T$ is even. Partition is a special case of Subset Sum (with target $T slash 2$) and of Knapsack (with $w_i = v_i = s(a_i)$ and $C = T slash 2$). The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Schroeppel and Shamir @schroeppel1981, which uses $O^*(2^(n slash 4))$ space.
+
+  *Example.* Let $A = {3, 1, 1, 2, 2, 1}$ with $n = 6$ and $T = 10$. Setting $A' = {a_0, a_3} = {3, 2}$ gives $sum_(a in A') s(a) = 5 = T slash 2$, and the complement ${1, 1, 2, 1}$ also sums to 5. So the partition is feasible.
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper

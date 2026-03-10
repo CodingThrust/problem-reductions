@@ -15,5 +15,5 @@ pub use graph::{
     BicliqueCover, KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinimumDominatingSet, MinimumVertexCover, SpinGlass, TravelingSalesman,
 };
-pub use misc::{BinPacking, Factoring, Knapsack, PaintShop};
+pub use misc::{BinPacking, Factoring, Knapsack, PaintShop, Partition};
 pub use set::{MaximumSetPacking, MinimumSetCovering};

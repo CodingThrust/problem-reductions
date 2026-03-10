@@ -5,7 +5,7 @@ use crate::problem_name::{parse_problem_spec, resolve_variant};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::misc::{BinPacking, PaintShop};
+use problemreductions::models::misc::{BinPacking, PaintShop, Partition};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -83,6 +83,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "Partition" => "--sizes 3,1,1,2,2,1",
         _ => "",
     }
 }
@@ -441,6 +442,18 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
                 resolved_variant.clone(),
             )
+        }
+
+        // Partition
+        "Partition" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Partition requires --sizes\n\n\
+                     Usage: pred create Partition --sizes 3,1,1,2,2,1"
+                )
+            })?;
+            let sizes: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            (ser(Partition::new(sizes))?, resolved_variant.clone())
         }
 
         _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
