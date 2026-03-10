@@ -455,7 +455,8 @@ mod qubo_reductions {
         let n = data.source.num_vertices;
         let is = MaximumIndependentSet::new(SimpleGraph::new(n, data.source.edges), vec![1i32; n]);
         let graph = ReductionGraph::new();
-        let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+        let src =
+            ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
         let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
         let path = graph
             .find_cheapest_path(

@@ -180,14 +180,21 @@ Find the cheapest chain of reductions between two problems:
 
 ```bash
 $ pred path MIS QUBO
-Path (2 steps): MaximumIndependentSet ... → MaximumSetPacking ... → QUBO {weight: "f64"}
+Path (3 steps): MaximumIndependentSet/SimpleGraph/i32 → MaximumSetPacking/i32 → QUBO/f64
 
-  Step 1: MaximumIndependentSet {graph: "SimpleGraph", weight: "i32"} → MaximumSetPacking {weight: "i32"}
+  Step 1: MaximumIndependentSet/SimpleGraph/i32 → MaximumSetPacking/i32
     num_sets = num_vertices
     universe_size = num_edges
 
-  Step 2: MaximumSetPacking {weight: "i32"} → QUBO {weight: "f64"}
+  Step 2: MaximumSetPacking/i32 → MaximumSetPacking/f64
+    num_sets = num_sets
+    universe_size = universe_size
+
+  Step 3: MaximumSetPacking/f64 → QUBO/f64
     num_vars = num_sets
+
+  Overall:
+    num_vars = num_vertices
 ```
 
 Multi-step paths are discovered automatically:

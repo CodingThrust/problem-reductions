@@ -1,7 +1,5 @@
 use crate::expr::Expr;
-use crate::rules::analysis::{
-    compare_overhead, find_dominated_rules, format_problem_variant, ComparisonStatus,
-};
+use crate::rules::analysis::{compare_overhead, find_dominated_rules, ComparisonStatus};
 use crate::rules::graph::ReductionGraph;
 use crate::rules::registry::ReductionOverhead;
 
@@ -249,29 +247,39 @@ fn test_find_dominated_rules_returns_known_set() {
     }
 
     // ── Allow-list of expected dominated rules ──
-    // Keyed by (source_name, target_name).
+    // Keyed by (source_display, target_display) with full variant info.
     // This list must be updated when new reductions are added.
     let allowed: std::collections::HashSet<(&str, &str)> = [
         // Composite through CircuitSAT → ILP is better
-        ("Factoring", "ILP"),
+        ("Factoring", "ILP {variable: \"i32\"}"),
         // K3-SAT → QUBO via SAT → CircuitSAT → SpinGlass chain
-        ("KSatisfiability", "QUBO"),
+        (
+            "KSatisfiability {k: \"K3\"}",
+            "QUBO {weight: \"f64\"}",
+        ),
         // Variant cast composed: SimpleGraph/One → KingsSubgraph/One → KingsSubgraph/i32
-        ("MaximumIndependentSet", "MaximumIndependentSet"),
-        // SetPacking → MIS → MVC → SetCover → ILP ties the direct formulation
-        ("MaximumSetPacking", "ILP"),
+        (
+            "MaximumIndependentSet {graph: \"SimpleGraph\", weight: \"One\"}",
+            "MaximumIndependentSet {graph: \"KingsSubgraph\", weight: \"i32\"}",
+        ),
+        // MaxMatching → MaxSetPacking → ILP is better than direct MaxMatching → ILP
+        (
+            "MaximumMatching {graph: \"SimpleGraph\", weight: \"i32\"}",
+            "ILP {variable: \"bool\"}",
+        ),
     ]
     .into_iter()
     .collect();
 
     // Check: no unexpected dominated rules
     for rule in &dominated {
-        let key = (rule.source_name, rule.target_name);
+        let src = rule.source_display();
+        let tgt = rule.target_display();
         assert!(
-            allowed.contains(&key),
+            allowed.contains(&(src.as_str(), tgt.as_str())),
             "Unexpected dominated rule: {} -> {} (dominated by {})",
-            format_problem_variant(rule.source_name, &rule.source_variant),
-            format_problem_variant(rule.target_name, &rule.target_variant),
+            src,
+            tgt,
             rule.dominating_path
                 .steps
                 .iter()
@@ -282,16 +290,16 @@ fn test_find_dominated_rules_returns_known_set() {
     }
 
     // Check: no stale entries in allow-list
-    let found: std::collections::HashSet<(&str, &str)> = dominated
+    let found: std::collections::HashSet<(String, String)> = dominated
         .iter()
-        .map(|r| (r.source_name, r.target_name))
+        .map(|r| (r.source_display(), r.target_display()))
         .collect();
-    for &key in &allowed {
+    for &(src, tgt) in &allowed {
         assert!(
-            found.contains(&key),
+            found.contains(&(src.to_string(), tgt.to_string())),
             "Allow-list entry {:?} -> {:?} is stale (no longer dominated)",
-            key.0,
-            key.1,
+            src,
+            tgt,
         );
     }
 }
