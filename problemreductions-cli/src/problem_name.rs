@@ -21,7 +21,6 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("TSP", "TravelingSalesman"),
     ("CVP", "ClosestVectorProblem"),
     ("MaxMatching", "MaximumMatching"),
-    ("MMC", "MinimumMultiwayCut"),
 ];
 
 /// Resolve a short alias to the canonical problem name.
@@ -42,7 +41,7 @@ pub fn resolve_alias(input: &str) -> String {
         "maximumclique" => "MaximumClique".to_string(),
         "maxmatching" | "maximummatching" => "MaximumMatching".to_string(),
         "minimumdominatingset" => "MinimumDominatingSet".to_string(),
-        "minimummultiwaycut" | "mmc" => "MinimumMultiwayCut".to_string(),
+        "minimummultiwaycut" => "MinimumMultiwayCut".to_string(),
         "minimumsetcovering" => "MinimumSetCovering".to_string(),
         "maximumsetpacking" => "MaximumSetPacking".to_string(),
         "kcoloring" => "KColoring".to_string(),
