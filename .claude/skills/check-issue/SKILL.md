@@ -423,10 +423,32 @@ If an MCP tool is not available, skip to the next in the chain. All checks shoul
 
 ---
 
+## Step 3: Offer to Fix (optional)
+
+After posting the report, if there are **fixable failures** (not just warnings), ask the user:
+
+> "Would you like me to help fix the issues found? I can update the issue body to address: [list fixable items]"
+
+**Auto-fixable items** (if the user agrees):
+- Missing or placeholder sections → fill with templates from the issue template
+- Incorrect DOI format → reformat to standard `https://doi.org/...` form
+- Inconsistent notation → standardize symbols across sections
+- Missing symbol definitions → add definitions based on context
+
+**NOT auto-fixable** (require the contributor's input):
+- Missing reduction algorithm or proof details
+- Incorrect mathematical claims
+- Missing references (need the contributor to provide them)
+
+If the user agrees, edit the issue body with `gh issue edit <NUMBER> --body "..."` and re-run the checks to verify the fixes.
+
+---
+
 ## Common Mistakes
 
 - **Don't fail on warnings.** Only add labels for definitive failures. Ambiguous cases get warnings.
 - **Don't close issues.** This skill labels and comments only.
 - **Don't hallucinate paper content.** If you can't find a paper, say "not found" — don't guess what it might contain.
+- **Don't hallucinate issue references.** Do NOT reference other GitHub issues unless you have fetched them with `gh issue view` and verified their content. Do NOT reference file paths unless you have verified they exist.
 - **Match problem names carefully.** Issues may use aliases (MIS, MVC, SAT) that need resolution via `pred show`.
 - **Check the right template.** `[Rule]` and `[Model]` issues have different sections — don't check for "Reduction Algorithm" on a Model issue.

@@ -122,7 +122,7 @@ Update the CLI dispatch table so `pred` can load, solve, and serialize the new p
 
 2. **`problemreductions-cli/src/problem_name.rs`:**
    - Add a lowercase alias mapping in `resolve_alias()` (e.g., `"newproblem" => "NewProblem".to_string()`)
-   - Optionally add short aliases to `ALIASES` array (e.g., `("NP", "NewProblem")`)
+   - Only add short aliases to the `ALIASES` array if the abbreviation is **well-established in the literature** (e.g., MIS, MVC, SAT, TSP, CVP are standard; "KS" for Knapsack or "BP" for BinPacking are NOT — do not invent new abbreviations)
 
 ## Step 4.5: Add CLI creation support
 
@@ -183,5 +183,6 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 | Forgetting `declare_variants!` | Required for variant complexity metadata used by the paper's auto-generated table |
 | Forgetting CLI dispatch | Must add match arms in `dispatch.rs` (`load_problem` + `serialize_any_problem`) |
 | Forgetting CLI alias | Must add lowercase entry in `problem_name.rs` `resolve_alias()` |
+| Inventing short aliases | Only use well-established literature abbreviations (MIS, SAT, TSP); do NOT invent new ones |
 | Forgetting CLI create | Must add creation handler in `commands/create.rs` and flags in `cli.rs` |
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |

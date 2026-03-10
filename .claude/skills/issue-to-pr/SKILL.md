@@ -54,6 +54,17 @@ LABELS=$(gh issue view <number> --json labels --jq '[.labels[].name] | join(",")
 - If `Good` is NOT in the labels → **STOP**: "Issue #N has not passed check-issue. Please run `/check-issue <N>` first."
 - If `Good` is present → continue to step 4.
 
+### 3.5. Check for Related Open PRs
+
+When creating a `[Rule]` PR, check if there's already an open `[Model]` PR for the source or target problem:
+
+```bash
+gh pr list --state open --search "[Model]" --json title,number,headRefName
+```
+
+- If an open Model PR exists for the source/target problem, the Rule PR should **base its branch on that Model branch** (not `main`), to avoid duplicating CLI registration, export regeneration, etc.
+- If both a `[Model]` and `[Rule]` issue exist for the same problem, prefer implementing them in the **same PR** to avoid redundant work. Base the branch on `main`, implement the model first, then the rule.
+
 ### 4. Research References
 
 Use `WebSearch` and `WebFetch` to look up the reference URL provided in the issue. This helps:
@@ -157,7 +168,16 @@ git add -A
 git commit -m "Implement #<number>: <title>"
 ```
 
-#### 7c. Push, Post Summary, and Request Copilot Review
+#### 7c. Clean Up Plan File
+
+Delete the plan file from the branch — it served its purpose during implementation and should not be merged into main:
+
+```bash
+git rm docs/plans/<plan-file>.md
+git commit -m "chore: remove plan file after implementation"
+```
+
+#### 7d. Push, Post Summary, and Request Copilot Review
 
 Post an implementation summary comment on the PR **before** pushing. This comment should:
 - Summarize what was implemented (files added/changed)
@@ -183,7 +203,7 @@ git push
 make copilot-review
 ```
 
-#### 7d. Fix Loop (max 3 retries)
+#### 7e. Fix Loop (max 3 retries)
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
@@ -231,7 +251,7 @@ For each retry:
 
 **After 3 failed retries:** leave PR open, report to user.
 
-#### 7e. Done
+#### 7f. Done
 
 Report final status:
 - PR URL
@@ -283,3 +303,5 @@ PR #45: CI green, ready for merge.
 | Not verifying facts from issue | Use WebSearch/WebFetch to cross-check claims |
 | Branch already exists on retry | Check with `git rev-parse --verify` before `git checkout -b` |
 | Dirty working tree | Verify `git status --porcelain` is empty before branching |
+| Redundant Model+Rule PRs | Check for related open PRs (Step 3.5); combine or base on existing branch |
+| Plan files left in PR | Delete plan files before final push (Step 7c) |
