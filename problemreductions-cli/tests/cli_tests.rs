@@ -1324,8 +1324,8 @@ fn test_path_overall_overhead_composition() {
     let content = std::fs::read_to_string(&tmp).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
 
-    // Must have exactly 2 steps
-    assert_eq!(json["steps"].as_u64().unwrap(), 2);
+    // Must have at least 2 steps (K3→KN variant cast adds an extra step)
+    assert!(json["steps"].as_u64().unwrap() >= 2);
 
     // Collect overall overhead into a map
     let overall: std::collections::HashMap<String, String> = json["overall_overhead"]
@@ -1393,7 +1393,7 @@ fn test_path_all_overall_overhead() {
 #[test]
 fn test_path_single_step_no_overall_text() {
     // Single-step path should NOT show the Overall section
-    let output = pred().args(["path", "MIS", "QUBO"]).output().unwrap();
+    let output = pred().args(["path", "MIS", "MVC"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
