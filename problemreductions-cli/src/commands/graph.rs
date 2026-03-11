@@ -125,13 +125,9 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             crate::output::fmt_problem_name(&format!("{}{}", spec.name, slash))
         );
         if let Some(c) = graph.variant_complexity(&spec.name, v) {
-            let big_o = Expr::parse(c);
-            let big_o_str = asymptotic_normal_form(&big_o)
-                .ok()
-                .map(|norm| format!("  {}", crate::output::fmt_dim(&format!("O({})", norm))));
             text.push_str(&format!(
-                "{label}  complexity: {c}{}\n",
-                big_o_str.unwrap_or_default()
+                "{label}  complexity: {}\n",
+                big_o_of(&Expr::parse(c))
             ));
         } else {
             text.push_str(&format!("{label}\n"));
@@ -206,39 +202,25 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     }
 
     let edge_to_json = |e: &problemreductions::rules::ReductionEdgeInfo| {
-        let overhead: Vec<serde_json::Value> = e
-            .overhead
-            .output_size
-            .iter()
-            .map(|(field, poly)| {
-                let mut entry = serde_json::json!({"field": field, "formula": poly.to_string()});
-                if let Ok(norm) = asymptotic_normal_form(poly) {
-                    entry["big_o"] = serde_json::json!(format!("O({})", norm));
-                }
-                entry
-            })
-            .collect();
         serde_json::json!({
             "source": {"name": e.source_name, "variant": e.source_variant},
             "target": {"name": e.target_name, "variant": e.target_variant},
-            "overhead": overhead,
+            "overhead": overhead_to_json(&e.overhead.output_size),
         })
     };
     let variants_json: Vec<serde_json::Value> = variants
         .iter()
         .map(|v| {
             let complexity = graph.variant_complexity(&spec.name, v).unwrap_or("");
-            let mut entry = serde_json::json!({
+            serde_json::json!({
                 "variant": v,
                 "complexity": complexity,
-            });
-            if !complexity.is_empty() {
-                let expr = Expr::parse(complexity);
-                if let Ok(norm) = asymptotic_normal_form(&expr) {
-                    entry["big_o"] = serde_json::json!(format!("O({})", norm));
-                }
-            }
-            entry
+                "big_o": if complexity.is_empty() {
+                    String::new()
+                } else {
+                    big_o_of(&Expr::parse(complexity))
+                },
+            })
         })
         .collect();
 
@@ -260,25 +242,32 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
 }
 
 /// Format an expression as Big O notation using asymptotic normalization.
-/// Returns `None` if the asymptotic form equals the original (no simplification).
-fn fmt_big_o(expr: &Expr) -> Option<String> {
-    let normalized = asymptotic_normal_form(expr).ok()?;
-    if normalized.to_string() == expr.to_string() {
-        return None;
+/// Falls back to the original expression string if normalization fails.
+fn big_o_of(expr: &Expr) -> String {
+    match asymptotic_normal_form(expr) {
+        Ok(norm) => format!("O({})", norm),
+        Err(_) => expr.to_string(),
     }
-    Some(format!("O({})", normalized))
 }
 
-/// Format overhead fields with Big O notation appended where it simplifies.
+/// Format overhead fields as `field = O(...)` strings.
 fn fmt_overhead_parts(output_size: &[(&'static str, Expr)]) -> Vec<String> {
     output_size
         .iter()
+        .map(|(field, poly)| format!("{field} = {}", big_o_of(poly)))
+        .collect()
+}
+
+/// Convert overhead fields to JSON entries with Big O notation.
+fn overhead_to_json(output_size: &[(&'static str, Expr)]) -> Vec<serde_json::Value> {
+    output_size
+        .iter()
         .map(|(field, poly)| {
-            if let Some(big_o) = fmt_big_o(poly) {
-                format!("{field} = {poly}  {}", crate::output::fmt_dim(&big_o))
-            } else {
-                format!("{field} = {poly}")
-            }
+            serde_json::json!({
+                "field": field,
+                "formula": poly.to_string(),
+                "big_o": big_o_of(poly),
+            })
         })
         .collect()
 }
@@ -334,14 +323,7 @@ fn format_path_text(
         ));
         let oh = &overheads[i];
         for (field, poly) in &oh.output_size {
-            if let Some(big_o) = fmt_big_o(poly) {
-                text.push_str(&format!(
-                    "    {field} = {poly}  {}\n",
-                    crate::output::fmt_dim(&big_o)
-                ));
-            } else {
-                text.push_str(&format!("    {field} = {poly}\n"));
-            }
+            text.push_str(&format!("    {field} = {}\n", big_o_of(poly)));
         }
     }
 
@@ -350,14 +332,7 @@ fn format_path_text(
         let composed = graph.compose_path_overhead(reduction_path);
         text.push_str(&format!("\n  {}:\n", crate::output::fmt_section("Overall")));
         for (field, poly) in &composed.output_size {
-            if let Some(big_o) = fmt_big_o(poly) {
-                text.push_str(&format!(
-                    "    {field} = {poly}  {}\n",
-                    crate::output::fmt_dim(&big_o)
-                ));
-            } else {
-                text.push_str(&format!("    {field} = {poly}\n"));
-            }
+            text.push_str(&format!("    {field} = {}\n", big_o_of(poly)));
         }
     }
 
@@ -379,29 +354,13 @@ fn format_path_json(
                 "from": {"name": pair[0].name, "variant": pair[0].variant},
                 "to": {"name": pair[1].name, "variant": pair[1].variant},
                 "step": i + 1,
-                "overhead": oh.output_size.iter().map(|(field, poly)| {
-                    let mut entry = serde_json::json!({"field": field, "formula": poly.to_string()});
-                    if let Ok(norm) = asymptotic_normal_form(poly) {
-                        entry["big_o"] = serde_json::json!(format!("O({})", norm));
-                    }
-                    entry
-                }).collect::<Vec<_>>(),
+                "overhead": overhead_to_json(&oh.output_size),
             })
         })
         .collect();
 
     let composed = graph.compose_path_overhead(reduction_path);
-    let overall: Vec<serde_json::Value> = composed
-        .output_size
-        .iter()
-        .map(|(field, poly)| {
-            let mut entry = serde_json::json!({"field": field, "formula": poly.to_string()});
-            if let Ok(norm) = asymptotic_normal_form(poly) {
-                entry["big_o"] = serde_json::json!(format!("O({})", norm));
-            }
-            entry
-        })
-        .collect();
+    let overall = overhead_to_json(&composed.output_size);
 
     serde_json::json!({
         "steps": reduction_path.len(),
