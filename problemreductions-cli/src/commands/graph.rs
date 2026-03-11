@@ -242,11 +242,11 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
 }
 
 /// Format an expression as Big O notation using asymptotic normalization.
-/// Falls back to the original expression string if normalization fails.
+/// Falls back to wrapping the original expression if normalization fails.
 fn big_o_of(expr: &Expr) -> String {
     match asymptotic_normal_form(expr) {
         Ok(norm) => format!("O({})", norm),
-        Err(_) => expr.to_string(),
+        Err(_) => format!("O({})", expr),
     }
 }
 
