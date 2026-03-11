@@ -1,6 +1,7 @@
 use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_variant};
 use anyhow::{Context, Result};
+use problemreductions::{asymptotic_normal_form, Expr};
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph, TraversalDirection};
 use problemreductions::types::ProblemSize;
@@ -124,7 +125,14 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             crate::output::fmt_problem_name(&format!("{}{}", spec.name, slash))
         );
         if let Some(c) = graph.variant_complexity(&spec.name, v) {
-            text.push_str(&format!("{label}  complexity: {c}\n"));
+            let big_o = Expr::parse(c);
+            let big_o_str = asymptotic_normal_form(&big_o)
+                .ok()
+                .map(|norm| format!("  {}", crate::output::fmt_dim(&format!("O({})", norm))));
+            text.push_str(&format!(
+                "{label}  complexity: {c}{}\n",
+                big_o_str.unwrap_or_default()
+            ));
         } else {
             text.push_str(&format!("{label}\n"));
         }
@@ -172,12 +180,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             crate::output::fmt_outgoing("\u{2192}"),
             fmt_node(&graph, e.target_name, &e.target_variant),
         ));
-        let oh_parts: Vec<String> = e
-            .overhead
-            .output_size
-            .iter()
-            .map(|(field, poly)| format!("{field} = {poly}"))
-            .collect();
+        let oh_parts = fmt_overhead_parts(&e.overhead.output_size);
         if !oh_parts.is_empty() {
             text.push_str(&format!("  ({})", oh_parts.join(", ")));
         }
@@ -195,12 +198,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             crate::output::fmt_outgoing("\u{2192}"),
             fmt_node(&graph, e.target_name, &e.target_variant),
         ));
-        let oh_parts: Vec<String> = e
-            .overhead
-            .output_size
-            .iter()
-            .map(|(field, poly)| format!("{field} = {poly}"))
-            .collect();
+        let oh_parts = fmt_overhead_parts(&e.overhead.output_size);
         if !oh_parts.is_empty() {
             text.push_str(&format!("  ({})", oh_parts.join(", ")));
         }
@@ -212,7 +210,13 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             .overhead
             .output_size
             .iter()
-            .map(|(field, poly)| serde_json::json!({"field": field, "formula": poly.to_string()}))
+            .map(|(field, poly)| {
+                let mut entry = serde_json::json!({"field": field, "formula": poly.to_string()});
+                if let Ok(norm) = asymptotic_normal_form(poly) {
+                    entry["big_o"] = serde_json::json!(format!("O({})", norm));
+                }
+                entry
+            })
             .collect();
         serde_json::json!({
             "source": {"name": e.source_name, "variant": e.source_variant},
@@ -224,10 +228,17 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
         .iter()
         .map(|v| {
             let complexity = graph.variant_complexity(&spec.name, v).unwrap_or("");
-            serde_json::json!({
+            let mut entry = serde_json::json!({
                 "variant": v,
                 "complexity": complexity,
-            })
+            });
+            if !complexity.is_empty() {
+                let expr = Expr::parse(complexity);
+                if let Ok(norm) = asymptotic_normal_form(&expr) {
+                    entry["big_o"] = serde_json::json!(format!("O({})", norm));
+                }
+            }
+            entry
         })
         .collect();
 
@@ -246,6 +257,30 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
 
     let default_name = format!("pred_show_{}.json", spec.name);
     out.emit_with_default_name(&default_name, &text, &json)
+}
+
+/// Format an expression as Big O notation using asymptotic normalization.
+/// Returns `None` if the asymptotic form equals the original (no simplification).
+fn fmt_big_o(expr: &Expr) -> Option<String> {
+    let normalized = asymptotic_normal_form(expr).ok()?;
+    if normalized.to_string() == expr.to_string() {
+        return None;
+    }
+    Some(format!("O({})", normalized))
+}
+
+/// Format overhead fields with Big O notation appended where it simplifies.
+fn fmt_overhead_parts(output_size: &[(&'static str, Expr)]) -> Vec<String> {
+    output_size
+        .iter()
+        .map(|(field, poly)| {
+            if let Some(big_o) = fmt_big_o(poly) {
+                format!("{field} = {poly}  {}", crate::output::fmt_dim(&big_o))
+            } else {
+                format!("{field} = {poly}")
+            }
+        })
+        .collect()
 }
 
 /// Convert a variant BTreeMap to slash notation showing ALL values.
@@ -299,7 +334,14 @@ fn format_path_text(
         ));
         let oh = &overheads[i];
         for (field, poly) in &oh.output_size {
-            text.push_str(&format!("    {field} = {poly}\n"));
+            if let Some(big_o) = fmt_big_o(poly) {
+                text.push_str(&format!(
+                    "    {field} = {poly}  {}\n",
+                    crate::output::fmt_dim(&big_o)
+                ));
+            } else {
+                text.push_str(&format!("    {field} = {poly}\n"));
+            }
         }
     }
 
@@ -308,7 +350,14 @@ fn format_path_text(
         let composed = graph.compose_path_overhead(reduction_path);
         text.push_str(&format!("\n  {}:\n", crate::output::fmt_section("Overall")));
         for (field, poly) in &composed.output_size {
-            text.push_str(&format!("    {field} = {poly}\n"));
+            if let Some(big_o) = fmt_big_o(poly) {
+                text.push_str(&format!(
+                    "    {field} = {poly}  {}\n",
+                    crate::output::fmt_dim(&big_o)
+                ));
+            } else {
+                text.push_str(&format!("    {field} = {poly}\n"));
+            }
         }
     }
 
@@ -331,7 +380,11 @@ fn format_path_json(
                 "to": {"name": pair[1].name, "variant": pair[1].variant},
                 "step": i + 1,
                 "overhead": oh.output_size.iter().map(|(field, poly)| {
-                    serde_json::json!({"field": field, "formula": poly.to_string()})
+                    let mut entry = serde_json::json!({"field": field, "formula": poly.to_string()});
+                    if let Ok(norm) = asymptotic_normal_form(poly) {
+                        entry["big_o"] = serde_json::json!(format!("O({})", norm));
+                    }
+                    entry
                 }).collect::<Vec<_>>(),
             })
         })
@@ -341,7 +394,13 @@ fn format_path_json(
     let overall: Vec<serde_json::Value> = composed
         .output_size
         .iter()
-        .map(|(field, poly)| serde_json::json!({"field": field, "formula": poly.to_string()}))
+        .map(|(field, poly)| {
+            let mut entry = serde_json::json!({"field": field, "formula": poly.to_string()});
+            if let Ok(norm) = asymptotic_normal_form(poly) {
+                entry["big_o"] = serde_json::json!(format!("O({})", norm));
+            }
+            entry
+        })
         .collect();
 
     serde_json::json!({

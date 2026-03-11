@@ -58,7 +58,7 @@ pub mod prelude {
 
 // Re-export commonly used items at crate root
 pub use error::{ProblemError, Result};
-pub use expr::{asymptotic_normal_form, AsymptoticAnalysisError};
+pub use expr::{asymptotic_normal_form, AsymptoticAnalysisError, Expr};
 pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::{OptimizationProblem, Problem, SatisfactionProblem};
