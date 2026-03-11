@@ -212,7 +212,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
         .iter()
         .map(|v| {
             let complexity = graph.variant_complexity(&spec.name, v).unwrap_or("");
-            let mut entry = serde_json::json!({
+            serde_json::json!({
                 "variant": v,
                 "complexity": complexity,
                 "big_o": if complexity.is_empty() {
