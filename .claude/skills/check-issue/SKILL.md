@@ -20,18 +20,25 @@ digraph check_issue {
     rankdir=TB;
     "Fetch issue" [shape=box];
     "Detect issue type" [shape=diamond];
-    "Run Rule checks" [shape=box];
-    "Run Model checks" [shape=box];
+    "Rule Check 0: Prerequisites" [shape=box];
+    "Both implemented?" [shape=diamond];
+    "Run Rule checks 1-4" [shape=box];
+    "Blocked report" [shape=box, style=filled, fillcolor="#ffcccc"];
+    "Run Model checks (incl. orphan)" [shape=box];
     "Unknown type: stop" [shape=box, style=filled, fillcolor="#ffcccc"];
     "Compose report" [shape=box];
     "Post comment + add labels" [shape=box];
 
     "Fetch issue" -> "Detect issue type";
-    "Detect issue type" -> "Run Rule checks" [label="[Rule]"];
-    "Detect issue type" -> "Run Model checks" [label="[Model]"];
+    "Detect issue type" -> "Rule Check 0: Prerequisites" [label="[Rule]"];
+    "Detect issue type" -> "Run Model checks (incl. orphan)" [label="[Model]"];
     "Detect issue type" -> "Unknown type: stop" [label="other"];
-    "Run Rule checks" -> "Compose report";
-    "Run Model checks" -> "Compose report";
+    "Rule Check 0: Prerequisites" -> "Both implemented?";
+    "Both implemented?" -> "Run Rule checks 1-4" [label="yes"];
+    "Both implemented?" -> "Blocked report" [label="no"];
+    "Blocked report" -> "Post comment + add labels";
+    "Run Rule checks 1-4" -> "Compose report";
+    "Run Model checks (incl. orphan)" -> "Compose report";
     "Compose report" -> "Post comment + add labels";
 }
 ```
@@ -51,25 +58,39 @@ gh issue view <NUMBER> --json title,body,labels
 
 Applies when the title contains `[Rule]`.
 
-## Rule Check 1: Usefulness (fail label: `Useless`)
+## Rule Check 0: Prerequisites (fail label: `Blocked`)
 
-**Goal:** Is this reduction novel or does it improve on an existing one?
+**Goal:** Are both source and target problems implemented in the codebase?
+
+A reduction rule cannot be implemented if the source or target problem does not exist in code. This is a **hard prerequisite** — if either is missing, skip all remaining checks.
 
 1. Parse **Source** and **Target** problem names from the issue body.
 
-2. Resolve problem aliases (the issue may say "MIS" but `pred` needs "MaximumIndependentSet"):
+2. Resolve problem aliases and verify implementation:
    ```bash
    pred show <source> --json 2>/dev/null
    pred show <target> --json 2>/dev/null
    ```
-   If either fails, try the full name. If still fails, **Warn** (unknown problem — may be a new model).
+   Try aliases first (e.g., "MIS" → "MaximumIndependentSet"), then the full name.
 
-3. Check existing path:
+3. Decision:
+   - **Both succeed** → **Pass**. Store the JSON output for use in subsequent checks (Check 1 overhead comparison, Check 3e cross-validation, Check 4c metric names).
+   - **Either fails** → **Fail** with label `Blocked`
+     - Message: "Cannot evaluate: `<problem>` is not implemented in the codebase. The corresponding [Model] issue must be merged first."
+     - **Skip all remaining checks** (Check 1–4). The report should only contain Check 0.
+
+---
+
+## Rule Check 1: Usefulness (fail label: `Useless`)
+
+**Goal:** Is this reduction novel or does it improve on an existing one?
+
+1. Check existing path (using resolved names from Check 0):
    ```bash
    pred path <source> <target> --json
    ```
 
-4. Decision (principle: new rule must reduce the reduction overhead):
+2. Decision (principle: new rule must reduce the reduction overhead):
    - **No path exists** → **Pass** (novel reduction)
    - **Path exists** → compare overhead:
      - Parse the proposed overhead from the issue's "Size Overhead" table
@@ -78,7 +99,7 @@ Applies when the title contains `[Rule]`.
      - If overhead is **equal or higher** on all dimensions → **Fail**
      - If overhead comparison is ambiguous (different dimensions, incomparable expressions) → **Warn** with explanation
 
-5. Check **Motivation** field: if empty, placeholder, or just "enables X" without explaining *why this path matters* → **Warn**
+3. Check **Motivation** field: if empty, placeholder, or just "enables X" without explaining *why this path matters* → **Warn**
 
 ---
 
@@ -138,6 +159,28 @@ While searching, if you find:
 - A **different approach** that achieves better bounds
 
 → Include in the report as a **Recommendation** (not a failure). Example: "Note: Smith et al. (2024) improve on this with O(n) overhead instead of O(n^2)."
+
+### 3e: Cross-validate Against Code Implementation
+
+Using the `pred show` JSON stored from Check 0, verify the issue's description is consistent with the actual code:
+
+1. **Source problem consistency:**
+   - Compare the issue's description of the source problem (input structure, objective, constraints) against the code's actual implementation (fields, `direction()`, `evaluate()` semantics)
+   - If the issue says "MIS maximizes vertex count" but the code uses weighted sums → **Fail**
+
+2. **Target problem consistency:**
+   - Same check for the target problem
+   - Verify the target's field names and semantics match what the issue's reduction algorithm constructs
+
+3. **Reduction algorithm references valid fields/methods:**
+   - Every field name referenced in the algorithm (e.g., "add edge to E'", "set weight w_i") must correspond to actual fields/methods on the source or target type
+   - Check against `size_fields` and schema from `pred show --json`
+
+4. **Size overhead metric names match target:**
+   - Every metric in the "Size Overhead" table must be a valid getter on the target problem
+   - This overlaps with Check 4c but is a **correctness** concern (wrong metric names = wrong reduction), not just a writing concern
+
+If any mismatch found → **Fail** with specifics about what the issue claims vs. what the code actually implements.
 
 ---
 
@@ -204,12 +247,31 @@ Applies when the title contains `[Model]`.
 
 3. Check **Motivation** field:
    - Is there a concrete use case? (quantum computing, network design, scheduling, etc.)
-   - Does it mention what reductions this problem enables? A problem without any planned reduction rules is an orphan node.
    - If motivation is empty, placeholder, or vague → **Warn**
 
 4. Check **How to solve** section:
    - At least one solver method must be checked (brute-force, ILP reduction, or other)
    - If no solver path is identified → **Warn** ("No solver means reduction rules can't be verified")
+
+5. **Verify planned reductions exist** (fail label: `Orphan`):
+
+   A model without any reduction rules is an orphan node in the reduction graph — it adds no value. Verify that at least one `[Rule]` issue exists that references this model as source or target.
+
+   ```bash
+   # Search for [Rule] issues referencing this problem name
+   gh issue list --search "[Rule] <problem-name> in:title,body" --json number,title --limit 20
+   ```
+
+   Also check if the problem already exists with reductions:
+   ```bash
+   pred show <problem-name> --json 2>/dev/null  # check "reductions" field
+   ```
+
+   Decision:
+   - **At least one `[Rule]` issue (open or closed) references this model** → **Pass**
+   - **Problem already exists in code with existing reductions** → **Pass** (adding a variant)
+   - **No `[Rule]` issues found AND no existing reductions** → **Fail** with label `Orphan`
+     - Message: "No [Rule] issues reference this problem. Create at least one [Rule] issue (as source or target) before this model can be approved."
 
 ---
 
@@ -321,14 +383,18 @@ Post a single GitHub comment. The table adapts to the issue type:
 
 | Check | Result | Details |
 |-------|--------|---------|
+| Prerequisites | ✅ Pass | Both `Source` and `Target` are implemented |
 | Usefulness | ✅ Pass | No existing direct reduction Source → Target |
 | Non-trivial | ✅ Pass | Gadget construction with penalty terms |
 | Correctness | ❌ Fail | Paper "Smith 2020" not found on arxiv or Semantic Scholar |
 | Well-written | ⚠️ Warn | Symbol `m` used in overhead table but not defined in algorithm |
 
-**Overall: 2 passed, 1 failed, 1 warning**
+**Overall: 3 passed, 1 failed, 1 warning**
 
 ---
+
+### Prerequisites
+[Source and target implementation status]
 
 ### Usefulness
 [Detailed explanation]
@@ -337,7 +403,7 @@ Post a single GitHub comment. The table adapts to the issue type:
 [Detailed explanation]
 
 ### Correctness
-[Per-reference verification results, any better algorithms found]
+[Per-reference verification results, code cross-validation results, any better algorithms found]
 
 ### Well-written
 [Specific items to fix]
@@ -345,6 +411,26 @@ Post a single GitHub comment. The table adapts to the issue type:
 #### Recommendations
 - [Better algorithms or papers discovered]
 - [Suggestions for improving the issue]
+````
+
+**For [Rule] issues where prerequisites fail (short report):**
+
+````markdown
+## Issue Quality Check — Rule
+
+| Check | Result | Details |
+|-------|--------|---------|
+| Prerequisites | ❌ Fail | `TargetProblem` is not implemented in the codebase |
+
+**Overall: 0 passed, 1 failed (remaining checks skipped)**
+
+---
+
+### Prerequisites
+Cannot evaluate this rule: `TargetProblem` is not implemented in the codebase.
+The corresponding [Model] issue must be merged first before this [Rule] can be evaluated.
+
+*Checks 1–4 skipped.*
 ````
 
 **For [Model] issues:**
@@ -355,16 +441,20 @@ Post a single GitHub comment. The table adapts to the issue type:
 | Check | Result | Details |
 |-------|--------|---------|
 | Usefulness | ✅ Pass | Novel problem not yet in reduction graph |
+| Connectivity | ✅ Pass | Referenced by [Rule] issue #42 (as target) |
 | Non-trivial | ✅ Pass | Distinct feasibility constraints from existing problems |
 | Correctness | ⚠️ Warn | Complexity bound not independently verified |
 | Well-written | ❌ Fail | Missing Variables section; symbol `K` undefined |
 
-**Overall: 2 passed, 1 warning, 1 failed**
+**Overall: 3 passed, 1 warning, 1 failed**
 
 ---
 
 ### Usefulness
 [Detailed explanation]
+
+### Connectivity
+[List of [Rule] issues that reference this model]
 
 ### Non-trivial
 [Detailed explanation]
@@ -384,7 +474,9 @@ Post a single GitHub comment. The table adapts to the issue type:
 
 ```bash
 # Add labels for FAILED checks (not warnings)
-gh issue edit <NUMBER> --add-label "Useless"     # if Check 1 failed
+gh issue edit <NUMBER> --add-label "Blocked"      # if Rule Check 0 failed (missing source/target impl)
+gh issue edit <NUMBER> --add-label "Useless"      # if Check 1 failed
+gh issue edit <NUMBER> --add-label "Orphan"       # if Model Check 1.5 failed (no planned reductions)
 gh issue edit <NUMBER> --add-label "Trivial"      # if Check 2 failed
 gh issue edit <NUMBER> --add-label "Wrong"        # if Check 3 failed
 gh issue edit <NUMBER> --add-label "PoorWritten"  # if Check 4 failed
@@ -393,7 +485,7 @@ gh issue edit <NUMBER> --add-label "PoorWritten"  # if Check 4 failed
 gh issue edit <NUMBER> --add-label "Good"
 
 # If re-checking after fixes, remove stale failure labels and add "Good" if now passing
-gh issue edit <NUMBER> --remove-label "Useless,Trivial,Wrong,PoorWritten" 2>/dev/null
+gh issue edit <NUMBER> --remove-label "Blocked,Useless,Orphan,Trivial,Wrong,PoorWritten" 2>/dev/null
 gh issue edit <NUMBER> --add-label "Good"
 ```
 
