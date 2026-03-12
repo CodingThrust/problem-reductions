@@ -4,7 +4,7 @@ use anyhow::{Context, Result};
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph, TraversalDirection};
 use problemreductions::types::ProblemSize;
-use problemreductions::{asymptotic_normal_form, Expr};
+use problemreductions::{big_o_normal_form, Expr};
 use std::collections::BTreeMap;
 
 pub fn list(out: &OutputConfig) -> Result<()> {
@@ -244,7 +244,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
 /// Format an expression as Big O notation using asymptotic normalization.
 /// Falls back to wrapping the original expression if normalization fails.
 fn big_o_of(expr: &Expr) -> String {
-    match asymptotic_normal_form(expr) {
+    match big_o_normal_form(expr) {
         Ok(norm) => format!("O({})", norm),
         Err(_) => format!("O({})", expr),
     }

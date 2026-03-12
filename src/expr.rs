@@ -177,7 +177,7 @@ impl Expr {
         self.constant_value().is_some_and(|c| c > 0.0)
     }
 
-    fn constant_value(&self) -> Option<f64> {
+    pub(crate) fn constant_value(&self) -> Option<f64> {
         match self {
             Expr::Const(c) => Some(*c),
             Expr::Var(_) => None,
@@ -218,6 +218,12 @@ impl fmt::Display for Expr {
                 write!(f, "{left} * {right}")
             }
             Expr::Pow(base, exp) => {
+                // Special case: x^0.5 → sqrt(x)
+                if let Expr::Const(e) = exp.as_ref() {
+                    if (*e - 0.5).abs() < 1e-15 {
+                        return write!(f, "sqrt({base})");
+                    }
+                }
                 let base_str = if matches!(base.as_ref(), Expr::Add(_, _) | Expr::Mul(_, _)) {
                     format!("({base})")
                 } else {
@@ -293,284 +299,30 @@ impl fmt::Display for AsymptoticAnalysisError {
 
 impl std::error::Error for AsymptoticAnalysisError {}
 
+/// Error returned when exact canonicalization fails.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CanonicalizationError {
+    /// Expression cannot be canonicalized (e.g., variable in both base and exponent).
+    Unsupported(String),
+}
+
+impl fmt::Display for CanonicalizationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unsupported(expr) => {
+                write!(f, "unsupported expression for canonicalization: {expr}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for CanonicalizationError {}
+
 /// Return a normalized `Expr` representing the asymptotic behavior of `expr`.
 ///
-/// Normalization includes:
-/// - commutativity/associativity of `+` and `*`
-/// - removal of positive constant factors
-/// - removal of additive constant terms
-/// - normalization of `sqrt(x)` into `x^(1/2)`
-/// - combination of repeated multiplicative factors
-/// - canonical identities like `exp(a) * exp(b) = exp(a + b)`
+/// This is now a compatibility wrapper for `big_o_normal_form()`.
 pub fn asymptotic_normal_form(expr: &Expr) -> Result<Expr, AsymptoticAnalysisError> {
-    match expr {
-        Expr::Const(c) => {
-            if *c >= 0.0 {
-                Ok(Expr::Const(1.0))
-            } else {
-                Err(AsymptoticAnalysisError::Unsupported(expr.to_string()))
-            }
-        }
-        Expr::Var(name) => Ok(Expr::Var(name)),
-        Expr::Add(a, b) => {
-            let mut terms = Vec::new();
-            collect_sum_term(a, &mut terms)?;
-            collect_sum_term(b, &mut terms)?;
-            Ok(build_sum(terms))
-        }
-        Expr::Mul(a, b) => {
-            let mut factors = Vec::new();
-            collect_product_factor(a, &mut factors)?;
-            collect_product_factor(b, &mut factors)?;
-            Ok(build_product(factors))
-        }
-        Expr::Pow(base, exp) => normalize_pow(base, exp, expr),
-        Expr::Exp(arg) => Ok(build_exp(asymptotic_normal_form(arg)?)),
-        Expr::Log(arg) => Ok(build_log(asymptotic_normal_form(arg)?)),
-        Expr::Sqrt(arg) => Ok(build_pow(asymptotic_normal_form(arg)?, 0.5)),
-    }
-}
-
-fn normalize_pow(base: &Expr, exp: &Expr, whole: &Expr) -> Result<Expr, AsymptoticAnalysisError> {
-    match (base.constant_value(), exp.constant_value()) {
-        (Some(c), Some(_)) => {
-            if c >= 0.0 {
-                Ok(Expr::Const(1.0))
-            } else {
-                Err(AsymptoticAnalysisError::Unsupported(whole.to_string()))
-            }
-        }
-        (Some(base_const), None) => {
-            if base_const <= 0.0 || (base_const - 1.0).abs() < 1e-10 {
-                return Err(AsymptoticAnalysisError::Unsupported(whole.to_string()));
-            }
-            Ok(build_exp_base(base_const, asymptotic_normal_form(exp)?))
-        }
-        (None, Some(exp_const)) => {
-            if exp_const < 0.0 {
-                return Err(AsymptoticAnalysisError::Unsupported(whole.to_string()));
-            }
-            Ok(build_pow(asymptotic_normal_form(base)?, exp_const))
-        }
-        (None, None) => Err(AsymptoticAnalysisError::Unsupported(whole.to_string())),
-    }
-}
-
-fn collect_sum_term(expr: &Expr, out: &mut Vec<Expr>) -> Result<(), AsymptoticAnalysisError> {
-    if let Some(c) = expr.constant_value() {
-        if c >= 0.0 {
-            return Ok(());
-        }
-        return Err(AsymptoticAnalysisError::Unsupported(expr.to_string()));
-    }
-    out.push(asymptotic_normal_form(expr)?);
-    Ok(())
-}
-
-fn collect_product_factor(expr: &Expr, out: &mut Vec<Expr>) -> Result<(), AsymptoticAnalysisError> {
-    if let Some(c) = expr.constant_value() {
-        if c > 0.0 {
-            return Ok(());
-        }
-        return Err(AsymptoticAnalysisError::Unsupported(expr.to_string()));
-    }
-    out.push(asymptotic_normal_form(expr)?);
-    Ok(())
-}
-
-fn build_sum(terms: Vec<Expr>) -> Expr {
-    let mut flat = Vec::new();
-    for term in terms {
-        match term {
-            Expr::Const(c) if (c - 1.0).abs() < 1e-10 => {}
-            Expr::Add(a, b) => {
-                flat.push(*a);
-                flat.push(*b);
-            }
-            other => flat.push(other),
-        }
-    }
-
-    if flat.is_empty() {
-        return Expr::Const(1.0);
-    }
-
-    let mut dedup = HashMap::<String, Expr>::new();
-    for term in flat {
-        dedup.entry(term.to_string()).or_insert(term);
-    }
-
-    let mut values: Vec<_> = dedup.into_values().collect();
-    values.sort_by_key(|term| term.to_string());
-    combine_add_chain(values)
-}
-
-fn build_product(factors: Vec<Expr>) -> Expr {
-    let mut flat = Vec::new();
-    for factor in factors {
-        match factor {
-            Expr::Const(c) if (c - 1.0).abs() < 1e-10 => {}
-            Expr::Mul(a, b) => {
-                flat.push(*a);
-                flat.push(*b);
-            }
-            other => flat.push(other),
-        }
-    }
-
-    if flat.is_empty() {
-        return Expr::Const(1.0);
-    }
-
-    let mut power_terms: HashMap<String, (f64, Expr)> = HashMap::new();
-    let mut natural_exp_args = Vec::new();
-    let mut base_exp_args: HashMap<String, (f64, Vec<Expr>)> = HashMap::new();
-
-    for factor in flat {
-        match factor {
-            Expr::Exp(arg) => natural_exp_args.push(*arg),
-            Expr::Pow(base, exp)
-                if base.constant_value().is_some() && exp.constant_value().is_none() =>
-            {
-                let base_const = base.constant_value().unwrap();
-                let key = format_float(base_const);
-                base_exp_args
-                    .entry(key)
-                    .or_insert_with(|| (base_const, Vec::new()))
-                    .1
-                    .push(*exp);
-            }
-            other => {
-                let (base, exp) = into_base_and_exponent(other);
-                let key = base.to_string();
-                power_terms
-                    .entry(key)
-                    .and_modify(|(total, _)| *total += exp)
-                    .or_insert((exp, base));
-            }
-        }
-    }
-
-    let mut result = Vec::new();
-
-    for (_key, (exp, base)) in power_terms {
-        if exp.abs() < 1e-10 {
-            continue;
-        }
-        result.push(build_pow(base, exp));
-    }
-
-    if !natural_exp_args.is_empty() {
-        result.push(build_exp(build_sum(natural_exp_args)));
-    }
-
-    for (_key, (base, args)) in base_exp_args {
-        result.push(build_exp_base(base, build_sum(args)));
-    }
-
-    if result.is_empty() {
-        return Expr::Const(1.0);
-    }
-
-    result.sort_by_key(|factor| factor.to_string());
-    combine_mul_chain(result)
-}
-
-fn build_pow(base: Expr, exp: f64) -> Expr {
-    if exp.abs() < 1e-10 {
-        return Expr::Const(1.0);
-    }
-    if (exp - 1.0).abs() < 1e-10 {
-        return base;
-    }
-
-    match base {
-        Expr::Const(c) if (c - 1.0).abs() < 1e-10 => Expr::Const(1.0),
-        Expr::Pow(inner, inner_exp) => {
-            if let Expr::Const(inner_exp_value) = inner_exp.as_ref() {
-                build_pow(*inner, inner_exp_value * exp)
-            } else {
-                Expr::Pow(
-                    Box::new(Expr::Pow(inner, inner_exp)),
-                    Box::new(Expr::Const(exp)),
-                )
-            }
-        }
-        Expr::Mul(a, b) => build_product(vec![build_pow(*a, exp), build_pow(*b, exp)]),
-        other => Expr::Pow(Box::new(other), Box::new(Expr::Const(exp))),
-    }
-}
-
-fn build_exp(arg: Expr) -> Expr {
-    match arg {
-        Expr::Log(inner) => *inner,
-        other => Expr::Exp(Box::new(other)),
-    }
-}
-
-fn build_exp_base(base: f64, arg: Expr) -> Expr {
-    if (base - std::f64::consts::E).abs() < 1e-10 {
-        return build_exp(arg);
-    }
-    Expr::Pow(Box::new(Expr::Const(base)), Box::new(arg))
-}
-
-fn build_log(arg: Expr) -> Expr {
-    match arg {
-        Expr::Const(_) => Expr::Const(1.0),
-        Expr::Pow(base, exp) if exp.constant_value().is_some() => build_log(*base),
-        Expr::Pow(base, exp) if base.constant_value().is_some() => *exp,
-        Expr::Exp(inner) => *inner,
-        other => Expr::Log(Box::new(other)),
-    }
-}
-
-fn into_base_and_exponent(expr: Expr) -> (Expr, f64) {
-    match expr {
-        Expr::Pow(base, exp) => match *exp {
-            Expr::Const(exp_value) => (*base, exp_value),
-            other => (Expr::Pow(base, Box::new(other)), 1.0),
-        },
-        other => (other, 1.0),
-    }
-}
-
-fn combine_add_chain(mut terms: Vec<Expr>) -> Expr {
-    if terms.is_empty() {
-        return Expr::Const(1.0);
-    }
-    let mut expr = terms.remove(0);
-    for term in terms {
-        expr = expr + term;
-    }
-    expr
-}
-
-fn combine_mul_chain(mut factors: Vec<Expr>) -> Expr {
-    if factors.is_empty() {
-        return Expr::Const(1.0);
-    }
-    let mut expr = factors.remove(0);
-    for factor in factors {
-        expr = expr * factor;
-    }
-    expr
-}
-
-fn format_float(value: f64) -> String {
-    let rounded = value.round();
-    if (value - rounded).abs() < 1e-10 {
-        return format!("{}", rounded as i64);
-    }
-
-    let mut s = format!("{value:.10}");
-    while s.contains('.') && s.ends_with('0') {
-        s.pop();
-    }
-    if s.ends_with('.') {
-        s.pop();
-    }
-    s
+    crate::big_o::big_o_normal_form(expr)
 }
 
 // --- Runtime expression parser ---
