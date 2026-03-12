@@ -308,6 +308,22 @@
     ]
   },
   {
+    "name": "MinimumFeedbackVertexSet",
+    "description": "Find minimum weight feedback vertex set in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      }
+    ]
+  },
+  {
     "name": "MinimumSetCovering",
     "description": "Find minimum weight collection covering the universe",
     "fields": [
