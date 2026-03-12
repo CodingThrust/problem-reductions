@@ -373,6 +373,34 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // ExactCoverBy3Sets
+        "ExactCoverBy3Sets" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ExactCoverBy3Sets requires --universe and --sets\n\n\
+                     Usage: pred create X3C --universe 6 --sets \"0,1,2;3,4,5\""
+                )
+            })?;
+            let sets = parse_sets(args)?;
+            // Validate each set has exactly 3 elements
+            for (i, set) in sets.iter().enumerate() {
+                if set.len() != 3 {
+                    bail!(
+                        "Subset {} has {} elements, but X3C requires exactly 3 elements per subset",
+                        i,
+                        set.len()
+                    );
+                }
+            }
+            let subsets: Vec<[usize; 3]> = sets.into_iter().map(|s| [s[0], s[1], s[2]]).collect();
+            (
+                ser(problemreductions::models::set::ExactCoverBy3Sets::new(
+                    universe, subsets,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // BicliqueCover
         "BicliqueCover" => {
             let left = args.left.ok_or_else(|| {

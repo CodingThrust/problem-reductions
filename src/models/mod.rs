@@ -16,4 +16,4 @@ pub use graph::{
     MaximumMatching, MinimumDominatingSet, MinimumVertexCover, SpinGlass, TravelingSalesman,
 };
 pub use misc::{BinPacking, Factoring, Knapsack, PaintShop};
-pub use set::{MaximumSetPacking, MinimumSetCovering};
+pub use set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering};

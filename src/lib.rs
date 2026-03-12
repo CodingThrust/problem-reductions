@@ -46,7 +46,7 @@ pub mod prelude {
         MinimumDominatingSet, MinimumVertexCover, TravelingSalesman,
     };
     pub use crate::models::misc::{BinPacking, Factoring, Knapsack, PaintShop};
-    pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
+    pub use crate::models::set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering};
 
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};
