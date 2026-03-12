@@ -361,6 +361,32 @@
     ]
   },
   {
+    "name": "RuralPostman",
+    "description": "Find a circuit covering required edges with total length at most B (Rural Postman Problem)",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "edge_lengths",
+        "type_name": "Vec<W>",
+        "description": "Edge lengths l(e) for each e in E"
+      },
+      {
+        "name": "required_edges",
+        "type_name": "Vec<usize>",
+        "description": "Edge indices of the required subset E' ⊆ E"
+      },
+      {
+        "name": "bound",
+        "type_name": "W::Sum",
+        "description": "Upper bound B on total circuit length"
+      }
+    ]
+  },
+  {
     "name": "Satisfiability",
     "description": "Find satisfying assignment for CNF formula",
     "fields": [

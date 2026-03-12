@@ -213,6 +213,7 @@ pub fn load_problem(
         "MaxCut" => deser_opt::<MaxCut<SimpleGraph, i32>>(data),
         "MaximalIS" => deser_opt::<MaximalIS<SimpleGraph, i32>>(data),
         "TravelingSalesman" => deser_opt::<TravelingSalesman<SimpleGraph, i32>>(data),
+        "RuralPostman" => deser_sat::<RuralPostman<SimpleGraph, i32>>(data),
         "KColoring" => match variant.get("k").map(|s| s.as_str()) {
             Some("K3") => deser_sat::<KColoring<K3, SimpleGraph>>(data),
             _ => deser_sat::<KColoring<KN, SimpleGraph>>(data),
@@ -270,6 +271,7 @@ pub fn serialize_any_problem(
         "MaxCut" => try_ser::<MaxCut<SimpleGraph, i32>>(any),
         "MaximalIS" => try_ser::<MaximalIS<SimpleGraph, i32>>(any),
         "TravelingSalesman" => try_ser::<TravelingSalesman<SimpleGraph, i32>>(any),
+        "RuralPostman" => try_ser::<RuralPostman<SimpleGraph, i32>>(any),
         "KColoring" => match variant.get("k").map(|s| s.as_str()) {
             Some("K3") => try_ser::<KColoring<K3, SimpleGraph>>(any),
             _ => try_ser::<KColoring<KN, SimpleGraph>>(any),

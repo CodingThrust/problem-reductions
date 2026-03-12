@@ -45,6 +45,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.required_edges.is_none()
+        && args.bound.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -83,6 +85,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "RuralPostman" => {
+            "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
+        }
         _ => "",
     }
 }
@@ -208,6 +213,38 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 _ => unreachable!(),
             };
             (data, resolved_variant.clone())
+        }
+
+        // RuralPostman
+        "RuralPostman" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                )
+            })?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let required_edges_str = args.required_edges.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RuralPostman requires --required-edges\n\n\
+                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                )
+            })?;
+            let required_edges: Vec<usize> = util::parse_comma_list(required_edges_str)?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RuralPostman requires --bound\n\n\
+                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                )
+            })?;
+            (
+                ser(RuralPostman::new(
+                    graph,
+                    edge_weights,
+                    required_edges,
+                    bound,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // KColoring

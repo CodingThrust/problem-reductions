@@ -43,7 +43,7 @@ pub mod prelude {
     pub use crate::models::graph::{BicliqueCover, SpinGlass};
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumDominatingSet, MinimumVertexCover, TravelingSalesman,
+        MinimumDominatingSet, MinimumVertexCover, RuralPostman, TravelingSalesman,
     };
     pub use crate::models::misc::{BinPacking, Factoring, Knapsack, PaintShop};
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
