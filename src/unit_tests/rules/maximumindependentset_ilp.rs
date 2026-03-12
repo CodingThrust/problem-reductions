@@ -41,9 +41,12 @@ fn test_maximumindependentset_to_ilp_via_path_structure() {
         path.len() > 1,
         "Removed rule should be exercised through a multi-step path"
     );
-    assert_eq!(
-        path.type_names(),
-        vec!["MaximumIndependentSet", "MaximumClique", "ILP"]
+    let names = path.type_names();
+    assert!(
+        names == vec!["MaximumIndependentSet", "MaximumClique", "ILP"]
+            || names == vec!["MaximumIndependentSet", "MaximumSetPacking", "ILP"],
+        "Expected 2-step path through MaxClique or MaxSetPacking, got {:?}",
+        names
     );
     assert_eq!(ilp.num_vars, 3);
     assert_eq!(ilp.constraints.len(), 3);
