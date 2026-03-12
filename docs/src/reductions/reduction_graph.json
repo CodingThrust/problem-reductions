@@ -5,17 +5,6 @@
       "variant": {},
       "category": "algebraic",
       "doc_path": "models/algebraic/struct.BMF.html",
-      "complexity": "2^(rows * rank + r
-Exported to: docs/src/reductions/reduction_graph.json
-
-JSON content:
-{
-  "nodes": [
-    {
-      "name": "BMF",
-      "variant": {},
-      "category": "algebraic",
-      "doc_path": "models/algebraic/struct.BMF.html",
       "complexity": "2^(rows * rank + rank * cols)"
     },
     {
@@ -625,6 +614,21 @@ JSON content:
         }
       ],
       "doc_path": "rules/maximumclique_ilp/index.html"
+    },
+    {
+      "source": 21,
+      "target": 25,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_vertices * (num_vertices + -1 * 1) * 2^-1 + -1 * num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumclique_maximumindependentset/index.html"
     },
     {
       "source": 22,

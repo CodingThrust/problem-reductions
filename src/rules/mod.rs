@@ -13,6 +13,7 @@ mod graph;
 mod kcoloring_casts;
 mod ksatisfiability_casts;
 mod ksatisfiability_qubo;
+mod maximumclique_maximumindependentset;
 mod maximumindependentset_casts;
 mod maximumindependentset_gridgraph;
 mod maximumindependentset_maximumsetpacking;
