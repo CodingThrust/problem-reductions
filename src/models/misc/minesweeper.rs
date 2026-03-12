@@ -6,7 +6,7 @@
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -48,7 +48,36 @@ inventory::submit! {
 /// let solution = solver.find_satisfying(&problem);
 /// assert!(solution.is_some());
 /// ```
+/// Raw serialization helper for [`Minesweeper`] that rebuilds the neighbor
+/// cache on deserialization.
+#[derive(Deserialize)]
+struct MinesweeperRaw {
+    rows: usize,
+    cols: usize,
+    revealed: Vec<(usize, usize, u8)>,
+    unrevealed: Vec<(usize, usize)>,
+}
+
+impl From<MinesweeperRaw> for Minesweeper {
+    fn from(raw: MinesweeperRaw) -> Self {
+        let neighbor_cache = Minesweeper::build_neighbor_cache(
+            raw.rows,
+            raw.cols,
+            &raw.revealed,
+            &raw.unrevealed,
+        );
+        Minesweeper {
+            rows: raw.rows,
+            cols: raw.cols,
+            revealed: raw.revealed,
+            unrevealed: raw.unrevealed,
+            neighbor_cache,
+        }
+    }
+}
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(from = "MinesweeperRaw")]
 pub struct Minesweeper {
     /// Number of rows in the grid.
     rows: usize,
@@ -58,9 +87,63 @@ pub struct Minesweeper {
     revealed: Vec<(usize, usize, u8)>,
     /// Unrevealed cells: (row, col).
     unrevealed: Vec<(usize, usize)>,
+    /// Precomputed neighbor indices for each revealed cell.
+    /// For each revealed cell, stores the indices into `unrevealed` of its
+    /// neighboring unrevealed cells, along with the expected mine count.
+    #[serde(skip)]
+    neighbor_cache: Vec<(Vec<usize>, u8)>,
 }
 
 impl Minesweeper {
+    /// Build the neighbor cache: for each revealed cell, find which unrevealed
+    /// cell indices are its neighbors.
+    fn build_neighbor_cache(
+        rows: usize,
+        cols: usize,
+        revealed: &[(usize, usize, u8)],
+        unrevealed: &[(usize, usize)],
+    ) -> Vec<(Vec<usize>, u8)> {
+        let pos_to_idx: HashMap<(usize, usize), usize> = unrevealed
+            .iter()
+            .enumerate()
+            .map(|(i, &(r, c))| ((r, c), i))
+            .collect();
+
+        let deltas: [(i32, i32); 8] = [
+            (-1, -1),
+            (-1, 0),
+            (-1, 1),
+            (0, -1),
+            (0, 1),
+            (1, -1),
+            (1, 0),
+            (1, 1),
+        ];
+
+        revealed
+            .iter()
+            .map(|&(r, c, count)| {
+                let neighbors: Vec<usize> = deltas
+                    .iter()
+                    .filter_map(|&(dr, dc)| {
+                        let nr = r as i32 + dr;
+                        let nc = c as i32 + dc;
+                        if nr >= 0
+                            && nr < rows as i32
+                            && nc >= 0
+                            && nc < cols as i32
+                        {
+                            pos_to_idx.get(&(nr as usize, nc as usize)).copied()
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                (neighbors, count)
+            })
+            .collect()
+    }
+
     /// Create a new Minesweeper Consistency problem.
     ///
     /// # Arguments
@@ -78,7 +161,7 @@ impl Minesweeper {
         revealed: Vec<(usize, usize, u8)>,
         unrevealed: Vec<(usize, usize)>,
     ) -> Self {
-        let mut all_positions = std::collections::HashSet::new();
+        let mut all_positions = HashSet::new();
         for &(r, c, count) in &revealed {
             assert!(
                 r < rows && c < cols,
@@ -100,11 +183,13 @@ impl Minesweeper {
                 "Position ({r}, {c}) appears in both revealed and unrevealed cells"
             );
         }
+        let neighbor_cache = Self::build_neighbor_cache(rows, cols, &revealed, &unrevealed);
         Self {
             rows,
             cols,
             revealed,
             unrevealed,
+            neighbor_cache,
         }
     }
 
@@ -147,42 +232,13 @@ impl Problem for Minesweeper {
             return false;
         }
 
-        // Build position -> index map for unrevealed cells
-        let pos_to_idx: HashMap<(usize, usize), usize> = self
-            .unrevealed
-            .iter()
-            .enumerate()
-            .map(|(i, &(r, c))| ((r, c), i))
-            .collect();
-
-        // Neighbor offsets (8-connected)
-        let deltas: [(i32, i32); 8] = [
-            (-1, -1),
-            (-1, 0),
-            (-1, 1),
-            (0, -1),
-            (0, 1),
-            (1, -1),
-            (1, 0),
-            (1, 1),
-        ];
-
-        // Check each revealed cell's constraint
-        for &(r, c, count) in &self.revealed {
-            let mut mine_count: u8 = 0;
-            for &(dr, dc) in &deltas {
-                let nr = r as i32 + dr;
-                let nc = c as i32 + dc;
-                if nr >= 0 && nr < self.rows as i32 && nc >= 0 && nc < self.cols as i32 {
-                    let pos = (nr as usize, nc as usize);
-                    if let Some(&idx) = pos_to_idx.get(&pos) {
-                        if config[idx] == 1 {
-                            mine_count += 1;
-                        }
-                    }
-                }
-            }
-            if mine_count != count {
+        // Use precomputed neighbor cache for O(1) lookups per neighbor.
+        for (neighbors, count) in &self.neighbor_cache {
+            let mine_count: u8 = neighbors
+                .iter()
+                .filter(|&&idx| config[idx] == 1)
+                .count() as u8;
+            if mine_count != *count {
                 return false;
             }
         }

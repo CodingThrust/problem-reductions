@@ -458,11 +458,22 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 .cols
                 .ok_or_else(|| anyhow::anyhow!("Minesweeper requires --cols"))?;
             let revealed = parse_revealed(args)?;
-            let revealed_positions: std::collections::HashSet<(usize, usize)> =
-                revealed.iter().map(|&(r, c, _)| (r, c)).collect();
+            // Validate revealed cells before calling Minesweeper::new()
+            let mut seen = std::collections::HashSet::new();
+            for &(r, c, count) in &revealed {
+                if r >= rows || c >= cols {
+                    bail!("Revealed cell ({r}, {c}) is out of bounds for {rows}x{cols} grid");
+                }
+                if count > 8 {
+                    bail!("Mine count {count} at ({r}, {c}) exceeds maximum of 8");
+                }
+                if !seen.insert((r, c)) {
+                    bail!("Duplicate revealed cell at ({r}, {c})");
+                }
+            }
             let unrevealed: Vec<(usize, usize)> = (0..rows)
                 .flat_map(|r| (0..cols).map(move |c| (r, c)))
-                .filter(|pos| !revealed_positions.contains(pos))
+                .filter(|pos| !seen.contains(pos))
                 .collect();
             (
                 ser(Minesweeper::new(rows, cols, revealed, unrevealed))?,
