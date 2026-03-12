@@ -87,6 +87,9 @@ impl<W: Clone + Default> MinimumFeedbackVertexSet<W> {
 
     /// Check if a configuration is a valid feedback vertex set.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        if config.len() != self.graph.num_vertices() {
+            return false;
+        }
         let keep: Vec<bool> = config.iter().map(|&c| c == 0).collect();
         self.graph.induced_subgraph(&keep).is_dag()
     }
@@ -125,6 +128,9 @@ where
     }
 
     fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
+        if config.len() != self.graph.num_vertices() {
+            return SolutionSize::Invalid;
+        }
         // keep[v] = true if vertex v is NOT selected for removal
         let keep: Vec<bool> = config.iter().map(|&c| c == 0).collect();
         let subgraph = self.graph.induced_subgraph(&keep);

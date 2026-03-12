@@ -467,13 +467,25 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     ))
                 })
                 .collect::<Result<Vec<_>>>()?;
-            let num_v = arcs
+            let inferred_num_v = arcs
                 .iter()
                 .flat_map(|&(u, v)| [u, v])
                 .max()
                 .map(|m| m + 1)
                 .unwrap_or(0);
-            let num_v = args.num_vertices.unwrap_or(num_v);
+            let num_v = match args.num_vertices {
+                Some(user_num_v) => {
+                    anyhow::ensure!(
+                        user_num_v >= inferred_num_v,
+                        "--num-vertices ({}) is too small for the arcs: need at least {} to cover vertices up to {}",
+                        user_num_v,
+                        inferred_num_v,
+                        inferred_num_v.saturating_sub(1),
+                    );
+                    user_num_v
+                }
+                None => inferred_num_v,
+            };
             let graph = DirectedGraph::new(num_v, arcs);
             let weights = parse_vertex_weights(args, num_v)?;
             (
