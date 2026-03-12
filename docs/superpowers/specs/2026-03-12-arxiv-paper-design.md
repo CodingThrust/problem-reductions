@@ -80,11 +80,13 @@ How creative/judgment work distributes across human roles, with management and e
 
 A skill is a markdown script that decomposes a complex task into agent-manageable subtasks. Key insight: if a task is small and explicit enough, agents handle it well.
 
-Skills inventory (11 skills, grouped by function):
+Skills inventory (13 skills, grouped by function):
 
 **Orchestration skills** (agent-as-manager):
-- **issue-to-pr**: The main entry point. Receives a GitHub issue, classifies it (model vs. rule), dispatches to the appropriate implementation skill, and creates a PR. This is the skill that enables card-based automation — the manager agent picks a card and invokes this.
-- **meta-power**: Batch mode. Resolves all open issues autonomously in dependency order (models before rules that reference them). Experimental — not yet proven at scale.
+- **project-pipeline**: The primary card-based automation skill. Picks a "Ready" issue from the GitHub Project board, moves it to "In Progress", runs `issue-to-pr --execute` in an isolated git worktree, then moves to "review-agentic". Supports single-issue, specific-issue, and `--all` batch modes. Processes Models before Rules to satisfy dependencies.
+- **review-pipeline**: Second-stage orchestration. Picks a PR from the "review-agentic" column, fixes Copilot review comments, runs agentic feature tests, fixes CI (up to 3 retries), then moves to "In Review" for human merge. Also supports batch mode.
+- **issue-to-pr**: The per-issue entry point invoked by `project-pipeline`. Receives a GitHub issue, classifies it (model vs. rule), dispatches to the appropriate implementation skill, and creates a PR.
+- **meta-power**: Batch mode alternative. Resolves all open issues autonomously in dependency order. Experimental — being superseded by the pipeline skills above.
 
 **Implementation skills** (agent-as-executor):
 - **add-model**: Brainstorm (if interactive) → implement Problem trait → unit tests → serialization tests → review.
@@ -107,12 +109,17 @@ Table 1: Skills inventory — trigger condition, inputs, outputs, typical agent 
 
 #### 4.3 Card-Based Orchestration
 
-- GitHub project board serves as the coordination mechanism.
-- A manager agent auto-picks the next card and drives it through the skill pipeline.
-- The maintainer's creative input: moving cards between columns ("Backlog" → "Ready" → "In Progress"). This is the strategic decision of what to work on next.
-- The agent handles the tactical decisions: which skill to invoke, how to decompose subtasks, when to dispatch sub-agents.
+- GitHub Project board with columns: Backlog → Ready → In Progress → review-agentic → In Review → Done.
+- **Two-stage agent pipeline:**
+  - Stage 1 (`project-pipeline`): picks Ready card → moves to In Progress → runs issue-to-pr in isolated worktree → moves to review-agentic.
+  - Stage 2 (`review-pipeline`): picks review-agentic card → fixes Copilot comments → runs agentic feature tests → fixes CI (up to 3 retries) → moves to In Review.
+- **Human touches only two transitions:**
+  - Backlog → Ready (maintainer decides what to work on next — the creative/strategic decision).
+  - In Review → Done (maintainer merges after final review — the quality gate).
+- The agent handles everything in between: worktree creation, implementation, testing, review, CI fixing, board status updates.
+- Batch mode (`--all`) processes all Ready issues or all review-agentic PRs in a single invocation, with Models before Rules to satisfy dependencies.
 
-Figure 3: Pipeline diagram — contributor opens issue → check-issue validates → maintainer moves card → agent picks card → add-rule implements → review-implementation checks → fix-pr resolves issues → PR merged.
+Figure 3: Pipeline diagram — two-stage card flow: contributor opens issue → [Backlog] → maintainer moves to [Ready] → agent: project-pipeline [In Progress → review-agentic] → agent: review-pipeline [In Review] → maintainer merges [Done]. Human decisions highlighted in distinct color.
 
 ### S5. Multi-Layered Verification (~1.5 pages)
 
