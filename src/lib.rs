@@ -40,7 +40,7 @@ pub mod prelude {
     // Problem types
     pub use crate::models::algebraic::{BMF, QUBO};
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
-    pub use crate::models::graph::{BicliqueCover, SpinGlass};
+    pub use crate::models::graph::{BicliqueCover, SpinGlass, SubgraphIsomorphism};
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumDominatingSet, MinimumVertexCover, TravelingSalesman,

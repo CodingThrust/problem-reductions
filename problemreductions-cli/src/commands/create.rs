@@ -45,6 +45,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.pattern.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -83,6 +84,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         _ => "",
     }
 }
@@ -438,6 +440,44 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SubgraphIsomorphism
+        "SubgraphIsomorphism" => {
+            let (host_graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create SubgraphIsomorphism --graph 0-1,1-2,2-0 --pattern 0-1"
+                )
+            })?;
+            let pattern_str = args.pattern.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubgraphIsomorphism requires --pattern (pattern graph edges)\n\n\
+                     Usage: pred create SubgraphIsomorphism --graph 0-1,1-2,2-0 --pattern 0-1"
+                )
+            })?;
+            let pattern_edges: Vec<(usize, usize)> = pattern_str
+                .split(',')
+                .map(|pair| {
+                    let parts: Vec<&str> = pair.trim().split('-').collect();
+                    if parts.len() != 2 {
+                        bail!("Invalid edge '{}': expected format u-v", pair.trim());
+                    }
+                    let u: usize = parts[0].parse()?;
+                    let v: usize = parts[1].parse()?;
+                    Ok((u, v))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let pattern_nv = pattern_edges
+                .iter()
+                .flat_map(|(u, v)| [*u, *v])
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0);
+            let pattern_graph = SimpleGraph::new(pattern_nv, pattern_edges);
+            (
+                ser(SubgraphIsomorphism::new(host_graph, pattern_graph))?,
                 resolved_variant.clone(),
             )
         }

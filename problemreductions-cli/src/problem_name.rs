@@ -52,6 +52,7 @@ pub fn resolve_alias(input: &str) -> String {
         "binpacking" => "BinPacking".to_string(),
         "cvp" | "closestvectorproblem" => "ClosestVectorProblem".to_string(),
         "knapsack" => "Knapsack".to_string(),
+        "subgraphisomorphism" => "SubgraphIsomorphism".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
 }

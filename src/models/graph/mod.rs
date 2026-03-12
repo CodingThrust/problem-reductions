@@ -12,6 +12,7 @@
 //! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
+//! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
 
 pub(crate) mod biclique_cover;
 pub(crate) mod kcoloring;
@@ -23,6 +24,7 @@ pub(crate) mod maximum_matching;
 pub(crate) mod minimum_dominating_set;
 pub(crate) mod minimum_vertex_cover;
 pub(crate) mod spin_glass;
+pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
 
 pub use biclique_cover::BicliqueCover;
@@ -35,4 +37,5 @@ pub use maximum_matching::MaximumMatching;
 pub use minimum_dominating_set::MinimumDominatingSet;
 pub use minimum_vertex_cover::MinimumVertexCover;
 pub use spin_glass::SpinGlass;
+pub use subgraph_isomorphism::SubgraphIsomorphism;
 pub use traveling_salesman::TravelingSalesman;
