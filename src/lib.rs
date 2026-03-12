@@ -17,6 +17,8 @@
 //!
 //! Use [`prelude`] for convenient imports.
 
+pub(crate) mod big_o;
+pub(crate) mod canonical;
 pub mod config;
 pub mod error;
 pub mod export;
@@ -41,9 +43,9 @@ pub mod prelude {
     pub use crate::models::graph::{BicliqueCover, GraphPartitioning, SpinGlass};
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumDominatingSet, MinimumVertexCover, TravelingSalesman,
+        MinimumDominatingSet, MinimumFeedbackVertexSet, MinimumVertexCover, TravelingSalesman,
     };
-    pub use crate::models::misc::{BinPacking, Factoring, Knapsack, PaintShop};
+    pub use crate::models::misc::{BinPacking, Factoring, Knapsack, PaintShop, SubsetSum};
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
 
     // Core traits
@@ -57,8 +59,10 @@ pub mod prelude {
 }
 
 // Re-export commonly used items at crate root
+pub use big_o::big_o_normal_form;
+pub use canonical::canonical_form;
 pub use error::{ProblemError, Result};
-pub use expr::{asymptotic_normal_form, AsymptoticAnalysisError};
+pub use expr::{asymptotic_normal_form, AsymptoticAnalysisError, CanonicalizationError, Expr};
 pub use registry::{ComplexityClass, ProblemInfo};
 pub use solvers::{BruteForce, Solver};
 pub use traits::{OptimizationProblem, Problem, SatisfactionProblem};

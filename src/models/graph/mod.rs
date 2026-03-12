@@ -5,6 +5,7 @@
 //! - [`MaximalIS`]: Maximal independent set
 //! - [`MinimumVertexCover`]: Minimum weight vertex cover
 //! - [`MinimumDominatingSet`]: Minimum dominating set
+//! - [`MinimumFeedbackVertexSet`]: Minimum weight feedback vertex set in a directed graph
 //! - [`MaximumClique`]: Maximum weight clique
 //! - [`MaxCut`]: Maximum cut on weighted graphs
 //! - [`GraphPartitioning`]: Minimum bisection (balanced graph partitioning)
@@ -23,6 +24,7 @@ pub(crate) mod maximum_clique;
 pub(crate) mod maximum_independent_set;
 pub(crate) mod maximum_matching;
 pub(crate) mod minimum_dominating_set;
+pub(crate) mod minimum_feedback_vertex_set;
 pub(crate) mod minimum_vertex_cover;
 pub(crate) mod spin_glass;
 pub(crate) mod traveling_salesman;
@@ -36,6 +38,7 @@ pub use maximum_clique::MaximumClique;
 pub use maximum_independent_set::MaximumIndependentSet;
 pub use maximum_matching::MaximumMatching;
 pub use minimum_dominating_set::MinimumDominatingSet;
+pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
 pub use minimum_vertex_cover::MinimumVertexCover;
 pub use spin_glass::SpinGlass;
 pub use traveling_salesman::TravelingSalesman;

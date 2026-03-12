@@ -15,6 +15,9 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [check-issue](skills/check-issue/SKILL.md) -- Quality gate for `[Rule]` and `[Model]` issues. Checks usefulness, non-triviality, correctness of literature, and writing quality. Posts structured report and adds failure labels.
 - [check-rule-redundancy](skills/check-rule-redundancy/SKILL.md) -- Check if a reduction rule (source-target pair) is redundant, i.e., dominated by a composite path through other rules.
 - [meta-power](skills/meta-power/SKILL.md) -- Batch-resolve all open `[Model]` and `[Rule]` issues autonomously: plan, implement, review, fix CI, merge — in dependency order (models first).
+- [project-pipeline](skills/project-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr --execute -> review-agentic.
+- [review-pipeline](skills/review-pipeline/SKILL.md) -- Pick a PR from review-agentic column, fix Copilot review comments, fix CI, run agentic feature tests, move to In Review.
+- [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
 
 ## Commands
 ```bash
@@ -42,6 +45,10 @@ make cli-demo      # Run closed-loop CLI demo (exercises all commands)
 make mcp-test      # Run MCP server tests (unit + integration)
 make run-plan      # Execute a plan with Claude autorun
 make run-issue N=42 # Run issue-to-pr --execute for a GitHub issue
+make run-pipeline  # Pick next Ready issue from project board, implement, move to review-agentic
+make run-pipeline N=97 # Process a specific issue from the project board
+make run-review    # Pick next PR from review-agentic column, fix Copilot comments, fix CI, run agentic tests
+make run-review N=570 # Process a specific PR from the review-agentic column
 make copilot-review # Request Copilot code review on current PR
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 ```

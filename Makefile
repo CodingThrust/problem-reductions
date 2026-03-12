@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue diagrams jl-testdata cli cli-demo copilot-review
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-review diagrams jl-testdata cli cli-demo copilot-review
 
 # Default target
 help:
@@ -29,6 +29,8 @@ help:
 	@echo "  cli-demo     - Run closed-loop CLI demo (build + exercise all commands)"
 	@echo "  run-plan   - Execute a plan with Claude autorun (latest plan in docs/plans/)"
 	@echo "  run-issue N=<number> - Run issue-to-pr --execute for a GitHub issue"
+	@echo "  run-pipeline [N=<number>] - Pick a Ready issue, implement, move to review-agentic"
+	@echo "  run-review [N=<number>] - Pick PR from review-agentic, fix comments/CI, run agentic tests"
 	@echo "  copilot-review - Request Copilot code review on current PR"
 
 # Build the project
@@ -360,6 +362,35 @@ cli-demo: cli
 	echo ""; \
 	echo "=== Demo complete: $$(ls $(CLI_DEMO_DIR)/*.json | wc -l | tr -d ' ') JSON files in $(CLI_DEMO_DIR) ==="
 	@echo "=== All 20 steps passed ✅ ==="
+
+# Run project-pipeline: pick a Ready issue, implement, move to In Review
+# Usage: make run-pipeline          (picks next Ready issue automatically)
+#        make run-pipeline N=97     (processes specific issue)
+run-pipeline:
+	@if [ -n "$(N)" ]; then \
+		PROMPT="/project-pipeline $(N)"; \
+	else \
+		PROMPT="/project-pipeline"; \
+	fi; \
+	claude --dangerously-skip-permissions \
+		--model opus \
+		--verbose \
+		--max-turns 500 \
+		-p "$$PROMPT" 2>&1 | tee "pipeline-output.log"
+
+# Usage: make run-review          (picks next review-agentic PR automatically)
+#        make run-review N=570    (processes specific PR)
+run-review:
+	@if [ -n "$(N)" ]; then \
+		PROMPT="/review-pipeline $(N)"; \
+	else \
+		PROMPT="/review-pipeline"; \
+	fi; \
+	claude --dangerously-skip-permissions \
+		--model opus \
+		--verbose \
+		--max-turns 500 \
+		-p "$$PROMPT" 2>&1 | tee "review-output.log"
 
 # Request Copilot code review on the current PR
 # Requires: gh extension install ChrisCarini/gh-copilot-review

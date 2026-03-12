@@ -25,7 +25,7 @@ Before any implementation, collect all required information. If called from `iss
 | 8 | **Objective function** | How to compute the metric | "Sum of weights of selected vertices" |
 | 9 | **Best known exact algorithm** | Complexity with variable definitions | "O(1.1996^n) by Xiao & Nagamochi (2017), where n = \|V\|" |
 | 10 | **Solving strategy** | How it can be solved | "BruteForce works; ILP reduction available" |
-| 11 | **Category** | Which sub-module under `src/models/` | `graph`, `optimization`, `satisfiability`, `set`, `specialized` |
+| 11 | **Category** | Which sub-module under `src/models/` | `graph`, `formula`, `set`, `algebraic`, `misc` |
 
 If any item is missing, ask the user to provide it. Do NOT proceed until the checklist is complete.
 
@@ -33,7 +33,7 @@ If any item is missing, ask the user to provide it. Do NOT proceed until the che
 
 Read these first to understand the patterns:
 - **Optimization problem:** `src/models/graph/maximum_independent_set.rs`
-- **Satisfaction problem:** `src/models/satisfiability/sat.rs`
+- **Satisfaction problem:** `src/models/formula/sat.rs`
 - **Model tests:** `src/unit_tests/models/graph/maximum_independent_set.rs`
 - **Trait definitions:** `src/traits.rs` (`Problem`, `OptimizationProblem`, `SatisfactionProblem`)
 - **CLI dispatch:** `problemreductions-cli/src/dispatch.rs`
@@ -42,11 +42,11 @@ Read these first to understand the patterns:
 ## Step 1: Determine the category
 
 Choose the appropriate sub-module under `src/models/`:
-- `graph/` -- problems defined on graphs (vertex/edge selection)
-- `optimization/` -- generic optimization formulations (QUBO, ILP, SpinGlass)
-- `satisfiability/` -- boolean satisfaction problems (SAT, k-SAT)
+- `graph/` -- problems defined on graphs (vertex/edge selection, SpinGlass, etc.)
+- `formula/` -- logical formulas and circuits (SAT, k-SAT, CircuitSAT)
 - `set/` -- set-based problems (set packing, set cover)
-- `specialized/` -- problems that don't fit other categories (factoring, circuit, paintshop)
+- `algebraic/` -- matrices, linear systems, lattices (QUBO, ILP, CVP, BMF)
+- `misc/` -- unique input structures that don't fit other categories (BinPacking, PaintShop, Factoring)
 
 ## Step 1.5: Infer problem size getters
 
@@ -135,7 +135,7 @@ Update `problemreductions-cli/src/commands/create.rs` so `pred create <ProblemNa
 
 2. **Add CLI flags** in `problemreductions-cli/src/cli.rs` (`CreateArgs` struct) if the problem needs flags not already present. Update `all_data_flags_empty()` accordingly.
 
-3. **Update help text** in `CreateArgs`'s `after_help` to document the new problem's flags.
+3. **Update help text** in `CreateArgs`'s `after_help` — add the new problem to the "Flags by problem type" table in `problemreductions-cli/src/cli.rs` (search for `Flags by problem type`).
 
 4. **Schema alignment**: The `ProblemSchemaEntry` fields should list **constructor parameters** (what the user provides), not internal derived fields. For example, if `m` and `n` are derived from a matrix, only list `matrix` and `k` in the schema.
 
@@ -185,4 +185,5 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 | Forgetting CLI alias | Must add lowercase entry in `problem_name.rs` `resolve_alias()` |
 | Inventing short aliases | Only use well-established literature abbreviations (MIS, SAT, TSP); do NOT invent new ones |
 | Forgetting CLI create | Must add creation handler in `commands/create.rs` and flags in `cli.rs` |
+| Missing from CLI help table | Must add entry to "Flags by problem type" table in `cli.rs` `after_help` |
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |

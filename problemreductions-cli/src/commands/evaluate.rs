@@ -31,6 +31,15 @@ pub fn evaluate(input: &Path, config_str: &str, out: &OutputConfig) -> Result<()
         );
     }
 
+    for (i, (val, dim)) in config.iter().zip(dims.iter()).enumerate() {
+        if *val >= *dim {
+            anyhow::bail!(
+                "Config value {} at position {} is out of range: variable {} has {} possible values (0..{})",
+                val, i, i, dim, dim.saturating_sub(1)
+            );
+        }
+    }
+
     let result = problem.evaluate_dyn(&config);
 
     let text = result.to_string();
