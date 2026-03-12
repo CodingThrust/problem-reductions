@@ -103,7 +103,7 @@ where
             return SolutionSize::Invalid;
         }
         // Balanced bisection requires even n
-        if n % 2 != 0 {
+        if !n.is_multiple_of(2) {
             return SolutionSize::Invalid;
         }
         // Check balanced: exactly n/2 vertices in partition 1
