@@ -7,6 +7,7 @@
 //! - [`MinimumDominatingSet`]: Minimum dominating set
 //! - [`MaximumClique`]: Maximum weight clique
 //! - [`MaxCut`]: Maximum cut on weighted graphs
+//! - [`GraphPartitioning`]: Minimum bisection (balanced graph partitioning)
 //! - [`KColoring`]: K-vertex coloring
 //! - [`MaximumMatching`]: Maximum weight matching
 //! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
@@ -14,6 +15,7 @@
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 
 pub(crate) mod biclique_cover;
+pub(crate) mod graph_partitioning;
 pub(crate) mod kcoloring;
 pub(crate) mod max_cut;
 pub(crate) mod maximal_is;
@@ -26,6 +28,7 @@ pub(crate) mod spin_glass;
 pub(crate) mod traveling_salesman;
 
 pub use biclique_cover::BicliqueCover;
+pub use graph_partitioning::GraphPartitioning;
 pub use kcoloring::KColoring;
 pub use max_cut::MaxCut;
 pub use maximal_is::MaximalIS;
