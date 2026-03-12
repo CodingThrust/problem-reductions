@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
+use problemreductions::models::algebraic::{ClosestVectorProblem, MultivariateQuadratic, ILP};
 use problemreductions::models::misc::{BinPacking, Knapsack};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
@@ -245,6 +245,7 @@ pub fn load_problem(
             _ => deser_opt::<ClosestVectorProblem<i32>>(data),
         },
         "Knapsack" => deser_opt::<Knapsack>(data),
+        "MultivariateQuadratic" => deser_sat::<MultivariateQuadratic>(data),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
@@ -305,6 +306,7 @@ pub fn serialize_any_problem(
             _ => try_ser::<ClosestVectorProblem<i32>>(any),
         },
         "Knapsack" => try_ser::<Knapsack>(any),
+        "MultivariateQuadratic" => try_ser::<MultivariateQuadratic>(any),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }

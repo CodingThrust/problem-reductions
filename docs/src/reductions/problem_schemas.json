@@ -334,6 +334,27 @@
     ]
   },
   {
+    "name": "MultivariateQuadratic",
+    "description": "Satisfy a system of multivariate quadratic equations over a finite field",
+    "fields": [
+      {
+        "name": "field_size",
+        "type_name": "usize",
+        "description": "Size of finite field q"
+      },
+      {
+        "name": "num_variables",
+        "type_name": "usize",
+        "description": "Number of variables n"
+      },
+      {
+        "name": "equations",
+        "type_name": "Vec<QuadraticPoly>",
+        "description": "System of quadratic polynomials"
+      }
+    ]
+  },
+  {
     "name": "PaintShop",
     "description": "Minimize color changes in paint shop sequence",
     "fields": [
