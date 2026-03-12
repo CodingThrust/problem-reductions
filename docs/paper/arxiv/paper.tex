@@ -24,6 +24,64 @@ AI coding agents achieve 70--80\% on single-issue benchmarks like SWE-Bench Veri
 
 \section{Introduction}\label{sec:intro}
 
+AI coding agents have made remarkable progress on isolated software engineering tasks.
+On SWE-Bench Verified, which evaluates agents on single-issue bug fixes drawn from popular open-source repositories, the best systems now resolve 70--80\% of issues end-to-end~\cite{Xia2025LiveSWEagent}.
+This has fueled optimism that fully autonomous software engineering is within reach.
+Yet benchmarks designed to probe longer-horizon capabilities tell a starkly different story.
+SWE-EVO, which requires agents to implement multi-step modifications spanning an average of 21~files, reports resolution rates around 21\% even for frontier models~\cite{Thai2025SWEEVO}.
+SWE-Bench Pro, targeting enterprise-level tasks that may require hours to days of human effort, similarly finds that agents struggle with sustained multi-file reasoning~\cite{Deng2025SWEBenchPro}.
+The common response to this capability gap has been to push for more powerful agents---larger models, better tool use, self-evolving scaffolds.
+We argue that this framing overlooks the more fundamental bottleneck: not raw agent capability, but how work is decomposed and distributed between humans and agents.
+
+Our thesis is that the key to effective agentic coding lies in \emph{task decomposition}: splitting the creative and judgment-intensive aspects of software development (which humans do well) from the management and mechanical aspects (which agents can handle reliably).
+When a task is sufficiently well-specified and bounded in scope, even current agents execute it with high fidelity.
+The challenge is not making agents smarter, but structuring the work so that each unit falls within the agent's reliable operating range.
+This perspective shifts attention from agent architecture to \emph{skill design}---the craft of encoding domain knowledge into reusable, agent-executable task specifications.
+
+This decomposition is especially critical for mathematical and scientific software, where the ``review is harder than generation'' problem is acute~\cite{Roychoudhury2025AgenticAI}.
+An agent can generate a plausible-looking reduction from Boolean satisfiability to graph coloring, but verifying that the reduction preserves solution structure requires mathematical reasoning that current agents cannot reliably perform in isolation.
+Roychoudhury~\cite{Roychoudhury2025AgenticAI} identifies specification inference---deciphering and clarifying developer intent---as the central difficulty in agentic software workflows, and argues that trustworthy deployment requires AI-based verification and validation of AI-generated code.
+Our multi-layered verification stack addresses precisely this challenge: rather than attempting end-to-end formal verification (which remains largely unsolved for complex mathematical code~\cite{Thakur2025CLEVER, Bursuc2025VeriCoding}), we compose multiple lightweight verification mechanisms that collectively catch errors across different abstraction levels.
+
+We instantiate this methodology in the domain of NP-hard problem reductions, implemented as an open-source Rust library.
+The library manages a typed reduction graph connecting 24 problem types through 40 hand-coded reduction rule implementations and 52 total directed edges (including 12 edges inferred from a type-parameter subtype lattice).
+The domain serves as a Goldilocks testbed for studying agentic coding: each reduction is self-contained (50--200 lines of code), requires non-trivial mathematical reasoning about the mapping between problem structures, yet admits a fully automatable correctness criterion---reduce an instance, solve the target problem by brute force, extract the solution back, and verify it against the source.
+This combination of mathematical depth with mechanical verifiability makes it possible to study how agents perform on tasks that are individually tractable but collectively demand sustained engineering discipline.
+
+Our approach distributes work across three roles with distinct responsibilities.
+\textbf{Contributors} perform the creative work of identifying which problems and reductions are worth implementing: they open issues proposing new nodes or edges in the reduction graph, drawing on domain knowledge to spot gaps, recognize useful connections, and assess mathematical non-triviality.
+\textbf{The maintainer} curates the project board and writes skills---markdown scripts that decompose complex tasks (such as ``implement a new reduction rule'') into sequences of agent-manageable subtasks.
+The maintainer encodes domain knowledge, quality standards, and project conventions into these skills, effectively programming the agent's workflow rather than its output.
+\textbf{Agents} serve in a dual capacity: as \emph{managers}, they pick cards from the project board, dispatch sub-agents for parallel review, and orchestrate a two-stage pipeline from issue to merged pull request; as \emph{executors}, they implement code, write tests, generate documentation, and fix CI failures.
+The key insight is that the two human roles contribute \emph{judgment}---which reductions matter, what quality bar to enforce---while the agent handles \emph{volume}---executing the mechanical steps reliably and repeatedly.
+Industry data supports this division: developers now use AI in 60\% of their work while maintaining active oversight on 80--100\% of delegated tasks~\cite{Anthropic2026AgenticCoding}.
+
+We organize our agent's capabilities into a library of 13~skills spanning five functional categories: orchestration (pipeline management and issue dispatch), implementation (adding models and reduction rules), quality gates (issue checking, redundancy analysis, multi-agent review, and CI repair), documentation (generating formal problem definitions and reduction theorems with proof sketches), and release management.
+A two-stage card-based pipeline automates the progression from issue to merged code: the first stage picks a ``Ready'' issue, implements it in an isolated git worktree, and produces a pull request; the second stage addresses review comments, fixes CI failures, and prepares the PR for human merge.
+The human maintainer touches only two transitions in this pipeline---moving an issue from Backlog to Ready (the strategic decision of \emph{what} to work on) and merging the final pull request (the quality gate of \emph{whether} the work meets standards).
+Everything in between is agent-managed.
+
+Correctness assurance comes from a seven-layer verification stack that catches errors at increasing levels of abstraction.
+The stack ranges from compile-time type checking (Layer~1), through unit tests and brute-force cross-validation (Layers~2--3), to overhead formula validation against actual reduction sizes (Layer~4), materialized test fixtures that prevent agents from silently changing expected values (Layer~5), parallel agentic review with fresh context windows (Layer~6), and finally, documentation entries that require human-readable proof sketches for each reduction (Layer~7).
+No single layer is sufficient---the type system catches API misuse but not logical errors; closed-loop tests verify functional correctness but not overhead formulas; documentation catches proof-level mistakes that no automated test can detect.
+The layers are designed to be complementary, and the skill system ensures that agents invoke all relevant layers as part of every implementation task.
+
+Our contributions are as follows:
+\begin{itemize}
+  \item A \textbf{skill-based methodology} for decomposing mathematical coding tasks into agent-manageable steps, with a concrete skill library and a card-based orchestration pipeline that separates human judgment from agent execution.
+  \item A \textbf{multi-layered verification stack} comprising seven complementary mechanisms---from type-level enforcement through materialized fixtures to agentic review and documentation-as-verification---that collectively ensure correctness of agent-generated mathematical code.
+  \item A \textbf{verified open-source artifact}: a Rust library implementing 24~NP-hard problem types, 40~reduction rules, and 52~graph edges, all with ${>}95\%$ test coverage, serving as both a practical tool for reduction-based problem solving and a benchmark for evaluating agentic mathematical software engineering.
+\end{itemize}
+
+The remainder of this paper is organized as follows.
+\Cref{sec:domain} motivates our choice of NP-hard reductions as a study domain, arguing that it occupies a sweet spot between mathematical complexity and mechanical verifiability.
+\Cref{sec:architecture} describes the Rust library's type-driven architecture that makes agent-generated code verifiable by construction.
+\Cref{sec:skills} presents the skill-based task decomposition, the three-role model, and the card-based orchestration pipeline.
+\Cref{sec:verification} details the seven-layer verification stack.
+\Cref{sec:evaluation} evaluates the methodology through an ablation study, git history mining, and detailed case studies.
+\Cref{sec:related} surveys related work on AI coding agents, AI-assisted discovery of reductions, and formal verification of generated code.
+\Cref{sec:conclusion} discusses generalizability, limitations, and future directions.
+
 \section{Why Reductions? The Goldilocks Domain}\label{sec:domain}
 
 \begin{figure*}[t]
