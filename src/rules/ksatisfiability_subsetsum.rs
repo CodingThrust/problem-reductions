@@ -31,9 +31,9 @@ impl ReductionResult for Reduction3SATToSubsetSum {
     }
 
     fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        // Variable integers are the first 2n elements: y_1, z_1, y_2, z_2, ...
-        // If y_i is selected (index 2*(i-1) = 1), set x_i = 1
-        // If z_i is selected (index 2*(i-1)+1 = 1), set x_i = 0
+        // Variable integers are the first 2n elements in 0-based indexing:
+        // for variable i (0 <= i < n), y_i is stored at index 2*i and z_i at index 2*i + 1.
+        // If y_i is selected (target_solution[2*i] == 1), set x_i = 1; otherwise x_i = 0.
         (0..self.source_num_vars)
             .map(|i| {
                 let y_selected = target_solution[2 * i] == 1;
