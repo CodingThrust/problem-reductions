@@ -1,5 +1,6 @@
 use super::*;
-use crate::solvers::{BruteForce, ILPSolver};
+use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::traits::Problem;
 
 #[test]
 fn test_lcs_to_ilp_issue_example() {
