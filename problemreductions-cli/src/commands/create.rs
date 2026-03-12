@@ -5,7 +5,7 @@ use crate::problem_name::{parse_problem_spec, resolve_variant};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::misc::{BinPacking, PaintShop};
+use problemreductions::models::misc::{BinPacking, PaintShop, SubsetSum};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -331,6 +331,27 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     resolved_variant.clone(),
                 )
             }
+        }
+
+        // SubsetSum
+        "SubsetSum" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubsetSum requires --sizes and --target\n\n\
+                     Usage: pred create SubsetSum --sizes 3,7,1,8,2,4 --target 11"
+                )
+            })?;
+            let target = args.target.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubsetSum requires --target\n\n\
+                     Usage: pred create SubsetSum --sizes 3,7,1,8,2,4 --target 11"
+                )
+            })?;
+            let sizes: Vec<u64> = util::parse_comma_list(sizes_str)?;
+            (
+                ser(SubsetSum::new(sizes, target))?,
+                resolved_variant.clone(),
+            )
         }
 
         // PaintShop

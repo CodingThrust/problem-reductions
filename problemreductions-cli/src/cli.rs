@@ -210,6 +210,7 @@ Flags by problem type:
   KColoring                       --graph, --k
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
+  SubsetSum                       --sizes, --target
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]

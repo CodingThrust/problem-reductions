@@ -398,6 +398,22 @@
     ]
   },
   {
+    "name": "SubsetSum",
+    "description": "Decide if a subset of positive integers sums to a target value",
+    "fields": [
+      {
+        "name": "sizes",
+        "type_name": "Vec<u64>",
+        "description": "Positive integer size s(a) for each element a in A"
+      },
+      {
+        "name": "target",
+        "type_name": "u64",
+        "description": "Target sum B"
+      }
+    ]
+  },
+  {
     "name": "TravelingSalesman",
     "description": "Find minimum weight Hamiltonian cycle in a graph (Traveling Salesman Problem)",
     "fields": [
