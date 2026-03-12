@@ -43,7 +43,7 @@ fn test_maximumindependentset_to_ilp_via_path_structure() {
     );
     assert_eq!(
         path.type_names(),
-        vec!["MaximumIndependentSet", "MaximumSetPacking", "ILP"]
+        vec!["MaximumIndependentSet", "MaximumClique", "ILP"]
     );
     assert_eq!(ilp.num_vars, 3);
     assert_eq!(ilp.constraints.len(), 3);
