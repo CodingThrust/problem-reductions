@@ -19,7 +19,7 @@ A Case Study in NP-Hard Problem Reductions}
 \maketitle
 
 \begin{abstract}
-AI coding agents achieve 70--80\% on single-issue benchmarks like SWE-Bench Verified, but their success rate drops below 25\% on long-horizon software evolution tasks that demand sustained mathematical reasoning across many files. We address this gap by decomposing agentic coding into two complementary roles: human-creative work (designing reduction proofs, choosing algorithms, writing specifications) and agent-managed execution (scaffolding, testing, verification, and integration). Our method centers on a library of 13 reusable skills---from issue triage through implementation to multi-layered review---orchestrated by a coding agent within a Rust library for NP-hard problem reductions. A 7-layer verification stack (type checking, unit tests, brute-force cross-validation, closed-loop reduction tests, integration tests, coverage enforcement, and CI/CD) catches errors at increasing levels of abstraction. Applying this methodology over seven weeks of active development produced 24 problem types, 40 reduction rule implementations, and 52 edges in a typed reduction graph, all with $>$95\% test coverage. We contribute the skill-based decomposition methodology, the verification stack design, and the open-source artifact as a benchmark for agentic mathematical software engineering.
+AI coding agents achieve 70--80\% on single-issue benchmarks like SWE-Bench Verified, but their success rate drops below 25\% on long-horizon software evolution tasks that demand sustained mathematical reasoning across many files. We address this gap by decomposing agentic coding into two complementary roles: human-creative work (designing reduction proofs, choosing algorithms, writing specifications) and agent-managed execution (scaffolding, testing, verification, and integration). Our method centers on a library of 12 reusable skills---from issue triage through implementation to multi-layered review---orchestrated by a coding agent within a Rust library for NP-hard problem reductions. A 7-layer verification stack (type checking, unit tests, brute-force cross-validation, closed-loop reduction tests, integration tests, coverage enforcement, and CI/CD) catches errors at increasing levels of abstraction. Applying this methodology over nine weeks of active development produced 27 problem types, 50 reduction rule implementations, and 52 edges in a typed reduction graph, all with $>$95\% test coverage. Agent session data reveals a 15:1 automation amplification ratio (assistant-to-user messages), with the automated issue quality gate rejecting 75\% of 322~batch-submitted issues as incomplete, incorrect, or trivial. We contribute the skill-based decomposition methodology, the verification stack design, and the open-source artifact as a benchmark for agentic mathematical software engineering.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
@@ -44,7 +44,7 @@ Roychoudhury~\cite{Roychoudhury2025AgenticAI} identifies specification inference
 Our multi-layered verification stack addresses precisely this challenge: rather than attempting end-to-end formal verification (which remains largely unsolved for complex mathematical code~\cite{Thakur2025CLEVER, Bursuc2025VeriCoding}), we compose multiple lightweight verification mechanisms that collectively catch errors across different abstraction levels.
 
 We instantiate this methodology in the domain of NP-hard problem reductions, implemented as an open-source Rust library.
-The library manages a typed reduction graph connecting 24 problem types through 40 hand-coded reduction rule implementations and 52 total directed edges (including 12 edges inferred from a type-parameter subtype lattice).
+The library manages a typed reduction graph connecting 27 problem types through 50 hand-coded reduction rule implementations and 52 total directed edges (including 12 edges inferred from a type-parameter subtype lattice).
 The domain serves as a Goldilocks testbed for studying agentic coding: each reduction is self-contained (50--200 lines of code), requires non-trivial mathematical reasoning about the mapping between problem structures, yet admits a fully automatable correctness criterion---reduce an instance, solve the target problem by brute force, extract the solution back, and verify it against the source.
 This combination of mathematical depth with mechanical verifiability makes it possible to study how agents perform on tasks that are individually tractable but collectively demand sustained engineering discipline.
 
@@ -56,7 +56,7 @@ The maintainer encodes domain knowledge, quality standards, and project conventi
 The key insight is that the two human roles contribute \emph{judgment}---which reductions matter, what quality bar to enforce---while the agent handles \emph{volume}---executing the mechanical steps reliably and repeatedly.
 Industry data supports this division: a recent industry report finds that developers now use AI in 60\% of their work while maintaining active oversight on 80--100\% of delegated tasks~\cite{Anthropic2026AgenticCoding} (we note this is a vendor report, though its findings are consistent with independent surveys of developer AI adoption).
 
-We organize our agent's capabilities into a library of 13~skills spanning five functional categories: orchestration (pipeline management and issue dispatch), implementation (adding models and reduction rules), quality gates (issue checking, redundancy analysis, multi-agent review, and CI repair), documentation (generating formal problem definitions and reduction theorems with proof sketches), and release management.
+We organize our agent's capabilities into a library of 12~skills spanning five functional categories: orchestration (pipeline management and issue dispatch), implementation (adding models and reduction rules), quality gates (issue checking, redundancy analysis, multi-agent review, and CI repair), documentation (generating formal problem definitions and reduction theorems with proof sketches), and release management.
 A two-stage card-based pipeline automates the progression from issue to merged code: the first stage picks a ``Ready'' issue, implements it in an isolated git worktree, and produces a pull request; the second stage addresses review comments, fixes CI failures, and prepares the PR for human merge.
 The human maintainer touches only two transitions in this pipeline---moving an issue from Backlog to Ready (the strategic decision of \emph{what} to work on) and merging the final pull request (the quality gate of \emph{whether} the work meets standards).
 Everything in between is agent-managed.
@@ -70,7 +70,7 @@ Our contributions are as follows:
 \begin{itemize}
   \item A \textbf{skill-based methodology} for decomposing mathematical coding tasks into agent-manageable steps, with a concrete skill library and a card-based orchestration pipeline that separates human judgment from agent execution.
   \item A \textbf{multi-layered verification stack} comprising seven complementary mechanisms---from type-level enforcement through materialized fixtures to agentic review and documentation-as-verification---that collectively ensure correctness of agent-generated mathematical code.
-  \item A \textbf{verified open-source artifact}: a Rust library implementing 24~NP-hard problem types, 40~reduction rules, and 52~graph edges, all with ${>}95\%$ test coverage, serving as both a practical tool for reduction-based problem solving and a benchmark for evaluating agentic mathematical software engineering.
+  \item A \textbf{verified open-source artifact}: a Rust library implementing 27~NP-hard problem types, 50~reduction rules, and 52~graph edges, all with ${>}95\%$ test coverage, serving as both a practical tool for reduction-based problem solving and a benchmark for evaluating agentic mathematical software engineering.
 \end{itemize}
 
 The remainder of this paper is organized as follows.
@@ -90,7 +90,7 @@ This heterogeneity makes it difficult to draw general conclusions about agent ca
 NP-hard problem reductions occupy a sweet spot---a Goldilocks domain---that avoids this limitation while remaining mathematically demanding.
 
 \paragraph{Self-contained, formally specified, mechanically verifiable.}
-Each reduction in our library is a self-contained module: the 40~implementations range from 58 to 444 lines of code, with a median of 129~LOC.
+Each reduction in our library is a self-contained module: the 50~implementations range from 58 to 444 lines of code, with a median of 129~LOC.
 Despite this bounded scope, each reduction requires non-trivial mathematical reasoning about the structural relationship between two problem formulations.
 Crucially, every reduction admits a fully automatable correctness criterion: given a source instance, reduce it to the target problem, solve the target by brute force, extract the solution back through the reduction's inverse map, and verify that it is valid (and optimal) for the source.
 This \emph{round-trip test} provides a ground-truth oracle that requires no human judgment to evaluate, yet exercises the full mathematical content of the reduction.
@@ -100,16 +100,17 @@ The combination of bounded scope, mathematical depth, and mechanical verifiabili
 Unlike SWE-Bench, where every issue is structurally unique, reductions form a homogeneous task family.
 Every reduction implements the same trait (\texttt{ReduceTo<T>}), follows the same file-naming convention, requires the same test structure (closed-loop round-trip), and produces the same artifacts (overhead expressions, example code, documentation entry).
 This homogeneity enables fair comparison across tasks---we can meaningfully ask whether an agent performs better on graph-to-graph reductions than on formula-to-graph reductions, or whether reduction complexity (measured in LOC or graph blowup) predicts first-attempt success rate.
-It also enables \emph{reusable skills}: a single ``add-rule'' skill handles all 40~reductions, because the workflow is structurally identical even when the mathematical content varies.
+It also enables \emph{reusable skills}: a single ``add-rule'' skill handles all 50~reductions, because the workflow is structurally identical even when the mathematical content varies.
 
 \paragraph{Hardware solvers as practical motivation.}
-The reduction graph is not merely an academic exercise; it serves as a \emph{compilation layer} connecting abstract problem formulations to physical hardware.
+The reduction graph is not merely an academic exercise; it serves as a \emph{compilation layer} connecting abstract problem formulations to physical hardware (\Cref{fig:reduction-graph}).
 Rydberg atom arrays natively solve Maximum Independent Set (MIS) by encoding graph vertices as atoms and edges as blockade constraints~\cite{lucas2014, pichler2018}.
 D-Wave quantum annealers solve Quadratic Unconstrained Binary Optimization (QUBO) and Ising spin glass problems through quantum tunneling~\cite{glover2019}.
-A verified reduction graph lets these specialized processors tackle a far larger class of problems: reduce Satisfiability to MIS and run the result on Rydberg atoms; reduce MaxCut through SpinGlass to QUBO and submit to D-Wave.
-The graph in \Cref{fig:reduction-graph} makes this compilation structure explicit.
-MIS serves as the dominant hub, with the highest in-degree (14~incoming edges) and out-degree (13~outgoing edges) among all 24~problem types---reflecting its central role as both a target for hardware solvers and a source for further reductions.
-ILP, with 11~incoming edges, functions as a universal algebraic target: any problem that reduces to ILP gains access to mature commercial solvers (Gurobi, CPLEX).
+Commercial ILP solvers (Gurobi, CPLEX) accept integer linear programs.
+Each solver ``speaks'' only its native problem language, but a verified reduction graph lets them collectively tackle a far larger class of problems: reduce Satisfiability to MIS and run the result on Rydberg atoms; reduce MaxCut through SpinGlass to QUBO and submit to D-Wave.
+MIS serves as the dominant hub, with the highest in-degree (14~incoming edges) and out-degree (13~outgoing edges) among all 27~problem types---reflecting its central role as both a target for hardware solvers and a source for further reductions.
+ILP, with 11~incoming edges, functions as a universal algebraic target.
+The bottom layer of \Cref{fig:reduction-graph} shows these three solver backends; the middle layer shows the 50~human-implemented reduction rules connecting known problem types; and the top layer visualizes the scaling vision---agent-synthesized rules extending the graph to 100+ problem types, the compilation infrastructure needed for a general-purpose reduction compiler.
 
 \paragraph{Real-world applications.}
 The problems in our graph arise directly in industrial settings.
@@ -122,8 +123,8 @@ Our library provides the verified bridge: a practitioner formulates their proble
 
 \begin{figure*}[t]
   \centering
-  \includegraphics[width=\textwidth]{figures/reduction-graph.pdf}
-  \caption{The reduction graph: 24 problem types connected by 52 directed edges (40 implemented reductions + 12 inferred variant edges). Node categories---graph (blue), formula (orange), set (green), algebraic (purple), misc (gray)---reflect input structure. MIS is the dominant hub with the highest in-degree (14) and out-degree (13). ILP serves as a universal algebraic target (in-degree 11).}
+  \includegraphics[width=0.88\textwidth]{figures/problemtree.pdf}
+  \caption{The reduction network as compilation infrastructure. \textbf{Bottom}: hardware-native problems (UD-MIS on Rydberg atom arrays, QUBO on D-Wave annealers, ILP on commercial solvers). \textbf{Middle}: 27 problem types connected by 50~human-implemented reduction rules (solid arrows) with cross-type reductions (dashed). MIS is the dominant hub (in-degree 14, out-degree 13). \textbf{Top}: the scaling vision---agent-synthesized reductions extending coverage to 100+ NP-hard problem types. The dashed line marks the boundary between current human-implemented rules and future agent-discovered rules.}
   \label{fig:reduction-graph}
 \end{figure*}
 
@@ -161,7 +162,7 @@ By requiring both the forward mapping and the inverse extraction in a single tra
 This design choice has a direct consequence for verification.
 The closed-loop test pattern---reduce, solve the target, extract the solution, verify against the source---requires no per-reduction test logic beyond constructing a source instance.
 The test harness calls \lstinline{reduce_to()}, invokes the brute-force solver on the target, calls \lstinline{extract_solution()}, and checks the result via \lstinline{evaluate()}.
-All 40~reduction implementations share this identical test structure, which is why a single ``add-rule'' skill can handle every reduction in the library.
+All 50~reduction implementations share this identical test structure, which is why a single ``add-rule'' skill can handle every reduction in the library.
 
 \paragraph{Compile-time overhead validation.}
 Every reduction must declare how the target problem's size relates to the source problem's size through an \lstinline{overhead} attribute on the \lstinline{#[reduction]} proc macro:
@@ -260,7 +261,7 @@ First, skills are \emph{persistent and versioned}: they are committed to the rep
 Second, skills are \emph{compositional}: orchestration skills invoke implementation skills, which invoke quality gates, forming multi-level workflows that no single prompt could express.
 The closest analogue is the ``runbook'' concept in DevOps, but adapted for an agent executor rather than a human operator.
 
-Our library comprises 13~skills organized into five functional categories (\Cref{tab:skills}).
+Our library comprises 12~skills organized into five functional categories (\Cref{tab:skills}).
 
 \begin{table}[t]
 \caption{Skills inventory. Steps = numbered steps in the skill script. Success rate (first-attempt CI pass, to be measured from git history) is pending systematic audit.}\label{tab:skills}
@@ -273,7 +274,6 @@ Skill & Category & Steps & Success \\
 \texttt{project-pipeline} & Orchestration & 7 & TBD \\
 \texttt{review-pipeline} & Orchestration & 8 & TBD \\
 \texttt{issue-to-pr} & Orchestration & 7 & TBD \\
-\texttt{meta-power} & Orchestration & 4 & TBD \\
 \midrule
 \texttt{add-model} & Implementation & 7 & TBD \\
 \texttt{add-rule} & Implementation & 6 & TBD \\
@@ -291,12 +291,11 @@ Skill & Category & Steps & Success \\
 \end{tabular}
 \end{table}
 
-\paragraph{Orchestration skills (4).}
+\paragraph{Orchestration skills (3).}
 These skills implement the agent-as-manager role.
 \texttt{project-pipeline} is the primary automation entry point: it picks a ``Ready'' issue from the GitHub Project board, creates an isolated git worktree, invokes \texttt{issue-to-pr} to produce a pull request, and moves the card to the ``review-agentic'' column.
 \texttt{review-pipeline} handles the second stage: it picks a PR from ``review-agentic,'' addresses Copilot review comments via \texttt{fix-pr}, runs agentic feature tests, fixes CI failures (up to three retries), and moves the card to ``In Review'' for human merge.
 \texttt{issue-to-pr} is the per-issue workhorse invoked by \texttt{project-pipeline}: it fetches the issue, verifies it has passed the \texttt{check-issue} quality gate, researches cited references, writes an implementation plan, creates a PR, and optionally executes the plan by dispatching to the appropriate implementation skill.
-\texttt{meta-power} provides batch processing, resolving all open issues in dependency order (models before rules); it is being superseded by the more granular pipeline skills.
 
 \paragraph{Implementation skills (2).}
 \texttt{add-model} and \texttt{add-rule} encode the complete workflow for adding a new problem type or reduction rule, respectively.
@@ -491,25 +490,70 @@ The git history mining in \Cref{sec:mining} provides complementary longitudinal 
 
 \subsection{Git History Mining}\label{sec:mining}
 
-We analyze the complete git and pull request history of the \texttt{problem-reductions} repository to characterize the project's evolution and the types of errors encountered during development.
-The repository contains 58~merged pull requests spanning approximately seven weeks of development, authored by three contributors (two primary, one additional).
+We analyze the complete git and pull request history of the \texttt{problem-reductions} repository, supplemented by session metadata from the Claude Code development environment, to characterize the project's evolution and the types of errors encountered during development.
+The repository contains 59~merged pull requests and 253~commits on main spanning nine weeks of development (January~9 to March~13, 2026), authored by four contributors.
+
+\paragraph{Development metrics.}
+The Claude Code session metadata reveals the scale of agent involvement.
+Across 283~recorded sessions (300~MB of conversation transcripts), the agent produced 9,429~assistant messages in response to 630~user messages---a \textbf{15:1 automation amplification ratio}.
+Of the 1,089~commits across all branches, 1,510~carry a \texttt{Co-Authored-By: Claude} trailer (the count exceeds total commits because branch commits are squash-merged on main).
+The average session involved 5.8~user messages and 51~tool calls, with measured wall-clock time totaling 115~hours across the 108~sessions with timing metadata.
+
+The codebase grew rapidly under this agentic workflow:
+\begin{center}
+\small
+\begin{tabular}{@{}lcccc@{}}
+\toprule
+Date & Models & Rules & Tests & Examples \\
+\midrule
+Jan 10 (initial) & 17 & 0 & 0 & 0 \\
+Jan 26 (feature parity) & 20 & 22 & 0 & 1 \\
+Feb 15 (arch.\ redesign) & 21 & 44 & 101 & 35 \\
+Mar 13 (current) & 27 & 50 & 114 & 45 \\
+\bottomrule
+\end{tabular}
+\end{center}
+The most intensive development day (January~25) produced 41~commits across 22~sessions with 12,868~messages and 3,734~tool calls---this was the feature parity sprint that ported all reduction rules from the predecessor Julia package in a single day, growing the codebase from 36~to 74~Rust source files.
 
 \paragraph{Development phases.}
 We stratify the history into three phases reflecting the evolution of agent tooling:
 \begin{itemize}
   \item \textbf{Phase~1 (Manual)}: 35~PRs. Skills had not yet been developed; all implementation, testing, and review was performed manually or with ad-hoc agent assistance. This phase established the core library architecture and the majority of the reduction rules.
   \item \textbf{Phase~2 (Basic skills)}: 9~PRs. Initial skills for model and rule implementation were available, providing structured workflows but without full pipeline automation. Two new problem models (ClosestVectorProblem, BinPacking) were added during this phase.
-  \item \textbf{Phase~3 (Full pipeline)}: 14~PRs. The complete skill library was operational, including orchestration skills (\texttt{issue-to-pr}, \texttt{meta-power}), quality gates (\texttt{check-issue}, \texttt{check-rule-redundancy}), and multi-agent review (\texttt{review-implementation}). New models (Knapsack, GraphPartitioning) and rules (KSatisfiability $\to$ SubsetSum) were added with full pipeline support.
+  \item \textbf{Phase~3 (Full pipeline)}: 15~PRs. The complete skill library was operational, including orchestration skills (\texttt{project-pipeline}, \texttt{review-pipeline}, \texttt{issue-to-pr}), quality gates (\texttt{check-issue}, \texttt{check-rule-redundancy}), and multi-agent review (\texttt{review-implementation}). New models (Knapsack, GraphPartitioning, MinimumFeedbackVertexSet) and rules (KSatisfiability $\to$ SubsetSum) were added with full pipeline support.
 \end{itemize}
 
 \paragraph{PR composition.}
-Of the 58~merged PRs, 5 are tagged as \texttt{[Model]} PRs (adding new problem types), 2 as \texttt{[Rule]} PRs (adding new reduction rules), and 51 as infrastructure, refactoring, documentation, or tooling PRs.
-The low count of explicitly tagged Model and Rule PRs reflects the project's development pattern: the initial feature-parity PRs (e.g., PR~\#4 ``Feature parity with ProblemReductions.jl'' and PR~\#7 ``Implement remaining reduction rules'') bundled multiple models and rules into single large PRs before the tagging convention was established.
-The 40~reduction rule implementations and 24~problem types in the final library were built incrementally across many PRs that also included refactoring, testing, and documentation work.
+Of the 59~merged PRs, 10 follow the \texttt{Fix \#N} issue-driven pattern (created by the \texttt{issue-to-pr} skill), 16 are \texttt{feat:} PRs, and the remainder are infrastructure, refactoring, documentation, or tooling PRs.
+The initial feature-parity PRs (e.g., PR~\#4 ``Feature parity with ProblemReductions.jl'') bundled multiple models and rules into single large PRs before the per-issue convention was established.
+All PRs are attributed to human GitHub accounts because the agent operates through the developer's local environment (Claude Code runs in the terminal), making the distinction between human-authored and agent-assisted work invisible in git metadata---itself a finding about observability limitations of current agentic workflows.
 
-All 58~PRs were authored through human GitHub accounts.
-This reflects the operational reality of our methodology: the agent operates through the human's development environment (Claude Code runs locally), so all commits and PRs are attributed to the human author even when the agent performed the implementation.
-The distinction between human-authored and agent-assisted work is therefore not visible in the git metadata, which is itself a finding about the observability limitations of current agentic coding workflows.
+\paragraph{Issue quality gate.}
+The \texttt{check-issue} skill was deployed at scale when a contributor batch-submitted 414~issues proposing new problem models and reduction rules---including 251~in a single day.
+Of the 322~issues quality-checked, only \textbf{81 (25\%) passed} all checks:
+\begin{center}
+\small
+\begin{tabular}{@{}lr@{}}
+\toprule
+Verdict & Count (\%) \\
+\midrule
+Good & 81 (25\%) \\
+PoorWritten (incomplete specification) & 124 (39\%) \\
+Wrong (factually incorrect) & 64 (20\%) \\
+Trivial (obvious reduction) & 43 (13\%) \\
+Useless (no practical value) & 18 (6\%) \\
+\bottomrule
+\end{tabular}
+\end{center}
+The \textbf{75\% rejection rate} demonstrates the necessity of automated quality gates: without \texttt{check-issue}, the pipeline would waste agent resources implementing incorrect or trivial reductions.
+The most common failure mode was \emph{PoorWritten}---issues that lacked complete mathematical specifications or worked examples, making them unimplementable even by a skilled agent.
+The \emph{Wrong} category (20\%) included citations to non-existent papers, incorrect complexity claims, and reductions that do not preserve solution structure---errors that would have been expensive to discover during implementation rather than at the issue-triage stage.
+
+\paragraph{Interaction evolution.}
+Analysis of 2,196~user prompts in the project's Claude Code history reveals a shift from imperative to declarative interaction as the skill library matured.
+In Phase~1, the maintainer issued step-by-step commands (``start milestone 2,'' ``improve test coverage to $>$95\%,'' ``fix the clippy test''), averaging 8--12 words per prompt.
+By Phase~3, single-command orchestration dominated (``\texttt{make run-pipeline},'' ``\texttt{/review-pipeline}''), with 30\% of prompts consisting of 1--3 words.
+This progression---from programming the agent's actions to invoking its skills---mirrors the classical shift from scripting to API design, suggesting that skill engineering is a form of \emph{meta-programming} for agentic workflows.
 
 \paragraph{Error taxonomy.}
 \Cref{tab:errors} categorizes the types of errors encountered during development, mapped to the verification layer that catches each error class.
@@ -620,7 +664,7 @@ CLEVER~\cite{Thakur2025CLEVER}, a curated benchmark of 161 hard Lean problems, f
 VeriBench~\cite{Miranda2025VeriBench} finds that only self-optimizing agent architectures achieve meaningful compilation rates in Lean~4, approaching 90\% but still far from full correctness proofs.
 For imperative programs, Mukherjee et al.\ demonstrate a two-LLM pipeline where one model generates candidate C programs and another generates Coq proofs of correctness~\cite{Mukherjee2025CoqPL, Mukherjee2025SynVer}---a generate-then-verify pattern that resonates with our layered approach.
 Our seven-layer verification stack (\Cref{sec:verification}) takes a more pragmatic path: rather than attempting end-to-end formal proofs (which the benchmarks above show remains out of reach for complex code), we compose multiple lightweight verification mechanisms---type-level enforcement, brute-force cross-validation, overhead formula checking, materialized fixtures, and agentic review---that collectively catch errors across different abstraction levels.
-The trade-off is clear: we provide less formal guarantee than a machine-checked proof, but our approach is practically effective at catching real errors in agent-generated mathematical code and scales to the 40~reductions in our library without requiring proof engineering expertise.
+The trade-off is clear: we provide less formal guarantee than a machine-checked proof, but our approach is practically effective at catching real errors in agent-generated mathematical code and scales to the 50~reductions in our library without requiring proof engineering expertise.
 
 \paragraph{Physics-inspired optimization.}
 Our reduction graph serves as a compilation layer connecting abstract problem formulations to specialized hardware and neural solvers.
@@ -659,7 +703,7 @@ While we argue that the methodology generalizes to other Goldilocks domains, we 
 The ablation study (\Cref{sec:evaluation}) provides a controlled comparison within this project, but replication across independent projects and teams remains necessary.
 
 \paragraph{Skill engineering cost.}
-The 13~skills in our library represent substantial upfront investment.
+The 12~skills in our library represent substantial upfront investment.
 Each skill required iterative refinement---writing the initial markdown script, testing it against real issues, observing agent failure modes, and revising.
 This cost is amortized across many invocations, but it presupposes a maintainer with both domain expertise and familiarity with agent capabilities.
 Projects without such a maintainer cannot adopt the methodology directly.
@@ -670,7 +714,7 @@ A skill designed for implementing reduction rules provides no value for web deve
 Each new domain requires its own skill engineering effort.
 
 \paragraph{Confounding factors.}
-Our project evolved over seven weeks during which both the skill library and the underlying language models improved.
+Our project evolved over nine weeks during which both the skill library and the underlying language models improved.
 Although we address this confound through temporal stratification in our evaluation, we cannot fully disentangle the contribution of better skills from the contribution of more capable models.
 Future work should control for model version to isolate the skill-based methodology's independent effect.
 
@@ -702,13 +746,15 @@ Currently, Layer~7 (documentation with proof sketches) relies on human-readable 
 Replacing or supplementing this layer with Lean or Coq proofs---generating formal correctness theorems alongside the Rust implementation---would add an eighth layer providing the strongest possible guarantee.
 The VeriCoding~\cite{Bursuc2025VeriCoding} and CLEVER~\cite{Thakur2025CLEVER} benchmarks suggest this remains challenging, but the bounded scope and formal specification of individual reductions make them more amenable to automated theorem proving than general software.
 
-Third, \emph{scaling}: can the pipeline maintain quality as the reduction graph grows from 24 to 100+ problem types?
-The homogeneous task structure suggests that skills should scale without modification, but the growing graph introduces new challenges---more potential for redundant reductions, longer composite paths to analyze, and a larger surface area for the maintainer to oversee.
-Investigating these scaling dynamics, potentially with multiple maintainers and automated priority assignment, is an important next step.
+Third, \emph{scaling toward a reduction compiler}: the reduction graph is not merely a library catalog but a \emph{compilation infrastructure} that maps user problems to specialized solvers (see \Cref{fig:reduction-graph}).
+Each reduction edge carries a multivariate polynomial cost model---for instance, reducing an $n$-vertex, $m$-edge graph to a triangular lattice MIS costs $O(n^2 + m)$ atom sites---and the optimal compilation path may depend on the problem scale (path~A dominates at small $n$, path~B at large $n$), requiring Pareto-optimal path search.
+As the graph scales from 24 to 100+ problem types through agent-synthesized rules (the upper layer in \Cref{fig:reduction-graph}), the system evolves from a library into an end-to-end problem reduction compiler: users describe their combinatorial optimization problem, and the compiler automatically selects the lowest-cost reduction path to the target solver---be it a Rydberg atom array, a quantum annealer, or a commercial ILP solver.
+The skill-based methodology presented here provides the knowledge engineering backbone for this compiler: each new reduction rule, verified through the seven-layer stack and implemented by agent-managed skills, adds an edge to the compilation graph.
+Investigating the scaling dynamics---redundancy detection, Pareto path search over polynomial costs, and multi-maintainer coordination---is the natural next step.
 
 \subsection{Conclusion}
 
-We have presented a skill-based methodology for agentic coding that decomposes mathematical software tasks into human-creative and agent-executable components, validated through a case study producing 24~problem types and 40~reduction rules with multi-layered verification.
+We have presented a skill-based methodology for agentic coding that decomposes mathematical software tasks into human-creative and agent-executable components, validated through a case study producing 27~problem types and 50~reduction rules with multi-layered verification.
 The core insight is that the bottleneck in agentic coding is not agent capability but task decomposition: when work is structured so that each unit is formally specified, bounded in scope, and mechanically verifiable, current agents execute it reliably.
 The methodology is most powerful in domains that share the Goldilocks property---formal specification, homogeneous tasks, automatable correctness---and we believe such domains are more common than is generally appreciated.
 
