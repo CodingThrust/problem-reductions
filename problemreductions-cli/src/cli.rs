@@ -216,6 +216,7 @@ Flags by problem type:
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
+  Minesweeper                     --rows, --cols, --revealed
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -326,6 +327,15 @@ pub struct CreateArgs {
     /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
     #[arg(long, allow_hyphen_values = true)]
     pub bounds: Option<String>,
+    /// Number of rows for Minesweeper grid
+    #[arg(long)]
+    pub rows: Option<usize>,
+    /// Number of columns for Minesweeper grid
+    #[arg(long)]
+    pub cols: Option<usize>,
+    /// Revealed cells for Minesweeper (semicolon-separated "row,col,count", e.g., "1,1,1;0,0,2")
+    #[arg(long)]
+    pub revealed: Option<String>,
 }
 
 #[derive(clap::Args)]

@@ -5,7 +5,7 @@ use crate::problem_name::{parse_problem_spec, resolve_variant};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::misc::{BinPacking, PaintShop};
+use problemreductions::models::misc::{BinPacking, Minesweeper, PaintShop};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -45,6 +45,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.rows.is_none()
+        && args.cols.is_none()
+        && args.revealed.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -83,6 +86,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "Minesweeper" => "--rows 3 --cols 3 --revealed \"1,1,1\"",
         _ => "",
     }
 }
@@ -438,6 +442,30 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Minesweeper
+        "Minesweeper" => {
+            let rows = args.rows.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Minesweeper requires --rows, --cols, and --revealed\n\n\
+                     Usage: pred create Minesweeper --rows 3 --cols 3 --revealed \"1,1,1\""
+                )
+            })?;
+            let cols = args
+                .cols
+                .ok_or_else(|| anyhow::anyhow!("Minesweeper requires --cols"))?;
+            let revealed = parse_revealed(args)?;
+            let revealed_positions: std::collections::HashSet<(usize, usize)> =
+                revealed.iter().map(|&(r, c, _)| (r, c)).collect();
+            let unrevealed: Vec<(usize, usize)> = (0..rows)
+                .flat_map(|r| (0..cols).map(move |c| (r, c)))
+                .filter(|pos| !revealed_positions.contains(pos))
+                .collect();
+            (
+                ser(Minesweeper::new(rows, cols, revealed, unrevealed))?,
                 resolved_variant.clone(),
             )
         }
@@ -959,4 +987,29 @@ fn create_random(
         println!("{}", serde_json::to_string_pretty(&json)?);
     }
     Ok(())
+}
+
+/// Parse `--revealed` as semicolon-separated "row,col,count" entries.
+/// E.g., "1,1,1;0,0,2"
+fn parse_revealed(args: &CreateArgs) -> Result<Vec<(usize, usize, u8)>> {
+    let revealed_str = args.revealed.as_deref().ok_or_else(|| {
+        anyhow::anyhow!("Minesweeper requires --revealed (e.g., \"1,1,1;0,0,2\")")
+    })?;
+
+    revealed_str
+        .split(';')
+        .map(|entry| {
+            let parts: Vec<&str> = entry.trim().split(',').collect();
+            if parts.len() != 3 {
+                bail!(
+                    "Invalid revealed entry '{}': expected format row,col,count",
+                    entry.trim()
+                );
+            }
+            let row: usize = parts[0].trim().parse()?;
+            let col: usize = parts[1].trim().parse()?;
+            let count: u8 = parts[2].trim().parse()?;
+            Ok((row, col, count))
+        })
+        .collect()
 }
