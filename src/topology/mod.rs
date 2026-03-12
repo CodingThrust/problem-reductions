@@ -8,6 +8,7 @@
 //! - [`TriangularSubgraph`]: Triangular lattice subgraph
 
 mod bipartite_graph;
+mod directed_graph;
 mod graph;
 mod kings_subgraph;
 mod planar_graph;
@@ -16,6 +17,7 @@ mod triangular_subgraph;
 mod unit_disk_graph;
 
 pub use bipartite_graph::BipartiteGraph;
+pub use directed_graph::DirectedGraph;
 pub use graph::{Graph, GraphCast, SimpleGraph};
 pub use kings_subgraph::KingsSubgraph;
 pub use planar_graph::PlanarGraph;
