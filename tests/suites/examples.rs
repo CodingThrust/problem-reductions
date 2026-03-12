@@ -24,6 +24,7 @@ example_test!(reduction_ksatisfiability_to_satisfiability);
 example_test!(reduction_maxcut_to_spinglass);
 example_test!(reduction_maximumclique_to_ilp);
 example_test!(reduction_maximumindependentset_to_ilp);
+example_test!(reduction_maximumindependentset_to_maximumclique);
 example_test!(reduction_maximumindependentset_to_maximumsetpacking);
 example_test!(reduction_maximumindependentset_to_minimumvertexcover);
 example_test!(reduction_maximumindependentset_to_qubo);
@@ -92,6 +93,10 @@ example_fn!(test_maximumclique_to_ilp, reduction_maximumclique_to_ilp);
 example_fn!(
     test_maximumindependentset_to_ilp,
     reduction_maximumindependentset_to_ilp
+);
+example_fn!(
+    test_maximumindependentset_to_maximumclique,
+    reduction_maximumindependentset_to_maximumclique
 );
 example_fn!(
     test_maximumindependentset_to_maximumsetpacking,

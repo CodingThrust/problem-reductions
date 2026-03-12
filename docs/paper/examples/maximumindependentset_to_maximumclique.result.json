@@ -1,0 +1,20 @@
+{
+  "solutions": [
+    {
+      "source_config": [
+        1,
+        0,
+        1,
+        0,
+        1
+      ],
+      "target_config": [
+        1,
+        0,
+        1,
+        0,
+        1
+      ]
+    }
+  ]
+}
