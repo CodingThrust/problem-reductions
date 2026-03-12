@@ -21,6 +21,7 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("TSP", "TravelingSalesman"),
     ("CVP", "ClosestVectorProblem"),
     ("MaxMatching", "MaximumMatching"),
+    ("FVS", "MinimumFeedbackVertexSet"),
 ];
 
 /// Resolve a short alias to the canonical problem name.
@@ -52,6 +53,7 @@ pub fn resolve_alias(input: &str) -> String {
         "binpacking" => "BinPacking".to_string(),
         "cvp" | "closestvectorproblem" => "ClosestVectorProblem".to_string(),
         "knapsack" => "Knapsack".to_string(),
+        "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
 }

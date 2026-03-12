@@ -9,7 +9,8 @@ use problemreductions::models::misc::{BinPacking, PaintShop};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
-    BipartiteGraph, Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
+    BipartiteGraph, DirectedGraph, Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph,
+    UnitDiskGraph,
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -45,6 +46,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.arcs.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -438,6 +440,41 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumFeedbackVertexSet
+        "MinimumFeedbackVertexSet" => {
+            let arcs_str = args.arcs.as_ref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFeedbackVertexSet requires --arcs\n\n\
+                     Usage: pred create FVS --arcs \"0>1,1>2,2>0\" [--weights 1,1,1] [--num-vertices N]"
+                )
+            })?;
+            let arcs: Vec<(usize, usize)> = arcs_str
+                .split(',')
+                .map(|s| {
+                    let parts: Vec<&str> = s.split('>').collect();
+                    anyhow::ensure!(
+                        parts.len() == 2,
+                        "Invalid arc format '{}', expected 'u>v'",
+                        s
+                    );
+                    Ok((parts[0].trim().parse::<usize>()?, parts[1].trim().parse::<usize>()?))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let num_v = arcs
+                .iter()
+                .flat_map(|&(u, v)| [u, v])
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0);
+            let num_v = args.num_vertices.unwrap_or(num_v);
+            let graph = DirectedGraph::new(num_v, arcs);
+            let weights = parse_vertex_weights(args, num_v)?;
+            (
+                ser(MinimumFeedbackVertexSet::new(graph, weights))?,
                 resolved_variant.clone(),
             )
         }
