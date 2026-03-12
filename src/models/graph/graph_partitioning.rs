@@ -102,6 +102,10 @@ where
         if config.len() != n {
             return SolutionSize::Invalid;
         }
+        // Validate binary assignment
+        if config.iter().any(|&v| v >= 2) {
+            return SolutionSize::Invalid;
+        }
         // Balanced bisection requires even n
         if !n.is_multiple_of(2) {
             return SolutionSize::Invalid;
