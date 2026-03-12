@@ -245,22 +245,22 @@ impl ParsedExpr {
             ParsedExpr::Add(a, b) => {
                 let a = a.to_expr_tokens();
                 let b = b.to_expr_tokens();
-                quote! { crate::expr::Expr::add(#a, #b) }
+                quote! { (#a) + (#b) }
             }
             ParsedExpr::Sub(a, b) => {
                 let a = a.to_expr_tokens();
                 let b = b.to_expr_tokens();
-                quote! { crate::expr::Expr::add(#a, crate::expr::Expr::mul(crate::expr::Expr::Const(-1.0), #b)) }
+                quote! { (#a) - (#b) }
             }
             ParsedExpr::Mul(a, b) => {
                 let a = a.to_expr_tokens();
                 let b = b.to_expr_tokens();
-                quote! { crate::expr::Expr::mul(#a, #b) }
+                quote! { (#a) * (#b) }
             }
             ParsedExpr::Div(a, b) => {
                 let a = a.to_expr_tokens();
                 let b = b.to_expr_tokens();
-                quote! { crate::expr::Expr::mul(#a, crate::expr::Expr::pow(#b, crate::expr::Expr::Const(-1.0))) }
+                quote! { (#a) / (#b) }
             }
             ParsedExpr::Pow(base, exp) => {
                 let base = base.to_expr_tokens();
@@ -269,7 +269,7 @@ impl ParsedExpr {
             }
             ParsedExpr::Neg(a) => {
                 let a = a.to_expr_tokens();
-                quote! { crate::expr::Expr::mul(crate::expr::Expr::Const(-1.0), #a) }
+                quote! { -(#a) }
             }
             ParsedExpr::Exp(a) => {
                 let a = a.to_expr_tokens();

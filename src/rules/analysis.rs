@@ -7,7 +7,8 @@
 //! the symbolic comparison is trustworthy, and `Unknown` when metadata is too
 //! weak to compare safely.
 
-use crate::expr::{asymptotic_normal_form, Expr};
+use crate::canonical::canonical_form;
+use crate::expr::Expr;
 use crate::rules::graph::{ReductionGraph, ReductionPath};
 use crate::rules::registry::ReductionOverhead;
 use std::collections::BTreeMap;
@@ -222,7 +223,7 @@ fn normalize_polynomial(expr: &Expr) -> Result<NormalizedPoly, String> {
 }
 
 fn prepare_expr_for_comparison(expr: &Expr) -> Expr {
-    asymptotic_normal_form(expr).unwrap_or_else(|_| expr.clone())
+    canonical_form(expr).unwrap_or_else(|_| expr.clone())
 }
 
 // ────────── Monomial-dominance comparison ──────────

@@ -10,6 +10,10 @@ repository = "https://github.com/CodingThrust/problem-reductions"
 name = "pred"
 path = "src/main.rs"
 
+[[bin]]
+name = "pred-sym"
+path = "src/bin/pred_sym.rs"
+
 [features]
 default = ["highs", "mcp"]
 highs = ["problemreductions/ilp-highs"]
