@@ -159,7 +159,7 @@ where
 }
 
 crate::declare_variants! {
-    MinimumFeedbackVertexSet<i32> => "1.8638^num_vertices",
+    MinimumFeedbackVertexSet<i32> => "1.9977^num_vertices",
 }
 
 /// Check if a set of vertices is a feedback vertex set (removing them makes the graph a DAG).

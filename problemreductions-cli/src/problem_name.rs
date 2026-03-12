@@ -33,6 +33,7 @@ pub fn resolve_alias(input: &str) -> String {
         "3sat" => "KSatisfiability".to_string(),
         "ksat" | "ksatisfiability" => "KSatisfiability".to_string(),
         "qubo" => "QUBO".to_string(),
+        "graphpartitioning" => "GraphPartitioning".to_string(),
         "maxcut" => "MaxCut".to_string(),
         "spinglass" => "SpinGlass".to_string(),
         "ilp" => "ILP".to_string(),
@@ -54,6 +55,7 @@ pub fn resolve_alias(input: &str) -> String {
         "cvp" | "closestvectorproblem" => "ClosestVectorProblem".to_string(),
         "knapsack" => "Knapsack".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
+        "subsetsum" => "SubsetSum".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
 }

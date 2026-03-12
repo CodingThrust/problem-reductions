@@ -17,6 +17,7 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [meta-power](skills/meta-power/SKILL.md) -- Batch-resolve all open `[Model]` and `[Rule]` issues autonomously: plan, implement, review, fix CI, merge — in dependency order (models first).
 - [project-pipeline](skills/project-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr --execute -> review-agentic.
 - [review-pipeline](skills/review-pipeline/SKILL.md) -- Pick a PR from review-agentic column, fix Copilot review comments, fix CI, run agentic feature tests, move to In Review.
+- [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
 
 ## Commands
 ```bash
