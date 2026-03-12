@@ -749,6 +749,21 @@
     },
     {
       "source": 26,
+      "target": 22,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_vertices * (num_vertices + -1 * 1) * 2^-1 + -1 * num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumindependentset_maximumclique/index.html"
+    },
+    {
+      "source": 26,
       "target": 33,
       "overhead": [
         {
