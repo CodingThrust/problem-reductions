@@ -19,7 +19,7 @@ A Case Study in NP-Hard Problem Reductions}
 \maketitle
 
 \begin{abstract}
-AI coding agents achieve 70--80\% on single-issue benchmarks like SWE-Bench Verified, but their success rate drops below 25\% on long-horizon software evolution tasks that demand sustained mathematical reasoning across many files. We address this gap by decomposing agentic coding into two complementary roles: human-creative work (designing reduction proofs, choosing algorithms, writing specifications) and agent-managed execution (scaffolding, testing, verification, and integration). Our method centers on a library of 13 reusable skills---from issue triage through implementation to multi-layered review---orchestrated by a coding agent within a Rust library for NP-hard problem reductions. A 7-layer verification stack (type checking, unit tests, brute-force cross-validation, closed-loop reduction tests, integration tests, coverage enforcement, and CI/CD) catches errors at increasing levels of abstraction. Applying this methodology over six months produced 24 problem types, 40 reduction rule implementations, and 52 edges in a typed reduction graph, all with $>$95\% test coverage. We contribute the skill-based decomposition methodology, the verification stack design, and the open-source artifact as a benchmark for agentic mathematical software engineering.
+AI coding agents achieve 70--80\% on single-issue benchmarks like SWE-Bench Verified, but their success rate drops below 25\% on long-horizon software evolution tasks that demand sustained mathematical reasoning across many files. We address this gap by decomposing agentic coding into two complementary roles: human-creative work (designing reduction proofs, choosing algorithms, writing specifications) and agent-managed execution (scaffolding, testing, verification, and integration). Our method centers on a library of 13 reusable skills---from issue triage through implementation to multi-layered review---orchestrated by a coding agent within a Rust library for NP-hard problem reductions. A 7-layer verification stack (type checking, unit tests, brute-force cross-validation, closed-loop reduction tests, integration tests, coverage enforcement, and CI/CD) catches errors at increasing levels of abstraction. Applying this methodology over seven weeks of active development produced 24 problem types, 40 reduction rule implementations, and 52 edges in a typed reduction graph, all with $>$95\% test coverage. We contribute the skill-based decomposition methodology, the verification stack design, and the open-source artifact as a benchmark for agentic mathematical software engineering.
 \end{abstract}
 
 \section{Introduction}\label{sec:intro}
@@ -54,7 +54,7 @@ Our approach distributes work across three roles with distinct responsibilities.
 The maintainer encodes domain knowledge, quality standards, and project conventions into these skills, effectively programming the agent's workflow rather than its output.
 \textbf{Agents} serve in a dual capacity: as \emph{managers}, they pick cards from the project board, dispatch sub-agents for parallel review, and orchestrate a two-stage pipeline from issue to merged pull request; as \emph{executors}, they implement code, write tests, generate documentation, and fix CI failures.
 The key insight is that the two human roles contribute \emph{judgment}---which reductions matter, what quality bar to enforce---while the agent handles \emph{volume}---executing the mechanical steps reliably and repeatedly.
-Industry data supports this division: developers now use AI in 60\% of their work while maintaining active oversight on 80--100\% of delegated tasks~\cite{Anthropic2026AgenticCoding}.
+Industry data supports this division: a recent industry report finds that developers now use AI in 60\% of their work while maintaining active oversight on 80--100\% of delegated tasks~\cite{Anthropic2026AgenticCoding} (we note this is a vendor report, though its findings are consistent with independent surveys of developer AI adoption).
 
 We organize our agent's capabilities into a library of 13~skills spanning five functional categories: orchestration (pipeline management and issue dispatch), implementation (adding models and reduction rules), quality gates (issue checking, redundancy analysis, multi-agent review, and CI repair), documentation (generating formal problem definitions and reduction theorems with proof sketches), and release management.
 A two-stage card-based pipeline automates the progression from issue to merged code: the first stage picks a ``Ready'' issue, implements it in an isolated git worktree, and produces a pull request; the second stage addresses review comments, fixes CI failures, and prepares the PR for human merge.
@@ -104,7 +104,7 @@ It also enables \emph{reusable skills}: a single ``add-rule'' skill handles all 
 
 \paragraph{Hardware solvers as practical motivation.}
 The reduction graph is not merely an academic exercise; it serves as a \emph{compilation layer} connecting abstract problem formulations to physical hardware.
-Rydberg atom arrays natively solve Maximum Independent Set (MIS) by encoding graph vertices as atoms and edges as blockade constraints~\cite{lucas2014}.
+Rydberg atom arrays natively solve Maximum Independent Set (MIS) by encoding graph vertices as atoms and edges as blockade constraints~\cite{lucas2014, pichler2018}.
 D-Wave quantum annealers solve Quadratic Unconstrained Binary Optimization (QUBO) and Ising spin glass problems through quantum tunneling~\cite{glover2019}.
 A verified reduction graph lets these specialized processors tackle a far larger class of problems: reduce Satisfiability to MIS and run the result on Rydberg atoms; reduce MaxCut through SpinGlass to QUBO and submit to D-Wave.
 The graph in \Cref{fig:reduction-graph} makes this compilation structure explicit.
@@ -255,10 +255,15 @@ Each step specifies what to read, what to produce, and how to verify the result.
 The key insight is that agents handle well-specified, bounded subtasks reliably; the challenge is structuring work so that each unit falls within that reliable range.
 Skills solve this by encoding the domain expert's knowledge of \emph{how} to perform a task---file locations, naming conventions, trait implementation patterns, test structure---into a reusable script that any agent invocation can follow.
 
+Skills differ from prompt engineering techniques such as chain-of-thought prompting or ReAct-style reasoning in two key respects.
+First, skills are \emph{persistent and versioned}: they are committed to the repository, evolve through pull requests, and encode accumulated project knowledge across many agent sessions---unlike per-invocation prompts that must be re-crafted each time.
+Second, skills are \emph{compositional}: orchestration skills invoke implementation skills, which invoke quality gates, forming multi-level workflows that no single prompt could express.
+The closest analogue is the ``runbook'' concept in DevOps, but adapted for an agent executor rather than a human operator.
+
 Our library comprises 13~skills organized into five functional categories (\Cref{tab:skills}).
 
 \begin{table}[t]
-\caption{Skills inventory. Steps = numbered steps in the skill script. Success rate is the fraction of invocations that pass CI on first attempt, measured from git history.}\label{tab:skills}
+\caption{Skills inventory. Steps = numbered steps in the skill script. Success rate (first-attempt CI pass, to be measured from git history) is pending systematic audit.}\label{tab:skills}
 \centering
 \small
 \begin{tabular}{llcc}
@@ -399,7 +404,7 @@ The closed-loop test pattern---reduce a source instance, solve the target by bru
 Every reduction rule has a \texttt{test\_*\_to\_*\_closed\_loop} test that exercises this full round trip.
 This layer catches the most mathematically subtle errors: incorrect variable-to-vertex mappings, off-by-one errors in clause indexing, forgotten negation in constraint encoding.
 The test requires no problem-specific oracle; it relies entirely on the \texttt{evaluate()} interface and the brute-force solver, which means a single skill can generate this test for any reduction.
-In our experience, this layer catches approximately 60\% of the errors that survive type checking.
+In our experience, this layer catches the largest share of errors that survive type checking.
 
 \paragraph{Layer 4: Overhead validation.}
 The overhead expressions declared in the \lstinline{#[reduction]} macro (e.g., \texttt{num\_edges = "3 * num\_clauses"}) provide a second, independent correctness check on reductions.
@@ -450,8 +455,13 @@ The skill system (\Cref{sec:skills}) ensures that agents invoke all seven layers
 
 \section{Evaluation}\label{sec:evaluation}
 
-We evaluate the skill-based methodology through three complementary lenses: an ablation study comparing skill-based and no-skill agent configurations (\Cref{sec:ablation}), a longitudinal analysis of the project's git history (\Cref{sec:mining}), and detailed case studies of three reductions spanning the complexity spectrum (\Cref{sec:cases}).
-Together, these provide quantitative evidence that the skill-based decomposition improves agent reliability, and qualitative insight into how skills and verification layers interact during real implementation tasks.
+We evaluate the skill-based methodology through three complementary lenses: an ablation study design comparing skill-based and no-skill agent configurations (\Cref{sec:ablation}), a longitudinal analysis of the project's git history (\Cref{sec:mining}), and detailed case studies of three reductions spanning the complexity spectrum (\Cref{sec:cases}).
+Together, these provide qualitative insight into how skills and verification layers interact during real implementation tasks, with the ablation design offering a replicable protocol for future quantitative evaluation.
+
+\paragraph{Agent platform.}
+All agent-assisted development was performed using Claude Code~\cite{Anthropic2025ClaudeCode}, Anthropic's terminal-based coding agent, backed by Claude models (Sonnet~3.5 and Sonnet~4 during the development period; the model version evolved during the seven-week span).
+Skills are invoked as slash commands within Claude Code sessions.
+We note that the methodology is not inherently tied to a specific model or agent platform---the skills are plain markdown documents that any sufficiently capable coding agent could follow---but our empirical observations reflect the capabilities of the Claude model family.
 
 \subsection{Ablation: Skill-Based vs.\ Raw Agent}\label{sec:ablation}
 
@@ -475,13 +485,14 @@ The results are intended to demonstrate the \emph{mechanism}---how skills preven
 We expect the skill-based configuration to excel particularly on convention adherence (where skills encode project-specific patterns that no general-purpose agent would know) and first-attempt CI pass rate (where the multi-layered verification invoked by skills catches errors before the first push).
 The raw agent, by contrast, is likely to produce functionally correct code that nonetheless fails CI due to missing \texttt{declare\_variants!} macros, incorrect overhead expressions, or test files placed in the wrong directory.
 
-The ablation results are [TBD]; the experiment requires running both configurations on held-out issues and measuring the four metrics above.
-The git history mining in \Cref{sec:mining} provides complementary longitudinal evidence across the project's full development timeline.
+We have not yet executed this ablation; it requires running both configurations on held-out issues and measuring the four metrics above.
+We present the experimental design here because we believe it constitutes a replicable protocol for evaluating skill-based methodologies in other domains.
+The git history mining in \Cref{sec:mining} provides complementary longitudinal evidence across the project's full development timeline, and the case studies in \Cref{sec:cases} offer qualitative insight into how skills and verification layers interact during specific implementation tasks.
 
 \subsection{Git History Mining}\label{sec:mining}
 
 We analyze the complete git and pull request history of the \texttt{problem-reductions} repository to characterize the project's evolution and the types of errors encountered during development.
-The repository contains 58~merged pull requests spanning approximately seven weeks of development, authored by two primary contributors.
+The repository contains 58~merged pull requests spanning approximately seven weeks of development, authored by three contributors (two primary, one additional).
 
 \paragraph{Development phases.}
 We stratify the history into three phases reflecting the evolution of agent tooling:
@@ -522,8 +533,8 @@ Incorrect proof arguments & L7: Documentation review & [TBD] \\
 \end{tabular}
 \end{table}
 
-The error counts in \Cref{tab:errors} are placeholders pending a systematic audit of all CI logs and review threads.
-Preliminary observations from the commit history suggest that \emph{overhead formula errors} (Layer~4) and \emph{convention violations} (Layer~6) are among the most common error classes.
+The error counts in \Cref{tab:errors} are pending a systematic audit of all CI logs and review threads; we report qualitative observations here and defer the full quantitative analysis.
+Preliminary observations from the commit history suggest that \emph{overhead formula errors} (Layer~4) and \emph{convention violations} (Layer~6) are among the most frequently encountered error classes.
 For example, PR~\#112 (``Fix complexity inconsistencies, enforce overhead, add missing variants'') addressed multiple overhead formula errors that had accumulated before Layer~4 validation was enforced, and PR~\#89 (``Close completeness gaps from review-implementation audit'') fixed convention violations identified by the agentic review skill.
 The introduction of compile-time overhead validation in PR~\#99 (``Replace Polynomial overhead system with Expr AST'') eliminated an entire class of errors by shifting overhead checking from runtime to compile time---an example of how verification infrastructure co-evolves with the skill system.
 
@@ -658,7 +669,7 @@ A skill designed for implementing reduction rules provides no value for web deve
 Each new domain requires its own skill engineering effort.
 
 \paragraph{Confounding factors.}
-Our project evolved over six months during which both the skill library and the underlying language models improved.
+Our project evolved over seven weeks during which both the skill library and the underlying language models improved.
 Although we address this confound through temporal stratification in our evaluation, we cannot fully disentangle the contribution of better skills from the contribution of more capable models.
 Future work should control for model version to isolate the skill-based methodology's independent effect.
 
