@@ -245,6 +245,7 @@ pub fn load_problem(
             _ => deser_opt::<ClosestVectorProblem<i32>>(data),
         },
         "Knapsack" => deser_opt::<Knapsack>(data),
+        "OptimalLinearArrangement" => deser_opt::<OptimalLinearArrangement<SimpleGraph>>(data),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
@@ -305,6 +306,7 @@ pub fn serialize_any_problem(
             _ => try_ser::<ClosestVectorProblem<i32>>(any),
         },
         "Knapsack" => try_ser::<Knapsack>(any),
+        "OptimalLinearArrangement" => try_ser::<OptimalLinearArrangement<SimpleGraph>>(any),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }

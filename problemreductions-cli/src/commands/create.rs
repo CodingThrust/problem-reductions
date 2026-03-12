@@ -83,6 +83,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3",
         _ => "",
     }
 }
@@ -438,6 +439,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // OptimalLinearArrangement — graph only, no weights
+        "OptimalLinearArrangement" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3"
+                )
+            })?;
+            (
+                ser(OptimalLinearArrangement::new(graph))?,
                 resolved_variant.clone(),
             )
         }
@@ -935,10 +949,22 @@ fn create_random(
             util::ser_kcoloring(graph, k)?
         }
 
+        // OptimalLinearArrangement — graph only, no weights
+        "OptimalLinearArrangement" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(OptimalLinearArrangement::new(graph))?, variant)
+        }
+
         _ => bail!(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman)"
+             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman, \
+             OptimalLinearArrangement)"
         ),
     };
 

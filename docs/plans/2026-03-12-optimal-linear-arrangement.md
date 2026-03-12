@@ -1,61 +1,157 @@
-# Plan: Add OptimalLinearArrangement Model (Issue #406)
+# Plan: Add OptimalLinearArrangement Model (#406)
+
+> **For Claude:** REQUIRED SUB-SKILL: Use superpowers:executing-plans to implement this plan task-by-task.
 
 ## Overview
 
-Add the OptimalLinearArrangement problem model -- a classical NP-complete graph optimization problem (Garey & Johnson GT42) that asks for a vertex ordering on a line minimizing total edge length.
+Add the Optimal Linear Arrangement (OLA) problem as a graph optimization model. Given a graph G=(V,E), find a bijection f: V → {0,1,...,n-1} minimizing Σ_{(u,v)∈E} |f(u)-f(v)|.
+
+**Reference:** Garey & Johnson, A1.3 GT42. NP-complete [Garey, Johnson, Stockmeyer 1976].
 
 ## Design Decisions
 
-- **Optimization problem** with `Direction::Minimize` -- minimize sum of |f(u)-f(v)| over edges
-- **Type parameter**: `G: Graph` only (no weight parameter -- edges are unweighted)
-- **Configuration space**: `vec![n; n]` where n = |V|. Each variable assigns a position (0..n) to a vertex. A valid configuration is a permutation (all positions distinct).
-- **Metric**: `SolutionSize<usize>` -- total edge length as usize
-- **Category**: `graph/` (input is a graph)
-- **Complexity**: O*(2^n) via Held-Karp-style DP over subsets
+- **Optimization problem**: `Direction::Minimize`, `Metric = SolutionSize<i64>`
+- **Config space**: n variables, each with domain size n (positions 0..n-1). `dims() = vec![n; n]`. Valid configs are permutations.
+- **Type parameter**: Only `G: Graph` (no weight type — objective is purely structural)
+- **Complexity**: `2^num_vertices` (Held-Karp-style DP, analogous to TSP)
+- **No weight methods**: No `weights()`, `set_weights()`, `is_weighted()` — not applicable
 
-## Steps
+## Tasks
 
-### Step 1: Create model file `src/models/graph/optimal_linear_arrangement.rs`
+### Task 1: Create model file
 
-- `inventory::submit!` for ProblemSchemaEntry
-- Struct `OptimalLinearArrangement<G>` with field `graph: G`
-- Constructor `new(graph: G)`
-- Accessors: `graph()`, `num_vertices()`, `num_edges()`
-- `is_valid_solution()` -- checks permutation validity
-- `total_edge_length()` helper -- computes sum |f(u)-f(v)| for a permutation
-- `Problem` impl: NAME="OptimalLinearArrangement", Metric=SolutionSize<usize>, dims=vec![n;n], evaluate checks permutation then returns Valid(cost)
-- `OptimizationProblem` impl: Value=usize, direction=Minimize
-- `declare_variants!` with `SimpleGraph => "2^num_vertices"`
-- `variant_params![G]` (single type parameter)
-- `#[cfg(test)] #[path]` link to unit tests
+**File:** `src/models/graph/optimal_linear_arrangement.rs`
 
-### Step 2: Register model
+Follow `src/models/graph/traveling_salesman.rs` as reference.
 
-- `src/models/graph/mod.rs`: add `pub(crate) mod optimal_linear_arrangement;` and `pub use`
-- `src/models/mod.rs`: add to graph re-export line
-- `src/lib.rs` prelude: add `OptimalLinearArrangement`
+#### Struct
+```rust
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct OptimalLinearArrangement<G> {
+    graph: G,
+}
+```
 
-### Step 3: Register in CLI
+#### Schema registration
+```rust
+inventory::submit! {
+    ProblemSchemaEntry {
+        name: "OptimalLinearArrangement",
+        module_path: module_path!(),
+        description: "Find vertex ordering minimizing total edge length (Optimal Linear Arrangement)",
+        fields: &[
+            FieldInfo { name: "graph", type_name: "G", description: "The undirected graph G=(V,E)" },
+        ],
+    }
+}
+```
 
-- `problemreductions-cli/src/dispatch.rs`: add match arms in `load_problem()` and `serialize_any_problem()`
-- `problemreductions-cli/src/problem_name.rs`: add `"optimallineararrangement" => "OptimalLinearArrangement"` alias
-- `problemreductions-cli/src/commands/create.rs`: add creation handler (graph-only, no weights)
-- `problemreductions-cli/src/cli.rs`: add entry to "Flags by problem type" help table
+#### Inherent methods
+- `new(graph: G) -> Self`
+- `graph(&self) -> &G`
+- `num_vertices(&self) -> usize` (under `G: Graph` bound, for overhead expressions)
+- `num_edges(&self) -> usize` (under `G: Graph` bound, for overhead expressions)
+- `is_valid_permutation(config: &[usize]) -> bool` — checks config has length n and is a permutation of 0..n-1
+- `arrangement_cost(config: &[usize]) -> i64` — computes Σ|config[u] - config[v]| for all edges (u,v)
 
-### Step 4: Write unit tests `src/unit_tests/models/graph/optimal_linear_arrangement.rs`
+#### Problem trait
+```rust
+impl<G: Graph + crate::variant::VariantParam> Problem for OptimalLinearArrangement<G> {
+    const NAME: &'static str = "OptimalLinearArrangement";
+    type Metric = SolutionSize<i64>;
+    fn variant() -> Vec<(&'static str, &'static str)> { crate::variant_params![G] }
+    fn dims(&self) -> Vec<usize> { vec![self.graph.num_vertices(); self.graph.num_vertices()] }
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<i64> {
+        if !self.is_valid_permutation(config) { return SolutionSize::Invalid; }
+        SolutionSize::Valid(self.arrangement_cost(config))
+    }
+}
+```
 
-- `test_optimal_linear_arrangement_creation` -- construct instance, verify dims
-- `test_optimal_linear_arrangement_evaluation` -- valid and invalid configs
-- `test_optimal_linear_arrangement_direction` -- verify Minimize
-- `test_optimal_linear_arrangement_solver` -- brute-force finds optimal permutation
-- `test_optimal_linear_arrangement_path_graph` -- path graph optimal = n-1
-- `test_optimal_linear_arrangement_serialization` -- round-trip serde
+#### OptimizationProblem trait
+```rust
+impl<G: Graph + crate::variant::VariantParam> OptimizationProblem for OptimalLinearArrangement<G> {
+    type Value = i64;
+    fn direction(&self) -> Direction { Direction::Minimize }
+}
+```
 
-### Step 5: Write paper entry
+#### Variant declaration
+```rust
+crate::declare_variants! {
+    OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",
+}
+```
 
-- Add `"OptimalLinearArrangement": [Optimal Linear Arrangement]` to display-name dict
-- Add `#problem-def("OptimalLinearArrangement")` entry
+#### Test module link
+```rust
+#[cfg(test)]
+#[path = "../../unit_tests/models/graph/optimal_linear_arrangement.rs"]
+mod tests;
+```
 
-### Step 6: Verify
+### Task 2: Register in module hierarchy
 
-- `make check` (fmt + clippy + test)
+1. `src/models/graph/mod.rs`: Add `pub(crate) mod optimal_linear_arrangement;` and `pub use optimal_linear_arrangement::OptimalLinearArrangement;`
+2. `src/models/mod.rs`: Add `OptimalLinearArrangement` to the `pub use graph::{...}` line
+
+### Task 3: Register in CLI
+
+#### dispatch.rs
+In `load_problem()` match:
+```rust
+"OptimalLinearArrangement" => deser_opt::<OptimalLinearArrangement<SimpleGraph>>(data),
+```
+
+In `serialize_any_problem()` match:
+```rust
+"OptimalLinearArrangement" => try_ser::<OptimalLinearArrangement<SimpleGraph>>(any),
+```
+
+Import `OptimalLinearArrangement` from the models at the top.
+
+#### problem_name.rs
+In `resolve_alias()` match add:
+```rust
+"optimallineararrangement" | "ola" => "OptimalLinearArrangement".to_string(),
+```
+
+In `ALIASES` const add:
+```rust
+("OLA", "OptimalLinearArrangement"),
+```
+
+#### commands/create.rs
+Add `"OptimalLinearArrangement"` as a graph-only problem (no weights):
+- In the main `match` in `create()`, add a new arm that parses `--graph` and creates `OptimalLinearArrangement::new(graph)`
+- Add to `example_for()`: `"OptimalLinearArrangement" => "--graph 0-1,1-2,2-3,0-3"`
+- Add to `create_random()` support for random graph generation
+
+### Task 4: Write unit tests
+
+**File:** `src/unit_tests/models/graph/optimal_linear_arrangement.rs`
+
+Follow `src/unit_tests/models/graph/traveling_salesman.rs` as reference.
+
+Tests to include:
+1. `test_optimal_linear_arrangement_creation` — basic construction, dims, num_vertices
+2. `test_evaluate_valid_permutation` — identity permutation on path graph 0-1-2-3-4, cost = 4
+3. `test_evaluate_invalid_not_permutation` — duplicate positions → Invalid
+4. `test_evaluate_invalid_out_of_range` — position >= n → Invalid
+5. `test_evaluate_invalid_wrong_length` — wrong config length → Invalid
+6. `test_direction` — Direction::Minimize
+7. `test_problem_name` — NAME = "OptimalLinearArrangement"
+8. `test_brute_force_path_graph` — path 0-1-2-3-4: optimal cost = 4 (identity arrangement)
+9. `test_brute_force_issue_example` — 6-vertex graph from issue with 7 edges: verify optimal cost
+10. `test_size_getters` — num_vertices, num_edges
+11. `test_is_valid_permutation` — valid/invalid cases directly
+
+### Task 5: Write paper entry
+
+Add to `docs/paper/reductions.typ`:
+- Add `"OptimalLinearArrangement": [Optimal Linear Arrangement]` to `display-name` dict
+- Add `#problem-def("OptimalLinearArrangement")` entry with formal definition, background, example
+
+### Task 6: Verify
+
+Run `make check` (fmt + clippy + test). Fix any issues.

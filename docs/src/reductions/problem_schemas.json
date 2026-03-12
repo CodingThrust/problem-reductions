@@ -334,6 +334,17 @@
     ]
   },
   {
+    "name": "OptimalLinearArrangement",
+    "description": "Find vertex ordering on a line minimizing total edge length",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      }
+    ]
+  },
+  {
     "name": "PaintShop",
     "description": "Minimize color changes in paint shop sequence",
     "fields": [

@@ -52,6 +52,7 @@
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "OptimalLinearArrangement": [Optimal Linear Arrangement],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -455,6 +456,15 @@ One of the most intensely studied NP-hard problems, with applications in logisti
 },
 caption: [Complete graph $K_4$ with weighted edges. The optimal tour $v_0 -> v_1 -> v_2 -> v_3 -> v_0$ (blue edges) has cost 6.],
 ) <fig:k4-tsp>
+]
+#problem-def("OptimalLinearArrangement")[
+  Given an undirected graph $G=(V,E)$, find a bijection $f: V -> {1, 2, dots, |V|}$ that minimizes $sum_({u,v} in E) |f(u) - f(v)|$.
+][
+A classical NP-complete problem from Garey & Johnson (GT42) @garey1979, with applications in VLSI design, graph drawing, and sparse matrix reordering. The problem asks to place vertices on a line so that the total "stretch" of all edges is minimized.
+
+NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
+
+*Example.* Consider the path graph $P_3$: vertices ${v_0, v_1, v_2}$ with edges ${v_0, v_1}$ and ${v_1, v_2}$. The identity arrangement $f(v_i) = i+1$ gives cost $|1-2| + |2-3| = 2$, which is optimal. For a triangle $K_3$ with the same vertex set plus edge ${v_0, v_2}$, any arrangement yields cost $|f(v_0)-f(v_1)| + |f(v_1)-f(v_2)| + |f(v_0)-f(v_2)| = 4$.
 ]
 #problem-def("MaximumClique")[
   Given $G = (V, E)$, find $K subset.eq V$ maximizing $|K|$ such that all pairs in $K$ are adjacent: $forall u, v in K: (u, v) in E$. Equivalent to MIS on the complement graph $overline(G)$.
