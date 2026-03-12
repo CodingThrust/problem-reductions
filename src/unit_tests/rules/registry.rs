@@ -13,7 +13,7 @@ fn dummy_overhead_eval_fn(_: &dyn std::any::Any) -> ProblemSize {
 #[test]
 fn test_reduction_overhead_evaluate() {
     let overhead = ReductionOverhead::new(vec![
-        ("n", Expr::mul(Expr::Const(3.0), Expr::Var("m"))),
+        ("n", Expr::Const(3.0) * Expr::Var("m")),
         ("m", Expr::pow(Expr::Var("m"), Expr::Const(2.0))),
     ]);
 
@@ -37,9 +37,7 @@ fn test_reduction_entry_overhead() {
         target_name: "TestTarget",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
         target_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
-        overhead_fn: || {
-            ReductionOverhead::new(vec![("n", Expr::mul(Expr::Const(2.0), Expr::Var("n")))])
-        },
+        overhead_fn: || ReductionOverhead::new(vec![("n", Expr::Const(2.0) * Expr::Var("n"))]),
         module_path: "test::module",
         reduce_fn: dummy_reduce_fn,
         overhead_eval_fn: dummy_overhead_eval_fn,

@@ -203,62 +203,13 @@ git push
 make copilot-review
 ```
 
-#### 7e. Fix Loop (max 3 retries)
-
-```bash
-REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-```
-
-For each retry:
-
-1. **Wait for CI to complete** (poll every 30s, up to 15 minutes):
-   ```bash
-   for i in $(seq 1 30); do
-       sleep 30
-       HEAD_SHA=$(gh api repos/$REPO/pulls/$PR | python3 -c "import sys,json; print(json.load(sys.stdin)['head']['sha'])")
-       STATUS=$(gh api repos/$REPO/commits/$HEAD_SHA/check-runs | python3 -c "
-   import sys,json
-   runs = json.load(sys.stdin)['check_runs']
-   if not runs:
-       print('PENDING')  # CI hasn't registered yet
-   else:
-       failed = [r['name'] for r in runs if r.get('conclusion') not in ('success', 'skipped', None)]
-       pending = [r['name'] for r in runs if r.get('conclusion') is None and r['status'] != 'completed']
-       if pending:
-           print('PENDING')
-       elif failed:
-           print('FAILED')
-       else:
-           print('GREEN')
-   ")
-       if [ "$STATUS" != "PENDING" ]; then break; fi
-   done
-   ```
-
-   - If `GREEN` on the **first** iteration (before any fix-pr): skip the fix loop, done.
-   - If `GREEN` after a fix-pr pass: break, done.
-   - If `FAILED`: continue to step 2.
-   - If still `PENDING` after 15 min: treat as `FAILED`.
-
-2. **Invoke `/fix-pr`** to address review comments, CI failures, and coverage gaps.
-
-3. **Push fixes:**
-   ```bash
-   git push
-   ```
-
-4. Increment retry counter. If `< 3`, go back to step 1. If `= 3`, give up.
-
-**After 3 failed retries:** leave PR open, report to user.
-
-#### 7f. Done
+#### 7e. Done
 
 Report final status:
-- PR URL
-- CI status (green / failed after retries)
-- Any unresolved review items
+- PR URL and number
+- Implementation summary
 
-The PR is **not merged** — the user or `meta-power` decides when to merge.
+The PR is **not merged** and CI/review fixes are **not** handled here. The separate `review-pipeline` skill picks up PRs from the `review-agentic` board column to handle Copilot review comments, CI fixes, and agentic testing.
 
 ## Example
 
@@ -286,9 +237,9 @@ Executing plan via subagent-driven-development...
 [Subagents implement the plan steps]
 [Runs review-implementation — all checks pass, auto-fixes applied]
 [Pushes + requests Copilot review]
-[Polls CI... GREEN on first pass]
 
-PR #45: CI green, ready for merge.
+PR #45 created and pushed. Copilot review requested.
+Run /review-pipeline to process Copilot comments, fix CI, and run agentic tests.
 ```
 
 ## Common Mistakes
