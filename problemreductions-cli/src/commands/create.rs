@@ -46,6 +46,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.tree.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -76,6 +77,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
+        "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
@@ -203,6 +205,45 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(GraphPartitioning::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // IsomorphicSpanningTree (graph + tree)
+        "IsomorphicSpanningTree" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create IsomorphicSpanningTree --graph 0-1,1-2,0-2 --tree 0-1,1-2"
+                )
+            })?;
+            let tree_str = args.tree.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IsomorphicSpanningTree requires --tree\n\n\
+                     Usage: pred create IsomorphicSpanningTree --graph 0-1,1-2,0-2 --tree 0-1,1-2"
+                )
+            })?;
+            let tree_edges: Vec<(usize, usize)> = tree_str
+                .split(',')
+                .map(|pair| {
+                    let parts: Vec<&str> = pair.trim().split('-').collect();
+                    if parts.len() != 2 {
+                        bail!("Invalid tree edge '{}': expected format u-v", pair.trim());
+                    }
+                    let u: usize = parts[0].parse()?;
+                    let v: usize = parts[1].parse()?;
+                    Ok((u, v))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let tree_num_vertices = tree_edges
+                .iter()
+                .flat_map(|(u, v)| [*u, *v])
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0)
+                .max(graph.num_vertices());
+            let tree = SimpleGraph::new(tree_num_vertices, tree_edges);
+            (
+                ser(problemreductions::models::graph::IsomorphicSpanningTree::new(graph, tree))?,
                 resolved_variant.clone(),
             )
         }

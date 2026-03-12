@@ -33,6 +33,7 @@ pub fn resolve_alias(input: &str) -> String {
         "ksat" | "ksatisfiability" => "KSatisfiability".to_string(),
         "qubo" => "QUBO".to_string(),
         "graphpartitioning" => "GraphPartitioning".to_string(),
+        "isomorphicspanningtree" => "IsomorphicSpanningTree".to_string(),
         "maxcut" => "MaxCut".to_string(),
         "spinglass" => "SpinGlass".to_string(),
         "ilp" => "ILP".to_string(),
