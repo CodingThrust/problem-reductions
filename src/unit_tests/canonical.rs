@@ -85,6 +85,36 @@ fn test_canonical_division_becomes_negative_exponent() {
 }
 
 #[test]
+fn test_canonical_distinct_fractional_exponents_do_not_merge() {
+    let e = Expr::pow(Expr::Var("n"), Expr::Const(1.0004)) - Expr::Var("n");
+    let c = canonical_form(&e).unwrap();
+    assert_ne!(c.to_string(), "0");
+    let size = crate::types::ProblemSize::new(vec![("n", 2)]);
+    assert_ne!(c.eval(&size), 0.0);
+}
+
+#[test]
+fn test_canonical_constant_base_one_folds_to_constant() {
+    let e = Expr::pow(Expr::Const(1.0), Expr::Var("n"));
+    let c = canonical_form(&e).unwrap();
+    assert_eq!(c.to_string(), "1");
+}
+
+#[test]
+fn test_canonical_negative_constant_base_with_symbolic_exponent_is_rejected() {
+    let e = Expr::pow(Expr::Const(-2.0), Expr::Var("n"));
+    let err = canonical_form(&e).unwrap_err();
+    assert!(matches!(err, CanonicalizationError::Unsupported(_)));
+}
+
+#[test]
+fn test_canonical_zero_constant_base_with_symbolic_exponent_is_rejected() {
+    let e = Expr::pow(Expr::Const(0.0), Expr::Var("n"));
+    let err = canonical_form(&e).unwrap_err();
+    assert!(matches!(err, CanonicalizationError::Unsupported(_)));
+}
+
+#[test]
 fn test_canonical_deterministic_order() {
     // m + n and n + m should produce the same canonical form
     let a = canonical_form(&(Expr::Var("m") + Expr::Var("n"))).unwrap();
