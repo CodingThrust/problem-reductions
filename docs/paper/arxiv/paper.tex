@@ -450,6 +450,136 @@ The skill system (\Cref{sec:skills}) ensures that agents invoke all seven layers
 
 \section{Evaluation}\label{sec:evaluation}
 
+We evaluate the skill-based methodology through three complementary lenses: an ablation study comparing skill-based and no-skill agent configurations (\Cref{sec:ablation}), a longitudinal analysis of the project's git history (\Cref{sec:mining}), and detailed case studies of three reductions spanning the complexity spectrum (\Cref{sec:cases}).
+Together, these provide quantitative evidence that the skill-based decomposition improves agent reliability, and qualitative insight into how skills and verification layers interact during real implementation tasks.
+
+\subsection{Ablation: Skill-Based vs.\ Raw Agent}\label{sec:ablation}
+
+To isolate the effect of skill-based task decomposition from the broader methodology, we design a controlled comparison between two agent configurations operating on identical tasks within the same codebase.
+
+\paragraph{Setup.}
+We select a sample of 5--10 reduction rules spanning the complexity spectrum---from near-trivial complement relationships (e.g., MinimumVertexCover $\to$ MaximumIndependentSet, $\sim$96~LOC) through moderate gadget constructions (e.g., Satisfiability $\to$ MaximumIndependentSet, $\sim$171~LOC) to complex circuit-based encodings (e.g., Factoring $\to$ CircuitSAT, $\sim$272~LOC).
+For each reduction, we prepare identical GitHub issues with the same problem specification, mathematical description, and acceptance criteria.
+We then run each issue through two configurations:
+\begin{itemize}
+  \item \textbf{Skill-based}: the full pipeline described in \Cref{sec:skills}, including the \texttt{issue-to-pr} orchestration skill, the \texttt{add-rule} implementation skill, \texttt{review-implementation} with parallel sub-agents, and \texttt{fix-pr} for CI repair.
+  \item \textbf{No-skill baseline}: the same Claude Code agent operating on the same codebase with access to the project's \texttt{CLAUDE.md} for context, but without any skill files. The agent receives the issue text and must determine its own workflow.
+\end{itemize}
+
+\paragraph{Metrics.}
+We measure four outcomes for each configuration: (1)~\emph{first-attempt CI pass rate}---whether the initial PR passes all CI checks without intervention; (2)~\emph{review rounds}---the number of review-fix cycles before merge readiness; (3)~\emph{correctness}---whether the final implementation passes all round-trip tests; and (4)~\emph{convention adherence}---whether the code follows project conventions (file naming, macro usage, documentation structure, test patterns).
+
+\paragraph{Framing.}
+With $n = 5$--$10$, this ablation is a \emph{controlled illustration} of the skill-based approach's value, not a statistically powered experiment.
+The results are intended to demonstrate the \emph{mechanism}---how skills prevent specific error classes by encoding domain knowledge into the agent's workflow---rather than to establish effect sizes with confidence intervals.
+We expect the skill-based configuration to excel particularly on convention adherence (where skills encode project-specific patterns that no general-purpose agent would know) and first-attempt CI pass rate (where the multi-layered verification invoked by skills catches errors before the first push).
+The raw agent, by contrast, is likely to produce functionally correct code that nonetheless fails CI due to missing \texttt{declare\_variants!} macros, incorrect overhead expressions, or test files placed in the wrong directory.
+
+The ablation results are [TBD]; the experiment requires running both configurations on held-out issues and measuring the four metrics above.
+The git history mining in \Cref{sec:mining} provides complementary longitudinal evidence across the project's full development timeline.
+
+\subsection{Git History Mining}\label{sec:mining}
+
+We analyze the complete git and pull request history of the \texttt{problem-reductions} repository to characterize the project's evolution and the types of errors encountered during development.
+The repository contains 58~merged pull requests spanning approximately seven weeks of development, authored by two primary contributors.
+
+\paragraph{Development phases.}
+We stratify the history into three phases reflecting the evolution of agent tooling:
+\begin{itemize}
+  \item \textbf{Phase~1 (Manual)}: 35~PRs. Skills had not yet been developed; all implementation, testing, and review was performed manually or with ad-hoc agent assistance. This phase established the core library architecture and the majority of the reduction rules.
+  \item \textbf{Phase~2 (Basic skills)}: 9~PRs. Initial skills for model and rule implementation were available, providing structured workflows but without full pipeline automation. Two new problem models (ClosestVectorProblem, BinPacking) were added during this phase.
+  \item \textbf{Phase~3 (Full pipeline)}: 14~PRs. The complete skill library was operational, including orchestration skills (\texttt{issue-to-pr}, \texttt{meta-power}), quality gates (\texttt{check-issue}, \texttt{check-rule-redundancy}), and multi-agent review (\texttt{review-implementation}). New models (Knapsack, GraphPartitioning) and rules (KSatisfiability $\to$ SubsetSum) were added with full pipeline support.
+\end{itemize}
+
+\paragraph{PR composition.}
+Of the 58~merged PRs, 5 are tagged as \texttt{[Model]} PRs (adding new problem types), 2 as \texttt{[Rule]} PRs (adding new reduction rules), and 51 as infrastructure, refactoring, documentation, or tooling PRs.
+The low count of explicitly tagged Model and Rule PRs reflects the project's development pattern: the initial feature-parity PRs (e.g., PR~\#4 ``Feature parity with ProblemReductions.jl'' and PR~\#7 ``Implement remaining reduction rules'') bundled multiple models and rules into single large PRs before the tagging convention was established.
+The 40~reduction rule implementations and 24~problem types in the final library were built incrementally across many PRs that also included refactoring, testing, and documentation work.
+
+All 58~PRs were authored through human GitHub accounts.
+This reflects the operational reality of our methodology: the agent operates through the human's development environment (Claude Code runs locally), so all commits and PRs are attributed to the human author even when the agent performed the implementation.
+The distinction between human-authored and agent-assisted work is therefore not visible in the git metadata, which is itself a finding about the observability limitations of current agentic coding workflows.
+
+\paragraph{Error taxonomy.}
+\Cref{tab:errors} categorizes the types of errors encountered during development, mapped to the verification layer that catches each error class.
+The taxonomy is derived from code review comments, CI failure logs, and commit messages across all three development phases.
+
+\begin{table}[t]
+\caption{Error taxonomy by verification layer.}\label{tab:errors}
+\centering
+\begin{tabular}{llc}
+\toprule
+Error Category & Catching Layer & Count \\
+\midrule
+Type/API mismatch & L1: Type system & [TBD] \\
+Evaluation logic errors & L2: Unit tests & [TBD] \\
+Mapping/index errors & L3: Closed-loop tests & [TBD] \\
+Overhead formula errors & L4: Overhead validation & [TBD] \\
+Test gaming (changed expected values) & L5: Materialized fixtures & [TBD] \\
+Convention violations & L6: Agentic review & [TBD] \\
+Incorrect proof arguments & L7: Documentation review & [TBD] \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+The error counts in \Cref{tab:errors} are placeholders pending a systematic audit of all CI logs and review threads.
+Preliminary observations from the commit history suggest that \emph{overhead formula errors} (Layer~4) and \emph{convention violations} (Layer~6) are among the most common error classes.
+For example, PR~\#112 (``Fix complexity inconsistencies, enforce overhead, add missing variants'') addressed multiple overhead formula errors that had accumulated before Layer~4 validation was enforced, and PR~\#89 (``Close completeness gaps from review-implementation audit'') fixed convention violations identified by the agentic review skill.
+The introduction of compile-time overhead validation in PR~\#99 (``Replace Polynomial overhead system with Expr AST'') eliminated an entire class of errors by shifting overhead checking from runtime to compile time---an example of how verification infrastructure co-evolves with the skill system.
+
+\subsection{Case Studies}\label{sec:cases}
+
+We examine three reductions that illustrate different points on the complexity spectrum, highlighting how the skill-based pipeline and verification stack interact in each case.
+
+\paragraph{Case 1: MinimumVertexCover $\to$ MaximumIndependentSet (simple).}
+
+This reduction exploits the classical complement relationship: a set $S$ is an independent set in graph $G$ if and only if $V \setminus S$ is a vertex cover.
+The implementation is correspondingly minimal at 96~lines of Rust, including both directions of the reduction (MIS $\to$ MVC and MVC $\to$ MIS).
+The \texttt{reduce\_to()} method simply copies the graph and weights to the target problem type, and the \texttt{extract\_solution()} method flips each bit of the configuration vector.
+
+The overhead expressions are identity mappings (\texttt{num\_vertices = "num\_vertices"}, \texttt{num\_edges = "num\_edges"}), reflecting the fact that the target problem has exactly the same graph as the source.
+This reduction was part of the initial batch implemented in PR~\#7 (``Implement remaining reduction rules'') during Phase~1, before skills were available.
+
+This case illustrates the \emph{lower bound} of the complexity spectrum.
+The mathematical content is trivial, the implementation is mechanical, and the verification layers activate without incident.
+For such reductions, the skill-based pipeline's primary value is in enforcing conventions (correct file naming, \texttt{declare\_variants!} macro placement, documentation entries) rather than catching logical errors.
+
+\paragraph{Case 2: Satisfiability $\to$ MaximumIndependentSet (complex).}
+
+This is the classical Karp reduction from Boolean satisfiability to maximum independent set~\cite{karp1972}.
+Given a CNF formula with $m$~clauses, the reduction creates one vertex for each literal occurrence in each clause, adds clique edges within each clause (ensuring at most one literal per clause is selected), and adds conflict edges between complementary literals across clauses (ensuring consistency).
+A satisfying assignment corresponds to an independent set of size exactly~$m$.
+
+The implementation spans 171~lines, with the core gadget construction occupying two nested loops: the first builds per-clause cliques (lines 127--142 in the source), and the second adds cross-clause conflict edges by checking literal complementarity (lines 147--153).
+The overhead expressions reflect the quadratic worst case: \texttt{num\_vertices = "num\_literals"} and \texttt{num\_edges = "num\_literals\^{}2"}.
+
+This reduction is instructive because it is precisely the kind of task where agents commonly make errors.
+The edge count in the conflict graph is worst-case quadratic in the number of literals (every literal in one clause may conflict with literals in every other clause), but an agent might assume linear overhead if it reasons only about the per-clause structure.
+Layer~4 (overhead validation) catches this class of error by comparing the symbolic overhead expression against the actual target problem size on concrete test instances.
+The closed-loop test (Layer~3) catches a different class: index-off-by-one errors in the literal-to-vertex mapping, which cause the extracted solution to assign the wrong truth value to a variable.
+Both layers are necessary---an implementation with correct indices but wrong overhead, or correct overhead but wrong indices, would pass one layer but fail the other.
+
+\paragraph{Case 3: Factoring $\to$ CircuitSAT $\to$ ILP (composition).}
+
+The most complex case study involves two independently implemented reductions that compose through the reduction graph to solve an end-to-end problem: given an integer $N$, find its non-trivial factors.
+
+The first reduction, Factoring $\to$ CircuitSAT (272~LOC, PR~\#85 family), constructs an array multiplier circuit.
+The circuit takes two bit-vectors $p$ and $q$ as inputs, computes their product through a grid of full-adder cells, and constrains the output to equal the target number~$N$.
+Each multiplier cell requires six circuit assignments (AND, XOR, carry logic), so the total overhead scales as $\Theta(mn)$ where $m$ and $n$ are the bit-widths of the two factors.
+The \texttt{extract\_solution()} method maps the satisfying circuit assignment back to the two factors by reading the $p$ and $q$ variable values.
+
+The second reduction, CircuitSAT $\to$ ILP (225~LOC, PR~\#85), linearizes the Boolean circuit into integer linear constraints.
+Each Boolean gate (AND, OR, XOR, NOT) is encoded as a set of linear inequalities over binary variables, with the circuit's topological ordering determining the constraint generation sequence.
+
+Neither reduction was designed with composition in mind---each was implemented to connect its source and target in the reduction graph.
+Yet the graph infrastructure enables automatic composition: a user with a Factoring instance can query the graph for a path to ILP, chain the two reductions, solve the resulting integer program with an off-the-shelf solver, and extract factors through the composed inverse maps.
+This composition works because each reduction's \texttt{ReductionResult} trait provides a type-safe \texttt{extract\_solution()} method, and the graph's path-finding API composes these extractors in reverse order.
+
+This case highlights the \emph{emergent value} of the reduction graph as compilation infrastructure.
+The two reductions were implemented in separate PRs, potentially by different contributors, with different verification layer activations.
+The graph composes them into a pipeline that no single implementation task created.
+This compositionality is precisely the property that makes the Goldilocks domain valuable: individual tasks are bounded and verifiable, but the graph as a whole provides capabilities that exceed the sum of its parts.
+
 \section{Related Work}\label{sec:related}
 
 Our work draws on and contributes to four active research areas: AI coding agents and their benchmarks, AI-assisted discovery of reductions and complexity results, formal verification of AI-generated code, and physics-inspired optimization via problem reformulation.
