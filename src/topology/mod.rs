@@ -6,6 +6,7 @@
 //! - [`UnitDiskGraph`]: Vertices with 2D positions, edges based on distance
 //! - [`KingsSubgraph`]: 8-connected grid graph (King's graph)
 //! - [`TriangularSubgraph`]: Triangular lattice subgraph
+//! - [`DirectedGraph`]: Directed graph (for problems like FeedbackVertexSet)
 
 mod bipartite_graph;
 mod directed_graph;

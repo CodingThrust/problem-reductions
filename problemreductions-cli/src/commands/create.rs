@@ -461,7 +461,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                         "Invalid arc format '{}', expected 'u>v'",
                         s
                     );
-                    Ok((parts[0].trim().parse::<usize>()?, parts[1].trim().parse::<usize>()?))
+                    Ok((
+                        parts[0].trim().parse::<usize>()?,
+                        parts[1].trim().parse::<usize>()?,
+                    ))
                 })
                 .collect::<Result<Vec<_>>>()?;
             let num_v = arcs

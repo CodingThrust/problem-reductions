@@ -74,6 +74,22 @@ impl<W: Clone + Default> MinimumFeedbackVertexSet<W> {
     pub fn weights(&self) -> &[W] {
         &self.weights
     }
+
+    /// Set vertex weights.
+    pub fn set_weights(&mut self, weights: Vec<W>) {
+        assert_eq!(
+            weights.len(),
+            self.graph.num_vertices(),
+            "weights length must match graph num_vertices"
+        );
+        self.weights = weights;
+    }
+
+    /// Check if a configuration is a valid feedback vertex set.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        let keep: Vec<bool> = config.iter().map(|&c| c == 0).collect();
+        self.graph.induced_subgraph(&keep).is_dag()
+    }
 }
 
 impl<W: WeightElement> MinimumFeedbackVertexSet<W> {

@@ -216,7 +216,7 @@ Flags by problem type:
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
-  MinFVS/FVS                      --arcs [--weights] [--num-vertices]
+  FVS                             --arcs [--weights] [--num-vertices]
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
