@@ -99,12 +99,15 @@ where
 
     fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
         let n = self.graph.num_vertices();
+        if config.len() != n {
+            return SolutionSize::Invalid;
+        }
         // Balanced bisection requires even n
-        if !n.is_multiple_of(2) {
+        if n % 2 != 0 {
             return SolutionSize::Invalid;
         }
         // Check balanced: exactly n/2 vertices in partition 1
-        let count_ones: usize = config.iter().sum();
+        let count_ones = config.iter().filter(|&&x| x == 1).count();
         if count_ones != n / 2 {
             return SolutionSize::Invalid;
         }
