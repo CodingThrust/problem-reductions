@@ -29,6 +29,7 @@
   "MaximumIndependentSet": [Maximum Independent Set],
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
+  "GraphPartitioning": [Graph Partitioning],
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
@@ -378,6 +379,57 @@ Max-Cut is NP-hard on general graphs @barahona1982 but polynomial-time solvable 
 },
 caption: [The house graph with max cut $S = {v_0, v_3}$ (blue) vs $overline(S) = {v_1, v_2, v_4}$ (white). Cut edges shown in bold blue; 5 of 6 edges are cut.],
 ) <fig:house-maxcut>
+]
+#problem-def("GraphPartitioning")[
+  Given an undirected graph $G = (V, E)$ with $|V| = n$ (even), find a partition of $V$ into two disjoint sets $A$ and $B$ with $|A| = |B| = n slash 2$ that minimizes the number of edges crossing the partition:
+  $ "cut"(A, B) = |{(u, v) in E : u in A, v in B}|. $
+][
+Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel computing, and scientific simulation, where balanced workload distribution with minimal communication is essential. Closely related to Max-Cut (which _maximizes_ rather than _minimizes_ the cut) and to the Ising Spin Glass model. NP-completeness was proved by Garey, Johnson and Stockmeyer (1976). Arora, Rao and Vazirani (2009) gave an $O(sqrt(log n))$-approximation algorithm. Standard partitioning tools include METIS, KaHIP, and Scotch.
+
+*Example.* Consider the graph $G$ with $n = 6$ vertices and 9 edges: $(v_0, v_1)$, $(v_0, v_2)$, $(v_1, v_2)$, $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$, $(v_3, v_4)$, $(v_3, v_5)$, $(v_4, v_5)$. The optimal balanced partition is $A = {v_0, v_1, v_2}$, $B = {v_3, v_4, v_5}$, with cut value 3: the crossing edges are $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$. All other balanced partitions yield a cut of at least 3.
+
+#figure(
+  canvas(length: 1cm, {
+    // 6-vertex layout: two columns of 3
+    let verts = (
+      (0, 2),     // v0: top-left
+      (0, 1),     // v1: mid-left
+      (0, 0),     // v2: bottom-left
+      (2.5, 2),   // v3: top-right
+      (2.5, 1),   // v4: mid-right
+      (2.5, 0),   // v5: bottom-right
+    )
+    let edges = ((0,1),(0,2),(1,2),(1,3),(2,3),(2,4),(3,4),(3,5),(4,5))
+    let side-a = (0, 1, 2)
+    let cut-edges = edges.filter(e => side-a.contains(e.at(0)) != side-a.contains(e.at(1)))
+    // Draw edges
+    for (u, v) in edges {
+      let crossing = cut-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+      g-edge(verts.at(u), verts.at(v),
+        stroke: if crossing { 2pt + graph-colors.at(1) } else { 1pt + luma(180) })
+    }
+    // Draw partition regions
+    import draw: *
+    on-layer(-1, {
+      rect((-0.5, -0.5), (0.5, 2.5),
+        fill: graph-colors.at(0).transparentize(90%),
+        stroke: (dash: "dashed", paint: graph-colors.at(0), thickness: 0.8pt))
+      content((0, 2.8), text(8pt, fill: graph-colors.at(0))[$A$])
+      rect((2.0, -0.5), (3.0, 2.5),
+        fill: graph-colors.at(1).transparentize(90%),
+        stroke: (dash: "dashed", paint: graph-colors.at(1), thickness: 0.8pt))
+      content((2.5, 2.8), text(8pt, fill: graph-colors.at(1))[$B$])
+    })
+    // Draw nodes
+    for (k, pos) in verts.enumerate() {
+      let in-a = side-a.contains(k)
+      g-node(pos, name: "v" + str(k),
+        fill: if in-a { graph-colors.at(0) } else { graph-colors.at(1) },
+        label: text(fill: white)[$v_#k$])
+    }
+  }),
+  caption: [Graph with $n = 6$ vertices partitioned into $A = {v_0, v_1, v_2}$ (blue) and $B = {v_3, v_4, v_5}$ (red). The 3 crossing edges $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$ are shown in bold red; internal edges are gray.],
+) <fig:graph-partitioning>
 ]
 #problem-def("KColoring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
