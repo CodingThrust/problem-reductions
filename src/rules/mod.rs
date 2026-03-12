@@ -35,6 +35,8 @@ mod traits;
 pub mod unitdiskmapping;
 
 #[cfg(feature = "ilp-solver")]
+mod binpacking_ilp;
+#[cfg(feature = "ilp-solver")]
 mod circuit_ilp;
 #[cfg(feature = "ilp-solver")]
 mod coloring_ilp;
