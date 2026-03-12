@@ -21,6 +21,7 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("TSP", "TravelingSalesman"),
     ("CVP", "ClosestVectorProblem"),
     ("MaxMatching", "MaximumMatching"),
+    ("OLA", "OptimalLinearArrangement"),
 ];
 
 /// Resolve a short alias to the canonical problem name.
