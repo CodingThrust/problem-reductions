@@ -36,10 +36,10 @@ Extract issue number and flags from arguments:
 ### 2. Fetch Issue
 
 ```bash
-gh issue view <number> --json title,body,labels,assignees
+gh issue view <number> --json title,body,labels,assignees,comments
 ```
 
-Present issue summary to user.
+Present issue summary to user. **Also review all comments** — contributors and maintainers may have posted clarifications, corrections, additional context, or design decisions that refine or override parts of the original issue body. Incorporate relevant comment content when writing the plan.
 
 ### 3. Verify Issue Has Passed check-issue
 

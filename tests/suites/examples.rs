@@ -21,6 +21,7 @@ example_test!(reduction_ilp_to_qubo);
 example_test!(reduction_kcoloring_to_ilp);
 example_test!(reduction_kcoloring_to_qubo);
 example_test!(reduction_ksatisfiability_to_qubo);
+example_test!(reduction_ksatisfiability_to_subsetsum);
 example_test!(reduction_ksatisfiability_to_satisfiability);
 example_test!(reduction_maxcut_to_spinglass);
 example_test!(reduction_maximumclique_to_ilp);
@@ -84,6 +85,10 @@ example_fn!(test_kcoloring_to_qubo, reduction_kcoloring_to_qubo);
 example_fn!(
     test_ksatisfiability_to_qubo,
     reduction_ksatisfiability_to_qubo
+);
+example_fn!(
+    test_ksatisfiability_to_subsetsum,
+    reduction_ksatisfiability_to_subsetsum
 );
 example_fn!(
     test_ksatisfiability_to_satisfiability,

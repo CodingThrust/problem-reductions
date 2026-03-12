@@ -29,6 +29,7 @@
   "MaximumIndependentSet": [Maximum Independent Set],
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
+  "GraphPartitioning": [Graph Partitioning],
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
@@ -52,6 +53,8 @@
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "SubsetSum": [Subset Sum],
+  "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -379,6 +382,57 @@ Max-Cut is NP-hard on general graphs @barahona1982 but polynomial-time solvable 
 caption: [The house graph with max cut $S = {v_0, v_3}$ (blue) vs $overline(S) = {v_1, v_2, v_4}$ (white). Cut edges shown in bold blue; 5 of 6 edges are cut.],
 ) <fig:house-maxcut>
 ]
+#problem-def("GraphPartitioning")[
+  Given an undirected graph $G = (V, E)$ with $|V| = n$ (even), find a partition of $V$ into two disjoint sets $A$ and $B$ with $|A| = |B| = n slash 2$ that minimizes the number of edges crossing the partition:
+  $ "cut"(A, B) = |{(u, v) in E : u in A, v in B}|. $
+][
+Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel computing, and scientific simulation, where balanced workload distribution with minimal communication is essential. Closely related to Max-Cut (which _maximizes_ rather than _minimizes_ the cut) and to the Ising Spin Glass model. NP-completeness was proved by Garey, Johnson and Stockmeyer @garey1976. Arora, Rao and Vazirani @arora2009 gave an $O(sqrt(log n))$-approximation algorithm. The best known unconditional exact algorithm is brute-force enumeration of all $binom(n, n slash 2) = O^*(2^n)$ balanced partitions; no faster worst-case algorithm is known. Cygan et al. @cygan2014 showed that Minimum Bisection is fixed-parameter tractable in $O(2^(O(k^3)) dot n^3 log^3 n)$ time parameterized by bisection width $k$. Standard partitioning tools include METIS, KaHIP, and Scotch.
+
+*Example.* Consider the graph $G$ with $n = 6$ vertices and 9 edges: $(v_0, v_1)$, $(v_0, v_2)$, $(v_1, v_2)$, $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$, $(v_3, v_4)$, $(v_3, v_5)$, $(v_4, v_5)$. The optimal balanced partition is $A = {v_0, v_1, v_2}$, $B = {v_3, v_4, v_5}$, with cut value 3: the crossing edges are $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$. All other balanced partitions yield a cut of at least 3.
+
+#figure(
+  canvas(length: 1cm, {
+    // 6-vertex layout: two columns of 3
+    let verts = (
+      (0, 2),     // v0: top-left
+      (0, 1),     // v1: mid-left
+      (0, 0),     // v2: bottom-left
+      (2.5, 2),   // v3: top-right
+      (2.5, 1),   // v4: mid-right
+      (2.5, 0),   // v5: bottom-right
+    )
+    let edges = ((0,1),(0,2),(1,2),(1,3),(2,3),(2,4),(3,4),(3,5),(4,5))
+    let side-a = (0, 1, 2)
+    let cut-edges = edges.filter(e => side-a.contains(e.at(0)) != side-a.contains(e.at(1)))
+    // Draw edges
+    for (u, v) in edges {
+      let crossing = cut-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+      g-edge(verts.at(u), verts.at(v),
+        stroke: if crossing { 2pt + graph-colors.at(1) } else { 1pt + luma(180) })
+    }
+    // Draw partition regions
+    import draw: *
+    on-layer(-1, {
+      rect((-0.5, -0.5), (0.5, 2.5),
+        fill: graph-colors.at(0).transparentize(90%),
+        stroke: (dash: "dashed", paint: graph-colors.at(0), thickness: 0.8pt))
+      content((0, 2.8), text(8pt, fill: graph-colors.at(0))[$A$])
+      rect((2.0, -0.5), (3.0, 2.5),
+        fill: graph-colors.at(1).transparentize(90%),
+        stroke: (dash: "dashed", paint: graph-colors.at(1), thickness: 0.8pt))
+      content((2.5, 2.8), text(8pt, fill: graph-colors.at(1))[$B$])
+    })
+    // Draw nodes
+    for (k, pos) in verts.enumerate() {
+      let in-a = side-a.contains(k)
+      g-node(pos, name: "v" + str(k),
+        fill: if in-a { graph-colors.at(0) } else { graph-colors.at(1) },
+        label: text(fill: white)[$v_#k$])
+    }
+  }),
+  caption: [Graph with $n = 6$ vertices partitioned into $A = {v_0, v_1, v_2}$ (blue) and $B = {v_3, v_4, v_5}$ (red). The 3 crossing edges $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$ are shown in bold red; internal edges are gray.],
+) <fig:graph-partitioning>
+]
 #problem-def("KColoring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
 ][
@@ -484,6 +538,37 @@ caption: [Path $P_5$ with maximal IS $S = {v_1, v_3}$ (blue, $w(S) = 2$). $S$ is
 ) <fig:path-maximal-is>
 ]
 
+#problem-def("MinimumFeedbackVertexSet")[
+  Given a directed graph $G = (V, A)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG).
+][
+One of Karp's 21 NP-complete problems ("Feedback Node Set") @karp1972. Applications include deadlock detection in operating systems, loop breaking in circuit design, and Bayesian network structure learning. The directed version is strictly harder than undirected FVS: the best known exact algorithm runs in $O^*(1.9977^n)$ @razgon2007, compared to $O^*(1.7548^n)$ for undirected graphs. An $O(log n dot log log n)$-approximation exists @even1998.
+
+*Example.* Consider the directed graph $G$ with $n = 5$ vertices, $|A| = 7$ arcs, and unit weights. The arcs form two overlapping directed cycles: $C_1 = v_0 -> v_1 -> v_2 -> v_0$ and $C_2 = v_0 -> v_3 -> v_4 -> v_1$. The set $S = {v_0}$ with $w(S) = 1$ is a minimum feedback vertex set: removing $v_0$ breaks both cycles, leaving a DAG with topological order $(v_3, v_4, v_1, v_2)$. No 0-vertex set suffices since $C_1$ and $C_2$ overlap only at $v_0$ and $v_1$, and removing $v_1$ alone leaves $C_1' = v_0 -> v_3 -> v_4 -> v_1 -> v_2 -> v_0$.
+
+#figure({
+  // Directed graph: 5 vertices, 7 arcs, two overlapping cycles
+  let verts = ((0, 1), (2, 1), (1, 0), (-0.5, -0.2), (0.8, -0.5))
+  let arcs = ((0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (2, 4))
+  let highlights = (0,)  // FVS = {v_0}
+  canvas(length: 1cm, {
+    // Draw directed arcs with arrows
+    for (u, v) in arcs {
+      draw.line(verts.at(u), verts.at(v),
+        stroke: 1pt + black,
+        mark: (end: "straight", scale: 0.4))
+    }
+    // Draw nodes on top
+    for (k, pos) in verts.enumerate() {
+      let s = highlights.contains(k)
+      g-node(pos, name: "v" + str(k),
+        fill: if s { graph-colors.at(0) } else { white },
+        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+    }
+  })
+},
+caption: [A directed graph with FVS $S = {v_0}$ (blue, $w(S) = 1$). Removing $v_0$ breaks both directed cycles $v_0 -> v_1 -> v_2 -> v_0$ and $v_0 -> v_3 -> v_4 -> v_1$, leaving a DAG.],
+) <fig:fvs-example>
+]
 
 == Set Problems
 
@@ -895,6 +980,14 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   *Example.* Let $n = 4$ items with weights $(2, 3, 4, 5)$, values $(3, 4, 5, 7)$, and capacity $C = 7$. Selecting $S = {1, 2}$ (items with weights 3 and 4) gives total weight $3 + 4 = 7 lt.eq C$ and total value $4 + 5 = 9$. Selecting $S = {0, 3}$ (weights 2 and 5) gives weight $2 + 5 = 7 lt.eq C$ and value $3 + 7 = 10$, which is optimal.
 ]
 
+#problem-def("SubsetSum")[
+  Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$ and a target $B in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ such that $sum_(a in A') s(a) = B$.
+][
+  One of Karp's 21 NP-complete problems @karp1972. Subset Sum is the special case of Knapsack where $v_i = w_i$ for all items and we seek an exact sum rather than an inequality. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n B)$ pseudo-polynomial time. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974.
+
+  *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
+]
+
 // Completeness check: warn about problem types in JSON but missing from paper
 #{
   let json-models = {
@@ -1123,6 +1216,33 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) If $a = y_1 y_2$, the Rosenberg penalty term vanishes and $H = y_1 y_2 y_3$ counts the clause violation faithfully. ($arrow.l.double$) If $a != y_1 y_2$, the penalty $M(dots.c) >= 1$ strictly exceeds the clause-counting contribution (at most 1), so any minimizer must have $a = y_1 y_2$ for every clause. Among such assignments, $H$ counts unsatisfied clauses, and minimizers maximize satisfiability.
 
   _Solution extraction._ Discard auxiliary variables: return $bold(x)[0..n]$.
+]
+
+#let ksat_ss = load-example("ksatisfiability_to_subsetsum")
+#let ksat_ss_r = load-results("ksatisfiability_to_subsetsum")
+#let ksat_ss_sol = ksat_ss_r.solutions.at(0)
+#reduction-rule("KSatisfiability", "SubsetSum",
+  example: true,
+  example-caption: [3-SAT with 3 variables and 2 clauses],
+  extra: [
+    Source: $n = #ksat_ss.source.instance.num_vars$ variables, $m = #ksat_ss.source.instance.num_clauses$ clauses \
+    Target: #ksat_ss.target.instance.num_elements elements, target $= #ksat_ss.target.instance.target$ \
+    Source config: #ksat_ss_sol.source_config #h(1em) Target config: #ksat_ss_sol.target_config
+  ],
+)[
+  Base-10 digit encoding reduction following Sipser @sipser2012[Thm 7.56] and CLRS @cormen2022[§34.5.5]. (Karp @karp1972 established SubsetSum NP-completeness via Exact Cover; this direct 3-SAT construction is a later textbook formulation.) Each integer has $(n + m)$ digits, where the first $n$ positions correspond to variables and the last $m$ to clauses. For variable $x_i$, two integers $y_i, z_i$ encode positive and negative literal occurrences. For clause $C_j$, slack integers $g_j, h_j$ pad the clause digit to exactly 4. Since each clause has at most 3 literals and slacks add at most 2, no digit exceeds 5, so no carries occur.
+][
+  _Construction._ Given a 3-CNF formula $phi$ with $n$ variables and $m$ clauses, create $2n + 2m$ integers in $(n+m)$-digit base-10 representation:
+
+  (i) _Variable integers_ ($2n$): For each $x_i$, create $y_i$ with $d_i = 1$ and $d_(n+j) = 1$ if $x_i in C_j$, and $z_i$ with $d_i = 1$ and $d_(n+j) = 1$ if $overline(x_i) in C_j$.
+
+  (ii) _Slack integers_ ($2m$): For each clause $C_j$, create $g_j$ with $d_(n+j) = 1$ and $h_j$ with $d_(n+j) = 2$.
+
+  (iii) _Target_ $T$: $d_i = 1$ for $i in [1, n]$ and $d_(n+j) = 4$ for $j in [1, m]$.
+
+  _Correctness._ ($arrow.r.double$) If assignment $alpha$ satisfies $phi$, select $y_i$ when $x_i = top$ and $z_i$ when $x_i = bot$. Variable digits sum to exactly 1 (one of $y_i, z_i$ per variable). Each satisfied clause has 1--3 true literals contributing 1--3 to its digit; slacks $g_j, h_j$ with values 1, 2 can pad any value in ${1, 2, 3}$ to 4. ($arrow.l.double$) Variable digits force exactly one of $y_i, z_i$ per variable, defining a truth assignment. Clause digits reach 4 only if the literal contribution is $>= 1$, meaning each clause is satisfied.
+
+  _Solution extraction._ For each $i$: if $y_i$ is selected ($x_(2i) = 1$), set $x_i = 1$; if $z_i$ is selected ($x_(2i+1) = 1$), set $x_i = 0$.
 ]
 
 #reduction-rule("ILP", "QUBO")[
