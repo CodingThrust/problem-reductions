@@ -129,12 +129,79 @@ Our library provides the verified bridge: a practitioner formulates their proble
 
 \section{System Architecture}\label{sec:architecture}
 
+The library's architecture is designed around a single principle: \emph{reduce the space of possible agent errors through type-level enforcement}.
+Rather than relying on agents to remember project conventions or follow informal guidelines, the Rust type system, trait bounds, and compile-time macros structurally prevent entire classes of mistakes.
+This section describes four architectural pillars---the \texttt{Problem} trait, the \texttt{ReduceTo} trait, the \lstinline{#[reduction(overhead)]} proc macro, and the \lstinline{declare_variants!} registry---that collectively make agent-generated code verifiable by construction (see~\Cref{fig:architecture}).
+
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/architecture.pdf}
   \caption{System architecture: the trait hierarchy and compile-time validation enforce round-trip testing capability by construction.}
   \label{fig:architecture}
 \end{figure}
+
+\paragraph{The Problem trait: universal evaluation.}
+Every problem type in the library implements a single core trait, \texttt{Problem}, which requires five members: a constant \lstinline{NAME} identifying the problem type (e.g., \texttt{"MaximumIndependentSet"}), an associated type \texttt{Metric} representing the objective (either \texttt{SolutionSize<W>} for optimization problems or \texttt{bool} for satisfaction problems), a method \lstinline{dims()} that returns the configuration space dimensions, a method \lstinline{evaluate()} that scores any configuration against the problem instance, and a method \lstinline{variant()} that returns type-parameter metadata as key-value pairs.
+
+The critical member is \lstinline{evaluate()}.
+Because every problem must implement a function that maps an arbitrary configuration to a metric value, the library can verify any candidate solution without problem-specific test infrastructure.
+A brute-force solver simply enumerates all configurations in the space defined by \lstinline{dims()} and selects the one(s) with the best metric.
+This universal evaluation capability is what makes the round-trip test described in \Cref{sec:domain} possible: given any reduction, we can solve the target by brute force and verify the extracted solution against the source---all through the \lstinline{evaluate()} interface, with no reduction-specific oracle needed.
+
+Two extension traits refine \texttt{Problem} for specific problem classes.
+\texttt{OptimizationProblem} adds a \lstinline{direction()} method (\texttt{Maximize} or \texttt{Minimize}) and constrains the metric to \texttt{SolutionSize<Self::Value>}, where \lstinline{SolutionSize} is either \texttt{Valid(v)} (a feasible solution with objective value~$v$) or \texttt{Invalid} (an infeasible configuration).
+\texttt{SatisfactionProblem} is a marker trait for decision problems where the metric is simply \texttt{bool}.
+This hierarchy means that agent-implemented problem types must declare upfront whether they are optimization or satisfaction problems, and the type system enforces consistency: an agent cannot accidentally return a numeric score from a satisfaction problem or omit a direction from an optimization problem.
+
+\paragraph{The ReduceTo trait: round-trip by construction.}
+Reductions between problems are encoded through the generic trait \lstinline{ReduceTo<T>}, which requires a single method: \lstinline{reduce_to()} takes a reference to the source problem and returns a \texttt{ReductionResult}.
+The \texttt{ReductionResult} type bundles two capabilities: \lstinline{target_problem()} returns the constructed target instance, and \lstinline{extract_solution()} maps a target solution back to a source solution.
+By requiring both the forward mapping and the inverse extraction in a single trait implementation, the type system ensures that every reduction is round-trip capable---an agent cannot implement a forward reduction without also providing the solution extraction, because the code will not compile otherwise.
+
+This design choice has a direct consequence for verification.
+The closed-loop test pattern---reduce, solve the target, extract the solution, verify against the source---requires no per-reduction test logic beyond constructing a source instance.
+The test harness calls \lstinline{reduce_to()}, invokes the brute-force solver on the target, calls \lstinline{extract_solution()}, and checks the result via \lstinline{evaluate()}.
+All 40~reduction implementations share this identical test structure, which is why a single ``add-rule'' skill can handle every reduction in the library.
+
+\paragraph{Compile-time overhead validation.}
+Every reduction must declare how the target problem's size relates to the source problem's size through an \lstinline{overhead} attribute on the \lstinline{#[reduction]} proc macro:
+\begin{lstlisting}[basicstyle=\ttfamily\small,breaklines=true]
+#[reduction(overhead = {
+    num_vertices = "num_vertices + num_clauses",
+    num_edges = "3 * num_clauses",
+})]
+impl ReduceTo<Target> for Source { ... }
+\end{lstlisting}
+The overhead expressions are parsed at compile time by a Pratt parser embedded in the procedural macro crate.
+Variable names in the expressions (e.g., \texttt{num\_vertices}, \texttt{num\_clauses}) are validated against actual getter methods on the source type---if an agent writes a nonexistent variable name, the code fails to compile with a clear error message pointing to the offending expression.
+This eliminates an entire class of copy-paste errors where agents might reference fields from a different problem type.
+
+The expressions support standard arithmetic operators ($+$, $-$, $\times$, $/$, \texttt{\^{}}), mathematical functions (\lstinline{exp}, \lstinline{log}, \lstinline{sqrt}), and numeric constants.
+At runtime, the library maintains both a symbolic representation (\texttt{Expr} AST) and a compiled evaluation function that calls the getter methods directly, enabling cross-validation between the two representations.
+The overhead data feeds into the reduction graph metadata, allowing automated analysis of whether a composite reduction path (e.g., $A \to B \to C$) dominates a direct reduction ($A \to C$) in terms of polynomial overhead---a capability used by the \texttt{check-rule-redundancy} skill to prevent agents from implementing unnecessary reductions.
+
+\paragraph{Variant registry and graph export.}
+Problem types in the library are parameterized by graph type (e.g., \texttt{SimpleGraph}, \texttt{PlanarGraph}, \texttt{BipartiteGraph}, \texttt{KingsSubgraph}) and optionally by weight type (\texttt{One} for unit weights, \texttt{i32}, \texttt{f64}).
+Each concrete instantiation---for example, \texttt{MaximumIndependentSet<SimpleGraph, i32>}---constitutes a distinct \emph{variant} that may have a different best-known complexity.
+
+The \lstinline{declare_variants!} proc macro registers these variants at compile time, associating each with a complexity string that represents the worst-case time bound of the best known algorithm for that variant.
+Variable names in complexity strings are validated against getter methods, just as in overhead expressions.
+For example, \texttt{MaximumIndependentSet<KingsSubgraph, One>} has polynomial complexity (the kings graph structure admits an efficient algorithm), while the general \texttt{SimpleGraph} variant has exponential complexity $O(1.1996^n)$.
+
+The registry serves three purposes.
+First, it enables \emph{automated graph export}: the library can enumerate all registered variants and their reductions to produce the reduction graph shown in \Cref{fig:reduction-graph}, including both hand-coded reduction edges and natural edges inferred from the type-parameter subtype lattice (e.g., a reduction from \texttt{MIS<KingsSubgraph>} to \texttt{MIS<SimpleGraph>} is automatically available because \texttt{KingsSubgraph} is a subtype of \texttt{SimpleGraph}).
+Second, it enables \emph{completeness checking}: the documentation system can verify that every node and edge in the exported graph has a corresponding entry in the paper, flagging undocumented reductions as warnings.
+Third, the complexity data enables \emph{redundancy analysis}: by comparing the end-to-end complexity of a composite path $A \to B \to C$ (applying overheads to the target's complexity) against the direct complexity of solving $A$, the system can determine whether a proposed reduction is useful or merely adds complexity without enabling access to a faster solver.
+
+\paragraph{Design philosophy: error prevention over error detection.}
+The four mechanisms above share a common design philosophy: rather than detecting agent errors after the fact (through tests that may themselves be incorrect), the architecture \emph{prevents} errors from being expressible.
+An agent cannot implement a reduction without providing solution extraction (the type system rejects it).
+An agent cannot write an overhead expression referencing nonexistent problem attributes (the compiler rejects it).
+An agent cannot register a variant without providing a complexity string (the macro rejects it).
+
+This philosophy---reducing the space of possible errors rather than testing for their absence---is what transforms the type system from a code organization tool into the foundation of the verification stack described in \Cref{sec:verification}.
+The seven verification layers build on this foundation: Layer~1 (type checking) is not merely ``does it compile,'' but ``does it satisfy the rich set of constraints encoded in the trait hierarchy and proc macros.''
+Each subsequent layer addresses error classes that the type system cannot prevent---logical errors in the reduction mapping (Layer~3), incorrect overhead formulas despite valid variable names (Layer~4), and proof-level mistakes in the mathematical argument (Layer~7)---but the architectural choices described here ensure that the first layer already eliminates a substantial fraction of the errors that agents would otherwise produce.
 
 \section{Skill-Based Task Decomposition}\label{sec:skills}
 
