@@ -398,6 +398,22 @@
     ]
   },
   {
+    "name": "SubsetSum",
+    "description": "Find a subset of integers that sums to exactly a target value",
+    "fields": [
+      {
+        "name": "sizes",
+        "type_name": "Vec<i64>",
+        "description": "Integer sizes s(a) for each element"
+      },
+      {
+        "name": "target",
+        "type_name": "i64",
+        "description": "Target sum B"
+      }
+    ]
+  },
+  {
     "name": "TravelingSalesman",
     "description": "Find minimum weight Hamiltonian cycle in a graph (Traveling Salesman Problem)",
     "fields": [

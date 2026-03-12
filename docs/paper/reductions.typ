@@ -52,6 +52,7 @@
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "SubsetSum": [Subset Sum],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -895,6 +896,14 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   *Example.* Let $n = 4$ items with weights $(2, 3, 4, 5)$, values $(3, 4, 5, 7)$, and capacity $C = 7$. Selecting $S = {1, 2}$ (items with weights 3 and 4) gives total weight $3 + 4 = 7 lt.eq C$ and total value $4 + 5 = 9$. Selecting $S = {0, 3}$ (weights 2 and 5) gives weight $2 + 5 = 7 lt.eq C$ and value $3 + 7 = 10$, which is optimal.
 ]
 
+#problem-def("SubsetSum")[
+  Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$ and a target $B in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ such that $sum_(a in A') s(a) = B$.
+][
+  One of Karp's 21 NP-complete problems @karp1972. Subset Sum is the special case of Knapsack where $v_i = w_i$ for all items and we seek an exact sum rather than an inequality. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n B)$ pseudo-polynomial time. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974.
+
+  *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
+]
+
 // Completeness check: warn about problem types in JSON but missing from paper
 #{
   let json-models = {
@@ -1123,6 +1132,33 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   _Correctness._ ($arrow.r.double$) If $a = y_1 y_2$, the Rosenberg penalty term vanishes and $H = y_1 y_2 y_3$ counts the clause violation faithfully. ($arrow.l.double$) If $a != y_1 y_2$, the penalty $M(dots.c) >= 1$ strictly exceeds the clause-counting contribution (at most 1), so any minimizer must have $a = y_1 y_2$ for every clause. Among such assignments, $H$ counts unsatisfied clauses, and minimizers maximize satisfiability.
 
   _Solution extraction._ Discard auxiliary variables: return $bold(x)[0..n]$.
+]
+
+#let ksat_ss = load-example("ksatisfiability_to_subsetsum")
+#let ksat_ss_r = load-results("ksatisfiability_to_subsetsum")
+#let ksat_ss_sol = ksat_ss_r.solutions.at(0)
+#reduction-rule("KSatisfiability", "SubsetSum",
+  example: true,
+  example-caption: [3-SAT with 3 variables and 2 clauses],
+  extra: [
+    Source: $n = #ksat_ss.source.instance.num_vars$ variables, $m = #ksat_ss.source.instance.num_clauses$ clauses \
+    Target: #ksat_ss.target.instance.num_elements elements, target $= #ksat_ss.target.instance.target$ \
+    Source config: #ksat_ss_sol.source_config #h(1em) Target config: #ksat_ss_sol.target_config
+  ],
+)[
+  Classical Karp reduction @karp1972 using base-10 digit encoding. Each integer has $(n + m)$ digits, where the first $n$ positions correspond to variables and the last $m$ to clauses. For variable $x_i$, two integers $y_i, z_i$ encode positive and negative literal occurrences. For clause $C_j$, slack integers $g_j, h_j$ pad the clause digit to exactly 4. Since each clause has at most 3 literals and slacks add at most 2, no digit exceeds 5, so no carries occur.
+][
+  _Construction._ Given a 3-CNF formula $phi$ with $n$ variables and $m$ clauses, create $2n + 2m$ integers in $(n+m)$-digit base-10 representation:
+
+  (i) _Variable integers_ ($2n$): For each $x_i$, create $y_i$ with $d_i = 1$ and $d_(n+j) = 1$ if $x_i in C_j$, and $z_i$ with $d_i = 1$ and $d_(n+j) = 1$ if $overline(x_i) in C_j$.
+
+  (ii) _Slack integers_ ($2m$): For each clause $C_j$, create $g_j$ with $d_(n+j) = 1$ and $h_j$ with $d_(n+j) = 2$.
+
+  (iii) _Target_ $T$: $d_i = 1$ for $i in [1, n]$ and $d_(n+j) = 4$ for $j in [1, m]$.
+
+  _Correctness._ ($arrow.r.double$) If assignment $alpha$ satisfies $phi$, select $y_i$ when $x_i = top$ and $z_i$ when $x_i = bot$. Variable digits sum to exactly 1 (one of $y_i, z_i$ per variable). Each satisfied clause has 1--3 true literals contributing 1--3 to its digit; slacks $g_j, h_j$ with values 1, 2 can pad any value in ${1, 2, 3}$ to 4. ($arrow.l.double$) Variable digits force exactly one of $y_i, z_i$ per variable, defining a truth assignment. Clause digits reach 4 only if the literal contribution is $>= 1$, meaning each clause is satisfied.
+
+  _Solution extraction._ For each $i$: if $y_i$ is selected ($x_(2i) = 1$), set $x_i = 1$; if $z_i$ is selected ($x_(2i+1) = 1$), set $x_i = 0$.
 ]
 
 #reduction-rule("ILP", "QUBO")[
