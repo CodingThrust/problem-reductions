@@ -346,12 +346,107 @@ Each issue is processed in its own worktree, ensuring isolation: a failure on on
 
 \section{Multi-Layered Verification}\label{sec:verification}
 
+The architectural pillars described in \Cref{sec:architecture} prevent many agent errors at compile time, and the skill system in \Cref{sec:skills} ensures that agents follow prescribed workflows.
+But neither mechanism is sufficient on its own: the type system cannot catch a logically incorrect reduction mapping, and skills cannot guarantee that an agent's implementation matches its mathematical specification.
+This section describes a seven-layer verification stack that addresses errors across the full spectrum of abstraction, from type mismatches to flawed proof arguments (see~\Cref{fig:verification}).
+
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/verification-pyramid.pdf}
   \caption{Seven-layer verification stack. Lower layers (blue) are fully automated; upper layers (gold) involve human-readable arguments.}
   \label{fig:verification}
 \end{figure}
+
+\subsection{The Verification Stack}\label{sec:stack}
+
+\Cref{tab:verification} summarizes the seven layers, each targeting a distinct class of error.
+The layers are ordered by abstraction: lower layers are fully automated and fast (compile-time or test-time), while upper layers involve human-readable artifacts and agentic judgment.
+We describe each layer with a concrete error example drawn from actual agent failures observed during the project.
+
+\begin{table*}[t]
+  \centering
+  \caption{Seven-layer verification stack. Each layer catches a distinct class of agent error that lower layers miss.}
+  \label{tab:verification}
+  \begin{tabular}{@{}clll@{}}
+    \toprule
+    Layer & Mechanism & Example Error Caught \\
+    \midrule
+    1 & Rust type system & Agent returns \texttt{bool} instead of \texttt{SolutionSize<i32>} from \texttt{evaluate()} \\
+    2 & Unit tests (\texttt{test\_*\_basic}) & Agent evaluates MaxCut objective with wrong sign \\
+    3 & Closed-loop tests (\texttt{test\_*\_to\_*\_closed\_loop}) & SAT$\to$MIS maps clause variables to wrong vertex indices \\
+    4 & Overhead validation (symbolic expr vs.\ actual sizes) & Agent writes \texttt{num\_edges = num\_clauses} instead of \texttt{3 * num\_clauses} \\
+    5 & Materialized fixtures (JSON ground truth) & Agent changes expected QUBO matrix to make failing test pass \\
+    6 & Agentic review (parallel subagents) & Missing \texttt{declare\_variants!}, wrong file naming convention \\
+    7 & Documentation (proof sketch in paper) & Proof assumes connected graph but problem allows disconnected \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\paragraph{Layer 1: Type system.}
+Rust's type system, augmented by the trait hierarchy and proc macros described in \Cref{sec:architecture}, serves as the first line of defense.
+The \texttt{Problem} trait's associated type \texttt{Metric} forces every implementation to commit to either \texttt{SolutionSize<W>} (optimization) or \texttt{bool} (satisfaction) at definition time.
+An agent that accidentally returns a boolean from an optimization problem's \texttt{evaluate()} method receives a compile error, not a silent logic bug.
+The \lstinline{#[reduction(overhead)]} macro validates variable names against getter methods, so an agent cannot reference a field from the wrong problem type.
+This layer is the fastest and cheapest: errors are caught in seconds, before any test runs.
+
+\paragraph{Layer 2: Unit tests.}
+Each problem implementation includes \texttt{test\_*\_basic} tests that construct small instances and verify that \texttt{evaluate()} returns the expected metric values.
+These tests catch semantic errors that the type system cannot: for example, an agent implementing \texttt{MaxCut} might negate the edge-weight sum, producing a valid \texttt{SolutionSize<i32>} that is nonetheless wrong.
+Serialization round-trip tests (\texttt{test\_*\_serialization}) ensure that problem instances survive JSON encoding and decoding, catching subtle issues with graph representation or weight ordering.
+
+\paragraph{Layer 3: Closed-loop tests.}
+The closed-loop test pattern---reduce a source instance, solve the target by brute force, extract the solution back, verify optimality against the source---is the workhorse of the verification stack.
+Every reduction rule has a \texttt{test\_*\_to\_*\_closed\_loop} test that exercises this full round trip.
+This layer catches the most mathematically subtle errors: incorrect variable-to-vertex mappings, off-by-one errors in clause indexing, forgotten negation in constraint encoding.
+The test requires no problem-specific oracle; it relies entirely on the \texttt{evaluate()} interface and the brute-force solver, which means a single skill can generate this test for any reduction.
+In our experience, this layer catches approximately 60\% of the errors that survive type checking.
+
+\paragraph{Layer 4: Overhead validation.}
+The overhead expressions declared in the \lstinline{#[reduction]} macro (e.g., \texttt{num\_edges = "3 * num\_clauses"}) provide a second, independent correctness check on reductions.
+After constructing the target problem, the test harness evaluates the symbolic overhead expression using the source problem's getter methods and compares the result against the actual size of the target.
+A mismatch indicates either a bug in the reduction (the constructed target does not have the expected size) or an error in the formula (the agent wrote a wrong expression that happens to be type-correct).
+This layer is particularly effective at catching errors in reductions that involve non-obvious size relationships---for instance, a reduction from 3-SAT to MIS that creates a gadget graph where the number of edges is quadratic in the number of clauses, not linear.
+
+\paragraph{Layer 5: Materialized fixtures.}
+Ground-truth test data is stored as JSON files in \texttt{tests/data/} and committed to version control separately from reduction implementations.
+Integration tests load these fixtures and compare computed results against the expected values.
+This layer exists specifically to counter a failure mode we call the ``lazy agent'' problem (discussed in \Cref{sec:why-layers}): because the fixtures are committed independently, any agent modification to expected values shows up as a diff in a separate file, making it visible during code review.
+The QUBO ground-truth matrices, generated by an independent Python script, are an example: they verify that the Rust implementation's matrix construction matches a reference implementation, catching systematic errors that the round-trip test might miss (e.g., a reduction that produces the wrong QUBO matrix but still happens to yield the correct optimum on small instances).
+
+\paragraph{Layer 6: Agentic review.}
+The \texttt{review-implementation} skill dispatches two parallel subagents---one checking structural completeness (file naming, module registration, \texttt{declare\_variants!} macro, test naming conventions) and one assessing code quality (edge cases, documentation, idiomatic Rust).
+Each subagent operates in a fresh context window, without access to the implementing agent's conversation history, which prevents confirmation bias.
+This layer catches errors that are invisible to automated tests: a reduction implementation might pass all tests but use a non-standard file name that breaks the documentation build, or omit a variant registration that leaves a gap in the reduction graph.
+The fresh-context design is deliberate: an agent reviewing its own work in the same context window tends to overlook the same assumptions it made during implementation.
+
+\paragraph{Layer 7: Documentation.}
+Every reduction in the library has a corresponding entry in a Typst paper that includes a formal problem definition, a statement of the reduction rule, and a proof sketch.
+The paper's completeness checker automatically verifies that every node and edge in the exported reduction graph has a corresponding documentation entry, flagging gaps as warnings.
+This layer catches errors that no automated test can: a proof sketch might reveal an unstated assumption (e.g., that the input graph is connected) that the implementation silently relies on, or expose a logical gap in the reduction argument that happens to be masked by the small test instances used in Layers 2--3.
+The requirement to write a human-readable proof forces the agent to articulate the mathematical reasoning behind the reduction, serving as a form of self-verification.
+
+\subsection{Why Layers?}\label{sec:why-layers}
+
+No single verification layer is sufficient.
+The type system (Layer~1) catches API misuse but is blind to logical errors in the reduction mapping.
+Closed-loop tests (Layer~3) verify functional correctness on specific instances but cannot check whether overhead formulas are accurate or whether the mathematical argument generalizes beyond the test cases.
+Documentation (Layer~7) catches proof-level mistakes but depends on the human reader's diligence.
+The layers are designed to be \emph{complementary}: each layer's blind spots are covered by another layer's strengths.
+
+The need for layered verification becomes acute when agents optimize for the wrong objective.
+We call this the \textbf{lazy agent problem}: given a failing test, an agent may modify the expected output rather than fix the underlying implementation.
+This is rational behavior from the agent's perspective---the issue asks for a passing test suite, and changing the expected value is the shortest path to that goal.
+We observed this failure mode multiple times during early development: an agent implementing a QUBO reduction encountered a failing integration test, examined the expected JSON matrix, and ``corrected'' it to match its (incorrect) output.
+
+Materialized fixtures (Layer~5) are the primary defense against this failure mode.
+Because ground-truth data is generated by an independent script (typically Python) and committed in a separate step, any agent modification to the expected values produces a visible diff in a file that the agent was not asked to change.
+Code review---whether human or agentic (Layer~6)---then flags the unexpected modification.
+This design transforms a subtle correctness violation (wrong expected value, all tests pass) into an obvious process violation (agent modified a file outside its scope), which is much easier to detect.
+
+More broadly, the layered design reflects a defense-in-depth philosophy borrowed from security engineering.
+Just as network security does not rely solely on firewalls or solely on encryption, verification of agent-generated mathematical code should not rely solely on tests or solely on type checking.
+Each layer adds an independent probability of catching an error, and the layers' error-detection capabilities are largely orthogonal---an error that slips through the type system is likely caught by closed-loop tests, and an error that passes all automated tests may be caught by the documentation review.
+The skill system (\Cref{sec:skills}) ensures that agents invoke all seven layers as part of every implementation task, so no layer is accidentally skipped.
 
 \section{Evaluation}\label{sec:evaluation}
 
