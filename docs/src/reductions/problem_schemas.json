@@ -308,6 +308,22 @@
     ]
   },
   {
+    "name": "MinimumFeedbackVertexSet",
+    "description": "Find minimum weight feedback vertex set in a directed graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "DirectedGraph",
+        "description": "The directed graph G=(V,A)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      }
+    ]
+  },
+  {
     "name": "MinimumSetCovering",
     "description": "Find minimum weight collection covering the universe",
     "fields": [

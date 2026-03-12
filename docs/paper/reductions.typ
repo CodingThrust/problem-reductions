@@ -54,6 +54,7 @@
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
   "SubsetSum": [Subset Sum],
+  "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -537,6 +538,37 @@ caption: [Path $P_5$ with maximal IS $S = {v_1, v_3}$ (blue, $w(S) = 2$). $S$ is
 ) <fig:path-maximal-is>
 ]
 
+#problem-def("MinimumFeedbackVertexSet")[
+  Given a directed graph $G = (V, A)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG).
+][
+One of Karp's 21 NP-complete problems ("Feedback Node Set") @karp1972. Applications include deadlock detection in operating systems, loop breaking in circuit design, and Bayesian network structure learning. The directed version is strictly harder than undirected FVS: the best known exact algorithm runs in $O^*(1.9977^n)$ @razgon2007, compared to $O^*(1.7548^n)$ for undirected graphs. An $O(log n dot log log n)$-approximation exists @even1998.
+
+*Example.* Consider the directed graph $G$ with $n = 5$ vertices, $|A| = 7$ arcs, and unit weights. The arcs form two overlapping directed cycles: $C_1 = v_0 -> v_1 -> v_2 -> v_0$ and $C_2 = v_0 -> v_3 -> v_4 -> v_1$. The set $S = {v_0}$ with $w(S) = 1$ is a minimum feedback vertex set: removing $v_0$ breaks both cycles, leaving a DAG with topological order $(v_3, v_4, v_1, v_2)$. No 0-vertex set suffices since $C_1$ and $C_2$ overlap only at $v_0$ and $v_1$, and removing $v_1$ alone leaves $C_1' = v_0 -> v_3 -> v_4 -> v_1 -> v_2 -> v_0$.
+
+#figure({
+  // Directed graph: 5 vertices, 7 arcs, two overlapping cycles
+  let verts = ((0, 1), (2, 1), (1, 0), (-0.5, -0.2), (0.8, -0.5))
+  let arcs = ((0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (2, 4))
+  let highlights = (0,)  // FVS = {v_0}
+  canvas(length: 1cm, {
+    // Draw directed arcs with arrows
+    for (u, v) in arcs {
+      draw.line(verts.at(u), verts.at(v),
+        stroke: 1pt + black,
+        mark: (end: "straight", scale: 0.4))
+    }
+    // Draw nodes on top
+    for (k, pos) in verts.enumerate() {
+      let s = highlights.contains(k)
+      g-node(pos, name: "v" + str(k),
+        fill: if s { graph-colors.at(0) } else { white },
+        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+    }
+  })
+},
+caption: [A directed graph with FVS $S = {v_0}$ (blue, $w(S) = 1$). Removing $v_0$ breaks both directed cycles $v_0 -> v_1 -> v_2 -> v_0$ and $v_0 -> v_3 -> v_4 -> v_1$, leaving a DAG.],
+) <fig:fvs-example>
+]
 
 == Set Problems
 
