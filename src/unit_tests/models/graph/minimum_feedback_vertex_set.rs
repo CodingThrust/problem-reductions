@@ -123,6 +123,48 @@ fn test_minimum_feedback_vertex_set_all_selected() {
 }
 
 #[test]
+fn test_minimum_feedback_vertex_set_accessors() {
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let mut problem = MinimumFeedbackVertexSet::new(graph, vec![1i32; 3]);
+
+    assert_eq!(problem.num_vertices(), 3);
+    assert_eq!(problem.num_arcs(), 3);
+    assert!(problem.is_weighted());
+
+    // set_weights
+    problem.set_weights(vec![2, 3, 4]);
+    assert_eq!(problem.weights(), &[2, 3, 4]);
+}
+
+#[test]
+fn test_minimum_feedback_vertex_set_is_valid_solution() {
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i32; 3]);
+
+    // Valid FVS: remove vertex 0
+    assert!(problem.is_valid_solution(&[1, 0, 0]));
+    // Invalid: no vertices removed, cycle remains
+    assert!(!problem.is_valid_solution(&[0, 0, 0]));
+    // Wrong length returns false
+    assert!(!problem.is_valid_solution(&[1, 0]));
+}
+
+#[test]
+fn test_minimum_feedback_vertex_set_evaluate_wrong_length() {
+    let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i32; 3]);
+
+    // Wrong length config returns Invalid
+    assert!(!problem.evaluate(&[1, 0]).is_valid());
+}
+
+#[test]
+fn test_minimum_feedback_vertex_set_variant() {
+    let v = <MinimumFeedbackVertexSet<i32> as Problem>::variant();
+    assert_eq!(v, vec![("weight", "i32")]);
+}
+
+#[test]
 fn test_is_feedback_vertex_set_helper() {
     let graph = example_graph();
 
