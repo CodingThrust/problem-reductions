@@ -84,10 +84,46 @@ The remainder of this paper is organized as follows.
 
 \section{Why Reductions? The Goldilocks Domain}\label{sec:domain}
 
+Not every software domain is equally suited for studying agentic coding.
+Web application bug fixes---the staple of SWE-Bench---are heterogeneous: each issue involves a different framework, a different failure mode, and a different notion of correctness.
+This heterogeneity makes it difficult to draw general conclusions about agent capabilities, because success on one task says little about success on the next.
+NP-hard problem reductions occupy a sweet spot---a Goldilocks domain---that avoids this limitation while remaining mathematically demanding.
+
+\paragraph{Self-contained, formally specified, mechanically verifiable.}
+Each reduction in our library is a self-contained module: the 40~implementations range from 58 to 444 lines of code, with a median of 129~LOC.
+Despite this bounded scope, each reduction requires non-trivial mathematical reasoning about the structural relationship between two problem formulations.
+Crucially, every reduction admits a fully automatable correctness criterion: given a source instance, reduce it to the target problem, solve the target by brute force, extract the solution back through the reduction's inverse map, and verify that it is valid (and optimal) for the source.
+This \emph{round-trip test} provides a ground-truth oracle that requires no human judgment to evaluate, yet exercises the full mathematical content of the reduction.
+The combination of bounded scope, mathematical depth, and mechanical verifiability is what makes the domain ideal for agentic coding: tasks are individually within an agent's reliable operating range, but collectively demand sustained engineering discipline across a growing graph of interdependent components.
+
+\paragraph{Homogeneous task structure.}
+Unlike SWE-Bench, where every issue is structurally unique, reductions form a homogeneous task family.
+Every reduction implements the same trait (\texttt{ReduceTo<T>}), follows the same file-naming convention, requires the same test structure (closed-loop round-trip), and produces the same artifacts (overhead expressions, example code, documentation entry).
+This homogeneity enables fair comparison across tasks---we can meaningfully ask whether an agent performs better on graph-to-graph reductions than on formula-to-graph reductions, or whether reduction complexity (measured in LOC or graph blowup) predicts first-attempt success rate.
+It also enables \emph{reusable skills}: a single ``add-rule'' skill handles all 40~reductions, because the workflow is structurally identical even when the mathematical content varies.
+
+\paragraph{Hardware solvers as practical motivation.}
+The reduction graph is not merely an academic exercise; it serves as a \emph{compilation layer} connecting abstract problem formulations to physical hardware.
+Rydberg atom arrays natively solve Maximum Independent Set (MIS) by encoding graph vertices as atoms and edges as blockade constraints~\cite{lucas2014}.
+D-Wave quantum annealers solve Quadratic Unconstrained Binary Optimization (QUBO) and Ising spin glass problems through quantum tunneling~\cite{glover2019}.
+A verified reduction graph lets these specialized processors tackle a far larger class of problems: reduce Satisfiability to MIS and run the result on Rydberg atoms; reduce MaxCut through SpinGlass to QUBO and submit to D-Wave.
+The graph in \Cref{fig:reduction-graph} makes this compilation structure explicit.
+MIS serves as the dominant hub, with the highest in-degree (14~incoming edges) and out-degree (13~outgoing edges) among all 24~problem types---reflecting its central role as both a target for hardware solvers and a source for further reductions.
+ILP, with 11~incoming edges, functions as a universal algebraic target: any problem that reduces to ILP gains access to mature commercial solvers (Gurobi, CPLEX).
+
+\paragraph{Real-world applications.}
+The problems in our graph arise directly in industrial settings.
+Software-defined networking encodes routing and scheduling as Integer Linear Programming~(ILP).
+Airline crew scheduling reduces to Set Covering.
+VLSI design relies on graph coloring for register allocation and channel routing.
+Logistics optimization maps to the Traveling Salesman Problem and Bin Packing.
+In each case, the domain-specific problem reduces to a canonical NP-hard formulation for which decades of algorithmic and hardware research have produced efficient solvers.
+Our library provides the verified bridge: a practitioner formulates their problem as one of the 24~supported types and follows reduction edges to reach the solver of their choice, with each edge backed by round-trip-tested code and a documented proof sketch.
+
 \begin{figure*}[t]
   \centering
   \includegraphics[width=\textwidth]{figures/reduction-graph.pdf}
-  \caption{The reduction graph: 24 problem types connected by 52 directed edges (35 implemented reductions + 17 inferred variant edges). Hub nodes MIS, QUBO and ILP are highlighted. Nodes in dashed boxes have models but no cross-type reductions yet.}
+  \caption{The reduction graph: 24 problem types connected by 52 directed edges (40 implemented reductions + 12 inferred variant edges). Node categories---graph (blue), formula (orange), set (green), algebraic (purple), misc (gray)---reflect input structure. MIS is the dominant hub with the highest in-degree (14) and out-degree (13). ILP serves as a universal algebraic target (in-degree 11).}
   \label{fig:reduction-graph}
 \end{figure*}
 
