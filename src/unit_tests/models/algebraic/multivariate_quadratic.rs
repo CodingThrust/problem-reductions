@@ -165,3 +165,19 @@ fn test_multivariate_quadratic_empty_equations() {
     assert!(problem.evaluate(&[0, 0]));
     assert!(problem.evaluate(&[1, 1]));
 }
+
+#[test]
+fn test_multivariate_quadratic_deserialize_invalid_field_size() {
+    // field_size=1 should be rejected during deserialization
+    let json = r#"{"field_size":1,"num_variables":2,"equations":[]}"#;
+    let result = serde_json::from_str::<MultivariateQuadratic>(json);
+    assert!(result.is_err());
+    assert!(result
+        .unwrap_err()
+        .to_string()
+        .contains("field_size must be at least 2"));
+
+    // field_size=0 should also be rejected
+    let json = r#"{"field_size":0,"num_variables":2,"equations":[]}"#;
+    assert!(serde_json::from_str::<MultivariateQuadratic>(json).is_err());
+}

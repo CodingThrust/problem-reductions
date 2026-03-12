@@ -90,6 +90,7 @@ impl QuadraticPoly {
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "MultivariateQuadraticRaw")]
 pub struct MultivariateQuadratic {
     /// Size of the finite field (e.g., 2 for F_2).
     field_size: usize,
@@ -97,6 +98,31 @@ pub struct MultivariateQuadratic {
     num_variables: usize,
     /// System of quadratic polynomials.
     equations: Vec<QuadraticPoly>,
+}
+
+/// Raw deserialization helper that validates `field_size >= 2`.
+#[derive(Deserialize)]
+struct MultivariateQuadraticRaw {
+    field_size: usize,
+    num_variables: usize,
+    equations: Vec<QuadraticPoly>,
+}
+
+impl TryFrom<MultivariateQuadraticRaw> for MultivariateQuadratic {
+    type Error = String;
+    fn try_from(raw: MultivariateQuadraticRaw) -> Result<Self, Self::Error> {
+        if raw.field_size < 2 {
+            return Err(format!(
+                "field_size must be at least 2, got {}",
+                raw.field_size
+            ));
+        }
+        Ok(Self {
+            field_size: raw.field_size,
+            num_variables: raw.num_variables,
+            equations: raw.equations,
+        })
+    }
 }
 
 impl MultivariateQuadratic {
