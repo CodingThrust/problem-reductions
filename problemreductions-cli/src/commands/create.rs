@@ -117,8 +117,7 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
             }
         }
     } else {
-        eprintln!("{canonical}\n");
-        eprintln!("No schema information available.");
+        bail!("{}", crate::problem_name::unknown_problem_error(canonical));
     }
 
     let example = example_for(canonical, graph_type);
@@ -551,6 +550,13 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
         .as_deref()
         .ok_or_else(|| anyhow::anyhow!("This problem requires --graph (e.g., 0-1,1-2,2-3)"))?;
 
+    if edges_str.trim().is_empty() {
+        bail!(
+            "Empty graph string. To create a graph with isolated vertices, use:\n  \
+             pred create <PROBLEM> --random --num-vertices N --edge-prob 0.0"
+        );
+    }
+
     let edges: Vec<(usize, usize)> = edges_str
         .split(',')
         .map(|pair| {
@@ -560,6 +566,12 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
             }
             let u: usize = parts[0].parse()?;
             let v: usize = parts[1].parse()?;
+            if u == v {
+                bail!(
+                    "Self-loop detected: edge {}-{}. Simple graphs do not allow self-loops",
+                    u, v
+                );
+            }
             Ok((u, v))
         })
         .collect::<Result<Vec<_>>>()?;
