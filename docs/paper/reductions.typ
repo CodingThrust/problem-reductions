@@ -385,7 +385,7 @@ caption: [The house graph with max cut $S = {v_0, v_3}$ (blue) vs $overline(S) =
   Given an undirected graph $G = (V, E)$ with $|V| = n$ (even), find a partition of $V$ into two disjoint sets $A$ and $B$ with $|A| = |B| = n slash 2$ that minimizes the number of edges crossing the partition:
   $ "cut"(A, B) = |{(u, v) in E : u in A, v in B}|. $
 ][
-Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel computing, and scientific simulation, where balanced workload distribution with minimal communication is essential. Closely related to Max-Cut (which _maximizes_ rather than _minimizes_ the cut) and to the Ising Spin Glass model. NP-completeness was proved by Garey, Johnson and Stockmeyer (1976). Arora, Rao and Vazirani (2009) gave an $O(sqrt(log n))$-approximation algorithm. Standard partitioning tools include METIS, KaHIP, and Scotch.
+Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel computing, and scientific simulation, where balanced workload distribution with minimal communication is essential. Closely related to Max-Cut (which _maximizes_ rather than _minimizes_ the cut) and to the Ising Spin Glass model. NP-completeness was proved by Garey, Johnson and Stockmeyer @garey1976. Arora, Rao and Vazirani @arora2009 gave an $O(sqrt(log n))$-approximation algorithm. Standard partitioning tools include METIS, KaHIP, and Scotch.
 
 *Example.* Consider the graph $G$ with $n = 6$ vertices and 9 edges: $(v_0, v_1)$, $(v_0, v_2)$, $(v_1, v_2)$, $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$, $(v_3, v_4)$, $(v_3, v_5)$, $(v_4, v_5)$. The optimal balanced partition is $A = {v_0, v_1, v_2}$, $B = {v_3, v_4, v_5}$, with cut value 3: the crossing edges are $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$. All other balanced partitions yield a cut of at least 3.
 
@@ -1198,7 +1198,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
     Source config: #ksat_ss_sol.source_config #h(1em) Target config: #ksat_ss_sol.target_config
   ],
 )[
-  Classical Karp reduction @karp1972 using base-10 digit encoding. Each integer has $(n + m)$ digits, where the first $n$ positions correspond to variables and the last $m$ to clauses. For variable $x_i$, two integers $y_i, z_i$ encode positive and negative literal occurrences. For clause $C_j$, slack integers $g_j, h_j$ pad the clause digit to exactly 4. Since each clause has at most 3 literals and slacks add at most 2, no digit exceeds 5, so no carries occur.
+  Base-10 digit encoding reduction following Sipser @sipser2012[Thm 7.56] and CLRS @cormen2022[§34.5.5]. (Karp @karp1972 established SubsetSum NP-completeness via Exact Cover; this direct 3-SAT construction is a later textbook formulation.) Each integer has $(n + m)$ digits, where the first $n$ positions correspond to variables and the last $m$ to clauses. For variable $x_i$, two integers $y_i, z_i$ encode positive and negative literal occurrences. For clause $C_j$, slack integers $g_j, h_j$ pad the clause digit to exactly 4. Since each clause has at most 3 literals and slacks add at most 2, no digit exceeds 5, so no carries occur.
 ][
   _Construction._ Given a 3-CNF formula $phi$ with $n$ variables and $m$ clauses, create $2n + 2m$ integers in $(n+m)$-digit base-10 representation:
 
