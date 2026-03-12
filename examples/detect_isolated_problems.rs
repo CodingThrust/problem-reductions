@@ -53,7 +53,7 @@ fn main() {
     }
 
     // Sort components by size (largest first)
-    components.sort_by(|a, b| b.len().cmp(&a.len()));
+    components.sort_by_key(|b| std::cmp::Reverse(b.len()));
 
     // Identify isolated types (no edges at all)
     let isolated: Vec<&str> = types
