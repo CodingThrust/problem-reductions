@@ -395,6 +395,86 @@ Our work provides the verified upstream infrastructure---the ``compilation'' fro
 
 \section{Discussion \& Conclusion}\label{sec:conclusion}
 
+\subsection{Generalizability}
+
+The success of our skill-based methodology rests on a \emph{Goldilocks property} of the problem domain: tasks must be (1)~formally specified, so that agents can parse unambiguous requirements; (2)~decomposable into homogeneous subtasks, so that a small number of reusable skills covers a large number of instances; (3)~equipped with automatable correctness criteria, so that verification does not depend on human judgment at every step; and (4)~demanding enough to require both creativity (in problem selection and proof design) and mechanical execution (in implementation, testing, and documentation).
+NP-hard reductions satisfy all four criteria, but they are not unique in doing so.
+
+We identify several candidate domains that share this Goldilocks structure.
+\emph{Combinatorial optimization solvers} expose a similar pattern: each solver configuration targets a specific problem class, implements a well-defined algorithm, and admits benchmark-driven correctness testing.
+\emph{Algorithm libraries} (e.g., sorting, graph traversal, numerical routines) consist of homogeneous modules with clear input--output contracts and reference implementations for cross-validation.
+\emph{Numerical linear algebra} routines---factorizations, eigensolvers, iterative methods---are formally specified by mathematical identities that serve as built-in oracles.
+\emph{Hardware description languages} decompose digital circuits into modular components with simulation-based verification.
+\emph{Compiler optimization passes}---particularly peephole rules and algebraic simplifications---are self-contained transformations with formally verifiable semantics.
+In each case, the key enabler is the same: a domain expert can encode the ``how'' of task execution into reusable skills, while the ``what'' (which algorithms, which optimizations, which circuits) remains a human judgment call.
+
+The methodology does \emph{not} generalize to domains that lack these properties.
+Heterogeneous software engineering tasks---the staple of SWE-Bench---resist skill-based decomposition precisely because each issue has a unique structure, a different notion of correctness, and no reusable workflow template.
+Our approach is most powerful when the creative work is in selecting and specifying tasks, not in the execution itself.
+
+\subsection{Limitations}
+
+Several limitations constrain the conclusions that can be drawn from this work.
+
+\paragraph{Single case study.}
+The empirical evidence comes from a single project maintained by a single developer.
+While we argue that the methodology generalizes to other Goldilocks domains, we have not yet validated this claim empirically.
+The ablation study (\Cref{sec:evaluation}) provides a controlled comparison within this project, but replication across independent projects and teams remains necessary.
+
+\paragraph{Skill engineering cost.}
+The 13~skills in our library represent substantial upfront investment.
+Each skill required iterative refinement---writing the initial markdown script, testing it against real issues, observing agent failure modes, and revising.
+This cost is amortized across many invocations, but it presupposes a maintainer with both domain expertise and familiarity with agent capabilities.
+Projects without such a maintainer cannot adopt the methodology directly.
+
+\paragraph{Domain specificity.}
+Skills encode domain-specific knowledge---file naming conventions, trait implementation patterns, test structures---that does not transfer across domains.
+A skill designed for implementing reduction rules provides no value for web development or systems programming.
+Each new domain requires its own skill engineering effort.
+
+\paragraph{Confounding factors.}
+Our project evolved over six months during which both the skill library and the underlying language models improved.
+Although we address this confound through temporal stratification in our evaluation, we cannot fully disentangle the contribution of better skills from the contribution of more capable models.
+Future work should control for model version to isolate the skill-based methodology's independent effect.
+
+\paragraph{Maintainer requirement.}
+The three-role model requires a knowledgeable maintainer who curates the project board, writes skills, and performs final review.
+The pipeline is not fully autonomous: without human judgment at the Backlog$\to$Ready and In~Review$\to$Done transitions, the system cannot determine what is worth building or whether the result meets quality standards.
+This is a feature, not a bug---but it does mean the methodology is inapplicable to scenarios that demand full autonomy.
+
+\subsection{The Human Value Proposition}
+
+A natural concern is that skill-based agentic coding diminishes the role of human developers.
+Our experience suggests the opposite: humans are \emph{repositioned}, not eliminated.
+The creative and judgment-intensive aspects of software development---identifying which problems are worth solving, designing reduction proofs, setting quality standards, deciding architectural trade-offs---remain firmly in human hands.
+What agents absorb is the mechanical volume: implementing boilerplate, writing tests, generating documentation, fixing CI failures, and managing workflow state.
+
+This division mirrors broader industry trends.
+Anthropic's 2026 Agentic Coding Trends Report finds that developers use AI in 60\% of their work while maintaining active oversight on 80--100\% of delegated tasks~\cite{Anthropic2026AgenticCoding}.
+The skill-based approach formalizes this oversight: rather than ad hoc supervision, the maintainer's judgment is encoded into reusable skills that structure every agent interaction.
+The human contribution shifts from writing code to \emph{programming the agent's workflow}---a higher-leverage activity that scales with the number of tasks the agent can execute.
+
+\subsection{Future Directions}
+
+Three directions extend this work.
+First, combining skill-based implementation with \emph{automated discovery}: AlphaEvolve~\cite{Novikov2025AlphaEvolve} has demonstrated that evolutionary search can discover novel gadget reductions.
+Feeding discovered reductions into our pipeline as automatically generated issues would close the loop between discovery and verified implementation, producing a system that both finds and implements new reductions with correctness guarantees.
+
+Second, \emph{formal verification integration} could strengthen the verification stack.
+Currently, Layer~7 (documentation with proof sketches) relies on human-readable arguments that are reviewed but not machine-checked.
+Replacing or supplementing this layer with Lean or Coq proofs---generating formal correctness theorems alongside the Rust implementation---would add an eighth layer providing the strongest possible guarantee.
+The VeriCoding~\cite{Bursuc2025VeriCoding} and CLEVER~\cite{Thakur2025CLEVER} benchmarks suggest this remains challenging, but the bounded scope and formal specification of individual reductions make them more amenable to automated theorem proving than general software.
+
+Third, \emph{scaling}: can the pipeline maintain quality as the reduction graph grows from 24 to 100+ problem types?
+The homogeneous task structure suggests that skills should scale without modification, but the growing graph introduces new challenges---more potential for redundant reductions, longer composite paths to analyze, and a larger surface area for the maintainer to oversee.
+Investigating these scaling dynamics, potentially with multiple maintainers and automated priority assignment, is an important next step.
+
+\subsection{Conclusion}
+
+We have presented a skill-based methodology for agentic coding that decomposes mathematical software tasks into human-creative and agent-executable components, validated through a case study producing 24~problem types and 40~reduction rules with multi-layered verification.
+The core insight is that the bottleneck in agentic coding is not agent capability but task decomposition: when work is structured so that each unit is formally specified, bounded in scope, and mechanically verifiable, current agents execute it reliably.
+The methodology is most powerful in domains that share the Goldilocks property---formal specification, homogeneous tasks, automatable correctness---and we believe such domains are more common than is generally appreciated.
+
 \bibliographystyle{IEEEtran}
 \bibliography{references}
 
