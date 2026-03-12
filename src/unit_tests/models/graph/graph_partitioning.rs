@@ -116,8 +116,8 @@ fn test_graphpartitioning_unbalanced_invalid() {
     assert_eq!(problem.evaluate(&[1, 1, 1, 0]), SolutionSize::Invalid);
 
     // Two vertices in partition 1: balanced, should be Valid
-    let result = problem.evaluate(&[1, 1, 0, 0]);
-    assert!(result.is_valid());
+    // 4-cycle edges: (0,1),(1,2),(2,3),(0,3). Config [1,1,0,0] cuts (1,2) and (0,3) => cut=2
+    assert_eq!(problem.evaluate(&[1, 1, 0, 0]), SolutionSize::Valid(2));
 }
 
 #[test]

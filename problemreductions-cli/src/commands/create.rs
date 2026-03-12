@@ -889,8 +889,18 @@ fn create_random(
             }
         }
 
-        // GraphPartitioning (graph only, no weights)
+        // GraphPartitioning (graph only, no weights; requires even vertex count)
         "GraphPartitioning" => {
+            let num_vertices = if num_vertices % 2 != 0 {
+                eprintln!(
+                    "Warning: GraphPartitioning requires even vertex count; rounding {} up to {}",
+                    num_vertices,
+                    num_vertices + 1
+                );
+                num_vertices + 1
+            } else {
+                num_vertices
+            };
             let edge_prob = args.edge_prob.unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
