@@ -266,7 +266,7 @@ Our library comprises 13~skills organized into five functional categories (\Cref
 \caption{Skills inventory. Steps = numbered steps in the skill script. Success rate (first-attempt CI pass, to be measured from git history) is pending systematic audit.}\label{tab:skills}
 \centering
 \small
-\begin{tabular}{llcc}
+\begin{tabular}{@{}llcc@{}}
 \toprule
 Skill & Category & Steps & Success \\
 \midrule
@@ -279,12 +279,12 @@ Skill & Category & Steps & Success \\
 \texttt{add-rule} & Implementation & 6 & TBD \\
 \midrule
 \texttt{check-issue} & Quality gate & 3 & TBD \\
-\texttt{check-rule-redundancy} & Quality gate & 5 & TBD \\
-\texttt{review-implementation} & Quality gate & 5 & TBD \\
+\texttt{check-redundancy} & Quality gate & 5 & TBD \\
+\texttt{review-impl} & Quality gate & 5 & TBD \\
 \texttt{fix-pr} & Quality gate & 6 & TBD \\
 \midrule
-\texttt{write-model-in-paper} & Documentation & 4 & TBD \\
-\texttt{write-rule-in-paper} & Documentation & 6 & TBD \\
+\texttt{write-model} & Documentation & 4 & TBD \\
+\texttt{write-rule} & Documentation & 6 & TBD \\
 \midrule
 \texttt{release} & Release & 3 & TBD \\
 \bottomrule
@@ -518,17 +518,18 @@ The taxonomy is derived from code review comments, CI failure logs, and commit m
 \begin{table}[t]
 \caption{Error taxonomy by verification layer.}\label{tab:errors}
 \centering
-\begin{tabular}{llc}
+\small
+\begin{tabular}{@{}llc@{}}
 \toprule
 Error Category & Catching Layer & Count \\
 \midrule
 Type/API mismatch & L1: Type system & [TBD] \\
-Evaluation logic errors & L2: Unit tests & [TBD] \\
-Mapping/index errors & L3: Closed-loop tests & [TBD] \\
-Overhead formula errors & L4: Overhead validation & [TBD] \\
-Test gaming (changed expected values) & L5: Materialized fixtures & [TBD] \\
-Convention violations & L6: Agentic review & [TBD] \\
-Incorrect proof arguments & L7: Documentation review & [TBD] \\
+Evaluation logic & L2: Unit tests & [TBD] \\
+Mapping/index & L3: Closed-loop tests & [TBD] \\
+Overhead formula & L4: Overhead validation & [TBD] \\
+Test gaming & L5: Materialized fixtures & [TBD] \\
+Convention violation & L6: Agentic review & [TBD] \\
+Incorrect proof & L7: Doc.\ review & [TBD] \\
 \bottomrule
 \end{tabular}
 \end{table}
