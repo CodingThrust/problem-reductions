@@ -132,6 +132,10 @@ impl Problem for Minesweeper {
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
+        if config.len() != self.unrevealed.len() {
+            return false;
+        }
+
         // Build position -> index map for unrevealed cells
         let pos_to_idx: HashMap<(usize, usize), usize> = self
             .unrevealed

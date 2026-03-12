@@ -48,6 +48,7 @@ example_test!(reduction_satisfiability_to_minimumdominatingset);
 example_test!(reduction_spinglass_to_maxcut);
 example_test!(reduction_spinglass_to_qubo);
 example_test!(reduction_travelingsalesman_to_ilp);
+example_test!(minesweeper_consistency);
 
 macro_rules! example_fn {
     ($test_name:ident, $mod_name:ident) => {
@@ -177,3 +178,4 @@ example_fn!(
     test_travelingsalesman_to_ilp,
     reduction_travelingsalesman_to_ilp
 );
+example_fn!(test_minesweeper_consistency, minesweeper_consistency);
