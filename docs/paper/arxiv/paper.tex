@@ -212,6 +212,138 @@ Each subsequent layer addresses error classes that the type system cannot preven
   \label{fig:pipeline}
 \end{figure}
 
+The introduction outlined three roles---Contributor, Maintainer, and Agent---and claimed that skills decompose complex tasks into agent-manageable steps.
+This section makes both ideas concrete: we define the roles (\Cref{sec:roles}), catalogue the skill library (\Cref{sec:skill-inventory}), and describe the card-based orchestration pipeline that ties them together (\Cref{sec:orchestration}).
+
+\subsection{Three Roles}\label{sec:roles}
+
+Our methodology distributes work across three roles whose responsibilities are deliberately non-overlapping (\Cref{tab:roles}).
+The division is designed so that each role contributes what it does best: humans provide judgment and creativity, while the agent provides volume and consistency.
+
+\begin{table}[t]
+\caption{The three roles and their responsibilities.}\label{tab:roles}
+\centering
+\begin{tabular}{lp{5.5cm}}
+\toprule
+Role & Responsibility \\
+\midrule
+Contributor & Open issues proposing new problems or reductions. Creative work: identify gaps in the reduction graph, assess mathematical non-triviality, provide references and worked examples. \\
+Maintainer & Curate the project board and write skills. Strategic work: decide which issues to prioritize (Backlog$\to$Ready), encode domain knowledge and quality standards into skill scripts, merge final PRs. \\
+Agent & Manage the pipeline and execute tasks. Mechanical work: pick cards from the board, implement code, write tests, generate documentation, dispatch sub-agents for review, fix CI failures, update board status. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\textbf{Contributors} perform the most intellectually demanding work in the pipeline: they must identify which reductions are mathematically interesting, non-trivial, and useful for extending the graph's reach.
+A contributor proposing a new reduction from Satisfiability to Maximum Independent Set must understand both problem formulations, know the classical gadget construction, and provide a worked example detailed enough for an agent to implement.
+This creative judgment---\emph{what} is worth building---is precisely what current agents cannot reliably provide.
+
+\textbf{The maintainer} occupies a meta-level role: rather than writing code directly, the maintainer programs the agent's \emph{workflow} by authoring skills.
+Each skill is a markdown document that encodes domain conventions (file naming, trait implementation patterns, test structure), quality standards (coverage thresholds, documentation requirements), and orchestration logic (when to dispatch sub-agents, how to handle failures).
+The maintainer also serves as the final quality gate, reviewing PRs that the agent has prepared and deciding whether to merge.
+In practice, the maintainer touches only two transitions in the pipeline: moving an issue from Backlog to Ready (the strategic decision of \emph{what} to work on) and merging the completed PR (the quality judgment of \emph{whether} the work meets standards).
+
+\textbf{The agent} operates in a dual capacity.
+As a \emph{manager}, it picks cards from the project board, creates isolated git worktrees for each task, dispatches sub-agents for parallel review, and orchestrates the progression from issue to pull request.
+As an \emph{executor}, it implements the code changes specified by each skill's step-by-step instructions.
+This dual role is possible because skills reduce each task to a sequence of well-bounded subtasks, each within the agent's reliable operating range.
+
+\subsection{Skills as Agent Functions}\label{sec:skill-inventory}
+
+A \emph{skill} is a markdown document that decomposes a complex, multi-file task into a numbered sequence of agent-executable steps.
+Each step specifies what to read, what to produce, and how to verify the result.
+The key insight is that agents handle well-specified, bounded subtasks reliably; the challenge is structuring work so that each unit falls within that reliable range.
+Skills solve this by encoding the domain expert's knowledge of \emph{how} to perform a task---file locations, naming conventions, trait implementation patterns, test structure---into a reusable script that any agent invocation can follow.
+
+Our library comprises 13~skills organized into five functional categories (\Cref{tab:skills}).
+
+\begin{table}[t]
+\caption{Skills inventory. Steps = numbered steps in the skill script. Success rate is the fraction of invocations that pass CI on first attempt, measured from git history.}\label{tab:skills}
+\centering
+\small
+\begin{tabular}{llcc}
+\toprule
+Skill & Category & Steps & Success \\
+\midrule
+\texttt{project-pipeline} & Orchestration & 7 & TBD \\
+\texttt{review-pipeline} & Orchestration & 8 & TBD \\
+\texttt{issue-to-pr} & Orchestration & 7 & TBD \\
+\texttt{meta-power} & Orchestration & 4 & TBD \\
+\midrule
+\texttt{add-model} & Implementation & 7 & TBD \\
+\texttt{add-rule} & Implementation & 6 & TBD \\
+\midrule
+\texttt{check-issue} & Quality gate & 3 & TBD \\
+\texttt{check-rule-redundancy} & Quality gate & 5 & TBD \\
+\texttt{review-implementation} & Quality gate & 5 & TBD \\
+\texttt{fix-pr} & Quality gate & 6 & TBD \\
+\midrule
+\texttt{write-model-in-paper} & Documentation & 4 & TBD \\
+\texttt{write-rule-in-paper} & Documentation & 6 & TBD \\
+\midrule
+\texttt{release} & Release & 3 & TBD \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\paragraph{Orchestration skills (4).}
+These skills implement the agent-as-manager role.
+\texttt{project-pipeline} is the primary automation entry point: it picks a ``Ready'' issue from the GitHub Project board, creates an isolated git worktree, invokes \texttt{issue-to-pr} to produce a pull request, and moves the card to the ``review-agentic'' column.
+\texttt{review-pipeline} handles the second stage: it picks a PR from ``review-agentic,'' addresses Copilot review comments via \texttt{fix-pr}, runs agentic feature tests, fixes CI failures (up to three retries), and moves the card to ``In Review'' for human merge.
+\texttt{issue-to-pr} is the per-issue workhorse invoked by \texttt{project-pipeline}: it fetches the issue, verifies it has passed the \texttt{check-issue} quality gate, researches cited references, writes an implementation plan, creates a PR, and optionally executes the plan by dispatching to the appropriate implementation skill.
+\texttt{meta-power} provides batch processing, resolving all open issues in dependency order (models before rules); it is being superseded by the more granular pipeline skills.
+
+\paragraph{Implementation skills (2).}
+\texttt{add-model} and \texttt{add-rule} encode the complete workflow for adding a new problem type or reduction rule, respectively.
+\texttt{add-model} walks through seven steps: gather required information (mathematical definition, complexity bounds, type parameters), implement the \texttt{Problem} trait, register variant complexity via \texttt{declare\_variants!}, register in the module system and CLI, write unit tests, generate documentation, and verify.
+\texttt{add-rule} follows a parallel six-step structure: implement \texttt{ReduceTo<T>} with overhead expressions, register in the module system, write closed-loop tests, create an example program, generate a paper entry with proof sketch, and verify.
+Both skills begin with a checklist of required information---if any item is missing, the skill halts and requests clarification rather than proceeding with incomplete specifications.
+
+\paragraph{Quality gate skills (4).}
+These skills prevent errors from propagating through the pipeline.
+\texttt{check-issue} validates proposed issues across four dimensions---usefulness (does the reduction improve the graph?), non-triviality (is the construction genuinely structural?), correctness (are cited references real and accurate?), and writing quality (is the specification complete and implementable?)---posting a structured report with pass/fail/warn verdicts and applying labels that gate downstream processing.
+\texttt{check-rule-redundancy} determines whether a proposed reduction is dominated by a composite path through existing rules, using polynomial overhead comparison to prevent unnecessary implementations.
+\texttt{review-implementation} dispatches two parallel sub-agents with fresh context windows---a structural reviewer that checks completeness against the model or rule checklist, and a quality reviewer that evaluates code style, test quality, and convention adherence.
+The fresh-context design prevents the ``sycophancy'' failure mode where a reviewer that also wrote the code is biased toward approving it.
+\texttt{fix-pr} triages and resolves PR feedback from multiple sources: user inline comments, Copilot suggestions, CI failures, and coverage gaps identified by Codecov.
+
+\paragraph{Documentation skills (2).}
+\texttt{write-model-in-paper} and \texttt{write-rule-in-paper} generate entries in the project's Typst paper.
+These skills serve a dual purpose: they produce human-readable documentation, and they function as the final layer of the verification stack (\Cref{sec:verification}).
+\texttt{write-rule-in-paper} requires a self-contained proof sketch with a bidirectional correctness argument---the discipline of writing ``if $S$ is an independent set, then $V \setminus S$ is a vertex cover'' forces the agent (and the reviewing human) to articulate the mathematical argument that no automated test can verify.
+
+\paragraph{Release skill (1).}
+\texttt{release} determines the appropriate version bump from the diff since the last tag, verifies that all tests and lints pass, and invokes the release pipeline that publishes to crates.io.
+
+The skill library is designed to be \emph{compositional}: orchestration skills invoke implementation skills, which invoke quality gate skills, which may invoke documentation skills.
+This composition means that a single \texttt{project-pipeline} invocation triggers a cascade of skill calls that collectively implement, test, review, document, and prepare a complete pull request---all from a one-line command.
+
+\subsection{Card-Based Orchestration}\label{sec:orchestration}
+
+The skills described above are coordinated through a GitHub Project board with six columns: \textbf{Backlog}, \textbf{Ready}, \textbf{In Progress}, \textbf{review-agentic}, \textbf{In Review}, and \textbf{Done}.
+The pipeline operates in two stages, as illustrated in \Cref{fig:pipeline}.
+
+\paragraph{Stage~1: Implementation (\texttt{project-pipeline}).}
+The maintainer moves an issue from Backlog to Ready---this is the strategic decision of \emph{what} to work on next.
+The agent's \texttt{project-pipeline} skill picks the next Ready issue (processing models before rules to satisfy dependencies), moves it to In~Progress, creates an isolated git worktree, and invokes \texttt{issue-to-pr --execute}.
+This triggers the full implementation cascade: the issue is classified as a model or rule, dispatched to the appropriate implementation skill, tested, reviewed by parallel sub-agents, and packaged as a pull request.
+Upon completion, the card moves to the ``review-agentic'' column, signaling that the PR is ready for the second stage.
+
+\paragraph{Stage~2: Review (\texttt{review-pipeline}).}
+The \texttt{review-pipeline} skill picks a PR from the ``review-agentic'' column and runs a fix loop: it addresses Copilot review comments, executes agentic feature tests, and fixes CI failures (retrying up to three times).
+If CI passes, the card moves to ``In~Review.''
+The maintainer then performs a final human review and merges the PR, moving the card to Done.
+
+\paragraph{Human touch points.}
+The design ensures that humans make exactly two decisions per issue.
+First, the maintainer moves an issue from Backlog to Ready---this encodes the judgment of which tasks are worth pursuing, in what order, and with what priority.
+Second, the maintainer reviews and merges the completed PR---this is the quality gate that ensures the agent's work meets the project's standards.
+Everything between these two touch points---worktree creation, implementation, testing, review dispatch, CI repair, and board status updates---is fully agent-managed.
+
+The pipeline supports batch processing: \texttt{project-pipeline --all} processes every Ready issue in a single invocation, while \texttt{review-pipeline --all} handles all pending reviews.
+In batch mode, models are processed before rules to ensure that newly added problem types are available when subsequent rule implementations reference them.
+Each issue is processed in its own worktree, ensuring isolation: a failure on one issue does not affect others, and the maintainer's working directory is never modified.
+
 \section{Multi-Layered Verification}\label{sec:verification}
 
 \begin{figure}[t]
