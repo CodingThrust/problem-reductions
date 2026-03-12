@@ -357,6 +357,42 @@ Each issue is processed in its own worktree, ensuring isolation: a failure on on
 
 \section{Related Work}\label{sec:related}
 
+Our work draws on and contributes to four active research areas: AI coding agents and their benchmarks, AI-assisted discovery of reductions and complexity results, formal verification of AI-generated code, and physics-inspired optimization via problem reformulation.
+
+\paragraph{AI coding agents.}
+The rapid evolution of AI coding agents---from SWE-agent's Agent-Computer Interface design~\cite{Yang2024SWEagent} and Devin's fully autonomous environment~\cite{Wu2024Devin} to production-grade platforms like OpenHands~\cite{Wang2024OpenHands} and Claude Code~\cite{Anthropic2025ClaudeCode}---has dramatically expanded what agents can accomplish on isolated software engineering tasks.
+On SWE-Bench Verified, which evaluates single-issue bug fixes, the best systems now resolve 70--80\% of issues, with Live-SWE-agent's self-evolving scaffold reaching 77.4\%~\cite{Xia2025LiveSWEagent}.
+However, benchmarks probing longer-horizon capabilities reveal a stark capability cliff: SWE-EVO reports resolution rates around 21\% on multi-step modifications spanning an average of 21~files~\cite{Thai2025SWEEVO}, and SWE-Bench Pro finds similar struggles with enterprise-level tasks that may require hours to days of human effort~\cite{Deng2025SWEBenchPro}.
+Roychoudhury~\cite{Roychoudhury2025AgenticAI} identifies specification inference---deciphering developer intent---as the central difficulty in agentic software workflows, arguing that trustworthy deployment requires AI-based verification and validation of AI-generated code.
+Industry data corroborates the need for human oversight: developers now use AI in 60\% of their work while maintaining active oversight on 80--100\% of delegated tasks~\cite{Anthropic2026AgenticCoding}.
+Our approach responds to these findings not by pushing for more powerful agents, but by structuring the work so that each unit falls within the agent's reliable operating range.
+The skill-based decomposition is complementary to architectural advances like Live-SWE-agent's self-evolution~\cite{Xia2025LiveSWEagent}: skills encode human-authored domain knowledge that makes agents more effective on hard, domain-specific tasks, while self-evolving scaffolds improve the agent's general-purpose tool use.
+
+\paragraph{AI-discovered reductions.}
+A parallel line of work uses AI not to \emph{implement} known reductions but to \emph{discover} new ones.
+DeepMind's FunSearch~\cite{RomeraParedes2023FunSearch} demonstrated that LLM-powered evolutionary program search can produce genuinely novel mathematical constructions, discovering new cap set bounds that surpassed prior state-of-the-art results.
+Its successor, AlphaEvolve~\cite{Novikov2025AlphaEvolve}, extends this approach to a broader class of problems, including the discovery of new gadget reductions that establish improved NP-hardness bounds for MAX-3-CUT, MAX-4-CUT, and the metric Traveling Salesman Problem.
+On the formal side, Jani\v{c}i\'{c}'s URSA system~\cite{Janicic2025URSA} uses SAT-based constraint solving to specify, analyze, and verify reductions between NP-complete problems---a rigorous but narrower approach that handles the verification component that evolutionary methods lack.
+Our work is complementary: AlphaEvolve and FunSearch discover novel reductions algorithmically, while our pipeline implements and verifies \emph{known} reductions using agents guided by human-authored specifications.
+The two approaches could be composed---new reductions discovered by evolutionary search could be specified as issues in our pipeline and implemented with full verification---though this integration remains future work.
+
+\paragraph{Formal verification of AI-generated code.}
+End-to-end formally verified code generation remains largely unsolved, particularly for mathematically complex programs.
+The VeriCoding benchmark~\cite{Bursuc2025VeriCoding}, the largest of its kind with 12,504 formal specifications across Lean, Dafny, and Verus/Rust, reports success rates of 27\% in Lean and 44\% in Verus/Rust using off-the-shelf LLMs.
+CLEVER~\cite{Thakur2025CLEVER}, a curated benchmark of 161 hard Lean problems, finds that even agentic approaches struggle to achieve full verification, establishing it as a challenging frontier.
+VeriBench~\cite{Miranda2025VeriBench} finds that only self-optimizing agent architectures achieve meaningful compilation rates in Lean~4, approaching 90\% but still far from full correctness proofs.
+For imperative programs, Mukherjee et al.\ demonstrate a two-LLM pipeline where one model generates candidate C programs and another generates Coq proofs of correctness~\cite{Mukherjee2025CoqPL, Mukherjee2025SynVer}---a generate-then-verify pattern that resonates with our layered approach.
+Our seven-layer verification stack (\Cref{sec:verification}) takes a more pragmatic path: rather than attempting end-to-end formal proofs (which the benchmarks above show remains out of reach for complex code), we compose multiple lightweight verification mechanisms---type-level enforcement, brute-force cross-validation, overhead formula checking, materialized fixtures, and agentic review---that collectively catch errors across different abstraction levels.
+The trade-off is clear: we provide less formal guarantee than a machine-checked proof, but our approach is practically effective at catching real errors in agent-generated mathematical code and scales to the 40~reductions in our library without requiring proof engineering expertise.
+
+\paragraph{Physics-inspired optimization.}
+Our reduction graph serves as a compilation layer connecting abstract problem formulations to specialized hardware and neural solvers.
+Schuetz et al.~\cite{Schuetz2022PhysicsGNN} demonstrate that graph neural networks trained via QUBO Hamiltonian relaxation can solve combinatorial optimization problems---including Maximum Independent Set, MaxCut, and Minimum Vertex Cover---at scales reaching millions of variables, far beyond the reach of exact solvers.
+He~\cite{He2024QuantumTSP} extends this paradigm to the Traveling Salesman Problem, combining quantum annealing on coherent Ising machines with GNN-based approximate solvers, both operating on QUBO formulations.
+These approaches assume that the user's problem has already been cast into QUBO or Ising form---precisely the transformation that our reduction graph provides.
+A practitioner with a Set Covering or Graph Coloring problem can follow edges in our verified graph to reach QUBO (through intermediate hubs like MIS or SpinGlass) and then apply these million-variable-scale solvers.
+Our work provides the verified upstream infrastructure---the ``compilation'' from diverse problem formulations to the canonical forms that physics-inspired solvers consume---while the solvers cited above provide the downstream execution engine.
+
 \section{Discussion \& Conclusion}\label{sec:conclusion}
 
 \bibliographystyle{IEEEtran}
