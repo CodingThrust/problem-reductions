@@ -13,6 +13,7 @@
 //! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
+//! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 
 pub(crate) mod biclique_cover;
 pub(crate) mod graph_partitioning;
@@ -23,6 +24,7 @@ pub(crate) mod maximum_clique;
 pub(crate) mod maximum_independent_set;
 pub(crate) mod maximum_matching;
 pub(crate) mod minimum_dominating_set;
+pub(crate) mod minimum_feedback_arc_set;
 pub(crate) mod minimum_vertex_cover;
 pub(crate) mod spin_glass;
 pub(crate) mod traveling_salesman;
@@ -36,6 +38,7 @@ pub use maximum_clique::MaximumClique;
 pub use maximum_independent_set::MaximumIndependentSet;
 pub use maximum_matching::MaximumMatching;
 pub use minimum_dominating_set::MinimumDominatingSet;
+pub use minimum_feedback_arc_set::MinimumFeedbackArcSet;
 pub use minimum_vertex_cover::MinimumVertexCover;
 pub use spin_glass::SpinGlass;
 pub use traveling_salesman::TravelingSalesman;

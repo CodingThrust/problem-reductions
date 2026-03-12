@@ -247,6 +247,7 @@ pub fn load_problem(
         },
         "Knapsack" => deser_opt::<Knapsack>(data),
         "SubsetSum" => deser_sat::<SubsetSum>(data),
+        "MinimumFeedbackArcSet" => deser_opt::<MinimumFeedbackArcSet>(data),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
@@ -309,6 +310,7 @@ pub fn serialize_any_problem(
         },
         "Knapsack" => try_ser::<Knapsack>(any),
         "SubsetSum" => try_ser::<SubsetSum>(any),
+        "MinimumFeedbackArcSet" => try_ser::<MinimumFeedbackArcSet>(any),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }

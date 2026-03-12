@@ -217,6 +217,7 @@ Flags by problem type:
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
+  MinimumFeedbackArcSet           --arcs
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -327,6 +328,9 @@ pub struct CreateArgs {
     /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
     #[arg(long, allow_hyphen_values = true)]
     pub bounds: Option<String>,
+    /// Directed arcs for MinimumFeedbackArcSet (e.g., "0>1,1>2,2>0")
+    #[arg(long)]
+    pub arcs: Option<String>,
 }
 
 #[derive(clap::Args)]

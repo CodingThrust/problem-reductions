@@ -10,7 +10,8 @@ use problemreductions::models::misc::{BinPacking, PaintShop};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
-    BipartiteGraph, Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
+    BipartiteGraph, DirectedGraph, Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph,
+    UnitDiskGraph,
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -46,6 +47,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.arcs.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -85,6 +87,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         _ => "",
     }
 }
@@ -453,6 +456,28 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumFeedbackArcSet
+        "MinimumFeedbackArcSet" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFeedbackArcSet requires --arcs\n\n\
+                     Usage: pred create MinimumFeedbackArcSet --arcs \"0>1,1>2,2>0\""
+                )
+            })?;
+            let arcs = parse_directed_arcs(arcs_str)?;
+            let num_vertices = arcs
+                .iter()
+                .flat_map(|(u, v)| [*u, *v])
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0);
+            let graph = DirectedGraph::new(num_vertices, arcs);
+            (
+                ser(MinimumFeedbackArcSet::new(graph))?,
                 resolved_variant.clone(),
             )
         }
@@ -834,6 +859,26 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
                         .map_err(|e| anyhow::anyhow!("Invalid matrix value: {}", e))
                 })
                 .collect()
+        })
+        .collect()
+}
+
+/// Parse `--arcs` as directed arc pairs separated by commas, using `>` as separator.
+/// E.g., "0>1,1>2,2>0"
+fn parse_directed_arcs(arcs_str: &str) -> Result<Vec<(usize, usize)>> {
+    arcs_str
+        .split(',')
+        .map(|pair| {
+            let parts: Vec<&str> = pair.trim().split('>').collect();
+            if parts.len() != 2 {
+                bail!(
+                    "Invalid arc '{}': expected format u>v (e.g., 0>1)",
+                    pair.trim()
+                );
+            }
+            let u: usize = parts[0].parse()?;
+            let v: usize = parts[1].parse()?;
+            Ok((u, v))
         })
         .collect()
 }
