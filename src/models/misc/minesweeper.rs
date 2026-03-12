@@ -70,23 +70,34 @@ impl Minesweeper {
     /// * `unrevealed` - Unrevealed cells (potential mine locations)
     ///
     /// # Panics
-    /// Panics if any cell position is out of bounds.
+    /// Panics if any cell position is out of bounds, if mine counts exceed 8,
+    /// or if revealed and unrevealed positions overlap.
     pub fn new(
         rows: usize,
         cols: usize,
         revealed: Vec<(usize, usize, u8)>,
         unrevealed: Vec<(usize, usize)>,
     ) -> Self {
-        for &(r, c, _) in &revealed {
+        let mut all_positions = std::collections::HashSet::new();
+        for &(r, c, count) in &revealed {
             assert!(
                 r < rows && c < cols,
                 "Revealed cell ({r}, {c}) out of bounds for {rows}x{cols} grid"
+            );
+            assert!(count <= 8, "Mine count {count} exceeds maximum of 8");
+            assert!(
+                all_positions.insert((r, c)),
+                "Duplicate position ({r}, {c}) in revealed cells"
             );
         }
         for &(r, c) in &unrevealed {
             assert!(
                 r < rows && c < cols,
                 "Unrevealed cell ({r}, {c}) out of bounds for {rows}x{cols} grid"
+            );
+            assert!(
+                all_positions.insert((r, c)),
+                "Position ({r}, {c}) appears in both revealed and unrevealed cells"
             );
         }
         Self {
