@@ -4,14 +4,17 @@
 //! - [`BinPacking`]: Bin Packing (minimize bins)
 //! - [`Factoring`]: Integer factorization
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
+//! - [`LongestCommonSubsequence`]: Longest Common Subsequence
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
 
 mod bin_packing;
 pub(crate) mod factoring;
 mod knapsack;
+mod longest_common_subsequence;
 pub(crate) mod paintshop;
 
 pub use bin_packing::BinPacking;
 pub use factoring::Factoring;
 pub use knapsack::Knapsack;
+pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use paintshop::PaintShop;

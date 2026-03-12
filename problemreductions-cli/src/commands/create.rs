@@ -5,7 +5,7 @@ use crate::problem_name::{parse_problem_spec, resolve_variant};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::misc::{BinPacking, PaintShop};
+use problemreductions::models::misc::{BinPacking, LongestCommonSubsequence, PaintShop};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -45,6 +45,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.strings.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -405,6 +406,24 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             (ser(BMF::new(matrix, rank))?, resolved_variant.clone())
+        }
+
+        // LongestCommonSubsequence
+        "LongestCommonSubsequence" => {
+            let strings_str = args.strings.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "LCS requires --strings\n\n\
+                     Usage: pred create LCS --strings \"ABAC;BACA\""
+                )
+            })?;
+            let strings: Vec<Vec<u8>> = strings_str
+                .split(';')
+                .map(|s| s.trim().as_bytes().to_vec())
+                .collect();
+            (
+                ser(LongestCommonSubsequence::new(strings))?,
+                resolved_variant.clone(),
+            )
         }
 
         // ClosestVectorProblem
