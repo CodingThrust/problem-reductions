@@ -2,7 +2,7 @@
 
 **Type:** Full research paper (~10-12 pages)
 **Venue:** ICSE/ASE-class SE conference
-**Output:** `docs/paper/arxiv/paper.typ` (Typst)
+**Output:** `docs/paper/arxiv/paper.tex` (LaTeX, IEEEtran class)
 
 ## Thesis
 
