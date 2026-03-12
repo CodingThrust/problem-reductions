@@ -208,6 +208,7 @@ Flags by problem type:
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
+  PartitionIntoTriangles          --graph
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   PaintShop                       --sequence
