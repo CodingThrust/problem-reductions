@@ -39,15 +39,22 @@ impl QuadraticPoly {
     /// Evaluate the polynomial at the given configuration modulo `field_size`.
     pub fn evaluate(&self, config: &[usize], field_size: usize) -> u64 {
         let q = field_size as u64;
-        let mut result = self.constant % q;
+        let q128 = q as u128;
+        let mut result = (self.constant % q) as u128;
         for &((j, k), coeff) in &self.quadratic_terms {
-            result =
-                (result + coeff % q * (config[j] as u64 % q) % q * (config[k] as u64 % q) % q) % q;
+            let coeff_mod = (coeff % q) as u128;
+            let xj = (config[j] as u64 % q) as u128;
+            let xk = (config[k] as u64 % q) as u128;
+            let term = ((coeff_mod * xj) % q128 * xk) % q128;
+            result = (result + term) % q128;
         }
         for &(j, coeff) in &self.linear_terms {
-            result = (result + coeff % q * (config[j] as u64 % q) % q) % q;
+            let coeff_mod = (coeff % q) as u128;
+            let xj = (config[j] as u64 % q) as u128;
+            let term = (coeff_mod * xj) % q128;
+            result = (result + term) % q128;
         }
-        result
+        (result % q128) as u64
     }
 }
 
@@ -94,7 +101,11 @@ pub struct MultivariateQuadratic {
 
 impl MultivariateQuadratic {
     /// Create a new MQ problem instance.
+    ///
+    /// # Panics
+    /// Panics if `field_size < 2` (need at least F_2).
     pub fn new(field_size: usize, num_variables: usize, equations: Vec<QuadraticPoly>) -> Self {
+        assert!(field_size >= 2, "field_size must be at least 2");
         Self {
             field_size,
             num_variables,
