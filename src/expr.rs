@@ -104,8 +104,13 @@ impl Expr {
     /// # Panics
     /// Panics if the expression string has invalid syntax.
     pub fn parse(input: &str) -> Expr {
-        parse_to_expr(input)
+        Self::try_parse(input)
             .unwrap_or_else(|e| panic!("failed to parse expression \"{input}\": {e}"))
+    }
+
+    /// Parse an expression string into an `Expr`, returning a normal error on failure.
+    pub fn try_parse(input: &str) -> Result<Expr, String> {
+        parse_to_expr(input)
     }
 
     /// Check if this expression is a polynomial (no exp/log/sqrt, integer exponents only).
@@ -465,10 +470,10 @@ impl ExprParser {
     }
 
     fn parse_multiplicative(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_power()?;
+        let mut left = self.parse_unary()?;
         while matches!(self.peek(), Some(ExprToken::Star) | Some(ExprToken::Slash)) {
             let op = self.advance().unwrap();
-            let right = self.parse_power()?;
+            let right = self.parse_unary()?;
             left = match op {
                 ExprToken::Star => left * right,
                 ExprToken::Slash => left / right,
@@ -479,10 +484,10 @@ impl ExprParser {
     }
 
     fn parse_power(&mut self) -> Result<Expr, String> {
-        let base = self.parse_unary()?;
+        let base = self.parse_primary()?;
         if matches!(self.peek(), Some(ExprToken::Caret)) {
             self.advance();
-            let exp = self.parse_power()?; // right-associative
+            let exp = self.parse_unary()?; // right-associative, allows unary minus in exponent
             Ok(Expr::pow(base, exp))
         } else {
             Ok(base)
@@ -495,7 +500,7 @@ impl ExprParser {
             let expr = self.parse_unary()?;
             Ok(-expr)
         } else {
-            self.parse_primary()
+            self.parse_power()
         }
     }
 

@@ -32,6 +32,14 @@ impl Ord for OpaqueFactor {
     }
 }
 
+fn normalized_f64_bits(value: f64) -> u64 {
+    if value == 0.0 {
+        0.0f64.to_bits()
+    } else {
+        value.to_bits()
+    }
+}
+
 /// A single additive term: coefficient × product of canonical factors.
 #[derive(Clone, Debug)]
 struct CanonicalTerm {
@@ -60,11 +68,11 @@ fn try_merge_opaque(existing: &[OpaqueFactor], new: &OpaqueFactor) -> Option<Vec
             return Some(result);
         }
 
-        // c^a * c^b -> c^(a+b) for matching constant base c
+        // c^a * c^b -> c^(a+b) for matching positive constant base c
         if let (Expr::Pow(base1, exp1), Expr::Pow(base2, exp2)) = (&existing_factor.expr, &new.expr)
         {
             if let (Some(c1), Some(c2)) = (base1.constant_value(), base2.constant_value()) {
-                if (c1 - c2).abs() < 1e-15 {
+                if c1 > 0.0 && c2 > 0.0 && (c1 - c2).abs() < 1e-15 {
                     let merged_exp = (**exp1).clone() + (**exp2).clone();
                     let canon_exp = canonical_form(&merged_exp).unwrap_or(merged_exp);
                     let merged_expr = Expr::Pow(base1.clone(), Box::new(canon_exp));
@@ -145,11 +153,11 @@ impl CanonicalTerm {
     }
 
     /// Deterministic sort key for ordering terms in a sum.
-    fn sort_key(&self) -> (Vec<(&'static str, i64)>, Vec<String>) {
+    fn sort_key(&self) -> (Vec<(&'static str, u64)>, Vec<String>) {
         let vars: Vec<_> = self
             .vars
             .iter()
-            .map(|(&k, &v)| (k, (v * 1000.0).round() as i64))
+            .map(|(&k, &v)| (k, normalized_f64_bits(v)))
             .collect();
         let opaque: Vec<_> = self.opaque.iter().map(|o| o.key.clone()).collect();
         (vars, opaque)
@@ -179,7 +187,7 @@ impl CanonicalSum {
     /// Merge terms with the same signature and drop zero-coefficient terms.
     /// Sort the result deterministically.
     fn simplify(self) -> Self {
-        type SortKey = (Vec<(&'static str, i64)>, Vec<String>);
+        type SortKey = (Vec<(&'static str, u64)>, Vec<String>);
         let mut groups: BTreeMap<SortKey, CanonicalTerm> = BTreeMap::new();
 
         for term in self.terms {
@@ -299,6 +307,16 @@ fn canonicalize_pow(base: &Expr, exp: &Expr) -> Result<CanonicalSum, Canonicaliz
         }
         // Constant base ^ variable exponent → opaque (exponential growth)
         (_, _) if base.constant_value().is_some() => {
+            let c = base.constant_value().unwrap();
+            if (c - 1.0).abs() < 1e-15 {
+                return Ok(CanonicalSum::from_term(CanonicalTerm::constant(1.0)));
+            }
+            if c <= 0.0 {
+                return Err(CanonicalizationError::Unsupported(format!(
+                    "{}^{}",
+                    base, exp
+                )));
+            }
             let canon_exp = canonical_form(exp)?;
             Ok(CanonicalSum::from_term(CanonicalTerm::opaque_factor(
                 Expr::Pow(Box::new(base.clone()), Box::new(canon_exp)),

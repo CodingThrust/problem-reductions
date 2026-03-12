@@ -249,11 +249,12 @@ fn test_asymptotic_normal_form_substitution_is_closed() {
 
 #[test]
 fn test_asymptotic_normal_form_handles_subtraction() {
-    // n - m now succeeds: canonical form gives both terms, both survive in Big-O
-    let result = asymptotic_normal_form(&Expr::parse("n - m")).unwrap();
-    let s = result.to_string();
-    assert!(s.contains("m"), "expected m in result, got: {s}");
-    assert!(s.contains("n"), "expected n in result, got: {s}");
+    // n - m: the -m term survives as a negative dominant term → unsupported
+    assert!(asymptotic_normal_form(&Expr::parse("n - m")).is_err());
+
+    // n^2 - n: -n is dominated by n^2 and eliminated → works
+    let result = asymptotic_normal_form(&Expr::parse("n^2 - n")).unwrap();
+    assert_eq!(result.to_string(), "n^2");
 }
 
 #[test]
@@ -597,10 +598,10 @@ fn test_parse_precedence_mul_pow() {
 
 #[test]
 fn test_parse_precedence_unary_pow() {
-    // In our parser, unary minus binds tighter than ^: -n^2 = (-n)^2
-    assert_eq!(parse_eval("-n^2", &[("n", 3)]), 9.0);
-    // Use parens for math convention: -(n^2) = -9
+    // Unary minus binds less tightly than ^: -n^2 = -(n^2)
+    assert_eq!(parse_eval("-n^2", &[("n", 3)]), -9.0);
     assert_eq!(parse_eval("-(n^2)", &[("n", 3)]), -9.0);
+    assert_eq!(parse_eval("(-n)^2", &[("n", 3)]), 9.0);
 }
 
 // -- Error cases --
