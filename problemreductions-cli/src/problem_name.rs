@@ -42,6 +42,7 @@ pub fn resolve_alias(input: &str) -> String {
         "maximumclique" => "MaximumClique".to_string(),
         "maxmatching" | "maximummatching" => "MaximumMatching".to_string(),
         "minimumdominatingset" => "MinimumDominatingSet".to_string(),
+        "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
         "minimumsetcovering" => "MinimumSetCovering".to_string(),
         "maximumsetpacking" => "MaximumSetPacking".to_string(),
         "kcoloring" => "KColoring".to_string(),

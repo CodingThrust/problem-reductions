@@ -201,7 +201,7 @@ TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
      Not every flag applies to every problem — the above list shows ALL flags.
 
 Flags by problem type:
-  MIS, MVC, MaxClique, MinDomSet  --graph, --weights
+  MIS, MVC, MaxClique, MinDomSet, MinFVS  --graph, --weights
   MaxCut, MaxMatching, TSP        --graph, --edge-weights
   MaximalIS                       --graph, --weights
   SAT, 3SAT/KSAT                  --num-vars, --clauses [--k]

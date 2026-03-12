@@ -6,6 +6,7 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::GraphPartitioning;
+use problemreductions::models::graph::MinimumFeedbackVertexSet;
 use problemreductions::models::misc::{BinPacking, PaintShop};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -69,7 +70,8 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MaximumIndependentSet"
         | "MinimumVertexCover"
         | "MaximumClique"
-        | "MinimumDominatingSet" => match graph_type {
+        | "MinimumDominatingSet"
+        | "MinimumFeedbackVertexSet" => match graph_type {
             Some("KingsSubgraph") => "--positions \"0,0;1,0;1,1;0,1\"",
             Some("TriangularSubgraph") => "--positions \"0,0;0,1;1,0;1,1\"",
             Some("UnitDiskGraph") => "--positions \"0,0;1,0;0.5,0.8\" --radius 1.5",
@@ -190,7 +192,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MaximumIndependentSet"
         | "MinimumVertexCover"
         | "MaximumClique"
-        | "MinimumDominatingSet" => {
+        | "MinimumDominatingSet"
+        | "MinimumFeedbackVertexSet" => {
             create_vertex_weight_problem(args, canonical, graph_type, &resolved_variant)?
         }
 
@@ -545,6 +548,7 @@ fn ser_vertex_weight_problem_with<G: Graph + Serialize>(
         "MinimumVertexCover" => ser(MinimumVertexCover::new(graph, weights)),
         "MaximumClique" => ser(MaximumClique::new(graph, weights)),
         "MinimumDominatingSet" => ser(MinimumDominatingSet::new(graph, weights)),
+        "MinimumFeedbackVertexSet" => ser(MinimumFeedbackVertexSet::new(graph, weights)),
         "MaximalIS" => ser(MaximalIS::new(graph, weights)),
         _ => unreachable!(),
     }
@@ -861,6 +865,7 @@ fn create_random(
         | "MinimumVertexCover"
         | "MaximumClique"
         | "MinimumDominatingSet"
+        | "MinimumFeedbackVertexSet"
         | "MaximalIS" => {
             let weights = vec![1i32; num_vertices];
             match graph_type {

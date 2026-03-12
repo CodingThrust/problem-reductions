@@ -54,6 +54,7 @@
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
   "SubsetSum": [Subset Sum],
+  "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -954,6 +955,16 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   One of Karp's 21 NP-complete problems @karp1972. Subset Sum is the special case of Knapsack where $v_i = w_i$ for all items and we seek an exact sum rather than an inequality. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n B)$ pseudo-polynomial time. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974.
 
   *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
+]
+
+#problem-def("MinimumFeedbackVertexSet")[
+  Given a graph $G = (V, E)$ with vertex weights $w: V -> RR^+$, find $S subset.eq V$ of minimum total weight such that $G - S$ is acyclic (a forest). Equivalently, $S$ must contain at least one vertex from every cycle in $G$.
+][
+  Feedback Vertex Set is one of Karp's 21 NP-complete problems @karp1972 (as GT7 in Garey & Johnson). It arises in deadlock resolution, circuit testing, and program verification. Removing a feedback vertex set from a graph yields a forest; the problem asks for the smallest such set.
+
+  The best known exact algorithm for undirected FVS runs in $O^*(1.7266^n)$ time, due to Xiao and Nagamochi (2015), using measure-and-conquer branch-and-reduce. Earlier bounds include $O^*(1.7548^n)$ by Fomin, Grandoni, and Kratsch @fomin2008. The problem is also fixed-parameter tractable, solvable in $O^*(3.619^k)$ time where $k$ is the solution size.
+
+  *Example.* Let $G$ be a triangle $0 dash 1 dash 2 dash 0$ with unit weights. Every vertex lies on the unique cycle, so removing any single vertex breaks it. The minimum FVS has size 1, and there are three optimal solutions: ${0}$, ${1}$, ${2}$. For the complete graph $K_4$, removing any 2 vertices leaves at most $binom(2,2) = 1$ edge (a tree), so the minimum FVS has size 2.
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper
