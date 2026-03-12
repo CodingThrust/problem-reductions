@@ -86,3 +86,4 @@ claude-output.log
 *.json
 .claude/worktrees/
 docs/test-reports/
+docs/superpowers/
