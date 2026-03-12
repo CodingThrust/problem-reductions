@@ -1,0 +1,44 @@
+\documentclass[conference]{IEEEtran}
+\usepackage{cite}
+\usepackage{amsmath,amssymb,amsfonts}
+\usepackage{graphicx}
+\usepackage{textcomp}
+\usepackage{xcolor}
+\usepackage{booktabs}
+\usepackage{listings}
+\usepackage{hyperref}
+\usepackage{cleveref}
+
+\begin{document}
+
+\title{Skill-Based Agentic Coding for Mathematical Software:\\
+A Case Study in NP-Hard Problem Reductions}
+
+\author{...}  % placeholder
+
+\maketitle
+
+\begin{abstract}
+AI coding agents achieve 70--80\% on single-issue benchmarks like SWE-Bench Verified, but their success rate drops below 25\% on long-horizon software evolution tasks that demand sustained mathematical reasoning across many files. We address this gap by decomposing agentic coding into two complementary roles: human-creative work (designing reduction proofs, choosing algorithms, writing specifications) and agent-managed execution (scaffolding, testing, verification, and integration). Our method centers on a library of 13 reusable skills---from issue triage through implementation to multi-layered review---orchestrated by a coding agent within a Rust library for NP-hard problem reductions. A 7-layer verification stack (type checking, unit tests, brute-force cross-validation, closed-loop reduction tests, integration tests, coverage enforcement, and CI/CD) catches errors at increasing levels of abstraction. Applying this methodology over six months produced 24 problem types, 40 reduction rule implementations, and 52 edges in a typed reduction graph, all with $>$95\% test coverage. We contribute the skill-based decomposition methodology, the verification stack design, and the open-source artifact as a benchmark for agentic mathematical software engineering.
+\end{abstract}
+
+\section{Introduction}\label{sec:intro}
+
+\section{Why Reductions? The Goldilocks Domain}\label{sec:domain}
+
+\section{System Architecture}\label{sec:architecture}
+
+\section{Skill-Based Task Decomposition}\label{sec:skills}
+
+\section{Multi-Layered Verification}\label{sec:verification}
+
+\section{Evaluation}\label{sec:evaluation}
+
+\section{Related Work}\label{sec:related}
+
+\section{Discussion \& Conclusion}\label{sec:conclusion}
+
+\bibliographystyle{IEEEtran}
+\bibliography{references}
+
+\end{document}
