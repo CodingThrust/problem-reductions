@@ -3,7 +3,7 @@ use crate::models::formula::*;
 use crate::models::graph::*;
 use crate::models::misc::*;
 use crate::models::set::*;
-use crate::topology::{BipartiteGraph, SimpleGraph};
+use crate::topology::{BipartiteGraph, DirectedGraph, SimpleGraph};
 use crate::traits::Problem;
 use crate::variant::K3;
 
@@ -83,6 +83,10 @@ fn test_all_problems_implement_trait_correctly() {
         BooleanExpr::constant(true),
     )]);
     check_problem_trait(&CircuitSAT::new(circuit), "CircuitSAT");
+    check_problem_trait(
+        &MinimumFeedbackArcSet::new(DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)])),
+        "MinimumFeedbackArcSet",
+    );
 }
 
 #[test]
@@ -122,6 +126,10 @@ fn test_direction() {
     assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
     assert_eq!(
         BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1).direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
+        MinimumFeedbackArcSet::new(DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)])).direction(),
         Direction::Minimize
     );
 
