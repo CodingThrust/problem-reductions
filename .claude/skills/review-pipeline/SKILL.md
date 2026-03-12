@@ -82,6 +82,22 @@ cd "$WORKTREE_DIR"
 
 All subsequent steps run inside the worktree.
 
+### 1a. Resolve Conflicts with Main
+
+Check if the branch has merge conflicts with main:
+
+```bash
+git fetch origin main
+git merge origin/main --no-edit
+```
+
+- If the merge succeeds cleanly: push the merge commit and continue.
+- If there are conflicts:
+  1. Inspect the conflicting files with `git diff --name-only --diff-filter=U`.
+  2. Resolve conflicts (prefer the PR branch for new code, main for regenerated artifacts like JSON).
+  3. Stage resolved files, commit, and push.
+- If conflicts are too complex to resolve automatically (e.g., overlapping logic changes in the same function): abort the merge (`git merge --abort`), leave the PR in review-agentic, and report: `PR #N has complex merge conflicts with main — needs manual resolution.` Then STOP processing this PR.
+
 ### 2. Fix Copilot Review Comments
 
 Copilot review is guaranteed to exist (verified in Step 0). Fetch the comments:
@@ -210,3 +226,4 @@ Completed: 2/2 | All moved to In Review
 | Not checking out the right branch | Use `gh pr view` to get the exact branch name |
 | Worktree left behind on failure | Always clean up with `git worktree remove` in Step 5 |
 | Working in main checkout | All work happens in `.worktrees/` — never modify the main checkout |
+| Skipping merge with main | Always merge origin/main in Step 1a to catch conflicts before fixing comments |
