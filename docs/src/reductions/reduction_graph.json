@@ -5,17 +5,6 @@
       "variant": {},
       "category": "algebraic",
       "doc_path": "models/algebraic/struct.BMF.html",
-      "complexity": "2^(rows * rank + r
-Exported to: docs/src/reductions/reduction_graph.json
-
-JSON content:
-{
-  "nodes": [
-    {
-      "name": "BMF",
-      "variant": {},
-      "category": "algebraic",
-      "doc_path": "models/algebraic/struct.BMF.html",
       "complexity": "2^(rows * rank + rank * cols)"
     },
     {
@@ -387,6 +376,13 @@ JSON content:
       "complexity": "2^num_spins"
     },
     {
+      "name": "SubsetSum",
+      "variant": {},
+      "category": "misc",
+      "doc_path": "models/misc/struct.SubsetSum.html",
+      "complexity": "2^(num_elements / 2)"
+    },
+    {
       "name": "TravelingSalesman",
       "variant": {
         "graph": "SimpleGraph",
@@ -576,6 +572,17 @@ JSON content:
         }
       ],
       "doc_path": "rules/ksatisfiability_qubo/index.html"
+    },
+    {
+      "source": 16,
+      "target": 41,
+      "overhead": [
+        {
+          "field": "num_elements",
+          "formula": "2 * num_vars + 2 * num_clauses"
+        }
+      ],
+      "doc_path": "rules/ksatisfiability_subsetsum/index.html"
     },
     {
       "source": 17,
@@ -1140,7 +1147,7 @@ JSON content:
       "doc_path": "rules/spinglass_casts/index.html"
     },
     {
-      "source": 41,
+      "source": 42,
       "target": 8,
       "overhead": [
         {
