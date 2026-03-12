@@ -569,7 +569,8 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
             if u == v {
                 bail!(
                     "Self-loop detected: edge {}-{}. Simple graphs do not allow self-loops",
-                    u, v
+                    u,
+                    v
                 );
             }
             Ok((u, v))

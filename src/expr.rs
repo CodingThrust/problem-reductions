@@ -26,16 +26,6 @@ pub enum Expr {
 }
 
 impl Expr {
-    /// Convenience constructor for addition.
-    pub fn add(a: Expr, b: Expr) -> Self {
-        Expr::Add(Box::new(a), Box::new(b))
-    }
-
-    /// Convenience constructor for multiplication.
-    pub fn mul(a: Expr, b: Expr) -> Self {
-        Expr::Mul(Box::new(a), Box::new(b))
-    }
-
     /// Convenience constructor for exponentiation.
     pub fn pow(base: Expr, exp: Expr) -> Self {
         Expr::Pow(Box::new(base), Box::new(exp))
@@ -43,7 +33,7 @@ impl Expr {
 
     /// Multiply expression by a scalar constant.
     pub fn scale(self, c: f64) -> Self {
-        Expr::mul(Expr::Const(c), self)
+        Expr::Const(c) * self
     }
 
     /// Evaluate the expression given concrete variable values.
@@ -94,8 +84,8 @@ impl Expr {
                     Expr::Var(name)
                 }
             }
-            Expr::Add(a, b) => Expr::add(a.substitute(mapping), b.substitute(mapping)),
-            Expr::Mul(a, b) => Expr::mul(a.substitute(mapping), b.substitute(mapping)),
+            Expr::Add(a, b) => a.substitute(mapping) + b.substitute(mapping),
+            Expr::Mul(a, b) => a.substitute(mapping) * b.substitute(mapping),
             Expr::Pow(a, b) => Expr::pow(a.substitute(mapping), b.substitute(mapping)),
             Expr::Exp(a) => Expr::Exp(Box::new(a.substitute(mapping))),
             Expr::Log(a) => Expr::Log(Box::new(a.substitute(mapping))),
@@ -252,6 +242,38 @@ impl std::ops::Add for Expr {
 
     fn add(self, other: Self) -> Self {
         Expr::Add(Box::new(self), Box::new(other))
+    }
+}
+
+impl std::ops::Mul for Expr {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
+        Expr::Mul(Box::new(self), Box::new(other))
+    }
+}
+
+impl std::ops::Sub for Expr {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        self + Expr::Const(-1.0) * other
+    }
+}
+
+impl std::ops::Div for Expr {
+    type Output = Self;
+
+    fn div(self, other: Self) -> Self {
+        self * Expr::pow(other, Expr::Const(-1.0))
+    }
+}
+
+impl std::ops::Neg for Expr {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        Expr::Const(-1.0) * self
     }
 }
 
@@ -519,7 +541,7 @@ fn combine_add_chain(mut terms: Vec<Expr>) -> Expr {
     }
     let mut expr = terms.remove(0);
     for term in terms {
-        expr = Expr::add(expr, term);
+        expr = expr + term;
     }
     expr
 }
@@ -530,7 +552,7 @@ fn combine_mul_chain(mut factors: Vec<Expr>) -> Expr {
     }
     let mut expr = factors.remove(0);
     for factor in factors {
-        expr = Expr::mul(expr, factor);
+        expr = expr * factor;
     }
     expr
 }
@@ -682,8 +704,8 @@ impl ExprParser {
             let op = self.advance().unwrap();
             let right = self.parse_multiplicative()?;
             left = match op {
-                ExprToken::Plus => Expr::add(left, right),
-                ExprToken::Minus => Expr::add(left, Expr::mul(Expr::Const(-1.0), right)),
+                ExprToken::Plus => left + right,
+                ExprToken::Minus => left - right,
                 _ => unreachable!(),
             };
         }
@@ -696,8 +718,8 @@ impl ExprParser {
             let op = self.advance().unwrap();
             let right = self.parse_power()?;
             left = match op {
-                ExprToken::Star => Expr::mul(left, right),
-                ExprToken::Slash => Expr::mul(left, Expr::pow(right, Expr::Const(-1.0))),
+                ExprToken::Star => left * right,
+                ExprToken::Slash => left / right,
                 _ => unreachable!(),
             };
         }
@@ -719,7 +741,7 @@ impl ExprParser {
         if matches!(self.peek(), Some(ExprToken::Minus)) {
             self.advance();
             let expr = self.parse_unary()?;
-            Ok(Expr::mul(Expr::Const(-1.0), expr))
+            Ok(-expr)
         } else {
             self.parse_primary()
         }

@@ -35,7 +35,7 @@ pub fn evaluate(input: &Path, config_str: &str, out: &OutputConfig) -> Result<()
         if *val >= *dim {
             anyhow::bail!(
                 "Config value {} at position {} is out of range: variable {} has {} possible values (0..{})",
-                val, i, i, dim, dim - 1
+                val, i, i, dim, dim.saturating_sub(1)
             );
         }
     }

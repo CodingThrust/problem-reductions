@@ -1,10 +1,10 @@
 use crate::output::OutputConfig;
 use crate::problem_name::{aliases_for, parse_problem_spec, resolve_variant};
 use anyhow::{Context, Result};
-use problemreductions::{asymptotic_normal_form, Expr};
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph, TraversalDirection};
 use problemreductions::types::ProblemSize;
+use problemreductions::{asymptotic_normal_form, Expr};
 use std::collections::BTreeMap;
 
 pub fn list(out: &OutputConfig) -> Result<()> {
