@@ -71,7 +71,7 @@ Applies when the title contains `[Rule]`.
 
 4. Decision (principle: new rule must reduce the reduction overhead):
    - **No path exists** → **Pass** (novel reduction)
-   - **Path exists** → run `/check-rule-redundancy <source> <target>` to perform a full overhead dominance analysis against all composite paths. Use its verdict:
+   - **Path exists** → run `/topology-sanity-check redundancy <source> <target>` to perform a full overhead dominance analysis against all composite paths. Use its verdict:
      - **Not Redundant** → **Pass** ("improves existing reduction — not dominated by any composite path")
      - **Redundant** (dominated by a composite path) → **Fail** — include the dominating path from the redundancy report
      - **Inconclusive** → **Warn** with the details from the redundancy report

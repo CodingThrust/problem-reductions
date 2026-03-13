@@ -63,13 +63,14 @@ if [ -n "$PR_NUM" ]; then
   ISSUE_NUM=$(gh pr view $PR_NUM --json body -q .body | grep -oE '#[0-9]+' | head -1 | tr -d '#')
 fi
 
-# Fetch the issue body if found
+# Fetch the issue body and comments if found
 if [ -n "$ISSUE_NUM" ]; then
   ISSUE_BODY=$(gh issue view $ISSUE_NUM --json title,body -q '"# " + .title + "\n\n" + .body')
+  ISSUE_COMMENTS=$(gh issue view $ISSUE_NUM --json comments -q '.comments[] | "**" + .author.login + "** (" + .createdAt + "):\n" + .body + "\n"')
 fi
 ```
 
-If an issue is found, pass it as `{ISSUE_CONTEXT}` to both subagents. If not, set `{ISSUE_CONTEXT}` to "No linked issue found."
+If an issue is found, pass `{ISSUE_CONTEXT}` (title + body + comments) to both subagents. If not, set `{ISSUE_CONTEXT}` to "No linked issue found." Comments often contain clarifications, corrections, or additional requirements from maintainers.
 
 ## Step 3: Dispatch Subagents in Parallel
 
@@ -83,7 +84,7 @@ Dispatch using `Agent` tool with `subagent_type="superpowers:code-reviewer"`:
   - `{REVIEW_PARAMS}` -> summary of what's being reviewed
   - `{PROBLEM_NAME}`, `{CATEGORY}`, `{FILE_STEM}` -> for model reviews
   - `{SOURCE}`, `{TARGET}`, `{RULE_STEM}`, `{EXAMPLE_STEM}` -> for rule reviews
-  - `{ISSUE_CONTEXT}` -> full issue title + body (or "No linked issue found.")
+  - `{ISSUE_CONTEXT}` -> full issue title + body + comments (or "No linked issue found.")
 - Prompt = filled template
 
 ### Quality Reviewer (always)
@@ -96,7 +97,7 @@ Dispatch using `Agent` tool with `subagent_type="superpowers:code-reviewer"`:
   - `{CHANGED_FILES}` -> list of changed files
   - `{PLAN_STEP}` -> description of what was implemented (or "standalone review")
   - `{BASE_SHA}`, `{HEAD_SHA}` -> git range
-  - `{ISSUE_CONTEXT}` -> full issue title + body (or "No linked issue found.")
+  - `{ISSUE_CONTEXT}` -> full issue title + body + comments (or "No linked issue found.")
 - Prompt = filled template
 
 **Both subagents must be dispatched in parallel** (single message with two Agent tool calls — use `run_in_background: true` on one, foreground on the other, then read the background result with `TaskOutput`).

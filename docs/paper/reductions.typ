@@ -54,6 +54,7 @@
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
   "SubsetSum": [Subset Sum],
+  "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -537,6 +538,37 @@ caption: [Path $P_5$ with maximal IS $S = {v_1, v_3}$ (blue, $w(S) = 2$). $S$ is
 ) <fig:path-maximal-is>
 ]
 
+#problem-def("MinimumFeedbackVertexSet")[
+  Given a directed graph $G = (V, A)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG).
+][
+One of Karp's 21 NP-complete problems ("Feedback Node Set") @karp1972. Applications include deadlock detection in operating systems, loop breaking in circuit design, and Bayesian network structure learning. The directed version is strictly harder than undirected FVS: the best known exact algorithm runs in $O^*(1.9977^n)$ @razgon2007, compared to $O^*(1.7548^n)$ for undirected graphs. An $O(log n dot log log n)$-approximation exists @even1998.
+
+*Example.* Consider the directed graph $G$ with $n = 5$ vertices, $|A| = 7$ arcs, and unit weights. The arcs form two overlapping directed cycles: $C_1 = v_0 -> v_1 -> v_2 -> v_0$ and $C_2 = v_0 -> v_3 -> v_4 -> v_1$. The set $S = {v_0}$ with $w(S) = 1$ is a minimum feedback vertex set: removing $v_0$ breaks both cycles, leaving a DAG with topological order $(v_3, v_4, v_1, v_2)$. No 0-vertex set suffices since $C_1$ and $C_2$ overlap only at $v_0$ and $v_1$, and removing $v_1$ alone leaves $C_1' = v_0 -> v_3 -> v_4 -> v_1 -> v_2 -> v_0$.
+
+#figure({
+  // Directed graph: 5 vertices, 7 arcs, two overlapping cycles
+  let verts = ((0, 1), (2, 1), (1, 0), (-0.5, -0.2), (0.8, -0.5))
+  let arcs = ((0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (2, 4))
+  let highlights = (0,)  // FVS = {v_0}
+  canvas(length: 1cm, {
+    // Draw directed arcs with arrows
+    for (u, v) in arcs {
+      draw.line(verts.at(u), verts.at(v),
+        stroke: 1pt + black,
+        mark: (end: "straight", scale: 0.4))
+    }
+    // Draw nodes on top
+    for (k, pos) in verts.enumerate() {
+      let s = highlights.contains(k)
+      g-node(pos, name: "v" + str(k),
+        fill: if s { graph-colors.at(0) } else { white },
+        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+    }
+  })
+},
+caption: [A directed graph with FVS $S = {v_0}$ (blue, $w(S) = 1$). Removing $v_0$ breaks both directed cycles $v_0 -> v_1 -> v_2 -> v_0$ and $v_0 -> v_3 -> v_4 -> v_1$, leaving a DAG.],
+) <fig:fvs-example>
+]
 
 == Set Problems
 
@@ -1009,6 +1041,27 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Correctness._ ($arrow.r.double$) If $S$ is independent, no edge has both endpoints in $S$, so every edge has at least one endpoint in $V backslash S$, making $V backslash S$ a cover. ($arrow.l.double$) If $C$ is a vertex cover, every edge is incident to some vertex in $C$, so no edge connects two vertices of $V backslash C$, making $V backslash C$ independent.
 
   _Solution extraction._ For VC solution $C$, return $S = V backslash C$, i.e.\ flip each variable: $s_v = 1 - c_v$.
+]
+
+#let mis_clique = load-example("maximumindependentset_to_maximumclique")
+#let mis_clique_r = load-results("maximumindependentset_to_maximumclique")
+#let mis_clique_sol = mis_clique_r.solutions.at(0)
+#reduction-rule("MaximumIndependentSet", "MaximumClique",
+  example: true,
+  example-caption: [Path graph $P_5$: IS $arrow.r$ Clique via complement],
+  extra: [
+    Source IS: $S = {#mis_clique_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.source_config.filter(x => x == 1).len()) #h(1em)
+    Target Clique: $C = {#mis_clique_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.target_config.filter(x => x == 1).len()) \
+    Source $|E| = #mis_clique.source.instance.num_edges$, complement $|overline(E)| = #mis_clique.target.instance.num_edges$ #sym.checkmark
+  ],
+)[
+  An independent set in $G$ is exactly a clique in the complement graph $overline(G)$: vertices with no edges between them in $G$ are pairwise adjacent in $overline(G)$. Both problems maximize total vertex weight, so optimal values are preserved. This is Karp's classical complement graph reduction.
+][
+  _Construction._ Given IS instance $(G = (V, E), bold(w))$, build $overline(G) = (V, overline(E))$ where $overline(E) = {(u, v) : u != v, (u, v) in.not E}$. Create MaxClique instance $(overline(G), bold(w))$ with the same weights. Variables correspond one-to-one: vertex $v$ in the source maps to vertex $v$ in the target.
+
+  _Correctness._ ($arrow.r.double$) If $S$ is independent in $G$, then for any $u, v in S$, $(u, v) in.not E$, so $(u, v) in overline(E)$ — all pairs in $S$ are adjacent in $overline(G)$, making $S$ a clique. ($arrow.l.double$) If $C$ is a clique in $overline(G)$, then for any $u, v in C$, $(u, v) in overline(E)$, so $(u, v) in.not E$ — no pair in $C$ is adjacent in $G$, making $C$ independent. Weight sums are identical, so optimality is preserved.
+
+  _Solution extraction._ For clique solution $C$ in $overline(G)$, return IS $= C$ (identity mapping: $s_v = c_v$).
 ]
 
 #reduction-rule("MaximumIndependentSet", "MaximumSetPacking")[
@@ -1610,6 +1663,22 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) In a clique, every pair of selected vertices is adjacent, so no non-edge constraint is violated. ($arrow.l.double$) Any feasible solution selects only mutually adjacent vertices, forming a clique; the objective maximizes its size.
 
   _Solution extraction._ $K = {v : x_v = 1}$.
+]
+
+#reduction-rule("BinPacking", "ILP")[
+  The assignment-based formulation introduces a binary indicator for each item--bin pair and a binary variable for each bin being open. Assignment constraints ensure each item is placed in exactly one bin; capacity constraints link bin usage to item weights.
+][
+  _Construction._ Given $n$ items with sizes $s_1, dots, s_n$ and bin capacity $C$:
+
+  _Variables:_ $x_(i j) in {0, 1}$ for $i, j in {0, dots, n-1}$: item $i$ is assigned to bin $j$. $y_j in {0, 1}$: bin $j$ is used. Total: $n^2 + n$ variables.
+
+  _Constraints:_ (1) Assignment: $sum_(j=0)^(n-1) x_(i j) = 1$ for each item $i$ (each item in exactly one bin). (2) Capacity + linking: $sum_(i=0)^(n-1) s_i dot x_(i j) lt.eq C dot y_j$ for each bin $j$ (bin capacity respected; $y_j$ forced to 1 if bin $j$ is used).
+
+  _Objective:_ Minimize $sum_(j=0)^(n-1) y_j$.
+
+  _Correctness._ ($arrow.r.double$) A valid packing assigns each item to exactly one bin (satisfying (1)); each bin's load is at most $C$ and $y_j = 1$ for any used bin (satisfying (2)). ($arrow.l.double$) Any feasible solution assigns each item to one bin by (1), respects capacity by (2), and the objective counts the number of open bins.
+
+  _Solution extraction._ For each item $i$, find the unique $j$ with $x_(i j) = 1$; assign item $i$ to bin $j$.
 ]
 
 #reduction-rule("TravelingSalesman", "ILP",

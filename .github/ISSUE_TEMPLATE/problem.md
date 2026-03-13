@@ -62,6 +62,16 @@ Optional notes about the problem that are worth mentioning in the paper or rustd
 E.g. historical context, notable applications, relationship to other problems, or special properties.
 -->
 
+## Reduction Rule Crossref
+
+<!--
+At least one reduction rule (to or from this problem) must exist or be proposed,
+so the new problem is connected to the reduction graph.
+Link to existing rule issues or file new ones.
+-->
+
+- [ ] #issue-number <!-- e.g. [Rule] NewProblem to QUBO -->
+
 ## How to solve
 <!--
 Solver is required for reduction rule verification purpose.
