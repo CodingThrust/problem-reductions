@@ -53,9 +53,14 @@
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "RuralPostman": [Rural Postman],
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "SubsetSum": [Subset Sum],
+  "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "MinimumSumMulticenter": [Minimum Sum Multicenter],
+  "SubgraphIsomorphism": [Subgraph Isomorphism],
+  "SubsetSum": [Subset Sum],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -571,6 +576,16 @@ caption: [A directed graph with FVS $S = {v_0}$ (blue, $w(S) = 1$). Removing $v_
 ) <fig:fvs-example>
 ]
 
+#problem-def("MinimumSumMulticenter")[
+  Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, and a positive integer $K <= |V|$, find a set $P subset.eq V$ of $K$ vertices (centers) that minimizes the total weighted distance $sum_(v in V) w(v) dot d(v, P)$, where $d(v, P) = min_(p in P) d(v, p)$ is the shortest-path distance from $v$ to the nearest center in $P$.
+][
+Also known as the _p-median problem_. This is a classical NP-complete facility location problem from Garey & Johnson (A2 ND51). The goal is to optimally place $K$ service centers (e.g., warehouses, hospitals) to minimize total service cost. NP-completeness was established by Kariv and Hakimi (1979) via transformation from Dominating Set. The problem remains NP-complete even with unit weights and unit edge lengths, but is solvable in polynomial time for fixed $K$ or when $G$ is a tree.
+
+The best known exact algorithm runs in $O^*(2^n)$ time by brute-force enumeration of all $binom(n, K)$ vertex subsets. Constant-factor approximation algorithms exist: Charikar et al. (1999) gave the first constant-factor result, and the best known ratio is $(2 + epsilon)$ by Cohen-Addad et al. (STOC 2022).
+
+Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. A configuration is valid when exactly $K$ centers are selected and all vertices are reachable from at least one center.
+]
+
 == Set Problems
 
 #problem-def("MaximumSetPacking")[
@@ -981,6 +996,22 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   *Example.* Let $n = 4$ items with weights $(2, 3, 4, 5)$, values $(3, 4, 5, 7)$, and capacity $C = 7$. Selecting $S = {1, 2}$ (items with weights 3 and 4) gives total weight $3 + 4 = 7 lt.eq C$ and total value $4 + 5 = 9$. Selecting $S = {0, 3}$ (weights 2 and 5) gives weight $2 + 5 = 7 lt.eq C$ and value $3 + 7 = 10$, which is optimal.
 ]
 
+#problem-def("RuralPostman")[
+  Given an undirected graph $G = (V, E)$ with edge lengths $l: E -> ZZ_(gt.eq 0)$, a subset $E' subset.eq E$ of required edges, and a bound $B in ZZ^+$, determine whether there exists a circuit (closed walk) in $G$ that traverses every edge in $E'$ and has total length at most $B$.
+][
+  The Rural Postman Problem (RPP) is a fundamental NP-complete arc-routing problem @lenstra1976 that generalizes the Chinese Postman Problem. When $E' = E$, the problem reduces to finding an Eulerian circuit with minimum augmentation (polynomial-time solvable via $T$-join matching). For general $E' subset.eq E$, exact algorithms use dynamic programming over subsets of required edges in $O(n^2 dot 2^r)$ time, where $r = |E'|$ and $n = |V|$, analogous to the Held-Karp algorithm for TSP. The problem admits a $3 slash 2$-approximation for metric instances @frederickson1979.
+
+  *Example.* Consider a hexagonal graph with 6 vertices and 8 edges, where all outer edges have length 1 and two diagonal edges have length 2. The required edges are $E' = {(v_0, v_1), (v_2, v_3), (v_4, v_5)}$ with bound $B = 6$. The outer cycle $v_0 -> v_1 -> v_2 -> v_3 -> v_4 -> v_5 -> v_0$ covers all three required edges with total length $6 times 1 = 6 = B$, so the answer is YES.
+]
+
+#problem-def("SubgraphIsomorphism")[
+  Given graphs $G = (V_1, E_1)$ (host) and $H = (V_2, E_2)$ (pattern), determine whether $G$ contains a subgraph isomorphic to $H$: does there exist an injective function $f: V_2 -> V_1$ such that ${u, v} in E_2 arrow.double {f(u), f(v)} in E_1$?
+][
+  Subgraph Isomorphism (GT48 in Garey & Johnson @garey1979) is NP-complete by transformation from Clique @garey1979. It strictly generalizes Clique (where $H = K_k$) and also contains Hamiltonian Circuit ($H = C_n$) and Hamiltonian Path ($H = P_n$) as special cases. Brute-force enumeration of all injective mappings $f: V_2 -> V_1$ runs in $O(|V_1|^(|V_2|) dot |E_2|)$ time. For fixed-size patterns, the color-coding technique of Alon, Yuster, and Zwick @alon1995 gives a randomized algorithm in $2^(O(|V_2|)) dot |V_1|^(O("tw"(H)))$ time. Practical algorithms include VF2 @cordella2004 and VF2++ @juttner2018.
+
+  *Example.* Consider host graph $G$ with 7 vertices: a $K_4$ clique on ${0, 1, 2, 3}$ and a triangle on ${4, 5, 6}$ connected via edge $(3, 4)$. Pattern $H = K_4$ with vertices ${a, b, c, d}$. The mapping $f(a) = 0, f(b) = 1, f(c) = 2, f(d) = 3$ preserves all 6 edges of $K_4$, confirming a subgraph isomorphism exists.
+]
+
 #problem-def("LongestCommonSubsequence")[
   Given $k$ strings $s_1, dots, s_k$ over a finite alphabet $Sigma$, find a longest string $w$ that is a subsequence of every $s_i$. A string $w$ is a _subsequence_ of $s$ if $w$ can be obtained by deleting zero or more characters from $s$ without changing the order of the remaining characters.
 ][
@@ -995,6 +1026,14 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   One of Karp's 21 NP-complete problems @karp1972. Subset Sum is the special case of Knapsack where $v_i = w_i$ for all items and we seek an exact sum rather than an inequality. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n B)$ pseudo-polynomial time. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974.
 
   *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
+]
+
+#problem-def("MinimumFeedbackArcSet")[
+  Given a directed graph $G = (V, A)$, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$.
+][
+  Feedback Arc Set (FAS) is a classical NP-complete problem from Karp's original list @karp1972 (via transformation from Vertex Cover, as presented in Garey & Johnson GT8). The problem arises in ranking aggregation, sports scheduling, deadlock avoidance, and causal inference. Unlike the undirected analogue (which is trivially polynomial --- the number of non-tree edges in a spanning forest), the directed version is NP-hard due to the richer structure of directed cycles. The best known exact algorithm uses dynamic programming over vertex subsets in $O^*(2^n)$ time, generalizing the Held--Karp TSP technique to vertex ordering problems @bodlaender2012. FAS is fixed-parameter tractable with parameter $k = |A'|$: an $O(4^k dot k! dot n^(O(1)))$ algorithm exists via iterative compression @chen2008. Polynomial-time solvable for planar digraphs via the Lucchesi--Younger theorem @lucchesi1978.
+
+  *Example.* Consider $G$ with $V = {0, 1, 2, 3, 4, 5}$ and arcs $(0 arrow 1), (1 arrow 2), (2 arrow 0), (1 arrow 3), (3 arrow 4), (4 arrow 1), (2 arrow 5), (5 arrow 3), (3 arrow 0)$. This graph contains four directed cycles: $0 arrow 1 arrow 2 arrow 0$, $1 arrow 3 arrow 4 arrow 1$, $0 arrow 1 arrow 3 arrow 0$, and $2 arrow 5 arrow 3 arrow 0 arrow 1 arrow 2$. Removing $A' = {(0 arrow 1), (3 arrow 4)}$ breaks all four cycles (vertex 0 becomes a sink in the residual graph), giving a minimum FAS of size 2.
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper

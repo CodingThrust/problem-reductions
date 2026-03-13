@@ -207,6 +207,17 @@
     ]
   },
   {
+    "name": "LongestCommonSubsequence",
+    "description": "Find the longest string that is a subsequence of every input string",
+    "fields": [
+      {
+        "name": "strings",
+        "type_name": "Vec<Vec<u8>>",
+        "description": "The input strings"
+      }
+    ]
+  },
+  {
     "name": "MaxCut",
     "description": "Find maximum weight cut in a graph",
     "fields": [
@@ -356,6 +367,32 @@
     ]
   },
   {
+    "name": "MinimumSumMulticenter",
+    "description": "Find K centers minimizing total weighted distance (p-median problem)",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "vertex_weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      },
+      {
+        "name": "edge_lengths",
+        "type_name": "Vec<W>",
+        "description": "Edge lengths l: E -> R"
+      },
+      {
+        "name": "k",
+        "type_name": "usize",
+        "description": "Number of centers to place"
+      }
+    ]
+  },
+  {
     "name": "MinimumVertexCover",
     "description": "Find minimum weight vertex cover in a graph",
     "fields": [
@@ -383,6 +420,17 @@
     ]
   },
   {
+    "name": "PartitionIntoTriangles",
+    "description": "Partition vertices into triangles (K3 subgraphs)",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E) with |V| divisible by 3"
+      }
+    ]
+  },
+  {
     "name": "QUBO",
     "description": "Minimize quadratic unconstrained binary objective",
     "fields": [
@@ -395,6 +443,32 @@
         "name": "matrix",
         "type_name": "Vec<Vec<W>>",
         "description": "Upper-triangular Q matrix"
+      }
+    ]
+  },
+  {
+    "name": "RuralPostman",
+    "description": "Find a circuit covering required edges with total length at most B (Rural Postman Problem)",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge lengths l(e) for each e in E"
+      },
+      {
+        "name": "required_edges",
+        "type_name": "Vec<usize>",
+        "description": "Edge indices of the required subset E' ⊆ E"
+      },
+      {
+        "name": "bound",
+        "type_name": "W::Sum",
+        "description": "Upper bound B on total circuit length"
       }
     ]
   },
@@ -432,6 +506,22 @@
         "name": "fields",
         "type_name": "Vec<W>",
         "description": "On-site fields h_i"
+      }
+    ]
+  },
+  {
+    "name": "SubgraphIsomorphism",
+    "description": "Determine if host graph G contains a subgraph isomorphic to pattern graph H",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "SimpleGraph",
+        "description": "The host graph G = (V_1, E_1) to search in"
+      },
+      {
+        "name": "pattern",
+        "type_name": "SimpleGraph",
+        "description": "The pattern graph H = (V_2, E_2) to find as a subgraph"
       }
     ]
   },
