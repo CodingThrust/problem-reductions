@@ -219,6 +219,7 @@ Flags by problem type:
   CVP                             --basis, --target-vec [--bounds]
   LCS                             --strings
   FVS                             --arcs [--weights] [--num-vertices]
+  MQ                              (via reduction only)
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
