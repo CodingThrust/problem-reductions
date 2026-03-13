@@ -99,7 +99,7 @@ impl Problem for MinimumFeedbackArcSet {
         if !is_valid_fas(&self.graph, config) {
             return SolutionSize::Invalid;
         }
-        let count = config.iter().filter(|&&x| x == 1).count() as i32;
+        let count = config.iter().filter(|&&x| x != 0).count() as i32;
         SolutionSize::Valid(count)
     }
 }
@@ -127,7 +127,7 @@ fn is_valid_fas(graph: &DirectedGraph, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    MinimumFeedbackArcSet => "2^num_vertices",
+    MinimumFeedbackArcSet => "2^num_arcs",
 }
 
 #[cfg(test)]

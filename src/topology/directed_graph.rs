@@ -146,7 +146,16 @@ impl DirectedGraph {
     /// Check if the subgraph induced by keeping only the given arcs is acyclic (a DAG).
     ///
     /// `kept_arcs` is a boolean slice of length `num_arcs()`, where `true` means the arc is kept.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `kept_arcs.len() != self.num_arcs()`.
     pub fn is_acyclic_subgraph(&self, kept_arcs: &[bool]) -> bool {
+        assert_eq!(
+            kept_arcs.len(),
+            self.num_arcs(),
+            "kept_arcs slice length must equal num_arcs"
+        );
         let n = self.num_vertices();
         let arcs = self.arcs();
 

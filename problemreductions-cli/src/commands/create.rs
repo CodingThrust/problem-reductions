@@ -65,6 +65,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "u64" => "integer",
         "i64" => "integer",
         "Vec<i64>" => "comma-separated integers: 3,7,1,8",
+        "DirectedGraph" => "directed arcs: 0>1,1>2,2>0",
         _ => "value",
     }
 }
@@ -115,6 +116,10 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 if graph_type == Some("UnitDiskGraph") {
                     eprintln!("  --{:<16} Distance threshold [default: 1.0]", "radius");
                 }
+            } else if field.type_name == "DirectedGraph" {
+                // DirectedGraph fields use --arcs, not --graph
+                let hint = type_format_hint(&field.type_name, graph_type);
+                eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
             } else {
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!(
