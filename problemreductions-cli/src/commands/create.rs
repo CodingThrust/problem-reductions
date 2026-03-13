@@ -91,6 +91,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
+        "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
         "RuralPostman" => {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
@@ -535,6 +536,24 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PartitionIntoTriangles
+        "PartitionIntoTriangles" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create PartitionIntoTriangles --graph 0-1,1-2,0-2"
+                )
+            })?;
+            anyhow::ensure!(
+                graph.num_vertices() % 3 == 0,
+                "PartitionIntoTriangles requires vertex count divisible by 3, got {}",
+                graph.num_vertices()
+            );
+            (
+                ser(PartitionIntoTriangles::new(graph))?,
                 resolved_variant.clone(),
             )
         }
