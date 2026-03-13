@@ -25,6 +25,18 @@ inventory::submit! {
 /// Given a graph G = (V, E), determine whether G contains a Hamiltonian path,
 /// i.e., a simple path that visits every vertex exactly once.
 ///
+/// # Representation
+///
+/// A configuration is a sequence of `n` vertex indices representing a vertex
+/// ordering (permutation). Each position `i` in the configuration holds the
+/// vertex visited at step `i`. A valid solution must be a permutation of
+/// `0..n` where consecutive entries are adjacent in the graph.
+///
+/// The search space has `dims() = [n; n]` (each position can hold any of `n`
+/// vertices), so brute-force enumerates `n^n` configurations. Only `n!`
+/// permutations can satisfy the constraints, but the encoding avoids complex
+/// variable-domain schemes and matches the problem's natural formulation.
+///
 /// # Type Parameters
 ///
 /// * `G` - Graph type (e.g., SimpleGraph)

@@ -39,6 +39,8 @@ fn test_hamiltonian_path_no_solution() {
 
 #[test]
 fn test_hamiltonian_path_brute_force() {
+    use crate::traits::Problem;
+
     // Path graph P4: 0-1-2-3
     let problem = HamiltonianPath::new(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
     let solver = BruteForce::new();
