@@ -1052,6 +1052,27 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Solution extraction._ For VC solution $C$, return $S = V backslash C$, i.e.\ flip each variable: $s_v = 1 - c_v$.
 ]
 
+#let mis_clique = load-example("maximumindependentset_to_maximumclique")
+#let mis_clique_r = load-results("maximumindependentset_to_maximumclique")
+#let mis_clique_sol = mis_clique_r.solutions.at(0)
+#reduction-rule("MaximumIndependentSet", "MaximumClique",
+  example: true,
+  example-caption: [Path graph $P_5$: IS $arrow.r$ Clique via complement],
+  extra: [
+    Source IS: $S = {#mis_clique_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.source_config.filter(x => x == 1).len()) #h(1em)
+    Target Clique: $C = {#mis_clique_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.target_config.filter(x => x == 1).len()) \
+    Source $|E| = #mis_clique.source.instance.num_edges$, complement $|overline(E)| = #mis_clique.target.instance.num_edges$ #sym.checkmark
+  ],
+)[
+  An independent set in $G$ is exactly a clique in the complement graph $overline(G)$: vertices with no edges between them in $G$ are pairwise adjacent in $overline(G)$. Both problems maximize total vertex weight, so optimal values are preserved. This is Karp's classical complement graph reduction.
+][
+  _Construction._ Given IS instance $(G = (V, E), bold(w))$, build $overline(G) = (V, overline(E))$ where $overline(E) = {(u, v) : u != v, (u, v) in.not E}$. Create MaxClique instance $(overline(G), bold(w))$ with the same weights. Variables correspond one-to-one: vertex $v$ in the source maps to vertex $v$ in the target.
+
+  _Correctness._ ($arrow.r.double$) If $S$ is independent in $G$, then for any $u, v in S$, $(u, v) in.not E$, so $(u, v) in overline(E)$ — all pairs in $S$ are adjacent in $overline(G)$, making $S$ a clique. ($arrow.l.double$) If $C$ is a clique in $overline(G)$, then for any $u, v in C$, $(u, v) in overline(E)$, so $(u, v) in.not E$ — no pair in $C$ is adjacent in $G$, making $C$ independent. Weight sums are identical, so optimality is preserved.
+
+  _Solution extraction._ For clique solution $C$ in $overline(G)$, return IS $= C$ (identity mapping: $s_v = c_v$).
+]
+
 #reduction-rule("MaximumIndependentSet", "MaximumSetPacking")[
   The key insight is that two vertices are adjacent if and only if they share an edge. By representing each vertex $v$ as the set of its incident edges $S_v$, adjacency becomes set overlap: $S_u inter S_v != emptyset$ iff $(u,v) in E$. Thus an independent set (no two adjacent) maps exactly to a packing (no two overlapping).
 ][
@@ -1651,6 +1672,22 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) In a clique, every pair of selected vertices is adjacent, so no non-edge constraint is violated. ($arrow.l.double$) Any feasible solution selects only mutually adjacent vertices, forming a clique; the objective maximizes its size.
 
   _Solution extraction._ $K = {v : x_v = 1}$.
+]
+
+#reduction-rule("BinPacking", "ILP")[
+  The assignment-based formulation introduces a binary indicator for each item--bin pair and a binary variable for each bin being open. Assignment constraints ensure each item is placed in exactly one bin; capacity constraints link bin usage to item weights.
+][
+  _Construction._ Given $n$ items with sizes $s_1, dots, s_n$ and bin capacity $C$:
+
+  _Variables:_ $x_(i j) in {0, 1}$ for $i, j in {0, dots, n-1}$: item $i$ is assigned to bin $j$. $y_j in {0, 1}$: bin $j$ is used. Total: $n^2 + n$ variables.
+
+  _Constraints:_ (1) Assignment: $sum_(j=0)^(n-1) x_(i j) = 1$ for each item $i$ (each item in exactly one bin). (2) Capacity + linking: $sum_(i=0)^(n-1) s_i dot x_(i j) lt.eq C dot y_j$ for each bin $j$ (bin capacity respected; $y_j$ forced to 1 if bin $j$ is used).
+
+  _Objective:_ Minimize $sum_(j=0)^(n-1) y_j$.
+
+  _Correctness._ ($arrow.r.double$) A valid packing assigns each item to exactly one bin (satisfying (1)); each bin's load is at most $C$ and $y_j = 1$ for any used bin (satisfying (2)). ($arrow.l.double$) Any feasible solution assigns each item to one bin by (1), respects capacity by (2), and the objective counts the number of open bins.
+
+  _Solution extraction._ For each item $i$, find the unique $j$ with $x_(i j) = 1$; assign item $i$ to bin $j$.
 ]
 
 #reduction-rule("TravelingSalesman", "ILP",

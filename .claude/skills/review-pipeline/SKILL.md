@@ -25,6 +25,10 @@ GitHub Project board IDs (for `gh project item-edit`):
 | `STATUS_IN_REVIEW` | `df73e18b` |
 | `STATUS_READY` | `61e4505c` |
 
+## Prerequisites
+
+- **agentic-tests** must be installed (`~/.claude/commands/agentic-tests:test-feature.md` must exist). If missing, STOP with: `agentic-tests not installed. Run: gh clone GiggleLiu/agentic-tests ~/.claude/agentic-tests && mkdir -p ~/.claude/commands && ln -s ~/.claude/agentic-tests/skills/test-feature/SKILL.md ~/.claude/commands/agentic-tests:test-feature.md`
+
 ## Autonomous Mode
 
 This skill runs **fully autonomously** -- no confirmation prompts, no user questions.
@@ -178,7 +182,9 @@ Actionable comments include: code suggestions, bug reports, requests for additio
 
 If there are no actionable unaddressed comments: skip to next step.
 
-### 3. Agentic Feature Test
+### 3. Agentic Feature Test (REQUIRED)
+
+**This step is mandatory — do NOT skip or substitute with manual testing.**
 
 Run agentic feature tests on the modified feature:
 
@@ -186,7 +192,7 @@ Run agentic feature tests on the modified feature:
    - `[Model]` PRs: the new problem model name
    - `[Rule]` PRs: the new reduction rule (source -> target)
 
-2. **Invoke `/agentic-tests:test-feature`** with the identified feature. This simulates a downstream user exercising the feature from docs and examples.
+2. **Invoke `/agentic-tests:test-feature`** with the identified feature. This simulates a downstream user exercising the feature from docs and examples. You MUST use the Skill tool to invoke `agentic-tests:test-feature`.
 
 3. **If test-feature reports issues:** fix them, commit, and push.
 

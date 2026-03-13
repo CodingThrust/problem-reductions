@@ -12,6 +12,7 @@ macro_rules! example_test {
 
 example_test!(chained_reduction_factoring_to_spinglass);
 example_test!(chained_reduction_ksat_to_mis);
+example_test!(reduction_binpacking_to_ilp);
 example_test!(reduction_circuitsat_to_ilp);
 example_test!(reduction_circuitsat_to_spinglass);
 example_test!(reduction_factoring_to_circuitsat);
@@ -25,6 +26,7 @@ example_test!(reduction_ksatisfiability_to_satisfiability);
 example_test!(reduction_maxcut_to_spinglass);
 example_test!(reduction_maximumclique_to_ilp);
 example_test!(reduction_maximumindependentset_to_ilp);
+example_test!(reduction_maximumindependentset_to_maximumclique);
 example_test!(reduction_maximumindependentset_to_maximumsetpacking);
 example_test!(reduction_maximumindependentset_to_minimumvertexcover);
 example_test!(reduction_maximumindependentset_to_qubo);
@@ -68,6 +70,7 @@ example_fn!(
     test_chained_reduction_ksat_to_mis,
     chained_reduction_ksat_to_mis
 );
+example_fn!(test_binpacking_to_ilp, reduction_binpacking_to_ilp);
 example_fn!(test_circuitsat_to_ilp, reduction_circuitsat_to_ilp);
 example_fn!(
     test_circuitsat_to_spinglass,
@@ -98,6 +101,10 @@ example_fn!(test_maximumclique_to_ilp, reduction_maximumclique_to_ilp);
 example_fn!(
     test_maximumindependentset_to_ilp,
     reduction_maximumindependentset_to_ilp
+);
+example_fn!(
+    test_maximumindependentset_to_maximumclique,
+    reduction_maximumindependentset_to_maximumclique
 );
 example_fn!(
     test_maximumindependentset_to_maximumsetpacking,
