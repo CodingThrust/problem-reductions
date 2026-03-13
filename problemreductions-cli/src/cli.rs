@@ -218,6 +218,7 @@ Flags by problem type:
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
   FVS                             --arcs [--weights] [--num-vertices]
+  ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -332,6 +333,18 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Number of processors for ResourceConstrainedScheduling
+    #[arg(long)]
+    pub num_processors: Option<usize>,
+    /// Resource bounds for ResourceConstrainedScheduling (comma-separated, e.g., "20,15")
+    #[arg(long)]
+    pub resource_bounds: Option<String>,
+    /// Resource requirements for ResourceConstrainedScheduling (semicolon-separated rows, each row comma-separated, e.g., "6,3;7,4;5,2")
+    #[arg(long)]
+    pub resource_requirements: Option<String>,
+    /// Deadline for ResourceConstrainedScheduling
+    #[arg(long)]
+    pub deadline: Option<u64>,
 }
 
 #[derive(clap::Args)]
