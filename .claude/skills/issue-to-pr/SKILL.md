@@ -36,10 +36,10 @@ Extract issue number and flags from arguments:
 ### 2. Fetch Issue
 
 ```bash
-gh issue view <number> --json title,body,labels,assignees
+gh issue view <number> --json title,body,labels,assignees,comments
 ```
 
-Present issue summary to user.
+Present issue summary to user. **Also review all comments** — contributors and maintainers may have posted clarifications, corrections, additional context, or design decisions that refine or override parts of the original issue body. Incorporate relevant comment content when writing the plan.
 
 ### 3. Verify Issue Has Passed check-issue
 
@@ -54,16 +54,19 @@ LABELS=$(gh issue view <number> --json labels --jq '[.labels[].name] | join(",")
 - If `Good` is NOT in the labels → **STOP**: "Issue #N has not passed check-issue. Please run `/check-issue <N>` first."
 - If `Good` is present → continue to step 4.
 
-### 3.5. Check for Related Open PRs
+### 3.5. Model-Existence Guard (for `[Rule]` issues only)
 
-When creating a `[Rule]` PR, check if there's already an open `[Model]` PR for the source or target problem:
+For `[Rule]` issues, parse the source and target problem names from the title (e.g., `[Rule] BinPacking to ILP` → source=BinPacking, target=ILP). Verify that **both** models already exist in the codebase on `main`:
 
 ```bash
-gh pr list --state open --search "[Model]" --json title,number,headRefName
+grep -r "struct SourceName" src/models/
+grep -r "struct TargetName" src/models/
 ```
 
-- If an open Model PR exists for the source/target problem, the Rule PR should **base its branch on that Model branch** (not `main`), to avoid duplicating CLI registration, export regeneration, etc.
-- If both a `[Model]` and `[Rule]` issue exist for the same problem, prefer implementing them in the **same PR** to avoid redundant work. Base the branch on `main`, implement the model first, then the rule.
+- If **both** models exist → continue to step 4.
+- If either model is missing → **STOP**. Comment on the issue: "Blocked: model `<name>` does not exist in main yet. Please implement it first (or file a `[Model]` issue)."
+
+**One item per PR:** Do NOT implement a missing model as part of a `[Rule]` PR. Each PR should contain exactly one model or one rule, never both. This avoids bloated PRs and repeated implementation when the model is needed by multiple rules.
 
 ### 4. Research References
 
@@ -254,5 +257,5 @@ Run /review-pipeline to process Copilot comments, fix CI, and run agentic tests.
 | Not verifying facts from issue | Use WebSearch/WebFetch to cross-check claims |
 | Branch already exists on retry | Check with `git rev-parse --verify` before `git checkout -b` |
 | Dirty working tree | Verify `git status --porcelain` is empty before branching |
-| Redundant Model+Rule PRs | Check for related open PRs (Step 3.5); combine or base on existing branch |
+| Bundling model + rule in one PR | Each PR must contain exactly one model or one rule — STOP and block if model is missing (Step 3.5) |
 | Plan files left in PR | Delete plan files before final push (Step 7c) |

@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
-use problemreductions::models::misc::{BinPacking, Knapsack};
+use problemreductions::models::misc::{BinPacking, Knapsack, LongestCommonSubsequence, SubsetSum};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
@@ -210,6 +210,7 @@ pub fn load_problem(
         "MaximumClique" => deser_opt::<MaximumClique<SimpleGraph, i32>>(data),
         "MaximumMatching" => deser_opt::<MaximumMatching<SimpleGraph, i32>>(data),
         "MinimumDominatingSet" => deser_opt::<MinimumDominatingSet<SimpleGraph, i32>>(data),
+        "GraphPartitioning" => deser_opt::<GraphPartitioning<SimpleGraph>>(data),
         "MaxCut" => deser_opt::<MaxCut<SimpleGraph, i32>>(data),
         "MaximalIS" => deser_opt::<MaximalIS<SimpleGraph, i32>>(data),
         "TravelingSalesman" => deser_opt::<TravelingSalesman<SimpleGraph, i32>>(data),
@@ -245,6 +246,9 @@ pub fn load_problem(
             _ => deser_opt::<ClosestVectorProblem<i32>>(data),
         },
         "Knapsack" => deser_opt::<Knapsack>(data),
+        "LongestCommonSubsequence" => deser_opt::<LongestCommonSubsequence>(data),
+        "MinimumFeedbackVertexSet" => deser_opt::<MinimumFeedbackVertexSet<i32>>(data),
+        "SubsetSum" => deser_sat::<SubsetSum>(data),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
@@ -267,6 +271,7 @@ pub fn serialize_any_problem(
         "MaximumClique" => try_ser::<MaximumClique<SimpleGraph, i32>>(any),
         "MaximumMatching" => try_ser::<MaximumMatching<SimpleGraph, i32>>(any),
         "MinimumDominatingSet" => try_ser::<MinimumDominatingSet<SimpleGraph, i32>>(any),
+        "GraphPartitioning" => try_ser::<GraphPartitioning<SimpleGraph>>(any),
         "MaxCut" => try_ser::<MaxCut<SimpleGraph, i32>>(any),
         "MaximalIS" => try_ser::<MaximalIS<SimpleGraph, i32>>(any),
         "TravelingSalesman" => try_ser::<TravelingSalesman<SimpleGraph, i32>>(any),
@@ -305,6 +310,9 @@ pub fn serialize_any_problem(
             _ => try_ser::<ClosestVectorProblem<i32>>(any),
         },
         "Knapsack" => try_ser::<Knapsack>(any),
+        "LongestCommonSubsequence" => try_ser::<LongestCommonSubsequence>(any),
+        "MinimumFeedbackVertexSet" => try_ser::<MinimumFeedbackVertexSet<i32>>(any),
+        "SubsetSum" => try_ser::<SubsetSum>(any),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
