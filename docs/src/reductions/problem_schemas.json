@@ -212,6 +212,17 @@
     ]
   },
   {
+    "name": "LongestCommonSubsequence",
+    "description": "Find the longest string that is a subsequence of every input string",
+    "fields": [
+      {
+        "name": "strings",
+        "type_name": "Vec<Vec<u8>>",
+        "description": "The input strings"
+      }
+    ]
+  },
+  {
     "name": "MaxCut",
     "description": "Find maximum weight cut in a graph",
     "fields": [
@@ -324,6 +335,22 @@
     ]
   },
   {
+    "name": "MinimumFeedbackVertexSet",
+    "description": "Find minimum weight feedback vertex set in a directed graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "DirectedGraph",
+        "description": "The directed graph G=(V,A)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      }
+    ]
+  },
+  {
     "name": "MinimumSetCovering",
     "description": "Find minimum weight collection covering the universe",
     "fields": [
@@ -384,6 +411,32 @@
         "name": "matrix",
         "type_name": "Vec<Vec<W>>",
         "description": "Upper-triangular Q matrix"
+      }
+    ]
+  },
+  {
+    "name": "RuralPostman",
+    "description": "Find a circuit covering required edges with total length at most B (Rural Postman Problem)",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge lengths l(e) for each e in E"
+      },
+      {
+        "name": "required_edges",
+        "type_name": "Vec<usize>",
+        "description": "Edge indices of the required subset E' ⊆ E"
+      },
+      {
+        "name": "bound",
+        "type_name": "W::Sum",
+        "description": "Upper bound B on total circuit length"
       }
     ]
   },

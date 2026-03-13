@@ -107,8 +107,7 @@ fn main() {
             let label = if v.is_empty() {
                 name.to_string()
             } else {
-                let parts: Vec<String> =
-                    v.iter().map(|(k, val)| format!("{k}: {val}")).collect();
+                let parts: Vec<String> = v.iter().map(|(k, val)| format!("{k}: {val}")).collect();
                 format!("{name} {{{}}}", parts.join(", "))
             };
             if let Some(c) = graph.variant_complexity(name, v) {

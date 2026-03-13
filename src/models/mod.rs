@@ -14,7 +14,8 @@ pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
     BicliqueCover, GraphPartitioning, IsomorphicSpanningTree, KColoring, MaxCut, MaximalIS,
     MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
-    MinimumVertexCover, SpinGlass, TravelingSalesman,
+    MinimumFeedbackVertexSet, MinimumVertexCover, PartitionIntoTriangles, RuralPostman,
+    SpinGlass, TravelingSalesman,
 };
-pub use misc::{BinPacking, Factoring, Knapsack, PaintShop, SubsetSum};
+pub use misc::{BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop, SubsetSum};
 pub use set::{MaximumSetPacking, MinimumSetCovering};

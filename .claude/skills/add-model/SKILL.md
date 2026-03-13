@@ -25,7 +25,7 @@ Before any implementation, collect all required information. If called from `iss
 | 8 | **Objective function** | How to compute the metric | "Sum of weights of selected vertices" |
 | 9 | **Best known exact algorithm** | Complexity with variable definitions | "O(1.1996^n) by Xiao & Nagamochi (2017), where n = \|V\|" |
 | 10 | **Solving strategy** | How it can be solved | "BruteForce works; ILP reduction available" |
-| 11 | **Category** | Which sub-module under `src/models/` | `graph`, `optimization`, `satisfiability`, `set`, `specialized` |
+| 11 | **Category** | Which sub-module under `src/models/` | `graph`, `formula`, `set`, `algebraic`, `misc` |
 
 If any item is missing, ask the user to provide it. Do NOT proceed until the checklist is complete.
 
@@ -33,7 +33,7 @@ If any item is missing, ask the user to provide it. Do NOT proceed until the che
 
 Read these first to understand the patterns:
 - **Optimization problem:** `src/models/graph/maximum_independent_set.rs`
-- **Satisfaction problem:** `src/models/satisfiability/sat.rs`
+- **Satisfaction problem:** `src/models/formula/sat.rs`
 - **Model tests:** `src/unit_tests/models/graph/maximum_independent_set.rs`
 - **Trait definitions:** `src/traits.rs` (`Problem`, `OptimizationProblem`, `SatisfactionProblem`)
 - **CLI dispatch:** `problemreductions-cli/src/dispatch.rs`
@@ -42,11 +42,11 @@ Read these first to understand the patterns:
 ## Step 1: Determine the category
 
 Choose the appropriate sub-module under `src/models/`:
-- `graph/` -- problems defined on graphs (vertex/edge selection)
-- `optimization/` -- generic optimization formulations (QUBO, ILP, SpinGlass)
-- `satisfiability/` -- boolean satisfaction problems (SAT, k-SAT)
+- `graph/` -- problems defined on graphs (vertex/edge selection, SpinGlass, etc.)
+- `formula/` -- logical formulas and circuits (SAT, k-SAT, CircuitSAT)
 - `set/` -- set-based problems (set packing, set cover)
-- `specialized/` -- problems that don't fit other categories (factoring, circuit, paintshop)
+- `algebraic/` -- matrices, linear systems, lattices (QUBO, ILP, CVP, BMF)
+- `misc/` -- unique input structures that don't fit other categories (BinPacking, PaintShop, Factoring)
 
 ## Step 1.5: Infer problem size getters
 

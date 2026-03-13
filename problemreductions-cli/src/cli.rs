@@ -208,16 +208,21 @@ Flags by problem type:
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
+  PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
   IsomorphicSpanningTree          --graph, --tree
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
+  SubsetSum                       --sizes, --target
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
+  RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
+  LCS                             --strings
+  FVS                             --arcs [--weights] [--num-vertices]
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -233,7 +238,8 @@ Examples:
   pred create QUBO --matrix \"1,0.5;0.5,2\"
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
-  pred create MIS --random --num-vertices 10 --edge-prob 0.3")]
+  pred create MIS --random --num-vertices 10 --edge-prob 0.3
+  pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT)
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -331,6 +337,18 @@ pub struct CreateArgs {
     /// Tree edge list for IsomorphicSpanningTree (e.g., 0-1,1-2,2-3)
     #[arg(long)]
     pub tree: Option<String>,
+    /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
+    #[arg(long)]
+    pub required_edges: Option<String>,
+    /// Upper bound B for RuralPostman
+    #[arg(long)]
+    pub bound: Option<i32>,
+    /// Input strings for LCS (semicolon-separated, e.g., "ABAC;BACA")
+    #[arg(long)]
+    pub strings: Option<String>,
+    /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
+    #[arg(long)]
+    pub arcs: Option<String>,
 }
 
 #[derive(clap::Args)]

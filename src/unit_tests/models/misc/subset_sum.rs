@@ -29,6 +29,8 @@ fn test_subsetsum_evaluate_unsatisfying() {
     assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0]));
     // empty = 0 ≠ 11
     assert!(!problem.evaluate(&[0, 0, 0, 0, 0, 0]));
+    // all = 25 ≠ 11
+    assert!(!problem.evaluate(&[1, 1, 1, 1, 1, 1]));
 }
 
 #[test]
@@ -104,4 +106,19 @@ fn test_subsetsum_single_element() {
     let problem = SubsetSum::new(vec![5], 5);
     assert!(problem.evaluate(&[1]));
     assert!(!problem.evaluate(&[0]));
+}
+
+#[test]
+fn test_subsetsum_all_selected() {
+    // Target equals sum of all elements
+    let problem = SubsetSum::new(vec![1, 2, 3, 4], 10);
+    assert!(problem.evaluate(&[1, 1, 1, 1])); // 1+2+3+4 = 10
+}
+
+#[test]
+fn test_subsetsum_target_zero() {
+    // Target 0 with non-empty set: only empty subset works
+    let problem = SubsetSum::new(vec![1, 2, 3], 0);
+    assert!(problem.evaluate(&[0, 0, 0])); // empty subset sums to 0
+    assert!(!problem.evaluate(&[1, 0, 0])); // 1 != 0
 }
