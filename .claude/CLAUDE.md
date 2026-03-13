@@ -64,7 +64,7 @@ make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 - `src/models/` - Problem implementations organized by input structure:
   - `graph/` - Problems on graphs (MIS, MaxClique, MaxCut, MinVC, MinDS, MaxMatching, MaximalIS, KColoring, TSP, SpinGlass, BicliqueCover)
   - `formula/` - Logical formulas and circuits (SAT, k-SAT, CircuitSAT)
-  - `set/` - Set systems (MinSetCovering, MaxSetPacking)
+  - `set/` - Set systems (MinSetCovering, MaxSetPacking, ExactCoverBy3Sets)
   - `algebraic/` - Matrices, linear systems, lattices (QUBO, ILP, CVP, BMF)
   - `misc/` - Unique input structures (BinPacking, PaintShop, Factoring)
 - `src/rules/` - Reduction rules + inventory registration
