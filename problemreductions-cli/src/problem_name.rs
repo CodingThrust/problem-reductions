@@ -24,6 +24,8 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("LCS", "LongestCommonSubsequence"),
     ("MaxMatching", "MaximumMatching"),
     ("FVS", "MinimumFeedbackVertexSet"),
+    ("FAS", "MinimumFeedbackArcSet"),
+    ("pmedian", "MinimumSumMulticenter"),
 ];
 
 /// Resolve a short alias to the canonical problem name.
@@ -62,7 +64,10 @@ pub fn resolve_alias(input: &str) -> String {
         "lcs" | "longestcommonsubsequence" => "LongestCommonSubsequence".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
         "flowshopscheduling" => "FlowShopScheduling".to_string(),
+        "fas" | "minimumfeedbackarcset" => "MinimumFeedbackArcSet".to_string(),
+        "minimumsummulticenter" | "pmedian" => "MinimumSumMulticenter".to_string(),
         "subsetsum" => "SubsetSum".to_string(),
+        "hamiltonianpath" => "HamiltonianPath".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
 }

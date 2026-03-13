@@ -258,6 +258,12 @@ fn expr_to_canonical(expr: &Expr) -> Result<CanonicalSum, CanonicalizationError>
             // sqrt(x) = x^0.5 — canonicalize as power
             canonicalize_pow(arg, &Expr::Const(0.5))
         }
+        Expr::Factorial(arg) => {
+            let inner = canonical_form(arg)?;
+            Ok(CanonicalSum::from_term(CanonicalTerm::opaque_factor(
+                Expr::Factorial(Box::new(inner)),
+            )))
+        }
     }
 }
 

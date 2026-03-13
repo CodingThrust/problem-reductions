@@ -222,6 +222,7 @@ Flags by problem type:
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
   LCS                             --strings
+  FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   ILP, CircuitSAT                 (via reduction only)
