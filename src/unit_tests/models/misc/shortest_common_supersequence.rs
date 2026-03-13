@@ -77,6 +77,33 @@ fn test_shortestcommonsupersequence_brute_force() {
 }
 
 #[test]
+fn test_shortestcommonsupersequence_empty_instance() {
+    // No strings, bound 0: vacuously satisfied on empty config
+    let problem = ShortestCommonSupersequence::new(2, vec![], 0);
+    assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert!(problem.evaluate(&[]));
+}
+
+#[test]
+fn test_shortestcommonsupersequence_unsatisfiable() {
+    // strings [0,1] and [1,0] over binary alphabet, bound 2: impossible
+    // Any length-2 binary string is either "00","01","10","11"
+    // "01" contains [0,1] but not [1,0]; "10" contains [1,0] but not [0,1]
+    let problem = ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 2);
+    let solver = BruteForce::new();
+    assert!(solver.find_satisfying(&problem).is_none());
+}
+
+#[test]
+fn test_shortestcommonsupersequence_single_string() {
+    // Single string [0,1,2] over ternary alphabet, bound 3: the string itself is a solution
+    let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2]], 3);
+    assert!(problem.evaluate(&[0, 1, 2]));
+    // A different string that doesn't contain [0,1,2] as subsequence
+    assert!(!problem.evaluate(&[2, 1, 0]));
+}
+
+#[test]
 fn test_shortestcommonsupersequence_serialization() {
     let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![2, 1, 0]], 5);
     let json = serde_json::to_value(&problem).unwrap();

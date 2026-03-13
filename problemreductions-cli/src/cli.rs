@@ -339,6 +339,9 @@ pub struct CreateArgs {
     /// Length bound for SCS
     #[arg(long)]
     pub bound: Option<usize>,
+    /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
+    #[arg(long)]
+    pub alphabet_size: Option<usize>,
 }
 
 #[derive(clap::Args)]

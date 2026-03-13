@@ -50,6 +50,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.arcs.is_none()
         && args.strings.is_none()
         && args.bound.is_none()
+        && args.alphabet_size.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -484,13 +485,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                         .collect::<Result<Vec<_>>>()
                 })
                 .collect::<Result<Vec<_>>>()?;
-            let alphabet_size = strings
+            let inferred = strings
                 .iter()
                 .flat_map(|s| s.iter())
                 .copied()
                 .max()
                 .map(|m| m + 1)
                 .unwrap_or(0);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            if alphabet_size < inferred {
+                anyhow::bail!(
+                    "--alphabet-size {} is smaller than the largest symbol + 1 ({}) in the strings",
+                    alphabet_size,
+                    inferred
+                );
+            }
             (
                 ser(ShortestCommonSupersequence::new(
                     alphabet_size,

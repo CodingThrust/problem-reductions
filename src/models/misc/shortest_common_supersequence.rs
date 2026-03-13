@@ -1,7 +1,7 @@
 //! Shortest Common Supersequence problem implementation.
 //!
 //! Given a set of strings over an alphabet and a bound `B`, the problem asks
-//! whether there exists a common supersequence of length at most `B`. A string
+//! whether there exists a common supersequence of length exactly `B`. A string
 //! `w` is a supersequence of `s` if `s` is a subsequence of `w` (i.e., `s` can
 //! be obtained by deleting zero or more characters from `w`). This problem is
 //! NP-hard (Maier, 1978).
