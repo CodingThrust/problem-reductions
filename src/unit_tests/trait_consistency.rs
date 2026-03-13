@@ -99,6 +99,10 @@ fn test_all_problems_implement_trait_correctly() {
         "HamiltonianPath",
     );
     check_problem_trait(
+        &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3),
+        "ShortestCommonSupersequence",
+    );
+    check_problem_trait(
         &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
         "FlowShopScheduling",
     );

@@ -46,12 +46,12 @@ pub mod prelude {
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
-        MinimumSumMulticenter, MinimumVertexCover,
-        PartitionIntoTriangles, RuralPostman, TravelingSalesman,
+        MinimumSumMulticenter, MinimumVertexCover, PartitionIntoTriangles,
+        RuralPostman, TravelingSalesman,
     };
     pub use crate::models::misc::{
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, PaintShop,
-        SubsetSum,
+        ShortestCommonSupersequence, SubsetSum,
     };
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
 

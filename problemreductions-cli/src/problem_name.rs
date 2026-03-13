@@ -24,6 +24,7 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("LCS", "LongestCommonSubsequence"),
     ("MaxMatching", "MaximumMatching"),
     ("FVS", "MinimumFeedbackVertexSet"),
+    ("SCS", "ShortestCommonSupersequence"),
     ("FAS", "MinimumFeedbackArcSet"),
     ("pmedian", "MinimumSumMulticenter"),
 ];
@@ -67,6 +68,7 @@ pub fn resolve_alias(input: &str) -> String {
         "fas" | "minimumfeedbackarcset" => "MinimumFeedbackArcSet".to_string(),
         "minimumsummulticenter" | "pmedian" => "MinimumSumMulticenter".to_string(),
         "subsetsum" => "SubsetSum".to_string(),
+        "scs" | "shortestcommonsupersequence" => "ShortestCommonSupersequence".to_string(),
         "hamiltonianpath" => "HamiltonianPath".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
