@@ -62,6 +62,8 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" => "integer",
         "u64" => "integer",
+        "i64" => "integer",
+        "Vec<i64>" => "comma-separated integers: 3,7,1,8",
         _ => "value",
     }
 }
@@ -87,6 +89,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         _ => "",
     }
 }
