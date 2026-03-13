@@ -178,7 +178,7 @@ impl Problem for FlowShopScheduling {
         // config[i] must be < n - i (the domain size for position i).
         let mut available: Vec<usize> = (0..n).collect();
         let mut job_order = Vec::with_capacity(n);
-        for (_i, &c) in config.iter().enumerate() {
+        for &c in config.iter() {
             if c >= available.len() {
                 return false;
             }
