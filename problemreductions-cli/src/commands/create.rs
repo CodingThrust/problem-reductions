@@ -6,7 +6,7 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::GraphPartitioning;
-use problemreductions::models::misc::{BinPacking, PaintShop};
+use problemreductions::models::misc::{BinPacking, FlowShopScheduling, PaintShop};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -48,6 +48,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.target_vec.is_none()
         && args.bounds.is_none()
         && args.arcs.is_none()
+        && args.task_lengths.is_none()
+        && args.deadline.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -455,6 +457,37 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // FlowShopScheduling
+        "FlowShopScheduling" => {
+            let task_str = args.task_lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FlowShopScheduling requires --task-lengths and --deadline\n\n\
+                     Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --m 3"
+                )
+            })?;
+            let deadline = args.deadline.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FlowShopScheduling requires --deadline\n\n\
+                     Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --m 3"
+                )
+            })?;
+            let task_lengths: Vec<Vec<u64>> = task_str
+                .split(';')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<Vec<_>>>()?;
+            let num_processors = if let Some(m) = args.m {
+                m
+            } else if let Some(first) = task_lengths.first() {
+                first.len()
+            } else {
+                bail!("Cannot infer num_processors from empty task list; use --m");
+            };
+            (
+                ser(FlowShopScheduling::new(num_processors, task_lengths, deadline))?,
                 resolved_variant.clone(),
             )
         }

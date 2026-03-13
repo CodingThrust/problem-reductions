@@ -3,18 +3,21 @@
 //! Problems with unique input structures that don't fit other categories:
 //! - [`BinPacking`]: Bin Packing (minimize bins)
 //! - [`Factoring`]: Integer factorization
+//! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
 //! - [`SubsetSum`]: Find a subset summing to exactly a target value
 
 mod bin_packing;
 pub(crate) mod factoring;
+mod flow_shop_scheduling;
 mod knapsack;
 pub(crate) mod paintshop;
 mod subset_sum;
 
 pub use bin_packing::BinPacking;
 pub use factoring::Factoring;
+pub use flow_shop_scheduling::FlowShopScheduling;
 pub use knapsack::Knapsack;
 pub use paintshop::PaintShop;
 pub use subset_sum::SubsetSum;

@@ -218,6 +218,7 @@ Flags by problem type:
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
   FVS                             --arcs [--weights] [--num-vertices]
+  FlowShopScheduling              --task-lengths, --deadline [--m]
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -332,6 +333,12 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
+    #[arg(long)]
+    pub task_lengths: Option<String>,
+    /// Deadline for FlowShopScheduling
+    #[arg(long)]
+    pub deadline: Option<u64>,
 }
 
 #[derive(clap::Args)]

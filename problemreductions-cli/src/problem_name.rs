@@ -55,6 +55,7 @@ pub fn resolve_alias(input: &str) -> String {
         "cvp" | "closestvectorproblem" => "ClosestVectorProblem".to_string(),
         "knapsack" => "Knapsack".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
+        "flowshopscheduling" => "FlowShopScheduling".to_string(),
         "subsetsum" => "SubsetSum".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
