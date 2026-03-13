@@ -31,9 +31,15 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// Each variable represents a job's position in the processing sequence.
-/// A valid configuration is a permutation of `{0, ..., n-1}`.
-/// Given a permutation, start times are determined greedily (as early as possible).
+/// Configurations use Lehmer code encoding with `dims() = [n, n-1, ..., 1]`.
+/// A config `[c_0, c_1, ..., c_{n-1}]` where `c_i < n - i` is decoded by
+/// maintaining a list of available jobs and picking the `c_i`-th element:
+///
+/// For 3 jobs, config `[2, 0, 0]`: available=`[0,1,2]`, pick index 2 → job 2;
+/// available=`[0,1]`, pick index 0 → job 0; available=`[1]`, pick index 0 → job 1.
+/// Result: job order `[2, 0, 1]`.
+///
+/// Given a job order, start times are determined greedily (as early as possible).
 ///
 /// # Example
 ///
