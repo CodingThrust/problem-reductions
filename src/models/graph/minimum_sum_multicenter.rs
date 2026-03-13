@@ -131,16 +131,15 @@ impl<G: Graph, W: WeightElement> MinimumSumMulticenter<G, W> {
 
     /// Compute shortest distances from each vertex to the nearest center.
     ///
-    /// Uses multi-source Bellman-Ford: initializes all centers at distance 0
-    /// and relaxes edges using edge lengths. Terminates after at most `n - 1`
-    /// iterations (the standard Bellman-Ford bound).
+    /// Uses multi-source Dijkstra with linear scan: initializes all centers
+    /// at distance 0 and greedily relaxes edges by increasing distance.
+    /// Correct because all edge lengths are non-negative.
     ///
     /// Returns `None` if any vertex is unreachable from all centers.
     fn shortest_distances(&self, config: &[usize]) -> Option<Vec<W::Sum>> {
         let n = self.graph.num_vertices();
         let edges = self.graph.edges();
 
-        // Build adjacency list: for each vertex, list of (neighbor, edge_length)
         let mut adj: Vec<Vec<(usize, W::Sum)>> = vec![Vec::new(); n];
         for (idx, &(u, v)) in edges.iter().enumerate() {
             let len = self.edge_lengths[idx].to_sum();
@@ -148,40 +147,57 @@ impl<G: Graph, W: WeightElement> MinimumSumMulticenter<G, W> {
             adj[v].push((u, len));
         }
 
-        // Multi-source Bellman-Ford: initialize all centers at distance 0
+        // Multi-source Dijkstra with linear scan (works with PartialOrd)
         let mut dist: Vec<Option<W::Sum>> = vec![None; n];
+        let mut visited = vec![false; n];
+
+        // Initialize centers
         for (v, &selected) in config.iter().enumerate() {
             if selected == 1 {
                 dist[v] = Some(W::Sum::zero());
             }
         }
 
-        // Bellman-Ford relaxation with iteration cap (at most n-1 iterations)
-        for _ in 0..n.saturating_sub(1) {
-            let mut changed = false;
+        for _ in 0..n {
+            // Find unvisited vertex with smallest distance
+            let mut u = None;
             for v in 0..n {
-                let dv = match &dist[v] {
-                    Some(d) => d.clone(),
-                    None => continue,
-                };
-                for &(u, ref len) in &adj[v] {
-                    let new_dist = dv.clone() + len.clone();
-                    let update = match &dist[u] {
-                        None => true,
-                        Some(du) => new_dist < du.clone(),
-                    };
-                    if update {
-                        dist[u] = Some(new_dist);
-                        changed = true;
+                if visited[v] {
+                    continue;
+                }
+                if let Some(ref dv) = dist[v] {
+                    match u {
+                        None => u = Some(v),
+                        Some(prev) => {
+                            if *dv < dist[prev].clone().unwrap() {
+                                u = Some(v);
+                            }
+                        }
                     }
                 }
             }
-            if !changed {
-                break;
+            let u = match u {
+                Some(v) => v,
+                None => break, // remaining vertices are unreachable
+            };
+            visited[u] = true;
+
+            let du = dist[u].clone().unwrap();
+            for &(next, ref len) in &adj[u] {
+                if visited[next] {
+                    continue;
+                }
+                let new_dist = du.clone() + len.clone();
+                let update = match &dist[next] {
+                    None => true,
+                    Some(d) => new_dist < *d,
+                };
+                if update {
+                    dist[next] = Some(new_dist);
+                }
             }
         }
 
-        // Collect distances, returning None if any vertex is unreachable
         dist.into_iter().collect()
     }
 }

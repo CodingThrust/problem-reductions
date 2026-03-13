@@ -90,6 +90,10 @@ fn test_all_problems_implement_trait_correctly() {
         ),
         "MinimumFeedbackArcSet",
     );
+    check_problem_trait(
+        &MinimumSumMulticenter::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3], vec![1i32; 2], 1),
+        "MinimumSumMulticenter",
+    );
 }
 
 #[test]
@@ -137,6 +141,10 @@ fn test_direction() {
             vec![1i32; 3]
         )
         .direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
+        MinimumSumMulticenter::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3], vec![1i32; 2], 1).direction(),
         Direction::Minimize
     );
 
