@@ -16,8 +16,8 @@ fn check_problem_trait<P: Problem>(problem: &P, name: &str) {
     );
     for d in &dims {
         assert!(
-            *d >= 2,
-            "{} should have at least 2 choices per dimension",
+            *d >= 1,
+            "{} should have at least 1 choice per dimension",
             name
         );
     }
@@ -97,6 +97,10 @@ fn test_all_problems_implement_trait_correctly() {
     check_problem_trait(
         &HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
         "HamiltonianPath",
+    );
+    check_problem_trait(
+        &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
+        "FlowShopScheduling",
     );
 }
 

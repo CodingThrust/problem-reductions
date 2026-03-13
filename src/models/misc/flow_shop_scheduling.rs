@@ -193,7 +193,7 @@ impl Problem for FlowShopScheduling {
 impl SatisfactionProblem for FlowShopScheduling {}
 
 crate::declare_variants! {
-    FlowShopScheduling => "num_jobs^num_jobs",
+    FlowShopScheduling => "factorial(num_jobs)",
 }
 
 #[cfg(test)]

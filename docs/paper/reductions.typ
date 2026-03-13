@@ -62,6 +62,7 @@
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "SubsetSum": [Subset Sum],
+  "FlowShopScheduling": [Flow Shop Scheduling],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1044,6 +1045,14 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   Feedback Arc Set (FAS) is a classical NP-complete problem from Karp's original list @karp1972 (via transformation from Vertex Cover, as presented in Garey & Johnson GT8). The problem arises in ranking aggregation, sports scheduling, deadlock avoidance, and causal inference. Unlike the undirected analogue (which is trivially polynomial --- the number of non-tree edges in a spanning forest), the directed version is NP-hard due to the richer structure of directed cycles. The best known exact algorithm uses dynamic programming over vertex subsets in $O^*(2^n)$ time, generalizing the Held--Karp TSP technique to vertex ordering problems @bodlaender2012. FAS is fixed-parameter tractable with parameter $k = |A'|$: an $O(4^k dot k! dot n^(O(1)))$ algorithm exists via iterative compression @chen2008. Polynomial-time solvable for planar digraphs via the Lucchesi--Younger theorem @lucchesi1978.
 
   *Example.* Consider $G$ with $V = {0, 1, 2, 3, 4, 5}$ and arcs $(0 arrow 1), (1 arrow 2), (2 arrow 0), (1 arrow 3), (3 arrow 4), (4 arrow 1), (2 arrow 5), (5 arrow 3), (3 arrow 0)$. This graph contains four directed cycles: $0 arrow 1 arrow 2 arrow 0$, $1 arrow 3 arrow 4 arrow 1$, $0 arrow 1 arrow 3 arrow 0$, and $2 arrow 5 arrow 3 arrow 0 arrow 1 arrow 2$. Removing $A' = {(0 arrow 1), (3 arrow 4)}$ breaks all four cycles (vertex 0 becomes a sink in the residual graph), giving a minimum FAS of size 2.
+]
+
+#problem-def("FlowShopScheduling")[
+  Given $m$ processors and a set $J$ of $n$ jobs, where each job $j in J$ consists of $m$ tasks $t_1 [j], t_2 [j], dots, t_m [j]$ with lengths $ell(t_i [j]) in ZZ^+_0$, and a deadline $D in ZZ^+$, determine whether there exists a permutation schedule $pi$ of the jobs such that all jobs complete by time $D$. Each job must be processed on machines $1, 2, dots, m$ in order, and job $j$ cannot start on machine $i+1$ until its task on machine $i$ is completed.
+][
+  Flow Shop Scheduling is a classical NP-complete problem from Garey & Johnson (A5 SS15), strongly NP-hard for $m >= 3$ @garey1976. For $m = 2$, it is solvable in $O(n log n)$ by Johnson's rule @johnson1954. The problem is fundamental in operations research, manufacturing planning, and VLSI design. When restricted to permutation schedules (same job order on all machines), the search space is $n!$ orderings. The best known exact algorithm for $m = 3$ runs in $O^*(3^n)$ time @shang2018; for general $m$, brute-force over $n!$ permutations gives $O(n! dot m n)$.
+
+  *Example.* Let $m = 2$, $n = 3$ jobs with task lengths $ell = mat(3, 2; 2, 4; 1, 3)$ (rows = jobs, columns = machines), and $D = 12$. For the job order $(0, 1, 2)$: Machine 1 processes jobs at $[0,3], [3,5], [5,6]$; Machine 2 at $[3,5], [5,9], [9,12]$. Makespan $= 12 <= D$, so the schedule is feasible.
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper
