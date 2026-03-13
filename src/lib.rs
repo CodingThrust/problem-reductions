@@ -49,7 +49,8 @@ pub mod prelude {
         PartitionIntoTriangles, RuralPostman, TravelingSalesman,
     };
     pub use crate::models::misc::{
-        BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop, SubsetSum,
+        BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop,
+        ShortestCommonSupersequence, SubsetSum,
     };
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
 

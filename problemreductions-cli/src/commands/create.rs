@@ -54,8 +54,6 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
-        && args.strings.is_none()
-        && args.bound.is_none()
         && args.alphabet_size.is_none()
 }
 
@@ -265,7 +263,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     "RuralPostman requires --bound\n\n\
                      Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
                 )
-            })?;
+            })? as i32;
             (
                 ser(RuralPostman::new(
                     graph,
@@ -618,7 +616,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let bound = args.bound.ok_or_else(|| {
                 anyhow::anyhow!("ShortestCommonSupersequence requires --bound\n\n{usage}")
-            })?;
+            })? as usize;
             let strings: Vec<Vec<usize>> = strings_str
                 .split(';')
                 .map(|s| {
