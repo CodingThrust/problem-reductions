@@ -7,7 +7,8 @@ use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
 use problemreductions::models::misc::{
-    BinPacking, LongestCommonSubsequence, PaintShop, ShortestCommonSupersequence, SubsetSum,
+    BinPacking, FlowShopScheduling, LongestCommonSubsequence, PaintShop,
+    ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -54,6 +55,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
+        && args.task_lengths.is_none()
+        && args.deadline.is_none()
+        && args.num_processors.is_none()
         && args.alphabet_size.is_none()
 }
 
@@ -563,6 +567,49 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // FlowShopScheduling
+        "FlowShopScheduling" => {
+            let task_str = args.task_lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FlowShopScheduling requires --task-lengths and --deadline\n\n\
+                     Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --num-processors 3"
+                )
+            })?;
+            let deadline = args.deadline.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FlowShopScheduling requires --deadline\n\n\
+                     Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --num-processors 3"
+                )
+            })?;
+            let task_lengths: Vec<Vec<u64>> = task_str
+                .split(';')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<Vec<_>>>()?;
+            let num_processors = if let Some(np) = args.num_processors {
+                np
+            } else if let Some(m) = args.m {
+                m
+            } else if let Some(first) = task_lengths.first() {
+                first.len()
+            } else {
+                bail!("Cannot infer num_processors from empty task list; use --num-processors");
+            };
+            for (j, row) in task_lengths.iter().enumerate() {
+                if row.len() != num_processors {
+                    bail!(
+                        "task_lengths row {} has {} entries, expected {} (num_processors)",
+                        j,
+                        row.len(),
+                        num_processors
+                    );
+                }
+            }
+            (
+                ser(FlowShopScheduling::new(num_processors, task_lengths, deadline))?,
                 resolved_variant.clone(),
             )
         }

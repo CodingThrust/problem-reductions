@@ -18,7 +18,7 @@ pub use graph::{
     RuralPostman, SpinGlass, SubgraphIsomorphism, TravelingSalesman,
 };
 pub use misc::{
-    BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop,
+    BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, PaintShop,
     ShortestCommonSupersequence, SubsetSum,
 };
 pub use set::{MaximumSetPacking, MinimumSetCovering};

@@ -1,7 +1,8 @@
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
 use problemreductions::models::misc::{
-    BinPacking, Knapsack, LongestCommonSubsequence, ShortestCommonSupersequence, SubsetSum,
+    BinPacking, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
+    ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
@@ -255,6 +256,7 @@ pub fn load_problem(
         "PartitionIntoTriangles" => deser_sat::<PartitionIntoTriangles<SimpleGraph>>(data),
         "LongestCommonSubsequence" => deser_opt::<LongestCommonSubsequence>(data),
         "MinimumFeedbackVertexSet" => deser_opt::<MinimumFeedbackVertexSet<i32>>(data),
+        "FlowShopScheduling" => deser_sat::<FlowShopScheduling>(data),
         "SubsetSum" => deser_sat::<SubsetSum>(data),
         "ShortestCommonSupersequence" => deser_sat::<ShortestCommonSupersequence>(data),
         "MinimumFeedbackArcSet" => deser_opt::<MinimumFeedbackArcSet<i32>>(data),
@@ -326,6 +328,7 @@ pub fn serialize_any_problem(
         "PartitionIntoTriangles" => try_ser::<PartitionIntoTriangles<SimpleGraph>>(any),
         "LongestCommonSubsequence" => try_ser::<LongestCommonSubsequence>(any),
         "MinimumFeedbackVertexSet" => try_ser::<MinimumFeedbackVertexSet<i32>>(any),
+        "FlowShopScheduling" => try_ser::<FlowShopScheduling>(any),
         "SubsetSum" => try_ser::<SubsetSum>(any),
         "ShortestCommonSupersequence" => try_ser::<ShortestCommonSupersequence>(any),
         "MinimumFeedbackArcSet" => try_ser::<MinimumFeedbackArcSet<i32>>(any),
