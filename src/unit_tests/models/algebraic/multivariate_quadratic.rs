@@ -6,20 +6,18 @@ use crate::traits::Problem;
 fn test_multivariate_quadratic_basic() {
     // F_2, 3 variables, 2 equations
     let eq1 = QuadraticPoly {
-        quadratic_terms: vec![((0, 1), 1)], // x0 * x1
-        linear_terms: vec![(2, 1)],         // + x2
-        constant: 0,
+        quadratic_terms: vec![(0, 1)], // x0 * x1
+        linear_terms: vec![2],         // + x2
+        constant: false,
     };
     let eq2 = QuadraticPoly {
-        quadratic_terms: vec![((1, 2), 1)], // x1 * x2
-        linear_terms: vec![(0, 1)],         // + x0
-        constant: 0,
+        quadratic_terms: vec![(1, 2)], // x1 * x2
+        linear_terms: vec![0],         // + x0
+        constant: false,
     };
-    let problem = MultivariateQuadratic::new(2, 3, vec![eq1, eq2]);
-    assert_eq!(problem.field_size(), 2);
-    assert_eq!(problem.num_vars(), 3);
+    let problem = MultivariateQuadratic::new(3, vec![eq1, eq2]);
+    assert_eq!(problem.num_variables(), 3);
     assert_eq!(problem.num_equations(), 2);
-    assert_eq!(problem.num_variables(), 3); // from Problem trait default
     assert_eq!(problem.dims(), vec![2, 2, 2]);
 }
 
@@ -28,16 +26,16 @@ fn test_multivariate_quadratic_evaluate_f2() {
     // f1: x0*x1 + x2 = 0, f2: x1*x2 + x0 = 0 over F_2
     // Solutions: (0,0,0), (0,1,0), (1,1,1)
     let eq1 = QuadraticPoly {
-        quadratic_terms: vec![((0, 1), 1)],
-        linear_terms: vec![(2, 1)],
-        constant: 0,
+        quadratic_terms: vec![(0, 1)],
+        linear_terms: vec![2],
+        constant: false,
     };
     let eq2 = QuadraticPoly {
-        quadratic_terms: vec![((1, 2), 1)],
-        linear_terms: vec![(0, 1)],
-        constant: 0,
+        quadratic_terms: vec![(1, 2)],
+        linear_terms: vec![0],
+        constant: false,
     };
-    let problem = MultivariateQuadratic::new(2, 3, vec![eq1, eq2]);
+    let problem = MultivariateQuadratic::new(3, vec![eq1, eq2]);
 
     // Test known solutions
     assert!(problem.evaluate(&[0, 0, 0])); // 0*0+0=0, 0*0+0=0
@@ -54,15 +52,15 @@ fn test_multivariate_quadratic_no_solution() {
     // f1: x0+x1=0, f2: x0+x1+1=0 over F_2 (contradictory)
     let eq1 = QuadraticPoly {
         quadratic_terms: vec![],
-        linear_terms: vec![(0, 1), (1, 1)],
-        constant: 0,
+        linear_terms: vec![0, 1],
+        constant: false,
     };
     let eq2 = QuadraticPoly {
         quadratic_terms: vec![],
-        linear_terms: vec![(0, 1), (1, 1)],
-        constant: 1,
+        linear_terms: vec![0, 1],
+        constant: true,
     };
-    let problem = MultivariateQuadratic::new(2, 2, vec![eq1, eq2]);
+    let problem = MultivariateQuadratic::new(2, vec![eq1, eq2]);
 
     // No configuration should satisfy both
     assert!(!problem.evaluate(&[0, 0]));
@@ -75,16 +73,16 @@ fn test_multivariate_quadratic_no_solution() {
 fn test_multivariate_quadratic_brute_force() {
     // Same F_2 instance
     let eq1 = QuadraticPoly {
-        quadratic_terms: vec![((0, 1), 1)],
-        linear_terms: vec![(2, 1)],
-        constant: 0,
+        quadratic_terms: vec![(0, 1)],
+        linear_terms: vec![2],
+        constant: false,
     };
     let eq2 = QuadraticPoly {
-        quadratic_terms: vec![((1, 2), 1)],
-        linear_terms: vec![(0, 1)],
-        constant: 0,
+        quadratic_terms: vec![(1, 2)],
+        linear_terms: vec![0],
+        constant: false,
     };
-    let problem = MultivariateQuadratic::new(2, 3, vec![eq1, eq2]);
+    let problem = MultivariateQuadratic::new(3, vec![eq1, eq2]);
 
     let solver = BruteForce::new();
     let solution = solver.find_satisfying(&problem);
@@ -103,15 +101,15 @@ fn test_multivariate_quadratic_brute_force() {
 fn test_multivariate_quadratic_brute_force_no_solution() {
     let eq1 = QuadraticPoly {
         quadratic_terms: vec![],
-        linear_terms: vec![(0, 1), (1, 1)],
-        constant: 0,
+        linear_terms: vec![0, 1],
+        constant: false,
     };
     let eq2 = QuadraticPoly {
         quadratic_terms: vec![],
-        linear_terms: vec![(0, 1), (1, 1)],
-        constant: 1,
+        linear_terms: vec![0, 1],
+        constant: true,
     };
-    let problem = MultivariateQuadratic::new(2, 2, vec![eq1, eq2]);
+    let problem = MultivariateQuadratic::new(2, vec![eq1, eq2]);
 
     let solver = BruteForce::new();
     assert!(solver.find_satisfying(&problem).is_none());
@@ -121,63 +119,45 @@ fn test_multivariate_quadratic_brute_force_no_solution() {
 #[test]
 fn test_multivariate_quadratic_serialization() {
     let eq1 = QuadraticPoly {
-        quadratic_terms: vec![((0, 1), 1)],
-        linear_terms: vec![(2, 1)],
-        constant: 0,
+        quadratic_terms: vec![(0, 1)],
+        linear_terms: vec![2],
+        constant: false,
     };
-    let problem = MultivariateQuadratic::new(2, 3, vec![eq1]);
+    let problem = MultivariateQuadratic::new(3, vec![eq1]);
 
     let json = serde_json::to_string(&problem).unwrap();
     let deserialized: MultivariateQuadratic = serde_json::from_str(&json).unwrap();
-    assert_eq!(deserialized.field_size(), problem.field_size());
-    assert_eq!(deserialized.num_vars(), problem.num_vars());
+    assert_eq!(deserialized.num_variables(), problem.num_variables());
     assert_eq!(deserialized.num_equations(), problem.num_equations());
-}
-
-#[test]
-fn test_multivariate_quadratic_larger_field() {
-    // Test with F_3: x0^2 + x1 = 0 mod 3
-    // x0=0: 0+x1=0 -> x1=0 => (0,0)
-    // x0=1: 1+x1=0 -> x1=2 => (1,2)
-    // x0=2: 4+x1=1+x1=0 -> x1=2 => (2,2)
-    let eq = QuadraticPoly {
-        quadratic_terms: vec![((0, 0), 1)], // x0^2
-        linear_terms: vec![(1, 1)],         // + x1
-        constant: 0,
-    };
-    let problem = MultivariateQuadratic::new(3, 2, vec![eq]);
-    assert_eq!(problem.dims(), vec![3, 3]);
-
-    assert!(problem.evaluate(&[0, 0])); // 0+0=0
-    assert!(problem.evaluate(&[1, 2])); // 1+2=3=0 mod 3
-    assert!(problem.evaluate(&[2, 2])); // 4+2=6=0 mod 3
-    assert!(!problem.evaluate(&[1, 1])); // 1+1=2 != 0
-
-    let solver = BruteForce::new();
-    let all = solver.find_all_satisfying(&problem);
-    assert_eq!(all.len(), 3);
 }
 
 #[test]
 fn test_multivariate_quadratic_empty_equations() {
     // No equations = every assignment satisfies
-    let problem = MultivariateQuadratic::new(2, 2, vec![]);
+    let problem = MultivariateQuadratic::new(2, vec![]);
     assert!(problem.evaluate(&[0, 0]));
     assert!(problem.evaluate(&[1, 1]));
 }
 
 #[test]
-fn test_multivariate_quadratic_deserialize_invalid_field_size() {
-    // field_size=1 should be rejected during deserialization
-    let json = r#"{"field_size":1,"num_variables":2,"equations":[]}"#;
-    let result = serde_json::from_str::<MultivariateQuadratic>(json);
-    assert!(result.is_err());
-    assert!(result
-        .unwrap_err()
-        .to_string()
-        .contains("field_size must be at least 2"));
+fn test_multivariate_quadratic_constant_equation() {
+    // f = 1 (constant polynomial that always evaluates to 1, never 0)
+    let eq = QuadraticPoly {
+        quadratic_terms: vec![],
+        linear_terms: vec![],
+        constant: true,
+    };
+    let problem = MultivariateQuadratic::new(2, vec![eq]);
+    assert!(!problem.evaluate(&[0, 0]));
+    assert!(!problem.evaluate(&[1, 1]));
 
-    // field_size=0 should also be rejected
-    let json = r#"{"field_size":0,"num_variables":2,"equations":[]}"#;
-    assert!(serde_json::from_str::<MultivariateQuadratic>(json).is_err());
+    // f = 0 (constant polynomial that always evaluates to 0, always satisfied)
+    let eq = QuadraticPoly {
+        quadratic_terms: vec![],
+        linear_terms: vec![],
+        constant: false,
+    };
+    let problem = MultivariateQuadratic::new(2, vec![eq]);
+    assert!(problem.evaluate(&[0, 0]));
+    assert!(problem.evaluate(&[1, 1]));
 }

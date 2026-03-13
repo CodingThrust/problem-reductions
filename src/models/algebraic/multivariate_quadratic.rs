@@ -1,6 +1,6 @@
 //! Multivariate Quadratic (MQ) problem implementation.
 //!
-//! Satisfy a system of multivariate quadratic equations over a finite field F_q.
+//! Satisfy a system of multivariate quadratic equations over F_2.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
@@ -10,61 +10,60 @@ inventory::submit! {
     ProblemSchemaEntry {
         name: "MultivariateQuadratic",
         module_path: module_path!(),
-        description: "Satisfy a system of multivariate quadratic equations over a finite field",
+        description: "Satisfy a system of multivariate quadratic equations over F_2",
         fields: &[
-            FieldInfo { name: "field_size", type_name: "usize", description: "Size of finite field q" },
             FieldInfo { name: "num_variables", type_name: "usize", description: "Number of variables n" },
-            FieldInfo { name: "equations", type_name: "Vec<QuadraticPoly>", description: "System of quadratic polynomials" },
+            FieldInfo { name: "equations", type_name: "Vec<QuadraticPoly>", description: "System of quadratic polynomials over F_2" },
         ],
     }
 }
 
-/// A single quadratic polynomial over F_q.
+/// A single quadratic polynomial over F_2.
 ///
 /// Represents a polynomial of the form:
-///   Σ_{j≤k} a_{jk} x_j x_k + Σ_j b_j x_j + c
+///   Σ_{j≤k} x_j x_k (for present pairs) + Σ_j x_j (for present indices) + c
 ///
-/// where all arithmetic is performed modulo the field size q.
+/// where all arithmetic is performed in GF(2) (XOR for addition, AND for multiplication).
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct QuadraticPoly {
-    /// Coefficients for quadratic terms x_j * x_k (with j ≤ k).
-    pub quadratic_terms: Vec<((usize, usize), u64)>,
-    /// Coefficients for linear terms x_j.
-    pub linear_terms: Vec<(usize, u64)>,
-    /// Constant term.
-    pub constant: u64,
+    /// Variable pairs (j, k) with j <= k whose quadratic term x_j * x_k is present (coefficient 1).
+    pub quadratic_terms: Vec<(usize, usize)>,
+    /// Variable indices j whose linear term x_j is present (coefficient 1).
+    pub linear_terms: Vec<usize>,
+    /// Constant term: true means 1, false means 0.
+    pub constant: bool,
 }
 
 impl QuadraticPoly {
-    /// Evaluate the polynomial at the given configuration modulo `field_size`.
-    pub fn evaluate(&self, config: &[usize], field_size: usize) -> u64 {
-        let q = field_size as u64;
-        let q128 = q as u128;
-        let mut result = (self.constant % q) as u128;
-        for &((j, k), coeff) in &self.quadratic_terms {
-            let coeff_mod = (coeff % q) as u128;
-            let xj = (config[j] as u64 % q) as u128;
-            let xk = (config[k] as u64 % q) as u128;
-            let term = ((coeff_mod * xj) % q128 * xk) % q128;
-            result = (result + term) % q128;
+    /// Evaluate the polynomial at the given configuration in F_2.
+    ///
+    /// Uses XOR for addition and AND for multiplication.
+    pub fn evaluate(&self, config: &[usize]) -> bool {
+        let mut result = self.constant;
+        for &(j, k) in &self.quadratic_terms {
+            // x_j AND x_k, then XOR into result
+            if config[j] == 1 && config[k] == 1 {
+                result = !result;
+            }
         }
-        for &(j, coeff) in &self.linear_terms {
-            let coeff_mod = (coeff % q) as u128;
-            let xj = (config[j] as u64 % q) as u128;
-            let term = (coeff_mod * xj) % q128;
-            result = (result + term) % q128;
+        for &j in &self.linear_terms {
+            if config[j] == 1 {
+                result = !result;
+            }
         }
-        (result % q128) as u64
+        // result == false means the polynomial evaluates to 0 (satisfied)
+        // result == true means the polynomial evaluates to 1 (not satisfied)
+        // Return whether polynomial == 0
+        !result
     }
 }
 
-/// The Multivariate Quadratic (MQ) problem.
+/// The Multivariate Quadratic (MQ) problem over F_2.
 ///
-/// Given a finite field F_q, n variables x_1, ..., x_n ∈ F_q, and m quadratic
+/// Given n binary variables x_0, ..., x_{n-1} in F_2 and m quadratic
 /// polynomials f_1, ..., f_m, find an assignment such that all f_i evaluate to 0.
 ///
-/// This is a fundamental problem in post-quantum cryptography and is NP-hard
-/// even over F_2.
+/// This is a fundamental problem in post-quantum cryptography and is NP-hard.
 ///
 /// # Example
 ///
@@ -74,78 +73,40 @@ impl QuadraticPoly {
 ///
 /// // Over F_2: f1 = x0*x1 + x2, f2 = x1*x2 + x0
 /// let eq1 = QuadraticPoly {
-///     quadratic_terms: vec![((0, 1), 1)],
-///     linear_terms: vec![(2, 1)],
-///     constant: 0,
+///     quadratic_terms: vec![(0, 1)],
+///     linear_terms: vec![2],
+///     constant: false,
 /// };
 /// let eq2 = QuadraticPoly {
-///     quadratic_terms: vec![((1, 2), 1)],
-///     linear_terms: vec![(0, 1)],
-///     constant: 0,
+///     quadratic_terms: vec![(1, 2)],
+///     linear_terms: vec![0],
+///     constant: false,
 /// };
-/// let problem = MultivariateQuadratic::new(2, 3, vec![eq1, eq2]);
+/// let problem = MultivariateQuadratic::new(3, vec![eq1, eq2]);
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.find_satisfying(&problem);
 /// assert!(solution.is_some());
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-#[serde(try_from = "MultivariateQuadraticRaw")]
 pub struct MultivariateQuadratic {
-    /// Size of the finite field (e.g., 2 for F_2).
-    field_size: usize,
     /// Number of variables n.
     num_variables: usize,
-    /// System of quadratic polynomials.
+    /// System of quadratic polynomials over F_2.
     equations: Vec<QuadraticPoly>,
-}
-
-/// Raw deserialization helper that validates `field_size >= 2`.
-#[derive(Deserialize)]
-struct MultivariateQuadraticRaw {
-    field_size: usize,
-    num_variables: usize,
-    equations: Vec<QuadraticPoly>,
-}
-
-impl TryFrom<MultivariateQuadraticRaw> for MultivariateQuadratic {
-    type Error = String;
-    fn try_from(raw: MultivariateQuadraticRaw) -> Result<Self, Self::Error> {
-        if raw.field_size < 2 {
-            return Err(format!(
-                "field_size must be at least 2, got {}",
-                raw.field_size
-            ));
-        }
-        Ok(Self {
-            field_size: raw.field_size,
-            num_variables: raw.num_variables,
-            equations: raw.equations,
-        })
-    }
 }
 
 impl MultivariateQuadratic {
-    /// Create a new MQ problem instance.
-    ///
-    /// # Panics
-    /// Panics if `field_size < 2` (need at least F_2).
-    pub fn new(field_size: usize, num_variables: usize, equations: Vec<QuadraticPoly>) -> Self {
-        assert!(field_size >= 2, "field_size must be at least 2");
+    /// Create a new MQ problem instance over F_2.
+    pub fn new(num_variables: usize, equations: Vec<QuadraticPoly>) -> Self {
         Self {
-            field_size,
             num_variables,
             equations,
         }
     }
 
-    /// Returns the field size q.
-    pub fn field_size(&self) -> usize {
-        self.field_size
-    }
-
     /// Returns the number of variables n.
-    pub fn num_vars(&self) -> usize {
+    pub fn num_variables(&self) -> usize {
         self.num_variables
     }
 
@@ -165,13 +126,11 @@ impl Problem for MultivariateQuadratic {
     type Metric = bool;
 
     fn dims(&self) -> Vec<usize> {
-        vec![self.field_size; self.num_variables]
+        vec![2; self.num_variables]
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
-        self.equations
-            .iter()
-            .all(|eq| eq.evaluate(config, self.field_size) == 0)
+        self.equations.iter().all(|eq| eq.evaluate(config))
     }
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -182,7 +141,7 @@ impl Problem for MultivariateQuadratic {
 impl SatisfactionProblem for MultivariateQuadratic {}
 
 crate::declare_variants! {
-    MultivariateQuadratic => "field_size^num_vars",
+    MultivariateQuadratic => "1.6181^num_variables",
 }
 
 #[cfg(test)]

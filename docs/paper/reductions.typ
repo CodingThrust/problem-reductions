@@ -999,9 +999,9 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
 ]
 
 #problem-def("MultivariateQuadratic")[
-  Given $m$ quadratic polynomials $f_1, dots, f_m$ over a finite field $FF_q$ with $n$ variables $x_0, dots, x_(n-1)$, where each $f_i (x) = sum_(0 <= j <= k < n) a_(i j k) x_j x_k + sum_(j=0)^(n-1) b_(i j) x_j + c_i$, determine whether there exists an assignment $x in FF_q^n$ such that $f_i (x) = 0$ for all $i = 1, dots, m$.
+  Given $m$ quadratic polynomials $f_1, dots, f_m$ over $FF_2$ with $n$ variables $x_0, dots, x_(n-1)$, where each $f_i (x) = sum_(0 <= j <= k < n) a_(i j k) x_j x_k + sum_(j=0)^(n-1) b_(i j) x_j + c_i$ with $a_(i j k), b_(i j), c_i in FF_2$, determine whether there exists an assignment $x in FF_2^n$ such that $f_i (x) = 0$ for all $i = 1, dots, m$.
 ][
-  The Multivariate Quadratic (MQ) problem is a core problem in post-quantum cryptography and algebraic cryptanalysis @Patarin1996. MQ over $FF_2$ is NP-complete and polynomial-time interreducible with SAT. For general finite fields, it generalizes Boolean satisfiability to polynomial equation systems. The brute-force approach enumerates all $q^n$ assignments. More sophisticated methods include Groebner basis algorithms (F4/F5) @Faugere1999 and the XL algorithm, though these lack uniform worst-case bounds better than exhaustive search.
+  The Multivariate Quadratic (MQ) problem over $FF_2$ is a core problem in post-quantum cryptography and algebraic cryptanalysis @Patarin1996. MQ over $FF_2$ is NP-complete and polynomial-time interreducible with SAT. The brute-force approach enumerates all $2^n$ assignments. More sophisticated methods include Groebner basis algorithms (F4/F5) @Faugere1999 and the XL algorithm. The best known worst-case algorithm runs in $O^*(1.6181^n)$ time using the Dinur--Joux--Naderi--Thomae approach, which exploits the structure of $FF_2$.
 
   *Example.* Over $FF_2$ with $n = 3$ variables, consider $f_1 = x_0 x_1 + x_2$ and $f_2 = x_1 x_2 + x_0$. The assignment $(0, 0, 0)$ satisfies both: $f_1 = 0 dot 0 + 0 = 0$ and $f_2 = 0 dot 0 + 0 = 0$. Other solutions include $(0, 1, 0)$ and $(1, 1, 1)$.
 ]

@@ -5,7 +5,7 @@
 //! - [`ILP`]: Integer Linear Programming
 //! - [`ClosestVectorProblem`]: Closest Vector Problem (minimize lattice distance)
 //! - [`BMF`]: Boolean Matrix Factorization
-//! - [`MultivariateQuadratic`]: Multivariate Quadratic equations over finite fields
+//! - [`MultivariateQuadratic`]: Multivariate Quadratic equations over F_2
 
 pub(crate) mod bmf;
 mod closest_vector_problem;
