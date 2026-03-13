@@ -33,6 +33,7 @@ mod spinglass_casts;
 mod spinglass_maxcut;
 mod spinglass_qubo;
 mod traits;
+mod travelingsalesman_qubo;
 
 pub mod unitdiskmapping;
 
