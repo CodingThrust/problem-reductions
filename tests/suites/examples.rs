@@ -10,6 +10,7 @@ macro_rules! example_test {
     };
 }
 
+example_test!(hamiltonian_path);
 example_test!(chained_reduction_factoring_to_spinglass);
 example_test!(chained_reduction_ksat_to_mis);
 example_test!(reduction_binpacking_to_ilp);
@@ -64,6 +65,7 @@ macro_rules! example_fn {
     };
 }
 
+example_fn!(test_hamiltonian_path, hamiltonian_path);
 example_fn!(
     test_chained_reduction_factoring_to_spinglass,
     chained_reduction_factoring_to_spinglass
