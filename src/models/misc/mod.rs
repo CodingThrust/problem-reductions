@@ -5,7 +5,7 @@
 //! - [`Factoring`]: Integer factorization
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
-//! - [`SubsetSum`]: Subset Sum (decide if a subset sums to a target)
+//! - [`SubsetSum`]: Find a subset summing to exactly a target value
 
 mod bin_packing;
 pub(crate) mod factoring;
