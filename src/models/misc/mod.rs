@@ -5,16 +5,19 @@
 //! - [`Factoring`]: Integer factorization
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
+//! - [`PrecedenceConstrainedScheduling`]: Schedule unit tasks on processors by deadline
 //! - [`SubsetSum`]: Find a subset summing to exactly a target value
 
 mod bin_packing;
 pub(crate) mod factoring;
 mod knapsack;
 pub(crate) mod paintshop;
+mod precedence_constrained_scheduling;
 mod subset_sum;
 
 pub use bin_packing::BinPacking;
 pub use factoring::Factoring;
 pub use knapsack::Knapsack;
 pub use paintshop::PaintShop;
+pub use precedence_constrained_scheduling::PrecedenceConstrainedScheduling;
 pub use subset_sum::SubsetSum;
