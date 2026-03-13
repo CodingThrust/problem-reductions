@@ -3,6 +3,15 @@
     {
       "name": "BMF",
       "variant": {},
+  
+Exported to: docs/src/reductions/reduction_graph.json
+
+JSON content:
+{
+  "nodes": [
+    {
+      "name": "BMF",
+      "variant": {},
       "category": "algebraic",
       "doc_path": "models/algebraic/struct.BMF.html",
       "complexity": "2^(rows * rank + rank * cols)"
@@ -412,6 +421,21 @@
     }
   ],
   "edges": [
+    {
+      "source": 3,
+      "target": 9,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_items * num_items + num_items"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "2 * num_items"
+        }
+      ],
+      "doc_path": "rules/binpacking_ilp/index.html"
+    },
     {
       "source": 4,
       "target": 9,
