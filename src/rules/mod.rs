@@ -13,8 +13,10 @@ mod graph;
 mod kcoloring_casts;
 mod ksatisfiability_casts;
 mod ksatisfiability_qubo;
+mod ksatisfiability_subsetsum;
 mod maximumindependentset_casts;
 mod maximumindependentset_gridgraph;
+mod maximumindependentset_maximumclique;
 mod maximumindependentset_maximumsetpacking;
 mod maximumindependentset_triangular;
 mod maximummatching_maximumsetpacking;
@@ -34,6 +36,8 @@ mod traits;
 
 pub mod unitdiskmapping;
 
+#[cfg(feature = "ilp-solver")]
+mod binpacking_ilp;
 #[cfg(feature = "ilp-solver")]
 mod circuit_ilp;
 #[cfg(feature = "ilp-solver")]
