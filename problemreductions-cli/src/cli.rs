@@ -224,6 +224,7 @@ Flags by problem type:
   LCS                             --strings
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  SCS                             --strings, --bound [--alphabet-size]
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -338,18 +339,21 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound B for RuralPostman
+    /// Upper bound (for RuralPostman or SCS)
     #[arg(long)]
-    pub bound: Option<i32>,
+    pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
     #[arg(long)]
     pub pattern: Option<String>,
-    /// Input strings for LCS (semicolon-separated, e.g., "ABAC;BACA")
+    /// Input strings for LCS (e.g., "ABAC;BACA") or SCS (e.g., "0,1,2;1,2,0")
     #[arg(long)]
     pub strings: Option<String>,
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
+    #[arg(long)]
+    pub alphabet_size: Option<usize>,
 }
 
 #[derive(clap::Args)]

@@ -489,6 +489,27 @@
     ]
   },
   {
+    "name": "ShortestCommonSupersequence",
+    "description": "Find a common supersequence of bounded length for a set of strings",
+    "fields": [
+      {
+        "name": "alphabet_size",
+        "type_name": "usize",
+        "description": "Size of the alphabet"
+      },
+      {
+        "name": "strings",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Input strings over the alphabet {0, ..., alphabet_size-1}"
+      },
+      {
+        "name": "bound",
+        "type_name": "usize",
+        "description": "Bound on supersequence length (configuration has exactly this many symbols)"
+      }
+    ]
+  },
+  {
     "name": "SpinGlass",
     "description": "Minimize Ising Hamiltonian on a graph",
     "fields": [

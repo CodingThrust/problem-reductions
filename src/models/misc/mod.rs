@@ -6,6 +6,7 @@
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
+//! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
 //! - [`SubsetSum`]: Find a subset summing to exactly a target value
 
 mod bin_packing;
@@ -13,6 +14,7 @@ pub(crate) mod factoring;
 mod knapsack;
 mod longest_common_subsequence;
 pub(crate) mod paintshop;
+pub(crate) mod shortest_common_supersequence;
 mod subset_sum;
 
 pub use bin_packing::BinPacking;
@@ -20,4 +22,5 @@ pub use factoring::Factoring;
 pub use knapsack::Knapsack;
 pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use paintshop::PaintShop;
+pub use shortest_common_supersequence::ShortestCommonSupersequence;
 pub use subset_sum::SubsetSum;

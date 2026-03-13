@@ -98,6 +98,10 @@ fn test_all_problems_implement_trait_correctly() {
         &HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
         "HamiltonianPath",
     );
+    check_problem_trait(
+        &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3),
+        "ShortestCommonSupersequence",
+    );
 }
 
 #[test]

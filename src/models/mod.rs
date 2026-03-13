@@ -17,5 +17,8 @@ pub use graph::{
     MinimumFeedbackVertexSet, MinimumSumMulticenter, MinimumVertexCover, PartitionIntoTriangles,
     RuralPostman, SpinGlass, SubgraphIsomorphism, TravelingSalesman,
 };
-pub use misc::{BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop, SubsetSum};
+pub use misc::{
+    BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop,
+    ShortestCommonSupersequence, SubsetSum,
+};
 pub use set::{MaximumSetPacking, MinimumSetCovering};
