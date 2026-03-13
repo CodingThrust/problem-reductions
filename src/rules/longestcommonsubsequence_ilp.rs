@@ -57,13 +57,7 @@ impl ReductionResult for ReductionLCSToILP {
             .iter()
             .enumerate()
             .filter(|(i, _)| target_solution.get(*i).copied().unwrap_or(0) == 1)
-            .map(|(_, &(j1, j2))| {
-                if shortest_is_first {
-                    j1
-                } else {
-                    j2
-                }
-            })
+            .map(|(_, &(j1, j2))| if shortest_is_first { j1 } else { j2 })
             .collect();
 
         let mut config = vec![0usize; shortest_len];
@@ -141,17 +135,11 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
         for (i, &(j1, j2)) in match_pairs.iter().enumerate() {
             for (k, &(j1p, j2p)) in match_pairs.iter().enumerate() {
                 if i < k && j1 < j1p && j2 > j2p {
-                    constraints.push(LinearConstraint::le(
-                        vec![(i, 1.0), (k, 1.0)],
-                        1.0,
-                    ));
+                    constraints.push(LinearConstraint::le(vec![(i, 1.0), (k, 1.0)], 1.0));
                 }
                 // Also check the reverse: j1 > j1p and j2 < j2p
                 if i < k && j1 > j1p && j2 < j2p {
-                    constraints.push(LinearConstraint::le(
-                        vec![(i, 1.0), (k, 1.0)],
-                        1.0,
-                    ));
+                    constraints.push(LinearConstraint::le(vec![(i, 1.0), (k, 1.0)], 1.0));
                 }
             }
         }

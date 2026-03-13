@@ -58,6 +58,9 @@ pub fn resolve_alias(input: &str) -> String {
         "lcs" | "longestcommonsubsequence" => "LongestCommonSubsequence".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
         "subsetsum" => "SubsetSum".to_string(),
+        "sequencingwithreleasetimesanddeadlines" => {
+            "SequencingWithReleaseTimesAndDeadlines".to_string()
+        }
         _ => input.to_string(), // pass-through for exact names
     }
 }

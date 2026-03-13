@@ -14,7 +14,10 @@ fn test_lcs_basic() {
     assert_eq!(problem.num_chars_first(), 6);
     assert_eq!(problem.num_chars_second(), 6);
     assert_eq!(problem.direction(), Direction::Maximize);
-    assert_eq!(<LongestCommonSubsequence as Problem>::NAME, "LongestCommonSubsequence");
+    assert_eq!(
+        <LongestCommonSubsequence as Problem>::NAME,
+        "LongestCommonSubsequence"
+    );
     assert_eq!(<LongestCommonSubsequence as Problem>::variant(), vec![]);
 }
 
@@ -32,10 +35,8 @@ fn test_lcs_dims() {
 fn test_lcs_evaluate_valid() {
     // s1 = "ABC", s2 = "ACB"
     // Selecting positions 0,2 of s1 (shorter) gives "AC" which is subseq of "ACB"
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B', b'C'],
-        vec![b'A', b'C', b'B'],
-    ]);
+    let problem =
+        LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'C'], vec![b'A', b'C', b'B']]);
     let result = problem.evaluate(&[1, 0, 1]); // "AC"
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 2);
@@ -45,20 +46,16 @@ fn test_lcs_evaluate_valid() {
 fn test_lcs_evaluate_invalid_subsequence() {
     // s1 = "ABC", s2 = "CAB"
     // Selecting positions 1,2 of s1 gives "BC" - is "BC" a subseq of "CAB"? No
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B', b'C'],
-        vec![b'C', b'A', b'B'],
-    ]);
+    let problem =
+        LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'C'], vec![b'C', b'A', b'B']]);
     let result = problem.evaluate(&[0, 1, 1]); // "BC"
     assert!(!result.is_valid());
 }
 
 #[test]
 fn test_lcs_evaluate_empty_selection() {
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B', b'C'],
-        vec![b'X', b'Y', b'Z'],
-    ]);
+    let problem =
+        LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'C'], vec![b'X', b'Y', b'Z']]);
     let result = problem.evaluate(&[0, 0, 0]); // empty
     assert!(result.is_valid());
     assert_eq!(result.unwrap(), 0);
@@ -66,20 +63,14 @@ fn test_lcs_evaluate_empty_selection() {
 
 #[test]
 fn test_lcs_evaluate_wrong_config_length() {
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B'],
-        vec![b'A', b'B', b'C'],
-    ]);
+    let problem = LongestCommonSubsequence::new(vec![vec![b'A', b'B'], vec![b'A', b'B', b'C']]);
     assert!(!problem.evaluate(&[1]).is_valid());
     assert!(!problem.evaluate(&[1, 0, 0]).is_valid());
 }
 
 #[test]
 fn test_lcs_evaluate_invalid_variable_value() {
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B'],
-        vec![b'A', b'B'],
-    ]);
+    let problem = LongestCommonSubsequence::new(vec![vec![b'A', b'B'], vec![b'A', b'B']]);
     assert!(!problem.evaluate(&[2, 0]).is_valid());
 }
 
@@ -100,10 +91,8 @@ fn test_lcs_brute_force_two_strings() {
 
 #[test]
 fn test_lcs_identical_strings() {
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B', b'C'],
-        vec![b'A', b'B', b'C'],
-    ]);
+    let problem =
+        LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'C'], vec![b'A', b'B', b'C']]);
     let solver = BruteForce::new();
     let solution = solver.find_best(&problem).expect("should find a solution");
     let metric = problem.evaluate(&solution);
@@ -112,10 +101,7 @@ fn test_lcs_identical_strings() {
 
 #[test]
 fn test_lcs_no_common_chars() {
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B'],
-        vec![b'C', b'D'],
-    ]);
+    let problem = LongestCommonSubsequence::new(vec![vec![b'A', b'B'], vec![b'C', b'D']]);
     let solver = BruteForce::new();
     let solution = solver.find_best(&problem).expect("should find a solution");
     let metric = problem.evaluate(&solution);
@@ -125,10 +111,7 @@ fn test_lcs_no_common_chars() {
 #[test]
 fn test_lcs_single_char_alphabet() {
     // All same character - LCS is length of shortest string
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'A', b'A'],
-        vec![b'A', b'A'],
-    ]);
+    let problem = LongestCommonSubsequence::new(vec![vec![b'A', b'A', b'A'], vec![b'A', b'A']]);
     let solver = BruteForce::new();
     let solution = solver.find_best(&problem).expect("should find a solution");
     let metric = problem.evaluate(&solution);
@@ -152,10 +135,8 @@ fn test_lcs_three_strings() {
 
 #[test]
 fn test_lcs_serialization() {
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B', b'C'],
-        vec![b'A', b'C', b'B'],
-    ]);
+    let problem =
+        LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'C'], vec![b'A', b'C', b'B']]);
     let json = serde_json::to_value(&problem).unwrap();
     let restored: LongestCommonSubsequence = serde_json::from_value(json).unwrap();
     assert_eq!(restored.strings(), problem.strings());
@@ -163,10 +144,7 @@ fn test_lcs_serialization() {
 
 #[test]
 fn test_lcs_empty_string_in_input() {
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![],
-        vec![b'A', b'B', b'C'],
-    ]);
+    let problem = LongestCommonSubsequence::new(vec![vec![], vec![b'A', b'B', b'C']]);
     assert_eq!(problem.dims(), Vec::<usize>::new());
     assert!(problem.evaluate(&[]).is_valid());
     assert_eq!(problem.evaluate(&[]).unwrap(), 0);

@@ -16,5 +16,8 @@ pub use graph::{
     MaximumIndependentSet, MaximumMatching, MinimumDominatingSet, MinimumFeedbackVertexSet,
     MinimumVertexCover, SpinGlass, TravelingSalesman,
 };
-pub use misc::{BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop, SubsetSum};
+pub use misc::{
+    BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop,
+    SequencingWithReleaseTimesAndDeadlines, SubsetSum,
+};
 pub use set::{MaximumSetPacking, MinimumSetCovering};

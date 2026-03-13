@@ -73,9 +73,13 @@ pub fn run() {
 
     let source_variant = variant_to_map(LongestCommonSubsequence::variant());
     let target_variant = variant_to_map(ILP::<bool>::variant());
-    let overhead =
-        lookup_overhead("LongestCommonSubsequence", &source_variant, "ILP", &target_variant)
-            .expect("LCS -> ILP overhead not found");
+    let overhead = lookup_overhead(
+        "LongestCommonSubsequence",
+        &source_variant,
+        "ILP",
+        &target_variant,
+    )
+    .expect("LCS -> ILP overhead not found");
 
     let data = ReductionData {
         source: ProblemSide {

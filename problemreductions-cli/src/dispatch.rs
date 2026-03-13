@@ -1,6 +1,9 @@
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
-use problemreductions::models::misc::{BinPacking, Knapsack, LongestCommonSubsequence, SubsetSum};
+use problemreductions::models::misc::{
+    BinPacking, Knapsack, LongestCommonSubsequence, SequencingWithReleaseTimesAndDeadlines,
+    SubsetSum,
+};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
@@ -249,6 +252,9 @@ pub fn load_problem(
         "LongestCommonSubsequence" => deser_opt::<LongestCommonSubsequence>(data),
         "MinimumFeedbackVertexSet" => deser_opt::<MinimumFeedbackVertexSet<i32>>(data),
         "SubsetSum" => deser_sat::<SubsetSum>(data),
+        "SequencingWithReleaseTimesAndDeadlines" => {
+            deser_sat::<SequencingWithReleaseTimesAndDeadlines>(data)
+        }
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
@@ -313,6 +319,9 @@ pub fn serialize_any_problem(
         "LongestCommonSubsequence" => try_ser::<LongestCommonSubsequence>(any),
         "MinimumFeedbackVertexSet" => try_ser::<MinimumFeedbackVertexSet<i32>>(any),
         "SubsetSum" => try_ser::<SubsetSum>(any),
+        "SequencingWithReleaseTimesAndDeadlines" => {
+            try_ser::<SequencingWithReleaseTimesAndDeadlines>(any)
+        }
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }

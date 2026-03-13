@@ -336,6 +336,15 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Task processing times for scheduling problems (comma-separated, e.g., "3,2,4")
+    #[arg(long)]
+    pub lengths: Option<String>,
+    /// Task release times for scheduling problems (comma-separated, e.g., "0,1,5")
+    #[arg(long)]
+    pub release_times: Option<String>,
+    /// Task deadlines for scheduling problems (comma-separated, e.g., "5,6,10")
+    #[arg(long)]
+    pub deadlines: Option<String>,
 }
 
 #[derive(clap::Args)]

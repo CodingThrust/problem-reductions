@@ -9,8 +9,7 @@ fn test_lcs_to_ilp_issue_example() {
         vec![b'A', b'B', b'A', b'C'],
         vec![b'B', b'A', b'C', b'A'],
     ]);
-    let reduction: ReductionLCSToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionLCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // 6 match pairs as described in the issue
@@ -45,8 +44,7 @@ fn test_lcs_to_ilp_closed_loop() {
     let bf_value = bf_metric.unwrap();
 
     // ILP optimal
-    let reduction: ReductionLCSToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionLCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -66,12 +64,9 @@ fn test_lcs_to_ilp_closed_loop() {
 #[test]
 fn test_lcs_to_ilp_identical_strings() {
     // LCS of identical strings = the string itself
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B', b'C'],
-        vec![b'A', b'B', b'C'],
-    ]);
-    let reduction: ReductionLCSToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem =
+        LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'C'], vec![b'A', b'B', b'C']]);
+    let reduction: ReductionLCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -85,12 +80,8 @@ fn test_lcs_to_ilp_identical_strings() {
 
 #[test]
 fn test_lcs_to_ilp_no_common_chars() {
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B'],
-        vec![b'C', b'D'],
-    ]);
-    let reduction: ReductionLCSToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = LongestCommonSubsequence::new(vec![vec![b'A', b'B'], vec![b'C', b'D']]);
+    let reduction: ReductionLCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // No match pairs → 0 variables
@@ -108,12 +99,8 @@ fn test_lcs_to_ilp_no_common_chars() {
 #[test]
 fn test_lcs_to_ilp_single_char_alphabet() {
     // All same chars → LCS = min length
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'A', b'A'],
-        vec![b'A', b'A'],
-    ]);
-    let reduction: ReductionLCSToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = LongestCommonSubsequence::new(vec![vec![b'A', b'A', b'A'], vec![b'A', b'A']]);
+    let reduction: ReductionLCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -128,10 +115,8 @@ fn test_lcs_to_ilp_single_char_alphabet() {
 #[test]
 fn test_lcs_to_ilp_asymmetric_lengths() {
     // s1 = "AB", s2 = "AABB"
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B'],
-        vec![b'A', b'A', b'B', b'B'],
-    ]);
+    let problem =
+        LongestCommonSubsequence::new(vec![vec![b'A', b'B'], vec![b'A', b'A', b'B', b'B']]);
 
     // BF optimal
     let bf = BruteForce::new();
@@ -139,8 +124,7 @@ fn test_lcs_to_ilp_asymmetric_lengths() {
     let bf_value = problem.evaluate(&bf_solution).unwrap();
 
     // ILP optimal
-    let reduction: ReductionLCSToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let reduction: ReductionLCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).unwrap();
@@ -154,12 +138,8 @@ fn test_lcs_to_ilp_asymmetric_lengths() {
 #[test]
 fn test_lcs_to_ilp_constraint_structure() {
     // Verify basic ILP structure for a small example
-    let problem = LongestCommonSubsequence::new(vec![
-        vec![b'A', b'B'],
-        vec![b'B', b'A'],
-    ]);
-    let reduction: ReductionLCSToILP =
-        ReduceTo::<ILP<bool>>::reduce_to(&problem);
+    let problem = LongestCommonSubsequence::new(vec![vec![b'A', b'B'], vec![b'B', b'A']]);
+    let reduction: ReductionLCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // Match pairs: (0,1)=A, (1,0)=B → 2 variables
