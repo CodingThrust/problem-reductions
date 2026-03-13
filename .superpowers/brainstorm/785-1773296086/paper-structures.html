@@ -1,0 +1,69 @@
+<h2>Paper Structure: 3 Approaches</h2>
+<p class="subtitle">Full research paper (10-12 pages) for ICSE/ASE-class venue</p>
+
+<div class="options">
+  <div class="option" data-choice="a" onclick="toggleSelect(this)">
+    <div class="letter">A</div>
+    <div class="content">
+      <h3>System-First: "Here's What We Built"</h3>
+      <p style="margin-bottom:12px">Lead with the reduction graph as artifact, then explain the agentic pipeline that produced it.</p>
+      <div style="font-family:monospace;font-size:13px;line-height:1.6;background:#1a1a2e;padding:12px;border-radius:6px;color:#e0e0e0">
+        <div><span style="color:#64b5f6">1.</span> Introduction — NP-hard reductions matter, building them is tedious</div>
+        <div><span style="color:#64b5f6">2.</span> The Reduction Graph — 24 problems, 52 rules, QUBO hub, variant lattice</div>
+        <div><span style="color:#64b5f6">3.</span> System Design — skills, traits, overhead system, verification layers</div>
+        <div><span style="color:#64b5f6">4.</span> Card-Based Workflow — human moves cards, agent picks + executes</div>
+        <div><span style="color:#64b5f6">5.</span> Evaluation — git mining (success rates, error taxonomy) + 3 case studies</div>
+        <div><span style="color:#64b5f6">6.</span> Related Work — agentic coding, AI for reductions, formal verification</div>
+        <div><span style="color:#64b5f6">7.</span> Discussion + Conclusion</div>
+      </div>
+      <div class="pros-cons" style="margin-top:12px">
+        <div class="pros"><h4>Strengths</h4><ul><li>Artifact speaks for itself</li><li>Accessible to theory + SE audiences</li><li>Natural figure: the full reduction graph</li></ul></div>
+        <div class="cons"><h4>Risks</h4><ul><li>May read as "just a tool paper"</li><li>Methodology insight buried in section 4</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="b" onclick="toggleSelect(this)">
+    <div class="letter">B</div>
+    <div class="content">
+      <h3>Methodology-First: "Here's How Agents Should Code Math"</h3>
+      <p style="margin-bottom:12px">Lead with the insight that reductions are a Goldilocks domain, then present the skill-based methodology.</p>
+      <div style="font-family:monospace;font-size:13px;line-height:1.6;background:#1a1a2e;padding:12px;border-radius:6px;color:#e0e0e0">
+        <div><span style="color:#ff9800">1.</span> Introduction — Agents fail at long-horizon math tasks; why?</div>
+        <div><span style="color:#ff9800">2.</span> Why Reductions? — Goldilocks: self-contained, formally specified, verifiable</div>
+        <div><span style="color:#ff9800">3.</span> Skill-Based Decomposition — how skills encode domain knowledge as guardrails</div>
+        <div><span style="color:#ff9800">4.</span> Verification Stack — 5 layers: types, unit tests, round-trip, overhead, review</div>
+        <div><span style="color:#ff9800">5.</span> Card-Based Orchestration — graduated trust, human as curator</div>
+        <div><span style="color:#ff9800">6.</span> Evaluation — git mining + case studies + error taxonomy</div>
+        <div><span style="color:#ff9800">7.</span> The Artifact — reduction graph, QUBO hub, practical applications</div>
+        <div><span style="color:#ff9800">8.</span> Related Work + Conclusion</div>
+      </div>
+      <div class="pros-cons" style="margin-top:12px">
+        <div class="pros"><h4>Strengths</h4><ul><li>Clear research contribution</li><li>Generalizable lessons for other domains</li><li>Addresses the "verification gap" from survey</li></ul></div>
+        <div class="cons"><h4>Risks</h4><ul><li>Artifact feels like an afterthought</li><li>Harder for theory audience to engage</li></ul></div>
+      </div>
+    </div>
+  </div>
+
+  <div class="option" data-choice="c" onclick="toggleSelect(this)">
+    <div class="letter">C</div>
+    <div class="content">
+      <h3>Narrative: "From Issue to Theorem"</h3>
+      <p style="margin-bottom:12px">Open with a concrete example — one reduction flowing through the entire pipeline — then zoom out.</p>
+      <div style="font-family:monospace;font-size:13px;line-height:1.6;background:#1a1a2e;padding:12px;border-radius:6px;color:#e0e0e0">
+        <div><span style="color:#4caf50">1.</span> Introduction — Walk through SAT→MIS: issue → code → test → paper entry</div>
+        <div><span style="color:#4caf50">2.</span> Problem Setting — reduction rules, why they're hard, why they matter</div>
+        <div><span style="color:#4caf50">3.</span> System Overview — architecture, roles (human curator + agent executor)</div>
+        <div><span style="color:#4caf50">4.</span> The Pipeline — skills × verification, card-based orchestration</div>
+        <div><span style="color:#4caf50">5.</span> Two More Case Studies — simple (MVC→MIS) + complex (Factoring→Circuit)</div>
+        <div><span style="color:#4caf50">6.</span> Quantitative Results — git mining across all 52 reductions</div>
+        <div><span style="color:#4caf50">7.</span> Lessons & Limitations — what worked, what didn't, generalizability</div>
+        <div><span style="color:#4caf50">8.</span> Related Work + Conclusion</div>
+      </div>
+      <div class="pros-cons" style="margin-top:12px">
+        <div class="pros"><h4>Strengths</h4><ul><li>Most engaging to read</li><li>Case studies front and center</li><li>Easy to follow even for non-experts</li></ul></div>
+        <div class="cons"><h4>Risks</h4><ul><li>Methodology contribution less crisp</li><li>May feel anecdotal without strong quantitative backing</li></ul></div>
+      </div>
+    </div>
+  </div>
+</div>

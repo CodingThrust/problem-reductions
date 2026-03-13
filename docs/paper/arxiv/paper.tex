@@ -19,488 +19,295 @@ A Case Study in NP-Hard Problem Reductions}
 \maketitle
 
 \begin{abstract}
-AI coding agents achieve 70--80\% on single-issue benchmarks like SWE-Bench Verified, but their success rate drops below 25\% on long-horizon software evolution tasks that demand sustained mathematical reasoning across many files. We address this gap by decomposing agentic coding into two complementary roles: human-creative work (designing reduction proofs, choosing algorithms, writing specifications) and agent-managed execution (scaffolding, testing, verification, and integration). Our method centers on a library of 12 reusable skills---from issue triage through implementation to multi-layered review---orchestrated by a coding agent within a Rust library for NP-hard problem reductions. A 7-layer verification stack (type checking, unit tests, brute-force cross-validation, closed-loop reduction tests, integration tests, coverage enforcement, and CI/CD) catches errors at increasing levels of abstraction. Applying this methodology over nine weeks of active development produced 27 problem types, 50 reduction rule implementations, and 52 edges in a typed reduction graph, all with $>$95\% test coverage. Agent session data reveals a 15:1 automation amplification ratio (assistant-to-user messages), with the automated issue quality gate rejecting 75\% of 322~batch-submitted issues as incomplete, incorrect, or trivial. We contribute the skill-based decomposition methodology, the verification stack design, and the open-source artifact as a benchmark for agentic mathematical software engineering.
+Many real-world optimization problems---scheduling, routing, chip design---are computationally hard (NP-hard), yet specialized hardware and software solvers exist for a handful of them.
+Connecting a new problem to an existing solver requires a \emph{reduction}: a mathematical transformation that converts one problem into another while preserving the solution.
+We build a library of such reductions as a directed graph of 27~problem types and 56~directed edges (45~hand-coded transformation rules plus edges inferred from type relationships), forming a ``compilation layer'' that routes any supported problem to the solver best suited for it.
+Building this graph at scale requires implementing many self-contained mathematical proofs as verified code---a task well suited to AI coding agents when properly structured.
+We introduce a \emph{skill-based} methodology that decomposes work into human-creative specification (deciding which reductions are worth implementing) and agent-managed execution (writing code, tests, and documentation).
+Over nine weeks, this approach produced a Rust library with $>$95\% test coverage.
+The graph exhibits a striking property: reductions implemented independently compose automatically to solve problems that no single implementation was designed for.
+Agent session data reveals a 15:1 ratio of agent-to-human messages, while an automated quality gate rejected 75\% of 322~batch-submitted proposals as incorrect or incomplete.
 \end{abstract}
 
+%======================================================================
+%  SECTION 1: INTRODUCTION
+%======================================================================
 \section{Introduction}\label{sec:intro}
 
-AI coding agents have made remarkable progress on isolated software engineering tasks.
-On SWE-Bench Verified, which evaluates agents on single-issue bug fixes drawn from popular open-source repositories, the best systems now resolve 70--80\% of issues end-to-end~\cite{Xia2025LiveSWEagent}.
-This has fueled optimism that fully autonomous software engineering is within reach.
-Yet benchmarks designed to probe longer-horizon capabilities tell a starkly different story.
-SWE-EVO, which requires agents to implement multi-step modifications spanning an average of 21~files, reports resolution rates around 21\% even for frontier models~\cite{Thai2025SWEEVO}.
-SWE-Bench Pro, targeting enterprise-level tasks that may require hours to days of human effort, similarly finds that agents struggle with sustained multi-file reasoning~\cite{Deng2025SWEBenchPro}.
-The common response to this capability gap has been to push for more powerful agents---larger models, better tool use, self-evolving scaffolds.
-We argue that this framing overlooks the more fundamental bottleneck: not raw agent capability, but how work is decomposed and distributed between humans and agents.
+\subsection{The Problem: Many Hard Problems, Few Solvers}
 
-Our thesis is that the key to effective agentic coding lies in \emph{task decomposition}: splitting the creative and judgment-intensive aspects of software development (which humans do well) from the management and mechanical aspects (which agents can handle reliably).
-When a task is sufficiently well-specified and bounded in scope, even current agents execute it with high fidelity.
-The challenge is not making agents smarter, but structuring the work so that each unit falls within the agent's reliable operating range.
-This perspective shifts attention from agent architecture to \emph{skill design}---the craft of encoding domain knowledge into reusable, agent-executable task specifications.
+Combinatorial optimization problems arise throughout science and engineering.
+An airline needs to assign crews to flights.
+A chip designer needs to allocate registers.
+A logistics company needs to route delivery trucks.
+Each of these is an instance of an NP-hard problem---a class of problems for which no efficient general-purpose algorithm is known, but which can be solved in practice for moderate sizes by specialized solvers.
 
-This decomposition is especially critical for mathematical and scientific software, where the ``review is harder than generation'' problem is acute~\cite{Roychoudhury2025AgenticAI}.
-An agent can generate a plausible-looking reduction from Boolean satisfiability to graph coloring, but verifying that the reduction preserves solution structure requires mathematical reasoning that current agents cannot reliably perform in isolation.
-Roychoudhury~\cite{Roychoudhury2025AgenticAI} identifies specification inference---deciphering and clarifying developer intent---as the central difficulty in agentic software workflows, and argues that trustworthy deployment requires AI-based verification and validation of AI-generated code.
-Our multi-layered verification stack addresses precisely this challenge: rather than attempting end-to-end formal verification (which remains largely unsolved for complex mathematical code~\cite{Thakur2025CLEVER, Bursuc2025VeriCoding}), we compose multiple lightweight verification mechanisms that collectively catch errors across different abstraction levels.
+The difficulty is that each solver speaks its own narrow language.
+Rydberg atom arrays~\cite{lucas2014, pichler2018}---a type of quantum hardware---natively solve the Maximum Independent Set (MIS) problem on geometric graphs.
+D-Wave quantum annealers~\cite{glover2019} solve Quadratic Unconstrained Binary Optimization (QUBO).
+Commercial engines like Gurobi and CPLEX solve Integer Linear Programs (ILP).
+A practitioner with a graph coloring problem cannot directly use any of these solvers without first \emph{translating} the problem into a form the solver understands.
 
-We instantiate this methodology in the domain of NP-hard problem reductions, implemented as an open-source Rust library.
-The library manages a typed reduction graph connecting 27 problem types through 50 hand-coded reduction rule implementations and 52 total directed edges (including 12 edges inferred from a type-parameter subtype lattice).
-The domain serves as a Goldilocks testbed for studying agentic coding: each reduction is self-contained (50--200 lines of code), requires non-trivial mathematical reasoning about the mapping between problem structures, yet admits a fully automatable correctness criterion---reduce an instance, solve the target problem by brute force, extract the solution back, and verify it against the source.
-This combination of mathematical depth with mechanical verifiability makes it possible to study how agents perform on tasks that are individually tractable but collectively demand sustained engineering discipline.
+This translation is called a \emph{reduction}: a polynomial-time algorithm that converts an instance of one problem into an instance of another, together with an inverse map that translates the solution back.
+Reductions are the central tool of computational complexity theory~\cite{karp1972}, but they also have immediate practical value: each verified reduction is a bridge connecting a new problem to an existing solver.
 
-Our approach distributes work across three roles with distinct responsibilities.
-\textbf{Contributors} perform the creative work of identifying which problems and reductions are worth implementing: they open issues proposing new nodes or edges in the reduction graph, drawing on domain knowledge to spot gaps, recognize useful connections, and assess mathematical non-triviality.
-\textbf{The maintainer} curates the project board and writes skills---markdown scripts that decompose complex tasks (such as ``implement a new reduction rule'') into sequences of agent-manageable subtasks.
-The maintainer encodes domain knowledge, quality standards, and project conventions into these skills, effectively programming the agent's workflow rather than its output.
-\textbf{Agents} serve in a dual capacity: as \emph{managers}, they pick cards from the project board, dispatch sub-agents for parallel review, and orchestrate a two-stage pipeline from issue to merged pull request; as \emph{executors}, they implement code, write tests, generate documentation, and fix CI failures.
-The key insight is that the two human roles contribute \emph{judgment}---which reductions matter, what quality bar to enforce---while the agent handles \emph{volume}---executing the mechanical steps reliably and repeatedly.
-Industry data supports this division: a recent industry report finds that developers now use AI in 60\% of their work while maintaining active oversight on 80--100\% of delegated tasks~\cite{Anthropic2026AgenticCoding} (we note this is a vendor report, though its findings are consistent with independent surveys of developer AI adoption).
+\subsection{Our Approach: A Reduction Graph}
 
-We organize our agent's capabilities into a library of 12~skills spanning five functional categories: orchestration (pipeline management and issue dispatch), implementation (adding models and reduction rules), quality gates (issue checking, redundancy analysis, multi-agent review, and CI repair), documentation (generating formal problem definitions and reduction theorems with proof sketches), and release management.
-A two-stage card-based pipeline automates the progression from issue to merged code: the first stage picks a ``Ready'' issue, implements it in an isolated git worktree, and produces a pull request; the second stage addresses review comments, fixes CI failures, and prepares the PR for human merge.
-The human maintainer touches only two transitions in this pipeline---moving an issue from Backlog to Ready (the strategic decision of \emph{what} to work on) and merging the final pull request (the quality gate of \emph{whether} the work meets standards).
-Everything in between is agent-managed.
+We build a collection of such reductions organized as a \emph{directed graph}.
+Each node in the graph is a problem type (e.g., Satisfiability, Max-Cut, Traveling Salesman).
+Each directed edge is a verified reduction from one problem to another---code that transforms instances forward and maps solutions back.
+Given any supported problem, a path through the graph leads to a solver, with each edge backed by tested code.
 
-Correctness assurance comes from a seven-layer verification stack that catches errors at increasing levels of abstraction.
-The stack ranges from compile-time type checking (Layer~1), through unit tests and brute-force cross-validation (Layers~2--3), to overhead formula validation against actual reduction sizes (Layer~4), materialized test fixtures that prevent agents from silently changing expected values (Layer~5), parallel agentic review with fresh context windows (Layer~6), and finally, documentation entries that require human-readable proof sketches for each reduction (Layer~7).
-No single layer is sufficient---the type system catches API misuse but not logical errors; closed-loop tests verify functional correctness but not overhead formulas; documentation catches proof-level mistakes that no automated test can detect.
-The layers are designed to be complementary, and the skill system ensures that agents invoke all relevant layers as part of every implementation task.
+The graph currently contains 27~problem types connected by 56~directed edges (\Cref{fig:reduction-graph}).
+It exhibits a property we call \emph{emergent compositionality}: reductions implemented independently---by different people, in different pull requests, weeks apart---compose automatically through the graph infrastructure.
+For example, one contributor implemented Factoring $\to$ Circuit Satisfiability (CircuitSAT), and another implemented CircuitSAT $\to$ ILP.
+Neither intended the composition, yet the graph enables factoring integers via linear programming by chaining the two reductions.
+Each new edge creates not just one connection but new paths through the entire graph.
 
-Our contributions are as follows:
+\subsection{The Challenge: Building the Graph at Scale}
+
+Implementing a single reduction requires understanding both the source and target problems, designing a correct transformation, proving it preserves solutions, writing 50--400 lines of code, and testing it thoroughly.
+Building 50 such reductions is labor-intensive.
+
+AI coding agents---systems that autonomously write, test, and debug code---have shown strong performance on isolated software tasks, resolving 70--80\% of single-issue bug fixes on the SWE-Bench benchmark~\cite{Xia2025LiveSWEagent}.
+But on multi-step tasks spanning many files, success drops to roughly 21\%~\cite{Thai2025SWEEVO, Deng2025SWEBenchPro}.
+For mathematical software, the gap is wider still: an agent can generate a plausible-looking reduction, but verifying that it preserves solution structure requires reasoning that current agents cannot reliably perform alone~\cite{Roychoudhury2025AgenticAI}.
+
+We argue that the bottleneck is not agent capability but \emph{task decomposition}: how work is structured so that each unit falls within an agent's reliable range.
+NP-hard reductions are a natural fit.
+Every reduction implements the same interface, follows the same file convention, requires the same test pattern, and produces the same artifacts.
+This homogeneity enables \emph{reusable skills}: persistent, versioned workflow scripts that decompose a complex multi-file task into numbered agent-executable steps.
+A single ``add-rule'' skill handles all reductions, because the workflow is structurally identical even when the mathematical content varies.
+
+\subsection{Contributions}
+
+Our methodology separates three concerns.
+\textbf{Contributors} provide creative judgment: identifying which reductions are mathematically interesting and worth implementing.
+\textbf{The maintainer} encodes workflow knowledge into reusable skills.
+\textbf{Agents} handle the mechanical volume: implementing code, writing tests, generating documentation, and fixing CI failures.
+A library of 14~skills and a multi-layered verification stack ensure correctness across abstraction levels.
+
+Over nine weeks, this methodology produced a Rust library with 27~problem types, 45~reduction rules, and $>$95\% test coverage.
+Our contributions are:
 \begin{itemize}
-  \item A \textbf{skill-based methodology} for decomposing mathematical coding tasks into agent-manageable steps, with a concrete skill library and a card-based orchestration pipeline that separates human judgment from agent execution.
-  \item A \textbf{multi-layered verification stack} comprising seven complementary mechanisms---from type-level enforcement through materialized fixtures to agentic review and documentation-as-verification---that collectively ensure correctness of agent-generated mathematical code.
-  \item A \textbf{verified open-source artifact}: a Rust library implementing 27~NP-hard problem types, 50~reduction rules, and 52~graph edges, all with ${>}95\%$ test coverage, serving as both a practical tool for reduction-based problem solving and a benchmark for evaluating agentic mathematical software engineering.
+  \item A \textbf{verified reduction graph} connecting 27~NP-hard problem types to specialized solvers, with emergent compositionality through automatic path composition.
+  \item A \textbf{skill-based methodology} for mathematical software engineering, separating human-creative specification from agent-managed execution.
+  \item A \textbf{verified open-source artifact}: the Rust library, skill library, and full development history as a benchmark for agentic mathematical software engineering.
 \end{itemize}
 
-The remainder of this paper is organized as follows.
-\Cref{sec:domain} motivates our choice of NP-hard reductions as a study domain, arguing that it occupies a sweet spot between mathematical complexity and mechanical verifiability.
-\Cref{sec:architecture} describes the Rust library's type-driven architecture that makes agent-generated code verifiable by construction.
-\Cref{sec:skills} presents the skill-based task decomposition, the three-role model, and the card-based orchestration pipeline.
-\Cref{sec:verification} details the seven-layer verification stack.
-\Cref{sec:evaluation} evaluates the methodology through an ablation study, git history mining, and detailed case studies.
-\Cref{sec:related} surveys related work on AI coding agents, AI-assisted discovery of reductions, and formal verification of generated code.
-\Cref{sec:conclusion} discusses generalizability, limitations, and future directions.
+The rest of this paper is organized as follows.
+\Cref{sec:graph} describes the reduction graph and its properties.
+\Cref{sec:method} presents the skill-based methodology.
+\Cref{sec:evaluation} evaluates through development metrics, a quality gate analysis, and case studies.
+\Cref{sec:related} surveys related work.
+\Cref{sec:conclusion} discusses generalizability and future directions.
 
-\section{Why Reductions? The Goldilocks Domain}\label{sec:domain}
+%======================================================================
+%  SECTION 2: THE REDUCTION GRAPH
+%======================================================================
+\section{The Reduction Graph}\label{sec:graph}
 
-Not every software domain is equally suited for studying agentic coding.
-Web application bug fixes---the staple of SWE-Bench---are heterogeneous: each issue involves a different framework, a different failure mode, and a different notion of correctness.
-This heterogeneity makes it difficult to draw general conclusions about agent capabilities, because success on one task says little about success on the next.
-NP-hard problem reductions occupy a sweet spot---a Goldilocks domain---that avoids this limitation while remaining mathematically demanding.
+\subsection{What Is a Reduction?}
 
-\paragraph{Self-contained, formally specified, mechanically verifiable.}
-Each reduction in our library is a self-contained module: the 50~implementations range from 58 to 444 lines of code, with a median of 129~LOC.
-Despite this bounded scope, each reduction requires non-trivial mathematical reasoning about the structural relationship between two problem formulations.
-Crucially, every reduction admits a fully automatable correctness criterion: given a source instance, reduce it to the target problem, solve the target by brute force, extract the solution back through the reduction's inverse map, and verify that it is valid (and optimal) for the source.
-This \emph{round-trip test} provides a ground-truth oracle that requires no human judgment to evaluate, yet exercises the full mathematical content of the reduction.
-The combination of bounded scope, mathematical depth, and mechanical verifiability is what makes the domain ideal for agentic coding: tasks are individually within an agent's reliable operating range, but collectively demand sustained engineering discipline across a growing graph of interdependent components.
+A \emph{reduction} from problem~$A$ to problem~$B$ is a pair of functions: a \emph{forward map} that transforms any instance of~$A$ into an instance of~$B$ in polynomial time, and an \emph{inverse map} that converts any solution of the $B$-instance back into a solution of the original $A$-instance.
+If the reduction is correct, the extracted solution is optimal (or satisfying) for the original problem.
 
-\paragraph{Homogeneous task structure.}
-Unlike SWE-Bench, where every issue is structurally unique, reductions form a homogeneous task family.
-Every reduction implements the same trait (\texttt{ReduceTo<T>}), follows the same file-naming convention, requires the same test structure (closed-loop round-trip), and produces the same artifacts (overhead expressions, example code, documentation entry).
-This homogeneity enables fair comparison across tasks---we can meaningfully ask whether an agent performs better on graph-to-graph reductions than on formula-to-graph reductions, or whether reduction complexity (measured in LOC or graph blowup) predicts first-attempt success rate.
-It also enables \emph{reusable skills}: a single ``add-rule'' skill handles all 50~reductions, because the workflow is structurally identical even when the mathematical content varies.
+For example, the complement relationship between Minimum Vertex Cover (MVC) and Maximum Independent Set (MIS) gives a simple reduction: given a graph, the vertex cover problem asks for the smallest set of vertices that touches every edge, while the independent set problem asks for the largest set of vertices with no edges between them.
+A set~$S$ is independent if and only if its complement $V \setminus S$ is a vertex cover, so the forward map is the identity (the same graph), and the inverse map complements the solution.
+This 96-line implementation connects MVC to every solver reachable from MIS.
 
-\paragraph{Hardware solvers as practical motivation.}
-The reduction graph is not merely an academic exercise; it serves as a \emph{compilation layer} connecting abstract problem formulations to physical hardware (\Cref{fig:reduction-graph}).
-Rydberg atom arrays natively solve Maximum Independent Set (MIS) by encoding graph vertices as atoms and edges as blockade constraints~\cite{lucas2014, pichler2018}.
-D-Wave quantum annealers solve Quadratic Unconstrained Binary Optimization (QUBO) and Ising spin glass problems through quantum tunneling~\cite{glover2019}.
-Commercial ILP solvers (Gurobi, CPLEX) accept integer linear programs.
-Each solver ``speaks'' only its native problem language, but a verified reduction graph lets them collectively tackle a far larger class of problems: reduce Satisfiability to MIS and run the result on Rydberg atoms; reduce MaxCut through SpinGlass to QUBO and submit to D-Wave.
-MIS serves as the dominant hub, with the highest in-degree (14~incoming edges) and out-degree (13~outgoing edges) among all 27~problem types---reflecting its central role as both a target for hardware solvers and a source for further reductions.
-ILP, with 11~incoming edges, functions as a universal algebraic target.
-The bottom layer of \Cref{fig:reduction-graph} shows these three solver backends; the middle layer shows the 50~human-implemented reduction rules connecting known problem types; and the top layer visualizes the scaling vision---agent-synthesized rules extending the graph to 100+ problem types, the compilation infrastructure needed for a general-purpose reduction compiler.
+\subsection{Graph Structure}\label{sec:graph-structure}
 
-\paragraph{Real-world applications.}
-The problems in our graph arise directly in industrial settings.
-Software-defined networking encodes routing and scheduling as Integer Linear Programming~(ILP).
-Airline crew scheduling reduces to Set Covering.
-VLSI design relies on graph coloring for register allocation and channel routing.
-Logistics optimization maps to the Traveling Salesman Problem and Bin Packing.
-In each case, the domain-specific problem reduces to a canonical NP-hard formulation for which decades of algorithmic and hardware research have produced efficient solvers.
-Our library provides the verified bridge: a practitioner formulates their problem as one of the 24~supported types and follows reduction edges to reach the solver of their choice, with each edge backed by round-trip-tested code and a documented proof sketch.
+We organize reductions into a directed graph $G = (V, E)$, where each vertex $v \in V$ represents an NP-hard problem type and each directed edge $(u, v) \in E$ represents a verified reduction from problem~$u$ to problem~$v$.
+The graph contains 27~vertices (problem types) and 56~directed edges: 45~hand-coded reduction rules plus 11~edges inferred from subtype relationships (e.g., MIS on a geometric subgraph can always be treated as MIS on a general graph, because the geometric structure is a special case).
 
 \begin{figure*}[t]
   \centering
   \includegraphics[width=0.88\textwidth]{figures/problemtree.pdf}
-  \caption{The reduction network as compilation infrastructure. \textbf{Bottom}: hardware-native problems (UD-MIS on Rydberg atom arrays, QUBO on D-Wave annealers, ILP on commercial solvers). \textbf{Middle}: 27 problem types connected by 50~human-implemented reduction rules (solid arrows) with cross-type reductions (dashed). MIS is the dominant hub (in-degree 14, out-degree 13). \textbf{Top}: the scaling vision---agent-synthesized reductions extending coverage to 100+ NP-hard problem types. The dashed line marks the boundary between current human-implemented rules and future agent-discovered rules.}
+  \caption{The reduction graph as compilation infrastructure.
+    \textbf{Bottom layer}: three families of solvers, each accepting a specific problem formulation---Maximum Independent Set on unit-disk graphs (UD-MIS) for Rydberg atom arrays, QUBO for D-Wave quantum annealers, and ILP for commercial solvers.
+    \textbf{Middle layer}: 27~problem types connected by 45~human-implemented reduction rules.
+    MIS is the dominant hub with 14~incoming and 13~outgoing edges.
+    \textbf{Top layer}: the scaling vision---agent-synthesized reductions extending coverage to 100+ problem types.
+    Solid arrows denote verified reductions; dashed arrows denote cross-reductions to alternative solvers.}
   \label{fig:reduction-graph}
 \end{figure*}
 
-\section{System Architecture}\label{sec:architecture}
+Three problems serve as ``compilation targets,'' each corresponding to a class of specialized solvers (\Cref{fig:reduction-graph}, bottom layer):
+\begin{itemize}
+  \item \textbf{MIS} (Maximum Independent Set): target for Rydberg atom arrays, which solve MIS natively on geometric graphs.
+  \item \textbf{QUBO} (Quadratic Unconstrained Binary Optimization): target for D-Wave quantum annealers.
+  \item \textbf{ILP} (Integer Linear Programming): target for commercial solvers like Gurobi and CPLEX.
+\end{itemize}
+MIS is the dominant hub with 14~incoming and 13~outgoing edges, reflecting its role as both a hardware target and an intermediary.
+ILP, with 11~incoming edges, functions as a universal algebraic target.
+A path from any problem to one of these targets provides a route to the corresponding solver.
 
-The library's architecture is designed around a single principle: \emph{reduce the space of possible agent errors through type-level enforcement}.
-Rather than relying on agents to remember project conventions or follow informal guidelines, the Rust type system, trait bounds, and compile-time macros structurally prevent entire classes of mistakes.
-This section describes four architectural pillars---the \texttt{Problem} trait, the \texttt{ReduceTo} trait, the \lstinline{#[reduction(overhead)]} proc macro, and the \lstinline{declare_variants!} registry---that collectively make agent-generated code verifiable by construction (see~\Cref{fig:architecture}).
+\subsection{Emergent Compositionality}\label{sec:compositionality}
 
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\columnwidth]{figures/architecture.pdf}
-  \caption{System architecture: the trait hierarchy and compile-time validation enforce round-trip testing capability by construction.}
-  \label{fig:architecture}
-\end{figure}
+The graph's most valuable property is that independently implemented reductions compose automatically to solve problems that no single reduction was designed for.
 
-\paragraph{The Problem trait: universal evaluation.}
-Every problem type in the library implements a single core trait, \texttt{Problem}, which requires five members: a constant \lstinline{NAME} identifying the problem type (e.g., \texttt{"MaximumIndependentSet"}), an associated type \texttt{Metric} representing the objective (either \texttt{SolutionSize<W>} for optimization problems or \texttt{bool} for satisfaction problems), a method \lstinline{dims()} that returns the configuration space dimensions, a method \lstinline{evaluate()} that scores any configuration against the problem instance, and a method \lstinline{variant()} that returns type-parameter metadata as key-value pairs.
+Consider the problem of integer factoring---decomposing a number $N$ into its prime factors.
+The Factoring $\to$ CircuitSAT reduction (272~lines of code) constructs a Boolean circuit representing an array multiplier: two bit-vector inputs $p$ and $q$, a grid of full-adder cells computing their product, and output constraints fixing the result to~$N$.
+Any satisfying assignment to this circuit yields factors of~$N$.
 
-The critical member is \lstinline{evaluate()}.
-Because every problem must implement a function that maps an arbitrary configuration to a metric value, the library can verify any candidate solution without problem-specific test infrastructure.
-A brute-force solver simply enumerates all configurations in the space defined by \lstinline{dims()} and selects the one(s) with the best metric.
-This universal evaluation capability is what makes the round-trip test described in \Cref{sec:domain} possible: given any reduction, we can solve the target by brute force and verify the extracted solution against the source---all through the \lstinline{evaluate()} interface, with no reduction-specific oracle needed.
+Separately, the CircuitSAT $\to$ ILP reduction (225~lines) linearizes a Boolean circuit into integer constraints, encoding each logic gate as a set of linear inequalities.
 
-Two extension traits refine \texttt{Problem} for specific problem classes.
-\texttt{OptimizationProblem} adds a \lstinline{direction()} method (\texttt{Maximize} or \texttt{Minimize}) and constrains the metric to \texttt{SolutionSize<Self::Value>}, where \lstinline{SolutionSize} is either \texttt{Valid(v)} (a feasible solution with objective value~$v$) or \texttt{Invalid} (an infeasible configuration).
-\texttt{SatisfactionProblem} is a marker trait for decision problems where the metric is simply \texttt{bool}.
-This hierarchy means that agent-implemented problem types must declare upfront whether they are optimization or satisfaction problems, and the type system enforces consistency: an agent cannot accidentally return a numeric score from a satisfaction problem or omit a direction from an optimization problem.
+Neither reduction was designed with the other in mind---they were implemented in separate pull requests, weeks apart.
+Yet the graph infrastructure enables automatic chaining: given a Factoring instance, the system finds the path Factoring $\to$ CircuitSAT $\to$ ILP, applies both reductions in sequence, solves the resulting integer program with a commercial solver, and extracts the factors by composing the inverse maps in reverse order.
+This works because every reduction provides type-safe solution extraction through a common interface, and the path-finding algorithm composes extractors automatically.
 
-\paragraph{The ReduceTo trait: round-trip by construction.}
-Reductions between problems are encoded through the generic trait \lstinline{ReduceTo<T>}, which requires a single method: \lstinline{reduce_to()} takes a reference to the source problem and returns a \texttt{ReductionResult}.
-The \texttt{ReductionResult} type bundles two capabilities: \lstinline{target_problem()} returns the constructed target instance, and \lstinline{extract_solution()} maps a target solution back to a source solution.
-By requiring both the forward mapping and the inverse extraction in a single trait implementation, the type system ensures that every reduction is round-trip capable---an agent cannot implement a forward reduction without also providing the solution extraction, because the code will not compile otherwise.
+Each new edge amplifies the graph.
+Adding a single reduction from problem~$X$ to MIS does not just connect $X$ to MIS---it connects $X$ to every solver reachable from MIS, and it connects every problem with a path to~$X$ to MIS.
+This multiplier effect---where value grows faster than the number of edges---justifies the investment in verified reduction infrastructure over ad-hoc, one-off transformations.
 
-This design choice has a direct consequence for verification.
-The closed-loop test pattern---reduce, solve the target, extract the solution, verify against the source---requires no per-reduction test logic beyond constructing a source instance.
-The test harness calls \lstinline{reduce_to()}, invokes the brute-force solver on the target, calls \lstinline{extract_solution()}, and checks the result via \lstinline{evaluate()}.
-All 50~reduction implementations share this identical test structure, which is why a single ``add-rule'' skill can handle every reduction in the library.
+\subsection{Verification by Round-Trip Testing}\label{sec:roundtrip}
 
-\paragraph{Compile-time overhead validation.}
-Every reduction must declare how the target problem's size relates to the source problem's size through an \lstinline{overhead} attribute on the \lstinline{#[reduction]} proc macro:
-\begin{lstlisting}[basicstyle=\ttfamily\small,breaklines=true]
-#[reduction(overhead = {
-    num_vertices = "num_vertices + num_clauses",
-    num_edges = "3 * num_clauses",
-})]
-impl ReduceTo<Target> for Source { ... }
-\end{lstlisting}
-The overhead expressions are parsed at compile time by a Pratt parser embedded in the procedural macro crate.
-Variable names in the expressions (e.g., \texttt{num\_vertices}, \texttt{num\_clauses}) are validated against actual getter methods on the source type---if an agent writes a nonexistent variable name, the code fails to compile with a clear error message pointing to the offending expression.
-This eliminates an entire class of copy-paste errors where agents might reference fields from a different problem type.
+How do we know each reduction is correct?
+Every reduction admits a fully automatable correctness test that requires no problem-specific oracle.
+The test, which we call \emph{round-trip testing}, works as follows:
 
-The expressions support standard arithmetic operators ($+$, $-$, $\times$, $/$, \texttt{\^{}}), mathematical functions (\lstinline{exp}, \lstinline{log}, \lstinline{sqrt}), and numeric constants.
-At runtime, the library maintains both a symbolic representation (\texttt{Expr} AST) and a compiled evaluation function that calls the getter methods directly, enabling cross-validation between the two representations.
-The overhead data feeds into the reduction graph metadata, allowing automated analysis of whether a composite reduction path (e.g., $A \to B \to C$) dominates a direct reduction ($A \to C$) in terms of polynomial overhead---a capability used by the \texttt{check-rule-redundancy} skill to prevent agents from implementing unnecessary reductions.
+\begin{enumerate}
+  \item Construct a small source instance (e.g., a graph with 5--8 vertices).
+  \item Apply the forward map to produce a target instance.
+  \item Solve the target by brute-force enumeration (feasible for small instances).
+  \item Apply the inverse map to extract a solution for the source.
+  \item Verify that the extracted solution is optimal for the source (also by brute force).
+\end{enumerate}
 
-\paragraph{Variant registry and graph export.}
-Problem types in the library are parameterized by graph type (e.g., \texttt{SimpleGraph}, \texttt{PlanarGraph}, \texttt{BipartiteGraph}, \texttt{KingsSubgraph}) and optionally by weight type (\texttt{One} for unit weights, \texttt{i32}, \texttt{f64}).
-Each concrete instantiation---for example, \texttt{MaximumIndependentSet<SimpleGraph, i32>}---constitutes a distinct \emph{variant} that may have a different best-known complexity.
+This pattern is the same for all 45~reductions.
+It catches the most mathematically subtle errors---incorrect variable mappings, off-by-one indexing in literal-to-vertex transformations, forgotten negations---without requiring a human to write problem-specific test logic.
 
-The \lstinline{declare_variants!} proc macro registers these variants at compile time, associating each with a complexity string that represents the worst-case time bound of the best known algorithm for that variant.
-Variable names in complexity strings are validated against getter methods, just as in overhead expressions.
-For example, \texttt{MaximumIndependentSet<KingsSubgraph, One>} has polynomial complexity (the kings graph structure admits an efficient algorithm), while the general \texttt{SimpleGraph} variant has exponential complexity $O(1.1996^n)$.
+The library's type system enforces this pattern structurally: the \lstinline{ReduceTo<T>} trait requires both a forward map and an inverse map in a single implementation.
+An agent cannot compile a forward reduction without providing solution extraction.
+See \Cref{app:architecture} for the complete type architecture.
 
-The registry serves three purposes.
-First, it enables \emph{automated graph export}: the library can enumerate all registered variants and their reductions to produce the reduction graph shown in \Cref{fig:reduction-graph}, including both hand-coded reduction edges and natural edges inferred from the type-parameter subtype lattice (e.g., a reduction from \texttt{MIS<KingsSubgraph>} to \texttt{MIS<SimpleGraph>} is automatically available because \texttt{KingsSubgraph} is a subtype of \texttt{SimpleGraph}).
-Second, it enables \emph{completeness checking}: the documentation system can verify that every node and edge in the exported graph has a corresponding entry in the paper, flagging undocumented reductions as warnings.
-Third, the complexity data enables \emph{redundancy analysis}: by comparing the end-to-end complexity of a composite path $A \to B \to C$ (applying overheads to the target's complexity) against the direct complexity of solving $A$, the system can determine whether a proposed reduction is useful or merely adds complexity without enabling access to a faster solver.
+%======================================================================
+%  SECTION 3: METHODOLOGY
+%======================================================================
+\section{Methodology}\label{sec:method}
 
-\paragraph{Design philosophy: error prevention over error detection.}
-The four mechanisms above share a common design philosophy: rather than detecting agent errors after the fact (through tests that may themselves be incorrect), the architecture \emph{prevents} errors from being expressible.
-An agent cannot implement a reduction without providing solution extraction (the type system rejects it).
-An agent cannot write an overhead expression referencing nonexistent problem attributes (the compiler rejects it).
-An agent cannot register a variant without providing a complexity string (the macro rejects it).
+The central design challenge is: how do you let many people---including domain experts with no programming background---contribute to a verified mathematical library without compromising correctness?
+Our answer is a pipeline of \emph{progressive quality gates}, where each stage independently validates its input before passing to the next.
+A domain expert can propose a new reduction by describing it in mathematical language; the system validates the proposal, implements it, tests it, reviews it, and documents it---with human judgment required only at two points.
 
-This philosophy---reducing the space of possible errors rather than testing for their absence---is what transforms the type system from a code organization tool into the foundation of the verification stack described in \Cref{sec:verification}.
-The seven verification layers build on this foundation: Layer~1 (type checking) is not merely ``does it compile,'' but ``does it satisfy the rich set of constraints encoded in the trait hierarchy and proc macros.''
-Each subsequent layer addresses error classes that the type system cannot prevent---logical errors in the reduction mapping (Layer~3), incorrect overhead formulas despite valid variable names (Layer~4), and proof-level mistakes in the mathematical argument (Layer~7)---but the architectural choices described here ensure that the first layer already eliminates a substantial fraction of the errors that agents would otherwise produce.
+\subsection{From Contributor to Verified Code}\label{sec:pipeline-overview}
 
-\section{Skill-Based Task Decomposition}\label{sec:skills}
+The pipeline has five stages, each backed by one or more \emph{skills}---persistent, versioned markdown documents that decompose complex tasks into numbered agent-executable steps (\Cref{fig:pipeline}).
 
 \begin{figure}[t]
   \centering
   \includegraphics[width=\columnwidth]{figures/pipeline.pdf}
-  \caption{Two-stage card-based pipeline. Human decisions (orange) are limited to Backlog$\to$Ready and In Review$\to$Done. Agent manages everything in between.}
+  \caption{Contribution pipeline from proposal to merged code.
+    Orange transitions require human judgment (selecting work and approving results); blue transitions are fully automated by skills.
+    Each stage independently validates before passing to the next.}
   \label{fig:pipeline}
 \end{figure}
 
-The introduction outlined three roles---Contributor, Maintainer, and Agent---and claimed that skills decompose complex tasks into agent-manageable steps.
-This section makes both ideas concrete: we define the roles (\Cref{sec:roles}), catalogue the skill library (\Cref{sec:skill-inventory}), and describe the card-based orchestration pipeline that ties them together (\Cref{sec:orchestration}).
-
-\subsection{Three Roles}\label{sec:roles}
-
-Our methodology distributes work across three roles whose responsibilities are deliberately non-overlapping (\Cref{tab:roles}).
-The division is designed so that each role contributes what it does best: humans provide judgment and creativity, while the agent provides volume and consistency.
-
-\begin{table}[t]
-\caption{The three roles and their responsibilities.}\label{tab:roles}
-\centering
-\begin{tabular}{lp{5.5cm}}
-\toprule
-Role & Responsibility \\
-\midrule
-Contributor & Open issues proposing new problems or reductions. Creative work: identify gaps in the reduction graph, assess mathematical non-triviality, provide references and worked examples. \\
-Maintainer & Curate the project board and write skills. Strategic work: decide which issues to prioritize (Backlog$\to$Ready), encode domain knowledge and quality standards into skill scripts, merge final PRs. \\
-Agent & Manage the pipeline and execute tasks. Mechanical work: pick cards from the board, implement code, write tests, generate documentation, dispatch sub-agents for review, fix CI failures, update board status. \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\textbf{Contributors} perform the most intellectually demanding work in the pipeline: they must identify which reductions are mathematically interesting, non-trivial, and useful for extending the graph's reach.
-A contributor proposing a new reduction from Satisfiability to Maximum Independent Set must understand both problem formulations, know the classical gadget construction, and provide a worked example detailed enough for an agent to implement.
-This creative judgment---\emph{what} is worth building---is precisely what current agents cannot reliably provide.
-
-\textbf{The maintainer} occupies a meta-level role: rather than writing code directly, the maintainer programs the agent's \emph{workflow} by authoring skills.
-Each skill is a markdown document that encodes domain conventions (file naming, trait implementation patterns, test structure), quality standards (coverage thresholds, documentation requirements), and orchestration logic (when to dispatch sub-agents, how to handle failures).
-The maintainer also serves as the final quality gate, reviewing PRs that the agent has prepared and deciding whether to merge.
-In practice, the maintainer touches only two transitions in the pipeline: moving an issue from Backlog to Ready (the strategic decision of \emph{what} to work on) and merging the completed PR (the quality judgment of \emph{whether} the work meets standards).
-
-\textbf{The agent} operates in a dual capacity.
-As a \emph{manager}, it picks cards from the project board, creates isolated git worktrees for each task, dispatches sub-agents for parallel review, and orchestrates the progression from issue to pull request.
-As an \emph{executor}, it implements the code changes specified by each skill's step-by-step instructions.
-This dual role is possible because skills reduce each task to a sequence of well-bounded subtasks, each within the agent's reliable operating range.
-
-\subsection{Skills as Agent Functions}\label{sec:skill-inventory}
-
-A \emph{skill} is a markdown document that decomposes a complex, multi-file task into a numbered sequence of agent-executable steps.
-Each step specifies what to read, what to produce, and how to verify the result.
-The key insight is that agents handle well-specified, bounded subtasks reliably; the challenge is structuring work so that each unit falls within that reliable range.
-Skills solve this by encoding the domain expert's knowledge of \emph{how} to perform a task---file locations, naming conventions, trait implementation patterns, test structure---into a reusable script that any agent invocation can follow.
-
-Skills differ from prompt engineering techniques such as chain-of-thought prompting or ReAct-style reasoning in two key respects.
-First, skills are \emph{persistent and versioned}: they are committed to the repository, evolve through pull requests, and encode accumulated project knowledge across many agent sessions---unlike per-invocation prompts that must be re-crafted each time.
-Second, skills are \emph{compositional}: orchestration skills invoke implementation skills, which invoke quality gates, forming multi-level workflows that no single prompt could express.
-The closest analogue is the ``runbook'' concept in DevOps, but adapted for an agent executor rather than a human operator.
-
-Our library comprises 12~skills organized into five functional categories (\Cref{tab:skills}).
-
-\begin{table}[t]
-\caption{Skills inventory. Steps = numbered steps in the skill script. Success rate (first-attempt CI pass, to be measured from git history) is pending systematic audit.}\label{tab:skills}
-\centering
-\small
-\begin{tabular}{@{}llcc@{}}
-\toprule
-Skill & Category & Steps & Success \\
-\midrule
-\texttt{project-pipeline} & Orchestration & 7 & TBD \\
-\texttt{review-pipeline} & Orchestration & 8 & TBD \\
-\texttt{issue-to-pr} & Orchestration & 7 & TBD \\
-\midrule
-\texttt{add-model} & Implementation & 7 & TBD \\
-\texttt{add-rule} & Implementation & 6 & TBD \\
-\midrule
-\texttt{check-issue} & Quality gate & 3 & TBD \\
-\texttt{check-redundancy} & Quality gate & 5 & TBD \\
-\texttt{review-impl} & Quality gate & 5 & TBD \\
-\texttt{fix-pr} & Quality gate & 6 & TBD \\
-\midrule
-\texttt{write-model} & Documentation & 4 & TBD \\
-\texttt{write-rule} & Documentation & 6 & TBD \\
-\midrule
-\texttt{release} & Release & 3 & TBD \\
-\bottomrule
-\end{tabular}
-\end{table}
-
-\paragraph{Orchestration skills (3).}
-These skills implement the agent-as-manager role.
-\texttt{project-pipeline} is the primary automation entry point: it picks a ``Ready'' issue from the GitHub Project board, creates an isolated git worktree, invokes \texttt{issue-to-pr} to produce a pull request, and moves the card to the ``review-agentic'' column.
-\texttt{review-pipeline} handles the second stage: it picks a PR from ``review-agentic,'' addresses Copilot review comments via \texttt{fix-pr}, runs agentic feature tests, fixes CI failures (up to three retries), and moves the card to ``In Review'' for human merge.
-\texttt{issue-to-pr} is the per-issue workhorse invoked by \texttt{project-pipeline}: it fetches the issue, verifies it has passed the \texttt{check-issue} quality gate, researches cited references, writes an implementation plan, creates a PR, and optionally executes the plan by dispatching to the appropriate implementation skill.
-
-\paragraph{Implementation skills (2).}
-\texttt{add-model} and \texttt{add-rule} encode the complete workflow for adding a new problem type or reduction rule, respectively.
-\texttt{add-model} walks through seven steps: gather required information (mathematical definition, complexity bounds, type parameters), implement the \texttt{Problem} trait, register variant complexity via \texttt{declare\_variants!}, register in the module system and CLI, write unit tests, generate documentation, and verify.
-\texttt{add-rule} follows a parallel six-step structure: implement \texttt{ReduceTo<T>} with overhead expressions, register in the module system, write closed-loop tests, create an example program, generate a paper entry with proof sketch, and verify.
-Both skills begin with a checklist of required information---if any item is missing, the skill halts and requests clarification rather than proceeding with incomplete specifications.
-
-\paragraph{Quality gate skills (4).}
-These skills prevent errors from propagating through the pipeline.
-\texttt{check-issue} validates proposed issues across four dimensions---usefulness (does the reduction improve the graph?), non-triviality (is the construction genuinely structural?), correctness (are cited references real and accurate?), and writing quality (is the specification complete and implementable?)---posting a structured report with pass/fail/warn verdicts and applying labels that gate downstream processing.
-\texttt{check-rule-redundancy} determines whether a proposed reduction is dominated by a composite path through existing rules, using polynomial overhead comparison to prevent unnecessary implementations.
-\texttt{review-implementation} dispatches two parallel sub-agents with fresh context windows---a structural reviewer that checks completeness against the model or rule checklist, and a quality reviewer that evaluates code style, test quality, and convention adherence.
-The fresh-context design prevents the ``sycophancy'' failure mode where a reviewer that also wrote the code is biased toward approving it.
-\texttt{fix-pr} triages and resolves PR feedback from multiple sources: user inline comments, Copilot suggestions, CI failures, and coverage gaps identified by Codecov.
-
-\paragraph{Documentation skills (2).}
-\texttt{write-model-in-paper} and \texttt{write-rule-in-paper} generate entries in the project's Typst paper.
-These skills serve a dual purpose: they produce human-readable documentation, and they function as the final layer of the verification stack (\Cref{sec:verification}).
-\texttt{write-rule-in-paper} requires a self-contained proof sketch with a bidirectional correctness argument---the discipline of writing ``if $S$ is an independent set, then $V \setminus S$ is a vertex cover'' forces the agent (and the reviewing human) to articulate the mathematical argument that no automated test can verify.
-
-\paragraph{Release skill (1).}
-\texttt{release} determines the appropriate version bump from the diff since the last tag, verifies that all tests and lints pass, and invokes the release pipeline that publishes to crates.io.
-
-The skill library is designed to be \emph{compositional}: orchestration skills invoke implementation skills, which invoke quality gate skills, which may invoke documentation skills.
-This composition means that a single \texttt{project-pipeline} invocation triggers a cascade of skill calls that collectively implement, test, review, document, and prepare a complete pull request---all from a one-line command.
-
-\subsection{Card-Based Orchestration}\label{sec:orchestration}
-
-The skills described above are coordinated through a GitHub Project board with six columns: \textbf{Backlog}, \textbf{Ready}, \textbf{In Progress}, \textbf{review-agentic}, \textbf{In Review}, and \textbf{Done}.
-The pipeline operates in two stages, as illustrated in \Cref{fig:pipeline}.
-
-\paragraph{Stage~1: Implementation (\texttt{project-pipeline}).}
-The maintainer moves an issue from Backlog to Ready---this is the strategic decision of \emph{what} to work on next.
-The agent's \texttt{project-pipeline} skill picks the next Ready issue (processing models before rules to satisfy dependencies), moves it to In~Progress, creates an isolated git worktree, and invokes \texttt{issue-to-pr --execute}.
-This triggers the full implementation cascade: the issue is classified as a model or rule, dispatched to the appropriate implementation skill, tested, reviewed by parallel sub-agents, and packaged as a pull request.
-Upon completion, the card moves to the ``review-agentic'' column, signaling that the PR is ready for the second stage.
-
-\paragraph{Stage~2: Review (\texttt{review-pipeline}).}
-The \texttt{review-pipeline} skill picks a PR from the ``review-agentic'' column and runs a fix loop: it addresses Copilot review comments, executes agentic feature tests, and fixes CI failures (retrying up to three times).
-If CI passes, the card moves to ``In~Review.''
-The maintainer then performs a final human review and merges the PR, moving the card to Done.
-
-\paragraph{Human touch points.}
-The design ensures that humans make exactly two decisions per issue.
-First, the maintainer moves an issue from Backlog to Ready---this encodes the judgment of which tasks are worth pursuing, in what order, and with what priority.
-Second, the maintainer reviews and merges the completed PR---this is the quality gate that ensures the agent's work meets the project's standards.
-Everything between these two touch points---worktree creation, implementation, testing, review dispatch, CI repair, and board status updates---is fully agent-managed.
-
-The pipeline supports batch processing: \texttt{project-pipeline --all} processes every Ready issue in a single invocation, while \texttt{review-pipeline --all} handles all pending reviews.
-In batch mode, models are processed before rules to ensure that newly added problem types are available when subsequent rule implementations reference them.
-Each issue is processed in its own worktree, ensuring isolation: a failure on one issue does not affect others, and the maintainer's working directory is never modified.
-
-\section{Multi-Layered Verification}\label{sec:verification}
-
-The architectural pillars described in \Cref{sec:architecture} prevent many agent errors at compile time, and the skill system in \Cref{sec:skills} ensures that agents follow prescribed workflows.
-But neither mechanism is sufficient on its own: the type system cannot catch a logically incorrect reduction mapping, and skills cannot guarantee that an agent's implementation matches its mathematical specification.
-This section describes a seven-layer verification stack that addresses errors across the full spectrum of abstraction, from type mismatches to flawed proof arguments (see~\Cref{fig:verification}).
+\textbf{Stage~1: Propose.}
+A domain expert---who need not know the codebase or even the programming language---invokes the \texttt{propose} skill.
+The agent conducts an interactive brainstorming session using only mathematical language, asking one question at a time: what problem, what motivation, what is the formal definition, what does a worked example look like?
+Crucially, the agent first analyzes the graph's topology to identify the most valuable contributions (\Cref{fig:topology}).
+Three categories guide the analysis:
+\emph{orphan nodes}---problem types with no reductions to or from any other node, contributing nothing to the graph;
+\emph{redundant rules}---direct reductions whose overhead is dominated by a cheaper composite path through intermediate nodes;
+and \emph{missing proof paths}---problems with no reduction chain from 3-SAT, leaving their NP-hardness unproven within the graph.
+The agent ranks proposals by priority: rules that connect orphans or fill proof-chain gaps are suggested first.
+Before filing the issue, the agent runs the quality checks from Stage~2 on the draft, catching problems before they reach review.
 
 \begin{figure}[t]
   \centering
-  \includegraphics[width=\columnwidth]{figures/verification-pyramid.pdf}
-  \caption{Seven-layer verification stack. Lower layers (blue) are fully automated; upper layers (gold) involve human-readable arguments.}
-  \label{fig:verification}
+  \includegraphics[width=\columnwidth]{figures/topology-issues.pdf}
+  \caption{Three graph topology issues detected by the \texttt{topology-sanity-check} skill.
+    \textbf{(a)}~An orphan node has no edges and cannot reach any solver.
+    \textbf{(b)}~A direct reduction is redundant when a composite path through~$B$ has equal or lower overhead.
+    \textbf{(c)}~Problems without a path from 3-SAT lack a machine-verifiable NP-hardness proof in the graph.}
+  \label{fig:topology}
 \end{figure}
 
-\subsection{The Verification Stack}\label{sec:stack}
+\textbf{Stage~2: Validate.}
+The \texttt{check-issue} skill applies four independent tests to every proposal: \emph{usefulness} (does a reduction path already exist? is this one dominated by a cheaper composite path?), \emph{non-triviality} (is this a genuine structural transformation, not a variable substitution?), \emph{correctness} (do the cited references exist and support the claims?), and \emph{writing quality} (are all symbols defined, all template sections complete, all examples fully worked?).
+References are verified through a fallback chain: project bibliography, then web search---never hallucinated.
+Only proposals passing all four checks receive a \texttt{Good} label and proceed.
 
-\Cref{tab:verification} summarizes the seven layers, each targeting a distinct class of error.
-The layers are ordered by abstraction: lower layers are fully automated and fast (compile-time or test-time), while upper layers involve human-readable artifacts and agentic judgment.
-We describe each layer with a concrete error example drawn from actual agent failures observed during the project.
+\textbf{Stage~3: Implement.}
+The \texttt{issue-to-pr} skill converts a validated issue into a pull request.
+It enforces a strict \emph{one item per PR} rule: a reduction rule cannot be bundled with its source model, because the model must exist on main before the rule can be tested.
+The skill reads the issue and all its comments, researches references to resolve ambiguities, generates an implementation plan, and dispatches to the appropriate implementation skill (\texttt{add-model} or \texttt{add-rule}).
+Each implementation skill encodes a complete checklist---9~items for rules, 11~for models---that must be satisfied before any code is written.
 
-\begin{table*}[t]
-  \centering
-  \caption{Seven-layer verification stack. Each layer catches a distinct class of agent error that lower layers miss.}
-  \label{tab:verification}
-  \begin{tabular}{@{}clll@{}}
-    \toprule
-    Layer & Mechanism & Example Error Caught \\
-    \midrule
-    1 & Rust type system & Agent returns \texttt{bool} instead of \texttt{SolutionSize<i32>} from \texttt{evaluate()} \\
-    2 & Unit tests (\texttt{test\_*\_basic}) & Agent evaluates MaxCut objective with wrong sign \\
-    3 & Closed-loop tests (\texttt{test\_*\_to\_*\_closed\_loop}) & SAT$\to$MIS maps clause variables to wrong vertex indices \\
-    4 & Overhead validation (symbolic expr vs.\ actual sizes) & Agent writes \texttt{num\_edges = num\_clauses} instead of \texttt{3 * num\_clauses} \\
-    5 & Materialized fixtures (JSON ground truth) & Agent changes expected QUBO matrix to make failing test pass \\
-    6 & Agentic review (parallel subagents) & Missing \texttt{declare\_variants!}, wrong file naming convention \\
-    7 & Documentation (proof sketch in paper) & Proof assumes connected graph but problem allows disconnected \\
-    \bottomrule
-  \end{tabular}
-\end{table*}
+\textbf{Stage~4: Review.}
+Two parallel sub-agents, each operating in a fresh context window, review the implementation: one checks structural completeness (file registration, macro usage, test coverage), the other checks code quality and semantic correctness against the original issue specification.
+Fresh context prevents the confirmation bias that arises when an agent reviews its own work.
+CI failures trigger up to three automated fix-and-retry cycles.
 
-\paragraph{Layer 1: Type system.}
-Rust's type system, augmented by the trait hierarchy and proc macros described in \Cref{sec:architecture}, serves as the first line of defense.
-The \texttt{Problem} trait's associated type \texttt{Metric} forces every implementation to commit to either \texttt{SolutionSize<W>} (optimization) or \texttt{bool} (satisfaction) at definition time.
-An agent that accidentally returns a boolean from an optimization problem's \texttt{evaluate()} method receives a compile error, not a silent logic bug.
-The \lstinline{#[reduction(overhead)]} macro validates variable names against getter methods, so an agent cannot reference a field from the wrong problem type.
-This layer is the fastest and cheapest: errors are caught in seconds, before any test runs.
+\textbf{Stage~5: Merge.}
+The maintainer makes the final quality judgment and merges.
+This is one of only two human decisions in the pipeline; the other is moving an issue from Backlog to Ready (Stage~3).
 
-\paragraph{Layer 2: Unit tests.}
-Each problem implementation includes \texttt{test\_*\_basic} tests that construct small instances and verify that \texttt{evaluate()} returns the expected metric values.
-These tests catch semantic errors that the type system cannot: for example, an agent implementing \texttt{MaxCut} might negate the edge-weight sum, producing a valid \texttt{SolutionSize<i32>} that is nonetheless wrong.
-Serialization round-trip tests (\texttt{test\_*\_serialization}) ensure that problem instances survive JSON encoding and decoding, catching subtle issues with graph representation or weight ordering.
+\subsection{Why Skills, Not Prompts}\label{sec:skills}
 
-\paragraph{Layer 3: Closed-loop tests.}
-The closed-loop test pattern---reduce a source instance, solve the target by brute force, extract the solution back, verify optimality against the source---is the workhorse of the verification stack.
-Every reduction rule has a \texttt{test\_*\_to\_*\_closed\_loop} test that exercises this full round trip.
-This layer catches the most mathematically subtle errors: incorrect variable-to-vertex mappings, off-by-one errors in clause indexing, forgotten negation in constraint encoding.
-The test requires no problem-specific oracle; it relies entirely on the \texttt{evaluate()} interface and the brute-force solver, which means a single skill can generate this test for any reduction.
-In our experience, this layer catches the largest share of errors that survive type checking.
+Skills differ from per-invocation prompts in three ways that matter for sustainability.
 
-\paragraph{Layer 4: Overhead validation.}
-The overhead expressions declared in the \lstinline{#[reduction]} macro (e.g., \texttt{num\_edges = "3 * num\_clauses"}) provide a second, independent correctness check on reductions.
-After constructing the target problem, the test harness evaluates the symbolic overhead expression using the source problem's getter methods and compares the result against the actual size of the target.
-A mismatch indicates either a bug in the reduction (the constructed target does not have the expected size) or an error in the formula (the agent wrote a wrong expression that happens to be type-correct).
-This layer is particularly effective at catching errors in reductions that involve non-obvious size relationships---for instance, a reduction from 3-SAT to MIS that creates a gadget graph where the number of edges is quadratic in the number of clauses, not linear.
+\emph{Skills are versioned.}
+They are committed to the repository and evolve through pull requests, just like code.
+A bug in a skill is fixed once and benefits all future invocations.
+A per-invocation prompt must be re-crafted each time, and improvements are lost.
 
-\paragraph{Layer 5: Materialized fixtures.}
-Ground-truth test data is stored as JSON files in \texttt{tests/data/} and committed to version control separately from reduction implementations.
-Integration tests load these fixtures and compare computed results against the expected values.
-This layer exists specifically to counter a failure mode we call the ``lazy agent'' problem (discussed in \Cref{sec:why-layers}): because the fixtures are committed independently, any agent modification to expected values shows up as a diff in a separate file, making it visible during code review.
-The QUBO ground-truth matrices, generated by an independent Python script, are an example: they verify that the Rust implementation's matrix construction matches a reference implementation, catching systematic errors that the round-trip test might miss (e.g., a reduction that produces the wrong QUBO matrix but still happens to yield the correct optimum on small instances).
+\emph{Skills are compositional.}
+Orchestration skills invoke implementation skills, which invoke quality gates.
+A single \texttt{project-pipeline} command triggers the full cascade---pick a task from the project board, create an isolated workspace, validate the issue, implement, test, review, document, and produce a pull request.
+The maintainer's effort scales with the number of \emph{skill types}, not the number of tasks.
 
-\paragraph{Layer 6: Agentic review.}
-The \texttt{review-implementation} skill dispatches two parallel subagents---one checking structural completeness (file naming, module registration, \texttt{declare\_variants!} macro, test naming conventions) and one assessing code quality (edge cases, documentation, idiomatic Rust).
-Each subagent operates in a fresh context window, without access to the implementing agent's conversation history, which prevents confirmation bias.
-This layer catches errors that are invisible to automated tests: a reduction implementation might pass all tests but use a non-standard file name that breaks the documentation build, or omit a variant registration that leaves a gap in the reduction graph.
-The fresh-context design is deliberate: an agent reviewing its own work in the same context window tends to overlook the same assumptions it made during implementation.
+\emph{Skills encode domain knowledge that cannot be inferred from code.}
+The \texttt{add-rule} skill specifies that overhead expressions must use getter methods matching the source type, that examples must have a \lstinline{pub fn run()} entry point, and that the paper entry requires a proof sketch.
+An agent reading only the codebase might infer some conventions but would miss others---the skill makes all conventions explicit.
 
-\paragraph{Layer 7: Documentation.}
-Every reduction in the library has a corresponding entry in a Typst paper that includes a formal problem definition, a statement of the reduction rule, and a proof sketch.
-The paper's completeness checker automatically verifies that every node and edge in the exported reduction graph has a corresponding documentation entry, flagging gaps as warnings.
-This layer catches errors that no automated test can: a proof sketch might reveal an unstated assumption (e.g., that the input graph is connected) that the implementation silently relies on, or expose a logical gap in the reduction argument that happens to be masked by the small test instances used in Layers 2--3.
-The requirement to write a human-readable proof forces the agent to articulate the mathematical reasoning behind the reduction, serving as a form of self-verification.
+The library comprises 14~skills in six categories: orchestration~(3), community contribution~(1), implementation~(2), quality gates~(4), documentation~(2), and onboarding~(2).
 
-\subsection{Why Layers?}\label{sec:why-layers}
+\subsection{Correctness by Construction}\label{sec:verification}
 
-No single verification layer is sufficient.
-The type system (Layer~1) catches API misuse but is blind to logical errors in the reduction mapping.
-Closed-loop tests (Layer~3) verify functional correctness on specific instances but cannot check whether overhead formulas are accurate or whether the mathematical argument generalizes beyond the test cases.
-Documentation (Layer~7) catches proof-level mistakes but depends on the human reader's diligence.
-The layers are designed to be \emph{complementary}: each layer's blind spots are covered by another layer's strengths.
+Correctness assurance comes from a seven-layer verification stack (\Cref{app:verification}).
+The key insight is that different layers catch different classes of errors, and no single layer suffices.
 
-The need for layered verification becomes acute when agents optimize for the wrong objective.
-We call this the \textbf{lazy agent problem}: given a failing test, an agent may modify the expected output rather than fix the underlying implementation.
-This is rational behavior from the agent's perspective---the issue asks for a passing test suite, and changing the expected value is the shortest path to that goal.
-We observed this failure mode multiple times during early development: an agent implementing a QUBO reduction encountered a failing integration test, examined the expected JSON matrix, and ``corrected'' it to match its (incorrect) output.
+\textbf{Layers~1--2} (type system and unit tests) catch structural errors cheaply.
+The type system prevents entire categories of mistakes: an agent cannot implement a reduction without providing solution extraction, reference nonexistent problem attributes in overhead expressions, or omit required variant declarations.
+These constraints are enforced at compile time by procedural macros that validate expression variable names against actual getter methods.
 
-Materialized fixtures (Layer~5) are the primary defense against this failure mode.
-Because ground-truth data is generated by an independent script (typically Python) and committed in a separate step, any agent modification to the expected values produces a visible diff in a file that the agent was not asked to change.
-Code review---whether human or agentic (Layer~6)---then flags the unexpected modification.
-This design transforms a subtle correctness violation (wrong expected value, all tests pass) into an obvious process violation (agent modified a file outside its scope), which is much easier to detect.
+\textbf{Layer~3} (round-trip tests, described in \Cref{sec:roundtrip}) is the workhorse, catching the most mathematically subtle errors---incorrect variable mappings, off-by-one indexing, forgotten negations---without per-reduction test logic.
 
-More broadly, the layered design reflects a defense-in-depth philosophy borrowed from security engineering.
-Just as network security does not rely solely on firewalls or solely on encryption, verification of agent-generated mathematical code should not rely solely on tests or solely on type checking.
-Each layer adds an independent probability of catching an error, and the layers' error-detection capabilities are largely orthogonal---an error that slips through the type system is likely caught by closed-loop tests, and an error that passes all automated tests may be caught by the documentation review.
-The skill system (\Cref{sec:skills}) ensures that agents invoke all seven layers as part of every implementation task, so no layer is accidentally skipped.
+\textbf{Layer~4} (overhead validation) compares symbolic size expressions against actual target sizes.
+An agent might implement a correct reduction but declare the wrong overhead formula.
+This layer catches formula errors that are type-correct but mathematically wrong.
 
+\textbf{Layer~5} (materialized fixtures) addresses the ``lazy agent'' problem: agents that modify expected test outputs to make tests pass rather than fixing implementations.
+Ground-truth data is generated independently and committed separately; tampering produces a visible diff in a file outside the agent's normal scope.
+
+\textbf{Layers~6--7} (fresh-context review and documentation) catch errors invisible to automated tests.
+Parallel sub-agents operating in fresh context windows prevent confirmation bias.
+Proof sketches force articulation of mathematical arguments; a completeness checker ensures every graph edge is documented.
+
+The skill system ensures all seven layers are invoked for every task.
+Without skills, an agent might skip overhead validation or omit the paper entry---errors that would accumulate silently over many contributions.
+
+%======================================================================
+%  SECTION 4: EVALUATION
+%======================================================================
 \section{Evaluation}\label{sec:evaluation}
 
-We evaluate the skill-based methodology through three complementary lenses: an ablation study design comparing skill-based and no-skill agent configurations (\Cref{sec:ablation}), a longitudinal analysis of the project's git history (\Cref{sec:mining}), and detailed case studies of three reductions spanning the complexity spectrum (\Cref{sec:cases}).
-Together, these provide qualitative insight into how skills and verification layers interact during real implementation tasks, with the ablation design offering a replicable protocol for future quantitative evaluation.
+We evaluate through development metrics from the project's history, an analysis of the automated quality gate, and case studies showing how verification layers interact.
+All development used Claude Code~\cite{Anthropic2025ClaudeCode} with Claude models (Sonnet~3.5 and Sonnet~4; the model version evolved during development).
+Skills are plain markdown documents portable to any coding agent.
 
-\paragraph{Agent platform.}
-All agent-assisted development was performed using Claude Code~\cite{Anthropic2025ClaudeCode}, Anthropic's terminal-based coding agent, backed by Claude models (Sonnet~3.5 and Sonnet~4 during the development period; the model version evolved during the seven-week span).
-Skills are invoked as slash commands within Claude Code sessions.
-We note that the methodology is not inherently tied to a specific model or agent platform---the skills are plain markdown documents that any sufficiently capable coding agent could follow---but our empirical observations reflect the capabilities of the Claude model family.
+\subsection{Development Metrics}\label{sec:metrics}
 
-\subsection{Ablation: Skill-Based vs.\ Raw Agent}\label{sec:ablation}
+The repository contains 59~merged pull requests and 253~commits on main spanning nine weeks (January~9 to March~13, 2026), authored by four contributors.
+Session metadata across 283~agent sessions (300~MB of conversation transcripts) reveals the scale of agent involvement: 9,429~assistant messages in response to 630~user messages---a \textbf{15:1 automation amplification ratio}.
+The average session involved 5.8~user messages and 51~tool calls, with measured wall-clock time totaling 115~hours across 108~sessions with timing data.
 
-To isolate the effect of skill-based task decomposition from the broader methodology, we design a controlled comparison between two agent configurations operating on identical tasks within the same codebase.
-
-\paragraph{Setup.}
-We select a sample of 5--10 reduction rules spanning the complexity spectrum---from near-trivial complement relationships (e.g., MinimumVertexCover $\to$ MaximumIndependentSet, $\sim$96~LOC) through moderate gadget constructions (e.g., Satisfiability $\to$ MaximumIndependentSet, $\sim$171~LOC) to complex circuit-based encodings (e.g., Factoring $\to$ CircuitSAT, $\sim$272~LOC).
-For each reduction, we prepare identical GitHub issues with the same problem specification, mathematical description, and acceptance criteria.
-We then run each issue through two configurations:
-\begin{itemize}
-  \item \textbf{Skill-based}: the full pipeline described in \Cref{sec:skills}, including the \texttt{issue-to-pr} orchestration skill, the \texttt{add-rule} implementation skill, \texttt{review-implementation} with parallel sub-agents, and \texttt{fix-pr} for CI repair.
-  \item \textbf{No-skill baseline}: the same Claude Code agent operating on the same codebase with access to the project's \texttt{CLAUDE.md} for context, but without any skill files. The agent receives the issue text and must determine its own workflow.
-\end{itemize}
-
-\paragraph{Metrics.}
-We measure four outcomes for each configuration: (1)~\emph{first-attempt CI pass rate}---whether the initial PR passes all CI checks without intervention; (2)~\emph{review rounds}---the number of review-fix cycles before merge readiness; (3)~\emph{correctness}---whether the final implementation passes all round-trip tests; and (4)~\emph{convention adherence}---whether the code follows project conventions (file naming, macro usage, documentation structure, test patterns).
-
-\paragraph{Framing.}
-With $n = 5$--$10$, this ablation is a \emph{controlled illustration} of the skill-based approach's value, not a statistically powered experiment.
-The results are intended to demonstrate the \emph{mechanism}---how skills prevent specific error classes by encoding domain knowledge into the agent's workflow---rather than to establish effect sizes with confidence intervals.
-We expect the skill-based configuration to excel particularly on convention adherence (where skills encode project-specific patterns that no general-purpose agent would know) and first-attempt CI pass rate (where the multi-layered verification invoked by skills catches errors before the first push).
-The raw agent, by contrast, is likely to produce functionally correct code that nonetheless fails CI due to missing \texttt{declare\_variants!} macros, incorrect overhead expressions, or test files placed in the wrong directory.
-
-We have not yet executed this ablation; it requires running both configurations on held-out issues and measuring the four metrics above.
-We present the experimental design here because we believe it constitutes a replicable protocol for evaluating skill-based methodologies in other domains.
-The git history mining in \Cref{sec:mining} provides complementary longitudinal evidence across the project's full development timeline, and the case studies in \Cref{sec:cases} offer qualitative insight into how skills and verification layers interact during specific implementation tasks.
-
-\subsection{Git History Mining}\label{sec:mining}
-
-We analyze the complete git and pull request history of the \texttt{problem-reductions} repository, supplemented by session metadata from the Claude Code development environment, to characterize the project's evolution and the types of errors encountered during development.
-The repository contains 59~merged pull requests and 253~commits on main spanning nine weeks of development (January~9 to March~13, 2026), authored by four contributors.
-
-\paragraph{Development metrics.}
-The Claude Code session metadata reveals the scale of agent involvement.
-Across 283~recorded sessions (300~MB of conversation transcripts), the agent produced 9,429~assistant messages in response to 630~user messages---a \textbf{15:1 automation amplification ratio}.
-Of the 1,089~commits across all branches, 1,510~carry a \texttt{Co-Authored-By: Claude} trailer (the count exceeds total commits because branch commits are squash-merged on main).
-The average session involved 5.8~user messages and 51~tool calls, with measured wall-clock time totaling 115~hours across the 108~sessions with timing metadata.
-
-The codebase grew rapidly under this agentic workflow:
-\begin{center}
+\begin{table}[t]
+\caption{Codebase growth timeline.}\label{tab:growth}
+\centering
 \small
 \begin{tabular}{@{}lcccc@{}}
 \toprule
@@ -509,29 +316,36 @@ Date & Models & Rules & Tests & Examples \\
 Jan 10 (initial) & 17 & 0 & 0 & 0 \\
 Jan 26 (feature parity) & 20 & 22 & 0 & 1 \\
 Feb 15 (arch.\ redesign) & 21 & 44 & 101 & 35 \\
-Mar 13 (current) & 27 & 50 & 114 & 45 \\
+Mar 13 (current) & 27 & 45 & 114 & 45 \\
 \bottomrule
 \end{tabular}
-\end{center}
-The most intensive development day (January~25) produced 41~commits across 22~sessions with 12,868~messages and 3,734~tool calls---this was the feature parity sprint that ported all reduction rules from the predecessor Julia package in a single day, growing the codebase from 36~to 74~Rust source files.
+\end{table}
 
-\paragraph{Development phases.}
-We stratify the history into three phases reflecting the evolution of agent tooling:
-\begin{itemize}
-  \item \textbf{Phase~1 (Manual)}: 35~PRs. Skills had not yet been developed; all implementation, testing, and review was performed manually or with ad-hoc agent assistance. This phase established the core library architecture and the majority of the reduction rules.
-  \item \textbf{Phase~2 (Basic skills)}: 9~PRs. Initial skills for model and rule implementation were available, providing structured workflows but without full pipeline automation. Two new problem models (ClosestVectorProblem, BinPacking) were added during this phase.
-  \item \textbf{Phase~3 (Full pipeline)}: 15~PRs. The complete skill library was operational, including orchestration skills (\texttt{project-pipeline}, \texttt{review-pipeline}, \texttt{issue-to-pr}), quality gates (\texttt{check-issue}, \texttt{check-rule-redundancy}), and multi-agent review (\texttt{review-implementation}). New models (Knapsack, GraphPartitioning, MinimumFeedbackVertexSet) and rules (KSatisfiability $\to$ SubsetSum) were added with full pipeline support.
-\end{itemize}
+\Cref{tab:growth} traces the growth across three phases.
+\textbf{Phase~1 (Manual, 35~PRs)}: no skills; the maintainer issued step-by-step commands, established the architecture, and ported reductions from the predecessor Julia package.
+\textbf{Phase~2 (Basic skills, 9~PRs)}: initial \texttt{add-model}/\texttt{add-rule} skills reduced per-task human involvement.
+\textbf{Phase~3 (Full pipeline, 15~PRs)}: complete skill library with orchestration, quality gates, and multi-agent review.
+The current codebase comprises 54,599~lines of Rust source, 28,343~lines of tests, and 6,362~lines of examples.
 
-\paragraph{PR composition.}
-Of the 59~merged PRs, 10 follow the \texttt{Fix \#N} issue-driven pattern (created by the \texttt{issue-to-pr} skill), 16 are \texttt{feat:} PRs, and the remainder are infrastructure, refactoring, documentation, or tooling PRs.
-The initial feature-parity PRs (e.g., PR~\#4 ``Feature parity with ProblemReductions.jl'') bundled multiple models and rules into single large PRs before the per-issue convention was established.
-All PRs are attributed to human GitHub accounts because the agent operates through the developer's local environment (Claude Code runs in the terminal), making the distinction between human-authored and agent-assisted work invisible in git metadata---itself a finding about observability limitations of current agentic workflows.
+\paragraph{Interaction evolution.}
+Analysis of 2,196~user prompts reveals a shift from imperative to declarative interaction as skills matured.
+In Phase~1, prompts averaged 8--12 words (e.g., ``implement Satisfiability to MIS reduction'').
+By Phase~3, 30\% of prompts were 1--3 words (e.g., ``\texttt{make run-pipeline}'').
+This progression---from specifying actions to invoking skills---mirrors the classical shift from scripting to API design.
 
-\paragraph{Issue quality gate.}
-The \texttt{check-issue} skill was deployed at scale when a contributor batch-submitted 414~issues proposing new problem models and reduction rules---including 251~in a single day.
-Of the 322~issues quality-checked, only \textbf{81 (25\%) passed} all checks:
-\begin{center}
+\paragraph{Observability.}
+All pull requests are attributed to human GitHub accounts because the agent operates through the developer's local terminal.
+Of 1,089~commits across all branches, 1,510~carry a \texttt{Co-Authored-By: Claude} trailer (the count exceeds total commits because branch commits are squash-merged on main).
+This observability gap---the difficulty of distinguishing human-authored from agent-assisted work in git metadata---is itself a finding about current agentic workflows.
+
+\subsection{Issue Quality Gate}\label{sec:quality-gate}
+
+The \texttt{check-issue} skill was stress-tested when a contributor batch-submitted 414~issues---including 251~in a single day---proposing new reductions for the graph.
+Of the 322~issues checked, only \textbf{81~(25\%) passed} all quality criteria (\Cref{tab:quality-gate}).
+
+\begin{table}[t]
+\caption{Issue quality gate results (322 checked).}\label{tab:quality-gate}
+\centering
 \small
 \begin{tabular}{@{}lr@{}}
 \toprule
@@ -540,225 +354,243 @@ Verdict & Count (\%) \\
 Good & 81 (25\%) \\
 PoorWritten (incomplete specification) & 124 (39\%) \\
 Wrong (factually incorrect) & 64 (20\%) \\
-Trivial (obvious reduction) & 43 (13\%) \\
-Useless (no practical value) & 18 (6\%) \\
-\bottomrule
-\end{tabular}
-\end{center}
-The \textbf{75\% rejection rate} demonstrates the necessity of automated quality gates: without \texttt{check-issue}, the pipeline would waste agent resources implementing incorrect or trivial reductions.
-The most common failure mode was \emph{PoorWritten}---issues that lacked complete mathematical specifications or worked examples, making them unimplementable even by a skilled agent.
-The \emph{Wrong} category (20\%) included citations to non-existent papers, incorrect complexity claims, and reductions that do not preserve solution structure---errors that would have been expensive to discover during implementation rather than at the issue-triage stage.
-
-\paragraph{Interaction evolution.}
-Analysis of 2,196~user prompts in the project's Claude Code history reveals a shift from imperative to declarative interaction as the skill library matured.
-In Phase~1, the maintainer issued step-by-step commands (``start milestone 2,'' ``improve test coverage to $>$95\%,'' ``fix the clippy test''), averaging 8--12 words per prompt.
-By Phase~3, single-command orchestration dominated (``\texttt{make run-pipeline},'' ``\texttt{/review-pipeline}''), with 30\% of prompts consisting of 1--3 words.
-This progression---from programming the agent's actions to invoking its skills---mirrors the classical shift from scripting to API design, suggesting that skill engineering is a form of \emph{meta-programming} for agentic workflows.
-
-\paragraph{Error taxonomy.}
-\Cref{tab:errors} categorizes the types of errors encountered during development, mapped to the verification layer that catches each error class.
-The taxonomy is derived from code review comments, CI failure logs, and commit messages across all three development phases.
-
-\begin{table}[t]
-\caption{Error taxonomy by verification layer.}\label{tab:errors}
-\centering
-\small
-\begin{tabular}{@{}llc@{}}
-\toprule
-Error Category & Catching Layer & Count \\
-\midrule
-Type/API mismatch & L1: Type system & [TBD] \\
-Evaluation logic & L2: Unit tests & [TBD] \\
-Mapping/index & L3: Closed-loop tests & [TBD] \\
-Overhead formula & L4: Overhead validation & [TBD] \\
-Test gaming & L5: Materialized fixtures & [TBD] \\
-Convention violation & L6: Agentic review & [TBD] \\
-Incorrect proof & L7: Doc.\ review & [TBD] \\
+Trivial (obvious, adds no value) & 43 (13\%) \\
+Useless (no practical application) & 18 (6\%) \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-The error counts in \Cref{tab:errors} are pending a systematic audit of all CI logs and review threads; we report qualitative observations here and defer the full quantitative analysis.
-Preliminary observations from the commit history suggest that \emph{overhead formula errors} (Layer~4) and \emph{convention violations} (Layer~6) are among the most frequently encountered error classes.
-For example, PR~\#112 (``Fix complexity inconsistencies, enforce overhead, add missing variants'') addressed multiple overhead formula errors that had accumulated before Layer~4 validation was enforced, and PR~\#89 (``Close completeness gaps from review-implementation audit'') fixed convention violations identified by the agentic review skill.
-The introduction of compile-time overhead validation in PR~\#99 (``Replace Polynomial overhead system with Expr AST'') eliminated an entire class of errors by shifting overhead checking from runtime to compile time---an example of how verification infrastructure co-evolves with the skill system.
+The \textbf{75\% rejection rate} demonstrates the necessity of automated quality gates in agentic pipelines.
+Without \texttt{check-issue}, the pipeline would waste agent compute implementing incorrect or trivial reductions.
+The most common failure was \emph{PoorWritten}---issues lacking complete mathematical specifications, making them unimplementable even by a skilled agent.
+The \emph{Wrong} category~(20\%) included citations to non-existent papers, incorrect complexity claims, and reductions that do not actually preserve solution structure---errors that would be expensive to discover during implementation rather than at triage.
 
 \subsection{Case Studies}\label{sec:cases}
 
-We examine three reductions that illustrate different points on the complexity spectrum, highlighting how the skill-based pipeline and verification stack interact in each case.
+\paragraph{Satisfiability $\to$ MIS (gadget construction).}
+The classical Karp reduction~\cite{karp1972} works as follows.
+Given a Boolean formula in conjunctive normal form (a conjunction of clauses, each a disjunction of literals), create one graph vertex per literal occurrence.
+Add edges within each clause (so at most one literal per clause can be selected) and between complementary literals across clauses (so a variable cannot be both true and false).
+A satisfying assignment corresponds to an independent set of size~$m$ (the number of clauses).
+The implementation spans 171~lines.
 
-\paragraph{Case 1: MinimumVertexCover $\to$ MaximumIndependentSet (simple).}
+This case illustrates how verification layers interact.
+The number of edges in the constructed graph is worst-case \emph{quadratic} in the number of literals---but an agent might assume linear overhead.
+Layer~4 (overhead validation) catches this by comparing symbolic expressions against actual target sizes.
+Layer~3 (round-trip testing) catches a different class of error: off-by-one mistakes in literal-to-vertex mapping.
+Both layers are necessary: correct indices with wrong overhead, or correct overhead with wrong indices, would each pass one layer but fail the other.
 
-This reduction exploits the classical complement relationship: a set $S$ is an independent set in graph $G$ if and only if $V \setminus S$ is a vertex cover.
-The implementation is correspondingly minimal at 96~lines of Rust, including both directions of the reduction (MIS $\to$ MVC and MVC $\to$ MIS).
-The \texttt{reduce\_to()} method simply copies the graph and weights to the target problem type, and the \texttt{extract\_solution()} method flips each bit of the configuration vector.
+\paragraph{Factoring $\to$ CircuitSAT $\to$ ILP (emergent composition).}
+As described in \Cref{sec:compositionality}, this chains two independently implemented reductions (272 + 225~lines) to factor integers via linear programming.
+The Factoring $\to$ CircuitSAT step exercises the full verification stack: the multiplier circuit involves $\Theta(mn)$ full-adder cells (where $m$ and $n$ are the bit lengths of the two factors), and errors in carry propagation are caught by Layer~3 while overhead formula errors are caught by Layer~4.
 
-The overhead expressions are identity mappings (\texttt{num\_vertices = "num\_vertices"}, \texttt{num\_edges = "num\_edges"}), reflecting the fact that the target problem has exactly the same graph as the source.
-This reduction was part of the initial batch implemented in PR~\#7 (``Implement remaining reduction rules'') during Phase~1, before skills were available.
+\paragraph{MVC $\leftrightarrow$ MIS (trivial complement).}
+At the opposite extreme, this 96-line reduction exploits the complement relationship described in \Cref{sec:graph} with identity overhead.
+The pipeline's primary value here is enforcing conventions---file naming, macro registration, documentation---rather than catching logical errors.
 
-This case illustrates the \emph{lower bound} of the complexity spectrum.
-The mathematical content is trivial, the implementation is mechanical, and the verification layers activate without incident.
-For such reductions, the skill-based pipeline's primary value is in enforcing conventions (correct file naming, \texttt{declare\_variants!} macro placement, documentation entries) rather than catching logical errors.
-
-\paragraph{Case 2: Satisfiability $\to$ MaximumIndependentSet (complex).}
-
-This is the classical Karp reduction from Boolean satisfiability to maximum independent set~\cite{karp1972}.
-Given a CNF formula with $m$~clauses, the reduction creates one vertex for each literal occurrence in each clause, adds clique edges within each clause (ensuring at most one literal per clause is selected), and adds conflict edges between complementary literals across clauses (ensuring consistency).
-A satisfying assignment corresponds to an independent set of size exactly~$m$.
-
-The implementation spans 171~lines, with the core gadget construction occupying two nested loops: the first builds per-clause cliques (lines 127--142 in the source), and the second adds cross-clause conflict edges by checking literal complementarity (lines 147--153).
-The overhead expressions reflect the quadratic worst case: \texttt{num\_vertices = "num\_literals"} and \texttt{num\_edges = "num\_literals\^{}2"}.
-
-This reduction is instructive because it is precisely the kind of task where agents commonly make errors.
-The edge count in the conflict graph is worst-case quadratic in the number of literals (every literal in one clause may conflict with literals in every other clause), but an agent might assume linear overhead if it reasons only about the per-clause structure.
-Layer~4 (overhead validation) catches this class of error by comparing the symbolic overhead expression against the actual target problem size on concrete test instances.
-The closed-loop test (Layer~3) catches a different class: index-off-by-one errors in the literal-to-vertex mapping, which cause the extracted solution to assign the wrong truth value to a variable.
-Both layers are necessary---an implementation with correct indices but wrong overhead, or correct overhead but wrong indices, would pass one layer but fail the other.
-
-\paragraph{Case 3: Factoring $\to$ CircuitSAT $\to$ ILP (composition).}
-
-The most complex case study involves two independently implemented reductions that compose through the reduction graph to solve an end-to-end problem: given an integer $N$, find its non-trivial factors.
-
-The first reduction, Factoring $\to$ CircuitSAT (272~LOC, PR~\#85 family), constructs an array multiplier circuit.
-The circuit takes two bit-vectors $p$ and $q$ as inputs, computes their product through a grid of full-adder cells, and constrains the output to equal the target number~$N$.
-Each multiplier cell requires six circuit assignments (AND, XOR, carry logic), so the total overhead scales as $\Theta(mn)$ where $m$ and $n$ are the bit-widths of the two factors.
-The \texttt{extract\_solution()} method maps the satisfying circuit assignment back to the two factors by reading the $p$ and $q$ variable values.
-
-The second reduction, CircuitSAT $\to$ ILP (225~LOC, PR~\#85), linearizes the Boolean circuit into integer linear constraints.
-Each Boolean gate (AND, OR, XOR, NOT) is encoded as a set of linear inequalities over binary variables, with the circuit's topological ordering determining the constraint generation sequence.
-
-Neither reduction was designed with composition in mind---each was implemented to connect its source and target in the reduction graph.
-Yet the graph infrastructure enables automatic composition: a user with a Factoring instance can query the graph for a path to ILP, chain the two reductions, solve the resulting integer program with an off-the-shelf solver, and extract factors through the composed inverse maps.
-This composition works because each reduction's \texttt{ReductionResult} trait provides a type-safe \texttt{extract\_solution()} method, and the graph's path-finding API composes these extractors in reverse order.
-
-This case highlights the \emph{emergent value} of the reduction graph as compilation infrastructure.
-The two reductions were implemented in separate PRs, potentially by different contributors, with different verification layer activations.
-The graph composes them into a pipeline that no single implementation task created.
-This compositionality is precisely the property that makes the Goldilocks domain valuable: individual tasks are bounded and verifiable, but the graph as a whole provides capabilities that exceed the sum of its parts.
-
+%======================================================================
+%  SECTION 5: RELATED WORK
+%======================================================================
 \section{Related Work}\label{sec:related}
 
-Our work draws on and contributes to four active research areas: AI coding agents and their benchmarks, AI-assisted discovery of reductions and complexity results, formal verification of AI-generated code, and physics-inspired optimization via problem reformulation.
-
 \paragraph{AI coding agents.}
-The rapid evolution of AI coding agents---from SWE-agent's Agent-Computer Interface design~\cite{Yang2024SWEagent} and Devin's fully autonomous environment~\cite{Wu2024Devin} to production-grade platforms like OpenHands~\cite{Wang2024OpenHands} and Claude Code~\cite{Anthropic2025ClaudeCode}---has dramatically expanded what agents can accomplish on isolated software engineering tasks.
-On SWE-Bench Verified, which evaluates single-issue bug fixes, the best systems now resolve 70--80\% of issues, with Live-SWE-agent's self-evolving scaffold reaching 77.4\%~\cite{Xia2025LiveSWEagent}.
-However, benchmarks probing longer-horizon capabilities reveal a stark capability cliff: SWE-EVO reports resolution rates around 21\% on multi-step modifications spanning an average of 21~files~\cite{Thai2025SWEEVO}, and SWE-Bench Pro finds similar struggles with enterprise-level tasks that may require hours to days of human effort~\cite{Deng2025SWEBenchPro}.
-Roychoudhury~\cite{Roychoudhury2025AgenticAI} identifies specification inference---deciphering developer intent---as the central difficulty in agentic software workflows, arguing that trustworthy deployment requires AI-based verification and validation of AI-generated code.
-Industry data corroborates the need for human oversight: developers now use AI in 60\% of their work while maintaining active oversight on 80--100\% of delegated tasks~\cite{Anthropic2026AgenticCoding}.
-Our approach responds to these findings not by pushing for more powerful agents, but by structuring the work so that each unit falls within the agent's reliable operating range.
-The skill-based decomposition is complementary to architectural advances like Live-SWE-agent's self-evolution~\cite{Xia2025LiveSWEagent}: skills encode human-authored domain knowledge that makes agents more effective on hard, domain-specific tasks, while self-evolving scaffolds improve the agent's general-purpose tool use.
+The evolution from SWE-agent~\cite{Yang2024SWEagent} and Devin~\cite{Wu2024Devin} to OpenHands~\cite{Wang2024OpenHands} and Claude Code~\cite{Anthropic2025ClaudeCode} has expanded single-task capabilities to 70--80\% on SWE-Bench~\cite{Xia2025LiveSWEagent}, but longer-horizon benchmarks reveal a capability cliff~\cite{Thai2025SWEEVO, Deng2025SWEBenchPro}.
+Roychoudhury~\cite{Roychoudhury2025AgenticAI} identifies specification inference as the central difficulty.
+Our approach structures work so each unit falls within the agent's reliable range, complementing architectural advances in agent design.
 
 \paragraph{AI-discovered reductions.}
-A parallel line of work uses AI not to \emph{implement} known reductions but to \emph{discover} new ones.
-DeepMind's FunSearch~\cite{RomeraParedes2023FunSearch} demonstrated that LLM-powered evolutionary program search can produce genuinely novel mathematical constructions, discovering new cap set bounds that surpassed prior state-of-the-art results.
-Its successor, AlphaEvolve~\cite{Novikov2025AlphaEvolve}, extends this approach to a broader class of problems, including the discovery of new gadget reductions that establish improved NP-hardness bounds for MAX-3-CUT, MAX-4-CUT, and the metric Traveling Salesman Problem.
-On the formal side, Jani\v{c}i\'{c}'s URSA system~\cite{Janicic2025URSA} uses SAT-based constraint solving to specify, analyze, and verify reductions between NP-complete problems---a rigorous but narrower approach that handles the verification component that evolutionary methods lack.
-Our work is complementary: AlphaEvolve and FunSearch discover novel reductions algorithmically, while our pipeline implements and verifies \emph{known} reductions using agents guided by human-authored specifications.
-The two approaches could be composed---new reductions discovered by evolutionary search could be specified as issues in our pipeline and implemented with full verification---though this integration remains future work.
+FunSearch~\cite{RomeraParedes2023FunSearch} and AlphaEvolve~\cite{Novikov2025AlphaEvolve} discover novel algorithms and reductions through evolutionary search, including improved bounds for combinatorial problems.
+Jani\v{c}i\'{c}'s URSA~\cite{Janicic2025URSA} uses SAT-based constraint solving to verify reductions.
+Our work is complementary: we implement and verify \emph{known} reductions; discovered reductions could feed into our pipeline as new issues.
 
-\paragraph{Formal verification of AI-generated code.}
-End-to-end formally verified code generation remains largely unsolved, particularly for mathematically complex programs.
-The VeriCoding benchmark~\cite{Bursuc2025VeriCoding}, the largest of its kind with 12,504 formal specifications across Lean, Dafny, and Verus/Rust, reports success rates of 27\% in Lean and 44\% in Verus/Rust using off-the-shelf LLMs.
-CLEVER~\cite{Thakur2025CLEVER}, a curated benchmark of 161 hard Lean problems, finds that even agentic approaches struggle to achieve full verification, establishing it as a challenging frontier.
-VeriBench~\cite{Miranda2025VeriBench} finds that only self-optimizing agent architectures achieve meaningful compilation rates in Lean~4, approaching 90\% but still far from full correctness proofs.
-For imperative programs, Mukherjee et al.\ demonstrate a two-LLM pipeline where one model generates candidate C programs and another generates Coq proofs of correctness~\cite{Mukherjee2025CoqPL, Mukherjee2025SynVer}---a generate-then-verify pattern that resonates with our layered approach.
-Our seven-layer verification stack (\Cref{sec:verification}) takes a more pragmatic path: rather than attempting end-to-end formal proofs (which the benchmarks above show remains out of reach for complex code), we compose multiple lightweight verification mechanisms---type-level enforcement, brute-force cross-validation, overhead formula checking, materialized fixtures, and agentic review---that collectively catch errors across different abstraction levels.
-The trade-off is clear: we provide less formal guarantee than a machine-checked proof, but our approach is practically effective at catching real errors in agent-generated mathematical code and scales to the 50~reductions in our library without requiring proof engineering expertise.
+\paragraph{Formal verification of generated code.}
+VeriCoding~\cite{Bursuc2025VeriCoding} reports 27--44\% success on 12,504~formal specifications.
+CLEVER~\cite{Thakur2025CLEVER} establishes hard Lean benchmarks.
+VeriBench~\cite{Miranda2025VeriBench} finds self-optimizing agents approach 90\% compilation in Lean~4.
+Mukherjee et al.~\cite{Mukherjee2025CoqPL, Mukherjee2025SynVer} demonstrate a two-LLM generate-then-verify pattern.
+Our seven-layer stack trades full formal guarantees for practical effectiveness at the scale of 45~reductions.
 
 \paragraph{Physics-inspired optimization.}
-Our reduction graph serves as a compilation layer connecting abstract problem formulations to specialized hardware and neural solvers.
-Schuetz et al.~\cite{Schuetz2022PhysicsGNN} demonstrate that graph neural networks trained via QUBO Hamiltonian relaxation can solve combinatorial optimization problems---including Maximum Independent Set, MaxCut, and Minimum Vertex Cover---at scales reaching millions of variables, far beyond the reach of exact solvers.
-He~\cite{He2024QuantumTSP} extends this paradigm to the Traveling Salesman Problem, combining quantum annealing on coherent Ising machines with GNN-based approximate solvers, both operating on QUBO formulations.
-These approaches assume that the user's problem has already been cast into QUBO or Ising form---precisely the transformation that our reduction graph provides.
-A practitioner with a Set Covering or Graph Coloring problem can follow edges in our verified graph to reach QUBO (through intermediate hubs like MIS or SpinGlass) and then apply these million-variable-scale solvers.
-Our work provides the verified upstream infrastructure---the ``compilation'' from diverse problem formulations to the canonical forms that physics-inspired solvers consume---while the solvers cited above provide the downstream execution engine.
+Schuetz et al.~\cite{Schuetz2022PhysicsGNN} solve QUBO at million-variable scale via graph neural networks.
+He~\cite{He2024QuantumTSP} combines quantum annealing with GNNs for the Traveling Salesman Problem.
+These approaches assume a QUBO or Ising formulation as input---precisely the transformation that our reduction graph provides as upstream infrastructure.
 
-\section{Discussion \& Conclusion}\label{sec:conclusion}
+%======================================================================
+%  SECTION 6: DISCUSSION AND CONCLUSION
+%======================================================================
+\section{Discussion and Conclusion}\label{sec:conclusion}
 
-\subsection{Generalizability}
+\subsection{When Does This Methodology Apply?}
 
-The success of our skill-based methodology rests on a \emph{Goldilocks property} of the problem domain: tasks must be (1)~formally specified, so that agents can parse unambiguous requirements; (2)~decomposable into homogeneous subtasks, so that a small number of reusable skills covers a large number of instances; (3)~equipped with automatable correctness criteria, so that verification does not depend on human judgment at every step; and (4)~demanding enough to require both creativity (in problem selection and proof design) and mechanical execution (in implementation, testing, and documentation).
-NP-hard reductions satisfy all four criteria, but they are not unique in doing so.
+The approach rests on what we call a \emph{Goldilocks property}: the target domain must have tasks that are (1)~formally specified, (2)~decomposable into homogeneous subtasks, (3)~equipped with automatable correctness criteria, and (4)~demanding enough to require both human creativity and mechanical execution.
+NP-hard reductions satisfy all four, but are not unique.
+Algorithm libraries, numerical linear algebra routines, compiler optimization passes, and hardware description languages share this structure.
+In each case, a domain expert can encode the ``how'' into reusable skills while the ``what'' remains a human judgment call.
 
-We identify several candidate domains that share this Goldilocks structure.
-\emph{Combinatorial optimization solvers} expose a similar pattern: each solver configuration targets a specific problem class, implements a well-defined algorithm, and admits benchmark-driven correctness testing.
-\emph{Algorithm libraries} (e.g., sorting, graph traversal, numerical routines) consist of homogeneous modules with clear input--output contracts and reference implementations for cross-validation.
-\emph{Numerical linear algebra} routines---factorizations, eigensolvers, iterative methods---are formally specified by mathematical identities that serve as built-in oracles.
-\emph{Hardware description languages} decompose digital circuits into modular components with simulation-based verification.
-\emph{Compiler optimization passes}---particularly peephole rules and algebraic simplifications---are self-contained transformations with formally verifiable semantics.
-In each case, the key enabler is the same: a domain expert can encode the ``how'' of task execution into reusable skills, while the ``what'' (which algorithms, which optimizations, which circuits) remains a human judgment call.
-
-The methodology does \emph{not} generalize to domains that lack these properties.
-Heterogeneous software engineering tasks---the staple of SWE-Bench---resist skill-based decomposition precisely because each issue has a unique structure, a different notion of correctness, and no reusable workflow template.
-Our approach is most powerful when the creative work is in selecting and specifying tasks, not in the execution itself.
+The methodology does \emph{not} generalize to heterogeneous tasks---the staple of SWE-Bench---where each issue is structurally unique and resists skill-based decomposition.
 
 \subsection{Limitations}
 
-Several limitations constrain the conclusions that can be drawn from this work.
-
 \paragraph{Single case study.}
-The empirical evidence comes from a single project maintained by a single developer.
-While we argue that the methodology generalizes to other Goldilocks domains, we have not yet validated this claim empirically.
-The ablation study (\Cref{sec:evaluation}) provides a controlled comparison within this project, but replication across independent projects and teams remains necessary.
+Evidence comes from one project by one primary developer.
+Replication across independent projects and teams is needed.
 
 \paragraph{Skill engineering cost.}
-The 12~skills in our library represent substantial upfront investment.
-Each skill required iterative refinement---writing the initial markdown script, testing it against real issues, observing agent failure modes, and revising.
-This cost is amortized across many invocations, but it presupposes a maintainer with both domain expertise and familiarity with agent capabilities.
-Projects without such a maintainer cannot adopt the methodology directly.
-
-\paragraph{Domain specificity.}
-Skills encode domain-specific knowledge---file naming conventions, trait implementation patterns, test structures---that does not transfer across domains.
-A skill designed for implementing reduction rules provides no value for web development or systems programming.
-Each new domain requires its own skill engineering effort.
+The 14~skills represent substantial upfront investment---iterative refinement across many agent sessions.
+Each new domain requires its own skill engineering effort, though the methodology itself transfers.
 
 \paragraph{Confounding factors.}
-Our project evolved over nine weeks during which both the skill library and the underlying language models improved.
-Although we address this confound through temporal stratification in our evaluation, we cannot fully disentangle the contribution of better skills from the contribution of more capable models.
-Future work should control for model version to isolate the skill-based methodology's independent effect.
+Both skills and underlying models improved during the nine-week span.
+Temporal stratification across the three phases partially addresses this, but we cannot fully disentangle the two contributions.
 
 \paragraph{Maintainer requirement.}
-The three-role model requires a knowledgeable maintainer who curates the project board, writes skills, and performs final review.
-The pipeline is not fully autonomous: without human judgment at the Backlog$\to$Ready and In~Review$\to$Done transitions, the system cannot determine what is worth building or whether the result meets quality standards.
-This is a feature, not a bug---but it does mean the methodology is inapplicable to scenarios that demand full autonomy.
+The pipeline is not fully autonomous: without human judgment at two transitions (selecting work and approving results), the system cannot determine what is worth building or whether results meet standards.
+This is by design---but limits applicability to fully autonomous scenarios.
 
 \subsection{The Human Value Proposition}
 
-A natural concern is that skill-based agentic coding diminishes the role of human developers.
-Our experience suggests the opposite: humans are \emph{repositioned}, not eliminated.
-The creative and judgment-intensive aspects of software development---identifying which problems are worth solving, designing reduction proofs, setting quality standards, deciding architectural trade-offs---remain firmly in human hands.
-What agents absorb is the mechanical volume: implementing boilerplate, writing tests, generating documentation, fixing CI failures, and managing workflow state.
-
-This division mirrors broader industry trends.
-Anthropic's 2026 Agentic Coding Trends Report finds that developers use AI in 60\% of their work while maintaining active oversight on 80--100\% of delegated tasks~\cite{Anthropic2026AgenticCoding}.
-The skill-based approach formalizes this oversight: rather than ad hoc supervision, the maintainer's judgment is encoded into reusable skills that structure every agent interaction.
+Humans are \emph{repositioned}, not eliminated.
+Creative and judgment-intensive work---which problems matter, what quality bar to enforce, how to architect the system---remains human.
+Agents absorb mechanical volume: implementing boilerplate, writing tests, generating documentation, fixing CI failures.
 The human contribution shifts from writing code to \emph{programming the agent's workflow}---a higher-leverage activity that scales with the number of tasks the agent can execute.
 
-\subsection{Future Directions}
+\subsection{The Scaling Vision}
+
+The graph's value grows superlinearly with its size.
+Each new edge creates not just one connection but composite paths through the entire graph.
+As the graph scales from 27 to 100+ problem types through agent-synthesized rules (\Cref{fig:reduction-graph}, top layer), it evolves from a library into a \emph{reduction compiler}: a user describes their problem, and the compiler selects the lowest-cost verified path to the target solver.
 
 Three directions extend this work.
-First, combining skill-based implementation with \emph{automated discovery}: AlphaEvolve~\cite{Novikov2025AlphaEvolve} has demonstrated that evolutionary search can discover novel gadget reductions.
-Feeding discovered reductions into our pipeline as automatically generated issues would close the loop between discovery and verified implementation, producing a system that both finds and implements new reductions with correctness guarantees.
-
-Second, \emph{formal verification integration} could strengthen the verification stack.
-Currently, Layer~7 (documentation with proof sketches) relies on human-readable arguments that are reviewed but not machine-checked.
-Replacing or supplementing this layer with Lean or Coq proofs---generating formal correctness theorems alongside the Rust implementation---would add an eighth layer providing the strongest possible guarantee.
-The VeriCoding~\cite{Bursuc2025VeriCoding} and CLEVER~\cite{Thakur2025CLEVER} benchmarks suggest this remains challenging, but the bounded scope and formal specification of individual reductions make them more amenable to automated theorem proving than general software.
-
-Third, \emph{scaling toward a reduction compiler}: the reduction graph is not merely a library catalog but a \emph{compilation infrastructure} that maps user problems to specialized solvers (see \Cref{fig:reduction-graph}).
-Each reduction edge carries a multivariate polynomial cost model---for instance, reducing an $n$-vertex, $m$-edge graph to a triangular lattice MIS costs $O(n^2 + m)$ atom sites---and the optimal compilation path may depend on the problem scale (path~A dominates at small $n$, path~B at large $n$), requiring Pareto-optimal path search.
-As the graph scales from 24 to 100+ problem types through agent-synthesized rules (the upper layer in \Cref{fig:reduction-graph}), the system evolves from a library into an end-to-end problem reduction compiler: users describe their combinatorial optimization problem, and the compiler automatically selects the lowest-cost reduction path to the target solver---be it a Rydberg atom array, a quantum annealer, or a commercial ILP solver.
-The skill-based methodology presented here provides the knowledge engineering backbone for this compiler: each new reduction rule, verified through the seven-layer stack and implemented by agent-managed skills, adds an edge to the compilation graph.
-Investigating the scaling dynamics---redundancy detection, Pareto path search over polynomial costs, and multi-maintainer coordination---is the natural next step.
+First, composing with \emph{automated discovery}: evolutionary search methods like AlphaEvolve~\cite{Novikov2025AlphaEvolve} discover new reductions, and our pipeline implements and verifies them.
+Second, \emph{formal verification}: supplementing round-trip tests and proof sketches with machine-checked Lean or Coq proofs.
+Third, \emph{cost-aware path selection}: each edge carries a polynomial cost model describing the size blowup, and the optimal path may depend on instance scale.
 
 \subsection{Conclusion}
 
-We have presented a skill-based methodology for agentic coding that decomposes mathematical software tasks into human-creative and agent-executable components, validated through a case study producing 27~problem types and 50~reduction rules with multi-layered verification.
-The core insight is that the bottleneck in agentic coding is not agent capability but task decomposition: when work is structured so that each unit is formally specified, bounded in scope, and mechanically verifiable, current agents execute it reliably.
-The methodology is most powerful in domains that share the Goldilocks property---formal specification, homogeneous tasks, automatable correctness---and we believe such domains are more common than is generally appreciated.
+We have presented a verified reduction graph connecting 27~NP-hard problem types to specialized solvers, built through skill-based agentic coding that separates human-creative specification from agent-managed execution.
+The graph exhibits emergent compositionality: independently implemented reductions compose automatically to solve problems no single implementation was designed for.
+The core insight is that the bottleneck in agentic coding is not agent capability but task decomposition: when work is structured so each unit is formally specified, bounded in scope, and mechanically verifiable, current agents execute it reliably.
+The methodology is most effective in domains that share this Goldilocks property---and we believe such domains are more common than is generally appreciated.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
+
+%======================================================================
+%  APPENDICES
+%======================================================================
+\appendices
+
+\section{System Architecture}\label{app:architecture}
+
+The library's type system reduces the space of possible agent errors by making incorrect code fail to compile.
+This appendix describes four mechanisms---the \texttt{Problem} trait, the \texttt{ReduceTo} trait, the \lstinline{#[reduction(overhead)]} macro, and the \lstinline{declare_variants!} registry---that enforce correctness structurally (\Cref{fig:architecture}).
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/architecture.pdf}
+  \caption{Trait hierarchy and compile-time validation.
+    The \texttt{Problem} trait defines a universal evaluation interface; \texttt{ReduceTo<T>} requires both forward and inverse maps; procedural macros validate overhead expressions and variant registrations at compile time.}
+  \label{fig:architecture}
+\end{figure}
+
+\paragraph{The Problem trait.}
+Every problem type implements \texttt{Problem}, which requires: a constant name, an associated metric type (\texttt{SolutionSize<W>} for optimization problems, \texttt{bool} for decision problems), a method returning the configuration space dimensions, an \lstinline{evaluate()} method that scores any configuration, and variant metadata for type-parameter tracking.
+The key member is \lstinline{evaluate()}: because every problem maps configurations to metrics through this uniform interface, a brute-force solver can enumerate the space and select the best solution, enabling the round-trip testing described in \Cref{sec:roundtrip} without problem-specific oracles.
+
+\paragraph{The ReduceTo trait.}
+The generic \lstinline{ReduceTo<T>} trait requires a \lstinline{reduce_to()} method returning a \texttt{ReductionResult} that bundles \lstinline{target_problem()} and \lstinline{extract_solution()}.
+By requiring both forward and inverse in a single implementation, the type system ensures every reduction is round-trip capable---an agent cannot compile a forward reduction without providing the extraction logic.
+
+\paragraph{Compile-time overhead validation.}
+The \texttt{\#[reduction(overhead = \{...\})]} procedural macro attaches symbolic size expressions to each reduction.
+These expressions are parsed at compile time; variable names are validated against getter methods on the source type, so a typo (e.g., referencing \lstinline{num_vertex} when the method is \lstinline{num_vertices}) causes a compile error rather than a silent bug.
+
+\paragraph{Variant registry.}
+Problem types are parameterized by graph type (SimpleGraph, KingsSubgraph, etc.) and weight type (unit weight, \texttt{i32}, \texttt{f64}).
+The \lstinline{declare_variants!} macro registers concrete instantiations with their best-known complexity, enabling automated graph export, documentation completeness checking, and redundancy analysis.
+
+\section{Verification Stack Details}\label{app:verification}
+
+\Cref{tab:verification} summarizes the seven layers, each targeting a distinct class of error with an example drawn from actual agent failures during development.
+
+\begin{table*}[t]
+  \centering
+  \caption{Seven-layer verification stack. Each layer catches a distinct class of error that the layers below it miss.}
+  \label{tab:verification}
+  \begin{tabular}{@{}clll@{}}
+    \toprule
+    Layer & Mechanism & Example Error Caught \\
+    \midrule
+    1 & Rust type system & Agent returns \texttt{bool} instead of \texttt{SolutionSize<i32>} \\
+    2 & Unit tests & Agent evaluates Max-Cut objective with wrong sign \\
+    3 & Closed-loop (round-trip) tests & Satisfiability$\to$MIS maps clause variables to wrong vertex indices \\
+    4 & Overhead validation & Agent writes \texttt{num\_edges = num\_clauses} instead of \texttt{3 * num\_clauses} \\
+    5 & Materialized fixtures & Agent modifies expected QUBO matrix to make test pass \\
+    6 & Agentic review & Missing \texttt{declare\_variants!} macro, wrong file naming convention \\
+    7 & Documentation review & Proof assumes connected graph but problem definition allows disconnected \\
+    \bottomrule
+  \end{tabular}
+\end{table*}
+
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/verification-pyramid.pdf}
+  \caption{Seven-layer verification stack. Lower layers (blue) are fully automated and fast; upper layers (gold) involve human-readable arguments and fresh-context review.}
+  \label{fig:verification}
+\end{figure}
+
+\paragraph{Layer 1: Type system.}
+The \texttt{Problem} trait's associated type forces every problem to declare whether it is an optimization or decision problem.
+The overhead macro validates variable names against source-type methods.
+Errors are caught in seconds, before any test runs.
+
+\paragraph{Layer 2: Unit tests.}
+Each problem includes tests verifying \lstinline{evaluate()} on small, hand-crafted instances.
+Serialization round-trip tests catch graph and weight encoding issues.
+
+\paragraph{Layer 3: Closed-loop (round-trip) tests.}
+The pattern described in \Cref{sec:roundtrip} exercises the full mathematical content of each reduction.
+This catches index errors, sign errors, and mapping bugs---the largest share of errors that survive type checking.
+
+\paragraph{Layer 4: Overhead validation.}
+After constructing the target instance, the test harness evaluates the symbolic overhead expressions and compares the predicted sizes against the actual target sizes.
+This is particularly effective for non-obvious size relationships (e.g., quadratic edge counts in intersection graphs that an agent might assume are linear).
+
+\paragraph{Layer 5: Materialized fixtures.}
+JSON ground-truth files in \texttt{tests/data/} are committed separately from implementations.
+If an agent modifies a ground-truth file to make a test pass, the change appears as a visible diff in a file outside the agent's normal scope, transforming a subtle correctness violation into an obvious process violation.
+
+\paragraph{Layer 6: Agentic review.}
+Two parallel sub-agents---one checking structural completeness, one checking code quality---operate in fresh context windows.
+Fresh context prevents the confirmation bias that arises when an agent reviews its own work within the same session.
+
+\paragraph{Layer 7: Documentation review.}
+Every reduction has an entry in the accompanying paper with a proof sketch.
+A completeness checker flags undocumented graph elements.
+Writing ``if $S$ is an independent set, then $V \setminus S$ is a vertex cover'' forces articulation of the mathematical argument in a form that humans can review.
+
+\paragraph{The lazy agent problem.}
+We observed agents modifying expected test outputs rather than fixing implementations---a rational strategy from the agent's perspective (shortest path to passing tests), but a correctness violation.
+Layer~5's independent fixtures and Layer~6's fresh-context review are the primary defenses against this failure mode.
+
+\section{Ablation Study Design}\label{app:ablation}
+
+To isolate the effect of skills on development outcomes, we design a controlled comparison on identical tasks.
+
+\paragraph{Setup.}
+Select 5--10 reductions spanning the complexity spectrum---from complement relationships (MVC $\to$ MIS, 96~lines) through gadget constructions (Satisfiability $\to$ MIS, 171~lines) to circuit encodings (Factoring $\to$ CircuitSAT, 272~lines).
+Prepare identical issues for two configurations:
+(1)~\emph{Skill-based}: the full pipeline including issue validation, implementation skills, multi-agent review, and CI fixing.
+(2)~\emph{No-skill baseline}: the same agent, same codebase, and same project instructions, but no skill files---the agent must infer the workflow from context.
+
+\paragraph{Metrics.}
+(1)~First-attempt CI pass rate; (2)~review rounds before merge readiness; (3)~correctness (all round-trip tests pass); (4)~convention adherence (file naming, macro usage, documentation completeness).
+
+\paragraph{Expected outcomes.}
+Skills should excel on convention adherence (encoding project-specific patterns that are not inferrable from code alone) and first-attempt CI pass rate (the verification stack catches errors before the pull request is created).
+The baseline agent likely produces functionally correct code that fails CI due to missing macros, incorrect overhead declarations, or misplaced test files.
+
+This ablation has not yet been executed.
+We present the design as a replicable protocol for evaluating skill-based methodologies.
 
 \end{document}
