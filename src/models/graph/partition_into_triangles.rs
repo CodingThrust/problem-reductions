@@ -133,8 +133,7 @@ where
         }
 
         // Check each group forms a triangle
-        for g in 0..q {
-            let verts = group_verts[g];
+        for verts in &group_verts {
             if !self.graph.has_edge(verts[0], verts[1]) {
                 return false;
             }
