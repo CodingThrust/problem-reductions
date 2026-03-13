@@ -219,7 +219,7 @@ Flags by problem type:
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
   LCS                             --strings
-  MinimumFeedbackArcSet           --arcs
+  FAS                             --arcs [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   ILP, CircuitSAT                 (via reduction only)
 

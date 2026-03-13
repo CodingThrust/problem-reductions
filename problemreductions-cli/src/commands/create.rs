@@ -513,16 +513,29 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let arcs_str = args.arcs.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "MinimumFeedbackArcSet requires --arcs\n\n\
-                     Usage: pred create MinimumFeedbackArcSet --arcs \"0>1,1>2,2>0\""
+                     Usage: pred create FAS --arcs \"0>1,1>2,2>0\" [--num-vertices N]"
                 )
             })?;
             let arcs = parse_directed_arcs(arcs_str)?;
-            let num_vertices = arcs
+            let inferred_num_v = arcs
                 .iter()
                 .flat_map(|(u, v)| [*u, *v])
                 .max()
                 .map(|m| m + 1)
                 .unwrap_or(0);
+            let num_vertices = match args.num_vertices {
+                Some(user_num_v) => {
+                    anyhow::ensure!(
+                        user_num_v >= inferred_num_v,
+                        "--num-vertices ({}) is too small for the arcs: need at least {} to cover vertices up to {}",
+                        user_num_v,
+                        inferred_num_v,
+                        inferred_num_v.saturating_sub(1),
+                    );
+                    user_num_v
+                }
+                None => inferred_num_v,
+            };
             let graph = DirectedGraph::new(num_vertices, arcs);
             (
                 ser(MinimumFeedbackArcSet::new(graph))?,
