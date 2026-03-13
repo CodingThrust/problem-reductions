@@ -1052,7 +1052,70 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
 ][
   Flow Shop Scheduling is a classical NP-complete problem from Garey & Johnson (A5 SS15), strongly NP-hard for $m >= 3$ @garey1976. For $m = 2$, it is solvable in $O(n log n)$ by Johnson's rule @johnson1954. The problem is fundamental in operations research, manufacturing planning, and VLSI design. When restricted to permutation schedules (same job order on all machines), the search space is $n!$ orderings. The best known exact algorithm for $m = 3$ runs in $O^*(3^n)$ time @shang2018; for general $m$, brute-force over $n!$ permutations gives $O(n! dot m n)$.
 
-  *Example.* Let $m = 2$, $n = 3$ jobs with task lengths $ell = mat(3, 2; 2, 4; 1, 3)$ (rows = jobs, columns = machines), and $D = 12$. For the job order $(0, 1, 2)$: Machine 1 processes jobs at $[0,3], [3,5], [5,6]$; Machine 2 at $[3,5], [5,9], [9,12]$. Makespan $= 12 <= D$, so the schedule is feasible.
+  *Example.* Let $m = 3$ machines, $n = 5$ jobs with task lengths:
+  $ ell = mat(
+    3, 4, 2;
+    2, 3, 5;
+    4, 1, 3;
+    1, 5, 4;
+    3, 2, 3;
+  ) $
+  and deadline $D = 25$. The job order $pi = (j_4, j_1, j_5, j_3, j_2)$ (0-indexed: $3, 0, 4, 2, 1$) yields makespan $23 <= 25$, so a feasible schedule exists.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      // Gantt chart for job order [3, 0, 4, 2, 1] on 3 machines
+      // Schedule computed greedily:
+      // M1: j3[0,1], j0[1,4], j4[4,7], j2[7,11], j1[11,13]
+      // M2: j3[1,6], j0[6,10], j4[10,12], j2[12,13], j1[13,16]
+      // M3: j3[6,10], j0[10,12], j4[12,15], j2[15,18], j1[18,23]
+      let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
+      let job-names = ("$j_1$", "$j_2$", "$j_3$", "$j_4$", "$j_5$")
+      let scale = 0.38
+      let row-h = 0.6
+      let gap = 0.15
+
+      // Machine labels
+      for (mi, label) in ("M1", "M2", "M3").enumerate() {
+        let y = -mi * (row-h + gap)
+        content((-0.8, y), text(8pt, label))
+      }
+
+      // Draw schedule blocks: (machine, job-index, start, end)
+      let blocks = (
+        (0, 3, 0, 1), (0, 0, 1, 4), (0, 4, 4, 7), (0, 2, 7, 11), (0, 1, 11, 13),
+        (1, 3, 1, 6), (1, 0, 6, 10), (1, 4, 10, 12), (1, 2, 12, 13), (1, 1, 13, 16),
+        (2, 3, 6, 10), (2, 0, 10, 12), (2, 4, 12, 15), (2, 2, 15, 18), (2, 1, 18, 23),
+      )
+
+      for (mi, ji, s, e) in blocks {
+        let x0 = s * scale
+        let x1 = e * scale
+        let y = -mi * (row-h + gap)
+        rect((x0, y - row-h / 2), (x1, y + row-h / 2),
+          fill: colors.at(ji).transparentize(30%), stroke: 0.4pt + colors.at(ji))
+        content(((x0 + x1) / 2, y), text(6pt, job-names.at(ji)))
+      }
+
+      // Time axis
+      let max-t = 23
+      let y-axis = -2 * (row-h + gap) - row-h / 2 - 0.2
+      line((0, y-axis), (max-t * scale, y-axis), stroke: 0.4pt)
+      for t in (0, 5, 10, 15, 20, 23) {
+        let x = t * scale
+        line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+        content((x, y-axis - 0.25), text(6pt, str(t)))
+      }
+      content((max-t * scale / 2, y-axis - 0.5), text(7pt)[$t$])
+
+      // Deadline marker
+      let dl-x = 25 * scale
+      line((dl-x, row-h / 2 + 0.1), (dl-x, y-axis), stroke: (paint: red, thickness: 0.8pt, dash: "dashed"))
+      content((dl-x, row-h / 2 + 0.25), text(6pt, fill: red)[$D = 25$])
+    }),
+    caption: [Flow shop schedule for 5 jobs on 3 machines. Job order $(j_4, j_1, j_5, j_3, j_2)$ achieves makespan 23, within deadline $D = 25$ (dashed red line).],
+  ) <fig:flowshop>
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper
