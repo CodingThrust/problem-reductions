@@ -68,6 +68,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "u64" => "integer",
         "i64" => "integer",
         "Vec<i64>" => "comma-separated integers: 3,7,1,8",
+        "DirectedGraph" => "directed arcs: 0>1,1>2,2>0",
         _ => "value",
     }
 }
@@ -95,6 +96,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MinimumSumMulticenter" => "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2",
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "RuralPostman" => {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
         }
@@ -123,6 +125,10 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 if graph_type == Some("UnitDiskGraph") {
                     eprintln!("  --{:<16} Distance threshold [default: 1.0]", "radius");
                 }
+            } else if field.type_name == "DirectedGraph" {
+                // DirectedGraph fields use --arcs, not --graph
+                let hint = type_format_hint(&field.type_name, graph_type);
+                eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
             } else {
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!(
@@ -543,6 +549,22 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumFeedbackArcSet
+        "MinimumFeedbackArcSet" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFeedbackArcSet requires --arcs\n\n\
+                     Usage: pred create FAS --arcs \"0>1,1>2,2>0\" [--weights 1,1,1] [--num-vertices N]"
+                )
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let weights = parse_arc_weights(args, num_arcs)?;
+            (
+                ser(MinimumFeedbackArcSet::new(graph, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumSumMulticenter (p-median)
         "MinimumSumMulticenter" => {
             let (graph, n) = parse_graph(args).map_err(|e| {
@@ -633,47 +655,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // MinimumFeedbackVertexSet
         "MinimumFeedbackVertexSet" => {
-            let arcs_str = args.arcs.as_ref().ok_or_else(|| {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "MinimumFeedbackVertexSet requires --arcs\n\n\
                      Usage: pred create FVS --arcs \"0>1,1>2,2>0\" [--weights 1,1,1] [--num-vertices N]"
                 )
             })?;
-            let arcs: Vec<(usize, usize)> = arcs_str
-                .split(',')
-                .map(|s| {
-                    let parts: Vec<&str> = s.split('>').collect();
-                    anyhow::ensure!(
-                        parts.len() == 2,
-                        "Invalid arc format '{}', expected 'u>v'",
-                        s
-                    );
-                    Ok((
-                        parts[0].trim().parse::<usize>()?,
-                        parts[1].trim().parse::<usize>()?,
-                    ))
-                })
-                .collect::<Result<Vec<_>>>()?;
-            let inferred_num_v = arcs
-                .iter()
-                .flat_map(|&(u, v)| [u, v])
-                .max()
-                .map(|m| m + 1)
-                .unwrap_or(0);
-            let num_v = match args.num_vertices {
-                Some(user_num_v) => {
-                    anyhow::ensure!(
-                        user_num_v >= inferred_num_v,
-                        "--num-vertices ({}) is too small for the arcs: need at least {} to cover vertices up to {}",
-                        user_num_v,
-                        inferred_num_v,
-                        inferred_num_v.saturating_sub(1),
-                    );
-                    user_num_v
-                }
-                None => inferred_num_v,
-            };
-            let graph = DirectedGraph::new(num_v, arcs);
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let num_v = graph.num_vertices();
             let weights = parse_vertex_weights(args, num_v)?;
             (
                 ser(MinimumFeedbackVertexSet::new(graph, weights))?,
@@ -1060,6 +1049,74 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
                 .collect()
         })
         .collect()
+}
+
+/// Parse `--arcs` as directed arc pairs and build a `DirectedGraph`.
+///
+/// Returns `(graph, num_arcs)`. Infers vertex count from arc endpoints
+/// unless `num_vertices` is provided (which must be >= inferred count).
+/// E.g., "0>1,1>2,2>0"
+fn parse_directed_graph(
+    arcs_str: &str,
+    num_vertices: Option<usize>,
+) -> Result<(DirectedGraph, usize)> {
+    let arcs: Vec<(usize, usize)> = arcs_str
+        .split(',')
+        .map(|pair| {
+            let parts: Vec<&str> = pair.trim().split('>').collect();
+            if parts.len() != 2 {
+                bail!(
+                    "Invalid arc '{}': expected format u>v (e.g., 0>1)",
+                    pair.trim()
+                );
+            }
+            let u: usize = parts[0].parse()?;
+            let v: usize = parts[1].parse()?;
+            Ok((u, v))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let inferred_num_v = arcs
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|m| m + 1)
+        .unwrap_or(0);
+    let num_v = match num_vertices {
+        Some(user_num_v) => {
+            anyhow::ensure!(
+                user_num_v >= inferred_num_v,
+                "--num-vertices ({}) is too small for the arcs: need at least {} to cover vertices up to {}",
+                user_num_v,
+                inferred_num_v,
+                inferred_num_v.saturating_sub(1),
+            );
+            user_num_v
+        }
+        None => inferred_num_v,
+    };
+    let num_arcs = arcs.len();
+    Ok((DirectedGraph::new(num_v, arcs), num_arcs))
+}
+
+/// Parse `--weights` as arc weights (i32), defaulting to all 1s.
+fn parse_arc_weights(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
+    match &args.weights {
+        Some(w) => {
+            let weights: Vec<i32> = w
+                .split(',')
+                .map(|s| s.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if weights.len() != num_arcs {
+                bail!(
+                    "Expected {} arc weights but got {}",
+                    num_arcs,
+                    weights.len()
+                );
+            }
+            Ok(weights)
+        }
+        None => Ok(vec![1i32; num_arcs]),
+    }
 }
 
 /// Handle `pred create <PROBLEM> --random ...`

@@ -15,6 +15,7 @@
 //! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
+//! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
@@ -29,6 +30,7 @@ pub(crate) mod maximum_independent_set;
 pub(crate) mod maximum_matching;
 pub(crate) mod minimum_sum_multicenter;
 pub(crate) mod minimum_dominating_set;
+pub(crate) mod minimum_feedback_arc_set;
 pub(crate) mod minimum_feedback_vertex_set;
 pub(crate) mod minimum_vertex_cover;
 pub(crate) mod partition_into_triangles;
@@ -47,6 +49,7 @@ pub use maximum_independent_set::MaximumIndependentSet;
 pub use maximum_matching::MaximumMatching;
 pub use minimum_sum_multicenter::MinimumSumMulticenter;
 pub use minimum_dominating_set::MinimumDominatingSet;
+pub use minimum_feedback_arc_set::MinimumFeedbackArcSet;
 pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
 pub use minimum_vertex_cover::MinimumVertexCover;
 pub use partition_into_triangles::PartitionIntoTriangles;
