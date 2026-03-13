@@ -4,7 +4,7 @@
 Rust library for NP-hard problem reductions. Implements computational problems with reduction rules for transforming between equivalent formulations.
 
 ## Skills
-- [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. Validates the issue against the appropriate checklist, then dispatches to `add-model` or `add-rule`.
+- [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. One item per PR: `[Rule]` issues require both models to exist on `main`; never bundle model + rule in the same PR.
 - [add-model](skills/add-model/SKILL.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [add-rule](skills/add-rule/SKILL.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [review-implementation](skills/review-implementation/SKILL.md) -- Review implementation completeness by dispatching parallel subagents (structural + quality) with fresh context. Auto-detects new models/rules from git diff. Called automatically at the end of `add-model`/`add-rule`, after each `executing-plans` batch, or standalone via `/review-implementation`.
@@ -19,6 +19,8 @@ Rust library for NP-hard problem reductions. Implements computational problems w
   - `topology-sanity-check redundancy [source target]` -- Check for dominated reduction rules
 - [project-pipeline](skills/project-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr --execute -> review-agentic.
 - [review-pipeline](skills/review-pipeline/SKILL.md) -- Pick a PR from review-agentic column, fix Copilot review comments, fix CI, run agentic feature tests, move to In Review.
+- [propose](skills/propose/SKILL.md) -- Interactive brainstorming to help domain experts propose a new model or rule. Asks one question at a time, uses mathematical language (no programming jargon), and files a GitHub issue.
+- [final-review](skills/final-review/SKILL.md) -- Interactive maintainer review for PRs in "In review" column. Assesses usefulness, safety, completeness, quality ranking, then merge or hold.
 - [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
 
 ## Commands

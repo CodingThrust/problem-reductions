@@ -40,12 +40,17 @@ pub mod prelude {
     // Problem types
     pub use crate::models::algebraic::{QuadraticAssignment, BMF, QUBO};
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
-    pub use crate::models::graph::{BicliqueCover, GraphPartitioning, SpinGlass};
+    pub use crate::models::graph::{
+        BicliqueCover, GraphPartitioning, SpinGlass, SubgraphIsomorphism,
+    };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumDominatingSet, MinimumFeedbackVertexSet, MinimumVertexCover, TravelingSalesman,
+        MinimumDominatingSet, MinimumFeedbackVertexSet, MinimumVertexCover,
+        PartitionIntoTriangles, RuralPostman, TravelingSalesman,
     };
-    pub use crate::models::misc::{BinPacking, Factoring, Knapsack, PaintShop, SubsetSum};
+    pub use crate::models::misc::{
+        BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop, SubsetSum,
+    };
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
 
     // Core traits
