@@ -226,6 +226,7 @@ pub fn load_problem(
             _ => deser_opt::<SpinGlass<SimpleGraph, i32>>(data),
         },
         "Satisfiability" => deser_sat::<Satisfiability>(data),
+        "QuantifiedBooleanFormulas" => deser_sat::<QuantifiedBooleanFormulas>(data),
         "KSatisfiability" => match variant.get("k").map(|s| s.as_str()) {
             Some("K2") => deser_sat::<KSatisfiability<K2>>(data),
             Some("K3") => deser_sat::<KSatisfiability<K3>>(data),
@@ -289,6 +290,7 @@ pub fn serialize_any_problem(
             _ => try_ser::<SpinGlass<SimpleGraph, i32>>(any),
         },
         "Satisfiability" => try_ser::<Satisfiability>(any),
+        "QuantifiedBooleanFormulas" => try_ser::<QuantifiedBooleanFormulas>(any),
         "KSatisfiability" => match variant.get("k").map(|s| s.as_str()) {
             Some("K2") => try_ser::<KSatisfiability<K2>>(any),
             Some("K3") => try_ser::<KSatisfiability<K3>>(any),

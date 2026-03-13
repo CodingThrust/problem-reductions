@@ -10,7 +10,9 @@ pub mod set;
 
 // Re-export commonly used types
 pub use algebraic::{ClosestVectorProblem, BMF, ILP, QUBO};
-pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
+pub use formula::{
+    CNFClause, CircuitSAT, KSatisfiability, QuantifiedBooleanFormulas, Quantifier, Satisfiability,
+};
 pub use graph::{
     BicliqueCover, GraphPartitioning, KColoring, MaxCut, MaximalIS, MaximumClique,
     MaximumIndependentSet, MaximumMatching, MinimumDominatingSet, MinimumFeedbackVertexSet,

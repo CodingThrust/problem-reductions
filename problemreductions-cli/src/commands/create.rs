@@ -5,6 +5,7 @@ use crate::problem_name::{parse_problem_spec, resolve_variant};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
+use problemreductions::models::formula::Quantifier;
 use problemreductions::models::graph::GraphPartitioning;
 use problemreductions::models::misc::{BinPacking, PaintShop};
 use problemreductions::prelude::*;
@@ -48,6 +49,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.target_vec.is_none()
         && args.bounds.is_none()
         && args.arcs.is_none()
+        && args.quantifiers.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -82,6 +84,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
         "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
+        "QuantifiedBooleanFormulas" => {
+            "--num-vars 3 --clauses \"1,2;-1,3\" --quantifiers \"E,A,E\""
+        }
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
@@ -262,6 +267,26 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (k, _variant) =
                 util::validate_k_param(&resolved_variant, args.k, Some(3), "KSatisfiability")?;
             util::ser_ksat(num_vars, clauses, k)?
+        }
+
+        // QBF
+        "QuantifiedBooleanFormulas" => {
+            let num_vars = args.num_vars.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuantifiedBooleanFormulas requires --num-vars, --clauses, and --quantifiers\n\n\
+                     Usage: pred create QBF --num-vars 3 --clauses \"1,2;-1,3\" --quantifiers \"E,A,E\""
+                )
+            })?;
+            let clauses = parse_clauses(args)?;
+            let quantifiers = parse_quantifiers(args, num_vars)?;
+            (
+                ser(QuantifiedBooleanFormulas::new(
+                    num_vars,
+                    quantifiers,
+                    clauses,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // QUBO
@@ -888,6 +913,36 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
                 .collect()
         })
         .collect()
+}
+
+/// Parse `--quantifiers` as comma-separated quantifier labels (E/A or Exists/ForAll).
+/// E.g., "E,A,E" or "Exists,ForAll,Exists"
+fn parse_quantifiers(args: &CreateArgs, num_vars: usize) -> Result<Vec<Quantifier>> {
+    let q_str = args
+        .quantifiers
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("QBF requires --quantifiers (e.g., \"E,A,E\")"))?;
+
+    let quantifiers: Vec<Quantifier> = q_str
+        .split(',')
+        .map(|s| match s.trim().to_lowercase().as_str() {
+            "e" | "exists" => Ok(Quantifier::Exists),
+            "a" | "forall" => Ok(Quantifier::ForAll),
+            other => Err(anyhow::anyhow!(
+                "Invalid quantifier '{}': expected E/Exists or A/ForAll",
+                other
+            )),
+        })
+        .collect::<Result<Vec<_>>>()?;
+
+    if quantifiers.len() != num_vars {
+        bail!(
+            "Expected {} quantifiers but got {}",
+            num_vars,
+            quantifiers.len()
+        );
+    }
+    Ok(quantifiers)
 }
 
 /// Handle `pred create <PROBLEM> --random ...`
