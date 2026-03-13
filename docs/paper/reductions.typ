@@ -54,6 +54,7 @@
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
   "SubsetSum": [Subset Sum],
+  "MultivariateQuadratic": [Multivariate Quadratic],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -954,6 +955,14 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   One of Karp's 21 NP-complete problems @karp1972. Subset Sum is the special case of Knapsack where $v_i = w_i$ for all items and we seek an exact sum rather than an inequality. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n B)$ pseudo-polynomial time. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974.
 
   *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
+]
+
+#problem-def("MultivariateQuadratic")[
+  Given $m$ quadratic polynomials $f_1, dots, f_m$ over a finite field $FF_q$ with $n$ variables $x_0, dots, x_(n-1)$, where each $f_i (x) = sum_(0 <= j <= k < n) a_(i j k) x_j x_k + sum_(j=0)^(n-1) b_(i j) x_j + c_i$, determine whether there exists an assignment $x in FF_q^n$ such that $f_i (x) = 0$ for all $i = 1, dots, m$.
+][
+  The Multivariate Quadratic (MQ) problem is a core problem in post-quantum cryptography and algebraic cryptanalysis @Patarin1996. MQ over $FF_2$ is NP-complete and polynomial-time interreducible with SAT. For general finite fields, it generalizes Boolean satisfiability to polynomial equation systems. The brute-force approach enumerates all $q^n$ assignments. More sophisticated methods include Groebner basis algorithms (F4/F5) @Faugere1999 and the XL algorithm, though these lack uniform worst-case bounds better than exhaustive search.
+
+  *Example.* Over $FF_2$ with $n = 3$ variables, consider $f_1 = x_0 x_1 + x_2$ and $f_2 = x_1 x_2 + x_0$. The assignment $(0, 0, 0)$ satisfies both: $f_1 = 0 dot 0 + 0 = 0$ and $f_2 = 0 dot 0 + 0 = 0$. Other solutions include $(0, 1, 0)$ and $(1, 1, 1)$.
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper
