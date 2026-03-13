@@ -13,7 +13,7 @@ pub use algebraic::{ClosestVectorProblem, BMF, ILP, QUBO};
 pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
     BicliqueCover, GraphPartitioning, KColoring, MaxCut, MaximalIS, MaximumClique,
-    MaximumIndependentSet, MaximumMatching, MinSumMulticenter, MinimumDominatingSet,
+    MaximumIndependentSet, MaximumMatching, MinimumSumMulticenter, MinimumDominatingSet,
     MinimumFeedbackVertexSet, MinimumVertexCover, PartitionIntoTriangles, RuralPostman, SpinGlass,
     SubgraphIsomorphism, TravelingSalesman,
 };

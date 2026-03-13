@@ -2,7 +2,7 @@ use crate::util;
 use problemreductions::models::algebraic::QUBO;
 use problemreductions::models::formula::{CNFClause, Satisfiability};
 use problemreductions::models::graph::{
-    MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinSumMulticenter,
+    MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumSumMulticenter,
     MinimumDominatingSet, MinimumVertexCover, SpinGlass, TravelingSalesman,
 };
 use problemreductions::models::misc::Factoring;
@@ -514,8 +514,8 @@ impl McpServer {
                 (ser(Factoring::new(bits_m, bits_n, target))?, variant)
             }
 
-            // MinSumMulticenter (p-median)
-            "MinSumMulticenter" => {
+            // MinimumSumMulticenter (p-median)
+            "MinimumSumMulticenter" => {
                 let (graph, n) = parse_graph_from_params(params)?;
                 let vertex_weights = parse_vertex_weights_from_params(params, n)?;
                 let edge_lengths = parse_edge_lengths_from_params(params, graph.num_edges())?;
@@ -524,11 +524,11 @@ impl McpServer {
                     .and_then(|v| v.as_u64())
                     .map(|v| v as usize)
                     .ok_or_else(|| {
-                        anyhow::anyhow!("MinSumMulticenter requires 'k' (number of centers)")
+                        anyhow::anyhow!("MinimumSumMulticenter requires 'k' (number of centers)")
                     })?;
                 let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
                 (
-                    ser(MinSumMulticenter::new(graph, vertex_weights, edge_lengths, k))?,
+                    ser(MinimumSumMulticenter::new(graph, vertex_weights, edge_lengths, k))?,
                     variant,
                 )
             }
@@ -653,7 +653,7 @@ impl McpServer {
                     util::validate_k_param(resolved_variant, k_flag, Some(3), "KColoring")?;
                 util::ser_kcoloring(graph, k)?
             }
-            "MinSumMulticenter" => {
+            "MinimumSumMulticenter" => {
                 let edge_prob = params
                     .get("edge_prob")
                     .and_then(|v| v.as_f64())
@@ -672,7 +672,7 @@ impl McpServer {
                     .unwrap_or(1.max(num_vertices / 3));
                 let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
                 (
-                    ser(MinSumMulticenter::new(graph, vertex_weights, edge_lengths, k))?,
+                    ser(MinimumSumMulticenter::new(graph, vertex_weights, edge_lengths, k))?,
                     variant,
                 )
             }
@@ -680,7 +680,7 @@ impl McpServer {
                 "Random generation is not supported for {}. \
                  Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
                  MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, \
-                 TravelingSalesman, MinSumMulticenter)",
+                 TravelingSalesman, MinimumSumMulticenter)",
                 canonical
             ),
         };

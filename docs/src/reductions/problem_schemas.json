@@ -303,32 +303,6 @@
     ]
   },
   {
-    "name": "MinSumMulticenter",
-    "description": "Find K centers minimizing total weighted distance (p-median problem)",
-    "fields": [
-      {
-        "name": "graph",
-        "type_name": "G",
-        "description": "The underlying graph G=(V,E)"
-      },
-      {
-        "name": "vertex_weights",
-        "type_name": "Vec<W>",
-        "description": "Vertex weights w: V -> R"
-      },
-      {
-        "name": "edge_lengths",
-        "type_name": "Vec<W>",
-        "description": "Edge lengths l: E -> R"
-      },
-      {
-        "name": "k",
-        "type_name": "usize",
-        "description": "Number of centers to place"
-      }
-    ]
-  },
-  {
     "name": "MinimumDominatingSet",
     "description": "Find minimum weight dominating set in a graph",
     "fields": [
@@ -378,6 +352,32 @@
         "name": "weights",
         "type_name": "Vec<W>",
         "description": "Weight for each set"
+      }
+    ]
+  },
+  {
+    "name": "MinimumSumMulticenter",
+    "description": "Find K centers minimizing total weighted distance (p-median problem)",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "vertex_weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      },
+      {
+        "name": "edge_lengths",
+        "type_name": "Vec<W>",
+        "description": "Edge lengths l: E -> R"
+      },
+      {
+        "name": "k",
+        "type_name": "usize",
+        "description": "Number of centers to place"
       }
     ]
   },

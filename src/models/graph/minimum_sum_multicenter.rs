@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
-        name: "MinSumMulticenter",
+        name: "MinimumSumMulticenter",
         module_path: module_path!(),
         description: "Find K centers minimizing total weighted distance (p-median problem)",
         fields: &[
@@ -39,13 +39,13 @@ inventory::submit! {
 /// # Example
 ///
 /// ```
-/// use problemreductions::models::graph::MinSumMulticenter;
+/// use problemreductions::models::graph::MinimumSumMulticenter;
 /// use problemreductions::topology::SimpleGraph;
 /// use problemreductions::{Problem, Solver, BruteForce};
 ///
 /// // Path graph: 0-1-2, unit weights and lengths, K=1
 /// let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
-/// let problem = MinSumMulticenter::new(graph, vec![1i32; 3], vec![1i32; 2], 1);
+/// let problem = MinimumSumMulticenter::new(graph, vec![1i32; 3], vec![1i32; 2], 1);
 ///
 /// let solver = BruteForce::new();
 /// let solution = solver.find_best(&problem).unwrap();
@@ -53,7 +53,7 @@ inventory::submit! {
 /// assert_eq!(solution, vec![0, 1, 0]);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MinSumMulticenter<G, W> {
+pub struct MinimumSumMulticenter<G, W> {
     /// The underlying graph.
     graph: G,
     /// Non-negative weight for each vertex.
@@ -64,8 +64,8 @@ pub struct MinSumMulticenter<G, W> {
     k: usize,
 }
 
-impl<G: Graph, W: Clone + Default> MinSumMulticenter<G, W> {
-    /// Create a MinSumMulticenter problem.
+impl<G: Graph, W: Clone + Default> MinimumSumMulticenter<G, W> {
+    /// Create a MinimumSumMulticenter problem.
     ///
     /// # Panics
     /// - If `vertex_weights.len() != graph.num_vertices()`
@@ -113,7 +113,7 @@ impl<G: Graph, W: Clone + Default> MinSumMulticenter<G, W> {
     }
 }
 
-impl<G: Graph, W: WeightElement> MinSumMulticenter<G, W> {
+impl<G: Graph, W: WeightElement> MinimumSumMulticenter<G, W> {
     /// Get the number of vertices in the underlying graph.
     pub fn num_vertices(&self) -> usize {
         self.graph().num_vertices()
@@ -186,12 +186,12 @@ impl<G: Graph, W: WeightElement> MinSumMulticenter<G, W> {
     }
 }
 
-impl<G, W> Problem for MinSumMulticenter<G, W>
+impl<G, W> Problem for MinimumSumMulticenter<G, W>
 where
     G: Graph + crate::variant::VariantParam,
     W: WeightElement + crate::variant::VariantParam,
 {
-    const NAME: &'static str = "MinSumMulticenter";
+    const NAME: &'static str = "MinimumSumMulticenter";
     type Metric = SolutionSize<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
@@ -225,7 +225,7 @@ where
     }
 }
 
-impl<G, W> OptimizationProblem for MinSumMulticenter<G, W>
+impl<G, W> OptimizationProblem for MinimumSumMulticenter<G, W>
 where
     G: Graph + crate::variant::VariantParam,
     W: WeightElement + crate::variant::VariantParam,
@@ -238,9 +238,9 @@ where
 }
 
 crate::declare_variants! {
-    MinSumMulticenter<SimpleGraph, i32> => "2^num_vertices",
+    MinimumSumMulticenter<SimpleGraph, i32> => "2^num_vertices",
 }
 
 #[cfg(test)]
-#[path = "../../unit_tests/models/graph/min_sum_multicenter.rs"]
+#[path = "../../unit_tests/models/graph/minimum_sum_multicenter.rs"]
 mod tests;

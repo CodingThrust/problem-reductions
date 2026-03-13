@@ -15,7 +15,7 @@
 //! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
-//! - [`MinSumMulticenter`]: Min-sum multicenter (p-median)
+//! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
 
@@ -27,7 +27,7 @@ pub(crate) mod maximal_is;
 pub(crate) mod maximum_clique;
 pub(crate) mod maximum_independent_set;
 pub(crate) mod maximum_matching;
-pub(crate) mod min_sum_multicenter;
+pub(crate) mod minimum_sum_multicenter;
 pub(crate) mod minimum_dominating_set;
 pub(crate) mod minimum_feedback_vertex_set;
 pub(crate) mod minimum_vertex_cover;
@@ -45,7 +45,7 @@ pub use maximal_is::MaximalIS;
 pub use maximum_clique::MaximumClique;
 pub use maximum_independent_set::MaximumIndependentSet;
 pub use maximum_matching::MaximumMatching;
-pub use min_sum_multicenter::MinSumMulticenter;
+pub use minimum_sum_multicenter::MinimumSumMulticenter;
 pub use minimum_dominating_set::MinimumDominatingSet;
 pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
 pub use minimum_vertex_cover::MinimumVertexCover;
