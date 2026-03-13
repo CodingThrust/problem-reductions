@@ -9,9 +9,9 @@ Pick a "Ready" issue from the [GitHub Project board](https://github.com/orgs/Cod
 
 ## Invocation
 
-- `/project-pipeline` -- pick the next Ready issue (first Model, then Rule, by issue number)
+- `/project-pipeline` -- pick the highest-ranked Ready issue (ranked by importance, relatedness, pending rules)
 - `/project-pipeline 97` -- process a specific issue number from the Ready column
-- `/project-pipeline --all` -- batch-process all Ready issues (Models first, then Rules)
+- `/project-pipeline --all` -- batch-process all Ready issues in ranked order
 
 ## Constants
 
@@ -33,39 +33,80 @@ This skill runs **fully autonomously** — no confirmation prompts, no user ques
 
 ## Steps
 
-### 0. Discover Ready Issues
+### 0. Discover and Rank Ready Issues
+
+#### 0a. Fetch Ready Issues
 
 ```bash
-gh project item-list 8 --owner CodingThrust --format json
+gh project item-list 8 --owner CodingThrust --format json --limit 500
 ```
 
-Filter items where `status == "Ready"`. Partition into `[Model]` and `[Rule]` buckets, sort each by issue number ascending. Final order: **all Models first, then all Rules** (so dependencies are satisfied).
+Filter items where `status == "Ready"`. Partition into `[Model]` and `[Rule]` buckets.
 
-Print the list for visibility (no confirmation needed):
+#### 0b. Gather Context for Ranking
+
+1. **Existing problems:** Grep for problem struct definitions in the codebase: `grep -r "^pub struct" src/models/ | sed 's/.*pub struct \([A-Za-z]*\).*/\1/'` to get all problem names currently implemented on `main`.
+2. **Pending rules:** From the full project board JSON, collect all `[Rule]` issues that are in "Ready" or "In Progress" status. Parse their source/target problem names (e.g., `[Rule] BinPacking to ILP` → source=BinPacking, target=ILP).
+
+#### 0c. Check Eligibility
+
+**Rule issues require both source and target models to exist on `main`.** For each `[Rule]` issue, parse the source and target problem names (e.g., `[Rule] BinPacking to ILP` → source=BinPacking, target=ILP). Check that both appear in the existing problems list (from Step 0b grep).
+
+- If both models exist in the codebase → **eligible**
+- If either model is missing from the codebase → **ineligible**, mark it `[blocked]` with reason (e.g., "model X not yet implemented on main")
+
+Do NOT consider pending `[Model]` issues as satisfying the dependency — only models already merged to `main` count. This prevents bundling model + rule in the same PR.
+
+All `[Model]` issues are always eligible (no dependency check needed).
+
+#### 0d. Score Eligible Issues
+
+Score only **eligible** issues on three criteria. For `[Model]` issues, extract the problem name. For `[Rule]` issues, extract both source and target problem names.
+
+| Criterion | Weight | How to Assess |
+|-----------|--------|---------------|
+| **C1: Industrial/Theoretical Importance** | 3 | Read the issue body. Score 0-2: **2** = widely used in industry or foundational in complexity theory (e.g., ILP, SAT, MaxFlow, TSP, GraphColoring); **1** = moderately important or well-studied (e.g., SubsetSum, SetCover, Knapsack); **0** = niche or primarily academic |
+| **C2: Related to Existing Problems** | 2 | Check if the problem connects to problems already in the reduction graph (via `list_problems`). Score 0-2: **2** = directly related (shares input structure or has known reductions to/from ≥2 existing problems, but is NOT a trivial variant of an existing one); **1** = loosely related (same domain, connects to 1 existing problem); **0** = isolated or is essentially a variant/renaming of an existing problem |
+| **C3: Unblocks Pending Rules** | 2 | Check if this issue is a dependency for pending `[Rule]` issues. Score 0-2: **2** = unblocks ≥2 pending rules (a `[Model]` issue whose problem appears as source or target in ≥2 pending rules); **1** = unblocks 1 pending rule; **0** = does not unblock any pending rule |
+
+**Final score** = C1 × 3 + C2 × 2 + C3 × 2 (max = 12)
+
+**Tie-breaking:** Models before Rules, then by lower issue number.
+
+**Important for C2:** A problem that is merely a weighted/unweighted variant or a graph-subtype specialization of an existing problem scores **0** on C2, not 2. The goal is to add genuinely new problem types that expand the graph's reach.
+
+#### 0e. Print Ranked List
+
+Print all Ready issues with their scores for visibility (no confirmation needed). Blocked rules appear at the bottom with their reason:
 
 ```
-Ready issues:
-  Models:
-    #129  [Model] MultivariateQuadratic
-    #117  [Model] GraphPartitioning
-  Rules:
-    #97   [Rule] BinPacking to ILP
-    #110  [Rule] LCS to ILP
-    #126  [Rule] KSatisfiability to SubsetSum
-    #130  [Rule] MultivariateQuadratic to ILP
+Ready issues (ranked):
+  Score  Issue  Title                              C1  C2  C3
+  ─────────────────────────────────────────────────────────────
+    10   #117   [Model] GraphPartitioning           2   2   2
+     8   #129   [Model] MultivariateQuadratic       2   1   1
+     7   #97    [Rule] BinPacking to ILP            1   2   1
+     6   #110   [Rule] LCS to ILP                   1   1   1
+     4   #126   [Rule] KSatisfiability to SubsetSum  0   2   0
+
+  Blocked:
+     3   #130   [Rule] MultivariateQuadratic to ILP  -- model "MultivariateQuadratic" not yet implemented
 ```
 
-**If a specific issue number was provided:** verify it is in the Ready column. If not, STOP with a message.
+#### 0f. Pick Issues
 
-**If `--all`:** proceed immediately with all Ready issues in order (no confirmation).
+**If a specific issue number was provided:** verify it is in the Ready column. If it is blocked, STOP with a message explaining which model is missing.
 
-**Otherwise (no args):** pick the first issue in the ordered list (Models before Rules, lowest number first) and proceed immediately (no confirmation).
+**If `--all`:** proceed with all eligible issues in ranked order (highest score first). Models before Rules at same score. Blocked rules are skipped. After each issue is processed, re-check eligibility for remaining rules (a just-merged Model may unblock them).
+
+**Otherwise (no args):** pick the highest-scored eligible (non-blocked) issue and proceed immediately (no confirmation).
 
 ### 1. Create Worktree
 
 Create an isolated git worktree for this issue so the main working directory stays clean:
 
 ```bash
+REPO_ROOT=$(git rev-parse --show-toplevel)
 git fetch origin main
 BRANCH="issue-<number>-<slug>"
 WORKTREE_DIR=".worktrees/$BRANCH"
@@ -127,7 +168,7 @@ gh project item-edit \
 After the issue is processed (success or failure), clean up the worktree:
 
 ```bash
-cd /Users/liujinguo/rcode/problemreductions
+cd "$REPO_ROOT"
 git worktree remove "$WORKTREE_DIR" --force
 ```
 
@@ -167,9 +208,12 @@ Completed: 2/4 | In Review: 3 | Returned to Ready: 1
 | Mistake | Fix |
 |---------|-----|
 | Issue not in Ready column | Verify status before processing; STOP if not Ready |
+| Picking a Rule whose model doesn't exist | Hard constraint: both source and target models must exist on `main` — pending Model issues do NOT count |
 | Missing project scopes | Run `gh auth refresh -s read:project,project` |
 | Forgetting to move back to Ready on total failure | Only move to In Review if a PR exists |
-| Processing Rules before Models | Always sort Models first — Rules may depend on them |
+| Processing Rules before their Model dependencies | In `--all` mode, re-check eligibility after each issue — a just-merged Model may unblock rules |
+| Scoring a variant as "related" | Weighted/unweighted variants or graph-subtype specializations of existing problems score 0 on C2 |
 | Not syncing main between batch issues | Each issue gets a fresh worktree from `origin/main` |
 | Worktree left behind on failure | Always clean up with `git worktree remove` in Step 5 |
 | Working in main checkout | All work happens in `.worktrees/` — never modify the main checkout |
+| Missing items from project board | `gh project item-list` defaults to 30 items — always use `--limit 500` |

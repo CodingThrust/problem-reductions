@@ -69,6 +69,8 @@ See the [MCP documentation](https://codingthrust.github.io/problem-reductions/mc
 2. **We implement it** — for reasonable requests, maintainers tag the issue `implement` and AI agents generate a tested implementation.
 3. **We present it to you** — all issue contributors are invited to community calls (via [Zulip](https://problem-reductions.zulipchat.com/)), where maintainers walk through the implementation — documentation, CLI behavior, correctness — and you provide feedback.
 
+**Which rules matter most?** Run `cargo run --example detect_isolated_problems` and `cargo run --example detect_unreachable_from_3sat` to see which problems are disconnected or lack NP-hardness proof chains from 3-SAT. Rules that connect isolated problems or complete proof chains are especially valuable.
+
 **Authorship:** contribute 10 non-trivial reduction rules and you'll be added to the author list of the [paper](https://codingthrust.github.io/problem-reductions/reductions.pdf).
 
 > **Tip:** If you use Claude Code / OpenCode / Codex, you can file issues interactively:
