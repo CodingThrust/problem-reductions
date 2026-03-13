@@ -162,6 +162,17 @@ fn test_lcs_serialization() {
 }
 
 #[test]
+fn test_lcs_empty_string_in_input() {
+    let problem = LongestCommonSubsequence::new(vec![
+        vec![],
+        vec![b'A', b'B', b'C'],
+    ]);
+    assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert!(problem.evaluate(&[]).is_valid());
+    assert_eq!(problem.evaluate(&[]).unwrap(), 0);
+}
+
+#[test]
 #[should_panic(expected = "LCS requires at least 2 strings")]
 fn test_lcs_single_string_panics() {
     LongestCommonSubsequence::new(vec![vec![b'A', b'B']]);
