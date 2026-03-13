@@ -27,13 +27,12 @@ Solution extraction follows from the variable mapping, no need to describe separ
 ## Size Overhead
 
 <!-- How large is the target instance relative to the source size?
-Use the symbols defined in the Reduction Algorithm above.
-Also provide the code-level metric name (matching the problem's inherent getter methods, e.g., num_vertices, num_edges). -->
+Use the symbols defined in the Reduction Algorithm above. -->
 
-| Target metric (code name) | Polynomial (using symbols above) |
-|----------------------------|----------------------------------|
-| <!-- e.g. num_vars --> | <!-- e.g. n = |V| --> |
-| <!-- e.g. num_edges --> | <!-- e.g. m = |E| --> |
+| Target metric | Formula (using symbols above) |
+|---------------|-------------------------------|
+| <!-- e.g. number of variables --> | <!-- e.g. n = |V| --> |
+| <!-- e.g. number of edges --> | <!-- e.g. m = |E| --> |
 
 ## Validation Method
 
