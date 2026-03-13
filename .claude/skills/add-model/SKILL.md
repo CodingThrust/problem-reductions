@@ -152,6 +152,15 @@ Required tests:
 
 Link the test file via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the model file.
 
+## Step 5.5: Add trait_consistency entry
+
+Add the new problem to `src/unit_tests/trait_consistency.rs`:
+
+1. **`test_all_problems_implement_trait_correctly`** — add a `check_problem_trait(...)` call with a small instance
+2. **`test_direction`** (optimization problems only) — add an `assert_eq!(...direction(), Direction::Minimize/Maximize)` entry
+
+This is **required** for every new model — it ensures the Problem trait implementation is well-formed.
+
 ## Step 6: Document in paper
 
 Invoke the `/write-model-in-paper` skill to write the problem-def entry in `docs/paper/reductions.typ`. That skill covers the full authoring process: formal definition, background, example with visualization, algorithm list, and verification checklist.
@@ -187,3 +196,4 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 | Forgetting CLI create | Must add creation handler in `commands/create.rs` and flags in `cli.rs` |
 | Missing from CLI help table | Must add entry to "Flags by problem type" table in `cli.rs` `after_help` |
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |
+| Forgetting trait_consistency | Must add entry in `test_all_problems_implement_trait_correctly` (and `test_direction` for optimization) in `src/unit_tests/trait_consistency.rs` |
