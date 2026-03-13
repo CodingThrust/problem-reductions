@@ -13,8 +13,10 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [write-rule-in-paper](skills/write-rule-in-paper/SKILL.md) -- Write or improve a reduction-rule entry in the Typst paper. Covers complexity citation, self-contained proof, detailed example, and verification.
 - [release](skills/release/SKILL.md) -- Create a new crate release. Determines version bump from diff, verifies tests/clippy, then runs `make release`.
 - [check-issue](skills/check-issue/SKILL.md) -- Quality gate for `[Rule]` and `[Model]` issues. Checks usefulness, non-triviality, correctness of literature, and writing quality. Posts structured report and adds failure labels.
-- [check-rule-redundancy](skills/check-rule-redundancy/SKILL.md) -- Check if a reduction rule (source-target pair) is redundant, i.e., dominated by a composite path through other rules.
-- [meta-power](skills/meta-power/SKILL.md) -- Batch-resolve all open `[Model]` and `[Rule]` issues autonomously: plan, implement, review, fix CI, merge — in dependency order (models first).
+- [topology-sanity-check](skills/topology-sanity-check/SKILL.md) -- Run sanity checks on the reduction graph: detect orphan (isolated) problems and redundant reduction rules.
+  - `topology-sanity-check orphans` -- Detect isolated problem types (runs `examples/detect_isolated_problems.rs`)
+  - `topology-sanity-check np-hardness` -- Verify NP-hardness proof chains from 3-SAT (runs `examples/detect_unreachable_from_3sat.rs`)
+  - `topology-sanity-check redundancy [source target]` -- Check for dominated reduction rules
 - [project-pipeline](skills/project-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr --execute -> review-agentic.
 - [review-pipeline](skills/review-pipeline/SKILL.md) -- Pick a PR from review-agentic column, fix Copilot review comments, fix CI, run agentic feature tests, move to In Review.
 - [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
@@ -160,7 +162,7 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Test naming: `test_<source>_to_<target>_closed_loop`
 
 ### Paper (docs/paper/reductions.typ)
-- `problem-def(name)[body]` — defines a problem with auto-generated schema, reductions list, and label `<def:ProblemName>`. Title comes from `display-name` dict.
+- `problem-def(name)[def][body]` — defines a problem with auto-generated schema, reductions list, and label `<def:ProblemName>`. Title comes from `display-name` dict.
 - `reduction-rule(source, target, example: bool, ...)[rule][proof]` — generates a theorem with label `<thm:Source-to-Target>` and registers in `covered-rules` state. Overhead auto-derived from JSON edge data.
 - Every directed reduction needs its own `reduction-rule` entry
 - Completeness warnings auto-check that all JSON graph nodes/edges are covered in the paper
@@ -208,6 +210,8 @@ Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). I
 ```typst
 #problem-def("ProblemName")[
   Mathematical definition...
+][
+  Background, examples, algorithms...
 ]
 ```
 

@@ -38,7 +38,7 @@ This skill runs **fully autonomously** — no confirmation prompts, no user ques
 #### 0a. Fetch Ready Issues
 
 ```bash
-gh project item-list 8 --owner CodingThrust --format json
+gh project item-list 8 --owner CodingThrust --format json --limit 500
 ```
 
 Filter items where `status == "Ready"`. Partition into `[Model]` and `[Rule]` buckets.
@@ -48,9 +48,19 @@ Filter items where `status == "Ready"`. Partition into `[Model]` and `[Rule]` bu
 1. **Existing problems:** Call `list_problems` (MCP tool) to get all problems currently in the reduction graph.
 2. **Pending rules:** From the full project board JSON, collect all `[Rule]` issues that are in "Ready" or "In Progress" status. Parse their source/target problem names (e.g., `[Rule] BinPacking to ILP` → source=BinPacking, target=ILP).
 
-#### 0c. Score Each Issue
+#### 0c. Check Eligibility
 
-Score each Ready issue on three criteria. For `[Model]` issues, extract the problem name. For `[Rule]` issues, extract both source and target problem names.
+**Rule issues require both source and target models to exist.** For each `[Rule]` issue, parse the source and target problem names (e.g., `[Rule] BinPacking to ILP` → source=BinPacking, target=ILP). Check that both appear in the `list_problems` output (existing models) OR in a `[Model]` issue in the current Ready/In Progress columns.
+
+- If both models exist → **eligible**
+- If a missing model has a `[Model]` issue in Ready → eligible only in `--all` mode (the Model will be processed first); in single-issue mode, **skip this Rule** and mark it `[blocked]`
+- If a missing model has no `[Model]` issue at all → **ineligible**, mark it `[blocked]` with reason
+
+All `[Model]` issues are always eligible (no dependency check needed).
+
+#### 0d. Score Eligible Issues
+
+Score only **eligible** issues on three criteria. For `[Model]` issues, extract the problem name. For `[Rule]` issues, extract both source and target problem names.
 
 | Criterion | Weight | How to Assess |
 |-----------|--------|---------------|
@@ -63,14 +73,6 @@ Score each Ready issue on three criteria. For `[Model]` issues, extract the prob
 **Tie-breaking:** Models before Rules, then by lower issue number.
 
 **Important for C2:** A problem that is merely a weighted/unweighted variant or a graph-subtype specialization of an existing problem scores **0** on C2, not 2. The goal is to add genuinely new problem types that expand the graph's reach.
-
-#### 0d. Apply Hard Constraints
-
-**Rule issues require both source and target models to exist.** For each `[Rule]` issue, check that both its source and target problem names appear in the `list_problems` output (existing models) OR in a `[Model]` issue in the current Ready/In Progress columns.
-
-- If both models exist → eligible
-- If a missing model has a `[Model]` issue in Ready → eligible only in `--all` mode (the Model will be processed first); in single-issue mode, **skip this Rule** and mark it `[blocked]`
-- If a missing model has no `[Model]` issue at all → **ineligible**, mark it `[blocked]` with reason
 
 #### 0e. Print Ranked List
 
@@ -103,6 +105,7 @@ Ready issues (ranked):
 Create an isolated git worktree for this issue so the main working directory stays clean:
 
 ```bash
+REPO_ROOT=$(git rev-parse --show-toplevel)
 git fetch origin main
 BRANCH="issue-<number>-<slug>"
 WORKTREE_DIR=".worktrees/$BRANCH"
@@ -164,7 +167,7 @@ gh project item-edit \
 After the issue is processed (success or failure), clean up the worktree:
 
 ```bash
-cd /Users/liujinguo/rcode/problemreductions
+cd "$REPO_ROOT"
 git worktree remove "$WORKTREE_DIR" --force
 ```
 
@@ -212,3 +215,4 @@ Completed: 2/4 | In Review: 3 | Returned to Ready: 1
 | Not syncing main between batch issues | Each issue gets a fresh worktree from `origin/main` |
 | Worktree left behind on failure | Always clean up with `git worktree remove` in Step 5 |
 | Working in main checkout | All work happens in `.worktrees/` — never modify the main checkout |
+| Missing items from project board | `gh project item-list` defaults to 30 items — always use `--limit 500` |
