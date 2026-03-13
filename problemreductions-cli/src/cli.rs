@@ -209,6 +209,7 @@ Flags by problem type:
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
   GraphPartitioning               --graph
+  HamiltonianCircuit, HC          --graph
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   PaintShop                       --sequence

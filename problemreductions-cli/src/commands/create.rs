@@ -5,7 +5,7 @@ use crate::problem_name::{parse_problem_spec, resolve_variant};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::graph::GraphPartitioning;
+use problemreductions::models::graph::{GraphPartitioning, HamiltonianCircuit};
 use problemreductions::models::misc::{BinPacking, PaintShop};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -86,6 +86,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
+        "HamiltonianCircuit" => "--graph 0-1,1-2,2-3,3-0",
         "Factoring" => "--target 15 --m 4 --n 4",
         _ => "",
     }
@@ -205,6 +206,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(GraphPartitioning::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Hamiltonian Circuit (graph only, no weights)
+        "HamiltonianCircuit" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create HamiltonianCircuit --graph 0-1,1-2,2-3,3-0"
+                )
+            })?;
+            (
+                ser(HamiltonianCircuit::new(graph))?,
                 resolved_variant.clone(),
             )
         }
@@ -975,6 +989,17 @@ fn create_random(
             (ser(GraphPartitioning::new(graph))?, variant)
         }
 
+        // Hamiltonian Circuit (graph only, no weights)
+        "HamiltonianCircuit" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(HamiltonianCircuit::new(graph))?, variant)
+        }
+
         // Graph problems with edge weights
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -1026,7 +1051,8 @@ fn create_random(
         _ => bail!(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman)"
+             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, \
+             TravelingSalesman, HamiltonianCircuit)"
         ),
     };
 
