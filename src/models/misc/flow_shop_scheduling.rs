@@ -113,6 +113,22 @@ impl FlowShopScheduling {
     pub fn compute_makespan(&self, job_order: &[usize]) -> u64 {
         let n = job_order.len();
         let m = self.num_processors;
+        assert_eq!(
+            n,
+            self.task_lengths.len(),
+            "job_order length ({}) does not match num_jobs ({})",
+            n,
+            self.task_lengths.len()
+        );
+        for (k, &job) in job_order.iter().enumerate() {
+            assert!(
+                job < self.task_lengths.len(),
+                "job_order[{}] = {} is out of range (num_jobs = {})",
+                k,
+                job,
+                self.task_lengths.len()
+            );
+        }
         if n == 0 || m == 0 {
             return 0;
         }
@@ -143,7 +159,7 @@ impl Problem for FlowShopScheduling {
 
     fn dims(&self) -> Vec<usize> {
         let n = self.num_jobs();
-        vec![n; n]
+        (0..n).rev().map(|i| i + 1).collect()
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
@@ -152,20 +168,15 @@ impl Problem for FlowShopScheduling {
             return false;
         }
 
-        // Check that config is a valid permutation of 0..n
-        let mut seen = vec![false; n];
-        for &pos in config {
-            if pos >= n || seen[pos] {
+        // Decode Lehmer code into a permutation.
+        // config[i] must be < n - i (the domain size for position i).
+        let mut available: Vec<usize> = (0..n).collect();
+        let mut job_order = Vec::with_capacity(n);
+        for (_i, &c) in config.iter().enumerate() {
+            if c >= available.len() {
                 return false;
             }
-            seen[pos] = true;
-        }
-
-        // config[j] = position of job j in the sequence
-        // We need to convert to job_order: job_order[position] = job
-        let mut job_order = vec![0usize; n];
-        for (job, &pos) in config.iter().enumerate() {
-            job_order[pos] = job;
+            job_order.push(available.remove(c));
         }
 
         let makespan = self.compute_makespan(&job_order);
@@ -176,7 +187,7 @@ impl Problem for FlowShopScheduling {
 impl SatisfactionProblem for FlowShopScheduling {}
 
 crate::declare_variants! {
-    FlowShopScheduling => "3^num_jobs",
+    FlowShopScheduling => "num_jobs^num_jobs",
 }
 
 #[cfg(test)]

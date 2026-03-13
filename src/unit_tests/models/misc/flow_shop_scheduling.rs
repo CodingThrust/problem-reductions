@@ -19,8 +19,8 @@ fn test_flow_shop_scheduling_creation() {
     assert_eq!(problem.num_processors(), 3);
     assert_eq!(problem.deadline(), 25);
     assert_eq!(problem.dims().len(), 5);
-    // Each variable has domain {0, ..., 4}
-    assert!(problem.dims().iter().all(|&d| d == 5));
+    // Lehmer code encoding: dims = [5, 4, 3, 2, 1]
+    assert_eq!(problem.dims(), vec![5, 4, 3, 2, 1]);
 }
 
 #[test]
@@ -41,17 +41,17 @@ fn test_flow_shop_scheduling_evaluate_feasible() {
         25,
     );
 
-    // config[job] = position in sequence
-    // job_order = [3, 0, 4, 2, 1] means:
-    //   position 0 -> job 3, position 1 -> job 0, position 2 -> job 4, position 3 -> job 2, position 4 -> job 1
-    // So config: job 0 -> pos 1, job 1 -> pos 4, job 2 -> pos 3, job 3 -> pos 0, job 4 -> pos 2
-    let config = vec![1, 4, 3, 0, 2];
+    // Lehmer code for job_order [3, 0, 4, 2, 1]:
+    //   available=[0,1,2,3,4], pick 3 -> idx 3; available=[0,1,2,4], pick 0 -> idx 0;
+    //   available=[1,2,4], pick 4 -> idx 2; available=[1,2], pick 2 -> idx 1;
+    //   available=[1], pick 1 -> idx 0
+    let config = vec![3, 0, 2, 1, 0];
     assert!(problem.evaluate(&config));
 }
 
 #[test]
 fn test_flow_shop_scheduling_evaluate_infeasible() {
-    // Same instance, tight deadline of 22 (below the best makespan of 23)
+    // Same instance, deadline of 15 (below the best makespan of 23)
     let problem = FlowShopScheduling::new(
         3,
         vec![
@@ -65,21 +65,21 @@ fn test_flow_shop_scheduling_evaluate_infeasible() {
     );
 
     // The sequence j4,j1,j5,j3,j2 gives makespan 23 > 15
-    let config = vec![1, 4, 3, 0, 2];
+    // Lehmer code for job_order [3, 0, 4, 2, 1] = [3, 0, 2, 1, 0]
+    let config = vec![3, 0, 2, 1, 0];
     assert!(!problem.evaluate(&config));
 }
 
 #[test]
-fn test_flow_shop_scheduling_invalid_config_not_permutation() {
+fn test_flow_shop_scheduling_invalid_config() {
     let problem = FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10);
 
-    // Duplicate position
-    assert!(!problem.evaluate(&[0, 0]));
-    // Out of range
-    assert!(!problem.evaluate(&[0, 2]));
+    // Lehmer code out of range: dims = [2, 1], so config[0] must be < 2, config[1] must be < 1
+    assert!(!problem.evaluate(&[2, 0])); // config[0] = 2 >= 2
+    assert!(!problem.evaluate(&[0, 1])); // config[1] = 1 >= 1
     // Wrong length
     assert!(!problem.evaluate(&[0]));
-    assert!(!problem.evaluate(&[0, 1, 2]));
+    assert!(!problem.evaluate(&[0, 0, 0]));
 }
 
 #[test]

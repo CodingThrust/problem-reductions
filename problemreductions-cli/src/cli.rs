@@ -223,7 +223,7 @@ Flags by problem type:
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
   LCS                             --strings
   FVS                             --arcs [--weights] [--num-vertices]
-  FlowShopScheduling              --task-lengths, --deadline [--m]
+  FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -356,6 +356,9 @@ pub struct CreateArgs {
     /// Deadline for FlowShopScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
+    /// Number of processors/machines for FlowShopScheduling
+    #[arg(long)]
+    pub num_processors: Option<usize>,
 }
 
 #[derive(clap::Args)]
