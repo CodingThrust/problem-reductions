@@ -79,6 +79,11 @@ fn test_quadratic_assignment_evaluate_invalid() {
         Problem::evaluate(&qap, &[0, 0, 1, 2]),
         SolutionSize::Invalid
     );
+    // Out-of-range location index.
+    assert_eq!(
+        Problem::evaluate(&qap, &[0, 1, 2, 99]),
+        SolutionSize::Invalid
+    );
 }
 
 #[test]
@@ -99,6 +104,40 @@ fn test_quadratic_assignment_serialization() {
         Problem::evaluate(&qap, &[0, 1, 2, 3]),
         Problem::evaluate(&qap2, &[0, 1, 2, 3])
     );
+}
+
+#[test]
+fn test_quadratic_assignment_rectangular() {
+    // 2 facilities, 3 locations (n < m)
+    let cost_matrix = vec![vec![0, 3], vec![3, 0]];
+    let distance_matrix = vec![vec![0, 1, 4], vec![1, 0, 2], vec![4, 2, 0]];
+    let qap = QuadraticAssignment::new(cost_matrix, distance_matrix);
+    assert_eq!(qap.num_facilities(), 2);
+    assert_eq!(qap.num_locations(), 3);
+    assert_eq!(qap.dims(), vec![3, 3]);
+    // Assignment f=(0,1): cost = C[0][1]*D[0][1] + C[1][0]*D[1][0] = 3*1 + 3*1 = 6
+    assert_eq!(Problem::evaluate(&qap, &[0, 1]), SolutionSize::Valid(6));
+    // Assignment f=(0,2): cost = 3*D[0][2] + 3*D[2][0] = 3*4 + 3*4 = 24
+    assert_eq!(Problem::evaluate(&qap, &[0, 2]), SolutionSize::Valid(24));
+    // BruteForce should find optimal
+    let solver = BruteForce::new();
+    let best = solver.find_best(&qap).unwrap();
+    assert_eq!(Problem::evaluate(&qap, &best), SolutionSize::Valid(6));
+}
+
+#[test]
+#[should_panic(expected = "cost_matrix must be square")]
+fn test_quadratic_assignment_nonsquare_cost() {
+    QuadraticAssignment::new(vec![vec![0, 1]], vec![vec![0, 1], vec![1, 0]]);
+}
+
+#[test]
+#[should_panic(expected = "num_facilities")]
+fn test_quadratic_assignment_too_many_facilities() {
+    // 3 facilities, 2 locations (n > m) -- should panic
+    let cost = vec![vec![0, 1, 2], vec![1, 0, 3], vec![2, 3, 0]];
+    let dist = vec![vec![0, 1], vec![1, 0]];
+    QuadraticAssignment::new(cost, dist);
 }
 
 #[test]
