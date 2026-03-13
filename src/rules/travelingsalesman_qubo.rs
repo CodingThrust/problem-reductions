@@ -18,7 +18,7 @@ use std::collections::HashMap;
 pub struct ReductionTravelingSalesmanToQUBO {
     target: QUBO<f64>,
     num_vertices: usize,
-    edges: Vec<(usize, usize)>,
+    num_edges: usize,
     edge_index: HashMap<(usize, usize), usize>,
 }
 
@@ -49,7 +49,7 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
         }
 
         // Build edge-based config: for each consecutive pair in the tour, mark the edge
-        let mut config = vec![0usize; self.edges.len()];
+        let mut config = vec![0usize; self.num_edges];
         for p in 0..n {
             let u = tour[p];
             let v = tour[(p + 1) % n];
@@ -73,24 +73,27 @@ impl ReduceTo<QUBO<f64>> for TravelingSalesman<SimpleGraph, i32> {
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_vertices();
-        let graph_edges = self.graph().edges();
+        let edges = self.edges();
 
         // Build edge weight map (both directions for undirected lookup)
         let mut edge_weight_map: HashMap<(usize, usize), f64> = HashMap::new();
-        for (u, v, w) in self.edges() {
+        let mut weight_sum: f64 = 0.0;
+        for &(u, v, w) in &edges {
             let wf = w as f64;
             edge_weight_map.insert((u, v), wf);
             edge_weight_map.insert((v, u), wf);
+            weight_sum += wf.abs();
         }
 
         // Build edge index map: canonical (min, max) → edge index
+        let graph_edges = self.graph().edges();
+        let num_edges = graph_edges.len();
         let mut edge_index: HashMap<(usize, usize), usize> = HashMap::new();
         for (idx, &(u, v)) in graph_edges.iter().enumerate() {
             edge_index.insert((u.min(v), u.max(v)), idx);
         }
 
         // Penalty weight: must exceed any possible tour cost
-        let weight_sum: f64 = self.edges().iter().map(|(_, _, w)| (*w as f64).abs()).sum();
         let a = 1.0 + weight_sum;
 
         // Build n^2 x n^2 upper-triangular QUBO matrix
@@ -153,7 +156,7 @@ impl ReduceTo<QUBO<f64>> for TravelingSalesman<SimpleGraph, i32> {
         ReductionTravelingSalesmanToQUBO {
             target,
             num_vertices: n,
-            edges: graph_edges,
+            num_edges,
             edge_index,
         }
     }
