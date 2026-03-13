@@ -55,6 +55,7 @@
   "ClosestVectorProblem": [Closest Vector Problem],
   "SubsetSum": [Subset Sum],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "ShortestCommonSupersequence": [Shortest Common Supersequence],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -986,6 +987,66 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   One of Karp's 21 NP-complete problems @karp1972. Subset Sum is the special case of Knapsack where $v_i = w_i$ for all items and we seek an exact sum rather than an inequality. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n B)$ pseudo-polynomial time. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974.
 
   *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
+]
+
+#problem-def("ShortestCommonSupersequence")[
+  Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| lt.eq K$ such that every string $r_i in R$ is a _subsequence_ of $w$: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|r_i|) lt.eq |w|$ with $w[j_k] = r_i [k]$ for all $k$.
+][
+  A classic NP-complete string problem, listed as problem SR8 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness; #cite(<raiha1981>, form: "prose") showed the problem remains NP-complete even over a binary alphabet ($|Sigma| = 2$). Note that _subsequence_ (characters may be non-contiguous) differs from _substring_ (contiguous block): the Shortest Common Supersequence asks that each input string can be embedded into $w$ by selecting characters in order but not necessarily adjacently.
+
+  For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search over all strings of length at most $K$ takes $O(|Sigma|^K)$ time. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
+
+  *Example.* Let $Sigma = {a, b, c}$ and $R = {"abc", "bac"}$. We seek the shortest string $w$ containing both $"abc"$ and $"bac"$ as subsequences.
+
+  #figure({
+    let w = ("b", "a", "b", "c")
+    let r1 = ("a", "b", "c")       // "abc"
+    let r2 = ("b", "a", "c")       // "bac"
+    let embed1 = (1, 2, 3)         // positions of a, b, c in w (0-indexed)
+    let embed2 = (0, 1, 3)         // positions of b, a, c in w (0-indexed)
+    let blue = graph-colors.at(0)
+    let teal = rgb("#76b7b2")
+    let red = graph-colors.at(1)
+    align(center, stack(dir: ttb, spacing: 0.6cm,
+      // Row 1: the supersequence w
+      stack(dir: ltr, spacing: 0pt,
+        box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt)[$w =$])),
+        ..w.enumerate().map(((i, ch)) => {
+          let is1 = embed1.contains(i)
+          let is2 = embed2.contains(i)
+          let fill = if is1 and is2 { blue.transparentize(60%) } else if is1 { blue.transparentize(80%) } else if is2 { teal.transparentize(80%) } else { white }
+          box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+            align(center + horizon, text(9pt, weight: "bold", ch)))
+        }),
+      ),
+      // Row 2: embedding of r1
+      stack(dir: ltr, spacing: 0pt,
+        box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt, fill: blue)[$r_1 =$])),
+        ..range(w.len()).map(i => {
+          let idx = embed1.position(j => j == i)
+          let ch = if idx != none { r1.at(idx) } else { sym.dot.c }
+          let col = if idx != none { blue } else { luma(200) }
+          box(width: 0.55cm, height: 0.55cm,
+            align(center + horizon, text(9pt, fill: col, weight: if idx != none { "bold" } else { "regular" }, ch)))
+        }),
+      ),
+      // Row 3: embedding of r2
+      stack(dir: ltr, spacing: 0pt,
+        box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt, fill: teal)[$r_2 =$])),
+        ..range(w.len()).map(i => {
+          let idx = embed2.position(j => j == i)
+          let ch = if idx != none { r2.at(idx) } else { sym.dot.c }
+          let col = if idx != none { teal } else { luma(200) }
+          box(width: 0.55cm, height: 0.55cm,
+            align(center + horizon, text(9pt, fill: col, weight: if idx != none { "bold" } else { "regular" }, ch)))
+        }),
+      ),
+    ))
+  },
+  caption: [Shortest Common Supersequence: $w = "babc"$ (length 4) contains $r_1 = "abc"$ (blue, positions 1,2,3) and $r_2 = "bac"$ (teal, positions 0,1,3) as subsequences. Dots mark unused positions in each embedding.],
+  ) <fig:scs>
+
+  The supersequence $w = "babc"$ has length 4 and contains both input strings as subsequences. This is optimal because $"LCS"("abc", "bac") = "ac"$ (length 2), so the shortest common supersequence has length $3 + 3 - 2 = 4$.
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper

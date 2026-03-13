@@ -218,6 +218,7 @@ Flags by problem type:
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
   FVS                             --arcs [--weights] [--num-vertices]
+  SCS                             --strings, --bound
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -332,6 +333,12 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Input strings for SCS (semicolon-separated, each string is comma-separated alphabet indices, e.g., "0,1,2;1,2,0")
+    #[arg(long)]
+    pub strings: Option<String>,
+    /// Length bound for SCS
+    #[arg(long)]
+    pub bound: Option<usize>,
 }
 
 #[derive(clap::Args)]

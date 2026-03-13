@@ -22,6 +22,7 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("CVP", "ClosestVectorProblem"),
     ("MaxMatching", "MaximumMatching"),
     ("FVS", "MinimumFeedbackVertexSet"),
+    ("SCS", "ShortestCommonSupersequence"),
 ];
 
 /// Resolve a short alias to the canonical problem name.
@@ -56,6 +57,7 @@ pub fn resolve_alias(input: &str) -> String {
         "knapsack" => "Knapsack".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
         "subsetsum" => "SubsetSum".to_string(),
+        "scs" | "shortestcommonsupersequence" => "ShortestCommonSupersequence".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
 }

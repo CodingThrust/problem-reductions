@@ -6,7 +6,7 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::GraphPartitioning;
-use problemreductions::models::misc::{BinPacking, PaintShop};
+use problemreductions::models::misc::{BinPacking, PaintShop, ShortestCommonSupersequence};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -48,6 +48,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.target_vec.is_none()
         && args.bounds.is_none()
         && args.arcs.is_none()
+        && args.strings.is_none()
+        && args.bound.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -87,6 +89,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
     }
 }
@@ -455,6 +458,45 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ShortestCommonSupersequence
+        "ShortestCommonSupersequence" => {
+            let usage = "Usage: pred create SCS --strings \"0,1,2;1,2,0\" --bound 4";
+            let strings_str = args.strings.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestCommonSupersequence requires --strings\n\n{usage}"
+                )
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ShortestCommonSupersequence requires --bound\n\n{usage}"
+                )
+            })?;
+            let strings: Vec<Vec<usize>> = strings_str
+                .split(';')
+                .map(|s| {
+                    s.trim()
+                        .split(',')
+                        .map(|v| {
+                            v.trim()
+                                .parse::<usize>()
+                                .map_err(|e| anyhow::anyhow!("Invalid alphabet index: {}", e))
+                        })
+                        .collect::<Result<Vec<_>>>()
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let alphabet_size = strings
+                .iter()
+                .flat_map(|s| s.iter())
+                .copied()
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0);
+            (
+                ser(ShortestCommonSupersequence::new(alphabet_size, strings, bound))?,
                 resolved_variant.clone(),
             )
         }
