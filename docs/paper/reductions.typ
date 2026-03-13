@@ -55,8 +55,9 @@
   "ClosestVectorProblem": [Closest Vector Problem],
   "RuralPostman": [Rural Postman],
   "LongestCommonSubsequence": [Longest Common Subsequence],
-  "SubsetSum": [Subset Sum],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "SubgraphIsomorphism": [Subgraph Isomorphism],
+  "SubsetSum": [Subset Sum],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -988,6 +989,14 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   The Rural Postman Problem (RPP) is a fundamental NP-complete arc-routing problem @lenstra1976 that generalizes the Chinese Postman Problem. When $E' = E$, the problem reduces to finding an Eulerian circuit with minimum augmentation (polynomial-time solvable via $T$-join matching). For general $E' subset.eq E$, exact algorithms use dynamic programming over subsets of required edges in $O(n^2 dot 2^r)$ time, where $r = |E'|$ and $n = |V|$, analogous to the Held-Karp algorithm for TSP. The problem admits a $3 slash 2$-approximation for metric instances @frederickson1979.
 
   *Example.* Consider a hexagonal graph with 6 vertices and 8 edges, where all outer edges have length 1 and two diagonal edges have length 2. The required edges are $E' = {(v_0, v_1), (v_2, v_3), (v_4, v_5)}$ with bound $B = 6$. The outer cycle $v_0 -> v_1 -> v_2 -> v_3 -> v_4 -> v_5 -> v_0$ covers all three required edges with total length $6 times 1 = 6 = B$, so the answer is YES.
+]
+
+#problem-def("SubgraphIsomorphism")[
+  Given graphs $G = (V_1, E_1)$ (host) and $H = (V_2, E_2)$ (pattern), determine whether $G$ contains a subgraph isomorphic to $H$: does there exist an injective function $f: V_2 -> V_1$ such that ${u, v} in E_2 arrow.double {f(u), f(v)} in E_1$?
+][
+  Subgraph Isomorphism (GT48 in Garey & Johnson @garey1979) is NP-complete by transformation from Clique @garey1979. It strictly generalizes Clique (where $H = K_k$) and also contains Hamiltonian Circuit ($H = C_n$) and Hamiltonian Path ($H = P_n$) as special cases. Brute-force enumeration of all injective mappings $f: V_2 -> V_1$ runs in $O(|V_1|^(|V_2|) dot |E_2|)$ time. For fixed-size patterns, the color-coding technique of Alon, Yuster, and Zwick @alon1995 gives a randomized algorithm in $2^(O(|V_2|)) dot |V_1|^(O("tw"(H)))$ time. Practical algorithms include VF2 @cordella2004 and VF2++ @juttner2018.
+
+  *Example.* Consider host graph $G$ with 7 vertices: a $K_4$ clique on ${0, 1, 2, 3}$ and a triangle on ${4, 5, 6}$ connected via edge $(3, 4)$. Pattern $H = K_4$ with vertices ${a, b, c, d}$. The mapping $f(a) = 0, f(b) = 1, f(c) = 2, f(d) = 3$ preserves all 6 edges of $K_4$, confirming a subgraph isomorphism exists.
 ]
 
 #problem-def("LongestCommonSubsequence")[

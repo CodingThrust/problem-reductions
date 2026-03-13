@@ -57,6 +57,7 @@ pub fn resolve_alias(input: &str) -> String {
         "binpacking" => "BinPacking".to_string(),
         "cvp" | "closestvectorproblem" => "ClosestVectorProblem".to_string(),
         "knapsack" => "Knapsack".to_string(),
+        "subgraphisomorphism" => "SubgraphIsomorphism".to_string(),
         "partitionintotriangles" => "PartitionIntoTriangles".to_string(),
         "lcs" | "longestcommonsubsequence" => "LongestCommonSubsequence".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),

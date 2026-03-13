@@ -220,6 +220,7 @@ Flags by problem type:
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
+  SubgraphIsomorphism             --graph (host), --pattern (pattern)
   LCS                             --strings
   FVS                             --arcs [--weights] [--num-vertices]
   ILP, CircuitSAT                 (via reduction only)
@@ -339,6 +340,9 @@ pub struct CreateArgs {
     /// Upper bound B for RuralPostman
     #[arg(long)]
     pub bound: Option<i32>,
+    /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
+    #[arg(long)]
+    pub pattern: Option<String>,
     /// Input strings for LCS (semicolon-separated, e.g., "ABAC;BACA")
     #[arg(long)]
     pub strings: Option<String>,
