@@ -109,8 +109,7 @@ fn main() {
                     // Check if ALL variants of this problem are P-time
                     // (conservative: if any variant could be hard, don't classify as P)
                     let variants = graph.variants_for(name);
-                    variants.len() == 1
-                        && variants[0].get(*key).map(|s| s.as_str()) == Some(*val)
+                    variants.len() == 1 && variants[0].get(*key).map(|s| s.as_str()) == Some(*val)
                 }
             }
         });
@@ -143,10 +142,7 @@ fn main() {
     }
 
     if !p_time.is_empty() {
-        println!(
-            "In P — correctly unreachable ({}):",
-            p_time.len()
-        );
+        println!("In P — correctly unreachable ({}):", p_time.len());
         for name in &p_time {
             println!("  {name}");
         }
@@ -165,10 +161,7 @@ fn main() {
     }
 
     if !orphans.is_empty() {
-        println!(
-            "Orphans — no reductions at all ({}):",
-            orphans.len()
-        );
+        println!("Orphans — no reductions at all ({}):", orphans.len());
         for name in &orphans {
             println!("  {name}");
         }
