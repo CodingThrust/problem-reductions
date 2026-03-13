@@ -218,6 +218,7 @@ Flags by problem type:
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
   FVS                             --arcs [--weights] [--num-vertices]
+  PartiallyOrderedKnapsack        --sizes, --values, --capacity, --item-precedences
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -332,6 +333,12 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Item values (e.g., 3,4,5,7) for PartiallyOrderedKnapsack
+    #[arg(long)]
+    pub values: Option<String>,
+    /// Precedence pairs (e.g., "0>2,0>3,1>4") for PartiallyOrderedKnapsack
+    #[arg(long)]
+    pub item_precedences: Option<String>,
 }
 
 #[derive(clap::Args)]

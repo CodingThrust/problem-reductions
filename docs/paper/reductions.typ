@@ -41,6 +41,7 @@
   "QUBO": [QUBO],
   "ILP": [Integer Linear Programming],
   "Knapsack": [Knapsack],
+  "PartiallyOrderedKnapsack": [Partially Ordered Knapsack],
   "Satisfiability": [SAT],
   "KSatisfiability": [$k$-SAT],
   "CircuitSAT": [CircuitSAT],
@@ -978,6 +979,14 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   One of Karp's 21 NP-complete problems @karp1972. Knapsack is only _weakly_ NP-hard: a classical dynamic-programming algorithm runs in $O(n C)$ pseudo-polynomial time, and a fully polynomial-time approximation scheme (FPTAS) achieves $(1 - epsilon)$-optimal value in $O(n^2 slash epsilon)$ time @ibarra1975. The special case $v_i = w_i$ for all $i$ is the Subset Sum problem. Knapsack is also a special case of Integer Linear Programming with a single constraint. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974, which partitions items into two halves and combines sorted sublists.
 
   *Example.* Let $n = 4$ items with weights $(2, 3, 4, 5)$, values $(3, 4, 5, 7)$, and capacity $C = 7$. Selecting $S = {1, 2}$ (items with weights 3 and 4) gives total weight $3 + 4 = 7 lt.eq C$ and total value $4 + 5 = 9$. Selecting $S = {0, 3}$ (weights 2 and 5) gives weight $2 + 5 = 7 lt.eq C$ and value $3 + 7 = 10$, which is optimal.
+]
+
+#problem-def("PartiallyOrderedKnapsack")[
+  Given a finite set $U$ with $|U| = n$ items, a partial order $<$ on $U$ (given by its cover relations), for each $u in U$ a size $s(u) in ZZ^+$ and a value $v(u) in ZZ^+$, and a capacity $B in ZZ^+$, find a downward-closed subset $U' subset.eq U$ (i.e., if $u in U'$ and $u' < u$ then $u' in U'$) maximizing $sum_(u in U') v(u)$ subject to $sum_(u in U') s(u) lt.eq B$.
+][
+  Garey and Johnson's problem A6 MP12 @garey1979. Unlike standard Knapsack, the partial order constraint makes the problem _strongly_ NP-complete --- it remains NP-complete even when $s(u) = v(u)$ for all $u$, so no pseudo-polynomial algorithm exists unless $P = "NP"$. The problem arises in manufacturing scheduling, project selection, and mining operations. For tree partial orders, Johnson and Niemi @johnson1983 gave pseudo-polynomial $O(n dot B)$ tree DP and an FPTAS. Kolliopoulos and Steiner @kolliopoulos2007 extended the FPTAS to 2-dimensional partial orders with $O(n^4 slash epsilon)$ running time.
+
+  *Example.* Consider $n = 6$ items with partial order given by cover relations $a < c$, $a < d$, $b < e$, $d < f$, $e < f$. Sizes $(2, 3, 4, 1, 2, 3)$, values $(3, 2, 5, 4, 3, 8)$, and capacity $B = 11$. Selecting $U' = {a, b, d, e, f}$ is downward-closed (all predecessors included), has total size $2 + 3 + 1 + 2 + 3 = 11 lt.eq B$, and total value $3 + 2 + 4 + 3 + 8 = 20$. Adding $c$ would exceed capacity ($15 > 11$).
 ]
 
 #problem-def("SubsetSum")[

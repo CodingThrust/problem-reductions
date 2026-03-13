@@ -6,7 +6,7 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::GraphPartitioning;
-use problemreductions::models::misc::{BinPacking, PaintShop};
+use problemreductions::models::misc::{BinPacking, PaintShop, PartiallyOrderedKnapsack};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -48,6 +48,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.target_vec.is_none()
         && args.bounds.is_none()
         && args.arcs.is_none()
+        && args.values.is_none()
+        && args.item_precedences.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -505,6 +507,52 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_vertex_weights(args, num_v)?;
             (
                 ser(MinimumFeedbackVertexSet::new(graph, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PartiallyOrderedKnapsack
+        "PartiallyOrderedKnapsack" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "PartiallyOrderedKnapsack requires --sizes, --values, --capacity, and --item-precedences\n\n\
+                     Usage: pred create PartiallyOrderedKnapsack --sizes 2,3,4,1,2,3 --values 3,2,5,4,3,8 --item-precedences \"0>2,0>3,1>4,3>5,4>5\" --capacity 11"
+                )
+            })?;
+            let values_str = args.values.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("PartiallyOrderedKnapsack requires --values (e.g., 3,2,5,4,3,8)")
+            })?;
+            let cap_str = args.capacity.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("PartiallyOrderedKnapsack requires --capacity (e.g., 11)")
+            })?;
+            let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            let values: Vec<i64> = util::parse_comma_list(values_str)?;
+            let capacity: i64 = cap_str.parse()?;
+            let precedences = match args.item_precedences.as_deref() {
+                Some(s) if !s.trim().is_empty() => s
+                    .split(',')
+                    .map(|pair| {
+                        let parts: Vec<&str> = pair.trim().split('>').collect();
+                        anyhow::ensure!(
+                            parts.len() == 2,
+                            "Invalid precedence format '{}', expected 'a>b'",
+                            pair.trim()
+                        );
+                        Ok((
+                            parts[0].trim().parse::<usize>()?,
+                            parts[1].trim().parse::<usize>()?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            (
+                ser(PartiallyOrderedKnapsack::new(
+                    sizes,
+                    values,
+                    precedences,
+                    capacity,
+                ))?,
                 resolved_variant.clone(),
             )
         }
