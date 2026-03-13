@@ -78,11 +78,7 @@ fn test_shortestcommonsupersequence_brute_force() {
 
 #[test]
 fn test_shortestcommonsupersequence_serialization() {
-    let problem = ShortestCommonSupersequence::new(
-        3,
-        vec![vec![0, 1, 2], vec![2, 1, 0]],
-        5,
-    );
+    let problem = ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![2, 1, 0]], 5);
     let json = serde_json::to_value(&problem).unwrap();
     let restored: ShortestCommonSupersequence = serde_json::from_value(json).unwrap();
     assert_eq!(restored.alphabet_size(), problem.alphabet_size());

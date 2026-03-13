@@ -2,8 +2,8 @@
   "source": {
     "problem": "MaximumIndependentSet",
     "variant": {
-      "graph": "SimpleGraph",
-      "weight": "i32"
+      "weight": "i32",
+      "graph": "SimpleGraph"
     },
     "instance": {
       "edges": [
@@ -31,8 +31,8 @@
   "target": {
     "problem": "MaximumClique",
     "variant": {
-      "weight": "i32",
-      "graph": "SimpleGraph"
+      "graph": "SimpleGraph",
+      "weight": "i32"
     },
     "instance": {
       "edges": [

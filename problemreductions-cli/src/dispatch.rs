@@ -1,6 +1,8 @@
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
-use problemreductions::models::misc::{BinPacking, Knapsack, ShortestCommonSupersequence, SubsetSum};
+use problemreductions::models::misc::{
+    BinPacking, Knapsack, ShortestCommonSupersequence, SubsetSum,
+};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
