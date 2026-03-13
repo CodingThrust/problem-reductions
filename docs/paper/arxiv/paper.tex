@@ -81,10 +81,10 @@ A single ``add-rule'' skill handles all reductions, because the workflow is stru
 
 \subsection{Contributions}
 
-Our methodology separates three concerns.
-\textbf{Contributors} provide creative judgment: identifying which reductions are mathematically interesting and worth implementing.
-\textbf{The maintainer} encodes workflow knowledge into reusable skills.
-\textbf{Agents} handle the mechanical volume: implementing code, writing tests, generating documentation, and fixing CI failures.
+Our methodology separates creative decisions from routine execution.
+\textbf{Contributors} supply the creative elements that only domain experts can provide: which problems matter, what are the formal definitions, which examples reveal correctness.
+\textbf{The maintainer} encodes workflow knowledge into reusable skills and makes two judgment calls per contribution---what to build and whether to merge.
+\textbf{Agents} serve as guides (helping contributors articulate their ideas interactively) and as runners (handling the routine volume of implementing code, writing tests, and fixing CI).
 A library of 14~skills and a multi-layered verification stack ensure correctness across abstraction levels.
 
 Over nine weeks, this methodology produced a Rust library with 27~problem types, 45~reduction rules, and $>$95\% test coverage.
@@ -187,9 +187,17 @@ See \Cref{app:architecture} for the complete type architecture.
 %======================================================================
 \section{Methodology}\label{sec:method}
 
-The central design challenge is: how do you let many people---including domain experts with no programming background---contribute to a verified mathematical library without compromising correctness?
-Our answer is a pipeline of \emph{progressive quality gates}, where each stage independently validates its input before passing to the next.
-A domain expert can propose a new reduction by describing it in mathematical language; the system validates the proposal, implements it, tests it, reviews it, and documents it---with human judgment required only at two points.
+The central design challenge is separating \emph{creative} decisions from \emph{routine} execution.
+Adding a reduction to the graph requires answering questions that only a domain expert can answer: which problem is industrially relevant and worth adding?
+What is the formal definition?
+Which small example would be both illustrative and sufficient to check correctness?
+What is the polynomial overhead?
+Everything else---writing Rust code, constructing tests, generating documentation, fixing CI---is routine work that follows a fixed pattern regardless of the mathematical content.
+
+Our answer is a pipeline of \emph{progressive quality gates} built around this separation.
+The creative elements are captured in structured issue templates---one for models, one for rules---whose fields correspond exactly to the questions above.
+The \texttt{propose} skill helps contributors fill in these fields interactively, asking one question at a time in mathematical language.
+Once the creative decisions are recorded, the remaining stages are fully automated.
 
 \subsection{From Contributor to Verified Code}\label{sec:pipeline-overview}
 
@@ -205,8 +213,12 @@ The pipeline has five stages, each backed by one or more \emph{skills}---persist
 \end{figure}
 
 \textbf{Stage~1: Propose.}
-A domain expert---who need not know the codebase or even the programming language---invokes the \texttt{propose} skill.
-The agent conducts an interactive brainstorming session using only mathematical language, asking one question at a time: what problem, what motivation, what is the formal definition, what does a worked example look like?
+A domain expert---who need not know the codebase or even the programming language---provides the creative elements that only a human can supply.
+Two paths are available.
+The \texttt{propose} skill guides the contributor interactively, asking one question at a time in mathematical language: what is the motivation, what is the formal definition, what is a small example that exercises the core structure?
+Alternatively, the contributor fills in a structured GitHub issue template directly---the template fields mirror the same creative questions.
+Either way, the output is an issue whose fields capture every creative decision needed for implementation.
+
 Crucially, the agent first analyzes the graph's topology to identify the most valuable contributions (\Cref{fig:topology}).
 Three categories guide the analysis:
 \emph{orphan nodes}---problem types with no reductions to or from any other node, contributing nothing to the graph;
@@ -241,9 +253,39 @@ Two parallel sub-agents, each operating in a fresh context window, review the im
 Fresh context prevents the confirmation bias that arises when an agent reviews its own work.
 CI failures trigger up to three automated fix-and-retry cycles.
 
+A third review layer---\emph{agentic feature testing}---simulates a downstream user.
+An agent reads the documentation, installs the library, exercises the new feature through the CLI, and judges whether the results are consistent with its domain knowledge.
+This replaces the community feedback loop that open-source projects normally rely on: rather than waiting for users to discover issues post-release, agent-users test the feature before merge.
+The CLI design is essential here---because agents and humans share the same command-line interface, the agent tests exactly what a real user would invoke.
+Unlike unit tests (which verify internal correctness), agentic feature tests verify that the feature is \emph{usable}: that the documentation is accurate, that the CLI output is interpretable, and that the reduction produces results consistent with the agent's knowledge of the underlying mathematics.
+
 \textbf{Stage~5: Merge.}
 The maintainer makes the final quality judgment and merges.
 This is one of only two human decisions in the pipeline; the other is moving an issue from Backlog to Ready (Stage~3).
+
+\paragraph{Three roles, two decisions.}
+The pipeline separates three distinct roles (\Cref{fig:pipeline}).
+
+\emph{Contributors} are domain experts---mathematicians, physicists, operations researchers---who identify which reductions are worth implementing.
+They need no knowledge of Rust, the codebase, or even programming.
+Two entry points accommodate different preferences.
+The \texttt{propose} skill conducts an interactive session in mathematical language, asking one question at a time: what is the problem, what is the formal definition, what does a worked example look like?
+Before filing, it pre-validates the draft against Stage~2's quality checks, catching errors before they reach review.
+Alternatively, a contributor can fill in a structured GitHub issue template directly.
+Either way, the contributor's involvement ends when the issue is filed.
+
+\emph{The maintainer} makes exactly two decisions per contribution.
+First, moving an issue from Backlog to Ready---a judgment call about what is worth building next.
+Then everything between these two decisions runs headlessly.
+\texttt{make run-pipeline} picks the highest-ranked Ready issue, creates an isolated git worktree, implements the code, produces a pull request, and moves it to the review queue---all without human input.
+\texttt{make run-review} merges the latest main branch, addresses automated code-review comments, runs agentic feature tests, and retries CI failures up to three times.
+The maintainer's second decision is the final quality judgment: reading the pull request and merging it.
+
+\emph{Agents} fill two distinct roles.
+As \emph{guides}, they onboard contributors: the \texttt{propose} skill conducts an interactive session in the contributor's language, asks clarifying questions, analyzes the graph topology to suggest high-value contributions, and pre-validates drafts---lowering the barrier to entry without lowering quality standards.
+As \emph{runners}, they handle mechanical volume: implementing code, writing tests, fixing CI failures, and generating documentation---processing batches of issues headlessly overnight.
+Both roles interact with the library through a command-line interface (\texttt{pred}) that serves as the uniform entry point for humans and agents alike---listing problems, querying reduction paths, inspecting overhead, and performing reductions.
+The skill system ensures identical verification steps in both roles: whether an agent is guiding a contributor through a proposal or implementing a reduction autonomously, it traverses the same quality checklist.
 
 \subsection{Why Skills, Not Prompts}\label{sec:skills}
 
@@ -289,6 +331,24 @@ Proof sketches force articulation of mathematical arguments; a completeness chec
 
 The skill system ensures all seven layers are invoked for every task.
 Without skills, an agent might skip overhead validation or omit the paper entry---errors that would accumulate silently over many contributions.
+
+\subsection{Why Rust?}\label{sec:why-rust}
+
+The choice of implementation language has outsized impact in agentic workflows, because the agent's edit--compile--test loop runs hundreds of times per session.
+None of the maintainers had written Rust before this project---the language was chosen for properties that benefit agents, not developers.
+
+\emph{Explicit, actionable error messages.}
+The Rust compiler produces diagnostics that include the error location, the conflicting types or lifetimes, and often a suggested fix.
+Agents parse these messages and resolve errors without human intervention---a property we rely on throughout the pipeline.
+Languages with less structured diagnostics (e.g., C++ template errors) would require more agent reasoning per cycle.
+
+\emph{Fast feedback.}
+Incremental compilation and the built-in test harness produce results in seconds.
+A typical round-trip test compiles and runs in under 3~seconds, enabling agents to iterate rapidly.
+High feedback rate---short cycles between edit and result---is the single most important factor in agent productivity.
+
+Rust's well-known strengths---memory safety eliminating entire bug categories at compile time, high performance, a 7\,MB binary, and Cargo's integrated toolchain---further reduce the surface area of errors agents must debug.
+Procedural macros deserve special mention: they enable the compile-time validation of overhead expressions and variant registrations that powers Layers~1 and~4 of the verification stack.
 
 %======================================================================
 %  SECTION 4: EVALUATION
@@ -564,10 +624,12 @@ If an agent modifies a ground-truth file to make a test pass, the change appears
 Two parallel sub-agents---one checking structural completeness, one checking code quality---operate in fresh context windows.
 Fresh context prevents the confirmation bias that arises when an agent reviews its own work within the same session.
 
-\paragraph{Layer 7: Documentation review.}
-Every reduction has an entry in the accompanying paper with a proof sketch.
-A completeness checker flags undocumented graph elements.
-Writing ``if $S$ is an independent set, then $V \setminus S$ is a vertex cover'' forces articulation of the mathematical argument in a form that humans can review.
+\paragraph{Layer 7: Documentation and visual review.}
+Every reduction has an entry in the accompanying paper with a proof sketch and a worked example.
+The example is not manually drawn: it is generated by the same code that the round-trip test (Layer~3) executes.
+The contributor specifies the source instance in the issue; the implementation produces JSON containing the source, target, overhead expressions, and extracted solutions; the paper renders this JSON as a visual diagram.
+Contributors can inspect the paper to verify that the reduction matches their mathematical intent---a visual check that complements the automated verification layers below.
+A completeness checker flags undocumented graph elements, ensuring every edge in the graph has a corresponding proof sketch.
 
 \paragraph{The lazy agent problem.}
 We observed agents modifying expected test outputs rather than fixing implementations---a rational strategy from the agent's perspective (shortest path to passing tests), but a correctness violation.
