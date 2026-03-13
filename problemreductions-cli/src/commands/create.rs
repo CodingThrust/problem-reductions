@@ -5,11 +5,13 @@ use crate::problem_name::{parse_problem_spec, resolve_variant};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
+use problemreductions::models::graph::GraphPartitioning;
 use problemreductions::models::misc::{BinPacking, PaintShop};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
-    BipartiteGraph, Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
+    BipartiteGraph, DirectedGraph, Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph,
+    UnitDiskGraph,
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -46,6 +48,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.target_vec.is_none()
         && args.bounds.is_none()
         && args.pattern.is_none()
+        && args.arcs.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -75,6 +78,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             Some("UnitDiskGraph") => "--positions \"0,0;1,0;0.5,0.8\" --radius 1.5",
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
+        "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
@@ -192,6 +196,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         | "MaximumClique"
         | "MinimumDominatingSet" => {
             create_vertex_weight_problem(args, canonical, graph_type, &resolved_variant)?
+        }
+
+        // Graph partitioning (graph only, no weights)
+        "GraphPartitioning" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create GraphPartitioning --graph 0-1,1-2,2-3,0-2,1-3,0-3"
+                )
+            })?;
+            (
+                ser(GraphPartitioning::new(graph))?,
+                resolved_variant.clone(),
+            )
         }
 
         // Graph problems with edge weights
@@ -478,6 +495,56 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let pattern_graph = SimpleGraph::new(pattern_nv, pattern_edges);
             (
                 ser(SubgraphIsomorphism::new(host_graph, pattern_graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumFeedbackVertexSet
+        "MinimumFeedbackVertexSet" => {
+            let arcs_str = args.arcs.as_ref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFeedbackVertexSet requires --arcs\n\n\
+                     Usage: pred create FVS --arcs \"0>1,1>2,2>0\" [--weights 1,1,1] [--num-vertices N]"
+                )
+            })?;
+            let arcs: Vec<(usize, usize)> = arcs_str
+                .split(',')
+                .map(|s| {
+                    let parts: Vec<&str> = s.split('>').collect();
+                    anyhow::ensure!(
+                        parts.len() == 2,
+                        "Invalid arc format '{}', expected 'u>v'",
+                        s
+                    );
+                    Ok((
+                        parts[0].trim().parse::<usize>()?,
+                        parts[1].trim().parse::<usize>()?,
+                    ))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let inferred_num_v = arcs
+                .iter()
+                .flat_map(|&(u, v)| [u, v])
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0);
+            let num_v = match args.num_vertices {
+                Some(user_num_v) => {
+                    anyhow::ensure!(
+                        user_num_v >= inferred_num_v,
+                        "--num-vertices ({}) is too small for the arcs: need at least {} to cover vertices up to {}",
+                        user_num_v,
+                        inferred_num_v,
+                        inferred_num_v.saturating_sub(1),
+                    );
+                    user_num_v
+                }
+                None => inferred_num_v,
+            };
+            let graph = DirectedGraph::new(num_v, arcs);
+            let weights = parse_vertex_weights(args, num_v)?;
+            (
+                ser(MinimumFeedbackVertexSet::new(graph, weights))?,
                 resolved_variant.clone(),
             )
         }
@@ -925,6 +992,27 @@ fn create_random(
                     (data, variant)
                 }
             }
+        }
+
+        // GraphPartitioning (graph only, no weights; requires even vertex count)
+        "GraphPartitioning" => {
+            let num_vertices = if num_vertices % 2 != 0 {
+                eprintln!(
+                    "Warning: GraphPartitioning requires even vertex count; rounding {} up to {}",
+                    num_vertices,
+                    num_vertices + 1
+                );
+                num_vertices + 1
+            } else {
+                num_vertices
+            };
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(GraphPartitioning::new(graph))?, variant)
         }
 
         // Graph problems with edge weights

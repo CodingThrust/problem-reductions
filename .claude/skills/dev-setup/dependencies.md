@@ -27,7 +27,7 @@ Rescan by running `/dev-setup` and choosing "rescan".
 | gh | `gh --version` | `brew install gh` | `sudo apt install gh` | GitHub CLI |
 | gh-copilot-review | `gh copilot-review --help` | `gh extension install ChrisCarini/gh-copilot-review` | same | Copilot PR reviews |
 | claude | `claude --version` | `npm install -g @anthropic-ai/claude-code` | same | AI-assisted pipeline |
-| pred | `pred --version` | `cargo install --path problemreductions-cli` | same | Project CLI (check-issue, check-rule-redundancy) |
+| pred | `pred --version` | `cargo install --path problemreductions-cli` | same | Project CLI (check-issue, topology-sanity-check) |
 
 ## Optional Tools
 
