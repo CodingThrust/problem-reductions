@@ -552,6 +552,19 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // PartitionIntoPathsOfLength2
+        "PartitionIntoPathsOfLength2" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create PartitionIntoPathsOfLength2 --graph 0-1,1-2,3-4,4-5"
+                )
+            })?;
+            (
+                ser(problemreductions::models::graph::PartitionIntoPathsOfLength2::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
         _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
     };
 

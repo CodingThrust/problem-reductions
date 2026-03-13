@@ -248,6 +248,9 @@ pub fn load_problem(
         "Knapsack" => deser_opt::<Knapsack>(data),
         "LongestCommonSubsequence" => deser_opt::<LongestCommonSubsequence>(data),
         "MinimumFeedbackVertexSet" => deser_opt::<MinimumFeedbackVertexSet<i32>>(data),
+        "PartitionIntoPathsOfLength2" => {
+            deser_sat::<PartitionIntoPathsOfLength2<SimpleGraph>>(data)
+        }
         "SubsetSum" => deser_sat::<SubsetSum>(data),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
@@ -312,6 +315,7 @@ pub fn serialize_any_problem(
         "Knapsack" => try_ser::<Knapsack>(any),
         "LongestCommonSubsequence" => try_ser::<LongestCommonSubsequence>(any),
         "MinimumFeedbackVertexSet" => try_ser::<MinimumFeedbackVertexSet<i32>>(any),
+        "PartitionIntoPathsOfLength2" => try_ser::<PartitionIntoPathsOfLength2<SimpleGraph>>(any),
         "SubsetSum" => try_ser::<SubsetSum>(any),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }

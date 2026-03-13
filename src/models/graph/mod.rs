@@ -13,6 +13,7 @@
 //! - [`MaximumMatching`]: Maximum weight matching
 //! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
 //! - [`SpinGlass`]: Ising model Hamiltonian
+//! - [`PartitionIntoPathsOfLength2`]: Partition vertices into P3 paths
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 
 pub(crate) mod biclique_cover;
@@ -26,6 +27,7 @@ pub(crate) mod maximum_matching;
 pub(crate) mod minimum_dominating_set;
 pub(crate) mod minimum_feedback_vertex_set;
 pub(crate) mod minimum_vertex_cover;
+pub(crate) mod partition_into_paths_of_length_2;
 pub(crate) mod spin_glass;
 pub(crate) mod traveling_salesman;
 
@@ -40,5 +42,6 @@ pub use maximum_matching::MaximumMatching;
 pub use minimum_dominating_set::MinimumDominatingSet;
 pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
 pub use minimum_vertex_cover::MinimumVertexCover;
+pub use partition_into_paths_of_length_2::PartitionIntoPathsOfLength2;
 pub use spin_glass::SpinGlass;
 pub use traveling_salesman::TravelingSalesman;
