@@ -41,10 +41,13 @@ digraph propose {
     "File issue(s)" [shape=box];
     "Done" [shape=doublecircle];
 
+    "Study conventions" [shape=box];
+
     "Start" -> "Detect type";
-    "Detect type" -> "Brainstorm Model" [label="model"];
-    "Detect type" -> "Brainstorm Rule (standalone)" [label="rule"];
+    "Detect type" -> "Study conventions" [label="model or rule"];
     "Detect type" -> "Start" [label="ask user"];
+    "Study conventions" -> "Brainstorm Model" [label="model"];
+    "Study conventions" -> "Brainstorm Rule (standalone)" [label="rule"];
     "Brainstorm Model" -> "Topology analysis";
     "Topology analysis" -> "Propose rules?";
     "Propose rules?" -> "Brainstorm Rule(s)" [label="yes"];
@@ -77,6 +80,66 @@ AskUserQuestion:
     - label: "New reduction rule"
       description: "Add a reduction between two existing problems"
 ```
+
+---
+
+## Step 1b: Study Conventions
+
+Right after the user picks model or rule, **study at least one existing case** in the relevant category before asking any brainstorming questions. This grounds the conversation in the project's actual conventions and helps produce higher-quality drafts.
+
+### For Models
+
+1. Ask the user a brief orienting question (free text):
+   > "What problem are you thinking of? A name or rough description is enough."
+
+2. Based on the answer, identify the most similar existing problem in the graph. Use `pred list --json` to find candidates, then use `pred show <similar_problem>` to study one in detail:
+
+   ```bash
+   pred show <similar_problem> --json
+   ```
+
+   Also find and read one closed `[Model]` issue in the same category:
+
+   ```bash
+   gh issue list --label model --state closed --limit 20 --json number,title,body | jq '[.[] | select(.title | test("<keyword>"; "i"))] | .[0]'
+   ```
+
+   If no keyword match, just read the most recent closed model issue to see the template conventions.
+
+3. **Note internally** (do not dump raw output to the user):
+   - What fields / size fields the similar problem has
+   - How the issue defines variables, schema, complexity
+   - What level of mathematical detail is expected in examples
+   - How the "Reduction Rule Crossref" section is structured
+
+   Use these conventions to guide the brainstorming questions and draft formatting in later steps.
+
+### For Rules
+
+1. Ask the user a brief orienting question (free text):
+   > "Which two problems are you thinking of connecting? Even a rough idea is fine."
+
+2. Based on the answer, study one existing reduction between similar problems. Use `pred neighbors <source_or_target> --json` to find existing reductions, then pick the most relevant one and examine it:
+
+   ```bash
+   pred neighbors <problem> --json
+   ```
+
+   Also find and read one closed `[Rule]` issue in a similar domain:
+
+   ```bash
+   gh issue list --label rule --state closed --limit 20 --json number,title,body | jq '[.[] | select(.title | test("<keyword>"; "i"))] | .[0]'
+   ```
+
+3. **Note internally**:
+   - How the reduction algorithm is structured (numbered steps, symbol definitions)
+   - How the size overhead table is formatted (field names, formulas)
+   - How the example is worked through (source → construction → target → solution)
+   - What references and validation methods are used
+
+   Use these conventions to guide the brainstorming questions and draft formatting in later steps.
+
+> **Key:** This step asks the user only one light question (to orient the search), then does silent research. Do not show the user raw JSON or code output — just absorb the conventions and let them shape your subsequent questions.
 
 ---
 
@@ -114,12 +177,9 @@ Ask questions **one at a time**. Prefer multiple-choice when possible. Use mathe
 
 ### For Models
 
-Work through these topics in order, using `AskUserQuestion` where multiple-choice is natural. Adapt based on answers:
+Work through these topics in order, using `AskUserQuestion` where multiple-choice is natural. Adapt based on answers. (The orienting "What problem?" question was already asked in Step 1b.)
 
-1. **What problem?** — Ask as free text:
-   > "What problem are you thinking of? A name, a description, or even a rough idea is fine."
-
-2. **Why useful?** — Use `AskUserQuestion`:
+1. **Why useful?** — Use `AskUserQuestion`:
    ```
    AskUserQuestion:
      question: "What's the motivation for this problem? Where does it appear?"
@@ -135,7 +195,7 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
          description: "I'll describe the domain"
    ```
 
-3. **Definition** — Use `AskUserQuestion` to clarify problem type, then free text for formal definition:
+2. **Definition** — Use `AskUserQuestion` to clarify problem type, then free text for formal definition:
    ```
    AskUserQuestion:
      question: "What kind of problem is this?"
@@ -150,7 +210,7 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
    ```
    Then ask: "Can you state the problem formally? What's the input, constraints, and objective?"
 
-4. **Variables** — Use `AskUserQuestion`:
+3. **Variables** — Use `AskUserQuestion`:
    ```
    AskUserQuestion:
      question: "How would you represent a solution? What are the decision variables?"
@@ -166,12 +226,12 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
          description: "I'll describe the variable structure"
    ```
 
-5. **Complexity** — Ask as free text:
+4. **Complexity** — Ask as free text:
    > "What's the best known exact algorithm? Is the problem NP-hard, and if so, is there a reference?"
    - Help them find references if unsure (use WebSearch)
    - Ask for a concrete complexity expression in terms of problem parameters (e.g., O(2^n), O(1.1996^n))
 
-6. **Example** — Generate 3 candidate examples yourself (varying in size and structure), then present via `AskUserQuestion`:
+5. **Example** — Generate 3 candidate examples yourself (varying in size and structure), then present via `AskUserQuestion`:
 
    ```
    AskUserQuestion:
@@ -190,7 +250,7 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
    - Must exercise the problem's core structure
    - Must be small enough to verify by hand
 
-7. **Data representation** — Use `AskUserQuestion`:
+6. **Data representation** — Use `AskUserQuestion`:
    ```
    AskUserQuestion:
      question: "What data defines an instance of this problem?"
@@ -210,9 +270,9 @@ After model brainstorming is complete, proceed to **Step 3b: Topology Analysis**
 
 ### For Rules (standalone)
 
-Work through these topics in order, using `AskUserQuestion` for each step:
+Work through these topics in order, using `AskUserQuestion` for each step. (The orienting "Which two problems?" question was already asked in Step 1b, and conventions were studied.)
 
-1. **Which problems?** — First run topology analysis (orphans, NP-hardness gaps, `pred list --json`) to identify the most needed rules. Then present suggestions via `AskUserQuestion`:
+1. **Which problems?** — First run topology analysis (orphans, NP-hardness gaps, `pred list --json`) to identify the most needed rules. Incorporate what the user mentioned in Step 1b, then present suggestions via `AskUserQuestion`:
 
    ```
    AskUserQuestion:

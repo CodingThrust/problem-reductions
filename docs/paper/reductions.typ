@@ -53,10 +53,13 @@
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "RuralPostman": [Rural Postman],
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "SubsetSum": [Subset Sum],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "SubgraphIsomorphism": [Subgraph Isomorphism],
+  "SubsetSum": [Subset Sum],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -980,6 +983,22 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   One of Karp's 21 NP-complete problems @karp1972. Knapsack is only _weakly_ NP-hard: a classical dynamic-programming algorithm runs in $O(n C)$ pseudo-polynomial time, and a fully polynomial-time approximation scheme (FPTAS) achieves $(1 - epsilon)$-optimal value in $O(n^2 slash epsilon)$ time @ibarra1975. The special case $v_i = w_i$ for all $i$ is the Subset Sum problem. Knapsack is also a special case of Integer Linear Programming with a single constraint. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974, which partitions items into two halves and combines sorted sublists.
 
   *Example.* Let $n = 4$ items with weights $(2, 3, 4, 5)$, values $(3, 4, 5, 7)$, and capacity $C = 7$. Selecting $S = {1, 2}$ (items with weights 3 and 4) gives total weight $3 + 4 = 7 lt.eq C$ and total value $4 + 5 = 9$. Selecting $S = {0, 3}$ (weights 2 and 5) gives weight $2 + 5 = 7 lt.eq C$ and value $3 + 7 = 10$, which is optimal.
+]
+
+#problem-def("RuralPostman")[
+  Given an undirected graph $G = (V, E)$ with edge lengths $l: E -> ZZ_(gt.eq 0)$, a subset $E' subset.eq E$ of required edges, and a bound $B in ZZ^+$, determine whether there exists a circuit (closed walk) in $G$ that traverses every edge in $E'$ and has total length at most $B$.
+][
+  The Rural Postman Problem (RPP) is a fundamental NP-complete arc-routing problem @lenstra1976 that generalizes the Chinese Postman Problem. When $E' = E$, the problem reduces to finding an Eulerian circuit with minimum augmentation (polynomial-time solvable via $T$-join matching). For general $E' subset.eq E$, exact algorithms use dynamic programming over subsets of required edges in $O(n^2 dot 2^r)$ time, where $r = |E'|$ and $n = |V|$, analogous to the Held-Karp algorithm for TSP. The problem admits a $3 slash 2$-approximation for metric instances @frederickson1979.
+
+  *Example.* Consider a hexagonal graph with 6 vertices and 8 edges, where all outer edges have length 1 and two diagonal edges have length 2. The required edges are $E' = {(v_0, v_1), (v_2, v_3), (v_4, v_5)}$ with bound $B = 6$. The outer cycle $v_0 -> v_1 -> v_2 -> v_3 -> v_4 -> v_5 -> v_0$ covers all three required edges with total length $6 times 1 = 6 = B$, so the answer is YES.
+]
+
+#problem-def("SubgraphIsomorphism")[
+  Given graphs $G = (V_1, E_1)$ (host) and $H = (V_2, E_2)$ (pattern), determine whether $G$ contains a subgraph isomorphic to $H$: does there exist an injective function $f: V_2 -> V_1$ such that ${u, v} in E_2 arrow.double {f(u), f(v)} in E_1$?
+][
+  Subgraph Isomorphism (GT48 in Garey & Johnson @garey1979) is NP-complete by transformation from Clique @garey1979. It strictly generalizes Clique (where $H = K_k$) and also contains Hamiltonian Circuit ($H = C_n$) and Hamiltonian Path ($H = P_n$) as special cases. Brute-force enumeration of all injective mappings $f: V_2 -> V_1$ runs in $O(|V_1|^(|V_2|) dot |E_2|)$ time. For fixed-size patterns, the color-coding technique of Alon, Yuster, and Zwick @alon1995 gives a randomized algorithm in $2^(O(|V_2|)) dot |V_1|^(O("tw"(H)))$ time. Practical algorithms include VF2 @cordella2004 and VF2++ @juttner2018.
+
+  *Example.* Consider host graph $G$ with 7 vertices: a $K_4$ clique on ${0, 1, 2, 3}$ and a triangle on ${4, 5, 6}$ connected via edge $(3, 4)$. Pattern $H = K_4$ with vertices ${a, b, c, d}$. The mapping $f(a) = 0, f(b) = 1, f(c) = 2, f(d) = 3$ preserves all 6 edges of $K_4$, confirming a subgraph isomorphism exists.
 ]
 
 #problem-def("LongestCommonSubsequence")[

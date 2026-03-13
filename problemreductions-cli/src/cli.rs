@@ -208,6 +208,7 @@ Flags by problem type:
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
+  PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
@@ -218,6 +219,8 @@ Flags by problem type:
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
+  RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
+  SubgraphIsomorphism             --graph (host), --pattern (pattern)
   LCS                             --strings
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
@@ -332,6 +335,15 @@ pub struct CreateArgs {
     /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
     #[arg(long, allow_hyphen_values = true)]
     pub bounds: Option<String>,
+    /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
+    #[arg(long)]
+    pub required_edges: Option<String>,
+    /// Upper bound B for RuralPostman
+    #[arg(long)]
+    pub bound: Option<i32>,
+    /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
+    #[arg(long)]
+    pub pattern: Option<String>,
     /// Input strings for LCS (semicolon-separated, e.g., "ABAC;BACA")
     #[arg(long)]
     pub strings: Option<String>,

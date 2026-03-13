@@ -20,6 +20,7 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [project-pipeline](skills/project-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr --execute -> review-agentic.
 - [review-pipeline](skills/review-pipeline/SKILL.md) -- Pick a PR from review-agentic column, fix Copilot review comments, fix CI, run agentic feature tests, move to In Review.
 - [propose](skills/propose/SKILL.md) -- Interactive brainstorming to help domain experts propose a new model or rule. Asks one question at a time, uses mathematical language (no programming jargon), and files a GitHub issue.
+- [final-review](skills/final-review/SKILL.md) -- Interactive maintainer review for PRs in "In review" column. Assesses usefulness, safety, completeness, quality ranking, then merge or hold.
 - [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
 
 ## Commands
