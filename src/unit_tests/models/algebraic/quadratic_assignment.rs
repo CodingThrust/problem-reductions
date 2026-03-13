@@ -84,6 +84,13 @@ fn test_quadratic_assignment_evaluate_invalid() {
         Problem::evaluate(&qap, &[0, 1, 2, 99]),
         SolutionSize::Invalid
     );
+    // Wrong config length — too short.
+    assert_eq!(Problem::evaluate(&qap, &[0, 1, 2]), SolutionSize::Invalid);
+    // Wrong config length — too long.
+    assert_eq!(
+        Problem::evaluate(&qap, &[0, 1, 2, 3, 0]),
+        SolutionSize::Invalid
+    );
 }
 
 #[test]

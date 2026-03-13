@@ -383,6 +383,17 @@
     ]
   },
   {
+    "name": "PartitionIntoTriangles",
+    "description": "Partition vertices into triangles (K3 subgraphs)",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E) with |V| divisible by 3"
+      }
+    ]
+  },
+  {
     "name": "QUBO",
     "description": "Minimize quadratic unconstrained binary objective",
     "fields": [

@@ -29,7 +29,7 @@ inventory::submit! {
 ///
 /// f(p) = sum_{i != j} C[i][j] * D[p(i)][p(j)]
 ///
-/// where p is a permutation mapping facilities to locations.
+/// where p is an injective mapping from facilities to locations (a permutation when n == m).
 ///
 /// # Example
 ///
@@ -122,19 +122,25 @@ impl Problem for QuadraticAssignment {
         let n = self.num_facilities();
         let m = self.num_locations();
 
+        // Check config length matches number of facilities
+        if config.len() != n {
+            return SolutionSize::Invalid;
+        }
+
         // Check that all assignments are valid locations
-        for &loc in config.iter().take(n) {
+        for &loc in config {
             if loc >= m {
                 return SolutionSize::Invalid;
             }
         }
 
         // Check injectivity: no two facilities assigned to the same location
-        let mut used = std::collections::HashSet::new();
-        for &loc in config.iter().take(n) {
-            if !used.insert(loc) {
+        let mut used = vec![false; m];
+        for &loc in config {
+            if used[loc] {
                 return SolutionSize::Invalid;
             }
+            used[loc] = true;
         }
 
         // Compute objective: sum_{i != j} cost_matrix[i][j] * distance_matrix[config[i]][config[j]]

@@ -326,6 +326,27 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             let cost_matrix = parse_i64_matrix(cost_str).context("Invalid cost matrix")?;
             let distance_matrix = parse_i64_matrix(dist_str).context("Invalid distance matrix")?;
+            let n = cost_matrix.len();
+            for (i, row) in cost_matrix.iter().enumerate() {
+                if row.len() != n {
+                    bail!(
+                        "cost matrix must be square: row {i} has {} columns, expected {n}",
+                        row.len()
+                    );
+                }
+            }
+            let m = distance_matrix.len();
+            for (i, row) in distance_matrix.iter().enumerate() {
+                if row.len() != m {
+                    bail!(
+                        "distance matrix must be square: row {i} has {} columns, expected {m}",
+                        row.len()
+                    );
+                }
+            }
+            if n > m {
+                bail!("num_facilities ({n}) must be <= num_locations ({m})");
+            }
             (
                 ser(
                     problemreductions::models::algebraic::QuadraticAssignment::new(
@@ -1067,18 +1088,32 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
 /// Parse a semicolon-separated matrix of i64 values.
 /// E.g., "0,5;5,0"
 fn parse_i64_matrix(s: &str) -> Result<Vec<Vec<i64>>> {
-    s.split(';')
-        .map(|row| {
+    let matrix: Vec<Vec<i64>> = s
+        .split(';')
+        .enumerate()
+        .map(|(row_idx, row)| {
             row.trim()
                 .split(',')
-                .map(|v| {
-                    v.trim()
-                        .parse::<i64>()
-                        .map_err(|e| anyhow::anyhow!("Invalid matrix value: {}", e))
+                .enumerate()
+                .map(|(col_idx, v)| {
+                    v.trim().parse::<i64>().map_err(|e| {
+                        anyhow::anyhow!("Invalid value at row {row_idx}, col {col_idx}: {e}")
+                    })
                 })
                 .collect()
         })
-        .collect()
+        .collect::<Result<_>>()?;
+    if let Some(first_len) = matrix.first().map(|r| r.len()) {
+        for (i, row) in matrix.iter().enumerate() {
+            if row.len() != first_len {
+                bail!(
+                    "Ragged matrix: row {i} has {} columns, expected {first_len}",
+                    row.len()
+                );
+            }
+        }
+    }
+    Ok(matrix)
 }
 
 /// Handle `pred create <PROBLEM> --random ...`
