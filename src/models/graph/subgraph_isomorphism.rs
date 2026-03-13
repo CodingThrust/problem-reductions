@@ -120,12 +120,25 @@ impl Problem for SubgraphIsomorphism {
     type Metric = bool;
 
     fn dims(&self) -> Vec<usize> {
-        vec![self.host_graph.num_vertices(); self.pattern_graph.num_vertices()]
+        let n_host = self.host_graph.num_vertices();
+        let n_pattern = self.pattern_graph.num_vertices();
+
+        if n_pattern > n_host {
+            // No injective mapping possible: each variable gets an empty domain.
+            vec![0; n_pattern]
+        } else {
+            vec![n_host; n_pattern]
+        }
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
         let n_pattern = self.pattern_graph.num_vertices();
         let n_host = self.host_graph.num_vertices();
+
+        // If the pattern has more vertices than the host, no injective mapping exists.
+        if n_pattern > n_host {
+            return false;
+        }
 
         // Config must have one entry per pattern vertex
         if config.len() != n_pattern {

@@ -483,6 +483,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     }
                     let u: usize = parts[0].parse()?;
                     let v: usize = parts[1].parse()?;
+                    if u == v {
+                        bail!(
+                            "Invalid edge '{}': self-loops are not allowed in simple graphs",
+                            pair.trim()
+                        );
+                    }
                     Ok((u, v))
                 })
                 .collect::<Result<Vec<_>>>()?;

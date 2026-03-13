@@ -425,6 +425,22 @@
     ]
   },
   {
+    "name": "SubgraphIsomorphism",
+    "description": "Determine if host graph G contains a subgraph isomorphic to pattern graph H",
+    "fields": [
+      {
+        "name": "host_graph",
+        "type_name": "SimpleGraph",
+        "description": "The host graph G = (V_1, E_1) to search in"
+      },
+      {
+        "name": "pattern_graph",
+        "type_name": "SimpleGraph",
+        "description": "The pattern graph H = (V_2, E_2) to find as a subgraph"
+      }
+    ]
+  },
+  {
     "name": "SubsetSum",
     "description": "Find a subset of integers that sums to exactly a target value",
     "fields": [
