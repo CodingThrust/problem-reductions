@@ -22,6 +22,7 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("CVP", "ClosestVectorProblem"),
     ("LCS", "LongestCommonSubsequence"),
     ("MaxMatching", "MaximumMatching"),
+    ("MQ", "MultivariateQuadratic"),
     ("FVS", "MinimumFeedbackVertexSet"),
 ];
 
@@ -55,6 +56,7 @@ pub fn resolve_alias(input: &str) -> String {
         "binpacking" => "BinPacking".to_string(),
         "cvp" | "closestvectorproblem" => "ClosestVectorProblem".to_string(),
         "knapsack" => "Knapsack".to_string(),
+        "mq" | "multivariatequadratic" => "MultivariateQuadratic".to_string(),
         "lcs" | "longestcommonsubsequence" => "LongestCommonSubsequence".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
         "subsetsum" => "SubsetSum".to_string(),

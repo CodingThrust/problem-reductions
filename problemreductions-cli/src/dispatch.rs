@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
+use problemreductions::models::algebraic::{ClosestVectorProblem, MultivariateQuadratic, ILP};
 use problemreductions::models::misc::{BinPacking, Knapsack, LongestCommonSubsequence, SubsetSum};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
@@ -246,6 +246,7 @@ pub fn load_problem(
             _ => deser_opt::<ClosestVectorProblem<i32>>(data),
         },
         "Knapsack" => deser_opt::<Knapsack>(data),
+        "MultivariateQuadratic" => deser_sat::<MultivariateQuadratic>(data),
         "LongestCommonSubsequence" => deser_opt::<LongestCommonSubsequence>(data),
         "MinimumFeedbackVertexSet" => deser_opt::<MinimumFeedbackVertexSet<i32>>(data),
         "SubsetSum" => deser_sat::<SubsetSum>(data),
@@ -310,6 +311,7 @@ pub fn serialize_any_problem(
             _ => try_ser::<ClosestVectorProblem<i32>>(any),
         },
         "Knapsack" => try_ser::<Knapsack>(any),
+        "MultivariateQuadratic" => try_ser::<MultivariateQuadratic>(any),
         "LongestCommonSubsequence" => try_ser::<LongestCommonSubsequence>(any),
         "MinimumFeedbackVertexSet" => try_ser::<MinimumFeedbackVertexSet<i32>>(any),
         "SubsetSum" => try_ser::<SubsetSum>(any),
