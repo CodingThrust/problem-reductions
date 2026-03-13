@@ -13,10 +13,12 @@
 //! - [`MaximumMatching`]: Maximum weight matching
 //! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
 //! - [`SpinGlass`]: Ising model Hamiltonian
+//! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 
 pub(crate) mod biclique_cover;
 pub(crate) mod graph_partitioning;
+pub(crate) mod hamiltonian_path;
 pub(crate) mod kcoloring;
 pub(crate) mod max_cut;
 pub(crate) mod maximal_is;
@@ -31,6 +33,7 @@ pub(crate) mod traveling_salesman;
 
 pub use biclique_cover::BicliqueCover;
 pub use graph_partitioning::GraphPartitioning;
+pub use hamiltonian_path::HamiltonianPath;
 pub use kcoloring::KColoring;
 pub use max_cut::MaxCut;
 pub use maximal_is::MaximalIS;

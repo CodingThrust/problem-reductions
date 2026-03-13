@@ -12,7 +12,7 @@ pub mod set;
 pub use algebraic::{ClosestVectorProblem, BMF, ILP, QUBO};
 pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
-    BicliqueCover, GraphPartitioning, KColoring, MaxCut, MaximalIS, MaximumClique,
+    BicliqueCover, GraphPartitioning, HamiltonianPath, KColoring, MaxCut, MaximalIS, MaximumClique,
     MaximumIndependentSet, MaximumMatching, MinimumDominatingSet, MinimumFeedbackVertexSet,
     MinimumVertexCover, SpinGlass, TravelingSalesman,
 };
