@@ -30,6 +30,7 @@
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
   "GraphPartitioning": [Graph Partitioning],
+  "HamiltonianPath": [Hamiltonian Path],
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
@@ -438,6 +439,15 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
   }),
   caption: [Graph with $n = 6$ vertices partitioned into $A = {v_0, v_1, v_2}$ (blue) and $B = {v_3, v_4, v_5}$ (red). The 3 crossing edges $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$ are shown in bold red; internal edges are gray.],
 ) <fig:graph-partitioning>
+]
+#problem-def("HamiltonianPath")[
+  Given a graph $G = (V, E)$, determine whether $G$ contains a _Hamiltonian path_, i.e., a simple path that visits every vertex exactly once.
+][
+  A classical NP-complete decision problem from Garey & Johnson (A1.3 GT39), closely related to _Hamiltonian Circuit_. Finding a Hamiltonian path in $G$ is equivalent to finding a Hamiltonian circuit in an augmented graph $G'$ obtained by adding a new vertex adjacent to all vertices of $G$. The problem remains NP-complete for planar graphs, cubic graphs, and bipartite graphs.
+
+  The best known exact algorithm is Björklund's randomized $O^*(1.657^n)$ "Determinant Sums" method @bjorklund2014, which applies to both Hamiltonian path and circuit. The classical Held--Karp dynamic programming algorithm solves it in $O(n^2 dot 2^n)$ deterministic time.
+
+  Variables: $n = |V|$ values forming a permutation. Position $i$ holds the vertex visited at step $i$. A configuration is satisfying when it forms a valid permutation of all vertices and consecutive vertices are adjacent in $G$.
 ]
 #problem-def("KColoring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
