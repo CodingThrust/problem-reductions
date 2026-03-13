@@ -131,8 +131,9 @@ impl<G: Graph, W: WeightElement> MinSumMulticenter<G, W> {
 
     /// Compute shortest distances from each vertex to the nearest center.
     ///
-    /// Uses multi-source Dijkstra: initializes all centers at distance 0
-    /// and relaxes edges using edge lengths.
+    /// Uses multi-source Bellman-Ford: initializes all centers at distance 0
+    /// and relaxes edges using edge lengths. Terminates after at most `n - 1`
+    /// iterations (the standard Bellman-Ford bound).
     ///
     /// Returns `None` if any vertex is unreachable from all centers.
     fn shortest_distances(&self, config: &[usize]) -> Option<Vec<W::Sum>> {
@@ -155,10 +156,9 @@ impl<G: Graph, W: WeightElement> MinSumMulticenter<G, W> {
             }
         }
 
-        // Repeated relaxation until convergence (Bellman-Ford style)
-        let mut changed = true;
-        while changed {
-            changed = false;
+        // Bellman-Ford relaxation with iteration cap (at most n-1 iterations)
+        for _ in 0..n.saturating_sub(1) {
+            let mut changed = false;
             for v in 0..n {
                 let dv = match &dist[v] {
                     Some(d) => d.clone(),
@@ -168,13 +168,16 @@ impl<G: Graph, W: WeightElement> MinSumMulticenter<G, W> {
                     let new_dist = dv.clone() + len.clone();
                     let update = match &dist[u] {
                         None => true,
-                        Some(du) => new_dist < *du,
+                        Some(du) => new_dist < du.clone(),
                     };
                     if update {
                         dist[u] = Some(new_dist);
                         changed = true;
                     }
                 }
+            }
+            if !changed {
+                break;
             }
         }
 

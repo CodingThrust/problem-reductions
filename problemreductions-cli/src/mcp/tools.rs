@@ -2,8 +2,8 @@ use crate::util;
 use problemreductions::models::algebraic::QUBO;
 use problemreductions::models::formula::{CNFClause, Satisfiability};
 use problemreductions::models::graph::{
-    MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
-    MinimumVertexCover, SpinGlass, TravelingSalesman,
+    MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinSumMulticenter,
+    MinimumDominatingSet, MinimumVertexCover, SpinGlass, TravelingSalesman,
 };
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
@@ -514,6 +514,25 @@ impl McpServer {
                 (ser(Factoring::new(bits_m, bits_n, target))?, variant)
             }
 
+            // MinSumMulticenter (p-median)
+            "MinSumMulticenter" => {
+                let (graph, n) = parse_graph_from_params(params)?;
+                let vertex_weights = parse_vertex_weights_from_params(params, n)?;
+                let edge_lengths = parse_edge_lengths_from_params(params, graph.num_edges())?;
+                let k = params
+                    .get("k")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as usize)
+                    .ok_or_else(|| {
+                        anyhow::anyhow!("MinSumMulticenter requires 'k' (number of centers)")
+                    })?;
+                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+                (
+                    ser(MinSumMulticenter::new(graph, vertex_weights, edge_lengths, k))?,
+                    variant,
+                )
+            }
+
             _ => anyhow::bail!("{}", unknown_problem_error(&canonical)),
         };
 
@@ -634,10 +653,34 @@ impl McpServer {
                     util::validate_k_param(resolved_variant, k_flag, Some(3), "KColoring")?;
                 util::ser_kcoloring(graph, k)?
             }
+            "MinSumMulticenter" => {
+                let edge_prob = params
+                    .get("edge_prob")
+                    .and_then(|v| v.as_f64())
+                    .unwrap_or(0.5);
+                if !(0.0..=1.0).contains(&edge_prob) {
+                    anyhow::bail!("edge_prob must be between 0.0 and 1.0");
+                }
+                let graph = util::create_random_graph(num_vertices, edge_prob, seed);
+                let num_edges = graph.num_edges();
+                let vertex_weights = vec![1i32; num_vertices];
+                let edge_lengths = vec![1i32; num_edges];
+                let k = params
+                    .get("k")
+                    .and_then(|v| v.as_u64())
+                    .map(|v| v as usize)
+                    .unwrap_or(1.max(num_vertices / 3));
+                let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+                (
+                    ser(MinSumMulticenter::new(graph, vertex_weights, edge_lengths, k))?,
+                    variant,
+                )
+            }
             _ => anyhow::bail!(
                 "Random generation is not supported for {}. \
                  Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-                 MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman)",
+                 MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, \
+                 TravelingSalesman, MinSumMulticenter)",
                 canonical
             ),
         };
@@ -1289,6 +1332,30 @@ fn parse_edge_weights_from_params(
                 );
             }
             Ok(weights)
+        }
+        None => Ok(vec![1i32; num_edges]),
+    }
+}
+
+/// Parse `edge_lengths` field from JSON params as edge lengths (i32), defaulting to all 1s.
+fn parse_edge_lengths_from_params(
+    params: &serde_json::Value,
+    num_edges: usize,
+) -> anyhow::Result<Vec<i32>> {
+    match params.get("edge_lengths").and_then(|v| v.as_str()) {
+        Some(w) => {
+            let lengths: Vec<i32> = w
+                .split(',')
+                .map(|s| s.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if lengths.len() != num_edges {
+                anyhow::bail!(
+                    "Expected {} edge lengths but got {}",
+                    num_edges,
+                    lengths.len()
+                );
+            }
+            Ok(lengths)
         }
         None => Ok(vec![1i32; num_edges]),
     }
