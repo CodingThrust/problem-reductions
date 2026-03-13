@@ -1674,6 +1674,19 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $K = {v : x_v = 1}$.
 ]
 
+#reduction-rule("MaximumClique", "MaximumIndependentSet",
+  example: true,
+  example-caption: [Path graph $P_4$: clique in $G$ maps to independent set in complement $overline(G)$.],
+)[
+  A clique in $G$ is an independent set in the complement graph $overline(G)$, where $overline(G) = (V, overline(E))$ with $overline(E) = {(u,v) : u != v, (u,v) in.not E}$. This classical reduction @karp1972 preserves vertices and weights; only the edge set changes.
+][
+  _Construction._ Given MaximumClique instance $(G = (V, E), bold(w))$ with $n = |V|$ and $m = |E|$, create MaximumIndependentSet instance $(overline(G) = (V, overline(E)), bold(w))$ where $overline(E) = {(u,v) : u != v, (u,v) in.not E}$. The complement graph has $n(n-1)/2 - m$ edges. Weights are preserved identically.
+
+  _Correctness._ ($arrow.r.double$) If $S$ is a clique in $G$, then all pairs in $S$ are adjacent in $G$, so no pair in $S$ is adjacent in $overline(G)$, making $S$ an independent set in $overline(G)$. ($arrow.l.double$) If $S$ is an independent set in $overline(G)$, then no pair in $S$ is adjacent in $overline(G)$, so all pairs in $S$ are adjacent in $G$, making $S$ a clique. Since both problems maximize $sum_(v in S) w_v$, optimal values coincide.
+
+  _Solution extraction._ Identity: the configuration is the same in both problems, since vertices are preserved one-to-one.
+]
+
 #reduction-rule("BinPacking", "ILP")[
   The assignment-based formulation introduces a binary indicator for each item--bin pair and a binary variable for each bin being open. Assignment constraints ensure each item is placed in exactly one bin; capacity constraints link bin usage to item weights.
 ][

@@ -14,6 +14,7 @@ mod kcoloring_casts;
 mod ksatisfiability_casts;
 mod ksatisfiability_qubo;
 mod ksatisfiability_subsetsum;
+mod maximumclique_maximumindependentset;
 mod maximumindependentset_casts;
 mod maximumindependentset_gridgraph;
 mod maximumindependentset_maximumclique;
