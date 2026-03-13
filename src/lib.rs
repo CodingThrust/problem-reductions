@@ -41,15 +41,18 @@ pub mod prelude {
     pub use crate::models::algebraic::{BMF, QUBO};
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
     pub use crate::models::graph::{
-        BicliqueCover, GraphPartitioning, IsomorphicSpanningTree, SpinGlass,
+        BicliqueCover, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, SpinGlass,
+        SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumDominatingSet, MinimumFeedbackVertexSet, MinimumVertexCover,
-        PartitionIntoTriangles, RuralPostman, TravelingSalesman,
+        MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
+        MinimumSumMulticenter, MinimumVertexCover, PartitionIntoTriangles,
+        RuralPostman, TravelingSalesman,
     };
     pub use crate::models::misc::{
-        BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop, SubsetSum,
+        BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, PaintShop,
+        ShortestCommonSupersequence, SubsetSum,
     };
     pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
 

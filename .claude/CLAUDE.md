@@ -20,6 +20,7 @@ Rust library for NP-hard problem reductions. Implements computational problems w
 - [project-pipeline](skills/project-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr --execute -> review-agentic.
 - [review-pipeline](skills/review-pipeline/SKILL.md) -- Pick a PR from review-agentic column, fix Copilot review comments, fix CI, run agentic feature tests, move to In Review.
 - [propose](skills/propose/SKILL.md) -- Interactive brainstorming to help domain experts propose a new model or rule. Asks one question at a time, uses mathematical language (no programming jargon), and files a GitHub issue.
+- [final-review](skills/final-review/SKILL.md) -- Interactive maintainer review for PRs in "In review" column. Assesses usefulness, safety, completeness, quality ranking, then merge or hold.
 - [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
 
 ## Commands
@@ -136,7 +137,7 @@ impl ReduceTo<Target> for Source { ... }
 - `ReductionOverhead` stores `Vec<(&'static str, Expr)>` — field name to symbolic expression mappings
 - `ReductionEntry` has both symbolic (`overhead_fn`) and compiled (`overhead_eval_fn`) evaluation — the compiled version calls getters directly
 - `VariantEntry` has both a complexity string and compiled `complexity_eval_fn` — same pattern
-- Expressions support: constants, variables, `+`, `-`, `*`, `/`, `^`, `exp()`, `log()`, `sqrt()`
+- Expressions support: constants, variables, `+`, `-`, `*`, `/`, `^`, `exp()`, `log()`, `sqrt()`, `factorial()`
 - Complexity strings must use **concrete numeric values only** (e.g., `"2^(2.372 * num_vertices / 3)"`, not `"2^(omega * num_vertices / 3)"`)
 - `Expr::parse()` provides runtime parsing for cross-check tests that compare compiled vs symbolic evaluation
 

@@ -221,8 +221,12 @@ Flags by problem type:
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
+  SubgraphIsomorphism             --graph (host), --pattern (pattern)
   LCS                             --strings
+  FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  FlowShopScheduling              --task-lengths, --deadline [--num-processors]
+  SCS                             --strings, --bound [--alphabet-size]
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -340,15 +344,30 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound B for RuralPostman
+    /// Upper bound (for RuralPostman or SCS)
     #[arg(long)]
-    pub bound: Option<i32>,
-    /// Input strings for LCS (semicolon-separated, e.g., "ABAC;BACA")
+    pub bound: Option<i64>,
+    /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
+    #[arg(long)]
+    pub pattern: Option<String>,
+    /// Input strings for LCS (e.g., "ABAC;BACA") or SCS (e.g., "0,1,2;1,2,0")
     #[arg(long)]
     pub strings: Option<String>,
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
+    #[arg(long)]
+    pub task_lengths: Option<String>,
+    /// Deadline for FlowShopScheduling
+    #[arg(long)]
+    pub deadline: Option<u64>,
+    /// Number of processors/machines for FlowShopScheduling
+    #[arg(long)]
+    pub num_processors: Option<usize>,
+    /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
+    #[arg(long)]
+    pub alphabet_size: Option<usize>,
 }
 
 #[derive(clap::Args)]
