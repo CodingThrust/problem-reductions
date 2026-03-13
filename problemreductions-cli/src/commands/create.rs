@@ -48,6 +48,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.target_vec.is_none()
         && args.bounds.is_none()
         && args.arcs.is_none()
+        && args.terminals.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -81,6 +82,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
+        "SteinerTreeInGraphs" => "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --terminals 0,3",
         "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
@@ -225,6 +227,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 _ => unreachable!(),
             };
             (data, resolved_variant.clone())
+        }
+
+        // SteinerTreeInGraphs (graph + edge weights + terminals)
+        "SteinerTreeInGraphs" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create SteinerTreeInGraphs --graph 0-1,1-2,2-3 --terminals 0,3 [--edge-weights 1,1,1]"
+                )
+            })?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let terminals = parse_terminals(args)?;
+            (
+                ser(SteinerTreeInGraphs::new(graph, terminals, edge_weights))?,
+                resolved_variant.clone(),
+            )
         }
 
         // KColoring
@@ -785,6 +802,23 @@ fn parse_fields_f64(args: &CreateArgs, num_vertices: usize) -> Result<Vec<f64>> 
     }
 }
 
+/// Parse `--terminals` as comma-separated terminal vertex indices.
+fn parse_terminals(args: &CreateArgs) -> Result<Vec<usize>> {
+    let terminals_str = args.terminals.as_deref().ok_or_else(|| {
+        anyhow::anyhow!(
+            "SteinerTreeInGraphs requires --terminals (comma-separated vertex indices, e.g., 0,3,5)"
+        )
+    })?;
+    terminals_str
+        .split(',')
+        .map(|s| {
+            s.trim()
+                .parse::<usize>()
+                .map_err(|e| anyhow::anyhow!("Invalid terminal vertex: {}", e))
+        })
+        .collect()
+}
+
 /// Parse `--clauses` as semicolon-separated clauses of comma-separated literals.
 /// E.g., "1,2;-1,3;2,-3"
 fn parse_clauses(args: &CreateArgs) -> Result<Vec<CNFClause>> {
@@ -994,6 +1028,25 @@ fn create_random(
             (data, variant)
         }
 
+        // SteinerTreeInGraphs
+        "SteinerTreeInGraphs" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let num_edges = graph.num_edges();
+            let edge_weights = vec![1i32; num_edges];
+            // Use first half of vertices as terminals (at least 2)
+            let num_terminals = std::cmp::max(2, num_vertices / 2);
+            let terminals: Vec<usize> = (0..num_terminals).collect();
+            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+            (
+                ser(SteinerTreeInGraphs::new(graph, terminals, edge_weights))?,
+                variant,
+            )
+        }
+
         // SpinGlass
         "SpinGlass" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
@@ -1026,7 +1079,7 @@ fn create_random(
         _ => bail!(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
-             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman)"
+             MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman, SteinerTreeInGraphs)"
         ),
     };
 
