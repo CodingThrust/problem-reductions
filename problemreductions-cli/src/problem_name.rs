@@ -66,6 +66,7 @@ pub fn resolve_alias(input: &str) -> String {
         "fas" | "minimumfeedbackarcset" => "MinimumFeedbackArcSet".to_string(),
         "minimumsummulticenter" | "pmedian" => "MinimumSumMulticenter".to_string(),
         "subsetsum" => "SubsetSum".to_string(),
+        "hamiltonianpath" => "HamiltonianPath".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
 }
