@@ -55,6 +55,7 @@
   "ClosestVectorProblem": [Closest Vector Problem],
   "SubsetSum": [Subset Sum],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "QuadraticAssignment": [Quadratic Assignment],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -722,6 +723,56 @@ Integer Linear Programming is a universal modeling framework: virtually every NP
   }),
   caption: [ILP feasible region (green) with constraints $x_1 + x_2 <= 5$ (blue) and $4x_1 + 7x_2 <= 28$ (orange). Hollow circles mark the integer lattice. The LP relaxation optimum $p_1 = (7 slash 3, 8 slash 3)$ is non-integral; the ILP optimum $bold(x)^* = (3, 2)$ gives $bold(c)^top bold(x)^* = -27$.],
 ) <fig:ilp-example>
+]
+
+#problem-def("QuadraticAssignment")[
+  Given $n$ facilities and $m$ locations ($n <= m$), a flow matrix $C in ZZ^(n times n)$ representing flows between facilities, and a distance matrix $D in ZZ^(m times m)$ representing distances between locations, find an injective assignment $f: {1, dots, n} -> {1, dots, m}$ that minimizes
+  $ sum_(i != j) C_(i j) dot D_(f(i), f(j)). $
+][
+The Quadratic Assignment Problem was introduced by Koopmans and Beckmann (1957) to model the optimal placement of economic activities (facilities) across geographic locations, minimizing total transportation cost weighted by inter-facility flows. It is NP-hard, as shown by Sahni and Gonzalez (1976) via reduction from the Hamiltonian Circuit problem. QAP is widely regarded as one of the hardest combinatorial optimization problems: even moderate instances ($n > 20$) challenge state-of-the-art exact solvers. Best exact approaches use branch-and-bound with Gilmore--Lawler bounds or Dreyfus--Wagner-like dynamic programming; the best known general algorithm runs in $O^*(n!)$ by exhaustive enumeration of all permutations#footnote[No algorithm significantly improving on brute-force permutation enumeration is known for general QAP.].
+
+Applications include facility layout planning, keyboard and control panel design, scheduling, VLSI placement, and hospital floor planning. As a special case, when $D$ is a distance matrix on a line (i.e., $D_(k l) = |k - l|$), QAP reduces to the Optimal Linear Arrangement problem.
+
+*Example.* Consider $n = m = 4$ with flow matrix $C$ and distance matrix $D$:
+$ C = mat(0, 3, 0, 2; 3, 0, 0, 1; 0, 0, 0, 4; 2, 1, 4, 0), quad D = mat(0, 1, 2, 3; 1, 0, 1, 2; 2, 1, 0, 1; 3, 2, 1, 0). $
+The identity assignment $f(i) = i$ gives cost $sum_(i != j) C_(i j) dot D_(i, j) = 3 dot 1 + 2 dot 3 + 3 dot 1 + 1 dot 2 + 4 dot 1 + 2 dot 3 + 1 dot 2 + 4 dot 1 = 3 + 6 + 3 + 2 + 4 + 6 + 2 + 4 = 30$. However, the assignment $f = (1, 2, 4, 3)$ — swapping facilities 3 and 4 — gives cost $3 dot 1 + 2 dot 2 + 3 dot 1 + 1 dot 1 + 4 dot 1 + 2 dot 2 + 1 dot 1 + 4 dot 1 = 3 + 4 + 3 + 1 + 4 + 4 + 1 + 4 = 24$. The optimal assignment is $f^* = (3, 4, 1, 2)$ with cost 22: it places the heavily interacting facilities 3 and 4 (flow 4) at adjacent locations.
+
+#figure(
+  canvas(length: 1cm, {
+    import draw: *
+    // Facility column (left)
+    let fac-x = 0
+    let loc-x = 5
+    let ys = (3, 2, 1, 0)
+    // Draw facility nodes
+    for i in range(4) {
+      circle((fac-x, ys.at(i)), radius: 0.3, fill: graph-colors.at(0), stroke: 0.8pt + graph-colors.at(0), name: "f" + str(i))
+      content("f" + str(i), text(fill: white, 8pt)[$F_#(i+1)$])
+    }
+    // Draw location nodes
+    for j in range(4) {
+      circle((loc-x, ys.at(j)), radius: 0.3, fill: graph-colors.at(1), stroke: 0.8pt + graph-colors.at(1), name: "l" + str(j))
+      content("l" + str(j), text(fill: white, 8pt)[$L_#(j+1)$])
+    }
+    // Column labels
+    content((fac-x, 3.7), text(9pt, weight: "bold")[Facilities])
+    content((loc-x, 3.7), text(9pt, weight: "bold")[Locations])
+    // Optimal assignment f* = (3, 4, 1, 2): F1→L3, F2→L4, F3→L1, F4→L2
+    let assignments = ((0, 2), (1, 3), (2, 0), (3, 1))
+    for (fi, li) in assignments {
+      line("f" + str(fi) + ".east", "l" + str(li) + ".west",
+        mark: (end: "straight"), stroke: 1.2pt + luma(80))
+    }
+    // Annotate key flow: F3↔F4 have flow 4
+    on-layer(-1, {
+      rect((-0.55, -0.55), (0.55, 1.55),
+        fill: graph-colors.at(0).transparentize(92%),
+        stroke: (dash: "dashed", paint: graph-colors.at(0).transparentize(50%), thickness: 0.6pt))
+    })
+    content((fac-x, -0.9), text(6pt, fill: luma(100))[flow$(F_3, F_4) = 4$])
+  }),
+  caption: [Optimal assignment $f^* = (3, 4, 1, 2)$ for the $4 times 4$ QAP instance. Facilities (blue, left) are assigned to locations (red, right) by arrows. Facilities $F_3$ and $F_4$ (highest flow $= 4$) are assigned to adjacent locations $L_1$ and $L_2$ (distance $= 1$). Total cost $= 22$.],
+) <fig:qap-example>
 ]
 
 #problem-def("ClosestVectorProblem")[

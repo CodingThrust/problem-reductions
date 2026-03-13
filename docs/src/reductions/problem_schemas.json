@@ -388,6 +388,22 @@
     ]
   },
   {
+    "name": "QuadraticAssignment",
+    "description": "Minimize total cost of assigning facilities to locations",
+    "fields": [
+      {
+        "name": "cost_matrix",
+        "type_name": "Vec<Vec<i64>>",
+        "description": "Flow/cost matrix between facilities"
+      },
+      {
+        "name": "distance_matrix",
+        "type_name": "Vec<Vec<i64>>",
+        "description": "Distance matrix between locations"
+      }
+    ]
+  },
+  {
     "name": "Satisfiability",
     "description": "Find satisfying assignment for CNF formula",
     "fields": [

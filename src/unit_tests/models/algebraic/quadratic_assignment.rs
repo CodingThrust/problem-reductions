@@ -1,0 +1,116 @@
+use super::*;
+use crate::solvers::{BruteForce, Solver};
+use crate::traits::{OptimizationProblem, Problem};
+use crate::types::{Direction, SolutionSize};
+
+/// Create a 4x4 test instance for reuse across tests.
+///
+/// Cost matrix C:
+/// [[0, 5, 2, 0],
+///  [5, 0, 0, 3],
+///  [2, 0, 0, 4],
+///  [0, 3, 4, 0]]
+///
+/// Distance matrix D:
+/// [[0, 1, 2, 3],
+///  [1, 0, 1, 2],
+///  [2, 1, 0, 1],
+///  [3, 2, 1, 0]]
+fn make_test_instance() -> QuadraticAssignment {
+    let cost_matrix = vec![
+        vec![0, 5, 2, 0],
+        vec![5, 0, 0, 3],
+        vec![2, 0, 0, 4],
+        vec![0, 3, 4, 0],
+    ];
+    let distance_matrix = vec![
+        vec![0, 1, 2, 3],
+        vec![1, 0, 1, 2],
+        vec![2, 1, 0, 1],
+        vec![3, 2, 1, 0],
+    ];
+    QuadraticAssignment::new(cost_matrix, distance_matrix)
+}
+
+#[test]
+fn test_quadratic_assignment_creation() {
+    let qap = make_test_instance();
+    assert_eq!(qap.num_facilities(), 4);
+    assert_eq!(qap.num_locations(), 4);
+    assert_eq!(qap.dims(), vec![4, 4, 4, 4]);
+    assert_eq!(qap.cost_matrix().len(), 4);
+    assert_eq!(qap.distance_matrix().len(), 4);
+}
+
+#[test]
+fn test_quadratic_assignment_evaluate_identity() {
+    let qap = make_test_instance();
+    // Identity assignment f = (0, 1, 2, 3):
+    // cost = sum_{i != j} C[i][j] * D[i][j]
+    //   = 5*1 + 2*2 + 0*3 + 5*1 + 0*1 + 3*2 + 2*2 + 0*1 + 4*1 + 0*3 + 3*2 + 4*1
+    //   = 5 + 4 + 0 + 5 + 0 + 6 + 4 + 0 + 4 + 0 + 6 + 4 = 38
+    assert_eq!(
+        Problem::evaluate(&qap, &[0, 1, 2, 3]),
+        SolutionSize::Valid(38)
+    );
+}
+
+#[test]
+fn test_quadratic_assignment_evaluate_swap() {
+    let qap = make_test_instance();
+    // Assignment f = (0, 2, 1, 3): facility 1 -> loc 2, facility 2 -> loc 1
+    // cost = sum_{i != j} C[i][j] * D[config[i]][config[j]]
+    //   i=0,j=1: 5*D[0][2]=5*2=10  i=0,j=2: 2*D[0][1]=2*1=2   i=0,j=3: 0*D[0][3]=0
+    //   i=1,j=0: 5*D[2][0]=5*2=10  i=1,j=2: 0*D[2][1]=0*1=0   i=1,j=3: 3*D[2][3]=3*1=3
+    //   i=2,j=0: 2*D[1][0]=2*1=2   i=2,j=1: 0*D[1][2]=0*1=0   i=2,j=3: 4*D[1][3]=4*2=8
+    //   i=3,j=0: 0*D[3][0]=0       i=3,j=1: 3*D[3][2]=3*1=3   i=3,j=2: 4*D[3][1]=4*2=8
+    //   Total = 10+2+0+10+0+3+2+0+8+0+3+8 = 46
+    assert_eq!(
+        Problem::evaluate(&qap, &[0, 2, 1, 3]),
+        SolutionSize::Valid(46)
+    );
+}
+
+#[test]
+fn test_quadratic_assignment_evaluate_invalid() {
+    let qap = make_test_instance();
+    // Duplicate location 0 — not injective, should be Invalid.
+    assert_eq!(
+        Problem::evaluate(&qap, &[0, 0, 1, 2]),
+        SolutionSize::Invalid
+    );
+}
+
+#[test]
+fn test_quadratic_assignment_direction() {
+    let qap = make_test_instance();
+    assert_eq!(qap.direction(), Direction::Minimize);
+}
+
+#[test]
+fn test_quadratic_assignment_serialization() {
+    let qap = make_test_instance();
+    let json = serde_json::to_string(&qap).expect("serialize");
+    let qap2: QuadraticAssignment = serde_json::from_str(&json).expect("deserialize");
+    assert_eq!(qap2.num_facilities(), 4);
+    assert_eq!(qap2.num_locations(), 4);
+    // Verify functional equivalence after round-trip.
+    assert_eq!(
+        Problem::evaluate(&qap, &[0, 1, 2, 3]),
+        Problem::evaluate(&qap2, &[0, 1, 2, 3])
+    );
+}
+
+#[test]
+fn test_quadratic_assignment_solver() {
+    let qap = make_test_instance();
+    let solver = BruteForce::new();
+    let best = solver.find_best(&qap);
+    assert!(best.is_some());
+    let best_config = best.unwrap();
+    // The brute-force solver finds the optimal assignment with cost 36.
+    assert_eq!(
+        Problem::evaluate(&qap, &best_config),
+        SolutionSize::Valid(36)
+    );
+}

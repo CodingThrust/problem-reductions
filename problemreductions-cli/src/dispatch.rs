@@ -1,5 +1,5 @@
 use anyhow::{bail, Context, Result};
-use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
+use problemreductions::models::algebraic::{ClosestVectorProblem, QuadraticAssignment, ILP};
 use problemreductions::models::misc::{BinPacking, Knapsack, SubsetSum};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
@@ -220,6 +220,7 @@ pub fn load_problem(
         },
         "MaximumSetPacking" => deser_opt::<MaximumSetPacking<i32>>(data),
         "MinimumSetCovering" => deser_opt::<MinimumSetCovering<i32>>(data),
+        "QuadraticAssignment" => deser_opt::<QuadraticAssignment>(data),
         "QUBO" => deser_opt::<QUBO<f64>>(data),
         "SpinGlass" => match variant.get("weight").map(|s| s.as_str()) {
             Some("f64") => deser_opt::<SpinGlass<SimpleGraph, f64>>(data),
@@ -283,6 +284,7 @@ pub fn serialize_any_problem(
             _ => try_ser::<MaximumSetPacking<i32>>(any),
         },
         "MinimumSetCovering" => try_ser::<MinimumSetCovering<i32>>(any),
+        "QuadraticAssignment" => try_ser::<QuadraticAssignment>(any),
         "QUBO" => try_ser::<QUBO<f64>>(any),
         "SpinGlass" => match variant.get("weight").map(|s| s.as_str()) {
             Some("f64") => try_ser::<SpinGlass<SimpleGraph, f64>>(any),
