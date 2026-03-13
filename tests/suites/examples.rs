@@ -36,6 +36,7 @@ example_test!(reduction_maximumsetpacking_to_ilp);
 example_test!(reduction_maximumsetpacking_to_maximumindependentset);
 example_test!(reduction_maximumsetpacking_to_qubo);
 example_test!(reduction_minimumdominatingset_to_ilp);
+example_test!(reduction_minimumfeedbackvertexset_to_ilp);
 example_test!(reduction_minimumsetcovering_to_ilp);
 example_test!(reduction_minimumvertexcover_to_ilp);
 example_test!(reduction_minimumvertexcover_to_maximumindependentset);
@@ -140,6 +141,10 @@ example_fn!(
 example_fn!(
     test_minimumdominatingset_to_ilp,
     reduction_minimumdominatingset_to_ilp
+);
+example_fn!(
+    test_minimumfeedbackvertexset_to_ilp,
+    reduction_minimumfeedbackvertexset_to_ilp
 );
 example_fn!(
     test_minimumsetcovering_to_ilp,

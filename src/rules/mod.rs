@@ -57,6 +57,8 @@ mod maximumsetpacking_ilp;
 #[cfg(feature = "ilp-solver")]
 mod minimumdominatingset_ilp;
 #[cfg(feature = "ilp-solver")]
+mod minimumfeedbackvertexset_ilp;
+#[cfg(feature = "ilp-solver")]
 mod minimumsetcovering_ilp;
 #[cfg(feature = "ilp-solver")]
 mod qubo_ilp;

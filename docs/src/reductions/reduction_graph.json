@@ -413,6 +413,21 @@
   ],
   "edges": [
     {
+      "source": 3,
+      "target": 9,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_items * num_items + num_items"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "2 * num_items"
+        }
+      ],
+      "doc_path": "rules/binpacking_ilp/index.html"
+    },
+    {
       "source": 4,
       "target": 9,
       "overhead": [
@@ -991,6 +1006,21 @@
         }
       ],
       "doc_path": "rules/minimumdominatingset_ilp/index.html"
+    },
+    {
+      "source": 35,
+      "target": 10,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "2 * num_vertices"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_arcs + 2 * num_vertices"
+        }
+      ],
+      "doc_path": "rules/minimumfeedbackvertexset_ilp/index.html"
     },
     {
       "source": 36,
