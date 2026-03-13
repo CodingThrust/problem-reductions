@@ -218,6 +218,7 @@ Flags by problem type:
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
   FVS                             --arcs [--weights] [--num-vertices]
+  QBF                             --num-vars, --clauses, --quantifiers
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -332,6 +333,9 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Quantifiers for QBF (comma-separated, E=Exists, A=ForAll, e.g., "E,A,E")
+    #[arg(long)]
+    pub quantifiers: Option<String>,
 }
 
 #[derive(clap::Args)]

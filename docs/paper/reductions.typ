@@ -55,6 +55,7 @@
   "ClosestVectorProblem": [Closest Vector Problem],
   "SubsetSum": [Subset Sum],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
+  "QuantifiedBooleanFormulas": [Quantified Boolean Formulas (QBF)],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -819,6 +820,14 @@ Circuit Satisfiability is the most natural NP-complete problem: the Cook-Levin t
   }),
   caption: [Circuit $C(x_1, x_2) = (x_1 and x_2) xor (x_1 or x_2)$. Junction dots mark where inputs fork to both gates. Satisfying assignments: $(0,1)$ and $(1,0)$.],
 ) <fig:circuit-sat>
+]
+
+#problem-def("QuantifiedBooleanFormulas")[
+  Given a set $U = {u_1, dots, u_n}$ of Boolean variables and a fully quantified Boolean formula $F = (Q_1 u_1)(Q_2 u_2) dots.c (Q_n u_n) E$, where each $Q_i in {exists, forall}$ is a quantifier and $E$ is a Boolean expression in CNF with $m$ clauses, determine whether $F$ is true.
+][
+Quantified Boolean Formulas (QBF) is the canonical PSPACE-complete problem, established by #cite(<stockmeyer1973>, form: "prose"). QBF generalizes SAT by adding universal quantifiers ($forall$) alongside existential ones ($exists$), creating a two-player game semantics: the existential player chooses values for $exists$-variables, the universal player for $forall$-variables, and the formula is true iff the existential player has a winning strategy ensuring all clauses are satisfied. This quantifier alternation is the source of PSPACE-hardness and makes QBF the primary source of PSPACE-completeness reductions for combinatorial game problems. The problem remains PSPACE-complete even when $E$ is restricted to 3-CNF (Quantified 3-SAT), but is polynomial-time solvable when each clause has at most 2 literals @schaefer1978. The best known exact algorithm is brute-force game-tree evaluation in $O^*(2^n)$ time. For QBF with $m$ CNF clauses, #cite(<williams2002>, form: "prose") achieves $O^*(1.709^m)$ time.
+
+*Example.* Consider $F = exists u_1 space forall u_2 space [(u_1 or u_2) and (u_1 or not u_2)]$ with $n = 2$ variables and $m = 2$ clauses. Setting $u_1 = 1$: clause $C_1 = (1 or u_2) = 1$ and $C_2 = (1 or not u_2) = 1$ for any $u_2$. Hence $F$ is true -- the existential player wins by choosing $u_1 = 1$. In contrast, $F' = forall u_1 space exists u_2 space [(u_1) and (not u_1)]$ is false: when $u_1 = 0$, clause $(u_1)$ fails regardless of $u_2$.
 ]
 
 #problem-def("Factoring")[
