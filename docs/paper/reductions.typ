@@ -53,8 +53,10 @@
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "LongestCommonSubsequence": [Longest Common Subsequence],
   "SubsetSum": [Subset Sum],
   "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
+  "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -538,6 +540,37 @@ caption: [Path $P_5$ with maximal IS $S = {v_1, v_3}$ (blue, $w(S) = 2$). $S$ is
 ) <fig:path-maximal-is>
 ]
 
+#problem-def("MinimumFeedbackVertexSet")[
+  Given a directed graph $G = (V, A)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG).
+][
+One of Karp's 21 NP-complete problems ("Feedback Node Set") @karp1972. Applications include deadlock detection in operating systems, loop breaking in circuit design, and Bayesian network structure learning. The directed version is strictly harder than undirected FVS: the best known exact algorithm runs in $O^*(1.9977^n)$ @razgon2007, compared to $O^*(1.7548^n)$ for undirected graphs. An $O(log n dot log log n)$-approximation exists @even1998.
+
+*Example.* Consider the directed graph $G$ with $n = 5$ vertices, $|A| = 7$ arcs, and unit weights. The arcs form two overlapping directed cycles: $C_1 = v_0 -> v_1 -> v_2 -> v_0$ and $C_2 = v_0 -> v_3 -> v_4 -> v_1$. The set $S = {v_0}$ with $w(S) = 1$ is a minimum feedback vertex set: removing $v_0$ breaks both cycles, leaving a DAG with topological order $(v_3, v_4, v_1, v_2)$. No 0-vertex set suffices since $C_1$ and $C_2$ overlap only at $v_0$ and $v_1$, and removing $v_1$ alone leaves $C_1' = v_0 -> v_3 -> v_4 -> v_1 -> v_2 -> v_0$.
+
+#figure({
+  // Directed graph: 5 vertices, 7 arcs, two overlapping cycles
+  let verts = ((0, 1), (2, 1), (1, 0), (-0.5, -0.2), (0.8, -0.5))
+  let arcs = ((0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (2, 4))
+  let highlights = (0,)  // FVS = {v_0}
+  canvas(length: 1cm, {
+    // Draw directed arcs with arrows
+    for (u, v) in arcs {
+      draw.line(verts.at(u), verts.at(v),
+        stroke: 1pt + black,
+        mark: (end: "straight", scale: 0.4))
+    }
+    // Draw nodes on top
+    for (k, pos) in verts.enumerate() {
+      let s = highlights.contains(k)
+      g-node(pos, name: "v" + str(k),
+        fill: if s { graph-colors.at(0) } else { white },
+        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+    }
+  })
+},
+caption: [A directed graph with FVS $S = {v_0}$ (blue, $w(S) = 1$). Removing $v_0$ breaks both directed cycles $v_0 -> v_1 -> v_2 -> v_0$ and $v_0 -> v_3 -> v_4 -> v_1$, leaving a DAG.],
+) <fig:fvs-example>
+]
 
 == Set Problems
 
@@ -949,6 +982,14 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   *Example.* Let $n = 4$ items with weights $(2, 3, 4, 5)$, values $(3, 4, 5, 7)$, and capacity $C = 7$. Selecting $S = {1, 2}$ (items with weights 3 and 4) gives total weight $3 + 4 = 7 lt.eq C$ and total value $4 + 5 = 9$. Selecting $S = {0, 3}$ (weights 2 and 5) gives weight $2 + 5 = 7 lt.eq C$ and value $3 + 7 = 10$, which is optimal.
 ]
 
+#problem-def("LongestCommonSubsequence")[
+  Given $k$ strings $s_1, dots, s_k$ over a finite alphabet $Sigma$, find a longest string $w$ that is a subsequence of every $s_i$. A string $w$ is a _subsequence_ of $s$ if $w$ can be obtained by deleting zero or more characters from $s$ without changing the order of the remaining characters.
+][
+  The LCS problem is polynomial-time solvable for $k = 2$ strings via dynamic programming in $O(n_1 n_2)$ time (Wagner & Fischer, 1974), but NP-hard for $k gt.eq 3$ strings @maier1978. It is a foundational problem in bioinformatics (sequence alignment), version control (diff algorithms), and data compression. The problem is listed as SR10 in Garey & Johnson @garey1979.
+
+  *Example.* Let $s_1 = $ `ABAC` and $s_2 = $ `BACA` over $Sigma = {A, B, C}$. The longest common subsequence has length 3, e.g., `BAC`: positions 1, 2, 3 of $s_1$ match positions 0, 1, 2 of $s_2$.
+]
+
 #problem-def("SubsetSum")[
   Given a finite set $A = {a_0, dots, a_(n-1)}$ with sizes $s(a_i) in ZZ^+$ and a target $B in ZZ^+$, determine whether there exists a subset $A' subset.eq A$ such that $sum_(a in A') s(a) = B$.
 ][
@@ -1018,6 +1059,27 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   _Correctness._ ($arrow.r.double$) If $S$ is independent, no edge has both endpoints in $S$, so every edge has at least one endpoint in $V backslash S$, making $V backslash S$ a cover. ($arrow.l.double$) If $C$ is a vertex cover, every edge is incident to some vertex in $C$, so no edge connects two vertices of $V backslash C$, making $V backslash C$ independent.
 
   _Solution extraction._ For VC solution $C$, return $S = V backslash C$, i.e.\ flip each variable: $s_v = 1 - c_v$.
+]
+
+#let mis_clique = load-example("maximumindependentset_to_maximumclique")
+#let mis_clique_r = load-results("maximumindependentset_to_maximumclique")
+#let mis_clique_sol = mis_clique_r.solutions.at(0)
+#reduction-rule("MaximumIndependentSet", "MaximumClique",
+  example: true,
+  example-caption: [Path graph $P_5$: IS $arrow.r$ Clique via complement],
+  extra: [
+    Source IS: $S = {#mis_clique_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.source_config.filter(x => x == 1).len()) #h(1em)
+    Target Clique: $C = {#mis_clique_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.target_config.filter(x => x == 1).len()) \
+    Source $|E| = #mis_clique.source.instance.num_edges$, complement $|overline(E)| = #mis_clique.target.instance.num_edges$ #sym.checkmark
+  ],
+)[
+  An independent set in $G$ is exactly a clique in the complement graph $overline(G)$: vertices with no edges between them in $G$ are pairwise adjacent in $overline(G)$. Both problems maximize total vertex weight, so optimal values are preserved. This is Karp's classical complement graph reduction.
+][
+  _Construction._ Given IS instance $(G = (V, E), bold(w))$, build $overline(G) = (V, overline(E))$ where $overline(E) = {(u, v) : u != v, (u, v) in.not E}$. Create MaxClique instance $(overline(G), bold(w))$ with the same weights. Variables correspond one-to-one: vertex $v$ in the source maps to vertex $v$ in the target.
+
+  _Correctness._ ($arrow.r.double$) If $S$ is independent in $G$, then for any $u, v in S$, $(u, v) in.not E$, so $(u, v) in overline(E)$ — all pairs in $S$ are adjacent in $overline(G)$, making $S$ a clique. ($arrow.l.double$) If $C$ is a clique in $overline(G)$, then for any $u, v in C$, $(u, v) in overline(E)$, so $(u, v) in.not E$ — no pair in $C$ is adjacent in $G$, making $C$ independent. Weight sums are identical, so optimality is preserved.
+
+  _Solution extraction._ For clique solution $C$ in $overline(G)$, return IS $= C$ (identity mapping: $s_v = c_v$).
 ]
 
 #reduction-rule("MaximumIndependentSet", "MaximumSetPacking")[
@@ -1621,6 +1683,35 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Solution extraction._ $K = {v : x_v = 1}$.
 ]
 
+#reduction-rule("MaximumClique", "MaximumIndependentSet",
+  example: true,
+  example-caption: [Path graph $P_4$: clique in $G$ maps to independent set in complement $overline(G)$.],
+)[
+  A clique in $G$ is an independent set in the complement graph $overline(G)$, where $overline(G) = (V, overline(E))$ with $overline(E) = {(u,v) : u != v, (u,v) in.not E}$. This classical reduction @karp1972 preserves vertices and weights; only the edge set changes.
+][
+  _Construction._ Given MaximumClique instance $(G = (V, E), bold(w))$ with $n = |V|$ and $m = |E|$, create MaximumIndependentSet instance $(overline(G) = (V, overline(E)), bold(w))$ where $overline(E) = {(u,v) : u != v, (u,v) in.not E}$. The complement graph has $n(n-1)/2 - m$ edges. Weights are preserved identically.
+
+  _Correctness._ ($arrow.r.double$) If $S$ is a clique in $G$, then all pairs in $S$ are adjacent in $G$, so no pair in $S$ is adjacent in $overline(G)$, making $S$ an independent set in $overline(G)$. ($arrow.l.double$) If $S$ is an independent set in $overline(G)$, then no pair in $S$ is adjacent in $overline(G)$, so all pairs in $S$ are adjacent in $G$, making $S$ a clique. Since both problems maximize $sum_(v in S) w_v$, optimal values coincide.
+
+  _Solution extraction._ Identity: the configuration is the same in both problems, since vertices are preserved one-to-one.
+]
+
+#reduction-rule("BinPacking", "ILP")[
+  The assignment-based formulation introduces a binary indicator for each item--bin pair and a binary variable for each bin being open. Assignment constraints ensure each item is placed in exactly one bin; capacity constraints link bin usage to item weights.
+][
+  _Construction._ Given $n$ items with sizes $s_1, dots, s_n$ and bin capacity $C$:
+
+  _Variables:_ $x_(i j) in {0, 1}$ for $i, j in {0, dots, n-1}$: item $i$ is assigned to bin $j$. $y_j in {0, 1}$: bin $j$ is used. Total: $n^2 + n$ variables.
+
+  _Constraints:_ (1) Assignment: $sum_(j=0)^(n-1) x_(i j) = 1$ for each item $i$ (each item in exactly one bin). (2) Capacity + linking: $sum_(i=0)^(n-1) s_i dot x_(i j) lt.eq C dot y_j$ for each bin $j$ (bin capacity respected; $y_j$ forced to 1 if bin $j$ is used).
+
+  _Objective:_ Minimize $sum_(j=0)^(n-1) y_j$.
+
+  _Correctness._ ($arrow.r.double$) A valid packing assigns each item to exactly one bin (satisfying (1)); each bin's load is at most $C$ and $y_j = 1$ for any used bin (satisfying (2)). ($arrow.l.double$) Any feasible solution assigns each item to one bin by (1), respects capacity by (2), and the objective counts the number of open bins.
+
+  _Solution extraction._ For each item $i$, find the unique $j$ with $x_(i j) = 1$; assign item $i$ to bin $j$.
+]
+
 #reduction-rule("TravelingSalesman", "ILP",
   example: true,
   example-caption: [Weighted $K_4$: the optimal tour $0 arrow 1 arrow 3 arrow 2 arrow 0$ with cost 80 is found by position-based ILP.],
@@ -1640,6 +1731,22 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A valid tour defines a permutation matrix $(x_(v,k))$ satisfying constraints (1)--(2); consecutive vertices are adjacent by construction, so (3) holds; McCormick constraints (4) force $y = x_(u,k) x_(v,k+1)$, making the objective equal to the tour cost. ($arrow.l.double$) Any feasible binary solution defines a permutation (by (1)--(2)) where consecutive positions are connected by edges (by (3)), forming a Hamiltonian tour; the linearized objective equals the tour cost.
 
   _Solution extraction._ For each position $k$, find vertex $v$ with $x_(v,k) = 1$ to recover the tour permutation; then select edges between consecutive positions.
+]
+
+#reduction-rule("LongestCommonSubsequence", "ILP")[
+  The match-pair ILP formulation @blum2021 encodes subsequence alignment as a binary optimization. For two strings $s_1$ (length $n_1$) and $s_2$ (length $n_2$), each position pair $(j_1, j_2)$ where $s_1[j_1] = s_2[j_2]$ yields a binary variable. Constraints enforce one-to-one matching and order preservation (no crossings). The objective maximizes the number of matched pairs.
+][
+  _Construction._ Given strings $s_1$ and $s_2$:
+
+  _Variables:_ Binary $m_(j_1, j_2) in {0, 1}$ for each $(j_1, j_2)$ with $s_1[j_1] = s_2[j_2]$. Interpretation: $m_(j_1, j_2) = 1$ iff position $j_1$ of $s_1$ is matched to position $j_2$ of $s_2$.
+
+  _Constraints:_ (1) Each position in $s_1$ matched at most once: $sum_(j_2 : (j_1, j_2) in M) m_(j_1, j_2) lt.eq 1$ for all $j_1$. (2) Each position in $s_2$ matched at most once: $sum_(j_1 : (j_1, j_2) in M) m_(j_1, j_2) lt.eq 1$ for all $j_2$. (3) No crossings: for $(j_1, j_2), (j'_1, j'_2) in M$ with $j_1 < j'_1$ and $j_2 > j'_2$: $m_(j_1, j_2) + m_(j'_1, j'_2) lt.eq 1$.
+
+  _Objective:_ Maximize $sum_((j_1, j_2) in M) m_(j_1, j_2)$.
+
+  _Correctness._ ($arrow.r.double$) A common subsequence of length $ell$ defines $ell$ matched pairs that are order-preserving (no crossings) and one-to-one, yielding a feasible ILP solution with objective $ell$. ($arrow.l.double$) An ILP solution with objective $ell$ defines $ell$ matched pairs; constraints (1)--(2) ensure one-to-one matching, and constraint (3) ensures order preservation, so the matched characters form a common subsequence of length $ell$.
+
+  _Solution extraction._ Collect pairs $(j_1, j_2)$ with $m_(j_1, j_2) = 1$, sort by $j_1$, and read the characters.
 ]
 
 == Unit Disk Mapping

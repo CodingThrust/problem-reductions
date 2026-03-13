@@ -69,11 +69,15 @@ See the [MCP documentation](https://codingthrust.github.io/problem-reductions/mc
 2. **We implement it** — for reasonable requests, maintainers tag the issue `implement` and AI agents generate a tested implementation.
 3. **We present it to you** — all issue contributors are invited to community calls (via [Zulip](https://problem-reductions.zulipchat.com/)), where maintainers walk through the implementation — documentation, CLI behavior, correctness — and you provide feedback.
 
+**Which rules matter most?** Run `cargo run --example detect_isolated_problems` and `cargo run --example detect_unreachable_from_3sat` to see which problems are disconnected or lack NP-hardness proof chains from 3-SAT. Rules that connect isolated problems or complete proof chains are especially valuable.
+
 **Authorship:** contribute 10 non-trivial reduction rules and you'll be added to the author list of the [paper](https://codingthrust.github.io/problem-reductions/reductions.pdf).
 
-> **Tip:** If you use Claude Code / OpenCode / Codex, you can file issues interactively:
+> **Tip:** If you use Claude Code / OpenCode / Codex, run `/propose` to file issues interactively — it guides you one question at a time, suggests the most needed reductions based on graph topology, and runs quality checks before filing:
 > ```
-> File an issue on CodingThrust/problem-reductions, using the "Model" issue template, about the Closest Vector Problem. Brainstorm with me.
+> /propose              # brainstorm a new model or rule
+> /propose model        # propose a new problem
+> /propose rule         # propose a new reduction
 > ```
 
 If you prefer to **implement yourself**, see the [Design](https://codingthrust.github.io/problem-reductions/design.html) guide. Run `make help` to see available developer commands.
