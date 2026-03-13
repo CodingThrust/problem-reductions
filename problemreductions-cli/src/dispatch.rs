@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
-use problemreductions::models::misc::{BinPacking, Knapsack, SubsetSum};
+use problemreductions::models::misc::{BinPacking, Knapsack, PrecedenceConstrainedScheduling, SubsetSum};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
@@ -247,6 +247,7 @@ pub fn load_problem(
         },
         "Knapsack" => deser_opt::<Knapsack>(data),
         "MinimumFeedbackVertexSet" => deser_opt::<MinimumFeedbackVertexSet<i32>>(data),
+        "PrecedenceConstrainedScheduling" => deser_sat::<PrecedenceConstrainedScheduling>(data),
         "SubsetSum" => deser_sat::<SubsetSum>(data),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
@@ -310,6 +311,7 @@ pub fn serialize_any_problem(
         },
         "Knapsack" => try_ser::<Knapsack>(any),
         "MinimumFeedbackVertexSet" => try_ser::<MinimumFeedbackVertexSet<i32>>(any),
+        "PrecedenceConstrainedScheduling" => try_ser::<PrecedenceConstrainedScheduling>(any),
         "SubsetSum" => try_ser::<SubsetSum>(any),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
