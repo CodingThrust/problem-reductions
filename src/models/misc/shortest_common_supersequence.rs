@@ -1,10 +1,14 @@
 //! Shortest Common Supersequence problem implementation.
 //!
 //! Given a set of strings over an alphabet and a bound `B`, the problem asks
-//! whether there exists a common supersequence of length exactly `B`. A string
+//! whether there exists a common supersequence of length at most `B`. A string
 //! `w` is a supersequence of `s` if `s` is a subsequence of `w` (i.e., `s` can
-//! be obtained by deleting zero or more characters from `w`). This problem is
-//! NP-hard (Maier, 1978).
+//! be obtained by deleting zero or more characters from `w`).
+//!
+//! The configuration uses a fixed-length representation of exactly `B` symbols.
+//! Since any supersequence shorter than `B` can be padded with an arbitrary
+//! symbol to reach length `B` (when `alphabet_size > 0`), this is equivalent
+//! to the standard `|w| ≤ B` formulation. This problem is NP-hard (Maier, 1978).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
@@ -18,7 +22,7 @@ inventory::submit! {
         fields: &[
             FieldInfo { name: "alphabet_size", type_name: "usize", description: "Size of the alphabet" },
             FieldInfo { name: "strings", type_name: "Vec<Vec<usize>>", description: "Input strings over the alphabet {0, ..., alphabet_size-1}" },
-            FieldInfo { name: "bound", type_name: "usize", description: "Upper bound on supersequence length" },
+            FieldInfo { name: "bound", type_name: "usize", description: "Bound on supersequence length (configuration has exactly this many symbols)" },
         ],
     }
 }
@@ -26,8 +30,9 @@ inventory::submit! {
 /// The Shortest Common Supersequence problem.
 ///
 /// Given an alphabet of size `k`, a set of strings over `{0, ..., k-1}`, and a
-/// bound `B`, determine whether there exists a string `w` of length `B` such
-/// that every input string is a subsequence of `w`.
+/// bound `B`, determine whether there exists a string `w` of length at most `B`
+/// such that every input string is a subsequence of `w`. The configuration uses
+/// exactly `B` symbols (equivalent via padding when `alphabet_size > 0`).
 ///
 /// # Representation
 ///
@@ -56,7 +61,16 @@ pub struct ShortestCommonSupersequence {
 
 impl ShortestCommonSupersequence {
     /// Create a new ShortestCommonSupersequence instance.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `alphabet_size` is 0 and any input string is non-empty, or if
+    /// `bound > 0` and `alphabet_size == 0`.
     pub fn new(alphabet_size: usize, strings: Vec<Vec<usize>>, bound: usize) -> Self {
+        assert!(
+            alphabet_size > 0 || (bound == 0 && strings.iter().all(|s| s.is_empty())),
+            "alphabet_size must be > 0 when bound > 0 or any input string is non-empty"
+        );
         Self {
             alphabet_size,
             strings,

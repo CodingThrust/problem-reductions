@@ -223,7 +223,7 @@ Flags by problem type:
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
   LCS                             --strings
   FVS                             --arcs [--weights] [--num-vertices]
-  SCS                             --strings, --bound
+  SCS                             --strings, --bound [--alphabet-size]
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):

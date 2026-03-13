@@ -622,7 +622,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let strings: Vec<Vec<usize>> = strings_str
                 .split(';')
                 .map(|s| {
-                    s.trim()
+                    let trimmed = s.trim();
+                    if trimmed.is_empty() {
+                        return Ok(Vec::new());
+                    }
+                    trimmed
                         .split(',')
                         .map(|v| {
                             v.trim()
