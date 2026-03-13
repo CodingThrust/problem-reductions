@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
-use problemreductions::models::misc::{BinPacking, FlowShopScheduling, Knapsack, SubsetSum};
+use problemreductions::models::misc::{BinPacking, FlowShopScheduling, Knapsack, LongestCommonSubsequence, SubsetSum};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
@@ -214,6 +214,7 @@ pub fn load_problem(
         "MaxCut" => deser_opt::<MaxCut<SimpleGraph, i32>>(data),
         "MaximalIS" => deser_opt::<MaximalIS<SimpleGraph, i32>>(data),
         "TravelingSalesman" => deser_opt::<TravelingSalesman<SimpleGraph, i32>>(data),
+        "RuralPostman" => deser_sat::<RuralPostman<SimpleGraph, i32>>(data),
         "KColoring" => match variant.get("k").map(|s| s.as_str()) {
             Some("K3") => deser_sat::<KColoring<K3, SimpleGraph>>(data),
             _ => deser_sat::<KColoring<KN, SimpleGraph>>(data),
@@ -246,6 +247,9 @@ pub fn load_problem(
             _ => deser_opt::<ClosestVectorProblem<i32>>(data),
         },
         "Knapsack" => deser_opt::<Knapsack>(data),
+        "SubgraphIsomorphism" => deser_sat::<SubgraphIsomorphism>(data),
+        "PartitionIntoTriangles" => deser_sat::<PartitionIntoTriangles<SimpleGraph>>(data),
+        "LongestCommonSubsequence" => deser_opt::<LongestCommonSubsequence>(data),
         "MinimumFeedbackVertexSet" => deser_opt::<MinimumFeedbackVertexSet<i32>>(data),
         "FlowShopScheduling" => deser_sat::<FlowShopScheduling>(data),
         "SubsetSum" => deser_sat::<SubsetSum>(data),
@@ -275,6 +279,7 @@ pub fn serialize_any_problem(
         "MaxCut" => try_ser::<MaxCut<SimpleGraph, i32>>(any),
         "MaximalIS" => try_ser::<MaximalIS<SimpleGraph, i32>>(any),
         "TravelingSalesman" => try_ser::<TravelingSalesman<SimpleGraph, i32>>(any),
+        "RuralPostman" => try_ser::<RuralPostman<SimpleGraph, i32>>(any),
         "KColoring" => match variant.get("k").map(|s| s.as_str()) {
             Some("K3") => try_ser::<KColoring<K3, SimpleGraph>>(any),
             _ => try_ser::<KColoring<KN, SimpleGraph>>(any),
@@ -310,6 +315,9 @@ pub fn serialize_any_problem(
             _ => try_ser::<ClosestVectorProblem<i32>>(any),
         },
         "Knapsack" => try_ser::<Knapsack>(any),
+        "SubgraphIsomorphism" => try_ser::<SubgraphIsomorphism>(any),
+        "PartitionIntoTriangles" => try_ser::<PartitionIntoTriangles<SimpleGraph>>(any),
+        "LongestCommonSubsequence" => try_ser::<LongestCommonSubsequence>(any),
         "MinimumFeedbackVertexSet" => try_ser::<MinimumFeedbackVertexSet<i32>>(any),
         "FlowShopScheduling" => try_ser::<FlowShopScheduling>(any),
         "SubsetSum" => try_ser::<SubsetSum>(any),

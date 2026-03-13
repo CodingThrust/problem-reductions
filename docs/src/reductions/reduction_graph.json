@@ -413,6 +413,21 @@
   ],
   "edges": [
     {
+      "source": 3,
+      "target": 9,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_items * num_items + num_items"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "2 * num_items"
+        }
+      ],
+      "doc_path": "rules/binpacking_ilp/index.html"
+    },
+    {
       "source": 4,
       "target": 9,
       "overhead": [
@@ -650,6 +665,21 @@
         }
       ],
       "doc_path": "rules/maximumclique_ilp/index.html"
+    },
+    {
+      "source": 22,
+      "target": 26,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_vertices * (num_vertices + -1 * 1) * 2^-1 + -1 * num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumclique_maximumindependentset/index.html"
     },
     {
       "source": 23,

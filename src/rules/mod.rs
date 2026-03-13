@@ -14,6 +14,7 @@ mod kcoloring_casts;
 mod ksatisfiability_casts;
 mod ksatisfiability_qubo;
 mod ksatisfiability_subsetsum;
+mod maximumclique_maximumindependentset;
 mod maximumindependentset_casts;
 mod maximumindependentset_gridgraph;
 mod maximumindependentset_maximumclique;
@@ -33,6 +34,7 @@ mod spinglass_casts;
 mod spinglass_maxcut;
 mod spinglass_qubo;
 mod traits;
+mod travelingsalesman_qubo;
 
 pub mod unitdiskmapping;
 
@@ -48,6 +50,8 @@ mod factoring_ilp;
 mod ilp_bool_ilp_i32;
 #[cfg(feature = "ilp-solver")]
 mod ilp_qubo;
+#[cfg(feature = "ilp-solver")]
+mod longestcommonsubsequence_ilp;
 #[cfg(feature = "ilp-solver")]
 mod maximumclique_ilp;
 #[cfg(feature = "ilp-solver")]
