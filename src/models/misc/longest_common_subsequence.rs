@@ -105,7 +105,7 @@ impl LongestCommonSubsequence {
     }
 
     /// Length of the shortest string.
-    fn shortest_len(&self) -> usize {
+    pub fn min_string_length(&self) -> usize {
         self.strings[self.shortest_index()].len()
     }
 }
@@ -134,7 +134,7 @@ impl Problem for LongestCommonSubsequence {
     }
 
     fn dims(&self) -> Vec<usize> {
-        vec![2; self.shortest_len()]
+        vec![2; self.min_string_length()]
     }
 
     fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
@@ -180,7 +180,7 @@ impl OptimizationProblem for LongestCommonSubsequence {
 }
 
 crate::declare_variants! {
-    LongestCommonSubsequence => "2^total_length",
+    LongestCommonSubsequence => "2^min_string_length",
 }
 
 #[cfg(test)]

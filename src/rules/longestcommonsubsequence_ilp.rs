@@ -86,8 +86,9 @@ impl ReduceTo<ILP<bool>> for LongestCommonSubsequence {
     fn reduce_to(&self) -> Self::Result {
         let strings = self.strings();
         assert!(
-            strings.len() >= 2,
-            "LCS to ILP reduction requires at least 2 strings"
+            strings.len() == 2,
+            "LCS to ILP reduction is defined for exactly 2 strings, got {}",
+            strings.len()
         );
 
         let s1 = &strings[0];

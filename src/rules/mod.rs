@@ -47,9 +47,9 @@ mod factoring_ilp;
 #[cfg(feature = "ilp-solver")]
 mod ilp_bool_ilp_i32;
 #[cfg(feature = "ilp-solver")]
-mod longestcommonsubsequence_ilp;
-#[cfg(feature = "ilp-solver")]
 mod ilp_qubo;
+#[cfg(feature = "ilp-solver")]
+mod longestcommonsubsequence_ilp;
 #[cfg(feature = "ilp-solver")]
 mod maximumclique_ilp;
 #[cfg(feature = "ilp-solver")]
