@@ -510,6 +510,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     "{e}\n\nUsage: pred create PartitionIntoTriangles --graph 0-1,1-2,0-2"
                 )
             })?;
+            anyhow::ensure!(
+                graph.num_vertices() % 3 == 0,
+                "PartitionIntoTriangles requires vertex count divisible by 3, got {}",
+                graph.num_vertices()
+            );
             (
                 ser(PartitionIntoTriangles::new(graph))?,
                 resolved_variant.clone(),

@@ -122,16 +122,19 @@ where
             return false;
         }
 
+        // Build per-group vertex lists in a single pass over config.
+        let mut group_verts = vec![[0usize; 3]; q];
+        let mut group_pos = vec![0usize; q];
+
+        for (v, &g) in config.iter().enumerate() {
+            let pos = group_pos[g];
+            group_verts[g][pos] = v;
+            group_pos[g] = pos + 1;
+        }
+
         // Check each group forms a triangle
         for g in 0..q {
-            let verts: Vec<usize> = config
-                .iter()
-                .enumerate()
-                .filter(|(_, &c)| c == g)
-                .map(|(i, _)| i)
-                .collect();
-
-            // Check all 3 edges present
+            let verts = group_verts[g];
             if !self.graph.has_edge(verts[0], verts[1]) {
                 return false;
             }
