@@ -53,7 +53,10 @@ pub fn run() {
 
     // 5. Extract source solution
     let bp_solution = reduction.extract_solution(&ilp_solution);
-    println!("Source BinPacking solution (bin assignments): {:?}", bp_solution);
+    println!(
+        "Source BinPacking solution (bin assignments): {:?}",
+        bp_solution
+    );
 
     // 6. Verify
     let size = bp.evaluate(&bp_solution);
@@ -76,13 +79,8 @@ pub fn run() {
 
     let source_variant = variant_to_map(BinPacking::<i32>::variant());
     let target_variant = variant_to_map(ILP::<bool>::variant());
-    let overhead = lookup_overhead(
-        "BinPacking",
-        &source_variant,
-        "ILP",
-        &target_variant,
-    )
-    .unwrap_or_default();
+    let overhead =
+        lookup_overhead("BinPacking", &source_variant, "ILP", &target_variant).unwrap_or_default();
 
     let data = ReductionData {
         source: ProblemSide {
