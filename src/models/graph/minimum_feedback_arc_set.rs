@@ -1,29 +1,33 @@
 //! Minimum Feedback Arc Set problem implementation.
 //!
-//! The Feedback Arc Set problem asks for a minimum-size subset of arcs
+//! The Feedback Arc Set problem asks for a minimum-weight subset of arcs
 //! whose removal makes a directed graph acyclic (a DAG).
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::topology::DirectedGraph;
 use crate::traits::{OptimizationProblem, Problem};
-use crate::types::{Direction, SolutionSize};
+use crate::types::{Direction, SolutionSize, WeightElement};
+use num_traits::Zero;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumFeedbackArcSet",
         module_path: module_path!(),
-        description: "Find minimum feedback arc set in a directed graph",
+        description: "Find minimum weight feedback arc set in a directed graph",
         fields: &[
             FieldInfo { name: "graph", type_name: "DirectedGraph", description: "The directed graph G=(V,A)" },
+            FieldInfo { name: "weights", type_name: "Vec<W>", description: "Arc weights w: A -> R" },
         ],
     }
 }
 
 /// The Minimum Feedback Arc Set problem.
 ///
-/// Given a directed graph G = (V, A), find a minimum-size subset A' ⊆ A
-/// such that removing A' makes G acyclic (i.e., G - A' is a DAG).
+/// Given a directed graph G = (V, A) and weights w_a for each arc,
+/// find a subset A' ⊆ A such that:
+/// - Removing A' from G yields a directed acyclic graph (DAG)
+/// - The total weight Σ_{a ∈ A'} w_a is minimized
 ///
 /// # Variables
 ///
@@ -39,7 +43,7 @@ inventory::submit! {
 ///
 /// // Directed cycle: 0->1->2->0
 /// let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
-/// let problem = MinimumFeedbackArcSet::new(graph);
+/// let problem = MinimumFeedbackArcSet::new(graph, vec![1i32; 3]);
 ///
 /// // Solve with brute force
 /// let solver = BruteForce::new();
@@ -49,20 +53,56 @@ inventory::submit! {
 /// assert_eq!(solution.iter().sum::<usize>(), 1);
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MinimumFeedbackArcSet {
+pub struct MinimumFeedbackArcSet<W> {
     /// The directed graph.
     graph: DirectedGraph,
+    /// Weights for each arc.
+    weights: Vec<W>,
 }
 
-impl MinimumFeedbackArcSet {
-    /// Create a Minimum Feedback Arc Set problem from a directed graph.
-    pub fn new(graph: DirectedGraph) -> Self {
-        Self { graph }
+impl<W: Clone + Default> MinimumFeedbackArcSet<W> {
+    /// Create a Minimum Feedback Arc Set problem from a directed graph with given weights.
+    pub fn new(graph: DirectedGraph, weights: Vec<W>) -> Self {
+        assert_eq!(
+            weights.len(),
+            graph.num_arcs(),
+            "weights length must match graph num_arcs"
+        );
+        Self { graph, weights }
     }
 
     /// Get a reference to the underlying directed graph.
     pub fn graph(&self) -> &DirectedGraph {
         &self.graph
+    }
+
+    /// Get a reference to the weights slice.
+    pub fn weights(&self) -> &[W] {
+        &self.weights
+    }
+
+    /// Set arc weights.
+    pub fn set_weights(&mut self, weights: Vec<W>) {
+        assert_eq!(
+            weights.len(),
+            self.graph.num_arcs(),
+            "weights length must match graph num_arcs"
+        );
+        self.weights = weights;
+    }
+
+    /// Check if a configuration is a valid feedback arc set.
+    ///
+    /// A configuration is valid if removing the selected arcs makes the graph acyclic.
+    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
+        is_valid_fas(&self.graph, config)
+    }
+}
+
+impl<W: WeightElement> MinimumFeedbackArcSet<W> {
+    /// Check if the problem has non-unit weights.
+    pub fn is_weighted(&self) -> bool {
+        !W::IS_UNIT
     }
 
     /// Get the number of vertices in the directed graph.
@@ -74,38 +114,42 @@ impl MinimumFeedbackArcSet {
     pub fn num_arcs(&self) -> usize {
         self.graph.num_arcs()
     }
-
-    /// Check if a configuration is a valid feedback arc set.
-    ///
-    /// A configuration is valid if removing the selected arcs makes the graph acyclic.
-    pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        is_valid_fas(&self.graph, config)
-    }
 }
 
-impl Problem for MinimumFeedbackArcSet {
+impl<W> Problem for MinimumFeedbackArcSet<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
     const NAME: &'static str = "MinimumFeedbackArcSet";
-    type Metric = SolutionSize<i32>;
+    type Metric = SolutionSize<W::Sum>;
 
     fn variant() -> Vec<(&'static str, &'static str)> {
-        crate::variant_params![]
+        crate::variant_params![W]
     }
 
     fn dims(&self) -> Vec<usize> {
         vec![2; self.graph.num_arcs()]
     }
 
-    fn evaluate(&self, config: &[usize]) -> SolutionSize<i32> {
+    fn evaluate(&self, config: &[usize]) -> SolutionSize<W::Sum> {
         if !is_valid_fas(&self.graph, config) {
             return SolutionSize::Invalid;
         }
-        let count = config.iter().filter(|&&x| x != 0).count() as i32;
-        SolutionSize::Valid(count)
+        let mut total = W::Sum::zero();
+        for (i, &selected) in config.iter().enumerate() {
+            if selected != 0 {
+                total += self.weights[i].to_sum();
+            }
+        }
+        SolutionSize::Valid(total)
     }
 }
 
-impl OptimizationProblem for MinimumFeedbackArcSet {
-    type Value = i32;
+impl<W> OptimizationProblem for MinimumFeedbackArcSet<W>
+where
+    W: WeightElement + crate::variant::VariantParam,
+{
+    type Value = W::Sum;
 
     fn direction(&self) -> Direction {
         Direction::Minimize
@@ -127,7 +171,7 @@ fn is_valid_fas(graph: &DirectedGraph, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    MinimumFeedbackArcSet => "2^num_vertices",
+    MinimumFeedbackArcSet<i32> => "2^num_vertices",
 }
 
 #[cfg(test)]
