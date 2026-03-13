@@ -209,6 +209,7 @@ Flags by problem type:
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
   GraphPartitioning               --graph
+  MinimumCutIntoBoundedSets       --graph, --edge-weights, --source, --sink, --size-bound, --cut-bound
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   SubsetSum                       --sizes, --target
@@ -337,6 +338,18 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Source vertex index (for MinimumCutIntoBoundedSets)
+    #[arg(long)]
+    pub source: Option<usize>,
+    /// Sink vertex index (for MinimumCutIntoBoundedSets)
+    #[arg(long)]
+    pub sink: Option<usize>,
+    /// Size bound for partition sets (for MinimumCutIntoBoundedSets)
+    #[arg(long)]
+    pub size_bound: Option<usize>,
+    /// Cut weight bound (for MinimumCutIntoBoundedSets)
+    #[arg(long)]
+    pub cut_bound: Option<i32>,
 }
 
 #[derive(clap::Args)]

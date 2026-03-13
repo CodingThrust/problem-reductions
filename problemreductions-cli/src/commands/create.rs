@@ -5,7 +5,7 @@ use crate::problem_name::{parse_problem_spec, resolve_variant};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::graph::GraphPartitioning;
+use problemreductions::models::graph::{GraphPartitioning, MinimumCutIntoBoundedSets};
 use problemreductions::models::misc::{BinPacking, LongestCommonSubsequence, PaintShop, SubsetSum};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -49,6 +49,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.bounds.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
+        && args.source.is_none()
+        && args.sink.is_none()
+        && args.size_bound.is_none()
+        && args.cut_bound.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -81,6 +85,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
+        "MinimumCutIntoBoundedSets" => {
+            "--graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 3 --size-bound 3 --cut-bound 1"
+        }
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
@@ -209,6 +216,39 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(GraphPartitioning::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Minimum cut into bounded sets (graph + edge weights + s/t/B/K)
+        "MinimumCutIntoBoundedSets" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MinimumCutIntoBoundedSets --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --source 0 --sink 2 --size-bound 2 --cut-bound 1"
+                )
+            })?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let source = args
+                .source
+                .context("--source is required for MinimumCutIntoBoundedSets")?;
+            let sink = args
+                .sink
+                .context("--sink is required for MinimumCutIntoBoundedSets")?;
+            let size_bound = args
+                .size_bound
+                .context("--size-bound is required for MinimumCutIntoBoundedSets")?;
+            let cut_bound = args
+                .cut_bound
+                .context("--cut-bound is required for MinimumCutIntoBoundedSets")?;
+            (
+                ser(MinimumCutIntoBoundedSets::new(
+                    graph,
+                    edge_weights,
+                    source,
+                    sink,
+                    size_bound,
+                    cut_bound,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -995,6 +1035,37 @@ fn create_random(
                     (data, variant)
                 }
             }
+        }
+
+        // MinimumCutIntoBoundedSets (graph + edge weights + s/t/B/K)
+        "MinimumCutIntoBoundedSets" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let num_edges = graph.num_edges();
+            let edge_weights = vec![1i32; num_edges];
+            let source = 0;
+            let sink = if num_vertices > 1 {
+                num_vertices - 1
+            } else {
+                0
+            };
+            let size_bound = num_vertices; // no effective size constraint
+            let cut_bound = num_edges as i32; // generous bound
+            let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
+            (
+                ser(MinimumCutIntoBoundedSets::new(
+                    graph,
+                    edge_weights,
+                    source,
+                    sink,
+                    size_bound,
+                    cut_bound,
+                ))?,
+                variant,
+            )
         }
 
         // GraphPartitioning (graph only, no weights; requires even vertex count)

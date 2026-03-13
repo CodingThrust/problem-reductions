@@ -57,6 +57,7 @@ pub fn resolve_alias(input: &str) -> String {
         "knapsack" => "Knapsack".to_string(),
         "lcs" | "longestcommonsubsequence" => "LongestCommonSubsequence".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
+        "minimumcutintoboundedsets" => "MinimumCutIntoBoundedSets".to_string(), // G&J ND17
         "subsetsum" => "SubsetSum".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
