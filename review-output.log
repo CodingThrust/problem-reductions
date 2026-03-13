@@ -1,0 +1,10 @@
+**PR #594 (Fix #129: Add MultivariateQuadratic model) processed successfully.**
+
+| Check | Result |
+|-------|--------|
+| Merge conflicts | 2 files resolved |
+| Copilot comments | 0 actionable (already fixed) |
+| Issue/human comments | 3 checked, 0 fixes needed |
+| CI | green |
+| Agentic test | passed |
+| Board | review-agentic → In Review |
