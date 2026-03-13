@@ -90,7 +90,7 @@ Categorize all findings:
 
 | Priority | Type | Action |
 |----------|------|--------|
-| 1 | CI failures (test/clippy/build) | Fix immediately — blocks merge |
+| 1 | CI failures (clippy/test/coverage) | Fix immediately — blocks merge |
 | 2 | User inline/review comments | Address each one — highest review priority |
 | 3 | Copilot inline suggestions | Evaluate validity, fix if correct |
 | 4 | Codecov coverage gaps | Add tests for uncovered lines |
@@ -102,9 +102,8 @@ Categorize all findings:
 For each failing check:
 
 1. **Clippy**: Run `make clippy` locally, fix warnings
-2. **Test**: Run `make test` locally, fix failures
-3. **Build**: Run `make build` locally, fix errors
-4. **Coverage**: See Step 5 (codecov-specific flow)
+2. **Test**: Run `make test` locally, fix failures (build errors surface here too)
+3. **Code Coverage**: See Step 5 (codecov-specific flow)
 
 ## Step 4: Address Review Comments
 
