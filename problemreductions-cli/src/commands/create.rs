@@ -6,7 +6,9 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::GraphPartitioning;
-use problemreductions::models::misc::{BinPacking, PaintShop, ShortestCommonSupersequence};
+use problemreductions::models::misc::{
+    BinPacking, LongestCommonSubsequence, PaintShop, ShortestCommonSupersequence, SubsetSum,
+};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
@@ -47,6 +49,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.required_edges.is_none()
+        && args.bound.is_none()
+        && args.pattern.is_none()
+        && args.strings.is_none()
         && args.arcs.is_none()
         && args.strings.is_none()
         && args.bound.is_none()
@@ -65,6 +71,8 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" => "integer",
         "u64" => "integer",
+        "i64" => "integer",
+        "Vec<i64>" => "comma-separated integers: 3,7,1,8",
         _ => "value",
     }
 }
@@ -89,7 +97,13 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
+        "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "RuralPostman" => {
+            "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
+        }
+        "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
+        "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
     }
@@ -231,6 +245,38 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (data, resolved_variant.clone())
         }
 
+        // RuralPostman
+        "RuralPostman" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                )
+            })?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let required_edges_str = args.required_edges.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RuralPostman requires --required-edges\n\n\
+                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                )
+            })?;
+            let required_edges: Vec<usize> = util::parse_comma_list(required_edges_str)?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RuralPostman requires --bound\n\n\
+                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                )
+            })?;
+            (
+                ser(RuralPostman::new(
+                    graph,
+                    edge_weights,
+                    required_edges,
+                    bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // KColoring
         "KColoring" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
@@ -354,6 +400,27 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             }
         }
 
+        // SubsetSum
+        "SubsetSum" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubsetSum requires --sizes and --target\n\n\
+                     Usage: pred create SubsetSum --sizes 3,7,1,8,2,4 --target 11"
+                )
+            })?;
+            let target = args.target.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubsetSum requires --target\n\n\
+                     Usage: pred create SubsetSum --sizes 3,7,1,8,2,4 --target 11"
+                )
+            })?;
+            let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            (
+                ser(SubsetSum::new(sizes, target as i64))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // PaintShop
         "PaintShop" => {
             let seq_str = args.sequence.as_deref().ok_or_else(|| {
@@ -428,6 +495,24 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(BMF::new(matrix, rank))?, resolved_variant.clone())
         }
 
+        // LongestCommonSubsequence
+        "LongestCommonSubsequence" => {
+            let strings_str = args.strings.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "LCS requires --strings\n\n\
+                     Usage: pred create LCS --strings \"ABAC;BACA\""
+                )
+            })?;
+            let strings: Vec<Vec<u8>> = strings_str
+                .split(';')
+                .map(|s| s.trim().as_bytes().to_vec())
+                .collect();
+            (
+                ser(LongestCommonSubsequence::new(strings))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // ClosestVectorProblem
         "ClosestVectorProblem" => {
             let basis_str = args.basis.as_deref().ok_or_else(|| {
@@ -459,6 +544,68 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let bounds = vec![problemreductions::models::algebraic::VarBounds::bounded(lo, hi); n];
             (
                 ser(ClosestVectorProblem::new(basis, target, bounds))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SubgraphIsomorphism
+        "SubgraphIsomorphism" => {
+            let (host_graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create SubgraphIsomorphism --graph 0-1,1-2,2-0 --pattern 0-1"
+                )
+            })?;
+            let pattern_str = args.pattern.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubgraphIsomorphism requires --pattern (pattern graph edges)\n\n\
+                     Usage: pred create SubgraphIsomorphism --graph 0-1,1-2,2-0 --pattern 0-1"
+                )
+            })?;
+            let pattern_edges: Vec<(usize, usize)> = pattern_str
+                .split(',')
+                .map(|pair| {
+                    let parts: Vec<&str> = pair.trim().split('-').collect();
+                    if parts.len() != 2 {
+                        bail!("Invalid edge '{}': expected format u-v", pair.trim());
+                    }
+                    let u: usize = parts[0].parse()?;
+                    let v: usize = parts[1].parse()?;
+                    if u == v {
+                        bail!(
+                            "Invalid edge '{}': self-loops are not allowed in simple graphs",
+                            pair.trim()
+                        );
+                    }
+                    Ok((u, v))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let pattern_nv = pattern_edges
+                .iter()
+                .flat_map(|(u, v)| [*u, *v])
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0);
+            let pattern_graph = SimpleGraph::new(pattern_nv, pattern_edges);
+            (
+                ser(SubgraphIsomorphism::new(host_graph, pattern_graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PartitionIntoTriangles
+        "PartitionIntoTriangles" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create PartitionIntoTriangles --graph 0-1,1-2,0-2"
+                )
+            })?;
+            anyhow::ensure!(
+                graph.num_vertices() % 3 == 0,
+                "PartitionIntoTriangles requires vertex count divisible by 3, got {}",
+                graph.num_vertices()
+            );
+            (
+                ser(PartitionIntoTriangles::new(graph))?,
                 resolved_variant.clone(),
             )
         }

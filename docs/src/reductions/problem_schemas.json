@@ -196,6 +196,17 @@
     ]
   },
   {
+    "name": "LongestCommonSubsequence",
+    "description": "Find the longest string that is a subsequence of every input string",
+    "fields": [
+      {
+        "name": "strings",
+        "type_name": "Vec<Vec<u8>>",
+        "description": "The input strings"
+      }
+    ]
+  },
+  {
     "name": "MaxCut",
     "description": "Find maximum weight cut in a graph",
     "fields": [
@@ -388,6 +399,32 @@
     ]
   },
   {
+    "name": "RuralPostman",
+    "description": "Find a circuit covering required edges with total length at most B (Rural Postman Problem)",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge lengths l(e) for each e in E"
+      },
+      {
+        "name": "required_edges",
+        "type_name": "Vec<usize>",
+        "description": "Edge indices of the required subset E' ⊆ E"
+      },
+      {
+        "name": "bound",
+        "type_name": "W::Sum",
+        "description": "Upper bound B on total circuit length"
+      }
+    ]
+  },
+  {
     "name": "Satisfiability",
     "description": "Find satisfying assignment for CNF formula",
     "fields": [
@@ -421,6 +458,22 @@
         "name": "fields",
         "type_name": "Vec<W>",
         "description": "On-site fields h_i"
+      }
+    ]
+  },
+  {
+    "name": "SubgraphIsomorphism",
+    "description": "Determine if host graph G contains a subgraph isomorphic to pattern graph H",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "SimpleGraph",
+        "description": "The host graph G = (V_1, E_1) to search in"
+      },
+      {
+        "name": "pattern",
+        "type_name": "SimpleGraph",
+        "description": "The pattern graph H = (V_2, E_2) to find as a subgraph"
       }
     ]
   },
