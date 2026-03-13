@@ -16,8 +16,8 @@ inventory::submit! {
         module_path: module_path!(),
         description: "Determine if host graph G contains a subgraph isomorphic to pattern graph H",
         fields: &[
-            FieldInfo { name: "host_graph", type_name: "SimpleGraph", description: "The host graph G = (V_1, E_1) to search in" },
-            FieldInfo { name: "pattern_graph", type_name: "SimpleGraph", description: "The pattern graph H = (V_2, E_2) to find as a subgraph" },
+            FieldInfo { name: "graph", type_name: "SimpleGraph", description: "The host graph G = (V_1, E_1) to search in" },
+            FieldInfo { name: "pattern", type_name: "SimpleGraph", description: "The pattern graph H = (V_2, E_2) to find as a subgraph" },
         ],
     }
 }
