@@ -19,7 +19,7 @@ inventory::submit! {
         description: "Find a circuit covering required edges with total length at most B (Rural Postman Problem)",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_lengths", type_name: "Vec<W>", description: "Edge lengths l(e) for each e in E" },
+            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge lengths l(e) for each e in E" },
             FieldInfo { name: "required_edges", type_name: "Vec<usize>", description: "Edge indices of the required subset E' ⊆ E" },
             FieldInfo { name: "bound", type_name: "W::Sum", description: "Upper bound B on total circuit length" },
         ],
@@ -35,15 +35,19 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// Each edge is assigned a binary variable:
-/// - 0: edge is not in the circuit
-/// - 1: edge is in the circuit
+/// Each edge is assigned a multiplicity variable:
+/// - 0: edge is not traversed
+/// - 1: edge is traversed once
+/// - 2: edge is traversed twice
 ///
 /// A valid circuit requires:
-/// - All required edges are selected (config[i] == 1 for i in required_edges)
-/// - All vertices with selected edges have even degree (Eulerian condition)
-/// - The selected edges form a connected subgraph
-/// - Total length ≤ bound
+/// - All required edges have multiplicity ≥ 1
+/// - All vertices have even degree (sum of multiplicities of incident edges)
+/// - Edges with multiplicity > 0 form a connected subgraph
+/// - Total length (sum of multiplicity × edge length) ≤ bound
+///
+/// Note: In an optimal RPP solution on undirected graphs, each edge is
+/// traversed at most twice, so multiplicity ∈ {0, 1, 2} is sufficient.
 ///
 /// # Type Parameters
 ///
@@ -142,6 +146,8 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
 
     /// Check if a configuration represents a valid circuit covering all required edges
     /// with total length at most the bound.
+    ///
+    /// Each `config[i]` is the multiplicity (number of traversals) of edge `i`.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
         if config.len() != self.graph.num_edges() {
             return false;
@@ -150,43 +156,43 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
         let edges = self.graph.edges();
         let n = self.graph.num_vertices();
 
-        // Check all required edges are selected
+        // Check all required edges are traversed at least once
         for &req_idx in &self.required_edges {
-            if config[req_idx] != 1 {
+            if config[req_idx] == 0 {
                 return false;
             }
         }
 
-        // Count selected edges and compute degree of each vertex
+        // Compute degree of each vertex (sum of multiplicities of incident edges)
         let mut degree = vec![0usize; n];
-        let mut selected_count = 0usize;
-        for (idx, &sel) in config.iter().enumerate() {
-            if sel == 1 {
+        let mut has_edges = false;
+        for (idx, &mult) in config.iter().enumerate() {
+            if mult > 0 {
                 let (u, v) = edges[idx];
-                degree[u] += 1;
-                degree[v] += 1;
-                selected_count += 1;
+                degree[u] += mult;
+                degree[v] += mult;
+                has_edges = true;
             }
         }
 
-        // No edges selected: only valid if no required edges
-        if selected_count == 0 {
+        // No edges used: only valid if no required edges
+        if !has_edges {
             return self.required_edges.is_empty();
         }
 
-        // All vertices with selected edges must have even degree (Eulerian condition)
+        // All vertices must have even degree (Eulerian condition)
         for &d in &degree {
             if d % 2 != 0 {
                 return false;
             }
         }
 
-        // Selected edges must form a connected subgraph
+        // Edges with multiplicity > 0 must form a connected subgraph
         // (considering only vertices with degree > 0)
         let mut adj: Vec<Vec<usize>> = vec![vec![]; n];
         let mut first_vertex = None;
-        for (idx, &sel) in config.iter().enumerate() {
-            if sel == 1 {
+        for (idx, &mult) in config.iter().enumerate() {
+            if mult > 0 {
                 let (u, v) = edges[idx];
                 adj[u].push(v);
                 adj[v].push(u);
@@ -222,10 +228,10 @@ impl<G: Graph, W: WeightElement> RuralPostman<G, W> {
             }
         }
 
-        // Check total length ≤ bound
+        // Check total length ≤ bound (sum of multiplicity × edge length)
         let mut total = W::Sum::zero();
-        for (idx, &sel) in config.iter().enumerate() {
-            if sel == 1 {
+        for (idx, &mult) in config.iter().enumerate() {
+            for _ in 0..mult {
                 total += self.edge_lengths[idx].to_sum();
             }
         }
@@ -247,7 +253,7 @@ where
     }
 
     fn dims(&self) -> Vec<usize> {
-        vec![2; self.graph.num_edges()]
+        vec![3; self.graph.num_edges()]
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {

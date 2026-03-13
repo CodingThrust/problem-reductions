@@ -43,7 +43,7 @@ fn test_rural_postman_creation() {
     assert_eq!(problem.num_edges(), 8);
     assert_eq!(problem.num_required_edges(), 3);
     assert_eq!(problem.dims().len(), 8);
-    assert!(problem.dims().iter().all(|&d| d == 2));
+    assert!(problem.dims().iter().all(|&d| d == 3));
 }
 
 #[test]
