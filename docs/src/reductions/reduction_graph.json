@@ -667,6 +667,21 @@
       "doc_path": "rules/maximumclique_ilp/index.html"
     },
     {
+      "source": 22,
+      "target": 26,
+      "overhead": [
+        {
+          "field": "num_vertices",
+          "formula": "num_vertices"
+        },
+        {
+          "field": "num_edges",
+          "formula": "num_vertices * (num_vertices + -1 * 1) * 2^-1 + -1 * num_edges"
+        }
+      ],
+      "doc_path": "rules/maximumclique_maximumindependentset/index.html"
+    },
+    {
       "source": 23,
       "target": 24,
       "overhead": [

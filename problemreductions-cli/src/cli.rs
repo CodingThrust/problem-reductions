@@ -218,6 +218,7 @@ Flags by problem type:
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
+  LCS                             --strings
   FVS                             --arcs [--weights] [--num-vertices]
   ILP, CircuitSAT                 (via reduction only)
 
@@ -330,6 +331,9 @@ pub struct CreateArgs {
     /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
     #[arg(long, allow_hyphen_values = true)]
     pub bounds: Option<String>,
+    /// Input strings for LCS (semicolon-separated, e.g., "ABAC;BACA")
+    #[arg(long)]
+    pub strings: Option<String>,
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
