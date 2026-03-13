@@ -209,14 +209,18 @@ Flags by problem type:
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
   PartitionIntoTriangles          --graph
+  GraphPartitioning               --graph
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
+  SubsetSum                       --sizes, --target
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
+  LCS                             --strings
+  FVS                             --arcs [--weights] [--num-vertices]
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -232,7 +236,8 @@ Examples:
   pred create QUBO --matrix \"1,0.5;0.5,2\"
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
-  pred create MIS --random --num-vertices 10 --edge-prob 0.3")]
+  pred create MIS --random --num-vertices 10 --edge-prob 0.3
+  pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT)
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -327,6 +332,12 @@ pub struct CreateArgs {
     /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
     #[arg(long, allow_hyphen_values = true)]
     pub bounds: Option<String>,
+    /// Input strings for LCS (semicolon-separated, e.g., "ABAC;BACA")
+    #[arg(long)]
+    pub strings: Option<String>,
+    /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
+    #[arg(long)]
+    pub arcs: Option<String>,
 }
 
 #[derive(clap::Args)]
