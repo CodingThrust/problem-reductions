@@ -2,8 +2,8 @@
   "source": {
     "problem": "MaximumIndependentSet",
     "variant": {
-      "weight": "i32",
-      "graph": "SimpleGraph"
+      "graph": "SimpleGraph",
+      "weight": "i32"
     },
     "instance": {
       "edges": [
