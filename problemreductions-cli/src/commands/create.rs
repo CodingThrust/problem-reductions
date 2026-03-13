@@ -398,8 +398,14 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                      Usage: pred create X3C --universe 6 --sets \"0,1,2;3,4,5\""
                 )
             })?;
+            if universe % 3 != 0 {
+                bail!(
+                    "Universe size must be divisible by 3, got {}",
+                    universe
+                );
+            }
             let sets = parse_sets(args)?;
-            // Validate each set has exactly 3 elements
+            // Validate each set has exactly 3 distinct elements within the universe
             for (i, set) in sets.iter().enumerate() {
                 if set.len() != 3 {
                     bail!(
@@ -407,6 +413,23 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                         i,
                         set.len()
                     );
+                }
+                if set[0] == set[1] || set[0] == set[2] || set[1] == set[2] {
+                    bail!(
+                        "Subset {} contains duplicate elements: {:?}",
+                        i,
+                        set
+                    );
+                }
+                for &elem in set {
+                    if elem >= universe {
+                        bail!(
+                            "Subset {} contains element {} which is outside universe of size {}",
+                            i,
+                            elem,
+                            universe
+                        );
+                    }
                 }
             }
             let subsets: Vec<[usize; 3]> = sets.into_iter().map(|s| [s[0], s[1], s[2]]).collect();

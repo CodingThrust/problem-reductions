@@ -71,8 +71,15 @@ impl ExactCoverBy3Sets {
             "Universe size must be divisible by 3, got {}",
             universe_size
         );
-        for (i, subset) in subsets.iter().enumerate() {
-            for &elem in subset {
+        let mut subsets = subsets;
+        for (i, subset) in subsets.iter_mut().enumerate() {
+            assert!(
+                subset[0] != subset[1] && subset[0] != subset[2] && subset[1] != subset[2],
+                "Subset {} contains duplicate elements: {:?}",
+                i,
+                subset
+            );
+            for &elem in subset.iter() {
                 assert!(
                     elem < universe_size,
                     "Subset {} contains element {} which is outside universe of size {}",
@@ -81,6 +88,7 @@ impl ExactCoverBy3Sets {
                     universe_size
                 );
             }
+            subset.sort();
         }
         Self {
             universe_size,
