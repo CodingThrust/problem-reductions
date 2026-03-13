@@ -77,7 +77,7 @@ fn test_flow_shop_scheduling_invalid_config() {
     // Lehmer code out of range: dims = [2, 1], so config[0] must be < 2, config[1] must be < 1
     assert!(!problem.evaluate(&[2, 0])); // config[0] = 2 >= 2
     assert!(!problem.evaluate(&[0, 1])); // config[1] = 1 >= 1
-    // Wrong length
+                                         // Wrong length
     assert!(!problem.evaluate(&[0]));
     assert!(!problem.evaluate(&[0, 0, 0]));
 }

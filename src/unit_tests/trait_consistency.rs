@@ -91,12 +91,24 @@ fn test_all_problems_implement_trait_correctly() {
         "MinimumFeedbackArcSet",
     );
     check_problem_trait(
-        &MinimumSumMulticenter::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3], vec![1i32; 2], 1),
+        &MinimumSumMulticenter::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1i32; 3],
+            vec![1i32; 2],
+            1,
+        ),
         "MinimumSumMulticenter",
     );
     check_problem_trait(
         &HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
         "HamiltonianPath",
+    );
+    check_problem_trait(
+        &IsomorphicSpanningTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        ),
+        "IsomorphicSpanningTree",
     );
     check_problem_trait(
         &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3),
@@ -156,7 +168,13 @@ fn test_direction() {
         Direction::Minimize
     );
     assert_eq!(
-        MinimumSumMulticenter::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3], vec![1i32; 2], 1).direction(),
+        MinimumSumMulticenter::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1i32; 3],
+            vec![1i32; 2],
+            1
+        )
+        .direction(),
         Direction::Minimize
     );
 

@@ -31,6 +31,7 @@
   "MaxCut": [Max-Cut],
   "GraphPartitioning": [Graph Partitioning],
   "HamiltonianPath": [Hamiltonian Path],
+  "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
@@ -450,6 +451,55 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
   The best known exact algorithm is Björklund's randomized $O^*(1.657^n)$ "Determinant Sums" method @bjorklund2014, which applies to both Hamiltonian path and circuit. The classical Held--Karp dynamic programming algorithm solves it in $O(n^2 dot 2^n)$ deterministic time.
 
   Variables: $n = |V|$ values forming a permutation. Position $i$ holds the vertex visited at step $i$. A configuration is satisfying when it forms a valid permutation of all vertices and consecutive vertices are adjacent in $G$.
+]
+#problem-def("IsomorphicSpanningTree")[
+  Given a graph $G = (V, E)$ and a tree $T = (V_T, E_T)$ with $|V| = |V_T|$, determine whether $G$ contains a spanning tree isomorphic to $T$: does there exist a bijection $pi: V_T -> V$ such that for every edge ${u, v} in E_T$, ${pi(u), pi(v)} in E$?
+][
+  A classical NP-complete problem listed as ND8 in Garey & Johnson @garey1979. The Isomorphic Spanning Tree problem strictly generalizes Hamiltonian Path: a graph $G$ has a Hamiltonian path if and only if $G$ contains a spanning tree isomorphic to the path $P_n$. The problem remains NP-complete even when $T$ is restricted to trees of bounded degree @papadimitriou1982.
+
+  Brute-force enumeration of all bijections $pi: V_T -> V$ and checking each against the edge set of $G$ runs in $O(n! dot n)$ time. No substantially faster exact algorithm is known for general instances.
+
+  Variables: $n = |V|$ values forming a permutation. Position $i$ holds the graph vertex that tree vertex $i$ maps to under $pi$. A configuration is satisfying when it forms a valid permutation and every tree edge maps to a graph edge.
+
+  *Example.* Consider $G = K_4$ (the complete graph on 4 vertices) and $T$ the star $S_3$ with center $0$ and leaves ${1, 2, 3}$. Since $K_4$ contains all possible edges, any bijection $pi$ maps the star's edges to edges of $G$. For instance, the identity mapping $pi(i) = i$ gives the spanning tree ${(0,1), (0,2), (0,3)} subset.eq E(K_4)$.
+
+  #figure({
+    let blue = graph-colors.at(0)
+    let gray = luma(200)
+    canvas(length: 1cm, {
+      import draw: *
+      // G = K4 on the left
+      let gv = ((0, 0), (1.5, 0), (1.5, 1.5), (0, 1.5))
+      let ge = ((0,1),(0,2),(0,3),(1,2),(1,3),(2,3))
+      let tree-edges = ((0,1),(0,2),(0,3))
+      for (u, v) in ge {
+        let is-tree = tree-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+        g-edge(gv.at(u), gv.at(v), stroke: if is-tree { 2pt + blue } else { 1pt + gray })
+      }
+      for (k, pos) in gv.enumerate() {
+        let is-center = k == 0
+        g-node(pos, name: "g" + str(k),
+          fill: if is-center { blue } else { white },
+          label: if is-center { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+      }
+      // Arrow
+      content((2.5, 0.75), text(10pt)[$arrow.l.double$])
+      // T = star S3 on the right
+      let tv = ((3.5, 0.75), (5.0, 0), (5.0, 0.75), (5.0, 1.5))
+      let te = ((0,1),(0,2),(0,3))
+      for (u, v) in te {
+        g-edge(tv.at(u), tv.at(v), stroke: 2pt + blue)
+      }
+      for (k, pos) in tv.enumerate() {
+        let is-center = k == 0
+        g-node(pos, name: "t" + str(k),
+          fill: if is-center { blue } else { white },
+          label: if is-center { text(fill: white)[$u_#k$] } else { [$u_#k$] })
+      }
+    })
+  },
+  caption: [Isomorphic Spanning Tree: the graph $G = K_4$ (left) contains a spanning tree isomorphic to the star $S_3$ (right, blue edges). The identity mapping $pi(u_i) = v_i$ embeds all three star edges into $G$. Center vertex $v_0$ shown in blue.],
+  ) <fig:isomorphic-spanning-tree>
 ]
 #problem-def("KColoring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.

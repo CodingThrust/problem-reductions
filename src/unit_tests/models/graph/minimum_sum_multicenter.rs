@@ -224,7 +224,8 @@ fn test_min_sum_multicenter_serialization() {
     let problem = MinimumSumMulticenter::new(graph, vec![1i32; 3], vec![1i32; 2], 1);
 
     let json = serde_json::to_string(&problem).unwrap();
-    let deserialized: MinimumSumMulticenter<SimpleGraph, i32> = serde_json::from_str(&json).unwrap();
+    let deserialized: MinimumSumMulticenter<SimpleGraph, i32> =
+        serde_json::from_str(&json).unwrap();
 
     assert_eq!(deserialized.graph().num_vertices(), 3);
     assert_eq!(deserialized.graph().num_edges(), 2);

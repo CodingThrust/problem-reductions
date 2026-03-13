@@ -2,8 +2,8 @@ use crate::util;
 use problemreductions::models::algebraic::QUBO;
 use problemreductions::models::formula::{CNFClause, Satisfiability};
 use problemreductions::models::graph::{
-    MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumSumMulticenter,
-    MinimumDominatingSet, MinimumVertexCover, SpinGlass, TravelingSalesman,
+    MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
+    MinimumSumMulticenter, MinimumVertexCover, SpinGlass, TravelingSalesman,
 };
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
@@ -528,7 +528,12 @@ impl McpServer {
                     })?;
                 let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
                 (
-                    ser(MinimumSumMulticenter::new(graph, vertex_weights, edge_lengths, k))?,
+                    ser(MinimumSumMulticenter::new(
+                        graph,
+                        vertex_weights,
+                        edge_lengths,
+                        k,
+                    ))?,
                     variant,
                 )
             }
@@ -672,7 +677,12 @@ impl McpServer {
                     .unwrap_or(1.max(num_vertices / 3));
                 let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
                 (
-                    ser(MinimumSumMulticenter::new(graph, vertex_weights, edge_lengths, k))?,
+                    ser(MinimumSumMulticenter::new(
+                        graph,
+                        vertex_weights,
+                        edge_lengths,
+                        k,
+                    ))?,
                     variant,
                 )
             }
