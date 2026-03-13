@@ -15,6 +15,7 @@
 //! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
+//! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
 
 pub(crate) mod biclique_cover;
@@ -29,6 +30,7 @@ pub(crate) mod minimum_dominating_set;
 pub(crate) mod minimum_feedback_vertex_set;
 pub(crate) mod minimum_vertex_cover;
 pub(crate) mod partition_into_triangles;
+pub(crate) mod rural_postman;
 pub(crate) mod spin_glass;
 pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
@@ -45,6 +47,7 @@ pub use minimum_dominating_set::MinimumDominatingSet;
 pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
 pub use minimum_vertex_cover::MinimumVertexCover;
 pub use partition_into_triangles::PartitionIntoTriangles;
+pub use rural_postman::RuralPostman;
 pub use spin_glass::SpinGlass;
 pub use subgraph_isomorphism::SubgraphIsomorphism;
 pub use traveling_salesman::TravelingSalesman;
