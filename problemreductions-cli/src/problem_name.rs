@@ -23,6 +23,7 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("LCS", "LongestCommonSubsequence"),
     ("MaxMatching", "MaximumMatching"),
     ("FVS", "MinimumFeedbackVertexSet"),
+    ("pmedian", "MinSumMulticenter"),
 ];
 
 /// Resolve a short alias to the canonical problem name.
@@ -57,6 +58,7 @@ pub fn resolve_alias(input: &str) -> String {
         "knapsack" => "Knapsack".to_string(),
         "lcs" | "longestcommonsubsequence" => "LongestCommonSubsequence".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
+        "minsummulticenter" | "pmedian" => "MinSumMulticenter".to_string(),
         "subsetsum" => "SubsetSum".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
