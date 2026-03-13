@@ -48,7 +48,7 @@ Connect fields to the symbols defined above.
 | Field | Type | Description |
 |-------|------|-------------|
 | <!-- e.g. graph --> | <!-- e.g. SimpleGraph --> | <!-- e.g. the graph G=(V,E) --> |
-| <!-- e.g. weights --> | <!-- e.g. Vec<W> --> | <!-- e.g. vertex weights w_i for each i ∈ V (weighted variant only) --> |
+| <!-- e.g. weights --> | <!-- e.g. list of W --> | <!-- e.g. vertex weights w_i for each i ∈ V (weighted variant only) --> |
 
 ## Complexity
 

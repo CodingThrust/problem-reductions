@@ -1,6 +1,6 @@
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
-use problemreductions::models::misc::{BinPacking, Knapsack, SubsetSum};
+use problemreductions::models::misc::{BinPacking, Knapsack, LongestCommonSubsequence, SubsetSum};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
@@ -247,6 +247,8 @@ pub fn load_problem(
         },
         "Knapsack" => deser_opt::<Knapsack>(data),
         "SubgraphIsomorphism" => deser_sat::<SubgraphIsomorphism>(data),
+        "PartitionIntoTriangles" => deser_sat::<PartitionIntoTriangles<SimpleGraph>>(data),
+        "LongestCommonSubsequence" => deser_opt::<LongestCommonSubsequence>(data),
         "MinimumFeedbackVertexSet" => deser_opt::<MinimumFeedbackVertexSet<i32>>(data),
         "SubsetSum" => deser_sat::<SubsetSum>(data),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
@@ -311,6 +313,8 @@ pub fn serialize_any_problem(
         },
         "Knapsack" => try_ser::<Knapsack>(any),
         "SubgraphIsomorphism" => try_ser::<SubgraphIsomorphism>(any),
+        "PartitionIntoTriangles" => try_ser::<PartitionIntoTriangles<SimpleGraph>>(any),
+        "LongestCommonSubsequence" => try_ser::<LongestCommonSubsequence>(any),
         "MinimumFeedbackVertexSet" => try_ser::<MinimumFeedbackVertexSet<i32>>(any),
         "SubsetSum" => try_ser::<SubsetSum>(any),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),

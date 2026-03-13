@@ -20,6 +20,7 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("KSAT", "KSatisfiability"),
     ("TSP", "TravelingSalesman"),
     ("CVP", "ClosestVectorProblem"),
+    ("LCS", "LongestCommonSubsequence"),
     ("MaxMatching", "MaximumMatching"),
     ("FVS", "MinimumFeedbackVertexSet"),
 ];
@@ -55,6 +56,8 @@ pub fn resolve_alias(input: &str) -> String {
         "cvp" | "closestvectorproblem" => "ClosestVectorProblem".to_string(),
         "knapsack" => "Knapsack".to_string(),
         "subgraphisomorphism" => "SubgraphIsomorphism".to_string(),
+        "partitionintotriangles" => "PartitionIntoTriangles".to_string(),
+        "lcs" | "longestcommonsubsequence" => "LongestCommonSubsequence".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
         "subsetsum" => "SubsetSum".to_string(),
         _ => input.to_string(), // pass-through for exact names
