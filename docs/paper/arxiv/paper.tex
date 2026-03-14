@@ -8,6 +8,8 @@
 \usepackage{listings}
 \usepackage{hyperref}
 \usepackage{cleveref}
+\usepackage{tikz}
+\usetikzlibrary{arrows.meta,positioning,calc}
 
 \begin{document}
 
@@ -315,29 +317,89 @@ Unlike unit tests (which verify internal correctness), agentic feature tests ver
 The maintainer makes the final quality judgment and merges.
 This is one of only two human decisions in the pipeline; the other is moving an issue from Backlog to Ready (Stage~3).
 
-\paragraph{Three roles, two decisions.}
-The pipeline separates three distinct roles (\Cref{fig:pipeline}).
+\paragraph{Three agent roles.}
+The pipeline uses agents in three distinct roles, each backed by a set of skills (\Cref{fig:roles}).
 
-\emph{Contributors} are domain experts---mathematicians, physicists, operations researchers---who identify which reductions are worth implementing.
-They need no knowledge of Rust, the codebase, or even programming.
-Two entry points accommodate different preferences.
+\begin{figure*}[t]
+\centering
+\begin{tikzpicture}[
+  node distance=0.6cm and 0.8cm,
+  human/.style={draw=orange!80!black, fill=orange!10, rounded corners=3pt,
+    text width=5.2em, align=center, font=\scriptsize, minimum height=2em},
+  agent/.style={draw=blue!70!black, fill=blue!8, rounded corners=3pt,
+    text width=5.2em, align=center, font=\scriptsize, minimum height=2em},
+  artifact/.style={draw=gray!70, fill=gray!8, rounded corners=2pt,
+    text width=5.2em, align=center, font=\scriptsize, minimum height=2em},
+  skillbox/.style={draw=green!60!black, fill=green!6, rounded corners=2pt,
+    font=\tiny\ttfamily, inner sep=2pt, align=center},
+  arr/.style={-{Stealth[length=4pt]}, thick},
+  darr/.style={{Stealth[length=4pt]}-{Stealth[length=4pt]}, thick},
+]
+
+% === (a) Mentor ===
+\node[font=\footnotesize\bfseries] (title-a) {(a) Mentor};
+\node[human, below=0.3cm of title-a] (contrib) {Contributor\\[-1pt]{\tiny(domain expert)}};
+\node[agent, right=1.0cm of contrib] (mentor) {Mentor\\[-1pt]{\tiny agent}};
+\node[artifact, below=0.6cm of $(contrib)!0.5!(mentor)$] (issue) {GitHub\\Issue};
+\node[artifact, below left=0.5cm and 0.1cm of contrib] (pdf) {Paper PDF\\{\tiny(visual check)}};
+\node[skillbox, above=0.2cm of mentor] (sk-m) {propose, fix-issue,\\final-review, dev-setup};
+
+\draw[darr, orange!80!black] (contrib) -- node[above, font=\tiny, text=gray!60!black] {interactive} (mentor);
+\draw[arr, gray!60] (mentor) -- (issue);
+\draw[arr, gray!60] (contrib) -- (pdf);
+
+% === (b) Orchestrator ===
+\node[font=\footnotesize\bfseries, right=3.8cm of title-a] (title-b) {(b) Orchestrator};
+\node[human, below=0.3cm of title-b] (maint) {Maintainer\\[-1pt]{\tiny(2 decisions)}};
+\node[agent, right=1.0cm of maint] (orch) {Orchestrator\\[-1pt]{\tiny agent}};
+\node[artifact, below=0.6cm of maint] (board) {Project\\Board};
+\node[artifact, below=0.6cm of orch] (pr) {Pull\\Request};
+\node[skillbox, above=0.2cm of orch] (sk-o) {project-pipeline,\\review-pipeline, issue-to-pr,\\check-issue, topology-check};
+
+\draw[arr, orange!80!black] (maint) -- node[left, font=\tiny, text=orange!70!black, align=center] {move to\\Ready} (board);
+\draw[arr, blue!60] (board) -- node[below, font=\tiny, text=gray!60!black] {dispatch} (pr);
+\draw[arr, blue!60] (orch) -- (pr);
+\draw[arr, orange!80!black] (maint.south east) -- node[right, font=\tiny, text=orange!70!black] {merge} (pr.north east);
+
+% === (c) Runner ===
+\node[font=\footnotesize\bfseries, right=3.8cm of title-b] (title-c) {(c) Runner};
+\node[agent, below=0.3cm of title-c] (runner) {Runner\\[-1pt]{\tiny agent}};
+\node[artifact, below left=0.6cm and 0.3cm of runner] (code) {Codebase\\{\tiny(code + tests)}};
+\node[artifact, below right=0.6cm and 0.3cm of runner] (paper) {Paper\\{\tiny(proof + example)}};
+\node[skillbox, above=0.2cm of runner] (sk-r) {add-model, add-rule,\\fix-pr, review-impl,\\write-in-paper, release};
+
+\draw[arr, blue!60] (runner) -- (code);
+\draw[arr, blue!60] (runner) -- (paper);
+
+\end{tikzpicture}
+\caption{Three agent roles.
+  \textbf{(a)}~Mentors interact with humans: guiding contributors through proposals, helping fix issues, and assisting maintainers with final review.
+  \textbf{(b)}~Orchestrators manage the pipeline: picking tasks from the project board, dispatching runners, and validating issues.
+  \textbf{(c)}~Runners execute: implementing models and rules, fixing PRs, reviewing code, writing paper entries, and releasing.
+  Orange = human; blue = agent; green = skills.}
+\label{fig:roles}
+\end{figure*}
+
+\emph{Mentors} (4~skills) interact with humans.
 The \texttt{propose} skill conducts an interactive session in mathematical language, asking one question at a time: what is the problem, what is the formal definition, what does a worked example look like?
-Before filing, it pre-validates the draft against Stage~2's quality checks, catching errors before they reach review.
-Alternatively, a contributor can fill in a structured GitHub issue template directly.
-Either way, the contributor's involvement ends when the issue is filed.
+Before filing, it pre-validates the draft against Stage~2's quality checks.
+The \texttt{fix-issue} skill brainstorms with contributors to resolve quality problems.
+The \texttt{final-review} skill guides the maintainer through merge decisions.
+The \texttt{dev-setup} skill onboards new developers.
 
-\emph{The maintainer} makes exactly two decisions per contribution.
-First, moving an issue from Backlog to Ready---a judgment call about what is worth building next.
-Then everything between these two decisions runs headlessly.
-\texttt{make run-pipeline} picks the highest-ranked Ready issue, creates an isolated git worktree, implements the code, produces a pull request, and moves it to the review queue---all without human input.
-\texttt{make run-review} merges the latest main branch, addresses automated code-review comments, runs agentic feature tests, and retries CI failures up to three times.
-The maintainer's second decision is the final quality judgment: reading the pull request and merging it.
+\emph{Orchestrators} (5~skills) manage the pipeline.
+\texttt{project-pipeline} picks the highest-ranked Ready issue, creates an isolated git worktree, dispatches a runner, and moves the result to the review queue---all headlessly.
+\texttt{review-pipeline} addresses code-review comments, runs agentic feature tests, and retries CI failures.
+\texttt{check-issue} validates proposals before implementation.
+The maintainer makes exactly two decisions: moving an issue from Backlog to Ready, and merging the final pull request.
+Everything between runs without human input.
 
-\emph{Agents} fill two distinct roles.
-As \emph{guides}, they onboard contributors: the \texttt{propose} skill conducts an interactive session in the contributor's language, asks clarifying questions, analyzes the graph topology to suggest high-value contributions, and pre-validates drafts---lowering the barrier to entry without lowering quality standards.
-As \emph{runners}, they handle mechanical volume: implementing code, writing tests, fixing CI failures, and generating documentation---processing batches of issues headlessly overnight.
-Both roles interact with the library through a command-line interface (\texttt{pred}) that serves as the uniform entry point for humans and agents alike---listing problems, querying reduction paths, inspecting overhead, and performing reductions.
-The skill system ensures identical verification steps in both roles: whether an agent is guiding a contributor through a proposal or implementing a reduction autonomously, it traverses the same quality checklist.
+\emph{Runners} (7~skills) execute.
+\texttt{add-model} and \texttt{add-rule} implement problem types and reductions.
+\texttt{review-implementation} dispatches parallel sub-agents in fresh context to review code.
+\texttt{fix-pr} resolves CI failures and review comments.
+\texttt{write-model-in-paper} and \texttt{write-rule-in-paper} generate paper entries with proof sketches and worked examples.
+\texttt{release} handles version bumps and publishing.
 
 \subsection{Why Skills, Not Prompts or Scripts}\label{sec:skills}
 
