@@ -36,9 +36,7 @@ fn main() {
                 let num_variants = graph.variants_for(name).len();
                 let out_count = graph.outgoing_reductions(name).len();
                 let in_count = graph.incoming_reductions(name).len();
-                println!(
-                    "    {name} ({num_variants} variant(s), {out_count} out, {in_count} in)"
-                );
+                println!("    {name} ({num_variants} variant(s), {out_count} out, {in_count} in)");
             }
         }
     } else {
@@ -52,8 +50,10 @@ fn main() {
             let label = if variant.is_empty() {
                 p.name.to_string()
             } else {
-                let parts: Vec<String> =
-                    variant.iter().map(|(k, val)| format!("{k}: {val}")).collect();
+                let parts: Vec<String> = variant
+                    .iter()
+                    .map(|(k, val)| format!("{k}: {val}"))
+                    .collect();
                 format!("{} {{{}}}", p.name, parts.join(", "))
             };
             if let Some(c) = complexity {

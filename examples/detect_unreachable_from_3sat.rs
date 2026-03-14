@@ -7,9 +7,7 @@
 //!
 //! Run with: `cargo run --example detect_unreachable_from_3sat`
 
-use problemreductions::rules::analysis::{
-    check_reachability_from_3sat, UnreachableReason,
-};
+use problemreductions::rules::analysis::{check_reachability_from_3sat, UnreachableReason};
 use problemreductions::rules::ReductionGraph;
 
 fn main() {
@@ -20,10 +18,7 @@ fn main() {
     println!("=============================================");
     println!("Total problem types: {}", report.total_types);
     println!("Reachable from 3-SAT: {}", report.reachable.len());
-    println!(
-        "Not reachable: {}",
-        report.unreachable.len()
-    );
+    println!("Not reachable: {}", report.unreachable.len());
     println!();
 
     // Show reachable problems sorted by hop distance
