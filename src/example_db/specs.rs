@@ -9,12 +9,13 @@ use crate::export::{
 };
 use crate::models::algebraic::{VariableDomain, ILP};
 use crate::prelude::{OptimizationProblem, Problem, ReduceTo, ReductionResult};
-use crate::rules::{Minimize, MinimizeSteps, PathCostFn, ReductionGraph};
+use crate::rules::{PathCostFn, ReductionGraph};
 use crate::solvers::{BruteForce, ILPSolver};
 use crate::types::ProblemSize;
 use serde::Serialize;
 
 /// Specification for a canonical model example.
+#[allow(dead_code)]
 pub struct ModelExampleSpec {
     /// Unique example identifier.
     pub id: &'static str,
@@ -23,6 +24,7 @@ pub struct ModelExampleSpec {
 }
 
 /// Specification for a canonical rule example.
+#[allow(dead_code)]
 pub struct RuleExampleSpec {
     /// Unique example identifier.
     pub id: &'static str,
