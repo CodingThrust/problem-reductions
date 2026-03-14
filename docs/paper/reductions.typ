@@ -585,7 +585,74 @@ A classical NP-complete decision problem from Garey & Johnson (GT42) @garey1979,
 
 NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
 
-*Example.* Consider the path graph $P_3$: vertices ${v_0, v_1, v_2}$ with edges ${v_0, v_1}$ and ${v_1, v_2}$. The identity arrangement $f(v_i) = i$ gives cost $|0-1| + |1-2| = 2$. With bound $K = 2$, this is a YES instance. For a triangle $K_3$ with the same vertex set plus edge ${v_0, v_2}$, any arrangement yields cost 4, so a bound of $K = 3$ gives a NO instance.
+*Example.* Consider the path graph $P_4$: vertices ${v_0, v_1, v_2, v_3}$ with edges ${v_0, v_1}$, ${v_1, v_2}$, and ${v_2, v_3}$. The identity arrangement $f(v_i) = i$ gives cost $|0-1| + |1-2| + |2-3| = 3$, which is optimal. The non-identity arrangement $f(v_0) = 0, f(v_1) = 2, f(v_2) = 1, f(v_3) = 3$ gives cost $|0-2| + |2-1| + |1-3| = 2 + 1 + 2 = 5$, illustrating how separating adjacent vertices increases total stretch.
+
+#figure(
+  canvas(length: 1cm, {
+    import draw: *
+
+    // ── Top: the graph P₄ ──
+    let gv = ((0, 3.2), (1.5, 3.2), (3.0, 3.2), (4.5, 3.2))
+    let gedges = ((0,1), (1,2), (2,3))
+    for (u, v) in gedges {
+      g-edge(gv.at(u), gv.at(v), stroke: 1pt + luma(160))
+    }
+    for (k, pos) in gv.enumerate() {
+      g-node(pos, name: "g" + str(k),
+        fill: graph-colors.at(0),
+        label: text(fill: white)[$v_#k$])
+    }
+    content((2.25, 4.0), text(8pt)[$P_4$])
+
+    // ── Divider ──
+    line((-0.5, 2.5), (5.0, 2.5), stroke: 0.4pt + luma(200))
+
+    // ── Bottom: number line with arrangement ──
+    let x0 = 0
+    let xend = 4.5
+    let y-line = 0.5
+
+    // Number line
+    line((x0 - 0.3, y-line), (xend + 0.3, y-line),
+      stroke: 0.8pt + luma(120),
+      mark: (end: "straight", fill: luma(120)))
+
+    // Tick marks and position labels
+    for i in range(4) {
+      let x = x0 + i * 1.5
+      line((x, y-line - 0.12), (x, y-line + 0.12), stroke: 0.6pt + luma(100))
+      content((x, y-line - 0.35), text(7pt, fill: luma(80))[$#i$])
+    }
+
+    // Place vertices on the number line (identity arrangement)
+    for (k, pos) in gv.enumerate() {
+      let x = x0 + k * 1.5
+      g-node((x, y-line), name: "n" + str(k),
+        fill: graph-colors.at(0),
+        label: text(fill: white)[$v_#k$])
+    }
+
+    // Draw edges as arcs above the number line, labeled with stretch
+    let arc-data = ((0, 1, 0.5), (1, 2, 0.5), (2, 3, 0.5))  // (from, to, height)
+    for (u, v, h) in arc-data {
+      let xu = x0 + u * 1.5
+      let xv = x0 + v * 1.5
+      let xm = (xu + xv) / 2
+      let stretch = v - u
+      bezier(
+        (xu, y-line + 0.22), (xv, y-line + 0.22),
+        (xm, y-line + 0.22 + h),
+        stroke: 1.2pt + graph-colors.at(0))
+      content((xm, y-line + 0.22 + h + 0.18),
+        text(7pt, fill: graph-colors.at(0))[$#stretch$])
+    }
+
+    // Total cost annotation
+    content((2.25, -0.3),
+      text(8pt)[Cost $= 1 + 1 + 1 = 3$])
+  }),
+  caption: [Path graph $P_4$ and its optimal linear arrangement $f(v_i) = i$. Each edge is drawn as an arc labeled with its stretch $|f(u) - f(v)|$. Total cost is 3.],
+) <fig:ola-p4>
 ]
 #problem-def("MaximumClique")[
   Given $G = (V, E)$, find $K subset.eq V$ maximizing $|K|$ such that all pairs in $K$ are adjacent: $forall u, v in K: (u, v) in E$. Equivalent to MIS on the complement graph $overline(G)$.
