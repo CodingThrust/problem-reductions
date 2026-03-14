@@ -287,9 +287,16 @@ As \emph{runners}, they handle mechanical volume: implementing code, writing tes
 Both roles interact with the library through a command-line interface (\texttt{pred}) that serves as the uniform entry point for humans and agents alike---listing problems, querying reduction paths, inspecting overhead, and performing reductions.
 The skill system ensures identical verification steps in both roles: whether an agent is guiding a contributor through a proposal or implementing a reduction autonomously, it traverses the same quality checklist.
 
-\subsection{Why Skills, Not Prompts}\label{sec:skills}
+\subsection{Why Skills, Not Prompts or Scripts}\label{sec:skills}
 
-Skills differ from per-invocation prompts in three ways that matter for sustainability.
+Traditional automation---Makefiles, CI pipelines, shell scripts---is \emph{mechanical}: every step is predetermined, and human involvement is impossible mid-execution.
+Skills are a different kind of automation: \emph{abstract}.
+A skill defines \emph{what} must happen (validate references, construct an example, write a proof sketch) without fixing \emph{how}.
+When the task is routine, the agent executes autonomously.
+When the task requires creativity or deep judgment---choosing which example best reveals correctness, deciding whether a proposed reduction is non-trivial---the skill can pause and involve a human as a resource, then resume.
+The same skill thus operates headlessly in the pipeline (\texttt{make run-pipeline}) and interactively with a contributor (\texttt{propose}), adapting its execution mode to the context.
+
+Skills also differ from per-invocation prompts in three ways that matter for sustainability.
 
 \emph{Skills are versioned.}
 They are committed to the repository and evolve through pull requests, just like code.
@@ -458,6 +465,14 @@ The evolution from SWE-agent~\cite{Yang2024SWEagent} and Devin~\cite{Wu2024Devin
 Roychoudhury~\cite{Roychoudhury2025AgenticAI} identifies specification inference as the central difficulty.
 Our approach structures work so each unit falls within the agent's reliable range, complementing architectural advances in agent design.
 
+\paragraph{AI code maintainability concerns.}
+A growing body of evidence suggests that unstructured AI-assisted coding creates maintenance burden rather than reducing it.
+Analysis of an LLM-generated C~compiler found excessive abstraction layering, inclusion of rarely-useful features that increase bug surface area, and absent comments precisely where domain expertise matters most~\cite{Jones2026LLMCompiler}.
+A study of 211~million changed lines found a 4$\times$ growth in code clones and a decline in refactored code from 24\% to 10\%, indicating that AI encourages copy-paste over sustainable architecture~\cite{GitClear2025CodeQuality}.
+A difference-in-differences study of 807~AI-adopting repositories found persistent increases in code complexity despite transient velocity gains~\cite{CursorAI2025SpeedCost}, and a randomized controlled trial found experienced developers were 19\% \emph{slower} with AI tools on real tasks in their own repositories~\cite{Becker2025METRProductivity}.
+Our skill-based framework is designed to address these concerns directly: skills enforce project conventions (naming, testing, documentation) at every invocation, versioned skill definitions prevent prompt drift, and seven-layer verification rejects non-conforming code before it enters the repository.
+The agent never ``free-writes'' code---it follows a structured template that has been refined through pull requests, ensuring that generated code is as maintainable as hand-written code that follows the same conventions.
+
 \paragraph{AI-discovered reductions.}
 FunSearch~\cite{RomeraParedes2023FunSearch} and AlphaEvolve~\cite{Novikov2025AlphaEvolve} discover novel algorithms and reductions through evolutionary search, including improved bounds for combinatorial problems.
 Jani\v{c}i\'{c}'s URSA~\cite{Janicic2025URSA} uses SAT-based constraint solving to verify reductions.
@@ -489,6 +504,24 @@ In each case, a domain expert can encode the ``how'' into reusable skills while 
 
 The methodology does \emph{not} generalize to heterogeneous tasks---the staple of SWE-Bench---where each issue is structurally unique and resists skill-based decomposition.
 
+For domains that do share the Goldilocks property, our experience suggests three key components for scalable agentic open-source development:
+
+\begin{enumerate}
+  \item \textbf{A smooth contribution path.}
+  Progressive quality gates---propose, validate, implement, review, merge---ensure that every contribution follows the same verified pipeline regardless of who (or what) initiates it.
+  Skills encode this path so that it need not be re-learned or re-explained.
+
+  \item \textbf{A code-free contribution path with visual verification.}
+  Domain experts contribute creative elements---definitions, examples, references---without writing a line of code.
+  An issue goes in; verified code and a documented paper entry come out.
+  The paper's worked examples, generated from the same code that the round-trip tests execute, let contributors visually confirm that the implementation matches their mathematical intent.
+
+  \item \textbf{A minimal maintainer team amplified by agents.}
+  One or two maintainers write skills, curate the backlog, and make final merge decisions.
+  Agents handle all routine volume---implementation, testing, review, documentation---headlessly.
+  The maintainer's effort scales with the number of \emph{skill types} (currently~14), not the number of contributions.
+\end{enumerate}
+
 \subsection{Limitations}
 
 \paragraph{Single case study.}
@@ -507,18 +540,61 @@ Temporal stratification across the three phases partially addresses this, but we
 The pipeline is not fully autonomous: without human judgment at two transitions (selecting work and approving results), the system cannot determine what is worth building or whether results meet standards.
 This is by design---but limits applicability to fully autonomous scenarios.
 
-\subsection{The Human Value Proposition}
+\subsection{Why Human Experts Remain Essential}
 
-Humans are \emph{repositioned}, not eliminated.
-Creative and judgment-intensive work---which problems matter, what quality bar to enforce, how to architect the system---remains human.
-Agents absorb mechanical volume: implementing boilerplate, writing tests, generating documentation, fixing CI failures.
-The human contribution shifts from writing code to \emph{programming the agent's workflow}---a higher-leverage activity that scales with the number of tasks the agent can execute.
+Our pipeline's reliance on human judgment at two transition points is not a temporary limitation awaiting better models---it reflects a fundamental gap.
+Recent work demonstrates that large language models do not perform genuine mathematical reasoning but replicate patterns observed in training data: performance drops up to 65\% when only irrelevant clauses are added to otherwise identical problems~\cite{Mirzadeh2025GSMSymbolic}, and reasoning models exhibit complete accuracy collapse beyond certain complexity thresholds~\cite{Shojaee2025IllusionOfThinking}.
+Multi-step reasoning surveys confirm that LLMs' limited working memory leads to failures when task demands exceed their capacity, with logically equivalent but differently phrased prompts producing different results~\cite{Plaat2025MultiStepReasoning}.
+
+These limitations are architectural, not merely a matter of scale.
+Formal analysis shows that standard transformers are bounded by constant-depth threshold circuits (TC$^0$); even chain-of-thought prompting extends expressiveness only to polynomial-time computation---insufficient for the exponential search that NP-hard reasoning demands~\cite{Merrill2024ExpressivePower}.
+More fundamentally, gradient-based optimization learns statistical correlations, not symbolic reasoning procedures: multi-step compositional reasoning exhibits \emph{multiplicative} error accumulation, where each approximate step compounds uncertainty rather than preserving logical structure~\cite{Dziri2023FaithFate}.
+A transformer performs the same fixed-depth computation for every token regardless of problem difficulty; it cannot ``think harder'' on harder sub-problems the way a human mathematician allocates variable effort.
+
+The context window of the model used in this work (Claude Opus~4.6) is approximately 200,000~tokens---roughly a 500-page book.
+This may seem large, but recent studies confirm it functions as \emph{working memory}, not deep reasoning capacity.
+Huang et al.~\cite{Huang2025LLMWorkingMemory} show that LLMs cannot maintain and manipulate internal state---the hallmark of human working memory---across multiple model families regardless of chain-of-thought prompting.
+Even when models can perfectly retrieve all relevant information from context, reasoning performance still degrades 14--85\% as input length increases~\cite{Du2025ContextLengthHurts}, and information in the middle of the context is effectively invisible~\cite{Liu2024LostInMiddle}.
+A researcher's ability to hold a problem in mind for days, connect it to half-remembered theorems, and test ideas against deep intuition built over years of study is qualitatively different from pattern-matching over a fixed-length token buffer.
+The gap is starkest on research-level mathematics: the FrontierMath benchmark, developed with Fields Medalists including Terence Tao, saw all AI models score below 2\% at launch~\cite{Glazer2024FrontierMath}; Humanity's Last Exam, spanning dozens of academic disciplines, found expert accuracy above 98\% versus 8\% for the best model at launch~\cite{Paster2025HLE}.
+Moreover, users cannot modify foundation model weights: the model's knowledge is fixed at training time, and no amount of prompting adds expertise the training data did not contain.
+
+Skills are our response to this gap.
+Rather than attempting to encode domain expertise in model weights (which requires expensive retraining) or in prompts (which are ephemeral and limited by context), skills encode it in \emph{versionable, composable documents} that persist across sessions and evolve through pull requests.
+The creative decisions that require genuine expertise---which problems matter, which examples reveal correctness, whether a reduction is non-trivial---remain with human contributors.
+The routine work that LLMs execute reliably---implementing known patterns, running tests, fixing compilation errors---is delegated to agents.
+
+\subsection{Scale Beyond Human Capacity}
+
+A comprehensive reduction graph connecting hundreds of NP-hard problems would require thousands of verified reductions---each demanding familiarity with two distinct problem domains, a correct polynomial-time transformation, a solution-preserving inverse map, and thorough testing.
+No research group has the bandwidth to implement this manually.
+The predecessor Julia package, maintained conventionally for several years, reached 20~problem types; the skill-based pipeline produced 27~types with 45~verified rules in nine weeks.
+The scaling vision (\Cref{fig:reduction-graph}, top layer) targets 100+ problem types---a scale that is infeasible without agent-managed execution.
+
+\subsection{Industry Impact}
+
+Historically, utilizing a new hardware accelerator---a D-Wave quantum annealer, a Rydberg atom array, an Ising machine---required manually constructing a reduction from each target problem to the hardware's native formulation.
+This case-by-case effort meant that each device supported on the order of ten problems at most, determined by which reductions a research group had time to derive and implement.
+
+The reduction graph changes this from a per-problem effort to a one-time connection.
+Adding a single edge from the hardware's native formulation (e.g., MIS for Rydberg atoms) to the graph immediately routes \emph{all} 27~problem types to that device.
+When a new solver or hardware platform appears, one verified reduction connects it to the entire graph---the practitioner need not derive any transformation by hand.
+Conversely, each new problem added to the graph is instantly available on every connected solver.
+The graph thus serves as a \emph{solver-agnostic compilation layer}: a user describes the problem, and the graph selects the verified, cost-annotated path to the best available hardware.
+
+\subsection{Barrier-Free Community Contribution}
+
+Traditional mathematical software demands that contributors learn the language, the build system, the testing conventions, and the project's architecture.
+Skills eliminate this barrier entirely.
+A physicist who knows that Spin Glass reduces to QUBO can contribute that knowledge through the \texttt{propose} skill without writing a line of Rust---the agent guides the session in mathematical language, validates the proposal, and the pipeline handles implementation.
+The issue template captures exactly the creative elements; everything else is routine.
+This transforms the contributor pool from ``people who know Rust and NP-hard reductions'' to ``people who know NP-hard reductions''---a far larger community.
 
 \subsection{The Scaling Vision}
 
 The graph's value grows superlinearly with its size.
 Each new edge creates not just one connection but composite paths through the entire graph.
-As the graph scales from 27 to 100+ problem types through agent-synthesized rules (\Cref{fig:reduction-graph}, top layer), it evolves from a library into a \emph{reduction compiler}: a user describes their problem, and the compiler selects the lowest-cost verified path to the target solver.
+As the graph scales from 27 to 100+ problem types through agent-synthesized rules, it evolves from a library into a \emph{reduction compiler}: a user describes their problem, and the compiler selects the lowest-cost verified path to the target solver.
 
 Three directions extend this work.
 First, composing with \emph{automated discovery}: evolutionary search methods like AlphaEvolve~\cite{Novikov2025AlphaEvolve} discover new reductions, and our pipeline implements and verifies them.
@@ -527,10 +603,10 @@ Third, \emph{cost-aware path selection}: each edge carries a polynomial cost mod
 
 \subsection{Conclusion}
 
-We have presented a verified reduction graph connecting 27~NP-hard problem types to specialized solvers, built through skill-based agentic coding that separates human-creative specification from agent-managed execution.
+We have presented a verified reduction graph connecting 27~NP-hard problem types to specialized solvers, built through skill-based agentic coding that separates creative specification from routine execution.
 The graph exhibits emergent compositionality: independently implemented reductions compose automatically to solve problems no single implementation was designed for.
 The core insight is that the bottleneck in agentic coding is not agent capability but task decomposition: when work is structured so each unit is formally specified, bounded in scope, and mechanically verifiable, current agents execute it reliably.
-The methodology is most effective in domains that share this Goldilocks property---and we believe such domains are more common than is generally appreciated.
+Skills lower the contribution barrier from ``knows the programming language'' to ``knows the mathematics,'' enabling a broader community to grow the graph toward the scale where it becomes a universal reduction compiler.
 
 \bibliographystyle{IEEEtran}
 \bibliography{references}
