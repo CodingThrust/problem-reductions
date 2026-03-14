@@ -12,6 +12,7 @@ The accepted direction is:
 - Use exact default-to-default semantics everywhere a problem spec denotes a graph node.
 - Throw errors on ambiguity, unknown tokens, duplicate updates to the same dimension, invalid final combinations, and missing defaults.
 - Keep `show` as a type-level command and annotate the declared default variant in its variant listing.
+- Keep `path --all` as a multi-path mode with `--max-paths=20` by default and explicit truncation messaging.
 - Replace loose internal variant handling with a canonical representation that enforces one value per dimension.
 - Tighten reduction entry matching so it is exact and target-aware before any hierarchy-aware fallback.
 
@@ -334,6 +335,24 @@ Variants (3):
 
 The `(default)` annotation comes from registry metadata, not from list position. Display order may still place the default first for convenience, but ordering is no longer semantic.
 
+### Path enumeration mode
+
+`pred path` should distinguish between single-path and multi-path behavior:
+
+- `pred path A B` returns one cheapest path between the two resolved nodes.
+- `pred path A B --all` switches to multi-path mode.
+- `--max-paths` limits how many paths are returned in multi-path mode.
+- `--max-paths` defaults to `20`.
+
+The command should succeed when the cap is reached, but it must say the result is truncated. For example:
+
+```text
+Showing first 20 paths from MIS/SimpleGraph/One to QUBO/f64; more paths exist.
+Use --max-paths to raise the limit.
+```
+
+Because of this default cap, help text and docs should stop describing `--all` as exhaustive enumeration. User-facing wording should describe it as showing multiple paths or up to `N` paths.
+
 ## Implementation Plan
 
 ### Phase 1: Registry and macro support
@@ -361,6 +380,8 @@ The `(default)` annotation comes from registry metadata, not from list position.
 
 - Keep `show` type-level and reject slash-qualified specs there.
 - Annotate the default variant in `show` output.
+- Change `path --all` help and docs to describe multi-path mode rather than exhaustive enumeration.
+- Add `--max-paths` with default `20` and explicit truncation reporting.
 - Remove remaining command-specific variant resolution rules.
 
 ### Phase 5: Reduction entry matching cleanup
@@ -410,6 +431,9 @@ The `(default)` annotation comes from registry metadata, not from list position.
 - `pred show MIS/UnitDiskGraph` errors because `show` is type-level.
 - `pred show MIS` marks the declared default variant with `(default)`.
 - Node-level commands no longer treat bare specs as existential searches over all variants.
+- `pred path MIS QUBO --all` returns up to 20 paths by default.
+- `pred path MIS QUBO --all --max-paths 5` returns at most 5 paths.
+- Multi-path output reports truncation when more than the configured limit exist.
 
 ### Reduction lookup tests
 
