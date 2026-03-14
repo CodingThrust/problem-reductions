@@ -23,6 +23,7 @@ pub fn list(out: &OutputConfig) -> Result<()> {
         aliases: Vec<&'static str>,
         num_variants: usize,
         num_reduces_to: usize,
+        complexity: String,
     }
     let data: Vec<RowData> = types
         .iter()
@@ -30,11 +31,24 @@ pub fn list(out: &OutputConfig) -> Result<()> {
             let aliases = aliases_for(name);
             let num_variants = graph.variants_for(name).len();
             let num_reduces_to = graph.outgoing_reductions(name).len();
+            // Show complexity of the default variant (or first variant with complexity)
+            let complexity = graph
+                .default_variant_for(name)
+                .and_then(|v| graph.variant_complexity(name, &v).map(|c| c.to_string()))
+                .or_else(|| {
+                    graph
+                        .variants_for(name)
+                        .iter()
+                        .find_map(|v| graph.variant_complexity(name, v).map(|c| c.to_string()))
+                })
+                .map(|c| big_o_of(&Expr::parse(&c)))
+                .unwrap_or_default();
             RowData {
                 name: name.to_string(),
                 aliases,
                 num_variants,
                 num_reduces_to,
+                complexity,
             }
         })
         .collect();
@@ -50,7 +64,8 @@ pub fn list(out: &OutputConfig) -> Result<()> {
         ("Problem", Align::Left, 7),
         ("Aliases", Align::Left, 7),
         ("Variants", Align::Right, 8),
-        ("Reduces to", Align::Right, 10),
+        ("Rules", Align::Right, 5),
+        ("Complexity", Align::Left, 10),
     ];
 
     let rows: Vec<Vec<String>> = data
@@ -65,12 +80,18 @@ pub fn list(out: &OutputConfig) -> Result<()> {
                 },
                 r.num_variants.to_string(),
                 r.num_reduces_to.to_string(),
+                r.complexity.clone(),
             ]
         })
         .collect();
 
-    let color_fns: Vec<Option<crate::output::CellFormatter>> =
-        vec![Some(crate::output::fmt_problem_name), None, None, None];
+    let color_fns: Vec<Option<crate::output::CellFormatter>> = vec![
+        Some(crate::output::fmt_problem_name),
+        None,
+        None,
+        None,
+        None,
+    ];
 
     let mut text = String::new();
     text.push_str(&crate::output::fmt_section(&summary));
@@ -88,6 +109,7 @@ pub fn list(out: &OutputConfig) -> Result<()> {
                 "aliases": r.aliases,
                 "num_variants": r.num_variants,
                 "num_reduces_to": r.num_reduces_to,
+                "complexity": r.complexity,
             })
         }).collect::<Vec<_>>(),
     });
@@ -106,7 +128,7 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
     struct RuleRow {
         source: String,
         target: String,
-        overhead: String,
+        overhead_parts: Vec<String>,
     }
 
     let mut rows_data: Vec<RuleRow> = Vec::new();
@@ -118,12 +140,12 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
             rows_data.push(RuleRow {
                 source: format!("{}{}", edge.source_name, source_slash),
                 target: format!("{}{}", edge.target_name, target_slash),
-                overhead: oh_parts.join(", "),
+                overhead_parts: oh_parts,
             });
         }
     }
 
-    let summary = format!("Registered reduction rules: {}\n", rows_data.len(),);
+    let summary = format!("Registered reduction rules: {}\n", rows_data.len());
 
     let columns: Vec<(&str, Align, usize)> = vec![
         ("Source", Align::Left, 6),
@@ -131,9 +153,14 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
         ("Overhead", Align::Left, 8),
     ];
 
+    // For the text table, show only the first overhead field inline;
+    // additional fields go on continuation lines.
     let rows: Vec<Vec<String>> = rows_data
         .iter()
-        .map(|r| vec![r.source.clone(), r.target.clone(), r.overhead.clone()])
+        .map(|r| {
+            let first_oh = r.overhead_parts.first().cloned().unwrap_or_default();
+            vec![r.source.clone(), r.target.clone(), first_oh]
+        })
         .collect();
 
     let color_fns: Vec<Option<crate::output::CellFormatter>> = vec![
@@ -146,6 +173,54 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
     text.push_str(&crate::output::fmt_section(&summary));
     text.push('\n');
     text.push_str(&format_table(&columns, &rows, &color_fns));
+
+    // Append continuation lines for rules with multiple overhead fields.
+    // Rebuild the table to inject them; simpler: append after the table as a
+    // legend keyed by index. Actually the cleanest approach: build text manually.
+    // Let's redo: build the table ourselves to interleave continuation lines.
+    text.clear();
+    text.push_str(&crate::output::fmt_section(&summary));
+    text.push('\n');
+
+    // Compute column widths
+    let src_w = rows_data
+        .iter()
+        .map(|r| r.source.len())
+        .max()
+        .unwrap_or(6)
+        .max(6);
+    let tgt_w = rows_data
+        .iter()
+        .map(|r| r.target.len())
+        .max()
+        .unwrap_or(6)
+        .max(6);
+
+    // Header
+    text.push_str(&format!(
+        "  {:<src_w$}  {:<tgt_w$}  {}\n",
+        "Source", "Target", "Overhead"
+    ));
+    text.push_str(&format!(
+        "  {:<src_w$}  {:<tgt_w$}  {}\n",
+        "─".repeat(src_w),
+        "─".repeat(tgt_w),
+        "─".repeat(8)
+    ));
+
+    for r in &rows_data {
+        let first_oh = r.overhead_parts.first().map(|s| s.as_str()).unwrap_or("");
+        text.push_str(&format!(
+            "  {:<src_w$}  {:<tgt_w$}  {}\n",
+            crate::output::fmt_problem_name(&r.source),
+            crate::output::fmt_problem_name(&r.target),
+            first_oh,
+        ));
+        for oh in r.overhead_parts.iter().skip(1) {
+            text.push_str(&format!("  {:<src_w$}  {:<tgt_w$}  {}\n", "", "", oh,));
+        }
+    }
+
     text.push_str("\nUse `pred show <problem>` for details on a specific problem.\n");
 
     let json = serde_json::json!({
@@ -154,7 +229,7 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
             serde_json::json!({
                 "source": r.source,
                 "target": r.target,
-                "overhead": r.overhead,
+                "overhead": r.overhead_parts,
             })
         }).collect::<Vec<_>>(),
     });

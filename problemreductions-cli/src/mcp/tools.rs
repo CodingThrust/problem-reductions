@@ -985,27 +985,21 @@ impl McpServer {
 #[rmcp::tool_handler]
 impl rmcp::ServerHandler for McpServer {
     fn get_info(&self) -> rmcp::model::ServerInfo {
-        rmcp::model::ServerInfo {
-            protocol_version: rmcp::model::ProtocolVersion::V_2025_03_26,
-            capabilities: rmcp::model::ServerCapabilities {
-                tools: Some(rmcp::model::ToolsCapability::default()),
-                prompts: Some(rmcp::model::PromptsCapability::default()),
-                ..Default::default()
-            },
-            server_info: rmcp::model::Implementation {
-                name: "problemreductions".into(),
-                version: env!("CARGO_PKG_VERSION").into(),
-                ..Default::default()
-            },
-            instructions: Some(
+        let capabilities = rmcp::model::ServerCapabilities::builder()
+            .enable_tools()
+            .enable_prompts()
+            .build();
+        let server_info =
+            rmcp::model::Implementation::new("problemreductions", env!("CARGO_PKG_VERSION"));
+        rmcp::model::ServerInfo::new(capabilities)
+            .with_server_info(server_info)
+            .with_instructions(
                 "MCP server for NP-hard problem reductions. \
                  Graph query tools: list_problems, show_problem, neighbors, find_path, export_graph. \
                  Instance tools: create_problem to build instances, inspect_problem for details, \
                  evaluate to test configurations, reduce to transform between problem types, \
-                 solve to find optimal solutions."
-                    .into(),
-            ),
-        }
+                 solve to find optimal solutions.",
+            )
     }
 
     async fn list_prompts(

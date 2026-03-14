@@ -768,20 +768,20 @@ mod tests {
     }
 
     #[test]
-    fn reduction_rejects_legacy_id_attribute() {
-        let legacy_attr = syn::Ident::new("id", proc_macro2::Span::call_site());
+    fn reduction_rejects_unexpected_attribute() {
+        let extra_attr = syn::Ident::new("extra", proc_macro2::Span::call_site());
         let parse_result = syn::parse2::<ReductionAttrs>(quote! {
-            #legacy_attr = "my_custom_id", overhead = { num_vertices = "num_vertices" }
+            #extra_attr = "unexpected", overhead = { num_vertices = "num_vertices" }
         });
         let err = match parse_result {
-            Ok(_) => panic!("legacy id attribute should be rejected"),
+            Ok(_) => panic!("unexpected reduction attribute should be rejected"),
             Err(err) => err,
         };
-        assert!(err.to_string().contains("unknown attribute: id"));
+        assert!(err.to_string().contains("unknown attribute: extra"));
     }
 
     #[test]
-    fn reduction_accepts_overhead_without_id() {
+    fn reduction_accepts_overhead_attribute() {
         let attrs: ReductionAttrs = syn::parse_quote! {
             overhead = { n = "n" }
         };

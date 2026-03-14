@@ -43,10 +43,7 @@ fn test_list_rules() {
 
 #[test]
 fn test_list_rules_json() {
-    let output = pred()
-        .args(["list", "--rules", "--json"])
-        .output()
-        .unwrap();
+    let output = pred().args(["list", "--rules", "--json"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
@@ -55,7 +52,7 @@ fn test_list_rules_json() {
     assert!(!rules.is_empty());
     assert!(rules[0]["source"].is_string());
     assert!(rules[0]["target"].is_string());
-    assert!(rules[0]["overhead"].is_string());
+    assert!(rules[0]["overhead"].is_array());
 }
 
 #[test]

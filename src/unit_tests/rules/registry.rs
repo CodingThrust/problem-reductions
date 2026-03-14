@@ -318,18 +318,32 @@ fn walk_rust_files(dir: &Path, files: &mut Vec<std::path::PathBuf>) {
     }
 }
 
-fn reduction_attribute_contains_id(path: &Path) -> bool {
+fn reduction_attribute_has_extra_top_level_field(path: &Path) -> bool {
     let contents = std::fs::read_to_string(path).unwrap();
     let mut in_reduction_attr = false;
+    let mut attr_text = String::new();
 
     for line in contents.lines() {
-        if line.contains("#[reduction(") || line.contains("#[$crate::reduction(") {
+        if !in_reduction_attr
+            && (line.contains("#[reduction(") || line.contains("#[$crate::reduction("))
+        {
             in_reduction_attr = true;
+            attr_text.clear();
         }
-        if in_reduction_attr && line.contains("id =") {
-            return true;
+        if in_reduction_attr {
+            attr_text.push_str(line.trim());
+            attr_text.push(' ');
         }
         if in_reduction_attr && line.contains(")]") {
+            let normalized = attr_text.split_whitespace().collect::<Vec<_>>().join(" ");
+            let body = normalized
+                .strip_prefix("#[reduction(")
+                .or_else(|| normalized.strip_prefix("#[$crate::reduction("))
+                .unwrap_or(&normalized);
+            let body = body.strip_suffix(")]").unwrap_or(body).trim();
+            if !body.starts_with("overhead =") {
+                return true;
+            }
             in_reduction_attr = false;
         }
     }
@@ -377,18 +391,18 @@ fn every_registered_reduction_has_non_empty_names() {
 }
 
 #[test]
-fn repo_reductions_do_not_use_legacy_id_attribute() {
+fn repo_reductions_use_overhead_only_attribute() {
     let mut rust_files = Vec::new();
     walk_rust_files(Path::new("src/rules"), &mut rust_files);
 
     let offenders: Vec<_> = rust_files
         .into_iter()
-        .filter(|path| reduction_attribute_contains_id(path))
+        .filter(|path| reduction_attribute_has_extra_top_level_field(path))
         .collect();
 
     assert!(
         offenders.is_empty(),
-        "legacy reduction id attribute still present in: {:?}",
+        "extra top-level reduction attribute still present in: {:?}",
         offenders,
     );
 }
