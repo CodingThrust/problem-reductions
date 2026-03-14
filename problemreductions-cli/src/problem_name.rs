@@ -12,6 +12,9 @@ pub struct ProblemSpec {
 
 /// Alias entries: (alias, canonical_name). Only includes short aliases,
 /// not the lowercase identity mappings.
+/// NOTE: This table is a legacy fallback. Models with catalog metadata
+/// (aliases in ProblemSchemaEntry) are resolved through the catalog first.
+/// This table will be removed once all models declare their aliases.
 pub const ALIASES: &[(&str, &str)] = &[
     ("MIS", "MaximumIndependentSet"),
     ("MVC", "MinimumVertexCover"),
@@ -31,7 +34,16 @@ pub const ALIASES: &[(&str, &str)] = &[
 ];
 
 /// Resolve a short alias to the canonical problem name.
+///
+/// Tries the catalog first (ProblemSchemaEntry aliases), then falls back
+/// to the legacy ALIASES table and lowercase match table.
 pub fn resolve_alias(input: &str) -> String {
+    // Try catalog first
+    if let Some(pt) = problemreductions::registry::find_problem_type_by_alias(input) {
+        return pt.canonical_name.to_string();
+    }
+
+    // Legacy fallback for models that haven't declared catalog aliases yet
     match input.to_lowercase().as_str() {
         "mis" => "MaximumIndependentSet".to_string(),
         "mvc" | "minimumvertexcover" => "MinimumVertexCover".to_string(),
@@ -78,12 +90,33 @@ pub fn resolve_alias(input: &str) -> String {
 }
 
 /// Return the short aliases for a canonical problem name, if any.
+///
+/// Checks catalog aliases first, then supplements from the legacy ALIASES table.
 pub fn aliases_for(canonical: &str) -> Vec<&'static str> {
+    // Try catalog first
+    if let Some(pt) = problemreductions::registry::find_problem_type(canonical) {
+        if !pt.aliases.is_empty() {
+            return pt.aliases.to_vec();
+        }
+    }
+
+    // Fallback to legacy table
     ALIASES
         .iter()
         .filter(|(_, name)| *name == canonical)
         .map(|(alias, _)| *alias)
         .collect()
+}
+
+/// Resolve a problem spec against the catalog schema only (no graph required).
+///
+/// Returns a typed `ProblemRef` validated against the catalog's declared
+/// dimensions and allowed values. Does NOT check reduction graph reachability.
+pub fn resolve_catalog_problem_ref(
+    input: &str,
+) -> anyhow::Result<problemreductions::registry::ProblemRef> {
+    problemreductions::registry::parse_catalog_problem_ref(input)
+        .map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 /// Parse a problem spec string like "MIS/UnitDiskGraph/i32" into name + variant values.
@@ -235,9 +268,19 @@ impl clap::builder::TypedValueParser for ProblemNameParser {
     fn possible_values(&self) -> Option<Box<dyn Iterator<Item = clap::builder::PossibleValue>>> {
         let graph = problemreductions::rules::ReductionGraph::new();
         let mut names: Vec<&'static str> = graph.problem_types();
+
+        // Add catalog aliases
+        for pt in problemreductions::registry::problem_types() {
+            for alias in pt.aliases {
+                names.push(alias);
+            }
+        }
+
+        // Add legacy aliases for models without catalog metadata yet
         for (alias, _) in ALIASES {
             names.push(alias);
         }
+
         names.sort();
         names.dedup();
         Some(Box::new(
@@ -461,5 +504,67 @@ mod tests {
         let graph = problemreductions::rules::ReductionGraph::new();
         let err = resolve_problem_ref("NonExistent", &graph).unwrap_err();
         assert!(err.to_string().contains("Unknown problem"));
+    }
+
+    // ---- catalog-backed resolution ----
+
+    #[test]
+    fn resolve_problem_ref_bare_mis_uses_catalog_default() {
+        // Bare MIS resolves through catalog to the declared default variant
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let r = resolve_problem_ref("MIS", &graph).unwrap();
+        assert_eq!(r.name, "MaximumIndependentSet");
+        // Catalog declares SimpleGraph + One as defaults
+        assert_eq!(
+            r.variant.get("graph").map(|s| s.as_str()),
+            Some("SimpleGraph")
+        );
+        assert_eq!(r.variant.get("weight").map(|s| s.as_str()), Some("One"));
+    }
+
+    #[test]
+    fn parse_problem_type_rejects_variant_suffixes_before_graph_lookup() {
+        // show command rejects slash suffixes at the type level
+        let err = parse_problem_type("MIS/UnitDiskGraph").unwrap_err();
+        assert!(
+            err.to_string().contains("type level"),
+            "error should mention type level"
+        );
+    }
+
+    #[test]
+    fn resolve_catalog_problem_ref_validates_against_schema() {
+        // Schema-valid values should resolve
+        let r = resolve_catalog_problem_ref("MIS/i32").unwrap();
+        assert_eq!(r.name(), "MaximumIndependentSet");
+        assert_eq!(
+            r.variant().get("weight").map(|s| s.as_str()),
+            Some("i32")
+        );
+    }
+
+    #[test]
+    fn resolve_catalog_problem_ref_rejects_schema_invalid_variant() {
+        // HyperGraph is not in MIS's declared dimensions
+        let err = resolve_catalog_problem_ref("MIS/HyperGraph").unwrap_err();
+        assert!(
+            err.to_string().contains("Known variants"),
+            "error should mention known variants: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn resolve_catalog_problem_ref_fills_defaults() {
+        // Bare MIS should fill in all defaults from catalog
+        let r = resolve_catalog_problem_ref("MIS").unwrap();
+        assert_eq!(
+            r.variant().get("graph").map(|s| s.as_str()),
+            Some("SimpleGraph")
+        );
+        assert_eq!(
+            r.variant().get("weight").map(|s| s.as_str()),
+            Some("One")
+        );
     }
 }
