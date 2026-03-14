@@ -583,76 +583,104 @@ caption: [Complete graph $K_4$ with weighted edges. The optimal tour $v_0 -> v_1
 ][
 A classical NP-complete decision problem from Garey & Johnson (GT42) @garey1979, with applications in VLSI design, graph drawing, and sparse matrix reordering. The problem asks whether vertices can be placed on a line so that the total "stretch" of all edges is at most $K$.
 
-NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
+NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over vertex subsets in $O^*(2^n)$ time and space.
 
-*Example.* Consider the path graph $P_4$: vertices ${v_0, v_1, v_2, v_3}$ with edges ${v_0, v_1}$, ${v_1, v_2}$, and ${v_2, v_3}$. The identity arrangement $f(v_i) = i$ gives cost $|0-1| + |1-2| + |2-3| = 3$, which is optimal. The non-identity arrangement $f(v_0) = 0, f(v_1) = 2, f(v_2) = 1, f(v_3) = 3$ gives cost $|0-2| + |2-1| + |1-3| = 2 + 1 + 2 = 5$, illustrating how separating adjacent vertices increases total stretch.
+*Example.* Consider a graph on 6 vertices with edges ${v_0, v_1}$, ${v_1, v_2}$, ${v_2, v_3}$, ${v_3, v_4}$, ${v_4, v_5}$, ${v_0, v_3}$, ${v_2, v_5}$ — a path with two cross-edges. The identity arrangement $f(v_i) = i$ gives cost $5 + |0-3| + |2-5| = 5 + 3 + 3 = 11$. With bound $K = 11$, this is a YES instance. Exhaustive search confirms that no arrangement achieves cost $<= 9$, so $K = 9$ gives a NO instance.
 
 #figure(
   canvas(length: 1cm, {
     import draw: *
 
-    // ── Top: the graph P₄ ──
-    let gv = ((0, 3.2), (1.5, 3.2), (3.0, 3.2), (4.5, 3.2))
-    let gedges = ((0,1), (1,2), (2,3))
-    for (u, v) in gedges {
+    // ── Top: the 6-vertex graph ──
+    let gv = ((0, 3.5), (1.5, 3.5), (3.0, 3.5), (4.5, 3.5), (6.0, 3.5), (7.5, 3.5))
+    let path-edges = ((0,1), (1,2), (2,3), (3,4), (4,5))
+    let cross-edges = ((0,3), (2,5))
+
+    // Draw path edges
+    for (u, v) in path-edges {
       g-edge(gv.at(u), gv.at(v), stroke: 1pt + luma(160))
     }
+
+    // Draw cross-edges as curved arcs below the path
+    for (u, v) in cross-edges {
+      let xu = gv.at(u).at(0)
+      let xv = gv.at(v).at(0)
+      let xm = (xu + xv) / 2
+      bezier(
+        (xu, 3.5 - 0.22), (xv, 3.5 - 0.22),
+        (xm, 3.5 - 1.0),
+        stroke: 1pt + luma(160))
+    }
+
+    // Draw vertices on top
     for (k, pos) in gv.enumerate() {
       g-node(pos, name: "g" + str(k),
         fill: graph-colors.at(0),
         label: text(fill: white)[$v_#k$])
     }
-    content((2.25, 4.0), text(8pt)[$P_4$])
 
     // ── Divider ──
-    line((-0.5, 2.5), (5.0, 2.5), stroke: 0.4pt + luma(200))
+    line((-0.5, 2.0), (8.0, 2.0), stroke: 0.4pt + luma(200))
 
-    // ── Bottom: number line with arrangement ──
+    // ── Bottom: number line with identity arrangement ──
     let x0 = 0
-    let xend = 4.5
+    let sp = 1.5
     let y-line = 0.5
 
     // Number line
-    line((x0 - 0.3, y-line), (xend + 0.3, y-line),
+    line((x0 - 0.3, y-line), (x0 + 5 * sp + 0.3, y-line),
       stroke: 0.8pt + luma(120),
       mark: (end: "straight", fill: luma(120)))
 
     // Tick marks and position labels
-    for i in range(4) {
-      let x = x0 + i * 1.5
+    for i in range(6) {
+      let x = x0 + i * sp
       line((x, y-line - 0.12), (x, y-line + 0.12), stroke: 0.6pt + luma(100))
       content((x, y-line - 0.35), text(7pt, fill: luma(80))[$#i$])
     }
 
     // Place vertices on the number line (identity arrangement)
-    for (k, pos) in gv.enumerate() {
-      let x = x0 + k * 1.5
+    for k in range(6) {
+      let x = x0 + k * sp
       g-node((x, y-line), name: "n" + str(k),
         fill: graph-colors.at(0),
         label: text(fill: white)[$v_#k$])
     }
 
-    // Draw edges as arcs above the number line, labeled with stretch
-    let arc-data = ((0, 1, 0.5), (1, 2, 0.5), (2, 3, 0.5))  // (from, to, height)
-    for (u, v, h) in arc-data {
-      let xu = x0 + u * 1.5
-      let xv = x0 + v * 1.5
+    // Draw path edges as small arcs above the number line
+    for (u, v) in path-edges {
+      let xu = x0 + u * sp
+      let xv = x0 + v * sp
+      let xm = (xu + xv) / 2
+      bezier(
+        (xu, y-line + 0.22), (xv, y-line + 0.22),
+        (xm, y-line + 0.72),
+        stroke: 1.2pt + graph-colors.at(0))
+      content((xm, y-line + 0.72 + 0.18),
+        text(7pt, fill: graph-colors.at(0))[$1$])
+    }
+
+    // Draw cross-edges as taller arcs above, labeled with stretch
+    let cross-arc-data = ((0, 3, 1.4), (2, 5, 1.4))  // (from, to, height)
+    for (u, v, h) in cross-arc-data {
+      let xu = x0 + u * sp
+      let xv = x0 + v * sp
       let xm = (xu + xv) / 2
       let stretch = v - u
       bezier(
         (xu, y-line + 0.22), (xv, y-line + 0.22),
         (xm, y-line + 0.22 + h),
-        stroke: 1.2pt + graph-colors.at(0))
+        stroke: (paint: graph-colors.at(1), thickness: 1.2pt, dash: "dashed"))
       content((xm, y-line + 0.22 + h + 0.18),
-        text(7pt, fill: graph-colors.at(0))[$#stretch$])
+        text(7pt, fill: graph-colors.at(1))[$#stretch$])
     }
 
     // Total cost annotation
-    content((2.25, -0.3),
-      text(8pt)[Cost $= 1 + 1 + 1 = 3$])
+    content((3.75, -0.3),
+      text(8pt)[Cost $= 5 + 3 + 3 = 11$])
   }),
-  caption: [Path graph $P_4$ and its optimal linear arrangement $f(v_i) = i$. Each edge is drawn as an arc labeled with its stretch $|f(u) - f(v)|$. Total cost is 3.],
-) <fig:ola-p4>
+  caption: [A graph on 6 vertices with two cross-edges. The identity arrangement has total edge length $5 + 3 + 3 = 11$.],
+) <fig:ola-example>
 ]
 #problem-def("MaximumClique")[
   Given $G = (V, E)$, find $K subset.eq V$ maximizing $|K|$ such that all pairs in $K$ are adjacent: $forall u, v in K: (u, v) in E$. Equivalent to MIS on the complement graph $overline(G)$.
