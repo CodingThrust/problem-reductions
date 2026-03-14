@@ -48,9 +48,15 @@ fn find_problem_type_by_alias_matches_canonical_name() {
 #[test]
 fn problem_types_returns_all_registered() {
     let types = problem_types();
-    assert!(types.len() > 10, "expected many problem types, got {}", types.len());
+    assert!(
+        types.len() > 10,
+        "expected many problem types, got {}",
+        types.len()
+    );
     // Should include MIS
-    assert!(types.iter().any(|t| t.canonical_name == "MaximumIndependentSet"));
+    assert!(types
+        .iter()
+        .any(|t| t.canonical_name == "MaximumIndependentSet"));
 }
 
 #[test]
@@ -70,8 +76,7 @@ fn problem_ref_from_values_no_values_uses_all_defaults() {
 #[test]
 fn problem_ref_from_values_graph_override() {
     let problem = find_problem_type("MaximumIndependentSet").unwrap();
-    let problem_ref =
-        ProblemRef::from_values(&problem, ["UnitDiskGraph", "i32"]).unwrap();
+    let problem_ref = ProblemRef::from_values(&problem, ["UnitDiskGraph", "i32"]).unwrap();
     assert_eq!(
         problem_ref.variant().get("graph").map(|s| s.as_str()),
         Some("UnitDiskGraph")
@@ -90,10 +95,7 @@ fn parse_catalog_problem_ref_bare_mis() {
         r.variant().get("graph").map(|s| s.as_str()),
         Some("SimpleGraph")
     );
-    assert_eq!(
-        r.variant().get("weight").map(|s| s.as_str()),
-        Some("One")
-    );
+    assert_eq!(r.variant().get("weight").map(|s| s.as_str()), Some("One"));
 }
 
 #[test]

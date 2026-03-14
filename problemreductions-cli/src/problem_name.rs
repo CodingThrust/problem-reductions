@@ -103,11 +103,7 @@ fn resolve_variant_updates(
             .collect::<Vec<_>>();
 
         match matching_dimensions.as_slice() {
-            [] => anyhow::bail!(
-                "Unknown variant token \"{}\" for {}",
-                token,
-                spec.name
-            ),
+            [] => anyhow::bail!("Unknown variant token \"{}\" for {}", token, spec.name),
             [dimension] => {
                 if !updated_dimensions.insert(dimension.clone()) {
                     anyhow::bail!(
@@ -471,10 +467,7 @@ mod tests {
         // Schema-valid values should resolve
         let r = resolve_catalog_problem_ref("MIS/i32").unwrap();
         assert_eq!(r.name(), "MaximumIndependentSet");
-        assert_eq!(
-            r.variant().get("weight").map(|s| s.as_str()),
-            Some("i32")
-        );
+        assert_eq!(r.variant().get("weight").map(|s| s.as_str()), Some("i32"));
     }
 
     #[test]
@@ -496,9 +489,6 @@ mod tests {
             r.variant().get("graph").map(|s| s.as_str()),
             Some("SimpleGraph")
         );
-        assert_eq!(
-            r.variant().get("weight").map(|s| s.as_str()),
-            Some("One")
-        );
+        assert_eq!(r.variant().get("weight").map(|s| s.as_str()), Some("One"));
     }
 }

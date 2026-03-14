@@ -39,7 +39,6 @@ impl ReductionResult for ReductionSCToILP {
 }
 
 #[reduction(
-    id = "minimumsetcovering_to_ilp_i32_bool",
     overhead = {
         num_vars = "num_sets",
         num_constraints = "universe_size",

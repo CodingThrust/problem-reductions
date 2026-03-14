@@ -41,7 +41,6 @@ impl ReductionResult for ReductionMatchingToILP {
 }
 
 #[reduction(
-    id = "maximummatching_to_ilp_simplegraph_i32_bool",
     overhead = {
         num_vars = "num_edges",
         num_constraints = "num_vertices",

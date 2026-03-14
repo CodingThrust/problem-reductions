@@ -42,7 +42,6 @@ where
 }
 
 #[reduction(
-    id = "maxcut_to_spinglass_simplegraph_i32",
     overhead = {
         num_spins = "num_vertices",
         num_interactions = "num_edges",
@@ -132,7 +131,6 @@ where
 }
 
 #[reduction(
-    id = "spinglass_to_maxcut_simplegraph_i32",
     overhead = {
         num_vertices = "num_spins",
         num_edges = "num_interactions",

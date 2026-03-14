@@ -31,7 +31,6 @@ impl ReductionResult for ReductionSPToQUBO {
 }
 
 #[reduction(
-    id = "maximumsetpacking_to_qubo_f64",
     overhead = { num_vars = "num_sets" }
 )]
 impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {
@@ -77,10 +76,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 vec![1, 3, 5],
                 vec![0, 4, 7],
             ]);
-            crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(
-                source,
-                |_, _| true,
-            )
+            crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(source, |_, _| true)
         },
     }]
 }

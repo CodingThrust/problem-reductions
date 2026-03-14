@@ -34,7 +34,6 @@ where
 }
 
 #[reduction(
-    id = "maximumindependentset_to_maximumclique_simplegraph_i32",
     overhead = {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",
@@ -81,11 +80,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
                     vec![1i32; 5],
                 );
-                crate::example_db::specs::direct_best_example::<
-                    _,
-                    MaximumClique<SimpleGraph, i32>,
-                    _,
-                >(source, |_, _| true)
+                crate::example_db::specs::direct_best_example::<_, MaximumClique<SimpleGraph, i32>, _>(
+                    source,
+                    |_, _| true,
+                )
             },
         },
         crate::example_db::specs::RuleExampleSpec {

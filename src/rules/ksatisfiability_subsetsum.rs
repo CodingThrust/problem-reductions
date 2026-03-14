@@ -65,7 +65,6 @@ fn digits_to_integer(digits: &[u8]) -> BigUint {
 }
 
 #[reduction(
-    id = "ksatisfiability_to_subsetsum_k3",
     overhead = { num_elements = "2 * num_vars + 2 * num_clauses" }
 )]
 impl ReduceTo<SubsetSum> for KSatisfiability<K3> {

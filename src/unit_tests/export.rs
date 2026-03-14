@@ -184,6 +184,147 @@ fn export_variant_to_map_preserves_explicit_graph() {
     assert_eq!(map["weight"], "f64");
 }
 
+// ---- ProblemSide::from_problem / ModelExample::from_problem ----
+
+#[test]
+fn problem_side_from_typed_problem() {
+    use crate::models::graph::MaximumIndependentSet;
+    use crate::topology::SimpleGraph;
+
+    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let mis = MaximumIndependentSet::new(g, vec![1, 1, 1]);
+    let side = ProblemSide::from_problem(&mis);
+    assert_eq!(side.problem, "MaximumIndependentSet");
+    assert_eq!(side.variant["graph"], "SimpleGraph");
+    assert!(side.instance.is_object());
+}
+
+#[test]
+fn model_example_from_typed_problem() {
+    use crate::models::graph::MaximumIndependentSet;
+    use crate::topology::SimpleGraph;
+
+    let g = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let mis = MaximumIndependentSet::new(g, vec![1, 1, 1]);
+    let sample = SampleEval {
+        config: vec![1, 0, 1],
+        metric: serde_json::json!("Valid(2)"),
+    };
+    let example = ModelExample::from_problem(&mis, vec![sample.clone()], vec![sample]);
+    assert_eq!(example.problem, "MaximumIndependentSet");
+    assert!(!example.samples.is_empty());
+    assert!(!example.optimal.is_empty());
+    assert!(example.instance.is_object());
+}
+
+#[test]
+fn model_example_problem_ref() {
+    let example = ModelExample {
+        problem: "TestProblem".to_string(),
+        variant: variant_to_map(vec![("graph", "SimpleGraph")]),
+        instance: serde_json::json!({}),
+        samples: vec![],
+        optimal: vec![],
+    };
+    let pref = example.problem_ref();
+    assert_eq!(pref.name, "TestProblem");
+    assert_eq!(pref.variant["graph"], "SimpleGraph");
+}
+
+#[test]
+fn default_expr_returns_zero() {
+    let expr = default_expr();
+    assert_eq!(expr, Expr::Const(0.0));
+}
+
+#[test]
+fn examples_output_dir_fallback() {
+    // Without PROBLEMREDUCTIONS_EXAMPLES_DIR set, should fallback
+    let dir = examples_output_dir();
+    let expected = std::path::PathBuf::from("docs/paper/examples/generated");
+    // Clean env first to ensure deterministic result
+    if std::env::var_os(EXAMPLES_DIR_ENV).is_none() {
+        assert_eq!(dir, expected);
+    }
+}
+
+#[test]
+fn examples_output_dir_env_override() {
+    // Temporarily set the env var and check it's respected
+    let key = EXAMPLES_DIR_ENV;
+    let old = std::env::var_os(key);
+    std::env::set_var(key, "/tmp/custom_examples");
+    let dir = examples_output_dir();
+    assert_eq!(dir, std::path::PathBuf::from("/tmp/custom_examples"));
+    // Restore
+    match old {
+        Some(v) => std::env::set_var(key, v),
+        None => std::env::remove_var(key),
+    }
+}
+
+#[test]
+fn write_rule_example_to_creates_json_file() {
+    use std::fs;
+    let dir = std::env::temp_dir().join(format!(
+        "pr-export-rule-example-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let example = RuleExample {
+        source: ProblemSide {
+            problem: "A".to_string(),
+            variant: variant_to_map(vec![]),
+            instance: serde_json::json!({"x": 1}),
+        },
+        target: ProblemSide {
+            problem: "B".to_string(),
+            variant: variant_to_map(vec![]),
+            instance: serde_json::json!({"y": 2}),
+        },
+        overhead: vec![],
+        solutions: vec![],
+    };
+    write_rule_example_to(&dir, "test_rule", &example);
+    let path = dir.join("test_rule.json");
+    assert!(path.exists());
+    let content: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(content["source"]["problem"], "A");
+    let _ = fs::remove_dir_all(&dir);
+}
+
+#[test]
+fn write_model_example_to_creates_json_file() {
+    use std::fs;
+    let dir = std::env::temp_dir().join(format!(
+        "pr-export-model-example-{}",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let example = ModelExample {
+        problem: "TestModel".to_string(),
+        variant: variant_to_map(vec![("graph", "SimpleGraph")]),
+        instance: serde_json::json!({"n": 3}),
+        samples: vec![SampleEval {
+            config: vec![1, 0, 1],
+            metric: serde_json::json!("Valid(2)"),
+        }],
+        optimal: vec![],
+    };
+    write_model_example_to(&dir, "test_model", &example);
+    let path = dir.join("test_model.json");
+    assert!(path.exists());
+    let content: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(&path).unwrap()).unwrap();
+    assert_eq!(content["problem"], "TestModel");
+    let _ = fs::remove_dir_all(&dir);
+}
+
 #[test]
 fn lookup_overhead_rejects_target_variant_mismatch() {
     let source = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);

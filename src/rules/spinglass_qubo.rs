@@ -32,7 +32,6 @@ impl ReductionResult for ReductionQUBOToSG {
 }
 
 #[reduction(
-    id = "qubo_to_spinglass_f64_simplegraph",
     overhead = {
         num_spins = "num_vars",
     }
@@ -108,7 +107,6 @@ impl ReductionResult for ReductionSGToQUBO {
 }
 
 #[reduction(
-    id = "spinglass_to_qubo_simplegraph_f64",
     overhead = {
         num_vars = "num_spins",
     }
@@ -164,11 +162,10 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     matrix[i][j] = if idx % 2 == 0 { 2.0 } else { -1.5 };
                 }
                 let source = QUBO::from_matrix(matrix);
-                crate::example_db::specs::direct_best_example::<
-                    _,
-                    SpinGlass<SimpleGraph, f64>,
-                    _,
-                >(source, |_, _| true)
+                crate::example_db::specs::direct_best_example::<_, SpinGlass<SimpleGraph, f64>, _>(
+                    source,
+                    |_, _| true,
+                )
             },
         },
         crate::example_db::specs::RuleExampleSpec {
@@ -181,10 +178,9 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                     .map(|(i, &(u, v))| ((u, v), if i % 2 == 0 { 1.0 } else { -1.0 }))
                     .collect();
                 let source = SpinGlass::new(n, couplings, vec![0.0; n]);
-                crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(
-                    source,
-                    |_, _| true,
-                )
+                crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(source, |_, _| {
+                    true
+                })
             },
         },
     ]

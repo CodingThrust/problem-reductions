@@ -35,8 +35,8 @@ where
 }
 
 macro_rules! impl_is_to_sp {
-    ($W:ty, $id:literal) => {
-        #[reduction(id = $id, overhead = { num_sets = "num_vertices", universe_size = "num_edges" })]
+    ($W:ty) => {
+        #[reduction(overhead = { num_sets = "num_vertices", universe_size = "num_edges" })]
         impl ReduceTo<MaximumSetPacking<$W>> for MaximumIndependentSet<SimpleGraph, $W> {
             type Result = ReductionISToSP<$W>;
 
@@ -59,8 +59,8 @@ macro_rules! impl_is_to_sp {
     };
 }
 
-impl_is_to_sp!(i32, "maximumindependentset_to_maximumsetpacking_simplegraph_i32");
-impl_is_to_sp!(One, "maximumindependentset_to_maximumsetpacking_simplegraph_one");
+impl_is_to_sp!(i32);
+impl_is_to_sp!(One);
 
 /// Result of reducing MaximumSetPacking to MaximumIndependentSet.
 #[derive(Debug, Clone)]
@@ -86,8 +86,8 @@ where
 }
 
 macro_rules! impl_sp_to_is {
-    ($W:ty, $id:literal) => {
-        #[reduction(id = $id, overhead = { num_vertices = "num_sets", num_edges = "num_sets^2" })]
+    ($W:ty) => {
+        #[reduction(overhead = { num_vertices = "num_sets", num_edges = "num_sets^2" })]
         impl ReduceTo<MaximumIndependentSet<SimpleGraph, $W>> for MaximumSetPacking<$W> {
             type Result = ReductionSPToIS<$W>;
 
@@ -118,8 +118,8 @@ macro_rules! impl_sp_to_is {
     };
 }
 
-impl_sp_to_is!(i32, "maximumsetpacking_to_maximumindependentset_i32_simplegraph");
-impl_sp_to_is!(One, "maximumsetpacking_to_maximumindependentset_one_simplegraph");
+impl_sp_to_is!(i32);
+impl_sp_to_is!(One);
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
@@ -128,10 +128,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             id: "maximumindependentset_to_maximumsetpacking",
             build: || {
                 let (n, edges) = crate::topology::small_graphs::petersen();
-                let source = MaximumIndependentSet::new(
-                    SimpleGraph::new(n, edges),
-                    vec![1i32; 10],
-                );
+                let source = MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i32; 10]);
                 crate::example_db::specs::direct_best_example::<_, MaximumSetPacking<i32>, _>(
                     source,
                     |_, _| true,

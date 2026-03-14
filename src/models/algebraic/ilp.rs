@@ -293,11 +293,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![(0, -5.0), (1, -6.0)],
                 ObjectiveSense::Minimize,
             );
-            crate::example_db::specs::explicit_example(
-                problem,
-                vec![vec![0, 4]],
-                vec![vec![3, 2]],
-            )
+            crate::example_db::specs::explicit_example(problem, vec![vec![0, 4]], vec![vec![3, 2]])
         },
     }]
 }

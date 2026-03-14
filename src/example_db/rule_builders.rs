@@ -33,7 +33,10 @@ mod tests {
     #[test]
     fn satisfiability_to_kcoloring_uses_full_problem_serialization() {
         let specs = crate::rules::canonical_rule_example_specs();
-        let spec = specs.iter().find(|s| s.id == "satisfiability_to_kcoloring").unwrap();
+        let spec = specs
+            .iter()
+            .find(|s| s.id == "satisfiability_to_kcoloring")
+            .unwrap();
         let example = (spec.build)();
 
         assert_eq!(example.source.problem, "Satisfiability");
@@ -45,7 +48,10 @@ mod tests {
     #[test]
     fn factoring_to_circuitsat_contains_complete_solution_pairs() {
         let specs = crate::rules::canonical_rule_example_specs();
-        let spec = specs.iter().find(|s| s.id == "factoring_to_circuitsat").unwrap();
+        let spec = specs
+            .iter()
+            .find(|s| s.id == "factoring_to_circuitsat")
+            .unwrap();
         let example = (spec.build)();
 
         assert!(!example.solutions.is_empty());

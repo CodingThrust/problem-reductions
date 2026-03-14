@@ -291,7 +291,6 @@ fn build_qubo_matrix(
 }
 
 #[reduction(
-    id = "ksatisfiability_to_qubo_k2_f64",
     overhead = { num_vars = "num_vars" }
 )]
 impl ReduceTo<QUBO<f64>> for KSatisfiability<K2> {
@@ -309,7 +308,6 @@ impl ReduceTo<QUBO<f64>> for KSatisfiability<K2> {
 }
 
 #[reduction(
-    id = "ksatisfiability_to_qubo_k3_f64",
     overhead = { num_vars = "num_vars + num_clauses" }
 )]
 impl ReduceTo<QUBO<f64>> for KSatisfiability<K3> {

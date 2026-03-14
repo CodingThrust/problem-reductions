@@ -8,7 +8,6 @@ use crate::variant::CastToParent;
 impl_variant_reduction!(
     MaximumSetPacking,
     <One> => <i32>,
-    id: "maximumsetpacking_to_maximumsetpacking_one_i32",
     fields: [num_sets, universe_size],
     |src| MaximumSetPacking::with_weights(
         src.sets().to_vec(),
@@ -18,7 +17,6 @@ impl_variant_reduction!(
 impl_variant_reduction!(
     MaximumSetPacking,
     <i32> => <f64>,
-    id: "maximumsetpacking_to_maximumsetpacking_i32_f64",
     fields: [num_sets, universe_size],
     |src| MaximumSetPacking::with_weights(
         src.sets().to_vec(),

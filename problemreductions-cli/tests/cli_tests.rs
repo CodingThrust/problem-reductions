@@ -1259,18 +1259,26 @@ fn test_create_model_example_mis() {
 
 #[test]
 fn test_create_model_example_mis_shorthand() {
-    let output = pred().args(["create", "--example", "MIS"]).output().unwrap();
+    let output = pred()
+        .args(["create", "--example", "MIS"])
+        .output()
+        .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("No canonical model example exists for MaximumIndependentSet/SimpleGraph/One"),
+        stderr.contains(
+            "No canonical model example exists for MaximumIndependentSet/SimpleGraph/One"
+        ),
         "expected default-node lookup failure, got: {stderr}"
     );
 }
 
 #[test]
 fn test_create_model_example_mis_weight_only() {
-    let output = pred().args(["create", "--example", "MIS/i32"]).output().unwrap();
+    let output = pred()
+        .args(["create", "--example", "MIS/i32"])
+        .output()
+        .unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",
@@ -3406,10 +3414,20 @@ fn test_path_all_save_manifest() {
 #[test]
 fn test_create_nonunit_weights_require_weighted_variant() {
     let output = pred()
-        .args(["create", "MIS", "--graph", "0-1,1-2,2-3", "--weights", "3,1,2,1"])
+        .args([
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "3,1,2,1",
+        ])
         .output()
         .unwrap();
-    assert!(!output.status.success(), "non-unit weights should require /i32");
+    assert!(
+        !output.status.success(),
+        "non-unit weights should require /i32"
+    );
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
         stderr.contains("Use the weighted variant instead"),
@@ -3425,7 +3443,14 @@ fn test_create_nonunit_weights_require_weighted_variant() {
 fn test_create_unit_weights_stays_one() {
     // When all weights are 1, the variant should remain One.
     let output = pred()
-        .args(["create", "MIS", "--graph", "0-1,1-2,2-3", "--weights", "1,1,1,1"])
+        .args([
+            "create",
+            "MIS",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+        ])
         .output()
         .unwrap();
     assert!(

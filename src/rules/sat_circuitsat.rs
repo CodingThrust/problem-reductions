@@ -34,7 +34,6 @@ impl ReductionResult for ReductionSATToCircuit {
 }
 
 #[reduction(
-    id = "satisfiability_to_circuitsat",
     overhead = {
         num_variables = "num_vars + num_clauses + 1",
         num_assignments = "num_clauses + 2",

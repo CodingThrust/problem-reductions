@@ -31,7 +31,6 @@ impl ReductionResult for ReductionISSimpleOneToGridOne {
 }
 
 #[reduction(
-    id = "maximumindependentset_to_maximumindependentset_simplegraph_one_kingssubgraph_one",
     overhead = {
         num_vertices = "num_vertices * num_vertices",
         num_edges = "num_vertices * num_vertices",

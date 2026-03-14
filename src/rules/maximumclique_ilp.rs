@@ -41,7 +41,6 @@ impl ReductionResult for ReductionCliqueToILP {
 }
 
 #[reduction(
-    id = "maximumclique_to_ilp_simplegraph_i32_bool",
     overhead = {
         num_vars = "num_vertices",
         num_constraints = "num_vertices^2",

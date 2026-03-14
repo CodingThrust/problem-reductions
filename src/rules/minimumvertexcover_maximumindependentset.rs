@@ -33,7 +33,6 @@ where
 }
 
 #[reduction(
-    id = "maximumindependentset_to_minimumvertexcover_simplegraph_i32",
     overhead = {
         num_vertices = "num_vertices",
         num_edges = "num_edges",
@@ -75,7 +74,6 @@ where
 }
 
 #[reduction(
-    id = "minimumvertexcover_to_maximumindependentset_simplegraph_i32",
     overhead = {
         num_vertices = "num_vertices",
         num_edges = "num_edges",

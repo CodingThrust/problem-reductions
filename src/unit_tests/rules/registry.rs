@@ -1,5 +1,6 @@
 use super::*;
 use crate::expr::Expr;
+use std::path::Path;
 
 /// Dummy reduce_fn for unit tests that don't exercise runtime reduction.
 fn dummy_reduce_fn(_: &dyn std::any::Any) -> Box<dyn crate::rules::traits::DynReductionResult> {
@@ -305,6 +306,37 @@ fn exact_endpoint_key(
     )
 }
 
+fn walk_rust_files(dir: &Path, files: &mut Vec<std::path::PathBuf>) {
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if path.is_dir() {
+            walk_rust_files(&path, files);
+        } else if path.extension().is_some_and(|ext| ext == "rs") {
+            files.push(path);
+        }
+    }
+}
+
+fn reduction_attribute_contains_id(path: &Path) -> bool {
+    let contents = std::fs::read_to_string(path).unwrap();
+    let mut in_reduction_attr = false;
+
+    for line in contents.lines() {
+        if line.contains("#[reduction(") || line.contains("#[$crate::reduction(") {
+            in_reduction_attr = true;
+        }
+        if in_reduction_attr && line.contains("id =") {
+            return true;
+        }
+        if in_reduction_attr && line.contains(")]") {
+            in_reduction_attr = false;
+        }
+    }
+
+    false
+}
+
 #[test]
 fn every_registered_reduction_has_unique_exact_endpoints() {
     let entries = reduction_entries();
@@ -342,4 +374,21 @@ fn every_registered_reduction_has_non_empty_names() {
             entry.source_name,
         );
     }
+}
+
+#[test]
+fn repo_reductions_do_not_use_legacy_id_attribute() {
+    let mut rust_files = Vec::new();
+    walk_rust_files(Path::new("src/rules"), &mut rust_files);
+
+    let offenders: Vec<_> = rust_files
+        .into_iter()
+        .filter(|path| reduction_attribute_contains_id(path))
+        .collect();
+
+    assert!(
+        offenders.is_empty(),
+        "legacy reduction id attribute still present in: {:?}",
+        offenders,
+    );
 }

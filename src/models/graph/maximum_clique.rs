@@ -187,10 +187,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         build: || {
             let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
             let problem = MaximumClique::new(graph, vec![1i32; 5]);
-            crate::example_db::specs::optimization_example(
-                problem,
-                vec![vec![0, 0, 1, 1, 1]],
-            )
+            crate::example_db::specs::optimization_example(problem, vec![vec![0, 0, 1, 1, 1]])
         },
     }]
 }

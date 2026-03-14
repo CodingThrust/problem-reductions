@@ -265,10 +265,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 vec![2.8, 1.5],
                 vec![VarBounds::bounded(-2, 4), VarBounds::bounded(-2, 4)],
             );
-            crate::example_db::specs::optimization_example(
-                problem,
-                vec![vec![3, 3]],
-            )
+            crate::example_db::specs::optimization_example(problem, vec![vec![3, 3]])
         },
     }]
 }

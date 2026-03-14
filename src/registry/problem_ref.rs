@@ -155,10 +155,7 @@ pub fn require_graph_variant(
     problem_ref: &ProblemRef,
 ) -> Result<crate::export::ProblemRef, String> {
     let known_variants = graph.variants_for(problem_ref.name());
-    if known_variants
-        .iter()
-        .any(|v| v == problem_ref.variant())
-    {
+    if known_variants.iter().any(|v| v == problem_ref.variant()) {
         return Ok(problem_ref.to_export_ref());
     }
 

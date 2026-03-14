@@ -1001,9 +1001,7 @@ fn reject_nonunit_weights_for_one_variant(
     variant: &BTreeMap<String, String>,
     weights: &[i32],
 ) -> Result<()> {
-    if variant.get("weight").map(|w| w.as_str()) == Some("One")
-        && weights.iter().any(|&w| w != 1)
-    {
+    if variant.get("weight").map(|w| w.as_str()) == Some("One") && weights.iter().any(|&w| w != 1) {
         bail!(
             "Non-unit weights are not supported for the default unit-weight variant.\n\n\
              Use the weighted variant instead:\n  \
@@ -1027,7 +1025,10 @@ fn create_vertex_weight_problem(
             let graph = KingsSubgraph::new(positions);
             let weights = parse_vertex_weights(args, n)?;
             reject_nonunit_weights_for_one_variant(
-                canonical, graph_type, resolved_variant, &weights,
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
             )?;
             Ok((
                 ser_vertex_weight_problem_with(canonical, graph, weights)?,
@@ -1040,7 +1041,10 @@ fn create_vertex_weight_problem(
             let graph = TriangularSubgraph::new(positions);
             let weights = parse_vertex_weights(args, n)?;
             reject_nonunit_weights_for_one_variant(
-                canonical, graph_type, resolved_variant, &weights,
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
             )?;
             Ok((
                 ser_vertex_weight_problem_with(canonical, graph, weights)?,
@@ -1054,7 +1058,10 @@ fn create_vertex_weight_problem(
             let graph = UnitDiskGraph::new(positions, radius);
             let weights = parse_vertex_weights(args, n)?;
             reject_nonunit_weights_for_one_variant(
-                canonical, graph_type, resolved_variant, &weights,
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
             )?;
             Ok((
                 ser_vertex_weight_problem_with(canonical, graph, weights)?,
@@ -1071,7 +1078,10 @@ fn create_vertex_weight_problem(
             })?;
             let weights = parse_vertex_weights(args, n)?;
             reject_nonunit_weights_for_one_variant(
-                canonical, graph_type, resolved_variant, &weights,
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
             )?;
             let data = ser_vertex_weight_problem_with(canonical, graph, weights)?;
             Ok((data, resolved_variant.clone()))

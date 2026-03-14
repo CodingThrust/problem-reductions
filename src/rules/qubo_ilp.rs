@@ -39,7 +39,6 @@ impl ReductionResult for ReductionQUBOToILP {
 }
 
 #[reduction(
-    id = "qubo_to_ilp_f64_bool",
     overhead = {
         num_vars = "num_vars^2",
         num_constraints = "num_vars^2",
@@ -114,10 +113,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             matrix[1][2] = 2.0;
             matrix[2][3] = -1.0;
             let source = QUBO::from_matrix(matrix);
-            crate::example_db::specs::direct_best_example::<_, ILP<bool>, _>(
-                source,
-                |_, _| true,
-            )
+            crate::example_db::specs::direct_best_example::<_, ILP<bool>, _>(source, |_, _| true)
         },
     }]
 }

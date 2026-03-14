@@ -186,3 +186,47 @@ fn canonical_rule_example_ids_are_unique() {
     }
     assert_eq!(specs.len(), 42, "expected 42 rule specs");
 }
+
+// ---- Error path tests for example_db ----
+
+#[test]
+fn find_rule_example_nonexistent_returns_error() {
+    let source = ProblemRef {
+        name: "NonExistentProblem".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let target = ProblemRef {
+        name: "AlsoNonExistent".to_string(),
+        variant: BTreeMap::new(),
+    };
+    let result = find_rule_example(&source, &target);
+    assert!(result.is_err());
+    let err_msg = format!("{}", result.unwrap_err());
+    assert!(
+        err_msg.contains("No canonical rule example"),
+        "error should mention no canonical rule: {err_msg}"
+    );
+}
+
+#[test]
+fn find_model_example_nonexistent_returns_error() {
+    let problem = ProblemRef {
+        name: "NonExistentModel".to_string(),
+        variant: BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]),
+    };
+    let result = find_model_example(&problem);
+    assert!(result.is_err());
+    let err_msg = format!("{}", result.unwrap_err());
+    assert!(
+        err_msg.contains("No canonical model example"),
+        "error should mention no canonical model: {err_msg}"
+    );
+}
+
+#[test]
+fn default_generated_dir_returns_path() {
+    use crate::example_db::default_generated_dir;
+    let dir = default_generated_dir();
+    // Should return a valid path (either from env or the default)
+    assert!(!dir.as_os_str().is_empty());
+}

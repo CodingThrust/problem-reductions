@@ -265,10 +265,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         build: || {
             let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
             let problem = TravelingSalesman::new(graph, vec![1, 3, 2, 2, 3, 1]);
-            crate::example_db::specs::optimization_example(
-                problem,
-                vec![vec![1, 0, 1, 1, 0, 1]],
-            )
+            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 1, 1, 0, 1]])
         },
     }]
 }

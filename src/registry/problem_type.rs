@@ -60,10 +60,7 @@ pub fn find_problem_type_by_alias(input: &str) -> Option<ProblemType> {
         .into_iter()
         .find(|entry| {
             entry.name.to_lowercase() == lower
-                || entry
-                    .aliases
-                    .iter()
-                    .any(|a| a.to_lowercase() == lower)
+                || entry.aliases.iter().any(|a| a.to_lowercase() == lower)
         })
         .map(ProblemType::from_entry)
 }

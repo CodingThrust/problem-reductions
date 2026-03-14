@@ -109,9 +109,9 @@ fn add_clause_to_ksat(
 /// Note: We implement this for specific K values rather than generic K
 /// because the `#[reduction]` proc macro requires concrete types.
 macro_rules! impl_sat_to_ksat {
-    ($ktype:ty, $k:expr, $id:literal) => {
+    ($ktype:ty, $k:expr) => {
         #[rustfmt::skip]
-        #[reduction(id = $id, overhead = {
+        #[reduction(overhead = {
             num_clauses = "4 * num_clauses + num_literals",
             num_vars = "num_vars + 3 * num_clauses + num_literals",
         })]
@@ -142,7 +142,7 @@ macro_rules! impl_sat_to_ksat {
 }
 
 // Implement for K=3 (the canonical NP-complete case)
-impl_sat_to_ksat!(K3, 3, "satisfiability_to_ksatisfiability_k3");
+impl_sat_to_ksat!(K3, 3);
 
 /// Result of reducing K-SAT to general SAT.
 ///
@@ -182,9 +182,9 @@ fn reduce_ksat_to_sat<K: KValue>(ksat: &KSatisfiability<K>) -> ReductionKSATToSA
 /// Macro for concrete KSAT -> SAT reduction impls.
 /// The `#[reduction]` macro requires concrete types.
 macro_rules! impl_ksat_to_sat {
-    ($ktype:ty, $id:literal) => {
+    ($ktype:ty) => {
 #[rustfmt::skip]
-        #[reduction(id = $id, overhead = {
+        #[reduction(overhead = {
             num_clauses = "num_clauses",
             num_vars = "num_vars",
             num_literals = "num_literals",
@@ -200,7 +200,7 @@ macro_rules! impl_ksat_to_sat {
 }
 
 // Register KN for the reduction graph (covers all K values as the generic entry)
-impl_ksat_to_sat!(KN, "ksatisfiability_to_satisfiability_kn");
+impl_ksat_to_sat!(KN);
 
 // K3 and K2 keep their ReduceTo<Satisfiability> impls for typed use,
 // but are NOT registered as separate primitive graph edges (KN covers them).

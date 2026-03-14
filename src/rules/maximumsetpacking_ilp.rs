@@ -35,7 +35,6 @@ impl ReductionResult for ReductionSPToILP {
 }
 
 #[reduction(
-    id = "maximumsetpacking_to_ilp_i32_bool",
     overhead = {
         num_vars = "num_sets",
         num_constraints = "universe_size",

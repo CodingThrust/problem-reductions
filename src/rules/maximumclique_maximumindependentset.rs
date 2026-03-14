@@ -48,7 +48,6 @@ fn complement_edges(graph: &SimpleGraph) -> Vec<(usize, usize)> {
 }
 
 #[reduction(
-    id = "maximumclique_to_maximumindependentset_simplegraph_i32",
     overhead = {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",

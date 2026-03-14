@@ -71,7 +71,6 @@ impl ReductionResult for ReductionLCSToILP {
 }
 
 #[reduction(
-    id = "longestcommonsubsequence_to_ilp_bool",
     overhead = {
     num_vars = "num_chars_first * num_chars_second",
     num_constraints = "num_chars_first + num_chars_second + (num_chars_first * num_chars_second) ^ 2",

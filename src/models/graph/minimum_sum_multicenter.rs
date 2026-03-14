@@ -282,10 +282,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                 ],
             );
             let problem = MinimumSumMulticenter::new(graph, vec![1i32; 7], vec![1i32; 8], 2);
-            crate::example_db::specs::optimization_example(
-                problem,
-                vec![vec![0, 0, 1, 0, 0, 1, 0]],
-            )
+            crate::example_db::specs::optimization_example(problem, vec![vec![0, 0, 1, 0, 0, 1, 0]])
         },
     }]
 }

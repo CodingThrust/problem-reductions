@@ -112,7 +112,6 @@ impl ReductionSATToDS {
 }
 
 #[reduction(
-    id = "satisfiability_to_minimumdominatingset_simplegraph_i32",
     overhead = {
         num_vertices = "3 * num_vars + num_clauses",
         num_edges = "3 * num_vars + num_literals",
@@ -199,10 +198,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 _,
                 MinimumDominatingSet<SimpleGraph, i32>,
                 _,
-            >(
-                source,
-                crate::example_db::specs::keep_bool_source,
-            )
+            >(source, crate::example_db::specs::keep_bool_source)
         },
     }]
 }

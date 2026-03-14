@@ -64,7 +64,6 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
 }
 
 #[reduction(
-    id = "travelingsalesman_to_qubo_simplegraph_i32_f64",
     overhead = {
         num_vars = "num_vertices^2",
     }
@@ -174,10 +173,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                 SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
                 vec![1, 2, 3],
             );
-            crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(
-                source,
-                |_, _| true,
-            )
+            crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(source, |_, _| true)
         },
     }]
 }

@@ -209,10 +209,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         build: || {
             let problem =
                 MinimumSetCovering::<i32>::new(5, vec![vec![0, 1, 2], vec![1, 3], vec![2, 3, 4]]);
-            crate::example_db::specs::optimization_example(
-                problem,
-                vec![vec![1, 0, 1]],
-            )
+            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 1]])
         },
     }]
 }

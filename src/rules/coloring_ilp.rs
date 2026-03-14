@@ -112,7 +112,6 @@ fn reduce_kcoloring_to_ilp<K: KValue, G: Graph>(
 
 // Register only the KN variant in the reduction graph
 #[reduction(
-    id = "kcoloring_to_ilp_kn_simplegraph_bool",
     overhead = {
         num_vars = "num_vertices^2",
         num_constraints = "num_vertices + num_vertices * num_edges",

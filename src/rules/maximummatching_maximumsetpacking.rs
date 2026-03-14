@@ -36,7 +36,6 @@ where
 }
 
 #[reduction(
-    id = "maximummatching_to_maximumsetpacking_simplegraph_i32",
     overhead = {
         num_sets = "num_edges",
         universe_size = "num_vertices",

@@ -65,9 +65,7 @@ struct ReductionAttrs {
 
 impl syn::parse::Parse for ReductionAttrs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut attrs = ReductionAttrs {
-            overhead: None,
-        };
+        let mut attrs = ReductionAttrs { overhead: None };
 
         while !input.is_empty() {
             let ident: syn::Ident = input.parse()?;

@@ -278,10 +278,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                     ((2, 4), 1),
                 ],
             );
-            crate::example_db::specs::optimization_example(
-                problem,
-                vec![vec![1, 0, 1, 1, 0]],
-            )
+            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 1, 1, 0]])
         },
     }]
 }
