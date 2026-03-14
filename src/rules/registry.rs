@@ -86,8 +86,6 @@ impl ReductionOverhead {
 /// A registered reduction entry for static inventory registration.
 /// Uses function pointers to lazily derive variant fields from `Problem::variant()`.
 pub struct ReductionEntry {
-    /// Stable, unique rule identifier (e.g., `"mvc_to_mis_simplegraph_i32"`).
-    pub rule_id: &'static str,
     /// Base name of source problem (e.g., "MaximumIndependentSet").
     pub source_name: &'static str,
     /// Base name of target problem (e.g., "MinimumVertexCover").
@@ -158,12 +156,6 @@ impl std::fmt::Debug for ReductionEntry {
 }
 
 inventory::collect!(ReductionEntry);
-
-/// Find a reduction entry by its stable rule ID.
-pub fn find_reduction_entry_by_rule_id(id: &str) -> Option<&'static ReductionEntry> {
-    inventory::iter::<ReductionEntry>()
-        .find(|entry| entry.rule_id == id)
-}
 
 /// Return all registered reduction entries.
 pub fn reduction_entries() -> Vec<&'static ReductionEntry> {

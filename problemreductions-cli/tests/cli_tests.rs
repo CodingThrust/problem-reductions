@@ -2909,7 +2909,7 @@ fn test_create_mis_triangular_subgraph() {
     let output = pred()
         .args([
             "create",
-            "MIS/TriangularSubgraph",
+            "MIS/TriangularSubgraph/i32",
             "--positions",
             "0,0;0,1;1,0;1,1",
         ])
@@ -2960,8 +2960,8 @@ fn test_create_mvc_kings_subgraph_unsupported_variant() {
     assert!(!output.status.success());
     let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        stderr.contains("No variant"),
-        "should mention variant mismatch: {stderr}"
+        stderr.contains("Unknown variant token \"KingsSubgraph\""),
+        "should mention unknown variant token: {stderr}"
     );
 }
 
@@ -2992,7 +2992,7 @@ fn test_create_mis_kings_subgraph_with_weights() {
     let output = pred()
         .args([
             "create",
-            "MIS/KingsSubgraph",
+            "MIS/KingsSubgraph/i32",
             "--positions",
             "0,0;1,0;1,1",
             "--weights",
@@ -3009,6 +3009,7 @@ fn test_create_mis_kings_subgraph_with_weights() {
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MaximumIndependentSet");
     assert_eq!(json["variant"]["graph"], "KingsSubgraph");
+    assert_eq!(json["variant"]["weight"], "i32");
 }
 
 #[test]
@@ -3041,7 +3042,7 @@ fn test_create_random_triangular_subgraph() {
     let output = pred()
         .args([
             "create",
-            "MIS/TriangularSubgraph",
+            "MIS/TriangularSubgraph/i32",
             "--random",
             "--num-vertices",
             "8",
@@ -3403,23 +3404,21 @@ fn test_path_all_save_manifest() {
 }
 
 #[test]
-fn test_create_auto_upgrades_weight_variant_to_i32() {
-    // When the user provides non-unit weights with bare `MIS` (default variant One),
-    // the CLI should auto-upgrade the variant to i32.
+fn test_create_nonunit_weights_require_weighted_variant() {
     let output = pred()
         .args(["create", "MIS", "--graph", "0-1,1-2,2-3", "--weights", "3,1,2,1"])
         .output()
         .unwrap();
+    assert!(!output.status.success(), "non-unit weights should require /i32");
+    let stderr = String::from_utf8(output.stderr).unwrap();
     assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
+        stderr.contains("Use the weighted variant instead"),
+        "stderr should point to the explicit weighted variant: {stderr}"
     );
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(json["type"], "MaximumIndependentSet");
-    assert_eq!(json["variant"]["weight"], "i32");
-    assert_eq!(json["data"]["weights"], serde_json::json!([3, 1, 2, 1]));
+    assert!(
+        stderr.contains("MaximumIndependentSet/SimpleGraph/i32"),
+        "stderr should include the exact weighted variant: {stderr}"
+    );
 }
 
 #[test]
@@ -3441,9 +3440,16 @@ fn test_create_unit_weights_stays_one() {
 
 #[test]
 fn test_create_weighted_mis_round_trips_into_solve() {
-    // The weighted MIS created with auto-upgrade should be solvable end-to-end.
+    // The explicit weighted MIS variant should be solvable end-to-end.
     let create_output = pred()
-        .args(["create", "MIS", "--graph", "0-1,1-2,2-3", "--weights", "3,1,2,1"])
+        .args([
+            "create",
+            "MIS/i32",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "3,1,2,1",
+        ])
         .output()
         .unwrap();
     assert!(create_output.status.success());

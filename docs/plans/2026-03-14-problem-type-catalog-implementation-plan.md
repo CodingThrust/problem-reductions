@@ -2,9 +2,9 @@
 
 > **For agentic workers:** REQUIRED: Use superpowers:subagent-driven-development (if subagents available) or superpowers:executing-plans to implement this plan. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Introduce a catalog-backed problem type system, typed internal problem refs, stable rule IDs, and per-module example declarations so extending the repo requires fewer parallel metadata edits.
+**Goal:** Introduce a catalog-backed problem type system, typed internal problem refs, exact endpoint-based rule identity, and per-module example declarations so extending the repo requires fewer parallel metadata edits.
 
-**Architecture:** Reuse the repo's existing local registration seams instead of inventing a second metadata world. Extend model-local schema registrations to carry aliases and variant dimensions, add typed runtime refs on top of that catalog, add stable `rule_id` metadata to reduction registrations, then move canonical examples from giant central builder lists into explicit per-module collectors. Remove `Problem::NAME` only after all runtime call sites use the catalog bridge.
+**Architecture:** Reuse the repo's existing local registration seams instead of inventing a second metadata world. Extend model-local schema registrations to carry aliases and variant dimensions, add typed runtime refs on top of that catalog, treat exact `(source_ref, target_ref)` pairs as primitive reduction identity, then move canonical examples from giant central builder lists into explicit per-module collectors. Remove `Problem::NAME` only after all runtime call sites use the catalog bridge.
 
 **Tech Stack:** Rust, `inventory`, proc macros in `problemreductions-macros`, `serde`, `clap`, `cargo test`
 
@@ -39,11 +39,11 @@ The implementation should keep responsibilities narrow:
 - Modify `problemreductions-cli/src/mcp/tools.rs`
   Responsibility: same parsing/reachability split as CLI.
 - Modify `src/rules/registry.rs`
-  Responsibility: add required `rule_id` to reduction registrations and lookup helpers.
+  Responsibility: make exact endpoint uniqueness explicit in reduction registrations and lookup helpers.
 - Modify `src/rules/graph.rs`
   Responsibility: use typed refs where appropriate and keep graph-node logic explicitly reachability-based.
 - Modify `problemreductions-macros/src/lib.rs`
-  Responsibility: extend `#[reduction]` to require `id = "..."`, and later switch `declare_variants!` off `Problem::NAME`.
+  Responsibility: let `#[reduction]` identify rules by exact endpoints rather than required IDs, and later switch `declare_variants!` off `Problem::NAME`.
 - Modify `src/example_db/mod.rs`
   Responsibility: assemble canonical example DBs from explicit per-module specs and validate coverage/invariants.
 - Modify `src/example_db/model_builders.rs`
@@ -57,7 +57,7 @@ The implementation should keep responsibilities narrow:
 - Modify every concrete model file under `src/models/**` that currently submits `ProblemSchemaEntry`
   Responsibility: declare aliases and variant dimensions in the existing local schema registration.
 - Modify every concrete rule file under `src/rules/**` that currently uses `#[reduction(...)]`
-  Responsibility: provide stable `rule_id`s and local canonical rule example specs.
+  Responsibility: preserve unique exact endpoints and local canonical rule example specs.
 - Modify `src/unit_tests/example_db.rs`, `src/unit_tests/reduction_graph.rs`, `src/unit_tests/rules/registry.rs`, `src/unit_tests/rules/graph.rs`, `src/unit_tests/trait_consistency.rs`, `src/unit_tests/export.rs`, `problemreductions-cli/tests/cli_tests.rs`, `problemreductions-cli/src/mcp/tests.rs`
   Responsibility: replace brittle count checks with catalog/rule/example invariants and cover new parsing behavior.
 
@@ -315,7 +315,7 @@ git commit -m "feat(models): declare catalog metadata alongside schemas"
 
 ## Chunk 2: Rules, Example Specs, And Final Cleanup
 
-### Task 4: Add stable rule IDs to reduction registration
+### Task 4: Make exact endpoint identity explicit in reduction registration
 
 **Files:**
 - Modify: `problemreductions-macros/src/lib.rs`
@@ -333,64 +333,62 @@ Add macro tests for:
 
 ```rust
 #[test]
-fn reduction_requires_rule_id_attribute() { /* parse failure */ }
+fn reduction_accepts_overhead_without_id() { /* parse success */ }
 
 #[test]
-fn reduction_codegen_emits_rule_id_field() { /* token assertion */ }
+fn reduction_accepts_optional_id_attribute() { /* parse success */ }
 ```
 
 Add runtime tests for:
 
 ```rust
 #[test]
-fn every_registered_reduction_has_unique_rule_id() { /* ... */ }
+fn every_registered_reduction_has_unique_exact_endpoints() { /* ... */ }
 
 #[test]
-fn graph_can_find_reduction_entry_by_rule_id() { /* ... */ }
+fn every_registered_reduction_has_non_empty_names() { /* ... */ }
 ```
 
 - [ ] **Step 2: Run tests to verify failure**
 
-Run: `cargo test -p problemreductions-macros reduction_requires_rule_id_attribute reduction_codegen_emits_rule_id_field -- --exact`
-Expected: FAIL because `ReductionAttrs` does not yet parse `id`.
+Run: `cargo test -p problemreductions-macros reduction_accepts_overhead_without_id reduction_accepts_optional_id_attribute -- --exact`
+Expected: FAIL because `ReductionAttrs` still requires `id`.
 
-Run: `cargo test every_registered_reduction_has_unique_rule_id --lib`
-Expected: FAIL because `ReductionEntry` has no `rule_id`.
+Run: `cargo test every_registered_reduction_has_unique_exact_endpoints --lib`
+Expected: FAIL because the registry tests do not yet validate endpoint uniqueness explicitly.
 
-- [ ] **Step 3: Implement required `rule_id`s**
+- [ ] **Step 3: Implement exact endpoint identity**
 
 In `problemreductions-macros/src/lib.rs`:
 
-- Extend `ReductionAttrs` to require `id = "..."` alongside `overhead = { ... }`.
-- Generate `rule_id: "..."`
-  into each `ReductionEntry`.
-- Reject duplicate `id`s during runtime validation in the library tests.
+- Make `id = "..."` optional compatibility syntax rather than required metadata.
+- Generate `ReductionEntry` values without a separate rule-ID field.
+- Rely on endpoint uniqueness validation in the library tests.
 
 In `src/rules/registry.rs`:
 
-- Add `pub rule_id: &'static str` to `ReductionEntry`.
-- Add lookup helpers:
-  - `find_reduction_entry_by_rule_id(id: &str)`
+- Keep `ReductionEntry` keyed by `source_name`, `target_name`, and exact variants.
+- Add or retain lookup helpers needed for endpoint-based validation and tooling.
   - `reduction_entries()`
 
 In each concrete rule file:
 
-- Update every `#[reduction(...)]` attribute to include a stable, explicit ID.
-- Use a naming convention that will survive file/module renames, such as `minimum_vertex_cover_to_maximum_independent_set_simplegraph_i32`.
+- Ensure there is at most one primitive reduction registration per exact endpoint pair.
+- Shared implementations should be wrapped rather than registered multiple times for the same endpoints.
 
 - [ ] **Step 4: Run the macro and registry tests**
 
-Run: `cargo test -p problemreductions-macros reduction_requires_rule_id_attribute reduction_codegen_emits_rule_id_field -- --exact`
+Run: `cargo test -p problemreductions-macros reduction_accepts_overhead_without_id reduction_accepts_optional_id_attribute -- --exact`
 Expected: PASS.
 
-Run: `cargo test every_registered_reduction_has_unique_rule_id graph_can_find_reduction_entry_by_rule_id --lib`
+Run: `cargo test every_registered_reduction_has_unique_exact_endpoints every_registered_reduction_has_non_empty_names --lib`
 Expected: PASS.
 
 - [ ] **Step 5: Commit**
 
 ```bash
 git add problemreductions-macros/src/lib.rs src/rules/registry.rs src/rules/graph.rs src/rules src/unit_tests/rules/registry.rs src/unit_tests/rules/graph.rs
-git commit -m "feat(rules): require stable rule ids"
+git commit -m "refactor(rules): use exact endpoint identity"
 ```
 
 ### Task 5: Move canonical examples to explicit per-module specs
@@ -421,9 +419,6 @@ Replace brittle count-based assertions with invariants such as:
 fn every_model_example_spec_points_to_a_valid_catalog_problem_ref() { /* ... */ }
 
 #[test]
-fn every_rule_example_spec_references_a_registered_rule_id() { /* ... */ }
-
-#[test]
 fn canonical_model_example_ids_are_unique() { /* ... */ }
 
 #[test]
@@ -448,7 +443,6 @@ pub struct ModelExampleSpec {
 
 pub struct RuleExampleSpec {
     pub id: &'static str,
-    pub rule_id: &'static str,
     pub source: crate::registry::ProblemRef,
     pub target: crate::registry::ProblemRef,
     pub build: fn() -> crate::export::RuleExample,
@@ -473,7 +467,7 @@ For each rule that currently contributes a canonical example:
 - move the example builder function out of `src/example_db/rule_builders.rs` into that rule file
 - have `src/rules/mod.rs` concatenate rule example specs from its child modules
 
-Each rule example spec must reference the new stable `rule_id`.
+Each rule example spec must reference a registered exact `(source_ref, target_ref)` pair.
 
 - [ ] **Step 6: Rebuild the example DB assembly**
 
@@ -483,9 +477,9 @@ In `src/example_db/mod.rs`:
 - validate:
   - unique example IDs
   - valid typed problem refs
-  - rule examples reference registered `rule_id`s
+  - rule examples reference registered exact `(source_ref, target_ref)` pairs
   - no duplicate canonical `(problem_ref)` for models
-  - no duplicate canonical `(source_ref, target_ref, rule_id)` for rules
+  - no duplicate canonical `(source_ref, target_ref)` for rules
 
 Keep the exported JSON schema unchanged.
 
@@ -593,7 +587,7 @@ git commit -m "refactor(core): remove Problem::NAME in favor of catalog identity
 
 - [ ] **Step 1: Run the focused library checks**
 
-Run: `cargo test typed_problem_ref_fills_declared_defaults every_registered_reduction_has_unique_rule_id --features 'ilp-highs example-db' --lib`
+Run: `cargo test typed_problem_ref_fills_declared_defaults every_registered_reduction_has_unique_exact_endpoints --features 'ilp-highs example-db' --lib`
 Expected: PASS.
 
 - [ ] **Step 2: Run the example DB suite**

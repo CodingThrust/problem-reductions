@@ -24,12 +24,12 @@ use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Typ
 ///
 /// # Attributes
 ///
-/// - `id = "..."` — stable rule identifier
 /// - `overhead = { expr }` — overhead specification
+/// - `id = "..."` — accepted for backward compatibility but ignored
 ///
 /// ## New syntax (preferred):
 /// ```ignore
-/// #[reduction(id = "source_to_target", overhead = {
+/// #[reduction(overhead = {
 ///     num_vars = "num_vertices^2",
 ///     num_constraints = "num_edges",
 /// })]
@@ -37,7 +37,7 @@ use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Typ
 ///
 /// ## Legacy syntax (still supported):
 /// ```ignore
-/// #[reduction(id = "source_to_target", overhead = { ReductionOverhead::new(vec![...]) })]
+/// #[reduction(overhead = { ReductionOverhead::new(vec![...]) })]
 /// ```
 #[proc_macro_attribute]
 pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -60,14 +60,12 @@ enum OverheadSpec {
 
 /// Parsed attributes from #[reduction(...)]
 struct ReductionAttrs {
-    rule_id: Option<String>,
     overhead: Option<OverheadSpec>,
 }
 
 impl syn::parse::Parse for ReductionAttrs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut attrs = ReductionAttrs {
-            rule_id: None,
             overhead: None,
         };
 
@@ -77,8 +75,7 @@ impl syn::parse::Parse for ReductionAttrs {
 
             match ident.to_string().as_str() {
                 "id" => {
-                    let lit: syn::LitStr = input.parse()?;
-                    attrs.rule_id = Some(lit.value());
+                    let _: syn::LitStr = input.parse()?;
                 }
                 "overhead" => {
                     let content;
@@ -96,13 +93,6 @@ impl syn::parse::Parse for ReductionAttrs {
             if input.peek(syn::Token![,]) {
                 input.parse::<syn::Token![,]>()?;
             }
-        }
-
-        if attrs.rule_id.is_none() {
-            return Err(syn::Error::new(
-                proc_macro2::Span::call_site(),
-                "Missing id specification. Use #[reduction(id = \"...\", overhead = { ... })].",
-            ));
         }
 
         Ok(attrs)
@@ -323,15 +313,12 @@ fn generate_reduction_entry(
         }
     };
 
-    let rule_id_str = attrs.rule_id.clone().expect("parser requires id");
-
     // Generate the combined output
     let output = quote! {
         #impl_block
 
         inventory::submit! {
             crate::rules::registry::ReductionEntry {
-                rule_id: #rule_id_str,
                 source_name: #source_name,
                 target_name: #target_name,
                 source_variant_fn: || { #source_variant_body },
@@ -787,32 +774,19 @@ mod tests {
     }
 
     #[test]
-    fn reduction_codegen_emits_rule_id_field() {
+    fn reduction_accepts_optional_id_attribute() {
         let attrs: ReductionAttrs = syn::parse_quote! {
             id = "my_custom_id", overhead = { num_vertices = "num_vertices" }
         };
-        assert_eq!(attrs.rule_id.as_deref(), Some("my_custom_id"));
+        assert!(attrs.overhead.is_some());
     }
 
     #[test]
-    fn reduction_accepts_id_attribute() {
+    fn reduction_accepts_overhead_without_id() {
         let attrs: ReductionAttrs = syn::parse_quote! {
-            id = "custom_id", overhead = { n = "n" }
+            overhead = { n = "n" }
         };
-        assert_eq!(attrs.rule_id, Some("custom_id".to_string()));
-    }
-
-    #[test]
-    fn reduction_rejects_overhead_without_id() {
-        let err = match syn::parse_str::<ReductionAttrs>("overhead = { n = \"n\" }") {
-            Ok(_) => panic!("expected parse failure for missing id"),
-            Err(err) => err,
-        };
-        assert!(
-            err.to_string().contains("Missing id specification"),
-            "expected missing id error, got: {}",
-            err
-        );
+        assert!(attrs.overhead.is_some());
     }
 
     #[test]

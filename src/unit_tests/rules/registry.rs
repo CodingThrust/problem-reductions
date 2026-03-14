@@ -33,7 +33,6 @@ fn test_reduction_overhead_default() {
 #[test]
 fn test_reduction_entry_overhead() {
     let entry = ReductionEntry {
-        rule_id: "test_source_to_test_target",
         source_name: "TestSource",
         target_name: "TestTarget",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
@@ -53,7 +52,6 @@ fn test_reduction_entry_overhead() {
 #[test]
 fn test_reduction_entry_debug() {
     let entry = ReductionEntry {
-        rule_id: "a_to_b",
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
@@ -72,7 +70,6 @@ fn test_reduction_entry_debug() {
 #[test]
 fn test_is_base_reduction_unweighted() {
     let entry = ReductionEntry {
-        rule_id: "a_to_b",
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
@@ -88,7 +85,6 @@ fn test_is_base_reduction_unweighted() {
 #[test]
 fn test_is_base_reduction_source_weighted() {
     let entry = ReductionEntry {
-        rule_id: "a_to_b",
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "i32")],
@@ -104,7 +100,6 @@ fn test_is_base_reduction_source_weighted() {
 #[test]
 fn test_is_base_reduction_target_weighted() {
     let entry = ReductionEntry {
-        rule_id: "a_to_b",
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
@@ -120,7 +115,6 @@ fn test_is_base_reduction_target_weighted() {
 #[test]
 fn test_is_base_reduction_both_weighted() {
     let entry = ReductionEntry {
-        rule_id: "a_to_b",
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "i32")],
@@ -137,7 +131,6 @@ fn test_is_base_reduction_both_weighted() {
 fn test_is_base_reduction_no_weight_key() {
     // If no weight key is present, assume unweighted (base)
     let entry = ReductionEntry {
-        rule_id: "a_to_b",
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph")],
@@ -291,50 +284,62 @@ fn test_complexity_eval_fn_cross_check_factoring() {
     cross_check_complexity(entry, &problem as &dyn std::any::Any, &input);
 }
 
+fn exact_endpoint_key(
+    entry: &ReductionEntry,
+) -> (String, Vec<(String, String)>, String, Vec<(String, String)>) {
+    let source_variant = entry
+        .source_variant()
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    let target_variant = entry
+        .target_variant()
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    (
+        entry.source_name.to_string(),
+        source_variant,
+        entry.target_name.to_string(),
+        target_variant,
+    )
+}
+
 #[test]
-fn every_registered_reduction_has_unique_rule_id() {
+fn every_registered_reduction_has_unique_exact_endpoints() {
     let entries = reduction_entries();
     let mut seen = std::collections::HashMap::new();
     for entry in &entries {
-        if let Some(prev) = seen.insert(entry.rule_id, entry) {
+        let key = exact_endpoint_key(entry);
+        if let Some(prev) = seen.insert(key.clone(), entry) {
             panic!(
-                "Duplicate rule_id '{}': {} → {} vs {} → {}",
-                entry.rule_id,
+                "Duplicate exact reduction endpoint {:?}: {} {:?} -> {} {:?} vs {} {:?} -> {} {:?}",
+                key,
                 prev.source_name,
+                prev.source_variant(),
                 prev.target_name,
+                prev.target_variant(),
                 entry.source_name,
+                entry.source_variant(),
                 entry.target_name,
+                entry.target_variant(),
             );
         }
     }
 }
 
 #[test]
-fn every_registered_reduction_has_non_empty_rule_id() {
+fn every_registered_reduction_has_non_empty_names() {
     for entry in reduction_entries() {
         assert!(
-            !entry.rule_id.is_empty(),
-            "Empty rule_id for {} → {}",
-            entry.source_name,
+            !entry.source_name.is_empty(),
+            "Empty source_name for reduction targeting {}",
             entry.target_name,
         );
+        assert!(
+            !entry.target_name.is_empty(),
+            "Empty target_name for reduction sourced from {}",
+            entry.source_name,
+        );
     }
-}
-
-#[test]
-fn graph_can_find_reduction_entry_by_rule_id() {
-    let entries = reduction_entries();
-    assert!(!entries.is_empty());
-
-    // Pick the first entry and look it up by ID
-    let first = entries[0];
-    let found = find_reduction_entry_by_rule_id(first.rule_id).unwrap();
-    assert_eq!(found.rule_id, first.rule_id);
-    assert_eq!(found.source_name, first.source_name);
-    assert_eq!(found.target_name, first.target_name);
-}
-
-#[test]
-fn find_reduction_entry_by_rule_id_returns_none_for_unknown() {
-    assert!(find_reduction_entry_by_rule_id("nonexistent_rule_id_xyz").is_none());
 }

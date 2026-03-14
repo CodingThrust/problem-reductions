@@ -48,7 +48,7 @@ This design assumes the following decisions:
 - the catalog is the source of truth for variant schema
 - the reduction graph is the source of truth for variant reachability
 - example registration starts with explicit per-module collection, not inventory
-- stable `rule_id`s are required
+- exact `(source_ref, target_ref)` endpoint pairs are the primitive rule identity
 - docs and paper metadata remain outside the catalog
 - `Problem::NAME` is kept only as a migration bridge, then removed in the final cleanup step
 
@@ -161,7 +161,6 @@ pub struct ModelExampleSpec {
 
 pub struct RuleExampleSpec {
     pub id: &'static str,
-    pub rule_id: &'static str,
     pub source: ProblemRefLiteral,
     pub target: ProblemRefLiteral,
     pub build: fn() -> RuleExample,
@@ -216,33 +215,29 @@ Current shape:
 Target shape:
 
 - implement the reduction
-- declare one local `RuleSpec` with a stable `rule_id`
+- declare one local exact `(source_ref, target_ref)` reduction registration
 - optionally declare one local canonical rule example
 
 This is still explicit, but it becomes much closer to a local edit.
 
 ## Rule Identity
 
-The current system effectively keys rule examples by `(source, target)`. That is acceptable only if the repo maintains the invariant that there is at most one canonical reduction construction per endpoint pair.
+The current system already traverses the graph by exact source and target variants. This design makes that the explicit identity model for primitive reductions.
 
-This design requires a stable `rule_id`:
+The invariant is:
 
 ```rust
-pub struct RuleSpec {
-    pub id: &'static str,
-    pub source: ProblemRefLiteral,
-    pub target: ProblemRefLiteral,
-    pub module_path: &'static str,
-}
+there is at most one primitive reduction registration for each exact
+(source_problem_ref, target_problem_ref) endpoint pair
 ```
 
 Why:
 
-- examples can refer to a specific construction, not just endpoints
-- docs can remain stable if multiple constructions share endpoints later
-- validation becomes cleaner
+- graph traversal and overhead lookup already operate on exact endpoints
+- shared implementation code can still be reused behind multiple wrapper impls
+- contributors do not need to maintain a second rule-identity namespace
 
-The reduction graph can still index edges by concrete source and target variants. `rule_id` is metadata identity, not a replacement for graph structure.
+If the repo ever wants multiple primitive constructions with the same exact endpoints, this design would need to be revisited. For now, the simpler invariant is preferred.
 
 ## Migration Strategy
 
@@ -289,7 +284,7 @@ The catalog layer should validate the following:
 - every dimension key is unique within a problem type
 - every default value is contained in its dimension's allowed values
 - every example references a valid problem type and valid variant
-- every rule example references a declared `rule_id`
+- every rule example references a declared exact `(source_ref, target_ref)` pair
 - exported DTOs round-trip through typed refs without loss
 
 These checks should run in normal CI, not behind an infrequently used feature gate.

@@ -246,7 +246,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         crate::example_db::specs::RuleExampleSpec {
             id: "ksatisfiability_to_satisfiability",
             build: || {
-                let source = KSatisfiability::<K3>::new(
+                let source = KSatisfiability::<KN>::new(
                     4,
                     vec![
                         CNFClause::new(vec![1, -2, 3]),

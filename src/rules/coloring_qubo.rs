@@ -136,7 +136,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         id: "kcoloring_to_qubo",
         build: || {
             let (n, edges) = crate::topology::small_graphs::house();
-            let source = KColoring::<K3, _>::new(SimpleGraph::new(n, edges));
+            let source = KColoring::<KN, _>::with_k(SimpleGraph::new(n, edges), 3);
             crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(
                 source,
                 crate::example_db::specs::keep_bool_source,

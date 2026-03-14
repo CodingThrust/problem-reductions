@@ -100,24 +100,28 @@ fn test_build_rule_db_has_unique_structural_keys() {
 }
 
 #[test]
-fn test_build_rule_db_uses_exact_direct_overheads() {
-    let db = build_rule_db().expect("rule db should build");
-    for rule in &db.rules {
-        let overhead = lookup_overhead(
-            &rule.source.problem,
-            &rule.source.variant,
-            &rule.target.problem,
-            &rule.target.variant,
-        );
-        assert!(
-            overhead.is_some(),
-            "missing exact direct overhead for {} {:?} -> {} {:?}",
-            rule.source.problem,
-            rule.source.variant,
-            rule.target.problem,
-            rule.target.variant
-        );
-    }
+fn test_path_based_rule_example_does_not_require_direct_overhead() {
+    let source = ProblemRef {
+        name: "MaximumIndependentSet".to_string(),
+        variant: BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ]),
+    };
+    let target = ProblemRef {
+        name: "ILP".to_string(),
+        variant: BTreeMap::from([("variable".to_string(), "bool".to_string())]),
+    };
+
+    let example = find_rule_example(&source, &target).expect("path example should exist");
+    assert!(
+        !example.overhead.is_empty(),
+        "path example should carry composed overhead"
+    );
+    assert!(
+        lookup_overhead(&source.name, &source.variant, &target.name, &target.variant).is_none(),
+        "path example should not require a direct-edge overhead entry"
+    );
 }
 
 #[test]
