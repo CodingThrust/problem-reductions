@@ -83,7 +83,10 @@ mod tests {
         let result = server.show_problem_inner("MIS/UnitDiskGraph");
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
-        assert!(err.contains("type level"), "error should mention type level: {err}");
+        assert!(
+            err.contains("type level"),
+            "error should mention type level: {err}"
+        );
     }
 
     #[test]
@@ -94,11 +97,19 @@ mod tests {
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         let variants = json["variants"].as_array().unwrap();
         // At least one variant should be marked as default
-        let has_default = variants.iter().any(|v| v["is_default"].as_bool() == Some(true));
-        assert!(has_default, "expected at least one variant marked is_default=true");
+        let has_default = variants
+            .iter()
+            .any(|v| v["is_default"].as_bool() == Some(true));
+        assert!(
+            has_default,
+            "expected at least one variant marked is_default=true"
+        );
         // All variants should have the is_default field
         for v in variants {
-            assert!(v["is_default"].is_boolean(), "expected is_default field on variant: {v}");
+            assert!(
+                v["is_default"].is_boolean(),
+                "expected is_default field on variant: {v}"
+            );
         }
     }
 

@@ -7,9 +7,7 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
-use problemreductions::rules::{
-    CustomCost, MinimizeSteps, ReductionGraph, TraversalDirection,
-};
+use problemreductions::rules::{CustomCost, MinimizeSteps, ReductionGraph, TraversalDirection};
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
 };
@@ -330,8 +328,7 @@ impl McpServer {
             ),
             Some(ref f) => {
                 let cost_fn = CustomCost(
-                    |overhead: &problemreductions::rules::ReductionOverhead,
-                     size: &ProblemSize| {
+                    |overhead: &problemreductions::rules::ReductionOverhead, size: &ProblemSize| {
                         overhead.evaluate_output_size(size).get(f).unwrap_or(0) as f64
                     },
                 );
@@ -758,11 +755,7 @@ impl McpServer {
         );
 
         let reduction_path = best_path.ok_or_else(|| {
-            anyhow::anyhow!(
-                "No reduction path from {} to {}",
-                source_name,
-                dst_ref.name
-            )
+            anyhow::anyhow!("No reduction path from {} to {}", source_name, dst_ref.name)
         })?;
 
         // Execute reduction chain
