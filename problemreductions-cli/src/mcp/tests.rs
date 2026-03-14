@@ -352,4 +352,15 @@ mod tests {
         assert_eq!(json["kind"], "bundle");
         assert_eq!(json["source"], "MaximumIndependentSet");
     }
+
+    #[test]
+    fn test_solve_sat_problem() {
+        let server = McpServer::new();
+        let params = serde_json::json!({"num_vars": 2, "clauses": "1;-2"});
+        let problem_json = server.create_problem_inner("SAT", &params).unwrap();
+        let result = server.solve_inner(&problem_json, Some("brute-force"), None);
+        assert!(result.is_ok());
+        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        assert_eq!(json["solver"], "brute-force");
+    }
 }
