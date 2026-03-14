@@ -285,9 +285,9 @@ fn test_complexity_eval_fn_cross_check_factoring() {
     cross_check_complexity(entry, &problem as &dyn std::any::Any, &input);
 }
 
-fn exact_endpoint_key(
-    entry: &ReductionEntry,
-) -> (String, Vec<(String, String)>, String, Vec<(String, String)>) {
+type EndpointKey = (String, Vec<(String, String)>, String, Vec<(String, String)>);
+
+fn exact_endpoint_key(entry: &ReductionEntry) -> EndpointKey {
     let source_variant = entry
         .source_variant()
         .into_iter()

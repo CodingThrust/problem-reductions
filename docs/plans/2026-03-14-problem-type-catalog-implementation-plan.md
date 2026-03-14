@@ -336,7 +336,7 @@ Add macro tests for:
 fn reduction_accepts_overhead_without_id() { /* parse success */ }
 
 #[test]
-fn reduction_accepts_optional_id_attribute() { /* parse success */ }
+fn reduction_rejects_legacy_id_attribute() { /* parse failure */ }
 ```
 
 Add runtime tests for:
@@ -351,8 +351,8 @@ fn every_registered_reduction_has_non_empty_names() { /* ... */ }
 
 - [ ] **Step 2: Run tests to verify failure**
 
-Run: `cargo test -p problemreductions-macros reduction_accepts_overhead_without_id reduction_accepts_optional_id_attribute -- --exact`
-Expected: FAIL because `ReductionAttrs` still requires `id`.
+Run: `cargo test -p problemreductions-macros reduction_accepts_overhead_without_id reduction_rejects_legacy_id_attribute -- --exact`
+Expected: FAIL because `ReductionAttrs` still accepts the legacy `id` attribute.
 
 Run: `cargo test every_registered_reduction_has_unique_exact_endpoints --lib`
 Expected: FAIL because the registry tests do not yet validate endpoint uniqueness explicitly.
@@ -361,7 +361,6 @@ Expected: FAIL because the registry tests do not yet validate endpoint uniquenes
 
 In `problemreductions-macros/src/lib.rs`:
 
-- Make `id = "..."` optional compatibility syntax rather than required metadata.
 - Generate `ReductionEntry` values without a separate rule-ID field.
 - Rely on endpoint uniqueness validation in the library tests.
 
@@ -378,7 +377,7 @@ In each concrete rule file:
 
 - [ ] **Step 4: Run the macro and registry tests**
 
-Run: `cargo test -p problemreductions-macros reduction_accepts_overhead_without_id reduction_accepts_optional_id_attribute -- --exact`
+Run: `cargo test -p problemreductions-macros reduction_accepts_overhead_without_id reduction_rejects_legacy_id_attribute -- --exact`
 Expected: PASS.
 
 Run: `cargo test every_registered_reduction_has_unique_exact_endpoints every_registered_reduction_has_non_empty_names --lib`

@@ -25,7 +25,6 @@ use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Typ
 /// # Attributes
 ///
 /// - `overhead = { expr }` — overhead specification
-/// - `id = "..."` — accepted for backward compatibility but ignored
 ///
 /// ## New syntax (preferred):
 /// ```ignore
@@ -72,9 +71,6 @@ impl syn::parse::Parse for ReductionAttrs {
             input.parse::<syn::Token![=]>()?;
 
             match ident.to_string().as_str() {
-                "id" => {
-                    let _: syn::LitStr = input.parse()?;
-                }
                 "overhead" => {
                     let content;
                     syn::braced!(content in input);
@@ -772,11 +768,16 @@ mod tests {
     }
 
     #[test]
-    fn reduction_accepts_optional_id_attribute() {
-        let attrs: ReductionAttrs = syn::parse_quote! {
-            id = "my_custom_id", overhead = { num_vertices = "num_vertices" }
+    fn reduction_rejects_legacy_id_attribute() {
+        let legacy_attr = syn::Ident::new("id", proc_macro2::Span::call_site());
+        let parse_result = syn::parse2::<ReductionAttrs>(quote! {
+            #legacy_attr = "my_custom_id", overhead = { num_vertices = "num_vertices" }
+        });
+        let err = match parse_result {
+            Ok(_) => panic!("legacy id attribute should be rejected"),
+            Err(err) => err,
         };
-        assert!(attrs.overhead.is_some());
+        assert!(err.to_string().contains("unknown attribute: id"));
     }
 
     #[test]

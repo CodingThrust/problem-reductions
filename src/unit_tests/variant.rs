@@ -403,3 +403,78 @@ fn variant_spec_is_not_default_for_non_default_values() {
         "variant with PlanarGraph+i32 should not be the default"
     );
 }
+
+#[test]
+fn variant_spec_try_from_map() {
+    let map = std::collections::BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "i32".to_string()),
+    ]);
+    let spec = VariantSpec::try_from_map(map.clone()).expect("should succeed for valid map");
+    assert_eq!(spec.as_map(), &map);
+}
+
+#[test]
+fn variant_spec_into_map_returns_owned() {
+    let spec = VariantSpec::try_from_pairs(vec![("graph", "SimpleGraph"), ("weight", "One")])
+        .expect("valid pairs");
+    let map = spec.into_map();
+    assert_eq!(map.len(), 2);
+    assert_eq!(map["graph"], "SimpleGraph");
+    assert_eq!(map["weight"], "One");
+}
+
+#[test]
+fn variant_spec_update_dimension_adds_new() {
+    let mut spec =
+        VariantSpec::try_from_pairs(vec![("graph", "SimpleGraph")]).expect("valid pairs");
+    spec.update_dimension("weight", "i32");
+    assert_eq!(spec.as_map().len(), 2);
+    assert_eq!(spec.as_map()["weight"], "i32");
+}
+
+#[test]
+fn variant_spec_update_dimension_overwrites_existing() {
+    let mut spec = VariantSpec::try_from_pairs(vec![("graph", "SimpleGraph"), ("weight", "One")])
+        .expect("valid pairs");
+    spec.update_dimension("weight", "f64");
+    assert_eq!(spec.as_map()["weight"], "f64");
+}
+
+#[test]
+fn variant_spec_normalize_no_graph_dimension_unchanged() {
+    // A variant without a "graph" dimension should not be changed
+    let spec = VariantSpec::try_from_pairs(vec![("weight", "i32")]).expect("valid pairs");
+    let normalized = spec.normalize();
+    assert_eq!(normalized.as_map().len(), 1);
+    assert_eq!(normalized.as_map()["weight"], "i32");
+}
+
+#[test]
+fn variant_spec_is_default_empty_variant() {
+    let spec = VariantSpec::try_from_pairs(Vec::<(&str, &str)>::new())
+        .expect("empty pairs should succeed");
+    assert!(
+        spec.is_default(),
+        "empty variant should be considered default"
+    );
+}
+
+#[test]
+fn variant_spec_is_default_kn() {
+    let spec = VariantSpec::try_from_pairs(vec![("k", "KN")]).expect("valid pairs");
+    assert!(
+        spec.is_default(),
+        "variant with KN should be considered default"
+    );
+}
+
+#[test]
+fn variant_spec_is_not_default_mixed() {
+    let spec = VariantSpec::try_from_pairs(vec![("graph", "SimpleGraph"), ("weight", "i32")])
+        .expect("valid pairs");
+    assert!(
+        !spec.is_default(),
+        "variant with i32 weight should not be default"
+    );
+}
