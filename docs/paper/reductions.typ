@@ -452,6 +452,32 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
   The best known exact algorithm is Björklund's randomized $O^*(1.657^n)$ "Determinant Sums" method @bjorklund2014, which applies to both Hamiltonian path and circuit. The classical Held--Karp dynamic programming algorithm solves it in $O(n^2 dot 2^n)$ deterministic time.
 
   Variables: $n = |V|$ values forming a permutation. Position $i$ holds the vertex visited at step $i$. A configuration is satisfying when it forms a valid permutation of all vertices and consecutive vertices are adjacent in $G$.
+
+  *Example.* Consider the graph $G$ on 6 vertices with edges ${(0,1), (0,2), (1,3), (2,3), (3,4), (3,5), (2,4), (1,5)}$. The sequence $[0, 2, 4, 3, 1, 5]$ is a Hamiltonian path: it visits every vertex exactly once, and each consecutive pair is adjacent — $(0,2), (2,4), (4,3), (3,1), (1,5) in E$.
+
+  #figure({
+    let blue = graph-colors.at(0)
+    let gray = luma(200)
+    canvas(length: 1cm, {
+      import draw: *
+      // 6 vertices in two rows
+      let verts = ((0, 1.5), (1.5, 1.5), (3, 1.5), (1.5, 0), (3, 0), (0, 0))
+      let edges = ((0,1),(0,2),(1,3),(2,3),(3,4),(3,5),(2,4),(1,5))
+      // Hamiltonian path edges: 0-2, 2-4, 4-3, 3-1, 1-5
+      let path-edges = ((0,2),(2,4),(4,3),(3,1),(1,5))
+      for (u, v) in edges {
+        let on-path = path-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+        g-edge(verts.at(u), verts.at(v), stroke: if on-path { 2pt + blue } else { 1pt + gray })
+      }
+      for (k, pos) in verts.enumerate() {
+        g-node(pos, name: "v" + str(k),
+          fill: blue,
+          label: text(fill: white)[$v_#k$])
+      }
+    })
+  },
+  caption: [Hamiltonian Path in a 6-vertex graph. Blue edges show the path $v_0 arrow v_2 arrow v_4 arrow v_3 arrow v_1 arrow v_5$.],
+  ) <fig:hamiltonian-path>
 ]
 #problem-def("IsomorphicSpanningTree")[
   Given a graph $G = (V, E)$ and a tree $T = (V_T, E_T)$ with $|V| = |V_T|$, determine whether $G$ contains a spanning tree isomorphic to $T$: does there exist a bijection $pi: V_T -> V$ such that for every edge ${u, v} in E_T$, ${pi(u), pi(v)} in E$?
@@ -656,6 +682,31 @@ Also known as the _p-median problem_. This is a classical NP-complete facility l
 The best known exact algorithm runs in $O^*(2^n)$ time by brute-force enumeration of all $binom(n, K)$ vertex subsets. Constant-factor approximation algorithms exist: Charikar et al. (1999) gave the first constant-factor result, and the best known ratio is $(2 + epsilon)$ by Cohen-Addad et al. (STOC 2022).
 
 Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. A configuration is valid when exactly $K$ centers are selected and all vertices are reachable from at least one center.
+
+  *Example.* Consider the graph $G$ on 7 vertices with unit weights $w(v) = 1$ and unit edge lengths, edges ${(0,1), (1,2), (2,3), (3,4), (4,5), (5,6), (0,6), (2,5)}$, and $K = 2$. Placing centers at $P = {v_2, v_5}$ gives distances $d(v_0) = 2$, $d(v_1) = 1$, $d(v_2) = 0$, $d(v_3) = 1$, $d(v_4) = 1$, $d(v_5) = 0$, $d(v_6) = 1$, for a total cost of $2 + 1 + 0 + 1 + 1 + 0 + 1 = 6$. This is optimal.
+
+  #figure({
+    let blue = graph-colors.at(0)
+    let gray = luma(200)
+    canvas(length: 1cm, {
+      import draw: *
+      // 7 vertices on a rough circle
+      let verts = ((-1.5, 0.8), (0, 1.5), (1.5, 0.8), (1.5, -0.8), (0, -1.5), (-1.5, -0.8), (-2.2, 0))
+      let edges = ((0,1),(1,2),(2,3),(3,4),(4,5),(5,6),(0,6),(2,5))
+      for (u, v) in edges {
+        g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
+      }
+      let centers = (2, 5)
+      for (k, pos) in verts.enumerate() {
+        let is-center = centers.any(c => c == k)
+        g-node(pos, name: "v" + str(k),
+          fill: if is-center { blue } else { white },
+          label: if is-center { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+      }
+    })
+  },
+  caption: [Minimum Sum Multicenter with $K = 2$ on a 7-vertex graph. Centers $v_2$ and $v_5$ (blue) achieve optimal total weighted distance 6.],
+  ) <fig:minimum-sum-multicenter>
 ]
 
 == Set Problems
