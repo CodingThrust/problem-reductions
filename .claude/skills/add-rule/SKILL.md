@@ -82,6 +82,8 @@ impl ReduceTo<TargetType> for SourceType {
 }
 ```
 
+Each primitive reduction is determined by the exact source/target variant pair. Keep one primitive registration per endpoint pair and use only the `overhead` form of `#[reduction]`.
+
 ## Step 2: Register in mod.rs
 
 Add to `src/rules/mod.rs`:
@@ -199,6 +201,7 @@ Adding a reduction rule does NOT require CLI changes -- the reduction graph is a
 |---------|-----|
 | Forgetting `#[reduction(...)]` macro | Required for compile-time registration in the reduction graph |
 | Wrong overhead expression | Must accurately reflect the size relationship |
+| Adding extra reduction metadata or duplicate primitive endpoint registration | Keep one primitive registration per endpoint pair and use only the `overhead` form of `#[reduction]` |
 | Missing `extract_solution` mapping state | Store any index maps needed in the ReductionResult struct |
 | Not adding canonical example to `example_db` | Add builder in `src/example_db/rule_builders.rs` |
 | Not regenerating reduction graph | Run `cargo run --example export_graph` after adding a rule |

@@ -120,6 +120,7 @@ Verify the PR includes all required components. Check:
 - [ ] Reduction implementation (`src/rules/...`)
 - [ ] Unit tests (`src/unit_tests/rules/...`)
 - [ ] `#[reduction(overhead = {...})]` with correct expressions
+- [ ] Uses only the `overhead` form of `#[reduction]` and does not duplicate a primitive exact endpoint registration
 - [ ] Canonical rule example in `src/example_db/rule_builders.rs`
 - [ ] Paper section in `docs/paper/reductions.typ` (`reduction-rule` entry)
 

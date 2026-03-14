@@ -147,13 +147,15 @@ Problem types use explicit optimization prefixes:
 - `MinimumVertexCover`, `MinimumDominatingSet`, `MinimumSetCovering`
 - No prefix: `MaxCut`, `SpinGlass`, `QUBO`, `ILP`, `Satisfiability`, `KSatisfiability`, `CircuitSAT`, `Factoring`, `MaximalIS`, `PaintShop`, `BicliqueCover`, `BMF`, `KColoring`, `TravelingSalesman`
 
-### Problem Variant IDs
+### Problem Variants
 Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Base: `MaximumIndependentSet` (empty variant = defaults)
 - Graph variant: `MaximumIndependentSet {graph: "KingsSubgraph", weight: "One"}`
 - Weight variant: `MaximumIndependentSet {graph: "SimpleGraph", weight: "f64"}`
 - Default variant ranking: `SimpleGraph`, `One`, `KN` are considered default values; variants with the most default values sort first
 - Nodes come exclusively from `#[reduction]` registrations; natural edges between same-name variants are inferred from the graph/weight subtype partial order
+- Each primitive reduction is determined by the exact `(source_variant, target_variant)` endpoint pair
+- `#[reduction]` accepts only `overhead = { ... }`
 
 ### Extension Points
 - New models register dynamic load/serialize/brute-force dispatch through `declare_variants!` in the model file, not by adding manual match arms in the CLI
@@ -262,3 +264,4 @@ Overhead expressions describe how target problem size relates to source problem 
 2. Check that each field (e.g., `num_vertices`, `num_edges`, `num_sets`) matches the constructed target problem
 3. Watch for common errors: universe elements mismatch (edge indices vs vertex indices), worst-case edge counts in intersection graphs (quadratic, not linear), constant factors in circuit constructions
 4. Test with concrete small instances: construct a source problem, run the reduction, and compare target sizes against the formula
+5. Ensure there is only one primitive reduction registration for each exact source/target variant pair; wrap shared helpers instead of registering duplicate endpoints

@@ -151,6 +151,7 @@ Merge both subagent outputs into a single report:
 
 ### Overhead Consistency Check
 - Rules: verify `#[reduction(overhead)]` expressions match actual sizes constructed in `reduce_to()` code
+- Rules: verify the impl uses only the `overhead` form and does not introduce a duplicate primitive exact endpoint pair
 - Models: verify `dims()` and getter methods are consistent with struct fields
 - Result: PASS / FAIL
 
