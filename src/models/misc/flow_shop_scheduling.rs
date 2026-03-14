@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "FlowShopScheduling",
-        display_name: "",
+        display_name: "Flow Shop Scheduling",
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),

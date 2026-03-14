@@ -3,7 +3,7 @@
 //! The Bin Packing problem asks for an assignment of items to bins
 //! that minimizes the number of bins used while respecting capacity constraints.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use serde::{Deserialize, Serialize};
@@ -11,9 +11,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "BinPacking",
-        display_name: "",
+        display_name: "Bin Packing",
         aliases: &[],
-        dimensions: &[],
+        dimensions: &[VariantDimension::new("weight", "i32", &["i32", "f64"])],
         module_path: module_path!(),
         description: "Assign items to bins minimizing number of bins used, subject to capacity",
         fields: &[

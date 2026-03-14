@@ -7,7 +7,7 @@
 //! - `ILP<bool>`: binary variables (0 or 1)
 //! - `ILP<i32>`: non-negative integer variables (0..2^31-1)
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -16,9 +16,9 @@ use std::marker::PhantomData;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ILP",
-        display_name: "",
+        display_name: "ILP",
         aliases: &[],
-        dimensions: &[],
+        dimensions: &[VariantDimension::new("variable", "bool", &["bool", "i32"])],
         module_path: module_path!(),
         description: "Optimize linear objective subject to linear constraints",
         fields: &[

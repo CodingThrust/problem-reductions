@@ -5,7 +5,7 @@
 //! version - for the optimization variant (MAX-K-SAT), see the separate
 //! MaxKSatisfiability type (if available).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::variant::{KValue, K2, K3, KN};
 use serde::{Deserialize, Serialize};
@@ -15,9 +15,9 @@ use super::CNFClause;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "KSatisfiability",
-        display_name: "",
-        aliases: &[],
-        dimensions: &[],
+        display_name: "K-Satisfiability",
+        aliases: &["KSAT", "3SAT"],
+        dimensions: &[VariantDimension::new("k", "KN", &["KN", "K2", "K3"])],
         module_path: module_path!(),
         description: "SAT with exactly k literals per clause",
         fields: &[

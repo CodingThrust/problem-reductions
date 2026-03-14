@@ -3,7 +3,7 @@
 //! The Traveling Salesman problem asks for a minimum-weight cycle
 //! that visits every vertex exactly once.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -13,9 +13,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "TravelingSalesman",
-        display_name: "",
-        aliases: &[],
-        dimensions: &[],
+        display_name: "Traveling Salesman",
+        aliases: &["TSP"],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find minimum weight Hamiltonian cycle in a graph (Traveling Salesman Problem)",
         fields: &[

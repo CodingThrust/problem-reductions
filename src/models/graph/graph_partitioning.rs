@@ -3,7 +3,7 @@
 //! The Graph Partitioning (Minimum Bisection) problem asks for a balanced partition
 //! of vertices into two equal halves minimizing the number of crossing edges.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
@@ -12,9 +12,11 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "GraphPartitioning",
-        display_name: "",
+        display_name: "Graph Partitioning",
         aliases: &[],
-        dimensions: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        ],
         module_path: module_path!(),
         description: "Find minimum cut balanced bisection of a graph",
         fields: &[

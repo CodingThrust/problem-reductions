@@ -3,7 +3,7 @@
 //! The MaximumClique problem asks for a maximum weight subset of vertices
 //! such that all vertices in the subset are pairwise adjacent.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -13,9 +13,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumClique",
-        display_name: "",
+        display_name: "Maximum Clique",
         aliases: &[],
-        dimensions: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find maximum weight clique in a graph",
         fields: &[

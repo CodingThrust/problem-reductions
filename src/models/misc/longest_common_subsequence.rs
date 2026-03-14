@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "LongestCommonSubsequence",
-        display_name: "",
-        aliases: &[],
+        display_name: "Longest Common Subsequence",
+        aliases: &["LCS"],
         dimensions: &[],
         module_path: module_path!(),
         description: "Find the longest string that is a subsequence of every input string",

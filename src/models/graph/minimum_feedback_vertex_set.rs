@@ -3,7 +3,7 @@
 //! The Feedback Vertex Set problem asks for a minimum weight subset of vertices
 //! whose removal makes the directed graph acyclic (a DAG).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -13,9 +13,11 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumFeedbackVertexSet",
-        display_name: "",
-        aliases: &[],
-        dimensions: &[],
+        display_name: "Minimum Feedback Vertex Set",
+        aliases: &["FVS"],
+        dimensions: &[
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find minimum weight feedback vertex set in a directed graph",
         fields: &[

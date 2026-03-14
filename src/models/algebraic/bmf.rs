@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "BMF",
-        display_name: "",
+        display_name: "BMF",
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),

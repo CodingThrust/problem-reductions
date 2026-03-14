@@ -3,7 +3,7 @@
 //! Given a graph G = (V, E) where |V| = 3q, determine whether V can be
 //! partitioned into q triples, each forming a triangle (K3) in G.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::variant::VariantParam;
@@ -12,9 +12,11 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PartitionIntoTriangles",
-        display_name: "",
+        display_name: "Partition Into Triangles",
         aliases: &[],
-        dimensions: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        ],
         module_path: module_path!(),
         description: "Partition vertices into triangles (K3 subgraphs)",
         fields: &[

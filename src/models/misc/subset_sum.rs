@@ -16,7 +16,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "SubsetSum",
-        display_name: "",
+        display_name: "Subset Sum",
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),

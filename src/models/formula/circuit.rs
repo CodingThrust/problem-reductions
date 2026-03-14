@@ -11,7 +11,7 @@ use std::collections::HashMap;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "CircuitSAT",
-        display_name: "",
+        display_name: "Circuit SAT",
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),

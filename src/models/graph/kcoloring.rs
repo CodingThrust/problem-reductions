@@ -3,7 +3,7 @@
 //! The K-Coloring problem asks whether a graph can be colored with K colors
 //! such that no two adjacent vertices have the same color.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::variant::{KValue, VariantParam, K2, K3, K4, K5, KN};
@@ -12,9 +12,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "KColoring",
-        display_name: "",
+        display_name: "K-Coloring",
         aliases: &[],
-        dimensions: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("k", "KN", &["KN", "K2", "K3", "K4", "K5"]),
+        ],
         module_path: module_path!(),
         description: "Find valid k-coloring of a graph",
         fields: &[

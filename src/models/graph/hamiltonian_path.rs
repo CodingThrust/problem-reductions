@@ -3,7 +3,7 @@
 //! The Hamiltonian Path problem asks whether a graph contains a simple path
 //! that visits every vertex exactly once.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::variant::VariantParam;
@@ -12,9 +12,11 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "HamiltonianPath",
-        display_name: "",
+        display_name: "Hamiltonian Path",
         aliases: &[],
-        dimensions: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        ],
         module_path: module_path!(),
         description: "Find a Hamiltonian path in a graph",
         fields: &[

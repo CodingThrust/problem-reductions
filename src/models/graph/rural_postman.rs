@@ -4,7 +4,7 @@
 //! that includes each edge in a required subset E' and has total length
 //! at most a given bound B.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::types::WeightElement;
@@ -15,9 +15,12 @@ use std::collections::VecDeque;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "RuralPostman",
-        display_name: "",
-        aliases: &[],
-        dimensions: &[],
+        display_name: "Rural Postman",
+        aliases: &["RPP"],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find a circuit covering required edges with total length at most B (Rural Postman Problem)",
         fields: &[

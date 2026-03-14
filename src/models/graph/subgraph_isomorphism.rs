@@ -13,7 +13,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "SubgraphIsomorphism",
-        display_name: "",
+        display_name: "Subgraph Isomorphism",
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),

@@ -3,7 +3,7 @@
 //! The p-median problem asks for K facility locations (centers) on a graph
 //! that minimize the total weighted distance from all vertices to their nearest center.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -13,9 +13,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumSumMulticenter",
-        display_name: "",
-        aliases: &[],
-        dimensions: &[],
+        display_name: "Minimum Sum Multicenter",
+        aliases: &["pmedian"],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find K centers minimizing total weighted distance (p-median problem)",
         fields: &[

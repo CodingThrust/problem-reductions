@@ -3,7 +3,7 @@
 //! Given a lattice basis B and target vector t, find integer coefficients x
 //! minimizing ‖Bx - t‖₂.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -11,9 +11,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ClosestVectorProblem",
-        display_name: "",
-        aliases: &[],
-        dimensions: &[],
+        display_name: "Closest Vector Problem",
+        aliases: &["CVP"],
+        dimensions: &[VariantDimension::new("weight", "i32", &["i32", "f64"])],
         module_path: module_path!(),
         description: "Find the closest lattice point to a target vector",
         fields: &[

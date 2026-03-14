@@ -3,7 +3,7 @@
 //! The Set Covering problem asks for a minimum weight collection of sets
 //! that covers all elements in the universe.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -13,9 +13,9 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumSetCovering",
-        display_name: "",
+        display_name: "Minimum Set Covering",
         aliases: &[],
-        dimensions: &[],
+        dimensions: &[VariantDimension::new("weight", "i32", &["i32"])],
         module_path: module_path!(),
         description: "Find minimum weight collection covering the universe",
         fields: &[

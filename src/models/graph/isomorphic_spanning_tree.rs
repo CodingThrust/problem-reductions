@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "IsomorphicSpanningTree",
-        display_name: "",
+        display_name: "Isomorphic Spanning Tree",
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),

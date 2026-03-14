@@ -2,7 +2,7 @@
 //!
 //! The Spin Glass problem minimizes the Ising Hamiltonian energy.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -11,9 +11,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "SpinGlass",
-        display_name: "",
+        display_name: "Spin Glass",
         aliases: &[],
-        dimensions: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32", "f64"]),
+        ],
         module_path: module_path!(),
         description: "Minimize Ising Hamiltonian on a graph",
         fields: &[

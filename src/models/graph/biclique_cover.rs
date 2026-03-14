@@ -13,7 +13,7 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "BicliqueCover",
-        display_name: "",
+        display_name: "Biclique Cover",
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),

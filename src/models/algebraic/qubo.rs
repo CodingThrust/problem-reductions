@@ -2,7 +2,7 @@
 //!
 //! QUBO minimizes a quadratic function over binary variables.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use serde::{Deserialize, Serialize};
@@ -10,9 +10,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "QUBO",
-        display_name: "",
+        display_name: "QUBO",
         aliases: &[],
-        dimensions: &[],
+        dimensions: &[VariantDimension::new("weight", "f64", &["f64"])],
         module_path: module_path!(),
         description: "Minimize quadratic unconstrained binary objective",
         fields: &[

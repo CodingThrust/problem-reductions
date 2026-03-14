@@ -3,7 +3,7 @@
 //! The Set Packing problem asks for a maximum weight collection of
 //! pairwise disjoint sets.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, One, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -13,9 +13,9 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumSetPacking",
-        display_name: "",
+        display_name: "Maximum Set Packing",
         aliases: &[],
-        dimensions: &[],
+        dimensions: &[VariantDimension::new("weight", "One", &["One", "i32", "f64"])],
         module_path: module_path!(),
         description: "Find maximum weight collection of disjoint sets",
         fields: &[

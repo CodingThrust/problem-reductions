@@ -3,7 +3,7 @@
 //! The Maximum Matching problem asks for a maximum weight set of edges
 //! such that no two edges share a vertex.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -14,9 +14,12 @@ use std::collections::HashMap;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumMatching",
-        display_name: "",
-        aliases: &[],
-        dimensions: &[],
+        display_name: "Maximum Matching",
+        aliases: &["MaxMatching"],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find maximum weight matching in a graph",
         fields: &[

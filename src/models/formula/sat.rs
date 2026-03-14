@@ -12,8 +12,8 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "Satisfiability",
-        display_name: "",
-        aliases: &[],
+        display_name: "Satisfiability",
+        aliases: &["SAT"],
         dimensions: &[],
         module_path: module_path!(),
         description: "Find satisfying assignment for CNF formula",

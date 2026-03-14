@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "Knapsack",
-        display_name: "",
+        display_name: "Knapsack",
         aliases: &[],
         dimensions: &[],
         module_path: module_path!(),
