@@ -1,6 +1,6 @@
-use crate::example_db::{build_model_db, find_model_example, find_rule_example};
+use crate::example_db::{build_model_db, build_rule_db, find_model_example, find_rule_example};
 use crate::export::{ProblemRef, EXAMPLE_DB_VERSION};
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 #[test]
 fn test_build_model_db_contains_curated_examples() {
@@ -79,5 +79,53 @@ fn test_find_rule_example_sat_to_kcoloring_contains_full_instances() {
     assert!(
         example.target.instance.get("graph").is_some(),
         "KColoring target should have graph field"
+    );
+}
+
+#[test]
+fn test_build_rule_db_has_unique_structural_keys() {
+    let db = build_rule_db().expect("rule db should build");
+    let mut seen = BTreeSet::new();
+    for rule in &db.rules {
+        let key = (rule.source.problem_ref(), rule.target.problem_ref());
+        assert!(
+            seen.insert(key.clone()),
+            "Duplicate rule key: {} {:?} -> {} {:?}",
+            key.0.name,
+            key.0.variant,
+            key.1.name,
+            key.1.variant
+        );
+    }
+}
+
+#[test]
+fn test_build_model_db_has_unique_structural_keys() {
+    let db = build_model_db().expect("model db should build");
+    let mut seen = BTreeSet::new();
+    for model in &db.models {
+        let key = model.problem_ref();
+        assert!(
+            seen.insert(key.clone()),
+            "Duplicate model key: {} {:?}",
+            key.name,
+            key.variant
+        );
+    }
+}
+
+#[test]
+fn test_build_rule_db_count_is_42() {
+    let db = build_rule_db().expect("rule db should build");
+    assert_eq!(db.rules.len(), 42, "expected 42 canonical rule examples");
+}
+
+#[test]
+fn test_build_model_db_count_is_28() {
+    let db = build_model_db().expect("model db should build");
+    assert_eq!(
+        db.models.len(),
+        28,
+        "expected 28 canonical model examples"
     );
 }
