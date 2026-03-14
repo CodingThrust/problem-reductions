@@ -225,6 +225,7 @@ Flags by problem type:
   LCS                             --strings
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  QAP                             --matrix (cost), --distance-matrix
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   SCS                             --strings, --bound [--alphabet-size]
   ILP, CircuitSAT                 (via reduction only)
@@ -356,6 +357,9 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Distance matrix for QuadraticAssignment (semicolon-separated rows, e.g., "0,1,2;1,0,1;2,1,0")
+    #[arg(long)]
+    pub distance_matrix: Option<String>,
     /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
     #[arg(long)]
     pub task_lengths: Option<String>,

@@ -9,7 +9,7 @@ pub mod misc;
 pub mod set;
 
 // Re-export commonly used types
-pub use algebraic::{ClosestVectorProblem, BMF, ILP, QUBO};
+pub use algebraic::{ClosestVectorProblem, QuadraticAssignment, BMF, ILP, QUBO};
 pub use formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
 pub use graph::{
     BicliqueCover, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, KColoring, MaxCut,

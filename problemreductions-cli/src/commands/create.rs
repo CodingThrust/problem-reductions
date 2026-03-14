@@ -56,6 +56,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
+        && args.distance_matrix.is_none()
         && args.task_lengths.is_none()
         && args.deadline.is_none()
         && args.num_processors.is_none()
@@ -101,6 +102,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "Satisfiability" => "--num-vars 3 --clauses \"1,2;-1,3\"",
         "KSatisfiability" => "--num-vars 3 --clauses \"1,2,3;-1,2,-3\" --k 3",
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
+        "QuadraticAssignment" => "--matrix \"0,5;5,0\" --distance-matrix \"0,1;1,0\"",
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "MinimumSumMulticenter" => {
@@ -373,6 +375,54 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (k, _variant) =
                 util::validate_k_param(&resolved_variant, args.k, Some(3), "KSatisfiability")?;
             util::ser_ksat(num_vars, clauses, k)?
+        }
+
+        // QuadraticAssignment
+        "QuadraticAssignment" => {
+            let cost_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticAssignment requires --matrix (cost) and --distance-matrix\n\n\
+                     Usage: pred create QAP --matrix \"0,5;5,0\" --distance-matrix \"0,1;1,0\""
+                )
+            })?;
+            let dist_str = args.distance_matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "QuadraticAssignment requires --distance-matrix\n\n\
+                     Usage: pred create QAP --matrix \"0,5;5,0\" --distance-matrix \"0,1;1,0\""
+                )
+            })?;
+            let cost_matrix = parse_i64_matrix(cost_str).context("Invalid cost matrix")?;
+            let distance_matrix = parse_i64_matrix(dist_str).context("Invalid distance matrix")?;
+            let n = cost_matrix.len();
+            for (i, row) in cost_matrix.iter().enumerate() {
+                if row.len() != n {
+                    bail!(
+                        "cost matrix must be square: row {i} has {} columns, expected {n}",
+                        row.len()
+                    );
+                }
+            }
+            let m = distance_matrix.len();
+            for (i, row) in distance_matrix.iter().enumerate() {
+                if row.len() != m {
+                    bail!(
+                        "distance matrix must be square: row {i} has {} columns, expected {m}",
+                        row.len()
+                    );
+                }
+            }
+            if n > m {
+                bail!("num_facilities ({n}) must be <= num_locations ({m})");
+            }
+            (
+                ser(
+                    problemreductions::models::algebraic::QuadraticAssignment::new(
+                        cost_matrix,
+                        distance_matrix,
+                    ),
+                )?,
+                resolved_variant.clone(),
+            )
         }
 
         // QUBO
@@ -1207,6 +1257,37 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
                 .collect()
         })
         .collect()
+}
+
+/// Parse a semicolon-separated matrix of i64 values.
+/// E.g., "0,5;5,0"
+fn parse_i64_matrix(s: &str) -> Result<Vec<Vec<i64>>> {
+    let matrix: Vec<Vec<i64>> = s
+        .split(';')
+        .enumerate()
+        .map(|(row_idx, row)| {
+            row.trim()
+                .split(',')
+                .enumerate()
+                .map(|(col_idx, v)| {
+                    v.trim().parse::<i64>().map_err(|e| {
+                        anyhow::anyhow!("Invalid value at row {row_idx}, col {col_idx}: {e}")
+                    })
+                })
+                .collect()
+        })
+        .collect::<Result<_>>()?;
+    if let Some(first_len) = matrix.first().map(|r| r.len()) {
+        for (i, row) in matrix.iter().enumerate() {
+            if row.len() != first_len {
+                bail!(
+                    "Ragged matrix: row {i} has {} columns, expected {first_len}",
+                    row.len()
+                );
+            }
+        }
+    }
+    Ok(matrix)
 }
 
 /// Parse `--arcs` as directed arc pairs and build a `DirectedGraph`.

@@ -463,6 +463,22 @@
     ]
   },
   {
+    "name": "QuadraticAssignment",
+    "description": "Minimize total cost of assigning facilities to locations",
+    "fields": [
+      {
+        "name": "cost_matrix",
+        "type_name": "Vec<Vec<i64>>",
+        "description": "Flow/cost matrix between facilities"
+      },
+      {
+        "name": "distance_matrix",
+        "type_name": "Vec<Vec<i64>>",
+        "description": "Distance matrix between locations"
+      }
+    ]
+  },
+  {
     "name": "RuralPostman",
     "description": "Find a circuit covering required edges with total length at most B (Rural Postman Problem)",
     "fields": [
