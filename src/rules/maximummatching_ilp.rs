@@ -78,6 +78,18 @@ impl ReduceTo<ILP<bool>> for MaximumMatching<SimpleGraph, i32> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "maximummatching_to_ilp",
+        build: || {
+            let (n, edges) = crate::topology::small_graphs::petersen();
+            let source = MaximumMatching::unit_weights(SimpleGraph::new(n, edges));
+            crate::example_db::specs::direct_ilp_example::<_, bool, _>(source, |_, _| true)
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/maximummatching_ilp.rs"]
 mod tests;

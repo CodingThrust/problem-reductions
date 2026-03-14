@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
 include!("../../jl_helpers.rs");
 
@@ -146,4 +146,20 @@ fn test_size_getters() {
     let problem = MaxCut::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 2]);
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 2);
+}
+
+#[test]
+fn test_maxcut_paper_example() {
+    use crate::traits::Problem;
+    // Paper: house graph, S = {v_0, v_3}, cut = 5
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+    let problem = MaxCut::<_, i32>::unweighted(graph);
+    let config = vec![1, 0, 0, 1, 0]; // S = {v_0, v_3}
+    let result = problem.evaluate(&config);
+    assert!(result.is_valid());
+    assert_eq!(result.unwrap(), 5);
+
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), 5);
 }
