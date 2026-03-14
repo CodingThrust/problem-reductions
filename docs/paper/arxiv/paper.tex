@@ -318,69 +318,24 @@ The maintainer makes the final quality judgment and merges.
 This is one of only two human decisions in the pipeline; the other is moving an issue from Backlog to Ready (Stage~3).
 
 \paragraph{Three agent roles.}
-The pipeline uses agents in three distinct roles, each backed by a set of skills (\Cref{fig:roles}).
-
-\begin{figure*}[t]
-\centering
-\begin{tikzpicture}[
-  node distance=0.6cm and 0.8cm,
-  human/.style={draw=orange!80!black, fill=orange!10, rounded corners=3pt,
-    text width=5.2em, align=center, font=\scriptsize, minimum height=2em},
-  agent/.style={draw=blue!70!black, fill=blue!8, rounded corners=3pt,
-    text width=5.2em, align=center, font=\scriptsize, minimum height=2em},
-  artifact/.style={draw=gray!70, fill=gray!8, rounded corners=2pt,
-    text width=5.2em, align=center, font=\scriptsize, minimum height=2em},
-  skillbox/.style={draw=green!60!black, fill=green!6, rounded corners=2pt,
-    font=\tiny\ttfamily, inner sep=2pt, align=center},
-  arr/.style={-{Stealth[length=4pt]}, thick},
-  darr/.style={{Stealth[length=4pt]}-{Stealth[length=4pt]}, thick},
-]
-
-% === (a) Mentor ===
-\node[font=\footnotesize\bfseries] (title-a) {(a) Mentor};
-\node[human, below=0.3cm of title-a] (contrib) {Contributor\\[-1pt]{\tiny(domain expert)}};
-\node[agent, right=1.0cm of contrib] (mentor) {Mentor\\[-1pt]{\tiny agent}};
-\node[artifact, below=0.6cm of $(contrib)!0.5!(mentor)$] (issue) {GitHub\\Issue};
-\node[artifact, below left=0.5cm and 0.1cm of contrib] (pdf) {Paper PDF\\{\tiny(visual check)}};
-\node[skillbox, above=0.2cm of mentor] (sk-m) {propose, fix-issue,\\final-review, dev-setup};
-
-\draw[darr, orange!80!black] (contrib) -- node[above, font=\tiny, text=gray!60!black] {interactive} (mentor);
-\draw[arr, gray!60] (mentor) -- (issue);
-\draw[arr, gray!60] (contrib) -- (pdf);
-
-% === (b) Orchestrator ===
-\node[font=\footnotesize\bfseries, right=3.8cm of title-a] (title-b) {(b) Orchestrator};
-\node[human, below=0.3cm of title-b] (maint) {Maintainer\\[-1pt]{\tiny(2 decisions)}};
-\node[agent, right=1.0cm of maint] (orch) {Orchestrator\\[-1pt]{\tiny agent}};
-\node[artifact, below=0.6cm of maint] (board) {Project\\Board};
-\node[artifact, below=0.6cm of orch] (pr) {Pull\\Request};
-\node[skillbox, above=0.2cm of orch] (sk-o) {project-pipeline,\\review-pipeline, issue-to-pr,\\check-issue, topology-check};
-
-\draw[arr, orange!80!black] (maint) -- node[left, font=\tiny, text=orange!70!black, align=center] {move to\\Ready} (board);
-\draw[arr, blue!60] (board) -- node[below, font=\tiny, text=gray!60!black] {dispatch} (pr);
-\draw[arr, blue!60] (orch) -- (pr);
-\draw[arr, orange!80!black] (maint.south east) -- node[right, font=\tiny, text=orange!70!black] {merge} (pr.north east);
-
-% === (c) Runner ===
-\node[font=\footnotesize\bfseries, right=3.8cm of title-b] (title-c) {(c) Runner};
-\node[agent, below=0.3cm of title-c] (runner) {Runner\\[-1pt]{\tiny agent}};
-\node[artifact, below left=0.6cm and 0.3cm of runner] (code) {Codebase\\{\tiny(code + tests)}};
-\node[artifact, below right=0.6cm and 0.3cm of runner] (paper) {Paper\\{\tiny(proof + example)}};
-\node[skillbox, above=0.2cm of runner] (sk-r) {add-model, add-rule,\\fix-pr, review-impl,\\write-in-paper, release};
-
-\draw[arr, blue!60] (runner) -- (code);
-\draw[arr, blue!60] (runner) -- (paper);
-
-\end{tikzpicture}
-\caption{Three agent roles.
-  \textbf{(a)}~Mentors interact with humans: guiding contributors through proposals, helping fix issues, and assisting maintainers with final review.
-  \textbf{(b)}~Orchestrators manage the pipeline: picking tasks from the project board, dispatching runners, and validating issues.
-  \textbf{(c)}~Runners execute: implementing models and rules, fixing PRs, reviewing code, writing paper entries, and releasing.
-  Orange = human; blue = agent; green = skills.}
-\label{fig:roles}
-\end{figure*}
+The pipeline uses agents in three distinct roles, each backed by a set of skills.
 
 \emph{Mentors} (4~skills) interact with humans.
+%
+\begin{center}
+\begin{tikzpicture}[node distance=0.4cm and 0.6cm,
+  box/.style={draw, rounded corners=2pt, font=\scriptsize, minimum height=1.6em, inner sep=3pt},
+  arr/.style={-{Stealth[length=3pt]}},
+]
+\node[box] (contrib) {Contributor};
+\node[box, right=0.8cm of contrib] (mentor) {Mentor};
+\node[box, below=0.3cm of $(contrib)!0.5!(mentor)$] (issue) {GitHub Issue};
+\draw[arr, <->] (contrib) -- node[above, font=\tiny] {interactive} (mentor);
+\draw[arr] (mentor) -- (issue);
+\end{tikzpicture}
+\end{center}
+%
+\noindent
 The \texttt{propose} skill conducts an interactive session in mathematical language, asking one question at a time: what is the problem, what is the formal definition, what does a worked example look like?
 Before filing, it pre-validates the draft against Stage~2's quality checks.
 The \texttt{fix-issue} skill brainstorms with contributors to resolve quality problems.
@@ -388,13 +343,46 @@ The \texttt{final-review} skill guides the maintainer through merge decisions.
 The \texttt{dev-setup} skill onboards new developers.
 
 \emph{Orchestrators} (5~skills) manage the pipeline.
+%
+\begin{center}
+\begin{tikzpicture}[node distance=0.4cm and 0.5cm,
+  box/.style={draw, rounded corners=2pt, font=\scriptsize, minimum height=1.6em, inner sep=3pt},
+  arr/.style={-{Stealth[length=3pt]}},
+]
+\node[box] (maint) {Maintainer};
+\node[box, right=0.5cm of maint] (board) {Board};
+\node[box, right=0.5cm of board] (orch) {Orchestrator};
+\node[box, right=0.5cm of orch] (pr) {PR};
+\node[box, right=0.5cm of pr] (maint2) {Maintainer};
+\draw[arr] (maint) -- node[above, font=\tiny] {ready} (board);
+\draw[arr] (board) -- node[above, font=\tiny] {pick} (orch);
+\draw[arr] (orch) -- node[above, font=\tiny] {create} (pr);
+\draw[arr] (pr) -- node[above, font=\tiny] {merge} (maint2);
+\end{tikzpicture}
+\end{center}
+%
+\noindent
 \texttt{project-pipeline} picks the highest-ranked Ready issue, creates an isolated git worktree, dispatches a runner, and moves the result to the review queue---all headlessly.
 \texttt{review-pipeline} addresses code-review comments, runs agentic feature tests, and retries CI failures.
 \texttt{check-issue} validates proposals before implementation.
 The maintainer makes exactly two decisions: moving an issue from Backlog to Ready, and merging the final pull request.
-Everything between runs without human input.
 
 \emph{Runners} (7~skills) execute.
+%
+\begin{center}
+\begin{tikzpicture}[node distance=0.4cm and 0.6cm,
+  box/.style={draw, rounded corners=2pt, font=\scriptsize, minimum height=1.6em, inner sep=3pt},
+  arr/.style={-{Stealth[length=3pt]}},
+]
+\node[box] (runner) {Runner};
+\node[box, below left=0.3cm and 0.1cm of runner] (code) {Code + Tests};
+\node[box, below right=0.3cm and 0.1cm of runner] (paper) {Paper Entry};
+\draw[arr] (runner) -- (code);
+\draw[arr] (runner) -- (paper);
+\end{tikzpicture}
+\end{center}
+%
+\noindent
 \texttt{add-model} and \texttt{add-rule} implement problem types and reductions.
 \texttt{review-implementation} dispatches parallel sub-agents in fresh context to review code.
 \texttt{fix-pr} resolves CI failures and review comments.

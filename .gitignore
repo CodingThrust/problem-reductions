@@ -88,4 +88,4 @@ claude-output.log
 docs/test-reports/
 docs/superpowers/
 *.log
-.superpower/
+.superpowers/
