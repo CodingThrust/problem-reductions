@@ -64,11 +64,12 @@ make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 
 ### Core Modules
 - `src/models/` - Problem implementations organized by input structure:
-  - `graph/` - Problems on graphs (MIS, MaxClique, MaxCut, MinVC, MinDS, MaxMatching, MaximalIS, KColoring, TSP, SpinGlass, BicliqueCover, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, MinFeedbackArcSet, MinFeedbackVertexSet, MinSumMulticenter, OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, SubgraphIsomorphism)
-  - `formula/` - Logical formulas and circuits (SAT, k-SAT, CircuitSAT)
-  - `set/` - Set systems (MinSetCovering, MaxSetPacking)
-  - `algebraic/` - Matrices, linear systems, lattices (QUBO, ILP, CVP, BMF)
-  - `misc/` - Unique input structures (BinPacking, PaintShop, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, ShortestCommonSupersequence, SubsetSum)
+  - `graph/` - Graph-input problems
+  - `formula/` - Boolean formulas and circuits
+  - `set/` - Set systems (universe + subsets)
+  - `algebraic/` - Matrices, linear systems, lattices
+  - `misc/` - Unique input structures
+  - Run `pred list` for the full catalog of problems, variants, and reductions; `pred show <name>` for details on a specific problem
 - `src/rules/` - Reduction rules + inventory registration
 - `src/solvers/` - BruteForce solver, ILP solver (feature-gated)
 - `src/traits.rs` - `Problem`, `OptimizationProblem`, `SatisfactionProblem` traits
@@ -143,11 +144,7 @@ impl ReduceTo<Target> for Source { ... }
 - `Expr::parse()` provides runtime parsing for cross-check tests that compare compiled vs symbolic evaluation
 
 ### Problem Names
-Problem types use explicit optimization prefixes:
-- `MaximumIndependentSet`, `MaximumClique`, `MaximumMatching`, `MaximumSetPacking`
-- `MinimumVertexCover`, `MinimumDominatingSet`, `MinimumSetCovering`
-- No prefix: `MaxCut`, `SpinGlass`, `QUBO`, `ILP`, `Satisfiability`, `KSatisfiability`, `CircuitSAT`, `Factoring`, `MaximalIS`, `PaintShop`, `BicliqueCover`, `BMF`, `KColoring`, `TravelingSalesman`, `GraphPartitioning`, `HamiltonianPath`, `IsomorphicSpanningTree`, `ClosestVectorProblem`, `PartitionIntoTriangles`, `SubgraphIsomorphism`, `OptimalLinearArrangement`, `RuralPostman`, `BinPacking`, `Knapsack`, `SubsetSum`, `FlowShopScheduling`, `LongestCommonSubsequence`, `ShortestCommonSupersequence`
-- Minimum prefix: `MinimumFeedbackArcSet`, `MinimumFeedbackVertexSet`, `MinimumSumMulticenter`
+Problem types use explicit optimization prefixes (`Maximum...`, `Minimum...`) or no prefix. Run `pred list` for the full catalog. Common aliases (e.g., `MIS` → `MaximumIndependentSet`, `MVC` → `MinimumVertexCover`) are shown in the `Aliases` column.
 
 ### Problem Variants
 Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
