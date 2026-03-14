@@ -2,8 +2,8 @@
   "source": {
     "problem": "TravelingSalesman",
     "variant": {
-      "weight": "i32",
-      "graph": "SimpleGraph"
+      "graph": "SimpleGraph",
+      "weight": "i32"
     },
     "instance": {
       "num_edges": 3,

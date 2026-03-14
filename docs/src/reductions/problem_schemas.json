@@ -111,6 +111,27 @@
     ]
   },
   {
+    "name": "FlowShopScheduling",
+    "description": "Determine if a flow-shop schedule for jobs on m processors meets a deadline",
+    "fields": [
+      {
+        "name": "num_processors",
+        "type_name": "usize",
+        "description": "Number of machines m"
+      },
+      {
+        "name": "task_lengths",
+        "type_name": "Vec<Vec<u64>>",
+        "description": "task_lengths[j][i] = length of job j's task on machine i"
+      },
+      {
+        "name": "deadline",
+        "type_name": "u64",
+        "description": "Global deadline D"
+      }
+    ]
+  },
+  {
     "name": "GraphPartitioning",
     "description": "Find minimum cut balanced bisection of a graph",
     "fields": [
@@ -346,6 +367,22 @@
     ]
   },
   {
+    "name": "MinimumFeedbackArcSet",
+    "description": "Find minimum weight feedback arc set in a directed graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "DirectedGraph",
+        "description": "The directed graph G=(V,A)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Arc weights w: A -> R"
+      }
+    ]
+  },
+  {
     "name": "MinimumFeedbackVertexSet",
     "description": "Find minimum weight feedback vertex set in a directed graph",
     "fields": [
@@ -564,12 +601,12 @@
   },
   {
     "name": "SubsetSum",
-    "description": "Find a subset of integers that sums to exactly a target value",
+    "description": "Find a subset of positive integers that sums to exactly a target value",
     "fields": [
       {
         "name": "sizes",
         "type_name": "Vec<i64>",
-        "description": "Integer sizes s(a) for each element"
+        "description": "Positive integer sizes s(a) for each element"
       },
       {
         "name": "target",

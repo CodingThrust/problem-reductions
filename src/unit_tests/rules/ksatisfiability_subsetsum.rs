@@ -14,14 +14,14 @@ fn test_ksatisfiability_to_subsetsum_closed_loop() {
             CNFClause::new(vec![-1, -2, 3]), // ¬x1 ∨ ¬x2 ∨ x3
         ],
     );
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
+    let reduction = ReduceTo::<SubsetSum<i128>>::reduce_to(&ksat);
     let target = reduction.target_problem();
 
     // Verify structure: 2*3 + 2*2 = 10 elements
     assert_eq!(target.num_elements(), 10);
 
     // Verify target value: 11144
-    assert_eq!(target.target(), 11144);
+    assert_eq!(target.target(), &11144i128);
 
     let solver = BruteForce::new();
     let solutions = solver.find_all_satisfying(target);
@@ -48,7 +48,7 @@ fn test_ksatisfiability_to_subsetsum_unsatisfiable() {
             CNFClause::new(vec![1, 1, 1]),
         ],
     );
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
+    let reduction = ReduceTo::<SubsetSum<i128>>::reduce_to(&ksat);
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -60,7 +60,7 @@ fn test_ksatisfiability_to_subsetsum_unsatisfiable() {
 fn test_ksatisfiability_to_subsetsum_single_clause() {
     // Single clause: (x1 ∨ x2 ∨ x3) — 7 out of 8 assignments satisfy it
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![1, 2, 3])]);
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
+    let reduction = ReduceTo::<SubsetSum<i128>>::reduce_to(&ksat);
     let target = reduction.target_problem();
 
     // 2*3 + 2*1 = 8 elements
@@ -90,7 +90,7 @@ fn test_ksatisfiability_to_subsetsum_structure() {
             CNFClause::new(vec![-1, -2, 3]), // ¬x1 ∨ ¬x2 ∨ x3
         ],
     );
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
+    let reduction = ReduceTo::<SubsetSum<i128>>::reduce_to(&ksat);
     let target = reduction.target_problem();
     let sizes = target.sizes();
 
@@ -113,7 +113,7 @@ fn test_ksatisfiability_to_subsetsum_structure() {
 fn test_ksatisfiability_to_subsetsum_all_negated() {
     // All negated: (¬x1 ∨ ¬x2 ∨ ¬x3) — 7 satisfying assignments
     let ksat = KSatisfiability::<K3>::new(3, vec![CNFClause::new(vec![-1, -2, -3])]);
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
+    let reduction = ReduceTo::<SubsetSum<i128>>::reduce_to(&ksat);
     let target = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -139,7 +139,7 @@ fn test_ksatisfiability_to_subsetsum_extract_solution_example() {
             CNFClause::new(vec![-1, -2, 3]),
         ],
     );
-    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
+    let reduction = ReduceTo::<SubsetSum<i128>>::reduce_to(&ksat);
     let target = reduction.target_problem();
 
     // Construct the known subset for x1=T, x2=T, x3=T:

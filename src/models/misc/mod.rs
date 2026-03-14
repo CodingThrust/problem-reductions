@@ -26,4 +26,4 @@ pub use knapsack::Knapsack;
 pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use paintshop::PaintShop;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
-pub use subset_sum::SubsetSum;
+pub use subset_sum::{SubsetSum, SubsetSumElement};

@@ -7,6 +7,9 @@
 //!
 //! No carries occur because the maximum digit sum is at most 3 + 2 = 5 < 10.
 //!
+//! Uses `SubsetSum<i128>` to support instances with up to n + m = 38 variables
+//! and clauses. For larger instances, use a bigger integer type.
+//!
 //! Reference: Karp 1972; Sipser Theorem 7.56; CLRS §34.5.5
 
 use crate::models::formula::KSatisfiability;
@@ -15,16 +18,16 @@ use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
 use crate::variant::K3;
 
-/// Result of reducing KSatisfiability<K3> to SubsetSum.
+/// Result of reducing KSatisfiability<K3> to SubsetSum<i128>.
 #[derive(Debug, Clone)]
 pub struct Reduction3SATToSubsetSum {
-    target: SubsetSum,
+    target: SubsetSum<i128>,
     source_num_vars: usize,
 }
 
 impl ReductionResult for Reduction3SATToSubsetSum {
     type Source = KSatisfiability<K3>;
-    type Target = SubsetSum;
+    type Target = SubsetSum<i128>;
 
     fn target_problem(&self) -> &Self::Target {
         &self.target
@@ -50,10 +53,14 @@ impl ReductionResult for Reduction3SATToSubsetSum {
 /// Build a base-10 integer from a digit array (most significant first).
 ///
 /// digits[0] is the most significant digit, digits[num_digits-1] is the least.
-fn digits_to_integer(digits: &[i64]) -> i64 {
-    let mut value: i64 = 0;
+fn digits_to_integer(digits: &[i128]) -> i128 {
+    let mut value: i128 = 0;
     for &d in digits {
-        value = value * 10 + d;
+        value = value.checked_mul(10).and_then(|v| v.checked_add(d)).expect(
+            "Integer overflow in 3-SAT to SubsetSum encoding. \
+                 The instance is too large for i128 (n + m > 38). \
+                 Consider using a SubsetSum type with larger integer precision.",
+        );
     }
     value
 }
@@ -61,25 +68,20 @@ fn digits_to_integer(digits: &[i64]) -> i64 {
 #[reduction(
     overhead = { num_elements = "2 * num_vars + 2 * num_clauses" }
 )]
-impl ReduceTo<SubsetSum> for KSatisfiability<K3> {
+impl ReduceTo<SubsetSum<i128>> for KSatisfiability<K3> {
     type Result = Reduction3SATToSubsetSum;
 
     fn reduce_to(&self) -> Self::Result {
         let n = self.num_vars();
         let m = self.num_clauses();
         let num_digits = n + m;
-        assert!(
-            num_digits <= 18,
-            "3-SAT to SubsetSum reduction requires n + m <= 18 for i64 encoding \
-             (got n={n}, m={m}, n+m={num_digits})"
-        );
 
         let mut sizes = Vec::with_capacity(2 * n + 2 * m);
 
         // Step 1: Variable integers (2n integers)
         for i in 0..n {
             // y_i: d_i = 1, d_{n+j} = 1 if x_{i+1} appears positive in C_j
-            let mut y_digits = vec![0i64; num_digits];
+            let mut y_digits = vec![0i128; num_digits];
             y_digits[i] = 1;
             for (j, clause) in self.clauses().iter().enumerate() {
                 for &lit in &clause.literals {
@@ -92,7 +94,7 @@ impl ReduceTo<SubsetSum> for KSatisfiability<K3> {
             sizes.push(digits_to_integer(&y_digits));
 
             // z_i: d_i = 1, d_{n+j} = 1 if ¬x_{i+1} appears in C_j
-            let mut z_digits = vec![0i64; num_digits];
+            let mut z_digits = vec![0i128; num_digits];
             z_digits[i] = 1;
             for (j, clause) in self.clauses().iter().enumerate() {
                 for &lit in &clause.literals {
@@ -108,18 +110,18 @@ impl ReduceTo<SubsetSum> for KSatisfiability<K3> {
         // Step 2: Slack integers (2m integers)
         for j in 0..m {
             // g_j: d_{n+j} = 1
-            let mut g_digits = vec![0i64; num_digits];
+            let mut g_digits = vec![0i128; num_digits];
             g_digits[n + j] = 1;
             sizes.push(digits_to_integer(&g_digits));
 
             // h_j: d_{n+j} = 2
-            let mut h_digits = vec![0i64; num_digits];
+            let mut h_digits = vec![0i128; num_digits];
             h_digits[n + j] = 2;
             sizes.push(digits_to_integer(&h_digits));
         }
 
         // Step 3: Target
-        let mut target_digits = vec![0i64; num_digits];
+        let mut target_digits = vec![0i128; num_digits];
         for d in target_digits.iter_mut().take(n) {
             *d = 1;
         }
@@ -129,7 +131,7 @@ impl ReduceTo<SubsetSum> for KSatisfiability<K3> {
         let target = digits_to_integer(&target_digits);
 
         Reduction3SATToSubsetSum {
-            target: SubsetSum::new(sizes, target),
+            target: SubsetSum::new_unchecked(sizes, target),
             source_num_vars: n,
         }
     }
