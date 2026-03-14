@@ -562,3 +562,51 @@ fn default_variant_for_sat_returns_empty() {
         "Satisfiability default variant should be empty (no dimensions)"
     );
 }
+
+// ---- Capped path enumeration ----
+
+#[test]
+fn find_paths_up_to_stops_after_limit() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+
+    // Get all paths to know the total count
+    let all = graph.find_all_paths("MaximumIndependentSet", &src, "QUBO", &dst);
+    assert!(all.len() > 3, "need multiple paths for this test");
+
+    // With a limit of 3, should get exactly 3
+    let limited = graph.find_paths_up_to("MaximumIndependentSet", &src, "QUBO", &dst, 3);
+    assert_eq!(limited.len(), 3, "should stop after 3 paths");
+}
+
+#[test]
+fn find_paths_up_to_returns_all_when_limit_exceeds_total() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+
+    let all = graph.find_all_paths("MaximumIndependentSet", &src, "MinimumVertexCover", &dst);
+    let limited = graph.find_paths_up_to(
+        "MaximumIndependentSet",
+        &src,
+        "MinimumVertexCover",
+        &dst,
+        1000,
+    );
+    assert_eq!(
+        limited.len(),
+        all.len(),
+        "should return all paths when limit exceeds total"
+    );
+}
+
+#[test]
+fn find_paths_up_to_no_path() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+    let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
+
+    let limited = graph.find_paths_up_to("QUBO", &src, "MaximumSetPacking", &dst, 10);
+    assert!(limited.is_empty());
+}

@@ -165,6 +165,56 @@ pub fn resolve_variant(
     }
 }
 
+/// Type-level parser for the `show` command.
+///
+/// Resolves aliases but rejects slash suffixes — `show` operates on the
+/// entire problem type, not a specific variant node.
+pub fn parse_problem_type(input: &str) -> anyhow::Result<String> {
+    let parts: Vec<&str> = input.split('/').collect();
+    if parts.len() > 1 {
+        anyhow::bail!(
+            "`show` operates at the type level. Use `pred show {}` without variant suffixes.\n\
+             To see a specific variant's details, use `pred to {0}` or `pred from {0}`.",
+            parts[0]
+        );
+    }
+    Ok(resolve_alias(input))
+}
+
+/// Resolve a problem spec to a specific graph node using declared defaults.
+///
+/// For bare names (no slash), returns the declared default variant.
+/// For slash specs, resolves variant values against known variants.
+pub fn resolve_problem_ref(
+    input: &str,
+    graph: &problemreductions::rules::ReductionGraph,
+) -> anyhow::Result<ProblemRef> {
+    let spec = parse_problem_spec(input)?;
+
+    // Get declared default variant
+    let default_variant = graph
+        .default_variant_for(&spec.name)
+        .ok_or_else(|| anyhow::anyhow!("{}", unknown_problem_error(&spec.name)))?;
+
+    if spec.variant_values.is_empty() {
+        // Bare name: use the declared default
+        return Ok(ProblemRef {
+            name: spec.name,
+            variant: default_variant,
+        });
+    }
+
+    // Has slash tokens: apply them as updates to the default
+    let known_variants = graph.variants_for(&spec.name);
+    let resolved = resolve_variant(&spec, &known_variants)?;
+    Ok(ProblemRef {
+        name: spec.name,
+        variant: resolved,
+    })
+}
+
+use problemreductions::export::ProblemRef;
+
 /// A value parser that accepts any string but provides problem names as
 /// completion candidates for shell completion scripts.
 #[derive(Clone)]
@@ -347,5 +397,69 @@ mod tests {
         assert_eq!(edit_distance("abc", "ab"), 1);
         assert_eq!(edit_distance("abc", "axc"), 1);
         assert_eq!(edit_distance("kitten", "sitting"), 3);
+    }
+
+    // ---- parse_problem_type ----
+
+    #[test]
+    fn parse_problem_type_bare_name() {
+        // Bare name resolves alias
+        assert_eq!(parse_problem_type("MIS").unwrap(), "MaximumIndependentSet");
+        assert_eq!(parse_problem_type("QUBO").unwrap(), "QUBO");
+    }
+
+    #[test]
+    fn parse_problem_type_rejects_slash() {
+        // Slash suffixes are rejected for type-level operations
+        let err = parse_problem_type("MIS/UnitDiskGraph").unwrap_err();
+        let msg = err.to_string();
+        assert!(
+            msg.contains("type level"),
+            "error should mention type level: {msg}"
+        );
+        assert!(
+            msg.contains("pred show MIS"),
+            "error should suggest bare name: {msg}"
+        );
+    }
+
+    #[test]
+    fn parse_problem_type_3sat_alias() {
+        // 3SAT resolves to KSatisfiability without injecting K3
+        assert_eq!(parse_problem_type("3SAT").unwrap(), "KSatisfiability");
+    }
+
+    // ---- resolve_problem_ref ----
+
+    #[test]
+    fn resolve_problem_ref_bare_mis() {
+        // Bare MIS should resolve to the declared default variant
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let r = resolve_problem_ref("MIS", &graph).unwrap();
+        assert_eq!(r.name, "MaximumIndependentSet");
+        assert_eq!(
+            r.variant.get("graph").map(|s| s.as_str()),
+            Some("SimpleGraph")
+        );
+        assert_eq!(r.variant.get("weight").map(|s| s.as_str()), Some("One"));
+    }
+
+    #[test]
+    fn resolve_problem_ref_with_slash_updates() {
+        // Slash spec resolves to a specific variant
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let r = resolve_problem_ref("MIS/UnitDiskGraph", &graph).unwrap();
+        assert_eq!(r.name, "MaximumIndependentSet");
+        assert_eq!(
+            r.variant.get("graph").map(|s| s.as_str()),
+            Some("UnitDiskGraph")
+        );
+    }
+
+    #[test]
+    fn resolve_problem_ref_unknown_problem() {
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let err = resolve_problem_ref("NonExistent", &graph).unwrap_err();
+        assert!(err.to_string().contains("Unknown problem"));
     }
 }

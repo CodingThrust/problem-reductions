@@ -286,25 +286,33 @@ fn test_reduce() {
 
 #[test]
 fn test_reduce_via_path() {
-    // 1. Create problem
+    // 1. Create problem (use explicit variant to match path resolution)
     let problem_file = std::env::temp_dir().join("pred_test_reduce_via_in.json");
     let create_out = pred()
         .args([
             "-o",
             problem_file.to_str().unwrap(),
             "create",
-            "MIS",
+            "MIS/SimpleGraph/i32",
             "--graph",
             "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
         ])
         .output()
         .unwrap();
     assert!(create_out.status.success());
 
-    // 2. Generate path file
+    // 2. Generate path file (use same variant as the problem)
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_path.json");
     let path_out = pred()
-        .args(["path", "MIS", "QUBO", "-o", path_file.to_str().unwrap()])
+        .args([
+            "path",
+            "MIS/SimpleGraph/i32",
+            "QUBO",
+            "-o",
+            path_file.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
     assert!(path_out.status.success());
@@ -350,9 +358,11 @@ fn test_reduce_via_infer_target() {
             "-o",
             problem_file.to_str().unwrap(),
             "create",
-            "MIS",
+            "MIS/SimpleGraph/i32",
             "--graph",
             "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
         ])
         .output()
         .unwrap();
@@ -360,7 +370,13 @@ fn test_reduce_via_infer_target() {
 
     let path_file = std::env::temp_dir().join("pred_test_reduce_via_infer_path.json");
     let path_out = pred()
-        .args(["path", "MIS", "QUBO", "-o", path_file.to_str().unwrap()])
+        .args([
+            "path",
+            "MIS/SimpleGraph/i32",
+            "QUBO",
+            "-o",
+            path_file.to_str().unwrap(),
+        ])
         .output()
         .unwrap();
     assert!(path_out.status.success());
@@ -1461,7 +1477,10 @@ fn test_path_all_overall_overhead() {
         .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    let paths: Vec<serde_json::Value> = serde_json::from_str(&stdout).unwrap();
+    let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let paths = envelope["paths"]
+        .as_array()
+        .expect("should have paths array");
     assert!(!paths.is_empty());
     for (i, p) in paths.iter().enumerate() {
         assert!(
@@ -1476,17 +1495,25 @@ fn test_path_all_overall_overhead() {
             i + 1
         );
     }
+    // Verify envelope metadata
+    assert!(envelope["returned"].is_number());
+    assert!(envelope["max_paths"].is_number());
+    assert!(envelope["truncated"].is_boolean());
 }
 
 #[test]
 fn test_path_single_step_no_overall_text() {
     // Single-step path should NOT show the Overall section
-    let output = pred().args(["path", "MIS", "MVC"]).output().unwrap();
+    // MaxCut -> SpinGlass is a genuine 1-step path with matching default variants
+    let output = pred()
+        .args(["path", "MaxCut", "SpinGlass"])
+        .output()
+        .unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
         !stdout.contains("Overall"),
-        "single-step path should not show Overall"
+        "single-step path should not show Overall, got: {stdout}"
     );
 }
 
@@ -3083,4 +3110,163 @@ fn test_create_rule_example_mvc_to_mis_round_trips_into_solve() {
     );
 
     std::fs::remove_file(&path).ok();
+}
+
+// ---- Type-level show semantics ----
+
+#[test]
+fn test_show_rejects_slash_spec() {
+    // `pred show MIS/UnitDiskGraph` should fail because show is type-level
+    let output = pred().args(["show", "MIS/UnitDiskGraph"]).output().unwrap();
+    assert!(!output.status.success(), "show with slash spec should fail");
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("type level"),
+        "error should mention type level: {stderr}"
+    );
+}
+
+#[test]
+fn test_show_marks_default() {
+    // `pred show MIS` should annotate the default variant with "(default)"
+    let output = pred().args(["show", "MIS"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("(default)"),
+        "should mark the default variant: {stdout}"
+    );
+}
+
+#[test]
+fn test_show_3sat_works() {
+    // `pred show 3SAT` should succeed (alias resolves to KSatisfiability at type level)
+    let output = pred().args(["show", "3SAT"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("KSatisfiability"),
+        "should show KSatisfiability: {stdout}"
+    );
+}
+
+// ---- Capped multi-path ----
+
+#[test]
+fn test_path_all_max_paths_truncates() {
+    // With --max-paths 3, should limit to 3 paths and indicate truncation
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--all", "--max-paths", "3", "--json"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let envelope: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let paths = envelope["paths"]
+        .as_array()
+        .expect("should have paths array");
+    assert!(
+        paths.len() <= 3,
+        "should return at most 3 paths, got {}",
+        paths.len()
+    );
+    assert_eq!(envelope["max_paths"], 3);
+    // MIS -> QUBO has many paths, so truncation is expected
+    assert_eq!(
+        envelope["truncated"], true,
+        "should be truncated since MIS->QUBO has many paths"
+    );
+}
+
+#[test]
+fn test_path_all_max_paths_text_truncation_note() {
+    let output = pred()
+        .args(["path", "MIS", "QUBO", "--all", "--max-paths", "2"])
+        .output()
+        .unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("--max-paths"),
+        "truncation note should mention --max-paths: {stdout}"
+    );
+}
+
+// ---- Default variant resolution for create ----
+
+#[test]
+fn test_create_bare_mis_default_variant() {
+    // `pred create MIS --graph 0-1,1-2,2-3` should work with default variant
+    let output = pred()
+        .args(["create", "MIS", "--graph", "0-1,1-2,2-3"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+}
+
+// ---- Show JSON includes default annotation ----
+
+#[test]
+fn test_show_json_has_default_field() {
+    let output = pred().args(["show", "MIS", "--json"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    let variants = json["variants"].as_array().expect("should have variants");
+    // At least one variant should be marked as default
+    let has_default = variants.iter().any(|v| v["default"] == true);
+    assert!(has_default, "at least one variant should be default");
+    // Only one variant should be marked as default
+    let default_count = variants.iter().filter(|v| v["default"] == true).count();
+    assert_eq!(default_count, 1, "exactly one variant should be default");
+}
+
+// ---- path --all directory output includes manifest ----
+
+#[test]
+fn test_path_all_save_manifest() {
+    let dir = std::env::temp_dir().join("pred_test_all_paths_manifest");
+    let _ = std::fs::remove_dir_all(&dir);
+    let output = pred()
+        .args([
+            "path",
+            "MaxCut",
+            "QUBO",
+            "--all",
+            "-o",
+            dir.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(dir.is_dir());
+
+    let manifest_file = dir.join("manifest.json");
+    assert!(manifest_file.exists(), "manifest.json should be created");
+    let manifest_content = std::fs::read_to_string(&manifest_file).unwrap();
+    let manifest: serde_json::Value = serde_json::from_str(&manifest_content).unwrap();
+    assert!(manifest["paths"].is_number());
+    assert!(manifest["max_paths"].is_number());
+    assert!(manifest["truncated"].is_boolean());
+
+    std::fs::remove_dir_all(&dir).ok();
 }

@@ -525,6 +525,41 @@ impl ReductionGraph {
             .collect()
     }
 
+    /// Find up to `limit` simple paths between two specific problem variants.
+    ///
+    /// Like [`find_all_paths`](Self::find_all_paths) but stops enumeration after
+    /// collecting `limit` paths. This avoids combinatorial explosion on dense graphs.
+    pub fn find_paths_up_to(
+        &self,
+        source: &str,
+        source_variant: &BTreeMap<String, String>,
+        target: &str,
+        target_variant: &BTreeMap<String, String>,
+        limit: usize,
+    ) -> Vec<ReductionPath> {
+        let src = match self.lookup_node(source, source_variant) {
+            Some(idx) => idx,
+            None => return vec![],
+        };
+        let dst = match self.lookup_node(target, target_variant) {
+            Some(idx) => idx,
+            None => return vec![],
+        };
+
+        let paths: Vec<Vec<NodeIndex>> = all_simple_paths::<
+            Vec<NodeIndex>,
+            _,
+            std::hash::RandomState,
+        >(&self.graph, src, dst, 0, None)
+        .take(limit)
+        .collect();
+
+        paths
+            .iter()
+            .map(|p| self.node_path_to_reduction_path(p))
+            .collect()
+    }
+
     /// Check if a direct reduction exists from S to T.
     pub fn has_direct_reduction<S: crate::traits::Problem, T: crate::traits::Problem>(
         &self,

@@ -3,7 +3,7 @@ use crate::dispatch::{
     ReductionBundle,
 };
 use crate::output::OutputConfig;
-use crate::problem_name::parse_problem_spec;
+use crate::problem_name::{parse_problem_spec, resolve_problem_ref};
 use anyhow::{Context, Result};
 use problemreductions::rules::{MinimizeSteps, ReductionGraph, ReductionPath, ReductionStep};
 use problemreductions::types::ProblemSize;
@@ -106,36 +106,18 @@ pub fn reduce(
                    pred reduce problem.json --via path.json"
             )
         })?;
-        let dst_spec = parse_problem_spec(target)?;
-        let dst_variants = graph.variants_for(&dst_spec.name);
-        if dst_variants.is_empty() {
-            anyhow::bail!(
-                "{}",
-                crate::problem_name::unknown_problem_error(&dst_spec.name)
-            );
-        }
+        let dst_ref = resolve_problem_ref(target, &graph)?;
 
         // Auto-discover cheapest path
         let input_size = ProblemSize::new(vec![]);
-        let mut best_path = None;
-
-        for dv in &dst_variants {
-            if let Some(p) = graph.find_cheapest_path(
-                source_name,
-                &source_variant,
-                &dst_spec.name,
-                dv,
-                &input_size,
-                &MinimizeSteps,
-            ) {
-                let is_better = best_path
-                    .as_ref()
-                    .is_none_or(|bp: &ReductionPath| p.len() < bp.len());
-                if is_better {
-                    best_path = Some(p);
-                }
-            }
-        }
+        let best_path = graph.find_cheapest_path(
+            source_name,
+            &source_variant,
+            &dst_ref.name,
+            &dst_ref.variant,
+            &input_size,
+            &MinimizeSteps,
+        );
 
         best_path.ok_or_else(|| {
             anyhow::anyhow!(
@@ -144,9 +126,9 @@ pub fn reduce(
                    pred path {} {} -o path.json\n\
                    pred reduce {} --via path.json -o reduced.json",
                 source_name,
-                dst_spec.name,
+                dst_ref.name,
                 source_name,
-                dst_spec.name,
+                dst_ref.name,
                 input.display(),
             )
         })?

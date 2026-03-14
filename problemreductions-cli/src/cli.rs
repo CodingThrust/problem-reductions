@@ -58,13 +58,16 @@ Examples:
 Examples:
   pred show MIS                   # using alias
   pred show MaximumIndependentSet # full name
-  pred show MIS/UnitDiskGraph     # specific graph variant
+  pred show 3SAT                  # alias for KSatisfiability
+
+Note: `show` operates at the type level (no slash suffixes).
+Use `pred to MIS` or `pred from MIS` for variant-level exploration.
 
 Use `pred list` to see all available problem types and aliases.
 Use `pred to MIS --hops 2` to explore what reduces to MIS.
 Use `pred from QUBO --hops 1` to explore what QUBO reduces to.")]
     Show {
-        /// Problem name or alias (e.g., MIS, QUBO, MIS/UnitDiskGraph)
+        /// Problem name or alias (e.g., MIS, QUBO, 3SAT)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         problem: String,
     },
@@ -126,6 +129,9 @@ Use `pred list` to see available problems.")]
         /// Show all paths instead of just the cheapest
         #[arg(long)]
         all: bool,
+        /// Maximum paths to return in --all mode
+        #[arg(long, default_value_t = 20)]
+        max_paths: usize,
     },
 
     /// Export the reduction graph to JSON
