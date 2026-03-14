@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 include!("../../jl_helpers.rs");
@@ -115,4 +115,20 @@ fn test_is_valid_solution() {
     assert!(problem.is_valid_solution(&[1, 1, 1]));
     // Invalid: only set 1 ({1,2}) doesn't cover 0 and 3
     assert!(!problem.is_valid_solution(&[0, 1, 0]));
+}
+
+#[test]
+fn test_setcovering_paper_example() {
+    // Paper: U=5, sets {0,1,2},{1,3},{2,3,4}, min cover {S_0,S_2}, weight=2
+    let problem = MinimumSetCovering::<i32>::new(5, vec![
+        vec![0, 1, 2], vec![1, 3], vec![2, 3, 4],
+    ]);
+    let config = vec![1, 0, 1]; // {S_0, S_2} covers all of {0,1,2,3,4}
+    let result = problem.evaluate(&config);
+    assert!(result.is_valid());
+    assert_eq!(result.unwrap(), 2);
+
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), 2);
 }

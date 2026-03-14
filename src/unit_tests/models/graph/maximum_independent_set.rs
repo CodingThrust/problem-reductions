@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::Direction;
@@ -181,4 +181,40 @@ fn test_size_getters() {
     );
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
+}
+
+#[test]
+fn test_mis_paper_example() {
+    // Paper: Petersen graph, MIS = {v_1, v_3, v_5, v_9}, weight = 4
+    let graph = SimpleGraph::new(
+        10,
+        vec![
+            (0, 1),
+            (1, 2),
+            (2, 3),
+            (3, 4),
+            (4, 0), // outer
+            (5, 7),
+            (7, 9),
+            (9, 6),
+            (6, 8),
+            (8, 5), // inner
+            (0, 5),
+            (1, 6),
+            (2, 7),
+            (3, 8),
+            (4, 9), // spokes
+        ],
+    );
+    let problem = MaximumIndependentSet::new(graph, vec![1i32; 10]);
+    // MIS = {1,3,5,9} -> config
+    let config = vec![0, 1, 0, 1, 0, 1, 0, 0, 0, 1];
+    let result = problem.evaluate(&config);
+    assert!(result.is_valid());
+    assert_eq!(result.unwrap(), 4);
+
+    // Verify this is optimal
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), 4);
 }

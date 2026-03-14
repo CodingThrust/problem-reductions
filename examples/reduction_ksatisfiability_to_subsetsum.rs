@@ -114,8 +114,8 @@ pub fn run() {
             variant: target_variant,
             instance: serde_json::json!({
                 "num_elements": subsetsum.num_elements(),
-                "sizes": subsetsum.sizes(),
-                "target": subsetsum.target(),
+                "sizes": subsetsum.sizes().iter().map(ToString::to_string).collect::<Vec<_>>(),
+                "target": subsetsum.target().to_string(),
             }),
         },
         overhead: overhead_to_json(&overhead),

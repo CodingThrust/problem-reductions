@@ -20,9 +20,14 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("KSAT", "KSatisfiability"),
     ("TSP", "TravelingSalesman"),
     ("CVP", "ClosestVectorProblem"),
+    ("RPP", "RuralPostman"),
     ("LCS", "LongestCommonSubsequence"),
     ("MaxMatching", "MaximumMatching"),
+    ("OLA", "OptimalLinearArrangement"),
     ("FVS", "MinimumFeedbackVertexSet"),
+    ("SCS", "ShortestCommonSupersequence"),
+    ("FAS", "MinimumFeedbackArcSet"),
+    ("pmedian", "MinimumSumMulticenter"),
 ];
 
 /// Resolve a short alias to the canonical problem name.
@@ -35,6 +40,7 @@ pub fn resolve_alias(input: &str) -> String {
         "ksat" | "ksatisfiability" => "KSatisfiability".to_string(),
         "qubo" => "QUBO".to_string(),
         "graphpartitioning" => "GraphPartitioning".to_string(),
+        "isomorphicspanningtree" => "IsomorphicSpanningTree".to_string(),
         "maxcut" => "MaxCut".to_string(),
         "spinglass" => "SpinGlass".to_string(),
         "ilp" => "ILP".to_string(),
@@ -49,15 +55,24 @@ pub fn resolve_alias(input: &str) -> String {
         "kcoloring" => "KColoring".to_string(),
         "maximalis" => "MaximalIS".to_string(),
         "travelingsalesman" | "tsp" => "TravelingSalesman".to_string(),
+        "ruralpostman" | "rpp" => "RuralPostman".to_string(),
         "paintshop" => "PaintShop".to_string(),
         "bmf" => "BMF".to_string(),
         "bicliquecover" => "BicliqueCover".to_string(),
         "binpacking" => "BinPacking".to_string(),
         "cvp" | "closestvectorproblem" => "ClosestVectorProblem".to_string(),
         "knapsack" => "Knapsack".to_string(),
+        "optimallineararrangement" | "ola" => "OptimalLinearArrangement".to_string(),
+        "subgraphisomorphism" => "SubgraphIsomorphism".to_string(),
+        "partitionintotriangles" => "PartitionIntoTriangles".to_string(),
         "lcs" | "longestcommonsubsequence" => "LongestCommonSubsequence".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
+        "flowshopscheduling" => "FlowShopScheduling".to_string(),
+        "fas" | "minimumfeedbackarcset" => "MinimumFeedbackArcSet".to_string(),
+        "minimumsummulticenter" | "pmedian" => "MinimumSumMulticenter".to_string(),
         "subsetsum" => "SubsetSum".to_string(),
+        "scs" | "shortestcommonsupersequence" => "ShortestCommonSupersequence".to_string(),
+        "hamiltonianpath" => "HamiltonianPath".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
 }

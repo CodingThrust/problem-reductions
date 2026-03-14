@@ -149,12 +149,65 @@ Required tests:
 - `test_<name>_direction` -- verify optimization direction (if optimization problem)
 - `test_<name>_serialization` -- round-trip serde test (optional but recommended)
 - `test_<name>_solver` -- verify brute-force solver finds correct solutions
+- `test_<name>_paper_example` -- **use the same instance from the paper example** (Step 6), verify the claimed solution is valid/optimal and the solution count matches
+
+The `test_<name>_paper_example` test is critical for consistency between code and paper. It must:
+1. Construct the exact same instance shown in the paper's example figure
+2. Evaluate the solution shown in the paper and assert it is valid (and optimal for optimization problems)
+3. Use `BruteForce` to find all optimal/satisfying solutions and assert the count matches the paper's claim
+
+This test should be written **after** Step 6 (paper entry), once the example instance and solution are finalized. If writing tests before the paper, use the same instance you plan to use in the paper and come back to verify consistency.
 
 Link the test file via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the model file.
 
+## Step 5.5: Add trait_consistency entry
+
+Add the new problem to `src/unit_tests/trait_consistency.rs`:
+
+1. **`test_all_problems_implement_trait_correctly`** — add a `check_problem_trait(...)` call with a small instance
+2. **`test_direction`** (optimization problems only) — add an `assert_eq!(...direction(), Direction::Minimize/Maximize)` entry
+
+This is **required** for every new model — it ensures the Problem trait implementation is well-formed.
+
 ## Step 6: Document in paper
 
-Invoke the `/write-model-in-paper` skill to write the problem-def entry in `docs/paper/reductions.typ`. That skill covers the full authoring process: formal definition, background, example with visualization, algorithm list, and verification checklist.
+Write a `problem-def` entry in `docs/paper/reductions.typ`. **Reference example:** search for `problem-def("MaximumIndependentSet")` to see the gold-standard entry — use it as a template.
+
+### 6a. Register display name
+
+Add to the `display-name` dictionary near the top of `reductions.typ`:
+```typst
+"ProblemName": [Display Name],
+```
+
+### 6b. Write formal definition (`def` parameter)
+
+```typst
+#problem-def("ProblemName")[
+  Given [inputs with domains], find [solution] [maximizing/minimizing] [objective] such that [constraints].
+][
+```
+Requirements: introduce all inputs first, state the objective, define all notation before use.
+
+### 6c. Write body (background + example)
+
+The body goes AFTER auto-generated sections (complexity table, reductions, schema). Four parts:
+
+**Background (1-3 sentences):** Historical context, applications, structural properties.
+
+**Best known algorithms:** Integrate naturally into prose with citations. Every complexity claim MUST have `@citation`. If best known is brute-force, add `#footnote[No algorithm improving on brute-force is known for ...]`.
+
+**Example with visualization:** A concrete small instance with a CeTZ diagram. For graph problems, use `g-node()` and `g-edge()` helpers — see the MaximumIndependentSet entry. Highlight solution with `graph-colors.at(0)`.
+
+**Evaluation:** Show the objective/verifier computed on the example solution (can be woven into example text).
+
+### 6d. Build and verify
+
+```bash
+make paper  # Must compile without errors
+```
+
+Checklist: display name registered, notation self-contained, background present, algorithms cited, example with diagram present, evaluation shown, paper compiles.
 
 ## Step 7: Verify
 
@@ -187,3 +240,5 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 | Forgetting CLI create | Must add creation handler in `commands/create.rs` and flags in `cli.rs` |
 | Missing from CLI help table | Must add entry to "Flags by problem type" table in `cli.rs` `after_help` |
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |
+| Forgetting trait_consistency | Must add entry in `test_all_problems_implement_trait_correctly` (and `test_direction` for optimization) in `src/unit_tests/trait_consistency.rs` |
+| Paper example not tested | Must include `test_<name>_paper_example` that verifies the exact instance, solution, and solution count shown in the paper |

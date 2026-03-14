@@ -41,10 +41,13 @@ digraph propose {
     "File issue(s)" [shape=box];
     "Done" [shape=doublecircle];
 
+    "Study conventions" [shape=box];
+
     "Start" -> "Detect type";
-    "Detect type" -> "Brainstorm Model" [label="model"];
-    "Detect type" -> "Brainstorm Rule (standalone)" [label="rule"];
+    "Detect type" -> "Study conventions" [label="model or rule"];
     "Detect type" -> "Start" [label="ask user"];
+    "Study conventions" -> "Brainstorm Model" [label="model"];
+    "Study conventions" -> "Brainstorm Rule (standalone)" [label="rule"];
     "Brainstorm Model" -> "Topology analysis";
     "Topology analysis" -> "Propose rules?";
     "Propose rules?" -> "Brainstorm Rule(s)" [label="yes"];
@@ -77,6 +80,66 @@ AskUserQuestion:
     - label: "New reduction rule"
       description: "Add a reduction between two existing problems"
 ```
+
+---
+
+## Step 1b: Study Conventions
+
+Right after the user picks model or rule, **study at least one existing case** in the relevant category before asking any brainstorming questions. This grounds the conversation in the project's actual conventions and helps produce higher-quality drafts.
+
+### For Models
+
+1. Ask the user a brief orienting question (free text):
+   > "What problem are you thinking of? A name or rough description is enough."
+
+2. Based on the answer, identify the most similar existing problem in the graph. Use `pred list --json` to find candidates, then use `pred show <similar_problem>` to study one in detail:
+
+   ```bash
+   pred show <similar_problem> --json
+   ```
+
+   Also find and read one closed `[Model]` issue in the same category:
+
+   ```bash
+   gh issue list --label model --state closed --limit 20 --json number,title,body | jq '[.[] | select(.title | test("<keyword>"; "i"))] | .[0]'
+   ```
+
+   If no keyword match, just read the most recent closed model issue to see the template conventions.
+
+3. **Note internally** (do not dump raw output to the user):
+   - What fields / size fields the similar problem has
+   - How the issue defines variables, schema, complexity
+   - What level of mathematical detail is expected in examples
+   - How the "Reduction Rule Crossref" section is structured
+
+   Use these conventions to guide the brainstorming questions and draft formatting in later steps.
+
+### For Rules
+
+1. Ask the user a brief orienting question (free text):
+   > "Which two problems are you thinking of connecting? Even a rough idea is fine."
+
+2. Based on the answer, study one existing reduction between similar problems. Use `pred neighbors <source_or_target> --json` to find existing reductions, then pick the most relevant one and examine it:
+
+   ```bash
+   pred neighbors <problem> --json
+   ```
+
+   Also find and read one closed `[Rule]` issue in a similar domain:
+
+   ```bash
+   gh issue list --label rule --state closed --limit 20 --json number,title,body | jq '[.[] | select(.title | test("<keyword>"; "i"))] | .[0]'
+   ```
+
+3. **Note internally**:
+   - How the reduction algorithm is structured (numbered steps, symbol definitions)
+   - How the size overhead table is formatted (field names, formulas)
+   - How the example is worked through (source → construction → target → solution)
+   - What references and validation methods are used
+
+   Use these conventions to guide the brainstorming questions and draft formatting in later steps.
+
+> **Key:** This step asks the user only one light question (to orient the search), then does silent research. Do not show the user raw JSON or code output — just absorb the conventions and let them shape your subsequent questions.
 
 ---
 
@@ -114,12 +177,9 @@ Ask questions **one at a time**. Prefer multiple-choice when possible. Use mathe
 
 ### For Models
 
-Work through these topics in order, using `AskUserQuestion` where multiple-choice is natural. Adapt based on answers:
+Work through these topics in order, using `AskUserQuestion` where multiple-choice is natural. Adapt based on answers. (The orienting "What problem?" question was already asked in Step 1b.)
 
-1. **What problem?** — Ask as free text:
-   > "What problem are you thinking of? A name, a description, or even a rough idea is fine."
-
-2. **Why useful?** — Use `AskUserQuestion`:
+1. **Why useful?** — Use `AskUserQuestion`:
    ```
    AskUserQuestion:
      question: "What's the motivation for this problem? Where does it appear?"
@@ -135,7 +195,7 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
          description: "I'll describe the domain"
    ```
 
-3. **Definition** — Use `AskUserQuestion` to clarify problem type, then free text for formal definition:
+2. **Definition** — Use `AskUserQuestion` to clarify problem type, then free text for formal definition. Infer the recommendation from the user's problem description (e.g., "find the largest..." → maximize, "find the smallest..." → minimize, "does there exist..." → satisfaction). Mark the inferred option as "(Recommended)":
    ```
    AskUserQuestion:
      question: "What kind of problem is this?"
@@ -150,7 +210,7 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
    ```
    Then ask: "Can you state the problem formally? What's the input, constraints, and objective?"
 
-4. **Variables** — Use `AskUserQuestion`:
+3. **Variables** — Infer the recommendation from the problem structure (e.g., vertex/edge selection → binary, coloring → k-valued, routing → permutation). Mark the inferred option as "(Recommended)":
    ```
    AskUserQuestion:
      question: "How would you represent a solution? What are the decision variables?"
@@ -166,10 +226,52 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
          description: "I'll describe the variable structure"
    ```
 
-5. **Complexity** — Ask as free text:
-   > "What's the best known exact algorithm? Is the problem NP-hard, and if so, is there a reference?"
-   - Help them find references if unsure (use WebSearch)
-   - Ask for a concrete complexity expression in terms of problem parameters (e.g., O(2^n), O(1.1996^n))
+4. **Complexity & Reference** — Before asking, use WebSearch to research the best known exact algorithms and canonical references for this problem. Then present 3 candidates via `AskUserQuestion`, each combining the complexity bound with its source:
+
+   ```
+   AskUserQuestion:
+     question: "What is the best known exact algorithm for this problem?"
+     header: "Complexity"
+     options:
+       - label: "O(<expression>) — <algorithm/author>"
+         description: "<paper title, year> — <URL>"
+       - label: "O(<expression>) — <algorithm/author>"
+         description: "<paper title, year> — <URL>"
+       - label: "O(<expression>) — <algorithm/author>"
+         description: "<paper title, year> — <URL>"
+       - label: "I know a different bound"
+         description: "I'll provide the complexity, reference, and link"
+   ```
+
+   Requirements:
+   - Use concrete numeric exponents (e.g., `1.1996^n`, not `(2-ε)^n`)
+   - Every option must include a link to the paper or resource
+   - After the user picks one, fetch the BibTeX entry for the chosen reference (from the paper's page, DOI resolver, or Google Scholar) and record it — the BibTeX will be included in the filed issue
+
+5. **Solving strategy** — Before presenting options, analyze the problem to determine the best recommendation based on:
+   - If the problem has linear constraints and a linear objective → recommend ILP
+   - If the problem has binary variables and quadratic interactions → recommend QUBO
+   - If the problem is on a small configuration space or has no natural ILP/QUBO formulation → recommend brute-force
+   - If a well-known specialized algorithm exists (e.g., polynomial-time for matching, 2-SAT) → recommend that
+
+   Mark the recommended option with "(Recommended)" in the label:
+   ```
+   AskUserQuestion:
+     question: "How can this problem be solved computationally?"
+     header: "Solving strategy"
+     options:
+       - label: "<option> (Recommended)"
+         description: "<why this is the best fit for this problem>"
+       - label: "<option>"
+         description: "<description>"
+       - label: "<option>"
+         description: "<description>"
+       - label: "Specialized algorithm"
+         description: "A problem-specific algorithm exists — I'll describe it"
+   ```
+   This determines the "How to solve" section in the issue. At least one option is required — check-issue rejects issues without a solver path.
+
+   **Important:** If the user chooses "Reduce to ILP" or "Reduce to QUBO", remind them that this requires a reduction rule issue. Either cross-reference an existing rule issue, or plan to file one as a companion rule (which will be proposed in Step 3b Topology Analysis). The model issue's "How to solve" section must reference the rule issue number.
 
 6. **Example** — Generate 3 candidate examples yourself (varying in size and structure), then present via `AskUserQuestion`:
 
@@ -190,7 +292,7 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
    - Must exercise the problem's core structure
    - Must be small enough to verify by hand
 
-7. **Data representation** — Use `AskUserQuestion`:
+7. **Data representation** — Infer the recommendation from the problem definition (e.g., "vertices and edges" → graph, "rows and columns" → matrix, "universe and subsets" → set system). Mark the inferred option as "(Recommended)":
    ```
    AskUserQuestion:
      question: "What data defines an instance of this problem?"
@@ -206,13 +308,71 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
          description: "I'll describe the input structure"
    ```
 
+8. **Variants** — Based on the data representation answer, ask about applicable variants using `AskUserQuestion`. Only show options that are viable for the problem's input structure. Skip this question entirely if no variants apply (e.g., the problem has a fixed unique input structure like Knapsack, Factoring, SubsetSum).
+
+   **If the input is a graph** (from step 7), ask about graph topology:
+   ```
+   AskUserQuestion:
+     question: "Which graph topologies should this problem support?"
+     header: "Graph topology"
+     multiSelect: true
+     options:
+       - label: "General graphs"
+         description: "No structural restriction (SimpleGraph) — default, almost always needed"
+       - label: "Planar graphs"
+         description: "Graphs embeddable in the plane without edge crossings"
+       - label: "Bipartite graphs"
+         description: "Graphs whose vertices split into two groups with edges only between groups"
+       - label: "Unit disk graphs"
+         description: "Intersection graphs of unit disks in the plane"
+       - label: "Kings subgraph"
+         description: "Subgraphs of the king's graph on a grid"
+       - label: "Triangular subgraph"
+         description: "Subgraphs of the triangular lattice"
+   ```
+   Only include topology options that are meaningful for the problem (e.g., don't offer "Kings subgraph" for a problem that doesn't have special structure on grids).
+
+   **If the problem can be weighted or unweighted**, ask:
+   ```
+   AskUserQuestion:
+     question: "Should this problem support weighted instances?"
+     header: "Weights"
+     options:
+       - label: "Unweighted only"
+         description: "All elements have unit weight — simpler formulation"
+       - label: "Weighted (integers)"
+         description: "Elements have integer weights"
+       - label: "Weighted (real numbers)"
+         description: "Elements have real-valued weights"
+       - label: "Both weighted and unweighted"
+         description: "Support unit weight and integer weight variants"
+   ```
+   Skip this if the problem inherently requires specific numeric values (e.g., QUBO always has a weight matrix, Knapsack always has item values).
+
+   **If the problem has a parameter K** (e.g., K-coloring, K-satisfiability), ask:
+   ```
+   AskUserQuestion:
+     question: "Should K be a fixed constant or a general parameter?"
+     header: "K parameter"
+     options:
+       - label: "General K"
+         description: "K is part of the input — problem is NP-hard for general K"
+       - label: "Fixed small K values"
+         description: "Define variants for specific K (e.g., K=2, K=3) with different complexities"
+       - label: "Both"
+         description: "General K plus specific fixed-K variants with known better algorithms"
+   ```
+   Skip this if the problem has no natural K parameter.
+
+   Record the chosen variants — they will appear in the Schema section of the issue draft (the "Variants" field).
+
 After model brainstorming is complete, proceed to **Step 3b: Topology Analysis**.
 
 ### For Rules (standalone)
 
-Work through these topics in order, using `AskUserQuestion` for each step:
+Work through these topics in order, using `AskUserQuestion` for each step. (The orienting "Which two problems?" question was already asked in Step 1b, and conventions were studied.)
 
-1. **Which problems?** — First run topology analysis (orphans, NP-hardness gaps, `pred list --json`) to identify the most needed rules. Then present suggestions via `AskUserQuestion`:
+1. **Which problems?** — First run topology analysis (orphans, NP-hardness gaps, `pred list --json`) to identify the most needed rules. Incorporate what the user mentioned in Step 1b, then present suggestions via `AskUserQuestion`:
 
    ```
    AskUserQuestion:
@@ -333,7 +493,7 @@ AskUserQuestion:
     - label: "<Source> → <Target>"
       description: "<why valuable>"
     - label: "I'll file rules separately"
-      description: "Skip companion rules for now (model may be flagged as orphan)"
+      description: "⚠ WARNING: A model with no reduction rules is an orphan node and WILL be rejected during review"
 ```
 
 **Ranking criteria** (in order of priority):
@@ -350,9 +510,20 @@ If the user picks one or more rules from Step 3b (or proposes their own):
 
 For **each** selected rule, run through the rule brainstorming flow (algorithm, correctness, overhead, example, reference) — but keep it lighter since the model context is already established.
 
-If the user declines ("I'll file rule issues separately later"):
-- Accept this, but include a placeholder in the model's "Reduction Rule Crossref" section noting which rules are planned
-- Warn: "Note: the model issue will reference planned rules. If no rule issue is filed, the model may be flagged as an orphan during review."
+If the user declines ("I'll file rules separately later"):
+- **Strongly warn** via `AskUserQuestion`:
+  ```
+  AskUserQuestion:
+    question: "A problem with no reduction rules is an orphan node — it will be isolated in the graph and REJECTED during review. Are you sure you want to skip?"
+    header: "⚠ Orphan Warning"
+    options:
+      - label: "Let me propose a rule now"
+        description: "I'll define at least one reduction rule to connect this problem to the graph"
+      - label: "Skip anyway — I'll file rule issues separately"
+        description: "I understand the risk. I will file companion rule issues before review."
+  ```
+- If the user chooses "Let me propose a rule now", go back to Step 3b and let them pick a rule, then brainstorm it.
+- If the user still declines, include a placeholder in the model's "Reduction Rule Crossref" section noting which rules are planned, and add a visible warning in the draft: "⚠ No companion rule filed — this model will be an orphan node until a rule issue is created."
 
 ---
 
@@ -375,18 +546,20 @@ If proposing a model + rules, present all drafts together:
 - Definition (Name, Reference, formal definition)
 - Variables (Count, Per-variable domain, Meaning)
 - Schema (Type name, Variants, Field table — use mathematical types, not programming types)
-- Complexity (expression + citation)
+- Complexity (expression + citation + BibTeX)
 - Extra Remark (if applicable)
 - Reduction Rule Crossref (linking to companion rule issues or noting planned rules)
-- How to solve (brute-force, ILP, or other)
+- How to solve (brute-force, ILP, or other — if ILP/QUBO, must cross-reference rule issue)
 - Example Instance
+- BibTeX (include the BibTeX entry for the complexity/definition reference at the end of the issue)
 
 **For rules**, the draft must include:
-- Source, Target, Motivation, Reference
+- Source, Target, Motivation, Reference (with BibTeX)
 - Reduction Algorithm (numbered steps, all symbols defined)
 - Size Overhead (table with target metrics and formulas)
 - Validation Method
 - Example (fully worked)
+- BibTeX (include the BibTeX entry for the reference at the end of the issue)
 
 ---
 
@@ -474,6 +647,7 @@ Print all issue URLs when done.
 - **One question at a time** — don't overwhelm; each `AskUserQuestion` call has one focused question
 - **Mathematical language only** — never mention Rust types, traits, macros, or code patterns to the user
 - **Help find references** — use WebSearch to help locate papers, verify claims
+- **Always provide a recommendation** — for every `AskUserQuestion` with multiple choices, analyze the problem context and mark one option as "(Recommended)" with a brief reason. Domain experts benefit from an informed default they can override. Base recommendations on the problem description, existing graph topology, and literature conventions.
 - **Suggest, don't prescribe** — if the user is unsure about complexity or reductions, propose candidates and let them choose
 - **Topology-driven suggestions** — run topology analysis first, then populate `AskUserQuestion` options with the most needed reductions ranked by value
 - **Self-check before filing** — catch problems before they reach review

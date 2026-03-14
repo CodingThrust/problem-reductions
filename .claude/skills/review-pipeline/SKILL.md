@@ -182,6 +182,22 @@ Actionable comments include: code suggestions, bug reports, requests for additio
 
 If there are no actionable unaddressed comments: skip to next step.
 
+### 2b. Structural Completeness Check (REQUIRED)
+
+Run `/review-implementation` to catch structural gaps (missing paper entries, missing registrations, missing tests) that Copilot and human reviewers may not flag:
+
+```
+/review-implementation
+```
+
+This dispatches structural + quality subagents with fresh context. If findings include FAIL items:
+
+1. **Auto-fix** structural FAILs (missing registrations, missing test files, etc.)
+2. **For missing paper entries** (checks #15/#16 for models, check #14 for rules): invoke `/write-model-in-paper` or `/write-rule-in-paper` as appropriate — do NOT skip these as "unfixable"
+3. **Commit and push** all fixes before proceeding
+
+If all structural checks pass: continue to next step.
+
 ### 3. Agentic Feature Test (REQUIRED)
 
 **This step is mandatory — do NOT skip or substitute with manual testing.**
@@ -271,6 +287,7 @@ gh pr comment $PR --body "$(cat <<'EOF'
 |-------|--------|
 | Copilot comments | 3 fixed |
 | Issue/human comments | 2 checked, 1 fixed |
+| Structural review | 17/17 passed |
 | CI | green |
 | Agentic test | passed |
 | Board | review-agentic → In Review |
@@ -289,10 +306,10 @@ If `--all` was specified, repeat Steps 1-7 for each PR (including posting a PR c
 ```
 === Review Pipeline Batch Report ===
 
-| PR   | Title                              | Copilot | Issue/Human | CI      | Agentic Test | Board      |
-|------|------------------------------------|---------|-------------|---------|--------------|------------|
-| #570 | Fix #117: [Model] GraphPartitioning| 3 fixed | 1 fixed     | green   | passed       | In Review  |
-| #571 | Fix #97: [Rule] BinPacking to ILP  | 0       | 0           | green   | passed       | In Review  |
+| PR   | Title                              | Copilot | Issue/Human | Structural | CI      | Agentic Test | Board      |
+|------|------------------------------------|---------|-------------|------------|---------|--------------|------------|
+| #570 | Fix #117: [Model] GraphPartitioning| 3 fixed | 1 fixed     | 17/17      | green   | passed       | In Review  |
+| #571 | Fix #97: [Rule] BinPacking to ILP  | 0       | 0           | 14/14      | green   | passed       | In Review  |
 
 Completed: 2/2 | All moved to In Review
 ```
@@ -304,6 +321,7 @@ Completed: 2/2 | All moved to In Review
 | PR not in review-agentic column | Verify status before processing; STOP if not review-agentic |
 | Picking a PR before Copilot has reviewed | Check `pulls/$PR/reviews` for copilot-pull-request-reviewer[bot]; skip if absent |
 | Missing project scopes | Run `gh auth refresh -s read:project,project` |
+| Skipping review-implementation | Always run structural completeness check in Step 2b — it catches gaps Copilot misses (paper entries, CLI registration, trait_consistency) |
 | Skipping agentic tests | Always run test-feature even if CI is green |
 | Not checking out the right branch | Use `gh pr view` to get the exact branch name |
 | Worktree left behind on failure | Always clean up with `git worktree remove` in Step 5 |
