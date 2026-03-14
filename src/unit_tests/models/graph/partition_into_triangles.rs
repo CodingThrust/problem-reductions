@@ -125,3 +125,20 @@ fn test_partitionintotriangles_size_getters() {
     assert_eq!(problem.num_vertices(), 6);
     assert_eq!(problem.num_edges(), 6);
 }
+
+#[test]
+fn test_partitionintotriangles_paper_example() {
+    use crate::traits::Problem;
+    // Paper: 6 vertices, two triangles + cross-edge (0,3)
+    let graph = SimpleGraph::new(
+        6,
+        vec![(0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5), (0, 3)],
+    );
+    let problem = PartitionIntoTriangles::new(graph);
+    // Valid partition: {0,1,2} in group 0, {3,4,5} in group 1
+    assert!(problem.evaluate(&[0, 0, 0, 1, 1, 1]));
+
+    let solver = BruteForce::new();
+    let solution = solver.find_satisfying(&problem);
+    assert!(solution.is_some());
+}

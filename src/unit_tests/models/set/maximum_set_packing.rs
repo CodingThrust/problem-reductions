@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 include!("../../jl_helpers.rs");
@@ -159,4 +159,20 @@ fn test_size_getters() {
 fn test_universe_size_empty() {
     let problem = MaximumSetPacking::<i32>::new(vec![]);
     assert_eq!(problem.universe_size(), 0);
+}
+
+#[test]
+fn test_setpacking_paper_example() {
+    // Paper: U={0..5}, sets {0,1},{1,2},{2,3},{3,4}, max packing {S_0,S_2}
+    let problem = MaximumSetPacking::<i32>::new(vec![
+        vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4],
+    ]);
+    let config = vec![1, 0, 1, 0]; // {S_0, S_2}
+    let result = problem.evaluate(&config);
+    assert!(result.is_valid());
+    assert_eq!(result.unwrap(), 2);
+
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), 2);
 }

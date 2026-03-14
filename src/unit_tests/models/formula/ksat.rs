@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::traits::Problem;
 use crate::variant::{K2, K3, KN};
 include!("../../jl_helpers.rs");
@@ -225,4 +225,19 @@ fn test_size_getters() {
     assert_eq!(problem.num_vars(), 3);
     assert_eq!(problem.num_clauses(), 2);
     assert_eq!(problem.num_literals(), 6); // 3 + 3
+}
+
+#[test]
+fn test_ksat_paper_example() {
+    // Paper: 3-SAT, (x1∨x2∨x3)∧(¬x1∨¬x2∨x3)∧(x1∨¬x2∨¬x3), assignment (1,0,1)
+    let problem = KSatisfiability::<K3>::new(3, vec![
+        CNFClause::new(vec![1, 2, 3]),
+        CNFClause::new(vec![-1, -2, 3]),
+        CNFClause::new(vec![1, -2, -3]),
+    ]);
+    assert!(problem.evaluate(&[1, 0, 1]));
+
+    let solver = BruteForce::new();
+    let solution = solver.find_satisfying(&problem);
+    assert!(solution.is_some());
 }
