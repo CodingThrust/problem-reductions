@@ -149,6 +149,14 @@ Required tests:
 - `test_<name>_direction` -- verify optimization direction (if optimization problem)
 - `test_<name>_serialization` -- round-trip serde test (optional but recommended)
 - `test_<name>_solver` -- verify brute-force solver finds correct solutions
+- `test_<name>_paper_example` -- **use the same instance from the paper example** (Step 6), verify the claimed solution is valid/optimal and the solution count matches
+
+The `test_<name>_paper_example` test is critical for consistency between code and paper. It must:
+1. Construct the exact same instance shown in the paper's example figure
+2. Evaluate the solution shown in the paper and assert it is valid (and optimal for optimization problems)
+3. Use `BruteForce` to find all optimal/satisfying solutions and assert the count matches the paper's claim
+
+This test should be written **after** Step 6 (paper entry), once the example instance and solution are finalized. If writing tests before the paper, use the same instance you plan to use in the paper and come back to verify consistency.
 
 Link the test file via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the model file.
 
@@ -233,3 +241,4 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 | Missing from CLI help table | Must add entry to "Flags by problem type" table in `cli.rs` `after_help` |
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |
 | Forgetting trait_consistency | Must add entry in `test_all_problems_implement_trait_correctly` (and `test_direction` for optimization) in `src/unit_tests/trait_consistency.rs` |
+| Paper example not tested | Must include `test_<name>_paper_example` that verifies the exact instance, solution, and solution count shown in the paper |
