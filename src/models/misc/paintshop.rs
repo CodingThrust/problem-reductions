@@ -14,6 +14,9 @@ use std::collections::{HashMap, HashSet};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PaintShop",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Minimize color changes in paint shop sequence",
         fields: &[

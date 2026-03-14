@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "HamiltonianPath",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find a Hamiltonian path in a graph",
         fields: &[

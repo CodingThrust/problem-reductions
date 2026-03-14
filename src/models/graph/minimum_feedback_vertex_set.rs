@@ -13,6 +13,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumFeedbackVertexSet",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find minimum weight feedback vertex set in a directed graph",
         fields: &[

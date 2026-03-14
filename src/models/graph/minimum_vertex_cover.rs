@@ -13,6 +13,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumVertexCover",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find minimum weight vertex cover in a graph",
         fields: &[

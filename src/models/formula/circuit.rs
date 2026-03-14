@@ -11,6 +11,9 @@ use std::collections::HashMap;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "CircuitSAT",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find satisfying input to a boolean circuit",
         fields: &[

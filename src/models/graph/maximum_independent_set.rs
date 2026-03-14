@@ -3,7 +3,7 @@
 //! The Independent Set problem asks for a maximum weight subset of vertices
 //! such that no two vertices in the subset are adjacent.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, One, SolutionSize, WeightElement};
@@ -13,6 +13,12 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumIndependentSet",
+        display_name: "Maximum Independent Set",
+        aliases: &["MIS"],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph", "KingsSubgraph", "TriangularSubgraph", "UnitDiskGraph"]),
+            VariantDimension::new("weight", "One", &["One", "i32"]),
+        ],
         module_path: module_path!(),
         description: "Find maximum weight independent set in a graph",
         fields: &[

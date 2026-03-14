@@ -16,6 +16,9 @@ use std::marker::PhantomData;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ILP",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Optimize linear objective subject to linear constraints",
         fields: &[

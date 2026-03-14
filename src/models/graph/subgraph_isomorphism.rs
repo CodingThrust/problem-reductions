@@ -13,6 +13,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "SubgraphIsomorphism",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Determine if host graph G contains a subgraph isomorphic to pattern graph H",
         fields: &[

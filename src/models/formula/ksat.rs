@@ -15,6 +15,9 @@ use super::CNFClause;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "KSatisfiability",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "SAT with exactly k literals per clause",
         fields: &[

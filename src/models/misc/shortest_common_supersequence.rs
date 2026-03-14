@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ShortestCommonSupersequence",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find a common supersequence of bounded length for a set of strings",
         fields: &[

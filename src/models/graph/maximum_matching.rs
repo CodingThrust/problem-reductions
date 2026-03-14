@@ -14,6 +14,9 @@ use std::collections::HashMap;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MaximumMatching",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find maximum weight matching in a graph",
         fields: &[

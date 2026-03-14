@@ -15,6 +15,9 @@ use std::collections::VecDeque;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "RuralPostman",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find a circuit covering required edges with total length at most B (Rural Postman Problem)",
         fields: &[

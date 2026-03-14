@@ -14,6 +14,9 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumDominatingSet",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find minimum weight dominating set in a graph",
         fields: &[

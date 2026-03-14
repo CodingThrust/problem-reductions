@@ -13,6 +13,9 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "BicliqueCover",
+        display_name: "",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Cover bipartite edges with k bicliques",
         fields: &[

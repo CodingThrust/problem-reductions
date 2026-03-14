@@ -46,12 +46,18 @@
 
 mod dyn_problem;
 mod info;
+pub mod problem_ref;
+pub mod problem_type;
 mod schema;
 pub mod variant;
 
 pub use dyn_problem::{DynProblem, LoadedDynProblem, SolveFn};
 pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
-pub use schema::{collect_schemas, FieldInfoJson, ProblemSchemaEntry, ProblemSchemaJson};
+pub use problem_ref::{parse_catalog_problem_ref, require_graph_variant, ProblemRef};
+pub use problem_type::{find_problem_type, find_problem_type_by_alias, problem_types, ProblemType};
+pub use schema::{
+    collect_schemas, FieldInfoJson, ProblemSchemaEntry, ProblemSchemaJson, VariantDimension,
+};
 pub use variant::{find_variant_entry, VariantEntry};
 
 use std::any::Any;
