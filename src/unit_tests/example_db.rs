@@ -1,6 +1,6 @@
 use crate::example_db::{build_model_db, build_rule_db, find_model_example, find_rule_example};
 use crate::export::{ProblemRef, EXAMPLE_DB_VERSION};
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 #[test]
 fn test_build_model_db_contains_curated_examples() {
@@ -124,4 +124,40 @@ fn test_build_rule_db_count_is_42() {
 fn test_build_model_db_count_is_28() {
     let db = build_model_db().expect("model db should build");
     assert_eq!(db.models.len(), 28, "expected 28 canonical model examples");
+}
+
+#[test]
+fn canonical_model_example_ids_are_unique() {
+    let specs = crate::models::graph::canonical_model_example_specs();
+    let specs: Vec<_> = specs
+        .into_iter()
+        .chain(crate::models::formula::canonical_model_example_specs())
+        .chain(crate::models::set::canonical_model_example_specs())
+        .chain(crate::models::algebraic::canonical_model_example_specs())
+        .chain(crate::models::misc::canonical_model_example_specs())
+        .collect();
+    let mut seen = HashSet::new();
+    for spec in &specs {
+        assert!(
+            seen.insert(spec.id),
+            "Duplicate model example id: {}",
+            spec.id
+        );
+    }
+    // Also verify count matches
+    assert_eq!(specs.len(), 28, "expected 28 model specs");
+}
+
+#[test]
+fn canonical_rule_example_ids_are_unique() {
+    let specs = crate::rules::canonical_rule_example_specs();
+    let mut seen = HashSet::new();
+    for spec in &specs {
+        assert!(
+            seen.insert(spec.id),
+            "Duplicate rule example id: {}",
+            spec.id
+        );
+    }
+    assert_eq!(specs.len(), 42, "expected 42 rule specs");
 }

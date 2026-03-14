@@ -270,7 +270,7 @@ impl ReduceTo<CircuitSAT> for Factoring {
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
     use crate::export::SolutionPair;
-    use crate::prelude::{Problem, ReduceTo, ReductionResult};
+    use crate::prelude::{ReduceTo, ReductionResult};
     use crate::solvers::BruteForce;
     use std::collections::HashMap;
 
