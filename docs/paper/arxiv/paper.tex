@@ -78,13 +78,14 @@ We identify three structural barriers that make bridge problems infeasible for h
     Reusable skills encode this knowledge as executable documents that any new contributor or agent can invoke.
 \end{enumerate}
 
-% Placeholder for Fig 1: Scaling Wall
-% \begin{figure}[t]
-%   \centering
-%   % \includegraphics[width=\columnwidth]{figures/scaling-wall.pdf}
-%   \caption{Scaling wall. Human teams maintain quality up to $\sim$20 components, then hit convention drift, effort exhaustion, and knowledge discontinuity. Agents constrained by systematic verification break through all three barriers.}
-%   \label{fig:scaling-wall}
-% \end{figure}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/scaling-wall.pdf}
+  \caption{Human teams maintain quality up to $\sim$20 components, then hit three barriers: convention drift, effort exhaustion, and knowledge discontinuity.
+    Agents constrained by systematic verification break through all three.
+    The Julia predecessor reached 20~problem types in four years; this work reached 27 in nine weeks.}
+  \label{fig:scaling-wall}
+\end{figure}
 
 AI coding agents can break through these barriers, but only if their output is constrained to match contributor-specified ground truth.
 A contributor supplies the creative elements: which problems matter, what the formal definitions are, which examples reveal correctness.
@@ -146,15 +147,14 @@ Open-source contribution, traditionally gated by the ability to absorb a project
 The natural concern is correctness: how can agent-written mathematical software be trusted?
 Our answer is that contributor-specified ground truth flows through a verification stack that constrains what agents can produce.
 
-% Placeholder for Fig 2: Verification Funnel
-% \begin{figure}[t]
-%   \centering
-%   % \includegraphics[width=\columnwidth]{figures/verification-funnel.pdf}
-%   \caption{Verification funnel.
-%     Agent-generated code is progressively filtered: the type system rejects structural errors, round-trip tests reject semantic errors, overhead validation rejects incorrect complexity claims, and agentic feature tests reject usability issues.
-%     Only code matching contributor-specified ground truth survives.}
-%   \label{fig:verification-funnel}
-% \end{figure}
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/verification-funnel.pdf}
+  \caption{Verification funnel.
+    Agent-generated code is progressively filtered: the type system rejects structural errors, round-trip tests reject semantic errors, overhead validation rejects incorrect complexity claims, and agentic feature tests reject usability issues.
+    Only code matching contributor-specified ground truth survives.}
+  \label{fig:verification-funnel}
+\end{figure}
 
 A contributor supplies the creative elements that define correctness: formal problem definitions, worked examples with known solutions, and expected overhead formulas.
 These flow through four verification layers:
@@ -451,7 +451,16 @@ Mar 13 (current) & 27 & 45 & 114 & 45 \\
 \end{tabular}
 \end{table}
 
-\Cref{tab:growth} traces the growth across three phases.
+\begin{figure}[t]
+  \centering
+  \includegraphics[width=\columnwidth]{figures/timeline.pdf}
+  \caption{Cumulative growth of problem types and reduction rules over nine weeks.
+    Background bands mark three development phases: manual (Phase~1), basic skills (Phase~2), and full pipeline (Phase~3).
+    The Julia predecessor's four-year trajectory is shown for comparison.}
+  \label{fig:timeline}
+\end{figure}
+
+\Cref{tab:growth} and \Cref{fig:timeline} trace the growth across three phases.
 \textbf{Phase~1 (Manual, 35~PRs)}: no skills; the maintainer issued step-by-step commands, established the architecture, and ported reductions from the predecessor Julia package.
 \textbf{Phase~2 (Basic skills, 9~PRs)}: initial \texttt{add-model}/\texttt{add-rule} skills reduced per-task human involvement.
 \textbf{Phase~3 (Full pipeline, 15~PRs)}: complete skill library with orchestration, quality gates, and multi-agent review.
