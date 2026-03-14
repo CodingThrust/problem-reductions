@@ -3004,3 +3004,83 @@ fn test_create_geometry_graph_missing_positions() {
         "should mention --positions: {stderr}"
     );
 }
+
+// ---- Round-trip: canonical examples through solve ----
+
+#[test]
+fn test_create_model_example_mis_round_trips_into_solve() {
+    let path = std::env::temp_dir().join(format!(
+        "pred_test_model_example_mis_{}.json",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let create = pred()
+        .args([
+            "create",
+            "--example",
+            "MIS/SimpleGraph/i32",
+            "-o",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create.stderr)
+    );
+
+    let solve = pred()
+        .args(["solve", path.to_str().unwrap(), "--solver", "brute-force"])
+        .output()
+        .unwrap();
+    assert!(
+        solve.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&solve.stderr)
+    );
+
+    std::fs::remove_file(&path).ok();
+}
+
+#[test]
+fn test_create_rule_example_mvc_to_mis_round_trips_into_solve() {
+    let path = std::env::temp_dir().join(format!(
+        "pred_test_rule_example_mvc_to_mis_{}.json",
+        std::time::SystemTime::now()
+            .duration_since(std::time::UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    let create = pred()
+        .args([
+            "create",
+            "--example",
+            "MVC/SimpleGraph/i32",
+            "--to",
+            "MIS/SimpleGraph/i32",
+            "-o",
+            path.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create.stderr)
+    );
+
+    let solve = pred()
+        .args(["solve", path.to_str().unwrap(), "--solver", "brute-force"])
+        .output()
+        .unwrap();
+    assert!(
+        solve.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&solve.stderr)
+    );
+
+    std::fs::remove_file(&path).ok();
+}
