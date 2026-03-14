@@ -1,3 +1,10 @@
+//! Canonical example database assembly.
+//!
+//! This module currently builds the canonical `RuleDb` through a temporary
+//! compatibility bridge that reuses the legacy `examples/reduction_*.rs`
+//! exporters. The intended end state is pure in-memory builders with no
+//! filesystem round-trip.
+
 use crate::error::{ProblemError, Result};
 use crate::export::{
     examples_output_dir, ModelDb, ModelExample, ProblemRef, RuleDb, RuleExample, EXAMPLE_DB_VERSION,
@@ -8,6 +15,9 @@ use std::io::Write;
 use std::path::PathBuf;
 use std::sync::{Mutex, OnceLock};
 use std::time::{SystemTime, UNIX_EPOCH};
+
+mod model_builders;
+mod rule_builders;
 
 struct LegacyRuleEntry {
     file_stem: &'static str,
@@ -377,6 +387,10 @@ fn rule_key(example: &RuleExample) -> (ProblemRef, ProblemRef) {
     (example.source.problem_ref(), example.target.problem_ref())
 }
 
+fn model_key(example: &ModelExample) -> ProblemRef {
+    example.problem_ref()
+}
+
 fn validate_rule_uniqueness(rules: &[RuleExample]) -> Result<()> {
     let mut seen = BTreeSet::new();
     for rule in rules {
@@ -391,11 +405,22 @@ fn validate_rule_uniqueness(rules: &[RuleExample]) -> Result<()> {
     Ok(())
 }
 
-pub fn build_rule_db() -> Result<RuleDb> {
-    let mut rules = Vec::with_capacity(LEGACY_RULES.len());
-    for entry in LEGACY_RULES {
-        rules.push(build_legacy_rule(entry)?);
+fn validate_model_uniqueness(models: &[ModelExample]) -> Result<()> {
+    let mut seen = BTreeSet::new();
+    for model in models {
+        let key = model_key(model);
+        if !seen.insert(key.clone()) {
+            return Err(ProblemError::InvalidProblem(format!(
+                "Duplicate canonical model example for {} {:?}",
+                key.name, key.variant
+            )));
+        }
     }
+    Ok(())
+}
+
+pub fn build_rule_db() -> Result<RuleDb> {
+    let mut rules = rule_builders::build_rule_examples();
     rules.sort_by_key(rule_key);
     validate_rule_uniqueness(&rules)?;
     Ok(RuleDb {
@@ -405,9 +430,12 @@ pub fn build_rule_db() -> Result<RuleDb> {
 }
 
 pub fn build_model_db() -> Result<ModelDb> {
+    let mut models = model_builders::build_model_examples();
+    models.sort_by_key(model_key);
+    validate_model_uniqueness(&models)?;
     Ok(ModelDb {
         version: EXAMPLE_DB_VERSION,
-        models: Vec::new(),
+        models,
     })
 }
 
@@ -440,3 +468,7 @@ pub fn find_model_example(problem: &ProblemRef) -> Result<ModelExample> {
 pub fn default_generated_dir() -> PathBuf {
     examples_output_dir()
 }
+
+#[cfg(test)]
+#[path = "../unit_tests/example_db.rs"]
+mod tests;

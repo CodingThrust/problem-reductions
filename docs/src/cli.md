@@ -42,7 +42,10 @@ Available backends: `highs` (default), `coin-cbc`, `clarabel`, `scip`, `lpsolve`
 # Create a Maximum Independent Set problem
 pred create MIS --graph 0-1,1-2,2-3 -o problem.json
 
-# Or start from a canonical rule example
+# Or start from a canonical model example
+pred create --example MIS/SimpleGraph/i32 -o example.json
+
+# Or from a canonical rule example
 pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 -o example.json
 
 # Solve it (auto-reduces to ILP)
@@ -246,6 +249,7 @@ pred export-graph -o reduction_graph.json   # save to file
 Construct a problem instance from CLI arguments and save as JSON:
 
 ```bash
+pred create --example MIS/SimpleGraph/i32 -o model.json
 pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 -o problem.json
 pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 --example-side target -o target.json
 pred create MIS --graph 0-1,1-2,2-3 -o problem.json
@@ -260,6 +264,8 @@ pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 ```
 
 Canonical examples are useful when you want a known-good instance from the paper/example database.
+For model examples, `pred create --example <PROBLEM_SPEC>` emits the canonical instance for that
+graph node.
 For rule examples, `pred create --example <SOURCE_SPEC> --to <TARGET_SPEC>` emits the source
 instance by default; use `--example-side target` to emit the reduction target instance instead.
 

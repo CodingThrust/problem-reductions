@@ -1163,9 +1163,27 @@ fn test_create_unknown_example_problem() {
 }
 
 #[test]
-fn test_create_missing_model_example() {
+fn test_create_model_example_mis() {
     let output = pred()
         .args(["create", "--example", "MIS/SimpleGraph/i32"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+}
+
+#[test]
+fn test_create_missing_model_example() {
+    let output = pred()
+        .args(["create", "--example", "GraphPartitioning/SimpleGraph"])
         .output()
         .unwrap();
     assert!(!output.status.success());

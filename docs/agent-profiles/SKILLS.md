@@ -4,6 +4,7 @@ Example generation now goes through the example catalog and dedicated exporter.
 When a workflow needs a paper/example instance, prefer the catalog path over ad hoc `examples/reduction_*.rs` binaries:
 
 - use `make examples` or `cargo run --features "ilp-highs example-db" --example export_examples`
+- use `pred create --example <PROBLEM_SPEC>` to materialize a canonical model example as normal problem JSON
 - use `pred create --example <SOURCE_SPEC> --to <TARGET_SPEC>` to materialize a canonical rule example as normal problem JSON
 - when adding new example coverage, register a catalog entry instead of creating a new standalone reduction example file
 

@@ -29,6 +29,14 @@
   }
 }
 
+#let graph-num-vertices(instance) = instance.graph.inner.nodes.len()
+#let graph-num-edges(instance) = instance.graph.inner.edges.len()
+#let spin-num-spins(instance) = instance.fields.len()
+#let sat-num-clauses(instance) = instance.clauses.len()
+#let subsetsum-num-elements(instance) = instance.sizes.len()
+#let circuit-num-gates(instance) = instance.circuit.assignments.len()
+#let circuit-num-variables(instance) = instance.variables.len()
+
 #let example-name(source, target) = lower(source) + "_to_" + lower(target)
 
 #let problem-schemas = json("../src/reductions/problem_schemas.json")
@@ -1359,7 +1367,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     Source VC: $C = {#mvc_mis_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.source_config.filter(x => x == 1).len()) #h(1em)
     Target IS: $S = {#mvc_mis_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mvc_mis_sol.target_config.filter(x => x == 1).len()) \
-    $|"VC"| + |"IS"| = #mvc_mis.source.instance.num_vertices = |V|$ #sym.checkmark
+    $|"VC"| + |"IS"| = #graph-num-vertices(mvc_mis.source.instance) = |V|$ #sym.checkmark
   ],
 )[
   Vertex cover and independent set are set complements: removing a cover from $V$ leaves vertices with no edges between them (an independent set), and vice versa. Since $|S| + |C| = |V|$ is constant, maximizing one is equivalent to minimizing the other. The reduction preserves the graph and weights unchanged.
@@ -1389,7 +1397,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   extra: [
     Source IS: $S = {#mis_clique_sol.source_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.source_config.filter(x => x == 1).len()) #h(1em)
     Target Clique: $C = {#mis_clique_sol.target_config.enumerate().filter(((i, x)) => x == 1).map(((i, x)) => str(i)).join(", ")}$ (size #mis_clique_sol.target_config.filter(x => x == 1).len()) \
-    Source $|E| = #mis_clique.source.instance.num_edges$, complement $|overline(E)| = #mis_clique.target.instance.num_edges$ #sym.checkmark
+    Source $|E| = #graph-num-edges(mis_clique.source.instance)$, complement $|overline(E)| = #graph-num-edges(mis_clique.target.instance)$ #sym.checkmark
   ],
 )[
   An independent set in $G$ is exactly a clique in the complement graph $overline(G)$: vertices with no edges between them in $G$ are pairwise adjacent in $overline(G)$. Both problems maximize total vertex weight, so optimal values are preserved. This is Karp's classical complement graph reduction.
@@ -1458,7 +1466,7 @@ Each reduction is presented as a *Rule* (with linked problem names and overhead 
   example: true,
   example-caption: [10-spin Ising model on Petersen graph],
   extra: [
-    Source: $n = #sg_qubo.source.instance.num_spins$ spins, $h_i = 0$, couplings $J_(i j) in {plus.minus 1}$ \
+    Source: $n = #spin-num-spins(sg_qubo.source.instance)$ spins, $h_i = 0$, couplings $J_(i j) in {plus.minus 1}$ \
     Mapping: $s_i = 2x_i - 1$ converts spins ${-1, +1}$ to binary ${0, 1}$ \
     Ground state ($#sg_qubo.solutions.len()$-fold degenerate): $bold(x) = (#sg_qubo_sol.target_config.map(str).join(", "))$ #sym.checkmark
   ],
@@ -1580,8 +1588,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [3-SAT with 3 variables and 2 clauses],
   extra: [
-    Source: $n = #ksat_ss.source.instance.num_vars$ variables, $m = #ksat_ss.source.instance.num_clauses$ clauses \
-    Target: #ksat_ss.target.instance.num_elements elements, target $= #ksat_ss.target.instance.target$ \
+    Source: $n = #ksat_ss.source.instance.num_vars$ variables, $m = #sat-num-clauses(ksat_ss.source.instance)$ clauses \
+    Target: #subsetsum-num-elements(ksat_ss.target.instance) elements, target $= #ksat_ss.target.instance.target$ \
     Source config: #ksat_ss_sol.source_config #h(1em) Target config: #ksat_ss_sol.target_config
   ],
 )[
@@ -1625,7 +1633,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [4-variable QUBO with 3 quadratic terms],
   extra: [
     Source: $n = #qubo_ilp.source.instance.num_vars$ binary variables, 3 off-diagonal terms \
-    Target: #qubo_ilp.target.instance.num_vars ILP variables ($#qubo_ilp.source.instance.num_vars$ original $+ #(qubo_ilp.target.instance.num_vars - qubo_ilp.source.instance.num_vars)$ auxiliary), 9 McCormick constraints \
+    Target: #qubo_ilp.target.instance.num_vars ILP variables ($#qubo_ilp.source.instance.num_vars$ original $+ #(qubo_ilp.target.instance.num_vars - qubo_ilp.source.instance.num_vars)$ auxiliary), #qubo_ilp.target.instance.constraints.len() McCormick constraints \
     Optimal: $bold(x) = (#qubo_ilp_sol.source_config.map(str).join(", "))$ ($#qubo_ilp.solutions.len()$-fold degenerate) #sym.checkmark
   ],
 )[
@@ -1650,7 +1658,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [1-bit full adder to ILP],
   extra: [
-    Circuit: #cs_ilp.source.instance.num_gates gates (2 XOR, 2 AND, 1 OR), #cs_ilp.source.instance.num_variables variables \
+    Circuit: #circuit-num-gates(cs_ilp.source.instance) gates (2 XOR, 2 AND, 1 OR), #circuit-num-variables(cs_ilp.source.instance) variables \
     Target: #cs_ilp.target.instance.num_vars ILP variables (circuit vars $+$ auxiliary), trivial objective \
     #cs_ilp.solutions.len() feasible solutions ($= 2^3$ valid input combinations for the full adder) #sym.checkmark
   ],
@@ -1681,8 +1689,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [3-SAT with 5 variables and 7 clauses],
   extra: [
     SAT assignment: $(x_1, ..., x_5) = (#sat_mis_sol.source_config.map(str).join(", "))$ \
-    IS graph: #sat_mis.target.instance.num_vertices vertices ($= 3 times #sat_mis.source.instance.num_clauses$ literals), #sat_mis.target.instance.num_edges edges \
-    IS of size #sat_mis.source.instance.num_clauses $= m$: one vertex per clause $arrow.r$ satisfying assignment #sym.checkmark
+    IS graph: #graph-num-vertices(sat_mis.target.instance) vertices ($= 3 times #sat-num-clauses(sat_mis.source.instance)$ literals), #graph-num-edges(sat_mis.target.instance) edges \
+    IS of size #sat-num-clauses(sat_mis.source.instance) $= m$: one vertex per clause $arrow.r$ satisfying assignment #sym.checkmark
   ],
 )[
   @karp1972 A satisfying assignment must make at least one literal true in every clause, and different clauses cannot assign contradictory values to the same variable. These two requirements map naturally to an independent set problem: _intra-clause cliques_ force exactly one literal per clause to be selected, while _conflict edges_ between complementary literals across clauses enforce consistency. The target IS size equals the number of clauses $m$, so an IS of size $m$ exists iff the formula is satisfiable.
@@ -1705,7 +1713,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [5-variable SAT with 3 unit clauses to 3-coloring],
   extra: [
     SAT assignment: $(x_1, ..., x_5) = (#sat_kc_sol.source_config.map(str).join(", "))$ \
-    Construction: 3 base + $2 times #sat_kc.source.instance.num_vars$ variable gadgets + OR-gadgets $arrow.r$ #sat_kc.target.instance.num_vertices vertices, #sat_kc.target.instance.num_edges edges \
+    Construction: 3 base + $2 times #sat_kc.source.instance.num_vars$ variable gadgets + OR-gadgets $arrow.r$ #graph-num-vertices(sat_kc.target.instance) vertices, #graph-num-edges(sat_kc.target.instance) edges \
     #sat_kc.solutions.len() valid 3-colorings (color symmetry of satisfying assignments) #sym.checkmark
   ],
 )[
@@ -1727,7 +1735,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example-caption: [5-variable 7-clause 3-SAT to dominating set],
   extra: [
     SAT assignment: $(x_1, ..., x_5) = (#sat_ds_sol.source_config.map(str).join(", "))$ \
-    Vertex structure: $#sat_ds.target.instance.num_vertices = 3 times #sat_ds.source.instance.num_vars + #sat_ds.source.instance.num_clauses$ (variable triangles + clause vertices) \
+    Vertex structure: $#graph-num-vertices(sat_ds.target.instance) = 3 times #sat_ds.source.instance.num_vars + #sat-num-clauses(sat_ds.source.instance)$ (variable triangles + clause vertices) \
     Dominating set of size $n = #sat_ds.source.instance.num_vars$: one vertex per variable triangle #sym.checkmark
   ],
 )[
@@ -1754,8 +1762,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [Mixed-size clauses (sizes 1 to 5) to 3-SAT],
   extra: [
-    Source: #sat_ksat.source.instance.num_vars variables, #sat_ksat.source.instance.num_clauses clauses (sizes 1, 2, 3, 3, 4, 5) \
-    Target 3-SAT: $#sat_ksat.target.instance.num_vars = #sat_ksat.source.instance.num_vars + 7$ variables, #sat_ksat.target.instance.num_clauses clauses (small padded, large split) \
+    Source: #sat_ksat.source.instance.num_vars variables, #sat-num-clauses(sat_ksat.source.instance) clauses (sizes 1, 2, 3, 3, 4, 5) \
+    Target 3-SAT: $#sat_ksat.target.instance.num_vars = #sat_ksat.source.instance.num_vars + 7$ variables, #sat-num-clauses(sat_ksat.target.instance) clauses (small padded, large split) \
     First solution: $(x_1, ..., x_5) = (#sat_ksat_sol.source_config.map(str).join(", "))$, auxiliary vars are don't-cares #sym.checkmark
   ],
 )[
@@ -1791,8 +1799,8 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   example: true,
   example-caption: [1-bit full adder to Ising model],
   extra: [
-    Circuit: #cs_sg.source.instance.num_gates gates (2 XOR, 2 AND, 1 OR), #cs_sg.source.instance.num_variables variables \
-    Target: #cs_sg.target.instance.num_spins spins (each gate allocates I/O + auxiliary spins) \
+    Circuit: #circuit-num-gates(cs_sg.source.instance) gates (2 XOR, 2 AND, 1 OR), #circuit-num-variables(cs_sg.source.instance) variables \
+    Target: #spin-num-spins(cs_sg.target.instance) spins (each gate allocates I/O + auxiliary spins) \
     #cs_sg.solutions.len() ground states ($= 2^3$ valid input combinations for the full adder) #sym.checkmark
   ],
 )[
@@ -1828,17 +1836,17 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
   let pow2 = (1, 2, 4, 8, 16, 32)
   range(count).fold(0, (acc, i) => acc + config.at(start + i) * pow2.at(i))
 }
-#let fact-nbf = fact_cs.source.instance.num_bits_first
-#let fact-nbs = fact_cs.source.instance.num_bits_second
+#let fact-nbf = fact_cs.source.instance.m
+#let fact-nbs = fact_cs.source.instance.n
 #reduction-rule("Factoring", "CircuitSAT",
   example: true,
-  example-caption: [Factor $N = #fact_cs.source.instance.number$],
+  example-caption: [Factor $N = #fact_cs.source.instance.target$],
   extra: [
-    Circuit: $#fact-nbf times #fact-nbs$ array multiplier with #fact_cs.target.instance.num_gates gates, #fact_cs.target.instance.num_variables variables \
+    Circuit: $#fact-nbf times #fact-nbs$ array multiplier with #circuit-num-gates(fact_cs.target.instance) gates, #circuit-num-variables(fact_cs.target.instance) variables \
     #fact_cs.solutions.len() solutions: #fact_cs.solutions.map(sol => {
       let p = fact-decode(sol.source_config, 0, fact-nbf)
       let q = fact-decode(sol.source_config, fact-nbf, fact-nbs)
-      $#p times #q = #fact_cs.source.instance.number$
+      $#p times #q = #fact_cs.source.instance.target$
     }).join(" and ") #sym.checkmark
   ],
 )[
@@ -1859,7 +1867,7 @@ where $P$ is a penalty weight large enough that any constraint violation costs m
 
 #let mc_sg = load-example("MaxCut", "SpinGlass")
 #let mc_sg_sol = mc_sg.solutions.at(0)
-#let mc_sg_cut = mc_sg.source.instance.edges.filter(e => mc_sg_sol.source_config.at(e.at(0)) != mc_sg_sol.source_config.at(e.at(1))).len()
+#let mc_sg_cut = mc_sg.source.instance.graph.inner.edges.filter(e => mc_sg_sol.source_config.at(e.at(0)) != mc_sg_sol.source_config.at(e.at(1))).len()
 #reduction-rule("MaxCut", "SpinGlass",
   example: true,
   example-caption: [Petersen graph ($n = 10$, unit weights) to Ising],

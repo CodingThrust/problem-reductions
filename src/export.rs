@@ -106,6 +106,20 @@ pub struct ModelExample {
 }
 
 impl ModelExample {
+    /// Build a serializable model example from a typed problem plus evaluated configs.
+    pub fn from_problem<P>(problem: &P, samples: Vec<SampleEval>, optimal: Vec<SampleEval>) -> Self
+    where
+        P: Problem + Serialize,
+    {
+        Self {
+            problem: P::NAME.to_string(),
+            variant: variant_to_map(P::variant()),
+            instance: serde_json::to_value(problem).expect("Failed to serialize problem instance"),
+            samples,
+            optimal,
+        }
+    }
+
     /// Extract the structural identity of this model example.
     pub fn problem_ref(&self) -> ProblemRef {
         ProblemRef {

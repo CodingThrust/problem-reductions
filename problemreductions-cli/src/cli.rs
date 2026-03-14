@@ -244,6 +244,7 @@ Random generation:
   --random --num-vertices N [--edge-prob 0.5] [--seed 42]
 
 Examples:
+  pred create --example MIS/SimpleGraph/i32
   pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32
   pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 --example-side target
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1

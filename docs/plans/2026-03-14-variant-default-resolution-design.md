@@ -9,7 +9,9 @@ The accepted direction is:
 - Keep slash shorthand such as `MIS`, `MIS/UnitDiskGraph`, and `MIS/UnitDiskGraph/One`.
 - Mark one explicit default variant per problem inside `declare_variants!`.
 - Resolve shorthand by loading the default full variant, then applying slash tokens as dimension updates.
+- Use exact default-to-default semantics everywhere a problem spec denotes a graph node.
 - Throw errors on ambiguity, unknown tokens, duplicate updates to the same dimension, invalid final combinations, and missing defaults.
+- Keep `show` as a type-level command and annotate the declared default variant in its variant listing.
 - Replace loose internal variant handling with a canonical representation that enforces one value per dimension.
 - Tighten reduction entry matching so it is exact and target-aware before any hierarchy-aware fallback.
 
@@ -285,6 +287,53 @@ Given a parsed spec like `MIS/UnitDiskGraph/One`:
 
 This algorithm is deterministic, short to explain, and aligned with user expectations.
 
+## CLI Command Semantics
+
+The CLI should make a clean distinction between commands that operate on exact graph nodes and commands that operate on problem types.
+
+### Node-level commands
+
+These commands take problem specs that resolve to exact `ProblemRef` values:
+
+- `create`
+- `create --example`
+- `to`
+- `from`
+- `path`
+- `reduce --to`
+- MCP tools that accept problem specs
+
+For these commands, bare specs use exact default-to-default semantics. A bare `MIS` means the declared default MIS node, not "all MIS variants" and not "best match among variants". Examples:
+
+- `pred create MIS` uses the default MIS variant.
+- `pred create --example MIS` resolves to the default MIS variant, then looks up the exact canonical example for that node.
+- `pred path MIS QUBO` searches from the default MIS node to the default QUBO node.
+- `pred reduce problem.json --to QUBO` targets the default QUBO node unless the user supplies updates.
+
+This means node-level commands should share one canonical resolver. They should not implement separate variant rules for normal creation, example creation, graph traversal, or MCP.
+
+### Type-level commands
+
+These commands operate on the problem type rather than a single resolved node:
+
+- `list`
+- `show`
+
+`show` should remain a type overview command. It should accept only a problem name or alias, not a slash-qualified node spec. If the user passes `MIS/UnitDiskGraph`, that should be a clear error rather than silently ignoring the suffix.
+
+Within the `show` output, the variants section should annotate the declared default variant explicitly, for example:
+
+```text
+MaximumIndependentSet
+
+Variants (3):
+  MIS/SimpleGraph/One (default)
+  MIS/SimpleGraph/i32
+  MIS/UnitDiskGraph/One
+```
+
+The `(default)` annotation comes from registry metadata, not from list position. Display order may still place the default first for convenience, but ordering is no longer semantic.
+
 ## Implementation Plan
 
 ### Phase 1: Registry and macro support
@@ -302,17 +351,25 @@ This algorithm is deterministic, short to explain, and aligned with user expecta
 
 ### Phase 3: CLI resolver rewrite
 
-- Replace match-by-values logic with default-plus-updates logic.
+- Replace match-by-values logic with one shared default-plus-updates resolver.
+- Reuse that resolver in `create`, `create --example`, graph node commands, `reduce --to`, and MCP tools.
 - Add explicit error handling for ambiguity and duplicate updates.
+- Make bare node specs exact default-to-default operations instead of variant searches.
 - Keep slash syntax unchanged.
 
-### Phase 4: Reduction entry matching cleanup
+### Phase 4: CLI command semantics cleanup
+
+- Keep `show` type-level and reject slash-qualified specs there.
+- Annotate the default variant in `show` output.
+- Remove remaining command-specific variant resolution rules.
+
+### Phase 5: Reduction entry matching cleanup
 
 - Make `find_best_entry()` exact and target-aware.
 - Update export lookup to pass and honor both source and target variants.
 - Remove or sharply limit name-only fallback.
 
-### Phase 5: Tighten invariants
+### Phase 6: Tighten invariants
 
 - Audit callers that assume `variants[0]` is the default.
 - Convert them to explicit default lookup.
@@ -343,6 +400,16 @@ This algorithm is deterministic, short to explain, and aligned with user expecta
 - Unknown token errors.
 - Ambiguous token-to-dimension mapping errors.
 - Final invalid variant combination errors.
+- `pred create --example MIS` uses the same resolved default variant as other node-level commands.
+- `pred path MIS QUBO` resolves source and target as exact default nodes instead of expanding across all variants.
+- `pred reduce problem.json --to QUBO` resolves `QUBO` to the declared default target node.
+
+### CLI command semantics tests
+
+- `pred show MIS` succeeds and lists all declared variants for the problem type.
+- `pred show MIS/UnitDiskGraph` errors because `show` is type-level.
+- `pred show MIS` marks the declared default variant with `(default)`.
+- Node-level commands no longer treat bare specs as existential searches over all variants.
 
 ### Reduction lookup tests
 
