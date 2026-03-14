@@ -43,7 +43,7 @@ pub fn resolve_catalog_problem_ref(
 pub fn parse_problem_spec(input: &str) -> anyhow::Result<ProblemSpec> {
     let parts: Vec<&str> = input.split('/').collect();
     let raw_name = parts[0];
-    let mut variant_values: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+    let variant_values: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
 
     let name = resolve_alias(raw_name);
 
