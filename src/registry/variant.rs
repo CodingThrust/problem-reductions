@@ -1,6 +1,9 @@
 //! Explicit variant registration via inventory.
 
 use std::any::Any;
+use std::collections::BTreeMap;
+
+use crate::registry::dyn_problem::DynProblem;
 
 /// A registered problem variant entry.
 ///
@@ -19,6 +22,12 @@ pub struct VariantEntry {
     pub complexity_eval_fn: fn(&dyn Any) -> f64,
     /// Whether this entry is the declared default variant for its problem.
     pub is_default: bool,
+    /// Factory: deserialize JSON into a boxed dynamic problem (transitional, may be `None`).
+    pub factory: Option<fn(serde_json::Value) -> Result<Box<dyn DynProblem>, serde_json::Error>>,
+    /// Serialize: downcast `&dyn Any` and serialize to JSON (transitional, may be `None`).
+    pub serialize_fn: Option<fn(&dyn Any) -> Option<serde_json::Value>>,
+    /// Solve: downcast `&dyn Any` and brute-force solve (transitional, may be `None`).
+    pub solve_fn: Option<fn(&dyn Any) -> Option<(Vec<usize>, String)>>,
 }
 
 impl VariantEntry {
@@ -26,6 +35,26 @@ impl VariantEntry {
     pub fn variant(&self) -> Vec<(&'static str, &'static str)> {
         (self.variant_fn)()
     }
+
+    /// Get the variant as a `BTreeMap<String, String>`.
+    pub fn variant_map(&self) -> BTreeMap<String, String> {
+        self.variant()
+            .into_iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    }
+}
+
+/// Find a variant entry by exact problem name and exact variant map.
+///
+/// No alias resolution or default fallback. Both `name` and `variant` must match exactly.
+pub fn find_variant_entry(
+    name: &str,
+    variant: &BTreeMap<String, String>,
+) -> Option<&'static VariantEntry> {
+    inventory::iter::<VariantEntry>().find(|entry| {
+        entry.name == name && entry.variant_map() == *variant
+    })
 }
 
 impl std::fmt::Debug for VariantEntry {
