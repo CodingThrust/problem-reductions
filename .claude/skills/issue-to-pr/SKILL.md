@@ -88,6 +88,10 @@ The plan MUST reference the appropriate implementation skill and follow its step
 
 Include the concrete details from the issue (problem definition, reduction algorithm, example, etc.) mapped onto each step.
 
+**Plan batching:** The paper writing step (add-model Step 6 / add-rule Step 5) MUST be in a **separate batch** from the implementation steps, so it gets its own subagent with fresh context. It depends on the implementation being complete (needs exports). Example batch structure for a `[Model]` plan:
+- Batch 1: Steps 1-5.5 (implement model, register, CLI, tests, trait_consistency)
+- Batch 2: Step 6 (write paper entry — depends on batch 1 for exports)
+
 **Solver rules:**
 - Ensure at least one solver is provided in the issue template. Check if the solving strategy is valid. If not, reply under issue to ask for clarification.
 - If the solver uses integer programming, implement the model and ILP reduction rule together.

@@ -7,6 +7,8 @@ description: Use when writing or improving a reduction-rule entry in the Typst p
 
 Full authoring guide for writing a `reduction-rule` entry in `docs/paper/reductions.typ`. Covers Typst mechanics, writing quality, and verification.
 
+> **Note:** This content is also inlined in `add-rule` Step 5 (condensed form). This standalone version has more detail and is useful for improving existing entries.
+
 ## Reference Example
 
 **KColoring → QUBO** in `docs/paper/reductions.typ` is the gold-standard reduction example. Search for `reduction-rule("KColoring", "QUBO"` to see the complete entry. Use it as a template for style, depth, and structure.

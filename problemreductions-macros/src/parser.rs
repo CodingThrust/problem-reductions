@@ -345,8 +345,17 @@ impl ParsedExpr {
             ParsedExpr::Factorial(a) => {
                 let a = a.to_eval_tokens(src_ident);
                 quote! { {
-                    let n = #a as u64;
-                    (1..=n).fold(1.0_f64, |acc, i| acc * i as f64)
+                    let __n = #a;
+                    let __r = __n.round();
+                    if (__n - __r).abs() < 1e-10 && __r >= 0.0 {
+                        let mut __f = 1u64;
+                        let __k = __r as u64;
+                        let mut __i = 2u64;
+                        while __i <= __k { __f = __f.saturating_mul(__i); __i += 1; }
+                        __f as f64
+                    } else {
+                        (2.0 * ::std::f64::consts::PI * __n).sqrt() * (__n / ::std::f64::consts::E).powf(__n)
+                    }
                 } }
             }
         }

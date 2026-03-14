@@ -108,8 +108,13 @@ When both subagents return:
 
 1. **Parse results** -- identify FAIL/ISSUE items from both reports
 2. **Fix automatically** -- structural FAILs (missing registration, missing file), clear semantic issues, Important+ quality issues
-3. **Report to user** -- ambiguous semantic issues, Minor quality items, anything you're unsure about
-4. **Present consolidated report** combining both reviews
+3. **For missing paper entries** -- these are NOT "unfixable". Handle as follows:
+   - Model checks #15/#16 FAIL (missing `display-name` or `problem-def`): follow the paper writing instructions inlined in `add-model` Step 6 (register display name, write formal definition, write body with background + example + visualization, run `make paper`)
+   - Rule check #14 FAIL (missing `reduction-rule`): follow the paper writing instructions inlined in `add-rule` Step 5 (load example data, write theorem body, write proof, write worked example, run `make paper`)
+   - Reference the gold-standard examples: `problem-def("MaximumIndependentSet")` for models, `reduction-rule("KColoring", "QUBO"` for rules
+   - Do NOT skip these or mark as "needs user decision"
+4. **Report to user** -- ambiguous semantic issues, Minor quality items, anything you're unsure about
+5. **Present consolidated report** combining both reviews
 
 ## Step 5: Present Consolidated Report
 

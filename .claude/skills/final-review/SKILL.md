@@ -112,6 +112,7 @@ Verify the PR includes all required components. Check:
 - [ ] `declare_variants!` macro with complexity
 - [ ] Paper section in `docs/paper/reductions.typ` (`problem-def` entry)
 - [ ] `display-name` entry in paper
+- [ ] `trait_consistency.rs` entry in `test_all_problems_implement_trait_correctly` (+ `test_direction` for optimization)
 
 **For [Rule] PRs:**
 - [ ] Reduction implementation (`src/rules/...`)

@@ -42,6 +42,7 @@ Given: problem name `P` = `{PROBLEM_NAME}`, category `C` = `{CATEGORY}`, file st
 | 14 | CLI `resolve_alias` entry | `Grep("{P}", "problemreductions-cli/src/problem_name.rs")` |
 | 15 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
 | 16 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
+| 17 | `trait_consistency` entry | `Grep("{P}", "src/unit_tests/trait_consistency.rs")` |
 
 ## Rule Checklist
 

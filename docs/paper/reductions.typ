@@ -30,6 +30,8 @@
   "MinimumVertexCover": [Minimum Vertex Cover],
   "MaxCut": [Max-Cut],
   "GraphPartitioning": [Graph Partitioning],
+  "HamiltonianPath": [Hamiltonian Path],
+  "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
@@ -55,10 +57,15 @@
   "ClosestVectorProblem": [Closest Vector Problem],
   "RuralPostman": [Rural Postman],
   "LongestCommonSubsequence": [Longest Common Subsequence],
+  "SubsetSum": [Subset Sum],
+  "MinimumFeedbackArcSet": [Minimum Feedback Arc Set],
   "MinimumFeedbackVertexSet": [Minimum Feedback Vertex Set],
   "QuadraticAssignment": [Quadratic Assignment],
+  "ShortestCommonSupersequence": [Shortest Common Supersequence],
+  "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "SubsetSum": [Subset Sum],
+  "FlowShopScheduling": [Flow Shop Scheduling],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -437,6 +444,64 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
   caption: [Graph with $n = 6$ vertices partitioned into $A = {v_0, v_1, v_2}$ (blue) and $B = {v_3, v_4, v_5}$ (red). The 3 crossing edges $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$ are shown in bold red; internal edges are gray.],
 ) <fig:graph-partitioning>
 ]
+#problem-def("HamiltonianPath")[
+  Given a graph $G = (V, E)$, determine whether $G$ contains a _Hamiltonian path_, i.e., a simple path that visits every vertex exactly once.
+][
+  A classical NP-complete decision problem from Garey & Johnson (A1.3 GT39), closely related to _Hamiltonian Circuit_. Finding a Hamiltonian path in $G$ is equivalent to finding a Hamiltonian circuit in an augmented graph $G'$ obtained by adding a new vertex adjacent to all vertices of $G$. The problem remains NP-complete for planar graphs, cubic graphs, and bipartite graphs.
+
+  The best known exact algorithm is Björklund's randomized $O^*(1.657^n)$ "Determinant Sums" method @bjorklund2014, which applies to both Hamiltonian path and circuit. The classical Held--Karp dynamic programming algorithm solves it in $O(n^2 dot 2^n)$ deterministic time.
+
+  Variables: $n = |V|$ values forming a permutation. Position $i$ holds the vertex visited at step $i$. A configuration is satisfying when it forms a valid permutation of all vertices and consecutive vertices are adjacent in $G$.
+]
+#problem-def("IsomorphicSpanningTree")[
+  Given a graph $G = (V, E)$ and a tree $T = (V_T, E_T)$ with $|V| = |V_T|$, determine whether $G$ contains a spanning tree isomorphic to $T$: does there exist a bijection $pi: V_T -> V$ such that for every edge ${u, v} in E_T$, ${pi(u), pi(v)} in E$?
+][
+  A classical NP-complete problem listed as ND8 in Garey & Johnson @garey1979. The Isomorphic Spanning Tree problem strictly generalizes Hamiltonian Path: a graph $G$ has a Hamiltonian path if and only if $G$ contains a spanning tree isomorphic to the path $P_n$. The problem remains NP-complete even when $T$ is restricted to trees of bounded degree @papadimitriou1982.
+
+  Brute-force enumeration of all bijections $pi: V_T -> V$ and checking each against the edge set of $G$ runs in $O(n! dot n)$ time. No substantially faster exact algorithm is known for general instances.
+
+  Variables: $n = |V|$ values forming a permutation. Position $i$ holds the graph vertex that tree vertex $i$ maps to under $pi$. A configuration is satisfying when it forms a valid permutation and every tree edge maps to a graph edge.
+
+  *Example.* Consider $G = K_4$ (the complete graph on 4 vertices) and $T$ the star $S_3$ with center $0$ and leaves ${1, 2, 3}$. Since $K_4$ contains all possible edges, any bijection $pi$ maps the star's edges to edges of $G$. For instance, the identity mapping $pi(i) = i$ gives the spanning tree ${(0,1), (0,2), (0,3)} subset.eq E(K_4)$.
+
+  #figure({
+    let blue = graph-colors.at(0)
+    let gray = luma(200)
+    canvas(length: 1cm, {
+      import draw: *
+      // G = K4 on the left
+      let gv = ((0, 0), (1.5, 0), (1.5, 1.5), (0, 1.5))
+      let ge = ((0,1),(0,2),(0,3),(1,2),(1,3),(2,3))
+      let tree-edges = ((0,1),(0,2),(0,3))
+      for (u, v) in ge {
+        let is-tree = tree-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+        g-edge(gv.at(u), gv.at(v), stroke: if is-tree { 2pt + blue } else { 1pt + gray })
+      }
+      for (k, pos) in gv.enumerate() {
+        let is-center = k == 0
+        g-node(pos, name: "g" + str(k),
+          fill: if is-center { blue } else { white },
+          label: if is-center { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+      }
+      // Arrow
+      content((2.5, 0.75), text(10pt)[$arrow.l.double$])
+      // T = star S3 on the right
+      let tv = ((3.5, 0.75), (5.0, 0), (5.0, 0.75), (5.0, 1.5))
+      let te = ((0,1),(0,2),(0,3))
+      for (u, v) in te {
+        g-edge(tv.at(u), tv.at(v), stroke: 2pt + blue)
+      }
+      for (k, pos) in tv.enumerate() {
+        let is-center = k == 0
+        g-node(pos, name: "t" + str(k),
+          fill: if is-center { blue } else { white },
+          label: if is-center { text(fill: white)[$u_#k$] } else { [$u_#k$] })
+      }
+    })
+  },
+  caption: [Isomorphic Spanning Tree: the graph $G = K_4$ (left) contains a spanning tree isomorphic to the star $S_3$ (right, blue edges). The identity mapping $pi(u_i) = v_i$ embeds all three star edges into $G$. Center vertex $v_0$ shown in blue.],
+  ) <fig:isomorphic-spanning-tree>
+]
 #problem-def("KColoring")[
   Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
 ][
@@ -572,6 +637,16 @@ One of Karp's 21 NP-complete problems ("Feedback Node Set") @karp1972. Applicati
 },
 caption: [A directed graph with FVS $S = {v_0}$ (blue, $w(S) = 1$). Removing $v_0$ breaks both directed cycles $v_0 -> v_1 -> v_2 -> v_0$ and $v_0 -> v_3 -> v_4 -> v_1$, leaving a DAG.],
 ) <fig:fvs-example>
+]
+
+#problem-def("MinimumSumMulticenter")[
+  Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, and a positive integer $K <= |V|$, find a set $P subset.eq V$ of $K$ vertices (centers) that minimizes the total weighted distance $sum_(v in V) w(v) dot d(v, P)$, where $d(v, P) = min_(p in P) d(v, p)$ is the shortest-path distance from $v$ to the nearest center in $P$.
+][
+Also known as the _p-median problem_. This is a classical NP-complete facility location problem from Garey & Johnson (A2 ND51). The goal is to optimally place $K$ service centers (e.g., warehouses, hospitals) to minimize total service cost. NP-completeness was established by Kariv and Hakimi (1979) via transformation from Dominating Set. The problem remains NP-complete even with unit weights and unit edge lengths, but is solvable in polynomial time for fixed $K$ or when $G$ is a tree.
+
+The best known exact algorithm runs in $O^*(2^n)$ time by brute-force enumeration of all $binom(n, K)$ vertex subsets. Constant-factor approximation algorithms exist: Charikar et al. (1999) gave the first constant-factor result, and the best known ratio is $(2 + epsilon)$ by Cohen-Addad et al. (STOC 2022).
+
+Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. A configuration is valid when exactly $K$ centers are selected and all vertices are reachable from at least one center.
 ]
 
 == Set Problems
@@ -1064,6 +1139,145 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   One of Karp's 21 NP-complete problems @karp1972. Subset Sum is the special case of Knapsack where $v_i = w_i$ for all items and we seek an exact sum rather than an inequality. Though NP-complete, it is only _weakly_ NP-hard: a dynamic-programming algorithm runs in $O(n B)$ pseudo-polynomial time. The best known exact algorithm is the $O^*(2^(n slash 2))$ meet-in-the-middle approach of Horowitz and Sahni @horowitz1974.
 
   *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
+]
+
+#problem-def("ShortestCommonSupersequence")[
+  Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| lt.eq K$ such that every string $r_i in R$ is a _subsequence_ of $w$: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|r_i|) lt.eq |w|$ with $w[j_k] = r_i [k]$ for all $k$.
+][
+  A classic NP-complete string problem, listed as problem SR8 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness; #cite(<raiha1981>, form: "prose") showed the problem remains NP-complete even over a binary alphabet ($|Sigma| = 2$). Note that _subsequence_ (characters may be non-contiguous) differs from _substring_ (contiguous block): the Shortest Common Supersequence asks that each input string can be embedded into $w$ by selecting characters in order but not necessarily adjacently.
+
+  For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search over all strings of length at most $K$ takes $O(|Sigma|^K)$ time. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
+
+  *Example.* Let $Sigma = {a, b, c}$ and $R = {"abc", "bac"}$. We seek the shortest string $w$ containing both $"abc"$ and $"bac"$ as subsequences.
+
+  #figure({
+    let w = ("b", "a", "b", "c")
+    let r1 = ("a", "b", "c")       // "abc"
+    let r2 = ("b", "a", "c")       // "bac"
+    let embed1 = (1, 2, 3)         // positions of a, b, c in w (0-indexed)
+    let embed2 = (0, 1, 3)         // positions of b, a, c in w (0-indexed)
+    let blue = graph-colors.at(0)
+    let teal = rgb("#76b7b2")
+    let red = graph-colors.at(1)
+    align(center, stack(dir: ttb, spacing: 0.6cm,
+      // Row 1: the supersequence w
+      stack(dir: ltr, spacing: 0pt,
+        box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt)[$w =$])),
+        ..w.enumerate().map(((i, ch)) => {
+          let is1 = embed1.contains(i)
+          let is2 = embed2.contains(i)
+          let fill = if is1 and is2 { blue.transparentize(60%) } else if is1 { blue.transparentize(80%) } else if is2 { teal.transparentize(80%) } else { white }
+          box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+            align(center + horizon, text(9pt, weight: "bold", ch)))
+        }),
+      ),
+      // Row 2: embedding of r1
+      stack(dir: ltr, spacing: 0pt,
+        box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt, fill: blue)[$r_1 =$])),
+        ..range(w.len()).map(i => {
+          let idx = embed1.position(j => j == i)
+          let ch = if idx != none { r1.at(idx) } else { sym.dot.c }
+          let col = if idx != none { blue } else { luma(200) }
+          box(width: 0.55cm, height: 0.55cm,
+            align(center + horizon, text(9pt, fill: col, weight: if idx != none { "bold" } else { "regular" }, ch)))
+        }),
+      ),
+      // Row 3: embedding of r2
+      stack(dir: ltr, spacing: 0pt,
+        box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt, fill: teal)[$r_2 =$])),
+        ..range(w.len()).map(i => {
+          let idx = embed2.position(j => j == i)
+          let ch = if idx != none { r2.at(idx) } else { sym.dot.c }
+          let col = if idx != none { teal } else { luma(200) }
+          box(width: 0.55cm, height: 0.55cm,
+            align(center + horizon, text(9pt, fill: col, weight: if idx != none { "bold" } else { "regular" }, ch)))
+        }),
+      ),
+    ))
+  },
+  caption: [Shortest Common Supersequence: $w = "babc"$ (length 4) contains $r_1 = "abc"$ (blue, positions 1,2,3) and $r_2 = "bac"$ (teal, positions 0,1,3) as subsequences. Dots mark unused positions in each embedding.],
+  ) <fig:scs>
+
+  The supersequence $w = "babc"$ has length 4 and contains both input strings as subsequences. This is optimal because $"LCS"("abc", "bac") = "ac"$ (length 2), so the shortest common supersequence has length $3 + 3 - 2 = 4$.
+]
+
+#problem-def("MinimumFeedbackArcSet")[
+  Given a directed graph $G = (V, A)$, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$.
+][
+  Feedback Arc Set (FAS) is a classical NP-complete problem from Karp's original list @karp1972 (via transformation from Vertex Cover, as presented in Garey & Johnson GT8). The problem arises in ranking aggregation, sports scheduling, deadlock avoidance, and causal inference. Unlike the undirected analogue (which is trivially polynomial --- the number of non-tree edges in a spanning forest), the directed version is NP-hard due to the richer structure of directed cycles. The best known exact algorithm uses dynamic programming over vertex subsets in $O^*(2^n)$ time, generalizing the Held--Karp TSP technique to vertex ordering problems @bodlaender2012. FAS is fixed-parameter tractable with parameter $k = |A'|$: an $O(4^k dot k! dot n^(O(1)))$ algorithm exists via iterative compression @chen2008. Polynomial-time solvable for planar digraphs via the Lucchesi--Younger theorem @lucchesi1978.
+
+  *Example.* Consider $G$ with $V = {0, 1, 2, 3, 4, 5}$ and arcs $(0 arrow 1), (1 arrow 2), (2 arrow 0), (1 arrow 3), (3 arrow 4), (4 arrow 1), (2 arrow 5), (5 arrow 3), (3 arrow 0)$. This graph contains four directed cycles: $0 arrow 1 arrow 2 arrow 0$, $1 arrow 3 arrow 4 arrow 1$, $0 arrow 1 arrow 3 arrow 0$, and $2 arrow 5 arrow 3 arrow 0 arrow 1 arrow 2$. Removing $A' = {(0 arrow 1), (3 arrow 4)}$ breaks all four cycles (vertex 0 becomes a sink in the residual graph), giving a minimum FAS of size 2.
+]
+
+#problem-def("FlowShopScheduling")[
+  Given $m$ processors and a set $J$ of $n$ jobs, where each job $j in J$ consists of $m$ tasks $t_1 [j], t_2 [j], dots, t_m [j]$ with lengths $ell(t_i [j]) in ZZ^+_0$, and a deadline $D in ZZ^+$, determine whether there exists a permutation schedule $pi$ of the jobs such that all jobs complete by time $D$. Each job must be processed on machines $1, 2, dots, m$ in order, and job $j$ cannot start on machine $i+1$ until its task on machine $i$ is completed.
+][
+  Flow Shop Scheduling is a classical NP-complete problem from Garey & Johnson (A5 SS15), strongly NP-hard for $m >= 3$ @garey1976. For $m = 2$, it is solvable in $O(n log n)$ by Johnson's rule @johnson1954. The problem is fundamental in operations research, manufacturing planning, and VLSI design. When restricted to permutation schedules (same job order on all machines), the search space is $n!$ orderings. The best known exact algorithm for $m = 3$ runs in $O^*(3^n)$ time @shang2018; for general $m$, brute-force over $n!$ permutations gives $O(n! dot m n)$.
+
+  *Example.* Let $m = 3$ machines, $n = 5$ jobs with task lengths:
+  $ ell = mat(
+    3, 4, 2;
+    2, 3, 5;
+    4, 1, 3;
+    1, 5, 4;
+    3, 2, 3;
+  ) $
+  and deadline $D = 25$. The job order $pi = (j_4, j_1, j_5, j_3, j_2)$ (0-indexed: $3, 0, 4, 2, 1$) yields makespan $23 <= 25$, so a feasible schedule exists.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      // Gantt chart for job order [3, 0, 4, 2, 1] on 3 machines
+      // Schedule computed greedily:
+      // M1: j3[0,1], j0[1,4], j4[4,7], j2[7,11], j1[11,13]
+      // M2: j3[1,6], j0[6,10], j4[10,12], j2[12,13], j1[13,16]
+      // M3: j3[6,10], j0[10,12], j4[12,15], j2[15,18], j1[18,23]
+      let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
+      let job-names = ("$j_1$", "$j_2$", "$j_3$", "$j_4$", "$j_5$")
+      let scale = 0.38
+      let row-h = 0.6
+      let gap = 0.15
+
+      // Machine labels
+      for (mi, label) in ("M1", "M2", "M3").enumerate() {
+        let y = -mi * (row-h + gap)
+        content((-0.8, y), text(8pt, label))
+      }
+
+      // Draw schedule blocks: (machine, job-index, start, end)
+      let blocks = (
+        (0, 3, 0, 1), (0, 0, 1, 4), (0, 4, 4, 7), (0, 2, 7, 11), (0, 1, 11, 13),
+        (1, 3, 1, 6), (1, 0, 6, 10), (1, 4, 10, 12), (1, 2, 12, 13), (1, 1, 13, 16),
+        (2, 3, 6, 10), (2, 0, 10, 12), (2, 4, 12, 15), (2, 2, 15, 18), (2, 1, 18, 23),
+      )
+
+      for (mi, ji, s, e) in blocks {
+        let x0 = s * scale
+        let x1 = e * scale
+        let y = -mi * (row-h + gap)
+        rect((x0, y - row-h / 2), (x1, y + row-h / 2),
+          fill: colors.at(ji).transparentize(30%), stroke: 0.4pt + colors.at(ji))
+        content(((x0 + x1) / 2, y), text(6pt, job-names.at(ji)))
+      }
+
+      // Time axis
+      let max-t = 23
+      let y-axis = -2 * (row-h + gap) - row-h / 2 - 0.2
+      line((0, y-axis), (max-t * scale, y-axis), stroke: 0.4pt)
+      for t in (0, 5, 10, 15, 20, 23) {
+        let x = t * scale
+        line((x, y-axis), (x, y-axis - 0.1), stroke: 0.4pt)
+        content((x, y-axis - 0.25), text(6pt, str(t)))
+      }
+      content((max-t * scale / 2, y-axis - 0.5), text(7pt)[$t$])
+
+      // Deadline marker
+      let dl-x = 25 * scale
+      line((dl-x, row-h / 2 + 0.1), (dl-x, y-axis), stroke: (paint: red, thickness: 0.8pt, dash: "dashed"))
+      content((dl-x, row-h / 2 + 0.25), text(6pt, fill: red)[$D = 25$])
+    }),
+    caption: [Flow shop schedule for 5 jobs on 3 machines. Job order $(j_4, j_1, j_5, j_3, j_2)$ achieves makespan 23, within deadline $D = 25$ (dashed red line).],
+  ) <fig:flowshop>
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper

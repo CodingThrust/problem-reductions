@@ -129,7 +129,65 @@ example_fn!(test_<source>_to_<target>, reduction_<source>_to_<target>);
 
 ## Step 5: Document in paper
 
-Invoke the `/write-rule-in-paper` skill to write the reduction-rule entry in `docs/paper/reductions.typ`. That skill covers the full authoring process: complexity citation, self-contained proof, detailed worked example, and verification checklist.
+Write a `reduction-rule` entry in `docs/paper/reductions.typ`. **Reference example:** search for `reduction-rule("KColoring", "QUBO"` to see the gold-standard entry — use it as a template. For a minimal example, see MinimumVertexCover -> MaximumIndependentSet.
+
+### 5a. Load example data
+
+```typst
+#let src_tgt = load-example("<source>_to_<target>")
+#let src_tgt_r = load-results("<source>_to_<target>")
+#let src_tgt_sol = src_tgt_r.solutions.at(0)
+```
+
+### 5b. Write theorem body (rule statement)
+
+```typst
+#reduction-rule("Source", "Target",
+  example: true,
+  example-caption: [Description ($n = ...$, $|E| = ...$)],
+)[
+  This $O(...)$ reduction @citation constructs [target structure] ... ($n k$ variables indexed by ...).
+]
+```
+
+Three parts: complexity with citation, construction summary, overhead hint.
+
+### 5c. Write proof body
+
+Use these subsections with italic labels:
+
+```typst
+][
+  _Construction._ [Full mathematical construction — enough detail to reimplement]
+
+  _Correctness._ ($arrow.r.double$) If ... ($arrow.l.double$) If ...
+
+  _Variable mapping._ [Only if non-trivial mapping]
+
+  _Solution extraction._ [How to convert target solution back to source]
+]
+```
+
+Must be self-contained (all notation defined) and reproducible.
+
+### 5d. Write worked example (extra block)
+
+Step-by-step walkthrough with concrete numbers from JSON data. Required steps:
+1. Show source instance (dimensions, structure, graph visualization if applicable)
+2. Walk through construction with intermediate values
+3. Verify a concrete solution end-to-end
+4. Solution count: `#src_tgt_r.solutions.len()` with combinatorial justification
+
+Use `graph-colors`, `g-node()`, `g-edge()` for graph visualization — see reference examples.
+
+### 5e. Build and verify
+
+```bash
+make examples  # Regenerate example JSON
+make paper     # Must compile without errors
+```
+
+Checklist: notation self-contained, complexity cited, overhead consistent, example uses JSON data (not hardcoded), solution verified end-to-end, solution count stated, paper compiles.
 
 ## Step 6: Regenerate exports and verify
 

@@ -49,10 +49,7 @@ impl Expr {
             Expr::Exp(a) => a.eval(vars).exp(),
             Expr::Log(a) => a.eval(vars).ln(),
             Expr::Sqrt(a) => a.eval(vars).sqrt(),
-            Expr::Factorial(a) => {
-                let n = a.eval(vars) as u64;
-                (1..=n).fold(1.0_f64, |acc, i| acc * i as f64)
-            }
+            Expr::Factorial(a) => gamma_factorial(a.eval(vars)),
         }
     }
 
@@ -201,10 +198,7 @@ impl Expr {
             Expr::Exp(a) => Some(a.constant_value()?.exp()),
             Expr::Log(a) => Some(a.constant_value()?.ln()),
             Expr::Sqrt(a) => Some(a.constant_value()?.sqrt()),
-            Expr::Factorial(a) => {
-                let n = a.constant_value()? as u64;
-                Some((1..=n).fold(1.0_f64, |acc, i| acc * i as f64))
-            }
+            Expr::Factorial(a) => Some(gamma_factorial(a.constant_value()?)),
         }
     }
 }
@@ -342,6 +336,29 @@ impl std::error::Error for CanonicalizationError {}
 /// This is now a compatibility wrapper for `big_o_normal_form()`.
 pub fn asymptotic_normal_form(expr: &Expr) -> Result<Expr, AsymptoticAnalysisError> {
     crate::big_o::big_o_normal_form(expr)
+}
+
+/// Compute factorial for non-negative values.
+///
+/// For non-negative integers, returns the exact integer factorial.
+/// For non-integer values, uses Stirling's approximation of the gamma function:
+/// n! = Γ(n+1) ≈ √(2πn) · (n/e)^n.
+fn gamma_factorial(n: f64) -> f64 {
+    if n < 0.0 {
+        return f64::NAN;
+    }
+    let rounded = n.round();
+    if (n - rounded).abs() < 1e-10 && rounded >= 0.0 {
+        let k = rounded as u64;
+        let mut result = 1u64;
+        for i in 2..=k {
+            result = result.saturating_mul(i);
+        }
+        result as f64
+    } else {
+        // Stirling's approximation: Γ(n+1) ≈ √(2πn) · (n/e)^n
+        (2.0 * std::f64::consts::PI * n).sqrt() * (n / std::f64::consts::E).powf(n)
+    }
 }
 
 // --- Runtime expression parser ---

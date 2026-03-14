@@ -31,8 +31,8 @@
   "target": {
     "problem": "MaximumClique",
     "variant": {
-      "graph": "SimpleGraph",
-      "weight": "i32"
+      "weight": "i32",
+      "graph": "SimpleGraph"
     },
     "instance": {
       "edges": [

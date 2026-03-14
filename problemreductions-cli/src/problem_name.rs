@@ -25,6 +25,9 @@ pub const ALIASES: &[(&str, &str)] = &[
     ("MaxMatching", "MaximumMatching"),
     ("FVS", "MinimumFeedbackVertexSet"),
     ("QAP", "QuadraticAssignment"),
+    ("SCS", "ShortestCommonSupersequence"),
+    ("FAS", "MinimumFeedbackArcSet"),
+    ("pmedian", "MinimumSumMulticenter"),
 ];
 
 /// Resolve a short alias to the canonical problem name.
@@ -37,6 +40,7 @@ pub fn resolve_alias(input: &str) -> String {
         "ksat" | "ksatisfiability" => "KSatisfiability".to_string(),
         "qubo" => "QUBO".to_string(),
         "graphpartitioning" => "GraphPartitioning".to_string(),
+        "isomorphicspanningtree" => "IsomorphicSpanningTree".to_string(),
         "maxcut" => "MaxCut".to_string(),
         "spinglass" => "SpinGlass".to_string(),
         "ilp" => "ILP".to_string(),
@@ -62,8 +66,13 @@ pub fn resolve_alias(input: &str) -> String {
         "partitionintotriangles" => "PartitionIntoTriangles".to_string(),
         "lcs" | "longestcommonsubsequence" => "LongestCommonSubsequence".to_string(),
         "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
+        "flowshopscheduling" => "FlowShopScheduling".to_string(),
+        "fas" | "minimumfeedbackarcset" => "MinimumFeedbackArcSet".to_string(),
+        "minimumsummulticenter" | "pmedian" => "MinimumSumMulticenter".to_string(),
         "subsetsum" => "SubsetSum".to_string(),
         "quadraticassignment" | "qap" => "QuadraticAssignment".to_string(),
+        "scs" | "shortestcommonsupersequence" => "ShortestCommonSupersequence".to_string(),
+        "hamiltonianpath" => "HamiltonianPath".to_string(),
         _ => input.to_string(), // pass-through for exact names
     }
 }
