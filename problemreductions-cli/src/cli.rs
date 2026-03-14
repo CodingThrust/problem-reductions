@@ -58,21 +58,17 @@ Examples:
         rules: bool,
     },
 
-    /// Show details for a problem type (variants, fields, reductions)
+    /// Show details for a problem type or variant (fields, reductions, complexity)
     #[command(after_help = "\
 Examples:
-  pred show MIS                   # using alias
-  pred show MaximumIndependentSet # full name
-  pred show KSAT                  # alias for KSatisfiability
+  pred show MIS                   # all variants for MIS
+  pred show MIS/UnitDiskGraph     # specific variant
+  pred show MIS/UnitDiskGraph/i32 # fully qualified variant
+  pred show KSAT/K3               # KSatisfiability with K=3
 
-Note: `show` operates at the type level (no slash suffixes).
-Use `pred to MIS` or `pred from MIS` for variant-level exploration.
-
-Use `pred list` to see all available problem types and aliases.
-Use `pred to MIS --hops 2` to explore what reduces to MIS.
-Use `pred from QUBO --hops 1` to explore what QUBO reduces to.")]
+Use `pred list` to see all available problem types and variants.")]
     Show {
-        /// Problem name or alias (e.g., MIS, QUBO, KSAT)
+        /// Problem name or variant (e.g., MIS, MIS/UnitDiskGraph, KSAT/K3)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         problem: String,
     },

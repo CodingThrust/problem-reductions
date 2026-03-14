@@ -1,7 +1,5 @@
 use crate::output::OutputConfig;
-use crate::problem_name::{
-    aliases_for, parse_problem_spec, parse_problem_type, resolve_problem_ref,
-};
+use crate::problem_name::{aliases_for, parse_problem_spec, resolve_problem_ref};
 use anyhow::{Context, Result};
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{Minimize, MinimizeSteps, ReductionGraph, TraversalDirection};
@@ -200,51 +198,36 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
 }
 
 pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
-    let name = parse_problem_type(problem)?;
     let graph = ReductionGraph::new();
+    let resolved = resolve_problem_ref(problem, &graph)?;
+    let name = &resolved.name;
+    let variant = &resolved.variant;
 
-    let variants = graph.variants_for(&name);
-    if variants.is_empty() {
-        anyhow::bail!("{}", crate::problem_name::unknown_problem_error(&name));
-    }
+    let default_variant = graph.default_variant_for(name);
+    let is_default = default_variant.as_ref() == Some(variant);
 
-    let default_variant = graph.default_variant_for(&name);
-
-    let mut text = format!("{}\n", crate::output::fmt_problem_name(&name));
+    let slash = variant_to_full_slash(variant);
+    let header = format!("{name}{slash}");
+    let mut text = format!("{}\n", crate::output::fmt_problem_name(&header));
 
     // Show description from schema
     let schemas = collect_schemas();
-    let schema = schemas.iter().find(|s| s.name == name);
+    let schema = schemas.iter().find(|s| s.name == *name);
     if let Some(s) = schema {
         if !s.description.is_empty() {
             text.push_str(&format!("  {}\n", s.description));
         }
     }
 
-    // Show variants
-    text.push_str(&format!(
-        "\n{}\n",
-        crate::output::fmt_section(&format!("Variants ({}):", variants.len()))
-    ));
-    for v in &variants {
-        let slash = variant_to_full_slash(v);
-        let is_default = default_variant.as_ref() == Some(v);
-        let label = format!(
-            "  {}{}",
-            crate::output::fmt_problem_name(&format!("{}{}", name, slash)),
-            if is_default { " (default)" } else { "" },
-        );
-        if let Some(c) = graph.variant_complexity(&name, v) {
-            text.push_str(&format!(
-                "{label}  complexity: {}\n",
-                big_o_of(&Expr::parse(c))
-            ));
-        } else {
-            text.push_str(&format!("{label}\n"));
-        }
+    // Show variant info
+    if let Some(c) = graph.variant_complexity(name, variant) {
+        text.push_str(&format!(
+            "  Best Known Complexity: {}\n",
+            big_o_of(&Expr::parse(c))
+        ));
     }
 
-    // Show fields from schema (right after variants)
+    // Show fields from schema
     if let Some(s) = schema {
         text.push_str(&format!(
             "\n{}\n",
@@ -260,7 +243,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     }
 
     // Show size fields (used with `pred path --cost minimize:<field>`)
-    let size_fields = graph.size_field_names(&name);
+    let size_fields = graph.size_field_names(name);
     if !size_fields.is_empty() {
         text.push_str(&format!(
             "\n{}\n",
@@ -271,9 +254,17 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
         }
     }
 
-    // Show reductions from/to this problem
-    let outgoing = graph.outgoing_reductions(&name);
-    let incoming = graph.incoming_reductions(&name);
+    // Show reductions filtered to this specific variant
+    let outgoing: Vec<_> = graph
+        .outgoing_reductions(name)
+        .into_iter()
+        .filter(|e| &e.source_variant == variant)
+        .collect();
+    let incoming: Vec<_> = graph
+        .incoming_reductions(name)
+        .into_iter()
+        .filter(|e| &e.target_variant == variant)
+        .collect();
 
     text.push_str(&format!(
         "\n{}\n",
@@ -281,8 +272,7 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     ));
     for e in &outgoing {
         text.push_str(&format!(
-            "  {} {} {}",
-            fmt_node(&graph, e.source_name, &e.source_variant),
+            "  {} {}",
             crate::output::fmt_outgoing("\u{2192}"),
             fmt_node(&graph, e.target_name, &e.target_variant),
         ));
@@ -299,10 +289,9 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     ));
     for e in &incoming {
         text.push_str(&format!(
-            "  {} {} {}",
+            "  {} {}",
             fmt_node(&graph, e.source_name, &e.source_variant),
             crate::output::fmt_outgoing("\u{2192}"),
-            fmt_node(&graph, e.target_name, &e.target_variant),
         ));
         let oh_parts = fmt_overhead_parts(&e.overhead.output_size);
         if !oh_parts.is_empty() {
@@ -318,27 +307,18 @@ pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
             "overhead": overhead_to_json(&e.overhead.output_size),
         })
     };
-    let variants_json: Vec<serde_json::Value> = variants
-        .iter()
-        .map(|v| {
-            let complexity = graph.variant_complexity(&name, v).unwrap_or("");
-            let is_default = default_variant.as_ref() == Some(v);
-            serde_json::json!({
-                "variant": v,
-                "complexity": complexity,
-                "big_o": if complexity.is_empty() {
-                    String::new()
-                } else {
-                    big_o_of(&Expr::parse(complexity))
-                },
-                "default": is_default,
-            })
-        })
-        .collect();
 
+    let complexity = graph.variant_complexity(name, variant).unwrap_or("");
     let mut json = serde_json::json!({
         "name": name,
-        "variants": variants_json,
+        "variant": variant,
+        "default": is_default,
+        "complexity": complexity,
+        "big_o": if complexity.is_empty() {
+            String::new()
+        } else {
+            big_o_of(&Expr::parse(complexity))
+        },
         "size_fields": size_fields,
         "reduces_to": outgoing.iter().map(&edge_to_json).collect::<Vec<_>>(),
         "reduces_from": incoming.iter().map(&edge_to_json).collect::<Vec<_>>(),

@@ -65,11 +65,15 @@ fn test_show() {
 }
 
 #[test]
-fn test_show_variants() {
+fn test_show_variant_info() {
     let output = pred().args(["show", "MIS"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
-    assert!(stdout.contains("Variants"));
+    // Bare MIS shows default variant with complexity
+    assert!(
+        stdout.contains("Complexity:"),
+        "should show complexity: {stdout}"
+    );
 }
 
 #[test]
@@ -1658,8 +1662,9 @@ fn test_show_json_output() {
     let content = std::fs::read_to_string(&tmp).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["name"], "MaximumIndependentSet");
-    assert!(json["variants"].is_array());
+    assert!(json["variant"].is_object());
     assert!(json["reduces_to"].is_array());
+    assert!(json["default"].is_boolean());
     std::fs::remove_file(&tmp).ok();
 }
 
@@ -3286,35 +3291,39 @@ fn test_create_rule_example_mvc_to_mis_target_weight_only() {
     assert_eq!(json["variant"]["weight"], "i32");
 }
 
-// ---- Type-level show semantics ----
+// ---- Variant-level show semantics ----
 
 #[test]
-fn test_show_rejects_slash_spec() {
-    // `pred show MIS/UnitDiskGraph` should fail because show is type-level
+fn test_show_with_slash_spec() {
+    // `pred show MIS/UnitDiskGraph` should show that specific variant
     let output = pred().args(["show", "MIS/UnitDiskGraph"]).output().unwrap();
-    assert!(!output.status.success(), "show with slash spec should fail");
-    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains("type level"),
-        "error should mention type level: {stderr}"
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("UnitDiskGraph"),
+        "should show UnitDiskGraph variant: {stdout}"
     );
 }
 
 #[test]
-fn test_show_marks_default() {
-    // `pred show MIS` should annotate the default variant with "(default)"
+fn test_show_bare_name_uses_default() {
+    // `pred show MIS` resolves to default variant and marks it
     let output = pred().args(["show", "MIS"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
-        stdout.contains("(default)"),
-        "should mark the default variant: {stdout}"
+        stdout.contains("SimpleGraph"),
+        "bare MIS should resolve to SimpleGraph default: {stdout}"
     );
 }
 
 #[test]
 fn test_show_ksat_works() {
-    // `pred show KSAT` should succeed (alias resolves to KSatisfiability at type level)
+    // `pred show KSAT` should succeed (alias resolves to KSatisfiability default variant)
     let output = pred().args(["show", "KSAT"]).output().unwrap();
     assert!(
         output.status.success(),
@@ -3401,13 +3410,12 @@ fn test_show_json_has_default_field() {
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    let variants = json["variants"].as_array().expect("should have variants");
-    // At least one variant should be marked as default
-    let has_default = variants.iter().any(|v| v["default"] == true);
-    assert!(has_default, "at least one variant should be default");
-    // Only one variant should be marked as default
-    let default_count = variants.iter().filter(|v| v["default"] == true).count();
-    assert_eq!(default_count, 1, "exactly one variant should be default");
+    // Bare MIS resolves to default variant
+    assert_eq!(
+        json["default"], true,
+        "bare MIS should be the default variant"
+    );
+    assert!(json["variant"].is_object(), "should have variant object");
 }
 
 // ---- path --all directory output includes manifest ----

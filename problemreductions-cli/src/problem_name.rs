@@ -131,20 +131,14 @@ fn resolve_variant_updates(
     }
 }
 
-/// Type-level parser for the `show` command.
+/// Parse the problem name from a spec string, resolving aliases.
 ///
-/// Resolves aliases but rejects slash suffixes — `show` operates on the
-/// entire problem type, not a specific variant node.
+/// Accepts both bare names ("MIS") and slash specs ("MIS/UnitDiskGraph").
+/// Returns just the canonical name (alias-resolved).
+#[cfg(test)]
 pub fn parse_problem_type(input: &str) -> anyhow::Result<String> {
     let parts: Vec<&str> = input.split('/').collect();
-    if parts.len() > 1 {
-        anyhow::bail!(
-            "`show` operates at the type level. Use `pred show {}` without variant suffixes.\n\
-             To see a specific variant's details, use `pred to {0}` or `pred from {0}`.",
-            parts[0]
-        );
-    }
-    Ok(resolve_alias(input))
+    Ok(resolve_alias(parts[0]))
 }
 
 /// Resolve a problem spec to a specific graph node using declared defaults.
@@ -375,17 +369,11 @@ mod tests {
     }
 
     #[test]
-    fn parse_problem_type_rejects_slash() {
-        // Slash suffixes are rejected for type-level operations
-        let err = parse_problem_type("MIS/UnitDiskGraph").unwrap_err();
-        let msg = err.to_string();
-        assert!(
-            msg.contains("type level"),
-            "error should mention type level: {msg}"
-        );
-        assert!(
-            msg.contains("pred show MIS"),
-            "error should suggest bare name: {msg}"
+    fn parse_problem_type_with_slash() {
+        // Slash specs extract the problem name portion
+        assert_eq!(
+            parse_problem_type("MIS/UnitDiskGraph").unwrap(),
+            "MaximumIndependentSet"
         );
     }
 
@@ -455,12 +443,11 @@ mod tests {
     }
 
     #[test]
-    fn parse_problem_type_rejects_variant_suffixes_before_graph_lookup() {
-        // show command rejects slash suffixes at the type level
-        let err = parse_problem_type("MIS/UnitDiskGraph").unwrap_err();
-        assert!(
-            err.to_string().contains("type level"),
-            "error should mention type level"
+    fn parse_problem_type_extracts_name_from_variant_spec() {
+        // parse_problem_type extracts just the problem name from a variant spec
+        assert_eq!(
+            parse_problem_type("MIS/UnitDiskGraph/i32").unwrap(),
+            "MaximumIndependentSet"
         );
     }
 

@@ -21,9 +21,7 @@ use std::collections::BTreeMap;
 use crate::dispatch::{
     load_problem, serialize_any_problem, PathStep, ProblemJson, ProblemJsonOutput, ReductionBundle,
 };
-use crate::problem_name::{
-    aliases_for, parse_problem_type, resolve_problem_ref, unknown_problem_error,
-};
+use crate::problem_name::{aliases_for, resolve_problem_ref, unknown_problem_error};
 
 // ---------------------------------------------------------------------------
 // Parameter structs — graph query tools
@@ -161,60 +159,54 @@ impl McpServer {
     }
 
     pub fn show_problem_inner(&self, problem: &str) -> anyhow::Result<String> {
-        let name = parse_problem_type(problem)?;
         let graph = ReductionGraph::new();
+        let resolved = resolve_problem_ref(problem, &graph)?;
+        let name = &resolved.name;
+        let variant = &resolved.variant;
 
-        let variants = graph.variants_for(&name);
-        if variants.is_empty() {
-            anyhow::bail!("{}", unknown_problem_error(&name));
-        }
-
-        let default_variant = graph.default_variant_for(&name);
+        let default_variant = graph.default_variant_for(name);
+        let is_default = default_variant.as_ref() == Some(variant);
 
         let schemas = collect_schemas();
-        let schema = schemas.iter().find(|s| s.name == name);
+        let schema = schemas.iter().find(|s| s.name == *name);
 
-        let outgoing = graph.outgoing_reductions(&name);
-        let incoming = graph.incoming_reductions(&name);
-        let size_fields = graph.size_field_names(&name);
-
-        let variants_json: Vec<serde_json::Value> = variants
-            .iter()
-            .map(|v| {
-                let complexity = graph.variant_complexity(&name, v).unwrap_or("");
-                let is_default = default_variant.as_ref() == Some(v);
-                serde_json::json!({
-                    "variant": v,
-                    "complexity": complexity,
-                    "is_default": is_default,
-                })
-            })
+        let outgoing: Vec<_> = graph
+            .outgoing_reductions(name)
+            .into_iter()
+            .filter(|e| &e.source_variant == variant)
             .collect();
+        let incoming: Vec<_> = graph
+            .incoming_reductions(name)
+            .into_iter()
+            .filter(|e| &e.target_variant == variant)
+            .collect();
+        let size_fields = graph.size_field_names(name);
+        let complexity = graph.variant_complexity(name, variant).unwrap_or("");
+
+        let edge_to_json = |e: &problemreductions::rules::ReductionEdgeInfo| {
+            let overhead: Vec<serde_json::Value> = e
+                .overhead
+                .output_size
+                .iter()
+                .map(|(field, poly)| {
+                    serde_json::json!({"field": field, "formula": poly.to_string()})
+                })
+                .collect();
+            serde_json::json!({
+                "source": {"name": e.source_name, "variant": e.source_variant},
+                "target": {"name": e.target_name, "variant": e.target_variant},
+                "overhead": overhead,
+            })
+        };
 
         let mut json = serde_json::json!({
             "name": name,
-            "variants": variants_json,
+            "variant": variant,
+            "default": is_default,
+            "complexity": complexity,
             "size_fields": &size_fields,
-            "reduces_to": outgoing.iter().map(|e| {
-                let overhead: Vec<serde_json::Value> = e.overhead.output_size.iter()
-                    .map(|(field, poly)| serde_json::json!({"field": field, "formula": poly.to_string()}))
-                    .collect();
-                serde_json::json!({
-                    "source": {"name": e.source_name, "variant": e.source_variant},
-                    "target": {"name": e.target_name, "variant": e.target_variant},
-                    "overhead": overhead,
-                })
-            }).collect::<Vec<_>>(),
-            "reduces_from": incoming.iter().map(|e| {
-                let overhead: Vec<serde_json::Value> = e.overhead.output_size.iter()
-                    .map(|(field, poly)| serde_json::json!({"field": field, "formula": poly.to_string()}))
-                    .collect();
-                serde_json::json!({
-                    "source": {"name": e.source_name, "variant": e.source_variant},
-                    "target": {"name": e.target_name, "variant": e.target_variant},
-                    "overhead": overhead,
-                })
-            }).collect::<Vec<_>>(),
+            "reduces_to": outgoing.iter().map(&edge_to_json).collect::<Vec<_>>(),
+            "reduces_from": incoming.iter().map(&edge_to_json).collect::<Vec<_>>(),
         });
         if let Some(s) = schema {
             if let (Some(obj), Ok(schema_val)) = (json.as_object_mut(), serde_json::to_value(s)) {
