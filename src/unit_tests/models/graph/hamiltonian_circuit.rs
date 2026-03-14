@@ -36,6 +36,54 @@ fn test_hamiltonian_circuit_basic() {
 
     // Invalid: duplicate vertex 0 -- not a valid permutation
     assert!(!problem.evaluate(&[0, 0, 1, 2, 3, 4]));
+
+    // Invalid: wrong-length config
+    assert!(!problem.evaluate(&[0, 1]));
+
+    // Invalid: vertex out of range
+    assert!(!problem.evaluate(&[0, 1, 2, 3, 4, 99]));
+}
+
+#[test]
+fn test_hamiltonian_circuit_small_graphs() {
+    // Empty graph (0 vertices): n < 3, no circuit possible
+    let graph = SimpleGraph::new(0, vec![]);
+    let problem = HamiltonianCircuit::new(graph);
+    assert!(!problem.evaluate(&[]));
+
+    // Single vertex: n < 3
+    let graph = SimpleGraph::new(1, vec![]);
+    let problem = HamiltonianCircuit::new(graph);
+    assert!(!problem.evaluate(&[0]));
+
+    // Two vertices with edge: n < 3
+    let graph = SimpleGraph::new(2, vec![(0, 1)]);
+    let problem = HamiltonianCircuit::new(graph);
+    assert!(!problem.evaluate(&[0, 1]));
+
+    // Triangle (K3): smallest valid Hamiltonian circuit
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+    let problem = HamiltonianCircuit::new(graph);
+    let solver = BruteForce::new();
+    let solutions = solver.find_all_satisfying(&problem);
+    // K3 has 6 directed Hamiltonian circuits: 3 rotations x 2 directions
+    assert_eq!(solutions.len(), 6);
+}
+
+#[test]
+fn test_hamiltonian_circuit_complete_graph_k4() {
+    // K4: complete graph on 4 vertices
+    let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+    let problem = HamiltonianCircuit::new(graph);
+
+    let solver = BruteForce::new();
+    let solutions = solver.find_all_satisfying(&problem);
+    // K4 has 3 distinct undirected Hamiltonian circuits, each yielding
+    // 4 rotations x 2 directions = 8 directed permutations => 24 total
+    assert_eq!(solutions.len(), 24);
+    for sol in &solutions {
+        assert!(problem.evaluate(sol));
+    }
 }
 
 #[test]
