@@ -52,7 +52,7 @@ fn test_list_rules_json() {
     assert!(!rules.is_empty());
     assert!(rules[0]["source"].is_string());
     assert!(rules[0]["target"].is_string());
-    assert!(rules[0]["overhead"].is_array());
+    assert!(rules[0]["overhead"].is_string());
 }
 
 #[test]

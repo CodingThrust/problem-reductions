@@ -133,6 +133,8 @@ pub fn list(out: &OutputConfig) -> Result<()> {
 }
 
 pub fn list_rules(out: &OutputConfig) -> Result<()> {
+    use crate::output::{format_table, Align};
+
     let graph = ReductionGraph::new();
 
     let mut types = graph.problem_types();
@@ -141,7 +143,7 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
     struct RuleRow {
         source: String,
         target: String,
-        overhead_parts: Vec<String>,
+        overhead: String,
     }
 
     let mut rows_data: Vec<RuleRow> = Vec::new();
@@ -153,60 +155,34 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
             rows_data.push(RuleRow {
                 source: format!("{}{}", edge.source_name, source_slash),
                 target: format!("{}{}", edge.target_name, target_slash),
-                overhead_parts: oh_parts,
+                overhead: oh_parts.join(", "),
             });
         }
     }
 
     let summary = format!("Registered reduction rules: {}\n", rows_data.len());
 
-    // Build table with continuation lines for multi-field overhead.
-    // We use format_table's approach: pad plain text first, then colorize.
-    let src_w = rows_data
+    let columns: Vec<(&str, Align, usize)> = vec![
+        ("Source", Align::Left, 6),
+        ("Target", Align::Left, 6),
+        ("Overhead", Align::Left, 8),
+    ];
+
+    let rows: Vec<Vec<String>> = rows_data
         .iter()
-        .map(|r| r.source.len())
-        .max()
-        .unwrap_or(0)
-        .max("Source".len());
-    let tgt_w = rows_data
-        .iter()
-        .map(|r| r.target.len())
-        .max()
-        .unwrap_or(0)
-        .max("Target".len());
+        .map(|r| vec![r.source.clone(), r.target.clone(), r.overhead.clone()])
+        .collect();
+
+    let color_fns: Vec<Option<crate::output::CellFormatter>> = vec![
+        Some(crate::output::fmt_problem_name),
+        Some(crate::output::fmt_problem_name),
+        None,
+    ];
 
     let mut text = String::new();
     text.push_str(&crate::output::fmt_section(&summary));
     text.push('\n');
-
-    // Header
-    text.push_str(&format!(
-        "  {:<src_w$}  {:<tgt_w$}  {}\n",
-        "Source", "Target", "Overhead"
-    ));
-    text.push_str(&format!(
-        "  {}  {}  {}\n",
-        "─".repeat(src_w),
-        "─".repeat(tgt_w),
-        "─".repeat(8)
-    ));
-
-    for r in &rows_data {
-        // Pad plain text, then colorize (so ANSI codes don't affect width)
-        let src_padded = format!("{:<src_w$}", r.source);
-        let tgt_padded = format!("{:<tgt_w$}", r.target);
-        let first_oh = r.overhead_parts.first().map(|s| s.as_str()).unwrap_or("");
-        text.push_str(&format!(
-            "  {}  {}  {}\n",
-            crate::output::fmt_problem_name(&src_padded),
-            crate::output::fmt_problem_name(&tgt_padded),
-            first_oh,
-        ));
-        for oh in r.overhead_parts.iter().skip(1) {
-            text.push_str(&format!("  {:<src_w$}  {:<tgt_w$}  {}\n", "", "", oh,));
-        }
-    }
-
+    text.push_str(&format_table(&columns, &rows, &color_fns));
     text.push_str("\nUse `pred show <problem>` for details on a specific problem.\n");
 
     let json = serde_json::json!({
@@ -215,7 +191,7 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
             serde_json::json!({
                 "source": r.source,
                 "target": r.target,
-                "overhead": r.overhead_parts,
+                "overhead": r.overhead,
             })
         }).collect::<Vec<_>>(),
     });
