@@ -22,7 +22,7 @@ Some software projects are too large for human teams to build at scale.
 We call these \emph{bridge problems}: projects whose subtasks are homogeneous and formally verifiable, but where three structural barriers---convention drift, effort exhaustion, and knowledge discontinuity---make human-only execution infeasible beyond a few dozen components.
 AI coding agents can break through these barriers because systematic verification constrains agent output to match contributor-specified ground truth.
 We demonstrate this claim on NP-hard problem reductions, building a directed graph of 27~problem types and 45~transformation rules that routes any supported problem to a specialized solver.
-Over nine weeks, a single maintainer and AI agents produced a Rust library with $>$95\% test coverage---a task whose predecessor project took four years to reach 20~problem types.
+Over nine weeks, a single maintainer and AI agents produced a Rust library with $>$95\% test coverage.
 Agent session data reveals a 15:1 ratio of agent-to-human messages, while an automated quality gate rejected 75\% of 322~batch-submitted proposals as incorrect or incomplete.
 \end{abstract}
 
@@ -64,7 +64,6 @@ Each new edge creates not just one connection but new paths through the entire g
 \subsection{Bridge Problems}
 
 Building this graph requires implementing 45~transformation rules, each involving 50--400 lines of verified code.
-A predecessor project in Julia took four years to reach 20~problem types.
 This is not a failure of effort but of scale: the project is a \emph{bridge problem}---software too large for human teams to build and maintain at the required quality level.
 
 We identify three structural barriers that make bridge problems infeasible for human-only teams:
@@ -83,7 +82,7 @@ We identify three structural barriers that make bridge problems infeasible for h
   \includegraphics[width=\columnwidth]{figures/scaling-wall.pdf}
   \caption{Human teams maintain quality up to $\sim$20 components, then hit three barriers: convention drift, effort exhaustion, and knowledge discontinuity.
     Agents constrained by systematic verification break through all three.
-    The Julia predecessor reached 20~problem types in four years; this work reached 27 in nine weeks.}
+    Agents constrained by systematic verification break through all three.}
   \label{fig:scaling-wall}
 \end{figure}
 
@@ -100,7 +99,7 @@ Our contributions are:
   \item \textbf{The bridge problem concept}: a characterization of software projects where homogeneous, verifiable subtasks create scale barriers that agents can overcome (\Cref{sec:bridge}).
   \item \textbf{A verified reduction graph} connecting 27~NP-hard problem types to specialized solvers, with emergent compositionality through automatic path composition (\Cref{sec:graph}).
   \item \textbf{A skill-based methodology} for mathematical software engineering, encoding workflow knowledge as reusable, versioned scripts that decompose multi-file tasks into agent-executable steps (\Cref{sec:method}).
-  \item \textbf{Quantitative evidence}: a 15:1 agent-to-human message ratio, a 75\% rejection rate on 322~batch-submitted proposals demonstrating the quality gate's selectivity, and a 9-week timeline versus the predecessor's four years (\Cref{sec:evaluation}).
+  \item \textbf{Quantitative evidence}: a 15:1 agent-to-human message ratio, a 75\% rejection rate on 322~batch-submitted proposals demonstrating the quality gate's selectivity, and a 9-week development timeline (\Cref{sec:evaluation}).
 \end{itemize}
 
 The rest of this paper is organized as follows.
@@ -456,12 +455,12 @@ Mar 13 (current) & 27 & 45 & 114 & 45 \\
   \includegraphics[width=\columnwidth]{figures/timeline.pdf}
   \caption{Cumulative growth of problem types and reduction rules over nine weeks.
     Background bands mark three development phases: manual (Phase~1), basic skills (Phase~2), and full pipeline (Phase~3).
-    The Julia predecessor's four-year trajectory is shown for comparison.}
+    Background bands mark three development phases.}
   \label{fig:timeline}
 \end{figure}
 
 \Cref{tab:growth} and \Cref{fig:timeline} trace the growth across three phases.
-\textbf{Phase~1 (Manual, 35~PRs)}: no skills; the maintainer issued step-by-step commands, established the architecture, and ported reductions from the predecessor Julia package.
+\textbf{Phase~1 (Manual, 35~PRs)}: no skills; the maintainer issued step-by-step commands and established the architecture.
 \textbf{Phase~2 (Basic skills, 9~PRs)}: initial \texttt{add-model}/\texttt{add-rule} skills reduced per-task human involvement.
 \textbf{Phase~3 (Full pipeline, 15~PRs)}: complete skill library with orchestration, quality gates, and multi-agent review.
 The current codebase comprises 54,599~lines of Rust source, 28,343~lines of tests, and 6,362~lines of examples.
@@ -611,7 +610,7 @@ Three directions extend this work: composing with \emph{automated discovery} via
 \subsection{Conclusion}
 
 We have introduced \emph{bridge problems}---software projects whose scale exceeds human capacity but whose homogeneous, verifiable structure makes them amenable to agent execution constrained by systematic verification.
-NP-hard problem reductions are the first convincing example: over nine weeks, a single maintainer and AI agents produced a verified reduction graph connecting 27~problem types to specialized solvers, a task whose predecessor took four years to reach 20~types.
+NP-hard problem reductions are the first convincing example: over nine weeks, a single maintainer and AI agents produced a verified reduction graph connecting 27~problem types to specialized solvers.
 
 The core insight is that three structural barriers---convention drift, effort exhaustion, and knowledge discontinuity---make bridge problems infeasible for human teams, while verification ensures that agents cannot deviate from contributor-specified ground truth.
 Skills encode workflow knowledge as reusable, versionable documents, lowering the contribution barrier from ``knows the programming language'' to ``knows the mathematics.''

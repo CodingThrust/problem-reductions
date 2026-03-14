@@ -7,8 +7,6 @@
 // --- Colors ---
 #let col-models = rgb("#4e79a7")       // steel blue for problem types
 #let col-rules  = rgb("#59a14f")       // green for reduction rules
-#let col-julia  = luma(160)            // faint grey for Julia reference
-
 // Phase background colors
 #let phase1-fill = rgb("#4e79a7").lighten(92%)  // light blue
 #let phase2-fill = rgb("#f0d060").lighten(70%)  // light yellow
@@ -66,13 +64,6 @@
         domain: (phase2-end, week-max),
         x => 52, x => 0,
         style: (stroke: none, fill: phase3-fill),
-        label: none,
-      )
-
-      // --- Julia predecessor reference line ---
-      plot.add-hline(
-        20,
-        style: (stroke: (paint: col-julia, thickness: 0.8pt, dash: "dashed")),
         label: none,
       )
 

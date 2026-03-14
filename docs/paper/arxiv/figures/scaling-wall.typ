@@ -108,7 +108,7 @@
   )
 
   // ── Human team line ──
-  // Starts high, degrades at each barrier, plateaus low
+  // Hobby spline for the steep descent; straight line for the flat tail.
   let human-pts = (
     (0, 0.92),
     (5, 0.93),
@@ -129,20 +129,18 @@
     (55, 0.28),
     (60, 0.22),
     (65, 0.19),
-    (75, 0.16),
-    (90, 0.14),
-    (120, 0.13),
+    (75, 0.15),
+    (85, 0.13),
   )
 
-  // Draw the human line as a smooth spline, then a straight tail segment
   let human-canvas = human-pts.map(((x, y)) => pt(x, y))
-  catmull(
+  hobby(
     ..human-canvas,
     stroke: (thickness: 1.8pt, paint: col-human),
   )
-  // Flat tail beyond the spline to avoid overshoot artifacts
+  // Flat tail: straight line from where the spline ends
   line(
-    pt(120, 0.13), pt(145, 0.12),
+    pt(85, 0.13), pt(145, 0.12),
     stroke: (thickness: 1.8pt, paint: col-human),
   )
 
@@ -171,7 +169,7 @@
   )
 
   let agent-canvas = agent-pts.map(((x, y)) => pt(x, y))
-  catmull(
+  hobby(
     ..agent-canvas,
     stroke: (thickness: 1.8pt, paint: col-agent),
   )
@@ -183,25 +181,6 @@
   )
 
   // ── Data points ──
-
-  // Julia predecessor: x=20 on the human line
-  circle(
-    pt(20, 0.75),
-    radius: 0.2,
-    fill: col-human,
-    stroke: (thickness: 1pt, paint: white),
-    name: "julia-pt",
-  )
-  // Label below-left to avoid overlapping with "This work"
-  content(
-    (rel: (0.3, -0.6), to: "julia-pt"),
-    anchor: "north-west",
-    frame: "rect",
-    padding: (x: 0.12, y: 0.06),
-    fill: white,
-    stroke: (thickness: 0.5pt, paint: col-human.lighten(40%)),
-    text(6.5pt, fill: col-human.darken(20%), weight: "bold", [Julia (4 years)]),
-  )
 
   // This work: x=27 on the agent line
   circle(
@@ -237,16 +216,16 @@
   )
 
   // ── Legend ──
-  let lx = px(95)
-  let ly = py(0.22)
+  let lx = px(80)
+  let ly = py(0.42)
   let leg-gap = 1.1
 
-  // Legend background
+  // Legend background (fully opaque to cover the human line behind it)
   rect(
     (lx - 0.4, ly + 0.6),
     (lx + 7.0, ly - leg-gap - 0.4),
     radius: 3pt,
-    fill: white.transparentize(15%),
+    fill: white,
     stroke: (thickness: 0.5pt, paint: luma(200)),
   )
 
