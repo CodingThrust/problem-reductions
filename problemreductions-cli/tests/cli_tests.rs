@@ -1301,14 +1301,16 @@ fn test_create_model_example_mis_shorthand() {
         .args(["create", "--example", "MIS"])
         .output()
         .unwrap();
-    assert!(!output.status.success());
-    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        stderr.contains(
-            "No canonical model example exists for MaximumIndependentSet/SimpleGraph/One"
-        ),
-        "expected default-node lookup failure, got: {stderr}"
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
     );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "One");
 }
 
 #[test]

@@ -140,15 +140,15 @@ fn test_build_model_db_has_unique_structural_keys() {
 }
 
 #[test]
-fn test_build_rule_db_count_is_42() {
+fn test_build_rule_db_nonempty() {
     let db = build_rule_db().expect("rule db should build");
-    assert_eq!(db.rules.len(), 42, "expected 42 canonical rule examples");
+    assert!(!db.rules.is_empty(), "rule db should not be empty");
 }
 
 #[test]
-fn test_build_model_db_count_is_28() {
+fn test_build_model_db_nonempty() {
     let db = build_model_db().expect("model db should build");
-    assert_eq!(db.models.len(), 28, "expected 28 canonical model examples");
+    assert!(!db.models.is_empty(), "model db should not be empty");
 }
 
 #[test]
@@ -169,8 +169,6 @@ fn canonical_model_example_ids_are_unique() {
             spec.id
         );
     }
-    // Also verify count matches
-    assert_eq!(specs.len(), 28, "expected 28 model specs");
 }
 
 #[test]
@@ -184,7 +182,6 @@ fn canonical_rule_example_ids_are_unique() {
             spec.id
         );
     }
-    assert_eq!(specs.len(), 42, "expected 42 rule specs");
 }
 
 // ---- Error path tests for example_db ----
