@@ -33,6 +33,7 @@ fn test_reduction_overhead_default() {
 #[test]
 fn test_reduction_entry_overhead() {
     let entry = ReductionEntry {
+        rule_id: "test_source_to_test_target",
         source_name: "TestSource",
         target_name: "TestTarget",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
@@ -52,6 +53,7 @@ fn test_reduction_entry_overhead() {
 #[test]
 fn test_reduction_entry_debug() {
     let entry = ReductionEntry {
+        rule_id: "a_to_b",
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
@@ -70,6 +72,7 @@ fn test_reduction_entry_debug() {
 #[test]
 fn test_is_base_reduction_unweighted() {
     let entry = ReductionEntry {
+        rule_id: "a_to_b",
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
@@ -85,6 +88,7 @@ fn test_is_base_reduction_unweighted() {
 #[test]
 fn test_is_base_reduction_source_weighted() {
     let entry = ReductionEntry {
+        rule_id: "a_to_b",
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "i32")],
@@ -100,6 +104,7 @@ fn test_is_base_reduction_source_weighted() {
 #[test]
 fn test_is_base_reduction_target_weighted() {
     let entry = ReductionEntry {
+        rule_id: "a_to_b",
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "One")],
@@ -115,6 +120,7 @@ fn test_is_base_reduction_target_weighted() {
 #[test]
 fn test_is_base_reduction_both_weighted() {
     let entry = ReductionEntry {
+        rule_id: "a_to_b",
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph"), ("weight", "i32")],
@@ -131,6 +137,7 @@ fn test_is_base_reduction_both_weighted() {
 fn test_is_base_reduction_no_weight_key() {
     // If no weight key is present, assume unweighted (base)
     let entry = ReductionEntry {
+        rule_id: "a_to_b",
         source_name: "A",
         target_name: "B",
         source_variant_fn: || vec![("graph", "SimpleGraph")],
@@ -282,4 +289,52 @@ fn test_complexity_eval_fn_cross_check_factoring() {
 
     let input = ProblemSize::new(vec![("m", problem.m()), ("n", problem.n())]);
     cross_check_complexity(entry, &problem as &dyn std::any::Any, &input);
+}
+
+#[test]
+fn every_registered_reduction_has_unique_rule_id() {
+    let entries = reduction_entries();
+    let mut seen = std::collections::HashMap::new();
+    for entry in &entries {
+        if let Some(prev) = seen.insert(entry.rule_id, entry) {
+            panic!(
+                "Duplicate rule_id '{}': {} → {} vs {} → {}",
+                entry.rule_id,
+                prev.source_name,
+                prev.target_name,
+                entry.source_name,
+                entry.target_name,
+            );
+        }
+    }
+}
+
+#[test]
+fn every_registered_reduction_has_non_empty_rule_id() {
+    for entry in reduction_entries() {
+        assert!(
+            !entry.rule_id.is_empty(),
+            "Empty rule_id for {} → {}",
+            entry.source_name,
+            entry.target_name,
+        );
+    }
+}
+
+#[test]
+fn graph_can_find_reduction_entry_by_rule_id() {
+    let entries = reduction_entries();
+    assert!(!entries.is_empty());
+
+    // Pick the first entry and look it up by ID
+    let first = entries[0];
+    let found = find_reduction_entry_by_rule_id(first.rule_id).unwrap();
+    assert_eq!(found.rule_id, first.rule_id);
+    assert_eq!(found.source_name, first.source_name);
+    assert_eq!(found.target_name, first.target_name);
+}
+
+#[test]
+fn find_reduction_entry_by_rule_id_returns_none_for_unknown() {
+    assert!(find_reduction_entry_by_rule_id("nonexistent_rule_id_xyz").is_none());
 }

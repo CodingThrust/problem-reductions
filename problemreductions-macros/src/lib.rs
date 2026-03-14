@@ -97,13 +97,6 @@ impl syn::parse::Parse for ReductionAttrs {
             }
         }
 
-        if attrs.rule_id.is_none() {
-            return Err(syn::Error::new(
-                proc_macro2::Span::call_site(),
-                "Missing `id` attribute. Use #[reduction(id = \"source_to_target_variant\", overhead = { ... })]",
-            ));
-        }
-
         Ok(attrs)
     }
 }
@@ -151,6 +144,106 @@ fn extract_type_name(ty: &Type) -> Option<String> {
         }
         _ => None,
     }
+}
+
+/// Extract generic argument names from a type (e.g., `Foo<SimpleGraph, i32>` → `["simplegraph", "i32"]`).
+///
+/// Uses token-level string extraction as a fallback for macro-generated types
+/// where syn may not preserve angle-bracketed generic arguments.
+fn extract_generic_arg_names(ty: &Type) -> Vec<String> {
+    // First, try the structured syn approach
+    if let Type::Path(type_path) = ty {
+        for segment in type_path.path.segments.iter().rev() {
+            if let PathArguments::AngleBracketed(args) = &segment.arguments {
+                let names: Vec<String> = args
+                    .args
+                    .iter()
+                    .filter_map(|arg| {
+                        if let GenericArgument::Type(t) = arg {
+                            extract_type_name(t).map(|n| n.to_lowercase())
+                        } else {
+                            None
+                        }
+                    })
+                    .collect();
+                if !names.is_empty() {
+                    return names;
+                }
+            }
+        }
+    }
+
+    // Fallback: parse from the token string representation
+    // This handles macro-generated types where angle brackets may be in invisible groups
+    let s = quote::quote!(#ty).to_string();
+    if let Some(start) = s.find('<') {
+        if let Some(end) = s.rfind('>') {
+            let inner = &s[start + 1..end];
+            return inner
+                .split(',')
+                .map(|part| {
+                    // Take the last path segment (e.g., "crate::variant::K2" → "K2")
+                    let trimmed = part.trim();
+                    trimmed
+                        .rsplit("::")
+                        .next()
+                        .unwrap_or(trimmed)
+                        .to_lowercase()
+                })
+                .filter(|s| !s.is_empty())
+                .collect();
+        }
+    }
+
+    vec![]
+}
+
+/// Auto-generate a stable rule ID from source and target types.
+///
+/// Format: `{source_lower}_to_{target_lower}_{all_unique_args}`
+/// Generic args are collected from both source and target types (deduplicated, order preserved).
+/// e.g., `MinimumVertexCover<SimpleGraph, i32>` → `MaximumIndependentSet<SimpleGraph, i32>`
+/// → `"minimumvertexcover_to_maximumindependentset_simplegraph_i32"`
+fn auto_generate_rule_id(source_type: &Type, target_type: &Type) -> String {
+    let source_base = extract_type_name(source_type)
+        .unwrap_or_default()
+        .to_lowercase();
+    let target_base = extract_type_name(target_type)
+        .unwrap_or_default()
+        .to_lowercase();
+    let source_args = extract_generic_arg_names(source_type);
+    let target_args = extract_generic_arg_names(target_type);
+
+    // Merge source and target args, preserving order, deduplicating.
+    // When source and target are the same base name (variant casts),
+    // include both source and target args explicitly.
+    let all_args: Vec<String> = if source_base == target_base {
+        // For self-reductions (variant casts), concatenate source+target args
+        let mut args = Vec::new();
+        for a in &source_args {
+            args.push(a.clone());
+        }
+        for a in &target_args {
+            args.push(a.clone());
+        }
+        args
+    } else {
+        // For cross-type reductions, deduplicate
+        let mut args = source_args;
+        for a in &target_args {
+            if !args.contains(a) {
+                args.push(a.clone());
+            }
+        }
+        args
+    };
+
+    let mut id = format!("{source_base}_to_{target_base}");
+    for arg in &all_args {
+        id.push('_');
+        id.push_str(arg);
+    }
+    id
 }
 
 /// Collect type generic parameter names from impl generics.
@@ -322,8 +415,11 @@ fn generate_reduction_entry(
         }
     };
 
-    // Get the rule ID (already validated as present)
-    let rule_id_str = attrs.rule_id.as_deref().unwrap();
+    // Get rule ID: explicit or auto-generated from types
+    let rule_id_str = match &attrs.rule_id {
+        Some(id) => id.clone(),
+        None => auto_generate_rule_id(source_type, &target_type),
+    };
 
     // Generate the combined output
     let output = quote! {
@@ -789,6 +885,55 @@ mod tests {
             tokens.contains("find_satisfying"),
             "expected find_satisfying in tokens"
         );
+    }
+
+    #[test]
+    fn reduction_codegen_emits_rule_id_field() {
+        let attrs: ReductionAttrs = syn::parse_quote! {
+            id = "my_custom_id", overhead = { num_vertices = "num_vertices" }
+        };
+        assert_eq!(attrs.rule_id.as_deref(), Some("my_custom_id"));
+    }
+
+    #[test]
+    fn reduction_auto_generates_rule_id_from_types() {
+        let source: Type = syn::parse_quote! { Foo<Bar, Baz> };
+        let target: Type = syn::parse_quote! { Qux<Bar, Baz> };
+        let id = auto_generate_rule_id(&source, &target);
+        assert_eq!(id, "foo_to_qux_bar_baz");
+    }
+
+    #[test]
+    fn reduction_auto_generates_rule_id_no_generics() {
+        let source: Type = syn::parse_quote! { Foo };
+        let target: Type = syn::parse_quote! { Bar };
+        let id = auto_generate_rule_id(&source, &target);
+        assert_eq!(id, "foo_to_bar");
+    }
+
+    #[test]
+    fn reduction_auto_generates_unique_ids_for_variant_casts() {
+        // When source and target are the same base type, both arg sets are included
+        let source: Type = syn::parse_quote! { Foo<A> };
+        let target: Type = syn::parse_quote! { Foo<B> };
+        let id = auto_generate_rule_id(&source, &target);
+        assert_eq!(id, "foo_to_foo_a_b");
+    }
+
+    #[test]
+    fn reduction_accepts_id_attribute() {
+        let attrs: ReductionAttrs = syn::parse_quote! {
+            id = "custom_id", overhead = { n = "n" }
+        };
+        assert_eq!(attrs.rule_id, Some("custom_id".to_string()));
+    }
+
+    #[test]
+    fn reduction_accepts_overhead_without_id() {
+        let attrs: ReductionAttrs = syn::parse_quote! {
+            overhead = { n = "n" }
+        };
+        assert!(attrs.rule_id.is_none());
     }
 
     #[test]
