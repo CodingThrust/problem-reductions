@@ -31,7 +31,7 @@ mod tests {
     #[test]
     fn test_find_path() {
         let server = McpServer::new();
-        let result = server.find_path_inner("MIS", "QUBO", "minimize-steps", false);
+        let result = server.find_path_inner("MIS", "QUBO", "minimize-steps", false, 20);
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
         assert!(json["path"].as_array().unwrap().len() > 0);
@@ -40,19 +40,66 @@ mod tests {
     #[test]
     fn test_find_path_all() {
         let server = McpServer::new();
-        let result = server.find_path_inner("MIS", "QUBO", "minimize-steps", true);
+        let result = server.find_path_inner("MIS", "QUBO", "minimize-steps", true, 20);
         assert!(result.is_ok());
         let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
-        // --all returns an array of path objects
-        assert!(json.as_array().unwrap().len() > 0);
+        // --all returns a structured envelope
+        assert!(json["paths"].as_array().unwrap().len() > 0);
+        assert!(json["truncated"].is_boolean());
+        assert!(json["returned"].is_u64());
+        assert!(json["max_paths"].is_u64());
+    }
+
+    #[test]
+    fn test_find_path_all_structured_response() {
+        let server = McpServer::new();
+        let result = server.find_path_inner("MIS", "QUBO", "minimize-steps", true, 20);
+        assert!(result.is_ok());
+        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        // Verify the structured envelope fields
+        let paths = json["paths"].as_array().unwrap();
+        assert!(!paths.is_empty());
+        let returned = json["returned"].as_u64().unwrap() as usize;
+        assert_eq!(returned, paths.len());
+        assert_eq!(json["max_paths"].as_u64().unwrap(), 20);
+        // Each path should have steps, path, and overall_overhead
+        let first = &paths[0];
+        assert!(first["steps"].is_u64());
+        assert!(first["path"].is_array());
+        assert!(first["overall_overhead"].is_array());
     }
 
     #[test]
     fn test_find_path_no_route() {
         let server = McpServer::new();
         // Pick two problems with no path (if any). Use an unknown problem to trigger an error.
-        let result = server.find_path_inner("NonExistent", "QUBO", "minimize-steps", false);
+        let result = server.find_path_inner("NonExistent", "QUBO", "minimize-steps", false, 20);
         assert!(result.is_err());
+    }
+
+    #[test]
+    fn test_show_problem_rejects_slash_spec() {
+        let server = McpServer::new();
+        let result = server.show_problem_inner("MIS/UnitDiskGraph");
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("type level"), "error should mention type level: {err}");
+    }
+
+    #[test]
+    fn test_show_problem_marks_default() {
+        let server = McpServer::new();
+        let result = server.show_problem_inner("MIS");
+        assert!(result.is_ok());
+        let json: serde_json::Value = serde_json::from_str(&result.unwrap()).unwrap();
+        let variants = json["variants"].as_array().unwrap();
+        // At least one variant should be marked as default
+        let has_default = variants.iter().any(|v| v["is_default"].as_bool() == Some(true));
+        assert!(has_default, "expected at least one variant marked is_default=true");
+        // All variants should have the is_default field
+        for v in variants {
+            assert!(v["is_default"].is_boolean(), "expected is_default field on variant: {v}");
+        }
     }
 
     #[test]

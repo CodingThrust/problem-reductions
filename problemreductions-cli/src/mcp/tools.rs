@@ -8,7 +8,7 @@ use problemreductions::models::graph::{
 use problemreductions::models::misc::Factoring;
 use problemreductions::registry::collect_schemas;
 use problemreductions::rules::{
-    CustomCost, MinimizeSteps, ReductionGraph, ReductionPath, TraversalDirection,
+    CustomCost, MinimizeSteps, ReductionGraph, TraversalDirection,
 };
 use problemreductions::topology::{
     Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
@@ -24,7 +24,7 @@ use crate::dispatch::{
     load_problem, serialize_any_problem, PathStep, ProblemJson, ProblemJsonOutput, ReductionBundle,
 };
 use crate::problem_name::{
-    aliases_for, parse_problem_spec, resolve_variant, unknown_problem_error,
+    aliases_for, parse_problem_type, resolve_problem_ref, unknown_problem_error,
 };
 
 // ---------------------------------------------------------------------------
@@ -57,6 +57,8 @@ pub struct FindPathParams {
     pub cost: Option<String>,
     #[schemars(description = "Return all paths instead of just the cheapest")]
     pub all: Option<bool>,
+    #[schemars(description = "Maximum paths to return in all mode (default: 20)")]
+    pub max_paths: Option<usize>,
 }
 
 // ---------------------------------------------------------------------------
@@ -161,34 +163,38 @@ impl McpServer {
     }
 
     pub fn show_problem_inner(&self, problem: &str) -> anyhow::Result<String> {
-        let spec = parse_problem_spec(problem)?;
+        let name = parse_problem_type(problem)?;
         let graph = ReductionGraph::new();
 
-        let variants = graph.variants_for(&spec.name);
+        let variants = graph.variants_for(&name);
         if variants.is_empty() {
-            anyhow::bail!("{}", unknown_problem_error(&spec.name));
+            anyhow::bail!("{}", unknown_problem_error(&name));
         }
 
-        let schemas = collect_schemas();
-        let schema = schemas.iter().find(|s| s.name == spec.name);
+        let default_variant = graph.default_variant_for(&name);
 
-        let outgoing = graph.outgoing_reductions(&spec.name);
-        let incoming = graph.incoming_reductions(&spec.name);
-        let size_fields = graph.size_field_names(&spec.name);
+        let schemas = collect_schemas();
+        let schema = schemas.iter().find(|s| s.name == name);
+
+        let outgoing = graph.outgoing_reductions(&name);
+        let incoming = graph.incoming_reductions(&name);
+        let size_fields = graph.size_field_names(&name);
 
         let variants_json: Vec<serde_json::Value> = variants
             .iter()
             .map(|v| {
-                let complexity = graph.variant_complexity(&spec.name, v).unwrap_or("");
+                let complexity = graph.variant_complexity(&name, v).unwrap_or("");
+                let is_default = default_variant.as_ref() == Some(v);
                 serde_json::json!({
                     "variant": v,
                     "complexity": complexity,
+                    "is_default": is_default,
                 })
             })
             .collect();
 
         let mut json = serde_json::json!({
-            "name": spec.name,
+            "name": name,
             "variants": variants_json,
             "size_fields": &size_fields,
             "reduces_to": outgoing.iter().map(|e| {
@@ -227,26 +233,15 @@ impl McpServer {
         hops: usize,
         direction_str: &str,
     ) -> anyhow::Result<String> {
-        let spec = parse_problem_spec(problem)?;
         let graph = ReductionGraph::new();
-
-        let variants = graph.variants_for(&spec.name);
-        if variants.is_empty() {
-            anyhow::bail!("{}", unknown_problem_error(&spec.name));
-        }
+        let resolved = resolve_problem_ref(problem, &graph)?;
 
         let direction = parse_direction(direction_str)?;
 
-        let variant = if spec.variant_values.is_empty() {
-            variants[0].clone()
-        } else {
-            resolve_variant(&spec, &variants)?
-        };
-
-        let neighbors = graph.k_neighbors(&spec.name, &variant, hops, direction);
+        let neighbors = graph.k_neighbors(&resolved.name, &resolved.variant, hops, direction);
 
         let json = serde_json::json!({
-            "source": spec.name,
+            "source": resolved.name,
             "hops": hops,
             "direction": direction_str,
             "neighbors": neighbors.iter().map(|n| {
@@ -266,61 +261,51 @@ impl McpServer {
         target: &str,
         cost: &str,
         all: bool,
+        max_paths: usize,
     ) -> anyhow::Result<String> {
-        let src_spec = parse_problem_spec(source)?;
-        let dst_spec = parse_problem_spec(target)?;
         let graph = ReductionGraph::new();
-
-        let src_variants = graph.variants_for(&src_spec.name);
-        let dst_variants = graph.variants_for(&dst_spec.name);
-
-        if src_variants.is_empty() {
-            anyhow::bail!("{}", unknown_problem_error(&src_spec.name));
-        }
-        if dst_variants.is_empty() {
-            anyhow::bail!("{}", unknown_problem_error(&dst_spec.name));
-        }
+        let src_ref = resolve_problem_ref(source, &graph)?;
+        let dst_ref = resolve_problem_ref(target, &graph)?;
 
         if all {
-            let sv = if src_spec.variant_values.is_empty() {
-                src_variants[0].clone()
-            } else {
-                resolve_variant(&src_spec, &src_variants)?
-            };
-            let dv = if dst_spec.variant_values.is_empty() {
-                dst_variants[0].clone()
-            } else {
-                resolve_variant(&dst_spec, &dst_variants)?
-            };
-            let mut all_paths = graph.find_all_paths(&src_spec.name, &sv, &dst_spec.name, &dv);
+            // Fetch one extra to detect truncation
+            let mut all_paths = graph.find_paths_up_to(
+                &src_ref.name,
+                &src_ref.variant,
+                &dst_ref.name,
+                &dst_ref.variant,
+                max_paths + 1,
+            );
             if all_paths.is_empty() {
                 anyhow::bail!(
                     "No reduction path from {} to {}",
-                    src_spec.name,
-                    dst_spec.name
+                    src_ref.name,
+                    dst_ref.name
                 );
             }
             all_paths.sort_by_key(|p| p.len());
-            let json: serde_json::Value = all_paths
+
+            let truncated = all_paths.len() > max_paths;
+            if truncated {
+                all_paths.truncate(max_paths);
+            }
+            let returned = all_paths.len();
+
+            let paths_json: Vec<serde_json::Value> = all_paths
                 .iter()
                 .map(|p| format_path_json(&graph, p))
-                .collect::<Vec<_>>()
-                .into();
+                .collect();
+
+            let json = serde_json::json!({
+                "paths": paths_json,
+                "truncated": truncated,
+                "returned": returned,
+                "max_paths": max_paths,
+            });
             return Ok(serde_json::to_string_pretty(&json)?);
         }
 
         // Single best path
-        let src_resolved = if src_spec.variant_values.is_empty() {
-            src_variants.clone()
-        } else {
-            vec![resolve_variant(&src_spec, &src_variants)?]
-        };
-        let dst_resolved = if dst_spec.variant_values.is_empty() {
-            dst_variants.clone()
-        } else {
-            vec![resolve_variant(&dst_spec, &dst_variants)?]
-        };
-
         let input_size = ProblemSize::new(vec![]);
 
         let cost_field: Option<String> = if cost == "minimize-steps" {
@@ -334,44 +319,32 @@ impl McpServer {
             );
         };
 
-        let mut best_path: Option<problemreductions::rules::ReductionPath> = None;
-
-        for sv in &src_resolved {
-            for dv in &dst_resolved {
-                let found = match cost_field {
-                    None => graph.find_cheapest_path(
-                        &src_spec.name,
-                        sv,
-                        &dst_spec.name,
-                        dv,
-                        &input_size,
-                        &MinimizeSteps,
-                    ),
-                    Some(ref f) => {
-                        let cost_fn = CustomCost(
-                            |overhead: &problemreductions::rules::ReductionOverhead,
-                             size: &ProblemSize| {
-                                overhead.evaluate_output_size(size).get(f).unwrap_or(0) as f64
-                            },
-                        );
-                        graph.find_cheapest_path(
-                            &src_spec.name,
-                            sv,
-                            &dst_spec.name,
-                            dv,
-                            &input_size,
-                            &cost_fn,
-                        )
-                    }
-                };
-                if let Some(p) = found {
-                    let is_better = best_path.as_ref().is_none_or(|bp| p.len() < bp.len());
-                    if is_better {
-                        best_path = Some(p);
-                    }
-                }
+        let best_path = match cost_field {
+            None => graph.find_cheapest_path(
+                &src_ref.name,
+                &src_ref.variant,
+                &dst_ref.name,
+                &dst_ref.variant,
+                &input_size,
+                &MinimizeSteps,
+            ),
+            Some(ref f) => {
+                let cost_fn = CustomCost(
+                    |overhead: &problemreductions::rules::ReductionOverhead,
+                     size: &ProblemSize| {
+                        overhead.evaluate_output_size(size).get(f).unwrap_or(0) as f64
+                    },
+                );
+                graph.find_cheapest_path(
+                    &src_ref.name,
+                    &src_ref.variant,
+                    &dst_ref.name,
+                    &dst_ref.variant,
+                    &input_size,
+                    &cost_fn,
+                )
             }
-        }
+        };
 
         match best_path {
             Some(ref reduction_path) => {
@@ -381,8 +354,8 @@ impl McpServer {
             None => {
                 anyhow::bail!(
                     "No reduction path from {} to {}",
-                    src_spec.name,
-                    dst_spec.name
+                    src_ref.name,
+                    dst_ref.name
                 );
             }
         }
@@ -403,17 +376,10 @@ impl McpServer {
         problem_type: &str,
         params: &serde_json::Value,
     ) -> anyhow::Result<String> {
-        let spec = parse_problem_spec(problem_type)?;
-        let canonical = spec.name.clone();
-
-        // Resolve variant from spec
         let rgraph = ReductionGraph::new();
-        let known_variants = rgraph.variants_for(&canonical);
-        let resolved_variant = if known_variants.is_empty() {
-            BTreeMap::new()
-        } else {
-            resolve_variant(&spec, &known_variants)?
-        };
+        let resolved = resolve_problem_ref(problem_type, &rgraph)?;
+        let canonical = resolved.name.clone();
+        let resolved_variant = resolved.variant;
         let graph_type = resolved_variant
             .get("graph")
             .map(|s| s.as_str())
@@ -778,39 +744,24 @@ impl McpServer {
         let source_variant = source.variant_map();
         let graph = ReductionGraph::new();
 
-        let dst_spec = parse_problem_spec(target)?;
-        let dst_variants = graph.variants_for(&dst_spec.name);
-        if dst_variants.is_empty() {
-            anyhow::bail!("{}", unknown_problem_error(&dst_spec.name));
-        }
+        let dst_ref = resolve_problem_ref(target, &graph)?;
 
         // Auto-discover cheapest path
         let input_size = ProblemSize::new(vec![]);
-        let mut best_path: Option<ReductionPath> = None;
-
-        for dv in &dst_variants {
-            if let Some(p) = graph.find_cheapest_path(
-                source_name,
-                &source_variant,
-                &dst_spec.name,
-                dv,
-                &input_size,
-                &MinimizeSteps,
-            ) {
-                let is_better = best_path
-                    .as_ref()
-                    .is_none_or(|bp: &ReductionPath| p.len() < bp.len());
-                if is_better {
-                    best_path = Some(p);
-                }
-            }
-        }
+        let best_path = graph.find_cheapest_path(
+            source_name,
+            &source_variant,
+            &dst_ref.name,
+            &dst_ref.variant,
+            &input_size,
+            &MinimizeSteps,
+        );
 
         let reduction_path = best_path.ok_or_else(|| {
             anyhow::anyhow!(
                 "No reduction path from {} to {}",
                 source_name,
-                dst_spec.name
+                dst_ref.name
             )
         })?;
 
@@ -959,7 +910,8 @@ impl McpServer {
     fn find_path(&self, Parameters(params): Parameters<FindPathParams>) -> Result<String, String> {
         let cost = params.cost.as_deref().unwrap_or("minimize-steps");
         let all = params.all.unwrap_or(false);
-        self.find_path_inner(&params.source, &params.target, cost, all)
+        let max_paths = params.max_paths.unwrap_or(20);
+        self.find_path_inner(&params.source, &params.target, cost, all, max_paths)
             .map_err(|e| e.to_string())
     }
 

@@ -109,7 +109,7 @@ Use `pred show <problem>` to see variants, reductions, and fields.
 
 ### `pred show` — Inspect a problem
 
-Show variants, fields, size fields, and reductions for a problem type. Use short aliases like `MIS` for `MaximumIndependentSet`.
+Show variants, fields, size fields, and reductions for a problem type. `show` operates at the **type level** — it displays all variants of a problem, not a specific node. Slash suffixes (e.g., `MIS/UnitDiskGraph`) are rejected; use `pred to` or `pred from` for variant-level exploration. Use short aliases like `MIS` for `MaximumIndependentSet`.
 
 ```bash
 $ pred show MIS
@@ -221,10 +221,13 @@ Path (2 steps): Factoring → CircuitSAT → SpinGlass {graph: "SimpleGraph", we
 Show all paths or save for later use with `pred reduce --via`:
 
 ```bash
-pred path MIS QUBO --all                    # all paths
+pred path MIS QUBO --all                    # all paths (up to 20)
+pred path MIS QUBO --all --max-paths 50     # increase limit
 pred path MIS QUBO -o path.json             # save path for `pred reduce --via`
 pred path MIS QUBO --all -o paths/          # save all paths to a folder
 ```
+
+When using `--all`, the output is capped at `--max-paths` (default: 20). If more paths exist, the output indicates truncation.
 
 Use `--cost` to change the optimization strategy:
 
@@ -451,6 +454,8 @@ You can use short aliases instead of full problem names (shown in `pred list`):
 | `TSP` | `TravelingSalesman` |
 
 You can also specify variants with a slash: `MIS/UnitDiskGraph`, `SpinGlass/SimpleGraph`.
+
+When a bare name (no slash) is used in commands like `path`, `to`, `from`, `create`, or `reduce`, it resolves to the **declared default variant** for that problem type. For example, `MIS` resolves to `MaximumIndependentSet/SimpleGraph/One`.
 
 If you mistype a problem name, `pred` will suggest the closest match:
 
