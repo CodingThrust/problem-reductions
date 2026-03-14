@@ -100,7 +100,7 @@ where
 
     fn evaluate(&self, config: &[usize]) -> bool {
         let n = self.graph.num_vertices();
-        if config.len() != n {
+        if n < 3 || config.len() != n {
             return false;
         }
 
