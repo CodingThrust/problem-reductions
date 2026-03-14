@@ -17,41 +17,57 @@ pub fn list(out: &OutputConfig) -> Result<()> {
     let mut types = graph.problem_types();
     types.sort();
 
-    // Collect data for each problem
-    struct RowData {
-        name: String,
-        aliases: Vec<&'static str>,
-        num_variants: usize,
-        num_reduces_to: usize,
+    // Collect data: one row per variant, grouped by problem type.
+    struct VariantRow {
+        /// Full problem/variant name (e.g., "MIS/SimpleGraph/i32")
+        display: String,
+        /// Aliases (shown only on first variant of each problem)
+        aliases: String,
+        /// Whether this variant is the default
+        is_default: bool,
+        /// Number of outgoing reductions from this variant
+        rules: usize,
+        /// Best-known complexity
         complexity: String,
     }
-    let data: Vec<RowData> = types
-        .iter()
-        .map(|name| {
-            let aliases = aliases_for(name);
-            let num_variants = graph.variants_for(name).len();
-            let num_reduces_to = graph.outgoing_reductions(name).len();
-            // Show complexity of the default variant (or first variant with complexity)
+
+    let mut rows_data: Vec<VariantRow> = Vec::new();
+    for name in &types {
+        let variants = graph.variants_for(name);
+        let default_variant = graph.default_variant_for(name);
+        let aliases = aliases_for(name);
+        let alias_str = if aliases.is_empty() {
+            String::new()
+        } else {
+            aliases.join(", ")
+        };
+
+        for (i, v) in variants.iter().enumerate() {
+            let slash = variant_to_full_slash(v);
+            let display = if slash.is_empty() {
+                name.to_string()
+            } else {
+                format!("{name}{slash}")
+            };
+            let is_default = default_variant.as_ref() == Some(v);
+            let rules = graph.outgoing_reductions(name).len();
             let complexity = graph
-                .default_variant_for(name)
-                .and_then(|v| graph.variant_complexity(name, &v).map(|c| c.to_string()))
-                .or_else(|| {
-                    graph
-                        .variants_for(name)
-                        .iter()
-                        .find_map(|v| graph.variant_complexity(name, v).map(|c| c.to_string()))
-                })
-                .map(|c| big_o_of(&Expr::parse(&c)))
+                .variant_complexity(name, v)
+                .map(|c| big_o_of(&Expr::parse(c)))
                 .unwrap_or_default();
-            RowData {
-                name: name.to_string(),
-                aliases,
-                num_variants,
-                num_reduces_to,
+            rows_data.push(VariantRow {
+                display,
+                aliases: if i == 0 {
+                    alias_str.clone()
+                } else {
+                    String::new()
+                },
+                is_default,
+                rules: if i == 0 { rules } else { 0 },
                 complexity,
-            }
-        })
-        .collect();
+            });
+        }
+    }
 
     let summary = format!(
         "Registered problems: {} types, {} reductions, {} variant nodes\n",
@@ -63,52 +79,51 @@ pub fn list(out: &OutputConfig) -> Result<()> {
     let columns: Vec<(&str, Align, usize)> = vec![
         ("Problem", Align::Left, 7),
         ("Aliases", Align::Left, 7),
-        ("Variants", Align::Right, 8),
         ("Rules", Align::Right, 5),
         ("Complexity", Align::Left, 10),
     ];
 
-    let rows: Vec<Vec<String>> = data
+    let rows: Vec<Vec<String>> = rows_data
         .iter()
         .map(|r| {
+            let label = if r.is_default {
+                format!("{} *", r.display)
+            } else {
+                r.display.clone()
+            };
             vec![
-                r.name.clone(),
-                if r.aliases.is_empty() {
-                    String::new()
+                label,
+                r.aliases.clone(),
+                if r.rules > 0 {
+                    r.rules.to_string()
                 } else {
-                    r.aliases.join(", ")
+                    String::new()
                 },
-                r.num_variants.to_string(),
-                r.num_reduces_to.to_string(),
                 r.complexity.clone(),
             ]
         })
         .collect();
 
-    let color_fns: Vec<Option<crate::output::CellFormatter>> = vec![
-        Some(crate::output::fmt_problem_name),
-        None,
-        None,
-        None,
-        None,
-    ];
+    let color_fns: Vec<Option<crate::output::CellFormatter>> =
+        vec![Some(crate::output::fmt_problem_name), None, None, None];
 
     let mut text = String::new();
     text.push_str(&crate::output::fmt_section(&summary));
     text.push('\n');
     text.push_str(&format_table(&columns, &rows, &color_fns));
-    text.push_str("\nUse `pred show <problem>` to see variants, reductions, and fields.\n");
+    text.push_str("\n* = default variant\n");
+    text.push_str("Use `pred show <problem>` to see reductions and fields.\n");
 
     let json = serde_json::json!({
         "num_types": graph.num_types(),
         "num_reductions": graph.num_reductions(),
         "num_variant_nodes": graph.num_variant_nodes(),
-        "problems": data.iter().map(|r| {
+        "variants": rows_data.iter().map(|r| {
             serde_json::json!({
-                "name": r.name,
+                "name": r.display,
                 "aliases": r.aliases,
-                "num_variants": r.num_variants,
-                "num_reduces_to": r.num_reduces_to,
+                "default": r.is_default,
+                "rules": r.rules,
                 "complexity": r.complexity,
             })
         }).collect::<Vec<_>>(),
@@ -118,8 +133,6 @@ pub fn list(out: &OutputConfig) -> Result<()> {
 }
 
 pub fn list_rules(out: &OutputConfig) -> Result<()> {
-    use crate::output::{format_table, Align};
-
     let graph = ReductionGraph::new();
 
     let mut types = graph.problem_types();
@@ -147,54 +160,24 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
 
     let summary = format!("Registered reduction rules: {}\n", rows_data.len());
 
-    let columns: Vec<(&str, Align, usize)> = vec![
-        ("Source", Align::Left, 6),
-        ("Target", Align::Left, 6),
-        ("Overhead", Align::Left, 8),
-    ];
-
-    // For the text table, show only the first overhead field inline;
-    // additional fields go on continuation lines.
-    let rows: Vec<Vec<String>> = rows_data
-        .iter()
-        .map(|r| {
-            let first_oh = r.overhead_parts.first().cloned().unwrap_or_default();
-            vec![r.source.clone(), r.target.clone(), first_oh]
-        })
-        .collect();
-
-    let color_fns: Vec<Option<crate::output::CellFormatter>> = vec![
-        Some(crate::output::fmt_problem_name),
-        Some(crate::output::fmt_problem_name),
-        None,
-    ];
-
-    let mut text = String::new();
-    text.push_str(&crate::output::fmt_section(&summary));
-    text.push('\n');
-    text.push_str(&format_table(&columns, &rows, &color_fns));
-
-    // Append continuation lines for rules with multiple overhead fields.
-    // Rebuild the table to inject them; simpler: append after the table as a
-    // legend keyed by index. Actually the cleanest approach: build text manually.
-    // Let's redo: build the table ourselves to interleave continuation lines.
-    text.clear();
-    text.push_str(&crate::output::fmt_section(&summary));
-    text.push('\n');
-
-    // Compute column widths
+    // Build table with continuation lines for multi-field overhead.
+    // We use format_table's approach: pad plain text first, then colorize.
     let src_w = rows_data
         .iter()
         .map(|r| r.source.len())
         .max()
-        .unwrap_or(6)
-        .max(6);
+        .unwrap_or(0)
+        .max("Source".len());
     let tgt_w = rows_data
         .iter()
         .map(|r| r.target.len())
         .max()
-        .unwrap_or(6)
-        .max(6);
+        .unwrap_or(0)
+        .max("Target".len());
+
+    let mut text = String::new();
+    text.push_str(&crate::output::fmt_section(&summary));
+    text.push('\n');
 
     // Header
     text.push_str(&format!(
@@ -202,18 +185,21 @@ pub fn list_rules(out: &OutputConfig) -> Result<()> {
         "Source", "Target", "Overhead"
     ));
     text.push_str(&format!(
-        "  {:<src_w$}  {:<tgt_w$}  {}\n",
+        "  {}  {}  {}\n",
         "─".repeat(src_w),
         "─".repeat(tgt_w),
         "─".repeat(8)
     ));
 
     for r in &rows_data {
+        // Pad plain text, then colorize (so ANSI codes don't affect width)
+        let src_padded = format!("{:<src_w$}", r.source);
+        let tgt_padded = format!("{:<tgt_w$}", r.target);
         let first_oh = r.overhead_parts.first().map(|s| s.as_str()).unwrap_or("");
         text.push_str(&format!(
-            "  {:<src_w$}  {:<tgt_w$}  {}\n",
-            crate::output::fmt_problem_name(&r.source),
-            crate::output::fmt_problem_name(&r.target),
+            "  {}  {}  {}\n",
+            crate::output::fmt_problem_name(&src_padded),
+            crate::output::fmt_problem_name(&tgt_padded),
             first_oh,
         ));
         for oh in r.overhead_parts.iter().skip(1) {

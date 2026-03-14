@@ -186,7 +186,7 @@ fn test_list_json() {
     assert!(tmp.exists());
     let content = std::fs::read_to_string(&tmp).unwrap();
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
-    assert!(json["problems"].is_array());
+    assert!(json["variants"].is_array());
     std::fs::remove_file(&tmp).ok();
 }
 
