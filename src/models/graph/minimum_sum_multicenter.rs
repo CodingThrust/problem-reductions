@@ -254,7 +254,7 @@ where
 }
 
 crate::declare_variants! {
-    MinimumSumMulticenter<SimpleGraph, i32> => "2^num_vertices",
+    default MinimumSumMulticenter<SimpleGraph, i32> => "2^num_vertices",
 }
 
 #[cfg(test)]

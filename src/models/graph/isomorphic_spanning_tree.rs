@@ -163,7 +163,7 @@ impl Problem for IsomorphicSpanningTree {
 impl SatisfactionProblem for IsomorphicSpanningTree {}
 
 crate::declare_variants! {
-    IsomorphicSpanningTree => "factorial(num_vertices)",
+    default IsomorphicSpanningTree => "factorial(num_vertices)",
 }
 
 #[cfg(test)]

@@ -184,7 +184,7 @@ pub(crate) fn is_valid_coloring<G: Graph>(
 }
 
 crate::declare_variants! {
-    KColoring<KN, SimpleGraph> => "2^num_vertices",
+    default KColoring<KN, SimpleGraph> => "2^num_vertices",
     KColoring<K2, SimpleGraph> => "num_vertices + num_edges",
     KColoring<K3, SimpleGraph> => "1.3289^num_vertices",
     KColoring<K4, SimpleGraph> => "1.7159^num_vertices",

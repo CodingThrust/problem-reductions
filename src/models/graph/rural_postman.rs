@@ -269,7 +269,7 @@ where
 }
 
 crate::declare_variants! {
-    RuralPostman<SimpleGraph, i32> => "2^num_vertices * num_vertices^2",
+    default RuralPostman<SimpleGraph, i32> => "2^num_vertices * num_vertices^2",
 }
 
 #[cfg(test)]

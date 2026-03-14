@@ -304,7 +304,7 @@ impl Problem for CircuitSAT {
 impl SatisfactionProblem for CircuitSAT {}
 
 crate::declare_variants! {
-    CircuitSAT => "2^num_variables",
+    default CircuitSAT => "2^num_variables",
 }
 
 #[cfg(test)]

@@ -220,7 +220,7 @@ where
 }
 
 crate::declare_variants! {
-    MaximumMatching<SimpleGraph, i32> => "num_vertices^3",
+    default MaximumMatching<SimpleGraph, i32> => "num_vertices^3",
 }
 
 /// Check if a selection of edges forms a valid matching.

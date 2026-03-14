@@ -151,7 +151,7 @@ fn count_bins(config: &[usize]) -> usize {
 }
 
 crate::declare_variants! {
-    BinPacking<i32> => "2^num_items",
+    default BinPacking<i32> => "2^num_items",
     BinPacking<f64> => "2^num_items",
 }
 

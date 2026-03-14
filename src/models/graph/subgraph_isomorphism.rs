@@ -177,7 +177,7 @@ impl Problem for SubgraphIsomorphism {
 impl SatisfactionProblem for SubgraphIsomorphism {}
 
 crate::declare_variants! {
-    SubgraphIsomorphism => "num_host_vertices ^ num_pattern_vertices",
+    default SubgraphIsomorphism => "num_host_vertices ^ num_pattern_vertices",
 }
 
 #[cfg(test)]

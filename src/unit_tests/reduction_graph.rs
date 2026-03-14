@@ -496,6 +496,59 @@ fn default_variant_for_unknown_problem_returns_none() {
 }
 
 #[test]
+fn default_variant_for_mvc_uses_declared_default() {
+    let graph = ReductionGraph::new();
+    let default = graph.default_variant_for("MinimumVertexCover");
+    assert!(
+        default.is_some(),
+        "MinimumVertexCover should have a declared default variant"
+    );
+    let variant = default.unwrap();
+    assert_eq!(
+        variant.get("graph").map(|s| s.as_str()),
+        Some("SimpleGraph"),
+        "default MVC variant should use SimpleGraph"
+    );
+    assert_eq!(
+        variant.get("weight").map(|s| s.as_str()),
+        Some("i32"),
+        "default MVC variant should use i32"
+    );
+}
+
+#[test]
+fn default_variant_for_qubo_uses_declared_default() {
+    let graph = ReductionGraph::new();
+    let default = graph.default_variant_for("QUBO");
+    assert!(
+        default.is_some(),
+        "QUBO should have a declared default variant"
+    );
+    let variant = default.unwrap();
+    assert_eq!(
+        variant.get("weight").map(|s| s.as_str()),
+        Some("f64"),
+        "default QUBO variant should use f64"
+    );
+}
+
+#[test]
+fn default_variant_for_ksat_uses_declared_default() {
+    let graph = ReductionGraph::new();
+    let default = graph.default_variant_for("KSatisfiability");
+    assert!(
+        default.is_some(),
+        "KSatisfiability should have a declared default variant"
+    );
+    let variant = default.unwrap();
+    assert_eq!(
+        variant.get("k").map(|s| s.as_str()),
+        Some("KN"),
+        "default KSatisfiability variant should use KN"
+    );
+}
+
+#[test]
 fn default_variant_for_sat_returns_empty() {
     // Satisfiability has no variant dimensions, so its default is an empty map
     let graph = ReductionGraph::new();

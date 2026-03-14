@@ -159,7 +159,7 @@ where
 impl<G: Graph + crate::variant::VariantParam> SatisfactionProblem for OptimalLinearArrangement<G> {}
 
 crate::declare_variants! {
-    OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",
+    default OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(test)]

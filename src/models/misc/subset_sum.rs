@@ -135,7 +135,7 @@ impl Problem for SubsetSum {
 impl SatisfactionProblem for SubsetSum {}
 
 crate::declare_variants! {
-    SubsetSum => "2^(num_elements / 2)",
+    default SubsetSum => "2^(num_elements / 2)",
 }
 
 mod decimal_biguint {

@@ -157,7 +157,7 @@ fn is_vertex_cover_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices",
+    default MinimumVertexCover<SimpleGraph, i32> => "1.1996^num_vertices",
 }
 
 /// Check if a set of vertices forms a vertex cover.

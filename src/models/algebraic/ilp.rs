@@ -272,7 +272,7 @@ impl<V: VariableDomain> OptimizationProblem for ILP<V> {
 }
 
 crate::declare_variants! {
-    ILP<bool> => "2^num_vars",
+    default ILP<bool> => "2^num_vars",
     ILP<i32> => "num_vars^num_vars",
 }
 

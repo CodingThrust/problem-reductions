@@ -179,7 +179,7 @@ where
 }
 
 crate::declare_variants! {
-    MinimumSetCovering<i32> => "2^num_sets",
+    default MinimumSetCovering<i32> => "2^num_sets",
 }
 
 /// Check if a selection of sets forms a valid set cover.

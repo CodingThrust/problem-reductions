@@ -190,7 +190,7 @@ impl OptimizationProblem for PaintShop {
 }
 
 crate::declare_variants! {
-    PaintShop => "2^num_cars",
+    default PaintShop => "2^num_cars",
 }
 
 #[cfg(test)]

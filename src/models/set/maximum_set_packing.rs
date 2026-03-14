@@ -174,7 +174,7 @@ where
 }
 
 crate::declare_variants! {
-    MaximumSetPacking<One> => "2^num_sets",
+    default MaximumSetPacking<One> => "2^num_sets",
     MaximumSetPacking<i32> => "2^num_sets",
     MaximumSetPacking<f64> => "2^num_sets",
 }

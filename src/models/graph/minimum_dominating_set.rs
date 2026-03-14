@@ -170,7 +170,7 @@ where
 }
 
 crate::declare_variants! {
-    MinimumDominatingSet<SimpleGraph, i32> => "1.4969^num_vertices",
+    default MinimumDominatingSet<SimpleGraph, i32> => "1.4969^num_vertices",
 }
 
 /// Check if a set of vertices is a dominating set.

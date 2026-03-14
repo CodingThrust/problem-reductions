@@ -161,7 +161,7 @@ fn is_independent_set_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 
 crate::declare_variants! {
     MaximumIndependentSet<SimpleGraph, i32>        => "1.1996^num_vertices",
-    MaximumIndependentSet<SimpleGraph, One>         => "1.1996^num_vertices",
+    default MaximumIndependentSet<SimpleGraph, One>         => "1.1996^num_vertices",
     MaximumIndependentSet<KingsSubgraph, i32>      => "2^sqrt(num_vertices)",
     MaximumIndependentSet<KingsSubgraph, One>       => "2^sqrt(num_vertices)",
     MaximumIndependentSet<TriangularSubgraph, i32> => "2^sqrt(num_vertices)",

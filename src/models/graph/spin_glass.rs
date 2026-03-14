@@ -251,7 +251,7 @@ where
 }
 
 crate::declare_variants! {
-    SpinGlass<SimpleGraph, i32> => "2^num_spins",
+    default SpinGlass<SimpleGraph, i32> => "2^num_spins",
     SpinGlass<SimpleGraph, f64> => "2^num_spins",
 }
 

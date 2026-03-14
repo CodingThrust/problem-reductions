@@ -143,7 +143,7 @@ pub(crate) fn is_valid_hamiltonian_path<G: Graph>(graph: &G, config: &[usize]) -
 
 // Use Bjorklund (2014) O*(1.657^n) as best known for general undirected graphs
 crate::declare_variants! {
-    HamiltonianPath<SimpleGraph> => "1.657^num_vertices",
+    default HamiltonianPath<SimpleGraph> => "1.657^num_vertices",
 }
 
 #[cfg(test)]
