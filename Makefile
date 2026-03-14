@@ -147,9 +147,13 @@ endif
 	git push origin main --tags
 	@echo "v$(V) pushed — CI will publish to crates.io"
 
-# Build and install the pred CLI tool
+# Build and install the pred CLI tool (without MCP for fast builds)
 cli:
 	cargo install --path problemreductions-cli
+
+# Build and install the pred CLI tool with MCP server support
+mcp:
+	cargo install --path problemreductions-cli --features mcp
 
 # Generate Rust mapping JSON exports for all graphs and modes
 GRAPHS := diamond bull house petersen

@@ -44,7 +44,8 @@ make diagrams      # Generate SVG diagrams from Typst (light + dark)
 make examples      # Generate example JSON for paper
 make compare       # Generate and compare Rust mapping exports
 make jl-testdata   # Regenerate Julia parity test data (requires julia)
-make cli           # Build the pred CLI tool (release mode)
+make cli           # Build the pred CLI tool (without MCP, fast)
+make mcp           # Build the pred CLI tool with MCP server support
 make cli-demo      # Run closed-loop CLI demo (exercises all commands)
 make mcp-test      # Run MCP server tests (unit + integration)
 make run-plan      # Execute a plan with Claude autorun
