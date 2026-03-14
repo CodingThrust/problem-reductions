@@ -462,6 +462,22 @@
     ]
   },
   {
+    "name": "OptimalLinearArrangement",
+    "description": "Find a vertex ordering on a line with total edge length at most K",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The undirected graph G=(V,E)"
+      },
+      {
+        "name": "bound",
+        "type_name": "usize",
+        "description": "Upper bound K on total edge length"
+      }
+    ]
+  },
+  {
     "name": "PaintShop",
     "description": "Minimize color changes in paint shop sequence",
     "fields": [
