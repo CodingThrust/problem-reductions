@@ -17,6 +17,7 @@
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
+//! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
@@ -37,6 +38,7 @@ pub(crate) mod minimum_feedback_arc_set;
 pub(crate) mod minimum_feedback_vertex_set;
 pub(crate) mod minimum_sum_multicenter;
 pub(crate) mod minimum_vertex_cover;
+pub(crate) mod optimal_linear_arrangement;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod rural_postman;
 pub(crate) mod spin_glass;
@@ -58,6 +60,7 @@ pub use minimum_feedback_arc_set::MinimumFeedbackArcSet;
 pub use minimum_feedback_vertex_set::MinimumFeedbackVertexSet;
 pub use minimum_sum_multicenter::MinimumSumMulticenter;
 pub use minimum_vertex_cover::MinimumVertexCover;
+pub use optimal_linear_arrangement::OptimalLinearArrangement;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use rural_postman::RuralPostman;
 pub use spin_glass::SpinGlass;

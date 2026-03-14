@@ -55,6 +55,7 @@
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "OptimalLinearArrangement": [Optimal Linear Arrangement],
   "RuralPostman": [Rural Postman],
   "LongestCommonSubsequence": [Longest Common Subsequence],
   "SubsetSum": [Subset Sum],
@@ -63,7 +64,6 @@
   "ShortestCommonSupersequence": [Shortest Common Supersequence],
   "MinimumSumMulticenter": [Minimum Sum Multicenter],
   "SubgraphIsomorphism": [Subgraph Isomorphism],
-  "SubsetSum": [Subset Sum],
   "FlowShopScheduling": [Flow Shop Scheduling],
 )
 
@@ -577,6 +577,15 @@ One of the most intensely studied NP-hard problems, with applications in logisti
 },
 caption: [Complete graph $K_4$ with weighted edges. The optimal tour $v_0 -> v_1 -> v_2 -> v_3 -> v_0$ (blue edges) has cost 6.],
 ) <fig:k4-tsp>
+]
+#problem-def("OptimalLinearArrangement")[
+  Given an undirected graph $G=(V,E)$ and a non-negative integer $K$, is there a bijection $f: V -> {0, 1, dots, |V|-1}$ such that $sum_({u,v} in E) |f(u) - f(v)| <= K$?
+][
+A classical NP-complete decision problem from Garey & Johnson (GT42) @garey1979, with applications in VLSI design, graph drawing, and sparse matrix reordering. The problem asks whether vertices can be placed on a line so that the total "stretch" of all edges is at most $K$.
+
+NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonStockmeyer1976, via reduction from Simple Max Cut. The problem remains NP-complete on bipartite graphs, but is solvable in polynomial time on trees. The best known exact algorithm for general graphs uses dynamic programming over subsets in $O^*(2^n)$ time and space (Held-Karp style), analogous to TSP.
+
+*Example.* Consider the path graph $P_3$: vertices ${v_0, v_1, v_2}$ with edges ${v_0, v_1}$ and ${v_1, v_2}$. The identity arrangement $f(v_i) = i$ gives cost $|0-1| + |1-2| = 2$. With bound $K = 2$, this is a YES instance. For a triangle $K_3$ with the same vertex set plus edge ${v_0, v_2}$, any arrangement yields cost 4, so a bound of $K = 3$ gives a NO instance.
 ]
 #problem-def("MaximumClique")[
   Given $G = (V, E)$, find $K subset.eq V$ maximizing $|K|$ such that all pairs in $K$ are adjacent: $forall u, v in K: (u, v) in E$. Equivalent to MIS on the complement graph $overline(G)$.

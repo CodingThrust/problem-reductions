@@ -104,6 +104,10 @@ fn test_all_problems_implement_trait_correctly() {
         "HamiltonianPath",
     );
     check_problem_trait(
+        &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3),
+        "OptimalLinearArrangement",
+    );
+    check_problem_trait(
         &IsomorphicSpanningTree::new(
             SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
             SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
