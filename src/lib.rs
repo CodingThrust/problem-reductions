@@ -17,10 +17,14 @@
 //!
 //! Use [`prelude`] for convenient imports.
 
+extern crate self as problemreductions;
+
 pub(crate) mod big_o;
 pub(crate) mod canonical;
 pub mod config;
 pub mod error;
+#[cfg(feature = "example-db")]
+pub mod example_db;
 pub mod export;
 pub(crate) mod expr;
 pub mod io;

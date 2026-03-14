@@ -95,6 +95,7 @@ fn test_lookup_overhead_unknown_reduction() {
 #[test]
 fn test_write_example_creates_files() {
     use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     let data = ReductionData {
         source: ProblemSide {
@@ -117,27 +118,89 @@ fn test_write_example_creates_files() {
         }],
     };
 
+    let dir = std::env::temp_dir().join(format!(
+        "problemreductions-export-test-{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    std::env::set_var(EXAMPLES_DIR_ENV, &dir);
     write_example("_test_export", &data, &results);
 
     // Verify files exist and contain valid JSON
-    let reduction_path = "docs/paper/examples/_test_export.json";
-    let results_path = "docs/paper/examples/_test_export.result.json";
+    let reduction_path = dir.join("_test_export.json");
 
     let reduction_json: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(reduction_path).unwrap()).unwrap();
+        serde_json::from_str(&fs::read_to_string(&reduction_path).unwrap()).unwrap();
     assert_eq!(reduction_json["source"]["problem"], "TestProblem");
     assert_eq!(reduction_json["target"]["problem"], "TargetProblem");
-
-    let results_json: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(results_path).unwrap()).unwrap();
     assert_eq!(
-        results_json["solutions"][0]["source_config"],
+        reduction_json["solutions"][0]["source_config"],
         serde_json::json!([1, 0, 1])
     );
 
     // Clean up test files
-    let _ = fs::remove_file(reduction_path);
-    let _ = fs::remove_file(results_path);
+    let _ = fs::remove_dir_all(&dir);
+    std::env::remove_var(EXAMPLES_DIR_ENV);
+}
+
+#[test]
+fn test_write_canonical_example_dbs() {
+    use std::fs;
+    use std::time::{SystemTime, UNIX_EPOCH};
+
+    let dir = std::env::temp_dir().join(format!(
+        "problemreductions-export-db-test-{}",
+        SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos()
+    ));
+    fs::create_dir_all(&dir).unwrap();
+
+    let rule_db = RuleDb {
+        version: EXAMPLE_DB_VERSION,
+        rules: vec![RuleExample {
+            source: ProblemSide {
+                problem: "SourceProblem".to_string(),
+                variant: variant_to_map(vec![("graph", "SimpleGraph")]),
+                instance: serde_json::json!({"n": 3}),
+            },
+            target: ProblemSide {
+                problem: "TargetProblem".to_string(),
+                variant: variant_to_map(vec![("weight", "i32")]),
+                instance: serde_json::json!({"m": 4}),
+            },
+            overhead: vec![],
+            solutions: vec![],
+        }],
+    };
+    let model_db = ModelDb {
+        version: EXAMPLE_DB_VERSION,
+        models: vec![ModelExample {
+            problem: "ModelProblem".to_string(),
+            variant: variant_to_map(vec![("graph", "SimpleGraph")]),
+            instance: serde_json::json!({"n": 5}),
+            samples: vec![],
+            optimal: vec![],
+        }],
+    };
+
+    write_rule_db_to(&dir, &rule_db);
+    write_model_db_to(&dir, &model_db);
+
+    let rules_json: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(dir.join("rules.json")).unwrap()).unwrap();
+    let models_json: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(dir.join("models.json")).unwrap()).unwrap();
+
+    assert_eq!(rules_json["version"], EXAMPLE_DB_VERSION);
+    assert_eq!(rules_json["rules"][0]["source"]["problem"], "SourceProblem");
+    assert_eq!(models_json["version"], EXAMPLE_DB_VERSION);
+    assert_eq!(models_json["models"][0]["problem"], "ModelProblem");
+
+    let _ = fs::remove_dir_all(&dir);
 }
 
 #[test]

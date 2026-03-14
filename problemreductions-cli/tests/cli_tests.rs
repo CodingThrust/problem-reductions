@@ -1092,6 +1092,54 @@ fn test_create_without_output() {
     assert!(json["data"].is_object());
 }
 
+#[test]
+fn test_create_from_example_source() {
+    let output = pred()
+        .args([
+            "create",
+            "--example",
+            "MVC/SimpleGraph/i32",
+            "--to",
+            "MIS/SimpleGraph/i32",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MinimumVertexCover");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+}
+
+#[test]
+fn test_create_from_example_target() {
+    let output = pred()
+        .args([
+            "create",
+            "--example",
+            "MVC/SimpleGraph/i32",
+            "--to",
+            "MIS/SimpleGraph/i32",
+            "--example-side",
+            "target",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+}
+
 // ---- Error cases ----
 
 #[test]
@@ -1101,6 +1149,28 @@ fn test_create_unknown_problem() {
         .output()
         .unwrap();
     assert!(!output.status.success());
+}
+
+#[test]
+fn test_create_unknown_example_problem() {
+    let output = pred()
+        .args(["create", "--example", "not_a_real_example"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Unknown problem"));
+}
+
+#[test]
+fn test_create_missing_model_example() {
+    let output = pred()
+        .args(["create", "--example", "MIS/SimpleGraph/i32"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("No canonical model example exists"));
 }
 
 #[test]

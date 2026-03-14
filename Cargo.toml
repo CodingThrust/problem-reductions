@@ -13,6 +13,7 @@ categories = ["algorithms", "science"]
 
 [features]
 default = ["ilp-highs"]
+example-db = []
 ilp = ["ilp-highs"]  # backward compat shorthand
 ilp-solver = []      # marker: enables ILP solver code
 ilp-highs = ["ilp-solver", "dep:good_lp", "good_lp/highs"]
@@ -43,6 +44,11 @@ criterion = "0.8"
 [[bench]]
 name = "solver_benchmarks"
 harness = false
+
+[[example]]
+name = "export_examples"
+path = "examples/export_examples.rs"
+required-features = ["example-db"]
 
 [profile.release]
 lto = true

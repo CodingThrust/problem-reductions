@@ -1,9 +1,12 @@
-use crate::cli::CreateArgs;
+use crate::cli::{CreateArgs, ExampleSide};
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
-use crate::problem_name::{parse_problem_spec, resolve_variant};
+use crate::problem_name::{
+    parse_problem_spec, resolve_variant, unknown_problem_error, ProblemSpec,
+};
 use crate::util;
 use anyhow::{bail, Context, Result};
+use problemreductions::export::ProblemRef;
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
 use problemreductions::models::misc::{
@@ -60,6 +63,169 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.deadline.is_none()
         && args.num_processors.is_none()
         && args.alphabet_size.is_none()
+}
+
+fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
+    let json = serde_json::to_value(output)?;
+    if let Some(ref path) = out.output {
+        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
+        std::fs::write(path, &content)
+            .with_context(|| format!("Failed to write {}", path.display()))?;
+        out.info(&format!("Wrote {}", path.display()));
+    } else {
+        println!("{}", serde_json::to_string_pretty(&json)?);
+    }
+    Ok(())
+}
+
+fn format_problem_ref(problem: &ProblemRef) -> String {
+    if problem.variant.is_empty() {
+        return problem.name.clone();
+    }
+
+    let values = problem
+        .variant
+        .values()
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("/");
+    format!("{}/{}", problem.name, values)
+}
+
+fn resolve_example_problem_ref(
+    input: &str,
+    rgraph: &problemreductions::rules::ReductionGraph,
+) -> Result<ProblemRef> {
+    let spec = parse_problem_spec(input)?;
+    let canonical = spec.name.clone();
+    let known_problems = rgraph.problem_types();
+    if !known_problems.contains(&canonical.as_str()) {
+        bail!("{}", unknown_problem_error(input));
+    }
+
+    let known_variants = rgraph.variants_for(&canonical);
+    let variant = if known_variants.is_empty() {
+        if spec.variant_values.is_empty() {
+            BTreeMap::new()
+        } else {
+            bail!(
+                "Problem {} has no registered variants, but {:?} was supplied",
+                canonical,
+                spec.variant_values
+            );
+        }
+    } else if spec.variant_values.is_empty() {
+        if known_variants.len() == 1 {
+            known_variants[0].clone()
+        } else {
+            bail!(
+                "Canonical example lookup requires an explicit variant for {}. Known variants: {:?}",
+                canonical,
+                known_variants
+            );
+        }
+    } else {
+        resolve_example_variant(&spec, &known_variants)?
+    };
+
+    Ok(ProblemRef {
+        name: canonical,
+        variant,
+    })
+}
+
+fn resolve_example_variant(
+    spec: &ProblemSpec,
+    known_variants: &[BTreeMap<String, String>],
+) -> Result<BTreeMap<String, String>> {
+    let matches: Vec<_> = known_variants
+        .iter()
+        .filter(|variant| {
+            spec.variant_values
+                .iter()
+                .all(|value| variant.values().any(|candidate| candidate == value))
+        })
+        .collect();
+
+    match matches.len() {
+        1 => Ok(matches[0].clone()),
+        0 => bail!(
+            "No canonical example variant of {} matches values {:?}. Known variants: {:?}",
+            spec.name,
+            spec.variant_values,
+            known_variants
+        ),
+        _ => bail!(
+            "Canonical example lookup for {} with values {:?} is ambiguous. Matches: {:?}",
+            spec.name,
+            spec.variant_values,
+            matches
+        ),
+    }
+}
+
+fn create_from_example(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
+    let example_spec = args
+        .example
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("Missing --example problem spec"))?;
+
+    if args.problem.is_some() {
+        bail!(
+            "Use either `pred create <PROBLEM>` or `pred create --example <PROBLEM_SPEC>`, not both"
+        );
+    }
+    if args.random || !all_data_flags_empty(args) {
+        bail!("`pred create --example` does not accept problem-construction flags");
+    }
+    let rgraph = problemreductions::rules::ReductionGraph::new();
+
+    let output = if let Some(target_spec) = args.example_target.as_deref() {
+        let source = resolve_example_problem_ref(example_spec, &rgraph)?;
+        let target = resolve_example_problem_ref(target_spec, &rgraph)?;
+        let example =
+            problemreductions::example_db::find_rule_example(&source, &target).map_err(|_| {
+                anyhow::anyhow!(
+                    "No canonical rule example exists for {} -> {}",
+                    format_problem_ref(&source),
+                    format_problem_ref(&target)
+                )
+            })?;
+
+        match args.example_side {
+            ExampleSide::Source => ProblemJsonOutput {
+                problem_type: example.source.problem,
+                variant: example.source.variant,
+                data: example.source.instance,
+            },
+            ExampleSide::Target => ProblemJsonOutput {
+                problem_type: example.target.problem,
+                variant: example.target.variant,
+                data: example.target.instance,
+            },
+        }
+    } else {
+        if matches!(args.example_side, ExampleSide::Target) {
+            bail!("`--example-side target` requires `--to <TARGET_SPEC>`");
+        }
+
+        let problem = resolve_example_problem_ref(example_spec, &rgraph)?;
+        let example =
+            problemreductions::example_db::find_model_example(&problem).map_err(|_| {
+                anyhow::anyhow!(
+                    "No canonical model example exists for {}",
+                    format_problem_ref(&problem)
+                )
+            })?;
+
+        ProblemJsonOutput {
+            problem_type: example.problem,
+            variant: example.variant,
+            data: example.instance,
+        }
+    };
+
+    emit_problem_output(&output, out)
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -183,7 +349,14 @@ fn resolved_graph_type(variant: &BTreeMap<String, String>) -> &str {
 }
 
 pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
-    let spec = parse_problem_spec(&args.problem)?;
+    if args.example.is_some() {
+        return create_from_example(args, out);
+    }
+
+    let problem = args.problem.as_ref().ok_or_else(|| {
+        anyhow::anyhow!("Missing problem type.\n\nUsage: pred create <PROBLEM> [FLAGS]")
+    })?;
+    let spec = parse_problem_spec(problem)?;
     let canonical = &spec.name;
 
     // Resolve variant early so random and help can use it
@@ -296,7 +469,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
                     "{e}\n\nUsage: pred create {} --graph 0-1,1-2,2-3 [--edge-weights 1,1,1]",
-                    args.problem
+                    problem
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
@@ -864,18 +1037,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         data,
     };
 
-    let json = serde_json::to_value(&output)?;
-
-    if let Some(ref path) = out.output {
-        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
-        std::fs::write(path, &content)
-            .with_context(|| format!("Failed to write {}", path.display()))?;
-        out.info(&format!("Wrote {}", path.display()));
-    } else {
-        // Print JSON to stdout so data is not lost (consistent with reduce)
-        println!("{}", serde_json::to_string_pretty(&json)?);
-    }
-    Ok(())
+    emit_problem_output(&output, out)
 }
 
 /// Create a vertex-weight problem dispatching on geometry graph type.
@@ -922,7 +1084,7 @@ fn create_vertex_weight_problem(
             let (graph, n) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
                     "{e}\n\nUsage: pred create {} --graph 0-1,1-2,2-3 [--weights 1,1,1,1]",
-                    args.problem
+                    canonical
                 )
             })?;
             let weights = parse_vertex_weights(args, n)?;
@@ -1315,7 +1477,7 @@ fn create_random(
         anyhow::anyhow!(
             "--random requires --num-vertices\n\n\
              Usage: pred create {} --random --num-vertices 10 [--edge-prob 0.3] [--seed 42]",
-            args.problem
+            canonical
         )
     })?;
 
@@ -1479,15 +1641,5 @@ fn create_random(
         data,
     };
 
-    let json = serde_json::to_value(&output)?;
-
-    if let Some(ref path) = out.output {
-        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
-        std::fs::write(path, &content)
-            .with_context(|| format!("Failed to write {}", path.display()))?;
-        out.info(&format!("Wrote {}", path.display()));
-    } else {
-        println!("{}", serde_json::to_string_pretty(&json)?);
-    }
-    Ok(())
+    emit_problem_output(&output, out)
 }

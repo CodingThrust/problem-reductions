@@ -1,4 +1,4 @@
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -195,6 +195,12 @@ Setup: add one line to your shell rc file:
     },
 }
 
+#[derive(Clone, Debug, ValueEnum)]
+pub enum ExampleSide {
+    Source,
+    Target,
+}
+
 #[derive(clap::Args)]
 #[command(after_help = "\
 TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
@@ -238,6 +244,8 @@ Random generation:
   --random --num-vertices N [--edge-prob 0.5] [--seed 42]
 
 Examples:
+  pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32
+  pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 --example-side target
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
@@ -246,9 +254,18 @@ Examples:
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1")]
 pub struct CreateArgs {
-    /// Problem type (e.g., MIS, QUBO, SAT)
+    /// Problem type (e.g., MIS, QUBO, SAT). Omit when using --example.
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
-    pub problem: String,
+    pub problem: Option<String>,
+    /// Build a problem from the canonical example database using a structural problem spec.
+    #[arg(long, value_parser = crate::problem_name::ProblemNameParser)]
+    pub example: Option<String>,
+    /// Target problem spec for canonical rule example lookup.
+    #[arg(long = "to", value_parser = crate::problem_name::ProblemNameParser)]
+    pub example_target: Option<String>,
+    /// Which side of a rule example to emit [default: source].
+    #[arg(long, value_enum, default_value = "source")]
+    pub example_side: ExampleSide,
     /// Graph edge list (e.g., 0-1,1-2,2-3)
     #[arg(long)]
     pub graph: Option<String>,

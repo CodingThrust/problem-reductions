@@ -95,13 +95,8 @@ mdbook:
 	@sleep 1 && (command -v xdg-open >/dev/null && xdg-open http://localhost:3001 || open http://localhost:3001)
 
 # Generate all example JSON files for the paper
-REDUCTION_EXAMPLES := $(patsubst examples/%.rs,%,$(wildcard examples/reduction_*.rs))
 examples:
-	@mkdir -p docs/paper/examples
-	@for example in $(REDUCTION_EXAMPLES); do \
-		echo "Running $$example..."; \
-		cargo run --features ilp-highs --example $$example || exit 1; \
-	done
+	cargo run --features "ilp-highs example-db" --example export_examples
 	cargo run --features ilp-highs --example export_petersen_mapping
 
 # Export problem schemas to JSON
