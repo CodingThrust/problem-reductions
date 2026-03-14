@@ -29,7 +29,7 @@ impl ReductionResult for ReductionBinaryILPToIntILP {
     }
 }
 
-#[reduction(overhead = {
+#[reduction(id = "ilp_to_ilp_bool_i32", overhead = {
     num_vars = "num_vars",
     num_constraints = "num_constraints + num_vars",
 })]

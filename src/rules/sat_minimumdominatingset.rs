@@ -112,6 +112,7 @@ impl ReductionSATToDS {
 }
 
 #[reduction(
+    id = "satisfiability_to_minimumdominatingset_simplegraph_i32",
     overhead = {
         num_vertices = "3 * num_vars + num_clauses",
         num_edges = "3 * num_vars + num_literals",

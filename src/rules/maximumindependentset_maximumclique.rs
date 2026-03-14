@@ -34,6 +34,7 @@ where
 }
 
 #[reduction(
+    id = "maximumindependentset_to_maximumclique_simplegraph_i32",
     overhead = {
         num_vertices = "num_vertices",
         num_edges = "num_vertices * (num_vertices - 1) / 2 - num_edges",

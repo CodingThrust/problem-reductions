@@ -71,6 +71,7 @@ impl ReductionResult for ReductionTSPToILP {
 }
 
 #[reduction(
+    id = "travelingsalesman_to_ilp_simplegraph_i32_bool",
     overhead = {
         num_vars = "num_vertices^2 + 2 * num_vertices * num_edges",
         num_constraints = "num_vertices^3 + -1 * num_vertices^2 + 2 * num_vertices + 4 * num_vertices * num_edges",

@@ -1,5 +1,5 @@
 use crate::example_db::{build_model_db, build_rule_db, find_model_example, find_rule_example};
-use crate::export::{ProblemRef, EXAMPLE_DB_VERSION};
+use crate::export::{lookup_overhead, ProblemRef, EXAMPLE_DB_VERSION};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
 #[test]
@@ -95,6 +95,27 @@ fn test_build_rule_db_has_unique_structural_keys() {
             key.0.variant,
             key.1.name,
             key.1.variant
+        );
+    }
+}
+
+#[test]
+fn test_build_rule_db_uses_exact_direct_overheads() {
+    let db = build_rule_db().expect("rule db should build");
+    for rule in &db.rules {
+        let overhead = lookup_overhead(
+            &rule.source.problem,
+            &rule.source.variant,
+            &rule.target.problem,
+            &rule.target.variant,
+        );
+        assert!(
+            overhead.is_some(),
+            "missing exact direct overhead for {} {:?} -> {} {:?}",
+            rule.source.problem,
+            rule.source.variant,
+            rule.target.problem,
+            rule.target.variant
         );
     }
 }

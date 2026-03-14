@@ -33,6 +33,7 @@ impl ReductionResult for ReductionISSimpleToTriangular {
 }
 
 #[reduction(
+    id = "maximumindependentset_to_maximumindependentset_simplegraph_one_triangularsubgraph_i32",
     overhead = {
         num_vertices = "num_vertices * num_vertices",
         num_edges = "num_vertices * num_vertices",

@@ -39,6 +39,7 @@ impl ReductionResult for ReductionQUBOToILP {
 }
 
 #[reduction(
+    id = "qubo_to_ilp_f64_bool",
     overhead = {
         num_vars = "num_vars^2",
         num_constraints = "num_vars^2",

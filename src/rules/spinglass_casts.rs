@@ -8,6 +8,7 @@ use crate::variant::CastToParent;
 impl_variant_reduction!(
     SpinGlass,
     <SimpleGraph, i32> => <SimpleGraph, f64>,
+    id: "spinglass_to_spinglass_simplegraph_i32_simplegraph_f64",
     fields: [num_spins, num_interactions],
     |src| SpinGlass::from_graph(
         src.graph().clone(),

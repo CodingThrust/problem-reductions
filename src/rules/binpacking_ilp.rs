@@ -52,6 +52,7 @@ impl ReductionResult for ReductionBPToILP {
 }
 
 #[reduction(
+    id = "binpacking_to_ilp_i32_bool",
     overhead = {
         num_vars = "num_items * num_items + num_items",
         num_constraints = "2 * num_items",

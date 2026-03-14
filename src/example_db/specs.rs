@@ -124,25 +124,13 @@ where
 {
     let source_variant = variant_to_map(S::variant());
     let target_variant = variant_to_map(T::variant());
-    if let Some(oh) = lookup_overhead(S::NAME, &source_variant, T::NAME, &target_variant) {
-        return oh;
-    }
-    let graph = ReductionGraph::new();
-    let src = graph
-        .default_variant_for(S::NAME)
-        .unwrap_or_else(|| source_variant.clone());
-    let tgt = graph
-        .default_variant_for(T::NAME)
-        .unwrap_or_else(|| target_variant.clone());
-    lookup_overhead(S::NAME, &src, T::NAME, &tgt).unwrap_or_else(|| {
+    lookup_overhead(S::NAME, &source_variant, T::NAME, &target_variant).unwrap_or_else(|| {
         panic!(
-            "missing direct overhead for {} -> {} (tried exact {:?}->{:?} and default {:?}->{:?})",
+            "missing exact direct overhead for {} {:?} -> {} {:?}",
             S::NAME,
-            T::NAME,
             source_variant,
-            target_variant,
-            src,
-            tgt
+            T::NAME,
+            target_variant
         )
     })
 }

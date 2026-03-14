@@ -412,6 +412,7 @@ where
 }
 
 #[reduction(
+    id = "circuitsat_to_spinglass_simplegraph_i32",
     overhead = {
         num_spins = "num_assignments",
         num_interactions = "num_assignments",

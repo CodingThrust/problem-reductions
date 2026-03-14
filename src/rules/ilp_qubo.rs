@@ -35,6 +35,7 @@ impl ReductionResult for ReductionILPToQUBO {
 }
 
 #[reduction(
+    id = "ilp_to_qubo_bool_f64",
     overhead = { num_vars = "num_vars + num_constraints * num_vars" }
 )]
 impl ReduceTo<QUBO<f64>> for ILP<bool> {

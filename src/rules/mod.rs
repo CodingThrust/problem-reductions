@@ -130,6 +130,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 /// impl_variant_reduction!(
 ///     MaximumIndependentSet,
 ///     <KingsSubgraph, i32> => <UnitDiskGraph, i32>,
+///     id: "maximumindependentset_to_maximumindependentset_kingssubgraph_i32_unitdiskgraph_i32",
 ///     fields: [num_vertices, num_edges],
 ///     |src| MaximumIndependentSet::new(
 ///         src.graph().cast_to_parent(), src.weights())
@@ -139,9 +140,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
 macro_rules! impl_variant_reduction {
     ($problem:ident,
      < $($src_param:ty),+ > => < $($dst_param:ty),+ >,
+     id: $id:literal,
      fields: [$($field:ident),+],
      |$src:ident| $body:expr) => {
         #[$crate::reduction(
+            id = $id,
             overhead = {
                 $crate::rules::registry::ReductionOverhead::identity(
                     &[$(stringify!($field)),+]

@@ -109,6 +109,7 @@ impl ReductionSATToIS {
 }
 
 #[reduction(
+    id = "satisfiability_to_maximumindependentset_simplegraph_one",
     overhead = {
         num_vertices = "num_literals",
         num_edges = "num_literals^2",

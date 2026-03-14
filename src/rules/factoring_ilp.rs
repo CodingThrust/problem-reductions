@@ -93,7 +93,7 @@ impl ReductionResult for ReductionFactoringToILP {
     }
 }
 
-#[reduction(overhead = {
+#[reduction(id = "factoring_to_ilp_i32", overhead = {
     num_vars = "num_bits_first * num_bits_second",
     num_constraints = "num_bits_first * num_bits_second",
 })]

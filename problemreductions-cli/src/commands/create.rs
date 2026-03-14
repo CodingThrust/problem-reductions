@@ -1,9 +1,7 @@
 use crate::cli::{CreateArgs, ExampleSide};
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
-use crate::problem_name::{
-    parse_problem_spec, resolve_variant, unknown_problem_error, ProblemSpec,
-};
+use crate::problem_name::{resolve_problem_ref, unknown_problem_error};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
@@ -20,7 +18,7 @@ use problemreductions::topology::{
     UnitDiskGraph,
 };
 use serde::Serialize;
-use std::collections::{BTreeMap, BTreeSet};
+use std::collections::BTreeMap;
 
 /// Check if all data flags are None (no problem-specific input provided).
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
@@ -95,83 +93,12 @@ fn format_problem_ref(problem: &ProblemRef) -> String {
 fn resolve_example_problem_ref(
     input: &str,
     rgraph: &problemreductions::rules::ReductionGraph,
-    candidates: &[ProblemRef],
-    example_kind: &str,
 ) -> Result<ProblemRef> {
-    let spec = parse_problem_spec(input)?;
-    let canonical = spec.name.clone();
-    let known_problems = rgraph.problem_types();
-    if !known_problems.contains(&canonical.as_str()) {
+    let problem = resolve_problem_ref(input, rgraph)?;
+    if rgraph.variants_for(&problem.name).is_empty() {
         bail!("{}", unknown_problem_error(input));
     }
-
-    let known_variants = canonical_example_variants(candidates, &canonical);
-
-    if known_variants.is_empty() {
-        bail!("No canonical {example_kind} example exists for {canonical}");
-    }
-
-    let variant = if spec.variant_values.is_empty() {
-        if known_variants.len() == 1 {
-            known_variants[0].clone()
-        } else {
-            bail!(
-                "Canonical example lookup requires an explicit variant for {}. Known variants: {:?}",
-                canonical,
-                known_variants
-            );
-        }
-    } else {
-        resolve_example_variant(&spec, &known_variants)?
-    };
-
-    Ok(ProblemRef {
-        name: canonical,
-        variant,
-    })
-}
-
-fn canonical_example_variants(
-    candidates: &[ProblemRef],
-    canonical: &str,
-) -> Vec<BTreeMap<String, String>> {
-    candidates
-        .iter()
-        .filter(|candidate| candidate.name == canonical)
-        .map(|candidate| candidate.variant.clone())
-        .collect::<BTreeSet<_>>()
-        .into_iter()
-        .collect()
-}
-
-fn resolve_example_variant(
-    spec: &ProblemSpec,
-    known_variants: &[BTreeMap<String, String>],
-) -> Result<BTreeMap<String, String>> {
-    let matches: Vec<_> = known_variants
-        .iter()
-        .filter(|variant| {
-            spec.variant_values
-                .iter()
-                .all(|value| variant.values().any(|candidate| candidate == value))
-        })
-        .collect();
-
-    match matches.len() {
-        1 => Ok(matches[0].clone()),
-        0 => bail!(
-            "No canonical example variant of {} matches values {:?}. Known variants: {:?}",
-            spec.name,
-            spec.variant_values,
-            known_variants
-        ),
-        _ => bail!(
-            "Canonical example lookup for {} with values {:?} is ambiguous. Matches: {:?}",
-            spec.name,
-            spec.variant_values,
-            matches
-        ),
-    }
+    Ok(problem)
 }
 
 fn problem_output_from_side(side: ProblemSide) -> ProblemJsonOutput {
@@ -195,12 +122,7 @@ fn resolve_model_example(
     rgraph: &problemreductions::rules::ReductionGraph,
 ) -> Result<ModelExample> {
     let model_db = problemreductions::example_db::build_model_db()?;
-    let candidates: Vec<_> = model_db
-        .models
-        .iter()
-        .map(|model| model.problem_ref())
-        .collect();
-    let problem = resolve_example_problem_ref(example_spec, rgraph, &candidates, "model")?;
+    let problem = resolve_example_problem_ref(example_spec, rgraph)?;
     model_db
         .models
         .into_iter()
@@ -219,18 +141,8 @@ fn resolve_rule_example(
     rgraph: &problemreductions::rules::ReductionGraph,
 ) -> Result<RuleExample> {
     let rule_db = problemreductions::example_db::build_rule_db()?;
-    let source_candidates: Vec<_> = rule_db
-        .rules
-        .iter()
-        .map(|rule| rule.source.problem_ref())
-        .collect();
-    let target_candidates: Vec<_> = rule_db
-        .rules
-        .iter()
-        .map(|rule| rule.target.problem_ref())
-        .collect();
-    let source = resolve_example_problem_ref(example_spec, rgraph, &source_candidates, "rule")?;
-    let target = resolve_example_problem_ref(target_spec, rgraph, &target_candidates, "rule")?;
+    let source = resolve_example_problem_ref(example_spec, rgraph)?;
+    let target = resolve_example_problem_ref(target_spec, rgraph)?;
     rule_db
         .rules
         .into_iter()
@@ -405,17 +317,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     let problem = args.problem.as_ref().ok_or_else(|| {
         anyhow::anyhow!("Missing problem type.\n\nUsage: pred create <PROBLEM> [FLAGS]")
     })?;
-    let spec = parse_problem_spec(problem)?;
-    let canonical = &spec.name;
-
-    // Resolve variant early so random and help can use it
     let rgraph = problemreductions::rules::ReductionGraph::new();
-    let known_variants = rgraph.variants_for(canonical);
-    let resolved_variant = if known_variants.is_empty() {
-        BTreeMap::new()
-    } else {
-        resolve_variant(&spec, &known_variants)?
-    };
+    let resolved = resolve_problem_ref(problem, &rgraph)?;
+    let canonical = &resolved.name;
+    let resolved_variant = resolved.variant;
     let graph_type = resolved_graph_type(&resolved_variant);
 
     if args.random {

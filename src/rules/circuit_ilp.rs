@@ -171,6 +171,7 @@ impl ILPBuilder {
 }
 
 #[reduction(
+    id = "circuitsat_to_ilp_bool",
     overhead = {
         num_vars = "num_variables + num_assignments",
         num_constraints = "num_variables + num_assignments",

@@ -3,7 +3,7 @@ use crate::dispatch::{
     ReductionBundle,
 };
 use crate::output::OutputConfig;
-use crate::problem_name::{parse_problem_spec, resolve_problem_ref};
+use crate::problem_name::resolve_problem_ref;
 use anyhow::{Context, Result};
 use problemreductions::rules::{MinimizeSteps, ReductionGraph, ReductionPath, ReductionStep};
 use problemreductions::types::ProblemSize;
@@ -86,12 +86,14 @@ pub fn reduce(
         }
         // If --to is given, validate it matches the path's target
         if let Some(target) = target {
-            let dst_spec = parse_problem_spec(target)?;
-            if last.name != dst_spec.name {
+            let dst_ref = resolve_problem_ref(target, &graph)?;
+            if last.name != dst_ref.name || last.variant != dst_ref.variant {
                 anyhow::bail!(
-                    "Path file ends with {} but --to specifies {}",
+                    "Path file ends with {}{} but --to specifies {}{}",
                     last.name,
-                    dst_spec.name,
+                    variant_to_full_slash(&last.variant),
+                    dst_ref.name,
+                    variant_to_full_slash(&dst_ref.variant),
                 );
             }
         }

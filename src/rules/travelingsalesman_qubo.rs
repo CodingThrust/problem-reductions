@@ -64,6 +64,7 @@ impl ReductionResult for ReductionTravelingSalesmanToQUBO {
 }
 
 #[reduction(
+    id = "travelingsalesman_to_qubo_simplegraph_i32_f64",
     overhead = {
         num_vars = "num_vertices^2",
     }

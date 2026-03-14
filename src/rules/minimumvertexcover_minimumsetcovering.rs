@@ -35,6 +35,7 @@ where
 }
 
 #[reduction(
+    id = "minimumvertexcover_to_minimumsetcovering_simplegraph_i32",
     overhead = {
         num_sets = "num_vertices",
         universe_size = "num_edges",

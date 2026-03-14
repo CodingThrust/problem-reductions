@@ -32,6 +32,7 @@ impl ReductionResult for ReductionQUBOToSG {
 }
 
 #[reduction(
+    id = "qubo_to_spinglass_f64_simplegraph",
     overhead = {
         num_spins = "num_vars",
     }
@@ -107,6 +108,7 @@ impl ReductionResult for ReductionSGToQUBO {
 }
 
 #[reduction(
+    id = "spinglass_to_qubo_simplegraph_f64",
     overhead = {
         num_vars = "num_spins",
     }

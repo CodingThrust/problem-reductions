@@ -410,6 +410,67 @@ fn test_reduce_via_infer_target() {
 }
 
 #[test]
+fn test_reduce_via_rejects_target_variant_mismatch() {
+    let problem_file = std::env::temp_dir().join("pred_test_reduce_via_variant_in.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "MIS/SimpleGraph/i32",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(create_out.status.success());
+
+    let path_file = std::env::temp_dir().join("pred_test_reduce_via_variant_path.json");
+    let path_out = pred()
+        .args([
+            "path",
+            "MIS/SimpleGraph/i32",
+            "ILP/bool",
+            "-o",
+            path_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        path_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&path_out.stderr)
+    );
+
+    let reduce_out = pred()
+        .args([
+            "reduce",
+            problem_file.to_str().unwrap(),
+            "--to",
+            "ILP/i32",
+            "--via",
+            path_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !reduce_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&reduce_out.stderr)
+    );
+    let stderr = String::from_utf8_lossy(&reduce_out.stderr);
+    assert!(
+        stderr.contains("ILP") && stderr.contains("i32") && stderr.contains("bool"),
+        "expected variant mismatch details, got: {stderr}"
+    );
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&path_file).ok();
+}
+
+#[test]
 fn test_reduce_missing_to_and_via() {
     let problem_file = std::env::temp_dir().join("pred_test_reduce_missing.json");
     let create_out = pred()
@@ -1199,16 +1260,12 @@ fn test_create_model_example_mis() {
 #[test]
 fn test_create_model_example_mis_shorthand() {
     let output = pred().args(["create", "--example", "MIS"]).output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(
-        output.status.success(),
-        "stderr: {}",
-        String::from_utf8_lossy(&output.stderr)
+        stderr.contains("No canonical model example exists for MaximumIndependentSet/SimpleGraph/One"),
+        "expected default-node lookup failure, got: {stderr}"
     );
-    let stdout = String::from_utf8(output.stdout).unwrap();
-    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
-    assert_eq!(json["type"], "MaximumIndependentSet");
-    assert_eq!(json["variant"]["graph"], "SimpleGraph");
-    assert_eq!(json["variant"]["weight"], "i32");
 }
 
 #[test]

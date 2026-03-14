@@ -175,7 +175,7 @@ fn build_multiplier_cell(
     (assignments, ancillas)
 }
 
-#[reduction(overhead = {
+#[reduction(id = "factoring_to_circuitsat", overhead = {
     num_variables = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second",
     num_assignments = "6 * num_bits_first * num_bits_second + num_bits_first + num_bits_second",
 })]

@@ -295,6 +295,7 @@ impl ReductionSATToColoring {
 }
 
 #[reduction(
+    id = "satisfiability_to_kcoloring_k3_simplegraph",
     overhead = {
         num_vertices = "num_vars + num_literals",
         num_edges = "num_vars + num_literals",

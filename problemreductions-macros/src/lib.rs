@@ -24,11 +24,12 @@ use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Typ
 ///
 /// # Attributes
 ///
+/// - `id = "..."` — stable rule identifier
 /// - `overhead = { expr }` — overhead specification
 ///
 /// ## New syntax (preferred):
 /// ```ignore
-/// #[reduction(overhead = {
+/// #[reduction(id = "source_to_target", overhead = {
 ///     num_vars = "num_vertices^2",
 ///     num_constraints = "num_edges",
 /// })]
@@ -36,7 +37,7 @@ use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Typ
 ///
 /// ## Legacy syntax (still supported):
 /// ```ignore
-/// #[reduction(overhead = { ReductionOverhead::new(vec![...]) })]
+/// #[reduction(id = "source_to_target", overhead = { ReductionOverhead::new(vec![...]) })]
 /// ```
 #[proc_macro_attribute]
 pub fn reduction(attr: TokenStream, item: TokenStream) -> TokenStream {
@@ -97,6 +98,13 @@ impl syn::parse::Parse for ReductionAttrs {
             }
         }
 
+        if attrs.rule_id.is_none() {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "Missing id specification. Use #[reduction(id = \"...\", overhead = { ... })].",
+            ));
+        }
+
         Ok(attrs)
     }
 }
@@ -144,106 +152,6 @@ fn extract_type_name(ty: &Type) -> Option<String> {
         }
         _ => None,
     }
-}
-
-/// Extract generic argument names from a type (e.g., `Foo<SimpleGraph, i32>` → `["simplegraph", "i32"]`).
-///
-/// Uses token-level string extraction as a fallback for macro-generated types
-/// where syn may not preserve angle-bracketed generic arguments.
-fn extract_generic_arg_names(ty: &Type) -> Vec<String> {
-    // First, try the structured syn approach
-    if let Type::Path(type_path) = ty {
-        for segment in type_path.path.segments.iter().rev() {
-            if let PathArguments::AngleBracketed(args) = &segment.arguments {
-                let names: Vec<String> = args
-                    .args
-                    .iter()
-                    .filter_map(|arg| {
-                        if let GenericArgument::Type(t) = arg {
-                            extract_type_name(t).map(|n| n.to_lowercase())
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                if !names.is_empty() {
-                    return names;
-                }
-            }
-        }
-    }
-
-    // Fallback: parse from the token string representation
-    // This handles macro-generated types where angle brackets may be in invisible groups
-    let s = quote::quote!(#ty).to_string();
-    if let Some(start) = s.find('<') {
-        if let Some(end) = s.rfind('>') {
-            let inner = &s[start + 1..end];
-            return inner
-                .split(',')
-                .map(|part| {
-                    // Take the last path segment (e.g., "crate::variant::K2" → "K2")
-                    let trimmed = part.trim();
-                    trimmed
-                        .rsplit("::")
-                        .next()
-                        .unwrap_or(trimmed)
-                        .to_lowercase()
-                })
-                .filter(|s| !s.is_empty())
-                .collect();
-        }
-    }
-
-    vec![]
-}
-
-/// Auto-generate a stable rule ID from source and target types.
-///
-/// Format: `{source_lower}_to_{target_lower}_{all_unique_args}`
-/// Generic args are collected from both source and target types (deduplicated, order preserved).
-/// e.g., `MinimumVertexCover<SimpleGraph, i32>` → `MaximumIndependentSet<SimpleGraph, i32>`
-/// → `"minimumvertexcover_to_maximumindependentset_simplegraph_i32"`
-fn auto_generate_rule_id(source_type: &Type, target_type: &Type) -> String {
-    let source_base = extract_type_name(source_type)
-        .unwrap_or_default()
-        .to_lowercase();
-    let target_base = extract_type_name(target_type)
-        .unwrap_or_default()
-        .to_lowercase();
-    let source_args = extract_generic_arg_names(source_type);
-    let target_args = extract_generic_arg_names(target_type);
-
-    // Merge source and target args, preserving order, deduplicating.
-    // When source and target are the same base name (variant casts),
-    // include both source and target args explicitly.
-    let all_args: Vec<String> = if source_base == target_base {
-        // For self-reductions (variant casts), concatenate source+target args
-        let mut args = Vec::new();
-        for a in &source_args {
-            args.push(a.clone());
-        }
-        for a in &target_args {
-            args.push(a.clone());
-        }
-        args
-    } else {
-        // For cross-type reductions, deduplicate
-        let mut args = source_args;
-        for a in &target_args {
-            if !args.contains(a) {
-                args.push(a.clone());
-            }
-        }
-        args
-    };
-
-    let mut id = format!("{source_base}_to_{target_base}");
-    for arg in &all_args {
-        id.push('_');
-        id.push_str(arg);
-    }
-    id
 }
 
 /// Collect type generic parameter names from impl generics.
@@ -415,11 +323,7 @@ fn generate_reduction_entry(
         }
     };
 
-    // Get rule ID: explicit or auto-generated from types
-    let rule_id_str = match &attrs.rule_id {
-        Some(id) => id.clone(),
-        None => auto_generate_rule_id(source_type, &target_type),
-    };
+    let rule_id_str = attrs.rule_id.clone().expect("parser requires id");
 
     // Generate the combined output
     let output = quote! {
@@ -596,8 +500,10 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
     // Validate default markers per problem name.
     // Group entries by their base type name (e.g., "MaximumIndependentSet").
     let mut defaults_per_problem: HashMap<String, Vec<usize>> = HashMap::new();
+    let mut problem_names = HashSet::new();
     for (i, entry) in input.entries.iter().enumerate() {
         let base_name = extract_type_name(&entry.ty).unwrap_or_default();
+        problem_names.insert(base_name.clone());
         if entry.is_default {
             defaults_per_problem.entry(base_name).or_default().push(i);
         }
@@ -616,34 +522,24 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         }
     }
 
-    // Determine which entries are effectively default.
-    // If no entry for a problem is marked `default`, the first entry is implicitly default.
-    // This maintains backwards compatibility with existing code that doesn't use `default`.
-    let mut problem_first_entry: HashMap<String, usize> = HashMap::new();
-    for (i, entry) in input.entries.iter().enumerate() {
-        let base_name = extract_type_name(&entry.ty).unwrap_or_default();
-        problem_first_entry.entry(base_name).or_insert(i);
+    for name in problem_names {
+        if !defaults_per_problem.contains_key(&name) {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!(
+                    "`{name}` must declare exactly one default variant; \
+                     mark one entry with `default`"
+                ),
+            ));
+        }
     }
 
     let mut output = TokenStream2::new();
 
-    for (i, entry) in input.entries.iter().enumerate() {
+    for entry in &input.entries {
         let ty = &entry.ty;
         let complexity_str = entry.complexity.value();
-        let base_name = extract_type_name(ty).unwrap_or_default();
-
-        // Determine if this entry is the default:
-        // - Explicitly marked `default` → true
-        // - No entry for this problem is marked `default` AND this is the first entry → true
-        // - Otherwise → false
-        let is_default = if entry.is_default {
-            true
-        } else if !defaults_per_problem.contains_key(&base_name) {
-            // No explicit default for this problem; first entry wins
-            problem_first_entry.get(&base_name) == Some(&i)
-        } else {
-            false
-        };
+        let is_default = entry.is_default;
 
         // Parse the complexity expression to validate syntax
         let parsed = parser::parse_expr(&complexity_str).map_err(|e| {
@@ -764,9 +660,13 @@ mod tests {
     fn declare_variants_requires_one_default_per_problem() {
         let input: DeclareVariantsInput = syn::parse_quote! {
             opt Foo => "1",
-            sat Bar => "1",
         };
-        assert!(generate_declare_variants(&input).is_ok());
+        let err = generate_declare_variants(&input).unwrap_err();
+        assert!(
+            err.to_string().contains("exactly one default"),
+            "expected 'exactly one default' in error, got: {}",
+            err
+        );
     }
 
     #[test]
@@ -784,21 +684,20 @@ mod tests {
     }
 
     #[test]
-    fn declare_variants_implicit_default_for_first_entry() {
+    fn declare_variants_rejects_missing_default_marker() {
         let input: DeclareVariantsInput = syn::parse_quote! {
             opt Foo => "1",
         };
-        let result = generate_declare_variants(&input);
-        assert!(result.is_ok());
-        let tokens = result.unwrap().to_string();
+        let err = generate_declare_variants(&input).unwrap_err();
         assert!(
-            tokens.contains("is_default : true"),
-            "first entry should be implicitly default"
+            err.to_string().contains("exactly one default"),
+            "expected 'exactly one default' in error, got: {}",
+            err
         );
     }
 
     #[test]
-    fn declare_variants_explicit_default_overrides_implicit() {
+    fn declare_variants_marks_only_explicit_default() {
         let input: DeclareVariantsInput = syn::parse_quote! {
             opt Foo => "1",
             default opt Foo => "2",
@@ -816,7 +715,7 @@ mod tests {
     fn declare_variants_accepts_solver_kind_markers() {
         let input: DeclareVariantsInput = syn::parse_quote! {
             default opt Foo => "1",
-            sat Bar => "2",
+            default sat Bar => "2",
         };
         assert!(generate_declare_variants(&input).is_ok());
     }
@@ -833,7 +732,7 @@ mod tests {
     #[test]
     fn declare_variants_generates_find_best_for_opt_entries() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            opt Foo => "1",
+            default opt Foo => "1",
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
         assert!(tokens.contains("factory :"), "expected factory field");
@@ -860,7 +759,7 @@ mod tests {
     #[test]
     fn declare_variants_generates_find_satisfying_for_sat_entries() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            sat Foo => "1",
+            default sat Foo => "1",
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
         assert!(tokens.contains("factory :"), "expected factory field");
@@ -896,31 +795,6 @@ mod tests {
     }
 
     #[test]
-    fn reduction_auto_generates_rule_id_from_types() {
-        let source: Type = syn::parse_quote! { Foo<Bar, Baz> };
-        let target: Type = syn::parse_quote! { Qux<Bar, Baz> };
-        let id = auto_generate_rule_id(&source, &target);
-        assert_eq!(id, "foo_to_qux_bar_baz");
-    }
-
-    #[test]
-    fn reduction_auto_generates_rule_id_no_generics() {
-        let source: Type = syn::parse_quote! { Foo };
-        let target: Type = syn::parse_quote! { Bar };
-        let id = auto_generate_rule_id(&source, &target);
-        assert_eq!(id, "foo_to_bar");
-    }
-
-    #[test]
-    fn reduction_auto_generates_unique_ids_for_variant_casts() {
-        // When source and target are the same base type, both arg sets are included
-        let source: Type = syn::parse_quote! { Foo<A> };
-        let target: Type = syn::parse_quote! { Foo<B> };
-        let id = auto_generate_rule_id(&source, &target);
-        assert_eq!(id, "foo_to_foo_a_b");
-    }
-
-    #[test]
     fn reduction_accepts_id_attribute() {
         let attrs: ReductionAttrs = syn::parse_quote! {
             id = "custom_id", overhead = { n = "n" }
@@ -929,11 +803,16 @@ mod tests {
     }
 
     #[test]
-    fn reduction_accepts_overhead_without_id() {
-        let attrs: ReductionAttrs = syn::parse_quote! {
-            overhead = { n = "n" }
+    fn reduction_rejects_overhead_without_id() {
+        let err = match syn::parse_str::<ReductionAttrs>("overhead = { n = \"n\" }") {
+            Ok(_) => panic!("expected parse failure for missing id"),
+            Err(err) => err,
         };
-        assert!(attrs.rule_id.is_none());
+        assert!(
+            err.to_string().contains("Missing id specification"),
+            "expected missing id error, got: {}",
+            err
+        );
     }
 
     #[test]
