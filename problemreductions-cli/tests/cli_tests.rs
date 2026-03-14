@@ -1115,7 +1115,7 @@ fn test_create_3sat() {
             "-o",
             output_file.to_str().unwrap(),
             "create",
-            "3SAT",
+            "KSAT/K3",
             "--num-vars",
             "3",
             "--clauses",
@@ -1509,7 +1509,7 @@ fn test_path_unknown_cost() {
 #[test]
 fn test_path_overall_overhead_text() {
     // Use a multi-step path so the "Overall" section appears
-    let output = pred().args(["path", "3SAT", "MIS"]).output().unwrap();
+    let output = pred().args(["path", "KSAT/K3", "MIS"]).output().unwrap();
     assert!(output.status.success());
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(
@@ -1522,7 +1522,7 @@ fn test_path_overall_overhead_text() {
 fn test_path_overall_overhead_json() {
     let tmp = std::env::temp_dir().join("pred_test_path_overall.json");
     let output = pred()
-        .args(["path", "3SAT", "MIS", "-o", tmp.to_str().unwrap()])
+        .args(["path", "KSAT/K3", "MIS", "-o", tmp.to_str().unwrap()])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -1550,7 +1550,7 @@ fn test_path_overall_overhead_composition() {
     //   Step 2 (SAT→MIS): num_vertices = num_literals, num_edges = num_literals^2
     //   Overall: num_vertices = num_literals, num_edges = num_literals^2
     let output = pred()
-        .args(["path", "3SAT", "MIS", "-o", tmp.to_str().unwrap()])
+        .args(["path", "KSAT/K3", "MIS", "-o", tmp.to_str().unwrap()])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -1601,7 +1601,7 @@ fn test_path_overall_overhead_composition() {
 fn test_path_all_overall_overhead() {
     // Every path in --all --json output should have overall_overhead
     let output = pred()
-        .args(["path", "3SAT", "MIS", "--all", "--json"])
+        .args(["path", "KSAT/K3", "MIS", "--all", "--json"])
         .output()
         .unwrap();
     assert!(output.status.success());
@@ -3313,9 +3313,9 @@ fn test_show_marks_default() {
 }
 
 #[test]
-fn test_show_3sat_works() {
-    // `pred show 3SAT` should succeed (alias resolves to KSatisfiability at type level)
-    let output = pred().args(["show", "3SAT"]).output().unwrap();
+fn test_show_ksat_works() {
+    // `pred show KSAT` should succeed (alias resolves to KSatisfiability at type level)
+    let output = pred().args(["show", "KSAT"]).output().unwrap();
     assert!(
         output.status.success(),
         "stderr: {}",

@@ -63,7 +63,7 @@ Examples:
 Examples:
   pred show MIS                   # using alias
   pred show MaximumIndependentSet # full name
-  pred show 3SAT                  # alias for KSatisfiability
+  pred show KSAT                  # alias for KSatisfiability
 
 Note: `show` operates at the type level (no slash suffixes).
 Use `pred to MIS` or `pred from MIS` for variant-level exploration.
@@ -72,7 +72,7 @@ Use `pred list` to see all available problem types and aliases.
 Use `pred to MIS --hops 2` to explore what reduces to MIS.
 Use `pred from QUBO --hops 1` to explore what QUBO reduces to.")]
     Show {
-        /// Problem name or alias (e.g., MIS, QUBO, 3SAT)
+        /// Problem name or alias (e.g., MIS, QUBO, KSAT)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         problem: String,
     },
@@ -221,7 +221,7 @@ Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP        --graph, --edge-weights
   MaximalIS                       --graph, --weights
-  SAT, 3SAT/KSAT                  --num-vars, --clauses [--k]
+  SAT, KSAT                       --num-vars, --clauses [--k]
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k

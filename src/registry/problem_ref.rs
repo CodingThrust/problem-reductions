@@ -137,11 +137,7 @@ pub fn parse_catalog_problem_ref(input: &str) -> Result<ProblemRef, String> {
     let problem_type = super::problem_type::find_problem_type_by_alias(raw_name)
         .ok_or_else(|| format!("Unknown problem type: \"{raw_name}\""))?;
 
-    // Special case: "3SAT" implies K3
-    let mut effective_values: Vec<String> = values.iter().map(|s| s.to_string()).collect();
-    if raw_name.to_lowercase() == "3sat" && effective_values.is_empty() {
-        effective_values.push("K3".to_string());
-    }
+    let effective_values: Vec<String> = values.iter().map(|s| s.to_string()).collect();
 
     ProblemRef::from_values(&problem_type, &effective_values)
 }

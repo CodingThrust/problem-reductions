@@ -496,7 +496,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let num_vars = args.num_vars.ok_or_else(|| {
                 anyhow::anyhow!(
                     "KSatisfiability requires --num-vars\n\n\
-                     Usage: pred create 3SAT --num-vars 3 --clauses \"1,2,3;-1,2,-3\""
+                     Usage: pred create KSAT --num-vars 3 --clauses \"1,2,3;-1,2,-3\""
                 )
             })?;
             let clauses = parse_clauses(args)?;

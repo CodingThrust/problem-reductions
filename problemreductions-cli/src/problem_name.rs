@@ -47,11 +47,6 @@ pub fn parse_problem_spec(input: &str) -> anyhow::Result<ProblemSpec> {
 
     let name = resolve_alias(raw_name);
 
-    // Special case: "3SAT" implies K3 variant
-    if raw_name.to_lowercase() == "3sat" && variant_values.is_empty() {
-        variant_values.push("K3".to_string());
-    }
-
     Ok(ProblemSpec {
         name,
         variant_values,
@@ -285,7 +280,8 @@ mod tests {
         assert_eq!(resolve_alias("mis"), "MaximumIndependentSet");
         assert_eq!(resolve_alias("MVC"), "MinimumVertexCover");
         assert_eq!(resolve_alias("SAT"), "Satisfiability");
-        assert_eq!(resolve_alias("3SAT"), "KSatisfiability");
+        // 3SAT is no longer a registered alias (removed to avoid confusion with KSatisfiability/KN)
+        assert_eq!(resolve_alias("3SAT"), "3SAT"); // pass-through
         assert_eq!(resolve_alias("QUBO"), "QUBO");
         assert_eq!(resolve_alias("MaxCut"), "MaxCut");
         // Pass-through for full names
@@ -317,8 +313,15 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_problem_spec_3sat_alias() {
-        let spec = parse_problem_spec("3SAT").unwrap();
+    fn test_parse_problem_spec_ksat_alias() {
+        let spec = parse_problem_spec("KSAT").unwrap();
+        assert_eq!(spec.name, "KSatisfiability");
+        assert!(spec.variant_values.is_empty());
+    }
+
+    #[test]
+    fn test_parse_problem_spec_ksat_k3() {
+        let spec = parse_problem_spec("KSAT/K3").unwrap();
         assert_eq!(spec.name, "KSatisfiability");
         assert_eq!(spec.variant_values, vec!["K3"]);
     }
@@ -387,9 +390,8 @@ mod tests {
     }
 
     #[test]
-    fn parse_problem_type_3sat_alias() {
-        // 3SAT resolves to KSatisfiability without injecting K3
-        assert_eq!(parse_problem_type("3SAT").unwrap(), "KSatisfiability");
+    fn parse_problem_type_ksat_alias() {
+        assert_eq!(parse_problem_type("KSAT").unwrap(), "KSatisfiability");
     }
 
     // ---- resolve_problem_ref ----
