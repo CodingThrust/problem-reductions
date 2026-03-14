@@ -1,6 +1,9 @@
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
-use problemreductions::models::misc::{BinPacking, Knapsack};
+use problemreductions::models::misc::{
+    BinPacking, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
+    ShortestCommonSupersequence, SubsetSum,
+};
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
@@ -210,9 +213,16 @@ pub fn load_problem(
         "MaximumClique" => deser_opt::<MaximumClique<SimpleGraph, i32>>(data),
         "MaximumMatching" => deser_opt::<MaximumMatching<SimpleGraph, i32>>(data),
         "MinimumDominatingSet" => deser_opt::<MinimumDominatingSet<SimpleGraph, i32>>(data),
+        "MinimumSumMulticenter" => deser_opt::<MinimumSumMulticenter<SimpleGraph, i32>>(data),
+        "GraphPartitioning" => deser_opt::<GraphPartitioning<SimpleGraph>>(data),
+        "HamiltonianPath" => deser_sat::<HamiltonianPath<SimpleGraph>>(data),
+        "IsomorphicSpanningTree" => {
+            deser_sat::<problemreductions::models::graph::IsomorphicSpanningTree>(data)
+        }
         "MaxCut" => deser_opt::<MaxCut<SimpleGraph, i32>>(data),
         "MaximalIS" => deser_opt::<MaximalIS<SimpleGraph, i32>>(data),
         "TravelingSalesman" => deser_opt::<TravelingSalesman<SimpleGraph, i32>>(data),
+        "RuralPostman" => deser_sat::<RuralPostman<SimpleGraph, i32>>(data),
         "KColoring" => match variant.get("k").map(|s| s.as_str()) {
             Some("K3") => deser_sat::<KColoring<K3, SimpleGraph>>(data),
             _ => deser_sat::<KColoring<KN, SimpleGraph>>(data),
@@ -246,6 +256,14 @@ pub fn load_problem(
         },
         "Knapsack" => deser_opt::<Knapsack>(data),
         "OptimalLinearArrangement" => deser_sat::<OptimalLinearArrangement<SimpleGraph>>(data),
+        "SubgraphIsomorphism" => deser_sat::<SubgraphIsomorphism>(data),
+        "PartitionIntoTriangles" => deser_sat::<PartitionIntoTriangles<SimpleGraph>>(data),
+        "LongestCommonSubsequence" => deser_opt::<LongestCommonSubsequence>(data),
+        "MinimumFeedbackVertexSet" => deser_opt::<MinimumFeedbackVertexSet<i32>>(data),
+        "FlowShopScheduling" => deser_sat::<FlowShopScheduling>(data),
+        "SubsetSum" => deser_sat::<SubsetSum>(data),
+        "ShortestCommonSupersequence" => deser_sat::<ShortestCommonSupersequence>(data),
+        "MinimumFeedbackArcSet" => deser_opt::<MinimumFeedbackArcSet<i32>>(data),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }
@@ -268,9 +286,16 @@ pub fn serialize_any_problem(
         "MaximumClique" => try_ser::<MaximumClique<SimpleGraph, i32>>(any),
         "MaximumMatching" => try_ser::<MaximumMatching<SimpleGraph, i32>>(any),
         "MinimumDominatingSet" => try_ser::<MinimumDominatingSet<SimpleGraph, i32>>(any),
+        "MinimumSumMulticenter" => try_ser::<MinimumSumMulticenter<SimpleGraph, i32>>(any),
+        "GraphPartitioning" => try_ser::<GraphPartitioning<SimpleGraph>>(any),
+        "HamiltonianPath" => try_ser::<HamiltonianPath<SimpleGraph>>(any),
+        "IsomorphicSpanningTree" => {
+            try_ser::<problemreductions::models::graph::IsomorphicSpanningTree>(any)
+        }
         "MaxCut" => try_ser::<MaxCut<SimpleGraph, i32>>(any),
         "MaximalIS" => try_ser::<MaximalIS<SimpleGraph, i32>>(any),
         "TravelingSalesman" => try_ser::<TravelingSalesman<SimpleGraph, i32>>(any),
+        "RuralPostman" => try_ser::<RuralPostman<SimpleGraph, i32>>(any),
         "KColoring" => match variant.get("k").map(|s| s.as_str()) {
             Some("K3") => try_ser::<KColoring<K3, SimpleGraph>>(any),
             _ => try_ser::<KColoring<KN, SimpleGraph>>(any),
@@ -307,6 +332,14 @@ pub fn serialize_any_problem(
         },
         "Knapsack" => try_ser::<Knapsack>(any),
         "OptimalLinearArrangement" => try_ser::<OptimalLinearArrangement<SimpleGraph>>(any),
+        "SubgraphIsomorphism" => try_ser::<SubgraphIsomorphism>(any),
+        "PartitionIntoTriangles" => try_ser::<PartitionIntoTriangles<SimpleGraph>>(any),
+        "LongestCommonSubsequence" => try_ser::<LongestCommonSubsequence>(any),
+        "MinimumFeedbackVertexSet" => try_ser::<MinimumFeedbackVertexSet<i32>>(any),
+        "FlowShopScheduling" => try_ser::<FlowShopScheduling>(any),
+        "SubsetSum" => try_ser::<SubsetSum>(any),
+        "ShortestCommonSupersequence" => try_ser::<ShortestCommonSupersequence>(any),
+        "MinimumFeedbackArcSet" => try_ser::<MinimumFeedbackArcSet<i32>>(any),
         _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     }
 }

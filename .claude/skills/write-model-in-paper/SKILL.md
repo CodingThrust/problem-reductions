@@ -7,6 +7,8 @@ description: Use when writing or improving a problem-def entry in the Typst pape
 
 Full authoring guide for writing a `problem-def` entry in `docs/paper/reductions.typ`. Covers formal definition, background, examples with visualization, and verification.
 
+> **Note:** This content is also inlined in `add-model` Step 6 (condensed form). This standalone version has more detail and is useful for improving existing entries.
+
 ## Prerequisites
 
 Before using this skill, ensure:

@@ -208,8 +208,12 @@ Flags by problem type:
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
+  PartitionIntoTriangles          --graph
+  GraphPartitioning               --graph
+  IsomorphicSpanningTree          --graph, --tree
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
+  SubsetSum                       --sizes, --target
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]
@@ -217,6 +221,13 @@ Flags by problem type:
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
   OptimalLinearArrangement        --graph
+  RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
+  SubgraphIsomorphism             --graph (host), --pattern (pattern)
+  LCS                             --strings
+  FAS                             --arcs [--weights] [--num-vertices]
+  FVS                             --arcs [--weights] [--num-vertices]
+  FlowShopScheduling              --task-lengths, --deadline [--num-processors]
+  SCS                             --strings, --bound [--alphabet-size]
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):
@@ -232,7 +243,8 @@ Examples:
   pred create QUBO --matrix \"1,0.5;0.5,2\"
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
-  pred create MIS --random --num-vertices 10 --edge-prob 0.3")]
+  pred create MIS --random --num-vertices 10 --edge-prob 0.3
+  pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT)
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -327,6 +339,36 @@ pub struct CreateArgs {
     /// Variable bounds for CVP as "lower,upper" (e.g., "-10,10") [default: -10,10]
     #[arg(long, allow_hyphen_values = true)]
     pub bounds: Option<String>,
+    /// Tree edge list for IsomorphicSpanningTree (e.g., 0-1,1-2,2-3)
+    #[arg(long)]
+    pub tree: Option<String>,
+    /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
+    #[arg(long)]
+    pub required_edges: Option<String>,
+    /// Upper bound (for RuralPostman or SCS)
+    #[arg(long)]
+    pub bound: Option<i64>,
+    /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
+    #[arg(long)]
+    pub pattern: Option<String>,
+    /// Input strings for LCS (e.g., "ABAC;BACA") or SCS (e.g., "0,1,2;1,2,0")
+    #[arg(long)]
+    pub strings: Option<String>,
+    /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
+    #[arg(long)]
+    pub arcs: Option<String>,
+    /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
+    #[arg(long)]
+    pub task_lengths: Option<String>,
+    /// Deadline for FlowShopScheduling
+    #[arg(long)]
+    pub deadline: Option<u64>,
+    /// Number of processors/machines for FlowShopScheduling
+    #[arg(long)]
+    pub num_processors: Option<usize>,
+    /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
+    #[arg(long)]
+    pub alphabet_size: Option<usize>,
 }
 
 #[derive(clap::Args)]

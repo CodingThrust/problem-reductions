@@ -48,7 +48,7 @@ Connect fields to the symbols defined above.
 | Field | Type | Description |
 |-------|------|-------------|
 | <!-- e.g. graph --> | <!-- e.g. SimpleGraph --> | <!-- e.g. the graph G=(V,E) --> |
-| <!-- e.g. weights --> | <!-- e.g. Vec<W> --> | <!-- e.g. vertex weights w_i for each i ∈ V (weighted variant only) --> |
+| <!-- e.g. weights --> | <!-- e.g. list of W --> | <!-- e.g. vertex weights w_i for each i ∈ V (weighted variant only) --> |
 
 ## Complexity
 
@@ -61,6 +61,16 @@ Connect fields to the symbols defined above.
 Optional notes about the problem that are worth mentioning in the paper or rustdoc.
 E.g. historical context, notable applications, relationship to other problems, or special properties.
 -->
+
+## Reduction Rule Crossref
+
+<!--
+At least one reduction rule (to or from this problem) must exist or be proposed,
+so the new problem is connected to the reduction graph.
+Link to existing rule issues or file new ones.
+-->
+
+- [ ] #issue-number <!-- e.g. [Rule] NewProblem to QUBO -->
 
 ## How to solve
 <!--

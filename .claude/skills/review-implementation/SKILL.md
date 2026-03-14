@@ -63,13 +63,14 @@ if [ -n "$PR_NUM" ]; then
   ISSUE_NUM=$(gh pr view $PR_NUM --json body -q .body | grep -oE '#[0-9]+' | head -1 | tr -d '#')
 fi
 
-# Fetch the issue body if found
+# Fetch the issue body and comments if found
 if [ -n "$ISSUE_NUM" ]; then
   ISSUE_BODY=$(gh issue view $ISSUE_NUM --json title,body -q '"# " + .title + "\n\n" + .body')
+  ISSUE_COMMENTS=$(gh issue view $ISSUE_NUM --json comments -q '.comments[] | "**" + .author.login + "** (" + .createdAt + "):\n" + .body + "\n"')
 fi
 ```
 
-If an issue is found, pass it as `{ISSUE_CONTEXT}` to both subagents. If not, set `{ISSUE_CONTEXT}` to "No linked issue found."
+If an issue is found, pass `{ISSUE_CONTEXT}` (title + body + comments) to both subagents. If not, set `{ISSUE_CONTEXT}` to "No linked issue found." Comments often contain clarifications, corrections, or additional requirements from maintainers.
 
 ## Step 3: Dispatch Subagents in Parallel
 
@@ -83,7 +84,7 @@ Dispatch using `Agent` tool with `subagent_type="superpowers:code-reviewer"`:
   - `{REVIEW_PARAMS}` -> summary of what's being reviewed
   - `{PROBLEM_NAME}`, `{CATEGORY}`, `{FILE_STEM}` -> for model reviews
   - `{SOURCE}`, `{TARGET}`, `{RULE_STEM}`, `{EXAMPLE_STEM}` -> for rule reviews
-  - `{ISSUE_CONTEXT}` -> full issue title + body (or "No linked issue found.")
+  - `{ISSUE_CONTEXT}` -> full issue title + body + comments (or "No linked issue found.")
 - Prompt = filled template
 
 ### Quality Reviewer (always)
@@ -96,7 +97,7 @@ Dispatch using `Agent` tool with `subagent_type="superpowers:code-reviewer"`:
   - `{CHANGED_FILES}` -> list of changed files
   - `{PLAN_STEP}` -> description of what was implemented (or "standalone review")
   - `{BASE_SHA}`, `{HEAD_SHA}` -> git range
-  - `{ISSUE_CONTEXT}` -> full issue title + body (or "No linked issue found.")
+  - `{ISSUE_CONTEXT}` -> full issue title + body + comments (or "No linked issue found.")
 - Prompt = filled template
 
 **Both subagents must be dispatched in parallel** (single message with two Agent tool calls — use `run_in_background: true` on one, foreground on the other, then read the background result with `TaskOutput`).
@@ -107,8 +108,13 @@ When both subagents return:
 
 1. **Parse results** -- identify FAIL/ISSUE items from both reports
 2. **Fix automatically** -- structural FAILs (missing registration, missing file), clear semantic issues, Important+ quality issues
-3. **Report to user** -- ambiguous semantic issues, Minor quality items, anything you're unsure about
-4. **Present consolidated report** combining both reviews
+3. **For missing paper entries** -- these are NOT "unfixable". Handle as follows:
+   - Model checks #15/#16 FAIL (missing `display-name` or `problem-def`): follow the paper writing instructions inlined in `add-model` Step 6 (register display name, write formal definition, write body with background + example + visualization, run `make paper`)
+   - Rule check #14 FAIL (missing `reduction-rule`): follow the paper writing instructions inlined in `add-rule` Step 5 (load example data, write theorem body, write proof, write worked example, run `make paper`)
+   - Reference the gold-standard examples: `problem-def("MaximumIndependentSet")` for models, `reduction-rule("KColoring", "QUBO"` for rules
+   - Do NOT skip these or mark as "needs user decision"
+4. **Report to user** -- ambiguous semantic issues, Minor quality items, anything you're unsure about
+5. **Present consolidated report** combining both reviews
 
 ## Step 5: Present Consolidated Report
 

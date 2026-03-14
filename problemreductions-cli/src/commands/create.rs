@@ -5,11 +5,16 @@ use crate::problem_name::{parse_problem_spec, resolve_variant};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::misc::{BinPacking, PaintShop};
+use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
+use problemreductions::models::misc::{
+    BinPacking, FlowShopScheduling, LongestCommonSubsequence, PaintShop,
+    ShortestCommonSupersequence, SubsetSum,
+};
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
 use problemreductions::topology::{
-    BipartiteGraph, Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph, UnitDiskGraph,
+    BipartiteGraph, DirectedGraph, Graph, KingsSubgraph, SimpleGraph, TriangularSubgraph,
+    UnitDiskGraph,
 };
 use serde::Serialize;
 use std::collections::BTreeMap;
@@ -45,6 +50,16 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.tree.is_none()
+        && args.required_edges.is_none()
+        && args.bound.is_none()
+        && args.pattern.is_none()
+        && args.strings.is_none()
+        && args.arcs.is_none()
+        && args.task_lengths.is_none()
+        && args.deadline.is_none()
+        && args.num_processors.is_none()
+        && args.alphabet_size.is_none()
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -59,6 +74,9 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" => "integer",
         "u64" => "integer",
+        "i64" => "integer",
+        "Vec<i64>" => "comma-separated integers: 3,7,1,8",
+        "DirectedGraph" => "directed arcs: 0>1,1>2,2>0",
         _ => "value",
     }
 }
@@ -74,6 +92,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             Some("UnitDiskGraph") => "--positions \"0,0;1,0;0.5,0.8\" --radius 1.5",
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
+        "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
+        "HamiltonianPath" => "--graph 0-1,1-2,2-3",
+        "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
@@ -82,8 +103,19 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "QUBO" => "--matrix \"1,0.5;0.5,2\"",
         "SpinGlass" => "--graph 0-1,1-2 --couplings 1,1",
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
+        "MinimumSumMulticenter" => {
+            "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
+        }
+        "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3",
+        "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
+        "RuralPostman" => {
+            "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
+        }
+        "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
+        "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
     }
 }
@@ -107,6 +139,10 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 if graph_type == Some("UnitDiskGraph") {
                     eprintln!("  --{:<16} Distance threshold [default: 1.0]", "radius");
                 }
+            } else if field.type_name == "DirectedGraph" {
+                // DirectedGraph fields use --arcs, not --graph
+                let hint = type_format_hint(&field.type_name, graph_type);
+                eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
             } else {
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!(
@@ -193,6 +229,66 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             create_vertex_weight_problem(args, canonical, graph_type, &resolved_variant)?
         }
 
+        // Graph partitioning (graph only, no weights)
+        "GraphPartitioning" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create GraphPartitioning --graph 0-1,1-2,2-3,0-2,1-3,0-3"
+                )
+            })?;
+            (
+                ser(GraphPartitioning::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Hamiltonian path (graph only, no weights)
+        "HamiltonianPath" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!("{e}\n\nUsage: pred create HamiltonianPath --graph 0-1,1-2,2-3")
+            })?;
+            (ser(HamiltonianPath::new(graph))?, resolved_variant.clone())
+        }
+
+        // IsomorphicSpanningTree (graph + tree)
+        "IsomorphicSpanningTree" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create IsomorphicSpanningTree --graph 0-1,1-2,0-2 --tree 0-1,1-2"
+                )
+            })?;
+            let tree_str = args.tree.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "IsomorphicSpanningTree requires --tree\n\n\
+                     Usage: pred create IsomorphicSpanningTree --graph 0-1,1-2,0-2 --tree 0-1,1-2"
+                )
+            })?;
+            let tree_edges: Vec<(usize, usize)> = tree_str
+                .split(',')
+                .map(|pair| {
+                    let parts: Vec<&str> = pair.trim().split('-').collect();
+                    if parts.len() != 2 {
+                        bail!("Invalid tree edge '{}': expected format u-v", pair.trim());
+                    }
+                    let u: usize = parts[0].parse()?;
+                    let v: usize = parts[1].parse()?;
+                    Ok((u, v))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let tree_num_vertices = tree_edges
+                .iter()
+                .flat_map(|(u, v)| [*u, *v])
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0)
+                .max(graph.num_vertices());
+            let tree = SimpleGraph::new(tree_num_vertices, tree_edges);
+            (
+                ser(problemreductions::models::graph::IsomorphicSpanningTree::new(graph, tree))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // Graph problems with edge weights
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
@@ -209,6 +305,38 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 _ => unreachable!(),
             };
             (data, resolved_variant.clone())
+        }
+
+        // RuralPostman
+        "RuralPostman" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                )
+            })?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let required_edges_str = args.required_edges.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RuralPostman requires --required-edges\n\n\
+                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                )
+            })?;
+            let required_edges: Vec<usize> = util::parse_comma_list(required_edges_str)?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RuralPostman requires --bound\n\n\
+                     Usage: pred create RuralPostman --graph 0-1,1-2,2-3 --edge-weights 1,1,1 --required-edges 0,2 --bound 6"
+                )
+            })? as i32;
+            (
+                ser(RuralPostman::new(
+                    graph,
+                    edge_weights,
+                    required_edges,
+                    bound,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // KColoring
@@ -334,6 +462,27 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             }
         }
 
+        // SubsetSum
+        "SubsetSum" => {
+            let sizes_str = args.sizes.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubsetSum requires --sizes and --target\n\n\
+                     Usage: pred create SubsetSum --sizes 3,7,1,8,2,4 --target 11"
+                )
+            })?;
+            let target = args.target.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubsetSum requires --target\n\n\
+                     Usage: pred create SubsetSum --sizes 3,7,1,8,2,4 --target 11"
+                )
+            })?;
+            let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            (
+                ser(SubsetSum::new(sizes, target as i64))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // PaintShop
         "PaintShop" => {
             let seq_str = args.sequence.as_deref().ok_or_else(|| {
@@ -408,6 +557,24 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (ser(BMF::new(matrix, rank))?, resolved_variant.clone())
         }
 
+        // LongestCommonSubsequence
+        "LongestCommonSubsequence" => {
+            let strings_str = args.strings.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "LCS requires --strings\n\n\
+                     Usage: pred create LCS --strings \"ABAC;BACA\""
+                )
+            })?;
+            let strings: Vec<Vec<u8>> = strings_str
+                .split(';')
+                .map(|s| s.trim().as_bytes().to_vec())
+                .collect();
+            (
+                ser(LongestCommonSubsequence::new(strings))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // ClosestVectorProblem
         "ClosestVectorProblem" => {
             let basis_str = args.basis.as_deref().ok_or_else(|| {
@@ -452,6 +619,225 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(OptimalLinearArrangement::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // FlowShopScheduling
+        "FlowShopScheduling" => {
+            let task_str = args.task_lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FlowShopScheduling requires --task-lengths and --deadline\n\n\
+                     Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --num-processors 3"
+                )
+            })?;
+            let deadline = args.deadline.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "FlowShopScheduling requires --deadline\n\n\
+                     Usage: pred create FlowShopScheduling --task-lengths \"3,4,2;2,3,5;4,1,3\" --deadline 25 --num-processors 3"
+                )
+            })?;
+            let task_lengths: Vec<Vec<u64>> = task_str
+                .split(';')
+                .map(|row| util::parse_comma_list(row.trim()))
+                .collect::<Result<Vec<_>>>()?;
+            let num_processors = if let Some(np) = args.num_processors {
+                np
+            } else if let Some(m) = args.m {
+                m
+            } else if let Some(first) = task_lengths.first() {
+                first.len()
+            } else {
+                bail!("Cannot infer num_processors from empty task list; use --num-processors");
+            };
+            for (j, row) in task_lengths.iter().enumerate() {
+                if row.len() != num_processors {
+                    bail!(
+                        "task_lengths row {} has {} entries, expected {} (num_processors)",
+                        j,
+                        row.len(),
+                        num_processors
+                    );
+                }
+            }
+            (
+                ser(FlowShopScheduling::new(
+                    num_processors,
+                    task_lengths,
+                    deadline,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumFeedbackArcSet
+        "MinimumFeedbackArcSet" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFeedbackArcSet requires --arcs\n\n\
+                     Usage: pred create FAS --arcs \"0>1,1>2,2>0\" [--weights 1,1,1] [--num-vertices N]"
+                )
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let weights = parse_arc_weights(args, num_arcs)?;
+            (
+                ser(MinimumFeedbackArcSet::new(graph, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumSumMulticenter (p-median)
+        "MinimumSumMulticenter" => {
+            let (graph, n) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MinimumSumMulticenter --graph 0-1,1-2,2-3 [--weights 1,1,1,1] [--edge-weights 1,1,1] --k 2"
+                )
+            })?;
+            let vertex_weights = parse_vertex_weights(args, n)?;
+            let edge_lengths = parse_edge_weights(args, graph.num_edges())?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumSumMulticenter requires --k (number of centers)\n\n\
+                     Usage: pred create MinimumSumMulticenter --graph 0-1,1-2,2-3 --k 2"
+                )
+            })?;
+            (
+                ser(MinimumSumMulticenter::new(
+                    graph,
+                    vertex_weights,
+                    edge_lengths,
+                    k,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SubgraphIsomorphism
+        "SubgraphIsomorphism" => {
+            let (host_graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create SubgraphIsomorphism --graph 0-1,1-2,2-0 --pattern 0-1"
+                )
+            })?;
+            let pattern_str = args.pattern.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SubgraphIsomorphism requires --pattern (pattern graph edges)\n\n\
+                     Usage: pred create SubgraphIsomorphism --graph 0-1,1-2,2-0 --pattern 0-1"
+                )
+            })?;
+            let pattern_edges: Vec<(usize, usize)> = pattern_str
+                .split(',')
+                .map(|pair| {
+                    let parts: Vec<&str> = pair.trim().split('-').collect();
+                    if parts.len() != 2 {
+                        bail!("Invalid edge '{}': expected format u-v", pair.trim());
+                    }
+                    let u: usize = parts[0].parse()?;
+                    let v: usize = parts[1].parse()?;
+                    if u == v {
+                        bail!(
+                            "Invalid edge '{}': self-loops are not allowed in simple graphs",
+                            pair.trim()
+                        );
+                    }
+                    Ok((u, v))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let pattern_nv = pattern_edges
+                .iter()
+                .flat_map(|(u, v)| [*u, *v])
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0);
+            let pattern_graph = SimpleGraph::new(pattern_nv, pattern_edges);
+            (
+                ser(SubgraphIsomorphism::new(host_graph, pattern_graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // PartitionIntoTriangles
+        "PartitionIntoTriangles" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create PartitionIntoTriangles --graph 0-1,1-2,0-2"
+                )
+            })?;
+            anyhow::ensure!(
+                graph.num_vertices() % 3 == 0,
+                "PartitionIntoTriangles requires vertex count divisible by 3, got {}",
+                graph.num_vertices()
+            );
+            (
+                ser(PartitionIntoTriangles::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // ShortestCommonSupersequence
+        "ShortestCommonSupersequence" => {
+            let usage = "Usage: pred create SCS --strings \"0,1,2;1,2,0\" --bound 4";
+            let strings_str = args.strings.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("ShortestCommonSupersequence requires --strings\n\n{usage}")
+            })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("ShortestCommonSupersequence requires --bound\n\n{usage}")
+            })? as usize;
+            let strings: Vec<Vec<usize>> = strings_str
+                .split(';')
+                .map(|s| {
+                    let trimmed = s.trim();
+                    if trimmed.is_empty() {
+                        return Ok(Vec::new());
+                    }
+                    trimmed
+                        .split(',')
+                        .map(|v| {
+                            v.trim()
+                                .parse::<usize>()
+                                .map_err(|e| anyhow::anyhow!("Invalid alphabet index: {}", e))
+                        })
+                        .collect::<Result<Vec<_>>>()
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let inferred = strings
+                .iter()
+                .flat_map(|s| s.iter())
+                .copied()
+                .max()
+                .map(|m| m + 1)
+                .unwrap_or(0);
+            let alphabet_size = args.alphabet_size.unwrap_or(inferred);
+            if alphabet_size < inferred {
+                anyhow::bail!(
+                    "--alphabet-size {} is smaller than the largest symbol + 1 ({}) in the strings",
+                    alphabet_size,
+                    inferred
+                );
+            }
+            (
+                ser(ShortestCommonSupersequence::new(
+                    alphabet_size,
+                    strings,
+                    bound,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumFeedbackVertexSet
+        "MinimumFeedbackVertexSet" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumFeedbackVertexSet requires --arcs\n\n\
+                     Usage: pred create FVS --arcs \"0>1,1>2,2>0\" [--weights 1,1,1] [--num-vertices N]"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let num_v = graph.num_vertices();
+            let weights = parse_vertex_weights(args, num_v)?;
+            (
+                ser(MinimumFeedbackVertexSet::new(graph, weights))?,
                 resolved_variant.clone(),
             )
         }
@@ -837,6 +1223,74 @@ fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
         .collect()
 }
 
+/// Parse `--arcs` as directed arc pairs and build a `DirectedGraph`.
+///
+/// Returns `(graph, num_arcs)`. Infers vertex count from arc endpoints
+/// unless `num_vertices` is provided (which must be >= inferred count).
+/// E.g., "0>1,1>2,2>0"
+fn parse_directed_graph(
+    arcs_str: &str,
+    num_vertices: Option<usize>,
+) -> Result<(DirectedGraph, usize)> {
+    let arcs: Vec<(usize, usize)> = arcs_str
+        .split(',')
+        .map(|pair| {
+            let parts: Vec<&str> = pair.trim().split('>').collect();
+            if parts.len() != 2 {
+                bail!(
+                    "Invalid arc '{}': expected format u>v (e.g., 0>1)",
+                    pair.trim()
+                );
+            }
+            let u: usize = parts[0].parse()?;
+            let v: usize = parts[1].parse()?;
+            Ok((u, v))
+        })
+        .collect::<Result<Vec<_>>>()?;
+    let inferred_num_v = arcs
+        .iter()
+        .flat_map(|&(u, v)| [u, v])
+        .max()
+        .map(|m| m + 1)
+        .unwrap_or(0);
+    let num_v = match num_vertices {
+        Some(user_num_v) => {
+            anyhow::ensure!(
+                user_num_v >= inferred_num_v,
+                "--num-vertices ({}) is too small for the arcs: need at least {} to cover vertices up to {}",
+                user_num_v,
+                inferred_num_v,
+                inferred_num_v.saturating_sub(1),
+            );
+            user_num_v
+        }
+        None => inferred_num_v,
+    };
+    let num_arcs = arcs.len();
+    Ok((DirectedGraph::new(num_v, arcs), num_arcs))
+}
+
+/// Parse `--weights` as arc weights (i32), defaulting to all 1s.
+fn parse_arc_weights(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
+    match &args.weights {
+        Some(w) => {
+            let weights: Vec<i32> = w
+                .split(',')
+                .map(|s| s.trim().parse::<i32>())
+                .collect::<std::result::Result<Vec<_>, _>>()?;
+            if weights.len() != num_arcs {
+                bail!(
+                    "Expected {} arc weights but got {}",
+                    num_arcs,
+                    weights.len()
+                );
+            }
+            Ok(weights)
+        }
+        None => Ok(vec![1i32; num_arcs]),
+    }
+}
+
 /// Handle `pred create <PROBLEM> --random ...`
 fn create_random(
     args: &CreateArgs,
@@ -899,6 +1353,38 @@ fn create_random(
                     (data, variant)
                 }
             }
+        }
+
+        // GraphPartitioning (graph only, no weights; requires even vertex count)
+        "GraphPartitioning" => {
+            let num_vertices = if num_vertices % 2 != 0 {
+                eprintln!(
+                    "Warning: GraphPartitioning requires even vertex count; rounding {} up to {}",
+                    num_vertices,
+                    num_vertices + 1
+                );
+                num_vertices + 1
+            } else {
+                num_vertices
+            };
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(GraphPartitioning::new(graph))?, variant)
+        }
+
+        // HamiltonianPath (graph only, no weights)
+        "HamiltonianPath" => {
+            let edge_prob = args.edge_prob.unwrap_or(0.5);
+            if !(0.0..=1.0).contains(&edge_prob) {
+                bail!("--edge-prob must be between 0.0 and 1.0");
+            }
+            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            let variant = variant_map(&[("graph", "SimpleGraph")]);
+            (ser(HamiltonianPath::new(graph))?, variant)
         }
 
         // Graph problems with edge weights
@@ -964,7 +1450,7 @@ fn create_random(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
              MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman, \
-             OptimalLinearArrangement)"
+             OptimalLinearArrangement, HamiltonianPath)"
         ),
     };
 

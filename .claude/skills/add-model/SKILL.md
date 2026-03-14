@@ -25,7 +25,7 @@ Before any implementation, collect all required information. If called from `iss
 | 8 | **Objective function** | How to compute the metric | "Sum of weights of selected vertices" |
 | 9 | **Best known exact algorithm** | Complexity with variable definitions | "O(1.1996^n) by Xiao & Nagamochi (2017), where n = \|V\|" |
 | 10 | **Solving strategy** | How it can be solved | "BruteForce works; ILP reduction available" |
-| 11 | **Category** | Which sub-module under `src/models/` | `graph`, `optimization`, `satisfiability`, `set`, `specialized` |
+| 11 | **Category** | Which sub-module under `src/models/` | `graph`, `formula`, `set`, `algebraic`, `misc` |
 
 If any item is missing, ask the user to provide it. Do NOT proceed until the checklist is complete.
 
@@ -33,7 +33,7 @@ If any item is missing, ask the user to provide it. Do NOT proceed until the che
 
 Read these first to understand the patterns:
 - **Optimization problem:** `src/models/graph/maximum_independent_set.rs`
-- **Satisfaction problem:** `src/models/satisfiability/sat.rs`
+- **Satisfaction problem:** `src/models/formula/sat.rs`
 - **Model tests:** `src/unit_tests/models/graph/maximum_independent_set.rs`
 - **Trait definitions:** `src/traits.rs` (`Problem`, `OptimizationProblem`, `SatisfactionProblem`)
 - **CLI dispatch:** `problemreductions-cli/src/dispatch.rs`
@@ -42,11 +42,11 @@ Read these first to understand the patterns:
 ## Step 1: Determine the category
 
 Choose the appropriate sub-module under `src/models/`:
-- `graph/` -- problems defined on graphs (vertex/edge selection)
-- `optimization/` -- generic optimization formulations (QUBO, ILP, SpinGlass)
-- `satisfiability/` -- boolean satisfaction problems (SAT, k-SAT)
+- `graph/` -- problems defined on graphs (vertex/edge selection, SpinGlass, etc.)
+- `formula/` -- logical formulas and circuits (SAT, k-SAT, CircuitSAT)
 - `set/` -- set-based problems (set packing, set cover)
-- `specialized/` -- problems that don't fit other categories (factoring, circuit, paintshop)
+- `algebraic/` -- matrices, linear systems, lattices (QUBO, ILP, CVP, BMF)
+- `misc/` -- unique input structures that don't fit other categories (BinPacking, PaintShop, Factoring)
 
 ## Step 1.5: Infer problem size getters
 
@@ -152,9 +152,54 @@ Required tests:
 
 Link the test file via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the model file.
 
+## Step 5.5: Add trait_consistency entry
+
+Add the new problem to `src/unit_tests/trait_consistency.rs`:
+
+1. **`test_all_problems_implement_trait_correctly`** — add a `check_problem_trait(...)` call with a small instance
+2. **`test_direction`** (optimization problems only) — add an `assert_eq!(...direction(), Direction::Minimize/Maximize)` entry
+
+This is **required** for every new model — it ensures the Problem trait implementation is well-formed.
+
 ## Step 6: Document in paper
 
-Invoke the `/write-model-in-paper` skill to write the problem-def entry in `docs/paper/reductions.typ`. That skill covers the full authoring process: formal definition, background, example with visualization, algorithm list, and verification checklist.
+Write a `problem-def` entry in `docs/paper/reductions.typ`. **Reference example:** search for `problem-def("MaximumIndependentSet")` to see the gold-standard entry — use it as a template.
+
+### 6a. Register display name
+
+Add to the `display-name` dictionary near the top of `reductions.typ`:
+```typst
+"ProblemName": [Display Name],
+```
+
+### 6b. Write formal definition (`def` parameter)
+
+```typst
+#problem-def("ProblemName")[
+  Given [inputs with domains], find [solution] [maximizing/minimizing] [objective] such that [constraints].
+][
+```
+Requirements: introduce all inputs first, state the objective, define all notation before use.
+
+### 6c. Write body (background + example)
+
+The body goes AFTER auto-generated sections (complexity table, reductions, schema). Four parts:
+
+**Background (1-3 sentences):** Historical context, applications, structural properties.
+
+**Best known algorithms:** Integrate naturally into prose with citations. Every complexity claim MUST have `@citation`. If best known is brute-force, add `#footnote[No algorithm improving on brute-force is known for ...]`.
+
+**Example with visualization:** A concrete small instance with a CeTZ diagram. For graph problems, use `g-node()` and `g-edge()` helpers — see the MaximumIndependentSet entry. Highlight solution with `graph-colors.at(0)`.
+
+**Evaluation:** Show the objective/verifier computed on the example solution (can be woven into example text).
+
+### 6d. Build and verify
+
+```bash
+make paper  # Must compile without errors
+```
+
+Checklist: display name registered, notation self-contained, background present, algorithms cited, example with diagram present, evaluation shown, paper compiles.
 
 ## Step 7: Verify
 
@@ -187,3 +232,4 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 | Forgetting CLI create | Must add creation handler in `commands/create.rs` and flags in `cli.rs` |
 | Missing from CLI help table | Must add entry to "Flags by problem type" table in `cli.rs` `after_help` |
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |
+| Forgetting trait_consistency | Must add entry in `test_all_problems_implement_trait_correctly` (and `test_direction` for optimization) in `src/unit_tests/trait_consistency.rs` |
