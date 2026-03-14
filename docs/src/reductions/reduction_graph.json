@@ -3,6 +3,15 @@
     {
       "name": "BMF",
       "variant": {},
+  
+Exported to: docs/src/reductions/reduction_graph.json
+
+JSON content:
+{
+  "nodes": [
+    {
+      "name": "BMF",
+      "variant": {},
       "category": "algebraic",
       "doc_path": "models/algebraic/struct.BMF.html",
       "complexity": "2^(rows * rank + rank * cols)"
@@ -87,7 +96,7 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.HamiltonianCircuit.html",
-      "complexity": "num_vertices^2 * 2^num_vertices"
+      "complexity": "1.657^num_vertices"
     },
     {
       "name": "HamiltonianPath",

@@ -45,7 +45,8 @@ pub mod prelude {
     pub use crate::models::algebraic::{BMF, QUBO};
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
     pub use crate::models::graph::{
-        BicliqueCover, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, SpinGlass,
+        BicliqueCover, GraphPartitioning, HamiltonianCircuit, HamiltonianPath,
+        IsomorphicSpanningTree, SpinGlass,
         SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
