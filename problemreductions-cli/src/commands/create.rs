@@ -1651,7 +1651,7 @@ fn create_random(
             "Random generation is not supported for {canonical}. \
              Supported: graph-based problems (MIS, MVC, MaxCut, MaxClique, \
              MaximumMatching, MinimumDominatingSet, SpinGlass, KColoring, TravelingSalesman, \
-             OptimalLinearArrangement, HamiltonianCircuit, HamiltonianPath)"
+             HamiltonianCircuit, OptimalLinearArrangement, HamiltonianPath)"
         ),
     };
 

@@ -3,7 +3,7 @@
 //! The Hamiltonian Circuit problem asks whether a graph contains a cycle
 //! that visits every vertex exactly once and returns to the starting vertex.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::variant::VariantParam;
@@ -12,6 +12,11 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "HamiltonianCircuit",
+        display_name: "Hamiltonian Circuit",
+        aliases: &["HC"],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        ],
         module_path: module_path!(),
         description: "Does the graph contain a Hamiltonian circuit?",
         fields: &[
@@ -95,7 +100,7 @@ where
 
     fn evaluate(&self, config: &[usize]) -> bool {
         let n = self.graph.num_vertices();
-        if config.len() != n {
+        if n < 3 || config.len() != n {
             return false;
         }
 
@@ -124,7 +129,7 @@ where
 impl<G: Graph + VariantParam> SatisfactionProblem for HamiltonianCircuit<G> {}
 
 crate::declare_variants! {
-    HamiltonianCircuit<SimpleGraph> => "num_vertices^2 * 2^num_vertices",
+    default sat HamiltonianCircuit<SimpleGraph> => "num_vertices^2 * 2^num_vertices",
 }
 
 #[cfg(test)]
