@@ -55,6 +55,17 @@ Each node is a problem type (e.g., Satisfiability, Max-Cut, Traveling Salesman).
 Each directed edge is a verified reduction---code that transforms instances forward and maps solutions back.
 Given any supported problem, a path through the graph leads to a solver, with every edge backed by tested code.
 
+\begin{figure*}[t]
+  \centering
+  \includegraphics[width=0.88\textwidth]{figures/problemtree.pdf}
+  \caption{The reduction graph connects 27~NP-hard problem types to three solver families through 45~verified transformation rules.
+    \textbf{Bottom layer}: solvers---Maximum Independent Set on unit-disk graphs (UD-MIS) for Rydberg atom arrays, QUBO for D-Wave quantum annealers, and ILP for commercial solvers.
+    \textbf{Middle layer}: 27~problem types with color-coded edges showing solver reachability.
+    MIS is the dominant hub with 14~incoming and 13~outgoing edges.
+    Each new edge creates composite paths through the entire graph.}
+  \label{fig:reduction-graph}
+\end{figure*}
+
 The graph currently contains 27~problem types connected by 56~directed edges (\Cref{fig:reduction-graph}).
 Reductions implemented independently compose automatically through the graph.
 For example, one contributor implemented Factoring $\to$ Circuit Satisfiability, and another implemented Circuit Satisfiability $\to$ Integer Linear Programming.
@@ -76,15 +87,6 @@ We identify three structural barriers that make bridge problems infeasible for h
     Implicit workflow knowledge---which files to create, which tests to write, which edge cases to check---is lost with each departure.
     Reusable skills encode this knowledge as executable documents that any new contributor or agent can invoke.
 \end{enumerate}
-
-\begin{figure}[t]
-  \centering
-  \includegraphics[width=\columnwidth]{figures/scaling-wall.pdf}
-  \caption{Human teams maintain quality up to $\sim$20 components, then hit three barriers: convention drift, effort exhaustion, and knowledge discontinuity.
-    Agents constrained by systematic verification break through all three.
-    Agents constrained by systematic verification break through all three.}
-  \label{fig:scaling-wall}
-\end{figure}
 
 AI coding agents can break through these barriers, but only if their output is constrained to match contributor-specified ground truth.
 A contributor supplies the creative elements: which problems matter, what the formal definitions are, which examples reveal correctness.
@@ -192,18 +194,6 @@ This 96-line implementation connects MVC to every solver reachable from MIS.
 
 We organize reductions into a directed graph $G = (V, E)$, where each vertex $v \in V$ represents an NP-hard problem type and each directed edge $(u, v) \in E$ represents a verified reduction from problem~$u$ to problem~$v$.
 The graph contains 27~vertices (problem types) and 56~directed edges: 45~hand-coded reduction rules plus 11~edges inferred from subtype relationships (e.g., MIS on a geometric subgraph can always be treated as MIS on a general graph, because the geometric structure is a special case).
-
-\begin{figure*}[t]
-  \centering
-  \includegraphics[width=0.88\textwidth]{figures/problemtree.pdf}
-  \caption{The reduction graph as compilation infrastructure.
-    \textbf{Bottom layer}: three families of solvers, each accepting a specific problem formulation---Maximum Independent Set on unit-disk graphs (UD-MIS) for Rydberg atom arrays, QUBO for D-Wave quantum annealers, and ILP for commercial solvers.
-    \textbf{Middle layer}: 27~problem types connected by 45~human-implemented reduction rules.
-    MIS is the dominant hub with 14~incoming and 13~outgoing edges.
-    \textbf{Top layer}: the scaling vision---agent-synthesized reductions extending coverage to 100+ problem types.
-    Solid arrows denote verified reductions; dashed arrows denote cross-reductions to alternative solvers.}
-  \label{fig:reduction-graph}
-\end{figure*}
 
 Three problems serve as ``compilation targets,'' each corresponding to a class of specialized solvers (\Cref{fig:reduction-graph}, bottom layer):
 \begin{itemize}
