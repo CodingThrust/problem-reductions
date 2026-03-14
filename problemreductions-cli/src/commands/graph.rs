@@ -95,6 +95,73 @@ pub fn list(out: &OutputConfig) -> Result<()> {
     out.emit_with_default_name("pred_graph_list.json", &text, &json)
 }
 
+pub fn list_rules(out: &OutputConfig) -> Result<()> {
+    use crate::output::{format_table, Align};
+
+    let graph = ReductionGraph::new();
+
+    let mut types = graph.problem_types();
+    types.sort();
+
+    struct RuleRow {
+        source: String,
+        target: String,
+        overhead: String,
+    }
+
+    let mut rows_data: Vec<RuleRow> = Vec::new();
+    for name in &types {
+        for edge in graph.outgoing_reductions(name) {
+            let source_slash = variant_to_full_slash(&edge.source_variant);
+            let target_slash = variant_to_full_slash(&edge.target_variant);
+            let oh_parts = fmt_overhead_parts(&edge.overhead.output_size);
+            rows_data.push(RuleRow {
+                source: format!("{}{}", edge.source_name, source_slash),
+                target: format!("{}{}", edge.target_name, target_slash),
+                overhead: oh_parts.join(", "),
+            });
+        }
+    }
+
+    let summary = format!("Registered reduction rules: {}\n", rows_data.len(),);
+
+    let columns: Vec<(&str, Align, usize)> = vec![
+        ("Source", Align::Left, 6),
+        ("Target", Align::Left, 6),
+        ("Overhead", Align::Left, 8),
+    ];
+
+    let rows: Vec<Vec<String>> = rows_data
+        .iter()
+        .map(|r| vec![r.source.clone(), r.target.clone(), r.overhead.clone()])
+        .collect();
+
+    let color_fns: Vec<Option<crate::output::CellFormatter>> = vec![
+        Some(crate::output::fmt_problem_name),
+        Some(crate::output::fmt_problem_name),
+        None,
+    ];
+
+    let mut text = String::new();
+    text.push_str(&crate::output::fmt_section(&summary));
+    text.push('\n');
+    text.push_str(&format_table(&columns, &rows, &color_fns));
+    text.push_str("\nUse `pred show <problem>` for details on a specific problem.\n");
+
+    let json = serde_json::json!({
+        "num_rules": rows_data.len(),
+        "rules": rows_data.iter().map(|r| {
+            serde_json::json!({
+                "source": r.source,
+                "target": r.target,
+                "overhead": r.overhead,
+            })
+        }).collect::<Vec<_>>(),
+    });
+
+    out.emit_with_default_name("pred_rules_list.json", &text, &json)
+}
+
 pub fn show(problem: &str, out: &OutputConfig) -> Result<()> {
     let name = parse_problem_type(problem)?;
     let graph = ReductionGraph::new();

@@ -46,12 +46,17 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// List all registered problem types
+    /// List all registered problem types (or reduction rules with --rules)
     #[command(after_help = "\
 Examples:
-  pred list                   # print to terminal
+  pred list                   # list problem types
+  pred list --rules           # list all reduction rules
   pred list -o problems.json  # save as JSON")]
-    List,
+    List {
+        /// List reduction rules instead of problem types
+        #[arg(long)]
+        rules: bool,
+    },
 
     /// Show details for a problem type (variants, fields, reductions)
     #[command(after_help = "\
