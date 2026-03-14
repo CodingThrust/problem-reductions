@@ -15,7 +15,8 @@ name = "pred-sym"
 path = "src/bin/pred_sym.rs"
 
 [features]
-default = ["highs", "mcp"]
+default = ["highs"]
+all = ["highs", "mcp"]
 highs = ["problemreductions/ilp-highs"]
 mcp = ["dep:rmcp", "dep:tokio", "dep:schemars", "dep:tracing", "dep:tracing-subscriber"]
 coin-cbc = ["problemreductions/ilp-coin-cbc"]
