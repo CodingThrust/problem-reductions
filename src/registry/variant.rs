@@ -3,7 +3,7 @@
 use std::any::Any;
 use std::collections::BTreeMap;
 
-use crate::registry::dyn_problem::DynProblem;
+use crate::registry::dyn_problem::{DynProblem, SolveFn};
 
 /// A registered problem variant entry.
 ///
@@ -27,7 +27,7 @@ pub struct VariantEntry {
     /// Serialize: downcast `&dyn Any` and serialize to JSON.
     pub serialize_fn: fn(&dyn Any) -> Option<serde_json::Value>,
     /// Solve: downcast `&dyn Any` and brute-force solve.
-    pub solve_fn: fn(&dyn Any) -> Option<(Vec<usize>, String)>,
+    pub solve_fn: SolveFn,
 }
 
 impl VariantEntry {
@@ -52,9 +52,8 @@ pub fn find_variant_entry(
     name: &str,
     variant: &BTreeMap<String, String>,
 ) -> Option<&'static VariantEntry> {
-    inventory::iter::<VariantEntry>().find(|entry| {
-        entry.name == name && entry.variant_map() == *variant
-    })
+    inventory::iter::<VariantEntry>()
+        .find(|entry| entry.name == name && entry.variant_map() == *variant)
 }
 
 impl std::fmt::Debug for VariantEntry {

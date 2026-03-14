@@ -112,8 +112,13 @@ pub fn serialize_any_problem(
     any: &dyn Any,
 ) -> Result<Value> {
     let canonical = resolve_alias(name);
-    problemreductions::registry::serialize_any(&canonical, variant, any)
-        .ok_or_else(|| anyhow::anyhow!("Failed to serialize {} with variant {:?}", canonical, variant))
+    problemreductions::registry::serialize_any(&canonical, variant, any).ok_or_else(|| {
+        anyhow::anyhow!(
+            "Failed to serialize {} with variant {:?}",
+            canonical,
+            variant
+        )
+    })
 }
 
 /// JSON wrapper format for problem files.
@@ -203,8 +208,7 @@ mod tests {
     fn test_serialize_any_problem_round_trips_bin_packing() {
         let problem = BinPacking::new(vec![3i32, 3, 2, 2], 5i32);
         let variant = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
-        let json =
-            serialize_any_problem("BinPacking", &variant, &problem as &dyn Any).unwrap();
+        let json = serialize_any_problem("BinPacking", &variant, &problem as &dyn Any).unwrap();
         assert_eq!(json, serde_json::to_value(&problem).unwrap());
     }
 }

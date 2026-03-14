@@ -58,7 +58,10 @@ fn test_load_dyn_round_trips_maximum_independent_set() {
     .unwrap();
 
     assert_eq!(loaded.problem_name(), "MaximumIndependentSet");
-    assert_eq!(loaded.serialize_json(), serde_json::to_value(&problem).unwrap());
+    assert_eq!(
+        loaded.serialize_json(),
+        serde_json::to_value(&problem).unwrap()
+    );
     assert!(loaded.solve_brute_force().is_some());
 }
 
@@ -66,8 +69,12 @@ fn test_load_dyn_round_trips_maximum_independent_set() {
 fn test_load_dyn_solves_subset_sum() {
     let problem = SubsetSum::new(vec![3u32, 7u32, 1u32], 4u32);
     let variant = BTreeMap::new();
-    let loaded =
-        load_dyn("SubsetSum", &variant, serde_json::to_value(&problem).unwrap()).unwrap();
+    let loaded = load_dyn(
+        "SubsetSum",
+        &variant,
+        serde_json::to_value(&problem).unwrap(),
+    )
+    .unwrap();
     let solved = loaded.solve_brute_force().unwrap();
     assert_eq!(solved.1, "true");
 }
@@ -103,8 +110,7 @@ fn test_serialize_any_round_trips_exact_variant() {
         ("graph".to_string(), "SimpleGraph".to_string()),
         ("weight".to_string(), "i32".to_string()),
     ]);
-    let json =
-        serialize_any("MaximumIndependentSet", &variant, &problem as &dyn Any).unwrap();
+    let json = serialize_any("MaximumIndependentSet", &variant, &problem as &dyn Any).unwrap();
     assert_eq!(json, serde_json::to_value(&problem).unwrap());
 }
 
@@ -112,7 +118,5 @@ fn test_serialize_any_round_trips_exact_variant() {
 fn test_serialize_any_rejects_partial_variant() {
     let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
     let partial = BTreeMap::from([("graph".to_string(), "SimpleGraph".to_string())]);
-    assert!(
-        serialize_any("MaximumIndependentSet", &partial, &problem as &dyn Any).is_none()
-    );
+    assert!(serialize_any("MaximumIndependentSet", &partial, &problem as &dyn Any).is_none());
 }

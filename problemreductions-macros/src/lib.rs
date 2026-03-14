@@ -709,7 +709,10 @@ mod tests {
     #[test]
     fn declare_variants_rejects_missing_solver_kind() {
         let result = syn::parse_str::<DeclareVariantsInput>("Foo => \"1\"");
-        assert!(result.is_err(), "expected parse error for missing solver kind");
+        assert!(
+            result.is_err(),
+            "expected parse error for missing solver kind"
+        );
     }
 
     #[test]
@@ -719,11 +722,23 @@ mod tests {
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
         assert!(tokens.contains("factory :"), "expected factory field");
-        assert!(tokens.contains("serialize_fn :"), "expected serialize_fn field");
+        assert!(
+            tokens.contains("serialize_fn :"),
+            "expected serialize_fn field"
+        );
         assert!(tokens.contains("solve_fn :"), "expected solve_fn field");
-        assert!(!tokens.contains("factory : None"), "factory should not be None");
-        assert!(!tokens.contains("serialize_fn : None"), "serialize_fn should not be None");
-        assert!(!tokens.contains("solve_fn : None"), "solve_fn should not be None");
+        assert!(
+            !tokens.contains("factory : None"),
+            "factory should not be None"
+        );
+        assert!(
+            !tokens.contains("serialize_fn : None"),
+            "serialize_fn should not be None"
+        );
+        assert!(
+            !tokens.contains("solve_fn : None"),
+            "solve_fn should not be None"
+        );
         assert!(tokens.contains("find_best"), "expected find_best in tokens");
     }
 
@@ -734,12 +749,27 @@ mod tests {
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
         assert!(tokens.contains("factory :"), "expected factory field");
-        assert!(tokens.contains("serialize_fn :"), "expected serialize_fn field");
+        assert!(
+            tokens.contains("serialize_fn :"),
+            "expected serialize_fn field"
+        );
         assert!(tokens.contains("solve_fn :"), "expected solve_fn field");
-        assert!(!tokens.contains("factory : None"), "factory should not be None");
-        assert!(!tokens.contains("serialize_fn : None"), "serialize_fn should not be None");
-        assert!(!tokens.contains("solve_fn : None"), "solve_fn should not be None");
-        assert!(tokens.contains("find_satisfying"), "expected find_satisfying in tokens");
+        assert!(
+            !tokens.contains("factory : None"),
+            "factory should not be None"
+        );
+        assert!(
+            !tokens.contains("serialize_fn : None"),
+            "serialize_fn should not be None"
+        );
+        assert!(
+            !tokens.contains("solve_fn : None"),
+            "solve_fn should not be None"
+        );
+        assert!(
+            tokens.contains("find_satisfying"),
+            "expected find_satisfying in tokens"
+        );
     }
 
     #[test]

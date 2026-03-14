@@ -394,7 +394,11 @@ fn test_reachability_classifies_known_problems() {
     let report = check_reachability_from_3sat(&graph);
 
     // MaximumMatching is in P
-    if let Some(p) = report.unreachable.iter().find(|p| p.name == "MaximumMatching") {
+    if let Some(p) = report
+        .unreachable
+        .iter()
+        .find(|p| p.name == "MaximumMatching")
+    {
         assert_eq!(p.reason, UnreachableReason::InP);
     }
 

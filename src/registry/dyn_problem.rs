@@ -63,12 +63,15 @@ where
     }
 }
 
+/// Function pointer type for brute-force solve dispatch.
+pub type SolveFn = fn(&dyn Any) -> Option<(Vec<usize>, String)>;
+
 /// A loaded problem with type-erased solve capability.
 ///
 /// Wraps a `Box<dyn DynProblem>` with a brute-force solve function pointer.
 pub struct LoadedDynProblem {
     inner: Box<dyn DynProblem>,
-    solve_fn: fn(&dyn Any) -> Option<(Vec<usize>, String)>,
+    solve_fn: SolveFn,
 }
 
 impl std::fmt::Debug for LoadedDynProblem {
@@ -81,10 +84,7 @@ impl std::fmt::Debug for LoadedDynProblem {
 
 impl LoadedDynProblem {
     /// Create a new loaded dynamic problem.
-    pub fn new(
-        inner: Box<dyn DynProblem>,
-        solve_fn: fn(&dyn Any) -> Option<(Vec<usize>, String)>,
-    ) -> Self {
+    pub fn new(inner: Box<dyn DynProblem>, solve_fn: SolveFn) -> Self {
         Self { inner, solve_fn }
     }
 
