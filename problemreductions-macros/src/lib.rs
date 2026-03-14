@@ -59,18 +59,26 @@ enum OverheadSpec {
 
 /// Parsed attributes from #[reduction(...)]
 struct ReductionAttrs {
+    rule_id: Option<String>,
     overhead: Option<OverheadSpec>,
 }
 
 impl syn::parse::Parse for ReductionAttrs {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
-        let mut attrs = ReductionAttrs { overhead: None };
+        let mut attrs = ReductionAttrs {
+            rule_id: None,
+            overhead: None,
+        };
 
         while !input.is_empty() {
             let ident: syn::Ident = input.parse()?;
             input.parse::<syn::Token![=]>()?;
 
             match ident.to_string().as_str() {
+                "id" => {
+                    let lit: syn::LitStr = input.parse()?;
+                    attrs.rule_id = Some(lit.value());
+                }
                 "overhead" => {
                     let content;
                     syn::braced!(content in input);
@@ -87,6 +95,13 @@ impl syn::parse::Parse for ReductionAttrs {
             if input.peek(syn::Token![,]) {
                 input.parse::<syn::Token![,]>()?;
             }
+        }
+
+        if attrs.rule_id.is_none() {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                "Missing `id` attribute. Use #[reduction(id = \"source_to_target_variant\", overhead = { ... })]",
+            ));
         }
 
         Ok(attrs)
@@ -307,12 +322,16 @@ fn generate_reduction_entry(
         }
     };
 
+    // Get the rule ID (already validated as present)
+    let rule_id_str = attrs.rule_id.as_deref().unwrap();
+
     // Generate the combined output
     let output = quote! {
         #impl_block
 
         inventory::submit! {
             crate::rules::registry::ReductionEntry {
+                rule_id: #rule_id_str,
                 source_name: #source_name,
                 target_name: #target_name,
                 source_variant_fn: || { #source_variant_body },

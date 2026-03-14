@@ -42,11 +42,17 @@ Available backends: `highs` (default), `coin-cbc`, `clarabel`, `scip`, `lpsolve`
 # Create a Maximum Independent Set problem
 pred create MIS --graph 0-1,1-2,2-3 -o problem.json
 
+# Create a weighted instance (variant auto-upgrades to i32)
+pred create MIS --graph 0-1,1-2,2-3 --weights 3,1,2,1 -o weighted.json
+
 # Or start from a canonical model example
 pred create --example MIS/SimpleGraph/i32 -o example.json
 
 # Or from a canonical rule example
 pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 -o example.json
+
+# Inspect what's inside a problem file
+pred inspect problem.json
 
 # Solve it (auto-reduces to ILP)
 pred solve problem.json
@@ -54,7 +60,7 @@ pred solve problem.json
 # Or solve with brute-force
 pred solve problem.json --solver brute-force
 
-# Evaluate a specific configuration
+# Evaluate a specific configuration (shows Valid(N) or Invalid)
 pred evaluate problem.json --config 1,0,1,0
 
 # Reduce to another problem type and solve via brute-force
@@ -65,6 +71,10 @@ pred solve reduced.json --solver brute-force
 pred create MIS --graph 0-1,1-2,2-3 | pred solve -
 pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --to QUBO | pred solve -
 ```
+
+> **Note:** When you provide `--weights` with non-unit values (e.g., `3,1,2,1`), the variant is
+> automatically upgraded from the default unit-weight (`One`) to `i32`. You can also specify the
+> weighted variant explicitly: `pred create MIS/SimpleGraph/i32 --graph 0-1 --weights 3,1`.
 
 ## Global Flags
 

@@ -153,7 +153,7 @@ Step-by-step walkthrough with concrete numbers from JSON data. Required steps:
 1. Show source instance (dimensions, structure, graph visualization if applicable)
 2. Walk through construction with intermediate values
 3. Verify a concrete solution end-to-end
-4. Solution count: `#src_tgt_r.solutions.len()` with combinatorial justification
+4. Solution count: `#src_tgt.solutions.len()` with combinatorial justification
 
 Use `graph-colors`, `g-node()`, `g-edge()` for graph visualization — see reference examples.
 
@@ -184,7 +184,7 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 
 ## CLI Impact
 
-Adding a reduction rule does NOT require CLI changes -- the reduction graph is auto-generated from `#[reduction]` macros and the CLI discovers paths dynamically. However, both source and target models must already be registered in the CLI dispatch table (see `add-model` skill).
+Adding a reduction rule does NOT require CLI changes -- the reduction graph is auto-generated from `#[reduction]` macros and the CLI discovers paths dynamically. However, both source and target models must already be fully registered through their model files (`declare_variants!`), aliases as needed in `problem_name.rs`, and `pred create` support where applicable (see `add-model` skill).
 
 ## File Naming
 
@@ -202,4 +202,4 @@ Adding a reduction rule does NOT require CLI changes -- the reduction graph is a
 | Missing `extract_solution` mapping state | Store any index maps needed in the ReductionResult struct |
 | Not adding canonical example to `example_db` | Add builder in `src/example_db/rule_builders.rs` |
 | Not regenerating reduction graph | Run `cargo run --example export_graph` after adding a rule |
-| Source/target model not in CLI dispatch | Both problems must be registered -- use `add-model` skill first |
+| Source/target model not fully registered | Both problems must already have `declare_variants!`, aliases as needed, and CLI create support -- use `add-model` skill first |

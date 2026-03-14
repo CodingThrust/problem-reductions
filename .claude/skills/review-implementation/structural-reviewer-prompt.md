@@ -37,12 +37,13 @@ Given: problem name `P` = `{PROBLEM_NAME}`, category `C` = `{CATEGORY}`, file st
 | 9 | Test has evaluation test | `Grep("fn test_.*evaluat", test_file)` |
 | 10 | Registered in `{C}/mod.rs` | `Grep("mod {F}", "src/models/{C}/mod.rs")` |
 | 11 | Re-exported in `models/mod.rs` | `Grep("{P}", "src/models/mod.rs")` |
-| 12 | CLI `load_problem` arm | `Grep('"{P}"', "problemreductions-cli/src/dispatch.rs")` |
-| 13 | CLI `serialize_any_problem` arm | `Grep('"{P}".*try_ser', "problemreductions-cli/src/dispatch.rs")` |
-| 14 | CLI `resolve_alias` entry | `Grep("{P}", "problemreductions-cli/src/problem_name.rs")` |
-| 15 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
-| 16 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
-| 17 | `trait_consistency` entry | `Grep("{P}", "src/unit_tests/trait_consistency.rs")` |
+| 12 | `declare_variants!` entry exists | `Grep("declare_variants!|default opt|default sat|opt {P}|sat {P}", file)` |
+| 13 | CLI `resolve_alias` entry | `Grep("{P}", "problemreductions-cli/src/problem_name.rs")` |
+| 14 | CLI `create` support | `Grep('"{P}"', "problemreductions-cli/src/commands/create.rs")` |
+| 15 | Canonical model example registered | `Grep("{P}", "src/example_db/model_builders.rs")` |
+| 16 | Paper `display-name` entry | `Grep('"{P}"', "docs/paper/reductions.typ")` |
+| 17 | Paper `problem-def` block | `Grep('problem-def.*"{P}"', "docs/paper/reductions.typ")` |
+| 18 | `trait_consistency` entry | `Grep("{P}", "src/unit_tests/trait_consistency.rs")` |
 
 ## Rule Checklist
 
@@ -60,12 +61,9 @@ Given: source `S` = `{SOURCE}`, target `T` = `{TARGET}`, rule file stem `R` = `{
 | 6 | Test file exists | `Glob("src/unit_tests/rules/{R}.rs")` |
 | 7 | Closed-loop test present | `Grep("fn test_.*closed_loop\|fn test_.*to_.*basic", test_file)` |
 | 8 | Registered in `rules/mod.rs` | `Grep("mod {R}", "src/rules/mod.rs")` |
-| 9 | Example file exists | `Glob("examples/{E}.rs")` |
-| 10 | Example has `pub fn run()` | `Grep("pub fn run", example_file)` |
-| 11 | Example has `fn main()` | `Grep("fn main", example_file)` |
-| 12 | `example_test!` registered | `Grep("example_test!\\({E}\\)", "tests/suites/examples.rs")` |
-| 13 | `example_fn!` registered | `Grep("example_fn!.*{E}", "tests/suites/examples.rs")` |
-| 14 | Paper `reduction-rule` entry | `Grep('reduction-rule.*"{S}".*"{T}"', "docs/paper/reductions.typ")` |
+| 9 | Canonical rule example registered | `Grep("{S}|{T}|{R}", "src/example_db/rule_builders.rs")` |
+| 10 | Example-db lookup tests exist | `Grep("find_rule_example|build_rule_db", "src/unit_tests/example_db.rs")` |
+| 11 | Paper `reduction-rule` entry | `Grep('reduction-rule.*"{S}".*"{T}"', "docs/paper/reductions.typ")` |
 
 ## Build Check
 
@@ -116,7 +114,7 @@ Compare the implementation against the requirements in the original issue. The i
 | 3 | Solution extraction matches | Read `extract_solution()` and verify it matches the issue's **Solution extraction** |
 | 4 | Correctness preserved | Verify the reduction logic is consistent with the issue's **Correctness argument** |
 | 5 | Overhead expressions match | Compare `#[reduction(overhead = {...})]` against the issue's **Size overhead** |
-| 6 | Example matches | Verify the example program uses the instance from the issue's **Concrete example** |
+| 6 | Example matches | Verify the canonical example-db entry uses the instance from the issue's **Concrete example** |
 
 Flag any deviation as ISSUE -- the implementation must match what was specified in the issue unless there's a documented reason for the change.
 

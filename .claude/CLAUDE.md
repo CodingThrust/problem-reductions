@@ -111,7 +111,7 @@ enum Direction { Maximize, Minimize }
 
 ### Key Patterns
 - `variant_params!` macro implements `Problem::variant()` — e.g., `crate::variant_params![G, W]` for two type params, `crate::variant_params![]` for none (see `src/variant.rs`)
-- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity — must appear in every model file (see `src/models/graph/maximum_independent_set.rs`). Variable names in complexity strings are validated at compile time against actual getter methods.
+- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed dynamic dispatch metadata — every entry must specify `opt` or `sat`, and one entry per problem may be marked `default` (see `src/models/graph/maximum_independent_set.rs`). Variable names in complexity strings are validated at compile time against actual getter methods.
 - Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
 - `ReductionResult` provides `target_problem()` and `extract_solution()`
 - `Solver::find_best()` → `Option<Vec<usize>>` for optimization problems; `Solver::find_satisfying()` → `Option<Vec<usize>>` for `Metric = bool`
@@ -155,6 +155,12 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Default variant ranking: `SimpleGraph`, `One`, `KN` are considered default values; variants with the most default values sort first
 - Nodes come exclusively from `#[reduction]` registrations; natural edges between same-name variants are inferred from the graph/weight subtype partial order
 
+### Extension Points
+- New models register dynamic load/serialize/brute-force dispatch through `declare_variants!` in the model file, not by adding manual match arms in the CLI
+- Exact registry dispatch lives in `src/registry/`; alias resolution and partial/default variant resolution live in `problemreductions-cli/src/problem_name.rs`
+- `pred create` UX lives in `problemreductions-cli/src/commands/create.rs`
+- Canonical paper and CLI examples live in `src/example_db/model_builders.rs` and `src/example_db/rule_builders.rs`
+
 ## Conventions
 
 ### File Naming
@@ -195,14 +201,15 @@ See Key Patterns above for solver API signatures. Follow the reference files for
 
 ### File Organization
 
-Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). Integration tests in `tests/suites/`, consolidated through `tests/main.rs`. Example tests in `tests/suites/examples.rs` using `include!` for direct invocation.
+Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). Integration tests in `tests/suites/`, consolidated through `tests/main.rs`. Canonical example-db coverage lives in `src/unit_tests/example_db.rs`.
 
 ## Documentation Locations
 - `README.md` — Project overview and quickstart
 - `.claude/` — Claude Code instructions and skills
 - `docs/book/` — mdBook user documentation (built with `make doc`)
 - `docs/paper/reductions.typ` — Typst paper with problem definitions and reduction theorems
-- `examples/` — Reduction example code (also used in paper and tests)
+- `src/example_db/` — Canonical model/rule examples consumed by `pred create --example` and paper exports
+- `examples/` — Export utilities, graph-analysis helpers, and pedagogical demos
 
 ## Documentation Requirements
 

@@ -36,8 +36,10 @@ Read these first to understand the patterns:
 - **Satisfaction problem:** `src/models/formula/sat.rs`
 - **Model tests:** `src/unit_tests/models/graph/maximum_independent_set.rs`
 - **Trait definitions:** `src/traits.rs` (`Problem`, `OptimizationProblem`, `SatisfactionProblem`)
-- **CLI dispatch:** `problemreductions-cli/src/dispatch.rs`
+- **Registry dispatch boundary:** `src/registry/mod.rs`, `src/registry/variant.rs`
 - **CLI aliases:** `problemreductions-cli/src/problem_name.rs`
+- **CLI creation:** `problemreductions-cli/src/commands/create.rs`
+- **Canonical model examples:** `src/example_db/model_builders.rs`
 
 ## Step 1: Determine the category
 
@@ -92,16 +94,20 @@ Add `declare_variants!` at the bottom of the model file (after the trait impls, 
 
 ```rust
 crate::declare_variants! {
-    ProblemName<SimpleGraph, i32>  => "1.1996^num_vertices",
-    ProblemName<SimpleGraph, One>  => "1.1996^num_vertices",
+    opt ProblemName<SimpleGraph, i32> => "1.1996^num_vertices",
+    default opt ProblemName<SimpleGraph, One> => "1.1996^num_vertices",
 }
 ```
 
+- Each entry must include an explicit solver kind:
+  - `opt` for optimization problems (`BruteForce::find_best`)
+  - `sat` for satisfaction problems (`BruteForce::find_satisfying`)
+- Mark exactly one concrete variant `default` when the problem has multiple registered variants
 - The complexity string references the getter method names from Step 1.5 (e.g., `num_vertices`) — variable names are validated at compile time against actual getters, so typos cause compile errors
 - One entry per supported `(graph, weight)` combination
 - The string is parsed as an `Expr` AST — supports `+`, `-`, `*`, `/`, `^`, `exp()`, `log()`, `sqrt()`
 - Use only concrete numeric values (e.g., `"1.1996^num_vertices"`, not `"(2-epsilon)^num_vertices"`)
-- A compiled `complexity_eval_fn` is auto-generated alongside the symbolic expression
+- A compiled `complexity_eval_fn` plus registry-backed load/serialize/solve dispatch metadata are auto-generated alongside the symbolic expression
 - See `src/models/graph/maximum_independent_set.rs` for the reference pattern
 
 ## Step 3: Register the model
@@ -112,13 +118,14 @@ Update these files to register the new problem type:
 2. `src/models/mod.rs` -- add to the appropriate re-export line
 3. `src/lib.rs` or `prelude` -- if the type should be in `prelude::*`, add it there
 
-## Step 4: Register in CLI
+## Step 4: Register for CLI discovery
 
-Update the CLI dispatch table so `pred` can load, solve, and serialize the new problem:
+The CLI now loads, serializes, and brute-force solves problems through the core registry. Do **not** add manual match arms in `problemreductions-cli/src/dispatch.rs`.
 
-1. **`problemreductions-cli/src/dispatch.rs`:**
-   - Add a match arm in `load_problem()` -- use `deser_opt::<T>` for optimization or `deser_sat::<T>` for satisfaction
-   - Add a match arm in `serialize_any_problem()` -- use `try_ser::<T>`
+1. **Registry-backed dispatch comes from `declare_variants!`:**
+   - Make sure every concrete variant you want the CLI to load is listed in `declare_variants!`
+   - Use the correct `opt`/`sat` marker per entry
+   - Mark the intended default variant with `default` when applicable
 
 2. **`problemreductions-cli/src/problem_name.rs`:**
    - Add a lowercase alias mapping in `resolve_alias()` (e.g., `"newproblem" => "NewProblem".to_string()`)
@@ -138,6 +145,15 @@ Update `problemreductions-cli/src/commands/create.rs` so `pred create <ProblemNa
 3. **Update help text** in `CreateArgs`'s `after_help` — add the new problem to the "Flags by problem type" table in `problemreductions-cli/src/cli.rs` (search for `Flags by problem type`).
 
 4. **Schema alignment**: The `ProblemSchemaEntry` fields should list **constructor parameters** (what the user provides), not internal derived fields. For example, if `m` and `n` are derived from a matrix, only list `matrix` and `k` in the schema.
+
+## Step 4.6: Add canonical model example to example_db
+
+Add a builder function in `src/example_db/model_builders.rs` that constructs a small, canonical instance for this model. Register it in `build_model_examples()`.
+
+This example is now the canonical source for:
+- `pred create --example <PROBLEM_SPEC>`
+- paper/example exports
+- example-db invariants tested in `src/unit_tests/example_db.rs`
 
 ## Step 5: Write unit tests
 
@@ -233,12 +249,13 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 | Missing `#[path]` test link | Add `#[cfg(test)] #[path = "..."] mod tests;` at file bottom |
 | Wrong `dims()` | Must match the actual configuration space (e.g., `vec![2; n]` for binary) |
 | Not registering in `mod.rs` | Must update both `<category>/mod.rs` and `models/mod.rs` |
-| Forgetting `declare_variants!` | Required for variant complexity metadata used by the paper's auto-generated table |
-| Forgetting CLI dispatch | Must add match arms in `dispatch.rs` (`load_problem` + `serialize_any_problem`) |
+| Forgetting `declare_variants!` | Required for variant complexity metadata and registry-backed load/serialize/solve dispatch |
+| Wrong `declare_variants!` syntax | Every entry now needs `opt` or `sat`; one entry per problem may be marked `default` |
 | Forgetting CLI alias | Must add lowercase entry in `problem_name.rs` `resolve_alias()` |
 | Inventing short aliases | Only use well-established literature abbreviations (MIS, SAT, TSP); do NOT invent new ones |
 | Forgetting CLI create | Must add creation handler in `commands/create.rs` and flags in `cli.rs` |
 | Missing from CLI help table | Must add entry to "Flags by problem type" table in `cli.rs` `after_help` |
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |
+| Missing canonical model example | Add a builder in `src/example_db/model_builders.rs` and keep it aligned with paper/example workflows |
 | Forgetting trait_consistency | Must add entry in `test_all_problems_implement_trait_correctly` (and `test_direction` for optimization) in `src/unit_tests/trait_consistency.rs` |
 | Paper example not tested | Must include `test_<name>_paper_example` that verifies the exact instance, solution, and solution count shown in the paper |

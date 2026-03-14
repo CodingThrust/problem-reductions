@@ -1197,6 +1197,36 @@ fn test_create_model_example_mis() {
 }
 
 #[test]
+fn test_create_model_example_mis_shorthand() {
+    let output = pred().args(["create", "--example", "MIS"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+}
+
+#[test]
+fn test_create_model_example_mis_weight_only() {
+    let output = pred().args(["create", "--example", "MIS/i32"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+}
+
+#[test]
 fn test_create_missing_model_example() {
     let output = pred()
         .args(["create", "--example", "GraphPartitioning/SimpleGraph"])
@@ -3112,6 +3142,50 @@ fn test_create_rule_example_mvc_to_mis_round_trips_into_solve() {
     std::fs::remove_file(&path).ok();
 }
 
+#[test]
+fn test_create_rule_example_mvc_to_mis_weight_only() {
+    let output = pred()
+        .args(["create", "--example", "MVC/i32", "--to", "MIS/i32"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MinimumVertexCover");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+}
+
+#[test]
+fn test_create_rule_example_mvc_to_mis_target_weight_only() {
+    let output = pred()
+        .args([
+            "create",
+            "--example",
+            "MVC/i32",
+            "--to",
+            "MIS/i32",
+            "--example-side",
+            "target",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["graph"], "SimpleGraph");
+    assert_eq!(json["variant"]["weight"], "i32");
+}
+
 // ---- Type-level show semantics ----
 
 #[test]
@@ -3269,4 +3343,77 @@ fn test_path_all_save_manifest() {
     assert!(manifest["truncated"].is_boolean());
 
     std::fs::remove_dir_all(&dir).ok();
+}
+
+#[test]
+fn test_create_auto_upgrades_weight_variant_to_i32() {
+    // When the user provides non-unit weights with bare `MIS` (default variant One),
+    // the CLI should auto-upgrade the variant to i32.
+    let output = pred()
+        .args(["create", "MIS", "--graph", "0-1,1-2,2-3", "--weights", "3,1,2,1"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MaximumIndependentSet");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["weights"], serde_json::json!([3, 1, 2, 1]));
+}
+
+#[test]
+fn test_create_unit_weights_stays_one() {
+    // When all weights are 1, the variant should remain One.
+    let output = pred()
+        .args(["create", "MIS", "--graph", "0-1,1-2,2-3", "--weights", "1,1,1,1"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["variant"]["weight"], "One");
+}
+
+#[test]
+fn test_create_weighted_mis_round_trips_into_solve() {
+    // The weighted MIS created with auto-upgrade should be solvable end-to-end.
+    let create_output = pred()
+        .args(["create", "MIS", "--graph", "0-1,1-2,2-3", "--weights", "3,1,2,1"])
+        .output()
+        .unwrap();
+    assert!(create_output.status.success());
+
+    let solve_output = pred()
+        .args(["solve", "-", "--solver", "brute-force"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .and_then(|mut child| {
+            use std::io::Write;
+            child
+                .stdin
+                .take()
+                .unwrap()
+                .write_all(&create_output.stdout)
+                .unwrap();
+            child.wait_with_output()
+        })
+        .unwrap();
+    assert!(
+        solve_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&solve_output.stderr)
+    );
+    let stdout = String::from_utf8(solve_output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["evaluation"], "Valid(5)");
 }

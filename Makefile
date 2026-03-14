@@ -39,7 +39,7 @@ build:
 
 # Run all tests (including ignored tests)
 test:
-	cargo test --features ilp-highs -- --include-ignored
+	cargo test --features "ilp-highs example-db" -- --include-ignored
 
 # Run MCP server tests
 mcp-test:  ## Run MCP server tests

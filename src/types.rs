@@ -1,6 +1,7 @@
 //! Common types used across the problemreductions library.
 
-use serde::{Deserialize, Serialize};
+use serde::de::{self, Visitor};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use std::fmt;
 
 /// Bound for objective value types (i32, f64, etc.)
@@ -62,8 +63,83 @@ impl WeightElement for f64 {
 ///
 /// When used as the weight type parameter `W`, indicates that all weights
 /// are uniformly 1. `One::to_sum()` returns `1i32`.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
 pub struct One;
+
+impl Serialize for One {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        serializer.serialize_i32(1)
+    }
+}
+
+impl<'de> Deserialize<'de> for One {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        struct OneVisitor;
+
+        impl<'de> Visitor<'de> for OneVisitor {
+            type Value = One;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+                formatter.write_str("the unit weight `One` encoded as 1 or unit/null")
+            }
+
+            fn visit_i64<E>(self, value: i64) -> Result<One, E>
+            where
+                E: de::Error,
+            {
+                if value == 1 {
+                    Ok(One)
+                } else {
+                    Err(E::custom(format!("expected 1 for One, got {value}")))
+                }
+            }
+
+            fn visit_u64<E>(self, value: u64) -> Result<One, E>
+            where
+                E: de::Error,
+            {
+                if value == 1 {
+                    Ok(One)
+                } else {
+                    Err(E::custom(format!("expected 1 for One, got {value}")))
+                }
+            }
+
+            fn visit_unit<E>(self) -> Result<One, E>
+            where
+                E: de::Error,
+            {
+                Ok(One)
+            }
+
+            fn visit_none<E>(self) -> Result<One, E>
+            where
+                E: de::Error,
+            {
+                Ok(One)
+            }
+
+            fn visit_str<E>(self, value: &str) -> Result<One, E>
+            where
+                E: de::Error,
+            {
+                if value == "One" {
+                    Ok(One)
+                } else {
+                    Err(E::custom(format!("expected \"One\" for One, got {value}")))
+                }
+            }
+        }
+
+        deserializer.deserialize_any(OneVisitor)
+    }
+}
 
 impl WeightElement for One {
     type Sum = i32;

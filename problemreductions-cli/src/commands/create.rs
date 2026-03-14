@@ -6,7 +6,7 @@ use crate::problem_name::{
 };
 use crate::util;
 use anyhow::{bail, Context, Result};
-use problemreductions::export::ProblemRef;
+use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
 use problemreductions::models::misc::{
@@ -20,7 +20,7 @@ use problemreductions::topology::{
     UnitDiskGraph,
 };
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Check if all data flags are None (no problem-specific input provided).
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
@@ -95,6 +95,8 @@ fn format_problem_ref(problem: &ProblemRef) -> String {
 fn resolve_example_problem_ref(
     input: &str,
     rgraph: &problemreductions::rules::ReductionGraph,
+    candidates: &[ProblemRef],
+    example_kind: &str,
 ) -> Result<ProblemRef> {
     let spec = parse_problem_spec(input)?;
     let canonical = spec.name.clone();
@@ -103,18 +105,13 @@ fn resolve_example_problem_ref(
         bail!("{}", unknown_problem_error(input));
     }
 
-    let known_variants = rgraph.variants_for(&canonical);
-    let variant = if known_variants.is_empty() {
-        if spec.variant_values.is_empty() {
-            BTreeMap::new()
-        } else {
-            bail!(
-                "Problem {} has no registered variants, but {:?} was supplied",
-                canonical,
-                spec.variant_values
-            );
-        }
-    } else if spec.variant_values.is_empty() {
+    let known_variants = canonical_example_variants(candidates, &canonical);
+
+    if known_variants.is_empty() {
+        bail!("No canonical {example_kind} example exists for {canonical}");
+    }
+
+    let variant = if spec.variant_values.is_empty() {
         if known_variants.len() == 1 {
             known_variants[0].clone()
         } else {
@@ -132,6 +129,19 @@ fn resolve_example_problem_ref(
         name: canonical,
         variant,
     })
+}
+
+fn canonical_example_variants(
+    candidates: &[ProblemRef],
+    canonical: &str,
+) -> Vec<BTreeMap<String, String>> {
+    candidates
+        .iter()
+        .filter(|candidate| candidate.name == canonical)
+        .map(|candidate| candidate.variant.clone())
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
 }
 
 fn resolve_example_variant(
@@ -164,6 +174,76 @@ fn resolve_example_variant(
     }
 }
 
+fn problem_output_from_side(side: ProblemSide) -> ProblemJsonOutput {
+    ProblemJsonOutput {
+        problem_type: side.problem,
+        variant: side.variant,
+        data: side.instance,
+    }
+}
+
+fn problem_output_from_model(example: ModelExample) -> ProblemJsonOutput {
+    ProblemJsonOutput {
+        problem_type: example.problem,
+        variant: example.variant,
+        data: example.instance,
+    }
+}
+
+fn resolve_model_example(
+    example_spec: &str,
+    rgraph: &problemreductions::rules::ReductionGraph,
+) -> Result<ModelExample> {
+    let model_db = problemreductions::example_db::build_model_db()?;
+    let candidates: Vec<_> = model_db
+        .models
+        .iter()
+        .map(|model| model.problem_ref())
+        .collect();
+    let problem = resolve_example_problem_ref(example_spec, rgraph, &candidates, "model")?;
+    model_db
+        .models
+        .into_iter()
+        .find(|model| model.problem_ref() == problem)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "No canonical model example exists for {}",
+                format_problem_ref(&problem)
+            )
+        })
+}
+
+fn resolve_rule_example(
+    example_spec: &str,
+    target_spec: &str,
+    rgraph: &problemreductions::rules::ReductionGraph,
+) -> Result<RuleExample> {
+    let rule_db = problemreductions::example_db::build_rule_db()?;
+    let source_candidates: Vec<_> = rule_db
+        .rules
+        .iter()
+        .map(|rule| rule.source.problem_ref())
+        .collect();
+    let target_candidates: Vec<_> = rule_db
+        .rules
+        .iter()
+        .map(|rule| rule.target.problem_ref())
+        .collect();
+    let source = resolve_example_problem_ref(example_spec, rgraph, &source_candidates, "rule")?;
+    let target = resolve_example_problem_ref(target_spec, rgraph, &target_candidates, "rule")?;
+    rule_db
+        .rules
+        .into_iter()
+        .find(|rule| rule.source.problem_ref() == source && rule.target.problem_ref() == target)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "No canonical rule example exists for {} -> {}",
+                format_problem_ref(&source),
+                format_problem_ref(&target)
+            )
+        })
+}
+
 fn create_from_example(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     let example_spec = args
         .example
@@ -181,48 +261,17 @@ fn create_from_example(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     let rgraph = problemreductions::rules::ReductionGraph::new();
 
     let output = if let Some(target_spec) = args.example_target.as_deref() {
-        let source = resolve_example_problem_ref(example_spec, &rgraph)?;
-        let target = resolve_example_problem_ref(target_spec, &rgraph)?;
-        let example =
-            problemreductions::example_db::find_rule_example(&source, &target).map_err(|_| {
-                anyhow::anyhow!(
-                    "No canonical rule example exists for {} -> {}",
-                    format_problem_ref(&source),
-                    format_problem_ref(&target)
-                )
-            })?;
-
+        let example = resolve_rule_example(example_spec, target_spec, &rgraph)?;
         match args.example_side {
-            ExampleSide::Source => ProblemJsonOutput {
-                problem_type: example.source.problem,
-                variant: example.source.variant,
-                data: example.source.instance,
-            },
-            ExampleSide::Target => ProblemJsonOutput {
-                problem_type: example.target.problem,
-                variant: example.target.variant,
-                data: example.target.instance,
-            },
+            ExampleSide::Source => problem_output_from_side(example.source),
+            ExampleSide::Target => problem_output_from_side(example.target),
         }
     } else {
         if matches!(args.example_side, ExampleSide::Target) {
             bail!("`--example-side target` requires `--to <TARGET_SPEC>`");
         }
 
-        let problem = resolve_example_problem_ref(example_spec, &rgraph)?;
-        let example =
-            problemreductions::example_db::find_model_example(&problem).map_err(|_| {
-                anyhow::anyhow!(
-                    "No canonical model example exists for {}",
-                    format_problem_ref(&problem)
-                )
-            })?;
-
-        ProblemJsonOutput {
-            problem_type: example.problem,
-            variant: example.variant,
-            data: example.instance,
-        }
+        problem_output_from_model(resolve_model_example(example_spec, &rgraph)?)
     };
 
     emit_problem_output(&output, out)
@@ -1040,6 +1089,25 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     emit_problem_output(&output, out)
 }
 
+/// Reject non-unit weights when the resolved variant uses `weight=One`.
+fn reject_nonunit_weights_for_one_variant(
+    canonical: &str,
+    graph_type: &str,
+    variant: &BTreeMap<String, String>,
+    weights: &[i32],
+) -> Result<()> {
+    if variant.get("weight").map(|w| w.as_str()) == Some("One")
+        && weights.iter().any(|&w| w != 1)
+    {
+        bail!(
+            "Non-unit weights are not supported for the default unit-weight variant.\n\n\
+             Use the weighted variant instead:\n  \
+             pred create {canonical}/{graph_type}/i32 --graph ... --weights ..."
+        );
+    }
+    Ok(())
+}
+
 /// Create a vertex-weight problem dispatching on geometry graph type.
 fn create_vertex_weight_problem(
     args: &CreateArgs,
@@ -1053,6 +1121,9 @@ fn create_vertex_weight_problem(
             let n = positions.len();
             let graph = KingsSubgraph::new(positions);
             let weights = parse_vertex_weights(args, n)?;
+            reject_nonunit_weights_for_one_variant(
+                canonical, graph_type, resolved_variant, &weights,
+            )?;
             Ok((
                 ser_vertex_weight_problem_with(canonical, graph, weights)?,
                 resolved_variant.clone(),
@@ -1063,6 +1134,9 @@ fn create_vertex_weight_problem(
             let n = positions.len();
             let graph = TriangularSubgraph::new(positions);
             let weights = parse_vertex_weights(args, n)?;
+            reject_nonunit_weights_for_one_variant(
+                canonical, graph_type, resolved_variant, &weights,
+            )?;
             Ok((
                 ser_vertex_weight_problem_with(canonical, graph, weights)?,
                 resolved_variant.clone(),
@@ -1074,6 +1148,9 @@ fn create_vertex_weight_problem(
             let radius = args.radius.unwrap_or(1.0);
             let graph = UnitDiskGraph::new(positions, radius);
             let weights = parse_vertex_weights(args, n)?;
+            reject_nonunit_weights_for_one_variant(
+                canonical, graph_type, resolved_variant, &weights,
+            )?;
             Ok((
                 ser_vertex_weight_problem_with(canonical, graph, weights)?,
                 resolved_variant.clone(),
@@ -1088,6 +1165,9 @@ fn create_vertex_weight_problem(
                 )
             })?;
             let weights = parse_vertex_weights(args, n)?;
+            reject_nonunit_weights_for_one_variant(
+                canonical, graph_type, resolved_variant, &weights,
+            )?;
             let data = ser_vertex_weight_problem_with(canonical, graph, weights)?;
             Ok((data, resolved_variant.clone()))
         }
