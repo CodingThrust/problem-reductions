@@ -33,6 +33,7 @@ pub enum ParsedExpr {
     Exp(Box<ParsedExpr>),
     Log(Box<ParsedExpr>),
     Sqrt(Box<ParsedExpr>),
+    Factorial(Box<ParsedExpr>),
 }
 
 #[derive(Debug, Clone, PartialEq)]
@@ -205,6 +206,7 @@ impl Parser {
                         "exp" => Ok(ParsedExpr::Exp(Box::new(arg))),
                         "log" => Ok(ParsedExpr::Log(Box::new(arg))),
                         "sqrt" => Ok(ParsedExpr::Sqrt(Box::new(arg))),
+                        "factorial" => Ok(ParsedExpr::Factorial(Box::new(arg))),
                         _ => Err(format!("unknown function: {name}")),
                     }
                 } else {
@@ -283,6 +285,10 @@ impl ParsedExpr {
                 let a = a.to_expr_tokens();
                 quote! { crate::expr::Expr::Sqrt(Box::new(#a)) }
             }
+            ParsedExpr::Factorial(a) => {
+                let a = a.to_expr_tokens();
+                quote! { crate::expr::Expr::Factorial(Box::new(#a)) }
+            }
         }
     }
 
@@ -336,6 +342,13 @@ impl ParsedExpr {
                 let a = a.to_eval_tokens(src_ident);
                 quote! { f64::sqrt(#a) }
             }
+            ParsedExpr::Factorial(a) => {
+                let a = a.to_eval_tokens(src_ident);
+                quote! { {
+                    let n = #a as u64;
+                    (1..=n).fold(1.0_f64, |acc, i| acc * i as f64)
+                } }
+            }
         }
     }
 
@@ -360,7 +373,11 @@ impl ParsedExpr {
                 a.collect_vars(vars);
                 b.collect_vars(vars);
             }
-            ParsedExpr::Neg(a) | ParsedExpr::Exp(a) | ParsedExpr::Log(a) | ParsedExpr::Sqrt(a) => {
+            ParsedExpr::Neg(a)
+            | ParsedExpr::Exp(a)
+            | ParsedExpr::Log(a)
+            | ParsedExpr::Sqrt(a)
+            | ParsedExpr::Factorial(a) => {
                 a.collect_vars(vars);
             }
         }

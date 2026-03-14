@@ -219,6 +219,7 @@ fn normalize_polynomial(expr: &Expr) -> Result<NormalizedPoly, String> {
         Expr::Exp(_) => Err("exp() not supported".into()),
         Expr::Log(_) => Err("log() not supported".into()),
         Expr::Sqrt(_) => Err("sqrt() not supported".into()),
+        Expr::Factorial(_) => Err("factorial() not supported".into()),
     }
 }
 

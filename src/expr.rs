@@ -23,6 +23,8 @@ pub enum Expr {
     Log(Box<Expr>),
     /// Square root: sqrt(a).
     Sqrt(Box<Expr>),
+    /// Factorial: factorial(a).
+    Factorial(Box<Expr>),
 }
 
 impl Expr {
@@ -47,6 +49,10 @@ impl Expr {
             Expr::Exp(a) => a.eval(vars).exp(),
             Expr::Log(a) => a.eval(vars).ln(),
             Expr::Sqrt(a) => a.eval(vars).sqrt(),
+            Expr::Factorial(a) => {
+                let n = a.eval(vars) as u64;
+                (1..=n).fold(1.0_f64, |acc, i| acc * i as f64)
+            }
         }
     }
 
@@ -67,7 +73,7 @@ impl Expr {
                 a.collect_variables(vars);
                 b.collect_variables(vars);
             }
-            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) => {
+            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) | Expr::Factorial(a) => {
                 a.collect_variables(vars);
             }
         }
@@ -90,6 +96,7 @@ impl Expr {
             Expr::Exp(a) => Expr::Exp(Box::new(a.substitute(mapping))),
             Expr::Log(a) => Expr::Log(Box::new(a.substitute(mapping))),
             Expr::Sqrt(a) => Expr::Sqrt(Box::new(a.substitute(mapping))),
+            Expr::Factorial(a) => Expr::Factorial(Box::new(a.substitute(mapping))),
         }
     }
 
@@ -122,7 +129,7 @@ impl Expr {
                 base.is_polynomial()
                     && matches!(exp.as_ref(), Expr::Const(c) if *c >= 0.0 && (*c - c.round()).abs() < 1e-10)
             }
-            Expr::Exp(_) | Expr::Log(_) | Expr::Sqrt(_) => false,
+            Expr::Exp(_) | Expr::Log(_) | Expr::Sqrt(_) | Expr::Factorial(_) => false,
         }
     }
 
@@ -174,7 +181,9 @@ impl Expr {
 
                 base_ok && exp_ok
             }
-            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) => a.is_valid_complexity_notation_inner(),
+            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) | Expr::Factorial(a) => {
+                a.is_valid_complexity_notation_inner()
+            }
         }
     }
 
@@ -192,6 +201,10 @@ impl Expr {
             Expr::Exp(a) => Some(a.constant_value()?.exp()),
             Expr::Log(a) => Some(a.constant_value()?.ln()),
             Expr::Sqrt(a) => Some(a.constant_value()?.sqrt()),
+            Expr::Factorial(a) => {
+                let n = a.constant_value()? as u64;
+                Some((1..=n).fold(1.0_f64, |acc, i| acc * i as f64))
+            }
         }
     }
 }
@@ -244,6 +257,7 @@ impl fmt::Display for Expr {
             Expr::Exp(a) => write!(f, "exp({a})"),
             Expr::Log(a) => write!(f, "log({a})"),
             Expr::Sqrt(a) => write!(f, "sqrt({a})"),
+            Expr::Factorial(a) => write!(f, "factorial({a})"),
         }
     }
 }
@@ -516,6 +530,7 @@ impl ExprParser {
                         "exp" => Ok(Expr::Exp(Box::new(arg))),
                         "log" => Ok(Expr::Log(Box::new(arg))),
                         "sqrt" => Ok(Expr::Sqrt(Box::new(arg))),
+                        "factorial" => Ok(Expr::Factorial(Box::new(arg))),
                         _ => Err(format!("unknown function: {name}")),
                     }
                 } else {

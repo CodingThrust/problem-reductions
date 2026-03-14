@@ -170,7 +170,7 @@ impl OptimizationProblem for QuadraticAssignment {
 }
 
 crate::declare_variants! {
-    QuadraticAssignment => "num_facilities ^ num_facilities",
+    QuadraticAssignment => "factorial(num_facilities)",
 }
 
 #[cfg(test)]
