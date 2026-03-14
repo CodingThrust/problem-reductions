@@ -22,12 +22,12 @@ pub struct VariantEntry {
     pub complexity_eval_fn: fn(&dyn Any) -> f64,
     /// Whether this entry is the declared default variant for its problem.
     pub is_default: bool,
-    /// Factory: deserialize JSON into a boxed dynamic problem (transitional, may be `None`).
-    pub factory: Option<fn(serde_json::Value) -> Result<Box<dyn DynProblem>, serde_json::Error>>,
-    /// Serialize: downcast `&dyn Any` and serialize to JSON (transitional, may be `None`).
-    pub serialize_fn: Option<fn(&dyn Any) -> Option<serde_json::Value>>,
-    /// Solve: downcast `&dyn Any` and brute-force solve (transitional, may be `None`).
-    pub solve_fn: Option<fn(&dyn Any) -> Option<(Vec<usize>, String)>>,
+    /// Factory: deserialize JSON into a boxed dynamic problem.
+    pub factory: fn(serde_json::Value) -> Result<Box<dyn DynProblem>, serde_json::Error>,
+    /// Serialize: downcast `&dyn Any` and serialize to JSON.
+    pub serialize_fn: fn(&dyn Any) -> Option<serde_json::Value>,
+    /// Solve: downcast `&dyn Any` and brute-force solve.
+    pub solve_fn: fn(&dyn Any) -> Option<(Vec<usize>, String)>,
 }
 
 impl VariantEntry {

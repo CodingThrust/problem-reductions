@@ -384,10 +384,10 @@ struct DeclareVariantsInput {
     entries: Vec<DeclareVariantEntry>,
 }
 
-/// A single entry: `[default] [opt|sat] Type => "complexity_string"`.
+/// A single entry: `[default] opt|sat Type => "complexity_string"`.
 struct DeclareVariantEntry {
     is_default: bool,
-    solver_kind: Option<SolverKind>,
+    solver_kind: SolverKind,
     ty: Type,
     complexity: syn::LitStr,
 }
@@ -402,26 +402,31 @@ impl syn::parse::Parse for DeclareVariantsInput {
                 input.parse::<syn::Token![default]>()?;
             }
 
-            // Optionally accept `opt` or `sat` keyword
+            // Require `opt` or `sat` keyword
             let solver_kind = if input.peek(syn::Ident) {
                 let fork = input.fork();
                 if let Ok(ident) = fork.parse::<syn::Ident>() {
                     match ident.to_string().as_str() {
                         "opt" => {
                             input.parse::<syn::Ident>()?; // consume
-                            Some(SolverKind::Opt)
+                            SolverKind::Opt
                         }
                         "sat" => {
                             input.parse::<syn::Ident>()?; // consume
-                            Some(SolverKind::Sat)
+                            SolverKind::Sat
                         }
-                        _ => None,
+                        _ => {
+                            return Err(syn::Error::new(
+                                ident.span(),
+                                "expected `opt` or `sat` before type name",
+                            ));
+                        }
                     }
                 } else {
-                    None
+                    return Err(input.error("expected `opt` or `sat` before type name"));
                 }
             } else {
-                None
+                return Err(input.error("expected `opt` or `sat` before type name"));
             };
 
             let ty: Type = input.parse()?;
@@ -561,52 +566,31 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         let complexity_eval_fn = generate_complexity_eval_fn(&parsed, ty)?;
 
         // Generate dispatch fields based on solver kind
-        let dispatch_fields = match entry.solver_kind {
-            Some(SolverKind::Opt) => {
-                quote! {
-                    factory: Some(|data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, serde_json::Error> {
-                        let p: #ty = serde_json::from_value(data)?;
-                        Ok(Box::new(p))
-                    }),
-                    serialize_fn: Some(|any: &dyn std::any::Any| -> Option<serde_json::Value> {
-                        let p = any.downcast_ref::<#ty>()?;
-                        Some(serde_json::to_value(p).expect("serialize failed"))
-                    }),
-                    solve_fn: Some(|any: &dyn std::any::Any| -> Option<(Vec<usize>, String)> {
-                        let p = any.downcast_ref::<#ty>()?;
-                        let solver = crate::solvers::BruteForce::new();
-                        let config = <crate::solvers::BruteForce as crate::solvers::Solver>::find_best(&solver, p)?;
-                        let evaluation = format!("{:?}", crate::traits::Problem::evaluate(p, &config));
-                        Some((config, evaluation))
-                    }),
-                }
-            }
-            Some(SolverKind::Sat) => {
-                quote! {
-                    factory: Some(|data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, serde_json::Error> {
-                        let p: #ty = serde_json::from_value(data)?;
-                        Ok(Box::new(p))
-                    }),
-                    serialize_fn: Some(|any: &dyn std::any::Any| -> Option<serde_json::Value> {
-                        let p = any.downcast_ref::<#ty>()?;
-                        Some(serde_json::to_value(p).expect("serialize failed"))
-                    }),
-                    solve_fn: Some(|any: &dyn std::any::Any| -> Option<(Vec<usize>, String)> {
-                        let p = any.downcast_ref::<#ty>()?;
-                        let solver = crate::solvers::BruteForce::new();
-                        let config = <crate::solvers::BruteForce as crate::solvers::Solver>::find_satisfying(&solver, p)?;
-                        let evaluation = format!("{:?}", crate::traits::Problem::evaluate(p, &config));
-                        Some((config, evaluation))
-                    }),
-                }
-            }
-            None => {
-                quote! {
-                    factory: None,
-                    serialize_fn: None,
-                    solve_fn: None,
-                }
-            }
+        let solve_body = match entry.solver_kind {
+            SolverKind::Opt => quote! {
+                let config = <crate::solvers::BruteForce as crate::solvers::Solver>::find_best(&solver, p)?;
+            },
+            SolverKind::Sat => quote! {
+                let config = <crate::solvers::BruteForce as crate::solvers::Solver>::find_satisfying(&solver, p)?;
+            },
+        };
+
+        let dispatch_fields = quote! {
+            factory: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, serde_json::Error> {
+                let p: #ty = serde_json::from_value(data)?;
+                Ok(Box::new(p))
+            },
+            serialize_fn: |any: &dyn std::any::Any| -> Option<serde_json::Value> {
+                let p = any.downcast_ref::<#ty>()?;
+                Some(serde_json::to_value(p).expect("serialize failed"))
+            },
+            solve_fn: |any: &dyn std::any::Any| -> Option<(Vec<usize>, String)> {
+                let p = any.downcast_ref::<#ty>()?;
+                let solver = crate::solvers::BruteForce::new();
+                #solve_body
+                let evaluation = format!("{:?}", crate::traits::Problem::evaluate(p, &config));
+                Some((config, evaluation))
+            },
         };
 
         output.extend(quote! {
@@ -656,30 +640,25 @@ mod tests {
     #[test]
     fn declare_variants_accepts_single_default() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            default Foo => "1",
+            default opt Foo => "1",
         };
         assert!(generate_declare_variants(&input).is_ok());
     }
 
     #[test]
     fn declare_variants_requires_one_default_per_problem() {
-        // When no entry is marked `default`, the first entry is implicitly default.
-        // So two entries for different problems with no `default` should succeed.
-        // But this test checks that having entries for the same problem WITHOUT
-        // `default` still works (first is implicit default).
         let input: DeclareVariantsInput = syn::parse_quote! {
-            Foo => "1",
-            Bar => "1",
+            opt Foo => "1",
+            sat Bar => "1",
         };
-        // Both are different problem names, so this should succeed.
         assert!(generate_declare_variants(&input).is_ok());
     }
 
     #[test]
     fn declare_variants_rejects_multiple_defaults_for_one_problem() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            default Foo => "1",
-            default Foo => "2",
+            default opt Foo => "1",
+            default opt Foo => "2",
         };
         let err = generate_declare_variants(&input).unwrap_err();
         assert!(
@@ -691,10 +670,8 @@ mod tests {
 
     #[test]
     fn declare_variants_implicit_default_for_first_entry() {
-        // When no entry is marked `default`, the first entry should be
-        // implicitly the default (backwards compatibility).
         let input: DeclareVariantsInput = syn::parse_quote! {
-            Foo => "1",
+            opt Foo => "1",
         };
         let result = generate_declare_variants(&input);
         assert!(result.is_ok());
@@ -707,16 +684,13 @@ mod tests {
 
     #[test]
     fn declare_variants_explicit_default_overrides_implicit() {
-        // When one entry is marked `default`, only that entry should be default,
-        // not the first one.
         let input: DeclareVariantsInput = syn::parse_quote! {
-            Foo => "1",
-            default Foo => "2",
+            opt Foo => "1",
+            default opt Foo => "2",
         };
         let result = generate_declare_variants(&input);
         assert!(result.is_ok());
         let tokens = result.unwrap().to_string();
-        // The generated code should have one `is_default: true` and one `is_default: false`
         let true_count = tokens.matches("is_default : true").count();
         let false_count = tokens.matches("is_default : false").count();
         assert_eq!(true_count, 1, "should have exactly one default");
@@ -733,11 +707,9 @@ mod tests {
     }
 
     #[test]
-    fn declare_variants_legacy_entries_still_work_during_transition() {
-        let input: DeclareVariantsInput = syn::parse_quote! {
-            Foo => "1",
-        };
-        assert!(generate_declare_variants(&input).is_ok());
+    fn declare_variants_rejects_missing_solver_kind() {
+        let result = syn::parse_str::<DeclareVariantsInput>("Foo => \"1\"");
+        assert!(result.is_err(), "expected parse error for missing solver kind");
     }
 
     #[test]
@@ -746,9 +718,12 @@ mod tests {
             opt Foo => "1",
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
-        assert!(tokens.contains("factory : Some"), "expected factory: Some, got: {tokens}");
-        assert!(tokens.contains("serialize_fn : Some"), "expected serialize_fn: Some, got: {tokens}");
-        assert!(tokens.contains("solve_fn : Some"), "expected solve_fn: Some, got: {tokens}");
+        assert!(tokens.contains("factory :"), "expected factory field");
+        assert!(tokens.contains("serialize_fn :"), "expected serialize_fn field");
+        assert!(tokens.contains("solve_fn :"), "expected solve_fn field");
+        assert!(!tokens.contains("factory : None"), "factory should not be None");
+        assert!(!tokens.contains("serialize_fn : None"), "serialize_fn should not be None");
+        assert!(!tokens.contains("solve_fn : None"), "solve_fn should not be None");
         assert!(tokens.contains("find_best"), "expected find_best in tokens");
     }
 
@@ -758,20 +733,26 @@ mod tests {
             sat Foo => "1",
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
-        assert!(tokens.contains("factory : Some"), "expected factory: Some, got: {tokens}");
-        assert!(tokens.contains("serialize_fn : Some"), "expected serialize_fn: Some, got: {tokens}");
-        assert!(tokens.contains("solve_fn : Some"), "expected solve_fn: Some, got: {tokens}");
+        assert!(tokens.contains("factory :"), "expected factory field");
+        assert!(tokens.contains("serialize_fn :"), "expected serialize_fn field");
+        assert!(tokens.contains("solve_fn :"), "expected solve_fn field");
+        assert!(!tokens.contains("factory : None"), "factory should not be None");
+        assert!(!tokens.contains("serialize_fn : None"), "serialize_fn should not be None");
+        assert!(!tokens.contains("solve_fn : None"), "solve_fn should not be None");
         assert!(tokens.contains("find_satisfying"), "expected find_satisfying in tokens");
     }
 
     #[test]
-    fn declare_variants_generates_none_dispatch_fields_for_legacy_entries() {
+    fn declare_variants_codegen_uses_required_dispatch_fields() {
         let input: DeclareVariantsInput = syn::parse_quote! {
-            Foo => "1",
+            default opt Foo => "1",
         };
         let tokens = generate_declare_variants(&input).unwrap().to_string();
-        assert!(tokens.contains("factory : None"), "expected factory: None, got: {tokens}");
-        assert!(tokens.contains("serialize_fn : None"), "expected serialize_fn: None, got: {tokens}");
-        assert!(tokens.contains("solve_fn : None"), "expected solve_fn: None, got: {tokens}");
+        assert!(tokens.contains("factory :"));
+        assert!(tokens.contains("serialize_fn :"));
+        assert!(tokens.contains("solve_fn :"));
+        assert!(!tokens.contains("factory : None"));
+        assert!(!tokens.contains("serialize_fn : None"));
+        assert!(!tokens.contains("solve_fn : None"));
     }
 }

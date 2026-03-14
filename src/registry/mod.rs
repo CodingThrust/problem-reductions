@@ -59,8 +59,7 @@ use std::collections::BTreeMap;
 
 /// Load a problem from JSON by exact problem name and exact variant map.
 ///
-/// No alias resolution or default fallback. Returns `Err` if the entry is not found
-/// or if the entry lacks dispatch metadata.
+/// No alias resolution or default fallback. Returns `Err` if the entry is not found.
 pub fn load_dyn(
     name: &str,
     variant: &BTreeMap<String, String>,
@@ -73,36 +72,21 @@ pub fn load_dyn(
         )
     })?;
 
-    let factory = entry.factory.ok_or_else(|| {
-        format!(
-            "Variant `{name}` {:?} has no factory (legacy registration without solver kind)",
-            variant
-        )
-    })?;
-
-    let solve_fn = entry.solve_fn.ok_or_else(|| {
-        format!(
-            "Variant `{name}` {:?} has no solve_fn (legacy registration without solver kind)",
-            variant
-        )
-    })?;
-
-    let inner = factory(data).map_err(|e| format!("Failed to deserialize `{name}`: {e}"))?;
-    Ok(LoadedDynProblem::new(inner, solve_fn))
+    let inner =
+        (entry.factory)(data).map_err(|e| format!("Failed to deserialize `{name}`: {e}"))?;
+    Ok(LoadedDynProblem::new(inner, entry.solve_fn))
 }
 
 /// Serialize a `&dyn Any` by exact problem name and exact variant map.
 ///
-/// Returns `None` if the entry is not found, has no `serialize_fn`, or
-/// the downcast fails.
+/// Returns `None` if the entry is not found or the downcast fails.
 pub fn serialize_any(
     name: &str,
     variant: &BTreeMap<String, String>,
     any: &dyn Any,
 ) -> Option<serde_json::Value> {
     let entry = find_variant_entry(name, variant)?;
-    let serialize_fn = entry.serialize_fn?;
-    serialize_fn(any)
+    (entry.serialize_fn)(any)
 }
 
 #[cfg(test)]
