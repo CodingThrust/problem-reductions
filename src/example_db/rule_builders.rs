@@ -47,8 +47,30 @@ where
 {
     let source_variant = variant_to_map(S::variant());
     let target_variant = variant_to_map(T::variant());
-    lookup_overhead(S::NAME, &source_variant, T::NAME, &target_variant)
-        .unwrap_or_else(|| panic!("missing direct overhead for {} -> {}", S::NAME, T::NAME))
+    // Try exact variant match first.
+    if let Some(oh) = lookup_overhead(S::NAME, &source_variant, T::NAME, &target_variant) {
+        return oh;
+    }
+    // Fall back to default variants (e.g., K3 -> KN) when the concrete
+    // variant is not directly registered in the reduction graph.
+    let graph = ReductionGraph::new();
+    let src = graph
+        .default_variant_for(S::NAME)
+        .unwrap_or_else(|| source_variant.clone());
+    let tgt = graph
+        .default_variant_for(T::NAME)
+        .unwrap_or_else(|| target_variant.clone());
+    lookup_overhead(S::NAME, &src, T::NAME, &tgt).unwrap_or_else(|| {
+        panic!(
+            "missing direct overhead for {} -> {} (tried exact {:?}->{:?} and default {:?}->{:?})",
+            S::NAME,
+            T::NAME,
+            source_variant,
+            target_variant,
+            src,
+            tgt
+        )
+    })
 }
 
 fn direct_best_example<S, T, Keep>(source: S, keep: Keep) -> RuleExample

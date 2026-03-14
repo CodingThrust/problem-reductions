@@ -282,3 +282,12 @@ fn export_variant_to_map_preserves_explicit_graph() {
     assert_eq!(map["graph"], "PlanarGraph");
     assert_eq!(map["weight"], "f64");
 }
+
+#[test]
+fn lookup_overhead_rejects_target_variant_mismatch() {
+    let source = variant_to_map(vec![("graph", "SimpleGraph"), ("weight", "i32")]);
+    // MIS<SG,i32> -> QUBO<f64> exists, but not MIS<SG,i32> -> QUBO<i32>
+    let wrong_target = variant_to_map(vec![("weight", "i32")]);
+    let result = lookup_overhead("MaximumIndependentSet", &source, "QUBO", &wrong_target);
+    assert!(result.is_none(), "Should reject wrong target variant");
+}

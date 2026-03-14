@@ -610,3 +610,42 @@ fn find_paths_up_to_no_path() {
     let limited = graph.find_paths_up_to("QUBO", &src, "MaximumSetPacking", &dst, 10);
     assert!(limited.is_empty());
 }
+
+// ---- Exact source+target variant matching ----
+
+#[test]
+fn find_best_entry_rejects_wrong_target_variant() {
+    let graph = ReductionGraph::new();
+    let source =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    // MIS<SG,i32> -> MVC<SG,i32> exists, but MVC<SG,f64> does not
+    let wrong_target = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "f64".to_string()),
+    ]);
+    let result = graph.find_best_entry(
+        "MaximumIndependentSet",
+        &source,
+        "MinimumVertexCover",
+        &wrong_target,
+    );
+    assert!(result.is_none(), "Should reject wrong target variant");
+}
+
+#[test]
+fn find_best_entry_accepts_exact_source_and_target_variant() {
+    let graph = ReductionGraph::new();
+    let source =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let target = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let result = graph.find_best_entry(
+        "MaximumIndependentSet",
+        &source,
+        "MinimumVertexCover",
+        &target,
+    );
+    assert!(
+        result.is_some(),
+        "Should find exact match on both source and target variant"
+    );
+}

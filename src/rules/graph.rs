@@ -1098,24 +1098,19 @@ impl ReductionGraph {
         }
     }
 
-    /// Find the best matching `ReductionEntry` for a (source_name, target_name) pair
-    /// given the caller's current source variant.
+    /// Find the matching `ReductionEntry` for a (source_name, target_name) pair
+    /// given exact source and target variants.
     ///
-    /// First tries an exact match on the source variant. If no exact match is found,
-    /// falls back to a name-only match (returning the first entry whose source and
-    /// target names match). This is intentional: specific variants (e.g., `K3`) may
-    /// not have their own `#[reduction]` entry, but the general variant (`KN`) covers
-    /// them with the same overhead expression. The fallback is safe because cross-name
-    /// reductions share the same overhead regardless of source variant; it is only
-    /// used by the JSON export pipeline (`export::lookup_overhead`).
+    /// Returns `Some(MatchedEntry)` only when both the source and target variants
+    /// match exactly. No fallback is attempted — callers that need fuzzy matching
+    /// should resolve variants before calling this method.
     pub fn find_best_entry(
         &self,
         source_name: &str,
+        source_variant: &BTreeMap<String, String>,
         target_name: &str,
-        current_variant: &BTreeMap<String, String>,
+        target_variant: &BTreeMap<String, String>,
     ) -> Option<MatchedEntry> {
-        let mut fallback: Option<MatchedEntry> = None;
-
         for entry in inventory::iter::<ReductionEntry> {
             if entry.source_name != source_name || entry.target_name != target_name {
                 continue;
@@ -1124,18 +1119,9 @@ impl ReductionGraph {
             let entry_source = Self::variant_to_map(&entry.source_variant());
             let entry_target = Self::variant_to_map(&entry.target_variant());
 
-            // Exact match on source variant — return immediately
-            if current_variant == &entry_source {
+            // Exact match on both source and target variant
+            if source_variant == &entry_source && target_variant == &entry_target {
                 return Some(MatchedEntry {
-                    source_variant: entry_source,
-                    target_variant: entry_target,
-                    overhead: entry.overhead(),
-                });
-            }
-
-            // Remember the first name-only match as a fallback
-            if fallback.is_none() {
-                fallback = Some(MatchedEntry {
                     source_variant: entry_source,
                     target_variant: entry_target,
                     overhead: entry.overhead(),
@@ -1143,7 +1129,7 @@ impl ReductionGraph {
             }
         }
 
-        fallback
+        None
     }
 }
 

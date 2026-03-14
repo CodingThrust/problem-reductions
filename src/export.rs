@@ -169,10 +169,11 @@ pub fn lookup_overhead(
     source_name: &str,
     source_variant: &BTreeMap<String, String>,
     target_name: &str,
-    _target_variant: &BTreeMap<String, String>,
+    target_variant: &BTreeMap<String, String>,
 ) -> Option<ReductionOverhead> {
     let graph = ReductionGraph::new();
-    let matched = graph.find_best_entry(source_name, target_name, source_variant)?;
+    let matched =
+        graph.find_best_entry(source_name, source_variant, target_name, target_variant)?;
     Some(matched.overhead)
 }
 
