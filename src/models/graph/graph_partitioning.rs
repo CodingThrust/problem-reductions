@@ -134,7 +134,7 @@ where
 }
 
 crate::declare_variants! {
-    default GraphPartitioning<SimpleGraph> => "2^num_vertices",
+    default opt GraphPartitioning<SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(test)]

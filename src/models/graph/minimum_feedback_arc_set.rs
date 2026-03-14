@@ -171,7 +171,7 @@ fn is_valid_fas(graph: &DirectedGraph, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    default MinimumFeedbackArcSet<i32> => "2^num_vertices",
+    default opt MinimumFeedbackArcSet<i32> => "2^num_vertices",
 }
 
 #[cfg(test)]

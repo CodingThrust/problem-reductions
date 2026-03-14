@@ -216,7 +216,7 @@ pub(crate) fn is_maximal_independent_set<G: Graph>(graph: &G, selected: &[bool])
 }
 
 crate::declare_variants! {
-    default MaximalIS<SimpleGraph, i32> => "3^(num_vertices / 3)",
+    default opt MaximalIS<SimpleGraph, i32> => "3^(num_vertices / 3)",
 }
 
 #[cfg(test)]

@@ -189,7 +189,7 @@ where
 }
 
 crate::declare_variants! {
-    default QUBO<f64> => "2^num_vars",
+    default opt QUBO<f64> => "2^num_vars",
 }
 
 #[cfg(test)]

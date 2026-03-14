@@ -248,8 +248,8 @@ where
 }
 
 crate::declare_variants! {
-    default ClosestVectorProblem<i32> => "2^num_basis_vectors",
-    ClosestVectorProblem<f64> => "2^num_basis_vectors",
+    default opt ClosestVectorProblem<i32> => "2^num_basis_vectors",
+    opt ClosestVectorProblem<f64> => "2^num_basis_vectors",
 }
 
 #[cfg(test)]

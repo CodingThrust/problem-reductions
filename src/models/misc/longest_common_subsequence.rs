@@ -180,7 +180,7 @@ impl OptimizationProblem for LongestCommonSubsequence {
 }
 
 crate::declare_variants! {
-    default LongestCommonSubsequence => "2^min_string_length",
+    default opt LongestCommonSubsequence => "2^min_string_length",
 }
 
 #[cfg(test)]

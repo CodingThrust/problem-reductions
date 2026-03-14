@@ -193,7 +193,7 @@ impl Problem for FlowShopScheduling {
 impl SatisfactionProblem for FlowShopScheduling {}
 
 crate::declare_variants! {
-    default FlowShopScheduling => "factorial(num_jobs)",
+    default sat FlowShopScheduling => "factorial(num_jobs)",
 }
 
 #[cfg(test)]

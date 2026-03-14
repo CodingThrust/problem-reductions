@@ -244,7 +244,7 @@ impl OptimizationProblem for BicliqueCover {
 }
 
 crate::declare_variants! {
-    default BicliqueCover => "2^num_vertices",
+    default opt BicliqueCover => "2^num_vertices",
 }
 
 #[cfg(test)]

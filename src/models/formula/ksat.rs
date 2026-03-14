@@ -184,9 +184,9 @@ impl<K: KValue> Problem for KSatisfiability<K> {
 impl<K: KValue> SatisfactionProblem for KSatisfiability<K> {}
 
 crate::declare_variants! {
-    default KSatisfiability<KN> => "2^num_variables",
-    KSatisfiability<K2> => "num_variables + num_clauses",
-    KSatisfiability<K3> => "1.307^num_variables",
+    default sat KSatisfiability<KN> => "2^num_variables",
+    sat KSatisfiability<K2> => "num_variables + num_clauses",
+    sat KSatisfiability<K3> => "1.307^num_variables",
 }
 
 #[cfg(test)]

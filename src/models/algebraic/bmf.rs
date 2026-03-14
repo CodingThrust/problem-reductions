@@ -229,7 +229,7 @@ impl OptimizationProblem for BMF {
 }
 
 crate::declare_variants! {
-    default BMF => "2^(rows * rank + rank * cols)",
+    default opt BMF => "2^(rows * rank + rank * cols)",
 }
 
 #[cfg(test)]

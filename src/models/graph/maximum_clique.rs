@@ -171,7 +171,7 @@ fn is_clique_config<G: Graph>(graph: &G, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    default MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices",
+    default opt MaximumClique<SimpleGraph, i32> => "1.1996^num_vertices",
 }
 
 /// Check if a set of vertices forms a clique.

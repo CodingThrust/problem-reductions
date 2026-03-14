@@ -152,7 +152,7 @@ where
 impl<G: Graph + VariantParam> SatisfactionProblem for PartitionIntoTriangles<G> {}
 
 crate::declare_variants! {
-    default PartitionIntoTriangles<SimpleGraph> => "2^num_vertices",
+    default sat PartitionIntoTriangles<SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(test)]

@@ -71,6 +71,14 @@ pub struct LoadedDynProblem {
     solve_fn: fn(&dyn Any) -> Option<(Vec<usize>, String)>,
 }
 
+impl std::fmt::Debug for LoadedDynProblem {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("LoadedDynProblem")
+            .field("name", &self.inner.problem_name())
+            .finish()
+    }
+}
+
 impl LoadedDynProblem {
     /// Create a new loaded dynamic problem.
     pub fn new(

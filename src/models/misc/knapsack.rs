@@ -135,7 +135,7 @@ impl OptimizationProblem for Knapsack {
 }
 
 crate::declare_variants! {
-    default Knapsack => "2^(num_items / 2)",
+    default opt Knapsack => "2^(num_items / 2)",
 }
 
 #[cfg(test)]

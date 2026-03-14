@@ -146,7 +146,7 @@ impl Problem for ShortestCommonSupersequence {
 impl SatisfactionProblem for ShortestCommonSupersequence {}
 
 crate::declare_variants! {
-    default ShortestCommonSupersequence => "alphabet_size ^ bound",
+    default sat ShortestCommonSupersequence => "alphabet_size ^ bound",
 }
 
 #[cfg(test)]

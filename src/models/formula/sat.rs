@@ -196,7 +196,7 @@ impl Problem for Satisfiability {
 impl SatisfactionProblem for Satisfiability {}
 
 crate::declare_variants! {
-    default Satisfiability => "2^num_variables",
+    default sat Satisfiability => "2^num_variables",
 }
 
 /// Check if an assignment satisfies a SAT formula.

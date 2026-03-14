@@ -163,7 +163,7 @@ impl OptimizationProblem for Factoring {
 }
 
 crate::declare_variants! {
-    default Factoring => "exp((m + n)^(1/3) * log(m + n)^(2/3))",
+    default opt Factoring => "exp((m + n)^(1/3) * log(m + n)^(2/3))",
 }
 
 #[cfg(test)]

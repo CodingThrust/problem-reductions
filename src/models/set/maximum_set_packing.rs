@@ -174,9 +174,9 @@ where
 }
 
 crate::declare_variants! {
-    default MaximumSetPacking<One> => "2^num_sets",
-    MaximumSetPacking<i32> => "2^num_sets",
-    MaximumSetPacking<f64> => "2^num_sets",
+    default opt MaximumSetPacking<One> => "2^num_sets",
+    opt MaximumSetPacking<i32> => "2^num_sets",
+    opt MaximumSetPacking<f64> => "2^num_sets",
 }
 
 /// Check if a selection forms a valid set packing (pairwise disjoint).
