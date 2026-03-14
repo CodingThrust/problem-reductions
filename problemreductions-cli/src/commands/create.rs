@@ -1448,9 +1448,12 @@ fn create_random(
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
-            // Default bound: sum of all possible edge lengths (n*(n-1)/2) ensures satisfiability
+            // Default bound: (n-1) * num_edges ensures satisfiability (max edge stretch is n-1)
             let n = graph.num_vertices();
-            let bound = args.bound.map(|b| b as usize).unwrap_or(n * (n - 1) / 2);
+            let bound = args
+                .bound
+                .map(|b| b as usize)
+                .unwrap_or((n.saturating_sub(1)) * graph.num_edges());
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (ser(OptimalLinearArrangement::new(graph, bound))?, variant)
         }

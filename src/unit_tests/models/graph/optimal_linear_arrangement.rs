@@ -49,6 +49,10 @@ fn test_optimallineararrangement_no_instance() {
     let config = vec![0, 1, 2, 3, 4, 5];
     assert!(!problem.evaluate(&config));
     assert_eq!(problem.total_edge_length(&config), Some(11));
+
+    // Brute-force confirms no arrangement achieves cost <= 9
+    let solver = BruteForce::new();
+    assert!(solver.find_satisfying(&problem).is_none());
 }
 
 #[test]
