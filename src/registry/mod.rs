@@ -44,10 +44,16 @@
 //! println!("Problem: {}", info.name);
 //! ```
 
+mod dyn_problem;
 mod info;
 mod schema;
 pub mod variant;
 
+pub use dyn_problem::{DynProblem, LoadedDynProblem};
 pub use info::{ComplexityClass, FieldInfo, ProblemInfo, ProblemMetadata};
 pub use schema::{collect_schemas, FieldInfoJson, ProblemSchemaEntry, ProblemSchemaJson};
 pub use variant::VariantEntry;
+
+#[cfg(test)]
+#[path = "../unit_tests/registry/dispatch.rs"]
+mod dispatch_tests;
