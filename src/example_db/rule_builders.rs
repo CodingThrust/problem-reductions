@@ -1,26 +1,21 @@
-use crate::config::DimsIterator;
 use crate::export::{
-    overhead_to_json, lookup_overhead, variant_to_map, ProblemSide, RuleExample, SolutionPair,
+    lookup_overhead, overhead_to_json, variant_to_map, ProblemSide, RuleExample, SolutionPair,
 };
-use crate::models::algebraic::{
-    ClosestVectorProblem, ILP, LinearConstraint, ObjectiveSense, QUBO, VarBounds, VariableDomain,
-};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VariableDomain, ILP, QUBO};
 use crate::models::formula::{
     Assignment, BooleanExpr, CNFClause, Circuit, CircuitSAT, KSatisfiability, Satisfiability,
 };
 use crate::models::graph::{
-    KColoring, MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching,
-    MinimumDominatingSet, MinimumVertexCover, SpinGlass, TravelingSalesman,
+    KColoring, MaxCut, MaximumClique, MaximumIndependentSet, MaximumMatching, MinimumDominatingSet,
+    MinimumVertexCover, SpinGlass, TravelingSalesman,
 };
-use crate::models::misc::{
-    BinPacking, Factoring, LongestCommonSubsequence, ShortestCommonSupersequence, SubsetSum,
-};
+use crate::models::misc::{BinPacking, Factoring, LongestCommonSubsequence, SubsetSum};
 use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
 use crate::prelude::{OptimizationProblem, Problem, ReduceTo, ReductionResult};
 use crate::rules::{Minimize, MinimizeSteps, PathCostFn, ReductionGraph};
-use crate::solvers::{BruteForce, ILPSolver, Solver};
+use crate::solvers::{BruteForce, ILPSolver};
 use crate::topology::small_graphs::{house, octahedral, petersen};
-use crate::topology::{Graph, SimpleGraph};
+use crate::topology::SimpleGraph;
 use crate::types::One;
 use crate::types::ProblemSize;
 use crate::variant::K3;
@@ -52,7 +47,8 @@ where
 {
     let source_variant = variant_to_map(S::variant());
     let target_variant = variant_to_map(T::variant());
-    lookup_overhead(S::NAME, &source_variant, T::NAME, &target_variant).unwrap_or_default()
+    lookup_overhead(S::NAME, &source_variant, T::NAME, &target_variant)
+        .unwrap_or_else(|| panic!("missing direct overhead for {} -> {}", S::NAME, T::NAME))
 }
 
 fn direct_best_example<S, T, Keep>(source: S, keep: Keep) -> RuleExample
@@ -165,7 +161,19 @@ where
             })
         })
         .collect();
-    assemble_rule_example(&source, target, graph.compose_path_overhead(&path), solutions)
+    assemble_rule_example(
+        &source,
+        target,
+        graph.compose_path_overhead(&path),
+        solutions,
+    )
+}
+
+fn keep_bool_source<S>(source: &S, config: &[usize]) -> bool
+where
+    S: Problem<Metric = bool>,
+{
+    source.evaluate(config)
 }
 
 fn path_ilp_example<S, V, C, Keep>(
@@ -210,7 +218,12 @@ where
     } else {
         Vec::new()
     };
-    assemble_rule_example(&source, target, graph.compose_path_overhead(&path), solutions)
+    assemble_rule_example(
+        &source,
+        target,
+        graph.compose_path_overhead(&path),
+        solutions,
+    )
 }
 
 fn petersen_graph() -> SimpleGraph {
@@ -358,7 +371,10 @@ fn factoring_35_example() -> Factoring {
 }
 
 fn lcs_example() -> LongestCommonSubsequence {
-    LongestCommonSubsequence::new(vec![vec![b'A', b'B', b'A', b'C'], vec![b'B', b'A', b'C', b'A']])
+    LongestCommonSubsequence::new(vec![
+        vec![b'A', b'B', b'A', b'C'],
+        vec![b'B', b'A', b'C', b'A'],
+    ])
 }
 
 fn mis_petersen() -> MaximumIndependentSet<SimpleGraph, i32> {
@@ -398,7 +414,10 @@ fn maxcut_petersen() -> MaxCut<SimpleGraph, i32> {
 }
 
 fn tsp_k3() -> TravelingSalesman<SimpleGraph, i32> {
-    TravelingSalesman::new(SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]), vec![1, 2, 3])
+    TravelingSalesman::new(
+        SimpleGraph::new(3, vec![(0, 1), (0, 2), (1, 2)]),
+        vec![1, 2, 3],
+    )
 }
 
 fn tsp_k4() -> TravelingSalesman<SimpleGraph, i32> {
@@ -540,14 +559,6 @@ macro_rules! direct_sat_builder {
     };
 }
 
-macro_rules! direct_sat_keep_builder {
-    ($name:ident, $source:expr, $target:ty, $keep:expr) => {
-        fn $name() -> RuleExample {
-            direct_satisfying_example::<_, $target, _>($source, $keep)
-        }
-    };
-}
-
 macro_rules! direct_ilp_builder {
     ($name:ident, $source:expr, $var_ty:ty) => {
         fn $name() -> RuleExample {
@@ -585,25 +596,43 @@ direct_best_keep_builder!(
     circuitsat_to_ilp,
     full_adder_circuit_sat(),
     ILP<bool>,
-    |source: &CircuitSAT, config| source.evaluate(config)
+    keep_bool_source
 );
 direct_best_keep_builder!(
     circuitsat_to_spinglass,
     full_adder_circuit_sat(),
     SpinGlass<SimpleGraph, i32>,
-    |source: &CircuitSAT, config| source.evaluate(config)
+    keep_bool_source
 );
-direct_sat_builder!(factoring_to_ilp_dummy, sat_three_clause_example(), CircuitSAT);
 direct_best_builder!(ilp_to_qubo, ilp_knapsack_example(), QUBO<f64>);
-direct_ilp_builder!(kcoloring_to_ilp, coloring_petersen(), bool);
-direct_best_builder!(kcoloring_to_qubo, coloring_house(), QUBO<f64>);
-direct_best_builder!(ksatisfiability_to_qubo, ksat_qubo_example(), QUBO<f64>);
+direct_ilp_keep_builder!(
+    kcoloring_to_ilp,
+    coloring_petersen(),
+    bool,
+    keep_bool_source
+);
+direct_best_keep_builder!(
+    kcoloring_to_qubo,
+    coloring_house(),
+    QUBO<f64>,
+    keep_bool_source
+);
+direct_best_keep_builder!(
+    ksatisfiability_to_qubo,
+    ksat_qubo_example(),
+    QUBO<f64>,
+    keep_bool_source
+);
 direct_sat_builder!(
     ksatisfiability_to_satisfiability,
     ksat_embedding_example(),
     Satisfiability
 );
-direct_sat_builder!(ksatisfiability_to_subsetsum, ksat_subsetsum_example(), SubsetSum);
+direct_sat_builder!(
+    ksatisfiability_to_subsetsum,
+    ksat_subsetsum_example(),
+    SubsetSum
+);
 direct_ilp_builder!(longestcommonsubsequence_to_ilp, lcs_example(), bool);
 direct_best_builder!(maxcut_to_spinglass, maxcut_petersen(), SpinGlass<SimpleGraph, i32>);
 direct_ilp_builder!(maximumclique_to_ilp, clique_octahedral(), bool);
@@ -616,7 +645,11 @@ path_ilp_builder!(
     MinimizeSteps
 );
 direct_best_builder!(maximumindependentset_to_maximumclique, MaximumIndependentSet::new(path_graph_p5(), vec![1i32; 5]), MaximumClique<SimpleGraph, i32>);
-direct_best_builder!(maximumindependentset_to_maximumsetpacking, mis_petersen(), MaximumSetPacking<i32>);
+direct_best_builder!(
+    maximumindependentset_to_maximumsetpacking,
+    mis_petersen(),
+    MaximumSetPacking<i32>
+);
 direct_best_builder!(maximumindependentset_to_minimumvertexcover, mis_petersen(), MinimumVertexCover<SimpleGraph, i32>);
 path_best_builder!(
     maximumindependentset_to_qubo,
@@ -626,10 +659,18 @@ path_best_builder!(
     Minimize("num_vars")
 );
 direct_ilp_builder!(maximummatching_to_ilp, matching_petersen(), bool);
-direct_best_builder!(maximummatching_to_maximumsetpacking, matching_petersen(), MaximumSetPacking<i32>);
+direct_best_builder!(
+    maximummatching_to_maximumsetpacking,
+    matching_petersen(),
+    MaximumSetPacking<i32>
+);
 direct_ilp_builder!(maximumsetpacking_to_ilp, setpacking_six_sets_i32(), bool);
 direct_best_builder!(maximumsetpacking_to_maximumindependentset, setpacking_five_sets(), MaximumIndependentSet<SimpleGraph, i32>);
-direct_best_builder!(maximumsetpacking_to_qubo, setpacking_six_sets_f64(), QUBO<f64>);
+direct_best_builder!(
+    maximumsetpacking_to_qubo,
+    setpacking_six_sets_f64(),
+    QUBO<f64>
+);
 direct_ilp_builder!(minimumdominatingset_to_ilp, dominating_petersen(), bool);
 direct_ilp_builder!(minimumsetcovering_to_ilp, setcover_six_sets(), bool);
 path_ilp_builder!(
@@ -640,7 +681,11 @@ path_ilp_builder!(
     MinimizeSteps
 );
 direct_best_builder!(minimumvertexcover_to_maximumindependentset, vc_petersen(), MaximumIndependentSet<SimpleGraph, i32>);
-direct_best_builder!(minimumvertexcover_to_minimumsetcovering, vc_petersen(), MinimumSetCovering<i32>);
+direct_best_builder!(
+    minimumvertexcover_to_minimumsetcovering,
+    vc_petersen(),
+    MinimumSetCovering<i32>
+);
 path_best_builder!(
     minimumvertexcover_to_qubo,
     vc_petersen(),
@@ -650,15 +695,28 @@ path_best_builder!(
 );
 direct_best_builder!(qubo_to_ilp, qubo_to_ilp_source(), ILP<bool>);
 direct_best_builder!(qubo_to_spinglass, qubo_petersen_source(), SpinGlass<SimpleGraph, f64>);
-direct_sat_builder!(satisfiability_to_circuitsat, sat_three_clause_example(), CircuitSAT);
+direct_sat_builder!(
+    satisfiability_to_circuitsat,
+    sat_three_clause_example(),
+    CircuitSAT
+);
 direct_sat_builder!(satisfiability_to_kcoloring, sat_unit_clause_example(), KColoring<K3, SimpleGraph>);
-direct_sat_builder!(satisfiability_to_ksatisfiability, sat_mixed_clause_example(), KSatisfiability<K3>);
-direct_best_builder!(satisfiability_to_maximumindependentset, sat_seven_clause_example(), MaximumIndependentSet<SimpleGraph, One>);
+direct_sat_builder!(
+    satisfiability_to_ksatisfiability,
+    sat_mixed_clause_example(),
+    KSatisfiability<K3>
+);
+direct_best_keep_builder!(
+    satisfiability_to_maximumindependentset,
+    sat_seven_clause_example(),
+    MaximumIndependentSet<SimpleGraph, One>,
+    keep_bool_source
+);
 direct_best_keep_builder!(
     satisfiability_to_minimumdominatingset,
     sat_seven_clause_example(),
     MinimumDominatingSet<SimpleGraph, i32>,
-    |source: &Satisfiability, config| source.evaluate(config)
+    keep_bool_source
 );
 direct_best_builder!(spinglass_to_maxcut, spinglass_petersen_i32(), MaxCut<SimpleGraph, i32>);
 direct_best_builder!(spinglass_to_qubo, spinglass_petersen_f64(), QUBO<f64>);
@@ -710,7 +768,12 @@ fn factoring_to_circuitsat() -> RuleExample {
             }
         })
         .collect();
-    assemble_rule_example(&source, target, direct_overhead::<Factoring, CircuitSAT>(), solutions)
+    assemble_rule_example(
+        &source,
+        target,
+        direct_overhead::<Factoring, CircuitSAT>(),
+        solutions,
+    )
 }
 
 fn factoring_to_ilp() -> RuleExample {
@@ -762,4 +825,49 @@ pub fn build_rule_examples() -> Vec<RuleExample> {
         travelingsalesman_to_ilp(),
         travelingsalesman_to_qubo(),
     ]
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn builds_all_42_canonical_rule_examples() {
+        let examples = build_rule_examples();
+
+        assert_eq!(examples.len(), 42);
+        assert!(examples
+            .iter()
+            .all(|example| !example.source.problem.is_empty()));
+        assert!(examples
+            .iter()
+            .all(|example| !example.target.problem.is_empty()));
+        assert!(examples
+            .iter()
+            .all(|example| example.source.instance.is_object()));
+        assert!(examples
+            .iter()
+            .all(|example| example.target.instance.is_object()));
+    }
+
+    #[test]
+    fn satisfiability_to_kcoloring_uses_full_problem_serialization() {
+        let example = satisfiability_to_kcoloring();
+
+        assert_eq!(example.source.problem, "Satisfiability");
+        assert_eq!(example.target.problem, "KColoring");
+        assert!(example.source.instance.get("num_vars").is_some());
+        assert!(example.target.instance.get("graph").is_some());
+    }
+
+    #[test]
+    fn factoring_to_circuitsat_contains_complete_solution_pairs() {
+        let example = factoring_to_circuitsat();
+
+        assert!(!example.solutions.is_empty());
+        assert!(example
+            .solutions
+            .iter()
+            .all(|pair| !pair.source_config.is_empty() && !pair.target_config.is_empty()));
+    }
 }
