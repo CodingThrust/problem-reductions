@@ -621,12 +621,12 @@
     "fields": [
       {
         "name": "sizes",
-        "type_name": "Vec<i64>",
+        "type_name": "Vec<BigUint>",
         "description": "Positive integer sizes s(a) for each element"
       },
       {
         "name": "target",
-        "type_name": "i64",
+        "type_name": "BigUint",
         "description": "Target sum B"
       }
     ]

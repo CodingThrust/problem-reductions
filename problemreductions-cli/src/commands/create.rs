@@ -75,6 +75,8 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "usize" => "integer",
         "u64" => "integer",
         "i64" => "integer",
+        "BigUint" => "nonnegative decimal integer",
+        "Vec<BigUint>" => "comma-separated nonnegative decimal integers: 3,7,1,8",
         "Vec<i64>" => "comma-separated integers: 3,7,1,8",
         "DirectedGraph" => "directed arcs: 0>1,1>2,2>0",
         _ => "value",
@@ -416,7 +418,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let usage = "Usage: pred create Factoring --target 15 --m 4 --n 4";
             let target = args
                 .target
+                .as_deref()
                 .ok_or_else(|| anyhow::anyhow!("Factoring requires --target\n\n{usage}"))?;
+            let target: u64 = target
+                .parse()
+                .context("Factoring --target must fit in u64")?;
             let m = args
                 .m
                 .ok_or_else(|| anyhow::anyhow!("Factoring requires --m\n\n{usage}"))?;
@@ -470,15 +476,16 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                      Usage: pred create SubsetSum --sizes 3,7,1,8,2,4 --target 11"
                 )
             })?;
-            let target = args.target.ok_or_else(|| {
+            let target = args.target.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "SubsetSum requires --target\n\n\
                      Usage: pred create SubsetSum --sizes 3,7,1,8,2,4 --target 11"
                 )
             })?;
-            let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
+            let sizes = util::parse_biguint_list(sizes_str)?;
+            let target = util::parse_decimal_biguint(target)?;
             (
-                ser(SubsetSum::new(sizes, target as i64))?,
+                ser(SubsetSum::new(sizes, target))?,
                 resolved_variant.clone(),
             )
         }

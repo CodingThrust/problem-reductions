@@ -42,8 +42,8 @@ pub fn run() {
     println!("  C1: x1 OR x2 OR x3");
     println!("  C2: NOT x1 OR NOT x2 OR x3");
 
-    // Reduce to SubsetSum<i128>
-    let reduction = ReduceTo::<SubsetSum<i128>>::reduce_to(&ksat);
+    // Reduce to SubsetSum
+    let reduction = ReduceTo::<SubsetSum>::reduce_to(&ksat);
     let subsetsum = reduction.target_problem();
 
     println!(
@@ -90,7 +90,7 @@ pub fn run() {
 
     // Export JSON
     let source_variant = variant_to_map(KSatisfiability::<K3>::variant());
-    let target_variant = variant_to_map(SubsetSum::<i128>::variant());
+    let target_variant = variant_to_map(SubsetSum::variant());
     let overhead = lookup_overhead(
         "KSatisfiability",
         &source_variant,
@@ -110,12 +110,12 @@ pub fn run() {
             }),
         },
         target: ProblemSide {
-            problem: SubsetSum::<i128>::NAME.to_string(),
+            problem: SubsetSum::NAME.to_string(),
             variant: target_variant,
             instance: serde_json::json!({
                 "num_elements": subsetsum.num_elements(),
-                "sizes": subsetsum.sizes(),
-                "target": subsetsum.target(),
+                "sizes": subsetsum.sizes().iter().map(ToString::to_string).collect::<Vec<_>>(),
+                "target": subsetsum.target().to_string(),
             }),
         },
         overhead: overhead_to_json(&overhead),

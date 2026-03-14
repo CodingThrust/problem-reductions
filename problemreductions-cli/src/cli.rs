@@ -288,9 +288,9 @@ pub struct CreateArgs {
     /// Random seed for reproducibility
     #[arg(long)]
     pub seed: Option<u64>,
-    /// Target number to factor (for Factoring)
+    /// Target value (for Factoring and SubsetSum)
     #[arg(long)]
-    pub target: Option<u64>,
+    pub target: Option<String>,
     /// Bits for first factor (for Factoring)
     #[arg(long)]
     pub m: Option<usize>,
