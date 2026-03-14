@@ -89,6 +89,12 @@ All subsequent steps run inside the worktree.
 
 ### 1a. Resolve Conflicts with Main
 
+**IMPORTANT:** The `add-model` and `add-rule` skills evolve frequently. When merging main into a PR branch, conflicts in skill-generated code are common. Before resolving conflicts:
+
+1. Run `git diff origin/main...HEAD -- .claude/skills/add-model/ .claude/skills/add-rule/` to see if these skills changed on main since the PR was created.
+2. If they changed, read the current versions on main (`git show origin/main:.claude/skills/add-model/SKILL.md` and `git show origin/main:.claude/skills/add-rule/SKILL.md`) to understand what's different.
+3. When resolving conflicts in model/rule implementation files, prefer the patterns from main's current skills — the PR's implementation may be based on outdated skill instructions.
+
 Check if the branch has merge conflicts with main:
 
 ```bash
@@ -99,8 +105,9 @@ git merge origin/main --no-edit
 - If the merge succeeds cleanly: push the merge commit and continue.
 - If there are conflicts:
   1. Inspect the conflicting files with `git diff --name-only --diff-filter=U`.
-  2. Resolve conflicts (prefer the PR branch for new code, main for regenerated artifacts like JSON).
-  3. Stage resolved files, commit, and push.
+  2. Compare the current skill versions on main vs the PR branch to understand which patterns are current.
+  3. Resolve conflicts (prefer main's patterns for skill-generated code, the PR branch for problem-specific logic, main for regenerated artifacts like JSON).
+  4. Stage resolved files, commit, and push.
 - If conflicts are too complex to resolve automatically (e.g., overlapping logic changes in the same function): abort the merge (`git merge --abort`), leave the PR in review-agentic, and report: `PR #N has complex merge conflicts with main — needs manual resolution.` Then STOP processing this PR.
 
 ### 2. Fix Copilot Review Comments

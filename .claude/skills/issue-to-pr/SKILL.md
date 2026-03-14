@@ -257,7 +257,7 @@ Run /review-pipeline to process Copilot comments, fix CI, and run agentic tests.
 | Issue has failure labels | Fix the issue, re-run `/check-issue`, then retry |
 | Including implementation code in initial PR | First PR: plan only |
 | Generic plan | Use specifics from the issue, mapped to add-model/add-rule steps |
-| Skipping CLI registration in plan | add-model requires CLI dispatch updates -- include in plan |
+| Skipping CLI registration in plan | add-model still requires alias/create/example-db planning, but not manual CLI dispatch-table edits |
 | Not verifying facts from issue | Use WebSearch/WebFetch to cross-check claims |
 | Branch already exists on retry | Check with `git rev-parse --verify` before `git checkout -b` |
 | Dirty working tree | Verify `git status --porcelain` is empty before branching |

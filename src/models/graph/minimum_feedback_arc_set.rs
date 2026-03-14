@@ -3,7 +3,7 @@
 //! The Feedback Arc Set problem asks for a minimum-weight subset of arcs
 //! whose removal makes a directed graph acyclic (a DAG).
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::DirectedGraph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -13,6 +13,11 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumFeedbackArcSet",
+        display_name: "Minimum Feedback Arc Set",
+        aliases: &["FAS"],
+        dimensions: &[
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find minimum weight feedback arc set in a directed graph",
         fields: &[
@@ -171,7 +176,7 @@ fn is_valid_fas(graph: &DirectedGraph, config: &[usize]) -> bool {
 }
 
 crate::declare_variants! {
-    MinimumFeedbackArcSet<i32> => "2^num_vertices",
+    default opt MinimumFeedbackArcSet<i32> => "2^num_vertices",
 }
 
 #[cfg(test)]

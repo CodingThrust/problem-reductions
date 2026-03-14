@@ -1,9 +1,10 @@
-use crate::cli::CreateArgs;
+use crate::cli::{CreateArgs, ExampleSide};
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
-use crate::problem_name::{parse_problem_spec, resolve_variant};
+use crate::problem_name::{resolve_problem_ref, unknown_problem_error};
 use crate::util;
 use anyhow::{bail, Context, Result};
+use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
 use problemreductions::models::misc::{
@@ -60,6 +61,132 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.deadline.is_none()
         && args.num_processors.is_none()
         && args.alphabet_size.is_none()
+}
+
+fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
+    let json = serde_json::to_value(output)?;
+    if let Some(ref path) = out.output {
+        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
+        std::fs::write(path, &content)
+            .with_context(|| format!("Failed to write {}", path.display()))?;
+        out.info(&format!("Wrote {}", path.display()));
+    } else {
+        println!("{}", serde_json::to_string_pretty(&json)?);
+    }
+    Ok(())
+}
+
+fn format_problem_ref(problem: &ProblemRef) -> String {
+    if problem.variant.is_empty() {
+        return problem.name.clone();
+    }
+
+    let values = problem
+        .variant
+        .values()
+        .cloned()
+        .collect::<Vec<_>>()
+        .join("/");
+    format!("{}/{}", problem.name, values)
+}
+
+fn resolve_example_problem_ref(
+    input: &str,
+    rgraph: &problemreductions::rules::ReductionGraph,
+) -> Result<ProblemRef> {
+    let problem = resolve_problem_ref(input, rgraph)?;
+    if rgraph.variants_for(&problem.name).is_empty() {
+        bail!("{}", unknown_problem_error(input));
+    }
+    Ok(problem)
+}
+
+fn problem_output_from_side(side: ProblemSide) -> ProblemJsonOutput {
+    ProblemJsonOutput {
+        problem_type: side.problem,
+        variant: side.variant,
+        data: side.instance,
+    }
+}
+
+fn problem_output_from_model(example: ModelExample) -> ProblemJsonOutput {
+    ProblemJsonOutput {
+        problem_type: example.problem,
+        variant: example.variant,
+        data: example.instance,
+    }
+}
+
+fn resolve_model_example(
+    example_spec: &str,
+    rgraph: &problemreductions::rules::ReductionGraph,
+) -> Result<ModelExample> {
+    let model_db = problemreductions::example_db::build_model_db()?;
+    let problem = resolve_example_problem_ref(example_spec, rgraph)?;
+    model_db
+        .models
+        .into_iter()
+        .find(|model| model.problem_ref() == problem)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "No canonical model example exists for {}",
+                format_problem_ref(&problem)
+            )
+        })
+}
+
+fn resolve_rule_example(
+    example_spec: &str,
+    target_spec: &str,
+    rgraph: &problemreductions::rules::ReductionGraph,
+) -> Result<RuleExample> {
+    let rule_db = problemreductions::example_db::build_rule_db()?;
+    let source = resolve_example_problem_ref(example_spec, rgraph)?;
+    let target = resolve_example_problem_ref(target_spec, rgraph)?;
+    rule_db
+        .rules
+        .into_iter()
+        .find(|rule| rule.source.problem_ref() == source && rule.target.problem_ref() == target)
+        .ok_or_else(|| {
+            anyhow::anyhow!(
+                "No canonical rule example exists for {} -> {}",
+                format_problem_ref(&source),
+                format_problem_ref(&target)
+            )
+        })
+}
+
+fn create_from_example(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
+    let example_spec = args
+        .example
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("Missing --example problem spec"))?;
+
+    if args.problem.is_some() {
+        bail!(
+            "Use either `pred create <PROBLEM>` or `pred create --example <PROBLEM_SPEC>`, not both"
+        );
+    }
+    if args.random || !all_data_flags_empty(args) {
+        bail!("`pred create --example` does not accept problem-construction flags");
+    }
+    let rgraph = problemreductions::rules::ReductionGraph::new();
+
+    let output = if let Some(target_spec) = args.example_target.as_deref() {
+        let example = resolve_rule_example(example_spec, target_spec, &rgraph)?;
+        match args.example_side {
+            ExampleSide::Source => problem_output_from_side(example.source),
+            ExampleSide::Target => problem_output_from_side(example.target),
+        }
+    } else {
+        if matches!(args.example_side, ExampleSide::Target) {
+            bail!("`--example-side target` requires `--to <TARGET_SPEC>`");
+        }
+
+        problem_output_from_model(resolve_model_example(example_spec, &rgraph)?)
+    };
+
+    emit_problem_output(&output, out)
 }
 
 fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
@@ -183,17 +310,17 @@ fn resolved_graph_type(variant: &BTreeMap<String, String>) -> &str {
 }
 
 pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
-    let spec = parse_problem_spec(&args.problem)?;
-    let canonical = &spec.name;
+    if args.example.is_some() {
+        return create_from_example(args, out);
+    }
 
-    // Resolve variant early so random and help can use it
+    let problem = args.problem.as_ref().ok_or_else(|| {
+        anyhow::anyhow!("Missing problem type.\n\nUsage: pred create <PROBLEM> [FLAGS]")
+    })?;
     let rgraph = problemreductions::rules::ReductionGraph::new();
-    let known_variants = rgraph.variants_for(canonical);
-    let resolved_variant = if known_variants.is_empty() {
-        BTreeMap::new()
-    } else {
-        resolve_variant(&spec, &known_variants)?
-    };
+    let resolved = resolve_problem_ref(problem, &rgraph)?;
+    let canonical = &resolved.name;
+    let resolved_variant = resolved.variant;
     let graph_type = resolved_graph_type(&resolved_variant);
 
     if args.random {
@@ -296,7 +423,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
                     "{e}\n\nUsage: pred create {} --graph 0-1,1-2,2-3 [--edge-weights 1,1,1]",
-                    args.problem
+                    problem
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
@@ -369,7 +496,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let num_vars = args.num_vars.ok_or_else(|| {
                 anyhow::anyhow!(
                     "KSatisfiability requires --num-vars\n\n\
-                     Usage: pred create 3SAT --num-vars 3 --clauses \"1,2,3;-1,2,-3\""
+                     Usage: pred create KSAT --num-vars 3 --clauses \"1,2,3;-1,2,-3\""
                 )
             })?;
             let clauses = parse_clauses(args)?;
@@ -864,16 +991,22 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         data,
     };
 
-    let json = serde_json::to_value(&output)?;
+    emit_problem_output(&output, out)
+}
 
-    if let Some(ref path) = out.output {
-        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
-        std::fs::write(path, &content)
-            .with_context(|| format!("Failed to write {}", path.display()))?;
-        out.info(&format!("Wrote {}", path.display()));
-    } else {
-        // Print JSON to stdout so data is not lost (consistent with reduce)
-        println!("{}", serde_json::to_string_pretty(&json)?);
+/// Reject non-unit weights when the resolved variant uses `weight=One`.
+fn reject_nonunit_weights_for_one_variant(
+    canonical: &str,
+    graph_type: &str,
+    variant: &BTreeMap<String, String>,
+    weights: &[i32],
+) -> Result<()> {
+    if variant.get("weight").map(|w| w.as_str()) == Some("One") && weights.iter().any(|&w| w != 1) {
+        bail!(
+            "Non-unit weights are not supported for the default unit-weight variant.\n\n\
+             Use the weighted variant instead:\n  \
+             pred create {canonical}/{graph_type}/i32 --graph ... --weights ..."
+        );
     }
     Ok(())
 }
@@ -891,6 +1024,12 @@ fn create_vertex_weight_problem(
             let n = positions.len();
             let graph = KingsSubgraph::new(positions);
             let weights = parse_vertex_weights(args, n)?;
+            reject_nonunit_weights_for_one_variant(
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
+            )?;
             Ok((
                 ser_vertex_weight_problem_with(canonical, graph, weights)?,
                 resolved_variant.clone(),
@@ -901,6 +1040,12 @@ fn create_vertex_weight_problem(
             let n = positions.len();
             let graph = TriangularSubgraph::new(positions);
             let weights = parse_vertex_weights(args, n)?;
+            reject_nonunit_weights_for_one_variant(
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
+            )?;
             Ok((
                 ser_vertex_weight_problem_with(canonical, graph, weights)?,
                 resolved_variant.clone(),
@@ -912,6 +1057,12 @@ fn create_vertex_weight_problem(
             let radius = args.radius.unwrap_or(1.0);
             let graph = UnitDiskGraph::new(positions, radius);
             let weights = parse_vertex_weights(args, n)?;
+            reject_nonunit_weights_for_one_variant(
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
+            )?;
             Ok((
                 ser_vertex_weight_problem_with(canonical, graph, weights)?,
                 resolved_variant.clone(),
@@ -922,10 +1073,16 @@ fn create_vertex_weight_problem(
             let (graph, n) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
                     "{e}\n\nUsage: pred create {} --graph 0-1,1-2,2-3 [--weights 1,1,1,1]",
-                    args.problem
+                    canonical
                 )
             })?;
             let weights = parse_vertex_weights(args, n)?;
+            reject_nonunit_weights_for_one_variant(
+                canonical,
+                graph_type,
+                resolved_variant,
+                &weights,
+            )?;
             let data = ser_vertex_weight_problem_with(canonical, graph, weights)?;
             Ok((data, resolved_variant.clone()))
         }
@@ -1315,7 +1472,7 @@ fn create_random(
         anyhow::anyhow!(
             "--random requires --num-vertices\n\n\
              Usage: pred create {} --random --num-vertices 10 [--edge-prob 0.3] [--seed 42]",
-            args.problem
+            canonical
         )
     })?;
 
@@ -1479,15 +1636,5 @@ fn create_random(
         data,
     };
 
-    let json = serde_json::to_value(&output)?;
-
-    if let Some(ref path) = out.output {
-        let content = serde_json::to_string_pretty(&json).context("Failed to serialize JSON")?;
-        std::fs::write(path, &content)
-            .with_context(|| format!("Failed to write {}", path.display()))?;
-        out.info(&format!("Wrote {}", path.display()));
-    } else {
-        println!("{}", serde_json::to_string_pretty(&json)?);
-    }
-    Ok(())
+    emit_problem_output(&output, out)
 }

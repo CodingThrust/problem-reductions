@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "LongestCommonSubsequence",
+        display_name: "Longest Common Subsequence",
+        aliases: &["LCS"],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find the longest string that is a subsequence of every input string",
         fields: &[
@@ -180,7 +183,7 @@ impl OptimizationProblem for LongestCommonSubsequence {
 }
 
 crate::declare_variants! {
-    LongestCommonSubsequence => "2^min_string_length",
+    default opt LongestCommonSubsequence => "2^min_string_length",
 }
 
 #[cfg(test)]

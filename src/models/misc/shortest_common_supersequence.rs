@@ -17,6 +17,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ShortestCommonSupersequence",
+        display_name: "Shortest Common Supersequence",
+        aliases: &["SCS"],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find a common supersequence of bounded length for a set of strings",
         fields: &[
@@ -146,7 +149,19 @@ impl Problem for ShortestCommonSupersequence {
 impl SatisfactionProblem for ShortestCommonSupersequence {}
 
 crate::declare_variants! {
-    ShortestCommonSupersequence => "alphabet_size ^ bound",
+    default sat ShortestCommonSupersequence => "alphabet_size ^ bound",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "shortest_common_supersequence",
+        build: || {
+            let problem =
+                ShortestCommonSupersequence::new(3, vec![vec![0, 1, 2], vec![1, 0, 2]], 4);
+            crate::example_db::specs::satisfaction_example(problem, vec![vec![1, 0, 1, 2]])
+        },
+    }]
 }
 
 #[cfg(test)]

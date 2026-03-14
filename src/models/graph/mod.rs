@@ -66,3 +66,25 @@ pub use rural_postman::RuralPostman;
 pub use spin_glass::SpinGlass;
 pub use subgraph_isomorphism::SubgraphIsomorphism;
 pub use traveling_salesman::TravelingSalesman;
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    let mut specs = Vec::new();
+    specs.extend(maximum_independent_set::canonical_model_example_specs());
+    specs.extend(minimum_vertex_cover::canonical_model_example_specs());
+    specs.extend(max_cut::canonical_model_example_specs());
+    specs.extend(hamiltonian_path::canonical_model_example_specs());
+    specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());
+    specs.extend(kcoloring::canonical_model_example_specs());
+    specs.extend(minimum_dominating_set::canonical_model_example_specs());
+    specs.extend(maximum_matching::canonical_model_example_specs());
+    specs.extend(traveling_salesman::canonical_model_example_specs());
+    specs.extend(maximum_clique::canonical_model_example_specs());
+    specs.extend(maximal_is::canonical_model_example_specs());
+    specs.extend(minimum_feedback_vertex_set::canonical_model_example_specs());
+    specs.extend(minimum_sum_multicenter::canonical_model_example_specs());
+    specs.extend(spin_glass::canonical_model_example_specs());
+    specs.extend(biclique_cover::canonical_model_example_specs());
+    specs.extend(partition_into_triangles::canonical_model_example_specs());
+    specs
+}

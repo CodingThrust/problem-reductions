@@ -59,6 +59,15 @@ fn test_one() {
 }
 
 #[test]
+fn test_one_json() {
+    let json = serde_json::to_value(vec![One, One]).unwrap();
+    assert_eq!(json, serde_json::json!([1, 1]));
+
+    let parsed: Vec<One> = serde_json::from_value(json).unwrap();
+    assert_eq!(parsed, vec![One, One]);
+}
+
+#[test]
 fn test_direction() {
     let max_dir = Direction::Maximize;
     let min_dir = Direction::Minimize;

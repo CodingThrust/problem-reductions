@@ -211,11 +211,14 @@ fn test_is_valid_solution() {
 #[test]
 fn test_sat_paper_example() {
     // Paper: (x1∨x2)∧(¬x1∨x3)∧(¬x2∨¬x3), assignment (1,0,1)
-    let problem = Satisfiability::new(3, vec![
-        CNFClause::new(vec![1, 2]),
-        CNFClause::new(vec![-1, 3]),
-        CNFClause::new(vec![-2, -3]),
-    ]);
+    let problem = Satisfiability::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, 2]),
+            CNFClause::new(vec![-1, 3]),
+            CNFClause::new(vec![-2, -3]),
+        ],
+    );
     // (1,0,1) → x1=T, x2=F, x3=T
     assert!(problem.evaluate(&[1, 0, 1]));
 

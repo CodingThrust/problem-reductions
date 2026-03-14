@@ -14,6 +14,7 @@ Full authoring guide for writing a `problem-def` entry in `docs/paper/reductions
 Before using this skill, ensure:
 - The problem model is implemented (`src/models/<category>/<name>.rs`)
 - The problem is registered with schema and variant metadata
+- A canonical example exists in `src/example_db/model_builders.rs`
 - JSON exports are up to date (`cargo run --example export_graph && cargo run --example export_schemas`)
 
 ## Reference Example

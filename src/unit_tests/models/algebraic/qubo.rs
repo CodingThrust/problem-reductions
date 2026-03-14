@@ -118,9 +118,15 @@ fn test_qubo_paper_example() {
         vec![0.0, -1.0, 2.0],
         vec![0.0, 0.0, -1.0],
     ]);
-    assert_eq!(Problem::evaluate(&problem, &[1, 0, 1]), SolutionSize::Valid(-2.0));
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 0, 1]),
+        SolutionSize::Valid(-2.0)
+    );
 
     let solver = BruteForce::new();
     let best = solver.find_best(&problem).unwrap();
-    assert_eq!(Problem::evaluate(&problem, &best), SolutionSize::Valid(-2.0));
+    assert_eq!(
+        Problem::evaluate(&problem, &best),
+        SolutionSize::Valid(-2.0)
+    );
 }

@@ -4,7 +4,7 @@
 //! function f: V -> {0, 1, ..., |V|-1} such that the total edge length
 //! sum_{{u,v} in E} |f(u) - f(v)| is at most K.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
 use serde::{Deserialize, Serialize};
@@ -12,6 +12,11 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "OptimalLinearArrangement",
+        display_name: "Optimal Linear Arrangement",
+        aliases: &["OLA"],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        ],
         module_path: module_path!(),
         description: "Find a vertex ordering on a line with total edge length at most K",
         fields: &[
@@ -159,7 +164,7 @@ where
 impl<G: Graph + crate::variant::VariantParam> SatisfactionProblem for OptimalLinearArrangement<G> {}
 
 crate::declare_variants! {
-    OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",
+    default sat OptimalLinearArrangement<SimpleGraph> => "2^num_vertices",
 }
 
 #[cfg(test)]

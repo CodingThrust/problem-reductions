@@ -17,22 +17,21 @@ Full authoring guide for writing a `reduction-rule` entry in `docs/paper/reducti
 
 Before using this skill, ensure:
 - The reduction is implemented and tested (`src/rules/<source>_<target>.rs`)
-- An example program exists (`examples/reduction_<source>_to_<target>.rs`)
+- A canonical example exists in `src/example_db/rule_builders.rs`
 - Example JSON is generated (`make examples`)
 - The reduction graph and schemas are up to date (`cargo run --example export_graph && cargo run --example export_schemas`)
 
 ## Step 1: Load Example Data
 
 ```typst
-#let src_tgt = load-example("<source>_to_<target>")
-#let src_tgt_r = load-results("<source>_to_<target>")
-#let src_tgt_sol = src_tgt_r.solutions.at(0)
+#let src_tgt = load-example("Source", "Target")
+#let src_tgt_sol = src_tgt.solutions.at(0)
 ```
 
 Where:
-- `load-example(name)` loads `examples/{name}.json` — contains source/target problem instances
-- `load-results(name)` loads `examples/{name}.result.json` — contains solution configs
-- Access fields: `src_tgt.source.instance`, `src_tgt_sol.source_config`, `src_tgt_sol.target_config`
+- `load-example(source, target)` looks up the canonical rule entry from the generated rule database
+- The returned record contains `source`, `target`, `overhead`, and `solutions`
+- Access fields: `src_tgt.source.instance`, `src_tgt.target.instance`, `src_tgt_sol.source_config`, `src_tgt_sol.target_config`
 
 ## Step 2: Write the Theorem Body (Rule Statement)
 
@@ -159,7 +158,7 @@ Detailed by default. Only use a brief example for trivially obvious reductions (
 
     *Step N -- Verify a solution.* [end-to-end verification]
 
-    *Count:* #src_tgt_r.solutions.len() optimal solutions ...
+    *Count:* #src_tgt.solutions.len() optimal solutions ...
   ],
 )
 ```
@@ -178,7 +177,7 @@ Each step should:
 | First | Show the source instance (dimensions, structure). Include graph visualization if applicable. |
 | Middle | Walk through the construction. Show intermediate values. Explicitly quantify overhead. |
 | Second-to-last | Verify a concrete solution end-to-end (source config → target config, check validity). |
-| Last | Solution count: `#src_tgt_r.solutions.len()` with brief combinatorial justification. |
+| Last | Solution count: `#src_tgt.solutions.len()` with brief combinatorial justification. |
 
 ### 4d. Graph Visualization (if applicable)
 
@@ -204,7 +203,7 @@ Each step should:
 #src_tgt_sol.target_config.map(str).join(", ")
 
 // Number of optimal solutions
-#src_tgt_r.solutions.len()
+#src_tgt.solutions.len()
 
 // Source instance fields
 #src_tgt.source.instance.num_vertices

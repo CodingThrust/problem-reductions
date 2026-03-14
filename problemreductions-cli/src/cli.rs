@@ -1,4 +1,4 @@
-use clap::{CommandFactory, Parser, Subcommand};
+use clap::{CommandFactory, Parser, Subcommand, ValueEnum};
 use std::path::PathBuf;
 
 #[derive(Parser)]
@@ -46,25 +46,29 @@ pub struct Cli {
 
 #[derive(Subcommand)]
 pub enum Commands {
-    /// List all registered problem types
+    /// List all registered problem types (or reduction rules with --rules)
     #[command(after_help = "\
 Examples:
-  pred list                   # print to terminal
+  pred list                   # list problem types
+  pred list --rules           # list all reduction rules
   pred list -o problems.json  # save as JSON")]
-    List,
+    List {
+        /// List reduction rules instead of problem types
+        #[arg(long)]
+        rules: bool,
+    },
 
-    /// Show details for a problem type (variants, fields, reductions)
+    /// Show details for a problem type or variant (fields, reductions, complexity)
     #[command(after_help = "\
 Examples:
-  pred show MIS                   # using alias
-  pred show MaximumIndependentSet # full name
-  pred show MIS/UnitDiskGraph     # specific graph variant
+  pred show MIS                   # all variants for MIS
+  pred show MIS/UnitDiskGraph     # specific variant
+  pred show MIS/UnitDiskGraph/i32 # fully qualified variant
+  pred show KSAT/K3               # KSatisfiability with K=3
 
-Use `pred list` to see all available problem types and aliases.
-Use `pred to MIS --hops 2` to explore what reduces to MIS.
-Use `pred from QUBO --hops 1` to explore what QUBO reduces to.")]
+Use `pred list` to see all available problem types and variants.")]
     Show {
-        /// Problem name or alias (e.g., MIS, QUBO, MIS/UnitDiskGraph)
+        /// Problem name or variant (e.g., MIS, MIS/UnitDiskGraph, KSAT/K3)
         #[arg(value_parser = crate::problem_name::ProblemNameParser)]
         problem: String,
     },
@@ -126,6 +130,9 @@ Use `pred list` to see available problems.")]
         /// Show all paths instead of just the cheapest
         #[arg(long)]
         all: bool,
+        /// Maximum paths to return in --all mode
+        #[arg(long, default_value_t = 20)]
+        max_paths: usize,
     },
 
     /// Export the reduction graph to JSON
@@ -195,6 +202,12 @@ Setup: add one line to your shell rc file:
     },
 }
 
+#[derive(Clone, Debug, ValueEnum)]
+pub enum ExampleSide {
+    Source,
+    Target,
+}
+
 #[derive(clap::Args)]
 #[command(after_help = "\
 TIP: Run `pred create <PROBLEM>` (no other flags) to see problem-specific help.
@@ -204,7 +217,7 @@ Flags by problem type:
   MIS, MVC, MaxClique, MinDomSet  --graph, --weights
   MaxCut, MaxMatching, TSP        --graph, --edge-weights
   MaximalIS                       --graph, --weights
-  SAT, 3SAT/KSAT                  --num-vars, --clauses [--k]
+  SAT, KSAT                       --num-vars, --clauses [--k]
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
@@ -238,6 +251,9 @@ Random generation:
   --random --num-vertices N [--edge-prob 0.5] [--seed 42]
 
 Examples:
+  pred create --example MIS/SimpleGraph/i32
+  pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32
+  pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 --example-side target
   pred create MIS --graph 0-1,1-2,2-3 --weights 1,1,1
   pred create SAT --num-vars 3 --clauses \"1,2;-1,3\"
   pred create QUBO --matrix \"1,0.5;0.5,2\"
@@ -246,9 +262,18 @@ Examples:
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1")]
 pub struct CreateArgs {
-    /// Problem type (e.g., MIS, QUBO, SAT)
+    /// Problem type (e.g., MIS, QUBO, SAT). Omit when using --example.
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
-    pub problem: String,
+    pub problem: Option<String>,
+    /// Build a problem from the canonical example database using a structural problem spec.
+    #[arg(long, value_parser = crate::problem_name::ProblemNameParser)]
+    pub example: Option<String>,
+    /// Target problem spec for canonical rule example lookup.
+    #[arg(long = "to", value_parser = crate::problem_name::ProblemNameParser)]
+    pub example_target: Option<String>,
+    /// Which side of a rule example to emit [default: source].
+    #[arg(long, value_enum, default_value = "source")]
+    pub example_side: ExampleSide,
     /// Graph edge list (e.g., 0-1,1-2,2-3)
     #[arg(long)]
     pub graph: Option<String>,

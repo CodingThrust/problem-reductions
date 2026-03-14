@@ -2,7 +2,7 @@
 //!
 //! QUBO minimizes a quadratic function over binary variables.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use serde::{Deserialize, Serialize};
@@ -10,6 +10,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "QUBO",
+        display_name: "QUBO",
+        aliases: &[],
+        dimensions: &[VariantDimension::new("weight", "f64", &["f64"])],
         module_path: module_path!(),
         description: "Minimize quadratic unconstrained binary objective",
         fields: &[
@@ -189,7 +192,22 @@ where
 }
 
 crate::declare_variants! {
-    QUBO<f64> => "2^num_vars",
+    default opt QUBO<f64> => "2^num_vars",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "qubo_f64",
+        build: || {
+            let problem = QUBO::from_matrix(vec![
+                vec![-1.0, 2.0, 0.0],
+                vec![0.0, -1.0, 2.0],
+                vec![0.0, 0.0, -1.0],
+            ]);
+            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 1]])
+        },
+    }]
 }
 
 #[cfg(test)]

@@ -16,6 +16,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "SubsetSum",
+        display_name: "Subset Sum",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Find a subset of positive integers that sums to exactly a target value",
         fields: &[
@@ -135,7 +138,7 @@ impl Problem for SubsetSum {
 impl SatisfactionProblem for SubsetSum {}
 
 crate::declare_variants! {
-    SubsetSum => "2^(num_elements / 2)",
+    default sat SubsetSum => "2^(num_elements / 2)",
 }
 
 mod decimal_biguint {

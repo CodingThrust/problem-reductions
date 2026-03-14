@@ -43,7 +43,13 @@ fn main() -> anyhow::Result<()> {
     };
 
     match cli.command {
-        Commands::List => commands::graph::list(&out),
+        Commands::List { rules } => {
+            if rules {
+                commands::graph::list_rules(&out)
+            } else {
+                commands::graph::list(&out)
+            }
+        }
         Commands::Show { problem } => commands::graph::show(&problem, &out),
         Commands::To { problem, hops } => commands::graph::neighbors(&problem, hops, "in", &out),
         Commands::From { problem, hops } => commands::graph::neighbors(&problem, hops, "out", &out),
@@ -52,7 +58,8 @@ fn main() -> anyhow::Result<()> {
             target,
             cost,
             all,
-        } => commands::graph::path(&source, &target, &cost, all, &out),
+            max_paths,
+        } => commands::graph::path(&source, &target, &cost, all, max_paths, &out),
         Commands::ExportGraph => commands::graph::export(&out),
         Commands::Inspect(args) => commands::inspect::inspect(&args.input, &out),
         Commands::Create(args) => commands::create::create(&args, &out),

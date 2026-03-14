@@ -109,7 +109,9 @@ Verify the PR includes all required components. Check:
 **For [Model] PRs:**
 - [ ] Model implementation (`src/models/...`)
 - [ ] Unit tests (`src/unit_tests/models/...`)
-- [ ] `declare_variants!` macro with complexity
+- [ ] `declare_variants!` macro with explicit `opt`/`sat` solver-kind markers and intended default variant
+- [ ] CLI `pred create` support / help text as needed
+- [ ] Canonical model example in `src/example_db/model_builders.rs`
 - [ ] Paper section in `docs/paper/reductions.typ` (`problem-def` entry)
 - [ ] `display-name` entry in paper
 - [ ] `trait_consistency.rs` entry in `test_all_problems_implement_trait_correctly` (+ `test_direction` for optimization)
@@ -118,8 +120,8 @@ Verify the PR includes all required components. Check:
 - [ ] Reduction implementation (`src/rules/...`)
 - [ ] Unit tests (`src/unit_tests/rules/...`)
 - [ ] `#[reduction(overhead = {...})]` with correct expressions
-- [ ] Example file (`examples/reduction_...`)
-- [ ] Example test in `tests/suites/examples.rs`
+- [ ] Uses only the `overhead` form of `#[reduction]` and does not duplicate a primitive exact endpoint registration
+- [ ] Canonical rule example in `src/example_db/rule_builders.rs`
 - [ ] Paper section in `docs/paper/reductions.typ` (`reduction-rule` entry)
 
 Report missing items:

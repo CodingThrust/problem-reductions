@@ -44,7 +44,8 @@ make diagrams      # Generate SVG diagrams from Typst (light + dark)
 make examples      # Generate example JSON for paper
 make compare       # Generate and compare Rust mapping exports
 make jl-testdata   # Regenerate Julia parity test data (requires julia)
-make cli           # Build the pred CLI tool (release mode)
+make cli           # Build the pred CLI tool (without MCP, fast)
+make mcp           # Build the pred CLI tool with MCP server support
 make cli-demo      # Run closed-loop CLI demo (exercises all commands)
 make mcp-test      # Run MCP server tests (unit + integration)
 make run-plan      # Execute a plan with Claude autorun
@@ -64,11 +65,12 @@ make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
 
 ### Core Modules
 - `src/models/` - Problem implementations organized by input structure:
-  - `graph/` - Problems on graphs (MIS, MaxClique, MaxCut, MinVC, MinDS, MaxMatching, MaximalIS, KColoring, TSP, SpinGlass, BicliqueCover)
-  - `formula/` - Logical formulas and circuits (SAT, k-SAT, CircuitSAT)
-  - `set/` - Set systems (MinSetCovering, MaxSetPacking)
-  - `algebraic/` - Matrices, linear systems, lattices (QUBO, ILP, CVP, BMF)
-  - `misc/` - Unique input structures (BinPacking, PaintShop, Factoring)
+  - `graph/` - Graph-input problems
+  - `formula/` - Boolean formulas and circuits
+  - `set/` - Set systems (universe + subsets)
+  - `algebraic/` - Matrices, linear systems, lattices
+  - `misc/` - Unique input structures
+  - Run `pred list` for the full catalog of problems, variants, and reductions; `pred show <name>` for details on a specific problem
 - `src/rules/` - Reduction rules + inventory registration
 - `src/solvers/` - BruteForce solver, ILP solver (feature-gated)
 - `src/traits.rs` - `Problem`, `OptimizationProblem`, `SatisfactionProblem` traits
@@ -91,7 +93,8 @@ Problem (core trait — all problems must implement)
 ├── fn dims(&self) -> Vec<usize>       // config space: [2, 2, 2] for 3 binary variables
 ├── fn evaluate(&self, config) -> Metric
 ├── fn variant() -> Vec<(&str, &str)>  // e.g., [("graph","SimpleGraph"), ("weight","i32")]
-└── fn num_variables(&self) -> usize   // default: dims().len()
+├── fn num_variables(&self) -> usize   // default: dims().len()
+└── fn problem_type() -> ProblemType   // catalog bridge: registry lookup by NAME
 
 OptimizationProblem : Problem<Metric = SolutionSize<Self::Value>> (extension for optimization)
 │
@@ -111,7 +114,7 @@ enum Direction { Maximize, Minimize }
 
 ### Key Patterns
 - `variant_params!` macro implements `Problem::variant()` — e.g., `crate::variant_params![G, W]` for two type params, `crate::variant_params![]` for none (see `src/variant.rs`)
-- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity — must appear in every model file (see `src/models/graph/maximum_independent_set.rs`). Variable names in complexity strings are validated at compile time against actual getter methods.
+- `declare_variants!` proc macro registers concrete type instantiations with best-known complexity and registry-backed dynamic dispatch metadata — every entry must specify `opt` or `sat`, and one entry per problem may be marked `default` (see `src/models/graph/maximum_independent_set.rs`). Variable names in complexity strings are validated at compile time against actual getter methods.
 - Problems parameterized by graph type `G` and optionally weight type `W` (problem-dependent)
 - `ReductionResult` provides `target_problem()` and `extract_solution()`
 - `Solver::find_best()` → `Option<Vec<usize>>` for optimization problems; `Solver::find_satisfying()` → `Option<Vec<usize>>` for `Metric = bool`
@@ -142,25 +145,31 @@ impl ReduceTo<Target> for Source { ... }
 - `Expr::parse()` provides runtime parsing for cross-check tests that compare compiled vs symbolic evaluation
 
 ### Problem Names
-Problem types use explicit optimization prefixes:
-- `MaximumIndependentSet`, `MaximumClique`, `MaximumMatching`, `MaximumSetPacking`
-- `MinimumVertexCover`, `MinimumDominatingSet`, `MinimumSetCovering`
-- No prefix: `MaxCut`, `SpinGlass`, `QUBO`, `ILP`, `Satisfiability`, `KSatisfiability`, `CircuitSAT`, `Factoring`, `MaximalIS`, `PaintShop`, `BicliqueCover`, `BMF`, `KColoring`, `TravelingSalesman`
+Problem types use explicit optimization prefixes (`Maximum...`, `Minimum...`) or no prefix. Run `pred list` for the full catalog. Common aliases (e.g., `MIS` → `MaximumIndependentSet`, `MVC` → `MinimumVertexCover`) are shown in the `Aliases` column.
 
-### Problem Variant IDs
+### Problem Variants
 Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 - Base: `MaximumIndependentSet` (empty variant = defaults)
 - Graph variant: `MaximumIndependentSet {graph: "KingsSubgraph", weight: "One"}`
 - Weight variant: `MaximumIndependentSet {graph: "SimpleGraph", weight: "f64"}`
 - Default variant ranking: `SimpleGraph`, `One`, `KN` are considered default values; variants with the most default values sort first
 - Nodes come exclusively from `#[reduction]` registrations; natural edges between same-name variants are inferred from the graph/weight subtype partial order
+- Each primitive reduction is determined by the exact `(source_variant, target_variant)` endpoint pair
+- `#[reduction]` accepts only `overhead = { ... }`
+
+### Extension Points
+- New models register dynamic load/serialize/brute-force dispatch through `declare_variants!` in the model file, not by adding manual match arms in the CLI
+- Exact registry dispatch lives in `src/registry/`; alias resolution and partial/default variant resolution live in `problemreductions-cli/src/problem_name.rs`
+- `pred create` UX lives in `problemreductions-cli/src/commands/create.rs`
+- Canonical paper and CLI examples live in `src/example_db/model_builders.rs` and `src/example_db/rule_builders.rs`
 
 ## Conventions
 
 ### File Naming
 - Reduction files: `src/rules/<source>_<target>.rs` (e.g., `maximumindependentset_qubo.rs`)
 - Model files: `src/models/<category>/<name>.rs` — category is by input structure: `graph/` (graph input), `formula/` (boolean formula/circuit), `set/` (universe + subsets), `algebraic/` (matrix/linear system/lattice), `misc/` (other)
-- Example files: `examples/reduction_<source>_to_<target>.rs` (must have `pub fn run()` + `fn main() { run() }`)
+- Canonical examples: builder functions in `src/example_db/rule_builders.rs` and `src/example_db/model_builders.rs`
+- Example binaries in `examples/`: utility/export tools and pedagogical demos only (not per-reduction files)
 - Test naming: `test_<source>_to_<target>_closed_loop`
 
 ### Paper (docs/paper/reductions.typ)
@@ -194,14 +203,15 @@ See Key Patterns above for solver API signatures. Follow the reference files for
 
 ### File Organization
 
-Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). Integration tests in `tests/suites/`, consolidated through `tests/main.rs`. Example tests in `tests/suites/examples.rs` using `include!` for direct invocation.
+Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). Integration tests in `tests/suites/`, consolidated through `tests/main.rs`. Canonical example-db coverage lives in `src/unit_tests/example_db.rs`.
 
 ## Documentation Locations
 - `README.md` — Project overview and quickstart
 - `.claude/` — Claude Code instructions and skills
 - `docs/book/` — mdBook user documentation (built with `make doc`)
 - `docs/paper/reductions.typ` — Typst paper with problem definitions and reduction theorems
-- `examples/` — Reduction example code (also used in paper and tests)
+- `src/example_db/` — Canonical model/rule examples: `model_builders.rs`, `rule_builders.rs` (in-memory builders), `specs.rs` (per-module invariant specs), consumed by `pred create --example` and paper exports
+- `examples/` — Export utilities, graph-analysis helpers, and pedagogical demos
 
 ## Documentation Requirements
 
@@ -254,3 +264,4 @@ Overhead expressions describe how target problem size relates to source problem 
 2. Check that each field (e.g., `num_vertices`, `num_edges`, `num_sets`) matches the constructed target problem
 3. Watch for common errors: universe elements mismatch (edge indices vs vertex indices), worst-case edge counts in intersection graphs (quadratic, not linear), constant factors in circuit constructions
 4. Test with concrete small instances: construct a source problem, run the reduction, and compare target sizes against the formula
+5. Ensure there is only one primitive reduction registration for each exact source/target variant pair; wrap shared helpers instead of registering duplicate endpoints
