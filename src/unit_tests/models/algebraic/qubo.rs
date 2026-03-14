@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 include!("../../jl_helpers.rs");
@@ -108,4 +108,25 @@ fn test_jl_parity_evaluation() {
         let rust_best: HashSet<Vec<usize>> = best.into_iter().collect();
         assert_eq!(rust_best, jl_best, "QUBO best solutions mismatch");
     }
+}
+
+#[test]
+fn test_qubo_paper_example() {
+    // Paper: Q=[[-1,2,0],[0,-1,2],[0,0,-1]], min=-2 at (1,0,1)
+    let problem = QUBO::from_matrix(vec![
+        vec![-1.0, 2.0, 0.0],
+        vec![0.0, -1.0, 2.0],
+        vec![0.0, 0.0, -1.0],
+    ]);
+    assert_eq!(
+        Problem::evaluate(&problem, &[1, 0, 1]),
+        SolutionSize::Valid(-2.0)
+    );
+
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(
+        Problem::evaluate(&problem, &best),
+        SolutionSize::Valid(-2.0)
+    );
 }

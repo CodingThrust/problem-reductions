@@ -39,7 +39,7 @@ build:
 
 # Run all tests (including ignored tests)
 test:
-	cargo test --features ilp-highs -- --include-ignored
+	cargo test --features "ilp-highs example-db" -- --include-ignored
 
 # Run MCP server tests
 mcp-test:  ## Run MCP server tests
@@ -95,13 +95,8 @@ mdbook:
 	@sleep 1 && (command -v xdg-open >/dev/null && xdg-open http://localhost:3001 || open http://localhost:3001)
 
 # Generate all example JSON files for the paper
-REDUCTION_EXAMPLES := $(patsubst examples/%.rs,%,$(wildcard examples/reduction_*.rs))
 examples:
-	@mkdir -p docs/paper/examples
-	@for example in $(REDUCTION_EXAMPLES); do \
-		echo "Running $$example..."; \
-		cargo run --features ilp-highs --example $$example || exit 1; \
-	done
+	cargo run --features "ilp-highs example-db" --example export_examples
 	cargo run --features ilp-highs --example export_petersen_mapping
 
 # Export problem schemas to JSON
@@ -152,9 +147,13 @@ endif
 	git push origin main --tags
 	@echo "v$(V) pushed — CI will publish to crates.io"
 
-# Build and install the pred CLI tool
+# Build and install the pred CLI tool (without MCP for fast builds)
 cli:
 	cargo install --path problemreductions-cli
+
+# Build and install the pred CLI tool with MCP server support
+mcp:
+	cargo install --path problemreductions-cli --features mcp
 
 # Generate Rust mapping JSON exports for all graphs and modes
 GRAPHS := diamond bull house petersen

@@ -14,6 +14,9 @@ use std::collections::{HashMap, HashSet};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PaintShop",
+        display_name: "Paint Shop",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Minimize color changes in paint shop sequence",
         fields: &[
@@ -190,7 +193,24 @@ impl OptimizationProblem for PaintShop {
 }
 
 crate::declare_variants! {
-    PaintShop => "2^num_cars",
+    default opt PaintShop => "2^num_cars",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "paintshop",
+        build: || {
+            use crate::solvers::BruteForce;
+            let problem = PaintShop::new(vec!["A", "B", "A", "C", "B", "C"]);
+            let sample = BruteForce::new()
+                .find_all_best(&problem)
+                .into_iter()
+                .next()
+                .expect("paintshop example should solve");
+            crate::example_db::specs::optimization_example(problem, vec![sample])
+        },
+    }]
 }
 
 #[cfg(test)]

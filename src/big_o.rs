@@ -279,7 +279,9 @@ fn contains_negative_exponent(expr: &Expr) -> bool {
         Expr::Mul(a, b) | Expr::Add(a, b) => {
             contains_negative_exponent(a) || contains_negative_exponent(b)
         }
-        Expr::Exp(arg) | Expr::Log(arg) | Expr::Sqrt(arg) => contains_negative_exponent(arg),
+        Expr::Exp(arg) | Expr::Log(arg) | Expr::Sqrt(arg) | Expr::Factorial(arg) => {
+            contains_negative_exponent(arg)
+        }
         Expr::Const(_) | Expr::Var(_) => false,
     }
 }

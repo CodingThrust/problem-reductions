@@ -179,6 +179,39 @@ impl ReduceTo<MaxCut<SimpleGraph, i32>> for SpinGlass<SimpleGraph, i32> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "maxcut_to_spinglass",
+            build: || {
+                let (n, edges) = crate::topology::small_graphs::petersen();
+                let source = MaxCut::unweighted(SimpleGraph::new(n, edges));
+                crate::example_db::specs::direct_best_example::<_, SpinGlass<SimpleGraph, i32>, _>(
+                    source,
+                    |_, _| true,
+                )
+            },
+        },
+        crate::example_db::specs::RuleExampleSpec {
+            id: "spinglass_to_maxcut",
+            build: || {
+                let (n, edges) = crate::topology::small_graphs::petersen();
+                let couplings: Vec<((usize, usize), i32)> = edges
+                    .iter()
+                    .enumerate()
+                    .map(|(i, &(u, v))| ((u, v), if i % 2 == 0 { 1 } else { -1 }))
+                    .collect();
+                let source = SpinGlass::new(n, couplings, vec![0; n]);
+                crate::example_db::specs::direct_best_example::<_, MaxCut<SimpleGraph, i32>, _>(
+                    source,
+                    |_, _| true,
+                )
+            },
+        },
+    ]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/spinglass_maxcut.rs"]
 mod tests;
