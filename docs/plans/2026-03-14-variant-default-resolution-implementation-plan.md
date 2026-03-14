@@ -110,6 +110,7 @@
 - Modify: `problemreductions-macros/src/lib.rs`
 - Modify: `src/unit_tests/variant.rs`
 - Modify: `src/unit_tests/reduction_graph.rs`
+- Modify: `src/unit_tests/export.rs`
 
 - [ ] **Step 1: Add macro-unit tests for `declare_variants!` default validation**
 
@@ -154,9 +155,9 @@ fn declare_variants_still_validates_complexity_with_default() {
 }
 ```
 
-- [ ] **Step 2: Add failing runtime tests for `VariantSpec` and graph defaults**
+- [ ] **Step 2: Add failing runtime tests for `VariantSpec`, export normalization, and graph defaults**
 
-Extend `src/unit_tests/variant.rs` and `src/unit_tests/reduction_graph.rs` with tests that expect:
+Extend `src/unit_tests/variant.rs`, `src/unit_tests/export.rs`, and `src/unit_tests/reduction_graph.rs` with tests that expect:
 
 ```rust
 #[test]
@@ -174,6 +175,18 @@ fn default_variant_for_mis_uses_declared_default() {
     let default_variant = graph.default_variant_for("MaximumIndependentSet").unwrap();
     assert_eq!(default_variant.as_map().get("graph"), Some(&"SimpleGraph".to_string()));
 }
+
+#[test]
+fn variant_spec_normalizes_empty_graph_to_simple_graph() {
+    let spec = VariantSpec::try_from_pairs([("graph", ""), ("weight", "One")]).unwrap();
+    assert_eq!(spec.as_map().get("graph"), Some(&"SimpleGraph".to_string()));
+}
+
+#[test]
+fn export_variant_to_map_normalizes_empty_graph() {
+    let map = crate::export::variant_to_map(vec![("graph", ""), ("weight", "One")]);
+    assert_eq!(map.get("graph"), Some(&"SimpleGraph".to_string()));
+}
 ```
 
 - [ ] **Step 3: Run the new tests and confirm they fail**
@@ -184,13 +197,19 @@ Expected: FAIL because `default` is not parsed or validated yet.
 Run: `cargo test variant_spec_rejects_duplicate_dimensions -- --nocapture`
 Expected: FAIL because `VariantSpec` does not exist yet.
 
+Run: `cargo test variant_spec_normalizes_empty_graph_to_simple_graph -- --nocapture`
+Expected: FAIL because `VariantSpec` does not exist yet.
+
+Run: `cargo test export_variant_to_map_normalizes_empty_graph -- --nocapture`
+Expected: FAIL because export normalization has not been routed through canonical helpers yet.
+
 Run: `cargo test default_variant_for_mis_uses_declared_default -- --nocapture`
 Expected: FAIL because `default_variant_for()` does not exist yet.
 
 - [ ] **Step 4: Commit the red tests**
 
 ```bash
-git add problemreductions-macros/src/lib.rs src/unit_tests/variant.rs src/unit_tests/reduction_graph.rs
+git add problemreductions-macros/src/lib.rs src/unit_tests/variant.rs src/unit_tests/reduction_graph.rs src/unit_tests/export.rs
 git commit -m "test: cover variant default metadata"
 ```
 
@@ -259,7 +278,10 @@ Expected: PASS.
 Run: `cargo test variant_spec_rejects_duplicate_dimensions -- --nocapture`
 Expected: PASS.
 
-Run: `cargo test default_variant_for_mis_uses_declared_default -- --nocapture`
+Run: `cargo test variant_spec_normalizes_empty_graph_to_simple_graph -- --nocapture`
+Expected: PASS.
+
+Run: `cargo test export_variant_to_map_normalizes_empty_graph -- --nocapture`
 Expected: PASS.
 
 - [ ] **Step 5: Commit the core metadata implementation**
@@ -335,7 +357,7 @@ crate::declare_variants! {
 
 - [ ] **Step 2: Add regression tests that assert the chosen defaults**
 
-In `src/unit_tests/reduction_graph.rs`, add explicit assertions for the problem families the CLI relies on most:
+In `src/unit_tests/reduction_graph.rs`, replace the existing ordering-based `variants()[0]` default assertions with explicit `default_variant_for(...)` assertions for the problem families the CLI relies on most:
 
 - `MaximumIndependentSet`
 - `MinimumVertexCover`
@@ -348,6 +370,9 @@ Do not keep tests that infer default semantics from `variants()[0]` alone.
 
 Run: `cargo test reduction_graph:: -- --nocapture`
 Expected: PASS with explicit default lookups.
+
+Run: `cargo test default_variant_for_mis_uses_declared_default -- --nocapture`
+Expected: PASS once the declarations are marked.
 
 - [ ] **Step 4: Commit the declaration updates**
 
@@ -365,6 +390,7 @@ git commit -m "feat: mark default problem variants"
 - Modify: `problemreductions-cli/src/problem_name.rs`
 - Modify: `problemreductions-cli/tests/cli_tests.rs`
 - Modify: `problemreductions-cli/src/mcp/tests.rs`
+- Modify: `src/unit_tests/reduction_graph.rs`
 
 - [ ] **Step 1: Add unit tests for the new resolver contract**
 
@@ -386,16 +412,19 @@ In `problemreductions-cli/tests/cli_tests.rs` and `problemreductions-cli/src/mcp
 - `pred show MIS` includes `(default)` beside the default variant
 - `pred show MIS/UnitDiskGraph` errors because `show` is type-level
 - `pred show 3SAT` succeeds as a type overview
+- `pred create MIS` uses the declared default MIS node
 - `pred to MIS` and `pred from MIS` use the declared default MIS node
 - `pred path MIS QUBO` uses exact default nodes
 - `pred path MIS QUBO --all --max-paths 5` truncates and prints a truncation note
 - `pred path MIS QUBO --all` returns at most 20 paths by default
 - `pred reduce <problem.json> --to QUBO` targets the declared default QUBO node
+- `pred reduce <problem.json> --via path.json --to <spec>` rejects mismatched target variants
 - MCP `show_problem_inner("MIS/UnitDiskGraph")` errors
 - MCP `neighbors_inner("MIS", 1, "out")` uses the declared default MIS node
 - MCP `create_problem_inner("MIS", ...)` uses the declared default MIS node
 - MCP `reduce_inner(..., "QUBO")` uses the declared default QUBO node
 - MCP `find_path_inner("MIS", "QUBO", ..., true)` returns a structured capped response
+- `find_paths_up_to(..., limit)` returns at most `limit + 1` paths so truncation can be detected without full enumeration
 
 For `pred create --example MIS`, add an assertion that the command no longer asks for an explicit variant. If the chosen default example does not exist, assert the resolved-node error instead of expecting success.
 
@@ -409,6 +438,9 @@ Expected: FAIL because `show` still accepts slash specs silently.
 
 Run: `cargo test -p problemreductions-cli --test cli_tests test_path_all_max_paths_truncates -- --nocapture`
 Expected: FAIL because `path --all` still enumerates without a cap or truncation note.
+
+Run: `cargo test find_paths_up_to_stops_after_limit_plus_one -- --nocapture`
+Expected: FAIL because the capped graph helper does not exist yet.
 
 Run: `cargo test -p problemreductions-cli test_show_problem_rejects_slash_spec -- --nocapture`
 Expected: FAIL for the same semantic reasons in MCP.
@@ -505,6 +537,19 @@ CLI behavior:
 - `pred path A B --all` => up to `max_paths`
 - if more exist, succeed and print a truncation note
 
+For non-text outputs, use structured metadata instead of a bare array:
+
+```json
+{
+  "paths": [],
+  "truncated": false,
+  "returned": 0,
+  "max_paths": 20
+}
+```
+
+If `-o <dir>` is used, keep per-path files and write a `manifest.json` with the same metadata plus the generated filenames.
+
 - [ ] **Step 4: Run the targeted CLI tests and confirm they pass**
 
 Run: `cargo test -p problemreductions-cli problem_name::tests -- --nocapture`
@@ -514,6 +559,9 @@ Run: `cargo test -p problemreductions-cli --test cli_tests test_show_rejects_sla
 Expected: PASS.
 
 Run: `cargo test -p problemreductions-cli --test cli_tests test_path_all_max_paths_truncates -- --nocapture`
+Expected: PASS.
+
+Run: `cargo test find_paths_up_to_stops_after_limit_plus_one -- --nocapture`
 Expected: PASS.
 
 Run: `cargo test -p problemreductions-cli --test cli_tests test_reduce_uses_default_target_variant -- --nocapture`
@@ -542,8 +590,9 @@ git commit -m "feat: unify CLI problem resolution"
 - `show_problem_inner()` is type-level
 - `neighbors_inner()`, `find_path_inner()`, `create_problem_inner()`, and `reduce_inner()` are node-level
 - multi-path mode should return at most `max_paths` results and expose truncation in JSON
+- add an optional `max_paths` input to the MCP path tool schema/handler, defaulting to `20`
 
-Use one explicit JSON shape for MCP multi-path responses:
+Use one explicit JSON shape for MCP and CLI `--json` multi-path responses:
 
 ```json
 {
@@ -600,23 +649,9 @@ Add tests that prove the target variant matters. Use one export-level regression
 ```rust
 #[test]
 fn lookup_overhead_rejects_target_variant_mismatch() {
-    let source = btreemap! { "weight".to_string() => "f64".to_string() };
-    let wrong_target = btreemap! { "weight".to_string() => "i32".to_string() };
+    let source = BTreeMap::from([("weight".to_string(), "f64".to_string())]);
+    let wrong_target = BTreeMap::from([("weight".to_string(), "i32".to_string())]);
     let result = lookup_overhead(
-        "MaximumSetPacking",
-        &source,
-        "QUBO",
-        &wrong_target,
-    );
-    assert!(result.is_none());
-}
-
-#[test]
-fn find_best_entry_rejects_wrong_target_variant() {
-    let graph = ReductionGraph::new();
-    let source = btreemap! { "weight".to_string() => "f64".to_string() };
-    let wrong_target = btreemap! { "weight".to_string() => "i32".to_string() };
-    let result = graph.find_best_entry(
         "MaximumSetPacking",
         &source,
         "QUBO",
@@ -629,9 +664,6 @@ fn find_best_entry_rejects_wrong_target_variant() {
 - [ ] **Step 2: Run the focused tests and confirm they fail**
 
 Run: `cargo test lookup_overhead_rejects_target_variant_mismatch -- --nocapture`
-Expected: FAIL because the current implementation ignores the target variant.
-
-Run: `cargo test find_best_entry_rejects_wrong_target_variant -- --nocapture`
 Expected: FAIL because the current implementation ignores the target variant.
 
 - [ ] **Step 3: Commit the red matching tests**
@@ -675,7 +707,19 @@ Do **not** keep the current name-only fallback. If a later hierarchy-aware gener
 
 Change `lookup_overhead()` to pass both source and target variants through and normalize via `VariantSpec`/map helpers. Any caller that asks for a nonexistent direct edge should now get `None`.
 
-- [ ] **Step 3: Run export and graph unit tests**
+- [ ] **Step 3: Add exact-match graph tests against the new signature**
+
+Once `find_best_entry()` accepts both variants, add both a mismatch regression and a positive exact-match regression in `src/unit_tests/reduction_graph.rs` using `BTreeMap::from([...])`:
+
+```rust
+#[test]
+fn find_best_entry_rejects_wrong_target_variant() { /* expect None */ }
+
+#[test]
+fn find_best_entry_accepts_exact_source_and_target_variant() { /* expect Some */ }
+```
+
+- [ ] **Step 4: Run export and graph unit tests**
 
 Run: `cargo test lookup_overhead_rejects_target_variant_mismatch -- --nocapture`
 Expected: PASS.
@@ -683,9 +727,12 @@ Expected: PASS.
 Run: `cargo test find_best_entry_rejects_wrong_target_variant -- --nocapture`
 Expected: PASS.
 
+Run: `cargo test find_best_entry_accepts_exact_source_and_target_variant -- --nocapture`
+Expected: PASS.
+
 If any example-db code fails because it depended on the unsafe fallback, stop and inspect `src/example_db/rule_builders.rs` in the worktree. Prefer adding the missing exact declaration or updating the test expectation; do not reintroduce the name-only fallback.
 
-- [ ] **Step 4: Commit the matching cleanup**
+- [ ] **Step 5: Commit the matching cleanup**
 
 ```bash
 git add src/rules/graph.rs src/export.rs src/unit_tests/export.rs src/unit_tests/reduction_graph.rs src/example_db/rule_builders.rs
@@ -711,16 +758,16 @@ Expected: PASS.
 
 - [ ] **Step 2: Run targeted high-signal commands manually**
 
-Run: `cargo run -p problemreductions-cli -- show MIS`
+Run: `cargo run -p problemreductions-cli --bin pred -- show MIS`
 Expected: output lists variants and marks one as `(default)`.
 
-Run: `cargo run -p problemreductions-cli -- show MIS/UnitDiskGraph`
+Run: `cargo run -p problemreductions-cli --bin pred -- show MIS/UnitDiskGraph`
 Expected: non-zero exit with a type-level `show` error.
 
-Run: `cargo run -p problemreductions-cli -- path MIS QUBO --all --max-paths 5`
+Run: `cargo run -p problemreductions-cli --bin pred -- path MIS QUBO --all --max-paths 5`
 Expected: success, 5 paths max, and a truncation note if more exist.
 
-Run: `cargo run -p problemreductions-cli -- create --example MIS`
+Run: `cargo run -p problemreductions-cli --bin pred -- create --example MIS`
 Expected: resolved-default behavior; either a canonical example or a clear resolved-node error, but never “explicit variant required”.
 
 - [ ] **Step 3: Update any stale docs/tests surfaced by verification**
