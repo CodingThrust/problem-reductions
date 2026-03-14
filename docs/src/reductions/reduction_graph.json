@@ -87,7 +87,7 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.HamiltonianCircuit.html",
-      "complexity": "num_vertices^2 * 2^num_vertices"
+      "complexity": "1.657^num_vertices"
     },
     {
       "name": "HamiltonianPath",

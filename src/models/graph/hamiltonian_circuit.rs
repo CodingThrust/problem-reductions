@@ -148,10 +148,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                     (2, 5),
                 ],
             ));
-            crate::example_db::specs::satisfaction_example(
-                problem,
-                vec![vec![0, 1, 2, 5, 4, 3]],
-            )
+            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 1, 2, 5, 4, 3]])
         },
     }]
 }
