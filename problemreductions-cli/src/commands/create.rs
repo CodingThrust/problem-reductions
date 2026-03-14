@@ -108,7 +108,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
-        "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3",
+        "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "RuralPostman" => {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
@@ -610,15 +610,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        // OptimalLinearArrangement — graph only, no weights
+        // OptimalLinearArrangement — graph + bound
         "OptimalLinearArrangement" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3"
+                    "{e}\n\nUsage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3 --bound 5"
                 )
             })?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "OptimalLinearArrangement requires --bound (upper bound K on total edge length)\n\n\
+                     Usage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3 --bound 5"
+                )
+            })? as usize;
             (
-                ser(OptimalLinearArrangement::new(graph))?,
+                ser(OptimalLinearArrangement::new(graph, bound))?,
                 resolved_variant.clone(),
             )
         }
@@ -1435,15 +1441,18 @@ fn create_random(
             util::ser_kcoloring(graph, k)?
         }
 
-        // OptimalLinearArrangement — graph only, no weights
+        // OptimalLinearArrangement — graph + bound
         "OptimalLinearArrangement" => {
             let edge_prob = args.edge_prob.unwrap_or(0.5);
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
+            // Default bound: sum of all possible edge lengths (n*(n-1)/2) ensures satisfiability
+            let n = graph.num_vertices();
+            let bound = args.bound.map(|b| b as usize).unwrap_or(n * (n - 1) / 2);
             let variant = variant_map(&[("graph", "SimpleGraph")]);
-            (ser(OptimalLinearArrangement::new(graph))?, variant)
+            (ser(OptimalLinearArrangement::new(graph, bound))?, variant)
         }
 
         _ => bail!(

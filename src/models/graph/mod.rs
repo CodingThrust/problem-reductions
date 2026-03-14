@@ -17,7 +17,7 @@
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
-//! - [`OptimalLinearArrangement`]: Optimal linear arrangement (minimum total edge length)
+//! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
