@@ -177,10 +177,20 @@ pub fn lookup_overhead(
 }
 
 /// Convert `Problem::variant()` output to a stable `BTreeMap`.
+///
+/// Normalizes empty `"graph"` values to `"SimpleGraph"` for consistency
+/// with the reduction graph convention.
 pub fn variant_to_map(variant: Vec<(&str, &str)>) -> BTreeMap<String, String> {
     variant
         .into_iter()
-        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .map(|(k, v)| {
+            let value = if k == "graph" && v.is_empty() {
+                "SimpleGraph".to_string()
+            } else {
+                v.to_string()
+            };
+            (k.to_string(), value)
+        })
         .collect()
 }
 

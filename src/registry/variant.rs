@@ -17,6 +17,8 @@ pub struct VariantEntry {
     /// Takes a `&dyn Any` (must be `&ProblemType`), calls getter methods directly,
     /// and returns the estimated worst-case time as f64.
     pub complexity_eval_fn: fn(&dyn Any) -> f64,
+    /// Whether this entry is the declared default variant for its problem.
+    pub is_default: bool,
 }
 
 impl VariantEntry {

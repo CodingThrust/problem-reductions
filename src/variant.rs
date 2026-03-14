@@ -160,6 +160,9 @@ pub struct VariantSpec {
     dims: BTreeMap<String, String>,
 }
 
+/// Default dimension values used for normalization and default detection.
+const DEFAULT_VALUES: &[&str] = &["SimpleGraph", "One", "KN"];
+
 impl VariantSpec {
     /// Create a `VariantSpec` from key-value pairs, rejecting duplicate dimensions.
     ///
@@ -181,30 +184,50 @@ impl VariantSpec {
         Ok(Self { dims })
     }
 
+    /// Create a `VariantSpec` from an existing `BTreeMap`.
+    pub fn try_from_map(map: BTreeMap<String, String>) -> std::result::Result<Self, String> {
+        Ok(Self { dims: map })
+    }
+
     /// View the dimensions as a map.
     pub fn as_map(&self) -> &BTreeMap<String, String> {
         &self.dims
     }
 
-    /// Normalize the variant by filling in default values for missing dimensions.
-    ///
-    /// For example, if a problem has a "graph" dimension but the variant doesn't
-    /// specify one, the normalized form should fill in "SimpleGraph" as the default.
-    ///
-    /// # Stub
-    /// Currently returns self unchanged. Will be implemented in Task 2/3.
-    pub fn normalize(&self) -> Self {
-        // Stub: no normalization yet
-        self.clone()
+    /// Consume this `VariantSpec` and return the underlying map.
+    pub fn into_map(self) -> BTreeMap<String, String> {
+        self.dims
     }
 
-    /// Check whether this variant is the declared default for its problem type.
+    /// Update or add a single dimension.
+    pub fn update_dimension(&mut self, key: impl Into<String>, value: impl Into<String>) {
+        self.dims.insert(key.into(), value.into());
+    }
+
+    /// Normalize the variant by filling in default values for empty dimensions.
     ///
-    /// # Stub
-    /// Currently always returns `false`. Will be implemented in Task 2/3.
+    /// If a dimension has an empty string value, it is replaced with its
+    /// canonical default:
+    /// - `"graph"` → `"SimpleGraph"`
+    pub fn normalize(&self) -> Self {
+        let mut dims = self.dims.clone();
+        if let Some(v) = dims.get_mut("graph") {
+            if v.is_empty() {
+                *v = "SimpleGraph".to_string();
+            }
+        }
+        Self { dims }
+    }
+
+    /// Check whether this variant uses only default dimension values.
+    ///
+    /// Returns `true` if every dimension value is one of the recognized
+    /// defaults: `"SimpleGraph"`, `"One"`, `"KN"`. An empty variant
+    /// (no dimensions) is also considered default.
     pub fn is_default(&self) -> bool {
-        // Stub: not implemented yet
-        false
+        self.dims
+            .values()
+            .all(|v| DEFAULT_VALUES.contains(&v.as_str()))
     }
 }
 

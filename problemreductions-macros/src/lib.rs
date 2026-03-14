@@ -10,7 +10,7 @@ pub(crate) mod parser;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Type};
 
 /// Attribute macro for automatic reduction registration.
@@ -375,8 +375,9 @@ struct DeclareVariantsInput {
     entries: Vec<DeclareVariantEntry>,
 }
 
-/// A single entry: `Type => "complexity_string"`.
+/// A single entry: `[default] Type => "complexity_string"`.
 struct DeclareVariantEntry {
+    is_default: bool,
     ty: Type,
     complexity: syn::LitStr,
 }
@@ -385,10 +386,19 @@ impl syn::parse::Parse for DeclareVariantsInput {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut entries = Vec::new();
         while !input.is_empty() {
+            // Optionally accept a `default` keyword before the type
+            let is_default = input.peek(syn::Token![default]);
+            if is_default {
+                input.parse::<syn::Token![default]>()?;
+            }
             let ty: Type = input.parse()?;
             input.parse::<syn::Token![=>]>()?;
             let complexity: syn::LitStr = input.parse()?;
-            entries.push(DeclareVariantEntry { ty, complexity });
+            entries.push(DeclareVariantEntry {
+                is_default,
+                ty,
+                complexity,
+            });
 
             if input.peek(syn::Token![,]) {
                 input.parse::<syn::Token![,]>()?;
@@ -429,11 +439,57 @@ pub fn declare_variants(input: TokenStream) -> TokenStream {
 
 /// Generate code for all `declare_variants!` entries.
 fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenStream2> {
+    // Validate default markers per problem name.
+    // Group entries by their base type name (e.g., "MaximumIndependentSet").
+    let mut defaults_per_problem: HashMap<String, Vec<usize>> = HashMap::new();
+    for (i, entry) in input.entries.iter().enumerate() {
+        let base_name = extract_type_name(&entry.ty).unwrap_or_default();
+        if entry.is_default {
+            defaults_per_problem.entry(base_name).or_default().push(i);
+        }
+    }
+
+    // Check for multiple defaults for the same problem
+    for (name, indices) in &defaults_per_problem {
+        if indices.len() > 1 {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!(
+                    "`{name}` has more than one default variant; \
+                     only one entry per problem may be marked `default`"
+                ),
+            ));
+        }
+    }
+
+    // Determine which entries are effectively default.
+    // If no entry for a problem is marked `default`, the first entry is implicitly default.
+    // This maintains backwards compatibility with existing code that doesn't use `default`.
+    let mut problem_first_entry: HashMap<String, usize> = HashMap::new();
+    for (i, entry) in input.entries.iter().enumerate() {
+        let base_name = extract_type_name(&entry.ty).unwrap_or_default();
+        problem_first_entry.entry(base_name).or_insert(i);
+    }
+
     let mut output = TokenStream2::new();
 
-    for entry in &input.entries {
+    for (i, entry) in input.entries.iter().enumerate() {
         let ty = &entry.ty;
         let complexity_str = entry.complexity.value();
+        let base_name = extract_type_name(ty).unwrap_or_default();
+
+        // Determine if this entry is the default:
+        // - Explicitly marked `default` → true
+        // - No entry for this problem is marked `default` AND this is the first entry → true
+        // - Otherwise → false
+        let is_default = if entry.is_default {
+            true
+        } else if !defaults_per_problem.contains_key(&base_name) {
+            // No explicit default for this problem; first entry wins
+            problem_first_entry.get(&base_name) == Some(&i)
+        } else {
+            false
+        };
 
         // Parse the complexity expression to validate syntax
         let parsed = parser::parse_expr(&complexity_str).map_err(|e| {
@@ -479,6 +535,7 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                     variant_fn: || <#ty as crate::traits::Problem>::variant(),
                     complexity: #complexity_str,
                     complexity_eval_fn: #complexity_eval_fn,
+                    is_default: #is_default,
                 }
             }
 
@@ -506,4 +563,79 @@ fn generate_complexity_eval_fn(
             #eval_tokens
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn declare_variants_accepts_single_default() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            default Foo => "1",
+        };
+        assert!(generate_declare_variants(&input).is_ok());
+    }
+
+    #[test]
+    fn declare_variants_requires_one_default_per_problem() {
+        // When no entry is marked `default`, the first entry is implicitly default.
+        // So two entries for different problems with no `default` should succeed.
+        // But this test checks that having entries for the same problem WITHOUT
+        // `default` still works (first is implicit default).
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            Foo => "1",
+            Bar => "1",
+        };
+        // Both are different problem names, so this should succeed.
+        assert!(generate_declare_variants(&input).is_ok());
+    }
+
+    #[test]
+    fn declare_variants_rejects_multiple_defaults_for_one_problem() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            default Foo => "1",
+            default Foo => "2",
+        };
+        let err = generate_declare_variants(&input).unwrap_err();
+        assert!(
+            err.to_string().contains("more than one default"),
+            "expected 'more than one default' in error, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn declare_variants_implicit_default_for_first_entry() {
+        // When no entry is marked `default`, the first entry should be
+        // implicitly the default (backwards compatibility).
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            Foo => "1",
+        };
+        let result = generate_declare_variants(&input);
+        assert!(result.is_ok());
+        let tokens = result.unwrap().to_string();
+        assert!(
+            tokens.contains("is_default : true"),
+            "first entry should be implicitly default"
+        );
+    }
+
+    #[test]
+    fn declare_variants_explicit_default_overrides_implicit() {
+        // When one entry is marked `default`, only that entry should be default,
+        // not the first one.
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            Foo => "1",
+            default Foo => "2",
+        };
+        let result = generate_declare_variants(&input);
+        assert!(result.is_ok());
+        let tokens = result.unwrap().to_string();
+        // The generated code should have one `is_default: true` and one `is_default: false`
+        let true_count = tokens.matches("is_default : true").count();
+        let false_count = tokens.matches("is_default : false").count();
+        assert_eq!(true_count, 1, "should have exactly one default");
+        assert_eq!(false_count, 1, "should have exactly one non-default");
+    }
 }

@@ -266,6 +266,8 @@ pub struct ReductionGraph {
     nodes: Vec<VariantNode>,
     /// Map from base type name to all NodeIndex values for that name.
     name_to_nodes: HashMap<&'static str, Vec<NodeIndex>>,
+    /// Declared default variant for each problem name.
+    default_variants: HashMap<String, BTreeMap<String, String>>,
 }
 
 impl ReductionGraph {
@@ -305,18 +307,24 @@ impl ReductionGraph {
             }
         };
 
+        // Collect declared default variants from VariantEntry inventory
+        let mut default_variants: HashMap<String, BTreeMap<String, String>> = HashMap::new();
+
         // Phase 1: Build nodes from VariantEntry inventory
         for entry in inventory::iter::<crate::registry::VariantEntry> {
             let variant = Self::variant_to_map(&entry.variant());
             ensure_node(
                 entry.name,
-                variant,
+                variant.clone(),
                 entry.complexity,
                 &mut nodes,
                 &mut graph,
                 &mut node_index,
                 &mut name_to_nodes,
             );
+            if entry.is_default {
+                default_variants.insert(entry.name.to_string(), variant);
+            }
         }
 
         // Phase 2: Build edges from ReductionEntry inventory
@@ -362,6 +370,7 @@ impl ReductionGraph {
             graph,
             nodes,
             name_to_nodes,
+            default_variants,
         }
     }
 
@@ -645,14 +654,11 @@ impl ReductionGraph {
     /// Get the declared default variant for a problem type.
     ///
     /// Returns the variant that was marked `default` in `declare_variants!`.
-    /// Returns `None` if the problem type is not registered or has no declared default.
-    ///
-    /// # Stub
-    /// Currently always returns `None`. Will return the actual declared default
-    /// once `declare_variants!` supports the `default` keyword.
-    pub fn default_variant_for(&self, _name: &str) -> Option<BTreeMap<String, String>> {
-        // Stub: not implemented yet
-        None
+    /// If no entry was explicitly marked `default`, the first registered variant
+    /// for the problem is used as the implicit default.
+    /// Returns `None` if the problem type is not registered.
+    pub fn default_variant_for(&self, name: &str) -> Option<BTreeMap<String, String>> {
+        self.default_variants.get(name).cloned()
     }
 
     /// Get the complexity expression for a specific variant.
