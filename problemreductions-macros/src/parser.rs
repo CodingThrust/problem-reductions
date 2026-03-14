@@ -14,7 +14,7 @@
 //!   factor   = unary ('^' factor)?        // right-associative
 //!   unary    = '-' unary | primary
 //!   primary  = NUMBER | IDENT | func_call | '(' expr ')'
-//!   func_call = ('exp' | 'log' | 'sqrt') '(' expr ')'
+//!   func_call = ('exp' | 'log' | 'sqrt' | 'factorial') '(' expr ')'
 
 use proc_macro2::TokenStream;
 use quote::quote;
