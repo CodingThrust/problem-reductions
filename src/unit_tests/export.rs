@@ -93,59 +93,6 @@ fn test_lookup_overhead_unknown_reduction() {
 }
 
 #[test]
-fn test_write_example_creates_files() {
-    use std::fs;
-    use std::time::{SystemTime, UNIX_EPOCH};
-
-    let data = ReductionData {
-        source: ProblemSide {
-            problem: "TestProblem".to_string(),
-            variant: variant_to_map(vec![("graph", "SimpleGraph")]),
-            instance: serde_json::json!({"num_vertices": 3}),
-        },
-        target: ProblemSide {
-            problem: "TargetProblem".to_string(),
-            variant: variant_to_map(vec![]),
-            instance: serde_json::json!({"num_vars": 5}),
-        },
-        overhead: vec![],
-    };
-
-    let results = ResultData {
-        solutions: vec![SolutionPair {
-            source_config: vec![1, 0, 1],
-            target_config: vec![1, 0, 1, 0, 0],
-        }],
-    };
-
-    let dir = std::env::temp_dir().join(format!(
-        "problemreductions-export-test-{}",
-        SystemTime::now()
-            .duration_since(UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    std::env::set_var(EXAMPLES_DIR_ENV, &dir);
-    write_example("_test_export", &data, &results);
-
-    // Verify files exist and contain valid JSON
-    let reduction_path = dir.join("_test_export.json");
-
-    let reduction_json: serde_json::Value =
-        serde_json::from_str(&fs::read_to_string(&reduction_path).unwrap()).unwrap();
-    assert_eq!(reduction_json["source"]["problem"], "TestProblem");
-    assert_eq!(reduction_json["target"]["problem"], "TargetProblem");
-    assert_eq!(
-        reduction_json["solutions"][0]["source_config"],
-        serde_json::json!([1, 0, 1])
-    );
-
-    // Clean up test files
-    let _ = fs::remove_dir_all(&dir);
-    std::env::remove_var(EXAMPLES_DIR_ENV);
-}
-
-#[test]
 fn test_write_canonical_example_dbs() {
     use std::fs;
     use std::time::{SystemTime, UNIX_EPOCH};
@@ -214,52 +161,6 @@ fn test_problem_side_serialization() {
     assert_eq!(json["problem"], "MaximumIndependentSet");
     assert!(json["variant"]["graph"] == "SimpleGraph");
     assert!(json["instance"]["num_vertices"] == 4);
-}
-
-#[test]
-fn test_reduction_data_serialization() {
-    let data = ReductionData {
-        source: ProblemSide {
-            problem: "IS".to_string(),
-            variant: variant_to_map(vec![]),
-            instance: serde_json::json!({"n": 3}),
-        },
-        target: ProblemSide {
-            problem: "VC".to_string(),
-            variant: variant_to_map(vec![]),
-            instance: serde_json::json!({"n": 3}),
-        },
-        overhead: vec![OverheadEntry {
-            field: "num_vertices".to_string(),
-            expr: Expr::Var("n"),
-            formula: "n".to_string(),
-        }],
-    };
-    let json = serde_json::to_value(&data).unwrap();
-    assert_eq!(json["overhead"][0]["field"], "num_vertices");
-    assert_eq!(json["overhead"][0]["formula"], "n");
-}
-
-#[test]
-fn test_result_data_serialization() {
-    let results = ResultData {
-        solutions: vec![
-            SolutionPair {
-                source_config: vec![1, 0],
-                target_config: vec![0, 1],
-            },
-            SolutionPair {
-                source_config: vec![0, 1],
-                target_config: vec![1, 0],
-            },
-        ],
-    };
-    let json = serde_json::to_value(&results).unwrap();
-    assert_eq!(json["solutions"].as_array().unwrap().len(), 2);
-    assert_eq!(
-        json["solutions"][0]["source_config"],
-        serde_json::json!([1, 0])
-    );
 }
 
 // ---- variant_to_map normalization ----

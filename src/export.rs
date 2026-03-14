@@ -65,25 +65,11 @@ fn default_expr() -> Expr {
     Expr::Const(0.0)
 }
 
-/// Legacy top-level reduction structure kept for migration compatibility.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct ReductionData {
-    pub source: ProblemSide,
-    pub target: ProblemSide,
-    pub overhead: Vec<OverheadEntry>,
-}
-
 /// One source↔target solution pair.
 #[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
 pub struct SolutionPair {
     pub source_config: Vec<usize>,
     pub target_config: Vec<usize>,
-}
-
-/// Legacy runtime results kept for migration compatibility.
-#[derive(Serialize, Deserialize, Clone, Debug, PartialEq)]
-pub struct ResultData {
-    pub solutions: Vec<SolutionPair>,
 }
 
 /// A complete rule example: reduction + solutions in one file.
@@ -240,17 +226,6 @@ pub fn write_rule_db_to(dir: &Path, db: &RuleDb) {
 /// Write the canonical model database to `models.json`.
 pub fn write_model_db_to(dir: &Path, db: &ModelDb) {
     write_json_file(dir, "models", db);
-}
-
-/// Compatibility helper used by the legacy reduction example files.
-pub fn write_example(name: &str, reduction: &ReductionData, results: &ResultData) {
-    let example = RuleExample {
-        source: reduction.source.clone(),
-        target: reduction.target.clone(),
-        overhead: reduction.overhead.clone(),
-        solutions: results.solutions.clone(),
-    };
-    write_rule_example(name, &example);
 }
 
 #[cfg(test)]

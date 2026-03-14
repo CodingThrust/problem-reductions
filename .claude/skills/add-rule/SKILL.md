@@ -32,8 +32,6 @@ If any item is missing, ask the user to provide it. Put a high standard on item 
 Read these first to understand the patterns:
 - **Reduction rule:** `src/rules/minimumvertexcover_maximumindependentset.rs`
 - **Reduction tests:** `src/unit_tests/rules/minimumvertexcover_maximumindependentset.rs`
-- **Example program:** `examples/reduction_minimumvertexcover_to_maximumindependentset.rs`
-- **Example registration:** `tests/suites/examples.rs`
 - **Paper entry:** search `docs/paper/reductions.typ` for `MinimumVertexCover` `MaximumIndependentSet`
 - **Traits:** `src/rules/traits.rs` (`ReduceTo<T>`, `ReductionResult`)
 
@@ -110,36 +108,15 @@ Additional recommended tests:
 
 Link via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the rule file.
 
-## Step 4: Write example program
+## Step 4: Add canonical example to example_db
 
-Create `examples/reduction_<source>_to_<target>.rs`:
-
-Required structure:
-- `pub fn run()` -- main logic (required for test harness)
-- `fn main() { run() }` -- entry point
-- Use regular comments (`//`), not doc comments
-- Create source instance, reduce, solve, extract, verify, export JSON
-
-Register in `tests/suites/examples.rs`:
-```rust
-example_test!(reduction_<source>_to_<target>);
-// ...
-example_fn!(test_<source>_to_<target>, reduction_<source>_to_<target>);
-```
+Add a builder function in `src/example_db/rule_builders.rs` that constructs a small, canonical instance for this reduction. Follow the existing patterns in that file. Register the builder in `build_rule_examples()`.
 
 ## Step 5: Document in paper
 
 Write a `reduction-rule` entry in `docs/paper/reductions.typ`. **Reference example:** search for `reduction-rule("KColoring", "QUBO"` to see the gold-standard entry — use it as a template. For a minimal example, see MinimumVertexCover -> MaximumIndependentSet.
 
-### 5a. Load example data
-
-```typst
-#let src_tgt = load-example("<source>_to_<target>")
-#let src_tgt_r = load-results("<source>_to_<target>")
-#let src_tgt_sol = src_tgt_r.solutions.at(0)
-```
-
-### 5b. Write theorem body (rule statement)
+### 5a. Write theorem body (rule statement)
 
 ```typst
 #reduction-rule("Source", "Target",
@@ -152,7 +129,7 @@ Write a `reduction-rule` entry in `docs/paper/reductions.typ`. **Reference examp
 
 Three parts: complexity with citation, construction summary, overhead hint.
 
-### 5c. Write proof body
+### 5b. Write proof body
 
 Use these subsections with italic labels:
 
@@ -170,7 +147,7 @@ Use these subsections with italic labels:
 
 Must be self-contained (all notation defined) and reproducible.
 
-### 5d. Write worked example (extra block)
+### 5c. Write worked example (extra block)
 
 Step-by-step walkthrough with concrete numbers from JSON data. Required steps:
 1. Show source instance (dimensions, structure, graph visualization if applicable)
@@ -180,7 +157,7 @@ Step-by-step walkthrough with concrete numbers from JSON data. Required steps:
 
 Use `graph-colors`, `g-node()`, `g-edge()` for graph visualization — see reference examples.
 
-### 5e. Build and verify
+### 5d. Build and verify
 
 ```bash
 make examples  # Regenerate example JSON
@@ -213,9 +190,8 @@ Adding a reduction rule does NOT require CLI changes -- the reduction graph is a
 
 - Rule file: `src/rules/<sourcelower>_<targetlower>.rs` -- no underscores within a problem name
   - e.g., `maximumindependentset_qubo.rs`, `minimumvertexcover_maximumindependentset.rs`
-- Example file: `examples/reduction_<source>_to_<target>.rs`
-  - e.g., `reduction_minimumvertexcover_to_maximumindependentset.rs`
 - Test file: `src/unit_tests/rules/<sourcelower>_<targetlower>.rs`
+- Canonical example: builder function in `src/example_db/rule_builders.rs`
 
 ## Common Mistakes
 
@@ -224,7 +200,6 @@ Adding a reduction rule does NOT require CLI changes -- the reduction graph is a
 | Forgetting `#[reduction(...)]` macro | Required for compile-time registration in the reduction graph |
 | Wrong overhead expression | Must accurately reflect the size relationship |
 | Missing `extract_solution` mapping state | Store any index maps needed in the ReductionResult struct |
-| Example missing `pub fn run()` | Required for the test harness (`include!` pattern) |
-| Not registering example in `tests/suites/examples.rs` | Must add both `example_test!` and `example_fn!` |
+| Not adding canonical example to `example_db` | Add builder in `src/example_db/rule_builders.rs` |
 | Not regenerating reduction graph | Run `cargo run --example export_graph` after adding a rule |
 | Source/target model not in CLI dispatch | Both problems must be registered -- use `add-model` skill first |

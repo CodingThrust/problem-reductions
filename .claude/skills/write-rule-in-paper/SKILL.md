@@ -17,7 +17,7 @@ Full authoring guide for writing a `reduction-rule` entry in `docs/paper/reducti
 
 Before using this skill, ensure:
 - The reduction is implemented and tested (`src/rules/<source>_<target>.rs`)
-- An example program exists (`examples/reduction_<source>_to_<target>.rs`)
+- A canonical example exists in `src/example_db/rule_builders.rs`
 - Example JSON is generated (`make examples`)
 - The reduction graph and schemas are up to date (`cargo run --example export_graph && cargo run --example export_schemas`)
 

@@ -1,5 +1,8 @@
 use crate::expr::Expr;
-use crate::rules::analysis::{compare_overhead, find_dominated_rules, ComparisonStatus};
+use crate::rules::analysis::{
+    check_connectivity, check_reachability_from_3sat, compare_overhead, find_dominated_rules,
+    ComparisonStatus, UnreachableReason,
+};
 use crate::rules::graph::ReductionGraph;
 use crate::rules::registry::ReductionOverhead;
 
@@ -314,6 +317,113 @@ fn test_no_duplicate_primitive_rules_per_variant_pair() {
             key.1,
             key.2,
             key.3,
+        );
+    }
+}
+
+// ---- Connectivity checks ----
+
+#[test]
+fn test_check_connectivity_returns_valid_report() {
+    let graph = ReductionGraph::new();
+    let report = check_connectivity(&graph);
+
+    assert!(report.total_types > 0);
+    assert!(report.total_reductions > 0);
+    assert!(!report.components.is_empty());
+
+    // Components should be sorted largest-first
+    for w in report.components.windows(2) {
+        assert!(w[0].len() >= w[1].len());
+    }
+
+    // Each component should be internally sorted
+    for comp in &report.components {
+        let mut sorted = comp.clone();
+        sorted.sort();
+        assert_eq!(comp, &sorted);
+    }
+
+    // All types should appear in exactly one component
+    let total_in_components: usize = report.components.iter().map(|c| c.len()).sum();
+    assert_eq!(total_in_components, report.total_types);
+}
+
+#[test]
+fn test_isolated_problems_have_no_reductions() {
+    let graph = ReductionGraph::new();
+    let report = check_connectivity(&graph);
+
+    for p in &report.isolated {
+        assert!(
+            graph.outgoing_reductions(p.name).is_empty(),
+            "{} has outgoing reductions but is marked isolated",
+            p.name
+        );
+        assert!(
+            graph.incoming_reductions(p.name).is_empty(),
+            "{} has incoming reductions but is marked isolated",
+            p.name
+        );
+        assert!(p.num_variants > 0);
+    }
+}
+
+// ---- Reachability checks ----
+
+#[test]
+fn test_reachability_from_3sat_returns_valid_report() {
+    let graph = ReductionGraph::new();
+    let report = check_reachability_from_3sat(&graph);
+
+    assert!(report.total_types > 0);
+    // 3-SAT (KSatisfiability) should be reachable at distance 0
+    assert_eq!(report.reachable.get("KSatisfiability"), Some(&0));
+    // Satisfiability should be reachable (KSat -> Sat exists)
+    assert!(report.reachable.contains_key("Satisfiability"));
+    // Total should add up
+    assert_eq!(
+        report.reachable.len() + report.unreachable.len(),
+        report.total_types
+    );
+}
+
+#[test]
+fn test_reachability_classifies_known_problems() {
+    let graph = ReductionGraph::new();
+    let report = check_reachability_from_3sat(&graph);
+
+    // MaximumMatching is in P
+    if let Some(p) = report.unreachable.iter().find(|p| p.name == "MaximumMatching") {
+        assert_eq!(p.reason, UnreachableReason::InP);
+    }
+
+    // Factoring is intermediate
+    if let Some(p) = report.unreachable.iter().find(|p| p.name == "Factoring") {
+        assert_eq!(p.reason, UnreachableReason::Intermediate);
+    }
+}
+
+#[test]
+fn test_reachability_hop_distances_are_monotonic() {
+    let graph = ReductionGraph::new();
+    let report = check_reachability_from_3sat(&graph);
+
+    // For every reachable problem at distance d > 0, there must be a
+    // predecessor at distance d-1 that has an outgoing reduction to it
+    for (&name, &hops) in &report.reachable {
+        if hops == 0 {
+            continue;
+        }
+        let has_predecessor = graph.incoming_reductions(name).iter().any(|edge| {
+            report
+                .reachable
+                .get(edge.source_name)
+                .is_some_and(|&h| h < hops)
+        });
+        assert!(
+            has_predecessor,
+            "{name} at distance {hops} has no predecessor with smaller distance"
         );
     }
 }

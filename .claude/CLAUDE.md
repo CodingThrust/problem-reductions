@@ -160,7 +160,8 @@ Reduction graph nodes use variant key-value pairs from `Problem::variant()`:
 ### File Naming
 - Reduction files: `src/rules/<source>_<target>.rs` (e.g., `maximumindependentset_qubo.rs`)
 - Model files: `src/models/<category>/<name>.rs` — category is by input structure: `graph/` (graph input), `formula/` (boolean formula/circuit), `set/` (universe + subsets), `algebraic/` (matrix/linear system/lattice), `misc/` (other)
-- Example files: `examples/reduction_<source>_to_<target>.rs` (must have `pub fn run()` + `fn main() { run() }`)
+- Canonical examples: builder functions in `src/example_db/rule_builders.rs` and `src/example_db/model_builders.rs`
+- Example binaries in `examples/`: utility/export tools and pedagogical demos only (not per-reduction files)
 - Test naming: `test_<source>_to_<target>_closed_loop`
 
 ### Paper (docs/paper/reductions.typ)
