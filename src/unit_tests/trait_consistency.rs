@@ -100,6 +100,10 @@ fn test_all_problems_implement_trait_correctly() {
         "MinimumSumMulticenter",
     );
     check_problem_trait(
+        &HamiltonianCircuit::new(SimpleGraph::new(3, vec![(0, 1), (1, 2), (2, 0)])),
+        "HamiltonianCircuit",
+    );
+    check_problem_trait(
         &HamiltonianPath::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)])),
         "HamiltonianPath",
     );
