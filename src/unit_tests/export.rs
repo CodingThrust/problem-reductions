@@ -261,3 +261,24 @@ fn test_result_data_serialization() {
         serde_json::json!([1, 0])
     );
 }
+
+// ---- variant_to_map normalization ----
+
+#[test]
+fn export_variant_to_map_normalizes_empty_graph() {
+    // When a variant has an empty graph value, variant_to_map should normalize
+    // it to "SimpleGraph" for consistency with the reduction graph convention.
+    let map = variant_to_map(vec![("graph", ""), ("weight", "i32")]);
+    assert_eq!(
+        map["graph"], "SimpleGraph",
+        "variant_to_map should normalize empty graph to SimpleGraph"
+    );
+    assert_eq!(map["weight"], "i32");
+}
+
+#[test]
+fn export_variant_to_map_preserves_explicit_graph() {
+    let map = variant_to_map(vec![("graph", "PlanarGraph"), ("weight", "f64")]);
+    assert_eq!(map["graph"], "PlanarGraph");
+    assert_eq!(map["weight"], "f64");
+}

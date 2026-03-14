@@ -164,9 +164,8 @@ fn test_universe_size_empty() {
 #[test]
 fn test_setpacking_paper_example() {
     // Paper: U={0..5}, sets {0,1},{1,2},{2,3},{3,4}, max packing {S_0,S_2}
-    let problem = MaximumSetPacking::<i32>::new(vec![
-        vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4],
-    ]);
+    let problem =
+        MaximumSetPacking::<i32>::new(vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]]);
     let config = vec![1, 0, 1, 0]; // {S_0, S_2}
     let result = problem.evaluate(&config);
     assert!(result.is_valid());

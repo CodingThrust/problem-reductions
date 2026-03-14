@@ -642,6 +642,19 @@ impl ReductionGraph {
         variants
     }
 
+    /// Get the declared default variant for a problem type.
+    ///
+    /// Returns the variant that was marked `default` in `declare_variants!`.
+    /// Returns `None` if the problem type is not registered or has no declared default.
+    ///
+    /// # Stub
+    /// Currently always returns `None`. Will return the actual declared default
+    /// once `declare_variants!` supports the `default` keyword.
+    pub fn default_variant_for(&self, _name: &str) -> Option<BTreeMap<String, String>> {
+        // Stub: not implemented yet
+        None
+    }
+
     /// Get the complexity expression for a specific variant.
     pub fn variant_complexity(
         &self,

@@ -120,9 +120,7 @@ fn test_is_valid_solution() {
 #[test]
 fn test_setcovering_paper_example() {
     // Paper: U=5, sets {0,1,2},{1,3},{2,3,4}, min cover {S_0,S_2}, weight=2
-    let problem = MinimumSetCovering::<i32>::new(5, vec![
-        vec![0, 1, 2], vec![1, 3], vec![2, 3, 4],
-    ]);
+    let problem = MinimumSetCovering::<i32>::new(5, vec![vec![0, 1, 2], vec![1, 3], vec![2, 3, 4]]);
     let config = vec![1, 0, 1]; // {S_0, S_2} covers all of {0,1,2,3,4}
     let result = problem.evaluate(&config);
     assert!(result.is_valid());

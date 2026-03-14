@@ -461,3 +461,51 @@ fn test_k_neighbors_zero_hops() {
     );
     assert!(neighbors.is_empty());
 }
+
+// ---- Default variant resolution ----
+
+#[test]
+fn default_variant_for_mis_uses_declared_default() {
+    let graph = ReductionGraph::new();
+    let default = graph.default_variant_for("MaximumIndependentSet");
+    assert!(
+        default.is_some(),
+        "MaximumIndependentSet should have a declared default variant"
+    );
+    let variant = default.unwrap();
+    assert_eq!(
+        variant.get("graph").map(|s| s.as_str()),
+        Some("SimpleGraph"),
+        "default MIS variant should use SimpleGraph"
+    );
+    assert_eq!(
+        variant.get("weight").map(|s| s.as_str()),
+        Some("One"),
+        "default MIS variant should use One (unit weight)"
+    );
+}
+
+#[test]
+fn default_variant_for_unknown_problem_returns_none() {
+    let graph = ReductionGraph::new();
+    let default = graph.default_variant_for("NonExistentProblem");
+    assert!(
+        default.is_none(),
+        "unknown problem should have no default variant"
+    );
+}
+
+#[test]
+fn default_variant_for_sat_returns_empty() {
+    // Satisfiability has no variant dimensions, so its default is an empty map
+    let graph = ReductionGraph::new();
+    let default = graph.default_variant_for("Satisfiability");
+    assert!(
+        default.is_some(),
+        "Satisfiability should have a declared default variant"
+    );
+    assert!(
+        default.unwrap().is_empty(),
+        "Satisfiability default variant should be empty (no dimensions)"
+    );
+}

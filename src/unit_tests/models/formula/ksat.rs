@@ -230,11 +230,14 @@ fn test_size_getters() {
 #[test]
 fn test_ksat_paper_example() {
     // Paper: 3-SAT, (x1∨x2∨x3)∧(¬x1∨¬x2∨x3)∧(x1∨¬x2∨¬x3), assignment (1,0,1)
-    let problem = KSatisfiability::<K3>::new(3, vec![
-        CNFClause::new(vec![1, 2, 3]),
-        CNFClause::new(vec![-1, -2, 3]),
-        CNFClause::new(vec![1, -2, -3]),
-    ]);
+    let problem = KSatisfiability::<K3>::new(
+        3,
+        vec![
+            CNFClause::new(vec![1, 2, 3]),
+            CNFClause::new(vec![-1, -2, 3]),
+            CNFClause::new(vec![1, -2, -3]),
+        ],
+    );
     assert!(problem.evaluate(&[1, 0, 1]));
 
     let solver = BruteForce::new();

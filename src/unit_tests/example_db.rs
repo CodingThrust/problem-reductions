@@ -123,9 +123,5 @@ fn test_build_rule_db_count_is_42() {
 #[test]
 fn test_build_model_db_count_is_28() {
     let db = build_model_db().expect("model db should build");
-    assert_eq!(
-        db.models.len(),
-        28,
-        "expected 28 canonical model examples"
-    );
+    assert_eq!(db.models.len(), 28, "expected 28 canonical model examples");
 }

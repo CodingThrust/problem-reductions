@@ -146,6 +146,68 @@ impl_variant_param!(K3, "k", parent: KN, cast: |_| KN, k: Some(3));
 impl_variant_param!(K2, "k", parent: KN, cast: |_| KN, k: Some(2));
 impl_variant_param!(K1, "k", parent: KN, cast: |_| KN, k: Some(1));
 
+// --- VariantSpec: canonical runtime representation of a problem variant ---
+
+use std::collections::BTreeMap;
+
+/// Canonical runtime representation of a problem variant.
+///
+/// Used for validated runtime lookups and normalization. Unlike raw
+/// `BTreeMap<String, String>`, a `VariantSpec` validates its dimensions
+/// at construction time and can normalize default values.
+#[derive(Clone, Debug, PartialEq, Eq, PartialOrd, Ord, Hash)]
+pub struct VariantSpec {
+    dims: BTreeMap<String, String>,
+}
+
+impl VariantSpec {
+    /// Create a `VariantSpec` from key-value pairs, rejecting duplicate dimensions.
+    ///
+    /// Returns an error if the same dimension key appears more than once.
+    pub fn try_from_pairs<I, K, V>(pairs: I) -> std::result::Result<Self, String>
+    where
+        I: IntoIterator<Item = (K, V)>,
+        K: Into<String>,
+        V: Into<String>,
+    {
+        let mut dims = BTreeMap::new();
+        for (k, v) in pairs {
+            let key = k.into();
+            let val = v.into();
+            if dims.insert(key.clone(), val).is_some() {
+                return Err(format!("duplicate dimension: {}", key));
+            }
+        }
+        Ok(Self { dims })
+    }
+
+    /// View the dimensions as a map.
+    pub fn as_map(&self) -> &BTreeMap<String, String> {
+        &self.dims
+    }
+
+    /// Normalize the variant by filling in default values for missing dimensions.
+    ///
+    /// For example, if a problem has a "graph" dimension but the variant doesn't
+    /// specify one, the normalized form should fill in "SimpleGraph" as the default.
+    ///
+    /// # Stub
+    /// Currently returns self unchanged. Will be implemented in Task 2/3.
+    pub fn normalize(&self) -> Self {
+        // Stub: no normalization yet
+        self.clone()
+    }
+
+    /// Check whether this variant is the declared default for its problem type.
+    ///
+    /// # Stub
+    /// Currently always returns `false`. Will be implemented in Task 2/3.
+    pub fn is_default(&self) -> bool {
+        // Stub: not implemented yet
+        false
+    }
+}
+
 #[cfg(test)]
 #[path = "unit_tests/variant.rs"]
 mod tests;
