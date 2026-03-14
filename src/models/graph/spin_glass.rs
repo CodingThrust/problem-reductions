@@ -261,6 +261,31 @@ crate::declare_variants! {
     opt SpinGlass<SimpleGraph, f64> => "2^num_spins",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "spin_glass_simplegraph_i32",
+        build: || {
+            let problem = SpinGlass::<SimpleGraph, i32>::without_fields(
+                5,
+                vec![
+                    ((0, 1), 1),
+                    ((1, 2), 1),
+                    ((3, 4), 1),
+                    ((0, 3), 1),
+                    ((1, 3), 1),
+                    ((1, 4), 1),
+                    ((2, 4), 1),
+                ],
+            );
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![1, 0, 1, 1, 0]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/spin_glass.rs"]
 mod tests;

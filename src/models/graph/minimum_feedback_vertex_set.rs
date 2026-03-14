@@ -167,6 +167,27 @@ crate::declare_variants! {
     default opt MinimumFeedbackVertexSet<i32> => "1.9977^num_vertices",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "minimum_feedback_vertex_set_i32",
+        build: || {
+            use crate::topology::DirectedGraph;
+            let problem = MinimumFeedbackVertexSet::new(
+                DirectedGraph::new(
+                    5,
+                    vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
+                ),
+                vec![1i32; 5],
+            );
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![1, 0, 0, 0, 0]],
+            )
+        },
+    }]
+}
+
 /// Check if a set of vertices is a feedback vertex set (removing them makes the graph a DAG).
 ///
 /// # Panics

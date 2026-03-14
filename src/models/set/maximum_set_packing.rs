@@ -214,6 +214,22 @@ pub(crate) fn is_set_packing(sets: &[Vec<usize>], selected: &[bool]) -> bool {
     is_valid_packing(sets, &config)
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "maximum_set_packing_i32",
+        build: || {
+            let problem = MaximumSetPacking::<i32>::new(
+                vec![vec![0, 1], vec![1, 2], vec![2, 3], vec![3, 4]],
+            );
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![1, 0, 1, 0]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/set/maximum_set_packing.rs"]
 mod tests;

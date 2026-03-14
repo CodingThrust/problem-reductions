@@ -202,6 +202,21 @@ pub(crate) fn is_set_cover(universe_size: usize, sets: &[Vec<usize>], selected: 
     (0..universe_size).all(|e| covered.contains(&e))
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "minimum_set_covering_i32",
+        build: || {
+            let problem =
+                MinimumSetCovering::<i32>::new(5, vec![vec![0, 1, 2], vec![1, 3], vec![2, 3, 4]]);
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![1, 0, 1]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/set/minimum_set_covering.rs"]
 mod tests;

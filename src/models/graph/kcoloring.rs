@@ -189,6 +189,22 @@ pub(crate) fn is_valid_coloring<G: Graph>(
     true
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "kcoloring_k3_simplegraph",
+        build: || {
+            use crate::topology::SimpleGraph;
+            let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+            let problem = KColoring::<K3, _>::new(graph);
+            crate::example_db::specs::satisfaction_example(
+                problem,
+                vec![vec![0, 1, 1, 0, 2]],
+            )
+        },
+    }]
+}
+
 crate::declare_variants! {
     default sat KColoring<KN, SimpleGraph> => "2^num_vertices",
     sat KColoring<K2, SimpleGraph> => "num_vertices + num_edges",

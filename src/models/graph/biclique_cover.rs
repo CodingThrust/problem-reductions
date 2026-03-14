@@ -250,6 +250,24 @@ crate::declare_variants! {
     default opt BicliqueCover => "2^num_vertices",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "biclique_cover",
+        build: || {
+            use crate::topology::BipartiteGraph;
+            let problem = BicliqueCover::new(
+                BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 1), (1, 2)]),
+                2,
+            );
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![1, 0, 0, 1, 1, 0, 1, 1, 0, 1]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/biclique_cover.rs"]
 mod tests;

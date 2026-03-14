@@ -258,6 +258,21 @@ pub(crate) fn is_hamiltonian_cycle<G: Graph>(graph: &G, selected: &[bool]) -> bo
     visit_count == n
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "traveling_salesman_simplegraph_i32",
+        build: || {
+            let graph = SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]);
+            let problem = TravelingSalesman::new(graph, vec![1, 3, 2, 2, 3, 1]);
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![1, 0, 1, 1, 0, 1]],
+            )
+        },
+    }]
+}
+
 crate::declare_variants! {
     default opt TravelingSalesman<SimpleGraph, i32> => "2^num_vertices",
 }

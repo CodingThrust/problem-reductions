@@ -137,6 +137,23 @@ macro_rules! impl_kcoloring_to_ilp {
 
 impl_kcoloring_to_ilp!(K1, K2, K3, K4);
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::topology::SimpleGraph;
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "kcoloring_to_ilp",
+        build: || {
+            let (n, edges) = crate::topology::small_graphs::petersen();
+            let source = KColoring::<K3, _>::new(SimpleGraph::new(n, edges));
+            crate::example_db::specs::direct_ilp_example::<_, bool, _>(
+                source,
+                crate::example_db::specs::keep_bool_source,
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/coloring_ilp.rs"]
 mod tests;

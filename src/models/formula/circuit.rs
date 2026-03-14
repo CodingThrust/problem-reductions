@@ -310,6 +310,33 @@ crate::declare_variants! {
     default sat CircuitSAT => "2^num_variables",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "circuit_sat",
+        build: || {
+            let problem = CircuitSAT::new(Circuit::new(vec![
+                Assignment::new(
+                    vec!["a".to_string()],
+                    BooleanExpr::and(vec![BooleanExpr::var("x1"), BooleanExpr::var("x2")]),
+                ),
+                Assignment::new(
+                    vec!["b".to_string()],
+                    BooleanExpr::or(vec![BooleanExpr::var("x1"), BooleanExpr::var("x2")]),
+                ),
+                Assignment::new(
+                    vec!["c".to_string()],
+                    BooleanExpr::xor(vec![BooleanExpr::var("a"), BooleanExpr::var("b")]),
+                ),
+            ]));
+            crate::example_db::specs::satisfaction_example(
+                problem,
+                vec![vec![0, 1, 1, 0, 1], vec![0, 1, 1, 1, 0]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/formula/circuit.rs"]
 mod tests;

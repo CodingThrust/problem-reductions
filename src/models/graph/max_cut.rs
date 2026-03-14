@@ -224,6 +224,21 @@ crate::declare_variants! {
     default opt MaxCut<SimpleGraph, i32> => "2^(2.372 * num_vertices / 3)",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "max_cut_simplegraph_i32",
+        build: || {
+            let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+            let problem = MaxCut::<_, i32>::unweighted(graph);
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![1, 0, 0, 1, 0]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/graph/max_cut.rs"]
 mod tests;

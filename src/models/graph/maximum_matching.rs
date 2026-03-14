@@ -229,6 +229,21 @@ crate::declare_variants! {
     default opt MaximumMatching<SimpleGraph, i32> => "num_vertices^3",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "maximum_matching_simplegraph_i32",
+        build: || {
+            let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+            let problem = MaximumMatching::<_, i32>::unit_weights(graph);
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![1, 0, 0, 0, 1, 0]],
+            )
+        },
+    }]
+}
+
 /// Check if a selection of edges forms a valid matching.
 ///
 /// # Panics

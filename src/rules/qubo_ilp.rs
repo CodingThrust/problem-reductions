@@ -99,6 +99,28 @@ impl ReduceTo<ILP<bool>> for QUBO<f64> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "qubo_to_ilp",
+        build: || {
+            let mut matrix = vec![vec![0.0; 4]; 4];
+            matrix[0][0] = -2.0;
+            matrix[1][1] = -3.0;
+            matrix[2][2] = -1.0;
+            matrix[3][3] = -4.0;
+            matrix[0][1] = 1.0;
+            matrix[1][2] = 2.0;
+            matrix[2][3] = -1.0;
+            let source = QUBO::from_matrix(matrix);
+            crate::example_db::specs::direct_best_example::<_, ILP<bool>, _>(
+                source,
+                |_, _| true,
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/qubo_ilp.rs"]
 mod tests;

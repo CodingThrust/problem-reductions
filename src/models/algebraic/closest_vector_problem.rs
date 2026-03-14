@@ -255,6 +255,24 @@ crate::declare_variants! {
     opt ClosestVectorProblem<f64> => "2^num_basis_vectors",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "closest_vector_problem_i32",
+        build: || {
+            let problem = ClosestVectorProblem::new(
+                vec![vec![2, 0], vec![1, 2]],
+                vec![2.8, 1.5],
+                vec![VarBounds::bounded(-2, 4), VarBounds::bounded(-2, 4)],
+            );
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![3, 3]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/algebraic/closest_vector_problem.rs"]
 mod tests;

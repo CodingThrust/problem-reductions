@@ -169,6 +169,20 @@ crate::declare_variants! {
     default opt Factoring => "exp((m + n)^(1/3) * log(m + n)^(2/3))",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "factoring",
+        build: || {
+            let problem = Factoring::new(2, 3, 15);
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![1, 1, 1, 0, 1]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/misc/factoring.rs"]
 mod tests;

@@ -175,6 +175,40 @@ crate::declare_variants! {
     opt MaximumIndependentSet<UnitDiskGraph, One>       => "2^sqrt(num_vertices)",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "maximum_independent_set_simplegraph_i32",
+        build: || {
+            let graph = SimpleGraph::new(
+                10,
+                vec![
+                    (0, 1),
+                    (1, 2),
+                    (2, 3),
+                    (3, 4),
+                    (4, 0),
+                    (5, 7),
+                    (7, 9),
+                    (9, 6),
+                    (6, 8),
+                    (8, 5),
+                    (0, 5),
+                    (1, 6),
+                    (2, 7),
+                    (3, 8),
+                    (4, 9),
+                ],
+            );
+            let problem = MaximumIndependentSet::new(graph, vec![1i32; 10]);
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![0, 1, 0, 1, 0, 1, 0, 0, 0, 1]],
+            )
+        },
+    }]
+}
+
 /// Check if a set of vertices forms an independent set.
 ///
 /// # Arguments

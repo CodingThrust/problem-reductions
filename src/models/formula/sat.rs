@@ -227,6 +227,27 @@ pub(crate) fn is_satisfying_assignment(
     })
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "satisfiability",
+        build: || {
+            let problem = Satisfiability::new(
+                3,
+                vec![
+                    CNFClause::new(vec![1, 2]),
+                    CNFClause::new(vec![-1, 3]),
+                    CNFClause::new(vec![-2, -3]),
+                ],
+            );
+            crate::example_db::specs::satisfaction_example(
+                problem,
+                vec![vec![1, 0, 1]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/formula/sat.rs"]
 mod tests;

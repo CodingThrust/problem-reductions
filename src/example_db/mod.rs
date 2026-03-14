@@ -13,6 +13,7 @@ use std::path::PathBuf;
 
 mod model_builders;
 mod rule_builders;
+pub(crate) mod specs;
 
 fn rule_key(example: &RuleExample) -> (ProblemRef, ProblemRef) {
     (example.source.problem_ref(), example.target.problem_ref())

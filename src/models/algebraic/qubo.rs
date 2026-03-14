@@ -195,6 +195,24 @@ crate::declare_variants! {
     default opt QUBO<f64> => "2^num_vars",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "qubo_f64",
+        build: || {
+            let problem = QUBO::from_matrix(vec![
+                vec![-1.0, 2.0, 0.0],
+                vec![0.0, -1.0, 2.0],
+                vec![0.0, 0.0, -1.0],
+            ]);
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![1, 0, 1]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/algebraic/qubo.rs"]
 mod tests;

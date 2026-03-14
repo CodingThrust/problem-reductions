@@ -61,6 +61,57 @@ impl ReduceTo<MaximumClique<SimpleGraph, i32>> for MaximumIndependentSet<SimpleG
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::models::algebraic::QUBO;
+    use crate::rules::{Minimize, MinimizeSteps};
+    use crate::types::ProblemSize;
+
+    fn mis_petersen() -> MaximumIndependentSet<SimpleGraph, i32> {
+        let (n, edges) = crate::topology::small_graphs::petersen();
+        MaximumIndependentSet::new(SimpleGraph::new(n, edges), vec![1i32; 10])
+    }
+
+    vec![
+        crate::example_db::specs::RuleExampleSpec {
+            id: "maximumindependentset_to_maximumclique",
+            build: || {
+                let source = MaximumIndependentSet::new(
+                    SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
+                    vec![1i32; 5],
+                );
+                crate::example_db::specs::direct_best_example::<
+                    _,
+                    MaximumClique<SimpleGraph, i32>,
+                    _,
+                >(source, |_, _| true)
+            },
+        },
+        crate::example_db::specs::RuleExampleSpec {
+            id: "maximumindependentset_to_ilp",
+            build: || {
+                crate::example_db::specs::path_ilp_example::<_, bool, _, _>(
+                    mis_petersen(),
+                    ProblemSize::new(vec![]),
+                    MinimizeSteps,
+                    |_, _| true,
+                )
+            },
+        },
+        crate::example_db::specs::RuleExampleSpec {
+            id: "maximumindependentset_to_qubo",
+            build: || {
+                crate::example_db::specs::path_best_example::<_, QUBO<f64>, _, _>(
+                    mis_petersen(),
+                    ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 15)]),
+                    Minimize("num_vars"),
+                    |_, _| true,
+                )
+            },
+        },
+    ]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/maximumindependentset_maximumclique.rs"]
 mod tests;

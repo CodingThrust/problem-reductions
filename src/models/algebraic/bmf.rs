@@ -235,6 +235,27 @@ crate::declare_variants! {
     default opt BMF => "2^(rows * rank + rank * cols)",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "bmf",
+        build: || {
+            let problem = BMF::new(
+                vec![
+                    vec![true, true, false],
+                    vec![true, true, true],
+                    vec![false, true, true],
+                ],
+                2,
+            );
+            crate::example_db::specs::optimization_example(
+                problem,
+                vec![vec![1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/algebraic/bmf.rs"]
 mod tests;

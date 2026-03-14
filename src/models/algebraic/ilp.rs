@@ -279,6 +279,29 @@ crate::declare_variants! {
     opt ILP<i32> => "num_vars^num_vars",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "ilp_i32",
+        build: || {
+            let problem = ILP::<i32>::new(
+                2,
+                vec![
+                    LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 5.0),
+                    LinearConstraint::le(vec![(0, 4.0), (1, 7.0)], 28.0),
+                ],
+                vec![(0, -5.0), (1, -6.0)],
+                ObjectiveSense::Minimize,
+            );
+            crate::example_db::specs::explicit_example(
+                problem,
+                vec![vec![0, 4]],
+                vec![vec![3, 2]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/algebraic/ilp.rs"]
 mod tests;

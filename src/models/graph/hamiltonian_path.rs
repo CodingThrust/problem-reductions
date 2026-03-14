@@ -146,6 +146,32 @@ pub(crate) fn is_valid_hamiltonian_path<G: Graph>(graph: &G, config: &[usize]) -
     true
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "hamiltonian_path_simplegraph",
+        build: || {
+            let problem = HamiltonianPath::new(SimpleGraph::new(
+                6,
+                vec![
+                    (0, 1),
+                    (0, 2),
+                    (1, 3),
+                    (2, 3),
+                    (3, 4),
+                    (3, 5),
+                    (4, 2),
+                    (5, 1),
+                ],
+            ));
+            crate::example_db::specs::satisfaction_example(
+                problem,
+                vec![vec![0, 2, 4, 3, 1, 5]],
+            )
+        },
+    }]
+}
+
 // Use Bjorklund (2014) O*(1.657^n) as best known for general undirected graphs
 crate::declare_variants! {
     default sat HamiltonianPath<SimpleGraph> => "1.657^num_vertices",

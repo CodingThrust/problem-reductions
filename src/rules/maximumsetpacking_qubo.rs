@@ -61,6 +61,29 @@ impl ReduceTo<QUBO<f64>> for MaximumSetPacking<f64> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::models::set::MaximumSetPacking;
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "maximumsetpacking_to_qubo",
+        build: || {
+            let source = MaximumSetPacking::<f64>::new(vec![
+                vec![0, 1, 2],
+                vec![2, 3, 4],
+                vec![4, 5, 6],
+                vec![6, 7, 0],
+                vec![1, 3, 5],
+                vec![0, 4, 7],
+            ]);
+            crate::example_db::specs::direct_best_example::<_, QUBO<f64>, _>(
+                source,
+                |_, _| true,
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/maximumsetpacking_qubo.rs"]
 mod tests;
