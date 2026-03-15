@@ -90,7 +90,12 @@ impl Serialize for PartiallyOrderedKnapsack {
 impl<'de> Deserialize<'de> for PartiallyOrderedKnapsack {
     fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         let raw = PartiallyOrderedKnapsackRaw::deserialize(deserializer)?;
-        Ok(Self::new(raw.sizes, raw.values, raw.precedences, raw.capacity))
+        Ok(Self::new(
+            raw.sizes,
+            raw.values,
+            raw.precedences,
+            raw.capacity,
+        ))
     }
 }
 

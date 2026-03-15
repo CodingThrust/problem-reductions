@@ -233,8 +233,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
                         (4, 9),
                     ],
                 );
-                let problem =
-                    MaximumIndependentSet::new(graph, vec![5, 1, 1, 1, 1, 3, 1, 1, 1, 3]);
+                let problem = MaximumIndependentSet::new(graph, vec![5, 1, 1, 1, 1, 3, 1, 1, 1, 3]);
                 crate::example_db::specs::optimization_example(
                     problem,
                     vec![vec![1, 0, 1, 0, 0, 0, 0, 0, 1, 1]],
