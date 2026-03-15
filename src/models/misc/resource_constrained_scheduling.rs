@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ResourceConstrainedScheduling",
+        display_name: "Resource Constrained Scheduling",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Schedule unit-length tasks on m processors with resource constraints and a deadline",
         fields: &[
@@ -184,7 +187,7 @@ impl Problem for ResourceConstrainedScheduling {
 impl SatisfactionProblem for ResourceConstrainedScheduling {}
 
 crate::declare_variants! {
-    ResourceConstrainedScheduling => "deadline ^ num_tasks",
+    default sat ResourceConstrainedScheduling => "deadline ^ num_tasks",
 }
 
 #[cfg(test)]

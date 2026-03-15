@@ -516,6 +516,32 @@
     ]
   },
   {
+    "name": "ResourceConstrainedScheduling",
+    "description": "Schedule unit-length tasks on m processors with resource constraints and a deadline",
+    "fields": [
+      {
+        "name": "num_processors",
+        "type_name": "usize",
+        "description": "Number of identical processors m"
+      },
+      {
+        "name": "resource_bounds",
+        "type_name": "Vec<u64>",
+        "description": "Resource bound B_i for each resource i"
+      },
+      {
+        "name": "resource_requirements",
+        "type_name": "Vec<Vec<u64>>",
+        "description": "R_i(t) for each task t and resource i (n x r matrix)"
+      },
+      {
+        "name": "deadline",
+        "type_name": "u64",
+        "description": "Overall deadline D"
+      }
+    ]
+  },
+  {
     "name": "RuralPostman",
     "description": "Find a circuit covering required edges with total length at most B (Rural Postman Problem)",
     "fields": [
