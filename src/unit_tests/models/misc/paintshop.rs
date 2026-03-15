@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::Direction;
 include!("../../jl_helpers.rs");
@@ -136,4 +136,18 @@ fn test_size_getters() {
     let problem = PaintShop::new(vec!["a", "b", "a", "b"]);
     assert_eq!(problem.num_sequence(), 4);
     assert_eq!(problem.num_cars(), 2);
+}
+
+#[test]
+fn test_paintshop_paper_example() {
+    // Paper: sequence (A,B,A,C,B,C), optimal 2 color changes
+    let problem = PaintShop::new(vec!["A", "B", "A", "C", "B", "C"]);
+    assert_eq!(problem.num_cars(), 3);
+
+    // Car order: A=0, B=1, C=2 (sorted)
+    // Config [0, 0, 1]: A first=0, B first=0, C first=1
+    // Coloring: A(0), B(0), A(1), C(1), B(1), C(0) -> [0,0,1,1,1,0] -> 2 switches
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), 2);
 }

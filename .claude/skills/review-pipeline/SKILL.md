@@ -1,17 +1,19 @@
 ---
 name: review-pipeline
-description: Pick a PR from the review-agentic board column, fix Copilot review comments, check issue/human comments, fix CI, run agentic feature tests, then move to In Review
+description: Pick a PR from the Review pool board column, fix Copilot review comments, check issue/human comments, fix CI, run agentic feature tests, then move to Final review
 ---
 
 # Review Pipeline
 
-Pick PRs from the `review-agentic` column on the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1). For each PR: wait for Copilot review, fix Copilot comments, check and address issue/human comments, fix CI, run agentic feature tests, then move to `In Review`.
+Pick PRs from the `Review pool` column on the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1). For each PR: wait for Copilot review, fix Copilot comments, check and address issue/human comments, fix CI, run agentic feature tests, then move to `Final review`.
 
 ## Invocation
 
-- `/review-pipeline` -- pick the next review-agentic item
+- `/review-pipeline` -- pick the next Review pool item
 - `/review-pipeline 570` -- process a specific PR number
-- `/review-pipeline --all` -- batch-process all review-agentic items
+- `/review-pipeline --all` -- batch-process all Review pool items
+
+For Codex, open this `SKILL.md` directly and treat the slash-command forms above as aliases. The Makefile `run-review` target already does this translation.
 
 ## Constants
 
@@ -21,9 +23,10 @@ GitHub Project board IDs (for `gh project item-edit`):
 |----------|-------|
 | `PROJECT_ID` | `PVT_kwDOBrtarc4BRNVy` |
 | `STATUS_FIELD_ID` | `PVTSSF_lADOBrtarc4BRNVyzg_GmQc` |
-| `STATUS_REVIEW_AGENTIC` | `b2f16561` |
-| `STATUS_IN_REVIEW` | `df73e18b` |
-| `STATUS_READY` | `61e4505c` |
+| `STATUS_REVIEW_POOL` | `7082ed60` |
+| `STATUS_UNDER_REVIEW` | `f04790ca` |
+| `STATUS_FINAL_REVIEW` | `51a3d8bb` |
+| `STATUS_READY` | `f37d0d80` |
 
 ## Prerequisites
 
@@ -35,13 +38,13 @@ This skill runs **fully autonomously** -- no confirmation prompts, no user quest
 
 ## Steps
 
-### 0. Discover review-agentic Items
+### 0. Discover Review pool Items
 
 ```bash
 gh project item-list 8 --owner CodingThrust --format json --limit 500
 ```
 
-Filter items where `status == "review-agentic"`. Each item should have an associated PR. Extract the PR number from the item title or linked issue.
+Filter items where `status == "Review pool"`. Each item should have an associated PR. Extract the PR number from the item title or linked issue.
 
 #### 0a. Check Copilot Review Status
 
@@ -56,19 +59,33 @@ A PR is **eligible** only if the count is ≥ 1 (Copilot has submitted at least 
 
 #### 0b. Print the List
 
-Print all review-agentic items with their Copilot status:
+Print all Review pool items with their Copilot status:
 
 ```
-review-agentic PRs:
+Review pool PRs:
   #570  Fix #117: [Model] GraphPartitioning     [copilot reviewed]
   #571  Fix #97: [Rule] BinPacking to ILP       [waiting for Copilot]
 ```
 
-**If a specific PR number was provided:** verify it is in the review-agentic column. If it is waiting for Copilot, STOP with a message: `PR #N is waiting for Copilot review. Re-run after Copilot has reviewed.`
+**If a specific PR number was provided:** verify it is in the Review pool column. If it is waiting for Copilot, STOP with a message: `PR #N is waiting for Copilot review. Re-run after Copilot has reviewed.`
 
 **If `--all`:** process only eligible (Copilot-reviewed) items in order (lowest PR number first). Skip waiting items.
 
-**Otherwise:** pick the first eligible item. If no items are eligible, STOP with: `No review-agentic PRs have been reviewed by Copilot yet.`
+**Otherwise:** pick the first eligible item. If no items are eligible, STOP with: `No Review pool PRs have been reviewed by Copilot yet.`
+
+### 0g. Claim: Move to "Under review"
+
+**Immediately** move the chosen PR to the `Under review` column to signal that an agent is actively working on it. This prevents other agents from picking the same PR:
+
+```bash
+gh project item-edit \
+  --id <ITEM_ID> \
+  --project-id PVT_kwDOBrtarc4BRNVy \
+  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
+  --single-select-option-id f04790ca
+```
+
+In `--all` mode, claim each PR right before processing it (not all at once).
 
 ### 1. Create Worktree and Checkout PR Branch
 
@@ -89,6 +106,12 @@ All subsequent steps run inside the worktree.
 
 ### 1a. Resolve Conflicts with Main
 
+**IMPORTANT:** The `add-model` and `add-rule` skills evolve frequently. When merging main into a PR branch, conflicts in skill-generated code are common. Before resolving conflicts:
+
+1. Run `git diff origin/main...HEAD -- .claude/skills/add-model/ .claude/skills/add-rule/` to see if these skills changed on main since the PR was created.
+2. If they changed, read the current versions on main (`git show origin/main:.claude/skills/add-model/SKILL.md` and `git show origin/main:.claude/skills/add-rule/SKILL.md`) to understand what's different.
+3. When resolving conflicts in model/rule implementation files, prefer the patterns from main's current skills — the PR's implementation may be based on outdated skill instructions.
+
 Check if the branch has merge conflicts with main:
 
 ```bash
@@ -99,9 +122,21 @@ git merge origin/main --no-edit
 - If the merge succeeds cleanly: push the merge commit and continue.
 - If there are conflicts:
   1. Inspect the conflicting files with `git diff --name-only --diff-filter=U`.
-  2. Resolve conflicts (prefer the PR branch for new code, main for regenerated artifacts like JSON).
-  3. Stage resolved files, commit, and push.
-- If conflicts are too complex to resolve automatically (e.g., overlapping logic changes in the same function): abort the merge (`git merge --abort`), leave the PR in review-agentic, and report: `PR #N has complex merge conflicts with main — needs manual resolution.` Then STOP processing this PR.
+  2. Compare the current skill versions on main vs the PR branch to understand which patterns are current.
+  3. Resolve conflicts (prefer main's patterns for skill-generated code, the PR branch for problem-specific logic, main for regenerated artifacts like JSON).
+  4. Stage resolved files, commit, and push.
+- If conflicts are too complex to resolve automatically (e.g., overlapping logic changes in the same function):
+  1. Abort the merge: `git merge --abort`
+  2. Move the project item back to `Review pool`:
+     ```bash
+     gh project item-edit \
+       --id <ITEM_ID> \
+       --project-id PVT_kwDOBrtarc4BRNVy \
+       --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
+       --single-select-option-id 7082ed60
+     ```
+  3. Report: `PR #N has complex merge conflicts with main — needs manual resolution.`
+  4. STOP processing this PR.
 
 ### 2. Fix Copilot Review Comments
 
@@ -182,6 +217,22 @@ Actionable comments include: code suggestions, bug reports, requests for additio
 
 If there are no actionable unaddressed comments: skip to next step.
 
+### 2b. Structural Completeness Check (REQUIRED)
+
+Run `/review-implementation` to catch structural gaps (missing paper entries, missing registrations, missing tests) that Copilot and human reviewers may not flag:
+
+```
+/review-implementation
+```
+
+This dispatches structural + quality subagents with fresh context. If findings include FAIL items:
+
+1. **Auto-fix** structural FAILs (missing registrations, missing test files, etc.)
+2. **For missing paper entries** (checks #15/#16 for models, check #14 for rules): invoke `/write-model-in-paper` or `/write-rule-in-paper` as appropriate — do NOT skip these as "unfixable"
+3. **Commit and push** all fixes before proceeding
+
+If all structural checks pass: continue to next step.
+
 ### 3. Agentic Feature Test (REQUIRED)
 
 **This step is mandatory — do NOT skip or substitute with manual testing.**
@@ -240,7 +291,7 @@ For each retry:
 
 4. Increment retry counter. If `< 3`, go back to step 1. If `= 3`, give up.
 
-**After 3 failed retries:** leave PR open, still move to In Review for human triage.
+**After 3 failed retries:** leave PR open, still move to Final review for human triage.
 
 ### 5. Clean Up Worktree
 
@@ -249,14 +300,14 @@ cd "$REPO_ROOT"
 git worktree remove "$WORKTREE_DIR" --force
 ```
 
-### 6. Move to "In Review"
+### 6. Move to "Final review"
 
 ```bash
 gh project item-edit \
   --id <ITEM_ID> \
   --project-id PVT_kwDOBrtarc4BRNVy \
   --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id df73e18b
+  --single-select-option-id 51a3d8bb
 ```
 
 ### 7. Report
@@ -271,9 +322,10 @@ gh pr comment $PR --body "$(cat <<'EOF'
 |-------|--------|
 | Copilot comments | 3 fixed |
 | Issue/human comments | 2 checked, 1 fixed |
+| Structural review | 17/17 passed |
 | CI | green |
 | Agentic test | passed |
-| Board | review-agentic → In Review |
+| Board | Review pool → Under review → Final review |
 
 🤖 Generated by review-pipeline
 EOF
@@ -289,21 +341,22 @@ If `--all` was specified, repeat Steps 1-7 for each PR (including posting a PR c
 ```
 === Review Pipeline Batch Report ===
 
-| PR   | Title                              | Copilot | Issue/Human | CI      | Agentic Test | Board      |
-|------|------------------------------------|---------|-------------|---------|--------------|------------|
-| #570 | Fix #117: [Model] GraphPartitioning| 3 fixed | 1 fixed     | green   | passed       | In Review  |
-| #571 | Fix #97: [Rule] BinPacking to ILP  | 0       | 0           | green   | passed       | In Review  |
+| PR   | Title                              | Copilot | Issue/Human | Structural | CI      | Agentic Test | Board      |
+|------|------------------------------------|---------|-------------|------------|---------|--------------|------------|
+| #570 | Fix #117: [Model] GraphPartitioning| 3 fixed | 1 fixed     | 17/17      | green   | passed       | Final review  |
+| #571 | Fix #97: [Rule] BinPacking to ILP  | 0       | 0           | 14/14      | green   | passed       | Final review  |
 
-Completed: 2/2 | All moved to In Review
+Completed: 2/2 | All moved to Final review
 ```
 
 ## Common Mistakes
 
 | Mistake | Fix |
 |---------|-----|
-| PR not in review-agentic column | Verify status before processing; STOP if not review-agentic |
+| PR not in Review pool column | Verify status before processing; STOP if not Review pool |
 | Picking a PR before Copilot has reviewed | Check `pulls/$PR/reviews` for copilot-pull-request-reviewer[bot]; skip if absent |
 | Missing project scopes | Run `gh auth refresh -s read:project,project` |
+| Skipping review-implementation | Always run structural completeness check in Step 2b — it catches gaps Copilot misses (paper entries, CLI registration, trait_consistency) |
 | Skipping agentic tests | Always run test-feature even if CI is green |
 | Not checking out the right branch | Use `gh pr view` to get the exact branch name |
 | Worktree left behind on failure | Always clean up with `git worktree remove` in Step 5 |

@@ -3,7 +3,7 @@
 //! Given a lattice basis B and target vector t, find integer coefficients x
 //! minimizing ‖Bx - t‖₂.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 use serde::{Deserialize, Serialize};
@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "ClosestVectorProblem",
+        display_name: "Closest Vector Problem",
+        aliases: &["CVP"],
+        dimensions: &[VariantDimension::new("weight", "i32", &["i32", "f64"])],
         module_path: module_path!(),
         description: "Find the closest lattice point to a target vector",
         fields: &[
@@ -248,8 +251,23 @@ where
 }
 
 crate::declare_variants! {
-    ClosestVectorProblem<i32> => "2^num_basis_vectors",
-    ClosestVectorProblem<f64> => "2^num_basis_vectors",
+    default opt ClosestVectorProblem<i32> => "2^num_basis_vectors",
+    opt ClosestVectorProblem<f64> => "2^num_basis_vectors",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "closest_vector_problem_i32",
+        build: || {
+            let problem = ClosestVectorProblem::new(
+                vec![vec![2, 0], vec![1, 2]],
+                vec![2.8, 1.5],
+                vec![VarBounds::bounded(-2, 4), VarBounds::bounded(-2, 4)],
+            );
+            crate::example_db::specs::optimization_example(problem, vec![vec![3, 3]])
+        },
+    }]
 }
 
 #[cfg(test)]

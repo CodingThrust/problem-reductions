@@ -10,7 +10,7 @@ pub(crate) mod parser;
 use proc_macro::TokenStream;
 use proc_macro2::TokenStream as TokenStream2;
 use quote::quote;
-use std::collections::HashSet;
+use std::collections::{HashMap, HashSet};
 use syn::{parse_macro_input, GenericArgument, ItemImpl, Path, PathArguments, Type};
 
 /// Attribute macro for automatic reduction registration.
@@ -370,13 +370,24 @@ fn extract_target_from_trait(path: &Path) -> syn::Result<Type> {
 
 // --- declare_variants! proc macro ---
 
+/// Solver kind for dispatch generation.
+#[derive(Debug, Clone, Copy)]
+enum SolverKind {
+    /// Optimization problem — uses `find_best`.
+    Opt,
+    /// Satisfaction problem — uses `find_satisfying`.
+    Sat,
+}
+
 /// Input for the `declare_variants!` proc macro.
 struct DeclareVariantsInput {
     entries: Vec<DeclareVariantEntry>,
 }
 
-/// A single entry: `Type => "complexity_string"`.
+/// A single entry: `[default] opt|sat Type => "complexity_string"`.
 struct DeclareVariantEntry {
+    is_default: bool,
+    solver_kind: SolverKind,
     ty: Type,
     complexity: syn::LitStr,
 }
@@ -385,10 +396,48 @@ impl syn::parse::Parse for DeclareVariantsInput {
     fn parse(input: syn::parse::ParseStream) -> syn::Result<Self> {
         let mut entries = Vec::new();
         while !input.is_empty() {
+            // Optionally accept a `default` keyword before the type
+            let is_default = input.peek(syn::Token![default]);
+            if is_default {
+                input.parse::<syn::Token![default]>()?;
+            }
+
+            // Require `opt` or `sat` keyword
+            let solver_kind = if input.peek(syn::Ident) {
+                let fork = input.fork();
+                if let Ok(ident) = fork.parse::<syn::Ident>() {
+                    match ident.to_string().as_str() {
+                        "opt" => {
+                            input.parse::<syn::Ident>()?; // consume
+                            SolverKind::Opt
+                        }
+                        "sat" => {
+                            input.parse::<syn::Ident>()?; // consume
+                            SolverKind::Sat
+                        }
+                        _ => {
+                            return Err(syn::Error::new(
+                                ident.span(),
+                                "expected `opt` or `sat` before type name",
+                            ));
+                        }
+                    }
+                } else {
+                    return Err(input.error("expected `opt` or `sat` before type name"));
+                }
+            } else {
+                return Err(input.error("expected `opt` or `sat` before type name"));
+            };
+
             let ty: Type = input.parse()?;
             input.parse::<syn::Token![=>]>()?;
             let complexity: syn::LitStr = input.parse()?;
-            entries.push(DeclareVariantEntry { ty, complexity });
+            entries.push(DeclareVariantEntry {
+                is_default,
+                solver_kind,
+                ty,
+                complexity,
+            });
 
             if input.peek(syn::Token![,]) {
                 input.parse::<syn::Token![,]>()?;
@@ -429,11 +478,49 @@ pub fn declare_variants(input: TokenStream) -> TokenStream {
 
 /// Generate code for all `declare_variants!` entries.
 fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenStream2> {
+    // Validate default markers per problem name.
+    // Group entries by their base type name (e.g., "MaximumIndependentSet").
+    let mut defaults_per_problem: HashMap<String, Vec<usize>> = HashMap::new();
+    let mut problem_names = HashSet::new();
+    for (i, entry) in input.entries.iter().enumerate() {
+        let base_name = extract_type_name(&entry.ty).unwrap_or_default();
+        problem_names.insert(base_name.clone());
+        if entry.is_default {
+            defaults_per_problem.entry(base_name).or_default().push(i);
+        }
+    }
+
+    // Check for multiple defaults for the same problem
+    for (name, indices) in &defaults_per_problem {
+        if indices.len() > 1 {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!(
+                    "`{name}` has more than one default variant; \
+                     only one entry per problem may be marked `default`"
+                ),
+            ));
+        }
+    }
+
+    for name in problem_names {
+        if !defaults_per_problem.contains_key(&name) {
+            return Err(syn::Error::new(
+                proc_macro2::Span::call_site(),
+                format!(
+                    "`{name}` must declare exactly one default variant; \
+                     mark one entry with `default`"
+                ),
+            ));
+        }
+    }
+
     let mut output = TokenStream2::new();
 
     for entry in &input.entries {
         let ty = &entry.ty;
         let complexity_str = entry.complexity.value();
+        let is_default = entry.is_default;
 
         // Parse the complexity expression to validate syntax
         let parsed = parser::parse_expr(&complexity_str).map_err(|e| {
@@ -470,6 +557,34 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
         // Generate compiled complexity eval fn
         let complexity_eval_fn = generate_complexity_eval_fn(&parsed, ty)?;
 
+        // Generate dispatch fields based on solver kind
+        let solve_body = match entry.solver_kind {
+            SolverKind::Opt => quote! {
+                let config = <crate::solvers::BruteForce as crate::solvers::Solver>::find_best(&solver, p)?;
+            },
+            SolverKind::Sat => quote! {
+                let config = <crate::solvers::BruteForce as crate::solvers::Solver>::find_satisfying(&solver, p)?;
+            },
+        };
+
+        let dispatch_fields = quote! {
+            factory: |data: serde_json::Value| -> Result<Box<dyn crate::registry::DynProblem>, serde_json::Error> {
+                let p: #ty = serde_json::from_value(data)?;
+                Ok(Box::new(p))
+            },
+            serialize_fn: |any: &dyn std::any::Any| -> Option<serde_json::Value> {
+                let p = any.downcast_ref::<#ty>()?;
+                Some(serde_json::to_value(p).expect("serialize failed"))
+            },
+            solve_fn: |any: &dyn std::any::Any| -> Option<(Vec<usize>, String)> {
+                let p = any.downcast_ref::<#ty>()?;
+                let solver = crate::solvers::BruteForce::new();
+                #solve_body
+                let evaluation = format!("{:?}", crate::traits::Problem::evaluate(p, &config));
+                Some((config, evaluation))
+            },
+        };
+
         output.extend(quote! {
             impl crate::traits::DeclaredVariant for #ty {}
 
@@ -479,6 +594,8 @@ fn generate_declare_variants(input: &DeclareVariantsInput) -> syn::Result<TokenS
                     variant_fn: || <#ty as crate::traits::Problem>::variant(),
                     complexity: #complexity_str,
                     complexity_eval_fn: #complexity_eval_fn,
+                    is_default: #is_default,
+                    #dispatch_fields
                 }
             }
 
@@ -506,4 +623,182 @@ fn generate_complexity_eval_fn(
             #eval_tokens
         }
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn declare_variants_accepts_single_default() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            default opt Foo => "1",
+        };
+        assert!(generate_declare_variants(&input).is_ok());
+    }
+
+    #[test]
+    fn declare_variants_requires_one_default_per_problem() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            opt Foo => "1",
+        };
+        let err = generate_declare_variants(&input).unwrap_err();
+        assert!(
+            err.to_string().contains("exactly one default"),
+            "expected 'exactly one default' in error, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn declare_variants_rejects_multiple_defaults_for_one_problem() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            default opt Foo => "1",
+            default opt Foo => "2",
+        };
+        let err = generate_declare_variants(&input).unwrap_err();
+        assert!(
+            err.to_string().contains("more than one default"),
+            "expected 'more than one default' in error, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn declare_variants_rejects_missing_default_marker() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            opt Foo => "1",
+        };
+        let err = generate_declare_variants(&input).unwrap_err();
+        assert!(
+            err.to_string().contains("exactly one default"),
+            "expected 'exactly one default' in error, got: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn declare_variants_marks_only_explicit_default() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            opt Foo => "1",
+            default opt Foo => "2",
+        };
+        let result = generate_declare_variants(&input);
+        assert!(result.is_ok());
+        let tokens = result.unwrap().to_string();
+        let true_count = tokens.matches("is_default : true").count();
+        let false_count = tokens.matches("is_default : false").count();
+        assert_eq!(true_count, 1, "should have exactly one default");
+        assert_eq!(false_count, 1, "should have exactly one non-default");
+    }
+
+    #[test]
+    fn declare_variants_accepts_solver_kind_markers() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            default opt Foo => "1",
+            default sat Bar => "2",
+        };
+        assert!(generate_declare_variants(&input).is_ok());
+    }
+
+    #[test]
+    fn declare_variants_rejects_missing_solver_kind() {
+        let result = syn::parse_str::<DeclareVariantsInput>("Foo => \"1\"");
+        assert!(
+            result.is_err(),
+            "expected parse error for missing solver kind"
+        );
+    }
+
+    #[test]
+    fn declare_variants_generates_find_best_for_opt_entries() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            default opt Foo => "1",
+        };
+        let tokens = generate_declare_variants(&input).unwrap().to_string();
+        assert!(tokens.contains("factory :"), "expected factory field");
+        assert!(
+            tokens.contains("serialize_fn :"),
+            "expected serialize_fn field"
+        );
+        assert!(tokens.contains("solve_fn :"), "expected solve_fn field");
+        assert!(
+            !tokens.contains("factory : None"),
+            "factory should not be None"
+        );
+        assert!(
+            !tokens.contains("serialize_fn : None"),
+            "serialize_fn should not be None"
+        );
+        assert!(
+            !tokens.contains("solve_fn : None"),
+            "solve_fn should not be None"
+        );
+        assert!(tokens.contains("find_best"), "expected find_best in tokens");
+    }
+
+    #[test]
+    fn declare_variants_generates_find_satisfying_for_sat_entries() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            default sat Foo => "1",
+        };
+        let tokens = generate_declare_variants(&input).unwrap().to_string();
+        assert!(tokens.contains("factory :"), "expected factory field");
+        assert!(
+            tokens.contains("serialize_fn :"),
+            "expected serialize_fn field"
+        );
+        assert!(tokens.contains("solve_fn :"), "expected solve_fn field");
+        assert!(
+            !tokens.contains("factory : None"),
+            "factory should not be None"
+        );
+        assert!(
+            !tokens.contains("serialize_fn : None"),
+            "serialize_fn should not be None"
+        );
+        assert!(
+            !tokens.contains("solve_fn : None"),
+            "solve_fn should not be None"
+        );
+        assert!(
+            tokens.contains("find_satisfying"),
+            "expected find_satisfying in tokens"
+        );
+    }
+
+    #[test]
+    fn reduction_rejects_unexpected_attribute() {
+        let extra_attr = syn::Ident::new("extra", proc_macro2::Span::call_site());
+        let parse_result = syn::parse2::<ReductionAttrs>(quote! {
+            #extra_attr = "unexpected", overhead = { num_vertices = "num_vertices" }
+        });
+        let err = match parse_result {
+            Ok(_) => panic!("unexpected reduction attribute should be rejected"),
+            Err(err) => err,
+        };
+        assert!(err.to_string().contains("unknown attribute: extra"));
+    }
+
+    #[test]
+    fn reduction_accepts_overhead_attribute() {
+        let attrs: ReductionAttrs = syn::parse_quote! {
+            overhead = { n = "n" }
+        };
+        assert!(attrs.overhead.is_some());
+    }
+
+    #[test]
+    fn declare_variants_codegen_uses_required_dispatch_fields() {
+        let input: DeclareVariantsInput = syn::parse_quote! {
+            default opt Foo => "1",
+        };
+        let tokens = generate_declare_variants(&input).unwrap().to_string();
+        assert!(tokens.contains("factory :"));
+        assert!(tokens.contains("serialize_fn :"));
+        assert!(tokens.contains("solve_fn :"));
+        assert!(!tokens.contains("factory : None"));
+        assert!(!tokens.contains("serialize_fn : None"));
+        assert!(!tokens.contains("solve_fn : None"));
+    }
 }

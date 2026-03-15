@@ -113,3 +113,17 @@ fn test_size_getters() {
     assert_eq!(problem.num_bits_first(), 3);
     assert_eq!(problem.num_bits_second(), 3);
 }
+
+#[test]
+fn test_factoring_paper_example() {
+    // Paper: N=15, m=2 bits, n=3 bits, p=3, q=5
+    let problem = Factoring::new(2, 3, 15);
+    assert_eq!(problem.num_variables(), 5);
+
+    // p=3 -> bits [1,1], q=5 -> bits [1,0,1]
+    let config = vec![1, 1, 1, 0, 1];
+    let (a, b) = problem.read_factors(&config);
+    assert_eq!(a, 3);
+    assert_eq!(b, 5);
+    assert!(problem.is_valid_solution(&config));
+}
