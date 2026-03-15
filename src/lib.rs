@@ -47,8 +47,8 @@ pub mod prelude {
     pub use crate::models::graph::{
         BalancedCompleteBipartiteSubgraph, BicliqueCover, BiconnectivityAugmentation,
         BoundedComponentSpanningForest, DirectedTwoCommodityIntegralFlow, GraphPartitioning,
-        HamiltonianPath, IsomorphicSpanningTree, LengthBoundedDisjointPaths, SpinGlass,
-        SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism,
+        HamiltonianPath, IsomorphicSpanningTree, KthBestSpanningTree, LengthBoundedDisjointPaths,
+        SpinGlass, SteinerTree, StrongConnectivityAugmentation, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,

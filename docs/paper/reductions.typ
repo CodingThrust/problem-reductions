@@ -71,6 +71,7 @@
   "UndirectedTwoCommodityIntegralFlow": [Undirected Two-Commodity Integral Flow],
   "LengthBoundedDisjointPaths": [Length-Bounded Disjoint Paths],
   "IsomorphicSpanningTree": [Isomorphic Spanning Tree],
+  "KthBestSpanningTree": [Kth Best Spanning Tree],
   "KColoring": [$k$-Coloring],
   "MinimumDominatingSet": [Minimum Dominating Set],
   "MaximumMatching": [Maximum Matching],
@@ -848,6 +849,41 @@ is feasible: each set induces a connected subgraph, the component weights are $2
       },
       caption: [Isomorphic Spanning Tree: the graph $G = K_#nv$ (left) contains a spanning tree isomorphic to the star $S_#(nt - 1)$ (right, blue edges). The identity mapping $pi(u_i) = v_i$ embeds all #t-edges.len() star edges into $G$. Center vertex $v_#(pi.at(0))$ shown in blue.],
       ) <fig:isomorphic-spanning-tree>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("KthBestSpanningTree")
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let m = edges.len()
+  let sol = x.optimal.at(0).config
+  let tree1 = sol.enumerate().filter(((i, v)) => i < m and v == 1).map(((i, _)) => edges.at(i))
+  let blue = graph-colors.at(0)
+  let gray = luma(190)
+  [
+    #problem-def("KthBestSpanningTree")[
+      Given an undirected graph $G = (V, E)$ with edge weights $w: E -> ZZ_(gt.eq 0)$, a positive integer $k$, and a bound $B in ZZ_(gt.eq 0)$, determine whether there exist $k$ distinct spanning trees $T_1, dots, T_k subset.eq E$ such that $sum_(e in T_i) w(e) lt.eq B$ for every $i$.
+    ][
+      Kth Best Spanning Tree is catalogued as ND9 in Garey and Johnson @garey1979 and is marked there with an asterisk because the general problem is NP-hard but not known to lie in NP. For any fixed value of $k$, Lawler's $k$-best enumeration framework gives a polynomial-time algorithm when combined with minimum-spanning-tree subroutines @lawler1972. For output-sensitive enumeration, Eppstein gave an algorithm that lists the $k$ smallest spanning trees of a weighted graph in $O(m log beta(m, n) + k^2)$ time @eppstein1992.
+
+      Variables: $k |E|$ binary values grouped into $k$ consecutive edge-selection blocks. Entry $x_(i, e) = 1$ means edge $e$ belongs to the $i$-th candidate tree. A configuration is satisfying exactly when each block selects a spanning tree, every selected tree has total weight at most $B$, and the $k$ blocks encode pairwise distinct edge sets.
+
+      *Example.* Consider the 5-vertex graph with weighted edges ${(0,1): 2, (0,2): 3, (1,2): 1, (1,3): 4, (2,3): 2, (2,4): 5, (3,4): 3, (0,4): 6}$. With $k = 3$ and $B = 12$, the spanning trees $T_1 = {(0,1), (1,2), (2,3), (3,4)}$, $T_2 = {(0,1), (1,2), (1,3), (3,4)}$, and $T_3 = {(0,2), (1,2), (2,3), (3,4)}$ have weights $8$, $10$, and $9$, respectively. They are all distinct and all satisfy the bound, so this instance is a YES-instance.
+
+      #figure({
+        canvas(length: 1cm, {
+          let pos = ((0.0, 1.2), (1.1, 2.0), (2.3, 1.2), (1.8, 0.0), (0.3, 0.0))
+          for (u, v) in edges {
+            let in-tree1 = tree1.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+            g-edge(pos.at(u), pos.at(v), stroke: if in-tree1 { 2pt + blue } else { 1pt + gray })
+          }
+          for (idx, p) in pos.enumerate() {
+            g-node(p, name: "v" + str(idx), fill: white, label: $v_#idx$)
+          }
+        })
+      },
+      caption: [Kth Best Spanning Tree example graph. Blue edges show $T_1 = {(0,1), (1,2), (2,3), (3,4)}$, one of the three bounded spanning trees used to certify the YES-instance for $k = 3$ and $B = 12$.],
+      ) <fig:kth-best-spanning-tree>
     ]
   ]
 }
