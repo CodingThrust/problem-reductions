@@ -274,6 +274,7 @@ pred create SpinGlass --graph 0-1,1-2 -o sg.json
 pred create MaxCut --graph 0-1,1-2,2-0 -o maxcut.json
 pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
 pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
+pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json
 ```
 
 Canonical examples are useful when you want a known-good instance from the paper/example database.

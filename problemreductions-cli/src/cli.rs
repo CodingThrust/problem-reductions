@@ -261,7 +261,8 @@ Examples:
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
-  pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1")]
+  pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
+  pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT). Omit when using --example.
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]

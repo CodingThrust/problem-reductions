@@ -374,52 +374,95 @@ The gray schema table shows the JSON field names used in the library's data stru
 
 In all graph problems below, $G = (V, E)$ denotes an undirected graph with $|V| = n$ vertices and $|E|$ edges.
 
-#problem-def("MaximumIndependentSet")[
-  Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
-][
-One of Karp's 21 NP-complete problems @karp1972, MIS appears in wireless network scheduling, register allocation, and coding theory @shannon1956. Solvable in polynomial time on bipartite graphs (König's theorem), interval graphs, chordal graphs, and cographs. The best known algorithm runs in $O^*(1.1996^n)$ time via measure-and-conquer branching @xiao2017. On geometric graphs (King's subgraph, triangular subgraph, unit disk graphs), MIS admits subexponential $O^*(c^sqrt(n))$ algorithms for some constant $c$, via geometric separation @alber2004.
+#{
+  // MIS has two entries in models.json; select the unit-weight variant
+  let x = model-db.models.filter(m => m.problem == "MaximumIndependentSet" and m.variant.at("weight", default: "") == "One").at(0)
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  // Pick optimal[2] = {v1, v3, v5, v9} to match figure
+  let sol = x.optimal.at(2)
+  let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let alpha = sol.metric.Valid
+  [
+    #problem-def("MaximumIndependentSet")[
+      Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that no two vertices in $S$ are adjacent: $forall u, v in S: (u, v) in.not E$.
+    ][
+    One of Karp's 21 NP-complete problems @karp1972, MIS appears in wireless network scheduling, register allocation, and coding theory @shannon1956. Solvable in polynomial time on bipartite graphs (König's theorem), interval graphs, chordal graphs, and cographs. The best known algorithm runs in $O^*(1.1996^n)$ time via measure-and-conquer branching @xiao2017. On geometric graphs (King's subgraph, triangular subgraph, unit disk graphs), MIS admits subexponential $O^*(c^sqrt(n))$ algorithms for some constant $c$, via geometric separation @alber2004.
 
-*Example.* Consider the Petersen graph $G$ with $n = 10$ vertices, $|E| = 15$ edges, and unit weights $w(v) = 1$ for all $v in V$. The graph is 3-regular (every vertex has degree 3). A maximum independent set is $S = {v_1, v_3, v_5, v_9}$ with $w(S) = sum_(v in S) w(v) = 4 = alpha(G)$. No two vertices in $S$ share an edge, and no vertex can be added without violating independence.
+    *Example.* Consider the Petersen graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and unit weights $w(v) = 1$ for all $v in V$. The graph is 3-regular (every vertex has degree 3). A maximum independent set is $S = {#S.map(i => $v_#i$).join(", ")}$ with $w(S) = sum_(v in S) w(v) = #alpha = alpha(G)$. No two vertices in $S$ share an edge, and no vertex can be added without violating independence.
 
-#figure({
-  let pg = petersen-graph()
-  draw-node-highlight(pg.vertices, pg.edges, (1, 3, 5, 9))
-},
-caption: [The Petersen graph with a maximum independent set $S = {v_1, v_3, v_5, v_9}$ shown in blue ($alpha(G) = 4$). Outer vertices $v_0, ..., v_4$ form a pentagon; inner vertices $v_5, ..., v_9$ form a pentagram. Unit weights $w(v_i) = 1$.],
-) <fig:petersen-mis>
-]
+    #figure({
+      let pg = petersen-graph()
+      draw-node-highlight(pg.vertices, pg.edges, S)
+    },
+    caption: [The Petersen graph with a maximum independent set $S = {#S.map(i => $v_#i$).join(", ")}$ shown in blue ($alpha(G) = #alpha$). Outer vertices $v_0, ..., v_4$ form a pentagon; inner vertices $v_5, ..., v_9$ form a pentagram. Unit weights $w(v_i) = 1$.],
+    ) <fig:petersen-mis>
+    ]
+  ]
+}
 
-#problem-def("MinimumVertexCover")[
-  Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
-][
-One of Karp's 21 NP-complete problems @karp1972. Vertex Cover is the complement of Independent Set: $S$ is a vertex cover iff $V backslash S$ is an independent set, so $|"VC"| + |"IS"| = n$. Central to parameterized complexity, admitting FPT algorithms in $O^*(1.2738^k)$ time parameterized by solution size $k$. The best known exact algorithm runs in $O^*(1.1996^n)$ via the MIS complement @xiao2017.
+#{
+  let x = load-model-example("MinimumVertexCover")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  // Pick optimal[2] = {v0, v3, v4} to match figure
+  let sol = x.optimal.at(2)
+  let cover = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let wS = sol.metric.Valid
+  let complement = sol.config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
+  let alpha = complement.len()
+  [
+    #problem-def("MinimumVertexCover")[
+      Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that every edge has at least one endpoint in $S$: $forall (u, v) in E: u in S or v in S$.
+    ][
+    One of Karp's 21 NP-complete problems @karp1972. Vertex Cover is the complement of Independent Set: $S$ is a vertex cover iff $V backslash S$ is an independent set, so $|"VC"| + |"IS"| = n$. Central to parameterized complexity, admitting FPT algorithms in $O^*(1.2738^k)$ time parameterized by solution size $k$. The best known exact algorithm runs in $O^*(1.1996^n)$ via the MIS complement @xiao2017.
 
-*Example.* Consider the house graph $G$ with $n = 5$ vertices, $|E| = 6$ edges, and unit weights $w(v) = 1$. A minimum vertex cover is $S = {v_0, v_3, v_4}$ with $w(S) = 3$: edge $(v_0, v_1)$ is covered by $v_0$; $(v_0, v_2)$ by $v_0$; $(v_1, v_3)$ by $v_3$; $(v_2, v_3)$ by $v_3$; $(v_2, v_4)$ by $v_4$; $(v_3, v_4)$ by both. The complement ${v_1, v_2}$ is a maximum independent set ($alpha(G) = 2$, confirming $|"VC"| = n - alpha = 3$).
+    *Example.* Consider the house graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and unit weights $w(v) = 1$. A minimum vertex cover is $S = {#cover.map(i => $v_#i$).join(", ")}$ with $w(S) = #wS$: #edges.map(((u, v)) => {
+      let by = if cover.contains(u) and cover.contains(v) { "both" } else if cover.contains(u) { $v_#u$ } else { $v_#v$ }
+      [$(v_#u, v_#v)$ by #by]
+    }).join("; "). The complement ${#complement.map(i => $v_#i$).join(", ")}$ is a maximum independent set ($alpha(G) = #alpha$, confirming $|"VC"| = n - alpha = #wS$).
 
-#figure({
-  let hg = house-graph()
-  draw-node-highlight(hg.vertices, hg.edges, (0, 3, 4))
-},
-caption: [The house graph with a minimum vertex cover $S = {v_0, v_3, v_4}$ shown in blue ($w(S) = 3$). Every edge is incident to at least one blue vertex.],
-) <fig:house-vc>
-]
+    #figure({
+      let hg = house-graph()
+      draw-node-highlight(hg.vertices, hg.edges, cover)
+    },
+    caption: [The house graph with a minimum vertex cover $S = {#cover.map(i => $v_#i$).join(", ")}$ shown in blue ($w(S) = #wS$). Every edge is incident to at least one blue vertex.],
+    ) <fig:house-vc>
+    ]
+  ]
+}
 
-#problem-def("MaxCut")[
-  Given $G = (V, E)$ with weights $w: E -> RR$, find partition $(S, overline(S))$ maximizing $sum_((u,v) in E: u in S, v in overline(S)) w(u, v)$.
-][
-Max-Cut is NP-hard on general graphs @barahona1982 but polynomial-time solvable on planar graphs. The Goemans-Williamson SDP relaxation achieves a 0.878-approximation ratio @goemans1995, which is optimal assuming the Unique Games Conjecture. The best known exact algorithm runs in $O^*(2^(omega n slash 3))$ time via algebraic 2-CSP techniques @williams2005, where $omega < 2.372$ is the matrix multiplication exponent.
+#{
+  let x = load-model-example("MaxCut")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  // Pick optimal[2] = S={v0, v3} to match figure
+  let sol = x.optimal.at(2)
+  let side-s = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let side-sbar = sol.config.enumerate().filter(((i, v)) => v == 0).map(((i, _)) => i)
+  let cut-val = sol.metric.Valid
+  let cut-edges = edges.filter(e => side-s.contains(e.at(0)) != side-s.contains(e.at(1)))
+  let uncut-edges = edges.filter(e => side-s.contains(e.at(0)) == side-s.contains(e.at(1)))
+  [
+    #problem-def("MaxCut")[
+      Given $G = (V, E)$ with weights $w: E -> RR$, find partition $(S, overline(S))$ maximizing $sum_((u,v) in E: u in S, v in overline(S)) w(u, v)$.
+    ][
+    Max-Cut is NP-hard on general graphs @barahona1982 but polynomial-time solvable on planar graphs. The Goemans-Williamson SDP relaxation achieves a 0.878-approximation ratio @goemans1995, which is optimal assuming the Unique Games Conjecture. The best known exact algorithm runs in $O^*(2^(omega n slash 3))$ time via algebraic 2-CSP techniques @williams2005, where $omega < 2.372$ is the matrix multiplication exponent.
 
-*Example.* Consider the house graph $G$ with $n = 5$ vertices, $|E| = 6$ edges, and unit weights $w(e) = 1$. The partition $S = {v_0, v_3}$, $overline(S) = {v_1, v_2, v_4}$ cuts 5 of 6 edges: $(v_0, v_1)$, $(v_0, v_2)$, $(v_1, v_3)$, $(v_2, v_3)$, $(v_3, v_4)$. Only the edge $(v_2, v_4)$ is uncut (both endpoints in $overline(S)$). The cut value is $sum w(e) = 5$.
+    *Example.* Consider the house graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and unit weights $w(e) = 1$. The partition $S = {#side-s.map(i => $v_#i$).join(", ")}$, $overline(S) = {#side-sbar.map(i => $v_#i$).join(", ")}$ cuts #cut-val of #ne edges: #cut-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", "). #if uncut-edges.len() == 1 [Only the edge #uncut-edges.map(((u, v)) => $(v_#u, v_#v)$).at(0) is uncut (both endpoints in $overline(S)$).] #if uncut-edges.len() > 1 [The edges #uncut-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ") are uncut.] The cut value is $sum w(e) = #cut-val$.
 
-#figure({
-  let hg = house-graph()
-  let side-s = (0, 3)
-  let cut-edges = hg.edges.filter(e => side-s.contains(e.at(0)) != side-s.contains(e.at(1)))
-  draw-edge-highlight(hg.vertices, hg.edges, cut-edges, side-s)
-},
-caption: [The house graph with max cut $S = {v_0, v_3}$ (blue) vs $overline(S) = {v_1, v_2, v_4}$ (white). Cut edges shown in bold blue; 5 of 6 edges are cut.],
-) <fig:house-maxcut>
-]
+    #figure({
+      let hg = house-graph()
+      let cut-edges = hg.edges.filter(e => side-s.contains(e.at(0)) != side-s.contains(e.at(1)))
+      draw-edge-highlight(hg.vertices, hg.edges, cut-edges, side-s)
+    },
+    caption: [The house graph with max cut $S = {#side-s.map(i => $v_#i$).join(", ")}$ (blue) vs $overline(S) = {#side-sbar.map(i => $v_#i$).join(", ")}$ (white). Cut edges shown in bold blue; #cut-val of #ne edges are cut.],
+    ) <fig:house-maxcut>
+    ]
+  ]
+}
 #problem-def("GraphPartitioning")[
   Given an undirected graph $G = (V, E)$ with $|V| = n$ (even), find a partition of $V$ into two disjoint sets $A$ and $B$ with $|A| = |B| = n slash 2$ that minimizes the number of edges crossing the partition:
   $ "cut"(A, B) = |{(u, v) in E : u in A, v in B}|. $
@@ -471,167 +514,263 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
   caption: [Graph with $n = 6$ vertices partitioned into $A = {v_0, v_1, v_2}$ (blue) and $B = {v_3, v_4, v_5}$ (red). The 3 crossing edges $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$ are shown in bold red; internal edges are gray.],
 ) <fig:graph-partitioning>
 ]
-#problem-def("HamiltonianPath")[
-  Given a graph $G = (V, E)$, determine whether $G$ contains a _Hamiltonian path_, i.e., a simple path that visits every vertex exactly once.
-][
-  A classical NP-complete decision problem from Garey & Johnson (A1.3 GT39), closely related to _Hamiltonian Circuit_. Finding a Hamiltonian path in $G$ is equivalent to finding a Hamiltonian circuit in an augmented graph $G'$ obtained by adding a new vertex adjacent to all vertices of $G$. The problem remains NP-complete for planar graphs, cubic graphs, and bipartite graphs.
+#{
+  let x = load-model-example("HamiltonianPath")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  // Pick optimal[2] = [0, 2, 4, 3, 1, 5] to match figure
+  let sol = x.optimal.at(2)
+  let path = sol.config
+  // Build path edges from consecutive vertices in the path
+  let path-edges = range(path.len() - 1).map(i => (path.at(i), path.at(i + 1)))
+  [
+    #problem-def("HamiltonianPath")[
+      Given a graph $G = (V, E)$, determine whether $G$ contains a _Hamiltonian path_, i.e., a simple path that visits every vertex exactly once.
+    ][
+      A classical NP-complete decision problem from Garey & Johnson (A1.3 GT39), closely related to _Hamiltonian Circuit_. Finding a Hamiltonian path in $G$ is equivalent to finding a Hamiltonian circuit in an augmented graph $G'$ obtained by adding a new vertex adjacent to all vertices of $G$. The problem remains NP-complete for planar graphs, cubic graphs, and bipartite graphs.
 
-  The best known exact algorithm is Björklund's randomized $O^*(1.657^n)$ "Determinant Sums" method @bjorklund2014, which applies to both Hamiltonian path and circuit. The classical Held--Karp dynamic programming algorithm solves it in $O(n^2 dot 2^n)$ deterministic time.
+      The best known exact algorithm is Björklund's randomized $O^*(1.657^n)$ "Determinant Sums" method @bjorklund2014, which applies to both Hamiltonian path and circuit. The classical Held--Karp dynamic programming algorithm solves it in $O(n^2 dot 2^n)$ deterministic time.
 
-  Variables: $n = |V|$ values forming a permutation. Position $i$ holds the vertex visited at step $i$. A configuration is satisfying when it forms a valid permutation of all vertices and consecutive vertices are adjacent in $G$.
+      Variables: $n = |V|$ values forming a permutation. Position $i$ holds the vertex visited at step $i$. A configuration is satisfying when it forms a valid permutation of all vertices and consecutive vertices are adjacent in $G$.
 
-  *Example.* Consider the graph $G$ on 6 vertices with edges ${(0,1), (0,2), (1,3), (2,3), (3,4), (3,5), (2,4), (1,5)}$. The sequence $[0, 2, 4, 3, 1, 5]$ is a Hamiltonian path: it visits every vertex exactly once, and each consecutive pair is adjacent — $(0,2), (2,4), (4,3), (3,1), (1,5) in E$.
+      *Example.* Consider the graph $G$ on #nv vertices with edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$. The sequence $[#path.map(v => str(v)).join(", ")]$ is a Hamiltonian path: it visits every vertex exactly once, and each consecutive pair is adjacent --- #path-edges.map(((u, v)) => $(#u, #v)$).join($,$) $in E$.
 
-  #figure({
-    let blue = graph-colors.at(0)
-    let gray = luma(200)
-    canvas(length: 1cm, {
-      import draw: *
-      // 6 vertices in two rows
-      let verts = ((0, 1.5), (1.5, 1.5), (3, 1.5), (1.5, 0), (3, 0), (0, 0))
-      let edges = ((0,1),(0,2),(1,3),(2,3),(3,4),(3,5),(2,4),(1,5))
-      // Hamiltonian path edges: 0-2, 2-4, 4-3, 3-1, 1-5
-      let path-edges = ((0,2),(2,4),(4,3),(3,1),(1,5))
-      for (u, v) in edges {
-        let on-path = path-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
-        g-edge(verts.at(u), verts.at(v), stroke: if on-path { 2pt + blue } else { 1pt + gray })
-      }
-      for (k, pos) in verts.enumerate() {
-        g-node(pos, name: "v" + str(k),
-          fill: blue,
-          label: text(fill: white)[$v_#k$])
-      }
-    })
-  },
-  caption: [Hamiltonian Path in a 6-vertex graph. Blue edges show the path $v_0 arrow v_2 arrow v_4 arrow v_3 arrow v_1 arrow v_5$.],
-  ) <fig:hamiltonian-path>
-]
-#problem-def("IsomorphicSpanningTree")[
-  Given a graph $G = (V, E)$ and a tree $T = (V_T, E_T)$ with $|V| = |V_T|$, determine whether $G$ contains a spanning tree isomorphic to $T$: does there exist a bijection $pi: V_T -> V$ such that for every edge ${u, v} in E_T$, ${pi(u), pi(v)} in E$?
-][
-  A classical NP-complete problem listed as ND8 in Garey & Johnson @garey1979. The Isomorphic Spanning Tree problem strictly generalizes Hamiltonian Path: a graph $G$ has a Hamiltonian path if and only if $G$ contains a spanning tree isomorphic to the path $P_n$. The problem remains NP-complete even when $T$ is restricted to trees of bounded degree @papadimitriou1982.
+      #figure({
+        let blue = graph-colors.at(0)
+        let gray = luma(200)
+        canvas(length: 1cm, {
+          import draw: *
+          let verts = ((0, 1.5), (1.5, 1.5), (3, 1.5), (1.5, 0), (3, 0), (0, 0))
+          for (u, v) in edges {
+            let on-path = path-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+            g-edge(verts.at(u), verts.at(v), stroke: if on-path { 2pt + blue } else { 1pt + gray })
+          }
+          for (k, pos) in verts.enumerate() {
+            g-node(pos, name: "v" + str(k),
+              fill: blue,
+              label: text(fill: white)[$v_#k$])
+          }
+        })
+      },
+      caption: [Hamiltonian Path in a #{nv}-vertex graph. Blue edges show the path $#path.map(v => $v_#v$).join($arrow$)$.],
+      ) <fig:hamiltonian-path>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("IsomorphicSpanningTree")
+  let g-edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let t-edges = x.instance.tree.inner.edges.map(e => (e.at(0), e.at(1)))
+  let nv = x.instance.graph.inner.nodes.len()
+  let nt = x.instance.tree.inner.nodes.len()
+  // optimal[0] = identity mapping [0,1,2,3]
+  let sol = x.optimal.at(0)
+  let pi = sol.config
+  // Map tree edges through the bijection
+  let mapped-edges = t-edges.map(((u, v)) => (pi.at(u), pi.at(v)))
+  [
+    #problem-def("IsomorphicSpanningTree")[
+      Given a graph $G = (V, E)$ and a tree $T = (V_T, E_T)$ with $|V| = |V_T|$, determine whether $G$ contains a spanning tree isomorphic to $T$: does there exist a bijection $pi: V_T -> V$ such that for every edge ${u, v} in E_T$, ${pi(u), pi(v)} in E$?
+    ][
+      A classical NP-complete problem listed as ND8 in Garey & Johnson @garey1979. The Isomorphic Spanning Tree problem strictly generalizes Hamiltonian Path: a graph $G$ has a Hamiltonian path if and only if $G$ contains a spanning tree isomorphic to the path $P_n$. The problem remains NP-complete even when $T$ is restricted to trees of bounded degree @papadimitriou1982.
 
-  Brute-force enumeration of all bijections $pi: V_T -> V$ and checking each against the edge set of $G$ runs in $O(n! dot n)$ time. No substantially faster exact algorithm is known for general instances.
+      Brute-force enumeration of all bijections $pi: V_T -> V$ and checking each against the edge set of $G$ runs in $O(n! dot n)$ time. No substantially faster exact algorithm is known for general instances.
 
-  Variables: $n = |V|$ values forming a permutation. Position $i$ holds the graph vertex that tree vertex $i$ maps to under $pi$. A configuration is satisfying when it forms a valid permutation and every tree edge maps to a graph edge.
+      Variables: $n = |V|$ values forming a permutation. Position $i$ holds the graph vertex that tree vertex $i$ maps to under $pi$. A configuration is satisfying when it forms a valid permutation and every tree edge maps to a graph edge.
 
-  *Example.* Consider $G = K_4$ (the complete graph on 4 vertices) and $T$ the star $S_3$ with center $0$ and leaves ${1, 2, 3}$. Since $K_4$ contains all possible edges, any bijection $pi$ maps the star's edges to edges of $G$. For instance, the identity mapping $pi(i) = i$ gives the spanning tree ${(0,1), (0,2), (0,3)} subset.eq E(K_4)$.
+      *Example.* Consider $G = K_#nv$ (the complete graph on #nv vertices) and $T$ the star $S_#(nt - 1)$ with center $0$ and leaves ${#range(1, nt).map(i => str(i)).join(", ")}$. Since $K_#nv$ contains all possible edges, any bijection $pi$ maps the star's edges to edges of $G$. For instance, the identity mapping $pi(i) = i$ gives the spanning tree ${#mapped-edges.map(((u, v)) => $(#u, #v)$).join(", ")} subset.eq E(K_#nv)$.
 
-  #figure({
-    let blue = graph-colors.at(0)
-    let gray = luma(200)
-    canvas(length: 1cm, {
-      import draw: *
-      // G = K4 on the left
-      let gv = ((0, 0), (1.5, 0), (1.5, 1.5), (0, 1.5))
-      let ge = ((0,1),(0,2),(0,3),(1,2),(1,3),(2,3))
-      let tree-edges = ((0,1),(0,2),(0,3))
-      for (u, v) in ge {
-        let is-tree = tree-edges.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
-        g-edge(gv.at(u), gv.at(v), stroke: if is-tree { 2pt + blue } else { 1pt + gray })
-      }
-      for (k, pos) in gv.enumerate() {
-        let is-center = k == 0
-        g-node(pos, name: "g" + str(k),
-          fill: if is-center { blue } else { white },
-          label: if is-center { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-      }
-      // Arrow
-      content((2.5, 0.75), text(10pt)[$arrow.l.double$])
-      // T = star S3 on the right
-      let tv = ((3.5, 0.75), (5.0, 0), (5.0, 0.75), (5.0, 1.5))
-      let te = ((0,1),(0,2),(0,3))
-      for (u, v) in te {
-        g-edge(tv.at(u), tv.at(v), stroke: 2pt + blue)
-      }
-      for (k, pos) in tv.enumerate() {
-        let is-center = k == 0
-        g-node(pos, name: "t" + str(k),
-          fill: if is-center { blue } else { white },
-          label: if is-center { text(fill: white)[$u_#k$] } else { [$u_#k$] })
-      }
-    })
-  },
-  caption: [Isomorphic Spanning Tree: the graph $G = K_4$ (left) contains a spanning tree isomorphic to the star $S_3$ (right, blue edges). The identity mapping $pi(u_i) = v_i$ embeds all three star edges into $G$. Center vertex $v_0$ shown in blue.],
-  ) <fig:isomorphic-spanning-tree>
-]
-#problem-def("KColoring")[
-  Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
-][
-Graph coloring arises in register allocation, frequency assignment, and scheduling @garey1979. Deciding $k$-colorability is NP-complete for $k >= 3$ but solvable in $O(n+m)$ for $k=2$ via bipartiteness testing. For $k = 3$, the best known algorithm runs in $O^*(1.3289^n)$ @beigel2005; for $k = 4$ in $O^*(1.7159^n)$ @wu2024; for $k = 5$ in $O^*((2-epsilon)^n)$ @zamir2021. In general, inclusion-exclusion achieves $O^*(2^n)$ @bjorklund2009.
+      #figure({
+        let blue = graph-colors.at(0)
+        let gray = luma(200)
+        canvas(length: 1cm, {
+          import draw: *
+          let gv = ((0, 0), (1.5, 0), (1.5, 1.5), (0, 1.5))
+          let tree-edges-mapped = mapped-edges
+          for (u, v) in g-edges {
+            let is-tree = tree-edges-mapped.any(e => (e.at(0) == u and e.at(1) == v) or (e.at(0) == v and e.at(1) == u))
+            g-edge(gv.at(u), gv.at(v), stroke: if is-tree { 2pt + blue } else { 1pt + gray })
+          }
+          for (k, pos) in gv.enumerate() {
+            let is-center = k == pi.at(0)
+            g-node(pos, name: "g" + str(k),
+              fill: if is-center { blue } else { white },
+              label: if is-center { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+          }
+          content((2.5, 0.75), text(10pt)[$arrow.l.double$])
+          let tv = ((3.5, 0.75), (5.0, 0), (5.0, 0.75), (5.0, 1.5))
+          for (u, v) in t-edges {
+            g-edge(tv.at(u), tv.at(v), stroke: 2pt + blue)
+          }
+          for (k, pos) in tv.enumerate() {
+            let is-center = k == 0
+            g-node(pos, name: "t" + str(k),
+              fill: if is-center { blue } else { white },
+              label: if is-center { text(fill: white)[$u_#k$] } else { [$u_#k$] })
+          }
+        })
+      },
+      caption: [Isomorphic Spanning Tree: the graph $G = K_#nv$ (left) contains a spanning tree isomorphic to the star $S_#(nt - 1)$ (right, blue edges). The identity mapping $pi(u_i) = v_i$ embeds all #t-edges.len() star edges into $G$. Center vertex $v_#(pi.at(0))$ shown in blue.],
+      ) <fig:isomorphic-spanning-tree>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("KColoring")
+  let nv = graph-num-vertices(x.instance)
+  let k = x.instance.num_colors
+  // Pick optimal[0] = [0,1,1,0,2] to match figure
+  let sol = x.optimal.at(0)
+  let coloring = sol.config
+  // Group vertices by color (1-indexed in display)
+  let color-groups = range(k).map(c => coloring.enumerate().filter(((i, v)) => v == c).map(((i, _)) => i))
+  [
+    #problem-def("KColoring")[
+      Given $G = (V, E)$ and $k$ colors, find $c: V -> {1, ..., k}$ minimizing $|{(u, v) in E : c(u) = c(v)}|$.
+    ][
+    Graph coloring arises in register allocation, frequency assignment, and scheduling @garey1979. Deciding $k$-colorability is NP-complete for $k >= 3$ but solvable in $O(n+m)$ for $k=2$ via bipartiteness testing. For $k = 3$, the best known algorithm runs in $O^*(1.3289^n)$ @beigel2005; for $k = 4$ in $O^*(1.7159^n)$ @wu2024; for $k = 5$ in $O^*((2-epsilon)^n)$ @zamir2021. In general, inclusion-exclusion achieves $O^*(2^n)$ @bjorklund2009.
 
-*Example.* Consider the house graph $G$ with $k = 3$ colors. The coloring $c(v_0) = 1$, $c(v_1) = 2$, $c(v_2) = 2$, $c(v_3) = 1$, $c(v_4) = 3$ is proper: no adjacent pair shares a color, so the number of conflicts is 0. The house graph has chromatic number $chi(G) = 3$ because the triangle $(v_2, v_3, v_4)$ requires 3 colors.
+    *Example.* Consider the house graph $G$ with $k = #k$ colors. The coloring #range(nv).map(i => $c(v_#i) = #(coloring.at(i) + 1)$).join(", ") is proper: no adjacent pair shares a color, so the number of conflicts is 0. The house graph has chromatic number $chi(G) = #k$ because the triangle $(v_2, v_3, v_4)$ requires #k colors.
 
-#figure({
-  let hg = house-graph()
-  draw-node-colors(hg.vertices, hg.edges, (0, 1, 1, 0, 2))
-},
-caption: [A proper 3-coloring of the house graph. Colors: $c(v_0) = c(v_3) = 1$ (blue), $c(v_1) = c(v_2) = 2$ (red), $c(v_4) = 3$ (teal). Zero conflicts.],
-) <fig:house-coloring>
-]
-#problem-def("MinimumDominatingSet")[
-  Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall v in V: v in S or exists u in S: (u, v) in E$.
-][
-Dominating Set models facility location: each vertex in $S$ "covers" itself and its neighbors. Applications include wireless sensor placement and social network influence maximization. W[2]-complete when parameterized by solution size $k$, making it strictly harder than Vertex Cover in the parameterized hierarchy. The best known exact algorithm runs in $O^*(1.4969^n)$ via measure-and-conquer @vanrooij2011.
-
-*Example.* Consider the house graph $G$ with $n = 5$ vertices and unit weights $w(v) = 1$. The set $S = {v_2, v_3}$ is a minimum dominating set with $w(S) = 2$: vertex $v_2$ dominates ${v_0, v_4}$ and $v_3$ dominates ${v_1}$ (both also dominate each other). No single vertex can dominate all others, so $gamma(G) = 2$.
-
-#figure({
-  let hg = house-graph()
-  draw-node-highlight(hg.vertices, hg.edges, (2, 3))
-},
-caption: [The house graph with minimum dominating set $S = {v_2, v_3}$ (blue, $gamma(G) = 2$). Every white vertex is adjacent to at least one blue vertex.],
-) <fig:house-ds>
-]
-#problem-def("MaximumMatching")[
-  Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
-][
-Unlike most combinatorial optimization problems on general graphs, maximum matching is solvable in polynomial time $O(n^3)$ by Edmonds' blossom algorithm @edmonds1965, which introduced the technique of shrinking odd cycles into pseudo-nodes. Matching theory underpins assignment problems, network flows, and the Tutte-Berge formula for matching deficiency.
-
-*Example.* Consider the house graph $G$ with $n = 5$ vertices, $|E| = 6$ edges, and unit weights $w(e) = 1$. A maximum matching is $M = {(v_0, v_1), (v_2, v_4)}$ with $w(M) = 2$. Each matched edge is vertex-disjoint from the others. Vertex $v_3$ is unmatched; since $n$ is odd, no perfect matching exists.
-
-#figure({
-  let hg = house-graph()
-  draw-edge-highlight(hg.vertices, hg.edges, ((0, 1), (2, 4)), (0, 1, 2, 4))
-},
-caption: [The house graph with a maximum matching $M = {(v_0, v_1), (v_2, v_4)}$ (blue edges, $w(M) = 2$). Matched vertices shown in blue; $v_3$ is unmatched.],
-) <fig:house-matching>
-]
-
-#problem-def("TravelingSalesman")[
-  Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $sum_(e in C) w(e)$.
-][
-One of the most intensely studied NP-hard problems, with applications in logistics, circuit board drilling, and DNA sequencing. The best known exact algorithm runs in $O^*(2^n)$ time and space via Held-Karp dynamic programming @heldkarp1962. No $O^*((2-epsilon)^n)$ algorithm is known, and improving the exponential space remains open.
-
-*Example.* Consider the complete graph $K_4$ with vertices ${v_0, v_1, v_2, v_3}$ and edge weights $w(v_0, v_1) = 1$, $w(v_1, v_2) = 2$, $w(v_2, v_3) = 1$, $w(v_0, v_3) = 2$, $w(v_0, v_2) = 3$, $w(v_1, v_3) = 3$. The optimal tour is $v_0 -> v_1 -> v_2 -> v_3 -> v_0$ with cost $1 + 2 + 1 + 2 = 6$. The tour using diagonals, $v_0 -> v_2 -> v_1 -> v_3 -> v_0$, costs $3 + 2 + 3 + 2 = 10$.
-
-#figure({
-  let verts = ((0, 0), (1.5, 0), (1.5, 1.5), (0, 1.5))
-  let all-edges = ((0,1),(1,2),(2,3),(0,3),(0,2),(1,3))
-  let tour = ((0,1),(1,2),(2,3),(0,3))
-  let weights = ("1", "2", "1", "2", "3", "3")
-  canvas(length: 1cm, {
-    for (idx, (u, v)) in all-edges.enumerate() {
-      let on-tour = tour.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
-      g-edge(verts.at(u), verts.at(v),
-        stroke: if on-tour { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
-      let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
-      let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
-      // offset diagonal labels to avoid overlap
-      let dx = if u == 0 and v == 2 { -0.25 } else if u == 1 and v == 3 { 0.25 } else { 0 }
-      let dy = if u == 0 and v == 2 { 0.15 } else if u == 1 and v == 3 { 0.15 } else { 0 }
-      draw.content((mx + dx, my + dy), text(7pt, fill: luma(80))[#weights.at(idx)])
+    #figure({
+      let hg = house-graph()
+      draw-node-colors(hg.vertices, hg.edges, coloring)
+    },
+    caption: [A proper #{k}-coloring of the house graph. Colors: #color-groups.enumerate().map(((c, verts)) => $#verts.map(i => $c(v_#i)$).join($=$) = #(c + 1)$).join(", "). Zero conflicts.],
+    ) <fig:house-coloring>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("MinimumDominatingSet")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  // Pick optimal[0] = {v2, v3} to match figure
+  let sol = x.optimal.at(0)
+  let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let wS = sol.metric.Valid
+  // Compute neighbors dominated by each vertex in S
+  let dominated = S.map(s => {
+    let nbrs = ()
+    for (u, v) in edges {
+      if u == s and v not in S { nbrs.push(v) }
+      if v == s and u not in S { nbrs.push(u) }
     }
-    for (k, pos) in verts.enumerate() {
-      g-node(pos, name: "v" + str(k),
-        fill: graph-colors.at(0),
-        label: text(fill: white)[$v_#k$])
-    }
+    nbrs
   })
-},
-caption: [Complete graph $K_4$ with weighted edges. The optimal tour $v_0 -> v_1 -> v_2 -> v_3 -> v_0$ (blue edges) has cost 6.],
-) <fig:k4-tsp>
-]
+  [
+    #problem-def("MinimumDominatingSet")[
+      Given $G = (V, E)$ with weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ s.t. $forall v in V: v in S or exists u in S: (u, v) in E$.
+    ][
+    Dominating Set models facility location: each vertex in $S$ "covers" itself and its neighbors. Applications include wireless sensor placement and social network influence maximization. W[2]-complete when parameterized by solution size $k$, making it strictly harder than Vertex Cover in the parameterized hierarchy. The best known exact algorithm runs in $O^*(1.4969^n)$ via measure-and-conquer @vanrooij2011.
+
+    *Example.* Consider the house graph $G$ with $n = #nv$ vertices and unit weights $w(v) = 1$. The set $S = {#S.map(i => $v_#i$).join(", ")}$ is a minimum dominating set with $w(S) = #wS$: #S.zip(dominated).map(((s, nbrs)) => [vertex $v_#s$ dominates ${#nbrs.map(i => $v_#i$).join(", ")}$]).join(" and ") (both also dominate each other). No single vertex can dominate all others, so $gamma(G) = #wS$.
+
+    #figure({
+      let hg = house-graph()
+      draw-node-highlight(hg.vertices, hg.edges, S)
+    },
+    caption: [The house graph with minimum dominating set $S = {#S.map(i => $v_#i$).join(", ")}$ (blue, $gamma(G) = #wS$). Every white vertex is adjacent to at least one blue vertex.],
+    ) <fig:house-ds>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("MaximumMatching")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  // Pick optimal[4] = config [1,0,0,0,1,0] = edges {(0,1),(2,4)} to match figure
+  let sol = x.optimal.at(4)
+  let matched-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
+  let wM = sol.metric.Valid
+  // Collect matched vertices
+  let matched-verts = ()
+  for (u, v) in matched-edges {
+    if u not in matched-verts { matched-verts.push(u) }
+    if v not in matched-verts { matched-verts.push(v) }
+  }
+  let unmatched = range(nv).filter(i => i not in matched-verts)
+  [
+    #problem-def("MaximumMatching")[
+      Given $G = (V, E)$ with weights $w: E -> RR$, find $M subset.eq E$ maximizing $sum_(e in M) w(e)$ s.t. $forall e_1, e_2 in M: e_1 inter e_2 = emptyset$.
+    ][
+    Unlike most combinatorial optimization problems on general graphs, maximum matching is solvable in polynomial time $O(n^3)$ by Edmonds' blossom algorithm @edmonds1965, which introduced the technique of shrinking odd cycles into pseudo-nodes. Matching theory underpins assignment problems, network flows, and the Tutte-Berge formula for matching deficiency.
+
+    *Example.* Consider the house graph $G$ with $n = #nv$ vertices, $|E| = #ne$ edges, and unit weights $w(e) = 1$. A maximum matching is $M = {#matched-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$ with $w(M) = #wM$. Each matched edge is vertex-disjoint from the others. #if unmatched.len() == 1 [Vertex $v_#(unmatched.at(0))$ is unmatched; since $n$ is odd, no perfect matching exists.] #if unmatched.len() > 1 [Vertices #unmatched.map(i => $v_#i$).join(", ") are unmatched.]
+
+    #figure({
+      let hg = house-graph()
+      draw-edge-highlight(hg.vertices, hg.edges, matched-edges, matched-verts)
+    },
+    caption: [The house graph with a maximum matching $M = {#matched-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ")}$ (blue edges, $w(M) = #wM$). Matched vertices shown in blue; #unmatched.map(i => $v_#i$).join(", ") #if unmatched.len() == 1 [is] else [are] unmatched.],
+    ) <fig:house-matching>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("TravelingSalesman")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let ew = x.instance.edge_weights
+  let sol = x.optimal.at(0)
+  let tour-edges = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => edges.at(i))
+  let tour-cost = sol.metric.Valid
+  // Build ordered tour from tour-edges starting at vertex 0
+  let tour-order = (0,)
+  let remaining = tour-edges
+  for _ in range(nv - 1) {
+    let curr = tour-order.last()
+    let next-edge = remaining.find(e => e.at(0) == curr or e.at(1) == curr)
+    let next-v = if next-edge.at(0) == curr { next-edge.at(1) } else { next-edge.at(0) }
+    tour-order.push(next-v)
+    remaining = remaining.filter(e => e != next-edge)
+  }
+  // Format weight list for display
+  let weight-labels = edges.map(((u, v)) => {
+    let idx = edges.position(e => e == (u, v))
+    (u: u, v: v, w: ew.at(idx))
+  })
+  [
+    #problem-def("TravelingSalesman")[
+      Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR$, find an edge set $C subset.eq E$ that forms a cycle visiting every vertex exactly once and minimizes $sum_(e in C) w(e)$.
+    ][
+    One of the most intensely studied NP-hard problems, with applications in logistics, circuit board drilling, and DNA sequencing. The best known exact algorithm runs in $O^*(2^n)$ time and space via Held-Karp dynamic programming @heldkarp1962. No $O^*((2-epsilon)^n)$ algorithm is known, and improving the exponential space remains open.
+
+    *Example.* Consider the complete graph $K_#nv$ with vertices ${#range(nv).map(i => $v_#i$).join(", ")}$ and edge weights #weight-labels.map(l => $w(v_#(l.u), v_#(l.v)) = #(int(l.w))$).join(", "). The optimal tour is $#tour-order.map(v => $v_#v$).join($arrow$) arrow v_#(tour-order.at(0))$ with cost $#tour-edges.map(((u, v)) => {
+      let idx = edges.position(e => e == (u, v) or e == (v, u))
+      str(int(ew.at(idx)))
+    }).join(" + ") = #tour-cost$.
+
+    #figure({
+      let verts = ((0, 0), (1.5, 0), (1.5, 1.5), (0, 1.5))
+      let all-edges = ((0,1),(1,2),(2,3),(0,3),(0,2),(1,3))
+      let weights = ew.map(w => str(int(w)))
+      canvas(length: 1cm, {
+        for (idx, (u, v)) in all-edges.enumerate() {
+          let on-tour = tour-edges.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
+          g-edge(verts.at(u), verts.at(v),
+            stroke: if on-tour { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
+          let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+          let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+          let dx = if u == 0 and v == 2 { -0.25 } else if u == 1 and v == 3 { 0.25 } else { 0 }
+          let dy = if u == 0 and v == 2 { 0.15 } else if u == 1 and v == 3 { 0.15 } else { 0 }
+          draw.content((mx + dx, my + dy), text(7pt, fill: luma(80))[#weights.at(idx)])
+        }
+        for (k, pos) in verts.enumerate() {
+          g-node(pos, name: "v" + str(k),
+            fill: graph-colors.at(0),
+            label: text(fill: white)[$v_#k$])
+        }
+      })
+    },
+    caption: [Complete graph $K_#nv$ with weighted edges. The optimal tour $#tour-order.map(v => $v_#v$).join($arrow$) arrow v_#(tour-order.at(0))$ (blue edges) has cost #tour-cost.],
+    ) <fig:k4-tsp>
+    ]
+  ]
+}
 #problem-def("OptimalLinearArrangement")[
   Given an undirected graph $G=(V,E)$ and a non-negative integer $K$, is there a bijection $f: V -> {0, 1, dots, |V|-1}$ such that $sum_({u,v} in E) |f(u) - f(v)| <= K$?
 ][
@@ -641,158 +780,227 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 
 *Example.* Consider the path graph $P_3$: vertices ${v_0, v_1, v_2}$ with edges ${v_0, v_1}$ and ${v_1, v_2}$. The identity arrangement $f(v_i) = i$ gives cost $|0-1| + |1-2| = 2$. With bound $K = 2$, this is a YES instance. For a triangle $K_3$ with the same vertex set plus edge ${v_0, v_2}$, any arrangement yields cost 4, so a bound of $K = 3$ gives a NO instance.
 ]
-#problem-def("MaximumClique")[
-  Given $G = (V, E)$, find $K subset.eq V$ maximizing $|K|$ such that all pairs in $K$ are adjacent: $forall u, v in K: (u, v) in E$. Equivalent to MIS on the complement graph $overline(G)$.
-][
-Maximum Clique arises in social network analysis (finding tightly-connected communities), bioinformatics (protein interaction clusters), and coding theory. The problem is equivalent to Maximum Independent Set on the complement graph $overline(G)$. The best known algorithm runs in $O^*(1.1996^n)$ via the complement reduction to MIS @xiao2017. Robson's direct backtracking algorithm achieves $O^*(1.1888^n)$ using exponential space @robson2001.
+#{
+  let x = load-model-example("MaximumClique")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  // optimal[0] = {v2, v3, v4}
+  let sol = x.optimal.at(0)
+  let K = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let omega = sol.metric.Valid
+  // Edges within the clique
+  let clique-edges = edges.filter(e => K.contains(e.at(0)) and K.contains(e.at(1)))
+  [
+    #problem-def("MaximumClique")[
+      Given $G = (V, E)$, find $K subset.eq V$ maximizing $|K|$ such that all pairs in $K$ are adjacent: $forall u, v in K: (u, v) in E$. Equivalent to MIS on the complement graph $overline(G)$.
+    ][
+    Maximum Clique arises in social network analysis (finding tightly-connected communities), bioinformatics (protein interaction clusters), and coding theory. The problem is equivalent to Maximum Independent Set on the complement graph $overline(G)$. The best known algorithm runs in $O^*(1.1996^n)$ via the complement reduction to MIS @xiao2017. Robson's direct backtracking algorithm achieves $O^*(1.1888^n)$ using exponential space @robson2001.
 
-*Example.* Consider the house graph $G$ with $n = 5$ vertices and $|E| = 6$ edges. The triangle $K = {v_2, v_3, v_4}$ is a maximum clique of size $omega(G) = 3$: all three pairs $(v_2, v_3)$, $(v_2, v_4)$, $(v_3, v_4)$ are edges. No 4-clique exists because vertices $v_0$ and $v_1$ each have degree 2 and are not adjacent to all of ${v_2, v_3, v_4}$.
+    *Example.* Consider the house graph $G$ with $n = #nv$ vertices and $|E| = #ne$ edges. The triangle $K = {#K.map(i => $v_#i$).join(", ")}$ is a maximum clique of size $omega(G) = #omega$: all three pairs #clique-edges.map(((u, v)) => $(v_#u, v_#v)$).join(", ") are edges. No #(omega + 1)-clique exists because vertices $v_0$ and $v_1$ each have degree 2 and are not adjacent to all of ${#K.map(i => $v_#i$).join(", ")}$.
 
-#figure({
-  let hg = house-graph()
-  draw-edge-highlight(hg.vertices, hg.edges, ((2,3), (2,4), (3,4)), (2, 3, 4))
-},
-caption: [The house graph with maximum clique $K = {v_2, v_3, v_4}$ (blue, $omega(G) = 3$). All edges within the clique are shown in bold blue.],
-) <fig:house-clique>
-]
-#problem-def("MaximalIS")[
-  Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that $S$ is independent ($forall u, v in S: (u, v) in.not E$) and maximal (no vertex $u in V backslash S$ can be added to $S$ while maintaining independence).
-][
-The maximality constraint (no vertex can be added) distinguishes this from MIS, which only requires maximum weight. Every maximum independent set is maximal, but not vice versa. The enumeration bound of $O^*(3^(n slash 3))$ for listing all maximal independent sets @tomita2006 is tight: Moon and Moser @moonmoser1965 showed every $n$-vertex graph has at most $3^(n slash 3)$ maximal independent sets, achieved by disjoint triangles.
+    #figure({
+      let hg = house-graph()
+      draw-edge-highlight(hg.vertices, hg.edges, clique-edges, K)
+    },
+    caption: [The house graph with maximum clique $K = {#K.map(i => $v_#i$).join(", ")}$ (blue, $omega(G) = #omega$). All edges within the clique are shown in bold blue.],
+    ) <fig:house-clique>
+    ]
+  ]
+}
+#{
+  let x = load-model-example("MaximalIS")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  // optimal[0] = {v0,v2,v4} with w=3 (maximum-weight maximal IS)
+  let opt = x.optimal.at(0)
+  let S-opt = opt.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let w-opt = opt.metric.Valid
+  // samples[0] = {v1,v3} with w=2 (suboptimal maximal IS)
+  let sub = x.samples.at(0)
+  let S-sub = sub.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let w-sub = sub.metric.Valid
+  [
+    #problem-def("MaximalIS")[
+      Given $G = (V, E)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ maximizing $sum_(v in S) w(v)$ such that $S$ is independent ($forall u, v in S: (u, v) in.not E$) and maximal (no vertex $u in V backslash S$ can be added to $S$ while maintaining independence).
+    ][
+    The maximality constraint (no vertex can be added) distinguishes this from MIS, which only requires maximum weight. Every maximum independent set is maximal, but not vice versa. The enumeration bound of $O^*(3^(n slash 3))$ for listing all maximal independent sets @tomita2006 is tight: Moon and Moser @moonmoser1965 showed every $n$-vertex graph has at most $3^(n slash 3)$ maximal independent sets, achieved by disjoint triangles.
 
-*Example.* Consider the path graph $P_5$ with $n = 5$ vertices, edges $(v_i, v_(i+1))$ for $i = 0, ..., 3$, and unit weights $w(v) = 1$. The set $S = {v_1, v_3}$ is a maximal independent set: no two vertices in $S$ are adjacent, and neither $v_0$ (adjacent to $v_1$), $v_2$ (adjacent to both), nor $v_4$ (adjacent to $v_3$) can be added. However, $S' = {v_0, v_2, v_4}$ with $w(S') = 3$ is a strictly larger maximal IS, illustrating that maximality does not imply maximum weight.
+    *Example.* Consider the path graph $P_#nv$ with $n = #nv$ vertices, edges $(v_i, v_(i+1))$ for $i = 0, ..., #(ne - 1)$, and unit weights $w(v) = 1$. The set $S = {#S-sub.map(i => $v_#i$).join(", ")}$ is a maximal independent set: no two vertices in $S$ are adjacent, and neither $v_0$ (adjacent to $v_1$), $v_2$ (adjacent to both), nor $v_4$ (adjacent to $v_3$) can be added. However, $S' = {#S-opt.map(i => $v_#i$).join(", ")}$ with $w(S') = #w-opt$ is a strictly larger maximal IS, illustrating that maximality does not imply maximum weight.
 
-#figure({
-  draw-node-highlight(((0, 0), (1, 0), (2, 0), (3, 0), (4, 0)), ((0,1),(1,2),(2,3),(3,4)), (1, 3))
-},
-caption: [Path $P_5$ with maximal IS $S = {v_1, v_3}$ (blue, $w(S) = 2$). $S$ is maximal — no white vertex can be added — but not maximum: ${v_0, v_2, v_4}$ achieves $w = 3$.],
-) <fig:path-maximal-is>
-]
+    #figure({
+      draw-node-highlight(((0, 0), (1, 0), (2, 0), (3, 0), (4, 0)), edges, S-sub)
+    },
+    caption: [Path $P_#nv$ with maximal IS $S = {#S-sub.map(i => $v_#i$).join(", ")}$ (blue, $w(S) = #w-sub$). $S$ is maximal --- no white vertex can be added --- but not maximum: ${#S-opt.map(i => $v_#i$).join(", ")}$ achieves $w = #w-opt$.],
+    ) <fig:path-maximal-is>
+    ]
+  ]
+}
 
-#problem-def("MinimumFeedbackVertexSet")[
-  Given a directed graph $G = (V, A)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG).
-][
-One of Karp's 21 NP-complete problems ("Feedback Node Set") @karp1972. Applications include deadlock detection in operating systems, loop breaking in circuit design, and Bayesian network structure learning. The directed version is strictly harder than undirected FVS: the best known exact algorithm runs in $O^*(1.9977^n)$ @razgon2007, compared to $O^*(1.7548^n)$ for undirected graphs. An $O(log n dot log log n)$-approximation exists @even1998.
+#{
+  let x = load-model-example("MinimumFeedbackVertexSet")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let arcs = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  // Pick optimal[1] = {v0} to match figure
+  let sol = x.optimal.at(1)
+  let S = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let wS = sol.metric.Valid
+  [
+    #problem-def("MinimumFeedbackVertexSet")[
+      Given a directed graph $G = (V, A)$ with vertex weights $w: V -> RR$, find $S subset.eq V$ minimizing $sum_(v in S) w(v)$ such that the induced subgraph $G[V backslash S]$ is a directed acyclic graph (DAG).
+    ][
+    One of Karp's 21 NP-complete problems ("Feedback Node Set") @karp1972. Applications include deadlock detection in operating systems, loop breaking in circuit design, and Bayesian network structure learning. The directed version is strictly harder than undirected FVS: the best known exact algorithm runs in $O^*(1.9977^n)$ @razgon2007, compared to $O^*(1.7548^n)$ for undirected graphs. An $O(log n dot log log n)$-approximation exists @even1998.
 
-*Example.* Consider the directed graph $G$ with $n = 5$ vertices, $|A| = 7$ arcs, and unit weights. The arcs form two overlapping directed cycles: $C_1 = v_0 -> v_1 -> v_2 -> v_0$ and $C_2 = v_0 -> v_3 -> v_4 -> v_1$. The set $S = {v_0}$ with $w(S) = 1$ is a minimum feedback vertex set: removing $v_0$ breaks both cycles, leaving a DAG with topological order $(v_3, v_4, v_1, v_2)$. No 0-vertex set suffices since $C_1$ and $C_2$ overlap only at $v_0$ and $v_1$, and removing $v_1$ alone leaves $C_1' = v_0 -> v_3 -> v_4 -> v_1 -> v_2 -> v_0$.
+    *Example.* Consider the directed graph $G$ with $n = #nv$ vertices, $|A| = #ne$ arcs, and unit weights. The arcs form two overlapping directed cycles: $C_1 = v_0 -> v_1 -> v_2 -> v_0$ and $C_2 = v_0 -> v_3 -> v_4 -> v_1$. The set $S = {#S.map(i => $v_#i$).join(", ")}$ with $w(S) = #wS$ is a minimum feedback vertex set: removing $v_#(S.at(0))$ breaks both cycles, leaving a DAG with topological order $(v_3, v_4, v_1, v_2)$. No 0-vertex set suffices since $C_1$ and $C_2$ overlap only at $v_0$ and $v_1$, and removing $v_1$ alone leaves $C_1' = v_0 -> v_3 -> v_4 -> v_1 -> v_2 -> v_0$.
 
-#figure({
-  // Directed graph: 5 vertices, 7 arcs, two overlapping cycles
-  let verts = ((0, 1), (2, 1), (1, 0), (-0.5, -0.2), (0.8, -0.5))
-  let arcs = ((0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (2, 4))
-  let highlights = (0,)  // FVS = {v_0}
-  canvas(length: 1cm, {
-    // Draw directed arcs with arrows
-    for (u, v) in arcs {
-      draw.line(verts.at(u), verts.at(v),
-        stroke: 1pt + black,
-        mark: (end: "straight", scale: 0.4))
-    }
-    // Draw nodes on top
-    for (k, pos) in verts.enumerate() {
-      let s = highlights.contains(k)
-      g-node(pos, name: "v" + str(k),
-        fill: if s { graph-colors.at(0) } else { white },
-        label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-    }
-  })
-},
-caption: [A directed graph with FVS $S = {v_0}$ (blue, $w(S) = 1$). Removing $v_0$ breaks both directed cycles $v_0 -> v_1 -> v_2 -> v_0$ and $v_0 -> v_3 -> v_4 -> v_1$, leaving a DAG.],
-) <fig:fvs-example>
-]
+    #figure({
+      let verts = ((0, 1), (2, 1), (1, 0), (-0.5, -0.2), (0.8, -0.5))
+      canvas(length: 1cm, {
+        for (u, v) in arcs {
+          draw.line(verts.at(u), verts.at(v),
+            stroke: 1pt + black,
+            mark: (end: "straight", scale: 0.4))
+        }
+        for (k, pos) in verts.enumerate() {
+          let s = S.contains(k)
+          g-node(pos, name: "v" + str(k),
+            fill: if s { graph-colors.at(0) } else { white },
+            label: if s { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [A directed graph with FVS $S = {#S.map(i => $v_#i$).join(", ")}$ (blue, $w(S) = #wS$). Removing $v_#(S.at(0))$ breaks both directed cycles $v_0 -> v_1 -> v_2 -> v_0$ and $v_0 -> v_3 -> v_4 -> v_1$, leaving a DAG.],
+    ) <fig:fvs-example>
+    ]
+  ]
+}
 
-#problem-def("MinimumSumMulticenter")[
-  Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, and a positive integer $K <= |V|$, find a set $P subset.eq V$ of $K$ vertices (centers) that minimizes the total weighted distance $sum_(v in V) w(v) dot d(v, P)$, where $d(v, P) = min_(p in P) d(v, p)$ is the shortest-path distance from $v$ to the nearest center in $P$.
-][
-Also known as the _p-median problem_. This is a classical NP-complete facility location problem from Garey & Johnson (A2 ND51). The goal is to optimally place $K$ service centers (e.g., warehouses, hospitals) to minimize total service cost. NP-completeness was established by Kariv and Hakimi (1979) via transformation from Dominating Set. The problem remains NP-complete even with unit weights and unit edge lengths, but is solvable in polynomial time for fixed $K$ or when $G$ is a tree.
+#{
+  let x = load-model-example("MinimumSumMulticenter")
+  let nv = graph-num-vertices(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let K = x.instance.k
+  let opt-cost = x.optimal.at(2).metric.Valid
+  // Pick optimal[2] = {v2, v5} to match figure
+  let sol = x.optimal.at(2)
+  let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  [
+    #problem-def("MinimumSumMulticenter")[
+      Given a graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(>= 0)$, edge lengths $l: E -> ZZ_(>= 0)$, and a positive integer $K <= |V|$, find a set $P subset.eq V$ of $K$ vertices (centers) that minimizes the total weighted distance $sum_(v in V) w(v) dot d(v, P)$, where $d(v, P) = min_(p in P) d(v, p)$ is the shortest-path distance from $v$ to the nearest center in $P$.
+    ][
+    Also known as the _p-median problem_. This is a classical NP-complete facility location problem from Garey & Johnson (A2 ND51). The goal is to optimally place $K$ service centers (e.g., warehouses, hospitals) to minimize total service cost. NP-completeness was established by Kariv and Hakimi (1979) via transformation from Dominating Set. The problem remains NP-complete even with unit weights and unit edge lengths, but is solvable in polynomial time for fixed $K$ or when $G$ is a tree.
 
-The best known exact algorithm runs in $O^*(2^n)$ time by brute-force enumeration of all $binom(n, K)$ vertex subsets. Constant-factor approximation algorithms exist: Charikar et al. (1999) gave the first constant-factor result, and the best known ratio is $(2 + epsilon)$ by Cohen-Addad et al. (STOC 2022).
+    The best known exact algorithm runs in $O^*(2^n)$ time by brute-force enumeration of all $binom(n, K)$ vertex subsets. Constant-factor approximation algorithms exist: Charikar et al. (1999) gave the first constant-factor result, and the best known ratio is $(2 + epsilon)$ by Cohen-Addad et al. (STOC 2022).
 
-Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. A configuration is valid when exactly $K$ centers are selected and all vertices are reachable from at least one center.
+    Variables: $n = |V|$ binary variables, one per vertex. $x_v = 1$ if vertex $v$ is selected as a center. A configuration is valid when exactly $K$ centers are selected and all vertices are reachable from at least one center.
 
-  *Example.* Consider the graph $G$ on 7 vertices with unit weights $w(v) = 1$ and unit edge lengths, edges ${(0,1), (1,2), (2,3), (3,4), (4,5), (5,6), (0,6), (2,5)}$, and $K = 2$. Placing centers at $P = {v_2, v_5}$ gives distances $d(v_0) = 2$, $d(v_1) = 1$, $d(v_2) = 0$, $d(v_3) = 1$, $d(v_4) = 1$, $d(v_5) = 0$, $d(v_6) = 1$, for a total cost of $2 + 1 + 0 + 1 + 1 + 0 + 1 = 6$. This is optimal.
+    *Example.* Consider the graph $G$ on #nv vertices with unit weights $w(v) = 1$ and unit edge lengths, edges ${#edges.map(((u, v)) => $(#u, #v)$).join(", ")}$, and $K = #K$. Placing centers at $P = {#centers.map(i => $v_#i$).join(", ")}$ gives distances $d(v_0) = 2$, $d(v_1) = 1$, $d(v_2) = 0$, $d(v_3) = 1$, $d(v_4) = 1$, $d(v_5) = 0$, $d(v_6) = 1$, for a total cost of $2 + 1 + 0 + 1 + 1 + 0 + 1 = #opt-cost$. This is optimal.
 
-  #figure({
-    let blue = graph-colors.at(0)
-    let gray = luma(200)
-    canvas(length: 1cm, {
-      import draw: *
-      // 7 vertices on a rough circle
-      let verts = ((-1.5, 0.8), (0, 1.5), (1.5, 0.8), (1.5, -0.8), (0, -1.5), (-1.5, -0.8), (-2.2, 0))
-      let edges = ((0,1),(1,2),(2,3),(3,4),(4,5),(5,6),(0,6),(2,5))
-      for (u, v) in edges {
-        g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
-      }
-      let centers = (2, 5)
-      for (k, pos) in verts.enumerate() {
-        let is-center = centers.any(c => c == k)
-        g-node(pos, name: "v" + str(k),
-          fill: if is-center { blue } else { white },
-          label: if is-center { text(fill: white)[$v_#k$] } else { [$v_#k$] })
-      }
-    })
-  },
-  caption: [Minimum Sum Multicenter with $K = 2$ on a 7-vertex graph. Centers $v_2$ and $v_5$ (blue) achieve optimal total weighted distance 6.],
-  ) <fig:minimum-sum-multicenter>
-]
+    #figure({
+      let blue = graph-colors.at(0)
+      let gray = luma(200)
+      canvas(length: 1cm, {
+        import draw: *
+        let verts = ((-1.5, 0.8), (0, 1.5), (1.5, 0.8), (1.5, -0.8), (0, -1.5), (-1.5, -0.8), (-2.2, 0))
+        for (u, v) in edges {
+          g-edge(verts.at(u), verts.at(v), stroke: 1pt + gray)
+        }
+        for (k, pos) in verts.enumerate() {
+          let is-center = centers.any(c => c == k)
+          g-node(pos, name: "v" + str(k),
+            fill: if is-center { blue } else { white },
+            label: if is-center { text(fill: white)[$v_#k$] } else { [$v_#k$] })
+        }
+      })
+    },
+    caption: [Minimum Sum Multicenter with $K = #K$ on a #{nv}-vertex graph. Centers #centers.map(i => $v_#i$).join(" and ") (blue) achieve optimal total weighted distance #opt-cost.],
+    ) <fig:minimum-sum-multicenter>
+    ]
+  ]
+}
 
 == Set Problems
 
-#problem-def("MaximumSetPacking")[
-  Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
-][
-One of Karp's 21 NP-complete problems @karp1972. Generalizes maximum matching (the special case where all sets have size 2, solvable in polynomial time). Applications include resource allocation, VLSI design, and frequency assignment. The optimization version is as hard to approximate as maximum clique. The best known exact algorithm runs in $O^*(2^m)$ by brute-force enumeration over the $m$ sets#footnote[No algorithm improving on brute-force enumeration is known for general weighted set packing.].
+#{
+  let x = load-model-example("MaximumSetPacking")
+  let sets = x.instance.sets
+  let m = sets.len()
+  // Compute universe size from all elements
+  let all-elems = sets.flatten().dedup()
+  let U-size = all-elems.len()
+  // Pick optimal[2] = {S1, S3} (0-indexed: sets 0, 2) to match figure
+  let sol = x.optimal.at(2)
+  let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let wP = sol.metric.Valid
+  // Format a set as {e1+1, e2+1, ...} (1-indexed)
+  let fmt-set(s) = "${" + s.map(e => str(e + 1)).join(", ") + "}$"
+  [
+    #problem-def("MaximumSetPacking")[
+      Given universe $U$, collection $cal(S) = {S_1, ..., S_m}$ with $S_i subset.eq U$, weights $w: cal(S) -> RR$, find $cal(P) subset.eq cal(S)$ maximizing $sum_(S in cal(P)) w(S)$ s.t. $forall S_i, S_j in cal(P): S_i inter S_j = emptyset$.
+    ][
+    One of Karp's 21 NP-complete problems @karp1972. Generalizes maximum matching (the special case where all sets have size 2, solvable in polynomial time). Applications include resource allocation, VLSI design, and frequency assignment. The optimization version is as hard to approximate as maximum clique. The best known exact algorithm runs in $O^*(2^m)$ by brute-force enumeration over the $m$ sets#footnote[No algorithm improving on brute-force enumeration is known for general weighted set packing.].
 
-*Example.* Let $U = {1, 2, 3, 4, 5}$ and $cal(S) = {S_1, S_2, S_3, S_4}$ with $S_1 = {1, 2}$, $S_2 = {2, 3}$, $S_3 = {3, 4}$, $S_4 = {4, 5}$, and unit weights $w(S_i) = 1$. A maximum packing is $cal(P) = {S_1, S_3}$ with $w(cal(P)) = 2$: $S_1 inter S_3 = emptyset$. Adding $S_2$ would conflict with both ($S_1 inter S_2 = {2}$, $S_2 inter S_3 = {3}$), and $S_4$ conflicts with $S_3$ ($S_3 inter S_4 = {4}$). The alternative packing ${S_2, S_4}$ also achieves weight 2.
+    *Example.* Let $U = {1, 2, dots, #U-size}$ and $cal(S) = {#range(m).map(i => $S_#(i + 1)$).join(", ")}$ with #range(m).map(i => $S_#(i + 1) = #fmt-set(sets.at(i))$).join(", "), and unit weights $w(S_i) = 1$. A maximum packing is $cal(P) = {#selected.map(i => $S_#(i + 1)$).join(", ")}$ with $w(cal(P)) = #wP$: $S_#(selected.at(0) + 1) inter S_#(selected.at(1) + 1) = emptyset$. Adding $S_2$ would conflict with both ($S_1 inter S_2 = {2}$, $S_2 inter S_3 = {3}$), and $S_4$ conflicts with $S_3$ ($S_3 inter S_4 = {4}$). The alternative packing ${S_2, S_4}$ also achieves weight #wP.
 
-#figure(
-  canvas(length: 1cm, {
-    // Element positions along a line
-    let elems = ((0, 0), (1, 0), (2, 0), (3, 0), (4, 0))
-    // Set regions: S1={1,2}, S2={2,3}, S3={3,4}, S4={4,5}
-    // Selected packing {S1, S3} in blue, others in gray
-    sregion(((0, 0), (1, 0)), label: [$S_1$], ..sregion-selected)
-    sregion(((1, 0), (2, 0)), label: [$S_2$], ..sregion-dimmed)
-    sregion(((2, 0), (3, 0)), label: [$S_3$], ..sregion-selected)
-    sregion(((3, 0), (4, 0)), label: [$S_4$], ..sregion-dimmed)
-    // Elements
-    for (k, pos) in elems.enumerate() {
-      selem(pos, label: [#(k + 1)], fill: black)
-    }
-  }),
-  caption: [Maximum set packing: $cal(P) = {S_1, S_3}$ (blue) are disjoint; $S_2, S_4$ (gray) conflict with the packing.],
-) <fig:set-packing>
-]
+    #figure(
+      canvas(length: 1cm, {
+        let elems = range(U-size).map(i => (i, 0))
+        // Draw set regions
+        for i in range(m) {
+          let positions = sets.at(i).map(e => (e, 0))
+          let is-selected = selected.contains(i)
+          sregion(positions, label: [$S_#(i + 1)$], ..if is-selected { sregion-selected } else { sregion-dimmed })
+        }
+        for (k, pos) in elems.enumerate() {
+          selem(pos, label: [#(k + 1)], fill: black)
+        }
+      }),
+      caption: [Maximum set packing: $cal(P) = {#selected.map(i => $S_#(i + 1)$).join(", ")}$ (blue) are disjoint; #range(m).filter(i => i not in selected).map(i => $S_#(i + 1)$).join(", ") (gray) conflict with the packing.],
+    ) <fig:set-packing>
+    ]
+  ]
+}
 
-#problem-def("MinimumSetCovering")[
-  Given universe $U$, collection $cal(S)$ with weights $w: cal(S) -> RR$, find $cal(C) subset.eq cal(S)$ minimizing $sum_(S in cal(C)) w(S)$ s.t. $union.big_(S in cal(C)) S = U$.
-][
-One of Karp's 21 NP-complete problems @karp1972. Arises in facility location, crew scheduling, and test suite minimization. The greedy algorithm achieves an $O(ln n)$-approximation where $n = |U|$, which is essentially optimal: cannot be approximated within $(1-o(1)) ln n$ unless P = NP. The best known exact algorithm runs in $O^*(2^m)$ by brute-force enumeration over the $m$ sets#footnote[No algorithm improving on brute-force enumeration is known for general weighted set covering.].
+#{
+  let x = load-model-example("MinimumSetCovering")
+  let sets = x.instance.sets
+  let m = sets.len()
+  let U-size = x.instance.universe_size
+  let sol = x.optimal.at(0)
+  let selected = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let wC = sol.metric.Valid
+  let fmt-set(s) = "${" + s.map(e => str(e + 1)).join(", ") + "}$"
+  [
+    #problem-def("MinimumSetCovering")[
+      Given universe $U$, collection $cal(S)$ with weights $w: cal(S) -> RR$, find $cal(C) subset.eq cal(S)$ minimizing $sum_(S in cal(C)) w(S)$ s.t. $union.big_(S in cal(C)) S = U$.
+    ][
+    One of Karp's 21 NP-complete problems @karp1972. Arises in facility location, crew scheduling, and test suite minimization. The greedy algorithm achieves an $O(ln n)$-approximation where $n = |U|$, which is essentially optimal: cannot be approximated within $(1-o(1)) ln n$ unless P = NP. The best known exact algorithm runs in $O^*(2^m)$ by brute-force enumeration over the $m$ sets#footnote[No algorithm improving on brute-force enumeration is known for general weighted set covering.].
 
-*Example.* Let $U = {1, 2, 3, 4, 5}$ and $cal(S) = {S_1, S_2, S_3}$ with $S_1 = {1, 2, 3}$, $S_2 = {2, 4}$, $S_3 = {3, 4, 5}$, and unit weights $w(S_i) = 1$. A minimum cover is $cal(C) = {S_1, S_3}$ with $w(cal(C)) = 2$: $S_1 union S_3 = {1, 2, 3, 4, 5} = U$. No single set covers all of $U$, so at least two sets are required.
+    *Example.* Let $U = {1, 2, dots, #U-size}$ and $cal(S) = {#range(m).map(i => $S_#(i + 1)$).join(", ")}$ with #range(m).map(i => $S_#(i + 1) = #fmt-set(sets.at(i))$).join(", "), and unit weights $w(S_i) = 1$. A minimum cover is $cal(C) = {#selected.map(i => $S_#(i + 1)$).join(", ")}$ with $w(cal(C)) = #wC$: $#selected.map(i => $S_#(i + 1)$).join($union$) = {1, 2, dots, #U-size} = U$. No single set covers all of $U$, so at least two sets are required.
 
-#figure(
-  canvas(length: 1cm, {
-    // 2D layout: S1={1,2,3} left, S3={3,4,5} right, S2={2,4} bridging bottom
-    let elems = (
-      (-1.2, 0.4),   // 1: only S1
-      (-0.5, -0.4),  // 2: S1 ∩ S2
-      (0.3, 0.4),    // 3: S1 ∩ S3
-      (1.0, -0.4),   // 4: S2 ∩ S3
-      (1.7, 0.4),    // 5: only S3
-    )
-    // Set regions: S1={1,2,3}, S2={2,4}, S3={3,4,5}
-    sregion((elems.at(0), elems.at(1), elems.at(2)), pad: 0.4, label: [$S_1$], ..sregion-selected)
-    sregion((elems.at(1), elems.at(3)), pad: 0.35, label: [$S_2$], ..sregion-dimmed)
-    sregion((elems.at(2), elems.at(3), elems.at(4)), pad: 0.4, label: [$S_3$], ..sregion-selected)
-    // Elements
-    for (k, pos) in elems.enumerate() {
-      selem(pos, label: [#(k + 1)], fill: black)
-    }
-  }),
-  caption: [Minimum set covering: $cal(C) = {S_1, S_3}$ (blue) cover all of $U$; $S_2$ (gray) is redundant.],
-) <fig:set-covering>
-]
+    #figure(
+      canvas(length: 1cm, {
+        let elems = (
+          (-1.2, 0.4),
+          (-0.5, -0.4),
+          (0.3, 0.4),
+          (1.0, -0.4),
+          (1.7, 0.4),
+        )
+        sregion((elems.at(0), elems.at(1), elems.at(2)), pad: 0.4, label: [$S_1$], ..if selected.contains(0) { sregion-selected } else { sregion-dimmed })
+        sregion((elems.at(1), elems.at(3)), pad: 0.35, label: [$S_2$], ..if selected.contains(1) { sregion-selected } else { sregion-dimmed })
+        sregion((elems.at(2), elems.at(3), elems.at(4)), pad: 0.4, label: [$S_3$], ..if selected.contains(2) { sregion-selected } else { sregion-dimmed })
+        for (k, pos) in elems.enumerate() {
+          selem(pos, label: [#(k + 1)], fill: black)
+        }
+      }),
+      caption: [Minimum set covering: $cal(C) = {#selected.map(i => $S_#(i + 1)$).join(", ")}$ (blue) cover all of $U$; #range(m).filter(i => i not in selected).map(i => $S_#(i + 1)$).join(", ") (gray) #if m - selected.len() == 1 [is] else [are] redundant.],
+    ) <fig:set-covering>
+    ]
+  ]
+}
 
 #{
   let x3c = load-model-example("ExactCoverBy3Sets")
@@ -819,51 +1027,114 @@ One of Karp's 21 NP-complete problems @karp1972. Arises in facility location, cr
 
 == Optimization Problems
 
-#problem-def("SpinGlass")[
-  Given $n$ spin variables $s_i in {-1, +1}$, pairwise couplings $J_(i j) in RR$, and external fields $h_i in RR$, minimize the Hamiltonian (energy function): $H(bold(s)) = -sum_((i,j)) J_(i j) s_i s_j - sum_i h_i s_i$.
-][
-The Ising spin glass is the canonical model in statistical mechanics for disordered magnetic systems @barahona1982. Ground-state computation is NP-hard on general interaction graphs but polynomial-time solvable on planar graphs without external field ($h_i = 0$) via reduction to minimum-weight perfect matching. Central to quantum annealing, where hardware natively encodes spin Hamiltonians. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[On general interaction graphs, no algorithm improving on brute-force enumeration is known.].
+#{
+  let x = load-model-example("SpinGlass")
+  let n = spin-num-spins(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let ne = edges.len()
+  // Pick optimal[1] = (+,-,+,+,-) to match figure
+  let sol = x.optimal.at(1)
+  // Convert config (0=+1, 1=-1) to spin values
+  let spins = sol.config.map(v => if v == 0 { 1 } else { -1 })
+  let H = sol.metric.Valid
+  let spin-str = spins.map(s => if s > 0 { "+" } else { "-" }).join(", ")
+  // Count satisfied and frustrated edges
+  let sat-count = edges.filter(((u, v)) => spins.at(u) * spins.at(v) < 0).len()
+  let frust-count = ne - sat-count
+  [
+    #problem-def("SpinGlass")[
+      Given $n$ spin variables $s_i in {-1, +1}$, pairwise couplings $J_(i j) in RR$, and external fields $h_i in RR$, minimize the Hamiltonian (energy function): $H(bold(s)) = -sum_((i,j)) J_(i j) s_i s_j - sum_i h_i s_i$.
+    ][
+    The Ising spin glass is the canonical model in statistical mechanics for disordered magnetic systems @barahona1982. Ground-state computation is NP-hard on general interaction graphs but polynomial-time solvable on planar graphs without external field ($h_i = 0$) via reduction to minimum-weight perfect matching. Central to quantum annealing, where hardware natively encodes spin Hamiltonians. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[On general interaction graphs, no algorithm improving on brute-force enumeration is known.].
 
-*Example.* Consider $n = 5$ spins on a triangular lattice with uniform antiferromagnetic couplings $J_(i j) = -1$ for all edges and no external field ($h_i = 0$). The Hamiltonian simplifies to $H(bold(s)) = sum_((i,j)) s_i s_j$, which counts parallel pairs minus antiparallel pairs. The lattice contains 7 edges and 3 triangular faces; since each triangle cannot have all three pairs antiparallel, frustration is unavoidable. A ground state is $bold(s) = (+, -, +, +, -)$ achieving $H = -3$: five edges are satisfied (antiparallel) and two are frustrated (parallel). No configuration can satisfy more than 5 of 7 edges.
+    *Example.* Consider $n = #n$ spins on a triangular lattice with uniform antiferromagnetic couplings $J_(i j) = -1$ for all edges and no external field ($h_i = 0$). The Hamiltonian simplifies to $H(bold(s)) = sum_((i,j)) s_i s_j$, which counts parallel pairs minus antiparallel pairs. The lattice contains #ne edges and 3 triangular faces; since each triangle cannot have all three pairs antiparallel, frustration is unavoidable. A ground state is $bold(s) = (#spin-str)$ achieving $H = #H$: #sat-count edges are satisfied (antiparallel) and #frust-count are frustrated (parallel). No configuration can satisfy more than #sat-count of #ne edges.
 
-#figure(
-  canvas(length: 1cm, {
-    let h = calc.sqrt(3) / 2
-    let pos = ((0, h), (1, h), (2, h), (0.5, 0), (1.5, 0))
-    let edges = ((0,1), (1,2), (3,4), (0,3), (1,3), (1,4), (2,4))
-    let spins = (1, -1, 1, 1, -1)
-    // Draw edges: black solid = satisfied, dashed gray = frustrated
-    for (u, v) in edges {
-      let sat = spins.at(u) * spins.at(v) < 0
-      g-edge(pos.at(u), pos.at(v),
-        stroke: if sat { 1pt + black } else { (paint: rgb("#cc4444"), thickness: 1.2pt, dash: "dashed") })
+    #figure(
+      canvas(length: 1cm, {
+        let h = calc.sqrt(3) / 2
+        let pos = ((0, h), (1, h), (2, h), (0.5, 0), (1.5, 0))
+        for (u, v) in edges {
+          let sat = spins.at(u) * spins.at(v) < 0
+          g-edge(pos.at(u), pos.at(v),
+            stroke: if sat { 1pt + black } else { (paint: rgb("#cc4444"), thickness: 1.2pt, dash: "dashed") })
+        }
+        for (k, p) in pos.enumerate() {
+          let up = spins.at(k) > 0
+          g-node(p, name: "s" + str(k), radius: 0.22,
+            fill: if up { graph-colors.at(0) } else { graph-colors.at(1) },
+            label: text(fill: white, if up { $+$ } else { $-$ }))
+        }
+      }),
+      caption: [Triangular lattice with $n = #n$ spins and antiferromagnetic couplings ($J = -1$). Ground state $bold(s) = (#spin-str)$ with $H = #H$. Solid edges: satisfied (antiparallel); dashed red: frustrated (parallel).],
+    ) <fig:spin-glass>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("QUBO")
+  let n = x.instance.num_vars
+  let Q = x.instance.matrix
+  let sol = x.optimal.at(0)
+  let xstar = sol.config
+  let fstar = sol.metric.Valid
+  // Format the Q matrix as semicolon-separated rows
+  let mat-rows = Q.map(row => row.map(v => {
+    let vi = int(v)
+    if v == vi { str(vi) } else { str(v) }
+  }).join(", ")).join("; ")
+  // Collect indices where x*_i = 1 (1-indexed)
+  let selected = xstar.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => $x_#(i + 1)$)
+  let unselected-pairs = ()
+  for i in range(n) {
+    for j in range(i + 1, n) {
+      if Q.at(i).at(j) != 0 and (xstar.at(i) == 0 or xstar.at(j) == 0) {
+        unselected-pairs.push($#(int(Q.at(i).at(j))) x_#(i + 1) x_#(j + 1)$)
+      }
     }
-    // Draw spins: blue = +1, red = −1
-    for (k, p) in pos.enumerate() {
-      let up = spins.at(k) > 0
-      g-node(p, name: "s" + str(k), radius: 0.22,
-        fill: if up { graph-colors.at(0) } else { graph-colors.at(1) },
-        label: text(fill: white, if up { $+$ } else { $-$ }))
-    }
-  }),
-  caption: [Triangular lattice with $n = 5$ spins and antiferromagnetic couplings ($J = -1$). Ground state $bold(s) = (+, -, +, +, -)$ with $H = -3$. Solid edges: satisfied (antiparallel); dashed red: frustrated (parallel).],
-) <fig:spin-glass>
-]
+  }
+  [
+    #problem-def("QUBO")[
+      Given $n$ binary variables $x_i in {0, 1}$, upper-triangular matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables).
+    ][
+    Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The native formulation for quantum annealing hardware (e.g., D-Wave) and a standard target for penalty-method reductions @glover2019. QUBO unifies many combinatorial problems into a single unconstrained binary framework, making it a universal intermediate representation for quantum and classical optimization. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[QUBO inherits the Ising model's complexity; no algorithm improving on brute-force is known for the general case.].
 
-#problem-def("QUBO")[
-  Given $n$ binary variables $x_i in {0, 1}$, upper-triangular matrix $Q in RR^(n times n)$, minimize $f(bold(x)) = sum_(i=1)^n Q_(i i) x_i + sum_(i < j) Q_(i j) x_i x_j$ (using $x_i^2 = x_i$ for binary variables).
-][
-Equivalent to the Ising model via the linear substitution $s_i = 2x_i - 1$. The native formulation for quantum annealing hardware (e.g., D-Wave) and a standard target for penalty-method reductions @glover2019. QUBO unifies many combinatorial problems into a single unconstrained binary framework, making it a universal intermediate representation for quantum and classical optimization. The best known general algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[QUBO inherits the Ising model's complexity; no algorithm improving on brute-force is known for the general case.].
+    *Example.* Consider $n = #n$ with $Q = mat(#mat-rows)$. The objective is $f(bold(x)) = -x_1 - x_2 - x_3 + 2x_1 x_2 + 2x_2 x_3$. Evaluating all $2^#n$ assignments: $f(0,0,0) = 0$, $f(1,0,0) = -1$, $f(0,1,0) = -1$, $f(0,0,1) = -1$, $f(1,1,0) = 0$, $f(0,1,1) = 0$, $f(1,0,1) = -2$, $f(1,1,1) = 1$. The minimum is $f^* = #fstar$ at $bold(x)^* = (#xstar.map(v => str(v)).join(", "))$: selecting #selected.join(" and ") avoids the penalty terms #unselected-pairs.join(" and ").
+    ]
+  ]
+}
 
-*Example.* Consider $n = 3$ with $Q = mat(-1, 2, 0; 0, -1, 2; 0, 0, -1)$. The objective is $f(bold(x)) = -x_1 - x_2 - x_3 + 2x_1 x_2 + 2x_2 x_3$. Evaluating all $2^3$ assignments: $f(0,0,0) = 0$, $f(1,0,0) = -1$, $f(0,1,0) = -1$, $f(0,0,1) = -1$, $f(1,1,0) = 0$, $f(0,1,1) = 0$, $f(1,0,1) = -2$, $f(1,1,1) = 1$. The minimum is $f^* = -2$ at $bold(x)^* = (1, 0, 1)$: selecting $x_1$ and $x_3$ avoids the penalty terms $2x_1 x_2$ and $2x_2 x_3$.
-]
+#{
+  let x = load-model-example("ILP")
+  let nv = x.instance.num_vars
+  let obj = x.instance.objective
+  let constraints = x.instance.constraints
+  let sol = x.optimal.at(0)
+  let xstar = sol.config
+  let fstar = sol.metric.Valid
+  // Format objective: c1*x1 + c2*x2 + ...
+  let fmt-obj = obj.map(((i, c)) => {
+    let ci = int(c)
+    let sign = if ci < 0 { "-" } else { "+" }
+    let abs-c = calc.abs(ci)
+    if abs-c == 1 { $#sign x_#(i + 1)$ } else { $#sign #abs-c x_#(i + 1)$ }
+  }).join($""$)
+  // Format constraint: a1*x1 + a2*x2 <= b
+  let fmt-constraint(con) = {
+    let lhs = con.terms.map(((i, a)) => {
+      let ai = int(a)
+      if ai == 1 { $x_#(i + 1)$ } else { $#ai x_#(i + 1)$ }
+    }).join($+$)
+    let rhs = int(con.rhs)
+    $#lhs <= #rhs$
+  }
+  [
+    #problem-def("ILP")[
+      Given $n$ variables $bold(x)$ over a domain $cal(D)$ (binary $cal(D) = {0,1}$ or integer $cal(D) = ZZ_(>=0)$), constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x) in cal(D)^n$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$.
+    ][
+    Integer Linear Programming is a universal modeling framework: virtually every NP-hard combinatorial optimization problem admits an ILP formulation. Relaxing integrality to $bold(x) in RR^n$ yields a linear program solvable in polynomial time, forming the basis of branch-and-bound solvers. When the number of integer variables $n$ is fixed, ILP is solvable in polynomial time by Lenstra's algorithm @lenstra1983 using the geometry of numbers, making it fixed-parameter tractable in $n$. The best known general algorithm achieves $O^*(n^n)$ via an FPT algorithm based on lattice techniques @dadush2012.
 
-#problem-def("ILP")[
-  Given $n$ variables $bold(x)$ over a domain $cal(D)$ (binary $cal(D) = {0,1}$ or integer $cal(D) = ZZ_(>=0)$), constraint matrix $A in RR^(m times n)$, bounds $bold(b) in RR^m$, and objective $bold(c) in RR^n$, find $bold(x) in cal(D)^n$ minimizing $bold(c)^top bold(x)$ subject to $A bold(x) <= bold(b)$.
-][
-Integer Linear Programming is a universal modeling framework: virtually every NP-hard combinatorial optimization problem admits an ILP formulation. Relaxing integrality to $bold(x) in RR^n$ yields a linear program solvable in polynomial time, forming the basis of branch-and-bound solvers. When the number of integer variables $n$ is fixed, ILP is solvable in polynomial time by Lenstra's algorithm @lenstra1983 using the geometry of numbers, making it fixed-parameter tractable in $n$. The best known general algorithm achieves $O^*(n^n)$ via an FPT algorithm based on lattice techniques @dadush2012.
-
-*Example.* Minimize $bold(c)^top bold(x) = -5x_1 - 6x_2$ subject to $x_1 + x_2 <= 5$, $4x_1 + 7x_2 <= 28$, $x_1, x_2 >= 0$, $bold(x) in ZZ^2$. The LP relaxation optimum is $p_1 = (7 slash 3, 8 slash 3) approx (2.33, 2.67)$ with value $approx -27.67$, which is non-integral. Branch-and-bound yields the ILP optimum $bold(x)^* = (3, 2)$ with $bold(c)^top bold(x)^* = -27$.
+    *Example.* Minimize $bold(c)^top bold(x) = #fmt-obj$ subject to #constraints.map(fmt-constraint).join(", "), $#range(nv).map(i => $x_#(i + 1)$).join(",") >= 0$, $bold(x) in ZZ^#nv$. The LP relaxation optimum is $p_1 = (7 slash 3, 8 slash 3) approx (2.33, 2.67)$ with value $approx -27.67$, which is non-integral. Branch-and-bound yields the ILP optimum $bold(x)^* = (#xstar.map(v => str(v)).join(", "))$ with $bold(c)^top bold(x)^* = #fstar$.
 
 #figure(
   canvas(length: 0.8cm, {
@@ -909,248 +1180,368 @@ Integer Linear Programming is a universal modeling framework: virtually every NP
     draw.circle((3, 2), radius: 0.1, fill: graph-colors.at(1), stroke: none)
     draw.content((3.3, 2.3), text(7pt)[$bold(x)^*$])
   }),
-  caption: [ILP feasible region (green) with constraints $x_1 + x_2 <= 5$ (blue) and $4x_1 + 7x_2 <= 28$ (orange). Hollow circles mark the integer lattice. The LP relaxation optimum $p_1 = (7 slash 3, 8 slash 3)$ is non-integral; the ILP optimum $bold(x)^* = (3, 2)$ gives $bold(c)^top bold(x)^* = -27$.],
+  caption: [ILP feasible region (green) with constraints $x_1 + x_2 <= 5$ (blue) and $4x_1 + 7x_2 <= 28$ (orange). Hollow circles mark the integer lattice. The LP relaxation optimum $p_1 = (7 slash 3, 8 slash 3)$ is non-integral; the ILP optimum $bold(x)^* = (#xstar.map(v => str(v)).join(", "))$ gives $bold(c)^top bold(x)^* = #fstar$.],
 ) <fig:ilp-example>
-]
+    ]
+  ]
+}
 
-#problem-def("ClosestVectorProblem")[
-  Given a lattice basis $bold(B) in RR^(m times n)$ (columns $bold(b)_1, dots, bold(b)_n in RR^m$ spanning lattice $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$) and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2$.
-][
-  The Closest Vector Problem is a fundamental lattice problem, proven NP-hard by van Emde Boas @vanemde1981. CVP appears in lattice-based cryptography, coding theory, and integer programming @lenstra1983. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$ using Voronoi cell computations, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
+#{
+  let x = load-model-example("ClosestVectorProblem")
+  let basis = x.instance.basis
+  let target = x.instance.target
+  let bounds = x.instance.bounds
+  let sol = x.optimal.at(0)
+  let dist = sol.metric.Valid
+  // Config encodes offset from lower bound; recover actual integer coordinates
+  let coords = sol.config.enumerate().map(((i, v)) => v + bounds.at(i).lower)
+  // Compute B*x: sum over j of coords[j] * basis[j]
+  let dim = basis.at(0).len()
+  let bx = range(dim).map(d => coords.enumerate().fold(0.0, (acc, (j, c)) => acc + c * basis.at(j).at(d)))
+  // Format basis vectors
+  let fmt-vec(v) = $paren.l #v.map(e => str(e)).join(", ") paren.r^top$
+  let dist-rounded = calc.round(dist, digits: 3)
+  [
+    #problem-def("ClosestVectorProblem")[
+      Given a lattice basis $bold(B) in RR^(m times n)$ (columns $bold(b)_1, dots, bold(b)_n in RR^m$ spanning lattice $cal(L)(bold(B)) = {bold(B) bold(x) : bold(x) in ZZ^n}$) and target $bold(t) in RR^m$, find $bold(x) in ZZ^n$ minimizing $norm(bold(B) bold(x) - bold(t))_2$.
+    ][
+      The Closest Vector Problem is a fundamental lattice problem, proven NP-hard by van Emde Boas @vanemde1981. CVP appears in lattice-based cryptography, coding theory, and integer programming @lenstra1983. Kannan's enumeration algorithm @kannan1987 solves CVP in $n^(O(n))$ time; Micciancio and Voulgaris @micciancio2010 improved this to deterministic $O^*(4^n)$ using Voronoi cell computations, and Aggarwal, Dadush, and Stephens-Davidowitz @aggarwal2015 achieved randomized $O^*(2^n)$.
 
-  *Example.* Consider the 2D lattice with basis $bold(b)_1 = (2, 0)^top$, $bold(b)_2 = (1, 2)^top$ and target $bold(t) = (2.8, 1.5)^top$. The lattice points near $bold(t)$ include $bold(B)(1, 0)^top = (2, 0)^top$, $bold(B)(0, 1)^top = (1, 2)^top$, and $bold(B)(1, 1)^top = (3, 2)^top$. The closest is $bold(B)(1, 1)^top = (3, 2)^top$ with distance $norm(bold(B)(1,1)^top - bold(t))_2 = norm((0.2, 0.5))_2 = sqrt(0.04 + 0.25) approx 0.539$.
+      *Example.* Consider the 2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", ") and target $bold(t) = #fmt-vec(target)$. The lattice points near $bold(t)$ include $bold(B)(1, 0)^top = (2, 0)^top$, $bold(B)(0, 1)^top = (1, 2)^top$, and $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$. The closest is $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ with distance $norm(bold(B)(#coords.map(c => str(c)).join(","))^top - bold(t))_2 approx #dist-rounded$.
 
-  #figure(
-    canvas(length: 0.8cm, {
-      import draw: *
-      // Lattice points: B*(x1,x2) = x1*(2,0) + x2*(1,2)
-      for x1 in range(0, 3) {
-        for x2 in range(0, 3) {
-          let px = x1 * 2 + x2 * 1
-          let py = x2 * 2
-          let is-closest = (x1 == 1 and x2 == 1)
-          let nm = "p" + str(x1) + str(x2)
-          circle(
-            (px, py),
-            radius: if is-closest { 0.15 } else { 0.08 },
-            fill: if is-closest { graph-colors.at(0) } else { luma(180) },
-            stroke: if is-closest { 0.8pt + graph-colors.at(0) } else { 0.4pt + luma(120) },
-            name: nm,
-          )
-        }
-      }
-      // Target vector
-      circle((2.8, 1.5), radius: 0.1, fill: graph-colors.at(1), stroke: none, name: "target")
-      content((rel: (0, -0.45), to: "target"), text(7pt)[$bold(t)$])
-      // Dashed line from target to closest point
-      line("target", "p11", stroke: (paint: graph-colors.at(0), thickness: 0.8pt, dash: "dashed"))
-      // Basis vectors as arrows from origin
-      line("p00", "p10", mark: (end: "straight"), stroke: 0.8pt + luma(100), name: "b1")
-      content((rel: (0, -0.35), to: "b1.mid"), text(7pt)[$bold(b)_1$])
-      line("p00", "p01", mark: (end: "straight"), stroke: 0.8pt + luma(100), name: "b2")
-      content((rel: (-0.3, 0), to: "b2.mid"), text(7pt)[$bold(b)_2$])
-      // Label closest point
-      content((rel: (0.45, 0.3), to: "p11"), text(7pt)[$bold(B)(1,1)^top$])
-    }),
-    caption: [2D lattice with basis $bold(b)_1 = (2, 0)^top$, $bold(b)_2 = (1, 2)^top$. Target $bold(t) = (2.8, 1.5)^top$ (red) and closest lattice point $bold(B)(1,1)^top = (3, 2)^top$ (blue). Distance $norm(bold(B)(1,1)^top - bold(t))_2 approx 0.539$.],
-  ) <fig:cvp-example>
-]
+      #figure(
+        canvas(length: 0.8cm, {
+          import draw: *
+          for x1 in range(0, 3) {
+            for x2 in range(0, 3) {
+              let px = x1 * basis.at(0).at(0) + x2 * basis.at(1).at(0)
+              let py = x1 * basis.at(0).at(1) + x2 * basis.at(1).at(1)
+              let is-closest = (x1 == coords.at(0) and x2 == coords.at(1))
+              let nm = "p" + str(x1) + str(x2)
+              circle(
+                (px, py),
+                radius: if is-closest { 0.15 } else { 0.08 },
+                fill: if is-closest { graph-colors.at(0) } else { luma(180) },
+                stroke: if is-closest { 0.8pt + graph-colors.at(0) } else { 0.4pt + luma(120) },
+                name: nm,
+              )
+            }
+          }
+          circle((target.at(0), target.at(1)), radius: 0.1, fill: graph-colors.at(1), stroke: none, name: "target")
+          content((rel: (0, -0.45), to: "target"), text(7pt)[$bold(t)$])
+          line("target", "p" + str(coords.at(0)) + str(coords.at(1)), stroke: (paint: graph-colors.at(0), thickness: 0.8pt, dash: "dashed"))
+          line("p00", "p10", mark: (end: "straight"), stroke: 0.8pt + luma(100), name: "b1")
+          content((rel: (0, -0.35), to: "b1.mid"), text(7pt)[$bold(b)_1$])
+          line("p00", "p01", mark: (end: "straight"), stroke: 0.8pt + luma(100), name: "b2")
+          content((rel: (-0.3, 0), to: "b2.mid"), text(7pt)[$bold(b)_2$])
+          content((rel: (0.45, 0.3), to: "p" + str(coords.at(0)) + str(coords.at(1))), text(7pt)[$bold(B)(#coords.map(c => str(c)).join(","))^top$])
+        }),
+        caption: [2D lattice with basis #range(basis.len()).map(j => $bold(b)_#(j + 1) = #fmt-vec(basis.at(j))$).join(", "). Target $bold(t) = #fmt-vec(target)$ (red) and closest lattice point $bold(B)(#coords.map(c => str(c)).join(","))^top = (#bx.map(v => str(int(v))).join(", "))^top$ (blue). Distance $approx #dist-rounded$.],
+      ) <fig:cvp-example>
+    ]
+  ]
+}
 
 == Satisfiability Problems
 
-#problem-def("Satisfiability")[
-  Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 1$ (all clauses satisfied).
-][
-The Boolean Satisfiability Problem (SAT) is the first problem proven NP-complete @cook1971. SAT serves as the foundation of NP-completeness theory: showing a new problem NP-hard typically proceeds by reduction from SAT or one of its variants. Despite worst-case hardness, conflict-driven clause learning (CDCL) solvers handle industrial instances with millions of variables. The Strong Exponential Time Hypothesis (SETH) @impagliazzo2001 conjectures that no $O^*((2-epsilon)^n)$ algorithm exists for general CNF-SAT, and the best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[SETH conjectures this is optimal; no $O^*((2-epsilon)^n)$ algorithm is known.].
+#{
+  let x = load-model-example("Satisfiability")
+  let n = x.instance.num_vars
+  let m = x.instance.clauses.len()
+  let clauses = x.instance.clauses
+  let sol = x.optimal.at(1)  // pick (1,0,1)
+  let assign = sol.config
+  // Format a literal: positive l -> x_l, negative l -> not x_{|l|}
+  let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
+  // Format a clause as (l1 or l2 or ...)
+  let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
+  // Evaluate a literal under assignment: positive l -> assign[l-1], negative l -> 1-assign[|l|-1]
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
+  [
+    #problem-def("Satisfiability")[
+      Given a CNF formula $phi = and.big_(j=1)^m C_j$ with $m$ clauses over $n$ Boolean variables, where each clause $C_j = or.big_i ell_(j i)$ is a disjunction of literals, find an assignment $bold(x) in {0, 1}^n$ such that $phi(bold(x)) = 1$ (all clauses satisfied).
+    ][
+    The Boolean Satisfiability Problem (SAT) is the first problem proven NP-complete @cook1971. SAT serves as the foundation of NP-completeness theory: showing a new problem NP-hard typically proceeds by reduction from SAT or one of its variants. Despite worst-case hardness, conflict-driven clause learning (CDCL) solvers handle industrial instances with millions of variables. The Strong Exponential Time Hypothesis (SETH) @impagliazzo2001 conjectures that no $O^*((2-epsilon)^n)$ algorithm exists for general CNF-SAT, and the best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[SETH conjectures this is optimal; no $O^*((2-epsilon)^n)$ algorithm is known.].
 
-*Example.* Consider $phi = (x_1 or x_2) and (not x_1 or x_3) and (not x_2 or not x_3)$ with $n = 3$ variables and $m = 3$ clauses. The assignment $(x_1, x_2, x_3) = (1, 0, 1)$ satisfies all clauses: $C_1 = (1 or 0) = 1$, $C_2 = (0 or 1) = 1$, $C_3 = (1 or 0) = 1$. Hence $phi(1, 0, 1) = 1$.
-]
+    *Example.* Consider $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",") ) = (#assign.map(v => str(v)).join(", "))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$).join(", "). Hence $phi(#assign.map(v => str(v)).join(", ")) = 1$.
+    ]
+  ]
+}
 
-#problem-def("KSatisfiability")[
-  SAT with exactly $k$ literals per clause.
-][
-The restriction of SAT to exactly $k$ literals per clause reveals a sharp complexity transition: 2-SAT is polynomial-time solvable via implication graph SCC decomposition @aspvall1979 in $O(n+m)$, while $k$-SAT for $k >= 3$ is NP-complete. Random $k$-SAT exhibits a satisfiability threshold at clause density $m slash n approx 2^k ln 2$, a key phenomenon in computational phase transitions. The best known algorithm for 3-SAT runs in $O^*(1.307^n)$ via biased-PPSZ @hansen2019. Under SETH, $k$-SAT requires time $O^*(c_k^n)$ with $c_k -> 2$ as $k -> infinity$.
+#{
+  let x = load-model-example("KSatisfiability")
+  let n = x.instance.num_vars
+  let m = x.instance.clauses.len()
+  let k = x.instance.clauses.at(0).literals.len()
+  let clauses = x.instance.clauses
+  // Pick a satisfying assignment
+  let sol = x.optimal.at(0)
+  let assign = sol.config
+  let fmt-lit(l) = if l > 0 { $x_#l$ } else { $not x_#(-l)$ }
+  let fmt-clause(c) = $paren.l #c.literals.map(fmt-lit).join($or$) paren.r$
+  let eval-lit(l) = if l > 0 { assign.at(l - 1) } else { 1 - assign.at(-l - 1) }
+  [
+    #problem-def("KSatisfiability")[
+      SAT with exactly $k$ literals per clause.
+    ][
+    The restriction of SAT to exactly $k$ literals per clause reveals a sharp complexity transition: 2-SAT is polynomial-time solvable via implication graph SCC decomposition @aspvall1979 in $O(n+m)$, while $k$-SAT for $k >= 3$ is NP-complete. Random $k$-SAT exhibits a satisfiability threshold at clause density $m slash n approx 2^k ln 2$, a key phenomenon in computational phase transitions. The best known algorithm for 3-SAT runs in $O^*(1.307^n)$ via biased-PPSZ @hansen2019. Under SETH, $k$-SAT requires time $O^*(c_k^n)$ with $c_k -> 2$ as $k -> infinity$.
 
-*Example.* Consider the 3-SAT formula $phi = (x_1 or x_2 or x_3) and (not x_1 or not x_2 or x_3) and (x_1 or not x_2 or not x_3)$ with $n = 3$ variables and $m = 3$ clauses, each containing exactly 3 literals. The assignment $(x_1, x_2, x_3) = (1, 0, 1)$ satisfies all clauses: $C_1 = (1 or 0 or 1) = 1$, $C_2 = (0 or 1 or 1) = 1$, $C_3 = (1 or 1 or 0) = 1$.
-]
+    *Example.* Consider the #{k}-SAT formula $phi = #clauses.map(fmt-clause).join($and$)$ with $n = #n$ variables and $m = #m$ clauses, each containing exactly #k literals. The assignment $(#range(n).map(i => $x_#(i + 1)$).join(",")) = (#assign.map(v => str(v)).join(", "))$ satisfies all clauses: #clauses.enumerate().map(((j, c)) => $C_#(j + 1) = paren.l #c.literals.map(l => str(eval-lit(l))).join($or$) paren.r = 1$).join(", ").
+    ]
+  ]
+}
 
-#problem-def("CircuitSAT")[
-  Given a Boolean circuit $C$ composed of logic gates (AND, OR, NOT, XOR) with $n$ input variables, find an input assignment $bold(x) in {0,1}^n$ such that $C(bold(x)) = 1$.
-][
-Circuit Satisfiability is the most natural NP-complete problem: the Cook-Levin theorem @cook1971 proves NP-completeness by showing any nondeterministic polynomial-time computation can be encoded as a Boolean circuit. CircuitSAT is strictly more succinct than CNF-SAT, since a circuit with $g$ gates may require an exponentially larger CNF formula without auxiliary variables. The Tseitin transformation reduces CircuitSAT to CNF-SAT with only $O(g)$ clauses by introducing one auxiliary variable per gate. The best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[No algorithm improving on brute-force is known for general circuits.].
+#{
+  let x = load-model-example("CircuitSAT")
+  let vars = x.instance.variables
+  let gates = x.instance.circuit.assignments
+  let g = gates.len()
+  // Input variables are those not produced as gate outputs
+  let gate-outputs = gates.map(a => a.outputs).flatten()
+  let inputs = vars.filter(v => v not in gate-outputs)
+  let n = inputs.len()
+  // Find satisfying input assignments: extract input variable positions and group optimal configs
+  let input-indices = inputs.map(v => vars.position(u => u == v))
+  // Collect unique input assignments from optimal configs
+  let sat-assigns = ()
+  for o in x.optimal {
+    let ia = input-indices.map(i => o.config.at(i))
+    if ia not in sat-assigns { sat-assigns.push(ia) }
+  }
+  [
+    #problem-def("CircuitSAT")[
+      Given a Boolean circuit $C$ composed of logic gates (AND, OR, NOT, XOR) with $n$ input variables, find an input assignment $bold(x) in {0,1}^n$ such that $C(bold(x)) = 1$.
+    ][
+    Circuit Satisfiability is the most natural NP-complete problem: the Cook-Levin theorem @cook1971 proves NP-completeness by showing any nondeterministic polynomial-time computation can be encoded as a Boolean circuit. CircuitSAT is strictly more succinct than CNF-SAT, since a circuit with $g$ gates may require an exponentially larger CNF formula without auxiliary variables. The Tseitin transformation reduces CircuitSAT to CNF-SAT with only $O(g)$ clauses by introducing one auxiliary variable per gate. The best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[No algorithm improving on brute-force is known for general circuits.].
 
-*Example.* Consider the circuit $C(x_1, x_2) = (x_1 "AND" x_2) "XOR" (x_1 "OR" x_2)$ with $n = 2$ inputs. Evaluating: $C(0,0) = (0) "XOR" (0) = 0$, $C(0,1) = (0) "XOR" (1) = 1$, $C(1,0) = (0) "XOR" (1) = 1$, $C(1,1) = (1) "XOR" (1) = 0$. The satisfying assignments are $(0, 1)$ and $(1, 0)$ -- precisely the inputs where exactly one variable is true.
+    *Example.* Consider the circuit $C(x_1, x_2) = (x_1 "AND" x_2) "XOR" (x_1 "OR" x_2)$ with $n = #n$ inputs and $g = #g$ gates. Evaluating: $C(0,0) = (0) "XOR" (0) = 0$, $C(0,1) = (0) "XOR" (1) = 1$, $C(1,0) = (0) "XOR" (1) = 1$, $C(1,1) = (1) "XOR" (1) = 0$. The satisfying assignments are #sat-assigns.map(a => $paren.l #a.map(v => str(v)).join(", ") paren.r$).join(" and ") -- precisely the inputs where exactly one variable is true.
 
-#figure(
-  canvas(length: 1cm, {
-    // Gate positions: AND/OR vertically stacked, XOR to the right
-    // With inputs=2, w=0.8: h = max(0.5, 0.7) = 0.7, ports at ±0.175 from center
-    gate-and((2, 0.8), name: "and")
-    gate-or((2, -0.8), name: "or")
-    gate-xor((4.5, 0), name: "xor")
-    // AND → XOR, OR → XOR (right-angle routing)
-    draw.line("and.out", (3.5, 0.8), (3.5, 0.175), "xor.in0")
-    draw.line("or.out", (3.5, -0.8), (3.5, -0.175), "xor.in1")
-    // Output wire and label
-    draw.line("xor.out", (5.5, 0), mark: (end: ">"))
-    draw.content((5.8, 0), text(8pt)[$C$])
-    // x1 fork: to and.in0 (y = 0.975) and or.in0 (y = −0.625)
-    draw.line((0, 0.975), (0.8, 0.975), "and.in0")
-    draw.line((0.8, 0.975), (0.8, -0.625), "or.in0")
-    draw.circle((0.8, 0.975), radius: 0.04, fill: black, stroke: none)
-    // x2 fork: to or.in1 (y = −0.975) and and.in1 (y = 0.625)
-    draw.line((0, -0.975), (0.5, -0.975), "or.in1")
-    draw.line((0.5, -0.975), (0.5, 0.625), "and.in1")
-    draw.circle((0.5, -0.975), radius: 0.04, fill: black, stroke: none)
-    // Input labels
-    draw.content((-0.3, 0.975), text(8pt)[$x_1$])
-    draw.content((-0.3, -0.975), text(8pt)[$x_2$])
-  }),
-  caption: [Circuit $C(x_1, x_2) = (x_1 and x_2) xor (x_1 or x_2)$. Junction dots mark where inputs fork to both gates. Satisfying assignments: $(0,1)$ and $(1,0)$.],
-) <fig:circuit-sat>
-]
+    #figure(
+      canvas(length: 1cm, {
+        gate-and((2, 0.8), name: "and")
+        gate-or((2, -0.8), name: "or")
+        gate-xor((4.5, 0), name: "xor")
+        draw.line("and.out", (3.5, 0.8), (3.5, 0.175), "xor.in0")
+        draw.line("or.out", (3.5, -0.8), (3.5, -0.175), "xor.in1")
+        draw.line("xor.out", (5.5, 0), mark: (end: ">"))
+        draw.content((5.8, 0), text(8pt)[$C$])
+        draw.line((0, 0.975), (0.8, 0.975), "and.in0")
+        draw.line((0.8, 0.975), (0.8, -0.625), "or.in0")
+        draw.circle((0.8, 0.975), radius: 0.04, fill: black, stroke: none)
+        draw.line((0, -0.975), (0.5, -0.975), "or.in1")
+        draw.line((0.5, -0.975), (0.5, 0.625), "and.in1")
+        draw.circle((0.5, -0.975), radius: 0.04, fill: black, stroke: none)
+        draw.content((-0.3, 0.975), text(8pt)[$x_1$])
+        draw.content((-0.3, -0.975), text(8pt)[$x_2$])
+      }),
+      caption: [Circuit $C(x_1, x_2) = (x_1 and x_2) xor (x_1 or x_2)$. Junction dots mark where inputs fork to both gates. Satisfying assignments: #sat-assigns.map(a => $paren.l #a.map(v => str(v)).join(", ") paren.r$).join(" and ").],
+    ) <fig:circuit-sat>
+    ]
+  ]
+}
 
-#problem-def("Factoring")[
-  Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
-][
-The hardness of integer factorization underpins RSA cryptography and other public-key systems. Unlike most problems in this collection, Factoring is not known to be NP-complete; it lies in NP $inter$ co-NP, suggesting it may be of intermediate complexity. The best classical algorithm is the General Number Field Sieve @lenstra1993 running in sub-exponential time $e^(O(b^(1 slash 3)(log b)^(2 slash 3)))$ where $b$ is the bit length. Shor's algorithm @shor1994 solves Factoring in polynomial time on a quantum computer.
+#{
+  let x = load-model-example("Factoring")
+  let N = x.instance.target
+  let mb = x.instance.m
+  let nb = x.instance.n
+  let sol = x.optimal.at(0).config
+  // First mb bits encode p, next nb bits encode q
+  let p = range(mb).fold(0, (acc, i) => acc + sol.at(i) * calc.pow(2, i)) + 2
+  let q = range(nb).fold(0, (acc, i) => acc + sol.at(mb + i) * calc.pow(2, i)) + 2
+  [
+    #problem-def("Factoring")[
+      Given a composite integer $N$ and bit sizes $m, n$, find integers $p in [2, 2^m - 1]$ and $q in [2, 2^n - 1]$ such that $p times q = N$. Here $p$ has $m$ bits and $q$ has $n$ bits.
+    ][
+    The hardness of integer factorization underpins RSA cryptography and other public-key systems. Unlike most problems in this collection, Factoring is not known to be NP-complete; it lies in NP $inter$ co-NP, suggesting it may be of intermediate complexity. The best classical algorithm is the General Number Field Sieve @lenstra1993 running in sub-exponential time $e^(O(b^(1 slash 3)(log b)^(2 slash 3)))$ where $b$ is the bit length. Shor's algorithm @shor1994 solves Factoring in polynomial time on a quantum computer.
 
-*Example.* Let $N = 15$ with $m = 2$ bits and $n = 3$ bits, so $p in [2, 3]$ and $q in [2, 7]$. The solution is $p = 3$, $q = 5$, since $3 times 5 = 15 = N$. Note $p = 3$ fits in 2 bits and $q = 5$ fits in 3 bits. The alternative factorization $5 times 3$ requires $m = 3$, $n = 2$.
-]
+    *Example.* Let $N = #N$ with $m = #mb$ bits and $n = #nb$ bits, so $p in [2, #(calc.pow(2, mb) - 1)]$ and $q in [2, #(calc.pow(2, nb) - 1)]$. The solution is $p = #p$, $q = #q$, since $#p times #q = #N = N$. Note $p = #p$ fits in #mb bits and $q = #q$ fits in #nb bits. The alternative factorization $#q times #p$ requires $m = #nb$, $n = #mb$.
+    ]
+  ]
+}
 
 == Specialized Problems
 
-#problem-def("BMF")[
-  Given an $m times n$ boolean matrix $A$ and rank $k$, find boolean matrices $B in {0,1}^(m times k)$ and $C in {0,1}^(k times n)$ minimizing the Hamming distance $d_H (A, B circle.tiny C)$, where the boolean product $(B circle.tiny C)_(i j) = or.big_ell (B_(i ell) and C_(ell j))$.
-][
-Boolean Matrix Factorization decomposes binary data into interpretable boolean factors, unlike real-valued SVD which loses the discrete structure. NP-hard even to approximate, BMF arises in data mining, text classification, and role-based access control where factors correspond to latent binary features. Practical algorithms use greedy rank-1 extraction or alternating fixed-point methods. The best known exact algorithm runs in $O^*(2^(m k + k n))$ by brute-force search over $B$ and $C$#footnote[No algorithm improving on brute-force enumeration is known for general BMF.].
+#{
+  let x = load-model-example("BMF")
+  let mr = x.instance.m
+  let nc = x.instance.n
+  let k = x.instance.k
+  let A = x.instance.matrix
+  let dH = x.optimal.at(0).metric.Valid
+  // Decode B and C from optimal config
+  // Config layout: B is m*k values, then C is k*n values
+  let cfg = x.optimal.at(0).config
+  let B = range(mr).map(i => range(k).map(j => cfg.at(i * k + j)))
+  let C = range(k).map(i => range(nc).map(j => cfg.at(mr * k + i * nc + j)))
+  // Convert A from bool to int for display
+  let A-int = A.map(row => row.map(v => if v { 1 } else { 0 }))
+  // Format matrix as semicolon-separated rows
+  let fmt-mat(m) = m.map(row => row.map(v => str(v)).join(", ")).join("; ")
+  [
+    #problem-def("BMF")[
+      Given an $m times n$ boolean matrix $A$ and rank $k$, find boolean matrices $B in {0,1}^(m times k)$ and $C in {0,1}^(k times n)$ minimizing the Hamming distance $d_H (A, B circle.tiny C)$, where the boolean product $(B circle.tiny C)_(i j) = or.big_ell (B_(i ell) and C_(ell j))$.
+    ][
+    Boolean Matrix Factorization decomposes binary data into interpretable boolean factors, unlike real-valued SVD which loses the discrete structure. NP-hard even to approximate, BMF arises in data mining, text classification, and role-based access control where factors correspond to latent binary features. Practical algorithms use greedy rank-1 extraction or alternating fixed-point methods. The best known exact algorithm runs in $O^*(2^(m k + k n))$ by brute-force search over $B$ and $C$#footnote[No algorithm improving on brute-force enumeration is known for general BMF.].
 
-*Example.* Let $A = mat(1, 1, 0; 1, 1, 1; 0, 1, 1)$ and $k = 2$. Set $B = mat(1, 0; 1, 1; 0, 1)$ and $C = mat(1, 1, 0; 0, 1, 1)$. Then $B circle.tiny C = mat(1, 1, 0; 1, 1, 1; 0, 1, 1) = A$, achieving Hamming distance $d_H = 0$ (exact factorization). The two boolean factors capture overlapping row/column patterns: factor 1 selects rows ${1, 2}$ and columns ${1, 2}$; factor 2 selects rows ${2, 3}$ and columns ${2, 3}$.
+    *Example.* Let $A = mat(#fmt-mat(A-int))$ and $k = #k$. Set $B = mat(#fmt-mat(B))$ and $C = mat(#fmt-mat(C))$. Then $B circle.tiny C = mat(#fmt-mat(A-int)) = A$, achieving Hamming distance $d_H = #dH$ (exact factorization). The two boolean factors capture overlapping row/column patterns: factor 1 selects rows ${1, 2}$ and columns ${1, 2}$; factor 2 selects rows ${2, 3}$ and columns ${2, 3}$.
 
-#figure(
-  {
-    let cell(val, x, y, color) = {
-      let f = if val == 1 { color.transparentize(30%) } else { white }
-      box(width: 0.45cm, height: 0.45cm, fill: f, stroke: 0.4pt + luma(180),
-        align(center + horizon, text(7pt, if val == 1 { [1] } else { [0] })))
-    }
-    let mat-grid(data, color) = {
-      grid(columns: data.at(0).len(), column-gutter: 0pt, row-gutter: 0pt,
-        ..data.flatten().enumerate().map(((i, v)) => {
-          cell(v, calc.rem(i, data.at(0).len()), int(i / data.at(0).len()), color)
-        }))
-    }
-    let A = ((1,1,0),(1,1,1),(0,1,1))
-    let B = ((1,0),(1,1),(0,1))
-    let C = ((1,1,0),(0,1,1))
-    set text(8pt)
-    align(center, stack(dir: ltr, spacing: 0.3cm,
-      [$A =$], mat-grid(A, graph-colors.at(0)),
-      [$= B circle.tiny C =$],
-      mat-grid(B, graph-colors.at(1)),
-      [$circle.tiny$],
-      mat-grid(C, rgb("#76b7b2")),
-    ))
-  },
-  caption: [Boolean matrix factorization: $A = B circle.tiny C$ with rank $k = 2$. Factor 1 (red) covers the top-left block; factor 2 (teal) covers the bottom-right block.],
-) <fig:bmf>
-]
-
-#problem-def("PaintShop")[
-  Given a sequence of $2n$ positions where each of $n$ cars appears exactly twice, assign a binary color to each car (each car's two occurrences receive opposite colors) to minimize the number of color changes between consecutive positions.
-][
-NP-hard and APX-hard @epping2004. Arises in automotive manufacturing where color changes between consecutive cars on an assembly line require costly purging of paint nozzles. Each car appears twice in the sequence (two coats), and each car's two occurrences must receive opposite colors (one per side). A natural benchmark for quantum annealing due to its binary structure and industrial relevance. The best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[No algorithm improving on brute-force is known for general Paint Shop.].
-
-*Example.* Consider $n = 3$ cars with sequence $(A, B, A, C, B, C)$. Each car gets one occurrence colored 0 and the other colored 1. The assignment $A: 0\/1$, $B: 0\/1$, $C: 1\/0$ yields color sequence $(0, 0, 1, 1, 1, 0)$ with 2 color changes (positions $2 -> 3$ and $5 -> 6$). The alternative $A: 1\/0$, $B: 0\/1$, $C: 0\/1$ yields $(1, 0, 0, 0, 1, 1)$ with 2 changes. The minimum is 2 changes.
-
-#figure(
-  {
-    let cars = ("A", "B", "A", "C", "B", "C")
-    let colors = (0, 0, 1, 1, 1, 0)  // optimal assignment
-    let blue = graph-colors.at(0)
-    let red = graph-colors.at(1)
-    align(center, stack(dir: ltr, spacing: 0pt,
-      ..cars.zip(colors).enumerate().map(((i, (car, c))) => {
-        let fill = if c == 0 { white } else { blue.transparentize(40%) }
-        let change = if i > 0 and colors.at(i) != colors.at(i - 1) {
-          place(dx: -0.08cm, dy: 0.55cm, text(6pt, fill: red, weight: "bold")[×])
+    #figure(
+      {
+        let cell(val, x, y, color) = {
+          let f = if val == 1 { color.transparentize(30%) } else { white }
+          box(width: 0.45cm, height: 0.45cm, fill: f, stroke: 0.4pt + luma(180),
+            align(center + horizon, text(7pt, if val == 1 { [1] } else { [0] })))
         }
-        stack(dir: ttb, spacing: 0.08cm,
-          box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
-            align(center + horizon, text(8pt, weight: "bold", car))),
-          text(6pt, fill: luma(100), str(c)),
-          change,
-        )
-      })))
-  },
-  caption: [Paint Shop: sequence $(A, B, A, C, B, C)$ with optimal coloring. White = color 0, blue = color 1. Two color changes (marked ×) at positions $2 -> 3$ and $5 -> 6$.],
-) <fig:paintshop>
-]
+        let mat-grid(data, color) = {
+          grid(columns: data.at(0).len(), column-gutter: 0pt, row-gutter: 0pt,
+            ..data.flatten().enumerate().map(((i, v)) => {
+              cell(v, calc.rem(i, data.at(0).len()), int(i / data.at(0).len()), color)
+            }))
+        }
+        set text(8pt)
+        align(center, stack(dir: ltr, spacing: 0.3cm,
+          [$A =$], mat-grid(A-int, graph-colors.at(0)),
+          [$= B circle.tiny C =$],
+          mat-grid(B, graph-colors.at(1)),
+          [$circle.tiny$],
+          mat-grid(C, rgb("#76b7b2")),
+        ))
+      },
+      caption: [Boolean matrix factorization: $A = B circle.tiny C$ with rank $k = #k$. Factor 1 (red) covers the top-left block; factor 2 (teal) covers the bottom-right block.],
+    ) <fig:bmf>
+    ]
+  ]
+}
 
-#problem-def("BicliqueCover")[
-  Given a bipartite graph $G = (L, R, E)$ and integer $k$, find $k$ bicliques $(L_1, R_1), dots, (L_k, R_k)$ that cover all edges ($E subset.eq union.big_i L_i times R_i$) while minimizing the total size $sum_i (|L_i| + |R_i|)$.
-][
-Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipartite graph as a Boolean sum of rank-1 binary matrices, connecting it to Boolean matrix rank and nondeterministic communication complexity. Applications include data compression, database optimization (covering queries with materialized views), and bioinformatics (gene expression biclustering). NP-hard even for fixed $k >= 2$. The best known algorithm runs in $O^*(2^(|L| + |R|))$ by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for general Biclique Cover.].
+#{
+  let x = load-model-example("PaintShop")
+  let n-cars = x.instance.num_cars
+  let labels = x.instance.car_labels
+  let seq-indices = x.instance.sequence_indices
+  let is-first = x.instance.is_first
+  let sol = x.optimal.at(0)
+  let assign = sol.config  // color assignment per car
+  let num-changes = sol.metric.Valid
+  // Build the full sequence of car labels
+  let seq-labels = seq-indices.map(i => labels.at(i))
+  // Build color sequence: for each position, if is_first[pos] then color = assign[car], else 1-assign[car]
+  let color-seq = range(seq-indices.len()).map(pos => {
+    let car = seq-indices.at(pos)
+    if is-first.at(pos) { assign.at(car) } else { 1 - assign.at(car) }
+  })
+  [
+    #problem-def("PaintShop")[
+      Given a sequence of $2n$ positions where each of $n$ cars appears exactly twice, assign a binary color to each car (each car's two occurrences receive opposite colors) to minimize the number of color changes between consecutive positions.
+    ][
+    NP-hard and APX-hard @epping2004. Arises in automotive manufacturing where color changes between consecutive cars on an assembly line require costly purging of paint nozzles. Each car appears twice in the sequence (two coats), and each car's two occurrences must receive opposite colors (one per side). A natural benchmark for quantum annealing due to its binary structure and industrial relevance. The best known algorithm runs in $O^*(2^n)$ by brute-force enumeration#footnote[No algorithm improving on brute-force is known for general Paint Shop.].
 
-*Example.* Consider $G = (L, R, E)$ with $L = {ell_1, ell_2}$, $R = {r_1, r_2, r_3}$, and edges $E = {(ell_1, r_1), (ell_1, r_2), (ell_2, r_2), (ell_2, r_3)}$. A biclique cover with $k = 2$: $(L_1, R_1) = ({ell_1}, {r_1, r_2})$ covering edges ${(ell_1, r_1), (ell_1, r_2)}$, and $(L_2, R_2) = ({ell_2}, {r_2, r_3})$ covering ${(ell_2, r_2), (ell_2, r_3)}$. Total size $= (1+2) + (1+2) = 6$. Merging into a single biclique is impossible since $(ell_1, r_3) in.not E$.
+    *Example.* Consider $n = #n-cars$ cars with sequence $(#seq-labels.join(", "))$. Each car gets one occurrence colored 0 and the other colored 1. The assignment #labels.zip(assign).map(((l, c)) => [#l: #c\/#(1 - c)]).join(", ") yields color sequence $(#color-seq.map(c => str(c)).join(", "))$ with #num-changes color changes. The minimum is #num-changes changes.
 
-#figure(
-  canvas(length: 1cm, {
-    // Bipartite layout: L on left, R on right
-    let lpos = ((0, 1), (0, 0))           // l1, l2
-    let rpos = ((2.5, 1.5), (2.5, 0.5), (2.5, -0.5))  // r1, r2, r3
-    let edges = ((0, 0), (0, 1), (1, 1), (1, 2))  // (li, rj) pairs
-    // Biclique 1: l1-{r1,r2} in blue; Biclique 2: l2-{r2,r3} in teal
-    let bc1 = ((0,0), (0,1))
-    let bc2 = ((1,1), (1,2))
-    for (li, rj) in edges {
-      let is-bc1 = bc1.contains((li, rj))
-      let c = if is-bc1 { graph-colors.at(0) } else { rgb("#76b7b2") }
-      g-edge(lpos.at(li), rpos.at(rj), stroke: 1.5pt + c)
-    }
-    // L nodes
-    for (k, p) in lpos.enumerate() {
-      g-node(p, name: "l" + str(k), fill: luma(240), label: $ell_#(k+1)$)
-    }
-    // R nodes
-    for (k, p) in rpos.enumerate() {
-      g-node(p, name: "r" + str(k), fill: luma(240), label: $r_#(k+1)$)
-    }
-  }),
-  caption: [Biclique cover of a bipartite graph: biclique 1 (blue) $= ({ell_1}, {r_1, r_2})$, biclique 2 (teal) $= ({ell_2}, {r_2, r_3})$. Edge $(ell_1, r_3)$ is absent, preventing a single biclique.],
-) <fig:biclique-cover>
-]
+    #figure(
+      {
+        let blue = graph-colors.at(0)
+        let red = graph-colors.at(1)
+        align(center, stack(dir: ltr, spacing: 0pt,
+          ..seq-labels.zip(color-seq).enumerate().map(((i, (car, c))) => {
+            let fill = if c == 0 { white } else { blue.transparentize(40%) }
+            let change = if i > 0 and color-seq.at(i) != color-seq.at(i - 1) {
+              place(dx: -0.08cm, dy: 0.55cm, text(6pt, fill: red, weight: "bold")[×])
+            }
+            stack(dir: ttb, spacing: 0.08cm,
+              box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+                align(center + horizon, text(8pt, weight: "bold", car))),
+              text(6pt, fill: luma(100), str(c)),
+              change,
+            )
+          })))
+      },
+      caption: [Paint Shop: sequence $(#seq-labels.join(", "))$ with optimal coloring. White = color 0, blue = color 1. #num-changes color changes (marked ×).],
+    ) <fig:paintshop>
+    ]
+  ]
+}
 
-#problem-def("PartitionIntoTriangles")[
-  Given a graph $G = (V, E)$ with $|V| = 3q$ for some integer $q$, determine whether the vertices of $G$ can be partitioned into $q$ disjoint triples $V_1, dots, V_q$, each containing exactly 3 vertices, such that for each $V_i = {u_i, v_i, w_i}$, all three edges ${u_i, v_i}$, ${u_i, w_i}$, and ${v_i, w_i}$ belong to $E$.
-][
-  Partition Into Triangles is NP-complete by transformation from 3-Dimensional Matching @garey1979[GT11]. It remains NP-complete on graphs of maximum degree 4, with an exact algorithm running in $O^*(1.0222^n)$ for bounded-degree-4 graphs @vanrooij2013. The general brute-force bound is $O^*(2^n)$#footnote[No algorithm improving on brute-force enumeration is known for general Partition Into Triangles.].
+#{
+  let x = load-model-example("BicliqueCover")
+  let left-size = x.instance.graph.left_size
+  let right-size = x.instance.graph.right_size
+  let k = x.instance.k
+  let bip-edges = x.instance.graph.edges  // (li, rj) pairs
+  let ne = bip-edges.len()
+  let sol = x.optimal.at(0)
+  let total-size = sol.metric.Valid
+  [
+    #problem-def("BicliqueCover")[
+      Given a bipartite graph $G = (L, R, E)$ and integer $k$, find $k$ bicliques $(L_1, R_1), dots, (L_k, R_k)$ that cover all edges ($E subset.eq union.big_i L_i times R_i$) while minimizing the total size $sum_i (|L_i| + |R_i|)$.
+    ][
+    Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipartite graph as a Boolean sum of rank-1 binary matrices, connecting it to Boolean matrix rank and nondeterministic communication complexity. Applications include data compression, database optimization (covering queries with materialized views), and bioinformatics (gene expression biclustering). NP-hard even for fixed $k >= 2$. The best known algorithm runs in $O^*(2^(|L| + |R|))$ by brute-force enumeration#footnote[No algorithm improving on brute-force enumeration is known for general Biclique Cover.].
 
-  *Example.* Consider $G$ with $n = 6$ vertices ($q = 2$) and edges ${0,1}$, ${0,2}$, ${1,2}$, ${3,4}$, ${3,5}$, ${4,5}$, ${0,3}$. The partition $V_1 = {v_0, v_1, v_2}$, $V_2 = {v_3, v_4, v_5}$ is valid: $V_1$ forms a triangle (edges ${0,1}$, ${0,2}$, ${1,2}$ all present) and $V_2$ forms a triangle (edges ${3,4}$, ${3,5}$, ${4,5}$ all present). The cross-edge ${0,3}$ is unused. Swapping $v_2$ and $v_3$ yields $V'_1 = {v_0, v_1, v_3}$, which fails because ${1, 3} in.not E$.
+    *Example.* Consider $G = (L, R, E)$ with $L = {#range(left-size).map(i => $ell_#(i + 1)$).join(", ")}$, $R = {#range(right-size).map(i => $r_#(i + 1)$).join(", ")}$, and edges $E = {#bip-edges.map(e => $(ell_#(e.at(0) + 1), r_#(e.at(1) + 1))$).join(", ")}$. A biclique cover with $k = #k$: $(L_1, R_1) = ({ell_1}, {r_1, r_2})$ covering edges ${(ell_1, r_1), (ell_1, r_2)}$, and $(L_2, R_2) = ({ell_2}, {r_2, r_3})$ covering ${(ell_2, r_2), (ell_2, r_3)}$. Total size $= (1+2) + (1+2) = #total-size$. Merging into a single biclique is impossible since $(ell_1, r_3) in.not E$.
 
-  #figure(
-    canvas(length: 1cm, {
-      import draw: *
-      // Two triangles side by side with a cross-edge
-      let verts = ((0, 1.2), (1, 0), (-1, 0), (3, 1.2), (4, 0), (2, 0))
-      let edges = ((0, 1), (0, 2), (1, 2), (3, 4), (3, 5), (4, 5), (0, 3))
-      let tri1 = (0, 1, 2)
-      let tri2 = (3, 4, 5)
-      // Draw edges
-      for (u, v) in edges {
-        let is-cross = u == 0 and v == 3
-        g-edge(verts.at(u), verts.at(v),
-          stroke: if is-cross { 1pt + luma(180) } else if tri1.contains(u) and tri1.contains(v) { 1.5pt + graph-colors.at(0) } else { 1.5pt + rgb("#76b7b2") })
-      }
-      // Draw vertices
-      for (k, p) in verts.enumerate() {
-        let c = if tri1.contains(k) { graph-colors.at(0).lighten(70%) } else { rgb("#76b7b2").lighten(70%) }
-        g-node(p, name: "v" + str(k), fill: c, label: $v_#k$)
-      }
-    }),
-    caption: [Partition Into Triangles: $V_1 = {v_0, v_1, v_2}$ (blue) and $V_2 = {v_3, v_4, v_5}$ (teal) each form a triangle. The cross-edge $(v_0, v_3)$ (gray) is unused.],
-  ) <fig:partition-triangles>
-]
+    #figure(
+      canvas(length: 1cm, {
+        let lpos = range(left-size).map(i => (0, left-size - 1 - i))
+        let rpos = range(right-size).map(i => (2.5, 1.5 - i))
+        let bc1 = bip-edges.filter(e => e.at(0) == 0)
+        for (li, rj) in bip-edges {
+          let is-bc1 = bc1.any(e => e.at(0) == li and e.at(1) == rj)
+          let c = if is-bc1 { graph-colors.at(0) } else { rgb("#76b7b2") }
+          g-edge(lpos.at(li), rpos.at(rj), stroke: 1.5pt + c)
+        }
+        for (k, p) in lpos.enumerate() {
+          g-node(p, name: "l" + str(k), fill: luma(240), label: $ell_#(k+1)$)
+        }
+        for (k, p) in rpos.enumerate() {
+          g-node(p, name: "r" + str(k), fill: luma(240), label: $r_#(k+1)$)
+        }
+      }),
+      caption: [Biclique cover of a bipartite graph: biclique 1 (blue) $= ({ell_1}, {r_1, r_2})$, biclique 2 (teal) $= ({ell_2}, {r_2, r_3})$. Edge $(ell_1, r_3)$ is absent, preventing a single biclique.],
+    ) <fig:biclique-cover>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("PartitionIntoTriangles")
+  let nv = graph-num-vertices(x.instance)
+  let ne = graph-num-edges(x.instance)
+  let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
+  let q = int(nv / 3)
+  // optimal[0] config groups vertices into triangles: config[i] = triangle index
+  let sol = x.optimal.at(0)
+  let tri-assign = sol.config
+  // Group vertices by triangle
+  let triangles = range(q).map(t => tri-assign.enumerate().filter(((i, v)) => v == t).map(((i, _)) => i))
+  [
+    #problem-def("PartitionIntoTriangles")[
+      Given a graph $G = (V, E)$ with $|V| = 3q$ for some integer $q$, determine whether the vertices of $G$ can be partitioned into $q$ disjoint triples $V_1, dots, V_q$, each containing exactly 3 vertices, such that for each $V_i = {u_i, v_i, w_i}$, all three edges ${u_i, v_i}$, ${u_i, w_i}$, and ${v_i, w_i}$ belong to $E$.
+    ][
+      Partition Into Triangles is NP-complete by transformation from 3-Dimensional Matching @garey1979[GT11]. It remains NP-complete on graphs of maximum degree 4, with an exact algorithm running in $O^*(1.0222^n)$ for bounded-degree-4 graphs @vanrooij2013. The general brute-force bound is $O^*(2^n)$#footnote[No algorithm improving on brute-force enumeration is known for general Partition Into Triangles.].
+
+      *Example.* Consider $G$ with $n = #nv$ vertices ($q = #q$) and edges #edges.map(((u, v)) => [${#u, #v}$]).join(", "). The partition #triangles.enumerate().map(((i, tri)) => $V_#(i + 1) = {#tri.map(v => $v_#v$).join(", ")}$).join(", ") is valid: #triangles.enumerate().map(((i, tri)) => [$V_#(i + 1)$ forms a triangle]).join(" and "). The cross-edge ${0, 3}$ is unused. Swapping $v_2$ and $v_3$ yields $V'_1 = {v_0, v_1, v_3}$, which fails because ${1, 3} in.not E$.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let verts = ((0, 1.2), (1, 0), (-1, 0), (3, 1.2), (4, 0), (2, 0))
+          let tri1 = triangles.at(0)
+          let tri2 = triangles.at(1)
+          for (u, v) in edges {
+            let is-cross = not (tri1.contains(u) and tri1.contains(v)) and not (tri2.contains(u) and tri2.contains(v))
+            g-edge(verts.at(u), verts.at(v),
+              stroke: if is-cross { 1pt + luma(180) } else if tri1.contains(u) and tri1.contains(v) { 1.5pt + graph-colors.at(0) } else { 1.5pt + rgb("#76b7b2") })
+          }
+          for (k, p) in verts.enumerate() {
+            let c = if tri1.contains(k) { graph-colors.at(0).lighten(70%) } else { rgb("#76b7b2").lighten(70%) }
+            g-node(p, name: "v" + str(k), fill: c, label: $v_#k$)
+          }
+        }),
+        caption: [Partition Into Triangles: #triangles.enumerate().map(((i, tri)) => $V_#(i + 1) = {#tri.map(v => $v_#v$).join(", ")}$).join(" and ") each form a triangle. Cross-edges (gray) are unused.],
+      ) <fig:partition-triangles>
+    ]
+  ]
+}
 
 #problem-def("BinPacking")[
   Given $n$ items with sizes $s_1, dots, s_n in RR^+$ and bin capacity $C > 0$, find an assignment $x: {1, dots, n} -> NN$ minimizing $|{x(i) : i = 1, dots, n}|$ (the number of distinct bins used) subject to $forall j: sum_(i: x(i) = j) s_i lt.eq C$.
@@ -1232,65 +1623,84 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
   *Example.* Let $A = {3, 7, 1, 8, 2, 4}$ ($n = 6$) and target $B = 11$. Selecting $A' = {3, 8}$ gives sum $3 + 8 = 11 = B$. Another solution: $A' = {7, 4}$ with sum $7 + 4 = 11 = B$.
 ]
 
-#problem-def("ShortestCommonSupersequence")[
-  Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| lt.eq K$ such that every string $r_i in R$ is a _subsequence_ of $w$: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|r_i|) lt.eq |w|$ with $w[j_k] = r_i [k]$ for all $k$.
-][
-  A classic NP-complete string problem, listed as problem SR8 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness; #cite(<raiha1981>, form: "prose") showed the problem remains NP-complete even over a binary alphabet ($|Sigma| = 2$). Note that _subsequence_ (characters may be non-contiguous) differs from _substring_ (contiguous block): the Shortest Common Supersequence asks that each input string can be embedded into $w$ by selecting characters in order but not necessarily adjacently.
+#{
+  let x = load-model-example("ShortestCommonSupersequence")
+  let alpha-size = x.instance.alphabet_size
+  let bound = x.instance.bound
+  let strings = x.instance.strings
+  let nr = strings.len()
+  // Alphabet mapping: 0->a, 1->b, 2->c, ...
+  let alpha-map = range(alpha-size).map(i => str.from-unicode(97 + i))
+  let fmt-str(s) = "\"" + s.map(c => alpha-map.at(c)).join("") + "\""
+  // Pick optimal[1] = [1,0,1,2] = "babc" to match figure
+  let sol = x.optimal.at(1)
+  let w = sol.config.map(c => alpha-map.at(c))
+  let w-str = fmt-str(sol.config)
+  let w-len = w.len()
+  // Format input strings
+  let r-strs = strings.map(s => fmt-str(s))
+  let r-chars = strings.map(s => s.map(c => alpha-map.at(c)))
+  // Compute embeddings: for each input string, find positions in w
+  let compute-embed(r, w-cfg) = {
+    let positions = ()
+    let j = 0
+    for (i, ch) in w-cfg.enumerate() {
+      if j < r.len() and ch == r.at(j) {
+        positions.push(i)
+        j += 1
+      }
+    }
+    positions
+  }
+  let embeds = strings.map(s => compute-embed(s, sol.config))
+  [
+    #problem-def("ShortestCommonSupersequence")[
+      Given a finite alphabet $Sigma$, a set $R = {r_1, dots, r_m}$ of strings over $Sigma^*$, and a positive integer $K$, determine whether there exists a string $w in Sigma^*$ with $|w| lt.eq K$ such that every string $r_i in R$ is a _subsequence_ of $w$: there exist indices $1 lt.eq j_1 < j_2 < dots < j_(|r_i|) lt.eq |w|$ with $w[j_k] = r_i [k]$ for all $k$.
+    ][
+      A classic NP-complete string problem, listed as problem SR8 in Garey and Johnson @garey1979. #cite(<maier1978>, form: "prose") proved NP-completeness; #cite(<raiha1981>, form: "prose") showed the problem remains NP-complete even over a binary alphabet ($|Sigma| = 2$). Note that _subsequence_ (characters may be non-contiguous) differs from _substring_ (contiguous block): the Shortest Common Supersequence asks that each input string can be embedded into $w$ by selecting characters in order but not necessarily adjacently.
 
-  For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search over all strings of length at most $K$ takes $O(|Sigma|^K)$ time. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
+      For $|R| = 2$ strings, the problem is solvable in polynomial time via the duality with the Longest Common Subsequence (LCS): if $"LCS"(r_1, r_2)$ has length $ell$, then the shortest common supersequence has length $|r_1| + |r_2| - ell$, computable in $O(|r_1| dot |r_2|)$ time by dynamic programming. For general $|R| = m$, the brute-force search over all strings of length at most $K$ takes $O(|Sigma|^K)$ time. Applications include bioinformatics (reconstructing ancestral sequences from fragments), data compression (representing multiple strings compactly), and scheduling (merging instruction sequences).
 
-  *Example.* Let $Sigma = {a, b, c}$ and $R = {"abc", "bac"}$. We seek the shortest string $w$ containing both $"abc"$ and $"bac"$ as subsequences.
+      *Example.* Let $Sigma = {#alpha-map.join(", ")}$ and $R = {#r-strs.join(", ")}$. We seek the shortest string $w$ containing both #r-strs.join(" and ") as subsequences.
 
-  #figure({
-    let w = ("b", "a", "b", "c")
-    let r1 = ("a", "b", "c")       // "abc"
-    let r2 = ("b", "a", "c")       // "bac"
-    let embed1 = (1, 2, 3)         // positions of a, b, c in w (0-indexed)
-    let embed2 = (0, 1, 3)         // positions of b, a, c in w (0-indexed)
-    let blue = graph-colors.at(0)
-    let teal = rgb("#76b7b2")
-    let red = graph-colors.at(1)
-    align(center, stack(dir: ttb, spacing: 0.6cm,
-      // Row 1: the supersequence w
-      stack(dir: ltr, spacing: 0pt,
-        box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt)[$w =$])),
-        ..w.enumerate().map(((i, ch)) => {
-          let is1 = embed1.contains(i)
-          let is2 = embed2.contains(i)
-          let fill = if is1 and is2 { blue.transparentize(60%) } else if is1 { blue.transparentize(80%) } else if is2 { teal.transparentize(80%) } else { white }
-          box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
-            align(center + horizon, text(9pt, weight: "bold", ch)))
-        }),
-      ),
-      // Row 2: embedding of r1
-      stack(dir: ltr, spacing: 0pt,
-        box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt, fill: blue)[$r_1 =$])),
-        ..range(w.len()).map(i => {
-          let idx = embed1.position(j => j == i)
-          let ch = if idx != none { r1.at(idx) } else { sym.dot.c }
-          let col = if idx != none { blue } else { luma(200) }
-          box(width: 0.55cm, height: 0.55cm,
-            align(center + horizon, text(9pt, fill: col, weight: if idx != none { "bold" } else { "regular" }, ch)))
-        }),
-      ),
-      // Row 3: embedding of r2
-      stack(dir: ltr, spacing: 0pt,
-        box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt, fill: teal)[$r_2 =$])),
-        ..range(w.len()).map(i => {
-          let idx = embed2.position(j => j == i)
-          let ch = if idx != none { r2.at(idx) } else { sym.dot.c }
-          let col = if idx != none { teal } else { luma(200) }
-          box(width: 0.55cm, height: 0.55cm,
-            align(center + horizon, text(9pt, fill: col, weight: if idx != none { "bold" } else { "regular" }, ch)))
-        }),
-      ),
-    ))
-  },
-  caption: [Shortest Common Supersequence: $w = "babc"$ (length 4) contains $r_1 = "abc"$ (blue, positions 1,2,3) and $r_2 = "bac"$ (teal, positions 0,1,3) as subsequences. Dots mark unused positions in each embedding.],
-  ) <fig:scs>
+      #figure({
+        let blue = graph-colors.at(0)
+        let teal = rgb("#76b7b2")
+        align(center, stack(dir: ttb, spacing: 0.6cm,
+          stack(dir: ltr, spacing: 0pt,
+            box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt)[$w =$])),
+            ..w.enumerate().map(((i, ch)) => {
+              let is1 = embeds.at(0).contains(i)
+              let is2 = embeds.at(1).contains(i)
+              let fill = if is1 and is2 { blue.transparentize(60%) } else if is1 { blue.transparentize(80%) } else if is2 { teal.transparentize(80%) } else { white }
+              box(width: 0.55cm, height: 0.55cm, fill: fill, stroke: 0.5pt + luma(120),
+                align(center + horizon, text(9pt, weight: "bold", ch)))
+            }),
+          ),
+          ..range(nr).map(ri => {
+            let embed = embeds.at(ri)
+            let r = r-chars.at(ri)
+            let col = if ri == 0 { blue } else { teal }
+            stack(dir: ltr, spacing: 0pt,
+              box(width: 1.2cm, height: 0.5cm, align(center + horizon, text(8pt, fill: col)[$r_#(ri + 1) =$])),
+              ..range(w-len).map(i => {
+                let idx = embed.position(j => j == i)
+                let ch = if idx != none { r.at(idx) } else { sym.dot.c }
+                let c = if idx != none { col } else { luma(200) }
+                box(width: 0.55cm, height: 0.55cm,
+                  align(center + horizon, text(9pt, fill: c, weight: if idx != none { "bold" } else { "regular" }, ch)))
+              }),
+            )
+          }),
+        ))
+      },
+      caption: [Shortest Common Supersequence: $w = #w-str$ (length #w-len) contains #range(nr).map(ri => [$r_#(ri + 1) = #r-strs.at(ri)$ (#if ri == 0 [blue] else [teal], positions #embeds.at(ri).map(p => str(p)).join(","))]).join(" and ") as subsequences. Dots mark unused positions in each embedding.],
+      ) <fig:scs>
 
-  The supersequence $w = "babc"$ has length 4 and contains both input strings as subsequences. This is optimal because $"LCS"("abc", "bac") = "ac"$ (length 2), so the shortest common supersequence has length $3 + 3 - 2 = 4$.
-]
+      The supersequence $w = #w-str$ has length #w-len and contains both input strings as subsequences. This is optimal because $"LCS"(#r-strs.join(", ")) = "ac"$ (length 2), so the shortest common supersequence has length $#strings.at(0).len() + #strings.at(1).len() - 2 = #w-len$.
+    ]
+  ]
+}
 
 #problem-def("MinimumFeedbackArcSet")[
   Given a directed graph $G = (V, A)$, find a minimum-size subset $A' subset.eq A$ such that $G - A'$ is a directed acyclic graph (DAG). Equivalently, $A'$ must contain at least one arc from every directed cycle in $G$.
