@@ -23,27 +23,43 @@ COPILOT_REVIEWERS = {
 
 STATUS_BACKLOG = "Backlog"
 STATUS_READY = "Ready"
+STATUS_IN_PROGRESS = "In progress"
 STATUS_REVIEW_POOL = "Review pool"
+STATUS_UNDER_REVIEW = "Under review"
 STATUS_FINAL_REVIEW = "Final review"
+STATUS_ON_HOLD = "OnHold"
 STATUS_DONE = "Done"
 
 STATUS_OPTION_IDS = {
     STATUS_BACKLOG: "ab337660",
     STATUS_READY: "f37d0d80",
+    STATUS_IN_PROGRESS: "a12cfc9c",
     STATUS_REVIEW_POOL: "7082ed60",
+    STATUS_UNDER_REVIEW: "f04790ca",
     STATUS_FINAL_REVIEW: "51a3d8bb",
+    STATUS_ON_HOLD: "48dfe446",
     STATUS_DONE: "6aca54fa",
 }
 
 STATUS_ALIASES = {
     "backlog": STATUS_BACKLOG,
     "ready": STATUS_READY,
+    "in-progress": STATUS_IN_PROGRESS,
+    "in_progress": STATUS_IN_PROGRESS,
+    "in progress": STATUS_IN_PROGRESS,
     "review-pool": STATUS_REVIEW_POOL,
     "review_pool": STATUS_REVIEW_POOL,
     "review pool": STATUS_REVIEW_POOL,
+    "under-review": STATUS_UNDER_REVIEW,
+    "under_review": STATUS_UNDER_REVIEW,
+    "under review": STATUS_UNDER_REVIEW,
     "final-review": STATUS_FINAL_REVIEW,
     "final_review": STATUS_FINAL_REVIEW,
     "final review": STATUS_FINAL_REVIEW,
+    "on-hold": STATUS_ON_HOLD,
+    "on_hold": STATUS_ON_HOLD,
+    "on hold": STATUS_ON_HOLD,
+    "onhold": STATUS_ON_HOLD,
     "done": STATUS_DONE,
 }
 
@@ -256,6 +272,56 @@ def review_entries(
     return entries
 
 
+def final_review_entries(
+    board_data: dict,
+    repo: str,
+    pr_resolver: Callable[[str, int], int | None] | None,
+    pr_state_fetcher: Callable[[str, int], str],
+) -> dict[str, dict]:
+    entries = {}
+    for item in board_data.get("items", []):
+        if item.get("status") != STATUS_FINAL_REVIEW:
+            continue
+
+        content = item.get("content") or {}
+        item_type = content.get("type")
+        number = content.get("number")
+        if number is None:
+            continue
+
+        pr_number: int | None
+        if item_type == "PullRequest":
+            pr_number = int(number)
+            if pr_state_fetcher(repo, pr_number) != "OPEN":
+                continue
+        elif item_type == "Issue":
+            linked_numbers = linked_pr_numbers(item, repo)
+            if len(linked_numbers) > 1:
+                continue
+            if len(linked_numbers) == 1:
+                pr_number = linked_numbers[0]
+                if pr_state_fetcher(repo, pr_number) != "OPEN":
+                    continue
+            else:
+                if pr_resolver is None:
+                    raise ValueError(
+                        "final-review mode requires pr_resolver for issue cards without linked PRs"
+                    )
+                pr_number = pr_resolver(repo, int(number))
+                if pr_number is None:
+                    continue
+                if pr_state_fetcher(repo, pr_number) != "OPEN":
+                    continue
+        else:
+            pr_number = None
+
+        if pr_number is None:
+            continue
+
+        entries[item_identity(item)] = {"number": pr_number}
+    return entries
+
+
 def current_entries(
     mode: str,
     board_data: dict,
@@ -275,6 +341,17 @@ def current_entries(
             board_data,
             repo,
             review_fetcher,
+            pr_resolver,
+            pr_state_fetcher,
+        )
+    if mode == "final-review":
+        if repo is None:
+            raise ValueError("repo is required in final-review mode")
+        if pr_state_fetcher is None:
+            raise ValueError("final-review mode requires pr_state_fetcher")
+        return final_review_entries(
+            board_data,
+            repo,
             pr_resolver,
             pr_state_fetcher,
         )
@@ -582,7 +659,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     subparsers = parser.add_subparsers(dest="command", required=True)
 
     next_parser = subparsers.add_parser("next")
-    next_parser.add_argument("mode", choices=["ready", "review"])
+    next_parser.add_argument("mode", choices=["ready", "review", "final-review"])
     next_parser.add_argument("state_file", type=Path)
     next_parser.add_argument("--repo")
     next_parser.add_argument("--owner", default="CodingThrust")
@@ -619,8 +696,8 @@ def main(argv: list[str] | None = None) -> int:
         )
         return 0
 
-    if args.mode == "review" and not args.repo:
-        raise SystemExit("--repo is required in review mode")
+    if args.mode in {"review", "final-review"} and not args.repo:
+        raise SystemExit(f"--repo is required in {args.mode} mode")
 
     board_data = fetch_board_items(args.owner, args.project_number, args.limit)
     next_item = process_snapshot(

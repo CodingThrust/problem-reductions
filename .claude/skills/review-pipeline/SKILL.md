@@ -108,11 +108,7 @@ Recommendation rule:
 **Immediately** move the chosen PR to the `Under review` column to signal that an agent is actively working on it. This prevents other agents from picking the same PR:
 
 ```bash
-gh project item-edit \
-  --id <ITEM_ID> \
-  --project-id PVT_kwDOBrtarc4BRNVy \
-  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id f04790ca
+python3 scripts/pipeline_board.py move <ITEM_ID> under-review
 ```
 
 In `--all` mode, claim each PR right before processing it (not all at once).
@@ -155,11 +151,7 @@ MERGE_STATUS=$(printf '%s\n' "$MERGE" | python3 -c "import sys,json; print(json.
   1. Abort the merge: `git merge --abort` if a merge is still in progress
   2. Move the project item back to `Review pool`:
      ```bash
-     gh project item-edit \
-       --id <ITEM_ID> \
-       --project-id PVT_kwDOBrtarc4BRNVy \
-       --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-       --single-select-option-id 7082ed60
+     python3 scripts/pipeline_board.py move <ITEM_ID> review-pool
      ```
   3. Report: `PR #N has complex merge conflicts with main — needs manual resolution.`
   4. STOP processing this PR.
@@ -273,11 +265,7 @@ git worktree remove "$WORKTREE_DIR" --force
 ### 6. Move to "Final review"
 
 ```bash
-gh project item-edit \
-  --id <ITEM_ID> \
-  --project-id PVT_kwDOBrtarc4BRNVy \
-  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id 51a3d8bb
+python3 scripts/pipeline_board.py move <ITEM_ID> final-review
 ```
 
 ### 7. Report

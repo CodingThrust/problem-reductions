@@ -113,6 +113,25 @@ class MakeHelpersTests(unittest.TestCase):
             ],
         )
 
+    def test_make_board_next_final_review_passes_repo(self) -> None:
+        proc = subprocess.run(
+            [
+                "make",
+                "-n",
+                "board-next",
+                "MODE=final-review",
+                "REPO=CodingThrust/problem-reductions",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn(
+            'poll_project_items "final-review" "$state_file" "$repo"',
+            proc.stdout,
+        )
+
     def test_pr_snapshot_uses_pipeline_pr_cli(self) -> None:
         if shutil.which("dash") is None:
             self.skipTest("dash is not installed")

@@ -122,11 +122,7 @@ All subsequent steps run inside the worktree. This ensures the user's main check
 Extract the project item ID for the chosen issue from the JSON output (the `id` field of the matching item).
 
 ```bash
-gh project item-edit \
-  --id <ITEM_ID> \
-  --project-id PVT_kwDOBrtarc4BRNVy \
-  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id a12cfc9c
+python3 scripts/pipeline_board.py move <ITEM_ID> in-progress
 ```
 
 ### 3. Run issue-to-pr --execute
@@ -146,31 +142,19 @@ This handles the full pipeline: fetch issue, verify Good label, research, write 
 After `issue-to-pr` succeeds, move the issue to the `Review pool` column for the second-stage review pipeline:
 
 ```bash
-gh project item-edit \
-  --id <ITEM_ID> \
-  --project-id PVT_kwDOBrtarc4BRNVy \
-  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id 7082ed60
+python3 scripts/pipeline_board.py move <ITEM_ID> review-pool
 ```
 
 **If `issue-to-pr` failed after creating a PR:** move the issue to `Final review` instead so a human can take over:
 
 ```bash
-gh project item-edit \
-  --id <ITEM_ID> \
-  --project-id PVT_kwDOBrtarc4BRNVy \
-  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id 51a3d8bb
+python3 scripts/pipeline_board.py move <ITEM_ID> final-review
 ```
 
 **If no PR was created** (issue-to-pr failed before creating a PR): move the issue back to "Ready" instead:
 
 ```bash
-gh project item-edit \
-  --id <ITEM_ID> \
-  --project-id PVT_kwDOBrtarc4BRNVy \
-  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id f37d0d80
+python3 scripts/pipeline_board.py move <ITEM_ID> ready
 ```
 
 ### 5. Clean Up Worktree

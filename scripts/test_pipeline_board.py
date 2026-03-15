@@ -6,10 +6,14 @@ from pathlib import Path
 from pipeline_board import (
     STATUS_DONE,
     STATUS_FINAL_REVIEW,
+    STATUS_IN_PROGRESS,
+    STATUS_ON_HOLD,
     STATUS_READY,
     STATUS_REVIEW_POOL,
+    STATUS_UNDER_REVIEW,
     ack_item,
     build_recovery_plan,
+    normalize_status_name,
     process_snapshot,
 )
 
@@ -152,6 +156,45 @@ class PipelineBoardPollTests(unittest.TestCase):
             )
             self.assertIsNone(no_item)
 
+    def test_final_review_queue_resolves_issue_cards_to_open_prs(self) -> None:
+        def fake_pr_resolver(repo: str, issue_number: int) -> int | None:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            return 615 if issue_number == 101 else None
+
+        def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            self.assertEqual(pr_number, 615)
+            return "OPEN"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "final-review-state.json"
+            item_id, number = process_snapshot(
+                "final-review",
+                {"items": [make_issue_item("PVTI_20", 101, status="Final review")]},
+                state_file,
+                repo="CodingThrust/problem-reductions",
+                pr_resolver=fake_pr_resolver,
+                pr_state_fetcher=fake_pr_state_fetcher,
+            )
+            self.assertEqual((item_id, number), ("PVTI_20", 615))
+
+    def test_final_review_queue_skips_closed_pr_cards(self) -> None:
+        def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            self.assertEqual(pr_number, 621)
+            return "CLOSED"
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "final-review-state.json"
+            no_item = process_snapshot(
+                "final-review",
+                {"items": [make_pr_item("PVTI_21", 621, status="Final review")]},
+                state_file,
+                repo="CodingThrust/problem-reductions",
+                pr_state_fetcher=fake_pr_state_fetcher,
+            )
+            self.assertIsNone(no_item)
+
 
 class PipelineBoardRecoveryTests(unittest.TestCase):
     def test_recovery_plan_marks_merged_pr_items_done(self) -> None:
@@ -229,6 +272,16 @@ class PipelineBoardRecoveryTests(unittest.TestCase):
         plan = build_recovery_plan(board_data, issues, prs=[], pr_reviews={})
 
         self.assertEqual(plan[0]["proposed_status"], STATUS_READY)
+
+
+class PipelineBoardStatusTests(unittest.TestCase):
+    def test_normalize_status_name_accepts_pipeline_aliases(self) -> None:
+        self.assertEqual(normalize_status_name("ready"), STATUS_READY)
+        self.assertEqual(normalize_status_name("review-pool"), STATUS_REVIEW_POOL)
+        self.assertEqual(normalize_status_name("in-progress"), STATUS_IN_PROGRESS)
+        self.assertEqual(normalize_status_name("under review"), STATUS_UNDER_REVIEW)
+        self.assertEqual(normalize_status_name("on-hold"), STATUS_ON_HOLD)
+        self.assertEqual(normalize_status_name("done"), STATUS_DONE)
 
 
 if __name__ == "__main__":

@@ -347,8 +347,8 @@ Keep:
 
 ### Task 6: Makefile cleanup
 
-- [ ] Add board/pr/worktree helper targets
-- [ ] Keep existing public targets stable
+- [x] Add board/pr/worktree helper targets
+- [x] Keep existing public targets stable
 - [ ] Make prompt generation consume script output instead of duplicating selection logic in prose
 
 ---

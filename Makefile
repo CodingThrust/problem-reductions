@@ -37,8 +37,8 @@ help:
 	@echo "  run-pipeline-forever - Loop: poll Ready column for new issues, run-pipeline when new ones appear"
 	@echo "  run-review [N=<number>] - Pick PR from Review pool, fix comments/CI, run agentic tests"
 	@echo "  run-review-forever - Loop: poll Review pool for Copilot-reviewed PRs, run-review when new ones appear"
-	@echo "  board-next MODE=<ready|review> - Get the next eligible queued project item"
-	@echo "  board-ack MODE=<ready|review> ITEM=<id> - Acknowledge a queued project item"
+	@echo "  board-next MODE=<ready|review|final-review> - Get the next eligible queued project item"
+	@echo "  board-ack MODE=<ready|review|final-review> ITEM=<id> - Acknowledge a queued project item"
 	@echo "  board-move ITEM=<id> STATUS=<status> - Move a project item to a named status"
 	@echo "  pr-context PR=<number> [REPO=<owner/repo>] - Fetch structured PR snapshot JSON"
 	@echo "  pr-wait-ci PR=<number> [REPO=<owner/repo>] - Poll CI until terminal state and print JSON"
@@ -397,27 +397,32 @@ run-pipeline-forever:
 # Get the next eligible board item from the scripted queue logic
 # Usage: make board-next MODE=ready
 #        make board-next MODE=review REPO=CodingThrust/problem-reductions
+#        make board-next MODE=final-review REPO=CodingThrust/problem-reductions
 #        STATE_FILE=/tmp/custom.json make board-next MODE=ready
 board-next:
 	@if [ -z "$(MODE)" ]; then \
-		echo "MODE=ready|review is required"; \
+		echo "MODE=ready|review|final-review is required"; \
 		exit 2; \
 	fi
 	@. scripts/make_helpers.sh; \
 	state_file=$${STATE_FILE:-/tmp/problemreductions-$(MODE)-state.json}; \
-	if [ "$(MODE)" = "review" ]; then \
+	case "$(MODE)" in \
+		review|final-review) \
 		repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
 		poll_project_items "$(MODE)" "$$state_file" "$$repo"; \
-	else \
+		;; \
+	*) \
 		poll_project_items "$(MODE)" "$$state_file"; \
-	fi
+		;; \
+	esac
 
 # Advance a scripted board queue after an item is processed
 # Usage: make board-ack MODE=ready ITEM=PVTI_xxx
 #        STATE_FILE=/tmp/custom.json make board-ack MODE=review ITEM=PVTI_xxx
+#        STATE_FILE=/tmp/custom.json make board-ack MODE=final-review ITEM=PVTI_xxx
 board-ack:
 	@if [ -z "$(MODE)" ] || [ -z "$(ITEM)" ]; then \
-		echo "MODE=ready|review and ITEM=<project-item-id> are required"; \
+		echo "MODE=ready|review|final-review and ITEM=<project-item-id> are required"; \
 		exit 2; \
 	fi
 	@. scripts/make_helpers.sh; \
@@ -425,10 +430,10 @@ board-ack:
 	ack_polled_item "$$state_file" "$(ITEM)"
 
 # Move a project board item to a named status through the shared board script
-# Usage: make board-move ITEM=PVTI_xxx STATUS=final-review
+# Usage: make board-move ITEM=PVTI_xxx STATUS=under-review
 board-move:
 	@if [ -z "$(ITEM)" ] || [ -z "$(STATUS)" ]; then \
-		echo "ITEM=<project-item-id> and STATUS=<backlog|ready|review-pool|final-review|done> are required"; \
+		echo "ITEM=<project-item-id> and STATUS=<backlog|ready|in-progress|review-pool|under-review|final-review|on-hold|done> are required"; \
 		exit 2; \
 	fi
 	@. scripts/make_helpers.sh; \

@@ -266,7 +266,10 @@ This lets the reviewer cherry-pick exactly which issues to fix. If the reviewer 
 **If Merge:**
 1. Print the PR URL prominently: `https://github.com/CodingThrust/problem-reductions/pull/<number>`
 2. Say: "Please merge this PR in your browser. After merging, I'll move the linked issue to Done."
-3. Wait for user confirmation, then move the project board item to `Done` (`6aca54fa`).
+3. Wait for user confirmation, then move the project board item to `Done`:
+   ```bash
+   python3 scripts/pipeline_board.py move <ITEM_ID> done
+   ```
 
 **If OnHold:**
 1. Ask the reviewer for the reason (use `AskUserQuestion` with free text).
@@ -274,9 +277,9 @@ This lets the reviewer cherry-pick exactly which issues to fix. If the reviewer 
    ```bash
    gh pr comment <number> --body "**On Hold**: <reason>"
    ```
-3. Move the project board item to `OnHold` (`48dfe446`):
+3. Move the project board item to `OnHold`:
    ```bash
-   gh project item-edit --project-id PVT_kwDOBrtarc4BRNVy --id <ITEM_ID> --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc --single-select-option-id 48dfe446
+   python3 scripts/pipeline_board.py move <ITEM_ID> on-hold
    ```
 
 **If Quick fix:**
@@ -288,4 +291,7 @@ This lets the reviewer cherry-pick exactly which issues to fix. If the reviewer 
 1. Ask the reviewer for the reason.
 2. Post a comment explaining the rejection.
 3. Close the PR: `gh pr close <number> --comment "<reason>"`
-4. Move the project board item to `OnHold` (`48dfe446`).
+4. Move the project board item to `OnHold`:
+   ```bash
+   python3 scripts/pipeline_board.py move <ITEM_ID> on-hold
+   ```
