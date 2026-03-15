@@ -728,6 +728,17 @@
       "doc_path": "rules/sat_ksat/index.html"
     },
     {
+      "source": 22,
+      "target": 47,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_items + num_slack_bits"
+        }
+      ],
+      "doc_path": "rules/knapsack_qubo/index.html"
+    },
+    {
       "source": 23,
       "target": 11,
       "overhead": [

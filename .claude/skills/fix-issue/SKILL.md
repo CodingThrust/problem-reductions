@@ -21,7 +21,7 @@ GitHub Project board IDs:
 |----------|-------|
 | `PROJECT_ID` | `PVT_kwDOBrtarc4BRNVy` |
 | `STATUS_FIELD_ID` | `PVTSSF_lADOBrtarc4BRNVyzg_GmQc` |
-| `STATUS_READY` | `61e4505c` |
+| `STATUS_READY` | `f37d0d80` |
 
 ## Process
 
@@ -247,7 +247,7 @@ gh project item-edit \
   --id "$ITEM_ID" \
   --project-id PVT_kwDOBrtarc4BRNVy \
   --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id 61e4505c
+  --single-select-option-id f37d0d80
 ```
 
 ### 8e: Confirm

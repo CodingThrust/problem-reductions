@@ -229,17 +229,17 @@
       {
         "name": "weights",
         "type_name": "Vec<i64>",
-        "description": "Item weights w_i"
+        "description": "Nonnegative item weights w_i"
       },
       {
         "name": "values",
         "type_name": "Vec<i64>",
-        "description": "Item values v_i"
+        "description": "Nonnegative item values v_i"
       },
       {
         "name": "capacity",
         "type_name": "i64",
-        "description": "Knapsack capacity C"
+        "description": "Nonnegative knapsack capacity C"
       }
     ]
   },

@@ -23,7 +23,7 @@ GitHub Project board IDs (same as fix-issue / project-pipeline):
 | `PROJECT_OWNER` | `CodingThrust` |
 | `PROJECT_ID` | `PVT_kwDOBrtarc4BRNVy` |
 | `STATUS_FIELD_ID` | `PVTSSF_lADOBrtarc4BRNVyzg_GmQc` |
-| `STATUS_READY` | `61e4505c` |
+| `STATUS_READY` | `f37d0d80` |
 
 ## Process
 

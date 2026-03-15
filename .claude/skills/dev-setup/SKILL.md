@@ -170,16 +170,16 @@ If all pipeline checks pass, explain the project-based contribution pipeline:
 > This project uses a [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1) to track issues through an automated pipeline. Issues flow through these columns:
 >
 > ```
-> Ready → In Progress → review-agentic → In Review → Done
+> Ready → In Progress → Review pool → Under review → Final review → Done
 > ```
 >
 > Two `make` commands drive this pipeline:
 >
 > ### `make run-pipeline` (issue → PR)
-> Picks the next **Ready** issue, moves it to **In Progress**, implements it (using `/issue-to-pr` → `/add-model` or `/add-rule`), creates a PR, then moves it to **review-agentic**.
+> Picks the next **Ready** issue, moves it to **In Progress**, implements it (using `/issue-to-pr` → `/add-model` or `/add-rule`), creates a PR, then moves it to **Review pool**.
 >
 > ### `make run-review` (PR → review)
-> Picks the next **review-agentic** PR, waits for Copilot review, fixes comments and CI failures, runs agentic feature tests, then moves it to **In Review** for human approval.
+> Picks the next **Review pool** PR, waits for Copilot review, fixes comments and CI failures, runs agentic feature tests, then moves it to **Final review** for human approval.
 >
 > ### Targeting specific items
 > - `make run-pipeline N=42` — process issue #42
