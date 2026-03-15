@@ -3,6 +3,7 @@
 //! - [`SimpleGraph`]: Standard unweighted graph (default for most problems)
 //! - [`PlanarGraph`]: Planar graph
 //! - [`BipartiteGraph`]: Bipartite graph
+//! - [`DirectedGraph`]: Directed graph (digraph)
 //! - [`UnitDiskGraph`]: Vertices with 2D positions, edges based on distance
 //! - [`KingsSubgraph`]: 8-connected grid graph (King's graph)
 //! - [`TriangularSubgraph`]: Triangular lattice subgraph

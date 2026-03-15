@@ -147,3 +147,32 @@ fn test_size_getters() {
     assert_eq!(problem.num_spins(), 3);
     assert_eq!(problem.num_interactions(), 2);
 }
+
+#[test]
+fn test_spinglass_paper_example() {
+    // Paper: 5 spins on triangular lattice, antiferromagnetic J=-1 (paper convention)
+    // Code H = Σ J*s*s vs paper H = -Σ J*s*s, so J_code = -J_paper = 1
+    // 7 edges on triangular lattice
+    let problem = SpinGlass::<SimpleGraph, i32>::without_fields(
+        5,
+        vec![
+            ((0, 1), 1),
+            ((1, 2), 1),
+            ((3, 4), 1),
+            ((0, 3), 1),
+            ((1, 3), 1),
+            ((1, 4), 1),
+            ((2, 4), 1),
+        ],
+    );
+    // Ground state: s = (+1,-1,+1,+1,-1) → config x = (1,0,1,1,0)
+    // Energy = -3 (5 satisfied antiparallel, 2 frustrated parallel edges)
+    let result = problem.evaluate(&[1, 0, 1, 1, 0]);
+    assert!(result.is_valid());
+    assert_eq!(result.unwrap(), -3);
+
+    // Verify this is optimal
+    let all_best = BruteForce::new().find_all_best(&problem);
+    assert!(!all_best.is_empty());
+    assert_eq!(problem.evaluate(&all_best[0]).unwrap(), -3);
+}

@@ -42,13 +42,25 @@ Available backends: `highs` (default), `coin-cbc`, `clarabel`, `scip`, `lpsolve`
 # Create a Maximum Independent Set problem
 pred create MIS --graph 0-1,1-2,2-3 -o problem.json
 
+# Create a weighted instance (variant auto-upgrades to i32)
+pred create MIS --graph 0-1,1-2,2-3 --weights 3,1,2,1 -o weighted.json
+
+# Or start from a canonical model example
+pred create --example MIS/SimpleGraph/i32 -o example.json
+
+# Or from a canonical rule example
+pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 -o example.json
+
+# Inspect what's inside a problem file
+pred inspect problem.json
+
 # Solve it (auto-reduces to ILP)
 pred solve problem.json
 
 # Or solve with brute-force
 pred solve problem.json --solver brute-force
 
-# Evaluate a specific configuration
+# Evaluate a specific configuration (shows Valid(N) or Invalid)
 pred evaluate problem.json --config 1,0,1,0
 
 # Reduce to another problem type and solve via brute-force
@@ -59,6 +71,10 @@ pred solve reduced.json --solver brute-force
 pred create MIS --graph 0-1,1-2,2-3 | pred solve -
 pred create MIS --graph 0-1,1-2,2-3 | pred reduce - --to QUBO | pred solve -
 ```
+
+> **Note:** When you provide `--weights` with non-unit values (e.g., `3,1,2,1`), the variant is
+> automatically upgraded from the default unit-weight (`One`) to `i32`. You can also specify the
+> weighted variant explicitly: `pred create MIS/SimpleGraph/i32 --graph 0-1 --weights 3,1`.
 
 ## Global Flags
 
@@ -103,7 +119,7 @@ Use `pred show <problem>` to see variants, reductions, and fields.
 
 ### `pred show` — Inspect a problem
 
-Show variants, fields, size fields, and reductions for a problem type. Use short aliases like `MIS` for `MaximumIndependentSet`.
+Show variants, fields, size fields, and reductions for a problem type. `show` operates at the **type level** — it displays all variants of a problem, not a specific node. Slash suffixes (e.g., `MIS/UnitDiskGraph`) are rejected; use `pred to` or `pred from` for variant-level exploration. Use short aliases like `MIS` for `MaximumIndependentSet`.
 
 ```bash
 $ pred show MIS
@@ -215,10 +231,13 @@ Path (2 steps): Factoring → CircuitSAT → SpinGlass {graph: "SimpleGraph", we
 Show all paths or save for later use with `pred reduce --via`:
 
 ```bash
-pred path MIS QUBO --all                    # all paths
+pred path MIS QUBO --all                    # all paths (up to 20)
+pred path MIS QUBO --all --max-paths 50     # increase limit
 pred path MIS QUBO -o path.json             # save path for `pred reduce --via`
 pred path MIS QUBO --all -o paths/          # save all paths to a folder
 ```
+
+When using `--all`, the output is capped at `--max-paths` (default: 20). If more paths exist, the output indicates truncation.
 
 Use `--cost` to change the optimization strategy:
 
@@ -243,6 +262,9 @@ pred export-graph -o reduction_graph.json   # save to file
 Construct a problem instance from CLI arguments and save as JSON:
 
 ```bash
+pred create --example MIS/SimpleGraph/i32 -o model.json
+pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 -o problem.json
+pred create --example MVC/SimpleGraph/i32 --to MIS/SimpleGraph/i32 --example-side target -o target.json
 pred create MIS --graph 0-1,1-2,2-3 -o problem.json
 pred create MIS --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o problem.json
 pred create SAT --num-vars 3 --clauses "1,2;-1,3" -o sat.json
@@ -252,7 +274,15 @@ pred create SpinGlass --graph 0-1,1-2 -o sg.json
 pred create MaxCut --graph 0-1,1-2,2-0 -o maxcut.json
 pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
 pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
+pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json
+pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-pairs "0>3,1>3,1>4,2>4" -o mts.json
 ```
+
+Canonical examples are useful when you want a known-good instance from the paper/example database.
+For model examples, `pred create --example <PROBLEM_SPEC>` emits the canonical instance for that
+graph node.
+For rule examples, `pred create --example <SOURCE_SPEC> --to <TARGET_SPEC>` emits the source
+instance by default; use `--example-side target` to emit the reduction target instance instead.
 
 Generate random instances for graph-based problems:
 
@@ -436,6 +466,8 @@ You can use short aliases instead of full problem names (shown in `pred list`):
 | `TSP` | `TravelingSalesman` |
 
 You can also specify variants with a slash: `MIS/UnitDiskGraph`, `SpinGlass/SimpleGraph`.
+
+When a bare name (no slash) is used in commands like `path`, `to`, `from`, `create`, or `reduce`, it resolves to the **declared default variant** for that problem type. For example, `MIS` resolves to `MaximumIndependentSet/SimpleGraph/One`.
 
 If you mistype a problem name, `pred` will suggest the closest match:
 

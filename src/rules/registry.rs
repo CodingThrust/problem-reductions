@@ -157,6 +157,11 @@ impl std::fmt::Debug for ReductionEntry {
 
 inventory::collect!(ReductionEntry);
 
+/// Return all registered reduction entries.
+pub fn reduction_entries() -> Vec<&'static ReductionEntry> {
+    inventory::iter::<ReductionEntry>().collect()
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/registry.rs"]
 mod tests;

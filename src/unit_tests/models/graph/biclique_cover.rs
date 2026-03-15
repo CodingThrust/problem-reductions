@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::topology::BipartiteGraph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
@@ -252,4 +252,24 @@ fn test_size_getters() {
     assert_eq!(problem.num_edges(), 2);
     assert_eq!(problem.k(), 1);
     assert_eq!(problem.rank(), 1);
+}
+
+#[test]
+fn test_biclique_paper_example() {
+    // Paper: L={ℓ_1,ℓ_2}, R={r_1,r_2,r_3}, 4 edges, k=2, total size=6
+    let graph = BipartiteGraph::new(2, 3, vec![(0, 0), (0, 1), (1, 1), (1, 2)]);
+    let problem = BicliqueCover::new(graph, 2);
+    assert_eq!(problem.num_vertices(), 5);
+    assert_eq!(problem.num_edges(), 4);
+
+    // Biclique 0: {ℓ_1}, {r_1,r_2}; Biclique 1: {ℓ_2}, {r_2,r_3}
+    let config = vec![1, 0, 0, 1, 1, 0, 1, 1, 0, 1];
+    let result = problem.evaluate(&config);
+    assert!(result.is_valid());
+    assert_eq!(result.unwrap(), 6);
+
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    let best_size = problem.evaluate(&best).unwrap();
+    assert!(best_size <= 6);
 }

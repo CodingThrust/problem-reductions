@@ -90,6 +90,22 @@
     ]
   },
   {
+    "name": "ExactCoverBy3Sets",
+    "description": "Determine if a collection of 3-element subsets contains an exact cover",
+    "fields": [
+      {
+        "name": "universe_size",
+        "type_name": "usize",
+        "description": "Size of universe X (must be divisible by 3)"
+      },
+      {
+        "name": "subsets",
+        "type_name": "Vec<[usize; 3]>",
+        "description": "Collection C of 3-element subsets of X"
+      }
+    ]
+  },
+  {
     "name": "Factoring",
     "description": "Factor a composite integer into two factors",
     "fields": [
@@ -111,6 +127,27 @@
     ]
   },
   {
+    "name": "FlowShopScheduling",
+    "description": "Determine if a flow-shop schedule for jobs on m processors meets a deadline",
+    "fields": [
+      {
+        "name": "num_processors",
+        "type_name": "usize",
+        "description": "Number of machines m"
+      },
+      {
+        "name": "task_lengths",
+        "type_name": "Vec<Vec<u64>>",
+        "description": "task_lengths[j][i] = length of job j's task on machine i"
+      },
+      {
+        "name": "deadline",
+        "type_name": "u64",
+        "description": "Global deadline D"
+      }
+    ]
+  },
+  {
     "name": "GraphPartitioning",
     "description": "Find minimum cut balanced bisection of a graph",
     "fields": [
@@ -118,6 +155,17 @@
         "name": "graph",
         "type_name": "G",
         "description": "The undirected graph G=(V,E)"
+      }
+    ]
+  },
+  {
+    "name": "HamiltonianPath",
+    "description": "Find a Hamiltonian path in a graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
       }
     ]
   },
@@ -144,6 +192,22 @@
         "name": "sense",
         "type_name": "ObjectiveSense",
         "description": "Optimization direction"
+      }
+    ]
+  },
+  {
+    "name": "IsomorphicSpanningTree",
+    "description": "Does graph G contain a spanning tree isomorphic to tree T?",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "SimpleGraph",
+        "description": "The host graph G"
+      },
+      {
+        "name": "tree",
+        "type_name": "SimpleGraph",
+        "description": "The target tree T (must be a tree with |V(T)| = |V(G)|)"
       }
     ]
   },
@@ -181,17 +245,28 @@
       {
         "name": "weights",
         "type_name": "Vec<i64>",
-        "description": "Item weights w_i"
+        "description": "Nonnegative item weights w_i"
       },
       {
         "name": "values",
         "type_name": "Vec<i64>",
-        "description": "Item values v_i"
+        "description": "Nonnegative item values v_i"
       },
       {
         "name": "capacity",
         "type_name": "i64",
-        "description": "Knapsack capacity C"
+        "description": "Nonnegative knapsack capacity C"
+      }
+    ]
+  },
+  {
+    "name": "LongestCommonSubsequence",
+    "description": "Find the longest string that is a subsequence of every input string",
+    "fields": [
+      {
+        "name": "strings",
+        "type_name": "Vec<Vec<u8>>",
+        "description": "The input strings"
       }
     ]
   },
@@ -308,6 +383,22 @@
     ]
   },
   {
+    "name": "MinimumFeedbackArcSet",
+    "description": "Find minimum weight feedback arc set in a directed graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "DirectedGraph",
+        "description": "The directed graph G=(V,A)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Arc weights w: A -> R"
+      }
+    ]
+  },
+  {
     "name": "MinimumFeedbackVertexSet",
     "description": "Find minimum weight feedback vertex set in a directed graph",
     "fields": [
@@ -345,6 +436,53 @@
     ]
   },
   {
+    "name": "MinimumSumMulticenter",
+    "description": "Find K centers minimizing total weighted distance (p-median problem)",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "vertex_weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      },
+      {
+        "name": "edge_lengths",
+        "type_name": "Vec<W>",
+        "description": "Edge lengths l: E -> R"
+      },
+      {
+        "name": "k",
+        "type_name": "usize",
+        "description": "Number of centers to place"
+      }
+    ]
+  },
+  {
+    "name": "MinimumTardinessSequencing",
+    "description": "Schedule unit-length tasks with precedence constraints and deadlines to minimize the number of tardy tasks",
+    "fields": [
+      {
+        "name": "num_tasks",
+        "type_name": "usize",
+        "description": "Number of tasks |T|"
+      },
+      {
+        "name": "deadlines",
+        "type_name": "Vec<usize>",
+        "description": "Deadline d(t) for each task (1-indexed finish time)"
+      },
+      {
+        "name": "precedences",
+        "type_name": "Vec<(usize, usize)>",
+        "description": "Precedence pairs (predecessor, successor)"
+      }
+    ]
+  },
+  {
     "name": "MinimumVertexCover",
     "description": "Find minimum weight vertex cover in a graph",
     "fields": [
@@ -361,6 +499,22 @@
     ]
   },
   {
+    "name": "OptimalLinearArrangement",
+    "description": "Find a vertex ordering on a line with total edge length at most K",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The undirected graph G=(V,E)"
+      },
+      {
+        "name": "bound",
+        "type_name": "usize",
+        "description": "Upper bound K on total edge length"
+      }
+    ]
+  },
+  {
     "name": "PaintShop",
     "description": "Minimize color changes in paint shop sequence",
     "fields": [
@@ -368,6 +522,17 @@
         "name": "sequence",
         "type_name": "Vec<String>",
         "description": "Car labels (each must appear exactly twice)"
+      }
+    ]
+  },
+  {
+    "name": "PartitionIntoTriangles",
+    "description": "Partition vertices into triangles (K3 subgraphs)",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E) with |V| divisible by 3"
       }
     ]
   },
@@ -388,6 +553,32 @@
     ]
   },
   {
+    "name": "RuralPostman",
+    "description": "Find a circuit covering required edges with total length at most B (Rural Postman Problem)",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge lengths l(e) for each e in E"
+      },
+      {
+        "name": "required_edges",
+        "type_name": "Vec<usize>",
+        "description": "Edge indices of the required subset E' ⊆ E"
+      },
+      {
+        "name": "bound",
+        "type_name": "W::Sum",
+        "description": "Upper bound B on total circuit length"
+      }
+    ]
+  },
+  {
     "name": "Satisfiability",
     "description": "Find satisfying assignment for CNF formula",
     "fields": [
@@ -400,6 +591,27 @@
         "name": "clauses",
         "type_name": "Vec<CNFClause>",
         "description": "Clauses in conjunctive normal form"
+      }
+    ]
+  },
+  {
+    "name": "ShortestCommonSupersequence",
+    "description": "Find a common supersequence of bounded length for a set of strings",
+    "fields": [
+      {
+        "name": "alphabet_size",
+        "type_name": "usize",
+        "description": "Size of the alphabet"
+      },
+      {
+        "name": "strings",
+        "type_name": "Vec<Vec<usize>>",
+        "description": "Input strings over the alphabet {0, ..., alphabet_size-1}"
+      },
+      {
+        "name": "bound",
+        "type_name": "usize",
+        "description": "Bound on supersequence length (configuration has exactly this many symbols)"
       }
     ]
   },
@@ -425,17 +637,33 @@
     ]
   },
   {
+    "name": "SubgraphIsomorphism",
+    "description": "Determine if host graph G contains a subgraph isomorphic to pattern graph H",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "SimpleGraph",
+        "description": "The host graph G = (V_1, E_1) to search in"
+      },
+      {
+        "name": "pattern",
+        "type_name": "SimpleGraph",
+        "description": "The pattern graph H = (V_2, E_2) to find as a subgraph"
+      }
+    ]
+  },
+  {
     "name": "SubsetSum",
-    "description": "Find a subset of integers that sums to exactly a target value",
+    "description": "Find a subset of positive integers that sums to exactly a target value",
     "fields": [
       {
         "name": "sizes",
-        "type_name": "Vec<i64>",
-        "description": "Integer sizes s(a) for each element"
+        "type_name": "Vec<BigUint>",
+        "description": "Positive integer sizes s(a) for each element"
       },
       {
         "name": "target",
-        "type_name": "i64",
+        "type_name": "BigUint",
         "description": "Target sum B"
       }
     ]
