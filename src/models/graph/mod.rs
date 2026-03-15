@@ -16,7 +16,7 @@
 //! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`HamiltonianPath`]: Hamiltonian path (simple path visiting every vertex)
-//! - [`PartitionIntoPathsOfLength2`]: Partition vertices into P3 paths
+//! - [`PartitionIntoPathsOfLength2`]: Partition vertices into triples with at least two edges each
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
 //! - [`OptimalLinearArrangement`]: Optimal linear arrangement (total edge length at most K)
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs

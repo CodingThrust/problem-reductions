@@ -33,10 +33,9 @@ fn test_partition_into_paths_basic() {
     let valid_config = vec![0, 0, 0, 1, 1, 1, 2, 2, 2];
     assert!(problem.evaluate(&valid_config));
 
-    // Invalid partition: {0,1,3}, {2,4,5}, {6,7,8}
-    // Group {0,1,3}: edges (0,1) and (0,3) and (1, nothing with 3) — 2 edges present, valid
-    // Group {2,4,5}: edges (4,5) and (2,5) — 2 edges present, valid
-    // This is actually valid too
+    // Alternative valid partition: {0,1,3}, {2,4,5}, {6,7,8}
+    // Group {0,1,3}: edges (0,1) and (0,3) — 2 edges, valid
+    // Group {2,4,5}: edges (4,5) and (2,5) — 2 edges, valid
     let another_config = vec![0, 0, 1, 0, 1, 1, 2, 2, 2];
     assert!(problem.evaluate(&another_config));
 }

@@ -989,6 +989,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     "{e}\n\nUsage: pred create PartitionIntoPathsOfLength2 --graph 0-1,1-2,3-4,4-5"
                 )
             })?;
+            if graph.num_vertices() % 3 != 0 {
+                bail!(
+                    "PartitionIntoPathsOfLength2 requires vertex count divisible by 3, got {}",
+                    graph.num_vertices()
+                );
+            }
             (
                 ser(problemreductions::models::graph::PartitionIntoPathsOfLength2::new(graph))?,
                 resolved_variant.clone(),

@@ -6,7 +6,7 @@
 //!
 //! This is a classical NP-complete problem from Garey & Johnson, Chapter 3, Section 3.3, p.76.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::variant::VariantParam;
@@ -15,8 +15,13 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PartitionIntoPathsOfLength2",
+        display_name: "Partition Into Paths Of Length 2",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+        ],
         module_path: module_path!(),
-        description: "Partition vertices into triples each inducing a path of length 2",
+        description: "Partition vertices into triples each inducing at least two edges (P3 or triangle)",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E) with |V| divisible by 3" },
         ],
@@ -123,17 +128,15 @@ impl<G: Graph> PartitionIntoPathsOfLength2<G> {
             return false;
         }
 
-        // Check each group induces at least 2 edges
-        for group_id in 0..q {
-            let mut edge_count = 0;
-            for (u, v) in self.graph.edges() {
-                if config[u] == group_id && config[v] == group_id {
-                    edge_count += 1;
-                }
+        // Check each group induces at least 2 edges (single pass over edges)
+        let mut group_edge_counts = vec![0usize; q];
+        for (u, v) in self.graph.edges() {
+            if config[u] == config[v] {
+                group_edge_counts[config[u]] += 1;
             }
-            if edge_count < 2 {
-                return false;
-            }
+        }
+        if group_edge_counts.iter().any(|&c| c < 2) {
+            return false;
         }
 
         true
@@ -164,7 +167,7 @@ where
 impl<G: Graph + VariantParam> SatisfactionProblem for PartitionIntoPathsOfLength2<G> {}
 
 crate::declare_variants! {
-    PartitionIntoPathsOfLength2<SimpleGraph> => "3^num_vertices",
+    default sat PartitionIntoPathsOfLength2<SimpleGraph> => "3^num_vertices",
 }
 
 #[cfg(test)]
