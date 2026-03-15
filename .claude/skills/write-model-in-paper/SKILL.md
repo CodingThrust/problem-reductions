@@ -126,17 +126,28 @@ achieves $O^*(2^n)$ @bjorklund2009.
 
 ### 3c. Example with Visualization
 
-A concrete small instance that illustrates the problem. Requirements:
+A concrete small instance that illustrates the problem. **The example must use data from the generated `models.json`**, not an independently invented instance.
+
+#### Sourcing example data
+
+1. Run `make examples` to ensure `docs/paper/examples/generated/models.json` is up to date.
+2. Find the problem's entry in `models.json` — it contains the canonical `instance`, `samples`, and `optimal` fields.
+3. Use the values from `instance` in the paper example (translating 0-indexed code values to 1-indexed math notation where conventional, e.g., vertices {0,...,n-1} → {1,...,n}).
+4. Use `optimal` configurations to show the solution.
+
+**Do not invent a different instance.** If the canonical example is too large or not pedagogically ideal, fix it in `canonical_model_example_specs()` first, re-run `make examples`, then write the paper entry from the updated JSON.
+
+#### Requirements
 
 1. **Small enough to verify by hand** — readers should be able to check the solution
 2. **Include a diagram/graph** using the paper's visualization helpers
 3. **Show a valid/optimal solution** and explain why it is valid/optimal
 4. **Walk through evaluation** — show how the objective/verifier computes the solution value
 
-Structure:
+#### Structure
 
 ```typst
-*Example.* Consider [instance description with concrete numbers].
+*Example.* Consider [instance description with concrete numbers from models.json].
 [Describe the solution and why it's valid/optimal].
 
 #figure({
@@ -174,7 +185,7 @@ make paper
 - [ ] **Notation self-contained**: every symbol in `def` is defined before first use
 - [ ] **Background present**: historical context, applications, or structural properties
 - [ ] **Algorithms cited**: every complexity claim has `@citation` or footnote warning
-- [ ] **Example present**: concrete small instance with visualization
+- [ ] **Example from JSON**: instance data matches `models.json` canonical example (not independently invented)
 - [ ] **Evaluation shown**: objective/verifier computed on the example solution
 - [ ] **Diagram included**: figure with caption and label for graph/matrix/set visualization
 - [ ] **Paper compiles**: `make paper` succeeds without errors

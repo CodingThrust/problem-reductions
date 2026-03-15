@@ -12,6 +12,8 @@ Convert a GitHub issue into an actionable PR with a plan. Optionally execute the
 - `/issue-to-pr 42` — create PR with plan only
 - `/issue-to-pr 42 --execute` — create PR, then execute the plan and review
 
+For Codex, open this `SKILL.md` directly and treat the slash-command forms above as aliases. The Makefile `run-issue` target already does this translation.
+
 ## Workflow
 
 ```
@@ -216,7 +218,7 @@ Report final status:
 - PR URL and number
 - Implementation summary
 
-The PR is **not merged** and CI/review fixes are **not** handled here. The separate `review-pipeline` skill picks up PRs from the `review-agentic` board column to handle Copilot review comments, CI fixes, and agentic testing.
+The PR is **not merged** and CI/review fixes are **not** handled here. The separate `review-pipeline` skill picks up PRs from the `Review pool` board column to handle Copilot review comments, CI fixes, and agentic testing.
 
 ## Example
 

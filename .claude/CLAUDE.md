@@ -4,6 +4,8 @@
 Rust library for NP-hard problem reductions. Implements computational problems with reduction rules for transforming between equivalent formulations.
 
 ## Skills
+These repo-local skills live under `.claude/skills/*/SKILL.md`.
+
 - [issue-to-pr](skills/issue-to-pr/SKILL.md) -- Convert a GitHub issue into a PR with an implementation plan. One item per PR: `[Rule]` issues require both models to exist on `main`; never bundle model + rule in the same PR.
 - [add-model](skills/add-model/SKILL.md) -- Add a new problem model. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
 - [add-rule](skills/add-rule/SKILL.md) -- Add a new reduction rule. Can be used standalone (brainstorms with user) or called from `issue-to-pr`.
@@ -17,11 +19,17 @@ Rust library for NP-hard problem reductions. Implements computational problems w
   - `topology-sanity-check orphans` -- Detect isolated problem types (runs `examples/detect_isolated_problems.rs`)
   - `topology-sanity-check np-hardness` -- Verify NP-hardness proof chains from 3-SAT (runs `examples/detect_unreachable_from_3sat.rs`)
   - `topology-sanity-check redundancy [source target]` -- Check for dominated reduction rules
-- [project-pipeline](skills/project-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr --execute -> review-agentic.
-- [review-pipeline](skills/review-pipeline/SKILL.md) -- Pick a PR from review-agentic column, fix Copilot review comments, run structural completeness check, fix CI, run agentic feature tests, move to In Review.
+- [project-pipeline](skills/project-pipeline/SKILL.md) -- Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr --execute -> Review pool.
+- [review-pipeline](skills/review-pipeline/SKILL.md) -- Pick a PR from Review pool column, fix Copilot review comments, run structural completeness check, fix CI, run agentic feature tests, move to Final review.
 - [propose](skills/propose/SKILL.md) -- Interactive brainstorming to help domain experts propose a new model or rule. Asks one question at a time, uses mathematical language (no programming jargon), and files a GitHub issue.
-- [final-review](skills/final-review/SKILL.md) -- Interactive maintainer review for PRs in "In review" column. Assesses usefulness, safety, completeness, quality ranking, then merge or hold.
+- [final-review](skills/final-review/SKILL.md) -- Interactive maintainer review for PRs in "Final review" column. Assesses usefulness, safety, completeness, quality ranking, then merge or hold.
 - [dev-setup](skills/dev-setup/SKILL.md) -- Interactive wizard to install and configure all development tools for new maintainers.
+
+## Codex Compatibility
+- Claude slash commands such as `/issue-to-pr 42 --execute` are aliases for the matching repo-local skill files under `.claude/skills/`.
+- In Codex, read the relevant `SKILL.md` directly and follow it; do not assume slash-command support exists.
+- The Makefile targets `run-plan`, `run-issue`, `run-pipeline`, and `run-review` already translate these workflows into explicit `SKILL.md` prompts for Codex.
+- The default Codex model in the Makefile is `gpt-5.4`. Override it with `CODEX_MODEL=<model>` if needed.
 
 ## Commands
 ```bash
@@ -48,14 +56,18 @@ make cli           # Build the pred CLI tool (without MCP, fast)
 make mcp           # Build the pred CLI tool with MCP server support
 make cli-demo      # Run closed-loop CLI demo (exercises all commands)
 make mcp-test      # Run MCP server tests (unit + integration)
-make run-plan      # Execute a plan with Claude autorun
+make run-plan      # Execute a plan with Codex or Claude
 make run-issue N=42 # Run issue-to-pr --execute for a GitHub issue
-make run-pipeline  # Pick next Ready issue from project board, implement, move to review-agentic
+make run-pipeline  # Pick next Ready issue from project board, implement, move to Review pool
 make run-pipeline N=97 # Process a specific issue from the project board
-make run-review    # Pick next PR from review-agentic column, fix Copilot comments, fix CI, run agentic tests
-make run-review N=570 # Process a specific PR from the review-agentic column
+make run-pipeline-forever # Poll Ready column, run-pipeline when new issues appear
+make run-review    # Pick next PR from Review pool column, fix Copilot comments, fix CI, run agentic tests
+make run-review N=570 # Process a specific PR from the Review pool column
+make run-review-forever # Poll Review pool for Copilot-reviewed PRs, run-review when new ones appear
 make copilot-review # Request Copilot code review on current PR
 make release V=x.y.z  # Tag and push a new release (CI publishes to crates.io)
+# Set RUNNER=claude to use Claude instead of Codex (default: codex)
+# Default Codex model: CODEX_MODEL=gpt-5.4
 ```
 
 ## Git Safety

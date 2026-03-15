@@ -1,17 +1,17 @@
 ---
 name: final-review
-description: Interactive maintainer review for PRs in "In review" column — assess usefulness, safety, completeness, quality ranking, then merge or hold
+description: Interactive maintainer review for PRs in "Final review" column — assess usefulness, safety, completeness, quality ranking, then merge or hold
 ---
 
 # Final Review
 
-Interactive review with the maintainer for PRs in the `In review` column on the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1). The goal is to decide whether to **merge**, put **OnHold** (with reason), or **quick fix** before merging.
+Interactive review with the maintainer for PRs in the `Final review` column on the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1). The goal is to decide whether to **merge**, put **OnHold** (with reason), or **quick fix** before merging.
 
 **Rule: Every `AskUserQuestion` must include your recommendation** (e.g., "My recommendation: **Merge** — clean implementation with full coverage").
 
 ## Invocation
 
-- `/final-review` -- pick the first PR from "In review" column
+- `/final-review` -- pick the first PR from "Final review" column
 - `/final-review 42` -- review a specific PR number
 
 ## Constants
@@ -22,13 +22,13 @@ GitHub Project board IDs (for `gh project item-edit`):
 |----------|-------|
 | `PROJECT_ID` | `PVT_kwDOBrtarc4BRNVy` |
 | `STATUS_FIELD_ID` | `PVTSSF_lADOBrtarc4BRNVyzg_GmQc` |
-| `STATUS_IN_REVIEW` | `df73e18b` |
-| `STATUS_ON_HOLD` | `29244783` |
-| `STATUS_DONE` | `98236657` |
+| `STATUS_FINAL_REVIEW` | `51a3d8bb` |
+| `STATUS_ON_HOLD` | `48dfe446` |
+| `STATUS_DONE` | `6aca54fa` |
 
 ## Workflow
 
-### Step 0: Discover "In review" PRs
+### Step 0: Discover "Final review" PRs
 
 If a specific PR number was given, use it directly. Otherwise:
 
@@ -36,8 +36,8 @@ If a specific PR number was given, use it directly. Otherwise:
    ```bash
    gh project item-list 8 --owner CodingThrust --limit 500 --format json
    ```
-2. Filter items where `Status == "In review"`. Items may be Issues (with linked PRs) or PRs directly.
-3. If none found, report "No items in the In review column" and stop.
+2. Filter items where `Status == "Final review"`. Items may be Issues (with linked PRs) or PRs directly.
+3. If none found, report "No items in the Final review column" and stop.
 4. Pick the first one. If the item is an Issue, find the linked PR by searching open PRs for `Fix #<issue_number>` in the title. Print title, PR number, issue number, and URL.
 
 ### Step 1: Gather PR context
@@ -57,6 +57,32 @@ Collect all information needed for the review:
 1e. **Existing problems**: Run `pred list` (CLI tool, not MCP) to show all currently registered problems and reductions. This provides context for evaluating usefulness.
 
 1f. **Check for conflicts with main**: Run `gh pr view <number> --json mergeable`. If there are merge conflicts, launch a subagent to merge `origin/main` into the PR branch (in a worktree) and push the merge commit.
+
+1g. **PR / issue comment audit (REQUIRED)**: Final review must check the comment history before recommending merge.
+  - Set `REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)`
+  - Fetch and read:
+    - PR conversation comments: `gh api repos/$REPO/issues/<number>/comments`
+    - PR inline review comments: `gh api repos/$REPO/pulls/<number>/comments`
+    - PR review bodies: `gh api repos/$REPO/pulls/<number>/reviews`
+    - linked issue comments, if an issue exists
+  - Build a list of every actionable comment and classify each as:
+    - `addressed`
+    - `superseded / no longer applicable`
+    - `still open`
+  - Pay special attention to the `## Review Pipeline Report` comment. If it contains a `Remaining issues for final review` section, those items must be reviewed explicitly here.
+  - Do **not** recommend merge until every actionable comment has been dispositioned.
+
+1h. **Comment status summary**: Prepare a short summary for later steps:
+
+> **Comment Audit**
+>
+> [N addressed, M superseded, K still open]
+>
+> Open items:
+> - [comment / issue summary]
+> - ...
+
+If no actionable comments remain, report `No open actionable comments`.
 
 ### Step 2: Usefulness assessment
 
@@ -102,6 +128,43 @@ Use `AskUserQuestion` to confirm:
 > - "I see an issue" — reviewer describes the problem
 > - "Skip" — skip this check
 
+### Step 3b: File whitelist check
+
+Check that the PR only touches files expected for its type. Any file outside the whitelist is flagged for review — it may be a legacy pattern or an unrelated change.
+
+**Whitelist for [Model] PRs:**
+- `src/models/<category>/<name>.rs` — model implementation
+- `src/unit_tests/models/<category>/<name>.rs` — unit tests
+- `src/example_db/model_builders.rs` — canonical example registration
+- `src/example_db/rule_builders.rs` — only if updating nonempty-style assertions
+- `docs/paper/reductions.typ` — paper entry
+- `docs/src/reductions/problem_schemas.json` — schema export
+- `docs/src/reductions/reduction_graph.json` — graph export
+- `tests/suites/trait_consistency.rs` — trait consistency entry
+- `problemreductions-cli/tests/cli_tests.rs` — CLI integration tests for `pred create`
+
+**Whitelist for [Rule] PRs:**
+- `src/rules/<source>_<target>.rs` — reduction implementation
+- `src/rules/mod.rs` — module registration
+- `src/unit_tests/rules/<source>_<target>.rs` — unit tests
+- `src/example_db/rule_builders.rs` — canonical example registration
+- `src/models/<category>/<name>.rs` — only if adding getters needed for overhead expressions
+- `docs/paper/reductions.typ` — paper entry
+- `docs/src/reductions/reduction_graph.json` — graph export
+- `docs/src/reductions/problem_schemas.json` — only if updating field descriptions
+- `problemreductions-cli/tests/cli_tests.rs` — CLI integration tests if adding CLI support
+
+If any file falls outside these whitelists, flag it:
+
+> **File Whitelist Check**
+>
+> Found N file(s) outside expected whitelist:
+> - `path/to/file` — [what it does, why it may not belong]
+>
+> These should be reviewed — they may follow a deprecated pattern or be unrelated to this PR.
+
+If all files are whitelisted, report "All files within expected whitelist" and continue.
+
 ### Step 4: Completeness check
 
 Verify the PR includes all required components. Check:
@@ -123,6 +186,13 @@ Verify the PR includes all required components. Check:
 - [ ] Uses only the `overhead` form of `#[reduction]` and does not duplicate a primitive exact endpoint registration
 - [ ] Canonical rule example in `src/example_db/rule_builders.rs`
 - [ ] Paper section in `docs/paper/reductions.typ` (`reduction-rule` entry)
+
+**Paper-example consistency check (both Model and Rule PRs):**
+
+The paper example must use data from the generated JSON (`docs/paper/examples/generated/`), not hand-written data. To verify:
+1. Run `make examples` on the PR branch to regenerate `docs/paper/examples/generated/models.json` and `rules.json`.
+2. For **[Rule] PRs**: the paper's `reduction-rule` entry must call `load-example(source, target)` (defined in `reductions.typ`) to load the canonical example from `rules.json`, and derive all concrete values from the loaded data using Typst array operations — no hand-written instance data.
+3. For **[Model] PRs**: read the problem's entry in `models.json` and compare its `instance` field against the paper's `problem-def` example. The paper example must use the same instance (allowing 0-indexed JSON vs 1-indexed math notation). If they differ, flag: "Paper example does not match `example_db` canonical instance in `models.json`."
 
 Report missing items:
 
@@ -162,39 +232,47 @@ Present to reviewer:
 > Strengths:
 > - [bullet points]
 >
-> Weaknesses:
-> - [bullet points]
+> Weaknesses (numbered):
+> 1. [issue description — file:line if applicable]
+> 2. [issue description — file:line if applicable]
+> ...
 >
 > Comparable to: [name a similar-quality existing model/rule for reference]
 
 ### Step 6: Final decision
 
-Summarize all findings and ask the reviewer for a decision.
+Summarize all findings and present the numbered issues as selectable options.
 
 Present a summary table:
 
 | Aspect | Result |
 |--------|--------|
+| Comments | [All addressed / Open: X, Y] |
 | Usefulness | [Useful/Marginal/Not useful] |
 | Safety | [Safe/Concerns found] |
 | Completeness | [Complete/Missing: X, Y] |
 | Quality | [N%] |
 | PR URL | [link] |
 
-Use `AskUserQuestion`:
+Then present all numbered issues from Step 5 as a multi-select `AskUserQuestion`:
 
-> **What would you like to do with this PR?**
-> - "Merge" — approve and show merge link for browser
-> - "OnHold" — move to OnHold column with a reason comment
-> - "Quick fix" — fix specific issues before merging (describe what to fix)
-> - "Reject" — close the PR with explanation
+> **Which issues should be fixed before merging?** (select all that apply, or "Merge as-is")
+> - "Merge as-is" — no fixes needed
+> - "Fix 1: [short description]" — [one-line summary]
+> - "Fix 2: [short description]" — [one-line summary]
+> - ...
+> - "OnHold" — move to OnHold column with a reason
+
+This lets the reviewer cherry-pick exactly which issues to fix. If the reviewer selects fixes, proceed to Step 7 Quick fix. If "Merge as-is", proceed to Step 7 Merge.
+
+If any actionable PR / issue comment from Step 1g is still open, `Merge as-is` must **not** be your recommendation. Recommend either **Quick fix** or **OnHold** instead.
 
 ### Step 7: Execute decision
 
 **If Merge:**
 1. Print the PR URL prominently: `https://github.com/CodingThrust/problem-reductions/pull/<number>`
 2. Say: "Please merge this PR in your browser. After merging, I'll move the linked issue to Done."
-3. Wait for user confirmation, then move the project board item to `Done` (`98236657`).
+3. Wait for user confirmation, then move the project board item to `Done` (`6aca54fa`).
 
 **If OnHold:**
 1. Ask the reviewer for the reason (use `AskUserQuestion` with free text).
@@ -202,13 +280,13 @@ Use `AskUserQuestion`:
    ```bash
    gh pr comment <number> --body "**On Hold**: <reason>"
    ```
-3. Move the project board item to `OnHold` (`29244783`):
+3. Move the project board item to `OnHold` (`48dfe446`):
    ```bash
-   gh project item-edit --project-id PVT_kwDOBrtarc4BRNVy --id <ITEM_ID> --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc --single-select-option-id 29244783
+   gh project item-edit --project-id PVT_kwDOBrtarc4BRNVy --id <ITEM_ID> --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc --single-select-option-id 48dfe446
    ```
 
 **If Quick fix:**
-1. Ask the reviewer what needs fixing (use `AskUserQuestion`).
+1. Apply only the fixes the reviewer selected in Step 6.
 2. Checkout the PR branch in a worktree, apply fixes, commit, push.
 3. After push, go back to Step 6 to re-confirm the decision.
 
@@ -216,4 +294,4 @@ Use `AskUserQuestion`:
 1. Ask the reviewer for the reason.
 2. Post a comment explaining the rejection.
 3. Close the PR: `gh pr close <number> --comment "<reason>"`
-4. Move the project board item to `OnHold` (`29244783`).
+4. Move the project board item to `OnHold` (`48dfe446`).

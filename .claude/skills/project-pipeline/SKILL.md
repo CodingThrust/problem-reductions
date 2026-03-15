@@ -1,17 +1,19 @@
 ---
 name: project-pipeline
-description: Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr -> review-agentic
+description: Pick a Ready issue from the GitHub Project board, move it through In Progress -> issue-to-pr -> Review pool
 ---
 
 # Project Pipeline
 
-Pick a "Ready" issue from the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1), move it to "In Progress", run `issue-to-pr --execute`, then move it to "review-agentic". The separate `review-pipeline` handles Copilot comments, CI fixes, and agentic testing.
+Pick a "Ready" issue from the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1), move it to "In Progress", run `issue-to-pr --execute`, then move it to "Review pool". The separate `review-pipeline` handles Copilot comments, CI fixes, and agentic testing.
 
 ## Invocation
 
 - `/project-pipeline` -- pick the highest-ranked Ready issue (ranked by importance, relatedness, pending rules)
 - `/project-pipeline 97` -- process a specific issue number from the Ready column
 - `/project-pipeline --all` -- batch-process all Ready issues in ranked order
+
+For Codex, open this `SKILL.md` directly and treat the slash-command forms above as aliases. The Makefile `run-pipeline` target already does this translation.
 
 ## Constants
 
@@ -21,11 +23,12 @@ GitHub Project board IDs (for `gh project item-edit`):
 |----------|-------|
 | `PROJECT_ID` | `PVT_kwDOBrtarc4BRNVy` |
 | `STATUS_FIELD_ID` | `PVTSSF_lADOBrtarc4BRNVyzg_GmQc` |
-| `STATUS_READY` | `61e4505c` |
-| `STATUS_IN_PROGRESS` | `47fc9ee4` |
-| `STATUS_REVIEW_AGENTIC` | `b2f16561` |
-| `STATUS_IN_REVIEW` | `df73e18b` |
-| `STATUS_DONE` | `98236657` |
+| `STATUS_READY` | `f37d0d80` |
+| `STATUS_IN_PROGRESS` | `a12cfc9c` |
+| `STATUS_REVIEW_POOL` | `7082ed60` |
+| `STATUS_UNDER_REVIEW` | `f04790ca` |
+| `STATUS_FINAL_REVIEW` | `51a3d8bb` |
+| `STATUS_DONE` | `6aca54fa` |
 
 ## Autonomous Mode
 
@@ -126,7 +129,7 @@ gh project item-edit \
   --id <ITEM_ID> \
   --project-id PVT_kwDOBrtarc4BRNVy \
   --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id 47fc9ee4
+  --single-select-option-id a12cfc9c
 ```
 
 ### 3. Run issue-to-pr --execute
@@ -139,18 +142,28 @@ Invoke the `issue-to-pr` skill with `--execute` (working directory is the worktr
 
 This handles the full pipeline: fetch issue, verify Good label, research, write plan, create PR, implement, review, fix CI.
 
-**If `issue-to-pr` fails:** record the failure, but still move the issue to "In Review" so it's visible for human triage. Report the failure to the user.
+**If `issue-to-pr` fails after creating a PR:** record the failure, but still move the issue to "Final review" so it's visible for human triage. Report the failure to the user.
 
-### 4. Move to "review-agentic"
+### 4. Move to "Review pool"
 
-After `issue-to-pr` completes (success or failure with a PR created), move the issue to the `review-agentic` column for the second-stage review pipeline:
+After `issue-to-pr` succeeds, move the issue to the `Review pool` column for the second-stage review pipeline:
 
 ```bash
 gh project item-edit \
   --id <ITEM_ID> \
   --project-id PVT_kwDOBrtarc4BRNVy \
   --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id b2f16561
+  --single-select-option-id 7082ed60
+```
+
+**If `issue-to-pr` failed after creating a PR:** move the issue to `Final review` instead so a human can take over:
+
+```bash
+gh project item-edit \
+  --id <ITEM_ID> \
+  --project-id PVT_kwDOBrtarc4BRNVy \
+  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
+  --single-select-option-id 51a3d8bb
 ```
 
 **If no PR was created** (issue-to-pr failed before creating a PR): move the issue back to "Ready" instead:
@@ -160,7 +173,7 @@ gh project item-edit \
   --id <ITEM_ID> \
   --project-id PVT_kwDOBrtarc4BRNVy \
   --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id 61e4505c
+  --single-select-option-id f37d0d80
 ```
 
 ### 5. Clean Up Worktree
@@ -181,7 +194,7 @@ Pipeline complete:
   Issue:  #97 [Rule] BinPacking to ILP
   PR:     #200
   Status: Awaiting agentic review
-  Board:  Moved Ready -> In Progress -> review-agentic
+  Board:  Moved Ready -> In Progress -> Review pool
 ```
 
 ### 7. Batch Mode (`--all`)
@@ -195,12 +208,12 @@ After all issues, print a batch report:
 
 | Issue | Title                              | PR   | Status      | Board       |
 |-------|------------------------------------|------|-------------|-------------|
-| #129  | [Model] MultivariateQuadratic      | #201 | CI green    | review-agentic |
-| #97   | [Rule] BinPacking to ILP           | #202 | CI green    | review-agentic |
-| #110  | [Rule] LCS to ILP                  | #203 | fix failed  | review-agentic |
+| #129  | [Model] MultivariateQuadratic      | #201 | CI green    | Review pool |
+| #97   | [Rule] BinPacking to ILP           | #202 | CI green    | Review pool |
+| #110  | [Rule] LCS to ILP                  | #203 | fix failed  | Review pool |
 | #126  | [Rule] KSat to SubsetSum           | -    | plan failed | Ready       |
 
-Completed: 2/4 | In Review: 3 | Returned to Ready: 1
+Completed: 2/4 | Review pool: 3 | Returned to Ready: 1
 ```
 
 ## Common Mistakes
@@ -210,7 +223,7 @@ Completed: 2/4 | In Review: 3 | Returned to Ready: 1
 | Issue not in Ready column | Verify status before processing; STOP if not Ready |
 | Picking a Rule whose model doesn't exist | Hard constraint: both source and target models must exist on `main` — pending Model issues do NOT count |
 | Missing project scopes | Run `gh auth refresh -s read:project,project` |
-| Forgetting to move back to Ready on total failure | Only move to In Review if a PR exists |
+| Forgetting to move back to Ready on total failure | Only move to Review pool if a PR exists |
 | Processing Rules before their Model dependencies | In `--all` mode, re-check eligibility after each issue — a just-merged Model may unblock rules |
 | Scoring a variant as "related" | Weighted/unweighted variants or graph-subtype specializations of existing problems score 0 on C2 |
 | Not syncing main between batch issues | Each issue gets a fresh worktree from `origin/main` |

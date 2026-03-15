@@ -29,6 +29,26 @@ Before any implementation, collect all required information. If called from `iss
 
 If any item is missing, ask the user to provide it. Do NOT proceed until the checklist is complete.
 
+### Associated Rule Check
+
+Before implementation, verify that at least one reduction rule exists or is planned for this problem — otherwise it will be an orphan node in the reduction graph.
+
+**Check both directions:**
+
+1. **Outbound (this issue → rule issues):** Look for rule issue numbers in the model issue's "Reduction Rule Crossref" section.
+2. **Inbound (rule issues → this problem):** Search open rule issues that reference this problem as source or target:
+   ```bash
+   gh issue list --label rule --state open --limit 500 --json number,title | \
+     jq '[.[] | select(.title | test("<ProblemName>"; "i"))]'
+   ```
+
+**If no associated rules are found:**
+- Warn the user: "This model has no associated rule issues. It will be an orphan node in the reduction graph and will be flagged during review."
+- Ask whether to proceed anyway or file a companion rule issue first (via `/propose rule`).
+- If proceeding, add a visible `<!-- WARNING: orphan model — no associated rule issue -->` comment in the PR description.
+
+**If associated rules are found:** List them and continue.
+
 ## Reference Implementations
 
 Read these first to understand the patterns:

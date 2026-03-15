@@ -33,7 +33,10 @@ digraph propose {
     "Topology analysis" [shape=box];
     "Propose rules?" [shape=diamond];
     "Brainstorm Rule(s)" [shape=box];
-    "Brainstorm Rule (standalone)" [shape=box];
+    "Select rule pair" [shape=box];
+    "Study models" [shape=box];
+    "Literature check" [shape=diamond];
+    "Guided brainstorming" [shape=box];
     "Present draft(s)" [shape=box];
     "Run check-issue on draft" [shape=box];
     "Checks pass?" [shape=diamond];
@@ -47,13 +50,16 @@ digraph propose {
     "Detect type" -> "Study conventions" [label="model or rule"];
     "Detect type" -> "Start" [label="ask user"];
     "Study conventions" -> "Brainstorm Model" [label="model"];
-    "Study conventions" -> "Brainstorm Rule (standalone)" [label="rule"];
+    "Study conventions" -> "Select rule pair" [label="rule"];
+    "Select rule pair" -> "Study models";
+    "Study models" -> "Literature check";
+    "Literature check" -> "Guided brainstorming" [label="pre-fill if found"];
+    "Guided brainstorming" -> "Present draft(s)";
     "Brainstorm Model" -> "Topology analysis";
     "Topology analysis" -> "Propose rules?";
     "Propose rules?" -> "Brainstorm Rule(s)" [label="yes"];
     "Propose rules?" -> "Present draft(s)" [label="no, later"];
     "Brainstorm Rule(s)" -> "Present draft(s)";
-    "Brainstorm Rule (standalone)" -> "Present draft(s)";
     "Present draft(s)" -> "Run check-issue on draft";
     "Run check-issue on draft" -> "Checks pass?";
     "Checks pass?" -> "Present draft(s)" [label="fix issues"];
@@ -116,13 +122,25 @@ Right after the user picks model or rule, **study at least one existing case** i
 
 ### For Rules
 
-1. Ask the user a brief orienting question (free text):
-   > "Which two problems are you thinking of connecting? Even a rough idea is fine."
+1. **Run topology analysis first** to identify the most impactful missing reductions, then present the top candidates as recommendations. Only ask the user an open-ended "which two problems?" question if they don't have a specific pair in mind — otherwise, use the topology data to populate `AskUserQuestion` options in Step 3.1 directly.
 
-2. Based on the answer, study one existing reduction between similar problems. Use `pred neighbors <source_or_target> --json` to find existing reductions, then pick the most relevant one and examine it:
+   Run these commands silently before asking any questions:
+   ```bash
+   # Core data (fast — uses pre-built pred binary)
+   pred list --json
+   gh issue list --label rule --state open --limit 500 --json number,title
+
+   # Topology analysis (slower — compiles example binaries, but gives orphan/NP-hardness data)
+   cargo run --example detect_isolated_problems 2>/dev/null
+   cargo run --example detect_unreachable_from_3sat 2>/dev/null
+   ```
+   Run the first two commands in parallel. The example binaries take longer but provide essential orphan/NP-hardness gap data for ranking recommendations.
+
+2. Based on the topology results, study one existing reduction between similar problems. Use `pred to` and `pred from` to find existing reductions, then pick the most relevant one and examine it:
 
    ```bash
-   pred neighbors <problem> --json
+   pred to <problem> --json    # problems that reduce TO this one (incoming)
+   pred from <problem> --json  # problems this reduces FROM (outgoing)
    ```
 
    Also find and read one closed `[Rule]` issue in a similar domain:
@@ -145,10 +163,12 @@ Right after the user picks model or rule, **study at least one existing case** i
 
 ## Step 2: Explore Context
 
-Before asking questions, check what already exists. Try `pred`; if not available, build it first with `make cli`.
+Before asking questions, check what already exists. Use `pred` if it's already installed; only build if the command is missing.
 
 ```bash
-pred list --json 2>/dev/null || (make cli && pred list --json)
+# Only build if pred is not already installed — make cli takes >1 minute
+command -v pred >/dev/null 2>&1 || make cli
+pred list --json
 ```
 
 Also **search for existing GitHub issues** to avoid duplicates and surface related work:
@@ -226,7 +246,7 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
          description: "I'll describe the variable structure"
    ```
 
-4. **Complexity & Reference** — Before asking, use WebSearch to research the best known exact algorithms and canonical references for this problem. Then present 3 candidates via `AskUserQuestion`, each combining the complexity bound with its source:
+4. **Complexity & Reference** — Before asking, use WebSearch to research the best known exact algorithms and canonical references for this problem. Then present up to 3 candidates via `AskUserQuestion`, each combining the complexity bound with its source:
 
    ```
    AskUserQuestion:
@@ -273,7 +293,7 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
 
    **Important:** If the user chooses "Reduce to ILP" or "Reduce to QUBO", remind them that this requires a reduction rule issue. Either cross-reference an existing rule issue, or plan to file one as a companion rule (which will be proposed in Step 3b Topology Analysis). The model issue's "How to solve" section must reference the rule issue number.
 
-6. **Example** — Generate 3 candidate examples yourself (varying in size and structure), then present via `AskUserQuestion`:
+6. **Example** — Generate **at least 3** candidate examples yourself (varying in size and structure), then present via `AskUserQuestion`. **3 options is the minimum — never fewer.** Always include a "Generate new batch" escape hatch:
 
    ```
    AskUserQuestion:
@@ -286,9 +306,13 @@ Work through these topics in order, using `AskUserQuestion` where multiple-choic
          description: "<brief description — exercises core structure>"
        - label: "<larger instance summary>"
          description: "<brief description — richer, more illustrative>"
+       - label: "Generate new batch"
+         description: "None of these work — generate a fresh set of examples"
    ```
 
-   After the user picks one, provide a complete instance with its known optimal solution.
+   If the user picks "Generate new batch", create 3 new examples with different sizes/structures and re-present.
+
+   After the user picks a concrete example, provide a complete instance with its known optimal solution.
    - Must exercise the problem's core structure
    - Must be small enough to verify by hand
 
@@ -370,62 +394,119 @@ After model brainstorming is complete, proceed to **Step 3b: Topology Analysis**
 
 ### For Rules (standalone)
 
-Work through these topics in order, using `AskUserQuestion` for each step. (The orienting "Which two problems?" question was already asked in Step 1b, and conventions were studied.)
+Topology analysis was already run in Step 1b. Conventions were studied.
 
-1. **Which problems?** — First run topology analysis (orphans, NP-hardness gaps, `pred list --json`) to identify the most needed rules. Incorporate what the user mentioned in Step 1b, then present suggestions via `AskUserQuestion`:
+#### Step 3.1: Recommend rules
 
+Use the topology data from Step 1b to present **data-driven recommendations** via `AskUserQuestion`. The options should be populated from the analysis — do not ask the user to name problems before you have analyzed the graph.
+
+```
+AskUserQuestion:
+  question: "Which reduction would you like to propose?"
+  header: "Reduction"
+  options:
+    - label: "<Source> → <Target> (Recommended)"
+      description: "<why most valuable — e.g., connects orphan X, proves NP-hardness, existing issue #N>"
+    - label: "<Source> → <Target>"
+      description: "<why valuable — note existing issues if any>"
+    - label: "<Source> → <Target>"
+      description: "<why valuable — note existing issues if any>"
+    - label: "I have a different pair"
+      description: "I'll describe the source and target problems"
+```
+
+**Selection criteria** (in priority order) — only suggest rules where **both source and target already exist** in the codebase:
+- **Priority 1:** Rules that connect orphan problems to the main component (check `detect_isolated_problems` output)
+- **Priority 2:** Rules that fill NP-hardness proof gaps (check `detect_unreachable_from_3sat` output)
+- **Priority 3:** Rules to large clusters (QUBO, ILP, SAT families)
+- **Filter:** Exclude pairs that already have a reduction registered **AND** pairs that already have an open GitHub issue filed (even if not yet implemented). Do not recommend duplicates — if an issue exists, it should be implemented via `/issue-to-pr`, not re-proposed.
+
+After selection, verify both problems exist (or one is being proposed alongside).
+
+#### Step 3.2: Study source and target models
+
+**Mandatory before any brainstorming.** Inspect both models in the codebase:
+
+```bash
+pred show <source> --json
+pred show <target> --json
+```
+
+Note internally (do not dump to the user):
+- Field names, types, and size getters for both problems
+- Whether source/target are optimization or satisfaction problems
+- Type mismatches (e.g., `BigUint` vs `i64`) that the reduction must handle
+- Existing reductions to/from both problems (use `pred to` and `pred from`)
+
+Also check for existing GitHub issues for this specific pair:
+```bash
+gh issue list --label rule --state open --json number,title | jq '.[] | select(.title | test("<source>.*<target>"; "i"))'
+```
+
+This information is essential for writing correct overhead tables and identifying implementation concerns.
+
+#### Step 3.3: Literature check
+
+After studying the models, check whether this is a **well-known textbook reduction**:
+- Use WebSearch to check standard references (Garey & Johnson, Karp's 21, CLRS, Sipser, Arora & Barak)
+- Check if an existing GitHub issue already describes this reduction
+
+If the reduction is well-known, use the literature to **pre-fill** answers in Step 3.4 — but still present each step to the user for confirmation. Do NOT skip the guided brainstorming.
+
+#### Step 3.4: Guided brainstorming
+
+**Always run this step**, whether the reduction is well-known or novel. For well-known reductions, pre-fill answers from literature and present them for confirmation. For novel reductions, ask the user to provide answers. Work through these topics in order, **one at a time**.
+
+1. **Why useful?** — State the motivation (e.g., connects orphan, fills NP-hardness gap) and present for confirmation via `AskUserQuestion`:
    ```
    AskUserQuestion:
-     question: "Which reduction would you like to propose?"
-     header: "Reduction"
-     options:
-       - label: "<Source> → <Target> (Recommended)"
-         description: "<why this is the most valuable — e.g., connects orphan, fills NP-hardness gap>"
-       - label: "<Source> → <Target>"
-         description: "<why valuable>"
-       - label: "<Source> → <Target>"
-         description: "<why valuable>"
-       - label: "I have a different pair"
-         description: "I'll describe the source and target problems"
-   ```
-
-   Populate the suggestions based on topology analysis:
-   - **Priority 1:** Rules that connect orphan problems (8 orphans: BMF, BicliqueCover, CVP, GraphPartitioning, Knapsack, MaximalIS, MinimumFeedbackVertexSet, PaintShop)
-   - **Priority 2:** Rules that fill NP-hardness proof gaps (BinPacking, LongestCommonSubsequence, TravelingSalesman have no inbound path from 3-SAT)
-   - **Priority 3:** Rules to large clusters (QUBO, ILP, SAT families)
-
-   After selection, verify both problems exist (or one is being proposed alongside).
-
-2. **Why useful?** — Use `AskUserQuestion`:
-   ```
-   AskUserQuestion:
-     question: "What makes this reduction valuable?"
+     question: "What's the main motivation for this reduction?"
      header: "Motivation"
      options:
-       - label: "Connects an isolated problem"
-         description: "Links an orphan problem to the main graph"
-       - label: "Enables a new solver"
-         description: "Allows solving via the target problem's solvers (e.g., ILP, QUBO)"
-       - label: "Proves NP-hardness"
-         description: "Establishes hardness via a chain from 3-SAT"
-       - label: "Shorter reduction path"
-         description: "Provides a more efficient path than what currently exists"
+       - label: "<inferred motivation> (Recommended)"
+         description: "<why — e.g., connects orphan PaintShop to QUBO hub>"
+       - label: "<alternative motivation>"
+         description: "<why>"
+       - label: "<alternative motivation>"
+         description: "<why>"
    ```
-   Also check if a path already exists: `pred path <source> <target> --json`
 
-3. **Algorithm** — Ask as a free-text question (no multiple choice here):
-   > "How does the reduction work? Given a source instance, how do you construct the target instance? Please describe step by step."
+2. **Algorithm** — Research the reduction algorithm (use WebSearch for well-known reductions, ask the user for novel ones). Present candidate approaches via `AskUserQuestion`:
+   ```
+   AskUserQuestion:
+     question: "Which reduction approach should we use?"
+     header: "Algorithm"
+     options:
+       - label: "<approach 1> (Recommended)"
+         description: "<brief summary of how it works>"
+       - label: "<approach 2>"
+         description: "<brief summary>"
+       - label: "<approach 3>"
+         description: "<brief summary>"
+   ```
+   After the user picks one, present the full algorithm write-up for confirmation.
    - Must define all symbols before using them
    - Must be detailed enough that someone could implement it
-   - If the user is unsure, use WebSearch to find known reductions in the literature
 
-4. **Correctness** — Ask as free text:
-   > "Why does this work? Why does an optimal solution to the target correspond to an optimal solution of the source?"
+3. **Explanation** — Present a correctness argument explaining why the reduction preserves optimal solutions, then ask for feedback via `AskUserQuestion`:
+   ```
+   AskUserQuestion:
+     question: "How does this explanation look?"
+     header: "Explanation"
+     options:
+       - label: "Looks good"
+         description: "The correctness argument is clear and complete"
+       - label: "More detail"
+         description: "Please expand the argument with more steps or formal reasoning"
+       - label: "Less detail"
+         description: "Too verbose — please shorten to the key insight"
+   ```
+   If the user asks for more or less detail, revise and re-present.
 
-5. **Size overhead** — Ask as free text:
-   > "How large is the target instance relative to the source? E.g., if the source has n vertices and m edges, how many variables/constraints does the target have?"
+4. **Size overhead** — Compute overhead from the algorithm using the target's size fields from `pred show <target> --json`. Present the overhead table and ask for confirmation:
+   > "Based on the algorithm, the size overhead is: [table]. Does this look correct?"
 
-6. **Example** — Generate 3 candidate examples yourself (varying in size and structure), then present via `AskUserQuestion`:
+5. **Example** — Generate **at least 3** candidate examples yourself (varying in size and structure), then present via `AskUserQuestion`. **3 options is the minimum — never fewer.** Always include a "Generate new batch" escape hatch:
 
    ```
    AskUserQuestion:
@@ -438,25 +519,30 @@ Work through these topics in order, using `AskUserQuestion` for each step. (The 
          description: "<brief description — shows a non-obvious optimum>"
        - label: "<larger instance summary>"
          description: "<brief description — richer structure, more trade-offs>"
+       - label: "Generate new batch"
+         description: "None of these work — generate a fresh set of examples"
    ```
 
-   After the user picks one, fully work out the example: show source instance, each construction step, resulting target instance, and the optimal solution.
+   If the user picks "Generate new batch", create 3 new examples with different sizes/structures and re-present.
+
+   After the user picks a concrete example, fully work out the example: show source instance, each construction step, resulting target instance, and the optimal solution.
    - Must be non-trivial but hand-verifiable
    - Must exercise the core structure of the reduction
 
-7. **Reference** — Use `AskUserQuestion`:
+6. **Reference** — Use WebSearch to find references. Present candidate references via `AskUserQuestion`:
    ```
    AskUserQuestion:
-     question: "Is there a paper or textbook that describes this reduction?"
+     question: "Which reference should we cite?"
      header: "Reference"
      options:
-       - label: "Yes, I have a reference"
-         description: "I'll provide the citation"
-       - label: "No, please help find one"
-         description: "Search the literature for a known reduction"
-       - label: "This is a novel reduction"
-         description: "I designed this myself — no existing reference"
+       - label: "<reference 1> (Recommended)"
+         description: "<paper title, year> — <URL>"
+       - label: "<reference 2>"
+         description: "<paper title, year> — <URL>"
+       - label: "<reference 3>"
+         description: "<paper title, year> — <URL>"
    ```
+   If no references are found, ask the user if this is a novel reduction.
 
 ---
 
@@ -474,7 +560,7 @@ cargo run --example detect_unreachable_from_3sat 2>/dev/null
 # List existing problems and reductions
 pred list --json
 
-# Check if paths exist between the new problem's likely neighbors
+# Check if paths exist between the new problem's likely reduction targets
 pred path <similar_problem_A> <similar_problem_B> --json
 ```
 
@@ -643,7 +729,9 @@ Print all issue URLs when done.
 
 ## Key Principles
 
-- **Use `AskUserQuestion` for structured choices** — whenever the user needs to pick from options (type detection, problem selection, motivation, variable type, data structure, reference type, approval), use the `AskUserQuestion` tool with well-labeled options. Use free text only for open-ended questions (algorithm description, formal definitions, examples, complexity expressions).
+- **Use `AskUserQuestion` only when genuine user input is needed** — use it for choices where the answer is NOT determinable from context (type detection, problem selection, example selection, approval). Do NOT use it when the answer is already clear from topology analysis, model inspection, or literature (e.g., don't ask "why is this useful?" when the topology analysis already shows it connects an orphan).
+- **Study models before brainstorming** — always run `pred show <source> --json` and `pred show <target> --json` before asking questions. This reveals field types, size getters, and schema details that are essential for correct overhead tables.
+- **Pre-fill well-known reductions** — if the reduction appears in standard textbooks, pre-fill answers from literature but still present each step to the user for confirmation. Never skip brainstorming steps.
 - **One question at a time** — don't overwhelm; each `AskUserQuestion` call has one focused question
 - **Mathematical language only** — never mention Rust types, traits, macros, or code patterns to the user
 - **Help find references** — use WebSearch to help locate papers, verify claims
@@ -655,8 +743,11 @@ Print all issue URLs when done.
 
 ## Common Mistakes
 
+- **Don't ask questions with obvious answers.** If the topology analysis shows the rule connects an orphan, don't ask "What makes this reduction valuable?" — state it. Only use `AskUserQuestion` when the answer requires genuine user input.
+- **Don't skip model inspection.** Always run `pred show <source> --json` and `pred show <target> --json` before brainstorming. Missing this leads to wrong overhead tables and missed type mismatches (e.g., `BigUint` vs `i64`).
+- **Don't skip confirmation for textbook reductions.** Even if SubsetSum → Knapsack is in Garey & Johnson, still present each brainstorming step with pre-filled answers for the user to confirm or revise. Never jump straight to the draft.
+- **Don't rebuild `pred` unnecessarily.** Use `command -v pred` to check if it's installed before running `make cli` (which takes >1 minute).
 - **Don't ask all questions at once.** One `AskUserQuestion` call per message.
-- **Don't use plain text for structured choices.** If the user needs to pick from options, use `AskUserQuestion` — not a bulleted list in plain text.
 - **Don't use programming jargon.** Say "list of weights" not "Vec<W>". Say "graph" not "SimpleGraph". Say "integer" not "i32".
 - **Don't skip the reduction crossref.** An orphan model will be rejected.
 - **Don't file without user approval.** Always show the draft first.

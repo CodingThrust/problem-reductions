@@ -23,9 +23,9 @@ Post-refactor extension points:
 - [check-issue] — Quality gate for Rule and Model GitHub issues
 - [topology-sanity-check] — Run sanity checks on the reduction graph: detect orphan problems and redundant rules
 - [project-pipeline] — Pick the next ready issue, implement it, and move it through the project workflow
-- [review-pipeline] — Process PRs in review-agentic: fix comments, fix CI, run agentic review, move to In Review
+- [review-pipeline] — Process PRs in Review pool: fix comments, fix CI, run agentic review, move to Final review
 - [propose] — Interactive brainstorming that turns a new model or rule idea into a GitHub issue
-- [final-review] — Interactive maintainer review for PRs in the In review column
+- [final-review] — Interactive maintainer review for PRs in the Final review column
 - [dev-setup] — Install and configure the maintainer development environment
 - [write-model-in-paper] — Write or improve a problem-def entry in the Typst paper
 - [write-rule-in-paper] — Write or improve a reduction-rule entry in the Typst paper

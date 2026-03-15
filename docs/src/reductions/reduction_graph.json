@@ -3,15 +3,6 @@
     {
       "name": "BMF",
       "variant": {},
-  
-Exported to: docs/src/reductions/reduction_graph.json
-
-JSON content:
-{
-  "nodes": [
-    {
-      "name": "BMF",
-      "variant": {},
       "category": "algebraic",
       "doc_path": "models/algebraic/struct.BMF.html",
       "complexity": "2^(rows * rank + rank * cols)"
@@ -744,6 +735,17 @@ JSON content:
         }
       ],
       "doc_path": "rules/sat_ksat/index.html"
+    },
+    {
+      "source": 23,
+      "target": 48,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "num_items + num_slack_bits"
+        }
+      ],
+      "doc_path": "rules/knapsack_qubo/index.html"
     },
     {
       "source": 24,
