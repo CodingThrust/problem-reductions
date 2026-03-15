@@ -154,6 +154,24 @@ crate::declare_variants! {
     default sat SequencingWithReleaseTimesAndDeadlines => "2^num_tasks * num_tasks",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "sequencing_with_release_times_and_deadlines",
+        build: || {
+            // 5 tasks from issue example.
+            // Feasible schedule order: t3, t0, t1, t2, t4
+            let problem = SequencingWithReleaseTimesAndDeadlines::new(
+                vec![3, 2, 4, 1, 2],
+                vec![0, 1, 5, 0, 8],
+                vec![5, 6, 10, 3, 12],
+            );
+            // Lehmer code [3,0,0,0,0] = permutation [3,0,1,2,4]
+            crate::example_db::specs::satisfaction_example(problem, vec![vec![3, 0, 0, 0, 0]])
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/misc/sequencing_with_release_times_and_deadlines.rs"]
 mod tests;
