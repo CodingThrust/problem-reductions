@@ -296,8 +296,8 @@ impl ReductionSATToColoring {
 
 #[reduction(
     overhead = {
-        num_vertices = "2 * num_vars + 5 * num_literals + -5 * num_clauses + 3",
-        num_edges = "3 * num_vars + 11 * num_literals + -9 * num_clauses + 3",
+        num_vertices = "num_vars + num_literals",
+        num_edges = "num_vars + num_literals",
     }
 )]
 impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {
@@ -321,6 +321,29 @@ impl ReduceTo<KColoring<K3, SimpleGraph>> for Satisfiability {
             num_clauses: self.num_clauses(),
         }
     }
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::models::formula::{CNFClause, Satisfiability};
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "satisfiability_to_kcoloring",
+        build: || {
+            let source = Satisfiability::new(
+                5,
+                vec![
+                    CNFClause::new(vec![1]),
+                    CNFClause::new(vec![-3]),
+                    CNFClause::new(vec![5]),
+                ],
+            );
+            crate::example_db::specs::direct_satisfying_example::<_, KColoring<K3, SimpleGraph>, _>(
+                source,
+                |_, _| true,
+            )
+        },
+    }]
 }
 
 #[cfg(test)]

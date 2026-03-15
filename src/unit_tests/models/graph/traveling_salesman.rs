@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
@@ -244,4 +244,23 @@ fn test_size_getters() {
     );
     assert_eq!(problem.num_vertices(), 3);
     assert_eq!(problem.num_edges(), 3);
+}
+
+#[test]
+fn test_tsp_paper_example() {
+    // Paper: K4, weights w(0,1)=1, w(0,2)=3, w(0,3)=2, w(1,2)=2, w(1,3)=3, w(2,3)=1
+    // Optimal tour: v0→v1→v2→v3→v0, cost = 1+2+1+2 = 6
+    let problem = TravelingSalesman::new(
+        SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
+        vec![1, 3, 2, 2, 3, 1],
+    );
+    // Edges: 0=(0,1), 1=(0,2), 2=(0,3), 3=(1,2), 4=(1,3), 5=(2,3)
+    // Tour uses edges 0, 2, 3, 5
+    let config = vec![1, 0, 1, 1, 0, 1];
+    let result = problem.evaluate(&config);
+    assert_eq!(result, SolutionSize::Valid(6));
+
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best), SolutionSize::Valid(6));
 }

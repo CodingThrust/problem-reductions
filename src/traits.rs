@@ -22,6 +22,15 @@ pub trait Problem: Clone {
     /// Used for generating variant IDs in the reduction graph schema.
     /// Returns pairs like `[("graph", "SimpleGraph"), ("weight", "i32")]`.
     fn variant() -> Vec<(&'static str, &'static str)>;
+
+    /// Look up this problem's catalog entry.
+    ///
+    /// Returns the full [`ProblemType`] metadata from the catalog registry.
+    /// The default implementation uses `Self::NAME` to perform the lookup.
+    fn problem_type() -> crate::registry::ProblemType {
+        crate::registry::find_problem_type(Self::NAME)
+            .unwrap_or_else(|| panic!("no catalog entry for Problem::NAME = {:?}", Self::NAME))
+    }
 }
 
 /// Extension for problems with a numeric objective to optimize.

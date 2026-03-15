@@ -70,3 +70,19 @@ fn test_knapsack_to_qubo_empty() {
     let extracted = reduction.extract_solution(&best_target[0]);
     assert_eq!(extracted, vec![0, 0]);
 }
+
+#[cfg(feature = "example-db")]
+#[test]
+fn test_knapsack_to_qubo_canonical_example_spec() {
+    let spec = canonical_rule_example_specs()
+        .into_iter()
+        .find(|spec| spec.id == "knapsack_to_qubo")
+        .expect("missing canonical Knapsack -> QUBO example spec");
+    let example = (spec.build)();
+
+    assert_eq!(example.source.problem, "Knapsack");
+    assert_eq!(example.target.problem, "QUBO");
+    assert_eq!(example.source.instance["capacity"], 7);
+    assert_eq!(example.target.instance["num_vars"], 7);
+    assert!(!example.solutions.is_empty());
+}

@@ -1,0 +1,133 @@
+{
+  "source": {
+    "problem": "MaximumIndependentSet",
+    "variant": {
+      "graph": "SimpleGraph",
+      "weight": "i32"
+    },
+    "instance": {
+      "edges": [
+        [
+          0,
+          1
+        ],
+        [
+          1,
+          2
+        ],
+        [
+          2,
+          3
+        ],
+        [
+          3,
+          4
+        ]
+      ],
+      "num_edges": 4,
+      "num_vertices": 5
+    }
+  },
+  "target": {
+    "problem": "MaximumClique",
+    "variant": {
+      "graph": "SimpleGraph",
+      "weight": "i32"
+    },
+    "instance": {
+      "edges": [
+        [
+          0,
+          2
+        ],
+        [
+          0,
+          3
+        ],
+        [
+          0,
+          4
+        ],
+        [
+          1,
+          3
+        ],
+        [
+          1,
+          4
+        ],
+        [
+          2,
+          4
+        ]
+      ],
+      "num_edges": 6,
+      "num_vertices": 5
+    }
+  },
+  "overhead": [
+    {
+      "field": "num_vertices",
+      "expr": {
+        "Var": "num_vertices"
+      },
+      "formula": "num_vertices"
+    },
+    {
+      "field": "num_edges",
+      "expr": {
+        "Add": [
+          {
+            "Mul": [
+              {
+                "Mul": [
+                  {
+                    "Var": "num_vertices"
+                  },
+                  {
+                    "Add": [
+                      {
+                        "Var": "num_vertices"
+                      },
+                      {
+                        "Mul": [
+                          {
+                            "Const": -1.0
+                          },
+                          {
+                            "Const": 1.0
+                          }
+                        ]
+                      }
+                    ]
+                  }
+                ]
+              },
+              {
+                "Pow": [
+                  {
+                    "Const": 2.0
+                  },
+                  {
+                    "Const": -1.0
+                  }
+                ]
+              }
+            ]
+          },
+          {
+            "Mul": [
+              {
+                "Const": -1.0
+              },
+              {
+                "Var": "num_edges"
+              }
+            ]
+          }
+        ]
+      },
+      "formula": "num_vertices * (num_vertices + -1 * 1) * 2^-1 + -1 * num_edges"
+    }
+  ]
+}

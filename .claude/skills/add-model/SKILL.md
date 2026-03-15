@@ -25,7 +25,7 @@ Before any implementation, collect all required information. If called from `iss
 | 8 | **Objective function** | How to compute the metric | "Sum of weights of selected vertices" |
 | 9 | **Best known exact algorithm** | Complexity with variable definitions | "O(1.1996^n) by Xiao & Nagamochi (2017), where n = \|V\|" |
 | 10 | **Solving strategy** | How it can be solved | "BruteForce works; ILP reduction available" |
-| 11 | **Category** | Which sub-module under `src/models/` | `graph`, `optimization`, `satisfiability`, `set`, `specialized` |
+| 11 | **Category** | Which sub-module under `src/models/` | `graph`, `formula`, `set`, `algebraic`, `misc` |
 
 If any item is missing, ask the user to provide it. Do NOT proceed until the checklist is complete.
 
@@ -33,20 +33,22 @@ If any item is missing, ask the user to provide it. Do NOT proceed until the che
 
 Read these first to understand the patterns:
 - **Optimization problem:** `src/models/graph/maximum_independent_set.rs`
-- **Satisfaction problem:** `src/models/satisfiability/sat.rs`
+- **Satisfaction problem:** `src/models/formula/sat.rs`
 - **Model tests:** `src/unit_tests/models/graph/maximum_independent_set.rs`
 - **Trait definitions:** `src/traits.rs` (`Problem`, `OptimizationProblem`, `SatisfactionProblem`)
-- **CLI dispatch:** `problemreductions-cli/src/dispatch.rs`
+- **Registry dispatch boundary:** `src/registry/mod.rs`, `src/registry/variant.rs`
 - **CLI aliases:** `problemreductions-cli/src/problem_name.rs`
+- **CLI creation:** `problemreductions-cli/src/commands/create.rs`
+- **Canonical model examples:** `src/example_db/model_builders.rs`
 
 ## Step 1: Determine the category
 
 Choose the appropriate sub-module under `src/models/`:
-- `graph/` -- problems defined on graphs (vertex/edge selection)
-- `optimization/` -- generic optimization formulations (QUBO, ILP, SpinGlass)
-- `satisfiability/` -- boolean satisfaction problems (SAT, k-SAT)
+- `graph/` -- problems defined on graphs (vertex/edge selection, SpinGlass, etc.)
+- `formula/` -- logical formulas and circuits (SAT, k-SAT, CircuitSAT)
 - `set/` -- set-based problems (set packing, set cover)
-- `specialized/` -- problems that don't fit other categories (factoring, circuit, paintshop)
+- `algebraic/` -- matrices, linear systems, lattices (QUBO, ILP, CVP, BMF)
+- `misc/` -- unique input structures that don't fit other categories (BinPacking, PaintShop, Factoring)
 
 ## Step 1.5: Infer problem size getters
 
@@ -92,16 +94,20 @@ Add `declare_variants!` at the bottom of the model file (after the trait impls, 
 
 ```rust
 crate::declare_variants! {
-    ProblemName<SimpleGraph, i32>  => "1.1996^num_vertices",
-    ProblemName<SimpleGraph, One>  => "1.1996^num_vertices",
+    opt ProblemName<SimpleGraph, i32> => "1.1996^num_vertices",
+    default opt ProblemName<SimpleGraph, One> => "1.1996^num_vertices",
 }
 ```
 
+- Each entry must include an explicit solver kind:
+  - `opt` for optimization problems (`BruteForce::find_best`)
+  - `sat` for satisfaction problems (`BruteForce::find_satisfying`)
+- Mark exactly one concrete variant `default` when the problem has multiple registered variants
 - The complexity string references the getter method names from Step 1.5 (e.g., `num_vertices`) — variable names are validated at compile time against actual getters, so typos cause compile errors
 - One entry per supported `(graph, weight)` combination
 - The string is parsed as an `Expr` AST — supports `+`, `-`, `*`, `/`, `^`, `exp()`, `log()`, `sqrt()`
 - Use only concrete numeric values (e.g., `"1.1996^num_vertices"`, not `"(2-epsilon)^num_vertices"`)
-- A compiled `complexity_eval_fn` is auto-generated alongside the symbolic expression
+- A compiled `complexity_eval_fn` plus registry-backed load/serialize/solve dispatch metadata are auto-generated alongside the symbolic expression
 - See `src/models/graph/maximum_independent_set.rs` for the reference pattern
 
 ## Step 3: Register the model
@@ -112,13 +118,14 @@ Update these files to register the new problem type:
 2. `src/models/mod.rs` -- add to the appropriate re-export line
 3. `src/lib.rs` or `prelude` -- if the type should be in `prelude::*`, add it there
 
-## Step 4: Register in CLI
+## Step 4: Register for CLI discovery
 
-Update the CLI dispatch table so `pred` can load, solve, and serialize the new problem:
+The CLI now loads, serializes, and brute-force solves problems through the core registry. Do **not** add manual match arms in `problemreductions-cli/src/dispatch.rs`.
 
-1. **`problemreductions-cli/src/dispatch.rs`:**
-   - Add a match arm in `load_problem()` -- use `deser_opt::<T>` for optimization or `deser_sat::<T>` for satisfaction
-   - Add a match arm in `serialize_any_problem()` -- use `try_ser::<T>`
+1. **Registry-backed dispatch comes from `declare_variants!`:**
+   - Make sure every concrete variant you want the CLI to load is listed in `declare_variants!`
+   - Use the correct `opt`/`sat` marker per entry
+   - Mark the intended default variant with `default` when applicable
 
 2. **`problemreductions-cli/src/problem_name.rs`:**
    - Add a lowercase alias mapping in `resolve_alias()` (e.g., `"newproblem" => "NewProblem".to_string()`)
@@ -135,9 +142,18 @@ Update `problemreductions-cli/src/commands/create.rs` so `pred create <ProblemNa
 
 2. **Add CLI flags** in `problemreductions-cli/src/cli.rs` (`CreateArgs` struct) if the problem needs flags not already present. Update `all_data_flags_empty()` accordingly.
 
-3. **Update help text** in `CreateArgs`'s `after_help` to document the new problem's flags.
+3. **Update help text** in `CreateArgs`'s `after_help` — add the new problem to the "Flags by problem type" table in `problemreductions-cli/src/cli.rs` (search for `Flags by problem type`).
 
 4. **Schema alignment**: The `ProblemSchemaEntry` fields should list **constructor parameters** (what the user provides), not internal derived fields. For example, if `m` and `n` are derived from a matrix, only list `matrix` and `k` in the schema.
+
+## Step 4.6: Add canonical model example to example_db
+
+Add a builder function in `src/example_db/model_builders.rs` that constructs a small, canonical instance for this model. Register it in `build_model_examples()`.
+
+This example is now the canonical source for:
+- `pred create --example <PROBLEM_SPEC>`
+- paper/example exports
+- example-db invariants tested in `src/unit_tests/example_db.rs`
 
 ## Step 5: Write unit tests
 
@@ -149,12 +165,65 @@ Required tests:
 - `test_<name>_direction` -- verify optimization direction (if optimization problem)
 - `test_<name>_serialization` -- round-trip serde test (optional but recommended)
 - `test_<name>_solver` -- verify brute-force solver finds correct solutions
+- `test_<name>_paper_example` -- **use the same instance from the paper example** (Step 6), verify the claimed solution is valid/optimal and the solution count matches
+
+The `test_<name>_paper_example` test is critical for consistency between code and paper. It must:
+1. Construct the exact same instance shown in the paper's example figure
+2. Evaluate the solution shown in the paper and assert it is valid (and optimal for optimization problems)
+3. Use `BruteForce` to find all optimal/satisfying solutions and assert the count matches the paper's claim
+
+This test should be written **after** Step 6 (paper entry), once the example instance and solution are finalized. If writing tests before the paper, use the same instance you plan to use in the paper and come back to verify consistency.
 
 Link the test file via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the model file.
 
+## Step 5.5: Add trait_consistency entry
+
+Add the new problem to `src/unit_tests/trait_consistency.rs`:
+
+1. **`test_all_problems_implement_trait_correctly`** — add a `check_problem_trait(...)` call with a small instance
+2. **`test_direction`** (optimization problems only) — add an `assert_eq!(...direction(), Direction::Minimize/Maximize)` entry
+
+This is **required** for every new model — it ensures the Problem trait implementation is well-formed.
+
 ## Step 6: Document in paper
 
-Invoke the `/write-model-in-paper` skill to write the problem-def entry in `docs/paper/reductions.typ`. That skill covers the full authoring process: formal definition, background, example with visualization, algorithm list, and verification checklist.
+Write a `problem-def` entry in `docs/paper/reductions.typ`. **Reference example:** search for `problem-def("MaximumIndependentSet")` to see the gold-standard entry — use it as a template.
+
+### 6a. Register display name
+
+Add to the `display-name` dictionary near the top of `reductions.typ`:
+```typst
+"ProblemName": [Display Name],
+```
+
+### 6b. Write formal definition (`def` parameter)
+
+```typst
+#problem-def("ProblemName")[
+  Given [inputs with domains], find [solution] [maximizing/minimizing] [objective] such that [constraints].
+][
+```
+Requirements: introduce all inputs first, state the objective, define all notation before use.
+
+### 6c. Write body (background + example)
+
+The body goes AFTER auto-generated sections (complexity table, reductions, schema). Four parts:
+
+**Background (1-3 sentences):** Historical context, applications, structural properties.
+
+**Best known algorithms:** Integrate naturally into prose with citations. Every complexity claim MUST have `@citation`. If best known is brute-force, add `#footnote[No algorithm improving on brute-force is known for ...]`.
+
+**Example with visualization:** A concrete small instance with a CeTZ diagram. For graph problems, use `g-node()` and `g-edge()` helpers — see the MaximumIndependentSet entry. Highlight solution with `graph-colors.at(0)`.
+
+**Evaluation:** Show the objective/verifier computed on the example solution (can be woven into example text).
+
+### 6d. Build and verify
+
+```bash
+make paper  # Must compile without errors
+```
+
+Checklist: display name registered, notation self-contained, background present, algorithms cited, example with diagram present, evaluation shown, paper compiles.
 
 ## Step 7: Verify
 
@@ -180,9 +249,13 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 | Missing `#[path]` test link | Add `#[cfg(test)] #[path = "..."] mod tests;` at file bottom |
 | Wrong `dims()` | Must match the actual configuration space (e.g., `vec![2; n]` for binary) |
 | Not registering in `mod.rs` | Must update both `<category>/mod.rs` and `models/mod.rs` |
-| Forgetting `declare_variants!` | Required for variant complexity metadata used by the paper's auto-generated table |
-| Forgetting CLI dispatch | Must add match arms in `dispatch.rs` (`load_problem` + `serialize_any_problem`) |
+| Forgetting `declare_variants!` | Required for variant complexity metadata and registry-backed load/serialize/solve dispatch |
+| Wrong `declare_variants!` syntax | Every entry now needs `opt` or `sat`; one entry per problem may be marked `default` |
 | Forgetting CLI alias | Must add lowercase entry in `problem_name.rs` `resolve_alias()` |
 | Inventing short aliases | Only use well-established literature abbreviations (MIS, SAT, TSP); do NOT invent new ones |
 | Forgetting CLI create | Must add creation handler in `commands/create.rs` and flags in `cli.rs` |
+| Missing from CLI help table | Must add entry to "Flags by problem type" table in `cli.rs` `after_help` |
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |
+| Missing canonical model example | Add a builder in `src/example_db/model_builders.rs` and keep it aligned with paper/example workflows |
+| Forgetting trait_consistency | Must add entry in `test_all_problems_implement_trait_correctly` (and `test_direction` for optimization) in `src/unit_tests/trait_consistency.rs` |
+| Paper example not tested | Must include `test_<name>_paper_example` that verifies the exact instance, solution, and solution count shown in the paper |

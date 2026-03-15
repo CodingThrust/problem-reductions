@@ -11,6 +11,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "Knapsack",
+        display_name: "Knapsack",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Select items to maximize total value subject to weight capacity constraint",
         fields: &[
@@ -144,7 +147,7 @@ impl OptimizationProblem for Knapsack {
 }
 
 crate::declare_variants! {
-    Knapsack => "2^(num_items / 2)",
+    default opt Knapsack => "2^(num_items / 2)",
 }
 
 #[cfg(test)]

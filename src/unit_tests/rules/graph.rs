@@ -2,7 +2,7 @@ use super::*;
 use crate::models::algebraic::QUBO;
 use crate::models::graph::{MaximumIndependentSet, MinimumVertexCover};
 use crate::models::set::MaximumSetPacking;
-use crate::rules::cost::MinimizeSteps;
+use crate::rules::cost::{Minimize, MinimizeSteps};
 use crate::rules::graph::{classify_problem_category, ReductionStep};
 use crate::rules::registry::ReductionEntry;
 use crate::topology::SimpleGraph;
@@ -71,7 +71,11 @@ fn test_is_to_qubo_path() {
         &MinimizeSteps,
     );
     assert!(path.is_some());
-    assert_eq!(path.unwrap().len(), 1); // Direct path
+    let path = path.unwrap();
+    assert!(
+        path.len() > 1,
+        "MIS -> QUBO should now go through a composite path"
+    );
 }
 
 #[test]
@@ -711,7 +715,7 @@ fn test_find_cheapest_path_multi_step() {
 #[test]
 fn test_find_cheapest_path_is_to_qubo() {
     let graph = ReductionGraph::new();
-    let cost_fn = MinimizeSteps;
+    let cost_fn = Minimize("num_vars");
     let input_size = crate::types::ProblemSize::new(vec![("num_vertices", 10), ("num_edges", 20)]);
     let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
     let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
@@ -726,7 +730,15 @@ fn test_find_cheapest_path_is_to_qubo() {
     );
 
     assert!(path.is_some());
-    assert_eq!(path.unwrap().len(), 1); // Direct path
+    let path = path.unwrap();
+    assert!(
+        path.len() > 1,
+        "MIS -> QUBO should now be discovered through a composite path"
+    );
+    assert_eq!(
+        path.type_names(),
+        vec!["MaximumIndependentSet", "MaximumSetPacking", "QUBO"]
+    );
 }
 
 #[test]

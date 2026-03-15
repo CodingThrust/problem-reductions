@@ -46,25 +46,6 @@ def save_test(name: str, data: dict, outdir: Path):
     print(f"  wrote {path} ({path.stat().st_size} bytes)")
 
 
-def generate_vertex_covering(outdir: Path):
-    """Minimum Vertex Cover on a small graph (4 nodes, 5 edges)."""
-    edges = [(0, 1), (1, 2), (2, 3), (0, 3), (0, 2)]
-    n_nodes = 4
-    penalty = 8.0
-    g = qubogen.Graph(edges=np.array(edges), n_nodes=n_nodes)
-    Q = qubogen.qubo_mvc(g, penalty=penalty)
-
-    qubo_result = brute_force_qubo(Q)
-
-    save_test("minimumvertexcover_to_qubo", {
-        "problem": "MinimumVertexCover",
-        "source": {"num_vertices": n_nodes, "edges": edges, "penalty": penalty},
-        "qubo_matrix": Q.tolist(),
-        "qubo_num_vars": int(Q.shape[0]),
-        "qubo_optimal": qubo_result,
-    }, outdir)
-
-
 def generate_independent_set(outdir: Path):
     """Independent Set on a small graph.
 
@@ -227,7 +208,6 @@ def main():
     outdir.mkdir(parents=True, exist_ok=True)
 
     print("Generating QUBO test datasets...")
-    generate_vertex_covering(outdir)
     generate_independent_set(outdir)
     generate_graph_coloring(outdir)
     generate_set_packing(outdir)

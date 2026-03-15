@@ -12,6 +12,8 @@ Convert a GitHub issue into an actionable PR with a plan. Optionally execute the
 - `/issue-to-pr 42` — create PR with plan only
 - `/issue-to-pr 42 --execute` — create PR, then execute the plan and review
 
+For Codex, open this `SKILL.md` directly and treat the slash-command forms above as aliases. The Makefile `run-issue` target already does this translation.
+
 ## Workflow
 
 ```
@@ -36,10 +38,10 @@ Extract issue number and flags from arguments:
 ### 2. Fetch Issue
 
 ```bash
-gh issue view <number> --json title,body,labels,assignees
+gh issue view <number> --json title,body,labels,assignees,comments
 ```
 
-Present issue summary to user.
+Present issue summary to user. **Also review all comments** — contributors and maintainers may have posted clarifications, corrections, additional context, or design decisions that refine or override parts of the original issue body. Incorporate relevant comment content when writing the plan.
 
 ### 3. Verify Issue Has Passed check-issue
 
@@ -54,16 +56,19 @@ LABELS=$(gh issue view <number> --json labels --jq '[.labels[].name] | join(",")
 - If `Good` is NOT in the labels → **STOP**: "Issue #N has not passed check-issue. Please run `/check-issue <N>` first."
 - If `Good` is present → continue to step 4.
 
-### 3.5. Check for Related Open PRs
+### 3.5. Model-Existence Guard (for `[Rule]` issues only)
 
-When creating a `[Rule]` PR, check if there's already an open `[Model]` PR for the source or target problem:
+For `[Rule]` issues, parse the source and target problem names from the title (e.g., `[Rule] BinPacking to ILP` → source=BinPacking, target=ILP). Verify that **both** models already exist in the codebase on `main`:
 
 ```bash
-gh pr list --state open --search "[Model]" --json title,number,headRefName
+grep -r "struct SourceName" src/models/
+grep -r "struct TargetName" src/models/
 ```
 
-- If an open Model PR exists for the source/target problem, the Rule PR should **base its branch on that Model branch** (not `main`), to avoid duplicating CLI registration, export regeneration, etc.
-- If both a `[Model]` and `[Rule]` issue exist for the same problem, prefer implementing them in the **same PR** to avoid redundant work. Base the branch on `main`, implement the model first, then the rule.
+- If **both** models exist → continue to step 4.
+- If either model is missing → **STOP**. Comment on the issue: "Blocked: model `<name>` does not exist in main yet. Please implement it first (or file a `[Model]` issue)."
+
+**One item per PR:** Do NOT implement a missing model as part of a `[Rule]` PR. Each PR should contain exactly one model or one rule, never both. This avoids bloated PRs and repeated implementation when the model is needed by multiple rules.
 
 ### 4. Research References
 
@@ -84,6 +89,10 @@ The plan MUST reference the appropriate implementation skill and follow its step
 - **For `[Rule]` issues:** Follow [add-rule](../add-rule/SKILL.md) Steps 1-6 as the action pipeline
 
 Include the concrete details from the issue (problem definition, reduction algorithm, example, etc.) mapped onto each step.
+
+**Plan batching:** The paper writing step (add-model Step 6 / add-rule Step 5) MUST be in a **separate batch** from the implementation steps, so it gets its own subagent with fresh context. It depends on the implementation being complete (needs exports). Example batch structure for a `[Model]` plan:
+- Batch 1: Steps 1-5.5 (implement model, register, CLI, tests, trait_consistency)
+- Batch 2: Step 6 (write paper entry — depends on batch 1 for exports)
 
 **Solver rules:**
 - Ensure at least one solver is provided in the issue template. Check if the solving strategy is valid. If not, reply under issue to ask for clarification.
@@ -203,62 +212,13 @@ git push
 make copilot-review
 ```
 
-#### 7e. Fix Loop (max 3 retries)
-
-```bash
-REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-```
-
-For each retry:
-
-1. **Wait for CI to complete** (poll every 30s, up to 15 minutes):
-   ```bash
-   for i in $(seq 1 30); do
-       sleep 30
-       HEAD_SHA=$(gh api repos/$REPO/pulls/$PR | python3 -c "import sys,json; print(json.load(sys.stdin)['head']['sha'])")
-       STATUS=$(gh api repos/$REPO/commits/$HEAD_SHA/check-runs | python3 -c "
-   import sys,json
-   runs = json.load(sys.stdin)['check_runs']
-   if not runs:
-       print('PENDING')  # CI hasn't registered yet
-   else:
-       failed = [r['name'] for r in runs if r.get('conclusion') not in ('success', 'skipped', None)]
-       pending = [r['name'] for r in runs if r.get('conclusion') is None and r['status'] != 'completed']
-       if pending:
-           print('PENDING')
-       elif failed:
-           print('FAILED')
-       else:
-           print('GREEN')
-   ")
-       if [ "$STATUS" != "PENDING" ]; then break; fi
-   done
-   ```
-
-   - If `GREEN` on the **first** iteration (before any fix-pr): skip the fix loop, done.
-   - If `GREEN` after a fix-pr pass: break, done.
-   - If `FAILED`: continue to step 2.
-   - If still `PENDING` after 15 min: treat as `FAILED`.
-
-2. **Invoke `/fix-pr`** to address review comments, CI failures, and coverage gaps.
-
-3. **Push fixes:**
-   ```bash
-   git push
-   ```
-
-4. Increment retry counter. If `< 3`, go back to step 1. If `= 3`, give up.
-
-**After 3 failed retries:** leave PR open, report to user.
-
-#### 7f. Done
+#### 7e. Done
 
 Report final status:
-- PR URL
-- CI status (green / failed after retries)
-- Any unresolved review items
+- PR URL and number
+- Implementation summary
 
-The PR is **not merged** — the user or `meta-power` decides when to merge.
+The PR is **not merged** and CI/review fixes are **not** handled here. The separate `review-pipeline` skill picks up PRs from the `Review pool` board column to handle Copilot review comments, CI fixes, and agentic testing.
 
 ## Example
 
@@ -286,9 +246,9 @@ Executing plan via subagent-driven-development...
 [Subagents implement the plan steps]
 [Runs review-implementation — all checks pass, auto-fixes applied]
 [Pushes + requests Copilot review]
-[Polls CI... GREEN on first pass]
 
-PR #45: CI green, ready for merge.
+PR #45 created and pushed. Copilot review requested.
+Run /review-pipeline to process Copilot comments, fix CI, and run agentic tests.
 ```
 
 ## Common Mistakes
@@ -299,9 +259,9 @@ PR #45: CI green, ready for merge.
 | Issue has failure labels | Fix the issue, re-run `/check-issue`, then retry |
 | Including implementation code in initial PR | First PR: plan only |
 | Generic plan | Use specifics from the issue, mapped to add-model/add-rule steps |
-| Skipping CLI registration in plan | add-model requires CLI dispatch updates -- include in plan |
+| Skipping CLI registration in plan | add-model still requires alias/create/example-db planning, but not manual CLI dispatch-table edits |
 | Not verifying facts from issue | Use WebSearch/WebFetch to cross-check claims |
 | Branch already exists on retry | Check with `git rev-parse --verify` before `git checkout -b` |
 | Dirty working tree | Verify `git status --porcelain` is empty before branching |
-| Redundant Model+Rule PRs | Check for related open PRs (Step 3.5); combine or base on existing branch |
+| Bundling model + rule in one PR | Each PR must contain exactly one model or one rule — STOP and block if model is missing (Step 3.5) |
 | Plan files left in PR | Delete plan files before final push (Step 7c) |

@@ -9,7 +9,7 @@ fn test_qubo_to_ilp_closed_loop() {
     // x=0,0 -> 0, x=1,0 -> 2, x=0,1 -> -3, x=1,1 -> 0
     // Optimal: x = [0, 1] with obj = -3
     let qubo = QUBO::from_matrix(vec![vec![2.0, 1.0], vec![0.0, -3.0]]);
-    let reduction = ReduceTo::<ILP>::reduce_to(&qubo);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&qubo);
     let ilp = reduction.target_problem();
 
     let solver = BruteForce::new();
@@ -28,7 +28,7 @@ fn test_qubo_to_ilp_diagonal_only() {
     // No quadratic terms: minimize 3*x0 - 2*x1
     // Optimal: x = [0, 1] with obj = -2
     let qubo = QUBO::from_matrix(vec![vec![3.0, 0.0], vec![0.0, -2.0]]);
-    let reduction = ReduceTo::<ILP>::reduce_to(&qubo);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&qubo);
     let ilp = reduction.target_problem();
 
     // No auxiliary variables when no off-diagonal terms
@@ -50,7 +50,7 @@ fn test_qubo_to_ilp_3var() {
         vec![0.0, -1.0, 4.0],
         vec![0.0, 0.0, -1.0],
     ]);
-    let reduction = ReduceTo::<ILP>::reduce_to(&qubo);
+    let reduction = ReduceTo::<ILP<bool>>::reduce_to(&qubo);
     let ilp = reduction.target_problem();
 
     // 3 original + 2 auxiliary (for two off-diagonal terms)

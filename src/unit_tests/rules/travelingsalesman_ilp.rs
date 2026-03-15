@@ -18,17 +18,12 @@ fn test_reduction_creates_valid_ilp_c4() {
         4,
         vec![(0, 1), (1, 2), (2, 3), (3, 0)],
     ));
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // n=4, m=4: num_vars = 16 + 2*4*4 = 48
     assert_eq!(ilp.num_vars, 48);
     assert_eq!(ilp.sense, ObjectiveSense::Minimize);
-
-    // All variables should be binary
-    for bound in &ilp.bounds {
-        assert_eq!(*bound, VarBounds::binary());
-    }
 }
 
 #[test]
@@ -38,7 +33,7 @@ fn test_reduction_c4_closed_loop() {
         4,
         vec![(0, 1), (1, 2), (2, 3), (3, 0)],
     ));
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -57,7 +52,7 @@ fn test_reduction_k4_weighted_closed_loop() {
     let problem = k4_tsp();
 
     // Solve via ILP reduction
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -84,7 +79,7 @@ fn test_reduction_c5_unweighted_closed_loop() {
         vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)],
     ));
 
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
@@ -103,7 +98,7 @@ fn test_no_hamiltonian_cycle_infeasible() {
         vec![(0, 1), (1, 2), (2, 3)],
     ));
 
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
     let result = ilp_solver.solve(ilp);
@@ -121,7 +116,7 @@ fn test_solution_extraction_structure() {
         4,
         vec![(0, 1), (1, 2), (2, 3), (3, 0)],
     ));
-    let reduction: ReductionTSPToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionTSPToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();

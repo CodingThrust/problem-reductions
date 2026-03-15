@@ -144,7 +144,7 @@ fn test_problem_size_spinglass() {
 #[test]
 fn test_problem_size_ilp() {
     use crate::models::algebraic::{LinearConstraint, ObjectiveSense};
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         2,
         vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 3.0)],
         vec![(0, 1.0), (1, 2.0)],

@@ -5,6 +5,7 @@
 // Uses ILPSolver for the solve step (Julia uses GenericTensorNetworks).
 
 // ANCHOR: imports
+use problemreductions::models::algebraic::ILP;
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::ILPSolver;
@@ -40,9 +41,11 @@ pub fn run() {
     // ANCHOR_END: step2
 
     // ANCHOR: step3
-    // solve_reduced: reduce → ILP, solve with HiGHS, extract back
+    // Factoring reduces to ILP<i32>, so we manually reduce, solve, and extract
     let solver = ILPSolver::new();
-    let solution = solver.solve_reduced(&factoring).unwrap();
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&factoring);
+    let ilp_solution = solver.solve(reduction.target_problem()).unwrap();
+    let solution = reduction.extract_solution(&ilp_solution);
     // ANCHOR_END: step3
 
     // ANCHOR: step4

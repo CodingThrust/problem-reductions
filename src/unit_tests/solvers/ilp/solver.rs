@@ -1,12 +1,12 @@
 use super::*;
-use crate::models::algebraic::{LinearConstraint, VarBounds};
+use crate::models::algebraic::LinearConstraint;
 use crate::solvers::BruteForce;
 use crate::traits::Problem;
 
 #[test]
 fn test_ilp_solver_basic_maximize() {
     // Maximize x0 + 2*x1 subject to x0 + x1 <= 1, binary vars
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         2,
         vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
         vec![(0, 1.0), (1, 2.0)],
@@ -30,7 +30,7 @@ fn test_ilp_solver_basic_maximize() {
 #[test]
 fn test_ilp_solver_basic_minimize() {
     // Minimize x0 + x1 subject to x0 + x1 >= 1, binary vars
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         2,
         vec![LinearConstraint::ge(vec![(0, 1.0), (1, 1.0)], 1.0)],
         vec![(0, 1.0), (1, 1.0)],
@@ -56,7 +56,7 @@ fn test_ilp_solver_matches_brute_force() {
     // Maximize x0 + x1 + x2 subject to:
     //   x0 + x1 <= 1
     //   x1 + x2 <= 1
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         3,
         vec![
             LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0),
@@ -83,7 +83,7 @@ fn test_ilp_solver_matches_brute_force() {
 
 #[test]
 fn test_ilp_empty_problem() {
-    let ilp = ILP::empty();
+    let ilp = ILP::<bool>::empty();
     let solver = ILPSolver::new();
     let solution = solver.solve(&ilp);
     assert_eq!(solution, Some(vec![]));
@@ -92,7 +92,7 @@ fn test_ilp_empty_problem() {
 #[test]
 fn test_ilp_equality_constraint() {
     // Minimize x0 subject to x0 + x1 == 1, binary vars
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         2,
         vec![LinearConstraint::eq(vec![(0, 1.0), (1, 1.0)], 1.0)],
         vec![(0, 1.0)],
@@ -113,10 +113,14 @@ fn test_ilp_non_binary_bounds() {
     // Variables with larger ranges
     // x0 in [0, 3], x1 in [0, 2]
     // Maximize x0 + x1 subject to x0 + x1 <= 4
-    let ilp = ILP::new(
+    // Use ILP::<i32> with explicit upper-bound constraints
+    let ilp = ILP::<i32>::new(
         2,
-        vec![VarBounds::bounded(0, 3), VarBounds::bounded(0, 2)],
-        vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 4.0)],
+        vec![
+            LinearConstraint::le(vec![(0, 1.0)], 3.0),
+            LinearConstraint::le(vec![(1, 1.0)], 2.0),
+            LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 4.0),
+        ],
         vec![(0, 1.0), (1, 1.0)],
         ObjectiveSense::Maximize,
     );
@@ -132,14 +136,16 @@ fn test_ilp_non_binary_bounds() {
 }
 
 #[test]
-fn test_ilp_negative_lower_bounds() {
-    // Variables with negative lower bounds
-    // x0 in [-2, 2], x1 in [-1, 1]
-    // Maximize x0 + x1 (no constraints)
-    let ilp = ILP::new(
+fn test_ilp_integer_upper_bounds() {
+    // Variables with upper bounds (non-negative integers)
+    // x0 in [0, 4], x1 in [0, 2]
+    // Maximize x0 + x1 (with explicit upper-bound constraints)
+    let ilp = ILP::<i32>::new(
         2,
-        vec![VarBounds::bounded(-2, 2), VarBounds::bounded(-1, 1)],
-        vec![],
+        vec![
+            LinearConstraint::le(vec![(0, 1.0)], 4.0),
+            LinearConstraint::le(vec![(1, 1.0)], 2.0),
+        ],
         vec![(0, 1.0), (1, 1.0)],
         ObjectiveSense::Maximize,
     );
@@ -149,17 +155,20 @@ fn test_ilp_negative_lower_bounds() {
 
     let result = ilp.evaluate(&solution);
     assert!(result.is_valid());
-    // Optimal: x0=2, x1=1 => objective = 3
-    assert!((result.unwrap() - 3.0).abs() < 1e-9);
+    // Optimal: x0=4, x1=2 => objective = 6
+    assert!((result.unwrap() - 6.0).abs() < 1e-9);
 }
 
 #[test]
 fn test_ilp_config_to_values_roundtrip() {
     // Ensure the config encoding/decoding works correctly
-    let ilp = ILP::new(
+    // x0 in [0, 5], x1 in [0, 3], maximize x0 + x1
+    let ilp = ILP::<i32>::new(
         2,
-        vec![VarBounds::bounded(-2, 2), VarBounds::bounded(1, 3)],
-        vec![],
+        vec![
+            LinearConstraint::le(vec![(0, 1.0)], 5.0),
+            LinearConstraint::le(vec![(1, 1.0)], 3.0),
+        ],
         vec![(0, 1.0), (1, 1.0)],
         ObjectiveSense::Maximize,
     );
@@ -170,8 +179,8 @@ fn test_ilp_config_to_values_roundtrip() {
     // The solution should be valid
     let result = ilp.evaluate(&solution);
     assert!(result.is_valid());
-    // Optimal: x0=2, x1=3 => objective = 5
-    assert!((result.unwrap() - 5.0).abs() < 1e-9);
+    // Optimal: x0=5, x1=3 => objective = 8
+    assert!((result.unwrap() - 8.0).abs() < 1e-9);
 }
 
 #[test]
@@ -180,7 +189,7 @@ fn test_ilp_multiple_constraints() {
     //   x0 + x1 + x2 <= 2
     //   x0 + x1 >= 1
     // Binary vars
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         3,
         vec![
             LinearConstraint::le(vec![(0, 1.0), (1, 1.0), (2, 1.0)], 2.0),
@@ -210,7 +219,7 @@ fn test_ilp_multiple_constraints() {
 #[test]
 fn test_ilp_unconstrained() {
     // Maximize x0 + x1, no constraints, binary vars
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         2,
         vec![],
         vec![(0, 1.0), (1, 1.0)],
@@ -232,7 +241,7 @@ fn test_ilp_with_time_limit() {
     assert_eq!(solver.time_limit, Some(10.0));
 
     // Should still work for simple problems
-    let ilp = ILP::binary(
+    let ilp = ILP::<bool>::new(
         2,
         vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
         vec![(0, 1.0), (1, 1.0)],
