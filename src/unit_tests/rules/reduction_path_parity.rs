@@ -158,10 +158,15 @@ fn test_jl_parity_factoring_to_spinglass_path() {
     );
 
     // Solve Factoring directly via ILP (fast) and verify path solution extraction
+    use crate::models::algebraic::ILP;
+    use crate::rules::traits::{ReduceTo, ReductionResult};
     let ilp_solver = ILPSolver::new();
-    let factoring_solution = ilp_solver
-        .solve_reduced(&factoring)
+    let reduction = ReduceTo::<ILP<i32>>::reduce_to(&factoring);
+    let ilp = reduction.target_problem();
+    let ilp_solution = ilp_solver
+        .solve(ilp)
         .expect("ILP solver should find factoring solution");
+    let factoring_solution = reduction.extract_solution(&ilp_solution);
     let metric = factoring.evaluate(&factoring_solution);
     assert_eq!(
         metric.unwrap(),

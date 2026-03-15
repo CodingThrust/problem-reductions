@@ -314,16 +314,16 @@ fn test_3sat_to_mis_triangular_overhead() {
         )
         .expect("Should find path from 3-SAT to MIS on triangular lattice");
 
-    // Path: K3SAT → SAT → MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
+    // Path: K3SAT → KN_SAT (cast) → SAT → MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
     assert_eq!(
         path.type_names(),
         vec!["KSatisfiability", "Satisfiability", "MaximumIndependentSet"]
     );
-    assert_eq!(path.len(), 3);
+    assert_eq!(path.len(), 4);
 
     // Per-edge symbolic overheads
     let edges = graph.path_overheads(&path);
-    assert_eq!(edges.len(), 3);
+    assert_eq!(edges.len(), 4);
 
     // Evaluate overheads at a test point to verify correctness
     let test_size = ProblemSize::new(vec![
@@ -334,30 +334,35 @@ fn test_3sat_to_mis_triangular_overhead() {
         ("num_edges", 15),
     ]);
 
-    // Edge 0: K3SAT → SAT (identity)
+    // Edge 0: K3SAT → KN_SAT (variant cast, identity for num_vars + num_clauses)
     assert_eq!(edges[0].get("num_vars").unwrap().eval(&test_size), 3.0);
     assert_eq!(edges[0].get("num_clauses").unwrap().eval(&test_size), 2.0);
-    assert_eq!(edges[0].get("num_literals").unwrap().eval(&test_size), 6.0);
 
-    // Edge 1: SAT → MIS{SimpleGraph,One}
+    // Edge 1: KN_SAT → SAT (identity)
+    assert_eq!(edges[1].get("num_vars").unwrap().eval(&test_size), 3.0);
+    assert_eq!(edges[1].get("num_clauses").unwrap().eval(&test_size), 2.0);
+    assert_eq!(edges[1].get("num_literals").unwrap().eval(&test_size), 6.0);
+
+    // Edge 2: SAT → MIS{SimpleGraph,One}
     // num_vertices = num_literals, num_edges = num_literals^2
-    assert_eq!(edges[1].get("num_vertices").unwrap().eval(&test_size), 6.0);
-    assert_eq!(edges[1].get("num_edges").unwrap().eval(&test_size), 36.0);
+    assert_eq!(edges[2].get("num_vertices").unwrap().eval(&test_size), 6.0);
+    assert_eq!(edges[2].get("num_edges").unwrap().eval(&test_size), 36.0);
 
-    // Edge 2: MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
+    // Edge 3: MIS{SimpleGraph,One} → MIS{TriangularSubgraph,i32}
     // num_vertices = num_vertices^2, num_edges = num_vertices^2
     assert_eq!(
-        edges[2].get("num_vertices").unwrap().eval(&test_size),
+        edges[3].get("num_vertices").unwrap().eval(&test_size),
         100.0
     );
-    assert_eq!(edges[2].get("num_edges").unwrap().eval(&test_size), 100.0);
+    assert_eq!(edges[3].get("num_edges").unwrap().eval(&test_size), 100.0);
 
     // Compose overheads symbolically along the path.
     // The composed overhead maps 3-SAT input variables to final MIS{Triangular} output.
     //
-    // K3SAT → SAT:         {num_clauses: C, num_vars: V, num_literals: L}  (identity)
-    // SAT → MIS{SG,One}:   {num_vertices: L, num_edges: L²}
-    // MIS{SG,One→Tri}:     {num_vertices: V², num_edges: V²}
+    // K3SAT → KN_SAT:      {num_clauses: C, num_vars: V, num_literals: L}  (identity cast)
+    // KN_SAT → SAT:         {num_clauses: C, num_vars: V, num_literals: L}  (identity)
+    // SAT → MIS{SG,One}:    {num_vertices: L, num_edges: L²}
+    // MIS{SG,One→Tri}:      {num_vertices: V², num_edges: V²}
     //
     // Composed: num_vertices = L², num_edges = L²
     let composed = graph.compose_path_overhead(&path);
@@ -455,4 +460,192 @@ fn test_k_neighbors_zero_hops() {
         TraversalDirection::Outgoing,
     );
     assert!(neighbors.is_empty());
+}
+
+// ---- Default variant resolution ----
+
+#[test]
+fn default_variant_for_mis_uses_declared_default() {
+    let graph = ReductionGraph::new();
+    let default = graph.default_variant_for("MaximumIndependentSet");
+    assert!(
+        default.is_some(),
+        "MaximumIndependentSet should have a declared default variant"
+    );
+    let variant = default.unwrap();
+    assert_eq!(
+        variant.get("graph").map(|s| s.as_str()),
+        Some("SimpleGraph"),
+        "default MIS variant should use SimpleGraph"
+    );
+    assert_eq!(
+        variant.get("weight").map(|s| s.as_str()),
+        Some("One"),
+        "default MIS variant should use One (unit weight)"
+    );
+}
+
+#[test]
+fn default_variant_for_unknown_problem_returns_none() {
+    let graph = ReductionGraph::new();
+    let default = graph.default_variant_for("NonExistentProblem");
+    assert!(
+        default.is_none(),
+        "unknown problem should have no default variant"
+    );
+}
+
+#[test]
+fn default_variant_for_mvc_uses_declared_default() {
+    let graph = ReductionGraph::new();
+    let default = graph.default_variant_for("MinimumVertexCover");
+    assert!(
+        default.is_some(),
+        "MinimumVertexCover should have a declared default variant"
+    );
+    let variant = default.unwrap();
+    assert_eq!(
+        variant.get("graph").map(|s| s.as_str()),
+        Some("SimpleGraph"),
+        "default MVC variant should use SimpleGraph"
+    );
+    assert_eq!(
+        variant.get("weight").map(|s| s.as_str()),
+        Some("i32"),
+        "default MVC variant should use i32"
+    );
+}
+
+#[test]
+fn default_variant_for_qubo_uses_declared_default() {
+    let graph = ReductionGraph::new();
+    let default = graph.default_variant_for("QUBO");
+    assert!(
+        default.is_some(),
+        "QUBO should have a declared default variant"
+    );
+    let variant = default.unwrap();
+    assert_eq!(
+        variant.get("weight").map(|s| s.as_str()),
+        Some("f64"),
+        "default QUBO variant should use f64"
+    );
+}
+
+#[test]
+fn default_variant_for_ksat_uses_declared_default() {
+    let graph = ReductionGraph::new();
+    let default = graph.default_variant_for("KSatisfiability");
+    assert!(
+        default.is_some(),
+        "KSatisfiability should have a declared default variant"
+    );
+    let variant = default.unwrap();
+    assert_eq!(
+        variant.get("k").map(|s| s.as_str()),
+        Some("KN"),
+        "default KSatisfiability variant should use KN"
+    );
+}
+
+#[test]
+fn default_variant_for_sat_returns_empty() {
+    // Satisfiability has no variant dimensions, so its default is an empty map
+    let graph = ReductionGraph::new();
+    let default = graph.default_variant_for("Satisfiability");
+    assert!(
+        default.is_some(),
+        "Satisfiability should have a declared default variant"
+    );
+    assert!(
+        default.unwrap().is_empty(),
+        "Satisfiability default variant should be empty (no dimensions)"
+    );
+}
+
+// ---- Capped path enumeration ----
+
+#[test]
+fn find_paths_up_to_stops_after_limit() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+
+    // Get all paths to know the total count
+    let all = graph.find_all_paths("MaximumIndependentSet", &src, "QUBO", &dst);
+    assert!(all.len() > 3, "need multiple paths for this test");
+
+    // With a limit of 3, should get exactly 3
+    let limited = graph.find_paths_up_to("MaximumIndependentSet", &src, "QUBO", &dst, 3);
+    assert_eq!(limited.len(), 3, "should stop after 3 paths");
+}
+
+#[test]
+fn find_paths_up_to_returns_all_when_limit_exceeds_total() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let dst = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+
+    let all = graph.find_all_paths("MaximumIndependentSet", &src, "MinimumVertexCover", &dst);
+    let limited = graph.find_paths_up_to(
+        "MaximumIndependentSet",
+        &src,
+        "MinimumVertexCover",
+        &dst,
+        1000,
+    );
+    assert_eq!(
+        limited.len(),
+        all.len(),
+        "should return all paths when limit exceeds total"
+    );
+}
+
+#[test]
+fn find_paths_up_to_no_path() {
+    let graph = ReductionGraph::new();
+    let src = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+    let dst = ReductionGraph::variant_to_map(&MaximumSetPacking::<i32>::variant());
+
+    let limited = graph.find_paths_up_to("QUBO", &src, "MaximumSetPacking", &dst, 10);
+    assert!(limited.is_empty());
+}
+
+// ---- Exact source+target variant matching ----
+
+#[test]
+fn find_best_entry_rejects_wrong_target_variant() {
+    let graph = ReductionGraph::new();
+    let source =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    // MIS<SG,i32> -> MVC<SG,i32> exists, but MVC<SG,f64> does not
+    let wrong_target = BTreeMap::from([
+        ("graph".to_string(), "SimpleGraph".to_string()),
+        ("weight".to_string(), "f64".to_string()),
+    ]);
+    let result = graph.find_best_entry(
+        "MaximumIndependentSet",
+        &source,
+        "MinimumVertexCover",
+        &wrong_target,
+    );
+    assert!(result.is_none(), "Should reject wrong target variant");
+}
+
+#[test]
+fn find_best_entry_accepts_exact_source_and_target_variant() {
+    let graph = ReductionGraph::new();
+    let source =
+        ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+    let target = ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+    let result = graph.find_best_entry(
+        "MaximumIndependentSet",
+        &source,
+        "MinimumVertexCover",
+        &target,
+    );
+    assert!(
+        result.is_some(),
+        "Should find exact match on both source and target variant"
+    );
 }

@@ -5,6 +5,7 @@
 
 use problemreductions::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use problemreductions::prelude::*;
+use problemreductions::rules::{Minimize, ReductionGraph};
 use problemreductions::topology::{Graph, SimpleGraph};
 use problemreductions::variant::{K2, K3};
 
@@ -381,16 +382,11 @@ mod sg_maxcut_reductions {
 /// Tests for topology types integration.
 mod topology_tests {
     use super::*;
-    use problemreductions::topology::{HyperGraph, UnitDiskGraph};
+    use problemreductions::topology::UnitDiskGraph;
 
     #[test]
-    fn test_hypergraph_to_setpacking() {
-        // HyperGraph can be seen as a MaximumSetPacking problem
-        let hg = HyperGraph::new(5, vec![vec![0, 1, 2], vec![2, 3], vec![3, 4]]);
-
-        // Convert hyperedges to sets for MaximumSetPacking
-        let sets: Vec<Vec<usize>> = hg.edges().to_vec();
-        let sp = MaximumSetPacking::<i32>::new(sets);
+    fn test_setpacking_from_hyperedge_style_input() {
+        let sp = MaximumSetPacking::<i32>::new(vec![vec![0, 1, 2], vec![2, 3], vec![3, 4]]);
 
         let solver = BruteForce::new();
         let solutions = solver.find_all_best(&sp);
@@ -458,8 +454,27 @@ mod qubo_reductions {
 
         let n = data.source.num_vertices;
         let is = MaximumIndependentSet::new(SimpleGraph::new(n, data.source.edges), vec![1i32; n]);
-        let reduction = ReduceTo::<QUBO>::reduce_to(&is);
-        let qubo = reduction.target_problem();
+        let graph = ReductionGraph::new();
+        let src =
+            ReductionGraph::variant_to_map(&MaximumIndependentSet::<SimpleGraph, i32>::variant());
+        let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+        let path = graph
+            .find_cheapest_path(
+                "MaximumIndependentSet",
+                &src,
+                "QUBO",
+                &dst,
+                &ProblemSize::new(vec![
+                    ("num_vertices", n),
+                    ("num_edges", is.graph().num_edges()),
+                ]),
+                &Minimize("num_vars"),
+            )
+            .expect("Should find path MaximumIndependentSet -> QUBO");
+        let chain = graph
+            .reduce_along_path(&path, &is as &dyn std::any::Any)
+            .expect("Should reduce MaximumIndependentSet to QUBO");
+        let qubo: &QUBO<f64> = chain.target_problem();
 
         assert_eq!(qubo.num_variables(), data.qubo_num_vars);
 
@@ -468,54 +483,14 @@ mod qubo_reductions {
 
         // All QUBO optimal solutions should extract to valid IS solutions
         for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
+            let extracted = chain.extract_solution(sol);
             assert!(is.evaluate(&extracted).is_valid());
         }
 
         // Optimal IS size should match ground truth
         let gt_is_size: usize = data.qubo_optimal.configs[0].iter().sum();
-        let our_is_size: usize = reduction.extract_solution(&solutions[0]).iter().sum();
+        let our_is_size: usize = chain.extract_solution(&solutions[0]).iter().sum();
         assert_eq!(our_is_size, gt_is_size);
-    }
-
-    #[derive(Deserialize)]
-    struct VCToQuboData {
-        source: VCSource,
-        qubo_num_vars: usize,
-        qubo_optimal: QuboOptimal,
-    }
-
-    #[derive(Deserialize)]
-    struct VCSource {
-        num_vertices: usize,
-        edges: Vec<(usize, usize)>,
-    }
-
-    #[test]
-    fn test_vc_to_qubo_ground_truth() {
-        let json =
-            std::fs::read_to_string("tests/data/qubo/minimumvertexcover_to_qubo.json").unwrap();
-        let data: VCToQuboData = serde_json::from_str(&json).unwrap();
-
-        let n = data.source.num_vertices;
-        let vc = MinimumVertexCover::new(SimpleGraph::new(n, data.source.edges), vec![1i32; n]);
-        let reduction = ReduceTo::<QUBO>::reduce_to(&vc);
-        let qubo = reduction.target_problem();
-
-        assert_eq!(qubo.num_variables(), data.qubo_num_vars);
-
-        let solver = BruteForce::new();
-        let solutions = solver.find_all_best(qubo);
-
-        for sol in &solutions {
-            let extracted = reduction.extract_solution(sol);
-            assert!(vc.evaluate(&extracted).is_valid());
-        }
-
-        // Optimal VC size should match ground truth
-        let gt_vc_size: usize = data.qubo_optimal.configs[0].iter().sum();
-        let our_vc_size: usize = reduction.extract_solution(&solutions[0]).iter().sum();
-        assert_eq!(our_vc_size, gt_vc_size);
     }
 
     #[derive(Deserialize)]
@@ -722,7 +697,7 @@ mod qubo_reductions {
             .collect();
 
         // The qubogen formula maximizes, so this is a Maximize ILP
-        let ilp = ILP::binary(
+        let ilp = ILP::<bool>::new(
             data.source.num_variables,
             constraints,
             objective,
@@ -746,6 +721,76 @@ mod qubo_reductions {
         let gt_config = &data.qubo_optimal.configs[0];
         let our_config = reduction.extract_solution(&solutions[0]);
         assert_eq!(&our_config, gt_config);
+    }
+
+    #[derive(Deserialize)]
+    struct VCToQuboData {
+        source: VCSource,
+        qubo_optimal: QuboOptimal,
+    }
+
+    #[derive(Deserialize)]
+    struct VCSource {
+        num_vertices: usize,
+        edges: Vec<(usize, usize)>,
+    }
+
+    #[test]
+    fn test_vc_to_qubo_ground_truth() {
+        let json =
+            std::fs::read_to_string("tests/data/qubo/minimumvertexcover_to_qubo.json").unwrap();
+        let data: VCToQuboData = serde_json::from_str(&json).unwrap();
+
+        let n = data.source.num_vertices;
+        let vc = MinimumVertexCover::new(SimpleGraph::new(n, data.source.edges), vec![1i32; n]);
+
+        // Find path MVC → ... → QUBO through the reduction graph
+        let graph = ReductionGraph::new();
+        let src =
+            ReductionGraph::variant_to_map(&MinimumVertexCover::<SimpleGraph, i32>::variant());
+        let dst = ReductionGraph::variant_to_map(&QUBO::<f64>::variant());
+        let path = graph
+            .find_cheapest_path(
+                "MinimumVertexCover",
+                &src,
+                "QUBO",
+                &dst,
+                &ProblemSize::new(vec![
+                    ("num_vertices", n),
+                    ("num_edges", vc.graph().num_edges()),
+                ]),
+                &Minimize("num_vars"),
+            )
+            .expect("Should find path MVC -> QUBO");
+        assert_eq!(
+            path.type_names(),
+            vec![
+                "MinimumVertexCover",
+                "MaximumIndependentSet",
+                "MaximumSetPacking",
+                "QUBO"
+            ]
+        );
+
+        let chain = graph
+            .reduce_along_path(&path, &vc as &dyn std::any::Any)
+            .expect("Should reduce MVC to QUBO");
+        let qubo: &QUBO<f64> = chain.target_problem();
+
+        let solver = BruteForce::new();
+        let solutions = solver.find_all_best(qubo);
+
+        // Extract back through the full chain to get VC solution
+        for sol in &solutions {
+            let vc_sol = chain.extract_solution(sol);
+            assert!(vc.evaluate(&vc_sol).is_valid());
+        }
+
+        // Optimal VC size should match ground truth
+        let vc_sol = chain.extract_solution(&solutions[0]);
+        let gt_vc_size: usize = data.qubo_optimal.configs[0].iter().sum();
+        let our_vc_size: usize = vc_sol.iter().sum();
+        assert_eq!(our_vc_size, gt_vc_size);
     }
 }
 

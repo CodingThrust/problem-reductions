@@ -10,7 +10,7 @@ fn test_reduction_creates_valid_ilp() {
         SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
         vec![1i32; 3],
     );
-    let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionDSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // Check ILP structure
@@ -22,11 +22,6 @@ fn test_reduction_creates_valid_ilp() {
     );
     assert_eq!(ilp.sense, ObjectiveSense::Minimize, "Should minimize");
 
-    // All variables should be binary
-    for bound in &ilp.bounds {
-        assert_eq!(*bound, VarBounds::binary());
-    }
-
     // Each constraint should be x_v + sum_{u in N(v)} x_u >= 1
     for constraint in &ilp.constraints {
         assert!(!constraint.terms.is_empty());
@@ -37,7 +32,7 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_reduction_weighted() {
     let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![5, 10, 15]);
-    let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionDSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // Check that weights are correctly transferred to objective
@@ -58,7 +53,7 @@ fn test_minimumdominatingset_to_ilp_closed_loop() {
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
         vec![1i32; 4],
     );
-    let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionDSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -91,7 +86,7 @@ fn test_ilp_solution_equals_brute_force_path() {
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
         vec![1i32; 5],
     );
-    let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionDSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -121,7 +116,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]),
         vec![100, 1, 1, 1],
     );
-    let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionDSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -145,7 +140,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
 fn test_solution_extraction() {
     let problem =
         MinimumDominatingSet::new(SimpleGraph::new(4, vec![(0, 1), (2, 3)]), vec![1i32; 4]);
-    let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionDSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 0, 1, 0];
@@ -162,7 +157,7 @@ fn test_ilp_structure() {
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4)]),
         vec![1i32; 5],
     );
-    let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionDSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 5);
@@ -173,7 +168,7 @@ fn test_ilp_structure() {
 fn test_isolated_vertices() {
     // Graph with isolated vertex 2: it must be in the dominating set
     let problem = MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]);
-    let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionDSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -193,7 +188,7 @@ fn test_complete_graph() {
         SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)]),
         vec![1i32; 4],
     );
-    let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionDSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -208,7 +203,7 @@ fn test_complete_graph() {
 fn test_single_vertex() {
     // Single vertex with no edges: must be in dominating set
     let problem = MinimumDominatingSet::new(SimpleGraph::new(1, vec![]), vec![1i32; 1]);
-    let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionDSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -229,7 +224,7 @@ fn test_cycle_graph() {
         SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (4, 0)]),
         vec![1i32; 5],
     );
-    let reduction: ReductionDSToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionDSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();

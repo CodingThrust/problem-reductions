@@ -5,14 +5,14 @@ use crate::solvers::{BruteForce, ILPSolver};
 fn test_reduction_creates_valid_ilp() {
     // Factor 6 with 2-bit factors
     let problem = Factoring::new(2, 2, 6);
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // Check variable count: m + n + m*n + (m+n) = 2 + 2 + 4 + 4 = 12
     assert_eq!(ilp.num_vars, 12);
 
-    // Check constraint count: 3*m*n + (m+n) + 1 = 12 + 4 + 1 = 17
-    assert_eq!(ilp.constraints.len(), 17);
+    // Check constraint count: 3*m*n + 4*m + 4*n + 1 = 12 + 8 + 8 + 1 = 29
+    assert_eq!(ilp.constraints.len(), 29);
 
     assert_eq!(ilp.sense, ObjectiveSense::Minimize);
 }
@@ -20,7 +20,7 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_variable_layout() {
     let problem = Factoring::new(3, 2, 6);
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
 
     // p variables: [0, 1, 2]
     assert_eq!(reduction.p_var(0), 0);
@@ -45,7 +45,7 @@ fn test_variable_layout() {
 fn test_factor_6() {
     // 6 = 2 × 3 or 3 × 2
     let problem = Factoring::new(2, 2, 6);
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -67,7 +67,7 @@ fn test_factor_15() {
     let problem = Factoring::new(4, 4, 15);
 
     // 2. Reduce to ILP
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // 3. Solve ILP
@@ -87,7 +87,7 @@ fn test_factor_15() {
 fn test_factor_35() {
     // 35 = 5 × 7 or 7 × 5
     let problem = Factoring::new(3, 3, 35);
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -104,7 +104,7 @@ fn test_factor_35() {
 fn test_factor_one() {
     // 1 = 1 × 1
     let problem = Factoring::new(2, 2, 1);
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -121,7 +121,7 @@ fn test_factor_one() {
 fn test_factor_prime() {
     // 7 is prime: 7 = 1 × 7 or 7 × 1
     let problem = Factoring::new(3, 3, 7);
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -138,7 +138,7 @@ fn test_factor_prime() {
 fn test_factor_square() {
     // 9 = 3 × 3
     let problem = Factoring::new(3, 3, 9);
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -155,7 +155,7 @@ fn test_factor_square() {
 fn test_infeasible_target_too_large() {
     // Target 100 with 2-bit factors (max product is 3 × 3 = 9)
     let problem = Factoring::new(2, 2, 100);
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -167,7 +167,7 @@ fn test_infeasible_target_too_large() {
 #[test]
 fn test_factoring_to_ilp_closed_loop() {
     let problem = Factoring::new(2, 2, 6);
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // Get ILP solution
@@ -198,7 +198,7 @@ fn test_factoring_to_ilp_closed_loop() {
 #[test]
 fn test_solution_extraction() {
     let problem = Factoring::new(2, 2, 6);
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
 
     // Manually construct ILP solution for 2 × 3 = 6
     // p = 2 = binary 10 -> p_0=0, p_1=1
@@ -221,24 +221,25 @@ fn test_solution_extraction() {
 #[test]
 fn test_target_ilp_structure() {
     let problem = Factoring::new(3, 4, 12);
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // num_vars = 3 + 4 + 12 + 7 = 26
     assert_eq!(ilp.num_vars, 26);
 
-    // num_constraints = 3*12 + 7 + 1 = 44
-    assert_eq!(ilp.constraints.len(), 44);
+    // num_constraints = 3*12 + 4*3 + 4*4 + 1 = 36 + 12 + 16 + 1 = 65
+    assert_eq!(ilp.constraints.len(), 65);
 }
 
 #[test]
 fn test_solve_reduced() {
     let problem = Factoring::new(2, 2, 6);
 
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+    let ilp = reduction.target_problem();
     let ilp_solver = ILPSolver::new();
-    let solution = ilp_solver
-        .solve_reduced(&problem)
-        .expect("solve_reduced should work");
+    let ilp_solution = ilp_solver.solve(ilp).expect("ILP should be solvable");
+    let solution = reduction.extract_solution(&ilp_solution);
 
     assert!(problem.is_valid_factorization(&solution));
 }
@@ -247,7 +248,7 @@ fn test_solve_reduced() {
 fn test_asymmetric_bit_widths() {
     // 12 = 3 × 4 or 4 × 3 or 2 × 6 or 6 × 2 or 1 × 12 or 12 × 1
     let problem = Factoring::new(2, 4, 12);
-    let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -262,13 +263,14 @@ fn test_asymmetric_bit_widths() {
 
 #[test]
 fn test_constraint_count_formula() {
-    // Verify constraint count matches formula: 3*m*n + (m+n) + 1
+    // Verify constraint count matches formula: 3*m*n + 4*m + 4*n + 1
+    // (3*m*n McCormick + (m+n) bit equations + 1 final carry + (m+n) binary bounds + 2*(m+n) carry bounds)
     for (m, n) in [(2, 2), (3, 3), (2, 4), (4, 2)] {
         let problem = Factoring::new(m, n, 1);
-        let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
-        let expected = 3 * m * n + (m + n) + 1;
+        let expected = 3 * m * n + 4 * m + 4 * n + 1;
         assert_eq!(
             ilp.constraints.len(),
             expected,
@@ -284,7 +286,7 @@ fn test_variable_count_formula() {
     // Verify variable count matches formula: m + n + m*n + (m+n)
     for (m, n) in [(2, 2), (3, 3), (2, 4), (4, 2)] {
         let problem = Factoring::new(m, n, 1);
-        let reduction: ReductionFactoringToILP = ReduceTo::<ILP>::reduce_to(&problem);
+        let reduction: ReductionFactoringToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
         let ilp = reduction.target_problem();
 
         let expected = m + n + m * n + (m + n);

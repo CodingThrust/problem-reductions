@@ -1,6 +1,6 @@
 //! ILP solver implementation using HiGHS.
 
-use crate::models::algebraic::{Comparison, ObjectiveSense, ILP};
+use crate::models::algebraic::{Comparison, ObjectiveSense, VariableDomain, ILP};
 use crate::rules::{ReduceTo, ReductionResult};
 use good_lp::{default_solver, variable, ProblemVariables, Solution, SolverModel, Variable};
 
@@ -11,11 +11,11 @@ use good_lp::{default_solver, variable, ProblemVariables, Solution, SolverModel,
 /// # Example
 ///
 /// ```rust,ignore
-/// use problemreductions::models::algebraic::{ILP, VarBounds, LinearConstraint, ObjectiveSense};
+/// use problemreductions::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
 /// use problemreductions::solvers::ILPSolver;
 ///
-/// // Create a simple ILP: maximize x0 + 2*x1 subject to x0 + x1 <= 1
-/// let ilp = ILP::binary(
+/// // Create a simple binary ILP: maximize x0 + 2*x1 subject to x0 + x1 <= 1
+/// let ilp = ILP::<bool>::new(
 ///     2,
 ///     vec![LinearConstraint::le(vec![(0, 1.0), (1, 1.0)], 1.0)],
 ///     vec![(0, 1.0), (1, 2.0)],
@@ -50,31 +50,20 @@ impl ILPSolver {
     ///
     /// Returns `None` if the problem is infeasible or the solver fails.
     /// The returned solution is a configuration vector where each element
-    /// represents the offset from the lower bound for that variable.
-    pub fn solve(&self, problem: &ILP) -> Option<Vec<usize>> {
+    /// is the variable value (config index = value).
+    pub fn solve<V: VariableDomain>(&self, problem: &ILP<V>) -> Option<Vec<usize>> {
         let n = problem.num_vars;
         if n == 0 {
             return Some(vec![]);
         }
 
-        // Create integer variables with bounds
+        // Create integer variables with bounds from variable domain
         let mut vars_builder = ProblemVariables::new();
-        let vars: Vec<Variable> = problem
-            .bounds
-            .iter()
-            .map(|bounds| {
+        let vars: Vec<Variable> = (0..n)
+            .map(|_| {
                 let mut v = variable().integer();
-
-                // Apply lower bound
-                if let Some(lo) = bounds.lower {
-                    v = v.min(lo as f64);
-                }
-
-                // Apply upper bound
-                if let Some(hi) = bounds.upper {
-                    v = v.max(hi as f64);
-                }
-
+                v = v.min(0.0);
+                v = v.max((V::DIMS_PER_VAR - 1) as f64);
                 vars_builder.add(v)
             })
             .collect();
@@ -117,27 +106,21 @@ impl ILPSolver {
         // Solve
         let solution = model.solve().ok()?;
 
-        // Extract solution values and convert to configuration
-        // Configuration is offset from lower bound: config[i] = value[i] - lower_bound[i]
+        // Extract solution: config index = value (no lower bound offset)
         let result: Vec<usize> = vars
             .iter()
-            .enumerate()
-            .map(|(i, v)| {
+            .map(|v| {
                 let val = solution.value(*v);
-                // Round to nearest integer and compute offset from lower bound
-                let int_val = val.round() as i64;
-                let lower_bound = problem.bounds[i].lower.unwrap_or(0);
-                let offset = int_val - lower_bound;
-                offset.max(0) as usize
+                val.round().max(0.0) as usize
             })
             .collect();
 
         Some(result)
     }
 
-    /// Solve any problem that reduces to ILP.
+    /// Solve any problem that reduces to `ILP<bool>`.
     ///
-    /// This method first reduces the problem to an ILP, solves the ILP,
+    /// This method first reduces the problem to a binary ILP, solves the ILP,
     /// and then extracts the solution back to the original problem space.
     ///
     /// # Example
@@ -145,10 +128,13 @@ impl ILPSolver {
     /// ```no_run
     /// use problemreductions::prelude::*;
     /// use problemreductions::solvers::ILPSolver;
-    /// use problemreductions::topology::SimpleGraph;
     ///
-    /// // Create a problem that reduces to ILP (e.g., Independent Set)
-    /// let problem = MaximumIndependentSet::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![1i32; 3]);
+    /// // Create a problem that reduces directly to ILP.
+    /// let problem = MaximumSetPacking::<i32>::new(vec![
+    ///     vec![0, 1],
+    ///     vec![1, 2],
+    ///     vec![3, 4],
+    /// ]);
     ///
     /// // Solve using ILP solver
     /// let solver = ILPSolver::new();
@@ -158,7 +144,7 @@ impl ILPSolver {
     /// ```
     pub fn solve_reduced<P>(&self, problem: &P) -> Option<Vec<usize>>
     where
-        P: ReduceTo<ILP>,
+        P: ReduceTo<ILP<bool>>,
     {
         let reduction = problem.reduce_to();
         let ilp_solution = self.solve(reduction.target_problem())?;

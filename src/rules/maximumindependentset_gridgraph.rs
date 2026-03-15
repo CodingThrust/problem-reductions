@@ -55,51 +55,6 @@ impl ReduceTo<MaximumIndependentSet<KingsSubgraph, One>>
     }
 }
 
-/// Result of reducing MIS<SimpleGraph, One> to MIS<KingsSubgraph, i32>.
-#[derive(Debug, Clone)]
-pub struct ReductionISSimpleOneToGridWeighted {
-    target: MaximumIndependentSet<KingsSubgraph, i32>,
-    mapping_result: ksg::MappingResult<ksg::KsgTapeEntry>,
-}
-
-impl ReductionResult for ReductionISSimpleOneToGridWeighted {
-    type Source = MaximumIndependentSet<SimpleGraph, One>;
-    type Target = MaximumIndependentSet<KingsSubgraph, i32>;
-
-    fn target_problem(&self) -> &Self::Target {
-        &self.target
-    }
-
-    fn extract_solution(&self, target_solution: &[usize]) -> Vec<usize> {
-        self.mapping_result.map_config_back(target_solution)
-    }
-}
-
-#[reduction(
-    overhead = {
-        num_vertices = "num_vertices * num_vertices",
-        num_edges = "num_vertices * num_vertices",
-    }
-)]
-impl ReduceTo<MaximumIndependentSet<KingsSubgraph, i32>>
-    for MaximumIndependentSet<SimpleGraph, One>
-{
-    type Result = ReductionISSimpleOneToGridWeighted;
-
-    fn reduce_to(&self) -> Self::Result {
-        let n = self.graph().num_vertices();
-        let edges = self.graph().edges();
-        let result = ksg::map_unweighted(n, &edges);
-        let weights = result.node_weights.clone();
-        let grid = result.to_kings_subgraph();
-        let target = MaximumIndependentSet::new(grid, weights);
-        ReductionISSimpleOneToGridWeighted {
-            target,
-            mapping_result: result,
-        }
-    }
-}
-
 #[cfg(test)]
 #[path = "../unit_tests/rules/maximumindependentset_gridgraph.rs"]
 mod tests;

@@ -3,7 +3,7 @@
 //! The Set Covering problem asks for a minimum weight collection of sets
 //! that covers all elements in the universe.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
 use num_traits::Zero;
@@ -13,6 +13,9 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumSetCovering",
+        display_name: "Minimum Set Covering",
+        aliases: &[],
+        dimensions: &[VariantDimension::new("weight", "i32", &["i32"])],
         module_path: module_path!(),
         description: "Find minimum weight collection covering the universe",
         fields: &[
@@ -179,7 +182,7 @@ where
 }
 
 crate::declare_variants! {
-    MinimumSetCovering<i32> => "2^num_sets",
+    default opt MinimumSetCovering<i32> => "2^num_sets",
 }
 
 /// Check if a selection of sets forms a valid set cover.
@@ -197,6 +200,18 @@ pub(crate) fn is_set_cover(universe_size: usize, sets: &[Vec<usize>], selected: 
     }
 
     (0..universe_size).all(|e| covered.contains(&e))
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "minimum_set_covering_i32",
+        build: || {
+            let problem =
+                MinimumSetCovering::<i32>::new(5, vec![vec![0, 1, 2], vec![1, 3], vec![2, 3, 4]]);
+            crate::example_db::specs::optimization_example(problem, vec![vec![1, 0, 1]])
+        },
+    }]
 }
 
 #[cfg(test)]
