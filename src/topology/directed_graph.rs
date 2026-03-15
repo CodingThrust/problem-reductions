@@ -143,6 +143,43 @@ impl DirectedGraph {
         toposort(&self.inner, None).is_ok()
     }
 
+    /// Returns `true` if every vertex can reach every other vertex.
+    pub fn is_strongly_connected(&self) -> bool {
+        let n = self.num_vertices();
+        if n <= 1 {
+            return true;
+        }
+
+        fn visit(
+            graph: &DirectedGraph,
+            start: usize,
+            neighbors: impl Fn(&DirectedGraph, usize) -> Vec<usize>,
+        ) -> Vec<bool> {
+            let mut seen = vec![false; graph.num_vertices()];
+            let mut stack = vec![start];
+            seen[start] = true;
+
+            while let Some(v) = stack.pop() {
+                for u in neighbors(graph, v) {
+                    if !seen[u] {
+                        seen[u] = true;
+                        stack.push(u);
+                    }
+                }
+            }
+
+            seen
+        }
+
+        let forward = visit(self, 0, DirectedGraph::successors);
+        if forward.iter().any(|&seen| !seen) {
+            return false;
+        }
+
+        let reverse = visit(self, 0, DirectedGraph::predecessors);
+        reverse.iter().all(|&seen| seen)
+    }
+
     /// Check if the subgraph induced by keeping only the given arcs is acyclic (a DAG).
     ///
     /// `kept_arcs` is a boolean slice of length `num_arcs()`, where `true` means the arc is kept.

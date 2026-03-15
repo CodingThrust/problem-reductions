@@ -492,6 +492,15 @@
       "complexity": "2^num_spins"
     },
     {
+      "name": "StrongConnectivityAugmentation",
+      "variant": {
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.StrongConnectivityAugmentation.html",
+      "complexity": "2^num_potential_arcs"
+    },
+    {
       "name": "SubgraphIsomorphism",
       "variant": {},
       "category": "graph",
@@ -713,7 +722,7 @@
     },
     {
       "source": 21,
-      "target": 56,
+      "target": 57,
       "overhead": [
         {
           "field": "num_elements",
@@ -1341,7 +1350,7 @@
       "doc_path": "rules/spinglass_casts/index.html"
     },
     {
-      "source": 57,
+      "source": 58,
       "target": 12,
       "overhead": [
         {
@@ -1356,7 +1365,7 @@
       "doc_path": "rules/travelingsalesman_ilp/index.html"
     },
     {
-      "source": 57,
+      "source": 58,
       "target": 49,
       "overhead": [
         {

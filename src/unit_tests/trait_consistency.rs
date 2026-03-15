@@ -95,6 +95,14 @@ fn test_all_problems_implement_trait_correctly() {
         "MinimumFeedbackArcSet",
     );
     check_problem_trait(
+        &StrongConnectivityAugmentation::new(
+            DirectedGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![(2, 0, 1i32)],
+            1,
+        ),
+        "StrongConnectivityAugmentation",
+    );
+    check_problem_trait(
         &MinimumSumMulticenter::new(
             SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
             vec![1i32; 3],
