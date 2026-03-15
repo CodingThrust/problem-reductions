@@ -23,27 +23,31 @@ Determine whether new model/rule files were added:
 ```bash
 BASE_SHA=$(git merge-base main HEAD)
 HEAD_SHA=$(git rev-parse HEAD)
-SCOPE=$(python3 scripts/pipeline_checks.py detect-scope --base "$BASE_SHA" --head "$HEAD_SHA" --format json)
+REVIEW_CONTEXT=$(python3 scripts/pipeline_checks.py review-context --repo-root . --base "$BASE_SHA" --head "$HEAD_SHA" --format json)
 ```
 
-Read `SCOPE` to determine:
+Read `REVIEW_CONTEXT["scope"]` to determine:
 - `review_type` -> `model`, `rule`, `model+rule`, or `generic`
 - `models` -> new model files with category, file stem, and problem name
 - `rules` -> new rule files with rule stem
 - `added_files` / `changed_files` -> normalized file lists
 
-Explicit arguments still override auto-detection.
+Read `REVIEW_CONTEXT["subject"]` for the resolved deterministic review subject:
+- auto-detected model name when exactly one new model file was added
+- explicit rule/model metadata when passed manually
+- `generic` when no deterministic structural subject is available
+
+Explicit arguments still override auto-detection. When they are provided, re-run the command with the explicit subject, for example:
+
+```bash
+REVIEW_CONTEXT=$(python3 scripts/pipeline_checks.py review-context --repo-root . --base "$BASE_SHA" --head "$HEAD_SHA" --kind model --name MaximumClique --format json)
+```
 
 ## Step 2: Prepare Subagent Context
 
 Reuse `BASE_SHA` and `HEAD_SHA` from Step 1. For batch reviews you may still choose a narrower manual base SHA if needed.
 
-Get the diff summary and changed file list:
-
-```bash
-git diff --stat $BASE_SHA..$HEAD_SHA
-git diff --name-only $BASE_SHA..$HEAD_SHA
-```
+Get the diff summary and changed file list from `REVIEW_CONTEXT["diff_stat"]` and `REVIEW_CONTEXT["changed_files"]` instead of rebuilding them manually.
 
 ### Detect Linked Issue
 

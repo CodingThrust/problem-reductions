@@ -354,6 +354,111 @@ def completeness_check(
     raise ValueError(f"Unsupported completeness kind: {kind}")
 
 
+def infer_review_subject(
+    scope: dict,
+    *,
+    kind: str | None = None,
+    name: str | None = None,
+    source: str | None = None,
+    target: str | None = None,
+) -> dict:
+    if kind is not None:
+        return {
+            "kind": kind,
+            "name": name,
+            "source": source,
+            "target": target,
+            "inferred": False,
+        }
+
+    review_type = scope.get("review_type")
+    if review_type == "model" and len(scope.get("models", [])) == 1:
+        model = scope["models"][0]
+        return {
+            "kind": "model",
+            "name": model.get("problem_name"),
+            "source": None,
+            "target": None,
+            "inferred": True,
+        }
+
+    if review_type == "rule" and len(scope.get("rules", [])) == 1:
+        rule = scope["rules"][0]
+        return {
+            "kind": "rule",
+            "name": rule.get("rule_stem"),
+            "source": source,
+            "target": target,
+            "inferred": True,
+        }
+
+    return {
+        "kind": "generic",
+        "name": None,
+        "source": None,
+        "target": None,
+        "inferred": True,
+    }
+
+
+def skipped_check(reason: str) -> dict:
+    return {
+        "ok": True,
+        "skipped": True,
+        "reason": reason,
+    }
+
+
+def build_review_context(
+    repo_root: str | Path,
+    *,
+    diff_stat: str,
+    scope: dict,
+    subject: dict,
+) -> dict:
+    changed_files = list(scope.get("changed_files", []))
+    kind = subject.get("kind")
+
+    if kind in {"model", "rule"}:
+        whitelist = file_whitelist_check(kind, changed_files)
+        whitelist["skipped"] = False
+        whitelist["reason"] = None
+    else:
+        whitelist = skipped_check("no model/rule subject available")
+
+    if kind == "model" and subject.get("name"):
+        completeness = completeness_check(
+            "model",
+            repo_root,
+            name=subject["name"],
+        )
+        completeness["skipped"] = False
+        completeness["reason"] = None
+    elif kind == "rule" and subject.get("name") and subject.get("source") and subject.get("target"):
+        completeness = completeness_check(
+            "rule",
+            repo_root,
+            name=subject["name"],
+            source=subject["source"],
+            target=subject["target"],
+        )
+        completeness["skipped"] = False
+        completeness["reason"] = None
+    elif kind == "rule":
+        completeness = skipped_check("rule completeness requires source and target")
+    else:
+        completeness = skipped_check("no model/rule subject available")
+
+    return {
+        "diff_stat": diff_stat,
+        "changed_files": changed_files,
+        "scope": scope,
+        "subject": subject,
+        "whitelist": whitelist,
+        "completeness": completeness,
+    }
+
+
 RULE_TITLE_RE = re.compile(r"^\[Rule\]\s+(?P<source>.+?)\s+to\s+(?P<target>.+?)\s*$")
 MODEL_TITLE_RE = re.compile(r"^\[Model\]\s+(?P<name>.+?)\s*$")
 
@@ -492,6 +597,10 @@ def git_output(*args: str) -> list[str]:
     return [line for line in output.splitlines() if line]
 
 
+def git_text(*args: str) -> str:
+    return subprocess.check_output(["git", *args], text=True)
+
+
 def load_file_list(path: str | Path) -> list[str]:
     lines = Path(path).read_text().splitlines()
     return [line.strip() for line in lines if line.strip()]
@@ -522,6 +631,16 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     completeness.add_argument("--target")
     completeness.add_argument("--repo-root", default=".")
     completeness.add_argument("--format", choices=["json", "text"], default="json")
+
+    review_context = subparsers.add_parser("review-context")
+    review_context.add_argument("--repo-root", default=".")
+    review_context.add_argument("--base", required=True)
+    review_context.add_argument("--head", required=True)
+    review_context.add_argument("--kind", choices=["model", "rule", "generic"])
+    review_context.add_argument("--name")
+    review_context.add_argument("--source")
+    review_context.add_argument("--target")
+    review_context.add_argument("--format", choices=["json", "text"], default="json")
 
     issue_guards = subparsers.add_parser("issue-guards")
     issue_guards.add_argument("--repo", required=True)
@@ -567,6 +686,36 @@ def main(argv: list[str] | None = None) -> int:
                 name=args.name,
                 source=args.source,
                 target=args.target,
+            ),
+            args.format,
+        )
+        return 0
+
+    if args.command == "review-context":
+        changed_files = git_output("diff", "--name-only", f"{args.base}..{args.head}")
+        added_files = git_output(
+            "diff",
+            "--name-only",
+            "--diff-filter=A",
+            f"{args.base}..{args.head}",
+        )
+        scope = detect_scope_from_paths(
+            added_files=added_files,
+            changed_files=changed_files,
+        )
+        subject = infer_review_subject(
+            scope,
+            kind=args.kind,
+            name=args.name,
+            source=args.source,
+            target=args.target,
+        )
+        emit_result(
+            build_review_context(
+                args.repo_root,
+                diff_stat=git_text("diff", "--stat", f"{args.base}..{args.head}"),
+                scope=scope,
+                subject=subject,
             ),
             args.format,
         )

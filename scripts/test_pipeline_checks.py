@@ -4,10 +4,13 @@ import unittest
 from pathlib import Path
 
 from pipeline_checks import (
+    build_review_context,
     completeness_check,
     detect_scope_from_paths,
     file_whitelist_check,
+    infer_review_subject,
     issue_guard_check,
+    parse_args,
 )
 
 
@@ -44,6 +47,42 @@ class PipelineChecksTests(unittest.TestCase):
         self.assertEqual(scope["review_type"], "generic")
         self.assertEqual(scope["models"], [])
         self.assertEqual(scope["rules"], [])
+
+    def test_infer_review_subject_prefers_explicit_rule_metadata(self) -> None:
+        scope = {
+            "review_type": "rule",
+            "models": [],
+            "rules": [{"rule_stem": "binpacking_ilp"}],
+            "changed_files": ["src/rules/binpacking_ilp.rs"],
+        }
+
+        subject = infer_review_subject(
+            scope,
+            kind="rule",
+            name="binpacking_ilp",
+            source="BinPacking",
+            target="ILP",
+        )
+
+        self.assertEqual(subject["kind"], "rule")
+        self.assertEqual(subject["name"], "binpacking_ilp")
+        self.assertEqual(subject["source"], "BinPacking")
+        self.assertEqual(subject["target"], "ILP")
+        self.assertFalse(subject["inferred"])
+
+    def test_infer_review_subject_infers_model_from_scope(self) -> None:
+        scope = {
+            "review_type": "model",
+            "models": [{"problem_name": "GraphPartitioning"}],
+            "rules": [],
+            "changed_files": ["src/models/graph/graph_partitioning.rs"],
+        }
+
+        subject = infer_review_subject(scope)
+
+        self.assertEqual(subject["kind"], "model")
+        self.assertEqual(subject["name"], "GraphPartitioning")
+        self.assertTrue(subject["inferred"])
 
     def test_file_whitelist_accepts_expected_model_files(self) -> None:
         report = file_whitelist_check(
@@ -334,6 +373,101 @@ class PipelineChecksTests(unittest.TestCase):
             self.assertEqual(report["action"], "resume-pr")
             self.assertEqual(report["resume_pr"]["number"], 650)
             self.assertEqual(report["resume_pr"]["head_ref_name"], "issue-120-graph-partitioning")
+
+    def test_build_review_context_reports_model_bundle(self) -> None:
+        with tempfile.TemporaryDirectory() as tmpdir:
+            repo = Path(tmpdir)
+            self._write(
+                repo / "src/models/graph/graph_partitioning.rs",
+                """
+                inventory::submit! { ProblemSchemaEntry { name: "GraphPartitioning" } }
+                impl OptimizationProblem for GraphPartitioning<SimpleGraph> {}
+                crate::declare_variants! { opt GraphPartitioning<SimpleGraph> => "1.2^n" }
+                pub(crate) fn canonical_model_example_specs() -> Vec<ModelExampleSpec> { vec![] }
+                """,
+            )
+            self._write(
+                repo / "src/unit_tests/models/graph/graph_partitioning.rs",
+                "#[test]\nfn test_graph_partitioning_basic() {}\n",
+            )
+            self._write(
+                repo / "src/unit_tests/trait_consistency.rs",
+                """
+                fn test_all_problems_implement_trait_correctly() {
+                    check_problem_trait(&GraphPartitioning::new(), "GraphPartitioning");
+                }
+                fn test_direction() {
+                    let _ = GraphPartitioning::new().direction();
+                }
+                """,
+            )
+            self._write(
+                repo / "docs/paper/reductions.typ",
+                """
+                #let display-name = (
+                  "GraphPartitioning": [Graph Partitioning],
+                )
+                #problem-def("GraphPartitioning")[body][proof]
+                """,
+            )
+            scope = detect_scope_from_paths(
+                added_files=["src/models/graph/graph_partitioning.rs"],
+                changed_files=[
+                    "src/models/graph/graph_partitioning.rs",
+                    "src/unit_tests/models/graph/graph_partitioning.rs",
+                    "docs/paper/reductions.typ",
+                ],
+            )
+
+            context = build_review_context(
+                repo,
+                diff_stat=" 3 files changed, 20 insertions(+)\n",
+                scope=scope,
+                subject=infer_review_subject(scope),
+            )
+
+            self.assertEqual(context["subject"]["kind"], "model")
+            self.assertFalse(context["whitelist"]["skipped"])
+            self.assertTrue(context["whitelist"]["ok"])
+            self.assertFalse(context["completeness"]["skipped"])
+            self.assertTrue(context["completeness"]["ok"])
+            self.assertIn("GraphPartitioning", context["subject"]["name"])
+
+    def test_build_review_context_skips_checks_for_generic_scope(self) -> None:
+        scope = detect_scope_from_paths(
+            added_files=[],
+            changed_files=["src/lib.rs", "README.md"],
+        )
+
+        context = build_review_context(
+            ".",
+            diff_stat=" 2 files changed, 3 insertions(+)\n",
+            scope=scope,
+            subject=infer_review_subject(scope),
+        )
+
+        self.assertEqual(context["subject"]["kind"], "generic")
+        self.assertTrue(context["whitelist"]["skipped"])
+        self.assertTrue(context["completeness"]["skipped"])
+
+    def test_parse_args_accepts_review_context(self) -> None:
+        args = parse_args(
+            [
+                "review-context",
+                "--repo-root",
+                ".",
+                "--base",
+                "abc123",
+                "--head",
+                "def456",
+                "--format",
+                "json",
+            ]
+        )
+
+        self.assertEqual(args.command, "review-context")
+        self.assertEqual(args.base, "abc123")
+        self.assertEqual(args.head, "def456")
 
     def _write(self, path: Path, content: str) -> None:
         path.parent.mkdir(parents=True, exist_ok=True)
