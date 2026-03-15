@@ -96,6 +96,19 @@ impl ReduceTo<ILP<bool>> for BinPacking<i32> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "binpacking_to_ilp",
+        build: || {
+            crate::example_db::specs::direct_ilp_example::<_, bool, _>(
+                BinPacking::new(vec![6, 5, 5, 4, 3], 10),
+                |_, _| true,
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/binpacking_ilp.rs"]
 mod tests;

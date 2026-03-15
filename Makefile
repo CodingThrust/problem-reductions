@@ -1,6 +1,10 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-review diagrams jl-testdata cli cli-demo copilot-review
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever diagrams jl-testdata cli cli-demo copilot-review
+
+RUNNER ?= codex
+CLAUDE_MODEL ?= opus
+CODEX_MODEL ?= gpt-5.4
 
 # Default target
 help:
@@ -27,11 +31,16 @@ help:
 	@echo "  release V=x.y.z - Tag and push a new release (triggers CI publish)"
 	@echo "  cli          - Build the pred CLI tool"
 	@echo "  cli-demo     - Run closed-loop CLI demo (build + exercise all commands)"
-	@echo "  run-plan   - Execute a plan with Claude autorun (latest plan in docs/plans/)"
+	@echo "  run-plan   - Execute a plan with Codex or Claude (latest plan in docs/plans/)"
 	@echo "  run-issue N=<number> - Run issue-to-pr --execute for a GitHub issue"
-	@echo "  run-pipeline [N=<number>] - Pick a Ready issue, implement, move to review-agentic"
-	@echo "  run-review [N=<number>] - Pick PR from review-agentic, fix comments/CI, run agentic tests"
+	@echo "  run-pipeline [N=<number>] - Pick a Ready issue, implement, move to Review pool"
+	@echo "  run-pipeline-forever - Loop: poll Ready column for new issues, run-pipeline when new ones appear"
+	@echo "  run-review [N=<number>] - Pick PR from Review pool, fix comments/CI, run agentic tests"
+	@echo "  run-review-forever - Loop: poll Review pool for Copilot-reviewed PRs, run-review when new ones appear"
 	@echo "  copilot-review - Request Copilot code review on current PR"
+	@echo ""
+	@echo "  Set RUNNER=claude to use Claude instead of Codex (default: codex)"
+	@echo "  Override CODEX_MODEL or CLAUDE_MODEL to pick a different model"
 
 # Build the project
 build:
@@ -39,7 +48,7 @@ build:
 
 # Run all tests (including ignored tests)
 test:
-	cargo test --features ilp-highs -- --include-ignored
+	cargo test --features "ilp-highs example-db" -- --include-ignored
 
 # Run MCP server tests
 mcp-test:  ## Run MCP server tests
@@ -95,13 +104,8 @@ mdbook:
 	@sleep 1 && (command -v xdg-open >/dev/null && xdg-open http://localhost:3001 || open http://localhost:3001)
 
 # Generate all example JSON files for the paper
-REDUCTION_EXAMPLES := $(patsubst examples/%.rs,%,$(wildcard examples/reduction_*.rs))
 examples:
-	@mkdir -p docs/paper/examples
-	@for example in $(REDUCTION_EXAMPLES); do \
-		echo "Running $$example..."; \
-		cargo run --features ilp-highs --example $$example || exit 1; \
-	done
+	cargo run --features "ilp-highs example-db" --example export_examples
 	cargo run --features ilp-highs --example export_petersen_mapping
 
 # Export problem schemas to JSON
@@ -152,9 +156,13 @@ endif
 	git push origin main --tags
 	@echo "v$(V) pushed — CI will publish to crates.io"
 
-# Build and install the pred CLI tool
+# Build and install the pred CLI tool (without MCP for fast builds)
 cli:
 	cargo install --path problemreductions-cli
+
+# Build and install the pred CLI tool with MCP server support
+mcp:
+	cargo install --path problemreductions-cli --features mcp
 
 # Generate Rust mapping JSON exports for all graphs and modes
 GRAPHS := diamond bull house petersen
@@ -186,45 +194,43 @@ compare: rust-export
 		echo "Rust:  $$(jq '{nodes: .stages[3].num_nodes, overhead: .total_overhead, tape: ((.crossing_tape | length) + (.simplifier_tape | length))}' tests/data/$${graph}_rust_triangular.json)"; \
 	done
 
-# Run a plan with Claude
-# Usage: make run-plan [INSTRUCTIONS="..."] [OUTPUT=output.log] [AGENT_TYPE=claude]
+# Run a plan with Codex or Claude
+# Usage: make run-plan [INSTRUCTIONS="..."] [OUTPUT=output.log] [AGENT_TYPE=<codex|claude>]
 # PLAN_FILE defaults to the most recently modified file in docs/plans/
 INSTRUCTIONS ?=
-OUTPUT ?= claude-output.log
-AGENT_TYPE ?= claude
+OUTPUT ?= run-plan-output.log
+AGENT_TYPE ?= $(RUNNER)
 PLAN_FILE ?= $(shell ls -t docs/plans/*.md 2>/dev/null | head -1)
 
 run-plan:
-	@NL=$$'\n'; \
+	@. scripts/make_helpers.sh; \
+	NL=$$'\n'; \
 	BRANCH=$$(git branch --show-current); \
 	PLAN_FILE="$(PLAN_FILE)"; \
 	if [ "$(AGENT_TYPE)" = "claude" ]; then \
 		PROCESS="1. Read the plan file$${NL}2. Execute the plan — it specifies which skill(s) to use$${NL}3. Push: git push origin $$BRANCH$${NL}4. If a PR already exists for this branch, skip. Otherwise create one."; \
 	else \
-		PROCESS="1. Read the plan file$${NL}2. Execute the tasks step by step. For each task, implement and test before moving on.$${NL}3. Push: git push origin $$BRANCH$${NL}4. If a PR already exists for this branch, skip. Otherwise create one."; \
+		PROCESS="1. Read the plan file$${NL}2. If the plan references repo-local workflow docs under .claude/skills/*/SKILL.md, open and follow them directly. Treat slash-command names as aliases for those files.$${NL}3. Execute the tasks step by step. For each task, implement and test before moving on.$${NL}4. Push: git push origin $$BRANCH$${NL}5. If a PR already exists for this branch, skip. Otherwise create one."; \
 	fi; \
 	PROMPT="Execute the plan in '$$PLAN_FILE'."; \
+	if [ "$(AGENT_TYPE)" != "claude" ]; then \
+		PROMPT="$${PROMPT}$${NL}$${NL}Repo-local skills live in .claude/skills/*/SKILL.md. Treat any slash-command references in the plan as aliases for those skill files."; \
+	fi; \
 	if [ -n "$(INSTRUCTIONS)" ]; then \
 		PROMPT="$${PROMPT}$${NL}$${NL}## Additional Instructions$${NL}$(INSTRUCTIONS)"; \
 	fi; \
 	PROMPT="$${PROMPT}$${NL}$${NL}## Process$${NL}$${PROCESS}$${NL}$${NL}## Rules$${NL}- Tests should be strong enough to catch regressions.$${NL}- Do not modify tests to make them pass.$${NL}- Test failure must be reported."; \
 	echo "=== Prompt ===" && echo "$$PROMPT" && echo "===" ; \
-	claude --dangerously-skip-permissions \
-		--model opus \
-		--verbose \
-		--max-turns 500 \
-		-p "$$PROMPT" 2>&1 | tee "$(OUTPUT)"
+	RUNNER="$(AGENT_TYPE)" run_agent "$(OUTPUT)" "$$PROMPT"
 
 # Run issue-to-pr --execute for a GitHub issue
 # Usage: make run-issue N=42
 N ?=
 run-issue:
-	@if [ -z "$(N)" ]; then echo "Usage: make run-issue N=<issue-number>"; exit 1; fi
-	claude --dangerously-skip-permissions \
-		--model opus \
-		--verbose \
-		--max-turns 500 \
-		-p "/issue-to-pr $(N) --execute" 2>&1 | tee "issue-$(N)-output.log"
+	@. scripts/make_helpers.sh; \
+	if [ -z "$(N)" ]; then echo "Usage: make run-issue N=<issue-number>"; exit 1; fi; \
+	PROMPT=$$(skill_prompt issue-to-pr "/issue-to-pr $(N) --execute" "process GitHub issue $(N) with --execute behavior"); \
+	run_agent "issue-$(N)-output.log" "$$PROMPT"
 
 # Closed-loop CLI demo: exercises all commands end-to-end
 PRED := cargo run -p problemreductions-cli --release --
@@ -363,34 +369,42 @@ cli-demo: cli
 	echo "=== Demo complete: $$(ls $(CLI_DEMO_DIR)/*.json | wc -l | tr -d ' ') JSON files in $(CLI_DEMO_DIR) ==="
 	@echo "=== All 20 steps passed ✅ ==="
 
-# Run project-pipeline: pick a Ready issue, implement, move to In Review
+# Run project-pipeline: pick a Ready issue, implement, move to Review pool
 # Usage: make run-pipeline          (picks next Ready issue automatically)
 #        make run-pipeline N=97     (processes specific issue)
 run-pipeline:
-	@if [ -n "$(N)" ]; then \
-		PROMPT="/project-pipeline $(N)"; \
+	@. scripts/make_helpers.sh; \
+	if [ -n "$(N)" ]; then \
+		PROMPT=$$(skill_prompt project-pipeline "/project-pipeline $(N)" "process GitHub issue $(N)"); \
 	else \
-		PROMPT="/project-pipeline"; \
+		PROMPT=$$(skill_prompt project-pipeline "/project-pipeline" "pick and process the next Ready issue"); \
 	fi; \
-	claude --dangerously-skip-permissions \
-		--model opus \
-		--verbose \
-		--max-turns 500 \
-		-p "$$PROMPT" 2>&1 | tee "pipeline-output.log"
+	run_agent "pipeline-output.log" "$$PROMPT"
 
-# Usage: make run-review          (picks next review-agentic PR automatically)
-#        make run-review N=570    (processes specific PR)
+# Poll Ready column for new issues and run-pipeline when new ones appear
+# Checks every 10 minutes; triggers make run-pipeline when the eligible Ready-item set gains new members
+run-pipeline-forever:
+	@. scripts/make_helpers.sh; \
+	MAKE=$(MAKE) watch_and_dispatch ready run-pipeline "Ready issues"
+
+# Usage: make run-review              (picks next Review pool PR automatically)
+#        make run-review N=570        (processes specific PR)
+#        RUNNER=claude make run-review (use Claude instead of Codex)
 run-review:
-	@if [ -n "$(N)" ]; then \
-		PROMPT="/review-pipeline $(N)"; \
+	@. scripts/make_helpers.sh; \
+	if [ -n "$(N)" ]; then \
+		PROMPT=$$(skill_prompt review-pipeline "/review-pipeline $(N)" "process PR #$(N)"); \
 	else \
-		PROMPT="/review-pipeline"; \
+		PROMPT=$$(skill_prompt review-pipeline "/review-pipeline" "pick and process the next Review pool PR"); \
 	fi; \
-	claude --dangerously-skip-permissions \
-		--model opus \
-		--verbose \
-		--max-turns 500 \
-		-p "$$PROMPT" 2>&1 | tee "review-output.log"
+	run_agent "review-output.log" "$$PROMPT"
+
+# Poll Review pool column for Copilot-reviewed PRs and run-review when new ones appear
+# Checks every 10 minutes; triggers make run-review when the eligible PR set gains new members
+run-review-forever:
+	@. scripts/make_helpers.sh; \
+	REPO=$$(gh repo view --json nameWithOwner --jq .nameWithOwner); \
+	MAKE=$(MAKE) watch_and_dispatch review run-review "Copilot-reviewed PRs" "$$REPO"
 
 # Request Copilot code review on the current PR
 # Requires: gh extension install ChrisCarini/gh-copilot-review

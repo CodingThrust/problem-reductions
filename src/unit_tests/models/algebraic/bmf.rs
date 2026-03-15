@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
 
@@ -252,4 +252,26 @@ fn test_size_getters() {
     );
     assert_eq!(problem.m(), 3); // rows
     assert_eq!(problem.n(), 2); // cols
+}
+
+#[test]
+fn test_bmf_paper_example() {
+    // Paper: A=[[1,1,0],[1,1,1],[0,1,1]], k=2, exact factorization
+    let matrix = vec![
+        vec![true, true, false],
+        vec![true, true, true],
+        vec![false, true, true],
+    ];
+    let problem = BMF::new(matrix, 2);
+    // B (3x2): [[1,0],[1,1],[0,1]], C (2x3): [[1,1,0],[0,1,1]]
+    // Config: B row-major then C row-major
+    // B: b00=1,b01=0, b10=1,b11=1, b20=0,b21=1
+    // C: c00=1,c01=1,c02=0, c10=0,c11=1,c12=1
+    let config = vec![1, 0, 1, 1, 0, 1, 1, 1, 0, 0, 1, 1];
+    let result = Problem::evaluate(&problem, &config);
+    assert_eq!(result, SolutionSize::Valid(0)); // exact factorization
+
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(Problem::evaluate(&problem, &best), SolutionSize::Valid(0));
 }

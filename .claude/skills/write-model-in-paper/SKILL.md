@@ -7,11 +7,14 @@ description: Use when writing or improving a problem-def entry in the Typst pape
 
 Full authoring guide for writing a `problem-def` entry in `docs/paper/reductions.typ`. Covers formal definition, background, examples with visualization, and verification.
 
+> **Note:** This content is also inlined in `add-model` Step 6 (condensed form). This standalone version has more detail and is useful for improving existing entries.
+
 ## Prerequisites
 
 Before using this skill, ensure:
 - The problem model is implemented (`src/models/<category>/<name>.rs`)
 - The problem is registered with schema and variant metadata
+- A canonical example exists in `src/example_db/model_builders.rs`
 - JSON exports are up to date (`cargo run --example export_graph && cargo run --example export_schemas`)
 
 ## Reference Example
