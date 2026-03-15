@@ -3,7 +3,7 @@
 //! The Minimum Multiway Cut problem asks for a minimum weight set of edges
 //! whose removal disconnects all terminal pairs.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -14,6 +14,12 @@ use std::collections::VecDeque;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumMultiwayCut",
+        display_name: "Minimum Multiway Cut",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find minimum weight set of edges whose removal disconnects all terminal pairs",
         fields: &[
@@ -194,7 +200,7 @@ where
 }
 
 crate::declare_variants! {
-    MinimumMultiwayCut<SimpleGraph, i32> => "1.84^num_terminals * num_vertices^3",
+    default opt MinimumMultiwayCut<SimpleGraph, i32> => "1.84^num_terminals * num_vertices^3",
 }
 
 #[cfg(test)]

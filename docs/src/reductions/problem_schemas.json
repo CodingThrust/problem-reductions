@@ -553,7 +553,7 @@
       {
         "name": "required_edges",
         "type_name": "Vec<usize>",
-        "description": "Edge indices of the required subset E' \u2286 E"
+        "description": "Edge indices of the required subset E' ⊆ E"
       },
       {
         "name": "bound",
