@@ -15,6 +15,7 @@ from pipeline_board import (
     STATUS_REVIEW_POOL,
     STATUS_UNDER_REVIEW,
     ack_item,
+    claim_next_entry,
     build_recovery_plan,
     normalize_status_name,
     print_next_item,
@@ -292,6 +293,102 @@ class PipelineBoardStatusTests(unittest.TestCase):
 
 
 class PipelineBoardOutputTests(unittest.TestCase):
+    def test_claim_next_ready_moves_selected_item_to_in_progress(self) -> None:
+        moves: list[tuple[str, str]] = []
+
+        def fake_mover(item_id: str, status: str) -> None:
+            moves.append((item_id, status))
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "ready-state.json"
+            result = claim_next_entry(
+                "ready",
+                {
+                    "items": [
+                        make_issue_item(
+                            "PVTI_1",
+                            101,
+                            title="[Model] ExactCoverBy3Sets",
+                        )
+                    ]
+                },
+                state_file,
+                mover=fake_mover,
+            )
+
+        self.assertEqual(moves, [("PVTI_1", STATUS_IN_PROGRESS)])
+        self.assertEqual(
+            result,
+            {
+                "item_id": "PVTI_1",
+                "number": 101,
+                "issue_number": 101,
+                "pr_number": None,
+                "status": STATUS_READY,
+                "title": "[Model] ExactCoverBy3Sets",
+                "claimed": True,
+                "claimed_status": STATUS_IN_PROGRESS,
+            },
+        )
+
+    def test_claim_next_review_moves_selected_item_to_under_review(self) -> None:
+        moves: list[tuple[str, str]] = []
+
+        def fake_review_fetcher(repo: str, pr_number: int) -> list[dict]:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            self.assertEqual(pr_number, 570)
+            return [{"user": {"login": "copilot-pull-request-reviewer[bot]"}}]
+
+        def fake_pr_resolver(repo: str, issue_number: int) -> int | None:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            self.assertEqual(issue_number, 117)
+            return 570
+
+        def fake_pr_state_fetcher(repo: str, pr_number: int) -> str:
+            self.assertEqual(repo, "CodingThrust/problem-reductions")
+            self.assertEqual(pr_number, 570)
+            return "OPEN"
+
+        def fake_mover(item_id: str, status: str) -> None:
+            moves.append((item_id, status))
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "review-state.json"
+            result = claim_next_entry(
+                "review",
+                {
+                    "items": [
+                        make_issue_item(
+                            "PVTI_10",
+                            117,
+                            status="Review pool",
+                            title="[Model] GraphPartitioning",
+                        )
+                    ]
+                },
+                state_file,
+                repo="CodingThrust/problem-reductions",
+                review_fetcher=fake_review_fetcher,
+                pr_resolver=fake_pr_resolver,
+                pr_state_fetcher=fake_pr_state_fetcher,
+                mover=fake_mover,
+            )
+
+        self.assertEqual(moves, [("PVTI_10", STATUS_UNDER_REVIEW)])
+        self.assertEqual(
+            result,
+            {
+                "item_id": "PVTI_10",
+                "number": 570,
+                "issue_number": 117,
+                "pr_number": 570,
+                "status": STATUS_REVIEW_POOL,
+                "title": "[Model] GraphPartitioning",
+                "claimed": True,
+                "claimed_status": STATUS_UNDER_REVIEW,
+            },
+        )
+
     def test_select_next_entry_honors_requested_number(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             state_file = Path(tmpdir) / "ready-state.json"

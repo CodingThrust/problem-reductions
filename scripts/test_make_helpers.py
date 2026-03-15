@@ -161,6 +161,37 @@ class MakeHelpersTests(unittest.TestCase):
             ],
         )
 
+    def test_claim_project_items_uses_pipeline_board_cli(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "python3() { printf '%s\\n' \"$@\"; }; "
+                    "claim_project_items ready /tmp/state.json"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(
+            proc.stdout.splitlines(),
+            [
+                "scripts/pipeline_board.py",
+                "claim-next",
+                "ready",
+                "/tmp/state.json",
+                "--format",
+                "json",
+            ],
+        )
+
     def test_make_board_next_final_review_passes_repo(self) -> None:
         proc = subprocess.run(
             [
@@ -201,6 +232,27 @@ class MakeHelpersTests(unittest.TestCase):
             proc.stdout,
         )
 
+    def test_make_board_claim_review_forwards_repo_number_and_format(self) -> None:
+        proc = subprocess.run(
+            [
+                "make",
+                "-n",
+                "board-claim",
+                "MODE=review",
+                "REPO=CodingThrust/problem-reductions",
+                "NUMBER=570",
+                "FORMAT=json",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn(
+            'claim_project_items "review" "$state_file" "$repo" "570" "json"',
+            proc.stdout,
+        )
+
     def test_board_next_json_uses_scripted_json_poll(self) -> None:
         if shutil.which("dash") is None:
             self.skipTest("dash is not installed")
@@ -225,6 +277,41 @@ class MakeHelpersTests(unittest.TestCase):
             [
                 "scripts/pipeline_board.py",
                 "next",
+                "review",
+                "/tmp/review.json",
+                "--format",
+                "json",
+                "--repo",
+                "CodingThrust/problem-reductions",
+                "--number",
+                "570",
+            ],
+        )
+
+    def test_board_claim_json_uses_scripted_json_claim(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "python3() { printf '%s\\n' \"$@\"; }; "
+                    "board_claim_json review CodingThrust/problem-reductions 570 /tmp/review.json"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(
+            proc.stdout.splitlines(),
+            [
+                "scripts/pipeline_board.py",
+                "claim-next",
                 "review",
                 "/tmp/review.json",
                 "--format",

@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-ack board-move issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
@@ -38,6 +38,7 @@ help:
 	@echo "  run-review [N=<number>] - Pick PR from Review pool, fix comments/CI, run agentic tests"
 	@echo "  run-review-forever - Loop: poll Review pool for Copilot-reviewed PRs, run-review when new ones appear"
 	@echo "  board-next MODE=<ready|review|final-review> [NUMBER=<n>] [FORMAT=text|json] - Get the next eligible queued project item"
+	@echo "  board-claim MODE=<ready|review> [NUMBER=<n>] [FORMAT=text|json] - Claim and move the next eligible queued project item"
 	@echo "  board-ack MODE=<ready|review|final-review> ITEM=<id> - Acknowledge a queued project item"
 	@echo "  board-move ITEM=<id> STATUS=<status> - Move a project item to a named status"
 	@echo "  issue-guards ISSUE=<number> [REPO=<owner/repo>] - Fetch structured issue preflight JSON"
@@ -425,6 +426,32 @@ board-next:
 		;; \
 	*) \
 		poll_project_items "$(MODE)" "$$state_file" "" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),text)"; \
+		;; \
+	esac
+
+# Claim and move the next eligible board item through the scripted queue logic
+# Usage: make board-claim MODE=ready
+#        make board-claim MODE=review REPO=CodingThrust/problem-reductions
+#        make board-claim MODE=review REPO=CodingThrust/problem-reductions NUMBER=570 FORMAT=json
+#        STATE_FILE=/tmp/custom.json make board-claim MODE=ready
+board-claim:
+	@if [ -z "$(MODE)" ]; then \
+		echo "MODE=ready|review is required"; \
+		exit 2; \
+	fi
+	@. scripts/make_helpers.sh; \
+	state_file=$${STATE_FILE:-/tmp/problemreductions-$(MODE)-state.json}; \
+	case "$(MODE)" in \
+		review) \
+		repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
+		claim_project_items "$(MODE)" "$$state_file" "$$repo" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),json)"; \
+		;; \
+		ready) \
+		claim_project_items "$(MODE)" "$$state_file" "" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),json)"; \
+		;; \
+		*) \
+		echo "MODE=ready|review is required"; \
+		exit 2; \
 		;; \
 	esac
 

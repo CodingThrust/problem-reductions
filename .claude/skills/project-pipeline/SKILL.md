@@ -5,7 +5,7 @@ description: Pick a Ready issue from the GitHub Project board, move it through I
 
 # Project Pipeline
 
-Pick a "Ready" issue from the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1), move it to "In Progress", run `issue-to-pr --execute`, then move it to "Review pool". The separate `review-pipeline` handles Copilot comments, CI fixes, and agentic testing.
+Pick a "Ready" issue from the [GitHub Project board](https://github.com/orgs/CodingThrust/projects/8/views/1), claim it into "In Progress", run `issue-to-pr --execute`, then move it to "Review pool". The separate `review-pipeline` handles Copilot comments, CI fixes, and agentic testing.
 
 ## Invocation
 
@@ -101,34 +101,34 @@ Ready issues (ranked):
 
 #### 0f. Pick Issues
 
-**If a specific issue number was provided:** validate it through the scripted selector:
+**If a specific issue number was provided:** validate and claim it through the scripted bundle:
 
 ```bash
 STATE_FILE=/tmp/problemreductions-ready-selection.json
-NEXT=$(python3 scripts/pipeline_board.py next ready "$STATE_FILE" --number <number> --format json)
+CLAIM=$(python3 scripts/pipeline_board.py claim-next ready "$STATE_FILE" --number <number> --format json)
 ```
 
 If the command exits with status 1, STOP with: `Issue #N is not currently in the Ready column.`
 
 If it is blocked by the dependency check above, STOP with a message explaining which model is missing.
 
-After successful validation, extract `ITEM_ID`, `ISSUE`, and `TITLE` from `NEXT` using the same commands shown below.
+After successful validation, extract `ITEM_ID`, `ISSUE`, and `TITLE` from `CLAIM` using the same commands shown below.
 
 **If `--all`:** proceed with all eligible issues in ranked order (highest score first). Models before Rules at same score. Blocked rules are skipped. After each issue is processed, re-check eligibility for remaining rules (a just-merged Model may unblock them).
 
-**Otherwise (no args):** pick the highest-scored eligible (non-blocked) issue and proceed immediately (no confirmation). After picking the issue number, resolve its current board metadata through the scripted selector:
+**Otherwise (no args):** pick the highest-scored eligible (non-blocked) issue and proceed immediately (no confirmation). After picking the issue number, claim it through the scripted bundle:
 
 ```bash
 STATE_FILE=/tmp/problemreductions-ready-selection.json
-NEXT=$(python3 scripts/pipeline_board.py next ready "$STATE_FILE" --number <chosen-issue-number> --format json)
+CLAIM=$(python3 scripts/pipeline_board.py claim-next ready "$STATE_FILE" --number <chosen-issue-number> --format json)
 ```
 
-Extract the board item metadata from `NEXT`:
+Extract the board item metadata from `CLAIM`:
 
 ```bash
-ITEM_ID=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; print(json.load(sys.stdin)['item_id'])")
-ISSUE=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['issue_number'] or data['number'])")
-TITLE=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; print(json.load(sys.stdin)['title'])")
+ITEM_ID=$(printf '%s\n' "$CLAIM" | python3 -c "import sys,json; print(json.load(sys.stdin)['item_id'])")
+ISSUE=$(printf '%s\n' "$CLAIM" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['issue_number'] or data['number'])")
+TITLE=$(printf '%s\n' "$CLAIM" | python3 -c "import sys,json; print(json.load(sys.stdin)['title'])")
 ```
 
 ### 1. Create Worktree
@@ -144,13 +144,9 @@ cd "$WORKTREE_DIR"
 
 All subsequent steps run inside the worktree. This ensures the user's main checkout is never modified.
 
-### 2. Move to "In Progress"
+### 2. Claim Result
 
-Use `ITEM_ID` from the `NEXT` JSON payload.
-
-```bash
-python3 scripts/pipeline_board.py move <ITEM_ID> in-progress
-```
+`claim-next ready` has already moved the selected issue from `Ready` to `In progress`. Keep using `ITEM_ID` from the `CLAIM` JSON payload for later board transitions.
 
 ### 3. Run issue-to-pr --execute
 

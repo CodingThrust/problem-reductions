@@ -20,7 +20,7 @@
 - Modify: `.claude/skills/fix-pr/SKILL.md`
 - Modify: `.claude/skills/final-review/SKILL.md`
 
-- [ ] **Step 1: Write the failing tests for the context builder**
+- [x] **Step 1: Write the failing tests for the context builder**
 
 Add tests that prove `context` returns one consumer-friendly JSON object containing:
 - repo + PR identity
@@ -30,36 +30,36 @@ Add tests that prove `context` returns one consumer-friendly JSON object contain
 - Codecov summary
 - linked issue data and `issue_context_text`
 
-- [ ] **Step 2: Run the focused PR helper tests to verify failure**
+- [x] **Step 2: Run the focused PR helper tests to verify failure**
 
 Run: `python3 scripts/test_pipeline_pr.py`
 Expected: FAIL because `context` helpers / CLI are not implemented yet.
 
-- [ ] **Step 3: Implement the minimal `context` command**
+- [x] **Step 3: Implement the minimal `context` command**
 
 In `scripts/pipeline_pr.py`:
 - add a pure builder that merges the existing `snapshot`, `comments`, `ci`, `codecov`, and `linked-issue` data into one payload
 - add `context --repo <repo> --pr <n> --format json`
 - add `context --current --format json`
 
-- [ ] **Step 4: Run the PR helper tests to verify they pass**
+- [x] **Step 4: Run the PR helper tests to verify they pass**
 
 Run: `python3 scripts/test_pipeline_pr.py`
 Expected: PASS
 
-- [ ] **Step 5: Rewrite the highest-value skill consumers**
+- [x] **Step 5: Rewrite the highest-value skill consumers**
 
 Update:
 - `fix-pr` Step 1 to use `CONTEXT=$(python3 scripts/pipeline_pr.py context --current --format json)`
 - `final-review` Step 1 to use `CONTEXT=$(python3 scripts/pipeline_pr.py context --repo "$REPO" --pr <number> --format json)` for mechanical data loading
 
-- [ ] **Step 6: Re-run targeted verification**
+- [x] **Step 6: Re-run targeted verification**
 
 Run:
 - `python3 scripts/test_pipeline_pr.py`
 - `python3 scripts/pipeline_pr.py context --help`
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add scripts/pipeline_pr.py scripts/test_pipeline_pr.py .claude/skills/fix-pr/SKILL.md .claude/skills/final-review/SKILL.md
@@ -76,7 +76,7 @@ git commit -m "refactor(pipeline): bundle PR context loading"
 - Modify: `.claude/skills/review-implementation/SKILL.md`
 - Modify: `.claude/skills/final-review/SKILL.md`
 
-- [ ] **Step 1: Write the failing tests for `review-context`**
+- [x] **Step 1: Write the failing tests for `review-context`**
 
 Cover:
 - `detect-scope` output inclusion
@@ -84,36 +84,36 @@ Cover:
 - whitelist result inclusion when subject kind is known
 - completeness result inclusion when subject kind is known
 
-- [ ] **Step 2: Run the focused checks tests to verify failure**
+- [x] **Step 2: Run the focused checks tests to verify failure**
 
 Run: `python3 scripts/test_pipeline_checks.py`
 Expected: FAIL because `review-context` does not exist yet.
 
-- [ ] **Step 3: Implement the minimal bundle**
+- [x] **Step 3: Implement the minimal bundle**
 
 In `scripts/pipeline_checks.py`:
 - add `review-context --repo-root . --base <sha> --head <sha> --format json`
 - support either inferred subject (`auto`) or explicit `--kind/--name/--source/--target`
 - include `scope`, `diff_stat`, `changed_files`, `whitelist`, and `completeness`
 
-- [ ] **Step 4: Run the checks tests to verify they pass**
+- [x] **Step 4: Run the checks tests to verify they pass**
 
 Run: `python3 scripts/test_pipeline_checks.py`
 Expected: PASS
 
-- [ ] **Step 5: Rewrite the skill consumers**
+- [x] **Step 5: Rewrite the skill consumers**
 
 Update:
 - `review-implementation` Step 1 / Step 2 to use `review-context`
 - `final-review` deterministic whitelist/completeness steps to use `review-context`
 
-- [ ] **Step 6: Re-run targeted verification**
+- [x] **Step 6: Re-run targeted verification**
 
 Run:
 - `python3 scripts/test_pipeline_checks.py`
 - `python3 scripts/pipeline_checks.py review-context --help`
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add scripts/pipeline_checks.py scripts/test_pipeline_checks.py .claude/skills/review-implementation/SKILL.md .claude/skills/final-review/SKILL.md
@@ -130,19 +130,19 @@ git commit -m "refactor(pipeline): bundle deterministic review checks"
 - Modify: `.claude/skills/review-pipeline/SKILL.md`
 - Modify: `.claude/skills/final-review/SKILL.md`
 
-- [ ] **Step 1: Write the failing tests for `prepare-review`**
+- [x] **Step 1: Write the failing tests for `prepare-review`**
 
 Cover:
 - `checkout-pr` + `merge-main` combined success path
 - conflict path preserves `conflicts` and `likely_complex`
 - result contains `ready=true|false`
 
-- [ ] **Step 2: Run the worktree tests to verify failure**
+- [x] **Step 2: Run the worktree tests to verify failure**
 
 Run: `python3 scripts/test_pipeline_worktree.py`
 Expected: FAIL because `prepare-review` does not exist yet.
 
-- [ ] **Step 3: Implement the minimal bundle**
+- [x] **Step 3: Implement the minimal bundle**
 
 In `scripts/pipeline_worktree.py`:
 - add `prepare-review --repo <repo> --pr <n> --format json`
@@ -150,24 +150,24 @@ In `scripts/pipeline_worktree.py`:
 - call existing `merge-main`
 - return one payload with checkout + merge result
 
-- [ ] **Step 4: Run the worktree tests to verify they pass**
+- [x] **Step 4: Run the worktree tests to verify they pass**
 
 Run: `python3 scripts/test_pipeline_worktree.py`
 Expected: PASS
 
-- [ ] **Step 5: Rewrite skill consumers**
+- [x] **Step 5: Rewrite skill consumers**
 
 Update:
 - `review-pipeline` checkout + merge sections
 - `final-review` merge-conflict preflight
 
-- [ ] **Step 6: Re-run targeted verification**
+- [x] **Step 6: Re-run targeted verification**
 
 Run:
 - `python3 scripts/test_pipeline_worktree.py`
 - `python3 scripts/pipeline_worktree.py prepare-review --help`
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add scripts/pipeline_worktree.py scripts/test_pipeline_worktree.py .claude/skills/review-pipeline/SKILL.md .claude/skills/final-review/SKILL.md
@@ -186,44 +186,44 @@ git commit -m "refactor(pipeline): bundle review worktree preparation"
 - Modify: `Makefile`
 - Modify: `scripts/make_helpers.sh`
 
-- [ ] **Step 1: Write the failing tests for `claim-next`**
+- [x] **Step 1: Write the failing tests for `claim-next`**
 
 Cover:
 - ready mode claims and moves to `in-progress`
 - review mode claims and moves to `under-review`
 - structured result preserves the selected item metadata
 
-- [ ] **Step 2: Run the board tests to verify failure**
+- [x] **Step 2: Run the board tests to verify failure**
 
 Run: `python3 scripts/test_pipeline_board.py`
 Expected: FAIL because `claim-next` does not exist yet.
 
-- [ ] **Step 3: Implement the minimal bundle**
+- [x] **Step 3: Implement the minimal bundle**
 
 In `scripts/pipeline_board.py`:
 - add `claim-next ready <state_file> ...`
 - add `claim-next review <state_file> --repo <repo> ...`
 - internally call the existing selector and move logic in one place
 
-- [ ] **Step 4: Run the board tests to verify they pass**
+- [x] **Step 4: Run the board tests to verify they pass**
 
 Run: `python3 scripts/test_pipeline_board.py`
 Expected: PASS
 
-- [ ] **Step 5: Rewrite skill and Makefile consumers**
+- [x] **Step 5: Rewrite skill and Makefile consumers**
 
 Update:
 - `project-pipeline` to consume `claim-next ready`
 - `review-pipeline` to consume `claim-next review`
 - shell helpers if needed for future automation
 
-- [ ] **Step 6: Re-run targeted verification**
+- [x] **Step 6: Re-run targeted verification**
 
 Run:
 - `python3 scripts/test_pipeline_board.py`
 - `python3 scripts/test_make_helpers.py`
 
-- [ ] **Step 7: Commit**
+- [x] **Step 7: Commit**
 
 ```bash
 git add scripts/pipeline_board.py scripts/test_pipeline_board.py scripts/test_make_helpers.py .claude/skills/project-pipeline/SKILL.md .claude/skills/review-pipeline/SKILL.md Makefile scripts/make_helpers.sh

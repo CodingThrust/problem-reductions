@@ -77,26 +77,37 @@ Review pool PRs:
 - `ambiguous-linked-prs`: this specific PR number counts as the user's disambiguation choice. Use that PR number, but keep the card marked as ambiguous until stale links are cleaned up.
 - missing from the list: STOP with `PR #N is not currently in the Review pool candidate set.`
 
-After validation, extract `ITEM_ID`, `TITLE`, and `ISSUE` from the matching candidate entry in `CANDIDATES["items"]`, and set `PR` to the chosen PR number.
+If the matched entry has `eligibility == "ambiguous-linked-prs"`, keep `PR` set to the chosen PR number, extract `ITEM_ID`, `TITLE`, and `ISSUE` from the matching candidate entry, and use the manual claim fallback in Step 0g because the scripted queue intentionally skips ambiguous cards.
 
-**If `--all`:** process only entries where `eligibility == "eligible"` in order (lowest PR number first). Skip waiting, stale, no-open-pr, and ambiguous items.
-
-**Otherwise:** select the next eligible item through the scripted queue:
+Otherwise, claim the item into `Under review` through the scripted bundle:
 
 ```bash
 STATE_FILE=/tmp/problemreductions-review-selection.json
-NEXT=$(python3 scripts/pipeline_board.py next review "$STATE_FILE" --repo "$REPO" --format json)
+CLAIM=$(python3 scripts/pipeline_board.py claim-next review "$STATE_FILE" --repo "$REPO" --number "$PR" --format json)
+```
+
+If the command exits with status 1, STOP with: `PR #N is not currently in the Review pool candidate set.`
+
+Extract `ITEM_ID`, `TITLE`, and `ISSUE` from `CLAIM`, and keep `PR` set to the chosen PR number.
+
+**If `--all`:** process only entries where `eligibility == "eligible"` in order (lowest PR number first). Skip waiting, stale, no-open-pr, and ambiguous items.
+
+**Otherwise:** claim the next eligible item through the scripted queue:
+
+```bash
+STATE_FILE=/tmp/problemreductions-review-selection.json
+CLAIM=$(python3 scripts/pipeline_board.py claim-next review "$STATE_FILE" --repo "$REPO" --format json)
 ```
 
 If the command exits with status 1, STOP with: `No Review pool PRs are currently eligible for review-pipeline.`
 
-Extract the board item and PR metadata from `NEXT`:
+Extract the board item and PR metadata from `CLAIM`:
 
 ```bash
-ITEM_ID=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; print(json.load(sys.stdin)['item_id'])")
-PR=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['pr_number'] or data['number'])")
-TITLE=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; print(json.load(sys.stdin)['title'])")
-ISSUE=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['issue_number'] or '')")
+ITEM_ID=$(printf '%s\n' "$CLAIM" | python3 -c "import sys,json; print(json.load(sys.stdin)['item_id'])")
+PR=$(printf '%s\n' "$CLAIM" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['pr_number'] or data['number'])")
+TITLE=$(printf '%s\n' "$CLAIM" | python3 -c "import sys,json; print(json.load(sys.stdin)['title'])")
+ISSUE=$(printf '%s\n' "$CLAIM" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['issue_number'] or '')")
 ```
 
 **If `CANDIDATES["items"]` contains an ambiguous card that you need to resolve manually:** STOP and ask the user which PR to process. Show short options from `linked_repo_prs` and recommend `recommendation` when present:
@@ -111,9 +122,11 @@ Recommendation rule:
 - If multiple repo PRs are OPEN, prefer the one whose title/body most directly matches the card's current work, and say that the card still needs stale-link cleanup.
 ```
 
-### 0g. Claim: Move to "Under review"
+### 0g. Claim Result
 
-**Immediately** move the chosen PR to the `Under review` column to signal that an agent is actively working on it. This prevents other agents from picking the same PR:
+If you used `claim-next review`, the scripted bundle has already moved the chosen item to `Under review`, which prevents another agent from picking the same PR.
+
+If you reached this point through the ambiguous-card path above, manually claim it now:
 
 ```bash
 python3 scripts/pipeline_board.py move <ITEM_ID> under-review

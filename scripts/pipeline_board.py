@@ -843,6 +843,48 @@ def normalize_status_name(status: str) -> str:
     return alias
 
 
+def claimed_status_for_mode(mode: str) -> str:
+    if mode == "ready":
+        return STATUS_IN_PROGRESS
+    if mode == "review":
+        return STATUS_UNDER_REVIEW
+    raise ValueError(f"Unsupported claim-next mode: {mode}")
+
+
+def claim_next_entry(
+    mode: str,
+    board_data: dict,
+    state_file: Path,
+    repo: str | None = None,
+    review_fetcher: Callable[[str, int], list[dict]] | None = None,
+    pr_resolver: Callable[[str, int], int | None] | None = None,
+    pr_state_fetcher: Callable[[str, int], str] | None = None,
+    target_number: int | None = None,
+    mover: Callable[[str, str], None] | None = None,
+) -> dict | None:
+    next_entry = select_next_entry(
+        mode,
+        board_data,
+        state_file,
+        repo=repo,
+        review_fetcher=review_fetcher,
+        pr_resolver=pr_resolver,
+        pr_state_fetcher=pr_state_fetcher,
+        target_number=target_number,
+    )
+    if next_entry is None:
+        return None
+
+    claimed_status = claimed_status_for_mode(mode)
+    move = mover or move_item
+    move(str(next_entry["item_id"]), claimed_status)
+    return {
+        **next_entry,
+        "claimed": True,
+        "claimed_status": claimed_status,
+    }
+
+
 def move_item(
     item_id: str,
     status: str,
@@ -905,6 +947,27 @@ def print_next_item(
     return 0
 
 
+def print_claim_result(
+    claim_result: dict | None,
+    *,
+    mode: str,
+    fmt: str = "json",
+) -> int:
+    if claim_result is None:
+        return 1
+
+    if fmt == "json":
+        payload = {"mode": mode, **claim_result}
+        print(json.dumps(payload))
+    else:
+        print(
+            f"{claim_result['item_id']}\t"
+            f"{claim_result['number']}\t"
+            f"{claim_result['claimed_status']}"
+        )
+    return 0
+
+
 def print_candidate_list(
     mode: str,
     items: list[dict],
@@ -936,6 +999,18 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     next_parser.add_argument("--limit", type=int, default=500)
     next_parser.add_argument("--number", type=int)
     next_parser.add_argument("--format", choices=["text", "json"], default="text")
+
+    claim_parser = subparsers.add_parser("claim-next")
+    claim_parser.add_argument("mode", choices=["ready", "review"])
+    claim_parser.add_argument("state_file", type=Path)
+    claim_parser.add_argument("--repo")
+    claim_parser.add_argument("--owner", default="CodingThrust")
+    claim_parser.add_argument("--project-number", type=int, default=8)
+    claim_parser.add_argument("--limit", type=int, default=500)
+    claim_parser.add_argument("--number", type=int)
+    claim_parser.add_argument("--format", choices=["text", "json"], default="json")
+    claim_parser.add_argument("--project-id", default=PROJECT_ID)
+    claim_parser.add_argument("--field-id", default=STATUS_FIELD_ID)
 
     ack_parser = subparsers.add_parser("ack")
     ack_parser.add_argument("state_file", type=Path)
@@ -973,6 +1048,28 @@ def main(argv: list[str] | None = None) -> int:
             field_id=args.field_id,
         )
         return 0
+
+    if args.command == "claim-next":
+        if args.mode == "review" and not args.repo:
+            raise SystemExit("--repo is required in claim-next review mode")
+        board_data = fetch_board_items(args.owner, args.project_number, args.limit)
+        claim_result = claim_next_entry(
+            args.mode,
+            board_data,
+            args.state_file,
+            repo=args.repo,
+            review_fetcher=fetch_pr_reviews,
+            pr_resolver=resolve_issue_pr,
+            pr_state_fetcher=fetch_pr_state,
+            target_number=args.number,
+            mover=lambda item_id, status: move_item(
+                item_id,
+                status,
+                project_id=args.project_id,
+                field_id=args.field_id,
+            ),
+        )
+        return print_claim_result(claim_result, mode=args.mode, fmt=args.format)
 
     if args.command == "list":
         if args.mode == "review" and not args.repo:

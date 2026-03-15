@@ -98,6 +98,36 @@ board_next_json() {
     poll_project_items "$mode" "$state_file" "$repo" "$number" json
 }
 
+claim_project_items() {
+    mode=$1
+    state_file=$2
+    repo=${3-}
+    number=${4-}
+    fmt=${5-json}
+
+    set -- scripts/pipeline_board.py claim-next "$mode" "$state_file" --format "$fmt"
+    if [ -n "$repo" ]; then
+        set -- "$@" --repo "$repo"
+    fi
+    if [ -n "$number" ]; then
+        set -- "$@" --number "$number"
+    fi
+    python3 "$@"
+}
+
+board_claim_json() {
+    mode=$1
+    repo=${2-}
+    number=${3-}
+    state_file=${4-}
+
+    if [ -z "$state_file" ]; then
+        state_file="/tmp/problemreductions-${mode}-state.json"
+    fi
+
+    claim_project_items "$mode" "$state_file" "$repo" "$number" json
+}
+
 move_board_item() {
     item_id=$1
     status=$2
