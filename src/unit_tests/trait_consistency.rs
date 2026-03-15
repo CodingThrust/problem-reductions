@@ -122,6 +122,10 @@ fn test_all_problems_implement_trait_correctly() {
         &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
         "FlowShopScheduling",
     );
+    check_problem_trait(
+        &PartitionIntoPathsOfLength2::new(SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5)])),
+        "PartitionIntoPathsOfLength2",
+    );
 }
 
 #[test]

@@ -15,7 +15,7 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PartitionIntoPathsOfLength2",
-        display_name: "Partition Into Paths Of Length 2",
+        display_name: "Partition into Paths of Length 2",
         aliases: &[],
         dimensions: &[
             VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
@@ -168,6 +168,20 @@ impl<G: Graph + VariantParam> SatisfactionProblem for PartitionIntoPathsOfLength
 
 crate::declare_variants! {
     default sat PartitionIntoPathsOfLength2<SimpleGraph> => "3^num_vertices",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "partition_into_paths_of_length_2_simplegraph",
+        build: || {
+            let problem = PartitionIntoPathsOfLength2::new(SimpleGraph::new(
+                6,
+                vec![(0, 1), (1, 2), (3, 4), (4, 5)],
+            ));
+            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 0, 0, 1, 1, 1]])
+        },
+    }]
 }
 
 #[cfg(test)]
