@@ -85,6 +85,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(maximum_clique::canonical_model_example_specs());
     specs.extend(maximal_is::canonical_model_example_specs());
     specs.extend(minimum_feedback_vertex_set::canonical_model_example_specs());
+    specs.extend(minimum_multiway_cut::canonical_model_example_specs());
     specs.extend(minimum_sum_multicenter::canonical_model_example_specs());
     specs.extend(spin_glass::canonical_model_example_specs());
     specs.extend(biclique_cover::canonical_model_example_specs());

@@ -59,6 +59,13 @@ fn test_minimummultiwaycut_brute_force() {
         let val = problem.evaluate(sol);
         assert_eq!(val, SolutionSize::Valid(8));
     }
+    // Verify the claimed optimal cut [1,0,0,1,1,0] is among solutions
+    let claimed_optimal = vec![1, 0, 0, 1, 1, 0];
+    assert!(
+        solutions.contains(&claimed_optimal),
+        "expected optimal config {:?} not found in brute-force solutions",
+        claimed_optimal
+    );
 }
 
 #[test]
@@ -126,11 +133,13 @@ fn test_minimummultiwaycut_short_config_no_panic() {
     let graph = SimpleGraph::new(5, vec![(0, 1), (1, 2), (2, 3), (3, 4), (0, 4), (1, 3)]);
     let problem = MinimumMultiwayCut::new(graph, vec![0, 2, 4], vec![2, 3, 1, 2, 4, 5]);
 
+    // Short config: only 2 of 6 edges specified, terminals remain connected
     let short_config = vec![1, 0];
     let result = problem.evaluate(&short_config);
-    assert_ne!(result, SolutionSize::Valid(0));
+    assert_eq!(result, SolutionSize::Invalid);
 
+    // Empty config: no edges cut, all terminals connected
     let empty_config: Vec<usize> = vec![];
     let result = problem.evaluate(&empty_config);
-    assert_ne!(result, SolutionSize::Valid(0));
+    assert_eq!(result, SolutionSize::Invalid);
 }
