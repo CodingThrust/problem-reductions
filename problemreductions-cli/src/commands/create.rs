@@ -666,10 +666,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             if universe % 3 != 0 {
-                bail!(
-                    "Universe size must be divisible by 3, got {}",
-                    universe
-                );
+                bail!("Universe size must be divisible by 3, got {}", universe);
             }
             let sets = parse_sets(args)?;
             // Validate each set has exactly 3 distinct elements within the universe
@@ -682,11 +679,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     );
                 }
                 if set[0] == set[1] || set[0] == set[2] || set[1] == set[2] {
-                    bail!(
-                        "Subset {} contains duplicate elements: {:?}",
-                        i,
-                        set
-                    );
+                    bail!("Subset {} contains duplicate elements: {:?}", i, set);
                 }
                 for &elem in set {
                     if elem >= universe {

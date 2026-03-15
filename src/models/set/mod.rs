@@ -16,6 +16,7 @@ pub use minimum_set_covering::MinimumSetCovering;
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     let mut specs = Vec::new();
+    specs.extend(exact_cover_by_3_sets::canonical_model_example_specs());
     specs.extend(maximum_set_packing::canonical_model_example_specs());
     specs.extend(minimum_set_covering::canonical_model_example_specs());
     specs

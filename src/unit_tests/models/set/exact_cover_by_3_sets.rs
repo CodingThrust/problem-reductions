@@ -34,6 +34,18 @@ fn test_exact_cover_by_3_sets_evaluation() {
 }
 
 #[test]
+fn test_exact_cover_by_3_sets_rejects_wrong_config_length() {
+    let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]);
+    assert!(!problem.evaluate(&[1, 1, 0]));
+}
+
+#[test]
+fn test_exact_cover_by_3_sets_rejects_non_binary_config_values() {
+    let problem = ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5], [0, 3, 4]]);
+    assert!(!problem.evaluate(&[1, 1, 2]));
+}
+
+#[test]
 fn test_exact_cover_by_3_sets_solver() {
     // Universe: {0..8}, q=3
     // From issue example:

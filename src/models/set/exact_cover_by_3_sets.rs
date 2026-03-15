@@ -67,7 +67,7 @@ impl ExactCoverBy3Sets {
     /// # Panics
     ///
     /// Panics if `universe_size` is not divisible by 3, or if any subset
-    /// contains elements outside the universe.
+    /// contains duplicate elements or elements outside the universe.
     pub fn new(universe_size: usize, subsets: Vec<[usize; 3]>) -> Self {
         assert!(
             universe_size.is_multiple_of(3),
@@ -150,6 +150,10 @@ impl Problem for ExactCoverBy3Sets {
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
+        if config.len() != self.subsets.len() || config.iter().any(|&value| value > 1) {
+            return false;
+        }
+
         let q = self.universe_size / 3;
 
         // Count selected subsets
@@ -185,7 +189,29 @@ impl Problem for ExactCoverBy3Sets {
 impl SatisfactionProblem for ExactCoverBy3Sets {}
 
 crate::declare_variants! {
-    ExactCoverBy3Sets => "2^num_subsets",
+    default sat ExactCoverBy3Sets => "2^universe_size",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "exact_cover_by_3_sets",
+        build: || {
+            let problem = ExactCoverBy3Sets::new(
+                9,
+                vec![
+                    [0, 1, 2],
+                    [0, 2, 4],
+                    [3, 4, 5],
+                    [3, 5, 7],
+                    [6, 7, 8],
+                    [1, 4, 6],
+                    [2, 5, 8],
+                ],
+            );
+            crate::example_db::specs::satisfaction_example(problem, vec![vec![1, 0, 1, 0, 1, 0, 0]])
+        },
+    }]
 }
 
 #[cfg(test)]

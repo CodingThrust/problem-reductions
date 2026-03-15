@@ -70,6 +70,10 @@ fn test_all_problems_implement_trait_correctly() {
         &MaximumSetPacking::<i32>::new(vec![vec![0, 1]]),
         "MaximumSetPacking",
     );
+    check_problem_trait(
+        &ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]),
+        "ExactCoverBy3Sets",
+    );
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
     check_problem_trait(&BMF::new(vec![vec![true]], 1), "BMF");
     check_problem_trait(
