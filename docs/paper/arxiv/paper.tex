@@ -20,12 +20,14 @@
 \maketitle
 
 \begin{abstract}
-Some software projects are too large for human teams to build at scale.
-We call these \emph{bridge problems}: projects whose subtasks are homogeneous and formally verifiable, but where three structural barriers---convention drift, effort exhaustion, and knowledge discontinuity---make human-only execution infeasible beyond a few dozen components.
-AI coding agents can break through these barriers because systematic verification constrains agent output to match contributor-specified ground truth.
-We demonstrate this claim on NP-hard problem reductions, building a directed graph of 27~problem types and 45~transformation rules that routes any supported problem to a specialized solver.
-Over nine weeks, a single maintainer and AI agents produced a Rust library with $>$95\% test coverage.
-Agent session data reveals a 15:1 ratio of agent-to-human messages, while an automated quality gate rejected 75\% of 322~batch-submitted proposals as incorrect or incomplete.
+A unified library of reductions between NP-hard problems would let practitioners route any supported problem to a specialized solver---quantum hardware, commercial optimizers, or domain-specific algorithms---through a single interface.
+Yet building such a library by human effort alone is impractical: it requires many researchers to adopt a common language and conventions, and demands continuous full-time maintenance as new reduction rules are discovered.
+We show that AI coding agents, guided by a system of reusable \emph{skills}---versioned, composable workflow documents that encode project conventions and domain knowledge---can overcome these barriers.
+We demonstrate the approach by building a directed reduction graph of 27~problem types and 45~verified transformation rules, and make three contributions.
+First, a \emph{no-code contribution route}: domain experts contribute reductions by filing structured issues with AI assistance, requiring no knowledge of the implementation language or codebase.
+Second, a \emph{seven-layer verification stack} that ensures correctness and quality---an automated quality gate rejected 75\% of 322~batch-submitted proposals as incorrect or incomplete.
+Third, a \emph{fully automated pipeline} that enables sustainable maintenance by a single maintainer, with an onboarding path that lets a new maintainer take over the project in half a day.
+Over nine weeks, a single maintainer and AI agents produced a Rust library with $>$95\% test coverage and a 15:1 ratio of agent-to-human messages.
 \end{abstract}
 
 %======================================================================
@@ -415,6 +417,71 @@ The \texttt{add-rule} skill specifies that overhead expressions must use getter 
 An agent reading only the codebase might infer some conventions but would miss others---the skill makes all conventions explicit.
 
 The library comprises 14~skills in six categories: orchestration~(3), community contribution~(1), implementation~(2), quality gates~(4), documentation~(2), and onboarding~(2).
+
+\begin{figure}[t]
+\centering
+\begin{tikzpicture}[
+  core/.style={draw, rounded corners=3pt, font=\scriptsize\ttfamily,
+               fill=black!8, minimum height=1.8em, inner sep=4pt,
+               line width=0.6pt},
+  skill/.style={draw, rounded corners=2pt, font=\tiny\ttfamily,
+                minimum height=1.5em, inner sep=2.5pt, line width=0.4pt},
+  cat/.style={font=\tiny\sffamily\bfseries, text=black!50},
+  link/.style={-{Stealth[length=2.5pt]}, thin, black!40},
+]
+% --- Center: CLAUDE.md ---
+\node[core, fill=blue!12, draw=blue!50, font=\scriptsize\ttfamily\bfseries,
+      minimum width=1.6cm]
+  (claude) {CLAUDE.md};
+
+% --- Key project files (cardinal directions, close to center) ---
+\node[core, above=0.35cm of claude]            (traits) {src/traits.rs};
+\node[core, below=0.35cm of claude]            (make)   {Makefile};
+\node[core, left=0.45cm of claude, anchor=east]  (models) {src/models/};
+\node[core, right=0.45cm of claude, anchor=west] (rules)  {src/rules/};
+
+\draw[link] (claude) -- (traits);
+\draw[link] (claude) -- (make);
+\draw[link] (claude) -- (models);
+\draw[link] (claude) -- (rules);
+
+% --- Skill groups (corners, well outside inner ring) ---
+% Top-left: Orchestration
+\node[cat] at (-2.7, 2.0) (orch-label) {orchestration};
+\node[skill, below=1pt of orch-label]  (s1) {project-pipeline};
+\node[skill, below=1pt of s1]          (s2) {review-pipeline};
+\node[skill, below=1pt of s2]          (s3) {issue-to-pr};
+
+% Top-right: Quality gates
+\node[cat] at (2.7, 2.0) (qa-label) {quality gates};
+\node[skill, below=1pt of qa-label]    (s4) {check-issue};
+\node[skill, below=1pt of s4]          (s5) {review-impl};
+\node[skill, below=1pt of s5]          (s6) {fix-pr};
+\node[skill, below=1pt of s6]          (s7) {topology-check};
+
+% Bottom-left: Implementation
+\node[cat] at (-2.7, -1.1) (impl-label) {implementation};
+\node[skill, below=1pt of impl-label]  (s8) {add-model};
+\node[skill, below=1pt of s8]          (s9) {add-rule};
+
+% Bottom-right: Docs / community
+\node[cat] at (2.7, -1.1) (doc-label) {docs / community};
+\node[skill, below=1pt of doc-label]   (s10) {write-in-paper};
+\node[skill, below=1pt of s10]         (s11) {propose};
+\node[skill, below=1pt of s11]         (s12) {dev-setup};
+
+% --- Dashed links from skill groups to center ---
+\draw[link, dashed] (s3.east)   -- (claude.north west);
+\draw[link, dashed] (s7.west)   -- (claude.north east);
+\draw[link, dashed] (s9.east)   -- (claude.south west);
+\draw[link, dashed] (s12.west)  -- (claude.south east);
+\end{tikzpicture}
+\caption{Project knowledge architecture.
+  \texttt{CLAUDE.md} defines conventions, architecture, and commands;
+  skills in four categories encode reusable workflows that reference it.
+  Inner nodes show key source directories the skills operate on.}
+\label{fig:skill-architecture}
+\end{figure}
 
 \subsection{Correctness by Construction}\label{sec:verification}
 
