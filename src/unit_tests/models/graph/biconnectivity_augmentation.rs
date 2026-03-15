@@ -39,6 +39,18 @@ fn test_biconnectivity_augmentation_creation_rejects_invalid_potential_edge() {
 }
 
 #[test]
+#[should_panic(expected = "already exists in the graph")]
+fn test_biconnectivity_augmentation_creation_rejects_existing_edge_candidate() {
+    BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(1, 2, 1)], 1);
+}
+
+#[test]
+#[should_panic(expected = "is duplicated")]
+fn test_biconnectivity_augmentation_creation_rejects_duplicate_candidate() {
+    BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 3, 1), (3, 0, 2)], 2);
+}
+
+#[test]
 fn test_biconnectivity_augmentation_evaluation() {
     let problem = BiconnectivityAugmentation::new(
         SimpleGraph::path(4),
@@ -97,16 +109,21 @@ fn test_biconnectivity_augmentation_no_solution() {
 
 #[test]
 fn test_biconnectivity_augmentation_paper_example() {
-    let (graph, potential_edges, budget, satisfying) = canonical_model_example_specs();
-    let problem = BiconnectivityAugmentation::new(graph.clone(), potential_edges.clone(), budget);
+    let example = canonical_model_example_specs();
+    let problem = BiconnectivityAugmentation::new(
+        example.graph.clone(),
+        example.potential_edges.clone(),
+        example.budget,
+    );
     let solver = BruteForce::new();
     let satisfying_solutions = solver.find_all_satisfying(&problem);
 
-    assert!(problem.evaluate(&satisfying));
-    assert!(satisfying_solutions.contains(&satisfying));
+    assert!(problem.evaluate(&example.satisfying_config));
+    assert!(satisfying_solutions.contains(&example.satisfying_config));
 
-    let over_budget_problem = BiconnectivityAugmentation::new(graph, potential_edges, 3);
-    assert!(!over_budget_problem.evaluate(&satisfying));
+    let over_budget_problem =
+        BiconnectivityAugmentation::new(example.graph, example.potential_edges, 3);
+    assert!(!over_budget_problem.evaluate(&example.satisfying_config));
     assert!(solver.find_satisfying(&over_budget_problem).is_none());
 }
 

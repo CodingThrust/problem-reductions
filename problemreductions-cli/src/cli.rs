@@ -216,7 +216,7 @@ Flags by problem type:
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]
   BicliqueCover                   --left, --right, --biedges, --k
-  BiconnectivityAugmentation      --graph, --potential-edges, --budget
+  BiconnectivityAugmentation      --graph, --potential-edges, --budget [--num-vertices]
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
   LCS                             --strings

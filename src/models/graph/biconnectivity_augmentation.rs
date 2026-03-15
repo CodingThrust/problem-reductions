@@ -52,9 +52,12 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
     /// Create a new biconnectivity augmentation instance.
     ///
     /// # Panics
-    /// Panics if any potential edge references a vertex index outside the graph.
+    /// Panics if any potential edge references a vertex index outside the graph,
+    /// is a self-loop, duplicates another candidate edge, or already exists in
+    /// the input graph.
     pub fn new(graph: G, potential_weights: Vec<(usize, usize, W)>, budget: W::Sum) -> Self {
         let num_vertices = graph.num_vertices();
+        let mut seen_potential_edges = BTreeSet::new();
         for &(u, v, _) in &potential_weights {
             assert!(
                 u < num_vertices && v < num_vertices,
@@ -62,6 +65,20 @@ impl<G: Graph, W: WeightElement> BiconnectivityAugmentation<G, W> {
                 u,
                 v,
                 num_vertices
+            );
+            assert!(u != v, "potential edge ({}, {}) is a self-loop", u, v);
+            let edge = normalize_edge(u, v);
+            assert!(
+                !graph.has_edge(edge.0, edge.1),
+                "potential edge ({}, {}) already exists in the graph",
+                edge.0,
+                edge.1
+            );
+            assert!(
+                seen_potential_edges.insert(edge),
+                "potential edge ({}, {}) is duplicated",
+                edge.0,
+                edge.1
             );
         }
 
@@ -241,15 +258,18 @@ crate::declare_variants! {
 }
 
 #[cfg(test)]
-pub(crate) fn canonical_model_example_specs() -> (
-    SimpleGraph,
-    Vec<(usize, usize, i32)>,
-    i32,
-    Vec<usize>,
-) {
-    (
-        SimpleGraph::path(6),
-        vec![
+pub(crate) struct BiconnectivityAugmentationExample {
+    pub(crate) graph: SimpleGraph,
+    pub(crate) potential_edges: Vec<(usize, usize, i32)>,
+    pub(crate) budget: i32,
+    pub(crate) satisfying_config: Vec<usize>,
+}
+
+#[cfg(test)]
+pub(crate) fn canonical_model_example_specs() -> BiconnectivityAugmentationExample {
+    BiconnectivityAugmentationExample {
+        graph: SimpleGraph::path(6),
+        potential_edges: vec![
             (0, 2, 1),
             (0, 3, 2),
             (0, 4, 3),
@@ -260,9 +280,9 @@ pub(crate) fn canonical_model_example_specs() -> (
             (2, 5, 2),
             (3, 5, 1),
         ],
-        4,
-        vec![1, 0, 0, 1, 0, 0, 1, 0, 1],
-    )
+        budget: 4,
+        satisfying_config: vec![1, 0, 0, 1, 0, 0, 1, 0, 1],
+    }
 }
 
 #[cfg(test)]

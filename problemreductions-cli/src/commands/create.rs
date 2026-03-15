@@ -15,7 +15,7 @@ use problemreductions::topology::{
     UnitDiskGraph,
 };
 use serde::Serialize;
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 
 /// Check if all data flags are None (no problem-specific input provided).
 fn all_data_flags_empty(args: &CreateArgs) -> bool {
@@ -682,7 +682,8 @@ fn variant_map(pairs: &[(&str, &str)]) -> BTreeMap<String, String> {
     util::variant_map(pairs)
 }
 
-/// Parse `--graph` into a SimpleGraph, inferring num_vertices from max index.
+/// Parse `--graph` into a SimpleGraph, optionally preserving isolated vertices
+/// via `--num-vertices`.
 fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
     let edges_str = args
         .graph
@@ -690,10 +691,12 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
         .ok_or_else(|| anyhow::anyhow!("This problem requires --graph (e.g., 0-1,1-2,2-3)"))?;
 
     if edges_str.trim().is_empty() {
-        bail!(
-            "Empty graph string. To create a graph with isolated vertices, use:\n  \
-             pred create <PROBLEM> --random --num-vertices N --edge-prob 0.0"
-        );
+        let num_vertices = args.num_vertices.ok_or_else(|| {
+            anyhow::anyhow!(
+                "Empty graph string. To create a graph with isolated vertices, pass --num-vertices N as well."
+            )
+        })?;
+        return Ok((SimpleGraph::empty(num_vertices), num_vertices));
     }
 
     let edges: Vec<(usize, usize)> = edges_str
@@ -716,12 +719,23 @@ fn parse_graph(args: &CreateArgs) -> Result<(SimpleGraph, usize)> {
         })
         .collect::<Result<Vec<_>>>()?;
 
-    let num_vertices = edges
+    let inferred_num_vertices = edges
         .iter()
         .flat_map(|(u, v)| [*u, *v])
         .max()
         .map(|m| m + 1)
         .unwrap_or(0);
+    let num_vertices = match args.num_vertices {
+        Some(explicit) if explicit < inferred_num_vertices => {
+            bail!(
+                "--num-vertices {} is too small for the provided graph; need at least {}",
+                explicit,
+                inferred_num_vertices
+            );
+        }
+        Some(explicit) => explicit,
+        None => inferred_num_vertices,
+    };
 
     Ok((SimpleGraph::new(num_vertices, edges), num_vertices))
 }
@@ -993,11 +1007,19 @@ fn validate_potential_edges(
     potential_edges: &[(usize, usize, i32)],
 ) -> Result<()> {
     let num_vertices = graph.num_vertices();
+    let mut seen_potential_edges = BTreeSet::new();
     for &(u, v, _) in potential_edges {
         if u >= num_vertices || v >= num_vertices {
             bail!(
                 "Potential edge {u}-{v} references a vertex outside the graph (num_vertices = {num_vertices})"
             );
+        }
+        let edge = if u <= v { (u, v) } else { (v, u) };
+        if graph.has_edge(edge.0, edge.1) {
+            bail!("Potential edge {}-{} already exists in the graph", edge.0, edge.1);
+        }
+        if !seen_potential_edges.insert(edge) {
+            bail!("Duplicate potential edge {}-{} is not allowed", edge.0, edge.1);
         }
     }
     Ok(())
@@ -1259,6 +1281,37 @@ mod tests {
     }
 
     #[test]
+    fn test_parse_graph_respects_explicit_num_vertices() {
+        let mut args = empty_args();
+        args.graph = Some("0-1".to_string());
+        args.num_vertices = Some(3);
+
+        let (graph, num_vertices) = parse_graph(&args).unwrap();
+
+        assert_eq!(num_vertices, 3);
+        assert_eq!(graph.num_vertices(), 3);
+        assert_eq!(graph.edges(), vec![(0, 1)]);
+    }
+
+    #[test]
+    fn test_validate_potential_edges_rejects_existing_graph_edge() {
+        let err = validate_potential_edges(&SimpleGraph::path(3), &[(0, 1, 5)])
+            .unwrap_err()
+            .to_string();
+
+        assert!(err.contains("already exists in the graph"));
+    }
+
+    #[test]
+    fn test_validate_potential_edges_rejects_duplicate_edges() {
+        let err = validate_potential_edges(&SimpleGraph::path(4), &[(0, 3, 1), (3, 0, 2)])
+            .unwrap_err()
+            .to_string();
+
+        assert!(err.contains("Duplicate potential edge"));
+    }
+
+    #[test]
     fn test_create_biconnectivity_augmentation_json() {
         let mut args = empty_args();
         args.graph = Some("0-1,1-2,2-3".to_string());
@@ -1283,6 +1336,37 @@ mod tests {
             json["data"]["potential_weights"][0],
             serde_json::json!([0, 2, 3])
         );
+
+        std::fs::remove_file(output_path).ok();
+    }
+
+    #[test]
+    fn test_create_biconnectivity_augmentation_json_with_isolated_vertices() {
+        let mut args = empty_args();
+        args.graph = Some("0-1".to_string());
+        args.num_vertices = Some(3);
+        args.potential_edges = Some("1-2:1".to_string());
+        args.budget = Some("1".to_string());
+
+        let output_path =
+            std::env::temp_dir().join("pred_test_create_biconnectivity_isolated.json");
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let content = std::fs::read_to_string(&output_path).unwrap();
+        let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+        let problem: BiconnectivityAugmentation<SimpleGraph, i32> =
+            serde_json::from_value(json["data"].clone()).unwrap();
+
+        assert_eq!(problem.num_vertices(), 3);
+        assert_eq!(problem.potential_weights(), &[(1, 2, 1)]);
+        assert_eq!(problem.budget(), &1);
 
         std::fs::remove_file(output_path).ok();
     }
