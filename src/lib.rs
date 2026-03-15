@@ -52,7 +52,7 @@ pub mod prelude {
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
         MinimumSumMulticenter, MinimumVertexCover, OptimalLinearArrangement,
-        PartitionIntoTriangles, RuralPostman, TravelingSalesman,
+        PartitionIntoPathsOfLength2, PartitionIntoTriangles, RuralPostman, TravelingSalesman,
     };
     pub use crate::models::misc::{
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, PaintShop,

@@ -239,6 +239,7 @@ Flags by problem type:
   LCS                             --strings
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  PartitionIntoPathsOfLength2     --graph
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   SCS                             --strings, --bound [--alphabet-size]
   ILP, CircuitSAT                 (via reduction only)
