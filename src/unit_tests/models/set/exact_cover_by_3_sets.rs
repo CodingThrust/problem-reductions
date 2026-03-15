@@ -143,3 +143,9 @@ fn test_exact_cover_by_3_sets_invalid_universe_size() {
 fn test_exact_cover_by_3_sets_element_out_of_range() {
     ExactCoverBy3Sets::new(6, vec![[0, 1, 7]]);
 }
+
+#[test]
+#[should_panic(expected = "contains duplicate elements")]
+fn test_exact_cover_by_3_sets_duplicate_elements() {
+    ExactCoverBy3Sets::new(6, vec![[0, 0, 1]]);
+}
