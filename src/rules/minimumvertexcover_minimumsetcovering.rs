@@ -67,6 +67,21 @@ impl ReduceTo<MinimumSetCovering<i32>> for MinimumVertexCover<SimpleGraph, i32> 
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "minimumvertexcover_to_minimumsetcovering",
+        build: || {
+            let (n, edges) = crate::topology::small_graphs::petersen();
+            let source = MinimumVertexCover::new(SimpleGraph::new(n, edges), vec![1i32; 10]);
+            crate::example_db::specs::direct_best_example::<_, MinimumSetCovering<i32>, _>(
+                source,
+                |_, _| true,
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/minimumvertexcover_minimumsetcovering.rs"]
 mod tests;

@@ -180,3 +180,34 @@ fn test_is_feedback_vertex_set_helper() {
     let empty = [false; 9];
     assert!(!is_feedback_vertex_set(&graph, &empty));
 }
+
+#[test]
+fn test_minimum_feedback_vertex_set_paper_example() {
+    // Paper: 5 vertices, 7 arcs, two overlapping cycles:
+    // C_1 = v_0→v_1→v_2→v_0, C_2 = v_0→v_3→v_4→v_1
+    // 7th arc: (4,2) — removing v_0 leaves DAG with topo order (v_3, v_4, v_1, v_2)
+    // FVS = {v_0}, weight = 1
+    let graph = DirectedGraph::new(
+        5,
+        vec![(0, 1), (1, 2), (2, 0), (0, 3), (3, 4), (4, 1), (4, 2)],
+    );
+    let problem = MinimumFeedbackVertexSet::new(graph, vec![1i32; 5]);
+
+    assert_eq!(problem.num_vertices(), 5);
+    assert_eq!(problem.num_arcs(), 7);
+
+    // {v_0} is a valid FVS with weight 1
+    let config = vec![1, 0, 0, 0, 0];
+    let result = problem.evaluate(&config);
+    assert!(result.is_valid());
+    assert_eq!(result.unwrap(), 1);
+
+    // Removing v_1 alone leaves cycle v_0→v_3→v_4→...→v_2→v_0 (through arc (2,0))
+    let config_v1 = vec![0, 1, 0, 0, 0];
+    assert!(!problem.evaluate(&config_v1).is_valid());
+
+    // Verify optimal FVS weight is 1
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), 1);
+}

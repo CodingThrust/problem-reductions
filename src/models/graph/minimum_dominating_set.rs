@@ -3,7 +3,7 @@
 //! The Dominating Set problem asks for a minimum weight subset of vertices
 //! such that every vertex is either in the set or adjacent to a vertex in the set.
 
-use crate::registry::{FieldInfo, ProblemSchemaEntry};
+use crate::registry::{FieldInfo, ProblemSchemaEntry, VariantDimension};
 use crate::topology::{Graph, SimpleGraph};
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize, WeightElement};
@@ -14,6 +14,12 @@ use std::collections::HashSet;
 inventory::submit! {
     ProblemSchemaEntry {
         name: "MinimumDominatingSet",
+        display_name: "Minimum Dominating Set",
+        aliases: &[],
+        dimensions: &[
+            VariantDimension::new("graph", "SimpleGraph", &["SimpleGraph"]),
+            VariantDimension::new("weight", "i32", &["i32"]),
+        ],
         module_path: module_path!(),
         description: "Find minimum weight dominating set in a graph",
         fields: &[
@@ -170,7 +176,19 @@ where
 }
 
 crate::declare_variants! {
-    MinimumDominatingSet<SimpleGraph, i32> => "1.4969^num_vertices",
+    default opt MinimumDominatingSet<SimpleGraph, i32> => "1.4969^num_vertices",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "minimum_dominating_set_simplegraph_i32",
+        build: || {
+            let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+            let problem = MinimumDominatingSet::new(graph, vec![1i32; 5]);
+            crate::example_db::specs::optimization_example(problem, vec![vec![0, 0, 1, 1, 0]])
+        },
+    }]
 }
 
 /// Check if a set of vertices is a dominating set.

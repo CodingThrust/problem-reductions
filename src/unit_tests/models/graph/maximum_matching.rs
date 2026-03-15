@@ -1,5 +1,5 @@
 use super::*;
-use crate::solvers::BruteForce;
+use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::{OptimizationProblem, Problem};
 use crate::types::{Direction, SolutionSize};
@@ -175,4 +175,21 @@ fn test_size_getters() {
     );
     assert_eq!(problem.num_vertices(), 4);
     assert_eq!(problem.num_edges(), 3);
+}
+
+#[test]
+fn test_matching_paper_example() {
+    // Paper: house graph, M = {(v_0,v_1), (v_2,v_4)}, weight = 2
+    let graph = SimpleGraph::new(5, vec![(0, 1), (0, 2), (1, 3), (2, 3), (2, 4), (3, 4)]);
+    let problem = MaximumMatching::<_, i32>::unit_weights(graph);
+    // Edges: 0=(0,1), 1=(0,2), 2=(1,3), 3=(2,3), 4=(2,4), 5=(3,4)
+    // Select edges 0 and 4
+    let config = vec![1, 0, 0, 0, 1, 0];
+    let result = problem.evaluate(&config);
+    assert!(result.is_valid());
+    assert_eq!(result.unwrap(), 2);
+
+    let solver = BruteForce::new();
+    let best = solver.find_best(&problem).unwrap();
+    assert_eq!(problem.evaluate(&best).unwrap(), 2);
 }

@@ -12,6 +12,8 @@ Convert a GitHub issue into an actionable PR with a plan. Optionally execute the
 - `/issue-to-pr 42` — create PR with plan only
 - `/issue-to-pr 42 --execute` — create PR, then execute the plan and review
 
+For Codex, open this `SKILL.md` directly and treat the slash-command forms above as aliases. The Makefile `run-issue` target already does this translation.
+
 ## Workflow
 
 ```
@@ -87,6 +89,10 @@ The plan MUST reference the appropriate implementation skill and follow its step
 - **For `[Rule]` issues:** Follow [add-rule](../add-rule/SKILL.md) Steps 1-6 as the action pipeline
 
 Include the concrete details from the issue (problem definition, reduction algorithm, example, etc.) mapped onto each step.
+
+**Plan batching:** The paper writing step (add-model Step 6 / add-rule Step 5) MUST be in a **separate batch** from the implementation steps, so it gets its own subagent with fresh context. It depends on the implementation being complete (needs exports). Example batch structure for a `[Model]` plan:
+- Batch 1: Steps 1-5.5 (implement model, register, CLI, tests, trait_consistency)
+- Batch 2: Step 6 (write paper entry — depends on batch 1 for exports)
 
 **Solver rules:**
 - Ensure at least one solver is provided in the issue template. Check if the solving strategy is valid. If not, reply under issue to ask for clarification.
@@ -212,7 +218,7 @@ Report final status:
 - PR URL and number
 - Implementation summary
 
-The PR is **not merged** and CI/review fixes are **not** handled here. The separate `review-pipeline` skill picks up PRs from the `review-agentic` board column to handle Copilot review comments, CI fixes, and agentic testing.
+The PR is **not merged** and CI/review fixes are **not** handled here. The separate `review-pipeline` skill picks up PRs from the `Review pool` board column to handle Copilot review comments, CI fixes, and agentic testing.
 
 ## Example
 
@@ -253,7 +259,7 @@ Run /review-pipeline to process Copilot comments, fix CI, and run agentic tests.
 | Issue has failure labels | Fix the issue, re-run `/check-issue`, then retry |
 | Including implementation code in initial PR | First PR: plan only |
 | Generic plan | Use specifics from the issue, mapped to add-model/add-rule steps |
-| Skipping CLI registration in plan | add-model requires CLI dispatch updates -- include in plan |
+| Skipping CLI registration in plan | add-model still requires alias/create/example-db planning, but not manual CLI dispatch-table edits |
 | Not verifying facts from issue | Use WebSearch/WebFetch to cross-check claims |
 | Branch already exists on retry | Check with `git rev-parse --verify` before `git checkout -b` |
 | Dirty working tree | Verify `git status --porcelain` is empty before branching |

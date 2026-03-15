@@ -117,6 +117,29 @@ impl ReduceTo<CircuitSAT> for Satisfiability {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::models::formula::CNFClause;
+
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "satisfiability_to_circuitsat",
+        build: || {
+            let source = Satisfiability::new(
+                3,
+                vec![
+                    CNFClause::new(vec![1, -2, 3]),
+                    CNFClause::new(vec![-1, 2]),
+                    CNFClause::new(vec![2, 3]),
+                ],
+            );
+            crate::example_db::specs::direct_satisfying_example::<_, CircuitSAT, _>(
+                source,
+                |_, _| true,
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/sat_circuitsat.rs"]
 mod tests;
