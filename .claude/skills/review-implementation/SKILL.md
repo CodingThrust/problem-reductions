@@ -50,17 +50,22 @@ git diff --name-only $BASE_SHA..$HEAD_SHA
 Check if the current branch has a PR linked to an issue:
 
 ```bash
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+
 # Get PR number for current branch
 PR_NUM=$(gh pr view --json number -q .number 2>/dev/null)
 
-# If PR exists, extract the linked issue number from the body
+# If PR exists, fetch the linked issue through the shared helper
 if [ -n "$PR_NUM" ]; then
-  ISSUE_NUM=$(gh pr view $PR_NUM --json body -q .body | grep -oE '#[0-9]+' | head -1 | tr -d '#')
+  ISSUE_JSON=$(python3 scripts/pipeline_pr.py linked-issue --repo "$REPO" --pr "$PR_NUM" --format json)
+  ISSUE_NUM=$(printf '%s\n' "$ISSUE_JSON" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['linked_issue_number'] or '')")
+  ISSUE_TITLE=$(printf '%s\n' "$ISSUE_JSON" | python3 -c "import sys,json; data=json.load(sys.stdin); issue=data.get('linked_issue') or {}; print(issue.get('title') or '')")
+  ISSUE_BODY_TEXT=$(printf '%s\n' "$ISSUE_JSON" | python3 -c "import sys,json; data=json.load(sys.stdin); issue=data.get('linked_issue') or {}; print(issue.get('body') or '')")
 fi
 
-# Fetch the issue body and comments if found
+# Fetch issue comments if found
 if [ -n "$ISSUE_NUM" ]; then
-  ISSUE_BODY=$(gh issue view $ISSUE_NUM --json title,body -q '"# " + .title + "\n\n" + .body')
+  ISSUE_BODY=$(printf '# %s\n\n%s\n' "$ISSUE_TITLE" "$ISSUE_BODY_TEXT")
   ISSUE_COMMENTS=$(gh issue view $ISSUE_NUM --json comments -q '.comments[] | "**" + .author.login + "** (" + .createdAt + "):\n" + .body + "\n"')
 fi
 ```

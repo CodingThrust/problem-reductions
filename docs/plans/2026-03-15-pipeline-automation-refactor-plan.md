@@ -340,8 +340,8 @@ Keep:
 
 ### Task 5: Thin the skills
 
-- [ ] Rewrite `project-pipeline` to call scripts for board/worktree actions
-- [ ] Rewrite `review-pipeline` to call scripts for board selection, PR context, CI wait, and cleanup
+- [x] Rewrite `project-pipeline` to call scripts for board/worktree actions
+- [x] Rewrite `review-pipeline` to call scripts for board selection, PR context, CI wait, and cleanup
 - [ ] Rewrite `final-review`, `issue-to-pr`, and `fix-pr` similarly
 - [ ] Remove long shell snippets that duplicate script behavior
 
