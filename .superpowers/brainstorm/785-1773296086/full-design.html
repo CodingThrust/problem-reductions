@@ -1,0 +1,157 @@
+<h2>Full Paper Design</h2>
+<p class="subtitle">~10-12 pages, ICSE/ASE-class venue, Methodology-First (B)</p>
+
+<div class="section">
+  <h3>Title (working)</h3>
+  <p style="font-size:18px;font-style:italic;color:#64b5f6;margin:8px 0">
+    "Skill-Based Agentic Coding for Mathematical Software: A Case Study in NP-Hard Problem Reductions"
+  </p>
+  <p style="color:#999;font-size:13px">Alternative: "From Cards to Code: Human-Directed Agent Execution for Verified Reduction Libraries"</p>
+</div>
+
+<div class="section">
+  <h3>Thesis Statement</h3>
+  <div style="background:#1a1a2e;padding:16px;border-radius:8px;border-left:4px solid #64b5f6;margin:8px 0;line-height:1.6">
+    <p>The bottleneck in agentic coding is not agent capability but <strong>task decomposition and the division of labor</strong> between human creativity and agent execution. We demonstrate a skill-based pipeline where humans (contributors + maintainer) provide judgment — which problems matter, which reductions are useful — while agents handle mechanical execution: implementation, testing, documentation, and review. Applied to NP-hard problem reductions, this produces a verified library of 24 problem types and 52 reductions, with multi-layered correctness guarantees.</p>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Paper Outline (~10-12 pages)</h3>
+  <div style="font-family:monospace;font-size:13px;line-height:2.0;background:#1a1a2e;padding:16px;border-radius:8px">
+
+    <div style="color:#ff9800;font-weight:bold;margin-top:4px">S1. Introduction (~1.5 pages)</div>
+    <div style="color:#ccc;padding-left:24px">
+      &bull; Agents hit ~20% on long-horizon tasks — not a capability problem, a decomposition problem<br>
+      &bull; The "review > generation" challenge for mathematical/scientific code<br>
+      &bull; Key insight: reposition humans as creativity source (issues, curation), agents as labor<br>
+      &bull; Three roles: contributors (create issues), maintainer (curate board, write skills), agents (execute)<br>
+      &bull; Contributions: (1) skill-based methodology, (2) verification stack, (3) reduction library artifact
+    </div>
+
+    <div style="color:#ff9800;font-weight:bold;margin-top:12px">S2. Why Reductions? The Goldilocks Domain (~1 page)</div>
+    <div style="color:#ccc;padding-left:24px">
+      &bull; Each reduction is self-contained (~50-200 LOC), formally specified, independently verifiable<br>
+      &bull; Round-trip correctness criterion: reduce → solve target → extract back → verify against source<br>
+      &bull; Practical value: QUBO as compilation target for quantum annealers, GNN solvers<br>
+      &bull; Contrast with SWE-Bench: homogeneous tasks enable systematic comparison<br>
+      &bull; <em>Figure 1: The reduction graph (24 problems, 52 edges, variant lattice)</em>
+    </div>
+
+    <div style="color:#ff9800;font-weight:bold;margin-top:12px">S3. System Architecture (~2 pages)</div>
+    <div style="color:#ccc;padding-left:24px">
+      &bull; Rust trait hierarchy: Problem → OptimizationProblem / SatisfactionProblem<br>
+      &bull; ReduceTo&lt;T&gt; trait + ReductionResult for type-safe reductions<br>
+      &bull; Compile-time machinery: overhead expressions, variant registration, complexity strings<br>
+      &bull; The design philosophy: make correctness checkable by construction<br>
+      &bull; <em>Figure 2: System architecture diagram (traits, registry, verification layers)</em>
+    </div>
+
+    <div style="color:#ff9800;font-weight:bold;margin-top:12px">S4. Skill-Based Task Decomposition (~2 pages)</div>
+    <div style="color:#ccc;padding-left:24px">
+      <strong style="color:#81c784">4.1 The Three Roles</strong><br>
+      &bull; Contributors: open issues (creative — "is this reduction useful? non-trivial?")<br>
+      &bull; Maintainer: curates project board, writes/evolves skills, moves cards<br>
+      &bull; Agents: pick cards, execute skill pipelines<br>
+      <br>
+      <strong style="color:#81c784">4.2 Skills as Agent Functions</strong><br>
+      &bull; check-issue: validates usefulness, non-triviality, literature correctness<br>
+      &bull; add-model / add-rule: brainstorm → plan → implement → test → review<br>
+      &bull; review-implementation: parallel subagents (structural + quality)<br>
+      &bull; fix-pr: resolve review comments, CI failures, coverage gaps<br>
+      <br>
+      <strong style="color:#81c784">4.3 Card-Based Orchestration</strong><br>
+      &bull; GitHub project board as the coordination mechanism<br>
+      &bull; Manager agent auto-picks a card and drives it through the pipeline<br>
+      &bull; Human moves cards between columns (the creative decision: what to work on next)<br>
+      &bull; <em>Figure 3: Pipeline diagram — issue → check → implement → review → PR → merge</em>
+    </div>
+
+    <div style="color:#ff9800;font-weight:bold;margin-top:12px">S5. Multi-Layered Verification (~1.5 pages)</div>
+    <div style="color:#ccc;padding-left:24px">
+      <strong style="color:#81c784">5.1 The Verification Stack</strong><br>
+      &bull; Layer 1: Rust type system — compile-time enforcement of trait contracts<br>
+      &bull; Layer 2: Unit tests — evaluation, serialization, edge cases<br>
+      &bull; Layer 3: Round-trip (closed-loop) tests — reduce, solve, extract, verify<br>
+      &bull; Layer 4: Overhead validation — symbolic expressions checked against actual sizes<br>
+      &bull; Layer 5: Materialized test data — JSON fixtures locked in version control<br>
+      &bull; Layer 6: Agentic review — parallel subagents with fresh context<br>
+      &bull; Layer 7: Documentation — paper entry forces human-readable proof sketch<br>
+      <br>
+      <strong style="color:#81c784">5.2 Why Layers?</strong><br>
+      &bull; Each layer catches different error classes (table: which errors each layer catches)<br>
+      &bull; Materialized data prevents agents from silently changing tests<br>
+      &bull; The "lazy agent" problem: agents take shortest path to close issues<br>
+      &bull; <em>Figure 4: Verification pyramid with error examples at each layer</em>
+    </div>
+
+    <div style="color:#ff9800;font-weight:bold;margin-top:12px">S6. Evaluation (~2 pages)</div>
+    <div style="color:#ccc;padding-left:24px">
+      <strong style="color:#81c784">6.1 Git History Mining (quantitative)</strong><br>
+      &bull; How many reductions were agent-implemented vs human-implemented<br>
+      &bull; Success rate per skill invocation (first-attempt pass rate)<br>
+      &bull; Review rounds before merge<br>
+      &bull; Error taxonomy: what went wrong and which layer caught it<br>
+      &bull; Coverage metrics across the codebase (>95% target)<br>
+      <br>
+      <strong style="color:#81c784">6.2 Case Studies (qualitative, 2-3 reductions)</strong><br>
+      &bull; <strong>Simple:</strong> MVC → MIS — complement relationship, near-trivial mapping<br>
+      &bull; <strong>Complex:</strong> SAT → MIS — clause-variable gadget, quadratic blowup<br>
+      &bull; <strong>Multi-hop:</strong> Factoring → CircuitSAT → ILP — chain through circuit encoding<br>
+      &bull; For each: show the full pipeline from issue to merged PR with paper entry<br>
+      &bull; Highlight where human judgment was needed vs. where agent executed autonomously
+    </div>
+
+    <div style="color:#ff9800;font-weight:bold;margin-top:12px">S7. Related Work (~1 page)</div>
+    <div style="color:#ccc;padding-left:24px">
+      &bull; AI coding agents: SWE-agent, OpenHands, Claude Code, Devin — position vs. our skill approach<br>
+      &bull; AI for reductions: AlphaEvolve gadgets, URSA SAT verification — discovery vs. implementation<br>
+      &bull; Formal verification: VeriCoding, CLEVER — our pragmatic multi-layer alternative<br>
+      &bull; Physics-inspired solvers: QUBO/GNN — our graph as infrastructure for these
+    </div>
+
+    <div style="color:#ff9800;font-weight:bold;margin-top:12px">S8. Discussion & Conclusion (~1 page)</div>
+    <div style="color:#ccc;padding-left:24px">
+      &bull; Generalizability: what other domains have the "Goldilocks" property?<br>
+      &bull; Limitations: requires upfront skill engineering, domain expertise doesn't transfer<br>
+      &bull; The human value proposition: creativity, judgment, responsibility — not eliminated, repositioned<br>
+      &bull; Future: connecting to AlphaEvolve-style discovery, formal verification integration
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Key Figures</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div style="background:#1a1a2e;padding:12px;border-radius:6px;border:1px solid #333">
+      <div style="color:#64b5f6;font-weight:bold;margin-bottom:4px">Fig 1: Reduction Graph</div>
+      <div style="color:#999;font-size:13px">24 problem nodes, 52 directed edges, QUBO hub visible. Color-coded by category (graph/formula/set/algebraic/misc). Variant lattice shown as inset.</div>
+    </div>
+    <div style="background:#1a1a2e;padding:12px;border-radius:6px;border:1px solid #333">
+      <div style="color:#64b5f6;font-weight:bold;margin-bottom:4px">Fig 2: System Architecture</div>
+      <div style="color:#999;font-size:13px">Trait hierarchy + compile-time machinery. Shows how Problem/ReduceTo/Solver traits compose.</div>
+    </div>
+    <div style="background:#1a1a2e;padding:12px;border-radius:6px;border:1px solid #333">
+      <div style="color:#64b5f6;font-weight:bold;margin-bottom:4px">Fig 3: Pipeline Diagram</div>
+      <div style="color:#999;font-size:13px">Three-role pipeline: contributor → issue → (agent: check) → maintainer moves card → (agent: implement/review) → PR → merge. Human decisions highlighted.</div>
+    </div>
+    <div style="background:#1a1a2e;padding:12px;border-radius:6px;border:1px solid #333">
+      <div style="color:#64b5f6;font-weight:bold;margin-bottom:4px">Fig 4: Verification Pyramid</div>
+      <div style="color:#999;font-size:13px">7 layers from type system (bottom) to documentation (top). Each layer annotated with example errors it catches.</div>
+    </div>
+  </div>
+</div>
+
+<div class="section">
+  <h3>Key Tables</h3>
+  <div style="display:grid;grid-template-columns:1fr 1fr;gap:12px">
+    <div style="background:#1a1a2e;padding:12px;border-radius:6px;border:1px solid #333">
+      <div style="color:#ff9800;font-weight:bold;margin-bottom:4px">Table 1: Skills Inventory</div>
+      <div style="color:#999;font-size:13px">Each skill with: trigger, inputs, outputs, typical agent turns, first-attempt success rate.</div>
+    </div>
+    <div style="background:#1a1a2e;padding:12px;border-radius:6px;border:1px solid #333">
+      <div style="color:#ff9800;font-weight:bold;margin-bottom:4px">Table 2: Error Taxonomy</div>
+      <div style="color:#999;font-size:13px">Error categories × which verification layer caught them. Shows why no single layer suffices.</div>
+    </div>
+  </div>
+</div>

@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever diagrams jl-testdata cli cli-demo copilot-review
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever diagrams arxiv-figures jl-testdata cli cli-demo copilot-review
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
@@ -17,6 +17,7 @@ help:
 	@echo "  clippy       - Run clippy lints"
 	@echo "  doc          - Build mdBook documentation"
 	@echo "  diagrams     - Generate SVG diagrams from Typst (light + dark)"
+	@echo "  arxiv-figures - Compile arxiv figure Typst files to PDF"
 	@echo "  mdbook       - Build and serve mdBook (with live reload)"
 	@echo "  paper        - Build Typst paper (requires typst)"
 	@echo "  coverage     - Generate coverage report (requires cargo-llvm-cov)"
@@ -84,6 +85,15 @@ diagrams:
 		echo "Compiling $$base (doc)..."; \
 		typst compile $$src --root=. --input dark=false docs/src/static/$$base.svg; \
 		typst compile $$src --root=. --input dark=true docs/src/static/$$base-dark.svg; \
+	done
+
+# Compile arxiv figure Typst files to PDF
+ARXIV_FIGURES := $(filter-out %/lib.typ,$(wildcard docs/paper/arxiv/figures/*.typ))
+arxiv-figures:
+	@for src in $(ARXIV_FIGURES); do \
+		base=$$(basename $$src .typ); \
+		echo "Compiling $$base (arxiv)..."; \
+		typst compile $$src docs/paper/arxiv/figures/$$base.pdf; \
 	done
 
 # Build and serve mdBook with API docs

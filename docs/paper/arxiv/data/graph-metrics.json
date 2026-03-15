@@ -1,0 +1,10 @@
+{
+  "unique_types": 24,
+  "variant_nodes": 42,
+  "total_edges": 52,
+  "reduceto_impls": 40,
+  "inferred_edges": 12,
+  "hub_in_degree": {"QUBO": 6, "ILP": 11, "MaximumIndependentSet": 14},
+  "hub_out_degree": {"MaximumIndependentSet": 13, "MaximumSetPacking": 6, "KSatisfiability": 5, "Satisfiability": 5},
+  "loc_per_reduction": {"min": 58, "max": 444, "median": 129}
+}

@@ -1,0 +1,431 @@
+% Survey: Agentic Coding and Problem Reduction Rules
+% Generated: 2026-03-12
+% Papers: 22
+
+% ============================================================
+% Theme A: AI Coding Agents — Architectures and Benchmarks
+% ============================================================
+
+@inproceedings{Yang2024SWEagent,
+  author    = {John Yang and Carlos E. Jimenez and Alexander Wettig and Kilian Adriano Lieret and Shunyu Yao and Karthik Narasimhan and Ofir Press},
+  title     = {{SWE}-agent: Agent-Computer Interfaces Enable Automated Software Engineering},
+  booktitle = {Neural Information Processing Systems},
+  year      = {2024},
+  doi       = {10.48550/arXiv.2405.15793},
+  abstract  = {Language model (LM) agents are increasingly being used to automate complicated tasks in digital environments. Just as humans benefit from powerful software applications, such as integrated development environments, for complex tasks like software engineering, we posit that LM agents represent a new category of end users with their own needs and abilities, and would benefit from specially-built interfaces to the software they use. We investigate how interface design affects the performance of language model agents. As a result of this exploration, we introduce SWE-agent: a system that facilitates LM agents to autonomously use computers to solve software engineering tasks. SWE-agent's custom agent-computer interface (ACI) significantly enhances an agent's ability to create and edit code files, navigate entire repositories, and execute tests and other programs. We evaluate SWE-agent on SWE-bench and HumanEvalFix, achieving state-of-the-art performance on both with a pass@1 rate of 12.5\% and 87.7\%, respectively, far exceeding the previous state-of-the-art achieved with non-interactive LMs. Finally, we provide insight on how the design of the ACI can impact agents' behavior and performance.},
+}
+
+@inproceedings{Wang2024OpenHands,
+  author    = {Xingyao Wang and Boxuan Li and Yufan Song and Frank F. Xu and Xiangru Tang and Mingchen Zhuge and Jiayi Pan and Yueqi Song and Bowen Li and Jaskirat Singh and Hoang H. Tran and Fuqiang Li and Ren Ma and Mingzhang Zheng and Bill Qian and Yanjun Shao and Niklas Muennighoff and Yizhe Zhang and Binyuan Hui and Junyang Lin and Robert Brennan and Hao Peng and Heng Ji and Graham Neubig},
+  title     = {{OpenHands}: An Open Platform for {AI} Software Developers as Generalist Agents},
+  booktitle = {International Conference on Learning Representations},
+  year      = {2024},
+  url       = {https://arxiv.org/abs/2407.16741},
+  abstract  = {Software is one of the most powerful tools that we humans have at our disposal; it allows a skilled programmer to interact with the world in complex and profound ways. At the same time, thanks to improvements in large language models (LLMs), there has also been a rapid development in AI agents that interact with and affect change in their surrounding environments. In this paper, we introduce OpenHands (f.k.a. OpenDevin), a platform for the development of powerful and flexible AI agents that interact with the world in similar ways to those of a human developer: by writing code, interacting with a command line, and browsing the web. We describe how the platform allows for the implementation of new agents, safe interaction with sandboxed environments for code execution, coordination between multiple agents, and incorporation of evaluation benchmarks. Based on our currently incorporated benchmarks, we perform an evaluation of agents over 15 challenging tasks, including software engineering (e.g., SWE-BENCH) and web browsing (e.g., WEBARENA), among others. Released under the permissive MIT license, OpenHands is a community project spanning academia and industry with more than 2.1K contributions from over 188 contributors.},
+}
+
+@article{Wang2025OpenHandsSDK,
+  author    = {Xingyao Wang and Simon Rosenberg and Juan Michelini and Calvin Smith and Hoang H. Tran and Engel Nyst and Rohit Malhotra and Xuhui Zhou and Valerie Chen and Robert Brennan and Graham Neubig},
+  title     = {The {OpenHands} Software Agent {SDK}: A Composable and Extensible Foundation for Production Agents},
+  journal   = {ArXiv},
+  volume    = {abs/2511.03690},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2511.03690},
+  abstract  = {Agents are now used widely in the process of software development, but building production-ready software engineering agents is a complex task. Deploying software agents effectively requires flexibility in implementation and experimentation, reliable and secure execution, and interfaces for users to interact with agents. In this paper, we present the OpenHands Software Agent SDK, a toolkit for implementing software development agents that satisfy these desiderata. This toolkit is a complete architectural redesign of the agent components of the popular OpenHands framework for software development agents, which has 64k+ GitHub stars. To achieve flexibility, we design a simple interface for implementing agents that requires only a few lines of code in the default case, but is easily extensible to more complex, full-featured agents with features such as custom tools, memory management, and more. For security and reliability, it delivers seamless local-to-remote execution portability, integrated REST/WebSocket services. For interaction with human users, it can connect directly to a variety of interfaces, such as visual workspaces (VS Code, VNC, browser), command-line interfaces, and APIs. Compared with existing SDKs from OpenAI, Claude, and Google, OpenHands uniquely integrates native sandboxed execution, lifecycle control, model-agnostic multi-LLM routing, and built-in security analysis. Empirical results on SWE-Bench Verified and GAIA benchmarks demonstrate strong performance. Put together, these elements allow the OpenHands Software Agent SDK to provide a practical foundation for prototyping, unlocking new classes of custom applications, and reliably deploying agents at scale.},
+}
+
+@article{Thai2025SWEEVO,
+  author    = {Minh V. T. Thai and Tue Le and D{\~u}ng Nguy{\~\hat{e}}n M{\d a}nh and Huy Phan Nhat and Nghi D. Q. Bui},
+  title     = {{SWE-EVO}: Benchmarking Coding Agents in Long-Horizon Software Evolution Scenarios},
+  journal   = {ArXiv},
+  volume    = {abs/2512.18470},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2512.18470},
+  abstract  = {Existing benchmarks for AI coding agents focus on isolated, single-issue tasks such as fixing a bug or implementing a small feature. However, real-world software engineering is fundamentally a long-horizon endeavor: developers must interpret high-level requirements, plan coordinated changes across many files, and evolve codebases over multiple iterations while preserving existing functionality. We introduce SWE-EVO, a benchmark that evaluates agents on this long-horizon software evolution challenge. Constructed from release notes and version histories of seven mature open-source Python projects, SWE-EVO comprises 48 evolution tasks that require agents to implement multi-step modifications spanning an average of 21 files, validated against comprehensive test suites averaging 874 tests per instance. Experiments with state-of-the-art models reveal a striking capability gap: even GPT-5 with OpenHands achieves only a 21 percent resolution rate on SWE-EVO, compared to 65 percent on the single-issue SWE-Bench Verified. This demonstrates that current agents struggle with sustained, multi-file reasoning. We also propose Fix Rate, a fine-grained metric that captures partial progress toward solving these complex, long-horizon tasks.},
+}
+
+@article{Deng2025SWEBenchPro,
+  title     = {{SWE-Bench Pro}: Can {AI} Agents Solve Long-Horizon Software Engineering Tasks?},
+  author    = {Xiang Deng and Jeff Da and Edwin Pan and Yannis Y. He and Charles Ide and Kanak Garg and Niklas Lauffer and Andrew Park and Chetan Rane and Karmini Sampath and Maya Krishnan and Srivatsa R. Kundurthy and Sean M. Hendryx and Zifan Wang and Chen Bo Calvin Zhang and Noah Jacobson and Bing Liu and Brad Kenstler},
+  year      = {2025},
+  journal   = {arXiv preprint arXiv:2509.16941},
+  doi       = {10.48550/arXiv.2509.16941},
+  url       = {https://openreview.net/forum?id=9R2iUHhVfr},
+  note      = {Under review at ICLR 2026},
+  abstract  = {We introduce SWE-Bench Pro, a substantially more challenging benchmark that builds upon the best practices of SWE-Bench, but is explicitly designed to capture realistic, complex, enterprise-level problems beyond the scope of SWE-Bench. The benchmark comprises 1,865 problems from 41 repositories, split into public, held-out, and commercial sets. It features long-horizon tasks that may require hours to days for a professional software engineer to complete, often involving patches across multiple files and substantial code modifications. SWE-Bench Pro provides a contamination-resistant testbed that more faithfully captures the complexity and diversity of real-world software development, advancing the pursuit of truly autonomous software engineering agents at a professional level.},
+}
+
+@article{Xia2025LiveSWEagent,
+  author    = {Chun Xia and Zhe Wang and Yan Yang and Yuxiang Wei and Ling-kai Zhang},
+  title     = {{Live-SWE-agent}: Can Software Engineering Agents Self-Evolve on the Fly?},
+  journal   = {ArXiv},
+  volume    = {abs/2511.13646},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2511.13646},
+  abstract  = {Large Language Models (LLMs) are reshaping almost all industries, including software engineering. In recent years, a number of LLM agents have been proposed to solve real-world software problems. Such software agents are typically equipped with a suite of coding tools and can autonomously decide the next actions to form complete trajectories to solve end-to-end software tasks. While promising, they typically require dedicated design and may still be suboptimal, since it can be extremely challenging and costly to exhaust the entire agent scaffold design space. Recognizing that software agents are inherently software themselves that can be further refined/modified, researchers have proposed a number of self-improving software agents recently, including the Darwin-Goedel Machine (DGM). Meanwhile, such self-improving agents require costly offline training on specific benchmarks and may not generalize well across different LLMs or benchmarks. In this paper, we propose Live-SWE-agent, the first live software agent that can autonomously and continuously evolve itself on-the-fly during runtime when solving real-world software problems. More specifically, Live-SWE-agent starts with the most basic agent scaffold with only access to bash tools (e.g., mini-SWE-agent), and autonomously evolves its own scaffold implementation while solving real-world software problems. Our evaluation on the widely studied SWE-bench Verified benchmark shows that LIVE-SWE-AGENT can achieve an impressive solve rate of 77.4\% without test-time scaling, outperforming all existing software agents, including the best proprietary solution. Moreover, Live-SWE-agent outperforms state-of-the-art manually crafted software agents on the recent SWE-Bench Pro benchmark, achieving the best-known solve rate of 45.8\%.},
+}
+
+@misc{Anthropic2025ClaudeCode,
+  title        = {Claude Code},
+  author       = {{Anthropic}},
+  year         = {2025},
+  url          = {https://github.com/anthropics/claude-code},
+  howpublished = {\url{https://github.com/anthropics/claude-code}},
+  note         = {Agentic coding tool that lives in the terminal, understands codebases, and helps developers code faster through natural language commands},
+}
+
+@misc{Wu2024Devin,
+  title        = {Introducing {Devin}, the First {AI} Software Engineer},
+  author       = {Scott Wu},
+  year         = {2024},
+  month        = mar,
+  url          = {https://cognition.ai/blog/introducing-devin},
+  howpublished = {Cognition AI Blog},
+  note         = {Devin is a fully autonomous AI software engineering agent with access to shell, code editor, and browser in a sandboxed environment. On SWE-bench, Devin correctly resolves 13.86\% of issues end-to-end.},
+}
+
+@article{Roychoudhury2025AgenticAI,
+  author    = {Abhik Roychoudhury},
+  title     = {Agentic {AI} for Software: Thoughts from Software Engineering Community},
+  journal   = {ArXiv},
+  volume    = {abs/2508.17343},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2508.17343},
+  abstract  = {AI agents have recently shown significant promise in software engineering. Much public attention has been transfixed on the topic of code generation from Large Language Models (LLMs) via a prompt. However, software engineering is much more than programming, and AI agents go far beyond instructions given by a prompt. At the code level, common software tasks include code generation, testing, and program repair. Design level software tasks may include architecture exploration, requirements understanding, and requirements enforcement at the code level. Each of these software tasks involves micro-decisions which can be taken autonomously by an AI agent, aided by program analysis tools. This creates the vision of an AI software engineer, where the AI agent can be seen as a member of a development team. Conceptually, the key to successfully developing trustworthy agentic AI-based software workflows will be to resolve the core difficulty in software engineering --- the deciphering and clarification of developer intent. Specification inference, or deciphering the intent, thus lies at the heart of many software tasks, including software maintenance and program repair. A successful deployment of agentic technology into software engineering would involve making conceptual progress in such intent inference via agents. Trusting the AI agent becomes a key aspect, as software engineering becomes more automated. Higher automation also leads to higher volume of code being automatically generated, and then integrated into code-bases. Thus to deal with this explosion, an emerging direction is AI-based verification and validation (V\&V) of AI generated code. We posit that agentic software workflows in future will include such AI-based V\&V.},
+}
+
+@techreport{Anthropic2026AgenticCoding,
+  title       = {2026 Agentic Coding Trends Report: How Coding Agents Are Reshaping Software Development},
+  author      = {{Anthropic}},
+  year        = {2026},
+  month       = jan,
+  institution = {Anthropic},
+  url         = {https://resources.anthropic.com/hubfs/2026\%20Agentic\%20Coding\%20Trends\%20Report.pdf},
+  abstract    = {Industry report identifying eight trends across foundation, capability, and impact categories that are reshaping software development. Key findings include that developers now use AI in 60\% of their work while maintaining active oversight on 80--100\% of delegated tasks. The report covers shifting engineering roles, multi-agent coordination, human-AI collaboration patterns, and scaling agentic coding beyond engineering teams.},
+}
+
+% ============================================================
+% Theme C: AI-Assisted Discovery of Reductions & Complexity
+% ============================================================
+
+@article{Nagda2025ReinforcedGeneration,
+  author    = {Ansh Nagda and Prabhakar Raghavan and Abhradeep Thakurta},
+  title     = {Reinforced Generation of Combinatorial Structures: Hardness of Approximation},
+  year      = {2025},
+  url       = {https://arxiv.org/abs/2509.18057},
+  abstract  = {Can AI based methods help us make advances in complexity theory? We provide evidence towards answering this in the affirmative, using AlphaEvolve (an LLM code mutation agent) to obtain new results in three settings: a) We improve a recent result of Kunisky and Yu to obtain near-optimal upper and (conditional) lower bounds on certification algorithms for MAX-CUT and MAX-Independent Set on random 3- and 4-regular graphs. Our improved lower bounds are obtained by constructing nearly extremal Ramanujan graphs on as many as 163 vertices, and our upper bounds are obtained via analytical arguments. b) We obtain new inapproximability results for MAX-4-CUT and MAX-3-CUT, proving that it is NP-hard to approximate them within factors of 0.987 and 0.9649 respectively, using AlphaEvolve to discover new gadget reductions. Our MAX-4-CUT result improves upon the SOTA of 0.9883, and our MAX-3-CUT result improves on the current best gadget-based inapproximability result of 0.9853, but falls short of the SOTA of 16/17 that relies on a custom PCP (rather than a reduction from ``standard'' Hastad-style PCPs). c) Inapproximability for the metric Traveling Salesman Problem (TSP): We show that it is NP-hard to approximate the minimum cost tour within a factor of 111/110 using AlphaEvolve to discover a new gadget, thus improving the SOTA of 117/116. Along the way, we provide new modular soundness and completeness arguments that can be of independent interest. A key technical challenge we faced: verifying a candidate construction produced by AlphaEvolve is costly (sometimes requiring time exponential in the size of the construction). We used AlphaEvolve itself to evolve the verification procedure to be faster (sometimes by 10,000x for our gadgets). Our results suggest that gadget based proofs would benefit from a pass through AI-based tools to obtain stronger results.},
+}
+
+@article{Novikov2025AlphaEvolve,
+  author    = {Alexander Novikov and Ng{\^a}n V{\~u} and Marvin Eisenberger and Emilien Dupont and Po-Sen Huang and Adam Zsolt Wagner and S. Shirobokov and Borislav M. Kozlovskii and Francisco J. R. Ruiz and Abbas Mehrabian and M. P. Kumar and Abigail See and Swarat Chaudhuri and George Holland and A. Davies and Sebastian Nowozin and Pushmeet Kohli and Matej Balog},
+  title     = {{AlphaEvolve}: A Coding Agent for Scientific and Algorithmic Discovery},
+  journal   = {ArXiv},
+  volume    = {abs/2506.13131},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2506.13131},
+  abstract  = {In this white paper, we present AlphaEvolve, an evolutionary coding agent that substantially enhances capabilities of state-of-the-art LLMs on highly challenging tasks such as tackling open scientific problems or optimizing critical pieces of computational infrastructure. AlphaEvolve orchestrates an autonomous pipeline of LLMs, whose task is to improve an algorithm by making direct changes to the code. Using an evolutionary approach, continuously receiving feedback from one or more evaluators, AlphaEvolve iteratively improves the algorithm, potentially leading to new scientific and practical discoveries. We demonstrate the broad applicability of this approach by applying it to a number of important computational problems. When applied to optimizing critical components of large-scale computational stacks at Google, AlphaEvolve developed a more efficient scheduling algorithm for data centers, found a functionally equivalent simplification in the circuit design of hardware accelerators, and accelerated the training of the LLM underpinning AlphaEvolve itself. Furthermore, AlphaEvolve discovered novel, provably correct algorithms that surpass state-of-the-art solutions on a spectrum of problems in mathematics and computer science, significantly expanding the scope of prior automated discovery methods (Romera-Paredes et al., 2023). Notably, AlphaEvolve developed a search algorithm that found a procedure to multiply two $4 \times 4$ complex-valued matrices using 48 scalar multiplications; offering the first improvement, after 56 years, over Strassen's algorithm in this setting. We believe AlphaEvolve and coding agents like it can have a significant impact in improving solutions of problems across many areas of science and computation.},
+}
+
+@article{RomeraParedes2023FunSearch,
+  author    = {Bernardino Romera-Paredes and M. Barekatain and Alexander Novikov and Matej Balog and M. P. Kumar and Emilien Dupont and Francisco J. R. Ruiz and J. Ellenberg and Pengming Wang and Omar Fawzi and Pushmeet Kohli and Alhussein Fawzi},
+  title     = {Mathematical Discoveries from Program Search with Large Language Models},
+  journal   = {Nature},
+  volume    = {625},
+  pages     = {468--475},
+  year      = {2023},
+  doi       = {10.1038/s41586-023-06924-6},
+  abstract  = {Large language models (LLMs) have demonstrated tremendous capabilities in solving complex tasks, from quantitative reasoning to understanding natural language. However, LLMs sometimes suffer from confabulations (or hallucinations), which can result in them making plausible but incorrect statements. This hinders the use of current large models in scientific discovery. Here we introduce FunSearch (short for searching in the function space), an evolutionary procedure based on pairing a pretrained LLM with a systematic evaluator. We demonstrate the effectiveness of this approach to surpass the best-known results in important problems, pushing the boundary of existing LLM-based approaches. Applying FunSearch to a central problem in extremal combinatorics---the cap set problem---we discover new constructions of large cap sets going beyond the best-known ones, both in finite dimensional and asymptotic cases. This shows that it is possible to make discoveries for established open problems using LLMs. We showcase the generality of FunSearch by applying it to an algorithmic problem, online bin packing, finding new heuristics that improve on widely used baselines. In contrast to most computer search approaches, FunSearch searches for programs that describe how to solve a problem, rather than what the solution is. Beyond being an effective and scalable strategy, discovered programs tend to be more interpretable than raw solutions, enabling feedback loops between domain experts and FunSearch, and the deployment of such programs in real-world applications.},
+}
+
+@article{Imajuku2025ALEBench,
+  author    = {Yuki Imajuku and Kohki Horie and Yoichi Iwata and Kensho Aoki and Naohiro Takahashi and Takuya Akiba},
+  title     = {{ALE-Bench}: A Benchmark for Long-Horizon Objective-Driven Algorithm Engineering},
+  journal   = {ArXiv},
+  volume    = {abs/2506.09050},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2506.09050},
+  abstract  = {How well do AI systems perform in algorithm engineering for hard optimization problems in domains such as package-delivery routing, crew scheduling, factory production planning, and power-grid balancing? We introduce ALE-Bench, a new benchmark for evaluating AI systems on score-based algorithmic programming contests. Drawing on real tasks from the AtCoder Heuristic Contests, ALE-Bench presents optimization problems that are computationally hard and admit no known exact solution. Unlike short-duration, pass/fail coding benchmarks, ALE-Bench encourages iterative solution refinement over long time horizons. Our software framework supports interactive agent architectures that leverage test-run feedback and visualizations. Our evaluation of frontier LLMs revealed that while they demonstrate high performance on specific problems, a notable gap remains compared to humans in terms of consistency across problems and long-horizon problem-solving capabilities. This highlights the need for this benchmark to foster future AI advancements.},
+}
+
+@article{Janicic2025URSA,
+  author    = {Predrag Jani{\v{c}}i{\'c}},
+  title     = {A {SAT}-based Approach for Specification, Analysis, and Justification of Reductions between {NP}-complete Problems},
+  journal   = {ArXiv},
+  volume    = {abs/2511.18639},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2511.18639},
+  abstract  = {We propose a novel approach for the development, analysis, and verification of reductions between NP-complete problems. This method uses the URSA system, a SAT-based constraint solver and incorporates features that distinguish it from existing related systems.},
+}
+
+% ============================================================
+% Theme D (subset): Physics-Inspired QUBO/Ising Approaches
+% ============================================================
+
+@article{Schuetz2022PhysicsGNN,
+  author    = {M. Schuetz and J. K. Brubaker and H. Katzgraber},
+  title     = {Combinatorial Optimization with Physics-Inspired Graph Neural Networks},
+  journal   = {Nature Machine Intelligence},
+  volume    = {4},
+  pages     = {367--377},
+  year      = {2022},
+  doi       = {10.1038/s42256-022-00468-6},
+  abstract  = {Combinatorial optimization problems are pervasive across science and industry. Modern deep learning tools are poised to solve these problems at unprecedented scales, but a unifying framework that incorporates insights from statistical physics is still outstanding. Here we demonstrate how graph neural networks can be used to solve combinatorial optimization problems. Our approach is broadly applicable to canonical NP-hard problems in the form of quadratic unconstrained binary optimization problems, such as maximum cut, minimum vertex cover, maximum independent set, as well as Ising spin glasses and higher-order generalizations thereof in the form of polynomial unconstrained binary optimization problems. We apply a relaxation strategy to the problem Hamiltonian to generate a differentiable loss function with which we train the graph neural network and apply a simple projection to integer variables once the unsupervised training process has completed. We showcase our approach with numerical results for the canonical maximum cut and maximum independent set problems. We find that the graph neural network optimizer performs on par or outperforms existing solvers, with the ability to scale beyond the state of the art to problems with millions of variables.},
+}
+
+@inproceedings{He2024QuantumTSP,
+  author    = {Haoqi He},
+  title     = {Quantum Annealing and {GNN} for Solving {TSP} with {QUBO}},
+  booktitle = {Algorithmic Applications in Management},
+  pages     = {134--145},
+  year      = {2024},
+  doi       = {10.1007/978-981-97-7801-0_12},
+  abstract  = {This paper explores the application of Quadratic Unconstrained Binary Optimization (QUBO) models in solving the Travelling Salesman Problem (TSP) through Quantum Annealing algorithms and Graph Neural Networks. Quantum Annealing (QA), a quantum-inspired optimization method that exploits quantum tunneling to escape local minima, is used to solve QUBO formulations of TSP instances on Coherent Ising Machines (CIMs). The paper also presents a novel approach where QUBO is employed as a loss function within a GNN architecture tailored for solving TSP efficiently. By leveraging GNN's capability to learn graph representations, this method finds approximate solutions to TSP with improved computational time compared to traditional exact solvers.},
+}
+
+% ============================================================
+% Theme E: LLM-Assisted Formal Verification & Program Synthesis
+% ============================================================
+
+@article{Bursuc2025VeriCoding,
+  author    = {Sergiu Bursuc and Theodore Ehrenborg and Shaowei Lin and L. Astefanoaei and Ionel Emilian Chiosa and Jure Kukovec and Alok Singh and Oliver Butterley and Adem Bizid and Quinn Dougherty and Miranda Zhao and Max Tan and Max Tegmark},
+  title     = {A Benchmark for Vericoding: Formally Verified Program Synthesis},
+  journal   = {ArXiv},
+  volume    = {abs/2509.22908},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2509.22908},
+  abstract  = {We present and test the largest benchmark for vericoding, LLM-generation of formally verified code from formal specifications --- in contrast to vibe coding, which generates potentially buggy code from a natural language description. Our benchmark contains 12,504 formal specifications, with 3,029 in Dafny, 2,334 in Verus/Rust and 7,141 in Lean. Of these, 6,174 are new unseen problems. We find vericoding success rates of 27\% in Lean, 44\% in Verus/Rust and 82\% in Dafny using off-the-shelf LLMs. Adding natural-language descriptions does not significantly improve performance. We also find that LLM progress has improved progress on pure Dafny verification from 68\% to 96\% over the past year. The benchmark and vericoding results are shared at https://github.com/Beneficial-AI-Foundation/vericoding-benchmark},
+}
+
+@article{Thakur2025CLEVER,
+  author    = {Amitayush Thakur and Jasper Lee and G. Tsoukalas and Meghana Sistla and Matthew Zhao and Stefan Zetzsche and Greg Durrett and Yisong Yue and Swarat Chaudhuri},
+  title     = {{CLEVER}: A Curated Benchmark for Formally Verified Code Generation},
+  journal   = {ArXiv},
+  volume    = {abs/2505.13938},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2505.13938},
+  abstract  = {We introduce CLEVER, a high-quality, curated benchmark of 161 problems for end-to-end verified code generation in Lean. Each problem consists of (1) the task of generating a specification that matches a held-out ground-truth specification, and (2) the task of generating a Lean implementation that provably satisfies this specification. Unlike prior benchmarks, CLEVER avoids test-case supervision, LLM-generated annotations, and specifications that leak implementation logic or allow vacuous solutions. All outputs are verified post-hoc using Lean's type checker to ensure machine-checkable correctness. We use CLEVER to evaluate several few-shot and agentic approaches based on state-of-the-art language models. These methods all struggle to achieve full verification, establishing it as a challenging frontier benchmark for program synthesis and formal reasoning.},
+}
+
+@inproceedings{Miranda2025VeriBench,
+  title     = {{VeriBench}: End-to-End Formal Verification Benchmark for {AI} Code Generation in {Lean} 4},
+  author    = {Brando Miranda and Zhanke Zhou and Allen Nie and Elyas Obbad and Leni Aniva and Kai Fronsdal and Weston Kirk and Dilara Soylu and Andrea Yu and Ying Li and Sanmi Koyejo},
+  year      = {2025},
+  booktitle = {2nd AI for Math Workshop at ICML 2025 (AI4Math@ICML)},
+  url       = {https://openreview.net/forum?id=rWkGFmnSNl},
+  abstract  = {VeriBench evaluates LLM capabilities in generating complete Lean 4 programs---implementations, unit tests, correctness theorems, and formal proofs---derived from reference Python functions or their docstrings. Testing 113 tasks across HumanEval problems, exercises, classical algorithms, and security challenges, the benchmark reveals that Claude 3.7 Sonnet achieves compilation on only 12.5\%, while LLaMA-70B fails to compile any programs in the Lean 4 HumanEval subset, even with 50 feedback-guided attempts. Only a self-optimizing agent architecture achieves meaningful compilation rates, approaching 90\%.},
+}
+
+@inproceedings{Mukherjee2025CoqPL,
+  title     = {Towards Automated Verification of {LLM}-Synthesized {C} Programs},
+  author    = {Prasita Mukherjee and Benjamin Delaware},
+  year      = {2025},
+  month     = jan,
+  booktitle = {CoqPL 2025: The Eleventh International Workshop on Coq for Programming Languages (co-located with POPL 2025)},
+  doi       = {10.48550/arXiv.2410.14835},
+  url       = {https://popl25.sigplan.org/details/CoqPL-2025-papers/5/Towards-Automated-Verification-of-LLM-Synthesized-C-Programs},
+  abstract  = {We present a synthesis and verification framework for C programs that leverages LLMs to generate candidate programs while imposing syntactic and semantic biases on programs generated by LLMs, such that the synthesized program is more amenable to automated verification. The key contribution is a specification-verification tool built on the Verified Software Toolchain. Experiments on diverse benchmarks from the deductive program synthesis community, including basic coding examples, Separation Logic based assertions, and API specifications, demonstrate scalability and extensibility.},
+}
+
+@inproceedings{Mukherjee2025SynVer,
+  title     = {{SYNVER}: {LLM}-Assisted Synthesis of High-Assurance {C} Programs},
+  author    = {Prasita Mukherjee and Minghai Lu and Benjamin Delaware},
+  year      = {2025},
+  month     = nov,
+  booktitle = {2025 40th IEEE/ACM International Conference on Automated Software Engineering (ASE)},
+  address   = {Seoul, Korea},
+  doi       = {10.1109/ASE63991.2025.00255},
+  url       = {https://ieeexplore.ieee.org/document/11334588/},
+  abstract  = {We present SynVer---a novel, general purpose synthesizer for C programs equipped with machine-checked proofs of correctness using the Verified Software Toolchain. SynVer employs two Large Language Models: the first generates candidate programs from user-provided specifications, and the second helps automatically generate proofs of correctness in the Rocq proof assistant. SynVer combines symbolic reasoning with LLM-powered proof generation to discharge proof obligations.},
+}
+
+% ============================================================
+% Theme F: LLM Reasoning Limitations
+% ============================================================
+
+@inproceedings{Mirzadeh2025GSMSymbolic,
+  author    = {Iman Mirzadeh and Keivan Alizadeh Vahid and Hooman Shahrokhi and Oncel Tuzel and Samy Bengio and Mehrdad Farajtabar},
+  title     = {{GSM}-Symbolic: Understanding the Limitations of Mathematical Reasoning in Large Language Models},
+  booktitle = {International Conference on Learning Representations},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2410.05229},
+}
+
+@article{Shojaee2025IllusionOfThinking,
+  author    = {Parshin Shojaee and Iman Mirzadeh and Keivan Alizadeh and Maxwell Horton and Samy Bengio and Mehrdad Farajtabar},
+  title     = {The Illusion of Thinking: Understanding the Strengths and Limitations of Reasoning Models via the Lens of Problem Complexity},
+  journal   = {ArXiv},
+  volume    = {abs/2506.06941},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2506.06941},
+}
+
+@article{Plaat2025MultiStepReasoning,
+  author    = {Aske Plaat and Annie Wong and Suzan Verberne and Joost Broekens and Niki van Stein and Thomas Back},
+  title     = {Reasoning with Large Language Models, a Survey},
+  journal   = {ACM Computing Surveys},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2407.11511},
+}
+
+@inproceedings{Liu2024LostInMiddle,
+  author    = {Nelson F. Liu and Kevin Lin and John Hewitt and Ashwin Paranjape and Michele Bevilacqua and Fabio Petroni and Percy Liang},
+  title     = {Lost in the Middle: How Language Models Use Long Contexts},
+  journal   = {Transactions of the Association for Computational Linguistics},
+  volume    = {12},
+  pages     = {157--173},
+  year      = {2024},
+  doi       = {10.1162/tacl_a_00638},
+}
+
+@article{Du2025ContextLengthHurts,
+  author    = {Yufeng Du and Minyang Tian and Srikanth Ronanki and Subendhu Rongali and Sravan Bodapati and Aram Galstyan and Azton Wells and Roy Schwartz and Eliu A. Huerta and Hao Peng},
+  title     = {Context Length Alone Hurts {LLM} Performance Despite Perfect Retrieval},
+  journal   = {ArXiv},
+  volume    = {abs/2510.05381},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2510.05381},
+}
+
+@article{Glazer2024FrontierMath,
+  author    = {Elliot Glazer and Ege Erdil and Tamay Besiroglu and Diego Chicharro and Evan Chen and Alex Gunning and Caroline Falkman Olsson and Jean-Stanislas Denain and Anson Ho and Emily de Oliveira Santos and Oam Patel and Niels Kornerup and Luca Zancato and Benjamin Feuer and Jonathan Tow and others},
+  title     = {{FrontierMath}: A Benchmark for Evaluating Advanced Mathematical Reasoning in {AI}},
+  journal   = {ArXiv},
+  volume    = {abs/2411.04872},
+  year      = {2024},
+  doi       = {10.48550/arXiv.2411.04872},
+}
+
+@article{Paster2025HLE,
+  author    = {Keiran Paster and Dan Hendrycks and others},
+  title     = {Humanity's Last Exam},
+  journal   = {Nature},
+  year      = {2025},
+  doi       = {10.1038/s41586-025-09962-4},
+}
+
+@article{Huang2025LLMWorkingMemory,
+  author    = {Jen-tse Huang and Kaiser Sun and Wenxuan Wang and Mark Dredze},
+  title     = {Language Models Do Not Have Human-Like Working Memory},
+  journal   = {ArXiv},
+  volume    = {abs/2505.10571},
+  year      = {2025},
+  doi       = {10.48550/arXiv.2505.10571},
+}
+
+@inproceedings{Merrill2024ExpressivePower,
+  author    = {William Merrill and Ashish Sabharwal},
+  title     = {The Expressive Power of Transformers with Chain of Thought},
+  booktitle = {International Conference on Learning Representations},
+  year      = {2024},
+  url       = {https://arxiv.org/abs/2310.07923},
+}
+
+@inproceedings{Dziri2023FaithFate,
+  author    = {Nouha Dziri and Ximing Lu and Melanie Sclar and Xiang Lorraine Li and Liwei Jiang and Bill Yuchen Lin and Sean Welleck and Peter West and Chandra Bhagavatula and Ronan Le Bras and Jena Hwang and Soumya Sanyal and Xiang Ren and Allyson Ettinger and Zaid Harchaoui and Yejin Choi},
+  title     = {Faith and Fate: Limits of Transformers on Compositionality},
+  booktitle = {Advances in Neural Information Processing Systems},
+  year      = {2023},
+  url       = {https://arxiv.org/abs/2305.18654},
+}
+
+% Theme G: AI Code Maintainability Concerns
+% ============================================================
+
+@misc{Jones2026LLMCompiler,
+  author       = {Derek M. Jones},
+  title        = {Investigating an {LLM} Generated {C} Compiler},
+  howpublished = {The Shape of Code (blog)},
+  year         = {2026},
+  url          = {https://shape-of-code.com/2026/02/22/investigating-an-llm-generated-c-compiler/},
+}
+
+@misc{GitClear2025CodeQuality,
+  author       = {{GitClear}},
+  title        = {{AI} Copilot Code Quality 2025: Analysis of 211 Million Changed Lines},
+  howpublished = {GitClear Whitepaper},
+  year         = {2025},
+  url          = {https://www.gitclear.com/ai_assistant_code_quality_2025_research},
+}
+
+@article{Becker2025METRProductivity,
+  author  = {Becker, Nate and Rush, Alexander and others},
+  title   = {Measuring the Impact of Early-2025 {AI} on Experienced Open-Source Developer Productivity},
+  journal = {ArXiv},
+  volume  = {abs/2507.09089},
+  year    = {2025},
+  url     = {https://arxiv.org/abs/2507.09089},
+}
+
+@article{CursorAI2025SpeedCost,
+  author  = {Others},
+  title   = {Speed at the Cost of Quality: How {Cursor AI} Increases Short-Term Velocity and Long-Term Complexity in Open-Source Projects},
+  journal = {ArXiv},
+  volume  = {abs/2511.04427},
+  year    = {2025},
+  url     = {https://arxiv.org/abs/2511.04427},
+}
+
+% ============================================================
+% Foundational References (from project bibliography)
+% ============================================================
+
+@inproceedings{karp1972,
+  author    = {Richard M. Karp},
+  title     = {Reducibility among Combinatorial Problems},
+  booktitle = {Complexity of Computer Computations},
+  publisher = {Plenum Press},
+  year      = {1972},
+  pages     = {85--103}
+}
+
+@inproceedings{cook1971,
+  author    = {Stephen A. Cook},
+  title     = {The Complexity of Theorem-Proving Procedures},
+  booktitle = {Proceedings of the Third Annual ACM Symposium on Theory of Computing},
+  year      = {1971},
+  pages     = {151--158}
+}
+
+@book{garey1979,
+  author    = {Michael R. Garey and David S. Johnson},
+  title     = {Computers and Intractability: A Guide to the Theory of NP-Completeness},
+  publisher = {W. H. Freeman},
+  year      = {1979}
+}
+
+@article{glover2019,
+  author  = {Fred Glover and Gary Kochenberger and Yu Du},
+  title   = {Quantum Bridge Analytics {I}: a tutorial on formulating and using {QUBO} models},
+  journal = {4OR},
+  volume  = {17},
+  pages   = {335--371},
+  year    = {2019},
+  doi     = {10.1007/s10288-019-00424-y}
+}
+
+@article{lucas2014,
+  author  = {Andrew Lucas},
+  title   = {Ising formulations of many NP problems},
+  journal = {Frontiers in Physics},
+  volume  = {2},
+  number  = {5},
+  year    = {2014}
+}
+
+@article{pichler2018,
+  author  = {Hannes Pichler and Sheng-Tao Wang and Leo Zhou and Soonwon Choi and Mikhail D. Lukin},
+  title   = {Quantum Optimization for Maximum Independent Set Using {Rydberg} Atom Arrays},
+  journal = {arXiv preprint arXiv:1808.10816},
+  year    = {2018},
+  doi     = {10.48550/arXiv.1808.10816}
+}
+
+@article{barahona1982,
+  author  = {Francisco Barahona},
+  title   = {On the computational complexity of Ising spin glass models},
+  journal = {Journal of Physics A: Mathematical and General},
+  volume  = {15},
+  number  = {10},
+  pages   = {3241--3253},
+  year    = {1982}
+}
