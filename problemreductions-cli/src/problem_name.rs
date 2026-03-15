@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::ffi::OsStr;
 
 /// A parsed problem specification: name + optional variant values.
@@ -10,82 +10,42 @@ pub struct ProblemSpec {
     pub variant_values: Vec<String>,
 }
 
-/// Alias entries: (alias, canonical_name). Only includes short aliases,
-/// not the lowercase identity mappings.
-pub const ALIASES: &[(&str, &str)] = &[
-    ("MIS", "MaximumIndependentSet"),
-    ("MVC", "MinimumVertexCover"),
-    ("SAT", "Satisfiability"),
-    ("3SAT", "KSatisfiability"),
-    ("KSAT", "KSatisfiability"),
-    ("TSP", "TravelingSalesman"),
-    ("CVP", "ClosestVectorProblem"),
-    ("LCS", "LongestCommonSubsequence"),
-    ("MaxMatching", "MaximumMatching"),
-    ("FVS", "MinimumFeedbackVertexSet"),
-];
-
 /// Resolve a short alias to the canonical problem name.
+///
+/// Uses the catalog for both aliases and canonical names.
 pub fn resolve_alias(input: &str) -> String {
-    match input.to_lowercase().as_str() {
-        "mis" => "MaximumIndependentSet".to_string(),
-        "mvc" | "minimumvertexcover" => "MinimumVertexCover".to_string(),
-        "sat" | "satisfiability" => "Satisfiability".to_string(),
-        "3sat" => "KSatisfiability".to_string(),
-        "ksat" | "ksatisfiability" => "KSatisfiability".to_string(),
-        "qubo" => "QUBO".to_string(),
-        "graphpartitioning" => "GraphPartitioning".to_string(),
-        "maxcut" => "MaxCut".to_string(),
-        "spinglass" => "SpinGlass".to_string(),
-        "ilp" => "ILP".to_string(),
-        "circuitsat" => "CircuitSAT".to_string(),
-        "factoring" => "Factoring".to_string(),
-        "maximumindependentset" => "MaximumIndependentSet".to_string(),
-        "maximumclique" => "MaximumClique".to_string(),
-        "maxmatching" | "maximummatching" => "MaximumMatching".to_string(),
-        "minimumdominatingset" => "MinimumDominatingSet".to_string(),
-        "minimumsetcovering" => "MinimumSetCovering".to_string(),
-        "maximumsetpacking" => "MaximumSetPacking".to_string(),
-        "kcoloring" => "KColoring".to_string(),
-        "maximalis" => "MaximalIS".to_string(),
-        "travelingsalesman" | "tsp" => "TravelingSalesman".to_string(),
-        "paintshop" => "PaintShop".to_string(),
-        "bmf" => "BMF".to_string(),
-        "bicliquecover" => "BicliqueCover".to_string(),
-        "binpacking" => "BinPacking".to_string(),
-        "cvp" | "closestvectorproblem" => "ClosestVectorProblem".to_string(),
-        "knapsack" => "Knapsack".to_string(),
-        "lcs" | "longestcommonsubsequence" => "LongestCommonSubsequence".to_string(),
-        "fvs" | "minimumfeedbackvertexset" => "MinimumFeedbackVertexSet".to_string(),
-        "subsetsum" => "SubsetSum".to_string(),
-        "sequencingwithreleasetimesanddeadlines" => {
-            "SequencingWithReleaseTimesAndDeadlines".to_string()
-        }
-        _ => input.to_string(), // pass-through for exact names
+    if let Some(pt) = problemreductions::registry::find_problem_type_by_alias(input) {
+        return pt.canonical_name.to_string();
     }
+    input.to_string()
 }
 
 /// Return the short aliases for a canonical problem name, if any.
 pub fn aliases_for(canonical: &str) -> Vec<&'static str> {
-    ALIASES
-        .iter()
-        .filter(|(_, name)| *name == canonical)
-        .map(|(alias, _)| *alias)
-        .collect()
+    problemreductions::registry::find_problem_type(canonical)
+        .map(|pt| pt.aliases.to_vec())
+        .unwrap_or_default()
+}
+
+/// Resolve a problem spec against the catalog schema only (no graph required).
+///
+/// Returns a typed `ProblemRef` validated against the catalog's declared
+/// dimensions and allowed values. Does NOT check reduction graph reachability.
+#[cfg_attr(not(test), allow(dead_code))]
+pub fn resolve_catalog_problem_ref(
+    input: &str,
+) -> anyhow::Result<problemreductions::registry::ProblemRef> {
+    problemreductions::registry::parse_catalog_problem_ref(input)
+        .map_err(|e| anyhow::anyhow!("{e}"))
 }
 
 /// Parse a problem spec string like "MIS/UnitDiskGraph/i32" into name + variant values.
 pub fn parse_problem_spec(input: &str) -> anyhow::Result<ProblemSpec> {
     let parts: Vec<&str> = input.split('/').collect();
     let raw_name = parts[0];
-    let mut variant_values: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
+    let variant_values: Vec<String> = parts[1..].iter().map(|s| s.to_string()).collect();
 
     let name = resolve_alias(raw_name);
-
-    // Special case: "3SAT" implies K3 variant
-    if raw_name.to_lowercase() == "3sat" && variant_values.is_empty() {
-        variant_values.push("K3".to_string());
-    }
 
     Ok(ProblemSpec {
         name,
@@ -93,65 +53,121 @@ pub fn parse_problem_spec(input: &str) -> anyhow::Result<ProblemSpec> {
     })
 }
 
-/// Build a variant BTreeMap by matching specified values against a problem's
-/// known variants from the reduction graph. Uses value-based matching:
-/// each specified value must appear as a value in the variant map.
-pub fn resolve_variant(
+fn format_variant(variant: &BTreeMap<String, String>) -> String {
+    let parts = variant
+        .iter()
+        .map(|(key, value)| format!("{key}={value}"))
+        .collect::<Vec<_>>()
+        .join(", ");
+    format!("{{{parts}}}")
+}
+
+fn dimension_values(
+    known_variants: &[BTreeMap<String, String>],
+) -> BTreeMap<String, BTreeSet<String>> {
+    let mut by_dimension = BTreeMap::new();
+    for variant in known_variants {
+        for (dimension, value) in variant {
+            by_dimension
+                .entry(dimension.clone())
+                .or_insert_with(BTreeSet::new)
+                .insert(value.clone());
+        }
+    }
+    by_dimension
+}
+
+fn resolve_variant_updates(
     spec: &ProblemSpec,
+    default_variant: &BTreeMap<String, String>,
     known_variants: &[BTreeMap<String, String>],
 ) -> anyhow::Result<BTreeMap<String, String>> {
     if spec.variant_values.is_empty() {
-        // Return the first (default) variant, or empty
-        return Ok(known_variants.first().cloned().unwrap_or_default());
+        return Ok(default_variant.clone());
     }
 
-    // Value-based matching: find variant containing ALL specified values
-    let matches: Vec<_> = known_variants
-        .iter()
-        .filter(|v| {
-            spec.variant_values
-                .iter()
-                .all(|sv| v.values().any(|vv| vv == sv))
-        })
-        .collect();
+    let token_index = dimension_values(known_variants);
+    let mut resolved = default_variant.clone();
+    let mut updated_dimensions = BTreeSet::new();
 
-    match matches.len() {
-        1 => Ok(matches[0].clone()),
-        0 => anyhow::bail!(
-            "No variant of {} matches values {:?}. Known variants: {:?}",
-            spec.name,
-            spec.variant_values,
-            known_variants
-        ),
-        _ => {
-            // When ambiguous, use the same default ranking as the reduction graph:
-            // variants whose remaining (unmatched) fields are closest to defaults
-            // (SimpleGraph, One, KN) win. This matches variants_for() sort order.
-            let default_rank = |v: &BTreeMap<String, String>| -> usize {
-                v.values()
-                    .filter(|val| {
-                        !spec.variant_values.contains(val)
-                            && !["SimpleGraph", "One", "KN"].contains(&val.as_str())
-                    })
-                    .count()
-            };
-            let min_rank = matches.iter().map(|v| default_rank(v)).min().unwrap();
-            let best: Vec<_> = matches
-                .iter()
-                .filter(|v| default_rank(v) == min_rank)
-                .collect();
-            if best.len() == 1 {
-                return Ok((*best[0]).clone());
+    for token in &spec.variant_values {
+        let matching_dimensions = token_index
+            .iter()
+            .filter(|(_, values)| values.contains(token))
+            .map(|(dimension, _)| dimension.clone())
+            .collect::<Vec<_>>();
+
+        match matching_dimensions.as_slice() {
+            [] => anyhow::bail!("Unknown variant token \"{}\" for {}", token, spec.name),
+            [dimension] => {
+                if !updated_dimensions.insert(dimension.clone()) {
+                    anyhow::bail!(
+                        "Variant dimension \"{}\" was specified more than once",
+                        dimension
+                    );
+                }
+                resolved.insert(dimension.clone(), token.clone());
             }
-            anyhow::bail!(
-                "Ambiguous variant for {} with values {:?}. Matches: {:?}",
-                spec.name,
-                spec.variant_values,
-                matches
-            )
+            _ => {
+                let dimensions = matching_dimensions.join(" and ");
+                anyhow::bail!(
+                    "Token \"{}\" is ambiguous for {}; matches dimensions {}",
+                    token,
+                    spec.name,
+                    dimensions
+                );
+            }
         }
     }
+
+    if known_variants.iter().any(|variant| variant == &resolved) {
+        Ok(resolved)
+    } else {
+        anyhow::bail!(
+            "Resolved variant {} is not declared for {}",
+            format_variant(&resolved),
+            spec.name
+        )
+    }
 }
+
+/// Parse the problem name from a spec string, resolving aliases.
+///
+/// Accepts both bare names ("MIS") and slash specs ("MIS/UnitDiskGraph").
+/// Returns just the canonical name (alias-resolved).
+#[cfg(test)]
+pub fn parse_problem_type(input: &str) -> anyhow::Result<String> {
+    let parts: Vec<&str> = input.split('/').collect();
+    Ok(resolve_alias(parts[0]))
+}
+
+/// Resolve a problem spec to a specific graph node using declared defaults.
+///
+/// For bare names (no slash), returns the declared default variant.
+/// For slash specs, resolves variant values against known variants.
+pub fn resolve_problem_ref(
+    input: &str,
+    graph: &problemreductions::rules::ReductionGraph,
+) -> anyhow::Result<ProblemRef> {
+    let spec = parse_problem_spec(input)?;
+    let known_variants = graph.variants_for(&spec.name);
+
+    if known_variants.is_empty() {
+        anyhow::bail!("{}", unknown_problem_error(&spec.name));
+    }
+
+    let default_variant = graph
+        .default_variant_for(&spec.name)
+        .ok_or_else(|| anyhow::anyhow!("No default variant declared for {}", spec.name))?;
+
+    let resolved = resolve_variant_updates(&spec, &default_variant, &known_variants)?;
+    Ok(ProblemRef {
+        name: spec.name,
+        variant: resolved,
+    })
+}
+
+use problemreductions::export::ProblemRef;
 
 /// A value parser that accepts any string but provides problem names as
 /// completion candidates for shell completion scripts.
@@ -171,11 +187,14 @@ impl clap::builder::TypedValueParser for ProblemNameParser {
     }
 
     fn possible_values(&self) -> Option<Box<dyn Iterator<Item = clap::builder::PossibleValue>>> {
-        let graph = problemreductions::rules::ReductionGraph::new();
-        let mut names: Vec<&'static str> = graph.problem_types();
-        for (alias, _) in ALIASES {
-            names.push(alias);
+        let mut names = Vec::new();
+        for pt in problemreductions::registry::problem_types() {
+            names.push(pt.canonical_name);
+            for alias in pt.aliases {
+                names.push(alias);
+            }
         }
+
         names.sort();
         names.dedup();
         Some(Box::new(
@@ -186,24 +205,19 @@ impl clap::builder::TypedValueParser for ProblemNameParser {
 
 /// Find the closest matching problem names using edit distance.
 pub fn suggest_problem_name(input: &str) -> Vec<String> {
-    let graph = problemreductions::rules::ReductionGraph::new();
-    let all_names = graph.problem_types();
-
     let input_lower = input.to_lowercase();
     let mut suggestions: Vec<(String, usize)> = Vec::new();
 
-    for name in all_names {
-        let dist = edit_distance(&input_lower, &name.to_lowercase());
+    for problem_type in problemreductions::registry::problem_types() {
+        let dist = edit_distance(&input_lower, &problem_type.canonical_name.to_lowercase());
         if dist <= 3 {
-            suggestions.push((name.to_string(), dist));
+            suggestions.push((problem_type.canonical_name.to_string(), dist));
         }
-    }
-
-    // Also check aliases
-    for (alias, canonical) in ALIASES {
-        let dist = edit_distance(&input_lower, &alias.to_lowercase());
-        if dist <= 2 {
-            suggestions.push((canonical.to_string(), dist));
+        for alias in problem_type.aliases {
+            let dist = edit_distance(&input_lower, &alias.to_lowercase());
+            if dist <= 2 {
+                suggestions.push((problem_type.canonical_name.to_string(), dist));
+            }
         }
     }
 
@@ -260,7 +274,9 @@ mod tests {
         assert_eq!(resolve_alias("mis"), "MaximumIndependentSet");
         assert_eq!(resolve_alias("MVC"), "MinimumVertexCover");
         assert_eq!(resolve_alias("SAT"), "Satisfiability");
-        assert_eq!(resolve_alias("3SAT"), "KSatisfiability");
+        assert_eq!(resolve_alias("X3C"), "ExactCoverBy3Sets");
+        // 3SAT is no longer a registered alias (removed to avoid confusion with KSatisfiability/KN)
+        assert_eq!(resolve_alias("3SAT"), "3SAT"); // pass-through
         assert_eq!(resolve_alias("QUBO"), "QUBO");
         assert_eq!(resolve_alias("MaxCut"), "MaxCut");
         // Pass-through for full names
@@ -292,8 +308,15 @@ mod tests {
     }
 
     #[test]
-    fn test_parse_problem_spec_3sat_alias() {
-        let spec = parse_problem_spec("3SAT").unwrap();
+    fn test_parse_problem_spec_ksat_alias() {
+        let spec = parse_problem_spec("KSAT").unwrap();
+        assert_eq!(spec.name, "KSatisfiability");
+        assert!(spec.variant_values.is_empty());
+    }
+
+    #[test]
+    fn test_parse_problem_spec_ksat_k3() {
+        let spec = parse_problem_spec("KSAT/K3").unwrap();
         assert_eq!(spec.name, "KSatisfiability");
         assert_eq!(spec.variant_values, vec!["K3"]);
     }
@@ -335,5 +358,127 @@ mod tests {
         assert_eq!(edit_distance("abc", "ab"), 1);
         assert_eq!(edit_distance("abc", "axc"), 1);
         assert_eq!(edit_distance("kitten", "sitting"), 3);
+    }
+
+    // ---- parse_problem_type ----
+
+    #[test]
+    fn parse_problem_type_bare_name() {
+        // Bare name resolves alias
+        assert_eq!(parse_problem_type("MIS").unwrap(), "MaximumIndependentSet");
+        assert_eq!(parse_problem_type("QUBO").unwrap(), "QUBO");
+    }
+
+    #[test]
+    fn parse_problem_type_with_slash() {
+        // Slash specs extract the problem name portion
+        assert_eq!(
+            parse_problem_type("MIS/UnitDiskGraph").unwrap(),
+            "MaximumIndependentSet"
+        );
+    }
+
+    #[test]
+    fn parse_problem_type_ksat_alias() {
+        assert_eq!(parse_problem_type("KSAT").unwrap(), "KSatisfiability");
+    }
+
+    // ---- resolve_problem_ref ----
+
+    #[test]
+    fn resolve_problem_ref_bare_mis() {
+        // Bare MIS should resolve to the declared default variant
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let r = resolve_problem_ref("MIS", &graph).unwrap();
+        assert_eq!(r.name, "MaximumIndependentSet");
+        assert_eq!(
+            r.variant.get("graph").map(|s| s.as_str()),
+            Some("SimpleGraph")
+        );
+        assert_eq!(r.variant.get("weight").map(|s| s.as_str()), Some("One"));
+    }
+
+    #[test]
+    fn resolve_problem_ref_with_slash_updates() {
+        // Slash spec resolves to a specific variant
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let r = resolve_problem_ref("MIS/UnitDiskGraph", &graph).unwrap();
+        assert_eq!(r.name, "MaximumIndependentSet");
+        assert_eq!(
+            r.variant.get("graph").map(|s| s.as_str()),
+            Some("UnitDiskGraph")
+        );
+    }
+
+    #[test]
+    fn resolve_problem_ref_rejects_duplicate_dimension_updates() {
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let err = resolve_problem_ref("MIS/One/i32", &graph).unwrap_err();
+        assert!(
+            err.to_string().contains("specified more than once"),
+            "expected duplicate-dimension error, got: {err}"
+        );
+    }
+
+    #[test]
+    fn resolve_problem_ref_unknown_problem() {
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let err = resolve_problem_ref("NonExistent", &graph).unwrap_err();
+        assert!(err.to_string().contains("Unknown problem"));
+    }
+
+    // ---- catalog-backed resolution ----
+
+    #[test]
+    fn resolve_problem_ref_bare_mis_uses_catalog_default() {
+        // Bare MIS resolves through catalog to the declared default variant
+        let graph = problemreductions::rules::ReductionGraph::new();
+        let r = resolve_problem_ref("MIS", &graph).unwrap();
+        assert_eq!(r.name, "MaximumIndependentSet");
+        // Catalog declares SimpleGraph + One as defaults
+        assert_eq!(
+            r.variant.get("graph").map(|s| s.as_str()),
+            Some("SimpleGraph")
+        );
+        assert_eq!(r.variant.get("weight").map(|s| s.as_str()), Some("One"));
+    }
+
+    #[test]
+    fn parse_problem_type_extracts_name_from_variant_spec() {
+        // parse_problem_type extracts just the problem name from a variant spec
+        assert_eq!(
+            parse_problem_type("MIS/UnitDiskGraph/i32").unwrap(),
+            "MaximumIndependentSet"
+        );
+    }
+
+    #[test]
+    fn resolve_catalog_problem_ref_validates_against_schema() {
+        // Schema-valid values should resolve
+        let r = resolve_catalog_problem_ref("MIS/i32").unwrap();
+        assert_eq!(r.name(), "MaximumIndependentSet");
+        assert_eq!(r.variant().get("weight").map(|s| s.as_str()), Some("i32"));
+    }
+
+    #[test]
+    fn resolve_catalog_problem_ref_rejects_schema_invalid_variant() {
+        // HyperGraph is not in MIS's declared dimensions
+        let err = resolve_catalog_problem_ref("MIS/HyperGraph").unwrap_err();
+        assert!(
+            err.to_string().contains("Known variants"),
+            "error should mention known variants: {}",
+            err
+        );
+    }
+
+    #[test]
+    fn resolve_catalog_problem_ref_fills_defaults() {
+        // Bare MIS should fill in all defaults from catalog
+        let r = resolve_catalog_problem_ref("MIS").unwrap();
+        assert_eq!(
+            r.variant().get("graph").map(|s| s.as_str()),
+            Some("SimpleGraph")
+        );
+        assert_eq!(r.variant().get("weight").map(|s| s.as_str()), Some("One"));
     }
 }

@@ -17,10 +17,14 @@
 //!
 //! Use [`prelude`] for convenient imports.
 
+extern crate self as problemreductions;
+
 pub(crate) mod big_o;
 pub(crate) mod canonical;
 pub mod config;
 pub mod error;
+#[cfg(feature = "example-db")]
+pub mod example_db;
 pub mod export;
 pub(crate) mod expr;
 pub mod io;
@@ -40,16 +44,22 @@ pub mod prelude {
     // Problem types
     pub use crate::models::algebraic::{BMF, QUBO};
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
-    pub use crate::models::graph::{BicliqueCover, GraphPartitioning, SpinGlass};
+    pub use crate::models::graph::{
+        BicliqueCover, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, SpinGlass,
+        SubgraphIsomorphism,
+    };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumDominatingSet, MinimumFeedbackVertexSet, MinimumVertexCover, TravelingSalesman,
+        MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
+        MinimumSumMulticenter, MinimumVertexCover, OptimalLinearArrangement,
+        PartitionIntoTriangles, RuralPostman, TravelingSalesman,
     };
     pub use crate::models::misc::{
-        BinPacking, Factoring, Knapsack, LongestCommonSubsequence, PaintShop,
-        SequencingWithReleaseTimesAndDeadlines, SubsetSum,
+        BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
+        MinimumTardinessSequencing, PaintShop, SequencingWithReleaseTimesAndDeadlines,
+        ShortestCommonSupersequence, SubsetSum,
     };
-    pub use crate::models::set::{MaximumSetPacking, MinimumSetCovering};
+    pub use crate::models::set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering};
 
     // Core traits
     pub use crate::rules::{ReduceTo, ReductionResult};

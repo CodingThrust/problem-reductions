@@ -9,80 +9,50 @@ Resolve PR review comments, fix CI failures, and address codecov coverage gaps f
 
 ## Step 1: Gather PR State
 
-**IMPORTANT:** Do NOT use `gh api --jq` for extracting data — it uses a built-in jq that
-chokes on response bodies containing backslashes (common in Copilot code suggestions).
-Always pipe to `python3 -c` instead. (`gh pr view --jq` is fine — only `gh api --jq` is affected.)
+Step 1 should be a single report-generation step. Use the shared scripted helper to produce one skill-readable PR context packet. Do not rebuild this logic inline with `gh api | python3 -c` unless you are debugging the helper itself.
 
 ```bash
-# Get repo identifiers
-REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)  # e.g., "owner/repo"
-
-# Get PR number
-PR=$(gh pr view --json number --jq .number)
-
-# Get PR head SHA (on remote)
-HEAD_SHA=$(gh api repos/$REPO/pulls/$PR | python3 -c "import sys,json; print(json.load(sys.stdin)['head']['sha'])")
+REPORT=$(python3 scripts/pipeline_pr.py context --current --format text)
+printf '%s\n' "$REPORT"
 ```
+
+The report should already include:
+- repo, PR number, title, URL, head SHA
+- comment counts
+- CI summary
+- Codecov summary
+- linked issue context
+
+Use the values printed in that report for the rest of this skill. If you absolutely need raw structured data for a corner case, rerun the same command with `--format json`, but do not rebuild Step 1 manually.
 
 ### 1a. Fetch Review Comments
 
 **Check ALL four sources.** User inline comments are the most commonly missed — do not skip any.
 
-```bash
-# 1. Inline review comments on code lines (from ALL reviewers: users AND Copilot)
-gh api repos/$REPO/pulls/$PR/comments | python3 -c "
-import sys,json
-comments = json.load(sys.stdin)
-print(f'=== Inline comments: {len(comments)} ===')
-for c in comments:
-    line = c.get('line') or c.get('original_line') or '?'
-    print(f'[{c[\"user\"][\"login\"]}] {c[\"path\"]}:{line} — {c[\"body\"][:200]}')
-"
+Start from the report's `Comment Summary`. It should tell you whether any source is non-empty before you inspect raw threads.
 
-# 2. Review-level comments (top-level review body from formal reviews)
-gh api repos/$REPO/pulls/$PR/reviews | python3 -c "
-import sys,json
-reviews = json.load(sys.stdin)
-print(f'=== Reviews: {len(reviews)} ===')
-for r in reviews:
-    if r.get('body'):
-        print(f'[{r[\"user\"][\"login\"]}] {r[\"state\"]}: {r[\"body\"][:200]}')
-"
-
-# 3. Issue-level comments (general discussion)
-gh api repos/$REPO/issues/$PR/comments | python3 -c "
-import sys,json
-comments = [c for c in json.load(sys.stdin) if 'codecov' not in c['user']['login']]
-print(f'=== Issue comments: {len(comments)} ===')
-for c in comments:
-    print(f'[{c[\"user\"][\"login\"]}] {c[\"body\"][:200]}')
-"
-```
-
-**Verify counts:** If any source returns 0, confirm it's genuinely empty — don't assume no feedback exists.
+If you need the raw comment arrays for detailed triage, rerun `python3 scripts/pipeline_pr.py context --current --format json` and inspect:
+- `comments["inline_comments"]`
+- `comments["reviews"]`
+- `comments["human_issue_comments"]`
+- `comments["human_linked_issue_comments"]`
+- `comments["codecov_comments"]`
 
 ### 1b. Check CI Status
 
-```bash
-# All check runs on the PR head
-gh api repos/$REPO/commits/$HEAD_SHA/check-runs | python3 -c "
-import sys,json
-for cr in json.load(sys.stdin)['check_runs']:
-    print(f'{cr[\"name\"]}: {cr.get(\"conclusion\") or cr[\"status\"]}')
-"
-```
+Read the report's `CI Summary`. The structured JSON fallback includes:
+- `state` — `pending`, `failure`, or `success`
+- `runs` — normalized check-run details
+- `pending` / `failing` / `succeeding` counts
 
 ### 1c. Check Codecov Report
 
-```bash
-# Codecov bot comment with coverage diff
-gh api repos/$REPO/issues/$PR/comments | python3 -c "
-import sys,json
-for c in json.load(sys.stdin):
-    if c['user']['login'] == 'codecov[bot]':
-        print(c['body'])
-"
-```
+Read the report's `Codecov` section. The structured JSON fallback includes:
+- `found` — whether a Codecov comment is present
+- `patch_coverage`
+- `project_coverage`
+- `filepaths` — deduplicated paths referenced by Codecov links
+- `body` — the raw latest Codecov comment body
 
 ## Step 2: Triage and Prioritize
 
@@ -130,23 +100,10 @@ Copilot suggestions with `suggestion` blocks contain exact code. Evaluate each:
 
 ### 5a. Identify Uncovered Lines
 
-From the codecov bot comment (fetched in Step 1c), extract:
+From the `CODECOV` JSON (fetched in Step 1c), extract:
 - Files with missing coverage
 - Patch coverage percentage
-- Specific uncovered lines (linked in the report)
-
-For detailed line-by-line coverage, use the Codecov API:
-
-```bash
-# Get file-level coverage for the PR
-gh api repos/$REPO/issues/$PR/comments | python3 -c "
-import sys,json,re
-for c in json.load(sys.stdin):
-    if c['user']['login'] == 'codecov[bot]':
-        for m in re.findall(r'filepath=([^&\"]+)', c['body']):
-            print(m)
-"
-```
+- Specific uncovered files referenced in `filepaths`
 
 Then read the source files and identify which new/changed lines lack test coverage.
 
