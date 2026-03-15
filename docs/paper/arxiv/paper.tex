@@ -8,12 +8,11 @@
 \usepackage{listings}
 \usepackage{hyperref}
 \usepackage{cleveref}
-\usepackage{tikz}
-\usetikzlibrary{arrows.meta,positioning,calc}
+% TikZ removed — all diagrams are now Typst-compiled PDFs
 
 \begin{document}
 
-\title{Bridging NP-Hard Problems: Scaling Software Beyond Human Capacity with Agentic Coding}
+\title{Grand Assembly of Computational Hard Problems: The Art of Agentic Coding}
 
 \author{...}  % placeholder
 
@@ -23,11 +22,11 @@
 A unified library of reductions between NP-hard problems would let practitioners route any supported problem to a specialized solver---quantum hardware, commercial optimizers, or domain-specific algorithms---through a single interface.
 Yet building such a library by human effort alone is impractical: it requires many researchers to adopt a common language and conventions, and demands continuous full-time maintenance as new reduction rules are discovered.
 We show that AI coding agents, guided by a system of reusable \emph{skills}---versioned, composable workflow documents that encode project conventions and domain knowledge---can overcome these barriers.
-We demonstrate the approach by building a directed reduction graph of 27~problem types and 45~verified transformation rules, and make three contributions.
+We demonstrate the approach by building a large library of problem reductions. During this process, we make three contributions.
 First, a \emph{no-code contribution route}: domain experts contribute reductions by filing structured issues with AI assistance, requiring no knowledge of the implementation language or codebase.
-Second, a \emph{seven-layer verification stack} that ensures correctness and quality---an automated quality gate rejected 75\% of 322~batch-submitted proposals as incorrect or incomplete.
+Second, a \emph{seven-layer verification stack} that enforces mathematical correctness, culminating in \emph{agentic feature tests}---AI agents that act as first-time users, exercising the library end-to-end---replacing the years of community trial-and-error traditionally needed to surface integration bugs.
 Third, a \emph{fully automated pipeline} that enables sustainable maintenance by a single maintainer, with an onboarding path that lets a new maintainer take over the project in half a day.
-Over nine weeks, a single maintainer and AI agents produced a Rust library with $>$95\% test coverage and a 15:1 ratio of agent-to-human messages.
+Building such a stack takes approximately ten weeks. Now we have $>100$ problems in the package. We show that AI agents can produce correct and maintainable software beyond the scale of human capabilities, while human developers can focus on the creative parts.
 \end{abstract}
 
 %======================================================================
@@ -325,16 +324,7 @@ The pipeline uses agents in three distinct roles, each backed by a set of skills
 \emph{Mentors} (4~skills) interact with humans.
 %
 \begin{center}
-\begin{tikzpicture}[node distance=0.4cm and 0.6cm,
-  box/.style={draw, rounded corners=2pt, font=\scriptsize, minimum height=1.6em, inner sep=3pt},
-  arr/.style={-{Stealth[length=3pt]}},
-]
-\node[box] (contrib) {Contributor};
-\node[box, right=0.8cm of contrib] (mentor) {Mentor};
-\node[box, below=0.3cm of $(contrib)!0.5!(mentor)$] (issue) {GitHub Issue};
-\draw[arr, <->] (contrib) -- node[above, font=\tiny] {interactive} (mentor);
-\draw[arr] (mentor) -- (issue);
-\end{tikzpicture}
+\includegraphics[height=1.8cm]{figures/role-mentor.pdf}
 \end{center}
 %
 \noindent
@@ -347,20 +337,7 @@ The \texttt{dev-setup} skill onboards new developers.
 \emph{Orchestrators} (5~skills) manage the pipeline.
 %
 \begin{center}
-\begin{tikzpicture}[node distance=0.4cm and 0.5cm,
-  box/.style={draw, rounded corners=2pt, font=\scriptsize, minimum height=1.6em, inner sep=3pt},
-  arr/.style={-{Stealth[length=3pt]}},
-]
-\node[box] (maint) {Maintainer};
-\node[box, right=0.5cm of maint] (board) {Board};
-\node[box, right=0.5cm of board] (orch) {Orchestrator};
-\node[box, right=0.5cm of orch] (pr) {PR};
-\node[box, right=0.5cm of pr] (maint2) {Maintainer};
-\draw[arr] (maint) -- node[above, font=\tiny] {ready} (board);
-\draw[arr] (board) -- node[above, font=\tiny] {pick} (orch);
-\draw[arr] (orch) -- node[above, font=\tiny] {create} (pr);
-\draw[arr] (pr) -- node[above, font=\tiny] {merge} (maint2);
-\end{tikzpicture}
+\includegraphics[width=\columnwidth]{figures/role-orchestrator.pdf}
 \end{center}
 %
 \noindent
@@ -372,16 +349,7 @@ The maintainer makes exactly two decisions: moving an issue from Backlog to Read
 \emph{Runners} (7~skills) execute.
 %
 \begin{center}
-\begin{tikzpicture}[node distance=0.4cm and 0.6cm,
-  box/.style={draw, rounded corners=2pt, font=\scriptsize, minimum height=1.6em, inner sep=3pt},
-  arr/.style={-{Stealth[length=3pt]}},
-]
-\node[box] (runner) {Runner};
-\node[box, below left=0.3cm and 0.1cm of runner] (code) {Code + Tests};
-\node[box, below right=0.3cm and 0.1cm of runner] (paper) {Paper Entry};
-\draw[arr] (runner) -- (code);
-\draw[arr] (runner) -- (paper);
-\end{tikzpicture}
+\includegraphics[height=1.8cm]{figures/role-runner.pdf}
 \end{center}
 %
 \noindent
@@ -420,62 +388,7 @@ The library comprises 14~skills in six categories: orchestration~(3), community 
 
 \begin{figure}[t]
 \centering
-\begin{tikzpicture}[
-  core/.style={draw, rounded corners=3pt, font=\scriptsize\ttfamily,
-               fill=black!8, minimum height=1.8em, inner sep=4pt,
-               line width=0.6pt},
-  skill/.style={draw, rounded corners=2pt, font=\tiny\ttfamily,
-                minimum height=1.5em, inner sep=2.5pt, line width=0.4pt},
-  cat/.style={font=\tiny\sffamily\bfseries, text=black!50},
-  link/.style={-{Stealth[length=2.5pt]}, thin, black!40},
-]
-% --- Center: CLAUDE.md ---
-\node[core, fill=blue!12, draw=blue!50, font=\scriptsize\ttfamily\bfseries,
-      minimum width=1.6cm]
-  (claude) {CLAUDE.md};
-
-% --- Key project files (cardinal directions, close to center) ---
-\node[core, above=0.35cm of claude]            (traits) {src/traits.rs};
-\node[core, below=0.35cm of claude]            (make)   {Makefile};
-\node[core, left=0.45cm of claude, anchor=east]  (models) {src/models/};
-\node[core, right=0.45cm of claude, anchor=west] (rules)  {src/rules/};
-
-\draw[link] (claude) -- (traits);
-\draw[link] (claude) -- (make);
-\draw[link] (claude) -- (models);
-\draw[link] (claude) -- (rules);
-
-% --- Skill groups (corners, well outside inner ring) ---
-% Top-left: Orchestration
-\node[cat] at (-2.7, 2.0) (orch-label) {orchestration};
-\node[skill, below=1pt of orch-label]  (s1) {project-pipeline};
-\node[skill, below=1pt of s1]          (s2) {review-pipeline};
-\node[skill, below=1pt of s2]          (s3) {issue-to-pr};
-
-% Top-right: Quality gates
-\node[cat] at (2.7, 2.0) (qa-label) {quality gates};
-\node[skill, below=1pt of qa-label]    (s4) {check-issue};
-\node[skill, below=1pt of s4]          (s5) {review-impl};
-\node[skill, below=1pt of s5]          (s6) {fix-pr};
-\node[skill, below=1pt of s6]          (s7) {topology-check};
-
-% Bottom-left: Implementation
-\node[cat] at (-2.7, -1.1) (impl-label) {implementation};
-\node[skill, below=1pt of impl-label]  (s8) {add-model};
-\node[skill, below=1pt of s8]          (s9) {add-rule};
-
-% Bottom-right: Docs / community
-\node[cat] at (2.7, -1.1) (doc-label) {docs / community};
-\node[skill, below=1pt of doc-label]   (s10) {write-in-paper};
-\node[skill, below=1pt of s10]         (s11) {propose};
-\node[skill, below=1pt of s11]         (s12) {dev-setup};
-
-% --- Dashed links from skill groups to center ---
-\draw[link, dashed] (s3.east)   -- (claude.north west);
-\draw[link, dashed] (s7.west)   -- (claude.north east);
-\draw[link, dashed] (s9.east)   -- (claude.south west);
-\draw[link, dashed] (s12.west)  -- (claude.south east);
-\end{tikzpicture}
+\includegraphics[width=\columnwidth]{figures/skill-map.pdf}
 \caption{Project knowledge architecture.
   \texttt{CLAUDE.md} defines conventions, architecture, and commands;
   skills in four categories encode reusable workflows that reference it.
