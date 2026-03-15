@@ -210,8 +210,7 @@ fn test_write_example_db_uses_one_line_per_example_entry() {
         "model entry should be serialized as one compact JSON object line"
     );
     assert!(
-        rule_line.trim().starts_with('{')
-            && rule_line.trim().trim_end_matches(',').ends_with('}'),
+        rule_line.trim().starts_with('{') && rule_line.trim().trim_end_matches(',').ends_with('}'),
         "rule entry should be serialized as one compact JSON object line"
     );
 

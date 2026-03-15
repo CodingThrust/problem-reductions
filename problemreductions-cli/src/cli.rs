@@ -224,6 +224,7 @@ Flags by problem type:
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
   IsomorphicSpanningTree          --graph, --tree
+  KthBestSpanningTree             --graph, --edge-weights, --k, --bound
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   SubsetSum                       --sizes, --target

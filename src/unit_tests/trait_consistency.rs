@@ -119,6 +119,15 @@ fn test_all_problems_implement_trait_correctly() {
         "IsomorphicSpanningTree",
     );
     check_problem_trait(
+        &KthBestSpanningTree::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]),
+            vec![1, 1, 1],
+            1,
+            2,
+        ),
+        "KthBestSpanningTree",
+    );
+    check_problem_trait(
         &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3),
         "ShortestCommonSupersequence",
     );

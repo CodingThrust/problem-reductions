@@ -226,6 +226,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
+        "KthBestSpanningTree" => "--graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
             "--graph 0-1,1-2,2-3 --edge-weights 1,1,1"
         }
@@ -416,6 +417,33 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let tree = SimpleGraph::new(tree_num_vertices, tree_edges);
             (
                 ser(problemreductions::models::graph::IsomorphicSpanningTree::new(graph, tree))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // KthBestSpanningTree (weighted graph + k + bound)
+        "KthBestSpanningTree" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create KthBestSpanningTree --graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3"
+                )
+            })?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            let (k, _variant) =
+                util::validate_k_param(&resolved_variant, args.k, None, "KthBestSpanningTree")?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "KthBestSpanningTree requires --bound\n\n\
+                     Usage: pred create KthBestSpanningTree --graph 0-1,0-2,1-2 --edge-weights 2,3,1 --k 1 --bound 3"
+                )
+            })? as i32;
+            (
+                ser(problemreductions::models::graph::KthBestSpanningTree::new(
+                    graph,
+                    edge_weights,
+                    k,
+                    bound,
+                ))?,
                 resolved_variant.clone(),
             )
         }

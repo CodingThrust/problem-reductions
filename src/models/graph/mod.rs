@@ -10,6 +10,7 @@
 //! - [`MaxCut`]: Maximum cut on weighted graphs
 //! - [`GraphPartitioning`]: Minimum bisection (balanced graph partitioning)
 //! - [`IsomorphicSpanningTree`]: Isomorphic spanning tree (satisfaction)
+//! - [`KthBestSpanningTree`]: K distinct bounded spanning trees (satisfaction)
 //! - [`KColoring`]: K-vertex coloring
 //! - [`PartitionIntoTriangles`]: Partition vertices into triangles
 //! - [`MaximumMatching`]: Maximum weight matching
@@ -28,6 +29,7 @@ pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_path;
 pub(crate) mod isomorphic_spanning_tree;
 pub(crate) mod kcoloring;
+pub(crate) mod kth_best_spanning_tree;
 pub(crate) mod max_cut;
 pub(crate) mod maximal_is;
 pub(crate) mod maximum_clique;
@@ -50,6 +52,7 @@ pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_path::HamiltonianPath;
 pub use isomorphic_spanning_tree::IsomorphicSpanningTree;
 pub use kcoloring::KColoring;
+pub use kth_best_spanning_tree::KthBestSpanningTree;
 pub use max_cut::MaxCut;
 pub use maximal_is::MaximalIS;
 pub use maximum_clique::MaximumClique;
@@ -76,6 +79,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(hamiltonian_path::canonical_model_example_specs());
     specs.extend(isomorphic_spanning_tree::canonical_model_example_specs());
     specs.extend(kcoloring::canonical_model_example_specs());
+    specs.extend(kth_best_spanning_tree::canonical_model_example_specs());
     specs.extend(minimum_dominating_set::canonical_model_example_specs());
     specs.extend(maximum_matching::canonical_model_example_specs());
     specs.extend(traveling_salesman::canonical_model_example_specs());
