@@ -104,8 +104,9 @@ impl PartiallyOrderedKnapsack {
     /// * `capacity` - Knapsack capacity B
     ///
     /// # Panics
-    /// Panics if `sizes` and `values` have different lengths, or if any precedence
-    /// index is out of bounds.
+    /// Panics if `sizes` and `values` have different lengths, if any size or
+    /// capacity is negative, if any precedence index is out of bounds, or if
+    /// the precedences contain a cycle.
     pub fn new(
         sizes: Vec<i64>,
         values: Vec<i64>,
@@ -117,12 +118,23 @@ impl PartiallyOrderedKnapsack {
             values.len(),
             "sizes and values must have the same length"
         );
+        assert!(capacity >= 0, "capacity must be non-negative");
+        for (i, &s) in sizes.iter().enumerate() {
+            assert!(s >= 0, "size[{i}] must be non-negative, got {s}");
+        }
         let n = sizes.len();
         for &(a, b) in &precedences {
             assert!(a < n, "precedence index {a} out of bounds (n={n})");
             assert!(b < n, "precedence index {b} out of bounds (n={n})");
         }
         let predecessors = Self::compute_predecessors(&precedences, n);
+        // Check for cycles: if any item is its own transitive predecessor, the DAG has a cycle
+        for i in 0..n {
+            assert!(
+                !predecessors[i].contains(&i),
+                "precedences contain a cycle involving item {i}"
+            );
+        }
         Self {
             sizes,
             values,
@@ -254,6 +266,28 @@ impl OptimizationProblem for PartiallyOrderedKnapsack {
 
 crate::declare_variants! {
     default opt PartiallyOrderedKnapsack => "2^num_items",
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "partially_ordered_knapsack",
+        build: || {
+            use crate::solvers::BruteForce;
+            let problem = PartiallyOrderedKnapsack::new(
+                vec![2, 3, 4, 1, 2, 3],
+                vec![3, 2, 5, 4, 3, 8],
+                vec![(0, 2), (0, 3), (1, 4), (3, 5), (4, 5)],
+                11,
+            );
+            let sample = BruteForce::new()
+                .find_all_best(&problem)
+                .into_iter()
+                .next()
+                .expect("partially_ordered_knapsack example should solve");
+            crate::example_db::specs::optimization_example(problem, vec![sample])
+        },
+    }]
 }
 
 #[cfg(test)]
