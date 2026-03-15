@@ -20,6 +20,23 @@ skill_prompt() {
     fi
 }
 
+# Build a prompt and optionally append structured context for Codex.
+#   skill_prompt_with_context <skill> <slash-cmd> <codex-desc> <context-label> <context-json>
+skill_prompt_with_context() {
+    skill=$1
+    slash_cmd=$2
+    codex_desc=${3-}
+    context_label=${4-}
+    context_json=${5-}
+
+    base_prompt=$(skill_prompt "$skill" "$slash_cmd" "$codex_desc")
+    if [ "${RUNNER:-codex}" = "claude" ] || [ -z "$context_json" ]; then
+        echo "$base_prompt"
+    else
+        printf '%s\n\n## %s\n%s\n' "$base_prompt" "$context_label" "$context_json"
+    fi
+}
+
 # Run an agent with the configured runner (claude or codex).
 #   run_agent <log-file> <prompt>
 run_agent() {

@@ -343,13 +343,13 @@ Keep:
 - [x] Rewrite `project-pipeline` to call scripts for board/worktree actions
 - [x] Rewrite `review-pipeline` to call scripts for board selection, PR context, CI wait, and cleanup
 - [x] Rewrite `final-review`, `issue-to-pr`, and `fix-pr` similarly
-- [ ] Remove long shell snippets that duplicate script behavior
+- [x] Remove long shell snippets that duplicate script behavior
 
 ### Task 6: Makefile cleanup
 
 - [x] Add board/pr/worktree helper targets
 - [x] Keep existing public targets stable
-- [ ] Make prompt generation consume script output instead of duplicating selection logic in prose
+- [x] Make prompt generation consume script output instead of duplicating selection logic in prose
 
 ---
 

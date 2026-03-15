@@ -1,7 +1,9 @@
 #!/usr/bin/env python3
 import unittest
+from unittest import mock
 
 from pipeline_worktree import (
+    prepare_issue_branch,
     plan_issue_worktree,
     plan_pr_worktree,
     summarize_merge,
@@ -85,6 +87,62 @@ class PipelineWorktreeTests(unittest.TestCase):
 
         self.assertEqual(summary["status"], "aborted")
         self.assertFalse(summary["likely_complex"])
+
+    @mock.patch("pipeline_worktree.run_git_checked")
+    @mock.patch("pipeline_worktree.run_git")
+    def test_prepare_issue_branch_creates_new_branch_when_missing(
+        self,
+        run_git: mock.Mock,
+        run_git_checked: mock.Mock,
+    ) -> None:
+        run_git.side_effect = [
+            "",  # git status --porcelain
+            "abc123\n",  # rev-parse main
+            "def456\n",  # rev-parse HEAD
+        ]
+
+        with mock.patch("pipeline_worktree.branch_exists", return_value=False):
+            result = prepare_issue_branch(
+                issue_number=117,
+                slug="Graph Partitioning",
+                base_ref="main",
+                repo_root="/tmp/problemreductions",
+            )
+
+        self.assertEqual(result["branch"], "issue-117-graph-partitioning")
+        self.assertEqual(result["action"], "create-branch")
+        self.assertFalse(result["existing_branch"])
+        tails = [call.args[1:] for call in run_git_checked.call_args_list]
+        self.assertIn(("checkout", "main"), tails)
+        self.assertIn(("checkout", "-b", "issue-117-graph-partitioning"), tails)
+
+    @mock.patch("pipeline_worktree.run_git_checked")
+    @mock.patch("pipeline_worktree.run_git")
+    def test_prepare_issue_branch_reuses_existing_branch(
+        self,
+        run_git: mock.Mock,
+        run_git_checked: mock.Mock,
+    ) -> None:
+        run_git.side_effect = [
+            "",  # git status --porcelain
+            "abc123\n",  # rev-parse main
+            "def456\n",  # rev-parse HEAD
+        ]
+
+        with mock.patch("pipeline_worktree.branch_exists", return_value=True):
+            result = prepare_issue_branch(
+                issue_number=117,
+                slug="Graph Partitioning",
+                base_ref="main",
+                repo_root="/tmp/problemreductions",
+            )
+
+        self.assertEqual(result["branch"], "issue-117-graph-partitioning")
+        self.assertEqual(result["action"], "checkout-existing")
+        self.assertTrue(result["existing_branch"])
+        tails = [call.args[1:] for call in run_git_checked.call_args_list]
+        self.assertIn(("checkout", "main"), tails)
+        self.assertIn(("checkout", "issue-117-graph-partitioning"), tails)
 
 
 if __name__ == "__main__":

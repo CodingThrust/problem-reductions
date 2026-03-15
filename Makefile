@@ -396,7 +396,7 @@ run-pipeline:
 		fi; \
 		issue=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['issue_number'] or data['number'])"); \
 	fi; \
-	PROMPT=$$(skill_prompt project-pipeline "/project-pipeline $$issue" "process GitHub issue $$issue"); \
+	PROMPT=$$(skill_prompt_with_context project-pipeline "/project-pipeline $$issue" "process GitHub issue $$issue" "Selected queue item" "$$selection"); \
 	run_agent "pipeline-output.log" "$$PROMPT"
 
 # Poll Ready column for new issues and run-pipeline when new ones appear
@@ -532,7 +532,7 @@ run-review:
 		fi; \
 		pr=$$(printf '%s\n' "$$selection" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['pr_number'] or data['number'])"); \
 	fi; \
-	PROMPT=$$(skill_prompt review-pipeline "/review-pipeline $$pr" "process PR #$$pr"); \
+	PROMPT=$$(skill_prompt_with_context review-pipeline "/review-pipeline $$pr" "process PR #$$pr" "Selected queue item" "$$selection"); \
 	run_agent "review-output.log" "$$PROMPT"
 
 # Poll Review pool column for Copilot-reviewed PRs and run-review when new ones appear

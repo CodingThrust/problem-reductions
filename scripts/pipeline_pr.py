@@ -435,9 +435,15 @@ def fetch_current_repo() -> str:
 
 
 def fetch_current_pr_data() -> dict:
+    return run_gh_json("pr", "view", "--json", "number,title,headRefName,url")
+
+
+def fetch_current_pr_data_for_repo(repo: str) -> dict:
     return run_gh_json(
         "pr",
         "view",
+        "--repo",
+        repo,
         "--json",
         "number,title,headRefName,url",
     )
@@ -539,6 +545,32 @@ def build_pr_snapshot(repo: str, pr_number: int) -> dict:
     )
 
 
+def create_pr(
+    repo: str,
+    title: str,
+    body_file: str,
+    *,
+    base: str | None = None,
+    head: str | None = None,
+) -> dict:
+    args = [
+        "pr",
+        "create",
+        "--repo",
+        repo,
+        "--title",
+        title,
+        "--body-file",
+        body_file,
+    ]
+    if base:
+        args.extend(["--base", base])
+    if head:
+        args.extend(["--head", head])
+    run_gh_checked(*args)
+    return build_current_pr_context(repo, fetch_current_pr_data_for_repo(repo))
+
+
 def post_pr_comment(repo: str, pr_number: int, body_file: str) -> None:
     run_gh_checked(
         "pr",
@@ -587,6 +619,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
         "wait-ci",
         "codecov",
         "linked-issue",
+        "create",
         "comment",
         "edit-body",
     ]:
@@ -595,10 +628,17 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
             command.add_argument("--format", choices=["json", "text"], default="json")
         else:
             command.add_argument("--repo", required=True)
-            command.add_argument("--pr", required=True, type=int)
+            if name != "create":
+                command.add_argument("--pr", required=True, type=int)
         if name == "wait-ci":
             command.add_argument("--timeout", type=float, default=900)
             command.add_argument("--interval", type=float, default=30)
+        elif name == "create":
+            command.add_argument("--title", required=True)
+            command.add_argument("--body-file", required=True)
+            command.add_argument("--base")
+            command.add_argument("--head")
+            command.add_argument("--format", choices=["json", "text"], default="json")
         elif name in {"comment", "edit-body"}:
             command.add_argument("--body-file", required=True)
         elif name != "current":
@@ -656,6 +696,19 @@ def main(argv: list[str] | None = None) -> int:
                 linked_issue_number=issue_number,
                 linked_issue=issue,
                 linked_issue_comments=issue_comments,
+            ),
+            args.format,
+        )
+        return 0
+
+    if args.command == "create":
+        emit_result(
+            create_pr(
+                args.repo,
+                args.title,
+                args.body_file,
+                base=args.base,
+                head=args.head,
             ),
             args.format,
         )

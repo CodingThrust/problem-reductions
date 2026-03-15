@@ -6,6 +6,7 @@ from pipeline_pr import (
     build_current_pr_context,
     build_linked_issue_result,
     build_snapshot,
+    create_pr,
     edit_pr_body,
     extract_codecov_summary,
     extract_linked_issue_number,
@@ -343,6 +344,46 @@ class PipelinePrHelpersTests(unittest.TestCase):
             ]
         )
 
+    @mock.patch("pipeline_pr.fetch_current_pr_data_for_repo")
+    @mock.patch("pipeline_pr.run_gh_checked")
+    def test_create_pr_uses_gh_pr_create_and_returns_current_context(
+        self,
+        run_gh_checked: mock.Mock,
+        fetch_current_pr_data_for_repo: mock.Mock,
+    ) -> None:
+        fetch_current_pr_data_for_repo.return_value = {
+            "number": 570,
+            "title": "Fix #117: Add GraphPartitioning model",
+            "headRefName": "issue-117-graph-partitioning",
+            "url": "https://github.com/CodingThrust/problem-reductions/pull/570",
+        }
+
+        result = create_pr(
+            "CodingThrust/problem-reductions",
+            "Fix #117: Add GraphPartitioning model",
+            "/tmp/pr-body.md",
+            base="main",
+            head="issue-117-graph-partitioning",
+        )
+
+        run_gh_checked.assert_called_once_with(
+            "pr",
+            "create",
+            "--repo",
+            "CodingThrust/problem-reductions",
+            "--title",
+            "Fix #117: Add GraphPartitioning model",
+            "--body-file",
+            "/tmp/pr-body.md",
+            "--base",
+            "main",
+            "--head",
+            "issue-117-graph-partitioning",
+        )
+        fetch_current_pr_data_for_repo.assert_called_once_with("CodingThrust/problem-reductions")
+        self.assertEqual(result["pr_number"], 570)
+        self.assertEqual(result["repo"], "CodingThrust/problem-reductions")
+
     def test_parse_args_accepts_comment_and_edit_body_commands(self) -> None:
         comment_args = parse_args(
             [
@@ -387,6 +428,26 @@ class PipelinePrHelpersTests(unittest.TestCase):
             ]
         )
         self.assertEqual(linked_issue_args.command, "linked-issue")
+
+        create_args = parse_args(
+            [
+                "create",
+                "--repo",
+                "CodingThrust/problem-reductions",
+                "--title",
+                "Fix #117: Add GraphPartitioning model",
+                "--body-file",
+                "/tmp/pr-body.md",
+                "--base",
+                "main",
+                "--head",
+                "issue-117-graph-partitioning",
+                "--format",
+                "json",
+            ]
+        )
+        self.assertEqual(create_args.command, "create")
+        self.assertEqual(create_args.body_file, "/tmp/pr-body.md")
 
 
 if __name__ == "__main__":

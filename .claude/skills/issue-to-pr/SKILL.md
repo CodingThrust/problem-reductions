@@ -119,14 +119,14 @@ Use the `ISSUE_JSON.action` and `ISSUE_JSON.resume_pr` fields from Step 2.
 
 **If no open PR exists** (`action == "create-pr"`) — create one with only the plan file:
 
-**Pre-flight checks** (before creating the branch):
-1. Verify clean working tree: `git status --porcelain` must be empty. If not, STOP and ask user to stash or commit.
-2. Check if branch already exists: `git rev-parse --verify issue-<number>-<slug> 2>/dev/null`. If it exists, switch to it with `git checkout` (no `-b`) instead of creating a new one.
-
 ```bash
-# Create branch (from main)
-git checkout main
-git rev-parse --verify issue-<number>-<slug> 2>/dev/null && git checkout issue-<number>-<slug> || git checkout -b issue-<number>-<slug>
+# Prepare or reuse the issue branch (this enforces a clean working tree)
+BRANCH_JSON=$(python3 scripts/pipeline_worktree.py prepare-issue-branch \
+  --issue <number> \
+  --slug <slug> \
+  --base main \
+  --format json)
+BRANCH=$(printf '%s\n' "$BRANCH_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['branch'])")
 
 # Stage the plan file
 git add docs/plans/<plan-file>.md
@@ -135,17 +135,27 @@ git add docs/plans/<plan-file>.md
 git commit -m "Add plan for #<number>: <title>"
 
 # Push
-git push -u origin issue-<number>-<slug>
+git push -u origin "$BRANCH"
 
-# Create PR
-gh pr create --title "Fix #<number>: <title>" --body "
+# Create PR body
+PR_BODY_FILE=$(mktemp)
+cat > "$PR_BODY_FILE" <<'EOF'
 ## Summary
 <Brief description>
 
-Fixes #<number>"
+Fixes #<number>
+EOF
 
-# Capture PR number
-PR=$(gh pr view --json number --jq .number)
+# Create PR and capture the created PR number
+PR_JSON=$(python3 scripts/pipeline_pr.py create \
+  --repo "$REPO" \
+  --title "Fix #<number>: <title>" \
+  --body-file "$PR_BODY_FILE" \
+  --base main \
+  --head "$BRANCH" \
+  --format json)
+PR=$(printf '%s\n' "$PR_JSON" | python3 -c "import sys,json; print(json.load(sys.stdin)['pr_number'])")
+rm -f "$PR_BODY_FILE"
 ```
 
 ### 7. Execute Plan (only with `--execute`)
@@ -264,7 +274,7 @@ Run /review-pipeline to process Copilot comments, fix CI, and run agentic tests.
 | Generic plan | Use specifics from the issue, mapped to add-model/add-rule steps |
 | Skipping CLI registration in plan | add-model still requires alias/create/example-db planning, but not manual CLI dispatch-table edits |
 | Not verifying facts from issue | Use WebSearch/WebFetch to cross-check claims |
-| Branch already exists on retry | Check with `git rev-parse --verify` before `git checkout -b` |
-| Dirty working tree | Verify `git status --porcelain` is empty before branching |
+| Branch already exists on retry | Use `pipeline_worktree.py prepare-issue-branch` — it will reuse the existing branch instead of failing on `git checkout -b` |
+| Dirty working tree | Use `pipeline_worktree.py prepare-issue-branch` — it stops before branching if the worktree is dirty |
 | Bundling model + rule in one PR | Each PR must contain exactly one model or one rule — STOP and block if model is missing (Step 3.5) |
 | Plan files left in PR | Delete plan files before final push (Step 7c) |

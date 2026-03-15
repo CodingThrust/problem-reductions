@@ -55,6 +55,52 @@ class MakeHelpersTests(unittest.TestCase):
             ],
         )
 
+    def test_skill_prompt_with_context_appends_json_for_codex(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "RUNNER=codex "
+                    "skill_prompt_with_context review-pipeline '/review-pipeline 570' "
+                    "'process PR #570' 'Selected queue item' '{\"pr_number\":570}'"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn("Use the repo-local skill", proc.stdout)
+        self.assertIn("Selected queue item", proc.stdout)
+        self.assertIn('{"pr_number":570}', proc.stdout)
+
+    def test_skill_prompt_with_context_keeps_claude_slash_command_clean(self) -> None:
+        if shutil.which("dash") is None:
+            self.skipTest("dash is not installed")
+
+        proc = subprocess.run(
+            [
+                "dash",
+                "-c",
+                (
+                    ". scripts/make_helpers.sh; "
+                    "RUNNER=claude "
+                    "skill_prompt_with_context review-pipeline '/review-pipeline 570' "
+                    "'process PR #570' 'Selected queue item' '{\"pr_number\":570}'"
+                ),
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertEqual(proc.stdout.strip(), "/review-pipeline 570")
+
     def test_poll_project_items_uses_pipeline_board_cli(self) -> None:
         if shutil.which("dash") is None:
             self.skipTest("dash is not installed")
@@ -199,6 +245,7 @@ class MakeHelpersTests(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn('board_next_json review "$repo"', proc.stdout)
+        self.assertIn('skill_prompt_with_context review-pipeline', proc.stdout)
 
     def test_make_run_pipeline_uses_scripted_board_selection(self) -> None:
         proc = subprocess.run(
@@ -209,6 +256,7 @@ class MakeHelpersTests(unittest.TestCase):
         )
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn('board_next_json ready "" "" "$state_file"', proc.stdout)
+        self.assertIn('skill_prompt_with_context project-pipeline', proc.stdout)
 
     def test_pr_snapshot_uses_pipeline_pr_cli(self) -> None:
         if shutil.which("dash") is None:
