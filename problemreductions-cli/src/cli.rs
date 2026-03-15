@@ -223,6 +223,7 @@ Flags by problem type:
   KColoring                       --graph, --k
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
+  HamiltonianCircuit, HC          --graph
   IsomorphicSpanningTree          --graph, --tree
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity

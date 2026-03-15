@@ -143,6 +143,17 @@
     ]
   },
   {
+    "name": "HamiltonianCircuit",
+    "description": "Does the graph contain a Hamiltonian circuit?",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The undirected graph G=(V,E)"
+      }
+    ]
+  },
+  {
     "name": "HamiltonianPath",
     "description": "Find a Hamiltonian path in a graph",
     "fields": [
