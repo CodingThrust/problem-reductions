@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "SequencingWithReleaseTimesAndDeadlines",
+        display_name: "Sequencing with Release Times and Deadlines",
+        aliases: &[],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Single-machine scheduling feasibility: can all tasks be scheduled within their release-deadline windows without overlap?",
         fields: &[
@@ -155,7 +158,7 @@ impl Problem for SequencingWithReleaseTimesAndDeadlines {
 impl SatisfactionProblem for SequencingWithReleaseTimesAndDeadlines {}
 
 crate::declare_variants! {
-    SequencingWithReleaseTimesAndDeadlines => "2^num_tasks * num_tasks",
+    default sat SequencingWithReleaseTimesAndDeadlines => "2^num_tasks * num_tasks",
 }
 
 #[cfg(test)]
