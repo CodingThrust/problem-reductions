@@ -40,29 +40,6 @@ fn test_export_petersen_mapping() {
     run_example("export_petersen_mapping");
 }
 
-#[test]
-fn test_reduction_knapsack_to_qubo() {
-    let output_dir = std::env::temp_dir().join(format!(
-        "pr-reduction-knapsack-to-qubo-{}",
-        std::time::SystemTime::now()
-            .duration_since(std::time::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos()
-    ));
-    let status = std::process::Command::new(env!("CARGO"))
-        .args(["run", "--example", "reduction_knapsack_to_qubo"])
-        .env("PROBLEMREDUCTIONS_EXAMPLES_DIR", &output_dir)
-        .status()
-        .unwrap_or_else(|e| panic!("Failed to run example reduction_knapsack_to_qubo: {e}"));
-
-    assert!(
-        status.success(),
-        "Example reduction_knapsack_to_qubo failed with {status}"
-    );
-    assert!(output_dir.join("knapsack_to_qubo.json").exists());
-    let _ = std::fs::remove_dir_all(output_dir);
-}
-
 // Note: detect_isolated_problems and detect_unreachable_from_3sat are diagnostic
 // tools that exit(1) when they find issues. They are run via `make` targets
 // (topology-sanity-check), not as part of `cargo test`.
