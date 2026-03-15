@@ -637,6 +637,27 @@
     ]
   },
   {
+    "name": "StrongConnectivityAugmentation",
+    "description": "Add a bounded set of weighted candidate arcs to make a digraph strongly connected",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "DirectedGraph",
+        "description": "The initial directed graph G=(V,A)"
+      },
+      {
+        "name": "candidate_arcs",
+        "type_name": "Vec<(usize, usize, W)>",
+        "description": "Candidate augmenting arcs (u, v, w(u,v)) not already present in G"
+      },
+      {
+        "name": "bound",
+        "type_name": "W::Sum",
+        "description": "Upper bound B on the total added weight"
+      }
+    ]
+  },
+  {
     "name": "SubgraphIsomorphism",
     "description": "Determine if host graph G contains a subgraph isomorphic to pattern graph H",
     "fields": [
