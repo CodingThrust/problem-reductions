@@ -21,6 +21,7 @@
 //! - [`MinimumFeedbackArcSet`]: Minimum feedback arc set on directed graphs
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
+//! - [`StrongConnectivityAugmentation`]: Add weighted arcs to make a digraph strongly connected
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
 
 pub(crate) mod biclique_cover;
@@ -65,6 +66,7 @@ pub use optimal_linear_arrangement::OptimalLinearArrangement;
 pub use partition_into_triangles::PartitionIntoTriangles;
 pub use rural_postman::RuralPostman;
 pub use spin_glass::SpinGlass;
+pub use strong_connectivity_augmentation::StrongConnectivityAugmentation;
 pub use subgraph_isomorphism::SubgraphIsomorphism;
 pub use traveling_salesman::TravelingSalesman;
 
@@ -87,5 +89,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(spin_glass::canonical_model_example_specs());
     specs.extend(biclique_cover::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());
+    specs.extend(strong_connectivity_augmentation::canonical_model_example_specs());
     specs
 }
