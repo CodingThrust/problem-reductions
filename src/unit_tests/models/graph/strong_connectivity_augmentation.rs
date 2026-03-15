@@ -83,7 +83,7 @@ fn test_strong_connectivity_augmentation_issue_example_yes() {
 #[test]
 fn test_strong_connectivity_augmentation_issue_example_no() {
     let problem = issue_example_yes();
-    assert!(!problem.evaluate(&vec![0; 18]));
+    assert!(!problem.evaluate(&[0; 18]));
 }
 
 #[test]

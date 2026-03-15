@@ -8,7 +8,8 @@ use crate::topology::DirectedGraph;
 use crate::traits::{Problem, SatisfactionProblem};
 use crate::types::WeightElement;
 use num_traits::Zero;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Deserializer, Serialize};
+use std::cmp::Ordering;
 use std::collections::BTreeSet;
 
 inventory::submit! {
@@ -35,7 +36,7 @@ inventory::submit! {
 /// `A`, and a bound `B`, determine whether some subset of the candidate arcs
 /// has total weight at most `B` and makes the augmented digraph strongly
 /// connected.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct StrongConnectivityAugmentation<W: WeightElement> {
     graph: DirectedGraph,
     candidate_arcs: Vec<(usize, usize, W)>,
@@ -43,6 +44,56 @@ pub struct StrongConnectivityAugmentation<W: WeightElement> {
 }
 
 impl<W: WeightElement> StrongConnectivityAugmentation<W> {
+    /// Fallible constructor used by CLI validation and deserialization.
+    pub fn try_new(
+        graph: DirectedGraph,
+        candidate_arcs: Vec<(usize, usize, W)>,
+        bound: W::Sum,
+    ) -> Result<Self, String> {
+        if !matches!(
+            bound.partial_cmp(&W::Sum::zero()),
+            Some(Ordering::Equal | Ordering::Greater)
+        ) {
+            return Err("bound must be nonnegative".to_string());
+        }
+
+        let num_vertices = graph.num_vertices();
+        let mut seen_pairs = BTreeSet::new();
+
+        for (u, v, weight) in &candidate_arcs {
+            if *u >= num_vertices || *v >= num_vertices {
+                return Err(format!(
+                    "candidate arc ({}, {}) references vertex >= num_vertices ({})",
+                    u, v, num_vertices
+                ));
+            }
+            if !matches!(
+                weight.to_sum().partial_cmp(&W::Sum::zero()),
+                Some(Ordering::Greater)
+            ) {
+                return Err(format!(
+                    "candidate arc ({}, {}) weight must be positive",
+                    u, v
+                ));
+            }
+            if graph.has_arc(*u, *v) {
+                return Err(format!(
+                    "candidate arc ({}, {}) already exists in the base graph",
+                    u, v
+                ));
+            }
+            if !seen_pairs.insert((*u, *v)) {
+                return Err(format!("duplicate candidate arc ({}, {})", u, v));
+            }
+        }
+
+        Ok(Self {
+            graph,
+            candidate_arcs,
+            bound,
+        })
+    }
+
     /// Create a new strong connectivity augmentation instance.
     ///
     /// # Panics
@@ -50,37 +101,12 @@ impl<W: WeightElement> StrongConnectivityAugmentation<W> {
     /// Panics if a candidate arc endpoint is out of range, if a candidate arc
     /// already exists in the base graph, or if candidate arcs contain
     /// duplicates.
-    pub fn new(graph: DirectedGraph, candidate_arcs: Vec<(usize, usize, W)>, bound: W::Sum) -> Self {
-        let num_vertices = graph.num_vertices();
-        let mut seen_pairs = BTreeSet::new();
-
-        for (u, v, _) in &candidate_arcs {
-            assert!(
-                *u < num_vertices && *v < num_vertices,
-                "candidate arc ({}, {}) references vertex >= num_vertices ({})",
-                u,
-                v,
-                num_vertices
-            );
-            assert!(
-                !graph.has_arc(*u, *v),
-                "candidate arc ({}, {}) already exists in the base graph",
-                u,
-                v
-            );
-            assert!(
-                seen_pairs.insert((*u, *v)),
-                "duplicate candidate arc ({}, {})",
-                u,
-                v
-            );
-        }
-
-        Self {
-            graph,
-            candidate_arcs,
-            bound,
-        }
+    pub fn new(
+        graph: DirectedGraph,
+        candidate_arcs: Vec<(usize, usize, W)>,
+        bound: W::Sum,
+    ) -> Self {
+        Self::try_new(graph, candidate_arcs, bound).unwrap_or_else(|msg| panic!("{msg}"))
     }
 
     /// Get the base directed graph.
@@ -175,6 +201,27 @@ impl<W> SatisfactionProblem for StrongConnectivityAugmentation<W> where
 
 crate::declare_variants! {
     default sat StrongConnectivityAugmentation<i32> => "2^num_potential_arcs",
+}
+
+#[derive(Deserialize)]
+struct StrongConnectivityAugmentationData<W: WeightElement> {
+    graph: DirectedGraph,
+    candidate_arcs: Vec<(usize, usize, W)>,
+    bound: W::Sum,
+}
+
+impl<'de, W> Deserialize<'de> for StrongConnectivityAugmentation<W>
+where
+    W: WeightElement + Deserialize<'de>,
+    W::Sum: Deserialize<'de>,
+{
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let data = StrongConnectivityAugmentationData::<W>::deserialize(deserializer)?;
+        Self::try_new(data.graph, data.candidate_arcs, data.bound).map_err(serde::de::Error::custom)
+    }
 }
 
 #[cfg(feature = "example-db")]

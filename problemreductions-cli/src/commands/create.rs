@@ -1,7 +1,7 @@
 use crate::cli::{CreateArgs, ExampleSide};
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
-use crate::problem_name::{resolve_catalog_problem_ref, resolve_problem_ref, unknown_problem_error};
+use crate::problem_name::{resolve_create_problem_ref, resolve_problem_ref, unknown_problem_error};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
@@ -325,9 +325,10 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     let problem = args.problem.as_ref().ok_or_else(|| {
         anyhow::anyhow!("Missing problem type.\n\nUsage: pred create <PROBLEM> [FLAGS]")
     })?;
-    let resolved = resolve_catalog_problem_ref(problem)?;
-    let canonical = resolved.name().to_string();
-    let resolved_variant = resolved.variant().clone();
+    let rgraph = problemreductions::rules::ReductionGraph::new();
+    let resolved = resolve_create_problem_ref(problem, &rgraph)?;
+    let canonical = resolved.name;
+    let resolved_variant = resolved.variant;
     let graph_type = resolved_graph_type(&resolved_variant);
 
     if args.random {
@@ -937,22 +938,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // StrongConnectivityAugmentation
         "StrongConnectivityAugmentation" => {
+            let usage = "Usage: pred create StrongConnectivityAugmentation --arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1 [--num-vertices N]";
             let arcs_str = args.arcs.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
                     "StrongConnectivityAugmentation requires --arcs\n\n\
-                     Usage: pred create StrongConnectivityAugmentation --arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1 [--num-vertices N]"
+                     {usage}"
                 )
             })?;
             let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
             let candidate_arcs = parse_candidate_arcs(args, graph.num_vertices())?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "StrongConnectivityAugmentation requires --bound\n\n\
-                     Usage: pred create StrongConnectivityAugmentation --arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1 [--num-vertices N]"
-                )
-            })? as i32;
+            let bound = parse_nonnegative_i32_bound(args, "StrongConnectivityAugmentation", usage)?;
             (
-                ser(StrongConnectivityAugmentation::new(graph, candidate_arcs, bound))?,
+                ser(
+                    StrongConnectivityAugmentation::try_new(graph, candidate_arcs, bound)
+                        .map_err(|e| anyhow::anyhow!(e))?,
+                )?,
                 resolved_variant.clone(),
             )
         }
@@ -1593,7 +1593,10 @@ fn parse_arc_weights(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
 }
 
 /// Parse `--candidate-arcs` as `u>v:w` entries for StrongConnectivityAugmentation.
-fn parse_candidate_arcs(args: &CreateArgs, num_vertices: usize) -> Result<Vec<(usize, usize, i32)>> {
+fn parse_candidate_arcs(
+    args: &CreateArgs,
+    num_vertices: usize,
+) -> Result<Vec<(usize, usize, i32)>> {
     let arcs_str = args.candidate_arcs.as_deref().ok_or_else(|| {
         anyhow::anyhow!(
             "StrongConnectivityAugmentation requires --candidate-arcs (e.g., \"2>0:1,2>1:3\")"
@@ -1632,6 +1635,16 @@ fn parse_candidate_arcs(args: &CreateArgs, num_vertices: usize) -> Result<Vec<(u
             Ok((u, v, weight))
         })
         .collect()
+}
+
+fn parse_nonnegative_i32_bound(args: &CreateArgs, problem: &str, usage: &str) -> Result<i32> {
+    let raw_bound = args
+        .bound
+        .ok_or_else(|| anyhow::anyhow!("{problem} requires --bound\n\n{usage}"))?;
+    let bound =
+        i32::try_from(raw_bound).map_err(|_| anyhow::anyhow!("{problem} bound must fit in i32"))?;
+    anyhow::ensure!(bound >= 0, "{problem} bound must be nonnegative");
+    Ok(bound)
 }
 
 /// Handle `pred create <PROBLEM> --random ...`

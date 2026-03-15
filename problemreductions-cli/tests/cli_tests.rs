@@ -310,6 +310,128 @@ fn test_create_problem_strong_connectivity_augmentation() {
 }
 
 #[test]
+fn test_create_problem_strong_connectivity_augmentation_rejects_existing_candidate_arc() {
+    let output = pred()
+        .args([
+            "create",
+            "StrongConnectivityAugmentation",
+            "--arcs",
+            "0>1,1>2",
+            "--candidate-arcs",
+            "0>1:5",
+            "--bound",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("already exists in the base graph"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_problem_strong_connectivity_augmentation_rejects_negative_weight() {
+    let output = pred()
+        .args([
+            "create",
+            "StrongConnectivityAugmentation",
+            "--arcs",
+            "0>1,1>2",
+            "--candidate-arcs",
+            "2>0:-5",
+            "--bound",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("must be positive"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_problem_strong_connectivity_augmentation_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "StrongConnectivityAugmentation",
+            "--arcs",
+            "0>1,1>2",
+            "--candidate-arcs",
+            "2>0:1",
+            "--bound=-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("bound must be nonnegative"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_problem_strong_connectivity_augmentation_rejects_oversized_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "StrongConnectivityAugmentation",
+            "--arcs",
+            "0>1,1>2",
+            "--candidate-arcs",
+            "2>0:1",
+            "--bound",
+            "3000000000",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("bound must fit in i32"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_rejects_catalog_only_variant_for_registered_problem() {
+    let output = pred()
+        .args([
+            "create",
+            "MIS/TriangularSubgraph/One",
+            "--positions",
+            "0,0;1,0;0,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Resolved variant"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_reduce() {
     let problem_json = r#"{
         "type": "MIS",
