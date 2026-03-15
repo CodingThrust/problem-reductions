@@ -489,6 +489,32 @@
     ]
   },
   {
+    "name": "PartiallyOrderedKnapsack",
+    "description": "Select items to maximize total value subject to precedence constraints and weight capacity",
+    "fields": [
+      {
+        "name": "sizes",
+        "type_name": "Vec<i64>",
+        "description": "Item sizes s(u) for each item"
+      },
+      {
+        "name": "values",
+        "type_name": "Vec<i64>",
+        "description": "Item values v(u) for each item"
+      },
+      {
+        "name": "precedences",
+        "type_name": "Vec<(usize, usize)>",
+        "description": "Precedence pairs (a, b) meaning a must be included before b"
+      },
+      {
+        "name": "capacity",
+        "type_name": "i64",
+        "description": "Knapsack capacity B"
+      }
+    ]
+  },
+  {
     "name": "PartitionIntoTriangles",
     "description": "Partition vertices into triangles (K3 subgraphs)",
     "fields": [

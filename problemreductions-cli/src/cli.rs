@@ -239,7 +239,7 @@ Flags by problem type:
   LCS                             --strings
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
-  PartiallyOrderedKnapsack        --sizes, --values, --capacity, --item-precedences
+  PartiallyOrderedKnapsack        --sizes, --values, --capacity, --precedences
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   SCS                             --strings, --bound [--alphabet-size]
   ILP, CircuitSAT                 (via reduction only)
@@ -387,8 +387,8 @@ pub struct CreateArgs {
     #[arg(long)]
     pub values: Option<String>,
     /// Precedence pairs (e.g., "0>2,0>3,1>4") for PartiallyOrderedKnapsack
-    #[arg(long)]
-    pub item_precedences: Option<String>,
+    #[arg(long, alias = "item-precedences")]
+    pub precedences: Option<String>,
     /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
     #[arg(long)]
     pub task_lengths: Option<String>,

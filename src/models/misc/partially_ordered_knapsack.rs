@@ -12,6 +12,9 @@ use serde::{Deserialize, Serialize};
 inventory::submit! {
     ProblemSchemaEntry {
         name: "PartiallyOrderedKnapsack",
+        display_name: "Partially Ordered Knapsack",
+        aliases: &["POK"],
+        dimensions: &[],
         module_path: module_path!(),
         description: "Select items to maximize total value subject to precedence constraints and weight capacity",
         fields: &[
@@ -52,12 +55,43 @@ inventory::submit! {
 /// let solution = solver.find_best(&problem);
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+/// Raw serialization helper for [`PartiallyOrderedKnapsack`].
+#[derive(Serialize, Deserialize)]
+struct PartiallyOrderedKnapsackRaw {
+    sizes: Vec<i64>,
+    values: Vec<i64>,
+    precedences: Vec<(usize, usize)>,
+    capacity: i64,
+}
+
+#[derive(Debug, Clone)]
 pub struct PartiallyOrderedKnapsack {
     sizes: Vec<i64>,
     values: Vec<i64>,
     precedences: Vec<(usize, usize)>,
     capacity: i64,
+    /// Precomputed transitive predecessors for each item.
+    /// `predecessors[b]` contains all items that must be selected when `b` is selected.
+    predecessors: Vec<Vec<usize>>,
+}
+
+impl Serialize for PartiallyOrderedKnapsack {
+    fn serialize<S: serde::Serializer>(&self, serializer: S) -> Result<S::Ok, S::Error> {
+        PartiallyOrderedKnapsackRaw {
+            sizes: self.sizes.clone(),
+            values: self.values.clone(),
+            precedences: self.precedences.clone(),
+            capacity: self.capacity,
+        }
+        .serialize(serializer)
+    }
+}
+
+impl<'de> Deserialize<'de> for PartiallyOrderedKnapsack {
+    fn deserialize<D: serde::Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
+        let raw = PartiallyOrderedKnapsackRaw::deserialize(deserializer)?;
+        Ok(Self::new(raw.sizes, raw.values, raw.precedences, raw.capacity))
+    }
 }
 
 impl PartiallyOrderedKnapsack {
@@ -88,12 +122,34 @@ impl PartiallyOrderedKnapsack {
             assert!(a < n, "precedence index {a} out of bounds (n={n})");
             assert!(b < n, "precedence index {b} out of bounds (n={n})");
         }
+        let predecessors = Self::compute_predecessors(&precedences, n);
         Self {
             sizes,
             values,
             precedences,
             capacity,
+            predecessors,
         }
+    }
+
+    /// Compute transitive predecessors for each item via Floyd-Warshall.
+    fn compute_predecessors(precedences: &[(usize, usize)], n: usize) -> Vec<Vec<usize>> {
+        let mut reachable = vec![vec![false; n]; n];
+        for &(a, b) in precedences {
+            reachable[a][b] = true;
+        }
+        for k in 0..n {
+            for i in 0..n {
+                for j in 0..n {
+                    if reachable[i][k] && reachable[k][j] {
+                        reachable[i][j] = true;
+                    }
+                }
+            }
+        }
+        (0..n)
+            .map(|b| (0..n).filter(|&a| reachable[a][b]).collect())
+            .collect()
     }
 
     /// Returns the item sizes.
@@ -128,31 +184,13 @@ impl PartiallyOrderedKnapsack {
 
     /// Check if the selected items form a downward-closed set.
     ///
-    /// Uses the transitive closure of the precedence relation: if item `b` is
-    /// selected and `a` is a (transitive) predecessor of `b`, then `a` must
-    /// also be selected.
+    /// Uses precomputed transitive predecessors: if item `b` is selected,
+    /// all its predecessors must also be selected.
     fn is_downward_closed(&self, config: &[usize]) -> bool {
-        let n = self.num_items();
-        // Build adjacency matrix for transitive closure
-        let mut reachable = vec![vec![false; n]; n];
-        for &(a, b) in &self.precedences {
-            reachable[a][b] = true;
-        }
-        // Floyd-Warshall for transitive closure
-        for k in 0..n {
-            for i in 0..n {
-                for j in 0..n {
-                    if reachable[i][k] && reachable[k][j] {
-                        reachable[i][j] = true;
-                    }
-                }
-            }
-        }
-        // Check: for every selected item b, all predecessors must be selected
-        for b in 0..n {
+        for (b, preds) in self.predecessors.iter().enumerate() {
             if config[b] == 1 {
-                for a in 0..n {
-                    if reachable[a][b] && config[a] != 1 {
+                for &a in preds {
+                    if config[a] != 1 {
                         return false;
                     }
                 }
@@ -215,7 +253,7 @@ impl OptimizationProblem for PartiallyOrderedKnapsack {
 }
 
 crate::declare_variants! {
-    PartiallyOrderedKnapsack => "2^num_items",
+    default opt PartiallyOrderedKnapsack => "2^num_items",
 }
 
 #[cfg(test)]

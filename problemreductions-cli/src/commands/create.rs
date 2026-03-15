@@ -58,7 +58,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.strings.is_none()
         && args.arcs.is_none()
         && args.values.is_none()
-        && args.item_precedences.is_none()
+        && args.precedences.is_none()
         && args.task_lengths.is_none()
         && args.deadline.is_none()
         && args.num_processors.is_none()
@@ -988,8 +988,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "PartiallyOrderedKnapsack" => {
             let sizes_str = args.sizes.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "PartiallyOrderedKnapsack requires --sizes, --values, --capacity, and --item-precedences\n\n\
-                     Usage: pred create PartiallyOrderedKnapsack --sizes 2,3,4,1,2,3 --values 3,2,5,4,3,8 --item-precedences \"0>2,0>3,1>4,3>5,4>5\" --capacity 11"
+                    "PartiallyOrderedKnapsack requires --sizes, --values, and --capacity (--precedences is optional)\n\n\
+                     Usage: pred create PartiallyOrderedKnapsack --sizes 2,3,4,1,2,3 --values 3,2,5,4,3,8 --precedences \"0>2,0>3,1>4,3>5,4>5\" --capacity 11"
                 )
             })?;
             let values_str = args.values.as_deref().ok_or_else(|| {
@@ -1001,7 +1001,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let sizes: Vec<i64> = util::parse_comma_list(sizes_str)?;
             let values: Vec<i64> = util::parse_comma_list(values_str)?;
             let capacity: i64 = cap_str.parse()?;
-            let precedences = match args.item_precedences.as_deref() {
+            let precedences = match args.precedences.as_deref() {
                 Some(s) if !s.trim().is_empty() => s
                     .split(',')
                     .map(|pair| {
