@@ -281,6 +281,35 @@ fn test_evaluate_sat() {
 }
 
 #[test]
+fn test_create_problem_strong_connectivity_augmentation() {
+    let output = pred()
+        .args([
+            "create",
+            "StrongConnectivityAugmentation",
+            "--arcs",
+            "0>1,1>2,2>0,3>4,4>3,2>3,4>5,5>3",
+            "--candidate-arcs",
+            "3>0:5,3>1:3,3>2:4,4>0:6,4>1:2,4>2:7,5>0:4,5>1:3,5>2:1,0>3:8,0>4:3,0>5:2,1>3:6,1>4:4,1>5:5,2>4:3,2>5:7,1>0:2",
+            "--bound",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "StrongConnectivityAugmentation");
+    assert!(json["data"]["graph"].is_object());
+    assert!(json["data"]["candidate_arcs"].is_array());
+    assert_eq!(json["data"]["bound"], 1);
+}
+
+#[test]
 fn test_reduce() {
     let problem_json = r#"{
         "type": "MIS",

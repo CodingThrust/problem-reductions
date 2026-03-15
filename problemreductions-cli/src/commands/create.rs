@@ -1,7 +1,7 @@
 use crate::cli::{CreateArgs, ExampleSide};
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
-use crate::problem_name::{resolve_problem_ref, unknown_problem_error};
+use crate::problem_name::{resolve_catalog_problem_ref, resolve_problem_ref, unknown_problem_error};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
@@ -57,6 +57,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
+        && args.candidate_arcs.is_none()
         && args.deadlines.is_none()
         && args.precedence_pairs.is_none()
         && args.task_lengths.is_none()
@@ -208,6 +209,8 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<BigUint>" => "comma-separated nonnegative decimal integers: 3,7,1,8",
         "Vec<i64>" => "comma-separated integers: 3,7,1,8",
         "DirectedGraph" => "directed arcs: 0>1,1>2,2>0",
+        "Vec<(usize, usize, W)>" => "candidate arcs with weights: 0>2:5,2>1:3",
+        "W::Sum" => "integer",
         _ => "value",
     }
 }
@@ -236,6 +239,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "KColoring" => "--graph 0-1,1-2,2-0 --k 3",
         "MinimumSumMulticenter" => {
             "--graph 0-1,1-2,2-3 --weights 1,1,1,1 --edge-weights 1,1,1 --k 2"
+        }
+        "StrongConnectivityAugmentation" => {
+            "--arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1"
         }
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
@@ -319,14 +325,13 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
     let problem = args.problem.as_ref().ok_or_else(|| {
         anyhow::anyhow!("Missing problem type.\n\nUsage: pred create <PROBLEM> [FLAGS]")
     })?;
-    let rgraph = problemreductions::rules::ReductionGraph::new();
-    let resolved = resolve_problem_ref(problem, &rgraph)?;
-    let canonical = &resolved.name;
-    let resolved_variant = resolved.variant;
+    let resolved = resolve_catalog_problem_ref(problem)?;
+    let canonical = resolved.name().to_string();
+    let resolved_variant = resolved.variant().clone();
     let graph_type = resolved_graph_type(&resolved_variant);
 
     if args.random {
-        return create_random(args, canonical, &resolved_variant, out);
+        return create_random(args, &canonical, &resolved_variant, out);
     }
 
     // ILP and CircuitSAT have complex input structures not suited for CLI flags.
@@ -347,7 +352,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         } else {
             None
         };
-        print_problem_help(canonical, gt)?;
+        print_problem_help(&canonical, gt)?;
         std::process::exit(2);
     }
 
@@ -357,7 +362,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         | "MinimumVertexCover"
         | "MaximumClique"
         | "MinimumDominatingSet" => {
-            create_vertex_weight_problem(args, canonical, graph_type, &resolved_variant)?
+            create_vertex_weight_problem(args, &canonical, graph_type, &resolved_variant)?
         }
 
         // Graph partitioning (graph only, no weights)
@@ -563,7 +568,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // MaximalIS — same as MIS (graph + vertex weights)
         "MaximalIS" => {
-            create_vertex_weight_problem(args, canonical, graph_type, &resolved_variant)?
+            create_vertex_weight_problem(args, &canonical, graph_type, &resolved_variant)?
         }
 
         // BinPacking
@@ -930,6 +935,28 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // StrongConnectivityAugmentation
+        "StrongConnectivityAugmentation" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "StrongConnectivityAugmentation requires --arcs\n\n\
+                     Usage: pred create StrongConnectivityAugmentation --arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1 [--num-vertices N]"
+                )
+            })?;
+            let (graph, _) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let candidate_arcs = parse_candidate_arcs(args, graph.num_vertices())?;
+            let bound = args.bound.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "StrongConnectivityAugmentation requires --bound\n\n\
+                     Usage: pred create StrongConnectivityAugmentation --arcs \"0>1,1>2\" --candidate-arcs \"2>0:1\" --bound 1 [--num-vertices N]"
+                )
+            })? as i32;
+            (
+                ser(StrongConnectivityAugmentation::new(graph, candidate_arcs, bound))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // MinimumSumMulticenter (p-median)
         "MinimumSumMulticenter" => {
             let (graph, n) = parse_graph(args).map_err(|e| {
@@ -1086,11 +1113,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
-        _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
+        _ => bail!("{}", crate::problem_name::unknown_problem_error(&canonical)),
     };
 
     let output = ProblemJsonOutput {
-        problem_type: canonical.to_string(),
+        problem_type: canonical,
         variant,
         data,
     };
@@ -1563,6 +1590,48 @@ fn parse_arc_weights(args: &CreateArgs, num_arcs: usize) -> Result<Vec<i32>> {
         }
         None => Ok(vec![1i32; num_arcs]),
     }
+}
+
+/// Parse `--candidate-arcs` as `u>v:w` entries for StrongConnectivityAugmentation.
+fn parse_candidate_arcs(args: &CreateArgs, num_vertices: usize) -> Result<Vec<(usize, usize, i32)>> {
+    let arcs_str = args.candidate_arcs.as_deref().ok_or_else(|| {
+        anyhow::anyhow!(
+            "StrongConnectivityAugmentation requires --candidate-arcs (e.g., \"2>0:1,2>1:3\")"
+        )
+    })?;
+
+    arcs_str
+        .split(',')
+        .map(|entry| {
+            let entry = entry.trim();
+            let (arc_part, weight_part) = entry.split_once(':').ok_or_else(|| {
+                anyhow::anyhow!(
+                    "Invalid candidate arc '{}': expected format u>v:w (e.g., 2>0:1)",
+                    entry
+                )
+            })?;
+            let parts: Vec<&str> = arc_part.split('>').collect();
+            if parts.len() != 2 {
+                bail!(
+                    "Invalid candidate arc '{}': expected format u>v:w (e.g., 2>0:1)",
+                    entry
+                );
+            }
+
+            let u: usize = parts[0].parse()?;
+            let v: usize = parts[1].parse()?;
+            anyhow::ensure!(
+                u < num_vertices && v < num_vertices,
+                "candidate arc ({}, {}) references vertex >= num_vertices ({})",
+                u,
+                v,
+                num_vertices
+            );
+
+            let weight: i32 = weight_part.parse()?;
+            Ok((u, v, weight))
+        })
+        .collect()
 }
 
 /// Handle `pred create <PROBLEM> --random ...`
