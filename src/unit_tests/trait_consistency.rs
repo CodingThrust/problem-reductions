@@ -91,6 +91,14 @@ fn test_all_problems_implement_trait_correctly() {
         "MinimumFeedbackArcSet",
     );
     check_problem_trait(
+        &MinimumMultiwayCut::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![0, 2],
+            vec![1i32; 2],
+        ),
+        "MinimumMultiwayCut",
+    );
+    check_problem_trait(
         &MinimumSumMulticenter::new(
             SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
             vec![1i32; 3],
@@ -167,6 +175,15 @@ fn test_direction() {
         MinimumFeedbackArcSet::new(
             DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]),
             vec![1i32; 3]
+        )
+        .direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
+        MinimumMultiwayCut::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![0, 2],
+            vec![1i32; 2]
         )
         .direction(),
         Direction::Minimize

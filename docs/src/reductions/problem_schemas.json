@@ -399,6 +399,27 @@
     ]
   },
   {
+    "name": "MinimumMultiwayCut",
+    "description": "Find minimum weight set of edges whose removal disconnects all terminal pairs",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The undirected graph G=(V,E)"
+      },
+      {
+        "name": "terminals",
+        "type_name": "Vec<usize>",
+        "description": "Terminal vertices that must be separated"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge weights w: E -> R (same order as graph.edges())"
+      }
+    ]
+  },
+  {
     "name": "MinimumSetCovering",
     "description": "Find minimum weight collection covering the universe",
     "fields": [

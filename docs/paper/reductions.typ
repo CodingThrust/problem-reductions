@@ -72,6 +72,7 @@
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "MinimumMultiwayCut": [Minimum Multiway Cut],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
   "RuralPostman": [Rural Postman],
   "LongestCommonSubsequence": [Longest Common Subsequence],
@@ -618,6 +619,40 @@ One of the most intensely studied NP-hard problems, with applications in logisti
 },
 caption: [Complete graph $K_4$ with weighted edges. The optimal tour $v_0 -> v_1 -> v_2 -> v_3 -> v_0$ (blue edges) has cost 6.],
 ) <fig:k4-tsp>
+]
+#problem-def("MinimumMultiwayCut")[
+  Given an undirected graph $G=(V,E)$ with edge weights $w: E -> RR_(>0)$ and a set of $k$ terminal vertices $T = {t_1, ..., t_k} subset.eq V$, find a minimum-weight set of edges $C subset.eq E$ such that no two terminals remain in the same connected component of $G' = (V, E backslash C)$.
+][
+The Minimum Multiway Cut problem generalizes the classical minimum $s$-$t$ cut: for $k=2$ it reduces to max-flow and is solvable in polynomial time, but for $k >= 3$ on general graphs it becomes NP-hard @dahlhaus1994. The problem arises in VLSI design, image segmentation, and network design. A $(2 - 2 slash k)$-approximation is achievable in polynomial time by taking the union of the $k - 1$ cheapest isolating cuts @dahlhaus1994. The best known exact algorithm runs in $O^*(1.84^k)$ time (suppressing polynomial factors) via submodular functions on isolating cuts @cao2013.
+
+*Example.* Consider a graph with $n = 5$ vertices $V = {0, 1, 2, 3, 4}$, terminals $T = {0, 2, 4}$, and 6 edges with weights: $w(0,1) = 2$, $w(1,2) = 3$, $w(2,3) = 1$, $w(3,4) = 2$, $w(0,4) = 4$, $w(1,3) = 5$. The optimal multiway cut removes edges ${(0,1), (3,4), (0,4)}$ with total weight $2 + 2 + 4 = 8$, yielding connected components ${0}$, ${1, 2, 3}$, ${4}$ — each terminal in a distinct component.
+
+#figure({
+  let verts = ((0, 0.8), (1.2, 1.5), (2.4, 0.8), (1.8, -0.2), (0.6, -0.2))
+  let edges = ((0,1),(1,2),(2,3),(3,4),(0,4),(1,3))
+  let weights = ("2", "3", "1", "2", "4", "5")
+  let cut-edges = (0, 3, 4) // indices of cut edges
+  let terminals = (0, 2, 4)
+  canvas(length: 1cm, {
+    for (idx, (u, v)) in edges.enumerate() {
+      let is-cut = cut-edges.any(c => c == idx)
+      g-edge(verts.at(u), verts.at(v),
+        stroke: if is-cut { (paint: red, thickness: 2pt, dash: "dashed") } else { 1pt + luma(120) })
+      let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+      let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+      let dy = if idx == 5 { 0.15 } else { 0 }
+      draw.content((mx, my + dy), text(7pt, fill: luma(80))[#weights.at(idx)])
+    }
+    for (k, pos) in verts.enumerate() {
+      let is-terminal = terminals.any(t => t == k)
+      g-node(pos, name: "v" + str(k),
+        fill: if is-terminal { graph-colors.at(0) } else { luma(180) },
+        label: text(fill: white)[$#k$])
+    }
+  })
+},
+caption: [Minimum Multiway Cut with terminals ${0, 2, 4}$ (blue). Dashed red edges form the optimal cut (weight 8).],
+) <fig:multiway-cut>
 ]
 #problem-def("OptimalLinearArrangement")[
   Given an undirected graph $G=(V,E)$ and a non-negative integer $K$, is there a bijection $f: V -> {0, 1, dots, |V|-1}$ such that $sum_({u,v} in E) |f(u) - f(v)| <= K$?

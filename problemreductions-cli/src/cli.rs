@@ -221,6 +221,7 @@ Flags by problem type:
   QUBO                            --matrix
   SpinGlass                       --graph, --couplings, --fields
   KColoring                       --graph, --k
+  MinimumMultiwayCut              --graph, --terminals, --edge-weights
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
   IsomorphicSpanningTree          --graph, --tree
@@ -322,6 +323,9 @@ pub struct CreateArgs {
     /// Bits for second factor (for Factoring)
     #[arg(long)]
     pub n: Option<usize>,
+    /// Terminal vertices for MinimumMultiwayCut (comma-separated, e.g., 0,2,4)
+    #[arg(long)]
+    pub terminals: Option<String>,
     /// Vertex positions for geometry-based graphs (semicolon-separated x,y pairs, e.g., "0,0;1,0;1,1")
     #[arg(long)]
     pub positions: Option<String>,

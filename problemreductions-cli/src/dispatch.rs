@@ -79,8 +79,14 @@ impl LoadedProblem {
             }
         }
 
-        let reduction_path =
-            best_path.ok_or_else(|| anyhow::anyhow!("No reduction path from {} to ILP", name))?;
+        let reduction_path = best_path.ok_or_else(|| {
+            anyhow::anyhow!(
+                "No reduction path from {} to ILP\n\n\
+                 Hint: try --solver brute-force for exhaustive search on small instances:\n  \
+                 pred solve <file> --solver brute-force",
+                name
+            )
+        })?;
 
         let chain = graph
             .reduce_along_path(&reduction_path, self.as_any())

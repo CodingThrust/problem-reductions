@@ -6,7 +6,7 @@ use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
-use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
+use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath, MinimumMultiwayCut};
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, PaintShop,
     ShortestCommonSupersequence, SubsetSum,
@@ -51,6 +51,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.basis.is_none()
         && args.target_vec.is_none()
         && args.bounds.is_none()
+        && args.terminals.is_none()
         && args.tree.is_none()
         && args.required_edges.is_none()
         && args.bound.is_none()
@@ -197,6 +198,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
             _ => "edge list: 0-1,1-2,2-3",
         },
         "Vec<W>" => "comma-separated: 1,2,3",
+        "Vec<usize>" => "comma-separated indices: 0,2,4",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" => "integer",
@@ -237,6 +239,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
+        "MinimumMultiwayCut" => "--graph 0-1,1-2,2-3 --terminals 0,2 --edge-weights 1,1,1",
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "RuralPostman" => {
@@ -744,6 +747,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumMultiwayCut
+        "MinimumMultiwayCut" => {
+            let (graph, _) = parse_graph(args).map_err(|e| {
+                anyhow::anyhow!(
+                    "{e}\n\nUsage: pred create MinimumMultiwayCut --graph 0-1,1-2,2-3 --terminals 0,2 [--edge-weights 1,1,1]"
+                )
+            })?;
+            let terminals = parse_terminals(args)?;
+            let edge_weights = parse_edge_weights(args, graph.num_edges())?;
+            (
+                ser(MinimumMultiwayCut::new(graph, terminals, edge_weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // OptimalLinearArrangement — graph + bound
         "OptimalLinearArrangement" => {
             let (graph, _) = parse_graph(args).map_err(|e| {
@@ -1213,6 +1231,23 @@ fn parse_edge_weights(args: &CreateArgs, num_edges: usize) -> Result<Vec<i32>> {
         }
         None => Ok(vec![1i32; num_edges]),
     }
+}
+
+/// Parse `--terminals` as a comma-separated list of vertex indices.
+fn parse_terminals(args: &CreateArgs) -> Result<Vec<usize>> {
+    let terminals_str = args
+        .terminals
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("MinimumMultiwayCut requires --terminals (e.g., 0,2,4)"))?;
+
+    terminals_str
+        .split(',')
+        .map(|s| {
+            s.trim()
+                .parse::<usize>()
+                .map_err(|e| anyhow::anyhow!("Invalid terminal index '{}': {}", s.trim(), e))
+        })
+        .collect()
 }
 
 /// Parse `--couplings` as SpinGlass pairwise couplings (i32), defaulting to all 1s.
