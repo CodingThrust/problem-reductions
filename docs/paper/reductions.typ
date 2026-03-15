@@ -84,6 +84,7 @@
   "BicliqueCover": [Biclique Cover],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
+  "SteinerTree": [Steiner Tree],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
   "RuralPostman": [Rural Postman],
   "LongestCommonSubsequence": [Longest Common Subsequence],
@@ -772,6 +773,45 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
     ]
   ]
 }
+#problem-def("SteinerTree")[
+  Given an undirected graph $G = (V, E)$ with edge weights $w: E -> RR_(>= 0)$ and a set of terminal vertices $T subset.eq V$ with $|T| >= 2$, find a tree $S = (V_S, E_S)$ in $G$ such that $T subset.eq V_S$, minimizing $sum_(e in E_S) w(e)$. Vertices in $V_S backslash T$ are called _Steiner vertices_.
+][
+One of Karp's 21 NP-complete problems @karp1972, foundational in network design with applications in telecommunications backbone routing, VLSI chip interconnect, pipeline planning, and phylogenetic tree construction. When $T = V$, the problem reduces to the minimum spanning tree (polynomial). The NP-hardness arises from choosing which Steiner vertices to include.
+
+The best known exact algorithm runs in $O^*(3^(|T|) dot n + 2^(|T|) dot n^2)$ time via Dreyfus--Wagner dynamic programming over terminal subsets @dreyfuswagner1971. Byrka _et al._ achieved a $ln(4) + epsilon approx 1.39$-approximation @byrka2013; the classic 2-approximation uses the minimum spanning tree of the terminal distance graph.
+
+*Example.* Consider $G$ with $n = 5$ vertices, $m = 7$ edges, and terminals $T = {v_0, v_2, v_4}$. The optimal Steiner tree uses edges ${(v_0, v_1), (v_1, v_2), (v_1, v_3), (v_3, v_4)}$ with Steiner vertices ${v_1, v_3}$ acting as relay points. The total cost is $w(v_0, v_1) + w(v_1, v_2) + w(v_1, v_3) + w(v_3, v_4) = 2 + 2 + 1 + 1 = 6$. Note the only direct terminal--terminal edge $(v_2, v_4)$ has weight 6, equaling the entire Steiner tree cost.
+
+#figure({
+  // Layout: v0 top-left, v1 top-center, v2 top-right, v3 bottom-center, v4 bottom-right
+  let verts = ((0, 1.2), (1.2, 1.2), (2.4, 1.2), (1.2, 0), (2.4, 0))
+  let all-edges = ((0,1),(0,3),(1,2),(1,3),(2,3),(2,4),(3,4))
+  let tree-edges = ((0,1),(1,2),(1,3),(3,4))
+  let weights = ("2", "5", "2", "1", "5", "6", "1")
+  let terminals = (0, 2, 4)
+  canvas(length: 1cm, {
+    for (idx, (u, v)) in all-edges.enumerate() {
+      let on-tree = tree-edges.any(t => (t.at(0) == u and t.at(1) == v) or (t.at(0) == v and t.at(1) == u))
+      g-edge(verts.at(u), verts.at(v),
+        stroke: if on-tree { 2pt + graph-colors.at(0) } else { 1pt + luma(200) })
+      let mx = (verts.at(u).at(0) + verts.at(v).at(0)) / 2
+      let my = (verts.at(u).at(1) + verts.at(v).at(1)) / 2
+      let dx = if u == 0 and v == 3 { -0.3 } else if u == 2 and v == 3 { 0.3 } else { 0 }
+      let dy = if u == 0 and v == 1 { 0.2 } else if u == 1 and v == 2 { 0.2 } else if u == 2 and v == 4 { 0.3 } else { 0 }
+      draw.content((mx + dx, my + dy), text(7pt, fill: luma(80))[#weights.at(idx)])
+    }
+    for (k, pos) in verts.enumerate() {
+      let is-terminal = terminals.any(t => t == k)
+      g-node(pos, name: "v" + str(k),
+        fill: if is-terminal { graph-colors.at(0) } else { white },
+        stroke: if is-terminal { none } else { 1pt + graph-colors.at(0) },
+        label: text(fill: if is-terminal { white } else { black })[$v_#k$])
+    }
+  })
+},
+caption: [Steiner tree on 5 vertices with terminals $T = {v_0, v_2, v_4}$ (filled blue). Steiner vertices $v_1, v_3$ (outlined) relay connections. Blue edges form the optimal tree with cost 6.],
+) <fig:steiner-tree>
+]
 #problem-def("OptimalLinearArrangement")[
   Given an undirected graph $G=(V,E)$ and a non-negative integer $K$, is there a bijection $f: V -> {0, 1, dots, |V|-1}$ such that $sum_({u,v} in E) |f(u) - f(v)| <= K$?
 ][

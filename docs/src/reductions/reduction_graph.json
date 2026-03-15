@@ -492,6 +492,26 @@
       "complexity": "2^num_spins"
     },
     {
+      "name": "SteinerTree",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "One"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.SteinerTree.html",
+      "complexity": "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2"
+    },
+    {
+      "name": "SteinerTree",
+      "variant": {
+        "graph": "SimpleGraph",
+        "weight": "i32"
+      },
+      "category": "graph",
+      "doc_path": "models/graph/struct.SteinerTree.html",
+      "complexity": "3^num_terminals * num_vertices + 2^num_terminals * num_vertices^2"
+    },
+    {
       "name": "SubgraphIsomorphism",
       "variant": {},
       "category": "graph",
@@ -713,7 +733,7 @@
     },
     {
       "source": 21,
-      "target": 56,
+      "target": 58,
       "overhead": [
         {
           "field": "num_elements",
@@ -1341,7 +1361,7 @@
       "doc_path": "rules/spinglass_casts/index.html"
     },
     {
-      "source": 57,
+      "source": 59,
       "target": 12,
       "overhead": [
         {
@@ -1356,7 +1376,7 @@
       "doc_path": "rules/travelingsalesman_ilp/index.html"
     },
     {
-      "source": 57,
+      "source": 59,
       "target": 49,
       "overhead": [
         {
