@@ -7,6 +7,7 @@
 //! - [`Knapsack`]: 0-1 Knapsack (maximize value subject to weight capacity)
 //! - [`LongestCommonSubsequence`]: Longest Common Subsequence
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
+//! - [`PartiallyOrderedKnapsack`]: Knapsack with precedence constraints
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
 //! - [`SubsetSum`]: Find a subset summing to exactly a target value
 
@@ -16,6 +17,7 @@ mod flow_shop_scheduling;
 mod knapsack;
 mod longest_common_subsequence;
 pub(crate) mod paintshop;
+pub(crate) mod partially_ordered_knapsack;
 pub(crate) mod shortest_common_supersequence;
 mod subset_sum;
 
@@ -25,6 +27,7 @@ pub use flow_shop_scheduling::FlowShopScheduling;
 pub use knapsack::Knapsack;
 pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use paintshop::PaintShop;
+pub use partially_ordered_knapsack::PartiallyOrderedKnapsack;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
 pub use subset_sum::SubsetSum;
 
@@ -34,5 +37,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(factoring::canonical_model_example_specs());
     specs.extend(paintshop::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
+    specs.extend(partially_ordered_knapsack::canonical_model_example_specs());
     specs
 }

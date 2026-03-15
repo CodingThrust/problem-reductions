@@ -18,6 +18,7 @@ pub use graph::{
     OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, SpinGlass, SubgraphIsomorphism,
     TravelingSalesman,
 };
+pub use misc::PartiallyOrderedKnapsack;
 pub use misc::{
     BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence, PaintShop,
     ShortestCommonSupersequence, SubsetSum,

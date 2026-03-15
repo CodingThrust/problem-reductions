@@ -122,6 +122,10 @@ fn test_all_problems_implement_trait_correctly() {
         &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
         "FlowShopScheduling",
     );
+    check_problem_trait(
+        &PartiallyOrderedKnapsack::new(vec![2, 3], vec![3, 2], vec![(0, 1)], 5),
+        "PartiallyOrderedKnapsack",
+    );
 }
 
 #[test]
@@ -205,6 +209,10 @@ fn test_direction() {
     );
     assert_eq!(
         MaximumClique::new(SimpleGraph::new(2, vec![(0, 1)]), vec![1i32; 2]).direction(),
+        Direction::Maximize
+    );
+    assert_eq!(
+        PartiallyOrderedKnapsack::new(vec![2, 3], vec![3, 2], vec![(0, 1)], 5).direction(),
         Direction::Maximize
     );
 }
