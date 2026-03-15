@@ -318,46 +318,35 @@ Unlike unit tests (which verify internal correctness), agentic feature tests ver
 The maintainer makes the final quality judgment and merges.
 This is one of only two human decisions in the pipeline; the other is moving an issue from Backlog to Ready (Stage~3).
 
-\paragraph{Three agent roles.}
-The pipeline uses agents in three distinct roles, each backed by a set of skills.
+\paragraph{Two agent types.}
+The pipeline uses agents in two distinct types, distinguished by the \emph{knowledge asymmetry} between agent and human.
 
-\emph{Mentors} (4~skills) interact with humans.
+\emph{Mentors} (4~skills) know more than the human about the project's conventions, architecture, and topology---and use that knowledge to guide humans toward high-quality contributions.
 %
 \begin{center}
 \includegraphics[height=1.8cm]{figures/role-mentor.pdf}
 \end{center}
 %
 \noindent
-The \texttt{propose} skill conducts an interactive session in mathematical language, asking one question at a time: what is the problem, what is the formal definition, what does a worked example look like?
-Before filing, it pre-validates the draft against Stage~2's quality checks.
-The \texttt{fix-issue} skill brainstorms with contributors to resolve quality problems.
-The \texttt{final-review} skill guides the maintainer through merge decisions.
-The \texttt{dev-setup} skill onboards new developers.
+The \texttt{propose} skill analyzes the reduction graph's topology---orphan nodes, missing proof paths, redundant edges---to identify the highest-value contributions, then conducts an interactive session in mathematical language, asking one question at a time: what is the problem, what is the formal definition, what does a worked example look like?
+It proposes options, analyzes trade-offs, and recommends with reasons, so that even a newcomer can produce a publication-quality issue on their first attempt.
+The \texttt{fix-issue} skill brainstorms with contributors to resolve quality problems found during validation.
+The \texttt{final-review} skill guides the maintainer through merge decisions, surfacing quality signals the maintainer might miss.
+The \texttt{dev-setup} skill onboards new developers, configuring their environment interactively.
+In each case the human learns through the interaction---the agent acts as a domain-aware tutor who transfers project knowledge to the contributor.
 
-\emph{Orchestrators} (5~skills) manage the pipeline.
+\emph{Workers} (12~skills) know less than the human about \emph{what} should be built, but execute routine heavy-lifting that follows fixed patterns.
 %
 \begin{center}
-\includegraphics[width=\columnwidth]{figures/role-orchestrator.pdf}
+\includegraphics[width=\columnwidth]{figures/role-worker.pdf}
 \end{center}
 %
 \noindent
-\texttt{project-pipeline} picks the highest-ranked Ready issue, creates an isolated git worktree, dispatches a runner, and moves the result to the review queue---all headlessly.
-\texttt{review-pipeline} addresses code-review comments, runs agentic feature tests, and retries CI failures.
-\texttt{check-issue} validates proposals before implementation.
-The maintainer makes exactly two decisions: moving an issue from Backlog to Ready, and merging the final pull request.
-
-\emph{Runners} (7~skills) execute.
-%
-\begin{center}
-\includegraphics[height=1.8cm]{figures/role-runner.pdf}
-\end{center}
-%
-\noindent
-\texttt{add-model} and \texttt{add-rule} implement problem types and reductions.
-\texttt{review-implementation} dispatches parallel sub-agents in fresh context to review code.
-\texttt{fix-pr} resolves CI failures and review comments.
-\texttt{write-model-in-paper} and \texttt{write-rule-in-paper} generate paper entries with proof sketches and worked examples.
+Orchestration workers manage the pipeline headlessly: \texttt{project-pipeline} picks the highest-ranked Ready issue, creates an isolated git worktree, dispatches an implementation worker, and moves the result to the review queue; \texttt{review-pipeline} addresses code-review comments, runs agentic feature tests, and retries CI failures.
+Implementation workers produce artifacts: \texttt{add-model} and \texttt{add-rule} write code following skill checklists; \texttt{write-model-in-paper} and \texttt{write-rule-in-paper} generate paper entries with proof sketches and worked examples.
+Quality workers validate against rubrics: \texttt{check-issue} validates proposals before implementation; \texttt{review-implementation} dispatches parallel sub-agents in fresh context to review code; \texttt{fix-pr} resolves CI failures and review comments.
 \texttt{release} handles version bumps and publishing.
+The maintainer makes exactly two decisions in the entire pipeline: moving an issue from Backlog to Ready, and merging the final pull request.
 
 \subsection{Why Skills, Not Prompts or Scripts}\label{sec:skills}
 
