@@ -81,8 +81,11 @@ impl SequencingWithinIntervals {
             "release_times and lengths must have the same length"
         );
         for i in 0..release_times.len() {
+            let sum = release_times[i]
+                .checked_add(lengths[i])
+                .expect("overflow computing r(i) + l(i)");
             assert!(
-                release_times[i] + lengths[i] <= deadlines[i],
+                sum <= deadlines[i],
                 "Task {i}: r({}) + l({}) > d({}), time window is empty",
                 release_times[i],
                 lengths[i],

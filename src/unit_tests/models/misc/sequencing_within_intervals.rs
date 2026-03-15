@@ -3,7 +3,7 @@ use crate::solvers::{BruteForce, Solver};
 use crate::traits::Problem;
 
 #[test]
-fn test_sequencingwithinintervals_creation() {
+fn test_sequencing_within_intervals_creation() {
     let problem = SequencingWithinIntervals::new(
         vec![0, 0, 0, 0, 5],
         vec![11, 11, 11, 11, 6],
@@ -23,7 +23,7 @@ fn test_sequencingwithinintervals_creation() {
 }
 
 #[test]
-fn test_sequencingwithinintervals_evaluation_feasible() {
+fn test_sequencing_within_intervals_evaluation_feasible() {
     let problem = SequencingWithinIntervals::new(
         vec![0, 0, 0, 0, 5],
         vec![11, 11, 11, 11, 6],
@@ -39,7 +39,7 @@ fn test_sequencingwithinintervals_evaluation_feasible() {
 }
 
 #[test]
-fn test_sequencingwithinintervals_evaluation_infeasible_overlap() {
+fn test_sequencing_within_intervals_evaluation_infeasible_overlap() {
     let problem = SequencingWithinIntervals::new(
         vec![0, 0, 0, 0, 5],
         vec![11, 11, 11, 11, 6],
@@ -51,14 +51,14 @@ fn test_sequencingwithinintervals_evaluation_infeasible_overlap() {
 }
 
 #[test]
-fn test_sequencingwithinintervals_evaluation_wrong_length() {
+fn test_sequencing_within_intervals_evaluation_wrong_length() {
     let problem = SequencingWithinIntervals::new(vec![0, 2], vec![3, 5], vec![2, 2]);
     assert!(!problem.evaluate(&[0]));
     assert!(!problem.evaluate(&[0, 0, 0]));
 }
 
 #[test]
-fn test_sequencingwithinintervals_evaluation_out_of_range() {
+fn test_sequencing_within_intervals_evaluation_out_of_range() {
     let problem = SequencingWithinIntervals::new(vec![0, 2], vec![3, 5], vec![2, 2]);
     // Task 0: dims = 3 - 0 - 2 + 1 = 2, so config must be 0 or 1
     // Task 1: dims = 5 - 2 - 2 + 1 = 2, so config must be 0 or 1
@@ -66,7 +66,7 @@ fn test_sequencingwithinintervals_evaluation_out_of_range() {
 }
 
 #[test]
-fn test_sequencingwithinintervals_solver() {
+fn test_sequencing_within_intervals_solver() {
     // Simple instance: 3 tasks that can be scheduled sequentially
     let problem = SequencingWithinIntervals::new(vec![0, 2, 4], vec![3, 5, 7], vec![2, 2, 2]);
     let solver = BruteForce::new();
@@ -77,7 +77,7 @@ fn test_sequencingwithinintervals_solver() {
 }
 
 #[test]
-fn test_sequencingwithinintervals_solver_partition_example() {
+fn test_sequencing_within_intervals_solver_partition_example() {
     // Instance from the plan (PARTITION reduction)
     let problem = SequencingWithinIntervals::new(
         vec![0, 0, 0, 0, 5],
@@ -92,7 +92,7 @@ fn test_sequencingwithinintervals_solver_partition_example() {
 }
 
 #[test]
-fn test_sequencingwithinintervals_no_solution() {
+fn test_sequencing_within_intervals_no_solution() {
     // Two tasks that must both use time [0,2), impossible without overlap
     let problem = SequencingWithinIntervals::new(vec![0, 0], vec![2, 2], vec![2, 2]);
     // Each task has dims = 2 - 0 - 2 + 1 = 1, so config can only be [0, 0]
@@ -105,7 +105,7 @@ fn test_sequencingwithinintervals_no_solution() {
 }
 
 #[test]
-fn test_sequencingwithinintervals_serialization() {
+fn test_sequencing_within_intervals_serialization() {
     let problem = SequencingWithinIntervals::new(vec![0, 2, 4], vec![3, 5, 7], vec![2, 2, 2]);
     let json = serde_json::to_value(&problem).unwrap();
     let restored: SequencingWithinIntervals = serde_json::from_value(json).unwrap();
@@ -115,7 +115,7 @@ fn test_sequencingwithinintervals_serialization() {
 }
 
 #[test]
-fn test_sequencingwithinintervals_empty() {
+fn test_sequencing_within_intervals_empty() {
     let problem = SequencingWithinIntervals::new(vec![], vec![], vec![]);
     assert_eq!(problem.num_tasks(), 0);
     assert_eq!(problem.dims(), Vec::<usize>::new());
@@ -123,7 +123,7 @@ fn test_sequencingwithinintervals_empty() {
 }
 
 #[test]
-fn test_sequencingwithinintervals_problem_name() {
+fn test_sequencing_within_intervals_problem_name() {
     assert_eq!(
         <SequencingWithinIntervals as Problem>::NAME,
         "SequencingWithinIntervals"
@@ -131,13 +131,13 @@ fn test_sequencingwithinintervals_problem_name() {
 }
 
 #[test]
-fn test_sequencingwithinintervals_variant() {
+fn test_sequencing_within_intervals_variant() {
     let v = <SequencingWithinIntervals as Problem>::variant();
     assert!(v.is_empty());
 }
 
 #[test]
-fn test_sequencingwithinintervals_single_task() {
+fn test_sequencing_within_intervals_single_task() {
     let problem = SequencingWithinIntervals::new(vec![0], vec![5], vec![3]);
     // dims = 5 - 0 - 3 + 1 = 3
     assert_eq!(problem.dims(), vec![3]);
@@ -149,7 +149,7 @@ fn test_sequencingwithinintervals_single_task() {
 
 #[test]
 #[should_panic(expected = "time window is empty")]
-fn test_sequencingwithinintervals_invalid_window() {
+fn test_sequencing_within_intervals_invalid_window() {
     // r + l > d: impossible task
     SequencingWithinIntervals::new(vec![5], vec![3], vec![2]);
 }
