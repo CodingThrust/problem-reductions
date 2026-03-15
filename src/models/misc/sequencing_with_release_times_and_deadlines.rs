@@ -34,11 +34,11 @@ inventory::submit! {
 ///
 /// # Representation
 ///
-/// Each variable represents the start time of a task. Variable `i` takes values
-/// in `{0, 1, ..., max_deadline - 1}`. A configuration is feasible iff:
-/// - `start[i] >= release_times[i]` for all `i`
-/// - `start[i] + lengths[i] <= deadlines[i]` for all `i`
-/// - No two tasks overlap in time
+/// Uses a permutation encoding (Lehmer code), where `config[i]` selects which
+/// remaining task to schedule next from the pool of unscheduled tasks.
+/// `dims() = [n, n-1, ..., 2, 1]`. Tasks are scheduled left-to-right: each
+/// task starts at `max(release_time, current_time)`. The schedule is feasible
+/// iff every task finishes by its deadline.
 ///
 /// # Example
 ///
@@ -113,11 +113,8 @@ impl Problem for SequencingWithReleaseTimesAndDeadlines {
     }
 
     fn dims(&self) -> Vec<usize> {
-        let h = self.time_horizon() as usize;
-        if h == 0 {
-            return vec![1; self.num_tasks()];
-        }
-        vec![h; self.num_tasks()]
+        let n = self.num_tasks();
+        (0..n).rev().map(|i| i + 1).collect()
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
@@ -126,29 +123,25 @@ impl Problem for SequencingWithReleaseTimesAndDeadlines {
             return false;
         }
 
-        // Check each task's release time and deadline constraints
-        for (i, &start_val) in config.iter().enumerate() {
-            let start = start_val as u64;
-            if start < self.release_times[i] {
+        // Decode Lehmer code into a permutation of task indices.
+        let mut available: Vec<usize> = (0..n).collect();
+        let mut schedule = Vec::with_capacity(n);
+        for &c in config.iter() {
+            if c >= available.len() {
                 return false;
             }
-            if start + self.lengths[i] > self.deadlines[i] {
-                return false;
-            }
+            schedule.push(available.remove(c));
         }
 
-        // Check no two tasks overlap: for all i != j,
-        // either start[i] + length[i] <= start[j] or start[j] + length[j] <= start[i]
-        for i in 0..n {
-            for j in (i + 1)..n {
-                let si = config[i] as u64;
-                let ei = si + self.lengths[i];
-                let sj = config[j] as u64;
-                let ej = sj + self.lengths[j];
-                if ei > sj && ej > si {
-                    return false;
-                }
+        // Schedule tasks left-to-right: each task starts at max(release_time, current_time).
+        let mut current_time: u64 = 0;
+        for &task in &schedule {
+            let start = current_time.max(self.release_times[task]);
+            let finish = start + self.lengths[task];
+            if finish > self.deadlines[task] {
+                return false;
             }
+            current_time = finish;
         }
 
         true

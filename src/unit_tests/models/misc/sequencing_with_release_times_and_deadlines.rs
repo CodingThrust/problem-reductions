@@ -14,7 +14,8 @@ fn test_sequencing_rtd_basic() {
     assert_eq!(problem.release_times(), &[0, 1, 5, 0, 8]);
     assert_eq!(problem.deadlines(), &[5, 6, 10, 3, 12]);
     assert_eq!(problem.time_horizon(), 12);
-    assert_eq!(problem.dims(), vec![12; 5]);
+    // Lehmer code dims: [5, 4, 3, 2, 1]
+    assert_eq!(problem.dims(), vec![5, 4, 3, 2, 1]);
     assert_eq!(
         <SequencingWithReleaseTimesAndDeadlines as Problem>::NAME,
         "SequencingWithReleaseTimesAndDeadlines"
@@ -27,14 +28,22 @@ fn test_sequencing_rtd_basic() {
 
 #[test]
 fn test_sequencing_rtd_evaluate_feasible() {
-    // Example from issue: 5 tasks with a known feasible schedule
+    // 5 tasks: schedule order t3, t0, t1, t2, t4
+    // t3: start=max(0,0)=0, finish=1 <= 3 ✓
+    // t0: start=max(0,1)=1, finish=4 <= 5 ✓
+    // t1: start=max(1,4)=4, finish=6 <= 6 ✓
+    // t2: start=max(5,6)=6, finish=10 <= 10 ✓
+    // t4: start=max(8,10)=10, finish=12 <= 12 ✓
     let problem = SequencingWithReleaseTimesAndDeadlines::new(
         vec![3, 2, 4, 1, 2],
         vec![0, 1, 5, 0, 8],
         vec![5, 6, 10, 3, 12],
     );
-    // sigma(t4)=0, sigma(t1)=1, sigma(t2)=4, sigma(t3)=6, sigma(t5)=10
-    assert!(problem.evaluate(&[1, 4, 6, 0, 10]));
+    // Lehmer code for permutation [3, 0, 1, 2, 4]:
+    // available=[0,1,2,3,4], pick 3 -> index 3; available=[0,1,2,4], pick 0 -> index 0;
+    // available=[1,2,4], pick 1 -> index 0; available=[2,4], pick 2 -> index 0;
+    // available=[4], pick 4 -> index 0
+    assert!(problem.evaluate(&[3, 0, 0, 0, 0]));
 }
 
 #[test]
@@ -44,30 +53,10 @@ fn test_sequencing_rtd_evaluate_infeasible_deadline() {
         vec![0, 0],
         vec![2, 4], // task 0 needs 3 time units but deadline is 2
     );
-    // Task 0 starts at 0, finishes at 3 > deadline 2
-    assert!(!problem.evaluate(&[0, 3]));
-}
-
-#[test]
-fn test_sequencing_rtd_evaluate_infeasible_release() {
-    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![1, 1], vec![3, 0], vec![5, 5]);
-    // Task 0 starts at 0 but release time is 3
-    assert!(!problem.evaluate(&[0, 1]));
-    // Task 0 starts at 3, finishes at 4 <= 5; task 1 starts at 0, finishes at 1 <= 5
-    assert!(problem.evaluate(&[3, 0]));
-}
-
-#[test]
-fn test_sequencing_rtd_evaluate_overlap() {
-    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 0], vec![4, 4]);
-    // Both start at 0, overlap [0,2) and [0,2)
+    // Order [0, 1]: t0 start=0, finish=3 > 2 -> infeasible
     assert!(!problem.evaluate(&[0, 0]));
-    // Task 0 at [0,2), task 1 at [2,4) — no overlap
-    assert!(problem.evaluate(&[0, 2]));
-    // Task 0 at [2,4), task 1 at [0,2) — no overlap
-    assert!(problem.evaluate(&[2, 0]));
-    // Task 0 at [1,3), task 1 at [2,4) — overlap at [2,3)
-    assert!(!problem.evaluate(&[1, 2]));
+    // Order [1, 0]: t1 start=0, finish=2; t0 start=2, finish=5 > 2 -> infeasible
+    assert!(!problem.evaluate(&[1, 0]));
 }
 
 #[test]
@@ -89,15 +78,9 @@ fn test_sequencing_rtd_empty_instance() {
 #[test]
 fn test_sequencing_rtd_single_task() {
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2], vec![1], vec![5]);
-    assert_eq!(problem.dims(), vec![5]);
-    // Start at 1 (release), finish at 3 <= 5
-    assert!(problem.evaluate(&[1]));
-    // Start at 3, finish at 5 <= 5
-    assert!(problem.evaluate(&[3]));
-    // Start at 4, finish at 6 > 5
-    assert!(!problem.evaluate(&[4]));
-    // Start at 0 < release 1
-    assert!(!problem.evaluate(&[0]));
+    assert_eq!(problem.dims(), vec![1]);
+    // Only one permutation: task 0 starts at max(1,0)=1, finish=3 <= 5
+    assert!(problem.evaluate(&[0]));
 }
 
 #[test]
@@ -147,8 +130,15 @@ fn test_sequencing_rtd_serialization() {
 fn test_sequencing_rtd_tight_schedule() {
     // Tasks that can only be scheduled in one specific order
     let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![2, 2], vec![0, 2], vec![2, 4]);
-    // Only valid: task 0 at [0,2), task 1 at [2,4)
-    assert!(problem.evaluate(&[0, 2]));
-    // task 0 at [0,2), task 1 at [1,3) — violates release_time 2
-    assert!(!problem.evaluate(&[0, 1]));
+    // Order [0, 1]: t0 start=max(0,0)=0, finish=2<=2; t1 start=max(2,2)=2, finish=4<=4 ✓
+    assert!(problem.evaluate(&[0, 0]));
+    // Order [1, 0]: t1 start=max(2,0)=2, finish=4<=4; t0 start=max(0,4)=4, finish=6>2 ✗
+    assert!(!problem.evaluate(&[1, 0]));
+}
+
+#[test]
+fn test_sequencing_rtd_invalid_lehmer_index() {
+    let problem = SequencingWithReleaseTimesAndDeadlines::new(vec![1, 1], vec![0, 0], vec![2, 2]);
+    // config[0]=2 is out of range for available.len()=2
+    assert!(!problem.evaluate(&[2, 0]));
 }
