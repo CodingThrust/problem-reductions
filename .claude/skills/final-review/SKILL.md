@@ -28,79 +28,108 @@ GitHub Project board IDs (for `gh project item-edit`):
 
 ## Workflow
 
-### Step 0: Discover "Final review" PRs
+### Step 0: Load the Final-Review Context Bundle
 
-Use the board helper to select or validate the target PR and capture structured metadata:
+Start from the skill-scoped bundle. The happy path should only consume:
+- `CTX["selection"]`
+- `CTX["pr"]`
+- `CTX["prep"]`
+- `CTX["review_context"]`
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
 STATE_FILE=/tmp/problemreductions-final-review-selection.json
+set -- python3 scripts/pipeline_skill_context.py final-review --repo "$REPO" --state-file "$STATE_FILE" --format json
+if [ -n "${PR:-}" ]; then
+  set -- "$@" --pr "$PR"
+fi
+CTX=$("$@")
+STATUS=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['status'])")
 ```
 
-If a specific PR number was given:
+Branch on `STATUS`:
+- `empty`: report `No items in the Final review column` and stop.
+- `ready`: continue with the full common-path bundle.
+- `ready-with-warnings`: continue only with the narrow warning fallback. Read `CTX["warnings"]` first and keep the fallback limited to whatever data could not be prepared mechanically.
+
+Extract the common working objects:
 
 ```bash
-NEXT=$(python3 scripts/pipeline_board.py next final-review "$STATE_FILE" --repo "$REPO" --number <number> --format json)
+ITEM_ID=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['selection']['item_id'])")
+PR=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['selection']['pr_number'])")
+ISSUE=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['selection'].get('issue_number') or '')")
+TITLE=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.load(sys.stdin)['selection']['title'])")
+PR_CTX=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin)['pr']))")
+PREP=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin)['prep']))")
+REVIEW_CONTEXT=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print(json.dumps(json.load(sys.stdin).get('review_context')))")
 ```
 
-Otherwise:
+If `PREP["checkout"]["worktree_dir"]` exists, `cd` into it for any merge-resolution or quick-fix work:
 
 ```bash
-NEXT=$(python3 scripts/pipeline_board.py next final-review "$STATE_FILE" --repo "$REPO" --format json)
+WORKTREE_DIR=$(printf '%s\n' "$CTX" | python3 -c "import sys,json; print((json.load(sys.stdin).get('prep', {}).get('checkout') or {}).get('worktree_dir', ''))")
+if [ -n "$WORKTREE_DIR" ]; then
+  cd "$WORKTREE_DIR"
+fi
 ```
 
-If the command exits with status 1, report `No items in the Final review column` and stop.
+### Step 1: Use the Bundled Review Context
 
-Extract the board item and PR metadata from `NEXT`:
+`PR_CTX` already includes the mechanical PR data:
+- title, body, URL, mergeability, changed files, commits
+- `comments`
+- linked issue metadata and `issue_context_text`
+- CI summary
+- Codecov summary
+
+`PREP` already includes the review worktree and merge attempt:
+- `PREP["checkout"]`
+- `PREP["merge"]`
+- `PREP["ready"]`
+
+`REVIEW_CONTEXT` is the deterministic review/check payload:
+- `REVIEW_CONTEXT["subject"]`
+- `REVIEW_CONTEXT["whitelist"]`
+- `REVIEW_CONTEXT["completeness"]`
+- `REVIEW_CONTEXT["changed_files"]`
+- `REVIEW_CONTEXT["diff_stat"]`
+
+Read the full diff as additional review input:
 
 ```bash
-ITEM_ID=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; print(json.load(sys.stdin)['item_id'])")
-PR=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['pr_number'] or data['number'])")
-ISSUE=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; data=json.load(sys.stdin); print(data['issue_number'] or '')")
-TITLE=$(printf '%s\n' "$NEXT" | python3 -c "import sys,json; print(json.load(sys.stdin)['title'])")
+gh pr diff "$PR"
 ```
 
-### Step 1: Gather PR context
+Run `pred list` (CLI tool, not MCP) to see the surrounding problem/reduction graph context before assessing usefulness.
 
-Collect all information needed for the review:
+If `PREP["ready"]` is false, inspect `PREP["merge"]`. The common case is still usable:
+- if `PREP["merge"]["status"] == "conflicted"` but the worktree exists, you still have `REVIEW_CONTEXT`; decide whether to hold for manual resolution or resolve and continue
+- if `STATUS == "ready-with-warnings"` and `REVIEW_CONTEXT` is `null`, treat that as a narrow prep failure path and prefer hold/manual follow-up over reassembling lots of mechanics inside the skill
 
-1a. **PR metadata and comment context**: prefer the bundled scripted context:
-   ```bash
-   REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-   CONTEXT=$(python3 scripts/pipeline_pr.py context --repo "$REPO" --pr <number> --format json)
-   ```
-   This includes title, body, labels, files, additions, deletions, commits, branch names, mergeability, comment summaries, linked issue data, issue context text, CI summary, and Codecov summary in one JSON payload.
+### Step 1a: Comment Audit (REQUIRED)
 
-1b. **PR diff**: `gh pr diff <number>` — read the full diff to understand all changes.
+Final review must check the comment history before recommending merge.
 
-1c. **Linked issue**: read it from `CONTEXT["linked_issue_number"]` / `CONTEXT["linked_issue"]` / `CONTEXT["issue_context_text"]` instead of reparsing the PR body manually.
+Read the following from `PR_CTX["comments"]`:
+- `human_issue_comments`
+- `inline_comments`
+- `reviews`
 
-1d. **Determine PR type**: From labels and title, classify as `[Model]` or `[Rule]`.
-  - For `[Model]`: identify the problem name being added
-  - For `[Rule]`: identify the source and target problem names
+Read the linked-issue discussion from `PR_CTX`:
+- `linked_issue_number`
+- `human_linked_issue_comments`
+- `issue_context_text`
 
-1e. **Existing problems**: Run `pred list` (CLI tool, not MCP) to show all currently registered problems and reductions. This provides context for evaluating usefulness.
+Build a list of every actionable comment and classify each as:
+- `addressed`
+- `superseded / no longer applicable`
+- `still open`
 
-1f. **Check for conflicts with main**: Run `gh pr view <number> --json mergeable`. If there are merge conflicts, use the bundled worktree helper in a worktree:
-   ```bash
-   PREP=$(python3 scripts/pipeline_worktree.py prepare-review --repo "$REPO" --pr <number> --format json)
-   ```
-   Read `PREP["checkout"]["worktree_dir"]` for the worktree path and `PREP["merge"]` for `status`, `conflicts`, and `likely_complex`. If `PREP["ready"]` is false because the conflicts are complex, hold the PR for manual resolution; otherwise resolve in that worktree, commit, and push the merge commit.
+Pay special attention to the `## Review Pipeline Report` comment. If it contains a `Remaining issues for final review` section, those items must be reviewed explicitly here.
 
-1g. **PR / issue comment audit (REQUIRED)**: Final review must check the comment history before recommending merge.
-  - Read the following from `CONTEXT["comments"]`:
-    - `human_issue_comments`
-    - `inline_comments`
-    - `reviews`
-    - `human_linked_issue_comments`
-  - Build a list of every actionable comment and classify each as:
-    - `addressed`
-    - `superseded / no longer applicable`
-    - `still open`
-  - Pay special attention to the `## Review Pipeline Report` comment. If it contains a `Remaining issues for final review` section, those items must be reviewed explicitly here.
-  - Do **not** recommend merge until every actionable comment has been dispositioned.
+Do **not** recommend merge until every actionable comment has been dispositioned.
 
-1h. **Comment status summary**: Prepare a short summary for later steps:
+Prepare a short summary for later steps:
 
 > **Comment Audit**
 >
@@ -158,45 +187,11 @@ Use `AskUserQuestion` to confirm:
 
 ### Step 3b: File whitelist check
 
-Check that the PR only touches files expected for its type. Any file outside the whitelist is flagged for review — it may be a legacy pattern or an unrelated change.
+Use `REVIEW_CONTEXT["whitelist"]` directly in the common path.
 
-**Whitelist for [Model] PRs:**
-- `src/models/<category>/<name>.rs` — model implementation
-- `src/unit_tests/models/<category>/<name>.rs` — unit tests
-- `src/example_db/model_builders.rs` — canonical example registration
-- `src/example_db/rule_builders.rs` — only if updating nonempty-style assertions
-- `docs/paper/reductions.typ` — paper entry
-- `docs/src/reductions/problem_schemas.json` — schema export
-- `docs/src/reductions/reduction_graph.json` — graph export
-- `tests/suites/trait_consistency.rs` — trait consistency entry
-- `problemreductions-cli/tests/cli_tests.rs` — CLI integration tests for `pred create`
+If `REVIEW_CONTEXT` is `null` because `STATUS == "ready-with-warnings"`, call that out explicitly and keep the fallback narrow: either fix the prep problem first or hold the PR instead of rebuilding the full deterministic pipeline manually inside the skill.
 
-**Whitelist for [Rule] PRs:**
-- `src/rules/<source>_<target>.rs` — reduction implementation
-- `src/rules/mod.rs` — module registration
-- `src/unit_tests/rules/<source>_<target>.rs` — unit tests
-- `src/example_db/rule_builders.rs` — canonical example registration
-- `src/models/<category>/<name>.rs` — only if adding getters needed for overhead expressions
-- `docs/paper/reductions.typ` — paper entry
-- `docs/src/reductions/reduction_graph.json` — graph export
-- `docs/src/reductions/problem_schemas.json` — only if updating field descriptions
-- `problemreductions-cli/tests/cli_tests.rs` — CLI integration tests if adding CLI support
-
-Run the deterministic whitelist check against the PR file list from `SNAPSHOT`:
-
-```bash
-printf '%s\n' "$SNAPSHOT" | python3 -c "
-import sys, json
-snapshot = json.load(sys.stdin)
-for path in snapshot['files']:
-    print(path)
-" > /tmp/final-review-files.txt
-
-python3 scripts/pipeline_checks.py file-whitelist --kind model --files-file /tmp/final-review-files.txt --format json
-# or --kind rule for [Rule] PRs
-```
-
-If any file falls outside the whitelist result, flag it:
+If any file falls outside `REVIEW_CONTEXT["whitelist"]`, flag it:
 
 > **File Whitelist Check**
 >
@@ -209,17 +204,9 @@ If all files are whitelisted, report "All files within expected whitelist" and c
 
 ### Step 4: Completeness check
 
-Run the deterministic completeness check first:
+Use `REVIEW_CONTEXT["completeness"]` as the deterministic baseline checklist for files, paper entries, examples, variants/overhead forms, and trait-consistency coverage. Then apply maintainer judgment on anything the script cannot prove.
 
-```bash
-# Model example
-python3 scripts/pipeline_checks.py completeness --kind model --name GraphPartitioning --repo-root . --format json
-
-# Rule example
-python3 scripts/pipeline_checks.py completeness --kind rule --name binpacking_ilp --source BinPacking --target ILP --repo-root . --format json
-```
-
-Use the script result as the baseline checklist for files, paper entries, examples, variants/overhead forms, and trait-consistency coverage. Then apply maintainer judgment on anything the script cannot prove.
+Read the review subject from `REVIEW_CONTEXT["subject"]` to understand whether the PR is being reviewed as a model, rule, or generic change. If `REVIEW_CONTEXT` is `null`, that is a rare prep-failure path and should usually push you toward hold/manual follow-up rather than a full merge recommendation.
 
 Verify the PR includes all required components. Check:
 
