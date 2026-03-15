@@ -54,6 +54,10 @@ fn test_all_problems_implement_trait_correctly() {
         "MaximumMatching",
     );
     check_problem_trait(
+        &BiconnectivityAugmentation::new(SimpleGraph::path(4), vec![(0, 3, 2)], 2),
+        "BiconnectivityAugmentation",
+    );
+    check_problem_trait(
         &Satisfiability::new(3, vec![CNFClause::new(vec![1])]),
         "SAT",
     );

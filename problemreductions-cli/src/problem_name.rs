@@ -52,6 +52,7 @@ pub fn resolve_alias(input: &str) -> String {
         "paintshop" => "PaintShop".to_string(),
         "bmf" => "BMF".to_string(),
         "bicliquecover" => "BicliqueCover".to_string(),
+        "biconnectivityaugmentation" => "BiconnectivityAugmentation".to_string(),
         "binpacking" => "BinPacking".to_string(),
         "cvp" | "closestvectorproblem" => "ClosestVectorProblem".to_string(),
         "knapsack" => "Knapsack".to_string(),
@@ -260,6 +261,10 @@ mod tests {
         assert_eq!(resolve_alias("3SAT"), "KSatisfiability");
         assert_eq!(resolve_alias("QUBO"), "QUBO");
         assert_eq!(resolve_alias("MaxCut"), "MaxCut");
+        assert_eq!(
+            resolve_alias("biconnectivityaugmentation"),
+            "BiconnectivityAugmentation"
+        );
         // Pass-through for full names
         assert_eq!(
             resolve_alias("MaximumIndependentSet"),

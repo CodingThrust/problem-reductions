@@ -14,8 +14,10 @@
 //! - [`TravelingSalesman`]: Traveling Salesman (minimum weight Hamiltonian cycle)
 //! - [`SpinGlass`]: Ising model Hamiltonian
 //! - [`BicliqueCover`]: Biclique cover on bipartite graphs
+//! - [`BiconnectivityAugmentation`]: Biconnectivity augmentation with weighted potential edges
 
 pub(crate) mod biclique_cover;
+pub(crate) mod biconnectivity_augmentation;
 pub(crate) mod graph_partitioning;
 pub(crate) mod kcoloring;
 pub(crate) mod max_cut;
@@ -30,6 +32,7 @@ pub(crate) mod spin_glass;
 pub(crate) mod traveling_salesman;
 
 pub use biclique_cover::BicliqueCover;
+pub use biconnectivity_augmentation::BiconnectivityAugmentation;
 pub use graph_partitioning::GraphPartitioning;
 pub use kcoloring::KColoring;
 pub use max_cut::MaxCut;

@@ -1,6 +1,7 @@
 use anyhow::{bail, Context, Result};
 use problemreductions::models::algebraic::{ClosestVectorProblem, ILP};
 use problemreductions::models::misc::{BinPacking, Knapsack, LongestCommonSubsequence, SubsetSum};
+use problemreductions::models::BiconnectivityAugmentation;
 use problemreductions::prelude::*;
 use problemreductions::rules::{MinimizeSteps, ReductionGraph};
 use problemreductions::solvers::{BruteForce, ILPSolver, Solver};
@@ -211,6 +212,9 @@ pub fn load_problem(
         "MaximumMatching" => deser_opt::<MaximumMatching<SimpleGraph, i32>>(data),
         "MinimumDominatingSet" => deser_opt::<MinimumDominatingSet<SimpleGraph, i32>>(data),
         "GraphPartitioning" => deser_opt::<GraphPartitioning<SimpleGraph>>(data),
+        "BiconnectivityAugmentation" => {
+            deser_sat::<BiconnectivityAugmentation<SimpleGraph, i32>>(data)
+        }
         "MaxCut" => deser_opt::<MaxCut<SimpleGraph, i32>>(data),
         "MaximalIS" => deser_opt::<MaximalIS<SimpleGraph, i32>>(data),
         "TravelingSalesman" => deser_opt::<TravelingSalesman<SimpleGraph, i32>>(data),
@@ -272,6 +276,9 @@ pub fn serialize_any_problem(
         "MaximumMatching" => try_ser::<MaximumMatching<SimpleGraph, i32>>(any),
         "MinimumDominatingSet" => try_ser::<MinimumDominatingSet<SimpleGraph, i32>>(any),
         "GraphPartitioning" => try_ser::<GraphPartitioning<SimpleGraph>>(any),
+        "BiconnectivityAugmentation" => {
+            try_ser::<BiconnectivityAugmentation<SimpleGraph, i32>>(any)
+        }
         "MaxCut" => try_ser::<MaxCut<SimpleGraph, i32>>(any),
         "MaximalIS" => try_ser::<MaximalIS<SimpleGraph, i32>>(any),
         "TravelingSalesman" => try_ser::<TravelingSalesman<SimpleGraph, i32>>(any),
@@ -375,4 +382,62 @@ fn solve_ilp(any: &dyn Any) -> Result<SolveResult> {
         .ok_or_else(|| anyhow::anyhow!("ILP solver found no feasible solution"))?;
     let evaluation = format!("{:?}", problem.evaluate(&config));
     Ok(SolveResult { config, evaluation })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use serde_json::json;
+
+    fn biconnectivity_variant() -> BTreeMap<String, String> {
+        BTreeMap::from([
+            ("graph".to_string(), "SimpleGraph".to_string()),
+            ("weight".to_string(), "i32".to_string()),
+        ])
+    }
+
+    #[test]
+    fn test_load_problem_biconnectivity_augmentation() {
+        let data = json!({
+            "graph": {
+                "inner": {
+                    "nodes": [null, null, null, null],
+                    "node_holes": [],
+                    "edge_property": "undirected",
+                    "edges": [[0, 1, null], [1, 2, null], [2, 3, null]]
+                }
+            },
+            "potential_weights": [[0, 2, 3], [0, 3, 4], [1, 3, 2]],
+            "budget": 5
+        });
+
+        let problem = load_problem(
+            "biconnectivityaugmentation",
+            &biconnectivity_variant(),
+            data,
+        )
+        .expect("load problem");
+
+        assert_eq!(problem.problem_name(), "BiconnectivityAugmentation");
+        assert_eq!(problem.dims_dyn(), vec![2, 2, 2]);
+    }
+
+    #[test]
+    fn test_serialize_any_problem_biconnectivity_augmentation() {
+        let problem = BiconnectivityAugmentation::new(
+            SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+            vec![(0, 2, 3), (0, 3, 4), (1, 3, 2)],
+            5,
+        );
+
+        let data = serialize_any_problem(
+            "BiconnectivityAugmentation",
+            &biconnectivity_variant(),
+            &problem,
+        )
+        .expect("serialize problem");
+
+        assert_eq!(data["budget"], 5);
+        assert_eq!(data["potential_weights"][1], json!([0, 3, 4]));
+    }
 }
