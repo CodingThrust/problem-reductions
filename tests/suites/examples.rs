@@ -55,7 +55,10 @@ fn test_reduction_knapsack_to_qubo() {
         .status()
         .unwrap_or_else(|e| panic!("Failed to run example reduction_knapsack_to_qubo: {e}"));
 
-    assert!(status.success(), "Example reduction_knapsack_to_qubo failed with {status}");
+    assert!(
+        status.success(),
+        "Example reduction_knapsack_to_qubo failed with {status}"
+    );
     assert!(output_dir.join("knapsack_to_qubo.json").exists());
     let _ = std::fs::remove_dir_all(output_dir);
 }

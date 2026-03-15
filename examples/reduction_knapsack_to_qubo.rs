@@ -55,8 +55,13 @@ pub fn run() {
     // Export JSON using the merged rule-example format.
     let source = ProblemSide::from_problem(&knapsack);
     let target = ProblemSide::from_problem(qubo);
-    let overhead = lookup_overhead(&source.problem, &source.variant, &target.problem, &target.variant)
-        .expect("Knapsack -> QUBO overhead not found");
+    let overhead = lookup_overhead(
+        &source.problem,
+        &source.variant,
+        &target.problem,
+        &target.variant,
+    )
+    .expect("Knapsack -> QUBO overhead not found");
 
     let example = RuleExample {
         source,

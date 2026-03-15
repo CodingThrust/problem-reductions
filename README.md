@@ -42,22 +42,6 @@ make cli    # builds target/release/pred
 
 See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).
 
-### Example: Knapsack to QUBO
-
-To inspect a concrete reduction end-to-end, run the bundled Knapsack -> QUBO example:
-
-```bash
-cargo run --example reduction_knapsack_to_qubo
-```
-
-It reduces a 4-item knapsack instance to a 7-variable QUBO, solves the target problem, and prints the extracted source optimum `[1, 0, 0, 1]` with value `Valid(10)`.
-
-By default, exported example JSON goes to `docs/paper/examples/generated/`. To redirect it elsewhere during experimentation:
-
-```bash
-PROBLEMREDUCTIONS_EXAMPLES_DIR=/tmp/problemreductions-examples \
-  cargo run --example reduction_knapsack_to_qubo
-```
 
 ## MCP Server (AI Integration)
 
