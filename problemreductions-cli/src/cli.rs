@@ -239,6 +239,7 @@ Flags by problem type:
   LCS                             --strings
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
+  ResourceConstrainedScheduling   --num-processors, --resource-bounds, --resource-requirements, --deadline
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   SCS                             --strings, --bound [--alphabet-size]
   ILP, CircuitSAT                 (via reduction only)
@@ -382,15 +383,21 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Number of processors for ResourceConstrainedScheduling or FlowShopScheduling
+    #[arg(long)]
+    pub num_processors: Option<usize>,
+    /// Resource bounds for ResourceConstrainedScheduling (comma-separated, e.g., "20,15")
+    #[arg(long)]
+    pub resource_bounds: Option<String>,
+    /// Resource requirements for ResourceConstrainedScheduling (semicolon-separated rows, each row comma-separated, e.g., "6,3;7,4;5,2")
+    #[arg(long)]
+    pub resource_requirements: Option<String>,
+    /// Deadline for ResourceConstrainedScheduling or FlowShopScheduling
+    #[arg(long)]
+    pub deadline: Option<u64>,
     /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
     #[arg(long)]
     pub task_lengths: Option<String>,
-    /// Deadline for FlowShopScheduling
-    #[arg(long)]
-    pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling
-    #[arg(long)]
-    pub num_processors: Option<usize>,
     /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,

@@ -122,6 +122,10 @@ fn test_all_problems_implement_trait_correctly() {
         &FlowShopScheduling::new(2, vec![vec![1, 2], vec![3, 4]], 10),
         "FlowShopScheduling",
     );
+    check_problem_trait(
+        &ResourceConstrainedScheduling::new(3, vec![20], vec![vec![6], vec![7], vec![7]], 2),
+        "ResourceConstrainedScheduling",
+    );
 }
 
 #[test]
