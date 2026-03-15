@@ -200,6 +200,26 @@ crate::declare_variants! {
     default sat ResourceConstrainedScheduling => "deadline ^ num_tasks",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "resource_constrained_scheduling",
+        build: || {
+            // 6 tasks, 3 processors, 1 resource B_1=20, deadline 2
+            let problem = ResourceConstrainedScheduling::new(
+                3,
+                vec![20],
+                vec![vec![6], vec![7], vec![7], vec![6], vec![8], vec![6]],
+                2,
+            );
+            crate::example_db::specs::satisfaction_example(
+                problem,
+                vec![vec![0, 0, 0, 1, 1, 1]],
+            )
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/misc/resource_constrained_scheduling.rs"]
 mod tests;
