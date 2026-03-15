@@ -1,5 +1,6 @@
 use super::*;
 use crate::expr::Expr;
+use std::path::Path;
 
 /// Dummy reduce_fn for unit tests that don't exercise runtime reduction.
 fn dummy_reduce_fn(_: &dyn std::any::Any) -> Box<dyn crate::rules::traits::DynReductionResult> {
@@ -282,4 +283,126 @@ fn test_complexity_eval_fn_cross_check_factoring() {
 
     let input = ProblemSize::new(vec![("m", problem.m()), ("n", problem.n())]);
     cross_check_complexity(entry, &problem as &dyn std::any::Any, &input);
+}
+
+type EndpointKey = (String, Vec<(String, String)>, String, Vec<(String, String)>);
+
+fn exact_endpoint_key(entry: &ReductionEntry) -> EndpointKey {
+    let source_variant = entry
+        .source_variant()
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    let target_variant = entry
+        .target_variant()
+        .into_iter()
+        .map(|(k, v)| (k.to_string(), v.to_string()))
+        .collect();
+    (
+        entry.source_name.to_string(),
+        source_variant,
+        entry.target_name.to_string(),
+        target_variant,
+    )
+}
+
+fn walk_rust_files(dir: &Path, files: &mut Vec<std::path::PathBuf>) {
+    for entry in std::fs::read_dir(dir).unwrap() {
+        let entry = entry.unwrap();
+        let path = entry.path();
+        if path.is_dir() {
+            walk_rust_files(&path, files);
+        } else if path.extension().is_some_and(|ext| ext == "rs") {
+            files.push(path);
+        }
+    }
+}
+
+fn reduction_attribute_has_extra_top_level_field(path: &Path) -> bool {
+    let contents = std::fs::read_to_string(path).unwrap();
+    let mut in_reduction_attr = false;
+    let mut attr_text = String::new();
+
+    for line in contents.lines() {
+        if !in_reduction_attr
+            && (line.contains("#[reduction(") || line.contains("#[$crate::reduction("))
+        {
+            in_reduction_attr = true;
+            attr_text.clear();
+        }
+        if in_reduction_attr {
+            attr_text.push_str(line.trim());
+            attr_text.push(' ');
+        }
+        if in_reduction_attr && line.contains(")]") {
+            let normalized = attr_text.split_whitespace().collect::<Vec<_>>().join(" ");
+            let body = normalized
+                .strip_prefix("#[reduction(")
+                .or_else(|| normalized.strip_prefix("#[$crate::reduction("))
+                .unwrap_or(&normalized);
+            let body = body.strip_suffix(")]").unwrap_or(body).trim();
+            if !body.starts_with("overhead =") {
+                return true;
+            }
+            in_reduction_attr = false;
+        }
+    }
+
+    false
+}
+
+#[test]
+fn every_registered_reduction_has_unique_exact_endpoints() {
+    let entries = reduction_entries();
+    let mut seen = std::collections::HashMap::new();
+    for entry in &entries {
+        let key = exact_endpoint_key(entry);
+        if let Some(prev) = seen.insert(key.clone(), entry) {
+            panic!(
+                "Duplicate exact reduction endpoint {:?}: {} {:?} -> {} {:?} vs {} {:?} -> {} {:?}",
+                key,
+                prev.source_name,
+                prev.source_variant(),
+                prev.target_name,
+                prev.target_variant(),
+                entry.source_name,
+                entry.source_variant(),
+                entry.target_name,
+                entry.target_variant(),
+            );
+        }
+    }
+}
+
+#[test]
+fn every_registered_reduction_has_non_empty_names() {
+    for entry in reduction_entries() {
+        assert!(
+            !entry.source_name.is_empty(),
+            "Empty source_name for reduction targeting {}",
+            entry.target_name,
+        );
+        assert!(
+            !entry.target_name.is_empty(),
+            "Empty target_name for reduction sourced from {}",
+            entry.source_name,
+        );
+    }
+}
+
+#[test]
+fn repo_reductions_use_overhead_only_attribute() {
+    let mut rust_files = Vec::new();
+    walk_rust_files(Path::new("src/rules"), &mut rust_files);
+
+    let offenders: Vec<_> = rust_files
+        .into_iter()
+        .filter(|path| reduction_attribute_has_extra_top_level_field(path))
+        .collect();
+
+    assert!(
+        offenders.is_empty(),
+        "extra top-level reduction attribute still present in: {:?}",
+        offenders,
+    );
 }
