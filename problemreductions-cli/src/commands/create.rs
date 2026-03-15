@@ -1,7 +1,9 @@
 use crate::cli::{CreateArgs, ExampleSide};
 use crate::dispatch::ProblemJsonOutput;
 use crate::output::OutputConfig;
-use crate::problem_name::{resolve_problem_ref, unknown_problem_error};
+use crate::problem_name::{
+    resolve_catalog_problem_ref, resolve_problem_ref, unknown_problem_error,
+};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
@@ -224,6 +226,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             _ => "--graph 0-1,1-2,2-3 --weights 1,1,1,1",
         },
         "GraphPartitioning" => "--graph 0-1,1-2,2-3,0-2,1-3,0-3",
+        "BoundedComponentSpanningForest" => {
+            "--graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6"
+        }
         "HamiltonianPath" => "--graph 0-1,1-2,2-3",
         "IsomorphicSpanningTree" => "--graph 0-1,1-2,0-2 --tree 0-1,1-2",
         "MaxCut" | "MaximumMatching" | "TravelingSalesman" => {
@@ -320,9 +325,22 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         anyhow::anyhow!("Missing problem type.\n\nUsage: pred create <PROBLEM> [FLAGS]")
     })?;
     let rgraph = problemreductions::rules::ReductionGraph::new();
-    let resolved = resolve_problem_ref(problem, &rgraph)?;
-    let canonical = &resolved.name;
-    let resolved_variant = resolved.variant;
+    let resolved = match resolve_problem_ref(problem, &rgraph) {
+        Ok(resolved) => resolved,
+        Err(graph_err) => {
+            let catalog_resolved = resolve_catalog_problem_ref(problem)?;
+            if rgraph.variants_for(catalog_resolved.name()).is_empty() {
+                ProblemRef {
+                    name: catalog_resolved.name().to_string(),
+                    variant: catalog_resolved.variant().clone(),
+                }
+            } else {
+                return Err(graph_err);
+            }
+        }
+    };
+    let canonical = resolved.name.as_str();
+    let resolved_variant = resolved.variant.clone();
     let graph_type = resolved_graph_type(&resolved_variant);
 
     if args.random {
@@ -351,7 +369,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         std::process::exit(2);
     }
 
-    let (data, variant) = match canonical.as_str() {
+    let (data, variant) = match canonical {
         // Graph problems with vertex weights
         "MaximumIndependentSet"
         | "MinimumVertexCover"
@@ -369,6 +387,50 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             })?;
             (
                 ser(GraphPartitioning::new(graph))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // Bounded Component Spanning Forest
+        "BoundedComponentSpanningForest" => {
+            let usage = "Usage: pred create BoundedComponentSpanningForest --graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 --weights 2,3,1,2,3,1,2,1 --k 3 --bound 6";
+            let (graph, n) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!("BoundedComponentSpanningForest requires --weights\n\n{usage}")
+            })?;
+            let weights = parse_vertex_weights(args, n)?;
+            if weights.iter().any(|&weight| weight < 0) {
+                bail!("BoundedComponentSpanningForest requires nonnegative --weights\n\n{usage}");
+            }
+            let max_components = args.k.ok_or_else(|| {
+                anyhow::anyhow!("BoundedComponentSpanningForest requires --k\n\n{usage}")
+            })?;
+            if max_components == 0 {
+                bail!("BoundedComponentSpanningForest requires --k >= 1\n\n{usage}");
+            }
+            if max_components > n {
+                bail!(
+                    "BoundedComponentSpanningForest requires --k <= number of vertices ({n})\n\n{usage}"
+                );
+            }
+            let bound_raw = args.bound.ok_or_else(|| {
+                anyhow::anyhow!("BoundedComponentSpanningForest requires --bound\n\n{usage}")
+            })?;
+            if bound_raw <= 0 {
+                bail!("BoundedComponentSpanningForest requires positive --bound\n\n{usage}");
+            }
+            let max_weight = i32::try_from(bound_raw).map_err(|_| {
+                anyhow::anyhow!(
+                    "BoundedComponentSpanningForest requires --bound within i32 range\n\n{usage}"
+                )
+            })?;
+            (
+                ser(BoundedComponentSpanningForest::new(
+                    graph,
+                    weights,
+                    max_components,
+                    max_weight,
+                ))?,
                 resolved_variant.clone(),
             )
         }
@@ -429,7 +491,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             let edge_weights = parse_edge_weights(args, graph.num_edges())?;
-            let data = match canonical.as_str() {
+            let data = match canonical {
                 "MaxCut" => ser(MaxCut::new(graph, edge_weights))?,
                 "MaximumMatching" => ser(MaximumMatching::new(graph, edge_weights))?,
                 "TravelingSalesman" => ser(TravelingSalesman::new(graph, edge_weights))?,

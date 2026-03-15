@@ -223,6 +223,7 @@ Flags by problem type:
   KColoring                       --graph, --k
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
+  BoundedComponentSpanningForest  --graph, --weights, --k, --bound
   IsomorphicSpanningTree          --graph, --tree
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
@@ -373,8 +374,8 @@ pub struct CreateArgs {
     /// Required edge indices for RuralPostman (comma-separated, e.g., "0,2,4")
     #[arg(long)]
     pub required_edges: Option<String>,
-    /// Upper bound (for RuralPostman or SCS)
-    #[arg(long)]
+    /// Upper bound (for RuralPostman, BoundedComponentSpanningForest, or SCS)
+    #[arg(long, allow_hyphen_values = true)]
     pub bound: Option<i64>,
     /// Pattern graph edge list for SubgraphIsomorphism (e.g., 0-1,1-2,2-0)
     #[arg(long)]

@@ -89,6 +89,7 @@
   "BMF": [Boolean Matrix Factorization],
   "PaintShop": [Paint Shop],
   "BicliqueCover": [Biclique Cover],
+  "BoundedComponentSpanningForest": [Bounded Component Spanning Forest],
   "BinPacking": [Bin Packing],
   "ClosestVectorProblem": [Closest Vector Problem],
   "OptimalLinearArrangement": [Optimal Linear Arrangement],
@@ -528,6 +529,18 @@ Graph Partitioning is a core NP-hard problem arising in VLSI design, parallel co
   }),
   caption: [Graph with $n = 6$ vertices partitioned into $A = {v_0, v_1, v_2}$ (blue) and $B = {v_3, v_4, v_5}$ (red). The 3 crossing edges $(v_1, v_3)$, $(v_2, v_3)$, $(v_2, v_4)$ are shown in bold red; internal edges are gray.],
 ) <fig:graph-partitioning>
+]
+
+#problem-def("BoundedComponentSpanningForest")[
+  Given an undirected graph $G = (V, E)$ with vertex weights $w: V -> ZZ_(gt.eq 0)$, a positive integer $K <= |V|$, and a positive bound $B$, determine whether there exists a partition of $V$ into $t$ non-empty sets $V_1, dots, V_t$ with $1 <= t <= K$ such that each induced subgraph $G[V_i]$ is connected and each part satisfies $sum_(v in V_i) w(v) <= B$.
+][
+Bounded Component Spanning Forest appears as ND10 in Garey and Johnson @garey1979. It asks for a decomposition into a bounded number of connected pieces, each with bounded total weight, so it naturally captures contiguous districting and redistricting-style constraints where each district must remain connected while respecting a population cap. A direct exact algorithm enumerates all assignments of the $n = |V|$ vertices to at most $K$ component labels and checks connectivity plus the weight bound for each non-empty part, yielding an $O^*(K^n)$ exhaustive-search bound.
+
+*Example.* Consider the graph on vertices ${v_0, v_1, dots, v_7}$ with edges $(v_0, v_1)$, $(v_1, v_2)$, $(v_2, v_3)$, $(v_3, v_4)$, $(v_4, v_5)$, $(v_5, v_6)$, $(v_6, v_7)$, $(v_0, v_7)$, $(v_1, v_5)$, $(v_2, v_6)$; vertex weights $(2, 3, 1, 2, 3, 1, 2, 1)$; component limit $K = 3$; and bound $B = 6$. The partition
+$V_1 = {v_0, v_1, v_7}$,
+$V_2 = {v_2, v_3, v_4}$,
+$V_3 = {v_5, v_6}$
+is feasible: each set induces a connected subgraph, the component weights are $2 + 3 + 1 = 6$, $1 + 2 + 3 = 6$, and $1 + 2 = 3$, and exactly three non-empty components are used. Therefore this instance is a YES instance.
 ]
 #{
   let x = load-model-example("HamiltonianPath")

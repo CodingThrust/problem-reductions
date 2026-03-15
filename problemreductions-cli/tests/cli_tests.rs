@@ -1135,6 +1135,152 @@ fn test_create_kcoloring() {
 }
 
 #[test]
+fn test_create_bounded_component_spanning_forest() {
+    let output_file = std::env::temp_dir().join("pred_test_create_bcsf.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6",
+            "--weights",
+            "2,3,1,2,3,1,2,1",
+            "--k",
+            "3",
+            "--bound",
+            "6",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "BoundedComponentSpanningForest");
+    assert_eq!(json["data"]["max_components"], 3);
+    assert_eq!(json["data"]["max_weight"], 6);
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_zero_k() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "0",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--k >= 1"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_k_larger_than_num_vertices() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "5",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--k <= number of vertices"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_negative_weights() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,-1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --weights"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("positive --bound"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_bounded_component_spanning_forest_rejects_out_of_range_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "BoundedComponentSpanningForest",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--weights",
+            "1,1,1,1",
+            "--k",
+            "2",
+            "--bound",
+            "3000000000",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("within i32 range"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_spinglass() {
     let output_file = std::env::temp_dir().join("pred_test_create_sg.json");
     let output = pred()

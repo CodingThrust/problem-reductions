@@ -42,6 +42,15 @@ fn test_all_problems_implement_trait_correctly() {
         "KColoring",
     );
     check_problem_trait(
+        &BoundedComponentSpanningForest::new(
+            SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+            vec![1i32; 3],
+            2,
+            2,
+        ),
+        "BoundedComponentSpanningForest",
+    );
+    check_problem_trait(
         &MinimumDominatingSet::new(SimpleGraph::new(3, vec![(0, 1)]), vec![1i32; 3]),
         "MinimumDominatingSet",
     );

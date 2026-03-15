@@ -58,6 +58,32 @@
     ]
   },
   {
+    "name": "BoundedComponentSpanningForest",
+    "description": "Partition vertices into at most K connected components, each of total weight at most B",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w(v) for each vertex v in V"
+      },
+      {
+        "name": "max_components",
+        "type_name": "usize",
+        "description": "Upper bound K on the number of connected components"
+      },
+      {
+        "name": "max_weight",
+        "type_name": "W::Sum",
+        "description": "Upper bound B on the total weight of each component"
+      }
+    ]
+  },
+  {
     "name": "CircuitSAT",
     "description": "Find satisfying input to a boolean circuit",
     "fields": [
