@@ -8,8 +8,8 @@ use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExamp
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
 use problemreductions::models::misc::{
-    BinPacking, FlowShopScheduling, LongestCommonSubsequence, PaintShop,
-    SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
+    BinPacking, FlowShopScheduling, LongestCommonSubsequence, PaintShop, SequencingWithinIntervals,
+    ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
