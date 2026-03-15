@@ -82,6 +82,16 @@ impl ResourceConstrainedScheduling {
         resource_requirements: Vec<Vec<u64>>,
         deadline: u64,
     ) -> Self {
+        assert!(deadline > 0, "deadline must be positive");
+        let r = resource_bounds.len();
+        for (t, row) in resource_requirements.iter().enumerate() {
+            assert_eq!(
+                row.len(),
+                r,
+                "task {t} has {} resource requirements, expected {r}",
+                row.len()
+            );
+        }
         Self {
             num_processors,
             resource_bounds,
@@ -162,7 +172,7 @@ impl Problem for ResourceConstrainedScheduling {
                         .iter_mut()
                         .zip(self.resource_requirements[t].iter())
                     {
-                        *usage += req;
+                        *usage = usage.saturating_add(req);
                     }
                 }
             }
