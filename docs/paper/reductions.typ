@@ -83,6 +83,7 @@
   "SubgraphIsomorphism": [Subgraph Isomorphism],
   "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
+  "SequencingWithinIntervals": [Sequencing Within Intervals],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1333,6 +1334,25 @@ Biclique Cover is equivalent to factoring the biadjacency matrix $M$ of the bipa
     }),
     caption: [Flow shop schedule for 5 jobs on 3 machines. Job order $(j_4, j_1, j_5, j_3, j_2)$ achieves makespan 23, within deadline $D = 25$ (dashed red line).],
   ) <fig:flowshop>
+]
+
+#problem-def("SequencingWithinIntervals")[
+  Given a finite set $T$ of tasks and, for each $t in T$, a release time $r(t) >= 0$, a deadline $d(t) >= 0$, and a processing length $ell(t) in ZZ^+$ satisfying $r(t) + ell(t) <= d(t)$, determine whether there exists a feasible schedule $sigma: T -> ZZ_(>= 0)$ such that for each $t in T$: (1) $sigma(t) >= r(t)$, (2) $sigma(t) + ell(t) <= d(t)$, and (3) for all $t' in T backslash {t}$, either $sigma(t') + ell(t') <= sigma(t)$ or $sigma(t') >= sigma(t) + ell(t)$.
+][
+  Sequencing Within Intervals is problem SS1 in Garey & Johnson @garey1979, proved NP-complete via reduction from Partition (Theorem 3.8). Each task $t$ must execute non-preemptively during the interval $[r(t), d(t))$, occupying $ell(t)$ consecutive time units, and no two tasks may overlap. The problem is a canonical single-machine scheduling problem and one of the earliest NP-completeness results for scheduling theory.
+
+  The NP-completeness proof uses an "enforcer" task pinned at the midpoint of the time horizon, forcing the remaining tasks to split into two balanced groups --- directly encoding the Partition problem.
+
+  *Example.* Consider 5 tasks derived from a Partition instance with $A = {3, 1, 2, 4}$ (sum $B = 10$):
+  #align(center, table(
+    columns: 6,
+    align: center,
+    table.header[$"Task"$][$t_1$][$t_2$][$t_3$][$t_4$][$overline(t)$],
+    [$r(t)$], [0], [0], [0], [0], [5],
+    [$d(t)$], [11], [11], [11], [11], [6],
+    [$ell(t)$], [3], [1], [2], [4], [1],
+  ))
+  The enforcer task $overline(t)$ must run in $[5, 6)$, splitting the schedule into $[0, 5)$ and $[6, 11)$. Each side has 5 time units, and tasks with total length $5$ must fill each side --- corresponding to a partition of $A$.
 ]
 
 // Completeness check: warn about problem types in JSON but missing from paper

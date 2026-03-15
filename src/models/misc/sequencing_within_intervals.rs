@@ -177,6 +177,28 @@ crate::declare_variants! {
     default sat SequencingWithinIntervals => "2^num_tasks",
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
+    vec![crate::example_db::specs::ModelExampleSpec {
+        id: "sequencing_within_intervals",
+        build: || {
+            use crate::solvers::BruteForce;
+            // Instance from the PARTITION reduction example (GJ Theorem 3.8)
+            let problem = SequencingWithinIntervals::new(
+                vec![0, 0, 0, 0, 5],
+                vec![11, 11, 11, 11, 6],
+                vec![3, 1, 2, 4, 1],
+            );
+            let sample = BruteForce::new()
+                .find_all_satisfying(&problem)
+                .into_iter()
+                .next()
+                .expect("sequencing_within_intervals example should solve");
+            crate::example_db::specs::satisfaction_example(problem, vec![sample])
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../../unit_tests/models/misc/sequencing_within_intervals.rs"]
 mod tests;
