@@ -134,9 +134,9 @@ impl PartiallyOrderedKnapsack {
         }
         let predecessors = Self::compute_predecessors(&precedences, n);
         // Check for cycles: if any item is its own transitive predecessor, the DAG has a cycle
-        for i in 0..n {
+        for (i, preds) in predecessors.iter().enumerate() {
             assert!(
-                !predecessors[i].contains(&i),
+                !preds.contains(&i),
                 "precedences contain a cycle involving item {i}"
             );
         }
