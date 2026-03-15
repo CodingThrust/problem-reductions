@@ -34,75 +34,53 @@ GitHub Project board IDs (for `gh project item-edit`):
 
 ## Autonomous Mode
 
-This skill runs **fully autonomously** -- no confirmation prompts, no user questions.
+This skill runs **fully autonomously** except for one case: if the scripted `review-pipeline` context bundle returns `status == "needs-user-choice"`, STOP and ask the user which PR is the intended target.
 
 ## Steps
 
-### 0. Discover Review pool Items
+### 0. Generate the Review-Pipeline Report
 
-```bash
-gh project item-list 8 --owner CodingThrust --format json --limit 500
-```
-
-Filter items where `status == "Review pool"`. Each item should have an associated PR. Extract the PR number from the item title or linked issue.
-
-#### 0a. Check Copilot Review Status
-
-For each candidate PR, check whether Copilot has already submitted a review:
+Step 0 should be a single report-generation step. Do not manually unpack board selection, worktree prep, or PR context with shell snippets.
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-gh api repos/$REPO/pulls/$PR/reviews --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")] | length'
+STATE_FILE=/tmp/problemreductions-review-selection.json
+set -- python3 scripts/pipeline_skill_context.py review-pipeline --repo "$REPO" --state-file "$STATE_FILE" --format text
+if [ -n "${PR:-}" ]; then
+  set -- "$@" --pr "$PR"
+fi
+REPORT=$("$@")
+printf '%s\n' "$REPORT"
 ```
 
-A PR is **eligible** only if the count is ≥ 1 (Copilot has submitted at least one review). PRs without a Copilot review yet are marked `[waiting for Copilot]` and skipped.
+The report is the Step 0 packet. It should already include:
+- Selection: board item, PR number, linked issue, title, URL
+- Recommendation Seed: suggested mode and deterministic blockers
+- Comment Summary
+- CI / Coverage
+- Merge Prep
+- Linked Issue Context
 
-#### 0b. Print the List
+Branch from the report:
+- `Bundle status: empty` => STOP with `No Review pool PRs are currently eligible for review-pipeline.`
+- `Bundle status: needs-user-choice` => STOP and ask the user which PR is intended
+- `Bundle status: ready` => continue with the already-claimed item and prepared worktree
 
-Print all Review pool items with their Copilot status:
+For ambiguous cards, the report should print short options and the recommendation. Format the prompt like:
 
-```
-Review pool PRs:
-  #570  Fix #117: [Model] GraphPartitioning     [copilot reviewed]
-  #571  Fix #97: [Rule] BinPacking to ILP       [waiting for Copilot]
-```
-
-**If a specific PR number was provided:** verify it is in the Review pool column. If it is waiting for Copilot, STOP with a message: `PR #N is waiting for Copilot review. Re-run after Copilot has reviewed.`
-
-**If `--all`:** process only eligible (Copilot-reviewed) items in order (lowest PR number first). Skip waiting items.
-
-**Otherwise:** pick the first eligible item. If no items are eligible, STOP with: `No Review pool PRs have been reviewed by Copilot yet.`
-
-### 0g. Claim: Move to "Under review"
-
-**Immediately** move the chosen PR to the `Under review` column to signal that an agent is actively working on it. This prevents other agents from picking the same PR:
-
-```bash
-gh project item-edit \
-  --id <ITEM_ID> \
-  --project-id PVT_kwDOBrtarc4BRNVy \
-  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id f04790ca
+```text
+Review pool card links multiple repo PRs:
+1. PR #170 — CLOSED — Superseded LCS model
+2. PR #173 — OPEN — Fix #109: Add LCS reduction  (Recommended)
 ```
 
-In `--all` mode, claim each PR right before processing it (not all at once).
+The bundle already handled the mechanical claim step:
+- normal eligible PRs are claimed through the review queue
+- explicit `--pr` matches on ambiguous cards are treated as deterministic disambiguation and claimed automatically
 
-### 1. Create Worktree and Checkout PR Branch
+When you need to take actions later, use the identifiers already printed in the report (`Board item`, `PR`, worktree path). If you absolutely need raw structured data for a corner case, rerun the same command with `--format json`, but do not rebuild Step 0 manually.
 
-Create an isolated git worktree so the main working directory stays clean:
-
-```bash
-REPO_ROOT=$(git rev-parse --show-toplevel)
-REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
-BRANCH=$(gh pr view $PR --json headRefName --jq .headRefName)
-WORKTREE_DIR=".worktrees/review-$BRANCH"
-mkdir -p .worktrees
-git fetch origin $BRANCH
-git worktree add "$WORKTREE_DIR" $BRANCH
-cd "$WORKTREE_DIR"
-```
-
-All subsequent steps run inside the worktree.
+All subsequent steps run inside the prepared worktree and should read facts from the report instead of re-fetching them by default.
 
 ### 1a. Resolve Conflicts with Main
 
@@ -112,41 +90,31 @@ All subsequent steps run inside the worktree.
 2. If they changed, read the current versions on main (`git show origin/main:.claude/skills/add-model/SKILL.md` and `git show origin/main:.claude/skills/add-rule/SKILL.md`) to understand what's different.
 3. When resolving conflicts in model/rule implementation files, prefer the patterns from main's current skills — the PR's implementation may be based on outdated skill instructions.
 
-Check if the branch has merge conflicts with main:
+Read the merge result from the report's `Merge Prep` section.
 
-```bash
-git fetch origin main
-git merge origin/main --no-edit
-```
-
-- If the merge succeeds cleanly: push the merge commit and continue.
+- If the report says the merge status is `clean`: push the merge commit and continue.
 - If there are conflicts:
-  1. Inspect the conflicting files with `git diff --name-only --diff-filter=U`.
+  1. Inspect the conflicting files listed in the report.
   2. Compare the current skill versions on main vs the PR branch to understand which patterns are current.
   3. Resolve conflicts (prefer main's patterns for skill-generated code, the PR branch for problem-specific logic, main for regenerated artifacts like JSON).
   4. Stage resolved files, commit, and push.
-- If conflicts are too complex to resolve automatically (e.g., overlapping logic changes in the same function):
-  1. Abort the merge: `git merge --abort`
+- If the report says the merge status is `conflicted` and the overlap is otherwise too complex to resolve automatically:
+  1. Abort the merge: `git merge --abort` if a merge is still in progress
   2. Move the project item back to `Review pool`:
      ```bash
-     gh project item-edit \
-       --id <ITEM_ID> \
-       --project-id PVT_kwDOBrtarc4BRNVy \
-       --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-       --single-select-option-id 7082ed60
+     python3 scripts/pipeline_board.py move <ITEM_ID> review-pool
      ```
   3. Report: `PR #N has complex merge conflicts with main — needs manual resolution.`
   4. STOP processing this PR.
 
 ### 2. Fix Copilot Review Comments
 
-Copilot review is guaranteed to exist (verified in Step 0). Fetch the comments:
+Use the report as the primary mechanical context:
+- `Comment Summary`
+- `CI / Coverage`
+- `Linked Issue Context`
 
-```bash
-COMMENTS=$(gh api repos/$REPO/pulls/$PR/comments --jq '[.[] | select(.user.login == "copilot-pull-request-reviewer[bot]")]')
-```
-
-If there are actionable comments: invoke `/fix-pr` to address them, then push:
+Inspect the report's Copilot comment count and linked issue context. If there are actionable comments: invoke `/fix-pr` to address them, then push:
 
 ```bash
 git push
@@ -156,55 +124,7 @@ If Copilot approved with no actionable comments: skip to next step.
 
 ### 2a. Check Issue Comments and Human PR Reviews
 
-Extract the linked issue number from the PR title (pattern: `Fix #N:`):
-
-```bash
-ISSUE=$(gh pr view $PR --json title --jq .title | grep -oP '(?<=Fix #)\d+')
-```
-
-Fetch all comment sources:
-
-```bash
-# 1. Linked issue comments (from contributors, excluding bots)
-if [ -n "$ISSUE" ]; then
-    gh api repos/$REPO/issues/$ISSUE/comments | python3 -c "
-import sys,json
-comments = [c for c in json.load(sys.stdin) if not c['user']['login'].endswith('[bot]')]
-print(f'=== Issue #{sys.argv[1]} comments: {len(comments)} ===')
-for c in comments:
-    print(f'[{c[\"user\"][\"login\"]}] {c[\"body\"][:300]}')
-    print('---')
-" "$ISSUE"
-fi
-
-# 2. Human PR review comments (inline, excluding Copilot)
-gh api repos/$REPO/pulls/$PR/comments | python3 -c "
-import sys,json
-comments = [c for c in json.load(sys.stdin) if not c['user']['login'].endswith('[bot]')]
-print(f'=== Human PR inline comments: {len(comments)} ===')
-for c in comments:
-    line = c.get('line') or c.get('original_line') or '?'
-    print(f'[{c[\"user\"][\"login\"]}] {c[\"path\"]}:{line} — {c[\"body\"][:300]}')
-"
-
-# 3. Human PR conversation comments (general discussion, excluding bots)
-gh api repos/$REPO/issues/$PR/comments | python3 -c "
-import sys,json
-comments = [c for c in json.load(sys.stdin) if not c['user']['login'].endswith('[bot]')]
-print(f'=== Human PR conversation comments: {len(comments)} ===')
-for c in comments:
-    print(f'[{c[\"user\"][\"login\"]}] {c[\"body\"][:300]}')
-"
-
-# 4. Human review-level comments (top-level review body)
-gh api repos/$REPO/pulls/$PR/reviews | python3 -c "
-import sys,json
-reviews = [r for r in json.load(sys.stdin) if not r['user']['login'].endswith('[bot]') and r.get('body')]
-print(f'=== Human reviews: {len(reviews)} ===')
-for r in reviews:
-    print(f'[{r[\"user\"][\"login\"]}] {r[\"state\"]}: {r[\"body\"][:300]}')
-"
-```
+Reuse the report's `Comment Summary` and `Linked Issue Context` sections. If you need the raw structured comment objects for a corner case, rerun the bundle with `--format json`.
 
 For each actionable comment found:
 
@@ -267,26 +187,13 @@ For each retry:
 
 1. **Wait for CI to complete** (poll every 30s, up to 15 minutes):
    ```bash
-   for i in $(seq 1 30); do
-       sleep 30
-       HEAD_SHA=$(gh api repos/$REPO/pulls/$PR | python3 -c "import sys,json; print(json.load(sys.stdin)['head']['sha'])")
-       STATUS=$(gh api repos/$REPO/commits/$HEAD_SHA/check-runs | python3 -c "
-   import sys,json
-   runs = json.load(sys.stdin)['check_runs']
-   if not runs:
-       print('PENDING')
-   else:
-       failed = [r['name'] for r in runs if r.get('conclusion') not in ('success', 'skipped', None)]
-       pending = [r['name'] for r in runs if r.get('conclusion') is None and r['status'] != 'completed']
-       if pending:
-           print('PENDING')
-       elif failed:
-           print('FAILED')
-       else:
-           print('GREEN')
-   ")
-       if [ "$STATUS" != "PENDING" ]; then break; fi
-   done
+   CI=$(python3 scripts/pipeline_pr.py wait-ci --repo "$REPO" --pr "$PR" --timeout 900 --interval 30 --format json)
+   STATUS=$(printf '%s\n' "$CI" | python3 -c "
+import sys,json
+state = json.load(sys.stdin)['state']
+mapping = {'success': 'GREEN', 'failure': 'FAILED', 'timeout': 'FAILED', 'pending': 'PENDING'}
+print(mapping.get(state, 'FAILED'))
+")
    ```
 
    - If `GREEN` on the **first** iteration (before any fix-pr): skip the fix loop, done.
@@ -315,11 +222,7 @@ git worktree remove "$WORKTREE_DIR" --force
 ### 6. Move to "Final review"
 
 ```bash
-gh project item-edit \
-  --id <ITEM_ID> \
-  --project-id PVT_kwDOBrtarc4BRNVy \
-  --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc \
-  --single-select-option-id 51a3d8bb
+python3 scripts/pipeline_board.py move <ITEM_ID> final-review
 ```
 
 ### 7. Report
@@ -327,7 +230,8 @@ gh project item-edit \
 Post the review summary as a PR comment so it's visible to human reviewers:
 
 ```bash
-gh pr comment $PR --body "$(cat <<'EOF'
+COMMENT_FILE=$(mktemp)
+cat > "$COMMENT_FILE" <<'EOF'
 ## Review Pipeline Report
 
 | Check | Result |
@@ -346,7 +250,8 @@ gh pr comment $PR --body "$(cat <<'EOF'
 
 🤖 Generated by review-pipeline
 EOF
-)"
+python3 scripts/pipeline_pr.py comment --repo "$REPO" --pr "$PR" --body-file "$COMMENT_FILE"
+rm -f "$COMMENT_FILE"
 ```
 
 Adapt the table values to match the actual results for the PR. If CI failed after 3 retries, report `failed (3 retries)` instead of `green`.
@@ -381,6 +286,8 @@ Completed: 2/2 | All moved to Final review
 | Mistake | Fix |
 |---------|-----|
 | PR not in Review pool column | Verify status before processing; STOP if not Review pool |
+| Processing a closed PR from a stale issue card | Require PR state `OPEN`; skip stale closed PRs |
+| Guessing on an issue card with multiple linked repo PRs | Stop, show options to the user, and recommend the most likely correct OPEN PR |
 | Picking a PR before Copilot has reviewed | Check `pulls/$PR/reviews` for copilot-pull-request-reviewer[bot]; skip if absent |
 | Missing project scopes | Run `gh auth refresh -s read:project,project` |
 | Skipping review-implementation | Always run structural completeness check in Step 2b — it catches gaps Copilot misses (paper entries, CLI registration, trait_consistency) |
