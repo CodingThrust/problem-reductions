@@ -42,6 +42,7 @@ pub(crate) mod optimal_linear_arrangement;
 pub(crate) mod partition_into_triangles;
 pub(crate) mod rural_postman;
 pub(crate) mod spin_glass;
+pub(crate) mod strong_connectivity_augmentation;
 pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
 
