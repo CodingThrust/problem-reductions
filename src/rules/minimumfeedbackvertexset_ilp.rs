@@ -104,6 +104,20 @@ impl ReduceTo<ILP<i32>> for MinimumFeedbackVertexSet<i32> {
     }
 }
 
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    use crate::topology::DirectedGraph;
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "minimumfeedbackvertexset_to_ilp",
+        build: || {
+            // Simple cycle: 0 -> 1 -> 2 -> 0 (FVS = 1 vertex)
+            let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2), (2, 0)]);
+            let source = MinimumFeedbackVertexSet::new(graph, vec![1i32; 3]);
+            crate::example_db::specs::direct_ilp_example::<_, i32, _>(source, |_, _| true)
+        },
+    }]
+}
+
 #[cfg(test)]
 #[path = "../unit_tests/rules/minimumfeedbackvertexset_ilp.rs"]
 mod tests;
