@@ -161,17 +161,27 @@ pub struct SolveResult {
     pub evaluation: String,
 }
 
-/// Solve an ILP problem directly. The input must be an `ILP` instance.
+/// Solve an ILP problem directly. The input must be an `ILP<bool>` or `ILP<i32>` instance.
 fn solve_ilp(any: &dyn Any) -> Result<SolveResult> {
-    let problem = any
-        .downcast_ref::<ILP>()
-        .ok_or_else(|| anyhow::anyhow!("Internal error: expected ILP problem instance"))?;
-    let solver = ILPSolver::new();
-    let config = solver
-        .solve(problem)
-        .ok_or_else(|| anyhow::anyhow!("ILP solver found no feasible solution"))?;
-    let evaluation = format!("{:?}", problem.evaluate(&config));
-    Ok(SolveResult { config, evaluation })
+    if let Some(problem) = any.downcast_ref::<ILP<bool>>() {
+        let solver = ILPSolver::new();
+        let config = solver
+            .solve(problem)
+            .ok_or_else(|| anyhow::anyhow!("ILP solver found no feasible solution"))?;
+        let evaluation = format!("{:?}", problem.evaluate(&config));
+        return Ok(SolveResult { config, evaluation });
+    }
+    if let Some(problem) = any.downcast_ref::<ILP<i32>>() {
+        let solver = ILPSolver::new();
+        let config = solver
+            .solve(problem)
+            .ok_or_else(|| anyhow::anyhow!("ILP solver found no feasible solution"))?;
+        let evaluation = format!("{:?}", problem.evaluate(&config));
+        return Ok(SolveResult { config, evaluation });
+    }
+    Err(anyhow::anyhow!(
+        "Internal error: expected ILP<bool> or ILP<i32> problem instance"
+    ))
 }
 
 #[cfg(test)]
