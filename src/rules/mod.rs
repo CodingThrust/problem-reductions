@@ -62,6 +62,8 @@ pub(crate) mod maximumsetpacking_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumdominatingset_ilp;
 #[cfg(feature = "ilp-solver")]
+pub(crate) mod minimumfeedbackvertexset_ilp;
+#[cfg(feature = "ilp-solver")]
 pub(crate) mod minimumsetcovering_ilp;
 #[cfg(feature = "ilp-solver")]
 pub(crate) mod qubo_ilp;
@@ -110,6 +112,7 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
         specs.extend(maximummatching_ilp::canonical_rule_example_specs());
         specs.extend(maximumsetpacking_ilp::canonical_rule_example_specs());
         specs.extend(minimumdominatingset_ilp::canonical_rule_example_specs());
+        specs.extend(minimumfeedbackvertexset_ilp::canonical_rule_example_specs());
         specs.extend(minimumsetcovering_ilp::canonical_rule_example_specs());
         specs.extend(qubo_ilp::canonical_rule_example_specs());
         specs.extend(travelingsalesman_ilp::canonical_rule_example_specs());

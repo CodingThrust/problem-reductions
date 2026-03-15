@@ -1154,6 +1154,21 @@
       "doc_path": "rules/minimumdominatingset_ilp/index.html"
     },
     {
+      "source": 41,
+      "target": 13,
+      "overhead": [
+        {
+          "field": "num_vars",
+          "formula": "2 * num_vertices"
+        },
+        {
+          "field": "num_constraints",
+          "formula": "num_arcs + 2 * num_vertices"
+        }
+      ],
+      "doc_path": "rules/minimumfeedbackvertexset_ilp/index.html"
+    },
+    {
       "source": 42,
       "target": 12,
       "overhead": [
