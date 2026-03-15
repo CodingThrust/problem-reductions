@@ -1,4 +1,7 @@
-use crate::example_db::{build_model_db, build_rule_db, find_model_example, find_rule_example};
+use crate::example_db::{
+    build_model_db, build_rule_db, compute_model_db, compute_rule_db, find_model_example,
+    find_rule_example,
+};
 use crate::export::{lookup_overhead, ProblemRef, EXAMPLE_DB_VERSION};
 use std::collections::{BTreeMap, BTreeSet, HashSet};
 
@@ -243,4 +246,79 @@ fn default_generated_dir_returns_path() {
     let dir = default_generated_dir();
     // Should return a valid path (either from env or the default)
     assert!(!dir.as_os_str().is_empty());
+}
+
+// ---- Fixture verification tests ----
+// These verify that stored fixtures are structurally consistent with
+// freshly computed results. Exact bitwise comparison is not possible for
+// all rules because some reductions use HashMap-based internal structures
+// (e.g., QUBO, CircuitSAT -> SpinGlass) that produce non-deterministic
+// serialization across runs. Instead we verify:
+// - Same set of problem pairs (name + variant)
+// - Same number of solutions per rule
+// - Non-empty overhead with same field names
+// - Exact match for model fixtures (deterministic)
+
+#[test]
+fn verify_model_fixtures_match_computed() {
+    let loaded = build_model_db().expect("fixture should load");
+    let computed = compute_model_db().expect("compute should succeed");
+    assert_eq!(
+        loaded.models.len(),
+        computed.models.len(),
+        "fixture and computed model counts differ — regenerate fixtures"
+    );
+    for (loaded_model, computed_model) in loaded.models.iter().zip(computed.models.iter()) {
+        assert_eq!(
+            loaded_model, computed_model,
+            "model fixture mismatch for {} {:?} — regenerate fixtures with: \
+             cargo run --release --example regenerate_fixtures --features example-db",
+            loaded_model.problem, loaded_model.variant
+        );
+    }
+}
+
+#[test]
+fn verify_rule_fixtures_match_computed() {
+    let loaded = build_rule_db().expect("fixture should load");
+    let computed = compute_rule_db().expect("compute should succeed");
+    assert_eq!(
+        loaded.rules.len(),
+        computed.rules.len(),
+        "fixture and computed rule counts differ — regenerate fixtures"
+    );
+    let loaded_keys: BTreeSet<_> = loaded
+        .rules
+        .iter()
+        .map(|r| (r.source.problem_ref(), r.target.problem_ref()))
+        .collect();
+    let computed_keys: BTreeSet<_> = computed
+        .rules
+        .iter()
+        .map(|r| (r.source.problem_ref(), r.target.problem_ref()))
+        .collect();
+    assert_eq!(
+        loaded_keys, computed_keys,
+        "fixture and computed rule sets differ — regenerate fixtures"
+    );
+    for (loaded_rule, computed_rule) in loaded.rules.iter().zip(computed.rules.iter()) {
+        assert_eq!(
+            loaded_rule.solutions.len(),
+            computed_rule.solutions.len(),
+            "solution count mismatch for {} -> {} — regenerate fixtures",
+            loaded_rule.source.problem, loaded_rule.target.problem
+        );
+        // Overhead formulas may differ between debug/release due to
+        // floating-point path-cost differences in path-based examples.
+        // Just verify the same set of overhead field names exist.
+        let loaded_fields: BTreeSet<_> =
+            loaded_rule.overhead.iter().map(|o| &o.field).collect();
+        let computed_fields: BTreeSet<_> =
+            computed_rule.overhead.iter().map(|o| &o.field).collect();
+        assert_eq!(
+            loaded_fields, computed_fields,
+            "overhead fields mismatch for {} -> {} — regenerate fixtures",
+            loaded_rule.source.problem, loaded_rule.target.problem
+        );
+    }
 }

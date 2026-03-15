@@ -1,6 +1,6 @@
 # Makefile for problemreductions
 
-.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review
+.PHONY: help build test mcp-test fmt clippy doc mdbook paper examples clean coverage rust-export compare qubo-testdata export-schemas release run-plan run-issue run-pipeline run-pipeline-forever run-review run-review-forever board-next board-claim board-ack board-move issue-context issue-guards pr-context pr-wait-ci worktree-issue worktree-pr diagrams jl-testdata cli cli-demo copilot-review regenerate-fixtures
 
 RUNNER ?= codex
 CLAUDE_MODEL ?= opus
@@ -24,7 +24,9 @@ help:
 	@echo "  check        - Quick check (fmt + clippy + test)"
 	@echo "  rust-export  - Generate Rust mapping JSON exports"
 	@echo "  compare      - Generate and compare Rust mapping exports"
-	@echo "  examples     - Generate example JSON for paper"
+	@echo "  examples     - Generate example JSON for paper (from fixtures, fast)"
+	@echo "  regenerate-fixtures - Recompute example DB fixtures (BruteForce/ILP, slow)"
+	@echo "  regenerate-fixtures - Recompute example DB fixtures (BruteForce/ILP, slow)"
 	@echo "  export-schemas - Export problem schemas to JSON"
 	@echo "  qubo-testdata - Regenerate QUBO test data (requires uv)"
 	@echo "  jl-testdata  - Regenerate Julia parity test data (requires julia)"
@@ -113,10 +115,18 @@ mdbook:
 	python3 -m http.server 3001 -d book &
 	@sleep 1 && (command -v xdg-open >/dev/null && xdg-open http://localhost:3001 || open http://localhost:3001)
 
-# Generate all example JSON files for the paper
+# Generate all example JSON files for the paper (loads from fixtures — fast)
 examples:
-	cargo run --features "ilp-highs example-db" --example export_examples
-	cargo run --features ilp-highs --example export_petersen_mapping
+	cargo run --features "example-db" --example export_examples
+	cargo run --example export_petersen_mapping
+
+# Regenerate example DB fixtures from code (runs BruteForce/ILP — slow)
+regenerate-fixtures:
+	cargo run --release --features "example-db" --example regenerate_fixtures
+
+# Regenerate example DB fixtures from code (runs BruteForce/ILP — slow)
+regenerate-fixtures:
+	cargo run --release --features "example-db" --example regenerate_fixtures
 
 # Export problem schemas to JSON
 export-schemas:

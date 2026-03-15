@@ -50,6 +50,11 @@ name = "export_examples"
 path = "examples/export_examples.rs"
 required-features = ["example-db"]
 
+[[example]]
+name = "regenerate_fixtures"
+path = "examples/regenerate_fixtures.rs"
+required-features = ["example-db"]
+
 [profile.release]
 lto = true
 codegen-units = 1

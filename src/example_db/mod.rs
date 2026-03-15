@@ -1,8 +1,17 @@
 //! Canonical example database assembly.
 //!
-//! `rule_builders` and `model_builders` are the canonical in-memory sources for
-//! all example data. This module assembles, validates, and looks up structural
-//! records from those builders — no filesystem round-trip or legacy bridge.
+//! The example database has two layers:
+//!
+//! - **Fixtures** (`fixtures/models.json`, `fixtures/rules.json`): pre-computed
+//!   expected results embedded at compile time. These are the "stored expected
+//!   results" used for fast export and lookups.
+//!
+//! - **Builders** (`model_builders`, `rule_builders`): code that constructs
+//!   problem instances and computes solutions via BruteForce/ILP. Used only
+//!   for regenerating fixtures and for verification tests.
+//!
+//! The public API (`build_*_db`, `find_*_example`) loads from fixtures.
+//! Use `compute_*_db` to regenerate from code (slow, test/CI only).
 
 use crate::error::{ProblemError, Result};
 use crate::export::{
@@ -51,23 +60,47 @@ fn validate_model_uniqueness(models: &[ModelExample]) -> Result<()> {
     Ok(())
 }
 
-pub fn build_rule_db() -> Result<RuleDb> {
-    let mut rules = rule_builders::build_rule_examples();
-    rules.sort_by_key(rule_key);
-    validate_rule_uniqueness(&rules)?;
-    Ok(RuleDb {
-        version: EXAMPLE_DB_VERSION,
-        rules,
-    })
+// ---- Fixture loading (fast, used by default) ----
+
+/// Load the model database from the embedded fixture file.
+pub fn build_model_db() -> Result<ModelDb> {
+    static MODELS_JSON: &str = include_str!("fixtures/models.json");
+    let db: ModelDb =
+        serde_json::from_str(MODELS_JSON).expect("embedded models fixture should parse");
+    validate_model_uniqueness(&db.models)?;
+    Ok(db)
 }
 
-pub fn build_model_db() -> Result<ModelDb> {
+/// Load the rule database from the embedded fixture file.
+pub fn build_rule_db() -> Result<RuleDb> {
+    static RULES_JSON: &str = include_str!("fixtures/rules.json");
+    let db: RuleDb =
+        serde_json::from_str(RULES_JSON).expect("embedded rules fixture should parse");
+    validate_rule_uniqueness(&db.rules)?;
+    Ok(db)
+}
+
+// ---- Computation from builders (slow, for regeneration and verification) ----
+
+/// Recompute the model database from builder code (runs BruteForce).
+pub fn compute_model_db() -> Result<ModelDb> {
     let mut models = model_builders::build_model_examples();
     models.sort_by_key(model_key);
     validate_model_uniqueness(&models)?;
     Ok(ModelDb {
         version: EXAMPLE_DB_VERSION,
         models,
+    })
+}
+
+/// Recompute the rule database from builder code (runs BruteForce/ILP).
+pub fn compute_rule_db() -> Result<RuleDb> {
+    let mut rules = rule_builders::build_rule_examples();
+    rules.sort_by_key(rule_key);
+    validate_rule_uniqueness(&rules)?;
+    Ok(RuleDb {
+        version: EXAMPLE_DB_VERSION,
+        rules,
     })
 }
 
