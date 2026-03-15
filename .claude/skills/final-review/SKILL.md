@@ -58,6 +58,32 @@ Collect all information needed for the review:
 
 1f. **Check for conflicts with main**: Run `gh pr view <number> --json mergeable`. If there are merge conflicts, launch a subagent to merge `origin/main` into the PR branch (in a worktree) and push the merge commit.
 
+1g. **PR / issue comment audit (REQUIRED)**: Final review must check the comment history before recommending merge.
+  - Set `REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)`
+  - Fetch and read:
+    - PR conversation comments: `gh api repos/$REPO/issues/<number>/comments`
+    - PR inline review comments: `gh api repos/$REPO/pulls/<number>/comments`
+    - PR review bodies: `gh api repos/$REPO/pulls/<number>/reviews`
+    - linked issue comments, if an issue exists
+  - Build a list of every actionable comment and classify each as:
+    - `addressed`
+    - `superseded / no longer applicable`
+    - `still open`
+  - Pay special attention to the `## Review Pipeline Report` comment. If it contains a `Remaining issues for final review` section, those items must be reviewed explicitly here.
+  - Do **not** recommend merge until every actionable comment has been dispositioned.
+
+1h. **Comment status summary**: Prepare a short summary for later steps:
+
+> **Comment Audit**
+>
+> [N addressed, M superseded, K still open]
+>
+> Open items:
+> - [comment / issue summary]
+> - ...
+
+If no actionable comments remain, report `No open actionable comments`.
+
 ### Step 2: Usefulness assessment
 
 Think critically about whether this model/rule is genuinely useful. Consider:
@@ -212,6 +238,7 @@ Present a summary table:
 
 | Aspect | Result |
 |--------|--------|
+| Comments | [All addressed / Open: X, Y] |
 | Usefulness | [Useful/Marginal/Not useful] |
 | Safety | [Safe/Concerns found] |
 | Completeness | [Complete/Missing: X, Y] |
@@ -228,6 +255,8 @@ Then present all numbered issues from Step 5 as a multi-select `AskUserQuestion`
 > - "OnHold" — move to OnHold column with a reason
 
 This lets the reviewer cherry-pick exactly which issues to fix. If the reviewer selects fixes, proceed to Step 7 Quick fix. If "Merge as-is", proceed to Step 7 Merge.
+
+If any actionable PR / issue comment from Step 1g is still open, `Merge as-is` must **not** be your recommendation. Recommend either **Quick fix** or **OnHold** instead.
 
 ### Step 7: Execute decision
 
