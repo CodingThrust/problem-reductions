@@ -81,6 +81,8 @@ class MakeHelpersTests(unittest.TestCase):
                 "next",
                 "ready",
                 "/tmp/state.json",
+                "--format",
+                "text",
             ],
         )
 
@@ -129,6 +131,27 @@ class MakeHelpersTests(unittest.TestCase):
         self.assertEqual(proc.returncode, 0, proc.stderr)
         self.assertIn(
             'poll_project_items "final-review" "$state_file" "$repo"',
+            proc.stdout,
+        )
+
+    def test_make_board_next_review_forwards_number_and_format(self) -> None:
+        proc = subprocess.run(
+            [
+                "make",
+                "-n",
+                "board-next",
+                "MODE=review",
+                "REPO=CodingThrust/problem-reductions",
+                "NUMBER=570",
+                "FORMAT=json",
+            ],
+            cwd=REPO_ROOT,
+            capture_output=True,
+            text=True,
+        )
+        self.assertEqual(proc.returncode, 0, proc.stderr)
+        self.assertIn(
+            'poll_project_items "review" "$state_file" "$repo" "570" "json"',
             proc.stdout,
         )
 

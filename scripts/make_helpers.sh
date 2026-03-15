@@ -44,17 +44,22 @@ run_agent() {
 # --- Project board ---
 
 # Detect the next eligible item and preserve retryable state in a queue.
-#   poll_project_items <mode> <state-file> [repo]
+#   poll_project_items <mode> <state-file> [repo] [number] [format]
 poll_project_items() {
     mode=$1
     state_file=$2
     repo=${3-}
+    number=${4-}
+    fmt=${5-text}
 
+    set -- scripts/pipeline_board.py next "$mode" "$state_file" --format "$fmt"
     if [ -n "$repo" ]; then
-        python3 scripts/pipeline_board.py next "$mode" "$state_file" --repo "$repo"
-    else
-        python3 scripts/pipeline_board.py next "$mode" "$state_file"
+        set -- "$@" --repo "$repo"
     fi
+    if [ -n "$number" ]; then
+        set -- "$@" --number "$number"
+    fi
+    python3 "$@"
 }
 
 ack_polled_item() {

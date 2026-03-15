@@ -37,7 +37,7 @@ help:
 	@echo "  run-pipeline-forever - Loop: poll Ready column for new issues, run-pipeline when new ones appear"
 	@echo "  run-review [N=<number>] - Pick PR from Review pool, fix comments/CI, run agentic tests"
 	@echo "  run-review-forever - Loop: poll Review pool for Copilot-reviewed PRs, run-review when new ones appear"
-	@echo "  board-next MODE=<ready|review|final-review> - Get the next eligible queued project item"
+	@echo "  board-next MODE=<ready|review|final-review> [NUMBER=<n>] [FORMAT=text|json] - Get the next eligible queued project item"
 	@echo "  board-ack MODE=<ready|review|final-review> ITEM=<id> - Acknowledge a queued project item"
 	@echo "  board-move ITEM=<id> STATUS=<status> - Move a project item to a named status"
 	@echo "  pr-context PR=<number> [REPO=<owner/repo>] - Fetch structured PR snapshot JSON"
@@ -398,6 +398,7 @@ run-pipeline-forever:
 # Usage: make board-next MODE=ready
 #        make board-next MODE=review REPO=CodingThrust/problem-reductions
 #        make board-next MODE=final-review REPO=CodingThrust/problem-reductions
+#        make board-next MODE=review REPO=CodingThrust/problem-reductions NUMBER=570 FORMAT=json
 #        STATE_FILE=/tmp/custom.json make board-next MODE=ready
 board-next:
 	@if [ -z "$(MODE)" ]; then \
@@ -409,10 +410,10 @@ board-next:
 	case "$(MODE)" in \
 		review|final-review) \
 		repo=$${REPO:-$$(gh repo view --json nameWithOwner --jq .nameWithOwner)}; \
-		poll_project_items "$(MODE)" "$$state_file" "$$repo"; \
+		poll_project_items "$(MODE)" "$$state_file" "$$repo" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),text)"; \
 		;; \
 	*) \
-		poll_project_items "$(MODE)" "$$state_file"; \
+		poll_project_items "$(MODE)" "$$state_file" "" "$(NUMBER)" "$(if $(FORMAT),$(FORMAT),text)"; \
 		;; \
 	esac
 
