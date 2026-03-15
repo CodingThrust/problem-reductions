@@ -158,7 +158,31 @@ fn test_resource_constrained_scheduling_serialization() {
     assert_eq!(restored.num_tasks(), problem.num_tasks());
     assert_eq!(restored.num_processors(), problem.num_processors());
     assert_eq!(restored.resource_bounds(), problem.resource_bounds());
+    assert_eq!(restored.resource_requirements(), problem.resource_requirements());
     assert_eq!(restored.deadline(), problem.deadline());
+}
+
+#[test]
+#[should_panic(expected = "deadline must be positive")]
+fn test_resource_constrained_scheduling_zero_deadline() {
+    ResourceConstrainedScheduling::new(2, vec![10], vec![vec![5]], 0);
+}
+
+#[test]
+#[should_panic(expected = "resource requirements")]
+fn test_resource_constrained_scheduling_mismatched_requirements() {
+    // 2 resource bounds but task has only 1 requirement
+    ResourceConstrainedScheduling::new(2, vec![10, 20], vec![vec![5]], 2);
+}
+
+#[test]
+fn test_resource_constrained_scheduling_single_task_exceeds_bound() {
+    // One task requires resource 15 but bound is 10 — instance is infeasible
+    let problem = ResourceConstrainedScheduling::new(2, vec![10], vec![vec![15]], 2);
+    assert!(!problem.evaluate(&[0]));
+    assert!(!problem.evaluate(&[1]));
+    let solver = BruteForce::new();
+    assert!(solver.find_satisfying(&problem).is_none());
 }
 
 #[test]
