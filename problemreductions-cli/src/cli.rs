@@ -385,7 +385,13 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
-    /// Deadlines for MinimumTardinessSequencing (comma-separated, e.g., "5,5,5,3,3")
+    /// Task processing times for scheduling problems (comma-separated, e.g., "3,2,4")
+    #[arg(long)]
+    pub lengths: Option<String>,
+    /// Task release times for scheduling problems (comma-separated, e.g., "0,1,5")
+    #[arg(long)]
+    pub release_times: Option<String>,
+    /// Deadlines for scheduling problems (comma-separated, e.g., "5,5,5,3,3")
     #[arg(long)]
     pub deadlines: Option<String>,
     /// Precedence pairs for MinimumTardinessSequencing (e.g., "0>3,1>3,1>4,2>4")

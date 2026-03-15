@@ -271,6 +271,17 @@
     ]
   },
   {
+    "name": "LongestCommonSubsequence",
+    "description": "Find the longest string that is a subsequence of every input string",
+    "fields": [
+      {
+        "name": "strings",
+        "type_name": "Vec<Vec<u8>>",
+        "description": "The input strings"
+      }
+    ]
+  },
+  {
     "name": "MaxCut",
     "description": "Find maximum weight cut in a graph",
     "fields": [
@@ -591,6 +602,27 @@
         "name": "clauses",
         "type_name": "Vec<CNFClause>",
         "description": "Clauses in conjunctive normal form"
+      }
+    ]
+  },
+  {
+    "name": "SequencingWithReleaseTimesAndDeadlines",
+    "description": "Single-machine scheduling feasibility: can all tasks be scheduled within their release-deadline windows without overlap?",
+    "fields": [
+      {
+        "name": "lengths",
+        "type_name": "Vec<u64>",
+        "description": "Processing time l(t) for each task (positive)"
+      },
+      {
+        "name": "release_times",
+        "type_name": "Vec<u64>",
+        "description": "Release time r(t) for each task (non-negative)"
+      },
+      {
+        "name": "deadlines",
+        "type_name": "Vec<u64>",
+        "description": "Deadline d(t) for each task (positive)"
       }
     ]
   },

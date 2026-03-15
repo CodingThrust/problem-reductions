@@ -9,7 +9,7 @@ use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, ShortestCommonSupersequence, SubsetSum,
+    PaintShop, SequencingWithReleaseTimesAndDeadlines, ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -57,6 +57,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
+        && args.lengths.is_none()
+        && args.release_times.is_none()
         && args.deadlines.is_none()
         && args.precedence_pairs.is_none()
         && args.task_lengths.is_none()
@@ -1082,6 +1084,47 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let weights = parse_vertex_weights(args, num_v)?;
             (
                 ser(MinimumFeedbackVertexSet::new(graph, weights))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingWithReleaseTimesAndDeadlines
+        "SequencingWithReleaseTimesAndDeadlines" => {
+            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithReleaseTimesAndDeadlines requires --lengths, --release-times, and --deadlines\n\n\
+                     Usage: pred create SequencingWithReleaseTimesAndDeadlines --lengths 3,2,4 --release-times 0,1,5 --deadlines 5,6,10"
+                )
+            })?;
+            let release_str = args.release_times.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithReleaseTimesAndDeadlines requires --release-times\n\n\
+                     Usage: pred create SequencingWithReleaseTimesAndDeadlines --lengths 3,2,4 --release-times 0,1,5 --deadlines 5,6,10"
+                )
+            })?;
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingWithReleaseTimesAndDeadlines requires --deadlines\n\n\
+                     Usage: pred create SequencingWithReleaseTimesAndDeadlines --lengths 3,2,4 --release-times 0,1,5 --deadlines 5,6,10"
+                )
+            })?;
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
+            let release_times: Vec<u64> = util::parse_comma_list(release_str)?;
+            let deadlines: Vec<u64> = util::parse_comma_list(deadlines_str)?;
+            if lengths.len() != release_times.len() || lengths.len() != deadlines.len() {
+                bail!(
+                    "All three lists must have the same length: lengths={}, release_times={}, deadlines={}",
+                    lengths.len(),
+                    release_times.len(),
+                    deadlines.len()
+                );
+            }
+            (
+                ser(SequencingWithReleaseTimesAndDeadlines::new(
+                    lengths,
+                    release_times,
+                    deadlines,
+                ))?,
                 resolved_variant.clone(),
             )
         }
