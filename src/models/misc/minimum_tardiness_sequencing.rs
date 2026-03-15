@@ -197,11 +197,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         build: || {
             // 4 tasks with precedence 0 -> 2 (task 0 before task 2).
             // Deadlines: task 0 by time 2, task 1 by time 3, task 2 by time 1, task 3 by time 4.
-            let problem = MinimumTardinessSequencing::new(
-                4,
-                vec![2, 3, 1, 4],
-                vec![(0, 2)],
-            );
+            let problem = MinimumTardinessSequencing::new(4, vec![2, 3, 1, 4], vec![(0, 2)]);
             // Sample config: Lehmer code [0,0,0,0] = identity permutation (schedule order 0,1,2,3)
             crate::example_db::specs::optimization_example(problem, vec![vec![0, 0, 0, 0]])
         },
