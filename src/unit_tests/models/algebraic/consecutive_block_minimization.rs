@@ -60,8 +60,11 @@ fn test_consecutive_block_minimization_brute_force() {
         2,
     );
     let solver = BruteForce::new();
-    let solutions = solver.find_all_satisfying(&problem);
-    assert!(!solutions.is_empty());
+    let mut solutions = solver.find_all_satisfying(&problem);
+    solutions.sort();
+    let mut expected = vec![vec![0, 2, 1], vec![1, 2, 0]];
+    expected.sort();
+    assert_eq!(solutions, expected);
     for sol in &solutions {
         assert!(problem.evaluate(sol));
     }
@@ -85,6 +88,13 @@ fn test_consecutive_block_minimization_serialization() {
     assert_eq!(deserialized.num_cols(), problem.num_cols());
     assert_eq!(deserialized.bound_k(), problem.bound_k());
     assert_eq!(deserialized.matrix(), problem.matrix());
+}
+
+#[test]
+fn test_consecutive_block_minimization_deserialization_rejects_inconsistent_dimensions() {
+    let json = r#"{"matrix":[[true]],"num_rows":1,"num_cols":2,"bound_k":1}"#;
+    let err = serde_json::from_str::<ConsecutiveBlockMinimization>(json).unwrap_err();
+    assert!(err.to_string().contains("num_cols"));
 }
 
 #[test]

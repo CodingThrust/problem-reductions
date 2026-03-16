@@ -218,6 +218,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<u64>" => "comma-separated integers: 1,1,2",
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
+        "Vec<Vec<bool>>" => "JSON 2D bool array: '[[true,false],[false,true]]'",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" => "integer",
         "u64" => "integer",
@@ -989,22 +990,23 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // ConsecutiveBlockMinimization
         "ConsecutiveBlockMinimization" => {
+            let usage = "Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound-k 2";
             let matrix_str = args.matrix.as_deref().ok_or_else(|| {
                 anyhow::anyhow!(
-                    "ConsecutiveBlockMinimization requires --matrix and --bound-k\n\n\
-                     Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound-k 2"
+                    "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array and --bound-k\n\n{usage}"
                 )
             })?;
             let bound_k = args.bound_k.ok_or_else(|| {
+                anyhow::anyhow!("ConsecutiveBlockMinimization requires --bound-k\n\n{usage}")
+            })?;
+            let matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str).map_err(|err| {
                 anyhow::anyhow!(
-                    "ConsecutiveBlockMinimization requires --bound-k\n\n\
-                     Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound-k 2"
+                    "ConsecutiveBlockMinimization requires --matrix as a JSON 2D bool array (e.g., '[[true,false,true],[false,true,true]]')\n\n{usage}\n\nFailed to parse --matrix: {err}"
                 )
             })?;
-            let matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str)
-                .context("Failed to parse --matrix as JSON 2D bool array")?;
             (
-                ser(ConsecutiveBlockMinimization::new(matrix, bound_k))?,
+                ser(ConsecutiveBlockMinimization::try_new(matrix, bound_k)
+                    .map_err(|err| anyhow::anyhow!("{err}\n\n{usage}"))?)?,
                 resolved_variant.clone(),
             )
         }

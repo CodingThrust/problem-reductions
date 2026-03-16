@@ -311,6 +311,31 @@ fn test_evaluate_sat() {
 }
 
 #[test]
+fn test_evaluate_consecutive_block_minimization_rejects_inconsistent_dimensions() {
+    let problem_json = r#"{
+        "type": "ConsecutiveBlockMinimization",
+        "data": {
+            "matrix": [[true]],
+            "num_rows": 1,
+            "num_cols": 2,
+            "bound_k": 1
+        }
+    }"#;
+    let tmp = std::env::temp_dir().join("pred_test_eval_cbm_invalid_dims.json");
+    std::fs::write(&tmp, problem_json).unwrap();
+
+    let output = pred()
+        .args(["evaluate", tmp.to_str().unwrap(), "--config", "0,1"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("num_cols must match matrix column count"));
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+    std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
 fn test_create_undirected_two_commodity_integral_flow() {
     let output = pred()
         .args([
@@ -508,6 +533,47 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_out_of_range_termi
     assert!(stderr.contains("source-1 must be less than num_vertices (4)"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
     assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_consecutive_block_minimization_rejects_ragged_matrix() {
+    let output = pred()
+        .args([
+            "create",
+            "ConsecutiveBlockMinimization",
+            "--matrix",
+            "[[true],[true,false]]",
+            "--bound-k",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("all matrix rows must have the same length"));
+    assert!(stderr.contains("Usage: pred create ConsecutiveBlockMinimization"));
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_consecutive_block_minimization_help_mentions_json_matrix_format() {
+    let output = pred()
+        .args(["create", "ConsecutiveBlockMinimization"])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("JSON 2D bool array"));
+    assert!(stderr.contains("[[true,false,true],[false,true,true]]"));
+}
+
+#[test]
+fn test_create_help_mentions_consecutive_block_minimization_matrix_format() {
+    let output = pred().args(["create", "--help"]).output().unwrap();
+    assert!(output.status.success());
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("ConsecutiveBlockMinimization"));
+    assert!(stdout.contains("JSON 2D bool array"));
 }
 
 #[test]

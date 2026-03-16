@@ -58,6 +58,7 @@ inventory::submit! {
 /// }
 /// ```
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(try_from = "ConsecutiveBlockMinimizationDef")]
 pub struct ConsecutiveBlockMinimization {
     /// The binary matrix A (m x n).
     matrix: Vec<Vec<bool>>,
@@ -79,19 +80,19 @@ impl ConsecutiveBlockMinimization {
     /// # Panics
     /// Panics if rows have inconsistent lengths.
     pub fn new(matrix: Vec<Vec<bool>>, bound_k: usize) -> Self {
-        let num_rows = matrix.len();
-        let num_cols = if num_rows > 0 { matrix[0].len() } else { 0 };
+        Self::try_new(matrix, bound_k).unwrap_or_else(|err| panic!("{err}"))
+    }
 
-        for row in &matrix {
-            assert_eq!(row.len(), num_cols, "All rows must have the same length");
-        }
-
-        Self {
+    /// Create a new ConsecutiveBlockMinimization problem, returning an error
+    /// instead of panicking when the matrix is ragged.
+    pub fn try_new(matrix: Vec<Vec<bool>>, bound_k: usize) -> Result<Self, String> {
+        let (num_rows, num_cols) = validate_matrix_dimensions(&matrix)?;
+        Ok(Self {
             matrix,
             num_rows,
             num_cols,
             bound_k,
-        }
+        })
     }
 
     /// Get the binary matrix.
@@ -181,6 +182,46 @@ impl SatisfactionProblem for ConsecutiveBlockMinimization {}
 
 crate::declare_variants! {
     default sat ConsecutiveBlockMinimization => "factorial(num_cols) * num_rows * num_cols",
+}
+
+#[derive(Debug, Clone, Deserialize)]
+struct ConsecutiveBlockMinimizationDef {
+    matrix: Vec<Vec<bool>>,
+    num_rows: usize,
+    num_cols: usize,
+    bound_k: usize,
+}
+
+impl TryFrom<ConsecutiveBlockMinimizationDef> for ConsecutiveBlockMinimization {
+    type Error = String;
+
+    fn try_from(value: ConsecutiveBlockMinimizationDef) -> Result<Self, Self::Error> {
+        let problem = Self::try_new(value.matrix, value.bound_k)?;
+        if value.num_rows != problem.num_rows {
+            return Err(format!(
+                "num_rows must match matrix row count ({})",
+                problem.num_rows
+            ));
+        }
+        if value.num_cols != problem.num_cols {
+            return Err(format!(
+                "num_cols must match matrix column count ({})",
+                problem.num_cols
+            ));
+        }
+        Ok(problem)
+    }
+}
+
+fn validate_matrix_dimensions(matrix: &[Vec<bool>]) -> Result<(usize, usize), String> {
+    let num_rows = matrix.len();
+    let num_cols = matrix.first().map_or(0, Vec::len);
+
+    if matrix.iter().any(|row| row.len() != num_cols) {
+        return Err("all matrix rows must have the same length".to_string());
+    }
+
+    Ok((num_rows, num_cols))
 }
 
 #[cfg(feature = "example-db")]

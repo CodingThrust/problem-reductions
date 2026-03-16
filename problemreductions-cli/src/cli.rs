@@ -318,7 +318,8 @@ pub struct CreateArgs {
     /// Number of variables (for SAT/KSAT)
     #[arg(long)]
     pub num_vars: Option<usize>,
-    /// Matrix for QUBO (semicolon-separated rows, e.g., "1,0.5;0.5,2")
+    /// Matrix input. QUBO uses semicolon-separated numeric rows ("1,0.5;0.5,2");
+    /// ConsecutiveBlockMinimization uses a JSON 2D bool array ('[[true,false],[false,true]]')
     #[arg(long)]
     pub matrix: Option<String>,
     /// Number of colors for KColoring
