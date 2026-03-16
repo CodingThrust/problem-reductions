@@ -22,4 +22,6 @@ pub use misc::{
     BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
     MinimumTardinessSequencing, PaintShop, ShortestCommonSupersequence, SubsetSum,
 };
-pub use set::{ComparativeContainment, ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering};
+pub use set::{
+    ComparativeContainment, ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis,
+};

@@ -76,6 +76,7 @@
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumSetCovering": [Minimum Set Covering],
   "ComparativeContainment": [Comparative Containment],
+  "SetBasis": [Set Basis],
   "SpinGlass": [Spin Glass],
   "QUBO": [QUBO],
   "ILP": [Integer Linear Programming],
@@ -1168,6 +1169,43 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
       }),
       caption: [Comparative containment for $Y = #fmt-set(selected)$: both $R_1$ and $R_2$ contain $Y$, while only $S_1$ does, so the $cal(R)$ side dominates the $cal(S)$ side.]
     ) <fig:comparative-containment>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("SetBasis")
+  let coll = x.instance.collection
+  let m = coll.len()
+  let U-size = x.instance.universe_size
+  let k = x.instance.k
+  let sample = x.samples.at(0)
+  let sat-count = x.optimal.len()
+  let basis = range(k).map(i =>
+    range(U-size).filter(j => sample.config.at(i * U-size + j) == 1)
+  )
+  let fmt-set(s) = "${" + s.map(e => str(e + 1)).join(", ") + "}$"
+  [
+    #problem-def("SetBasis")[
+      Given finite set $S$, collection $cal(C)$ of subsets of $S$, and integer $k$, does there exist a family $cal(B) = {B_1, ..., B_k}$ with each $B_i subset.eq S$ such that for every $C in cal(C)$ there exists $cal(B)_C subset.eq cal(B)$ with $union.big_(B in cal(B)_C) B = C$?
+    ][
+    The Set Basis problem was shown NP-complete by Stockmeyer @stockmeyer1975setbasis and appears as SP7 in Garey & Johnson @garey1979. It asks for an exact union-based description of a family of sets, unlike Set Cover which only requires covering the underlying universe. Applications include data compression, database schema design, and Boolean function minimization. The library's decision encoding uses $k |S|$ membership bits, so brute-force over those bits gives an $O^*(2^(k |S|))$ exact algorithm#footnote[This is the direct search bound induced by the encoding implemented here; we are not aware of a faster general exact worst-case algorithm for this representation.].
+
+    *Example.* Let $S = {1, 2, 3, 4}$, $k = #k$, and $cal(C) = {#range(m).map(i => $C_#(i + 1)$).join(", ")}$ with #coll.enumerate().map(((i, s)) => $C_#(i + 1) = #fmt-set(s)$).join(", "). The sample basis from the issue is $cal(B) = {#range(k).map(i => $B_#(i + 1)$).join(", ")}$ with #basis.enumerate().map(((i, s)) => $B_#(i + 1) = #fmt-set(s)$).join(", "). Then $C_1 = B_1 union B_2$, $C_2 = B_2 union B_3$, $C_3 = B_1 union B_3$, and $C_4 = B_1 union B_2 union B_3$. There are #sat-count satisfying encodings in total: the singleton basis can be permuted in $3! = 6$ ways, and the three pair sets $C_1, C_2, C_3$ also form a basis with another six row permutations.
+
+    #figure(
+      canvas(length: 1cm, {
+        let elems = ((-0.9, 0.2), (0.0, -0.5), (0.9, 0.2), (1.8, -0.5))
+        for i in range(k) {
+          let positions = basis.at(i).map(e => elems.at(e))
+          sregion(positions, pad: 0.28, label: [$B_#(i + 1)$], ..sregion-selected)
+        }
+        for (idx, pos) in elems.enumerate() {
+          selem(pos, label: [#(idx + 1)], fill: if idx < 3 { black } else { luma(160) })
+        }
+      }),
+      caption: [Set Basis example: the singleton basis $cal(B) = {#range(k).map(i => $B_#(i + 1)$).join(", ")}$ reconstructs every target set in $cal(C)$; element $4$ is unused by the target family.],
+    ) <fig:set-basis>
     ]
   ]
 }

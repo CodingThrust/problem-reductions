@@ -59,7 +59,7 @@ pub mod prelude {
         MinimumTardinessSequencing, PaintShop, ShortestCommonSupersequence, SubsetSum,
     };
     pub use crate::models::set::{
-        ComparativeContainment, ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering,
+        ComparativeContainment, ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis,
     };
 
     // Core traits
