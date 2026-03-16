@@ -266,6 +266,8 @@ pub struct ReductionGraph {
     nodes: Vec<VariantNode>,
     /// Map from base type name to all NodeIndex values for that name.
     name_to_nodes: HashMap<&'static str, Vec<NodeIndex>>,
+    /// Declared default variant for each problem name.
+    default_variants: HashMap<String, BTreeMap<String, String>>,
 }
 
 impl ReductionGraph {
@@ -305,18 +307,24 @@ impl ReductionGraph {
             }
         };
 
+        // Collect declared default variants from VariantEntry inventory
+        let mut default_variants: HashMap<String, BTreeMap<String, String>> = HashMap::new();
+
         // Phase 1: Build nodes from VariantEntry inventory
         for entry in inventory::iter::<crate::registry::VariantEntry> {
             let variant = Self::variant_to_map(&entry.variant());
             ensure_node(
                 entry.name,
-                variant,
+                variant.clone(),
                 entry.complexity,
                 &mut nodes,
                 &mut graph,
                 &mut node_index,
                 &mut name_to_nodes,
             );
+            if entry.is_default {
+                default_variants.insert(entry.name.to_string(), variant);
+            }
         }
 
         // Phase 2: Build edges from ReductionEntry inventory
@@ -362,6 +370,7 @@ impl ReductionGraph {
             graph,
             nodes,
             name_to_nodes,
+            default_variants,
         }
     }
 
@@ -516,6 +525,41 @@ impl ReductionGraph {
             .collect()
     }
 
+    /// Find up to `limit` simple paths between two specific problem variants.
+    ///
+    /// Like [`find_all_paths`](Self::find_all_paths) but stops enumeration after
+    /// collecting `limit` paths. This avoids combinatorial explosion on dense graphs.
+    pub fn find_paths_up_to(
+        &self,
+        source: &str,
+        source_variant: &BTreeMap<String, String>,
+        target: &str,
+        target_variant: &BTreeMap<String, String>,
+        limit: usize,
+    ) -> Vec<ReductionPath> {
+        let src = match self.lookup_node(source, source_variant) {
+            Some(idx) => idx,
+            None => return vec![],
+        };
+        let dst = match self.lookup_node(target, target_variant) {
+            Some(idx) => idx,
+            None => return vec![],
+        };
+
+        let paths: Vec<Vec<NodeIndex>> = all_simple_paths::<
+            Vec<NodeIndex>,
+            _,
+            std::hash::RandomState,
+        >(&self.graph, src, dst, 0, None)
+        .take(limit)
+        .collect();
+
+        paths
+            .iter()
+            .map(|p| self.node_path_to_reduction_path(p))
+            .collect()
+    }
+
     /// Check if a direct reduction exists from S to T.
     pub fn has_direct_reduction<S: crate::traits::Problem, T: crate::traits::Problem>(
         &self,
@@ -640,6 +684,16 @@ impl ReductionGraph {
             default_rank(a).cmp(&default_rank(b)).then_with(|| a.cmp(b))
         });
         variants
+    }
+
+    /// Get the declared default variant for a problem type.
+    ///
+    /// Returns the variant that was marked `default` in `declare_variants!`.
+    /// If no entry was explicitly marked `default`, the first registered variant
+    /// for the problem is used as the implicit default.
+    /// Returns `None` if the problem type is not registered.
+    pub fn default_variant_for(&self, name: &str) -> Option<BTreeMap<String, String>> {
+        self.default_variants.get(name).cloned()
     }
 
     /// Get the complexity expression for a specific variant.
@@ -1044,24 +1098,19 @@ impl ReductionGraph {
         }
     }
 
-    /// Find the best matching `ReductionEntry` for a (source_name, target_name) pair
-    /// given the caller's current source variant.
+    /// Find the matching `ReductionEntry` for a (source_name, target_name) pair
+    /// given exact source and target variants.
     ///
-    /// First tries an exact match on the source variant. If no exact match is found,
-    /// falls back to a name-only match (returning the first entry whose source and
-    /// target names match). This is intentional: specific variants (e.g., `K3`) may
-    /// not have their own `#[reduction]` entry, but the general variant (`KN`) covers
-    /// them with the same overhead expression. The fallback is safe because cross-name
-    /// reductions share the same overhead regardless of source variant; it is only
-    /// used by the JSON export pipeline (`export::lookup_overhead`).
+    /// Returns `Some(MatchedEntry)` only when both the source and target variants
+    /// match exactly. No fallback is attempted — callers that need fuzzy matching
+    /// should resolve variants before calling this method.
     pub fn find_best_entry(
         &self,
         source_name: &str,
+        source_variant: &BTreeMap<String, String>,
         target_name: &str,
-        current_variant: &BTreeMap<String, String>,
+        target_variant: &BTreeMap<String, String>,
     ) -> Option<MatchedEntry> {
-        let mut fallback: Option<MatchedEntry> = None;
-
         for entry in inventory::iter::<ReductionEntry> {
             if entry.source_name != source_name || entry.target_name != target_name {
                 continue;
@@ -1070,18 +1119,9 @@ impl ReductionGraph {
             let entry_source = Self::variant_to_map(&entry.source_variant());
             let entry_target = Self::variant_to_map(&entry.target_variant());
 
-            // Exact match on source variant — return immediately
-            if current_variant == &entry_source {
+            // Exact match on both source and target variant
+            if source_variant == &entry_source && target_variant == &entry_target {
                 return Some(MatchedEntry {
-                    source_variant: entry_source,
-                    target_variant: entry_target,
-                    overhead: entry.overhead(),
-                });
-            }
-
-            // Remember the first name-only match as a fallback
-            if fallback.is_none() {
-                fallback = Some(MatchedEntry {
                     source_variant: entry_source,
                     target_variant: entry_target,
                     overhead: entry.overhead(),
@@ -1089,7 +1129,7 @@ impl ReductionGraph {
             }
         }
 
-        fallback
+        None
     }
 }
 
@@ -1193,3 +1233,19 @@ mod tests;
 #[cfg(test)]
 #[path = "../unit_tests/rules/reduction_path_parity.rs"]
 mod reduction_path_parity_tests;
+
+#[cfg(all(test, feature = "ilp-solver"))]
+#[path = "../unit_tests/rules/maximumindependentset_ilp.rs"]
+mod maximumindependentset_ilp_path_tests;
+
+#[cfg(all(test, feature = "ilp-solver"))]
+#[path = "../unit_tests/rules/minimumvertexcover_ilp.rs"]
+mod minimumvertexcover_ilp_path_tests;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/maximumindependentset_qubo.rs"]
+mod maximumindependentset_qubo_path_tests;
+
+#[cfg(test)]
+#[path = "../unit_tests/rules/minimumvertexcover_qubo.rs"]
+mod minimumvertexcover_qubo_path_tests;

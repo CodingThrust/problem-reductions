@@ -261,3 +261,35 @@ fn test_size_getters() {
     let problem = CircuitSAT::new(circuit);
     assert_eq!(problem.num_variables(), 3);
 }
+
+#[test]
+fn test_circuit_sat_paper_example() {
+    // Paper: C(x1, x2) = (x1 AND x2) XOR (x1 OR x2)
+    let circuit = Circuit::new(vec![
+        Assignment::new(
+            vec!["a".to_string()],
+            BooleanExpr::and(vec![BooleanExpr::var("x1"), BooleanExpr::var("x2")]),
+        ),
+        Assignment::new(
+            vec!["b".to_string()],
+            BooleanExpr::or(vec![BooleanExpr::var("x1"), BooleanExpr::var("x2")]),
+        ),
+        Assignment::new(
+            vec!["c".to_string()],
+            BooleanExpr::xor(vec![BooleanExpr::var("a"), BooleanExpr::var("b")]),
+        ),
+    ]);
+    let problem = CircuitSAT::new(circuit);
+
+    // Variables sorted: a, b, c, x1, x2
+    // Paper satisfying inputs (output c=1): (x1=0,x2=1) and (x1=1,x2=0)
+    // (x1=0,x2=1): a=0, b=1, c=1 → config [0, 1, 1, 0, 1]
+    assert!(problem.evaluate(&[0, 1, 1, 0, 1]));
+    // (x1=1,x2=0): a=0, b=1, c=1 → config [0, 1, 1, 1, 0]
+    assert!(problem.evaluate(&[0, 1, 1, 1, 0]));
+
+    // All 4 consistent configs are satisfying (CircuitSAT checks consistency)
+    let solver = BruteForce::new();
+    let all = solver.find_all_satisfying(&problem);
+    assert_eq!(all.len(), 4);
+}

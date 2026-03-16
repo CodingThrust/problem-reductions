@@ -9,7 +9,7 @@ fn test_reduction_creates_valid_ilp() {
     // Triangle graph: 3 vertices, 3 edges
     let problem =
         MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionMatchingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // Check ILP structure
@@ -22,11 +22,6 @@ fn test_reduction_creates_valid_ilp() {
     );
     assert_eq!(ilp.sense, ObjectiveSense::Maximize, "Should maximize");
 
-    // All variables should be binary
-    for bound in &ilp.bounds {
-        assert_eq!(*bound, VarBounds::binary());
-    }
-
     // Each constraint should be sum of incident edge vars <= 1
     for constraint in &ilp.constraints {
         assert!((constraint.rhs - 1.0).abs() < 1e-9);
@@ -36,7 +31,7 @@ fn test_reduction_creates_valid_ilp() {
 #[test]
 fn test_reduction_weighted() {
     let problem = MaximumMatching::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![5, 10]);
-    let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionMatchingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // Check that weights are correctly transferred to objective
@@ -53,7 +48,7 @@ fn test_maximummatching_to_ilp_closed_loop() {
     // Triangle graph: max matching = 1 edge
     let problem =
         MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![(0, 1), (1, 2), (0, 2)]));
-    let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionMatchingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -84,7 +79,7 @@ fn test_ilp_solution_equals_brute_force_path() {
     // Path graph 0-1-2-3: max matching = 2 (edges {0-1, 2-3})
     let problem =
         MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]));
-    let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionMatchingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -113,7 +108,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
     // Weights: [100, 1]
     // Max matching by weight: just edge 0-1 (weight 100) beats edge 1-2 (weight 1)
     let problem = MaximumMatching::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), vec![100, 1]);
-    let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionMatchingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let bf = BruteForce::new();
@@ -137,7 +132,7 @@ fn test_ilp_solution_equals_brute_force_weighted() {
 fn test_solution_extraction() {
     let problem =
         MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (2, 3)]));
-    let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionMatchingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
 
     // Test that extraction works correctly (1:1 mapping)
     let ilp_solution = vec![1, 1];
@@ -154,7 +149,7 @@ fn test_ilp_structure() {
         5,
         vec![(0, 1), (1, 2), (2, 3), (3, 4)],
     ));
-    let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionMatchingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 4);
@@ -167,7 +162,7 @@ fn test_ilp_structure() {
 fn test_empty_graph() {
     // Graph with no edges: empty matching
     let problem = MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(3, vec![]));
-    let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionMatchingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     assert_eq!(ilp.num_vars, 0);
@@ -184,7 +179,7 @@ fn test_k4_perfect_matching() {
         4,
         vec![(0, 1), (0, 2), (0, 3), (1, 2), (1, 3), (2, 3)],
     ));
-    let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionMatchingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     // 6 edges, 4 vertices with constraints
@@ -209,7 +204,7 @@ fn test_star_graph() {
     // Max matching = 1 (only one edge can be selected)
     let problem =
         MaximumMatching::<_, i32>::unit_weights(SimpleGraph::new(4, vec![(0, 1), (0, 2), (0, 3)]));
-    let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionMatchingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();
@@ -228,7 +223,7 @@ fn test_bipartite_graph() {
         4,
         vec![(0, 2), (0, 3), (1, 2), (1, 3)],
     ));
-    let reduction: ReductionMatchingToILP = ReduceTo::<ILP>::reduce_to(&problem);
+    let reduction: ReductionMatchingToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
 
     let ilp_solver = ILPSolver::new();

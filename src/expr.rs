@@ -23,19 +23,11 @@ pub enum Expr {
     Log(Box<Expr>),
     /// Square root: sqrt(a).
     Sqrt(Box<Expr>),
+    /// Factorial: factorial(a).
+    Factorial(Box<Expr>),
 }
 
 impl Expr {
-    /// Convenience constructor for addition.
-    pub fn add(a: Expr, b: Expr) -> Self {
-        Expr::Add(Box::new(a), Box::new(b))
-    }
-
-    /// Convenience constructor for multiplication.
-    pub fn mul(a: Expr, b: Expr) -> Self {
-        Expr::Mul(Box::new(a), Box::new(b))
-    }
-
     /// Convenience constructor for exponentiation.
     pub fn pow(base: Expr, exp: Expr) -> Self {
         Expr::Pow(Box::new(base), Box::new(exp))
@@ -43,7 +35,7 @@ impl Expr {
 
     /// Multiply expression by a scalar constant.
     pub fn scale(self, c: f64) -> Self {
-        Expr::mul(Expr::Const(c), self)
+        Expr::Const(c) * self
     }
 
     /// Evaluate the expression given concrete variable values.
@@ -57,6 +49,7 @@ impl Expr {
             Expr::Exp(a) => a.eval(vars).exp(),
             Expr::Log(a) => a.eval(vars).ln(),
             Expr::Sqrt(a) => a.eval(vars).sqrt(),
+            Expr::Factorial(a) => gamma_factorial(a.eval(vars)),
         }
     }
 
@@ -77,7 +70,7 @@ impl Expr {
                 a.collect_variables(vars);
                 b.collect_variables(vars);
             }
-            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) => {
+            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) | Expr::Factorial(a) => {
                 a.collect_variables(vars);
             }
         }
@@ -94,12 +87,13 @@ impl Expr {
                     Expr::Var(name)
                 }
             }
-            Expr::Add(a, b) => Expr::add(a.substitute(mapping), b.substitute(mapping)),
-            Expr::Mul(a, b) => Expr::mul(a.substitute(mapping), b.substitute(mapping)),
+            Expr::Add(a, b) => a.substitute(mapping) + b.substitute(mapping),
+            Expr::Mul(a, b) => a.substitute(mapping) * b.substitute(mapping),
             Expr::Pow(a, b) => Expr::pow(a.substitute(mapping), b.substitute(mapping)),
             Expr::Exp(a) => Expr::Exp(Box::new(a.substitute(mapping))),
             Expr::Log(a) => Expr::Log(Box::new(a.substitute(mapping))),
             Expr::Sqrt(a) => Expr::Sqrt(Box::new(a.substitute(mapping))),
+            Expr::Factorial(a) => Expr::Factorial(Box::new(a.substitute(mapping))),
         }
     }
 
@@ -114,8 +108,13 @@ impl Expr {
     /// # Panics
     /// Panics if the expression string has invalid syntax.
     pub fn parse(input: &str) -> Expr {
-        parse_to_expr(input)
+        Self::try_parse(input)
             .unwrap_or_else(|e| panic!("failed to parse expression \"{input}\": {e}"))
+    }
+
+    /// Parse an expression string into an `Expr`, returning a normal error on failure.
+    pub fn try_parse(input: &str) -> Result<Expr, String> {
+        parse_to_expr(input)
     }
 
     /// Check if this expression is a polynomial (no exp/log/sqrt, integer exponents only).
@@ -127,7 +126,79 @@ impl Expr {
                 base.is_polynomial()
                     && matches!(exp.as_ref(), Expr::Const(c) if *c >= 0.0 && (*c - c.round()).abs() < 1e-10)
             }
-            Expr::Exp(_) | Expr::Log(_) | Expr::Sqrt(_) => false,
+            Expr::Exp(_) | Expr::Log(_) | Expr::Sqrt(_) | Expr::Factorial(_) => false,
+        }
+    }
+
+    /// Check whether this expression is suitable for asymptotic complexity notation.
+    ///
+    /// This is intentionally conservative for symbolic size formulas:
+    /// - rejects explicit multiplicative constant factors like `3 * n`
+    /// - rejects additive constant terms like `n + 1`
+    /// - allows constants used as exponents (e.g. `n^(1/3)`)
+    /// - allows constants used as exponential bases (e.g. `2^n`)
+    ///
+    /// The goal is to accept expressions that already look like reduced
+    /// asymptotic notation, rather than exact-count formulas.
+    pub fn is_valid_complexity_notation(&self) -> bool {
+        self.is_valid_complexity_notation_inner()
+    }
+
+    fn is_valid_complexity_notation_inner(&self) -> bool {
+        match self {
+            Expr::Const(c) => (*c - 1.0).abs() < 1e-10,
+            Expr::Var(_) => true,
+            Expr::Add(a, b) => {
+                a.constant_value().is_none()
+                    && b.constant_value().is_none()
+                    && a.is_valid_complexity_notation_inner()
+                    && b.is_valid_complexity_notation_inner()
+            }
+            Expr::Mul(a, b) => {
+                a.constant_value().is_none()
+                    && b.constant_value().is_none()
+                    && a.is_valid_complexity_notation_inner()
+                    && b.is_valid_complexity_notation_inner()
+            }
+            Expr::Pow(base, exp) => {
+                let base_is_constant = base.constant_value().is_some();
+                let exp_is_constant = exp.constant_value().is_some();
+
+                let base_ok = if base_is_constant {
+                    base.is_valid_exponential_base()
+                } else {
+                    base.is_valid_complexity_notation_inner()
+                };
+
+                let exp_ok = if exp_is_constant {
+                    true
+                } else {
+                    exp.is_valid_complexity_notation_inner()
+                };
+
+                base_ok && exp_ok
+            }
+            Expr::Exp(a) | Expr::Log(a) | Expr::Sqrt(a) | Expr::Factorial(a) => {
+                a.is_valid_complexity_notation_inner()
+            }
+        }
+    }
+
+    fn is_valid_exponential_base(&self) -> bool {
+        self.constant_value().is_some_and(|c| c > 0.0)
+    }
+
+    pub(crate) fn constant_value(&self) -> Option<f64> {
+        match self {
+            Expr::Const(c) => Some(*c),
+            Expr::Var(_) => None,
+            Expr::Add(a, b) => Some(a.constant_value()? + b.constant_value()?),
+            Expr::Mul(a, b) => Some(a.constant_value()? * b.constant_value()?),
+            Expr::Pow(base, exp) => Some(base.constant_value()?.powf(exp.constant_value()?)),
+            Expr::Exp(a) => Some(a.constant_value()?.exp()),
+            Expr::Log(a) => Some(a.constant_value()?.ln()),
+            Expr::Sqrt(a) => Some(a.constant_value()?.sqrt()),
+            Expr::Factorial(a) => Some(gamma_factorial(a.constant_value()?)),
         }
     }
 }
@@ -159,16 +230,28 @@ impl fmt::Display for Expr {
                 write!(f, "{left} * {right}")
             }
             Expr::Pow(base, exp) => {
+                // Special case: x^0.5 → sqrt(x)
+                if let Expr::Const(e) = exp.as_ref() {
+                    if (*e - 0.5).abs() < 1e-15 {
+                        return write!(f, "sqrt({base})");
+                    }
+                }
                 let base_str = if matches!(base.as_ref(), Expr::Add(_, _) | Expr::Mul(_, _)) {
                     format!("({base})")
                 } else {
                     format!("{base}")
                 };
-                write!(f, "{base_str}^{exp}")
+                let exp_str = if matches!(exp.as_ref(), Expr::Add(_, _) | Expr::Mul(_, _)) {
+                    format!("({exp})")
+                } else {
+                    format!("{exp}")
+                };
+                write!(f, "{base_str}^{exp_str}")
             }
             Expr::Exp(a) => write!(f, "exp({a})"),
             Expr::Log(a) => write!(f, "log({a})"),
             Expr::Sqrt(a) => write!(f, "sqrt({a})"),
+            Expr::Factorial(a) => write!(f, "factorial({a})"),
         }
     }
 }
@@ -178,6 +261,103 @@ impl std::ops::Add for Expr {
 
     fn add(self, other: Self) -> Self {
         Expr::Add(Box::new(self), Box::new(other))
+    }
+}
+
+impl std::ops::Mul for Expr {
+    type Output = Self;
+
+    fn mul(self, other: Self) -> Self {
+        Expr::Mul(Box::new(self), Box::new(other))
+    }
+}
+
+impl std::ops::Sub for Expr {
+    type Output = Self;
+
+    fn sub(self, other: Self) -> Self {
+        self + Expr::Const(-1.0) * other
+    }
+}
+
+impl std::ops::Div for Expr {
+    type Output = Self;
+
+    fn div(self, other: Self) -> Self {
+        self * Expr::pow(other, Expr::Const(-1.0))
+    }
+}
+
+impl std::ops::Neg for Expr {
+    type Output = Self;
+
+    fn neg(self) -> Self {
+        Expr::Const(-1.0) * self
+    }
+}
+
+/// Error returned when analyzing asymptotic behavior.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum AsymptoticAnalysisError {
+    Unsupported(String),
+}
+
+impl fmt::Display for AsymptoticAnalysisError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unsupported(expr) => write!(f, "unsupported asymptotic expression: {expr}"),
+        }
+    }
+}
+
+impl std::error::Error for AsymptoticAnalysisError {}
+
+/// Error returned when exact canonicalization fails.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum CanonicalizationError {
+    /// Expression cannot be canonicalized (e.g., variable in both base and exponent).
+    Unsupported(String),
+}
+
+impl fmt::Display for CanonicalizationError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Unsupported(expr) => {
+                write!(f, "unsupported expression for canonicalization: {expr}")
+            }
+        }
+    }
+}
+
+impl std::error::Error for CanonicalizationError {}
+
+/// Return a normalized `Expr` representing the asymptotic behavior of `expr`.
+///
+/// This is now a compatibility wrapper for `big_o_normal_form()`.
+pub fn asymptotic_normal_form(expr: &Expr) -> Result<Expr, AsymptoticAnalysisError> {
+    crate::big_o::big_o_normal_form(expr)
+}
+
+/// Compute factorial for non-negative values.
+///
+/// For non-negative integers, returns the exact integer factorial.
+/// For non-integer values, uses Stirling's approximation of the gamma function:
+/// n! = Γ(n+1) ≈ √(2πn) · (n/e)^n.
+fn gamma_factorial(n: f64) -> f64 {
+    if n < 0.0 {
+        return f64::NAN;
+    }
+    let rounded = n.round();
+    if (n - rounded).abs() < 1e-10 && rounded >= 0.0 {
+        let k = rounded as u64;
+        let mut result = 1u64;
+        for i in 2..=k {
+            result = result.saturating_mul(i);
+        }
+        result as f64
+    } else {
+        // Stirling's approximation: Γ(n+1) ≈ √(2πn) · (n/e)^n
+        (2.0 * std::f64::consts::PI * n).sqrt() * (n / std::f64::consts::E).powf(n)
     }
 }
 
@@ -312,8 +492,8 @@ impl ExprParser {
             let op = self.advance().unwrap();
             let right = self.parse_multiplicative()?;
             left = match op {
-                ExprToken::Plus => Expr::add(left, right),
-                ExprToken::Minus => Expr::add(left, Expr::mul(Expr::Const(-1.0), right)),
+                ExprToken::Plus => left + right,
+                ExprToken::Minus => left - right,
                 _ => unreachable!(),
             };
         }
@@ -321,13 +501,13 @@ impl ExprParser {
     }
 
     fn parse_multiplicative(&mut self) -> Result<Expr, String> {
-        let mut left = self.parse_power()?;
+        let mut left = self.parse_unary()?;
         while matches!(self.peek(), Some(ExprToken::Star) | Some(ExprToken::Slash)) {
             let op = self.advance().unwrap();
-            let right = self.parse_power()?;
+            let right = self.parse_unary()?;
             left = match op {
-                ExprToken::Star => Expr::mul(left, right),
-                ExprToken::Slash => Expr::mul(left, Expr::pow(right, Expr::Const(-1.0))),
+                ExprToken::Star => left * right,
+                ExprToken::Slash => left / right,
                 _ => unreachable!(),
             };
         }
@@ -335,10 +515,10 @@ impl ExprParser {
     }
 
     fn parse_power(&mut self) -> Result<Expr, String> {
-        let base = self.parse_unary()?;
+        let base = self.parse_primary()?;
         if matches!(self.peek(), Some(ExprToken::Caret)) {
             self.advance();
-            let exp = self.parse_power()?; // right-associative
+            let exp = self.parse_unary()?; // right-associative, allows unary minus in exponent
             Ok(Expr::pow(base, exp))
         } else {
             Ok(base)
@@ -349,9 +529,9 @@ impl ExprParser {
         if matches!(self.peek(), Some(ExprToken::Minus)) {
             self.advance();
             let expr = self.parse_unary()?;
-            Ok(Expr::mul(Expr::Const(-1.0), expr))
+            Ok(-expr)
         } else {
-            self.parse_primary()
+            self.parse_power()
         }
     }
 
@@ -367,6 +547,7 @@ impl ExprParser {
                         "exp" => Ok(Expr::Exp(Box::new(arg))),
                         "log" => Ok(Expr::Log(Box::new(arg))),
                         "sqrt" => Ok(Expr::Sqrt(Box::new(arg))),
+                        "factorial" => Ok(Expr::Factorial(Box::new(arg))),
                         _ => Err(format!("unknown function: {name}")),
                     }
                 } else {

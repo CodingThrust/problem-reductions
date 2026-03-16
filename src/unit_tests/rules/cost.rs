@@ -3,7 +3,7 @@ use crate::expr::Expr;
 
 fn test_overhead() -> ReductionOverhead {
     ReductionOverhead::new(vec![
-        ("n", Expr::mul(Expr::Const(2.0), Expr::Var("n"))),
+        ("n", Expr::Const(2.0) * Expr::Var("n")),
         ("m", Expr::Var("m")),
     ])
 }

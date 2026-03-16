@@ -1,6 +1,7 @@
 //! Shared utilities for CLI and MCP: parsing helpers and random generation.
 
 use anyhow::{bail, Result};
+use num_bigint::BigUint;
 use problemreductions::prelude::*;
 use problemreductions::topology::SimpleGraph;
 use problemreductions::variant::{K2, K3, KN};
@@ -239,6 +240,17 @@ where
                 .parse::<T>()
                 .map_err(|e| anyhow::anyhow!("Invalid value '{}': {e}", v.trim()))
         })
+        .collect()
+}
+
+pub fn parse_decimal_biguint(s: &str) -> Result<BigUint> {
+    BigUint::parse_bytes(s.trim().as_bytes(), 10)
+        .ok_or_else(|| anyhow::anyhow!("Invalid decimal integer '{}'", s.trim()))
+}
+
+pub fn parse_biguint_list(s: &str) -> Result<Vec<BigUint>> {
+    s.split(',')
+        .map(|value| parse_decimal_biguint(value.trim()))
         .collect()
 }
 

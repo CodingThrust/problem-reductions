@@ -230,6 +230,19 @@ fn test_float_metric_problem() {
     assert_eq!(p.direction(), Direction::Maximize);
 }
 
+// === Catalog bridge ===
+
+#[test]
+fn problem_type_bridge_returns_catalog_entry_for_registered_type() {
+    use crate::models::graph::MaximumIndependentSet;
+    use crate::topology::SimpleGraph;
+
+    let pt = MaximumIndependentSet::<SimpleGraph, i32>::problem_type();
+    assert_eq!(pt.canonical_name, "MaximumIndependentSet");
+    assert!(!pt.display_name.is_empty());
+    assert!(!pt.dimensions.is_empty());
+}
+
 // === Clone constraint ===
 
 #[test]

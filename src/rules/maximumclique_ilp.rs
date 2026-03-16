@@ -6,7 +6,7 @@
 //!   at most one can be in the clique
 //! - Objective: Maximize the sum of weights of selected vertices
 
-use crate::models::algebraic::{LinearConstraint, ObjectiveSense, VarBounds, ILP};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::graph::MaximumClique;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};
@@ -20,14 +20,14 @@ use crate::topology::{Graph, SimpleGraph};
 /// - The objective maximizes the total weight of selected vertices
 #[derive(Debug, Clone)]
 pub struct ReductionCliqueToILP {
-    target: ILP,
+    target: ILP<bool>,
 }
 
 impl ReductionResult for ReductionCliqueToILP {
     type Source = MaximumClique<SimpleGraph, i32>;
-    type Target = ILP;
+    type Target = ILP<bool>;
 
-    fn target_problem(&self) -> &ILP {
+    fn target_problem(&self) -> &ILP<bool> {
         &self.target
     }
 
@@ -46,14 +46,11 @@ impl ReductionResult for ReductionCliqueToILP {
         num_constraints = "num_vertices^2",
     }
 )]
-impl ReduceTo<ILP> for MaximumClique<SimpleGraph, i32> {
+impl ReduceTo<ILP<bool>> for MaximumClique<SimpleGraph, i32> {
     type Result = ReductionCliqueToILP;
 
     fn reduce_to(&self) -> Self::Result {
         let num_vars = self.graph().num_vertices();
-
-        // All variables are binary (0 or 1)
-        let bounds = vec![VarBounds::binary(); num_vars];
 
         // Constraints: x_u + x_v <= 1 for each NON-EDGE (u, v)
         // This ensures at most one vertex of each non-edge is selected (i.e., if both
@@ -75,16 +72,22 @@ impl ReduceTo<ILP> for MaximumClique<SimpleGraph, i32> {
             .map(|(i, &w)| (i, w as f64))
             .collect();
 
-        let target = ILP::new(
-            num_vars,
-            bounds,
-            constraints,
-            objective,
-            ObjectiveSense::Maximize,
-        );
+        let target = ILP::new(num_vars, constraints, objective, ObjectiveSense::Maximize);
 
         ReductionCliqueToILP { target }
     }
+}
+
+#[cfg(feature = "example-db")]
+pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::RuleExampleSpec> {
+    vec![crate::example_db::specs::RuleExampleSpec {
+        id: "maximumclique_to_ilp",
+        build: || {
+            let (n, edges) = crate::topology::small_graphs::octahedral();
+            let source = MaximumClique::new(SimpleGraph::new(n, edges), vec![1i32; 6]);
+            crate::example_db::specs::direct_ilp_example::<_, bool, _>(source, |_, _| true)
+        },
+    }]
 }
 
 #[cfg(test)]
