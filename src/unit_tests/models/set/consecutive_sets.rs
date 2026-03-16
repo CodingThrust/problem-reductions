@@ -74,6 +74,12 @@ fn test_consecutive_sets_rejects_internal_unused() {
 }
 
 #[test]
+fn test_consecutive_sets_accepts_shorter_string_with_trailing_unused() {
+    let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 4);
+    assert!(problem.evaluate(&[0, 1, 3, 3]));
+}
+
+#[test]
 fn test_consecutive_sets_rejects_duplicate_window_symbol() {
     let problem = ConsecutiveSets::new(2, vec![vec![0, 1]], 2);
     assert!(!problem.evaluate(&[0, 0]));
