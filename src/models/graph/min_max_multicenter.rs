@@ -80,6 +80,7 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
     /// # Panics
     /// - If `vertex_weights.len() != graph.num_vertices()`
     /// - If `edge_lengths.len() != graph.num_edges()`
+    /// - If any vertex weight, edge length, or `bound` is negative
     /// - If `k == 0` or `k > graph.num_vertices()`
     pub fn new(
         graph: G,
@@ -98,6 +99,20 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
             graph.num_edges(),
             "edge_lengths length must match num_edges"
         );
+        let zero = W::Sum::zero();
+        assert!(
+            vertex_weights
+                .iter()
+                .all(|weight| weight.to_sum() >= zero.clone()),
+            "vertex_weights must be non-negative"
+        );
+        assert!(
+            edge_lengths
+                .iter()
+                .all(|length| length.to_sum() >= zero.clone()),
+            "edge_lengths must be non-negative"
+        );
+        assert!(bound >= zero, "bound must be non-negative");
         assert!(k > 0, "k must be positive");
         assert!(k <= graph.num_vertices(), "k must not exceed num_vertices");
         Self {
@@ -158,6 +173,9 @@ impl<G: Graph, W: WeightElement> MinMaxMulticenter<G, W> {
     /// Returns `None` if any vertex is unreachable from all centers.
     fn shortest_distances(&self, config: &[usize]) -> Option<Vec<W::Sum>> {
         let n = self.graph.num_vertices();
+        if config.len() != n || config.iter().any(|&selected| selected > 1) {
+            return None;
+        }
         let edges = self.graph.edges();
 
         let mut adj: Vec<Vec<(usize, W::Sum)>> = vec![Vec::new(); n];
@@ -239,8 +257,13 @@ where
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
+        if config.len() != self.graph.num_vertices() || config.iter().any(|&selected| selected > 1)
+        {
+            return false;
+        }
+
         // Check exactly K centers are selected
-        let num_selected: usize = config.iter().sum();
+        let num_selected = config.iter().filter(|&&selected| selected == 1).count();
         if num_selected != self.k {
             return false;
         }

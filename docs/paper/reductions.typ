@@ -1010,8 +1010,8 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let edges = x.instance.graph.inner.edges.map(e => (e.at(0), e.at(1)))
   let K = x.instance.k
   let B = x.instance.bound
-  // Pick optimal[1] = {v1, v4} to match figure
-  let sol = x.optimal.at(1)
+  let desired-config = (0, 1, 0, 0, 1, 0)
+  let sol = x.optimal.find(o => o.config == desired-config)
   let centers = sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
   [
     #problem-def("MinMaxMulticenter")[

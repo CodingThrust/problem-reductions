@@ -61,6 +61,12 @@ fn test_minmaxmulticenter_evaluate_no_centers() {
 }
 
 #[test]
+fn test_minmaxmulticenter_evaluate_wrong_config_length() {
+    let problem = example_instance();
+    assert!(!problem.evaluate(&[0, 1, 0, 0, 0, 0, 1]));
+}
+
+#[test]
 fn test_minmaxmulticenter_serialization() {
     let problem = example_instance();
 
@@ -191,4 +197,25 @@ fn test_minmaxmulticenter_k_zero() {
 fn test_minmaxmulticenter_k_too_large() {
     let graph = SimpleGraph::new(3, vec![(0, 1)]);
     MinMaxMulticenter::new(graph, vec![1i32; 3], vec![1i32; 1], 4, 0);
+}
+
+#[test]
+#[should_panic(expected = "vertex_weights must be non-negative")]
+fn test_minmaxmulticenter_negative_vertex_weight() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    MinMaxMulticenter::new(graph, vec![1i32, -1, 1], vec![1i32; 2], 1, 1);
+}
+
+#[test]
+#[should_panic(expected = "edge_lengths must be non-negative")]
+fn test_minmaxmulticenter_negative_edge_length() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    MinMaxMulticenter::new(graph, vec![1i32; 3], vec![1i32, -1], 1, 1);
+}
+
+#[test]
+#[should_panic(expected = "bound must be non-negative")]
+fn test_minmaxmulticenter_negative_bound() {
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    MinMaxMulticenter::new(graph, vec![1i32; 3], vec![1i32; 2], 1, -1);
 }
