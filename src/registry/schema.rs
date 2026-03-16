@@ -52,6 +52,19 @@ pub struct ProblemSchemaEntry {
 
 inventory::collect!(ProblemSchemaEntry);
 
+/// Optional static size-field metadata for problem types.
+///
+/// This is used when a problem has meaningful size fields even before it
+/// participates in any reduction overhead expressions.
+pub struct ProblemSizeFieldEntry {
+    /// Problem name (e.g., "MaximumIndependentSet").
+    pub name: &'static str,
+    /// Size field names (e.g., `&["num_vertices", "num_edges"]`).
+    pub fields: &'static [&'static str],
+}
+
+inventory::collect!(ProblemSizeFieldEntry);
+
 /// JSON-serializable problem schema.
 #[derive(Debug, Clone, Serialize)]
 pub struct ProblemSchemaJson {
@@ -94,6 +107,14 @@ pub fn collect_schemas() -> Vec<ProblemSchemaJson> {
         .collect();
     schemas.sort_by(|a, b| a.name.cmp(&b.name));
     schemas
+}
+
+/// Collect explicitly declared size fields for a problem type.
+pub fn declared_size_fields(name: &str) -> Vec<&'static str> {
+    inventory::iter::<ProblemSizeFieldEntry>()
+        .filter(|entry| entry.name == name)
+        .flat_map(|entry| entry.fields.iter().copied())
+        .collect()
 }
 
 #[cfg(test)]

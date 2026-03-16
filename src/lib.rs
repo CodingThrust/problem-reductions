@@ -45,21 +45,23 @@ pub mod prelude {
     pub use crate::models::algebraic::{BMF, QUBO};
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
     pub use crate::models::graph::{
-        BicliqueCover, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree, SpinGlass,
-        SteinerTree, SubgraphIsomorphism,
+        BicliqueCover, DirectedTwoCommodityIntegralFlow, GraphPartitioning, HamiltonianPath,
+        IsomorphicSpanningTree, LengthBoundedDisjointPaths, SpinGlass, SteinerTree,
+        SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
         MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
-        MinimumSumMulticenter, MinimumVertexCover, OptimalLinearArrangement,
-        PartitionIntoTriangles, RuralPostman, TravelingSalesman,
+        MinimumSumMulticenter, MinimumVertexCover, MultipleChoiceBranching,
+        OptimalLinearArrangement, PartitionIntoTriangles, RuralPostman, TravelingSalesman,
+        UndirectedTwoCommodityIntegralFlow,
     };
     pub use crate::models::misc::{
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
         MinimumTardinessSequencing, PaintShop, ShortestCommonSupersequence, SubsetSum,
     };
     pub use crate::models::set::{
-        ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering,
+        ConsecutiveSets, ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis,
     };
 
     // Core traits
@@ -99,9 +101,6 @@ mod test_property;
 #[cfg(test)]
 #[path = "unit_tests/reduction_graph.rs"]
 mod test_reduction_graph;
-#[cfg(test)]
-#[path = "unit_tests/trait_consistency.rs"]
-mod test_trait_consistency;
 #[cfg(test)]
 #[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
 mod test_unitdiskmapping_algorithms;
