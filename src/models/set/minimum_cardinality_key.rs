@@ -162,7 +162,7 @@ impl Problem for MinimumCardinalityKey {
         let selected: Vec<bool> = config.iter().map(|&v| v == 1).collect();
         let count = selected.iter().filter(|&&v| v).count();
 
-        if count == 0 || count > self.bound_k {
+        if count > self.bound_k {
             return false;
         }
 

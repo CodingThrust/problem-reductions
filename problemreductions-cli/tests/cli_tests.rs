@@ -1046,6 +1046,70 @@ fn test_create_set_basis_rejects_out_of_range_elements() {
 }
 
 #[test]
+fn test_create_minimum_cardinality_key_problem_help_uses_supported_flags() {
+    let output = pred().args(["create", "MinimumCardinalityKey"]).output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--num-attributes"), "stderr: {stderr}");
+    assert!(stderr.contains("--dependencies"), "stderr: {stderr}");
+    assert!(stderr.contains("--k"), "stderr: {stderr}");
+    assert!(
+        stderr.contains("semicolon-separated dependencies"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("--bound-k"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_minimum_cardinality_key_allows_empty_lhs_dependency() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumCardinalityKey",
+            "--num-attributes",
+            "1",
+            "--dependencies",
+            ">0",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "MinimumCardinalityKey");
+    assert_eq!(json["data"]["num_attributes"], 1);
+    assert_eq!(json["data"]["bound_k"], 1);
+    assert_eq!(json["data"]["dependencies"][0][0], serde_json::json!([]));
+    assert_eq!(json["data"]["dependencies"][0][1], serde_json::json!([0]));
+}
+
+#[test]
+fn test_create_minimum_cardinality_key_missing_num_attributes_message() {
+    let output = pred()
+        .args([
+            "create",
+            "MinimumCardinalityKey",
+            "--dependencies",
+            "0>0",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("MinimumCardinalityKey requires --num-attributes"));
+    assert!(!stderr.contains("--num-vertices"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_then_evaluate() {
     // Create a problem
     let problem_file = std::env::temp_dir().join("pred_test_create_eval.json");

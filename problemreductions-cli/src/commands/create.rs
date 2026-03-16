@@ -228,6 +228,9 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
             Some("UnitDiskGraph") => "float positions: \"0.0,0.0;1.0,0.0\"",
             _ => "edge list: 0-1,1-2,2-3",
         },
+        "Vec<(Vec<usize>, Vec<usize>)>" => {
+            "semicolon-separated dependencies: \"0,1>2;0,2>3\""
+        }
         "Vec<u64>" => "comma-separated integers: 1,1,2",
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
@@ -310,6 +313,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("MinimumCardinalityKey", "bound_k") => return "k".to_string(),
         _ => {}
     }
     // General field-name overrides (previously in cli_flag_name)
@@ -1082,7 +1086,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
         "MinimumCardinalityKey" => {
             let num_attributes = args.num_attributes.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "MinimumCardinalityKey requires --num-attributes (or --num-vertices), --dependencies, and --k\n\n\
+                    "MinimumCardinalityKey requires --num-attributes, --dependencies, and --k\n\n\
                      Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
                 )
             })?;
@@ -2004,6 +2008,19 @@ fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
 /// Parse `--dependencies` as semicolon-separated "lhs>rhs" pairs.
 /// E.g., "0,1>2;0,2>3;1,3>4;2,4>5" means {0,1}->{2}, {0,2}->{3}, etc.
 fn parse_dependencies(input: &str) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
+    fn parse_dependency_side(side: &str) -> Result<Vec<usize>> {
+        if side.trim().is_empty() {
+            return Ok(vec![]);
+        }
+        side.split(',')
+            .map(|s| {
+                s.trim()
+                    .parse::<usize>()
+                    .map_err(|e| anyhow::anyhow!("Invalid attribute index: {}", e))
+            })
+            .collect()
+    }
+
     input
         .split(';')
         .map(|dep| {
@@ -2014,22 +2031,8 @@ fn parse_dependencies(input: &str) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
                     dep.trim()
                 );
             }
-            let lhs: Vec<usize> = parts[0]
-                .split(',')
-                .map(|s| {
-                    s.trim()
-                        .parse::<usize>()
-                        .map_err(|e| anyhow::anyhow!("Invalid attribute index: {}", e))
-                })
-                .collect::<Result<_>>()?;
-            let rhs: Vec<usize> = parts[1]
-                .split(',')
-                .map(|s| {
-                    s.trim()
-                        .parse::<usize>()
-                        .map_err(|e| anyhow::anyhow!("Invalid attribute index: {}", e))
-                })
-                .collect::<Result<_>>()?;
+            let lhs = parse_dependency_side(parts[0])?;
+            let rhs = parse_dependency_side(parts[1])?;
             Ok((lhs, rhs))
         })
         .collect()

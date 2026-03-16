@@ -297,6 +297,7 @@ pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 -
 pred create Factoring --target 15 --bits-m 4 --bits-n 4 -o factoring.json
 pred create Factoring --target 21 --bits-m 3 --bits-n 3 -o factoring2.json
 pred create X3C --universe 9 --sets "0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8" -o x3c.json
+pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" --k 2 -o mck.json
 pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-pairs "0>3,1>3,1>4,2>4" -o mts.json
 ```
 
@@ -460,9 +461,16 @@ Source evaluation: Valid(2)
 ```
 
 > **Note:** The ILP solver requires a reduction path from the target problem to ILP.
-> Some problems (e.g., BoundedComponentSpanningForest, LengthBoundedDisjointPaths) do not currently have one, so use
+> Some problems (e.g., BoundedComponentSpanningForest, LengthBoundedDisjointPaths, MinimumCardinalityKey) do not currently have one, so use
 > `pred solve <file> --solver brute-force` for these.
 > For other problems, use `pred path <PROBLEM> ILP` to check whether an ILP reduction path exists.
+
+For example, the canonical Minimum Cardinality Key instance can be created and solved with:
+
+```bash
+pred create MinimumCardinalityKey --num-attributes 6 --dependencies "0,1>2;0,2>3;1,3>4;2,4>5" --k 2 -o mck.json
+pred solve mck.json --solver brute-force
+```
 
 ## Shell Completions
 

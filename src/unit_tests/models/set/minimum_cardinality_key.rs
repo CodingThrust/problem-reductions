@@ -112,6 +112,16 @@ fn test_minimum_cardinality_key_empty_deps() {
 }
 
 #[test]
+fn test_minimum_cardinality_key_empty_key_candidate() {
+    let problem = MinimumCardinalityKey::new(1, vec![(vec![], vec![0])], 1);
+    assert!(problem.evaluate(&[0]));
+    assert!(!problem.evaluate(&[1]));
+
+    let solver = BruteForce::new();
+    assert_eq!(solver.find_all_satisfying(&problem), vec![vec![0]]);
+}
+
+#[test]
 #[should_panic(expected = "outside attribute set")]
 fn test_minimum_cardinality_key_panics_on_invalid_index() {
     MinimumCardinalityKey::new(3, vec![(vec![0, 3], vec![1])], 2);
