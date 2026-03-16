@@ -7,7 +7,8 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
-use serde::{Deserialize, Serialize};
+use serde::de::Error;
+use serde::{Deserialize, Deserializer, Serialize};
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -52,7 +53,7 @@ inventory::submit! {
 /// let solution = solver.find_satisfying(&problem);
 /// assert!(solution.is_some());
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SumOfSquaresPartition {
     /// Positive integer sizes for each element.
     sizes: Vec<i64>,
@@ -63,27 +64,39 @@ pub struct SumOfSquaresPartition {
 }
 
 impl SumOfSquaresPartition {
+    fn validate_inputs(sizes: &[i64], num_groups: usize, bound: i64) -> Result<(), String> {
+        if sizes.iter().any(|&size| size <= 0) {
+            return Err("All sizes must be positive (> 0)".to_string());
+        }
+        if num_groups == 0 {
+            return Err("Number of groups must be positive".to_string());
+        }
+        if num_groups > sizes.len() {
+            return Err("Number of groups must not exceed number of elements".to_string());
+        }
+        if bound < 0 {
+            return Err("Bound must be nonnegative".to_string());
+        }
+        Ok(())
+    }
+
+    fn try_new(sizes: Vec<i64>, num_groups: usize, bound: i64) -> Result<Self, String> {
+        Self::validate_inputs(&sizes, num_groups, bound)?;
+        Ok(Self {
+            sizes,
+            num_groups,
+            bound,
+        })
+    }
+
     /// Create a new SumOfSquaresPartition instance.
     ///
     /// # Panics
     ///
     /// Panics if any size is not positive (must be > 0), if `num_groups` is 0,
-    /// or if `num_groups` exceeds the number of elements.
+    /// if `num_groups` exceeds the number of elements, or if `bound` is negative.
     pub fn new(sizes: Vec<i64>, num_groups: usize, bound: i64) -> Self {
-        assert!(
-            sizes.iter().all(|&s| s > 0),
-            "All sizes must be positive (> 0)"
-        );
-        assert!(num_groups > 0, "Number of groups must be positive");
-        assert!(
-            num_groups <= sizes.len(),
-            "Number of groups must not exceed number of elements"
-        );
-        Self {
-            sizes,
-            num_groups,
-            bound,
-        }
+        Self::try_new(sizes, num_groups, bound).unwrap_or_else(|message| panic!("{message}"))
     }
 
     /// Returns the element sizes.
@@ -109,19 +122,42 @@ impl SumOfSquaresPartition {
     /// Compute the sum of squared group sums for a given configuration.
     ///
     /// Returns `None` if the configuration is invalid (wrong length or
-    /// out-of-range group index).
+    /// out-of-range group index), or if arithmetic overflows `i64`.
     pub fn sum_of_squares(&self, config: &[usize]) -> Option<i64> {
         if config.len() != self.sizes.len() {
             return None;
         }
-        let mut group_sums = vec![0i64; self.num_groups];
+        let mut group_sums = vec![0i128; self.num_groups];
         for (i, &g) in config.iter().enumerate() {
             if g >= self.num_groups {
                 return None;
             }
-            group_sums[g] += self.sizes[i];
+            group_sums[g] = group_sums[g].checked_add(i128::from(self.sizes[i]))?;
         }
-        Some(group_sums.iter().map(|&s| s * s).sum())
+        group_sums
+            .into_iter()
+            .try_fold(0i128, |total, group_sum| {
+                let square = group_sum.checked_mul(group_sum)?;
+                total.checked_add(square)
+            })
+            .and_then(|total| i64::try_from(total).ok())
+    }
+}
+
+#[derive(Deserialize)]
+struct SumOfSquaresPartitionData {
+    sizes: Vec<i64>,
+    num_groups: usize,
+    bound: i64,
+}
+
+impl<'de> Deserialize<'de> for SumOfSquaresPartition {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        let data = SumOfSquaresPartitionData::deserialize(deserializer)?;
+        Self::try_new(data.sizes, data.num_groups, data.bound).map_err(D::Error::custom)
     }
 }
 

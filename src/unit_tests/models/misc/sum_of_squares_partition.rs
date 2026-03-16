@@ -126,6 +126,57 @@ fn test_sum_of_squares_partition_serialization() {
 }
 
 #[test]
+fn test_sum_of_squares_partition_deserialization_rejects_invalid_fields() {
+    let invalid_cases = [
+        serde_json::json!({
+            "sizes": [-1, 2, 3],
+            "num_groups": 2,
+            "bound": 100,
+        }),
+        serde_json::json!({
+            "sizes": [0, 2, 3],
+            "num_groups": 2,
+            "bound": 100,
+        }),
+        serde_json::json!({
+            "sizes": [1, 2, 3],
+            "num_groups": 0,
+            "bound": 100,
+        }),
+        serde_json::json!({
+            "sizes": [1, 2],
+            "num_groups": 3,
+            "bound": 100,
+        }),
+        serde_json::json!({
+            "sizes": [1, 2, 3],
+            "num_groups": 2,
+            "bound": -1,
+        }),
+    ];
+
+    for invalid in invalid_cases {
+        assert!(serde_json::from_value::<SumOfSquaresPartition>(invalid).is_err());
+    }
+}
+
+#[test]
+fn test_sum_of_squares_partition_sum_overflow_returns_none() {
+    let problem = SumOfSquaresPartition::new(vec![i64::MAX, 1], 1, i64::MAX);
+
+    assert_eq!(problem.sum_of_squares(&[0, 0]), None);
+    assert!(!problem.evaluate(&[0, 0]));
+}
+
+#[test]
+fn test_sum_of_squares_partition_square_overflow_returns_none() {
+    let problem = SumOfSquaresPartition::new(vec![3_037_000_500], 1, i64::MAX);
+
+    assert_eq!(problem.sum_of_squares(&[0]), None);
+    assert!(!problem.evaluate(&[0]));
+}
+
+#[test]
 fn test_sum_of_squares_partition_paper_example() {
     // Instance from the issue: sizes=[5,3,8,2,7,1], K=3, J=240
     let problem = SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240);
@@ -170,4 +221,10 @@ fn test_sum_of_squares_partition_zero_groups_panics() {
 #[should_panic(expected = "Number of groups must not exceed")]
 fn test_sum_of_squares_partition_too_many_groups_panics() {
     SumOfSquaresPartition::new(vec![1, 2], 3, 100);
+}
+
+#[test]
+#[should_panic(expected = "Bound must be nonnegative")]
+fn test_sum_of_squares_partition_negative_bound_panics() {
+    SumOfSquaresPartition::new(vec![1, 2, 3], 2, -1);
 }
