@@ -90,6 +90,52 @@
     ]
   },
   {
+    "name": "DirectedTwoCommodityIntegralFlow",
+    "description": "Two-commodity integral flow feasibility on a directed graph",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "DirectedGraph",
+        "description": "Directed graph G = (V, A)"
+      },
+      {
+        "name": "capacities",
+        "type_name": "Vec<u64>",
+        "description": "Capacity c(a) for each arc"
+      },
+      {
+        "name": "source_1",
+        "type_name": "usize",
+        "description": "Source vertex s_1 for commodity 1"
+      },
+      {
+        "name": "sink_1",
+        "type_name": "usize",
+        "description": "Sink vertex t_1 for commodity 1"
+      },
+      {
+        "name": "source_2",
+        "type_name": "usize",
+        "description": "Source vertex s_2 for commodity 2"
+      },
+      {
+        "name": "sink_2",
+        "type_name": "usize",
+        "description": "Sink vertex t_2 for commodity 2"
+      },
+      {
+        "name": "requirement_1",
+        "type_name": "u64",
+        "description": "Flow requirement R_1 for commodity 1"
+      },
+      {
+        "name": "requirement_2",
+        "type_name": "u64",
+        "description": "Flow requirement R_2 for commodity 2"
+      }
+    ]
+  },
+  {
     "name": "ExactCoverBy3Sets",
     "description": "Determine if a collection of 3-element subsets contains an exact cover",
     "fields": [

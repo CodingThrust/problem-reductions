@@ -105,6 +105,7 @@
   "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
+  "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1938,6 +1939,53 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     ]
   ]
 }
+
+#problem-def("DirectedTwoCommodityIntegralFlow")[
+  Given a directed graph $G = (V, A)$ with arc capacities $c: A -> ZZ^+$, two source-sink pairs $(s_1, t_1)$ and $(s_2, t_2)$, and requirements $R_1, R_2 in ZZ^+$, determine whether there exist two integral flow functions $f_1, f_2: A -> ZZ_(>= 0)$ such that (1) $f_1(a) + f_2(a) <= c(a)$ for all $a in A$, (2) flow $f_i$ is conserved at every vertex except $s_1, s_2, t_1, t_2$, and (3) the net flow into $t_i$ under $f_i$ is at least $R_i$ for $i in {1, 2}$.
+][
+  Directed Two-Commodity Integral Flow is a fundamental NP-complete problem in multicommodity flow theory, catalogued as ND38 in Garey & Johnson @garey1979. While single-commodity max-flow is solvable in polynomial time and fractional multicommodity flow reduces to linear programming, requiring integral flows with just two commodities makes the problem NP-complete.
+
+  NP-completeness was proved by Even, Itai, and Shamir via reduction from 3-SAT @even1976. The problem remains NP-complete even when all arc capacities are 1 and $R_1 = 1$. No sub-exponential exact algorithm is known; brute-force enumeration over $(C + 1)^(2|A|)$ flow assignments dominates, where $C = max_(a in A) c(a)$.#footnote[No algorithm improving on brute-force is known for Directed Two-Commodity Integral Flow.]
+
+  *Example.* Consider a directed graph with 6 vertices and 8 arcs (all with unit capacity), sources $s_1 = 0$, $s_2 = 1$, sinks $t_1 = 4$, $t_2 = 5$, and requirements $R_1 = R_2 = 1$. Commodity 1 routes along the path $0 -> 2 -> 4$ and commodity 2 along $1 -> 3 -> 5$, satisfying all capacity and conservation constraints.
+
+  #figure(
+    canvas(length: 1cm, {
+      import draw: *
+      let positions = (
+        (0, 1),    // 0 = s1
+        (0, -1),   // 1 = s2
+        (2, 1),    // 2
+        (2, -1),   // 3
+        (4, 1),    // 4 = t1
+        (4, -1),   // 5 = t2
+      )
+      let labels = ($s_1$, $s_2$, $2$, $3$, $t_1$, $t_2$)
+      let arcs = ((0, 2), (0, 3), (1, 2), (1, 3), (2, 4), (2, 5), (3, 4), (3, 5))
+      // Commodity 1 path: arcs 0 (0->2) and 4 (2->4)
+      let c1-arcs = (0, 4)
+      // Commodity 2 path: arcs 3 (1->3) and 7 (3->5)
+      let c2-arcs = (3, 7)
+
+      // Draw arcs
+      for (idx, (u, v)) in arcs.enumerate() {
+        let from = positions.at(u)
+        let to = positions.at(v)
+        let color = if c1-arcs.contains(idx) { blue } else if c2-arcs.contains(idx) { red } else { gray.darken(20%) }
+        let thickness = if c1-arcs.contains(idx) or c2-arcs.contains(idx) { 1.2pt } else { 0.6pt }
+        line(from, to, stroke: (paint: color, thickness: thickness), mark: (end: "straight", scale: 0.5))
+      }
+
+      // Draw vertices
+      for (k, pos) in positions.enumerate() {
+        let fill = if k == 0 or k == 4 { blue.lighten(70%) } else if k == 1 or k == 5 { red.lighten(70%) } else { white }
+        circle(pos, radius: 0.3, fill: fill, stroke: 0.6pt, name: str(k))
+        content(pos, text(8pt, labels.at(k)))
+      }
+    }),
+    caption: [Two-commodity flow: commodity 1 (blue, $s_1 -> 2 -> t_1$) and commodity 2 (red, $s_2 -> 3 -> t_2$).],
+  ) <fig:d2cif>
+]
 
 // Completeness check: warn about problem types in JSON but missing from paper
 #{

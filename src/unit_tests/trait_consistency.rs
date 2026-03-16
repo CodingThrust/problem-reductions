@@ -103,6 +103,19 @@ fn test_all_problems_implement_trait_correctly() {
         "MinimumFeedbackArcSet",
     );
     check_problem_trait(
+        &DirectedTwoCommodityIntegralFlow::new(
+            DirectedGraph::new(4, vec![(0, 1), (1, 2), (2, 3)]),
+            vec![1; 3],
+            0,
+            3,
+            0,
+            3,
+            1,
+            1,
+        ),
+        "DirectedTwoCommodityIntegralFlow",
+    );
+    check_problem_trait(
         &MinimumSumMulticenter::new(
             SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
             vec![1i32; 3],

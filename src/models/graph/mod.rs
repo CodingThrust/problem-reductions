@@ -22,8 +22,10 @@
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
+//! - [`DirectedTwoCommodityIntegralFlow`]: Directed two-commodity integral flow (satisfaction)
 
 pub(crate) mod biclique_cover;
+pub(crate) mod directed_two_commodity_integral_flow;
 pub(crate) mod graph_partitioning;
 pub(crate) mod hamiltonian_path;
 pub(crate) mod isomorphic_spanning_tree;
@@ -47,6 +49,7 @@ pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
 
 pub use biclique_cover::BicliqueCover;
+pub use directed_two_commodity_integral_flow::DirectedTwoCommodityIntegralFlow;
 pub use graph_partitioning::GraphPartitioning;
 pub use hamiltonian_path::HamiltonianPath;
 pub use isomorphic_spanning_tree::IsomorphicSpanningTree;
@@ -89,5 +92,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(biclique_cover::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());
     specs.extend(steiner_tree::canonical_model_example_specs());
+    specs.extend(directed_two_commodity_integral_flow::canonical_model_example_specs());
     specs
 }
