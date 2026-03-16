@@ -126,3 +126,18 @@ fn test_sequencing_to_minimize_maximum_cumulative_cost_serialization() {
     assert_eq!(restored.precedences(), problem.precedences());
     assert_eq!(restored.bound(), problem.bound());
 }
+
+#[test]
+fn test_sequencing_to_minimize_maximum_cumulative_cost_deserialize_rejects_invalid_precedence() {
+    let result: Result<SequencingToMinimizeMaximumCumulativeCost, _> =
+        serde_json::from_value(serde_json::json!({
+            "costs": [1, -1, 2],
+            "precedences": [[4, 0]],
+            "bound": 2
+        }));
+    let err = result.unwrap_err().to_string();
+    assert!(
+        err.contains("predecessor index 4 out of range"),
+        "got: {err}"
+    );
+}

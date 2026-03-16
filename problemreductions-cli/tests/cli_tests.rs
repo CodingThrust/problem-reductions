@@ -4992,4 +4992,67 @@ fn test_create_sequencing_within_intervals_rejects_empty_window() {
         .output()
         .unwrap();
     assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "expected graceful CLI error, got panic: {stderr}"
+    );
+    assert!(
+        stderr.contains("time window is empty"),
+        "expected empty-window validation error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_within_intervals_rejects_mismatched_lengths() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "0,1",
+            "--deadlines",
+            "2",
+            "--lengths",
+            "1,1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "expected graceful CLI error, got panic: {stderr}"
+    );
+    assert!(
+        stderr.contains("must have the same length"),
+        "expected length validation error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_sequencing_within_intervals_rejects_overflow() {
+    let output = pred()
+        .args([
+            "create",
+            "SequencingWithinIntervals",
+            "--release-times",
+            "18446744073709551615",
+            "--deadlines",
+            "18446744073709551615",
+            "--lengths",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        !stderr.contains("panicked at"),
+        "expected graceful CLI error, got panic: {stderr}"
+    );
+    assert!(
+        stderr.contains("overflow computing r(i) + l(i)"),
+        "expected overflow validation error, got: {stderr}"
+    );
 }

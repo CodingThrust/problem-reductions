@@ -6,6 +6,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
+use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 
 inventory::submit! {
@@ -34,8 +35,15 @@ inventory::submit! {
 ///
 /// Configurations use Lehmer-code dimensions `[n, n-1, ..., 1]` to encode a
 /// permutation of the task indices.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SequencingToMinimizeMaximumCumulativeCost {
+    costs: Vec<i64>,
+    precedences: Vec<(usize, usize)>,
+    bound: i64,
+}
+
+#[derive(Debug, Deserialize)]
+struct SequencingToMinimizeMaximumCumulativeCostUnchecked {
     costs: Vec<i64>,
     precedences: Vec<(usize, usize)>,
     bound: i64,
@@ -48,21 +56,7 @@ impl SequencingToMinimizeMaximumCumulativeCost {
     ///
     /// Panics if any precedence endpoint is out of range.
     pub fn new(costs: Vec<i64>, precedences: Vec<(usize, usize)>, bound: i64) -> Self {
-        let num_tasks = costs.len();
-        for &(pred, succ) in &precedences {
-            assert!(
-                pred < num_tasks,
-                "predecessor index {} out of range (num_tasks = {})",
-                pred,
-                num_tasks
-            );
-            assert!(
-                succ < num_tasks,
-                "successor index {} out of range (num_tasks = {})",
-                succ,
-                num_tasks
-            );
-        }
+        validate_precedences(&precedences, costs.len());
         Self {
             costs,
             precedences,
@@ -111,6 +105,50 @@ impl SequencingToMinimizeMaximumCumulativeCost {
         }
         Some(schedule)
     }
+}
+
+impl<'de> Deserialize<'de> for SequencingToMinimizeMaximumCumulativeCost {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let unchecked =
+            SequencingToMinimizeMaximumCumulativeCostUnchecked::deserialize(deserializer)?;
+        if let Some(message) =
+            precedence_validation_error(&unchecked.precedences, unchecked.costs.len())
+        {
+            return Err(D::Error::custom(message));
+        }
+        Ok(Self {
+            costs: unchecked.costs,
+            precedences: unchecked.precedences,
+            bound: unchecked.bound,
+        })
+    }
+}
+
+fn validate_precedences(precedences: &[(usize, usize)], num_tasks: usize) {
+    if let Some(message) = precedence_validation_error(precedences, num_tasks) {
+        panic!("{message}");
+    }
+}
+
+fn precedence_validation_error(precedences: &[(usize, usize)], num_tasks: usize) -> Option<String> {
+    for &(pred, succ) in precedences {
+        if pred >= num_tasks {
+            return Some(format!(
+                "predecessor index {} out of range (num_tasks = {})",
+                pred, num_tasks
+            ));
+        }
+        if succ >= num_tasks {
+            return Some(format!(
+                "successor index {} out of range (num_tasks = {})",
+                succ, num_tasks
+            ));
+        }
+    }
+    None
 }
 
 impl Problem for SequencingToMinimizeMaximumCumulativeCost {

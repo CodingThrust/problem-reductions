@@ -279,7 +279,6 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<Vec<usize>>" => "semicolon-separated groups: \"0,1;2,3\"",
         "usize" => "integer",
         "u64" => "integer",
-        "Vec<u64>" => "comma-separated integers: 0,0,5",
         "i64" => "integer",
         "BigUint" => "nonnegative decimal integer",
         "Vec<BigUint>" => "comma-separated nonnegative decimal integers: 3,7,1,8",
@@ -387,6 +386,41 @@ fn help_flag_hint(
 fn parse_nonnegative_usize_bound(bound: i64, problem_name: &str, usage: &str) -> Result<usize> {
     usize::try_from(bound)
         .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
+}
+
+fn validate_sequencing_within_intervals_inputs(
+    release_times: &[u64],
+    deadlines: &[u64],
+    lengths: &[u64],
+    usage: &str,
+) -> Result<()> {
+    if release_times.len() != deadlines.len() {
+        bail!("release_times and deadlines must have the same length\n\n{usage}");
+    }
+    if release_times.len() != lengths.len() {
+        bail!("release_times and lengths must have the same length\n\n{usage}");
+    }
+
+    for (i, ((&release_time, &deadline), &length)) in release_times
+        .iter()
+        .zip(deadlines.iter())
+        .zip(lengths.iter())
+        .enumerate()
+    {
+        let end = release_time.checked_add(length).ok_or_else(|| {
+            anyhow::anyhow!("Task {i}: overflow computing r(i) + l(i)\n\n{usage}")
+        })?;
+        if end > deadline {
+            bail!(
+                "Task {i}: r({}) + l({}) > d({}), time window is empty\n\n{usage}",
+                release_time,
+                length,
+                deadline
+            );
+        }
+    }
+
+    Ok(())
 }
 
 fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
@@ -1284,6 +1318,12 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let release_times: Vec<u64> = util::parse_comma_list(rt_str)?;
             let deadlines: Vec<u64> = util::parse_comma_list(dl_str)?;
             let lengths: Vec<u64> = util::parse_comma_list(len_str)?;
+            validate_sequencing_within_intervals_inputs(
+                &release_times,
+                &deadlines,
+                &lengths,
+                usage,
+            )?;
             (
                 ser(SequencingWithinIntervals::new(
                     release_times,
