@@ -58,6 +58,12 @@ pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2
 # Create a Length-Bounded Disjoint Paths instance
 pred create LengthBoundedDisjointPaths --graph 0-1,1-6,0-2,2-3,3-6,0-4,4-5,5-6 --source 0 --sink 6 --num-paths-required 2 --bound 3 -o lbdp.json
 
+# Create a Consecutive Block Minimization instance (alias: CBM)
+pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound-k 2 -o cbm.json
+
+# CBM currently needs the brute-force solver
+pred solve cbm.json --solver brute-force
+
 # Or start from a canonical model example
 pred create --example MIS/SimpleGraph/i32 -o example.json
 
@@ -288,6 +294,7 @@ pred create MIS --graph 0-1,1-2,2-3 -o problem.json
 pred create MIS --graph 0-1,1-2,2-3 --weights 2,1,3,1 -o problem.json
 pred create SAT --num-vars 3 --clauses "1,2;-1,3" -o sat.json
 pred create QUBO --matrix "1,0.5;0.5,2" -o qubo.json
+pred create CBM --matrix '[[true,false,true],[false,true,true]]' --bound-k 2 -o cbm.json
 pred create KColoring --k 3 --graph 0-1,1-2,2-0 -o kcol.json
 pred create SpinGlass --graph 0-1,1-2 -o sg.json
 pred create MaxCut --graph 0-1,1-2,2-0 -o maxcut.json
@@ -302,6 +309,10 @@ pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 --precedence-
 
 For `LengthBoundedDisjointPaths`, the CLI flag `--bound` maps to the JSON field
 `max_length`.
+
+For `ConsecutiveBlockMinimization`, the `--matrix` flag expects a JSON 2D bool array such as
+`'[[true,false,true],[false,true,true]]'`. The example above shows the accepted shape, and solving
+CBM instances currently requires `--solver brute-force`.
 
 Canonical examples are useful when you want a known-good instance from the paper/example database.
 For model examples, `pred create --example <PROBLEM_SPEC>` emits the canonical instance for that
