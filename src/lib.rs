@@ -58,8 +58,8 @@ pub mod prelude {
     };
     pub use crate::models::misc::{
         BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-        MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals,
-        ShortestCommonSupersequence, SubsetSum,
+        MinimumTardinessSequencing, PaintShop, RectilinearPictureCompression,
+        SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
     };
     pub use crate::models::set::{
         ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering, SetBasis,
@@ -96,6 +96,9 @@ pub use inventory;
 #[cfg(test)]
 #[path = "unit_tests/graph_models.rs"]
 mod test_graph_models;
+#[cfg(test)]
+#[path = "unit_tests/prelude.rs"]
+mod test_prelude;
 #[cfg(test)]
 #[path = "unit_tests/property.rs"]
 mod test_property;

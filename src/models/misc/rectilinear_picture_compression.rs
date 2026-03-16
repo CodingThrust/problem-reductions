@@ -1,6 +1,6 @@
 //! Rectilinear Picture Compression problem implementation.
 //!
-//! Given an m x n binary matrix M and a positive integer K, determine whether
+//! Given an m x n binary matrix M and a nonnegative integer K, determine whether
 //! there exists a collection of at most K axis-aligned all-1 rectangles that
 //! covers precisely the 1-entries of M. Each rectangle (r1, c1, r2, c2) with
 //! r1 <= r2, c1 <= c2 covers entries M[i][j] for r1 <= i <= r2, c1 <= j <= c2,
@@ -10,6 +10,8 @@ use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
 use serde::de::Deserializer;
 use serde::{Deserialize, Serialize};
+
+type Rectangle = (usize, usize, usize, usize);
 
 inventory::submit! {
     ProblemSchemaEntry {
@@ -28,7 +30,7 @@ inventory::submit! {
 
 /// The Rectilinear Picture Compression problem.
 ///
-/// Given an m x n binary matrix M and a positive integer K, determine whether
+/// Given an m x n binary matrix M and a nonnegative integer K, determine whether
 /// there exists a collection of at most K axis-aligned all-1 rectangles that
 /// covers precisely the 1-entries of M.
 ///
@@ -61,7 +63,7 @@ pub struct RectilinearPictureCompression {
     matrix: Vec<Vec<bool>>,
     bound_k: usize,
     #[serde(skip)]
-    maximal_rects: Vec<(usize, usize, usize, usize)>,
+    maximal_rects: Vec<Rectangle>,
 }
 
 impl<'de> Deserialize<'de> for RectilinearPictureCompression {
@@ -126,19 +128,50 @@ impl RectilinearPictureCompression {
     ///
     /// Each rectangle is `(r1, c1, r2, c2)` covering rows `r1..=r2` and
     /// columns `c1..=c2`.
-    pub fn maximal_rectangles(&self) -> &[(usize, usize, usize, usize)] {
+    pub fn maximal_rectangles(&self) -> &[Rectangle] {
         &self.maximal_rects
+    }
+
+    fn build_prefix_sum(&self) -> Vec<Vec<usize>> {
+        let m = self.num_rows();
+        let n = self.num_cols();
+        let mut prefix_sum = vec![vec![0; n + 1]; m + 1];
+
+        for r in 0..m {
+            let mut row_sum = 0;
+            for c in 0..n {
+                row_sum += usize::from(self.matrix[r][c]);
+                prefix_sum[r + 1][c + 1] = prefix_sum[r][c + 1] + row_sum;
+            }
+        }
+
+        prefix_sum
+    }
+
+    fn range_is_all_ones(
+        prefix_sum: &[Vec<usize>],
+        r1: usize,
+        c1: usize,
+        r2: usize,
+        c2: usize,
+    ) -> bool {
+        let area = (r2 - r1 + 1) * (c2 - c1 + 1);
+        let sum = prefix_sum[r2 + 1][c2 + 1] + prefix_sum[r1][c1]
+            - prefix_sum[r1][c2 + 1]
+            - prefix_sum[r2 + 1][c1];
+        sum == area
     }
 
     /// Enumerate all maximal all-1 sub-rectangles in the matrix.
     ///
-    /// A rectangle is maximal if no proper superset rectangle in the
-    /// candidate set is also all-1. The result is sorted lexicographically.
-    fn compute_maximal_rectangles(&self) -> Vec<(usize, usize, usize, usize)> {
+    /// A rectangle is maximal if it cannot be extended one step left, right,
+    /// up, or down while remaining all-1. The result is sorted lexicographically.
+    fn compute_maximal_rectangles(&self) -> Vec<Rectangle> {
         let m = self.num_rows();
         let n = self.num_cols();
 
-        // Step 1: Enumerate all all-1 rectangles by extending from each (r1, c1).
+        // Step 1: Enumerate right-maximal candidate rectangles by fixing
+        // (r1, c1, r2) and taking the widest all-1 prefix common to rows r1..=r2.
         let mut candidates = Vec::new();
         for r1 in 0..m {
             for c1 in 0..n {
@@ -178,23 +211,24 @@ impl RectilinearPictureCompression {
         candidates.sort();
         candidates.dedup();
 
-        // Step 3: Filter to keep only maximal rectangles.
-        // A rectangle A is dominated by rectangle B if B contains A as a proper subset.
-        let mut maximal = Vec::new();
-        for &(r1, c1, r2, c2) in &candidates {
-            let is_dominated = candidates.iter().any(|&(sr1, sc1, sr2, sc2)| {
-                sr1 <= r1
-                    && sc1 <= c1
-                    && sr2 >= r2
-                    && sc2 >= c2
-                    && (sr1, sc1, sr2, sc2) != (r1, c1, r2, c2)
-            });
-            if !is_dominated {
-                maximal.push((r1, c1, r2, c2));
-            }
-        }
+        // Step 3: Filter to keep only rectangles that cannot be extended in
+        // any cardinal direction. A 2D prefix sum makes each extension check O(1).
+        let prefix_sum = self.build_prefix_sum();
+        candidates
+            .into_iter()
+            .filter(|&(r1, c1, r2, c2)| {
+                let can_extend_left =
+                    c1 > 0 && Self::range_is_all_ones(&prefix_sum, r1, c1 - 1, r2, c1 - 1);
+                let can_extend_right =
+                    c2 + 1 < n && Self::range_is_all_ones(&prefix_sum, r1, c2 + 1, r2, c2 + 1);
+                let can_extend_up =
+                    r1 > 0 && Self::range_is_all_ones(&prefix_sum, r1 - 1, c1, r1 - 1, c2);
+                let can_extend_down =
+                    r2 + 1 < m && Self::range_is_all_ones(&prefix_sum, r2 + 1, c1, r2 + 1, c2);
 
-        maximal
+                !(can_extend_left || can_extend_right || can_extend_up || can_extend_down)
+            })
+            .collect()
     }
 }
 

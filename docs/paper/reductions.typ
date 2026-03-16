@@ -1890,14 +1890,14 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let M = mat.map(row => row.map(v => if v { 1 } else { 0 }))
   [
     #problem-def("RectilinearPictureCompression")[
-      Given an $m times n$ binary matrix $M$ and a positive integer $K$,
+      Given an $m times n$ binary matrix $M$ and a nonnegative integer $K$,
       determine whether there exists a collection of at most $K$
       axis-aligned rectangles that covers precisely the 1-entries of $M$.
       Each rectangle is a quadruple $(a, b, c, d)$ with $a lt.eq b$ and $c lt.eq d$,
       covering entries $M_(i j)$ for $a lt.eq i lt.eq b$ and $c lt.eq j lt.eq d$,
       where every covered entry must satisfy $M_(i j) = 1$.
     ][
-    Rectilinear Picture Compression is a classical NP-complete problem from Garey & Johnson (A4 SR25, p.~232) @garey1979. It arises naturally in image compression, DNA microarray design, integrated circuit manufacturing, and access control list minimization. NP-completeness was established by Masek (1978) via transformation from 3SAT. The best known exact algorithm runs in $O^*(2^(m n))$ by brute-force enumeration over all possible rectangle selections#footnote[No algorithm improving on brute-force is known for the general case of Rectilinear Picture Compression.].
+    Rectilinear Picture Compression is a classical NP-complete problem from Garey & Johnson (A4 SR25, p.~232) @garey1979. It arises naturally in image compression, DNA microarray design, integrated circuit manufacturing, and access control list minimization. NP-completeness was established by Masek (1978) via transformation from 3SAT. A straightforward exact baseline, including the brute-force solver in this crate, enumerates subsets of the maximal all-1 rectangles. If an instance has $R$ such rectangles, this gives an $O^*(2^R)$ exact search, so the worst-case behavior remains exponential in the instance size.
 
     *Example.* Let $M = mat(#M.map(row => row.map(v => str(v)).join(", ")).join("; "))$ (a $#m times #n$ matrix) and $K = #K$. The two maximal all-1 rectangles are $R_1 = (0, 1, 0, 1)$ covering the top-left $2 times 2$ block and $R_2 = (2, 3, 2, 3)$ covering the bottom-right $2 times 2$ block. Selecting both gives $|{R_1, R_2}| = 2 lt.eq K = #K$ and their union covers all eight 1-entries, so the answer is YES.
 
