@@ -218,7 +218,7 @@ See Key Patterns above for solver API signatures. Follow the reference files for
 
 Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). Integration tests in `tests/suites/`, consolidated through `tests/main.rs`. Canonical example-db coverage lives in `src/unit_tests/example_db.rs`.
 
-Model review automation expects a dedicated file under `src/unit_tests/models/...`. The exact split of creation/evaluation/direction/solver coverage is judged per model during review rather than by a single rigid filename or function-name checklist.
+Model review automation checks for a dedicated test file under `src/unit_tests/models/...` with at least 3 test functions. The exact split of coverage is judged per model during review.
 
 ## Documentation Locations
 - `README.md` — Project overview and quickstart

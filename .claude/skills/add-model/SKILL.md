@@ -195,15 +195,14 @@ This example is now the canonical source for:
 
 Create `src/unit_tests/models/<category>/<name>.rs`:
 
-Recommended coverage (adjust to the model rather than forcing a fixed checklist):
-- Add at least one creation/basic test that exercises constructor inputs and key accessors. Include `dims()` or `num_variables()` assertions when they help document the configuration space.
-- Add evaluation tests for valid and invalid configs so the feasibility boundary is explicit.
-- Add a direction test for optimization problems.
-- Add a brute-force solver test when the model is small enough to solve directly in unit tests.
-- Add a round-trip serde test when the model is serialized through CLI/example-db flows.
-- Add a paper-example test when the paper section includes a worked example and the issue provides a concrete expected outcome.
+Every model needs **at least 3 test functions** (the structural reviewer enforces this). Choose from the coverage areas below — pick whichever are relevant to the model:
 
-The structural completeness automation currently checks for the presence of the dedicated model test file. Reviewers still inspect whether the coverage in that file is appropriate for the model's semantics.
+- **Creation/basic** — exercise constructor inputs, key accessors, `dims()` / `num_variables()`.
+- **Evaluation** — valid and invalid configs so the feasibility boundary is explicit.
+- **Direction** — verify optimization direction (optimization problems only).
+- **Solver** — brute-force solver finds correct solutions (when the model is small enough).
+- **Serialization** — round-trip serde (when the model is used in CLI/example-db flows).
+- **Paper example** — verify the worked example from the paper entry (see below).
 
 When you add `test_<name>_paper_example`, it should:
 1. Construct the same instance shown in the paper's example figure
