@@ -271,25 +271,22 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
         eprintln!("{}\n  {}\n", canonical, s.description);
         eprintln!("Parameters:");
         for field in &s.fields {
+            let flag_name =
+                problem_help_flag_name(canonical, &field.name, &field.type_name, is_geometry);
             // For geometry variants, show --positions instead of --graph
             if field.type_name == "G" && is_geometry {
                 let hint = type_format_hint(&field.type_name, graph_type);
-                eprintln!("  --{:<16} {} ({hint})", "positions", field.description);
+                eprintln!("  --{:<16} {} ({hint})", flag_name, field.description);
                 if graph_type == Some("UnitDiskGraph") {
                     eprintln!("  --{:<16} Distance threshold [default: 1.0]", "radius");
                 }
             } else if field.type_name == "DirectedGraph" {
                 // DirectedGraph fields use --arcs, not --graph
                 let hint = type_format_hint(&field.type_name, graph_type);
-                eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
+                eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             } else {
                 let hint = type_format_hint(&field.type_name, graph_type);
-                eprintln!(
-                    "  --{:<16} {} ({})",
-                    field.name.replace('_', "-"),
-                    field.description,
-                    hint
-                );
+                eprintln!("  --{:<16} {} ({})", flag_name, field.description, hint);
             }
         }
     } else {
@@ -309,6 +306,24 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
         );
     }
     Ok(())
+}
+
+fn problem_help_flag_name(
+    canonical: &str,
+    field_name: &str,
+    field_type: &str,
+    is_geometry: bool,
+) -> String {
+    if field_type == "G" && is_geometry {
+        return "positions".to_string();
+    }
+    if field_type == "DirectedGraph" {
+        return "arcs".to_string();
+    }
+    if canonical == "LengthBoundedDisjointPaths" && field_name == "max_length" {
+        return "bound".to_string();
+    }
+    field_name.replace('_', "-")
 }
 
 /// Resolve the graph type from the variant map (e.g., "KingsSubgraph", "UnitDiskGraph", or "SimpleGraph").
@@ -1840,4 +1855,30 @@ fn create_random(
     };
 
     emit_problem_output(&output, out)
+}
+
+#[cfg(test)]
+mod tests {
+    use super::problem_help_flag_name;
+
+    #[test]
+    fn test_problem_help_uses_bound_for_length_bounded_disjoint_paths() {
+        assert_eq!(
+            problem_help_flag_name("LengthBoundedDisjointPaths", "max_length", "usize", false),
+            "bound"
+        );
+    }
+
+    #[test]
+    fn test_problem_help_preserves_generic_field_kebab_case() {
+        assert_eq!(
+            problem_help_flag_name(
+                "LengthBoundedDisjointPaths",
+                "num_paths_required",
+                "usize",
+                false,
+            ),
+            "num-paths-required"
+        );
+    }
 }
