@@ -54,6 +54,23 @@ fn test_consecutive_sets_solver() {
     for sol in &solutions {
         assert!(problem.evaluate(sol));
     }
+    // Known solution: [0, 1, 2] — {0,1} at window 0-1, {1,2} at window 1-2
+    assert!(solutions.contains(&vec![0, 1, 2]));
+}
+
+#[test]
+fn test_consecutive_sets_rejects_wrong_config_length() {
+    let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 3);
+    assert!(!problem.evaluate(&[0, 1])); // too short
+    assert!(!problem.evaluate(&[0, 1, 2, 0])); // too long
+}
+
+#[test]
+fn test_consecutive_sets_rejects_internal_unused() {
+    // Internal "unused" symbol should be rejected
+    let problem = ConsecutiveSets::new(3, vec![vec![0, 1]], 4);
+    // [0, 3, 1, 3] has "unused" (3) at position 1, which is internal
+    assert!(!problem.evaluate(&[0, 3, 1, 3]));
 }
 
 #[test]
@@ -64,6 +81,7 @@ fn test_consecutive_sets_serialization() {
     assert_eq!(deserialized.alphabet_size(), problem.alphabet_size());
     assert_eq!(deserialized.num_subsets(), problem.num_subsets());
     assert_eq!(deserialized.bound_k(), problem.bound_k());
+    assert_eq!(deserialized.subsets(), problem.subsets());
 }
 
 #[test]
