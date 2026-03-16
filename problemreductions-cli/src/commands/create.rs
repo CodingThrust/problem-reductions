@@ -1731,10 +1731,17 @@ fn create_random(
             if !(0.0..=1.0).contains(&edge_prob) {
                 bail!("--edge-prob must be between 0.0 and 1.0");
             }
-            let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
-            let edge_weights = vec![1i32; graph.num_edges()];
+            let mut state = util::lcg_init(args.seed);
+            let graph = util::create_random_graph(num_vertices, edge_prob, Some(state));
+            // Advance state past the graph generation
+            for _ in 0..num_vertices * num_vertices {
+                util::lcg_step(&mut state);
+            }
+            let edge_weights: Vec<i32> = (0..graph.num_edges())
+                .map(|_| (util::lcg_step(&mut state) * 9.0) as i32 + 1)
+                .collect();
             let num_terminals = std::cmp::max(2, num_vertices * 2 / 5);
-            let terminals: Vec<usize> = (0..num_terminals).collect();
+            let terminals = util::lcg_choose(&mut state, num_vertices, num_terminals);
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
             (
                 ser(SteinerTree::new(graph, edge_weights, terminals))?,
