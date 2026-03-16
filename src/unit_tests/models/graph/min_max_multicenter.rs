@@ -145,6 +145,27 @@ fn test_minmaxmulticenter_all_centers() {
 }
 
 #[test]
+fn test_minmaxmulticenter_nonunit_edge_lengths() {
+    // Path: 0-1-2, unit vertex weights, edge lengths [1, 3], K=1, B=2
+    let graph = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let problem = MinMaxMulticenter::new(graph, vec![1i32; 3], vec![1i32, 3], 1, 2);
+
+    // Center at 0: d(0)=0, d(1)=1, d(2)=1+3=4; max=4 > B=2 -> false
+    assert!(!problem.evaluate(&[1, 0, 0]));
+
+    // Center at 1: d(0)=1, d(1)=0, d(2)=3; max=3 > B=2 -> false
+    assert!(!problem.evaluate(&[0, 1, 0]));
+
+    // Center at 2: d(0)=4, d(1)=3, d(2)=0; max=4 > B=2 -> false
+    assert!(!problem.evaluate(&[0, 0, 1]));
+
+    // With B=3: center at 1 gives max=3 <= B=3 -> true
+    let graph2 = SimpleGraph::new(3, vec![(0, 1), (1, 2)]);
+    let problem2 = MinMaxMulticenter::new(graph2, vec![1i32; 3], vec![1i32, 3], 1, 3);
+    assert!(problem2.evaluate(&[0, 1, 0]));
+}
+
+#[test]
 #[should_panic(expected = "vertex_weights length must match num_vertices")]
 fn test_minmaxmulticenter_wrong_vertex_weights_len() {
     let graph = SimpleGraph::new(3, vec![(0, 1)]);
