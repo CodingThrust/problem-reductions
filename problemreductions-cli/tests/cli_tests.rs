@@ -595,6 +595,48 @@ fn test_create_x3c_alias() {
 }
 
 #[test]
+fn test_create_d2cif_alias() {
+    let output_file = std::env::temp_dir().join("pred_test_create_d2cif.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "D2CIF",
+            "--arcs",
+            "0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5",
+            "--capacities",
+            "1,1,1,1,1,1,1,1",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "4",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "5",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "DirectedTwoCommodityIntegralFlow");
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
 fn test_create_x3c_rejects_duplicate_subset_elements() {
     let output = pred()
         .args(["create", "X3C", "--universe", "6", "--sets", "0,0,1;3,4,5"])

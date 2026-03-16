@@ -86,6 +86,16 @@ fn test_directed_two_commodity_integral_flow_conservation_violation() {
 }
 
 #[test]
+fn test_directed_two_commodity_integral_flow_negative_net_flow_at_sink_is_infeasible() {
+    let graph = DirectedGraph::new(3, vec![(1, 2)]);
+    let problem = DirectedTwoCommodityIntegralFlow::new(graph, vec![1], 0, 1, 2, 2, 1, 0);
+
+    // Commodity 1 sends flow out of its sink with no incoming flow.
+    let config = vec![1, 0];
+    assert!(!problem.evaluate(&config));
+}
+
+#[test]
 fn test_directed_two_commodity_integral_flow_solver_yes() {
     let problem = yes_instance();
     let solver = BruteForce::new();

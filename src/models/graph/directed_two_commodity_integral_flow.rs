@@ -15,7 +15,7 @@ inventory::submit! {
     ProblemSchemaEntry {
         name: "DirectedTwoCommodityIntegralFlow",
         display_name: "Directed Two-Commodity Integral Flow",
-        aliases: &[],
+        aliases: &["D2CIF"],
         dimensions: &[],
         module_path: module_path!(),
         description: "Two-commodity integral flow feasibility on a directed graph",
@@ -203,35 +203,25 @@ impl DirectedTwoCommodityIntegralFlow {
         }
 
         // (2) Flow conservation for each commodity at non-terminal vertices
-        // Per the definition, conservation applies at every vertex EXCEPT
-        // the four terminals {s_1, s_2, t_1, t_2} for BOTH commodities.
         let n = self.graph.num_vertices();
-        for commodity in 0..2usize {
-            let offset = commodity * m;
-            for v in 0..n {
-                if terminals.contains(&v) {
-                    continue;
-                }
-                let mut flow_in: i64 = 0;
-                let mut flow_out: i64 = 0;
-                for (a, &(u, w)) in arcs.iter().enumerate() {
-                    if w == v {
-                        flow_in += config[offset + a] as i64;
-                    }
-                    if u == v {
-                        flow_out += config[offset + a] as i64;
-                    }
-                }
-                if flow_in != flow_out {
+        let mut balances = [vec![0_i128; n], vec![0_i128; n]];
+        for (a, &(u, w)) in arcs.iter().enumerate() {
+            let flow_1 = config[a] as i128;
+            let flow_2 = config[m + a] as i128;
+
+            balances[0][u] -= flow_1;
+            balances[0][w] += flow_1;
+            balances[1][u] -= flow_2;
+            balances[1][w] += flow_2;
+        }
+
+        for (commodity, commodity_balances) in balances.iter().enumerate() {
+            for (v, &balance) in commodity_balances.iter().enumerate() {
+                if !terminals.contains(&v) && balance != 0 {
                     return false;
                 }
             }
-        }
 
-        // (3) Requirement constraints
-        // Net flow into sink for commodity i = (total flow into sink) - (total flow out of sink)
-        for commodity in 0..2usize {
-            let offset = commodity * m;
             let snk = if commodity == 0 {
                 self.sink_1
             } else {
@@ -242,16 +232,8 @@ impl DirectedTwoCommodityIntegralFlow {
             } else {
                 self.requirement_2
             };
-            let mut net_flow_in: i64 = 0;
-            for (a, &(u, w)) in arcs.iter().enumerate() {
-                if w == snk {
-                    net_flow_in += config[offset + a] as i64;
-                }
-                if u == snk {
-                    net_flow_in -= config[offset + a] as i64;
-                }
-            }
-            if (net_flow_in as u64) < req {
+
+            if commodity_balances[snk] < i128::from(req) {
                 return false;
             }
         }
