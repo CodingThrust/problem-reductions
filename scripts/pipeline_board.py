@@ -1199,6 +1199,49 @@ def print_candidate_list(
     return 0
 
 
+def backlog_issues(
+    board_data: dict,
+    issue_type: str,
+) -> list[dict]:
+    """List Backlog issues of the given type, sorted by Good label first then by number.
+
+    Returns a list of dicts with: number, title, item_id, labels, has_good.
+    """
+    prefix = "[Model]" if issue_type == "model" else "[Rule]"
+
+    check_labels = FAILURE_LABELS | {"Good"}
+
+    results = []
+    for item in board_data.get("items", []):
+        if item.get("status") != STATUS_BACKLOG:
+            continue
+        content = item.get("content") or {}
+        if content.get("type") != "Issue":
+            continue
+        title = content.get("title") or ""
+        if not title.startswith(prefix):
+            continue
+        number = content.get("number")
+        if number is None:
+            continue
+        item_labels = set(item.get("labels") or [])
+        # Only include issues that have been through check-issue
+        if not (item_labels & check_labels):
+            continue
+        has_good = "Good" in item_labels
+        results.append({
+            "number": int(number),
+            "title": title,
+            "item_id": item_identity(item),
+            "labels": sorted(item_labels),
+            "has_good": has_good,
+        })
+
+    # Good-labeled first, then by issue number
+    results.sort(key=lambda r: (not r["has_good"], r["number"]))
+    return results
+
+
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Project board automation helpers.")
     subparsers = parser.add_subparsers(dest="command", required=True)
@@ -1249,6 +1292,13 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     move_parser.add_argument("--project-id", default=PROJECT_ID)
     move_parser.add_argument("--field-id", default=STATUS_FIELD_ID)
 
+    fix_parser = subparsers.add_parser("backlog")
+    fix_parser.add_argument("issue_type", choices=["model", "rule"])
+    fix_parser.add_argument("--owner", default="CodingThrust")
+    fix_parser.add_argument("--project-number", type=int, default=8)
+    fix_parser.add_argument("--limit", type=int, default=500)
+    fix_parser.add_argument("--format", choices=["text", "json"], default="json")
+
     return parser.parse_args(argv)
 
 
@@ -1267,6 +1317,17 @@ def main(argv: list[str] | None = None) -> int:
             field_id=args.field_id,
         )
         return 0
+
+    if args.command == "backlog":
+        board_data = fetch_board_items(args.owner, args.project_number, args.limit)
+        results = backlog_issues(board_data, args.issue_type)
+        if args.format == "json":
+            print(json.dumps({"issue_type": args.issue_type, "items": results}))
+        else:
+            for r in results:
+                good = "Good" if r["has_good"] else ""
+                print(f"#{r['number']:<5} {good:5s} {r['title']}")
+        return 0 if results else 1
 
     if args.command == "claim-next":
         if args.mode == "review" and not args.repo:
