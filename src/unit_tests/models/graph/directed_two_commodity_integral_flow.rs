@@ -164,6 +164,15 @@ fn test_directed_two_commodity_integral_flow_paper_example() {
 }
 
 #[test]
+fn test_directed_two_commodity_integral_flow_wrong_config_length() {
+    let problem = yes_instance();
+    // Config with wrong length should return false (infeasible)
+    assert!(!problem.evaluate(&[0; 15])); // too short
+    assert!(!problem.evaluate(&[0; 17])); // too long
+    assert!(!problem.evaluate(&[])); // empty
+}
+
+#[test]
 fn test_directed_two_commodity_integral_flow_higher_capacity() {
     // Test with capacity 2: two paths can share an arc
     let graph = DirectedGraph::new(3, vec![(0, 1), (1, 2)]);

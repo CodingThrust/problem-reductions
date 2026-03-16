@@ -37,17 +37,10 @@ Or build from source:
 ```bash
 git clone https://github.com/CodingThrust/problem-reductions
 cd problem-reductions
-make cli    # installs/updates ~/.cargo/bin/pred
+make cli    # builds target/release/pred
 ```
 
 See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).
-
-Example: create and solve a directed two-commodity integral flow instance from the CLI:
-
-```bash
-pred create D2CIF --arcs "0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1 -o d2cif.json
-pred solve d2cif.json --solver brute-force
-```
 
 ## MCP Server (AI Integration)
 
@@ -74,7 +67,7 @@ See the [MCP documentation](https://codingthrust.github.io/problem-reductions/mc
 
 1. **File an issue** — use the [Problem](https://github.com/CodingThrust/problem-reductions/issues/new?template=problem.md) or [Rule](https://github.com/CodingThrust/problem-reductions/issues/new?template=rule.md) template. Describe the problem or reduction you have in mind — the template guides you through the details.
 2. **We implement it** — for reasonable requests, maintainers tag the issue `implement` and AI agents generate a tested implementation.
-3. **We present it to you** — all issue contributors are invited to community calls (via [Zulip](https://problem-reductions.zulipchat.com/)), where maintainers walk through the implementation — documentation, CLI behavior, correctness — and you provide feedback.
+3. **We present it to you** — all issue contributors are invited to our **weekly community call** (Tuesdays 10:00 HKT) via [Zulip](https://problem-reductions.zulipchat.com/), where we walk through implementations, resolve open issues, and collect feedback.
 
 **Which rules matter most?** Run `cargo run --example detect_isolated_problems` and `cargo run --example detect_unreachable_from_3sat` to see which problems are disconnected or lack NP-hardness proof chains from 3-SAT. Rules that connect isolated problems or complete proof chains are especially valuable.
 

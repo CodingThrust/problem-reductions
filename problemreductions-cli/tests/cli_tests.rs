@@ -22,6 +22,18 @@ fn test_list() {
 }
 
 #[test]
+fn test_list_includes_undirected_two_commodity_integral_flow() {
+    let output = pred().args(["list"]).output().unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
 fn test_list_rules() {
     let output = pred().args(["list", "--rules"]).output().unwrap();
     assert!(
@@ -62,6 +74,24 @@ fn test_show() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     assert!(stdout.contains("MaximumIndependentSet"));
     assert!(stdout.contains("Outgoing reductions"));
+}
+
+#[test]
+fn test_show_undirected_two_commodity_integral_flow() {
+    let output = pred()
+        .args(["show", "UndirectedTwoCommodityIntegralFlow"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(stdout.contains("UndirectedTwoCommodityIntegralFlow"));
+    assert!(stdout.contains("capacities"));
+    assert!(stdout.contains("source_1"));
+    assert!(stdout.contains("requirement_2"));
 }
 
 #[test]
@@ -278,6 +308,206 @@ fn test_evaluate_sat() {
         .unwrap();
     assert!(output.status.success());
     std::fs::remove_file(&tmp).ok();
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            "1,1,2",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "UndirectedTwoCommodityIntegralFlow");
+    assert_eq!(json["variant"], serde_json::json!({}));
+    assert_eq!(json["data"]["capacities"], serde_json::json!([1, 1, 2]));
+    assert_eq!(json["data"]["source_1"], 0);
+    assert_eq!(json["data"]["sink_1"], 3);
+    assert_eq!(json["data"]["source_2"], 1);
+    assert_eq!(json["data"]["sink_2"], 3);
+    assert_eq!(json["data"]["requirement_1"], 1);
+    assert_eq!(json["data"]["requirement_2"], 1);
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_missing_capacities_shows_usage() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("requires --capacities"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_rejects_invalid_capacity_token() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            "1,x,2",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Invalid capacity `x`"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_rejects_wrong_capacity_count() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            "1,2",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("Expected 3 capacities but got 2"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_rejects_oversized_capacity() {
+    let oversized = ((usize::MAX as u128) + 1).to_string();
+    let capacities = format!("1,1,{oversized}");
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            capacities.as_str(),
+            "--source-1",
+            "0",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains(format!("Invalid capacity `{oversized}`").as_str()));
+    assert!(stderr.contains("number too large to fit in target type"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+}
+
+#[test]
+fn test_create_undirected_two_commodity_integral_flow_rejects_out_of_range_terminal() {
+    let output = pred()
+        .args([
+            "create",
+            "UndirectedTwoCommodityIntegralFlow",
+            "--graph",
+            "0-2,1-2,2-3",
+            "--capacities",
+            "1,1,2",
+            "--source-1",
+            "99",
+            "--sink-1",
+            "3",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "3",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("source-1 must be less than num_vertices (4)"));
+    assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
 }
 
 #[test]
@@ -704,6 +934,82 @@ fn test_create_x3c_rejects_duplicate_subset_elements() {
         stderr.contains("contains duplicate elements"),
         "stderr: {stderr}"
     );
+}
+
+#[test]
+fn test_create_set_basis() {
+    let output_file = std::env::temp_dir().join("pred_test_create_set_basis.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SetBasis",
+            "--universe",
+            "4",
+            "--sets",
+            "0,1;1,2;0,2;0,1,2",
+            "--k",
+            "3",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SetBasis");
+    assert_eq!(json["data"]["universe_size"], 4);
+    assert_eq!(json["data"]["k"], 3);
+    assert_eq!(json["data"]["collection"][0], serde_json::json!([0, 1]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_set_basis_requires_k() {
+    let output = pred()
+        .args([
+            "create",
+            "SetBasis",
+            "--universe",
+            "4",
+            "--sets",
+            "0,1;1,2;0,2;0,1,2",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("SetBasis requires --k"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_set_basis_rejects_out_of_range_elements() {
+    let output = pred()
+        .args([
+            "create",
+            "SetBasis",
+            "--universe",
+            "4",
+            "--sets",
+            "0,4",
+            "--k",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("outside universe of size 4"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
 }
 
 #[test]
@@ -1578,6 +1884,33 @@ fn test_create_no_flags_shows_help() {
 }
 
 #[test]
+fn test_create_set_basis_no_flags_uses_actual_cli_flag_names() {
+    let output = pred().args(["create", "SetBasis"]).output().unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--universe"),
+        "expected '--universe' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--sets"),
+        "expected '--sets' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--k"),
+        "expected '--k' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--universe-size"),
+        "help should not advertise schema field names: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--collection"),
+        "help should not advertise schema field names: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_kcoloring_missing_k() {
     let output = pred()
         .args(["create", "KColoring", "--graph", "0-1,1-2"])
@@ -1586,6 +1919,120 @@ fn test_create_kcoloring_missing_k() {
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
     assert!(stderr.contains("--k"));
+}
+
+#[test]
+fn test_create_length_bounded_disjoint_paths_rejects_equal_terminals() {
+    let output = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--graph",
+            "0-1,1-2",
+            "--source",
+            "0",
+            "--sink",
+            "0",
+            "--num-paths-required",
+            "1",
+            "--bound",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--source and --sink must be distinct"),
+        "expected user-facing validation error, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("panicked at"),
+        "create command should reject equal terminals without panicking: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_length_bounded_disjoint_paths_succeeds() {
+    let output = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--graph",
+            "0-1,1-3,0-2,2-3",
+            "--source",
+            "0",
+            "--sink",
+            "3",
+            "--num-paths-required",
+            "2",
+            "--bound",
+            "2",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
+    assert_eq!(json["type"], "LengthBoundedDisjointPaths");
+    assert_eq!(json["data"]["source"], 0);
+    assert_eq!(json["data"]["sink"], 3);
+    assert_eq!(json["data"]["num_paths_required"], 2);
+    assert_eq!(json["data"]["max_length"], 2);
+}
+
+#[test]
+fn test_create_length_bounded_disjoint_paths_rejects_negative_bound_value() {
+    let output = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--graph",
+            "0-1,1-2",
+            "--source",
+            "0",
+            "--sink",
+            "1",
+            "--num-paths-required",
+            "1",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--bound must be a nonnegative integer for LengthBoundedDisjointPaths"),
+        "expected user-facing negative-bound error, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_random_length_bounded_disjoint_paths_rejects_negative_bound_value() {
+    let output = pred()
+        .args([
+            "create",
+            "LengthBoundedDisjointPaths",
+            "--random",
+            "--num-vertices",
+            "3",
+            "--seed",
+            "7",
+            "--bound=-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--bound must be a nonnegative integer for LengthBoundedDisjointPaths"),
+        "expected shared negative-bound validation, got: {stderr}"
+    );
 }
 
 #[test]
@@ -2717,6 +3164,65 @@ fn test_inspect_json_output() {
     );
     assert!(json["solvers"].is_array());
     assert!(json["reduces_to"].is_array());
+
+    std::fs::remove_file(&problem_file).ok();
+    std::fs::remove_file(&result_file).ok();
+}
+
+#[test]
+fn test_inspect_undirected_two_commodity_integral_flow_reports_size_fields() {
+    let problem_file = std::env::temp_dir().join("pred_test_utcif_inspect_in.json");
+    let result_file = std::env::temp_dir().join("pred_test_utcif_inspect_out.json");
+    let create_out = pred()
+        .args([
+            "-o",
+            problem_file.to_str().unwrap(),
+            "create",
+            "--example",
+            "UndirectedTwoCommodityIntegralFlow",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let output = pred()
+        .args([
+            "-o",
+            result_file.to_str().unwrap(),
+            "inspect",
+            problem_file.to_str().unwrap(),
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(result_file.exists());
+
+    let content = std::fs::read_to_string(&result_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    let size_fields: Vec<&str> = json["size_fields"]
+        .as_array()
+        .expect("size_fields should be an array")
+        .iter()
+        .map(|v| v.as_str().unwrap())
+        .collect();
+    assert!(
+        size_fields.contains(&"num_vertices"),
+        "UndirectedTwoCommodityIntegralFlow size_fields should contain num_vertices, got: {:?}",
+        size_fields
+    );
+    assert!(
+        size_fields.contains(&"num_edges"),
+        "UndirectedTwoCommodityIntegralFlow size_fields should contain num_edges, got: {:?}",
+        size_fields
+    );
 
     std::fs::remove_file(&problem_file).ok();
     std::fs::remove_file(&result_file).ok();
