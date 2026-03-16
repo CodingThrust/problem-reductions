@@ -1734,7 +1734,18 @@ fn create_random(
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             let edge_weights = vec![1i32; graph.num_edges()];
             let num_terminals = std::cmp::max(2, num_vertices * 2 / 5);
-            let terminals: Vec<usize> = (0..num_terminals).collect();
+            let mut indices: Vec<usize> = (0..num_vertices).collect();
+            // Deterministic shuffle using seed (Fisher-Yates with simple LCG)
+            let mut rng_state: u64 = args.seed.unwrap_or(42) as u64;
+            for i in (1..indices.len()).rev() {
+                rng_state = rng_state
+                    .wrapping_mul(6364136223846793005)
+                    .wrapping_add(1442695040888963407);
+                let j = (rng_state >> 33) as usize % (i + 1);
+                indices.swap(i, j);
+            }
+            let mut terminals: Vec<usize> = indices[..num_terminals].to_vec();
+            terminals.sort_unstable();
             let variant = variant_map(&[("graph", "SimpleGraph"), ("weight", "i32")]);
             (
                 ser(SteinerTree::new(graph, edge_weights, terminals))?,
