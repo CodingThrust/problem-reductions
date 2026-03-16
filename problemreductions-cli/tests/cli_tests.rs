@@ -565,6 +565,54 @@ fn test_create_mis() {
 }
 
 #[test]
+fn test_create_x3c_alias() {
+    let output_file = std::env::temp_dir().join("pred_test_create_x3c.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "X3C",
+            "--universe",
+            "6",
+            "--sets",
+            "0,1,2;3,4,5",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "ExactCoverBy3Sets");
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_x3c_rejects_duplicate_subset_elements() {
+    let output = pred()
+        .args(["create", "X3C", "--universe", "6", "--sets", "0,0,1;3,4,5"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("contains duplicate elements"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
 fn test_create_then_evaluate() {
     // Create a problem
     let problem_file = std::env::temp_dir().join("pred_test_create_eval.json");

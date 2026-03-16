@@ -230,6 +230,7 @@ Flags by problem type:
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]
+  X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   CVP                             --basis, --target-vec [--bounds]
@@ -240,6 +241,7 @@ Flags by problem type:
   FAS                             --arcs [--weights] [--num-vertices]
   FVS                             --arcs [--weights] [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
+  MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
   SCS                             --strings, --bound [--alphabet-size]
   ILP, CircuitSAT                 (via reduction only)
 
@@ -260,7 +262,8 @@ Examples:
   pred create MIS/KingsSubgraph --positions \"0,0;1,0;1,1;0,1\"
   pred create MIS/UnitDiskGraph --positions \"0,0;1,0;0.5,0.8\" --radius 1.5
   pred create MIS --random --num-vertices 10 --edge-prob 0.3
-  pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1")]
+  pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
+  pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT). Omit when using --example.
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -382,6 +385,12 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
+    /// Deadlines for MinimumTardinessSequencing (comma-separated, e.g., "5,5,5,3,3")
+    #[arg(long)]
+    pub deadlines: Option<String>,
+    /// Precedence pairs for MinimumTardinessSequencing (e.g., "0>3,1>3,1>4,2>4")
+    #[arg(long)]
+    pub precedence_pairs: Option<String>,
     /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
     #[arg(long)]
     pub task_lengths: Option<String>,

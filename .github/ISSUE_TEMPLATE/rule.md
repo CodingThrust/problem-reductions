@@ -62,12 +62,11 @@ Structure your example as follows:
 1. **Source instance:** Describe the input (e.g. graph, formula, sequence).
 2. **Construction:** Show how each step of the reduction algorithm transforms it.
 3. **Target instance:** Show the resulting target problem data (e.g. QUBO matrix, ILP constraints).
-4. **Optimal solution:** Solve the target, extract back to source, verify optimality.
 
 Must be small enough for brute-force solving, but large enough to exercise the reduction meaningfully.
 Please provide as many details as possible, because
 1. this example will appear in the paper.
-2. AI needs this information to generate example code, run it, and try to compare with what you provided.
+2. AI needs this information to generate example code and derive round-trip tests from it. You do **not** need to provide a solved witness manually.
 
 Please check existing examples in our paper for references.
 -->

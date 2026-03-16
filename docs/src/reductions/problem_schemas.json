@@ -90,6 +90,22 @@
     ]
   },
   {
+    "name": "ExactCoverBy3Sets",
+    "description": "Determine if a collection of 3-element subsets contains an exact cover",
+    "fields": [
+      {
+        "name": "universe_size",
+        "type_name": "usize",
+        "description": "Size of universe X (must be divisible by 3)"
+      },
+      {
+        "name": "subsets",
+        "type_name": "Vec<[usize; 3]>",
+        "description": "Collection C of 3-element subsets of X"
+      }
+    ]
+  },
+  {
     "name": "Factoring",
     "description": "Factor a composite integer into two factors",
     "fields": [
@@ -442,6 +458,27 @@
         "name": "k",
         "type_name": "usize",
         "description": "Number of centers to place"
+      }
+    ]
+  },
+  {
+    "name": "MinimumTardinessSequencing",
+    "description": "Schedule unit-length tasks with precedence constraints and deadlines to minimize the number of tardy tasks",
+    "fields": [
+      {
+        "name": "num_tasks",
+        "type_name": "usize",
+        "description": "Number of tasks |T|"
+      },
+      {
+        "name": "deadlines",
+        "type_name": "Vec<usize>",
+        "description": "Deadline d(t) for each task (1-indexed finish time)"
+      },
+      {
+        "name": "precedences",
+        "type_name": "Vec<(usize, usize)>",
+        "description": "Precedence pairs (predecessor, successor)"
       }
     ]
   },

@@ -16,61 +16,42 @@ Dispatches two parallel review subagents with fresh context (no implementation h
 - `/review-implementation rule mis_qubo` -- review a specific rule
 - `/review-implementation generic` -- code quality only (no structural checklist)
 
-## Step 1: Detect What Changed
+## Step 1: Generate the Review-Implementation Report
 
-Determine whether new model/rule files were added:
+Step 1 should be a single report-generation step. Do not manually rebuild git range detection, `review-context`, current PR lookup, or linked-issue loading with separate shell snippets.
 
 ```bash
-# Check for NEW files across the entire branch
-git diff --name-only --diff-filter=A main..HEAD
+set -- python3 scripts/pipeline_skill_context.py review-implementation --repo-root . --format text
+
+# Explicit subject overrides still go through the same bundle. Examples:
+# set -- "$@" --kind model --name MaximumClique
+# set -- "$@" --kind rule --name mis_qubo --source MaximumIndependentSet --target QUBO
+# set -- "$@" --kind generic
+
+REPORT=$("$@")
+printf '%s\n' "$REPORT"
 ```
 
-Detection rules:
-- New file in `src/models/` (not `mod.rs`) -> **model review** (structural + quality)
-- New file in `src/rules/` (not `mod.rs`, `traits.rs`, `cost.rs`, `graph.rs`, `registry.rs`) -> **rule review** (structural + quality)
-- Only modified files (no new model/rule) -> **quality review only**
-- Both new model and rule files -> dispatch structural for both + quality
-- Explicit argument overrides auto-detection
+The report is the Step 1 packet. It should already include:
+- Review Range: base SHA, head SHA, repo root
+- Scope: review type, subject, added model/rule files
+- Deterministic Checks: whitelist + completeness status
+- Changed Files
+- Diff Stat
+- Current PR
+- Linked Issue Context
 
-Extract the problem name(s) and rule source/target from the file paths.
+Use the report as the default source of truth for the rest of this skill. If you need structured data for a corner case, rerun the same command with `--format json`, but do not rebuild Step 1 manually.
 
 ## Step 2: Prepare Subagent Context
 
-Get the git SHAs for the review range:
+Read the packet directly:
+- `Review Range` for `{BASE_SHA}` and `{HEAD_SHA}`
+- `Scope` for `{REVIEW_TYPE}` and the concrete model/rule metadata
+- `Changed Files` and `Diff Stat` for the quality-reviewer prompt
+- `Linked Issue Context` for `{ISSUE_CONTEXT}`
 
-```bash
-BASE_SHA=$(git merge-base main HEAD)  # or HEAD~N for batch reviews
-HEAD_SHA=$(git rev-parse HEAD)
-```
-
-Get the diff summary and changed file list:
-
-```bash
-git diff --stat $BASE_SHA..$HEAD_SHA
-git diff --name-only $BASE_SHA..$HEAD_SHA
-```
-
-### Detect Linked Issue
-
-Check if the current branch has a PR linked to an issue:
-
-```bash
-# Get PR number for current branch
-PR_NUM=$(gh pr view --json number -q .number 2>/dev/null)
-
-# If PR exists, extract the linked issue number from the body
-if [ -n "$PR_NUM" ]; then
-  ISSUE_NUM=$(gh pr view $PR_NUM --json body -q .body | grep -oE '#[0-9]+' | head -1 | tr -d '#')
-fi
-
-# Fetch the issue body and comments if found
-if [ -n "$ISSUE_NUM" ]; then
-  ISSUE_BODY=$(gh issue view $ISSUE_NUM --json title,body -q '"# " + .title + "\n\n" + .body')
-  ISSUE_COMMENTS=$(gh issue view $ISSUE_NUM --json comments -q '.comments[] | "**" + .author.login + "** (" + .createdAt + "):\n" + .body + "\n"')
-fi
-```
-
-If an issue is found, pass `{ISSUE_CONTEXT}` (title + body + comments) to both subagents. If not, set `{ISSUE_CONTEXT}` to "No linked issue found." Comments often contain clarifications, corrections, or additional requirements from maintainers.
+If the report says `Current PR` is absent, set `{ISSUE_CONTEXT}` to `No linked issue found.` Comments often contain clarifications, corrections, or additional requirements from maintainers, so prefer the report text over re-fetching issue state.
 
 ## Step 3: Dispatch Subagents in Parallel
 
@@ -80,11 +61,11 @@ Dispatch using `Agent` tool with `subagent_type="superpowers:code-reviewer"`:
 
 - Read `structural-reviewer-prompt.md` from this skill directory
 - Fill placeholders:
-  - `{REVIEW_TYPE}` -> "model", "rule", or "model + rule"
-  - `{REVIEW_PARAMS}` -> summary of what's being reviewed
+  - `{REVIEW_TYPE}` -> from the report's `Scope` section (`model`, `rule`, `model + rule`, or `generic`)
+  - `{REVIEW_PARAMS}` -> summary of what's being reviewed from the report
   - `{PROBLEM_NAME}`, `{CATEGORY}`, `{FILE_STEM}` -> for model reviews
   - `{SOURCE}`, `{TARGET}`, `{RULE_STEM}`, `{EXAMPLE_STEM}` -> for rule reviews
-  - `{ISSUE_CONTEXT}` -> full issue title + body + comments (or "No linked issue found.")
+  - `{ISSUE_CONTEXT}` -> the report's `Linked Issue Context` section (or "No linked issue found.")
 - Prompt = filled template
 
 ### Quality Reviewer (always)
@@ -93,11 +74,11 @@ Dispatch using `Agent` tool with `subagent_type="superpowers:code-reviewer"`:
 
 - Read `quality-reviewer-prompt.md` from this skill directory
 - Fill placeholders:
-  - `{DIFF_SUMMARY}` -> output of `git diff --stat`
-  - `{CHANGED_FILES}` -> list of changed files
+  - `{DIFF_SUMMARY}` -> the report's `Diff Stat`
+  - `{CHANGED_FILES}` -> the report's `Changed Files`
   - `{PLAN_STEP}` -> description of what was implemented (or "standalone review")
-  - `{BASE_SHA}`, `{HEAD_SHA}` -> git range
-  - `{ISSUE_CONTEXT}` -> full issue title + body + comments (or "No linked issue found.")
+  - `{BASE_SHA}`, `{HEAD_SHA}` -> the report's `Review Range`
+  - `{ISSUE_CONTEXT}` -> the report's `Linked Issue Context` section (or "No linked issue found.")
 - Prompt = filled template
 
 **Both subagents must be dispatched in parallel** (single message with two Agent tool calls — use `run_in_background: true` on one, foreground on the other, then read the background result with `TaskOutput`).
