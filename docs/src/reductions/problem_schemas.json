@@ -367,6 +367,37 @@
     ]
   },
   {
+    "name": "MinMaxMulticenter",
+    "description": "Determine if K centers can be placed so max weighted distance is at most B (vertex p-center)",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "vertex_weights",
+        "type_name": "Vec<W>",
+        "description": "Vertex weights w: V -> R"
+      },
+      {
+        "name": "edge_lengths",
+        "type_name": "Vec<W>",
+        "description": "Edge lengths l: E -> R"
+      },
+      {
+        "name": "k",
+        "type_name": "usize",
+        "description": "Number of centers to place"
+      },
+      {
+        "name": "bound",
+        "type_name": "W::Sum",
+        "description": "Upper bound B on maximum weighted distance"
+      }
+    ]
+  },
+  {
     "name": "MinimumDominatingSet",
     "description": "Find minimum weight dominating set in a graph",
     "fields": [

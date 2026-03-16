@@ -50,7 +50,7 @@ pub mod prelude {
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
-        MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
+        MinMaxMulticenter, MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
         MinimumSumMulticenter, MinimumVertexCover, OptimalLinearArrangement,
         PartitionIntoTriangles, RuralPostman, TravelingSalesman,
     };

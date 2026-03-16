@@ -236,6 +236,7 @@ Flags by problem type:
   SteinerTree                     --graph, --edge-weights, --terminals
   CVP                             --basis, --target-vec [--bounds]
   OptimalLinearArrangement        --graph, --bound
+  MinMaxMulticenter (pCenter)     --graph, --weights, --edge-weights, --k, --bound
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
   LCS                             --strings
