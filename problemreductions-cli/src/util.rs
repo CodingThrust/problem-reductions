@@ -65,6 +65,10 @@ pub fn validate_k_param(
         },
     };
 
+    if effective_k == 0 {
+        bail!("{problem_name}: --k must be positive");
+    }
+
     // Build the variant map with the effective k
     let mut variant = resolved_variant.clone();
     variant.insert("k".to_string(), k_variant_str(effective_k).to_string());
@@ -267,4 +271,20 @@ pub fn parse_edge_pairs(s: &str) -> Result<Vec<(usize, usize)>> {
             Ok((u, v))
         })
         .collect()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::validate_k_param;
+    use std::collections::BTreeMap;
+
+    #[test]
+    fn test_validate_k_param_rejects_zero() {
+        let err = validate_k_param(&BTreeMap::new(), Some(0), None, "KthBestSpanningTree")
+            .expect_err("k=0 should be rejected before problem construction");
+        assert!(
+            err.to_string().contains("positive"),
+            "unexpected error message: {err}"
+        );
+    }
 }
