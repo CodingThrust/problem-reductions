@@ -224,6 +224,7 @@ Flags by problem type:
   PartitionIntoTriangles          --graph
   GraphPartitioning               --graph
   IsomorphicSpanningTree          --graph, --tree
+  LengthBoundedDisjointPaths      --graph, --source, --sink, --num-paths-required, --bound
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   SubsetSum                       --sizes, --target
@@ -286,6 +287,15 @@ pub struct CreateArgs {
     /// Edge weights (e.g., 2,3,1) [default: all 1s]
     #[arg(long)]
     pub edge_weights: Option<String>,
+    /// Source vertex for path-based graph problems
+    #[arg(long)]
+    pub source: Option<usize>,
+    /// Sink vertex for path-based graph problems
+    #[arg(long)]
+    pub sink: Option<usize>,
+    /// Required number of paths for LengthBoundedDisjointPaths
+    #[arg(long)]
+    pub num_paths_required: Option<usize>,
     /// Pairwise couplings J_ij for SpinGlass (e.g., 1,-1,1) [default: all 1s]
     #[arg(long)]
     pub couplings: Option<String>,

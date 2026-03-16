@@ -260,6 +260,37 @@
     ]
   },
   {
+    "name": "LengthBoundedDisjointPaths",
+    "description": "Find J internally vertex-disjoint s-t paths of length at most K",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "source",
+        "type_name": "usize",
+        "description": "The shared source vertex s"
+      },
+      {
+        "name": "sink",
+        "type_name": "usize",
+        "description": "The shared sink vertex t"
+      },
+      {
+        "name": "num_paths_required",
+        "type_name": "usize",
+        "description": "Required number J of disjoint s-t paths"
+      },
+      {
+        "name": "max_length",
+        "type_name": "usize",
+        "description": "Maximum path length K in edges"
+      }
+    ]
+  },
+  {
     "name": "LongestCommonSubsequence",
     "description": "Find the longest string that is a subsequence of every input string",
     "fields": [

@@ -108,6 +108,16 @@ fn test_all_problems_implement_trait_correctly() {
         "HamiltonianPath",
     );
     check_problem_trait(
+        &LengthBoundedDisjointPaths::new(
+            SimpleGraph::new(4, vec![(0, 1), (1, 3), (0, 2), (2, 3)]),
+            0,
+            3,
+            2,
+            2,
+        ),
+        "LengthBoundedDisjointPaths",
+    );
+    check_problem_trait(
         &OptimalLinearArrangement::new(SimpleGraph::new(3, vec![(0, 1), (1, 2)]), 3),
         "OptimalLinearArrangement",
     );
