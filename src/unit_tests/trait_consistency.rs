@@ -82,6 +82,16 @@ fn test_all_problems_implement_trait_correctly() {
         &ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]),
         "ExactCoverBy3Sets",
     );
+    check_problem_trait(
+        &ComparativeContainment::with_weights(
+            3,
+            vec![vec![0, 1], vec![1, 2]],
+            vec![vec![0, 2]],
+            vec![2i32, 1],
+            vec![1i32],
+        ),
+        "ComparativeContainment",
+    );
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
     check_problem_trait(&BMF::new(vec![vec![true]], 1), "BMF");
     check_problem_trait(

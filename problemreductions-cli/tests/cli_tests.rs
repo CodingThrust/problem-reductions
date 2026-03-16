@@ -613,6 +613,134 @@ fn test_create_x3c_rejects_duplicate_subset_elements() {
 }
 
 #[test]
+fn test_create_comparative_containment() {
+    let output_file = std::env::temp_dir().join("pred_test_create_comparative_containment.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "ComparativeContainment",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,2,3;0,1",
+            "--s-sets",
+            "0,1,2,3;2,3",
+            "--r-weights",
+            "2,5",
+            "--s-weights",
+            "3,6",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "ComparativeContainment");
+    assert_eq!(json["variant"]["weight"], "i32");
+    assert_eq!(json["data"]["universe_size"], 4);
+    assert_eq!(json["data"]["r_sets"].as_array().unwrap().len(), 2);
+    assert_eq!(json["data"]["s_sets"].as_array().unwrap().len(), 2);
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_comparative_containment_f64() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_comparative_containment_f64.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "ComparativeContainment/f64",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,2,3;0,1",
+            "--s-sets",
+            "0,1,2,3;2,3",
+            "--r-weights",
+            "2.5,5.0",
+            "--s-weights",
+            "3.5,6.0",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    assert!(output_file.exists());
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "ComparativeContainment");
+    assert_eq!(json["variant"]["weight"], "f64");
+    assert_eq!(json["data"]["r_weights"], serde_json::json!([2.5, 5.0]));
+    assert_eq!(json["data"]["s_weights"], serde_json::json!([3.5, 6.0]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_comparative_containment_one_rejects_nonunit_weights() {
+    let output = pred()
+        .args([
+            "create",
+            "ComparativeContainment/One",
+            "--universe",
+            "4",
+            "--r-sets",
+            "0,1,2,3;0,1",
+            "--s-sets",
+            "0,1,2,3;2,3",
+            "--r-weights",
+            "2,5",
+            "--s-weights",
+            "3,6",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Non-unit weights are not supported for ComparativeContainment/One"),
+        "stderr: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_comparative_containment_no_flags_shows_help() {
+    let output = pred()
+        .args(["create", "ComparativeContainment"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("--universe"), "stderr: {stderr}");
+    assert!(stderr.contains("--r-sets"), "stderr: {stderr}");
+    assert!(stderr.contains("--s-sets"), "stderr: {stderr}");
+    assert!(!stderr.contains("--universe-size"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_then_evaluate() {
     // Create a problem
     let problem_file = std::env::temp_dir().join("pred_test_create_eval.json");

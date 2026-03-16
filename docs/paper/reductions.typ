@@ -75,6 +75,7 @@
   "MaximumClique": [Maximum Clique],
   "MaximumSetPacking": [Maximum Set Packing],
   "MinimumSetCovering": [Minimum Set Covering],
+  "ComparativeContainment": [Comparative Containment],
   "SpinGlass": [Spin Glass],
   "QUBO": [QUBO],
   "ILP": [Integer Linear Programming],
@@ -1103,6 +1104,70 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
     Shown NP-complete by Karp (1972) via transformation from 3-Dimensional Matching @karp1972. X3C remains NP-complete even when no element appears in more than three subsets, but is solvable in polynomial time when no element appears in more than two subsets. It is one of the most widely used source problems for NP-completeness reductions in Garey & Johnson (A3 SP2), serving as the starting point for proving hardness of problems in scheduling, graph theory, set systems, coding, and number theory. The best known exact algorithm runs in $O^*(2^n)$ via inclusion-exclusion over the $n = |X|$ universe elements; a direct brute-force search over the $m$ subsets gives the weaker $O^*(2^m)$ bound.
 
     *Example.* Let $X = {1, 2, dots, #n}$ ($q = #q$) and $cal(C) = {S_1, dots, S_#m}$ with #subs.enumerate().map(((i, t)) => $S_#(i + 1) = #fmt-triple(t)$).join(", "). An exact cover is $cal(C)' = {#selected.map(i => $S_#(i + 1)$).join(", ")}$: #selected.map(i => [$S_#(i + 1)$ covers #fmt-triple(subs.at(i))]).join(", "), their union is $X$, and they are pairwise disjoint with $|cal(C)'| = #selected.len() = q$.
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("ComparativeContainment")
+  let n = x.instance.universe_size
+  let R = x.instance.r_sets
+  let S = x.instance.s_sets
+  let r-weights = x.instance.r_weights
+  let s-weights = x.instance.s_weights
+  let sample = x.samples.at(0)
+  let selected = sample.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i)
+  let satisfiers = x.optimal.map(sol => sol.config.enumerate().filter(((i, v)) => v == 1).map(((i, _)) => i))
+  let contains-selected(family-set) = selected.all(i => family-set.contains(i))
+  let r-active = range(R.len()).filter(i => contains-selected(R.at(i)))
+  let s-active = range(S.len()).filter(i => contains-selected(S.at(i)))
+  let r-total = r-active.map(i => r-weights.at(i)).sum(default: 0)
+  let s-total = s-active.map(i => s-weights.at(i)).sum(default: 0)
+  let fmt-set(items) = if items.len() == 0 {
+    $emptyset$
+  } else {
+    "${" + items.map(e => str(e + 1)).join(", ") + "}$"
+  }
+  let left-elems = (
+    (-3.1, 0.4),
+    (-2.4, -0.4),
+    (-1.6, 0.4),
+    (-0.9, -0.4),
+  )
+  let right-elems = (
+    (0.9, 0.4),
+    (1.6, -0.4),
+    (2.4, 0.4),
+    (3.1, -0.4),
+  )
+  [
+    #problem-def("ComparativeContainment")[
+      Given a finite universe $X$, two set families $cal(R) = {R_1, dots, R_k}$ and $cal(S) = {S_1, dots, S_l}$ over $X$, and positive integer weights $w_R(R_i)$ and $w_S(S_j)$, does there exist a subset $Y subset.eq X$ such that $sum_(Y subset.eq R_i) w_R(R_i) >= sum_(Y subset.eq S_j) w_S(S_j)$?
+    ][
+    Comparative Containment is the set-system comparison problem SP10 in Garey & Johnson @garey1979. Unlike covering and packing problems, feasibility depends on how the chosen subset $Y$ is nested inside two competing set families: the $cal(R)$ family rewards containment while the $cal(S)$ family penalizes it. The problem remains NP-complete in the unit-weight special case and provides a clean weighted-set comparison primitive for future reduction entries in this catalog.
+
+    A direct exact algorithm enumerates all $2^n$ subsets $Y subset.eq X$ for $n = |X|$ and checks which members of $cal(R)$ and $cal(S)$ contain each candidate. This yields an $O^*(2^n)$ exact algorithm, with the polynomial factor coming from scanning the $k + l$ sets for each subset#footnote[No specialized exact algorithm improving on brute-force enumeration is recorded in the standard references used for this catalog entry.].
+
+    *Example.* Let $X = {1, 2, dots, #n}$, $cal(R) = {#range(R.len()).map(i => $R_#(i + 1)$).join(", ")}$ with #R.enumerate().map(((i, family-set)) => [$R_#(i + 1) = #fmt-set(family-set)$ with $w_R(R_#(i + 1)) = #(r-weights.at(i))$]).join(", "), and $cal(S) = {#range(S.len()).map(i => $S_#(i + 1)$).join(", ")}$ with #S.enumerate().map(((i, family-set)) => [$S_#(i + 1) = #fmt-set(family-set)$ with $w_S(S_#(i + 1)) = #(s-weights.at(i))$]).join(", "). The subset $Y = #fmt-set(selected)$ is satisfying because #r-active.map(i => $R_#(i + 1)$).join(", ") contribute $#r-total$ on the left while #s-active.map(i => $S_#(i + 1)$).join(", ") contribute only $#s-total$ on the right, so $#r-total >= #s-total$. In fact, the satisfying subsets are #satisfiers.map(fmt-set).join(", "), so this instance has exactly #satisfiers.len() satisfying solutions.
+
+    #figure(
+      canvas(length: 1cm, {
+        import draw: *
+        content((-2.0, 1.5), text(8pt)[$cal(R)$])
+        content((2.0, 1.5), text(8pt)[$cal(S)$])
+        sregion((left-elems.at(0), left-elems.at(1), left-elems.at(2), left-elems.at(3)), pad: 0.5, label: [$R_1$], ..if r-active.contains(0) { sregion-selected } else { sregion-dimmed })
+        sregion((left-elems.at(0), left-elems.at(1)), pad: 0.35, label: [$R_2$], ..if r-active.contains(1) { sregion-selected } else { sregion-dimmed })
+        sregion((right-elems.at(0), right-elems.at(1), right-elems.at(2), right-elems.at(3)), pad: 0.5, label: [$S_1$], ..if s-active.contains(0) { sregion-selected } else { sregion-dimmed })
+        sregion((right-elems.at(2), right-elems.at(3)), pad: 0.35, label: [$S_2$], ..if s-active.contains(1) { sregion-selected } else { sregion-dimmed })
+        for (k, pos) in left-elems.enumerate() {
+          selem(pos, label: [#(k + 1)], fill: if selected.contains(k) { graph-colors.at(0) } else { black })
+        }
+        for (k, pos) in right-elems.enumerate() {
+          selem(pos, label: [#(k + 1)], fill: if selected.contains(k) { graph-colors.at(0) } else { black })
+        }
+      }),
+      caption: [Comparative containment for $Y = #fmt-set(selected)$: both $R_1$ and $R_2$ contain $Y$, while only $S_1$ does, so the $cal(R)$ side dominates the $cal(S)$ side.]
+    ) <fig:comparative-containment>
     ]
   ]
 }

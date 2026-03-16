@@ -43,6 +43,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.capacity.is_none()
         && args.sequence.is_none()
         && args.sets.is_none()
+        && args.r_sets.is_none()
+        && args.s_sets.is_none()
+        && args.r_weights.is_none()
+        && args.s_weights.is_none()
         && args.universe.is_none()
         && args.biedges.is_none()
         && args.left.is_none()
@@ -200,6 +204,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
             _ => "edge list: 0-1,1-2,2-3",
         },
         "Vec<W>" => "comma-separated: 1,2,3",
+        "Vec<Vec<usize>>" => "semicolon-separated sets: \"0,1;1,2;0,2\"",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" => "integer",
@@ -248,8 +253,18 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
+        "ComparativeContainment" => {
+            "--universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" --r-weights 2,5 --s-weights 3,6"
+        }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
+    }
+}
+
+fn help_flag_name(field_name: &str) -> String {
+    match field_name {
+        "universe_size" => "universe".to_string(),
+        _ => field_name.replace('_', "-"),
     }
 }
 
@@ -280,7 +295,7 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!(
                     "  --{:<16} {} ({})",
-                    field.name.replace('_', "-"),
+                    help_flag_name(&field.name),
                     field.description,
                     hint
                 );
@@ -672,6 +687,74 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(MinimumSetCovering::with_weights(universe, sets, weights))?,
                 resolved_variant.clone(),
             )
+        }
+
+        // ComparativeContainment
+        "ComparativeContainment" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ComparativeContainment requires --universe, --r-sets, and --s-sets\n\n\
+                     Usage: pred create ComparativeContainment --universe 4 --r-sets \"0,1,2,3;0,1\" --s-sets \"0,1,2,3;2,3\" [--r-weights 2,5] [--s-weights 3,6]"
+                )
+            })?;
+            let r_sets = parse_named_sets(args.r_sets.as_deref(), "--r-sets")?;
+            let s_sets = parse_named_sets(args.s_sets.as_deref(), "--s-sets")?;
+            let data = match resolved_variant.get("weight").map(|value| value.as_str()) {
+                Some("One") => {
+                    let r_weights = parse_named_set_weights(
+                        args.r_weights.as_deref(),
+                        r_sets.len(),
+                        "--r-weights",
+                    )?;
+                    let s_weights = parse_named_set_weights(
+                        args.s_weights.as_deref(),
+                        s_sets.len(),
+                        "--s-weights",
+                    )?;
+                    if r_weights.iter().any(|&w| w != 1) || s_weights.iter().any(|&w| w != 1) {
+                        bail!(
+                            "Non-unit weights are not supported for ComparativeContainment/One.\n\n\
+                             Use `pred create ComparativeContainment/i32 ... --r-weights ... --s-weights ...` for weighted instances."
+                        );
+                    }
+                    ser(ComparativeContainment::<One>::new(universe, r_sets, s_sets))?
+                }
+                Some("f64") => {
+                    let r_weights = parse_named_set_weights_f64(
+                        args.r_weights.as_deref(),
+                        r_sets.len(),
+                        "--r-weights",
+                    )?;
+                    let s_weights = parse_named_set_weights_f64(
+                        args.s_weights.as_deref(),
+                        s_sets.len(),
+                        "--s-weights",
+                    )?;
+                    ser(ComparativeContainment::<f64>::with_weights(
+                        universe, r_sets, s_sets, r_weights, s_weights,
+                    ))?
+                }
+                Some("i32") | None => {
+                    let r_weights = parse_named_set_weights(
+                        args.r_weights.as_deref(),
+                        r_sets.len(),
+                        "--r-weights",
+                    )?;
+                    let s_weights = parse_named_set_weights(
+                        args.s_weights.as_deref(),
+                        s_sets.len(),
+                        "--s-weights",
+                    )?;
+                    ser(ComparativeContainment::with_weights(
+                        universe, r_sets, s_sets, r_weights, s_weights,
+                    ))?
+                }
+                Some(other) => bail!(
+                    "Unsupported ComparativeContainment weight variant: {}",
+                    other
+                ),
+            };
+            (data, resolved_variant.clone())
         }
 
         // ExactCoverBy3Sets
@@ -1457,10 +1540,12 @@ fn parse_clauses(args: &CreateArgs) -> Result<Vec<CNFClause>> {
 /// Parse `--sets` as semicolon-separated sets of comma-separated usize.
 /// E.g., "0,1;1,2;0,2"
 fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
-    let sets_str = args
-        .sets
-        .as_deref()
-        .ok_or_else(|| anyhow::anyhow!("This problem requires --sets (e.g., \"0,1;1,2;0,2\")"))?;
+    parse_named_sets(args.sets.as_deref(), "--sets")
+}
+
+fn parse_named_sets(sets_str: Option<&str>, flag: &str) -> Result<Vec<Vec<usize>>> {
+    let sets_str = sets_str
+        .ok_or_else(|| anyhow::anyhow!("This problem requires {flag} (e.g., \"0,1;1,2;0,2\")"))?;
     sets_str
         .split(';')
         .map(|set| {
@@ -1478,15 +1563,50 @@ fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
 
 /// Parse `--weights` for set-based problems (i32), defaulting to all 1s.
 fn parse_set_weights(args: &CreateArgs, num_sets: usize) -> Result<Vec<i32>> {
-    match &args.weights {
+    parse_named_set_weights(args.weights.as_deref(), num_sets, "--weights")
+}
+
+fn parse_named_set_weights(
+    weights_str: Option<&str>,
+    num_sets: usize,
+    flag: &str,
+) -> Result<Vec<i32>> {
+    match weights_str {
         Some(w) => {
             let weights: Vec<i32> = util::parse_comma_list(w)?;
             if weights.len() != num_sets {
-                bail!("Expected {} weights but got {}", num_sets, weights.len());
+                bail!(
+                    "Expected {} values for {} but got {}",
+                    num_sets,
+                    flag,
+                    weights.len()
+                );
             }
             Ok(weights)
         }
         None => Ok(vec![1i32; num_sets]),
+    }
+}
+
+fn parse_named_set_weights_f64(
+    weights_str: Option<&str>,
+    num_sets: usize,
+    flag: &str,
+) -> Result<Vec<f64>> {
+    match weights_str {
+        Some(w) => {
+            let weights: Vec<f64> = util::parse_comma_list(w)?;
+            if weights.len() != num_sets {
+                bail!(
+                    "Expected {} values for {} but got {}",
+                    num_sets,
+                    flag,
+                    weights.len()
+                );
+            }
+            Ok(weights)
+        }
+        None => Ok(vec![1.0f64; num_sets]),
     }
 }
 
