@@ -109,6 +109,7 @@
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
   "DirectedTwoCommodityIntegralFlow": [Directed Two-Commodity Integral Flow],
+  "RectilinearPictureCompression": [Rectilinear Picture Compression],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1825,6 +1826,60 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 
   *Example.* Let $n = 4$ items with weights $(2, 3, 4, 5)$, values $(3, 4, 5, 7)$, and capacity $C = 7$. Selecting $S = {1, 2}$ (items with weights 3 and 4) gives total weight $3 + 4 = 7 lt.eq C$ and total value $4 + 5 = 9$. Selecting $S = {0, 3}$ (weights 2 and 5) gives weight $2 + 5 = 7 lt.eq C$ and value $3 + 7 = 10$, which is optimal.
 ]
+
+#{
+  let x = load-model-example("RectilinearPictureCompression")
+  let mat = x.instance.matrix
+  let m = mat.len()
+  let n = mat.at(0).len()
+  let K = x.instance.bound_k
+  // Convert bool matrix to int for display
+  let M = mat.map(row => row.map(v => if v { 1 } else { 0 }))
+  [
+    #problem-def("RectilinearPictureCompression")[
+      Given an $m times n$ binary matrix $M$ and a positive integer $K$,
+      determine whether there exists a collection of at most $K$
+      axis-aligned rectangles that covers precisely the 1-entries of $M$.
+      Each rectangle is a quadruple $(a, b, c, d)$ with $a lt.eq b$ and $c lt.eq d$,
+      covering entries $M_(i j)$ for $a lt.eq i lt.eq b$ and $c lt.eq j lt.eq d$,
+      where every covered entry must satisfy $M_(i j) = 1$.
+    ][
+    Rectilinear Picture Compression is a classical NP-complete problem from Garey & Johnson (A4 SR25, p.~232) @garey1979. It arises naturally in image compression, DNA microarray design, integrated circuit manufacturing, and access control list minimization. NP-completeness was established by Masek (1978) via transformation from 3SAT. The best known exact algorithm runs in $O^*(2^(m n))$ by brute-force enumeration over all possible rectangle selections#footnote[No algorithm improving on brute-force is known for the general case of Rectilinear Picture Compression.].
+
+    *Example.* Let $M = mat(#M.map(row => row.map(v => str(v)).join(", ")).join("; "))$ (a $#m times #n$ matrix) and $K = #K$. The two maximal all-1 rectangles are $R_1 = (0, 1, 0, 1)$ covering the top-left $2 times 2$ block and $R_2 = (2, 3, 2, 3)$ covering the bottom-right $2 times 2$ block. Selecting both gives $|{R_1, R_2}| = 2 lt.eq K = #K$ and their union covers all eight 1-entries, so the answer is YES.
+
+    #figure(
+      {
+        let cell-size = 0.5
+        let blue = graph-colors.at(0)
+        let teal = rgb("#76b7b2")
+        // Rectangle covers: R1 covers rows 0..1, cols 0..1; R2 covers rows 2..3, cols 2..3
+        let rect-color(r, c) = {
+          if r <= 1 and c <= 1 { blue.transparentize(40%) }
+          else if r >= 2 and c >= 2 { teal.transparentize(40%) }
+          else { white }
+        }
+        align(center, grid(
+          columns: n,
+          column-gutter: 0pt,
+          row-gutter: 0pt,
+          ..range(m).map(r =>
+            range(n).map(c => {
+              let val = M.at(r).at(c)
+              let fill = if val == 1 { rect-color(r, c) } else { white }
+              box(width: cell-size * 1cm, height: cell-size * 1cm,
+                fill: fill, stroke: 0.4pt + luma(180),
+                align(center + horizon, text(8pt, weight: if val == 1 { "bold" } else { "regular" },
+                  if val == 1 { "1" } else { "0" })))
+            })
+          ).flatten(),
+        ))
+      },
+      caption: [Rectilinear Picture Compression: matrix $M$ covered by two rectangles $R_1$ (blue, top-left $2 times 2$) and $R_2$ (teal, bottom-right $2 times 2$), with $|{R_1, R_2}| = 2 lt.eq K = #K$.],
+    ) <fig:rpc>
+    ]
+  ]
+}
 
 #problem-def("RuralPostman")[
   Given an undirected graph $G = (V, E)$ with edge lengths $l: E -> ZZ_(gt.eq 0)$, a subset $E' subset.eq E$ of required edges, and a bound $B in ZZ^+$, determine whether there exists a circuit (closed walk) in $G$ that traverses every edge in $E'$ and has total length at most $B$.
