@@ -668,6 +668,27 @@
     ]
   },
   {
+    "name": "SteinerTree",
+    "description": "Find minimum weight tree connecting terminal vertices",
+    "fields": [
+      {
+        "name": "graph",
+        "type_name": "G",
+        "description": "The underlying graph G=(V,E)"
+      },
+      {
+        "name": "edge_weights",
+        "type_name": "Vec<W>",
+        "description": "Edge weights w: E -> R"
+      },
+      {
+        "name": "terminals",
+        "type_name": "Vec<usize>",
+        "description": "Terminal vertices T that must be connected"
+      }
+    ]
+  },
+  {
     "name": "SubgraphIsomorphism",
     "description": "Determine if host graph G contains a subgraph isomorphic to pattern graph H",
     "fields": [

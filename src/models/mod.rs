@@ -16,7 +16,7 @@ pub use graph::{
     LengthBoundedDisjointPaths, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet,
     MaximumMatching, MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
     MinimumSumMulticenter, MinimumVertexCover, OptimalLinearArrangement, PartitionIntoTriangles,
-    RuralPostman, SpinGlass, SubgraphIsomorphism, TravelingSalesman,
+    RuralPostman, SpinGlass, SteinerTree, SubgraphIsomorphism, TravelingSalesman,
 };
 pub use misc::{
     BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,

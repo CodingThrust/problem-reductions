@@ -46,7 +46,7 @@ pub mod prelude {
     pub use crate::models::formula::{CNFClause, CircuitSAT, KSatisfiability, Satisfiability};
     pub use crate::models::graph::{
         BicliqueCover, GraphPartitioning, HamiltonianPath, IsomorphicSpanningTree,
-        LengthBoundedDisjointPaths, SpinGlass, SubgraphIsomorphism,
+        LengthBoundedDisjointPaths, SpinGlass, SteinerTree, SubgraphIsomorphism,
     };
     pub use crate::models::graph::{
         KColoring, MaxCut, MaximalIS, MaximumClique, MaximumIndependentSet, MaximumMatching,
