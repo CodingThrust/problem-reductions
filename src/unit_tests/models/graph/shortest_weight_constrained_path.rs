@@ -133,3 +133,43 @@ fn test_shortestweightconstrainedpath_paper_example() {
     let all = BruteForce::new().find_all_satisfying(&problem);
     assert_eq!(all.len(), 2);
 }
+
+#[test]
+fn test_shortest_weight_constrained_path_rejects_invalid_configs() {
+    let problem = issue_problem();
+
+    assert!(!problem.is_valid_solution(&[0, 1]));
+    assert!(!problem.is_valid_solution(&[0, 1, 0, 1, 0, 1, 0, 2]));
+    assert!(!problem.is_valid_solution(&[0, 0, 0, 0, 0, 0, 0, 0]));
+}
+
+#[test]
+fn test_shortest_weight_constrained_path_source_equals_target_allows_only_empty_path() {
+    let problem = ShortestWeightConstrainedPath::new(
+        SimpleGraph::new(3, vec![(0, 1), (1, 2)]),
+        vec![3, 4],
+        vec![2, 5],
+        1,
+        1,
+        0,
+        0,
+    );
+
+    assert!(problem.is_valid_solution(&[0, 0]));
+    assert!(!problem.is_valid_solution(&[1, 0]));
+}
+
+#[test]
+fn test_shortest_weight_constrained_path_rejects_disconnected_selected_edges() {
+    let problem = ShortestWeightConstrainedPath::new(
+        SimpleGraph::new(6, vec![(0, 1), (1, 2), (3, 4), (4, 5), (5, 3)]),
+        vec![1, 1, 1, 1, 1],
+        vec![1, 1, 1, 1, 1],
+        0,
+        2,
+        10,
+        10,
+    );
+
+    assert!(!problem.is_valid_solution(&[1, 1, 1, 1, 1]));
+}

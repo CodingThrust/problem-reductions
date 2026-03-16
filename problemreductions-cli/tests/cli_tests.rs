@@ -3546,6 +3546,61 @@ fn test_create_shortest_weight_constrained_path_edge_length_count_mismatch() {
     );
 }
 
+#[test]
+fn test_create_shortest_weight_constrained_path_no_flags_shows_vector_hints() {
+    let output = pred()
+        .args(["create", "ShortestWeightConstrainedPath"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--edge-lengths"),
+        "expected '--edge-lengths' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.match_indices("comma-separated: 1,2,3").count() >= 2,
+        "expected vector hints for edge lengths and weights, got: {stderr}"
+    );
+    assert!(
+        stderr.match_indices("numeric value: 10").count() >= 2,
+        "expected numeric hints for length and weight bounds, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_show_shortest_weight_constrained_path_uses_weight_schema_type_names() {
+    let output = pred()
+        .args(["show", "ShortestWeightConstrainedPath"])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let stdout = String::from_utf8(output.stdout).unwrap();
+    assert!(
+        stdout.contains("edge_lengths (Vec<W>)"),
+        "expected Vec<W> schema type for edge_lengths, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("edge_weights (Vec<W>)"),
+        "expected Vec<W> schema type for edge_weights, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("length_bound (W::Sum)"),
+        "expected W::Sum schema type for length_bound, got: {stdout}"
+    );
+    assert!(
+        stdout.contains("weight_bound (W::Sum)"),
+        "expected W::Sum schema type for weight_bound, got: {stdout}"
+    );
+}
+
 // ---- Show JSON includes default annotation ----
 
 #[test]

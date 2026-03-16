@@ -25,12 +25,12 @@ inventory::submit! {
         description: "Find a simple s-t path whose total length and weight stay within given bounds",
         fields: &[
             FieldInfo { name: "graph", type_name: "G", description: "The underlying graph G=(V,E)" },
-            FieldInfo { name: "edge_lengths", type_name: "Vec<N>", description: "Edge lengths l: E -> ZZ_(> 0)" },
-            FieldInfo { name: "edge_weights", type_name: "Vec<N>", description: "Edge weights w: E -> ZZ_(> 0)" },
+            FieldInfo { name: "edge_lengths", type_name: "Vec<W>", description: "Edge lengths l: E -> ZZ_(> 0)" },
+            FieldInfo { name: "edge_weights", type_name: "Vec<W>", description: "Edge weights w: E -> ZZ_(> 0)" },
             FieldInfo { name: "source_vertex", type_name: "usize", description: "Source vertex s" },
             FieldInfo { name: "target_vertex", type_name: "usize", description: "Target vertex t" },
-            FieldInfo { name: "length_bound", type_name: "N::Sum", description: "Upper bound K on total path length" },
-            FieldInfo { name: "weight_bound", type_name: "N::Sum", description: "Upper bound W on total path weight" },
+            FieldInfo { name: "length_bound", type_name: "W::Sum", description: "Upper bound K on total path length" },
+            FieldInfo { name: "weight_bound", type_name: "W::Sum", description: "Upper bound W on total path weight" },
         ],
     }
 }

@@ -626,12 +626,12 @@
       },
       {
         "name": "edge_lengths",
-        "type_name": "Vec<N>",
+        "type_name": "Vec<W>",
         "description": "Edge lengths l: E -> ZZ_(> 0)"
       },
       {
         "name": "edge_weights",
-        "type_name": "Vec<N>",
+        "type_name": "Vec<W>",
         "description": "Edge weights w: E -> ZZ_(> 0)"
       },
       {
@@ -646,12 +646,12 @@
       },
       {
         "name": "length_bound",
-        "type_name": "N::Sum",
+        "type_name": "W::Sum",
         "description": "Upper bound K on total path length"
       },
       {
         "name": "weight_bound",
-        "type_name": "N::Sum",
+        "type_name": "W::Sum",
         "description": "Upper bound W on total path weight"
       }
     ]

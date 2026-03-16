@@ -204,6 +204,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
             _ => "edge list: 0-1,1-2,2-3",
         },
         "Vec<W>" => "comma-separated: 1,2,3",
+        "W" | "N" | "W::Sum" | "N::Sum" => "numeric value: 10",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "usize" => "integer",
