@@ -43,7 +43,10 @@ fn test_multiple_choice_branching_creation_and_accessors() {
     assert_eq!(problem.dims(), vec![2; 8]);
     assert_eq!(problem.graph().arcs().len(), 8);
     assert_eq!(problem.weights(), &[3, 2, 4, 1, 2, 3, 1, 3]);
-    assert_eq!(problem.partition(), &[vec![0, 1], vec![2, 3], vec![4, 7], vec![5, 6]]);
+    assert_eq!(
+        problem.partition(),
+        &[vec![0, 1], vec![2, 3], vec![4, 7], vec![5, 6]]
+    );
     assert_eq!(problem.threshold(), &10);
     assert!(problem.is_weighted());
 
@@ -114,6 +117,18 @@ fn test_multiple_choice_branching_evaluate_yes_instance() {
 fn test_multiple_choice_branching_rejects_partition_violation() {
     let problem = yes_instance();
     assert!(!problem.evaluate(&[1, 1, 0, 0, 0, 0, 0, 0]));
+}
+
+#[test]
+fn test_multiple_choice_branching_rejects_wrong_config_length() {
+    let problem = yes_instance();
+    assert!(!problem.evaluate(&[1, 0, 1]));
+}
+
+#[test]
+fn test_multiple_choice_branching_rejects_non_binary_config_value() {
+    let problem = yes_instance();
+    assert!(!problem.evaluate(&[2, 0, 1, 0, 0, 1, 0, 1]));
 }
 
 #[test]

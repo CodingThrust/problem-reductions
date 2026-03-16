@@ -122,7 +122,13 @@ impl<W: WeightElement> MultipleChoiceBranching<W> {
 
     /// Check whether a configuration is a satisfying solution.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        is_valid_multiple_choice_branching(&self.graph, &self.weights, &self.partition, &self.threshold, config)
+        is_valid_multiple_choice_branching(
+            &self.graph,
+            &self.weights,
+            &self.partition,
+            &self.threshold,
+            config,
+        )
     }
 }
 
@@ -208,28 +214,39 @@ fn is_valid_multiple_choice_branching<W: WeightElement>(
 
     let arcs = graph.arcs();
     let mut in_degree = vec![0usize; graph.num_vertices()];
+    let mut selected_successors = vec![Vec::new(); graph.num_vertices()];
+    let mut total = W::Sum::zero();
     for (index, &selected) in config.iter().enumerate() {
         if selected == 1 {
-            let (_, target) = arcs[index];
+            let (source, target) = arcs[index];
             in_degree[target] += 1;
             if in_degree[target] > 1 {
                 return false;
             }
-        }
-    }
-
-    let selected_arcs: Vec<bool> = config.iter().map(|&selected| selected == 1).collect();
-    if !graph.is_acyclic_subgraph(&selected_arcs) {
-        return false;
-    }
-
-    let mut total = W::Sum::zero();
-    for (index, &selected) in config.iter().enumerate() {
-        if selected == 1 {
+            selected_successors[source].push(target);
             total += weights[index].to_sum();
         }
     }
-    total >= *threshold
+
+    if total < *threshold {
+        return false;
+    }
+
+    let mut queue: Vec<usize> = (0..graph.num_vertices())
+        .filter(|&vertex| in_degree[vertex] == 0)
+        .collect();
+    let mut visited = 0usize;
+    while let Some(source) = queue.pop() {
+        visited += 1;
+        for &target in &selected_successors[source] {
+            in_degree[target] -= 1;
+            if in_degree[target] == 0 {
+                queue.push(target);
+            }
+        }
+    }
+
+    visited == graph.num_vertices()
 }
 
 crate::declare_variants! {

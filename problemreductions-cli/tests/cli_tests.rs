@@ -717,7 +717,10 @@ fn test_create_multiple_choice_branching() {
     let json: serde_json::Value = serde_json::from_str(&content).unwrap();
     assert_eq!(json["type"], "MultipleChoiceBranching");
     assert_eq!(json["variant"]["weight"], "i32");
-    assert_eq!(json["data"]["weights"], serde_json::json!([3, 2, 4, 1, 2, 3, 1, 3]));
+    assert_eq!(
+        json["data"]["weights"],
+        serde_json::json!([3, 2, 4, 1, 2, 3, 1, 3])
+    );
     assert_eq!(
         json["data"]["partition"],
         serde_json::json!([[0, 1], [2, 3], [4, 7], [5, 6]])
@@ -783,6 +786,84 @@ fn test_create_model_example_multiple_choice_branching_round_trips_into_solve() 
     );
 
     std::fs::remove_file(&path).ok();
+}
+
+#[test]
+fn test_create_multiple_choice_branching_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleChoiceBranching/i32",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
+            "--weights",
+            "3,2,4,1,2,3,1,3",
+            "--partition",
+            "0,1;2,3;4,7;5,6",
+            "--bound=-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("threshold") || stderr.contains("--bound"),
+        "stderr should mention the invalid threshold: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_multiple_choice_branching_rejects_overflowing_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleChoiceBranching/i32",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
+            "--weights",
+            "3,2,4,1,2,3,1,3",
+            "--partition",
+            "0,1;2,3;4,7;5,6",
+            "--bound",
+            "2147483648",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        stderr.contains("threshold") || stderr.contains("--bound"),
+        "stderr should mention the overflowing threshold: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_multiple_choice_branching_rejects_invalid_partition_without_panicking() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleChoiceBranching/i32",
+            "--arcs",
+            "0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4",
+            "--weights",
+            "3,2,4,1,2,3,1,3",
+            "--partition",
+            "0,1;2,3;4,7;5,7",
+            "--bound",
+            "10",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8(output.stderr).unwrap();
+    assert!(
+        !stderr.contains("panicked at"),
+        "invalid partition should return a user error, got panic output: {stderr}"
+    );
+    assert!(
+        stderr.contains("partition"),
+        "stderr should mention the invalid partition: {stderr}"
+    );
 }
 
 #[test]
