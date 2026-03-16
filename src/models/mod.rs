@@ -17,6 +17,7 @@ pub use graph::{
     MaximumMatching, MinimumDominatingSet, MinimumFeedbackArcSet, MinimumFeedbackVertexSet,
     MinimumSumMulticenter, MinimumVertexCover, OptimalLinearArrangement, PartitionIntoTriangles,
     RuralPostman, SpinGlass, SteinerTree, SubgraphIsomorphism, TravelingSalesman,
+    UndirectedTwoCommodityIntegralFlow,
 };
 pub use misc::{
     BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,

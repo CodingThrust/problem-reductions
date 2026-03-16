@@ -22,7 +22,9 @@
 //! - [`MinimumSumMulticenter`]: Min-sum multicenter (p-median)
 //! - [`LengthBoundedDisjointPaths`]: Length-bounded internally disjoint s-t paths
 //! - [`RuralPostman`]: Rural Postman (circuit covering required edges)
+//! - [`SteinerTree`]: Minimum-weight tree spanning all required terminals
 //! - [`SubgraphIsomorphism`]: Subgraph isomorphism (decision problem)
+//! - [`UndirectedTwoCommodityIntegralFlow`]: Two-commodity integral flow on undirected graphs
 
 pub(crate) mod biclique_cover;
 pub(crate) mod graph_partitioning;
@@ -47,6 +49,7 @@ pub(crate) mod spin_glass;
 pub(crate) mod steiner_tree;
 pub(crate) mod subgraph_isomorphism;
 pub(crate) mod traveling_salesman;
+pub(crate) mod undirected_two_commodity_integral_flow;
 
 pub use biclique_cover::BicliqueCover;
 pub use graph_partitioning::GraphPartitioning;
@@ -71,6 +74,7 @@ pub use spin_glass::SpinGlass;
 pub use steiner_tree::SteinerTree;
 pub use subgraph_isomorphism::SubgraphIsomorphism;
 pub use traveling_salesman::TravelingSalesman;
+pub use undirected_two_commodity_integral_flow::UndirectedTwoCommodityIntegralFlow;
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
@@ -93,5 +97,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(biclique_cover::canonical_model_example_specs());
     specs.extend(partition_into_triangles::canonical_model_example_specs());
     specs.extend(steiner_tree::canonical_model_example_specs());
+    specs.extend(undirected_two_commodity_integral_flow::canonical_model_example_specs());
     specs
 }
