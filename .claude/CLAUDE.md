@@ -258,7 +258,7 @@ Also add to the `display-name` dictionary:
 ]
 ```
 
-Every directed reduction in the graph needs its own `reduction-rule` entry. The paper auto-checks completeness against `reduction_graph.json`.
+Every directed reduction in the graph needs its own `reduction-rule` entry. The paper auto-checks completeness against the generated `reduction_graph.json` export.
 
 ## Complexity Verification Requirements
 

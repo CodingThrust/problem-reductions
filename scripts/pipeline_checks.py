@@ -17,8 +17,6 @@ MODEL_WHITELIST = [
     "src/example_db/model_builders.rs",
     "src/example_db/rule_builders.rs",
     "docs/paper/reductions.typ",
-    "docs/src/reductions/problem_schemas.json",
-    "docs/src/reductions/reduction_graph.json",
     "tests/suites/trait_consistency.rs",
 ]
 
@@ -28,8 +26,6 @@ RULE_WHITELIST = [
     "src/example_db/rule_builders.rs",
     "src/models/",
     "docs/paper/reductions.typ",
-    "docs/src/reductions/reduction_graph.json",
-    "docs/src/reductions/problem_schemas.json",
 ]
 
 IGNORED_RULE_FILES = {

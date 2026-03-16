@@ -276,17 +276,17 @@ except (FileNotFoundError, json.JSONDecodeError, ValueError):
     print(0)
 " "$state_file" 2>/dev/null || echo 0)
 
-        # Always fetch a reasonably fresh board to avoid dispatching items
-        # that moved out of the target column since the last fetch.
         # The board cache naturally expires after board_max_age seconds,
         # so we don't need to delete it — just let natural expiry handle
         # staleness.  This avoids redundant 4-page GraphQL fetches when
         # multiple commands share the same cache file within one cycle.
         board_max_age=$interval
 
-        # For review mode, request Copilot reviews on PRs that don't have one yet
-        if [ "$mode" = "review" ] && [ -n "$repo" ]; then
-            request_copilot_reviews "$repo" "$board_cache" "$board_max_age"
+        if [ "$pending_count" -lt "$cache_threshold" ]; then
+            # For review mode, request Copilot reviews on PRs that don't have one yet
+            if [ "$mode" = "review" ] && [ -n "$repo" ]; then
+                request_copilot_reviews "$repo" "$board_cache" "$board_max_age"
+            fi
         fi
 
         next_item=$(poll_project_items "$mode" "$state_file" "$repo" "" text "$board_cache" "$board_max_age")

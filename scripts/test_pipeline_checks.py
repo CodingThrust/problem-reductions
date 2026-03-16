@@ -135,7 +135,6 @@ class PipelineChecksTests(unittest.TestCase):
                 "src/unit_tests/models/graph/graph_partitioning.rs",
                 "src/example_db/model_builders.rs",
                 "docs/paper/reductions.typ",
-                "docs/src/reductions/problem_schemas.json",
                 "tests/suites/trait_consistency.rs",
             ],
         )
@@ -165,7 +164,6 @@ class PipelineChecksTests(unittest.TestCase):
                 "src/example_db/rule_builders.rs",
                 "src/models/graph/bin_packing.rs",
                 "docs/paper/reductions.typ",
-                "docs/src/reductions/reduction_graph.json",
             ],
         )
 
