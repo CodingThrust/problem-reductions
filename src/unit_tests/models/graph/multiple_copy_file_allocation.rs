@@ -18,10 +18,13 @@ fn test_multiple_copy_file_allocation_creation() {
     let problem = cycle_yes_instance();
     assert_eq!(problem.graph().num_vertices(), 6);
     assert_eq!(problem.graph().num_edges(), 6);
+    assert_eq!(problem.num_vertices(), 6);
+    assert_eq!(problem.num_edges(), 6);
     assert_eq!(problem.usage(), &[10; 6]);
     assert_eq!(problem.storage(), &[1; 6]);
     assert_eq!(problem.bound(), 33);
     assert_eq!(problem.dims(), vec![2; 6]);
+    assert!(MultipleCopyFileAllocation::variant().is_empty());
 }
 
 #[test]
@@ -55,6 +58,17 @@ fn test_multiple_copy_file_allocation_unreachable_component_is_invalid() {
     let config = vec![1, 0, 0, 0];
 
     assert_eq!(problem.total_cost(&config), None);
+    assert!(!problem.is_valid_solution(&config));
+    assert!(!problem.evaluate(&config));
+}
+
+#[test]
+fn test_multiple_copy_file_allocation_cost_above_bound_is_invalid() {
+    let problem =
+        MultipleCopyFileAllocation::new(SimpleGraph::cycle(6), vec![10; 6], vec![1; 6], 32);
+    let config = vec![0, 1, 0, 1, 0, 1];
+
+    assert_eq!(problem.total_cost(&config), Some(33));
     assert!(!problem.is_valid_solution(&config));
     assert!(!problem.evaluate(&config));
 }
