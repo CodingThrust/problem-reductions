@@ -637,6 +637,58 @@ fn test_create_d2cif_alias() {
 }
 
 #[test]
+fn test_solve_d2cif_default_solver_suggests_bruteforce() {
+    let output_file = std::env::temp_dir().join("pred_test_solve_d2cif.json");
+    let create_output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "D2CIF",
+            "--arcs",
+            "0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5",
+            "--capacities",
+            "1,1,1,1,1,1,1,1",
+            "--source-1",
+            "0",
+            "--sink-1",
+            "4",
+            "--source-2",
+            "1",
+            "--sink-2",
+            "5",
+            "--requirement-1",
+            "1",
+            "--requirement-2",
+            "1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        create_output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_output.stderr)
+    );
+
+    let solve_output = pred()
+        .args(["solve", output_file.to_str().unwrap()])
+        .output()
+        .unwrap();
+    assert!(
+        !solve_output.status.success(),
+        "stdout: {}",
+        String::from_utf8_lossy(&solve_output.stdout)
+    );
+    let stderr = String::from_utf8_lossy(&solve_output.stderr);
+    assert!(
+        stderr.contains("--solver brute-force"),
+        "expected brute-force hint, got: {stderr}"
+    );
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
 fn test_create_x3c_rejects_duplicate_subset_elements() {
     let output = pred()
         .args(["create", "X3C", "--universe", "6", "--sets", "0,0,1;3,4,5"])

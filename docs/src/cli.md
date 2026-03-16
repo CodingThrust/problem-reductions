@@ -15,7 +15,7 @@ Or build from source:
 ```bash
 git clone https://github.com/CodingThrust/problem-reductions
 cd problem-reductions
-make cli    # builds target/release/pred
+make cli    # installs/updates ~/.cargo/bin/pred
 ```
 
 Verify the installation:
@@ -47,6 +47,14 @@ pred create MIS --graph 0-1,1-2,2-3 --weights 3,1,2,1 -o weighted.json
 
 # Create a Steiner Tree instance
 pred create SteinerTree --graph 0-1,0-3,1-2,1-3,2-3,2-4,3-4 --edge-weights 2,5,2,1,5,6,1 --terminals 0,2,4 -o steiner.json
+
+# Create a directed two-commodity flow instance via the short alias
+pred create D2CIF --arcs "0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1 -o d2cif.json
+pred solve d2cif.json --solver brute-force
+
+# Evaluate a known satisfying configuration.
+# Config layout: [f1(a0)..f1(a7), f2(a0)..f2(a7)]
+pred evaluate d2cif.json --config 1,0,0,0,1,0,0,0,0,0,0,1,0,0,0,1
 
 # Or start from a canonical model example
 pred create --example MIS/SimpleGraph/i32 -o example.json
@@ -418,7 +426,7 @@ Source evaluation: Valid(2)
 ```
 
 > **Note:** The ILP solver requires a reduction path from the target problem to ILP.
-> Some problems (e.g., QUBO, SpinGlass, MaxCut, CircuitSAT) do not have this path yet.
+> Some problems (e.g., QUBO, SpinGlass, MaxCut, CircuitSAT, DirectedTwoCommodityIntegralFlow) do not have this path yet.
 > Use `--solver brute-force` for these, or reduce to a problem that supports ILP first.
 
 ## Shell Completions

@@ -37,10 +37,17 @@ Or build from source:
 ```bash
 git clone https://github.com/CodingThrust/problem-reductions
 cd problem-reductions
-make cli    # builds target/release/pred
+make cli    # installs/updates ~/.cargo/bin/pred
 ```
 
 See the [Getting Started](https://codingthrust.github.io/problem-reductions/getting-started.html) guide for usage examples, the reduction workflow, and [CLI usage](https://codingthrust.github.io/problem-reductions/cli.html).
+
+Example: create and solve a directed two-commodity integral flow instance from the CLI:
+
+```bash
+pred create D2CIF --arcs "0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1 -o d2cif.json
+pred solve d2cif.json --solver brute-force
+```
 
 ## MCP Server (AI Integration)
 
