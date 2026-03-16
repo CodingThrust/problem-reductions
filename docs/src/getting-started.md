@@ -207,6 +207,7 @@ problemreductions = { version = "0.2", default-features = false }
 
 The library exports machine-readable metadata useful for tooling and research:
 
+These files are generated when you build the docs locally.
 - [reduction_graph.json](reductions/reduction_graph.json) lists all problem variants and reduction edges
 - [problem_schemas.json](reductions/problem_schemas.json) lists field definitions for each problem type
 

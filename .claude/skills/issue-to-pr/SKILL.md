@@ -97,7 +97,7 @@ The plan MUST reference the appropriate implementation skill and follow its step
 Include the concrete details from the issue (problem definition, reduction algorithm, example, etc.) mapped onto each step.
 
 **Plan batching:** The paper writing step (add-model Step 6 / add-rule Step 5) MUST be in a **separate batch** from the implementation steps, so it gets its own subagent with fresh context. It depends on the implementation being complete (needs exports). Example batch structure for a `[Model]` plan:
-- Batch 1: Steps 1-5.5 (implement model, register, CLI, tests, trait_consistency)
+- Batch 1: Steps 1-5.5 (implement model, register, CLI, tests)
 - Batch 2: Step 6 (write paper entry — depends on batch 1 for exports)
 
 **Solver rules:**
@@ -223,12 +223,11 @@ EOF
 python3 scripts/pipeline_pr.py comment --repo "$REPO" --pr "$PR" --body-file "$COMMENT_FILE"
 rm -f "$COMMENT_FILE"
 
-# Repo verification may regenerate tracked exports (notably after `make paper`).
+# Repo verification may regenerate ignored doc exports (notably after `make paper`).
 # Inspect the tree once more before pushing.
 git status --short
 
-# If expected generated exports changed, stage them before push.
-git add docs/src/reductions/problem_schemas.json docs/src/reductions/reduction_graph.json
+# Generated doc exports under docs/src/reductions/ are ignored; do not stage them.
 
 # The issue plan file must be gone before push.
 test ! -e docs/plans/<plan-file>.md
