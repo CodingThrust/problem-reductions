@@ -473,8 +473,8 @@ fn test_create_undirected_two_commodity_integral_flow_rejects_oversized_capacity
         .unwrap();
     assert!(!output.status.success());
     let stderr = String::from_utf8_lossy(&output.stderr);
-    assert!(stderr.contains("is too large for this platform"));
-    assert!(stderr.contains("edge index 2"));
+    assert!(stderr.contains(format!("Invalid capacity `{oversized}`").as_str()));
+    assert!(stderr.contains("number too large to fit in target type"));
     assert!(stderr.contains("Usage: pred create UndirectedTwoCommodityIntegralFlow"));
 }
 
