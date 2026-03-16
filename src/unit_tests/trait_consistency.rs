@@ -167,6 +167,10 @@ fn test_all_problems_implement_trait_correctly() {
         "IsomorphicSpanningTree",
     );
     check_problem_trait(
+        &RectilinearPictureCompression::new(vec![vec![true, false], vec![false, true]], 2),
+        "RectilinearPictureCompression",
+    );
+    check_problem_trait(
         &ShortestCommonSupersequence::new(2, vec![vec![0, 1], vec![1, 0]], 3),
         "ShortestCommonSupersequence",
     );

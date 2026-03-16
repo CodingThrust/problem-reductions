@@ -464,6 +464,13 @@
       "complexity": "2^num_vars"
     },
     {
+      "name": "RectilinearPictureCompression",
+      "variant": {},
+      "category": "misc",
+      "doc_path": "models/misc/struct.RectilinearPictureCompression.html",
+      "complexity": "2^(num_rows * num_cols)"
+    },
+    {
       "name": "RuralPostman",
       "variant": {
         "graph": "SimpleGraph",
@@ -599,7 +606,7 @@
     },
     {
       "source": 4,
-      "target": 57,
+      "target": 58,
       "overhead": [
         {
           "field": "num_spins",
@@ -763,7 +770,7 @@
     },
     {
       "source": 22,
-      "target": 61,
+      "target": 62,
       "overhead": [
         {
           "field": "num_elements",
@@ -774,7 +781,7 @@
     },
     {
       "source": 23,
-      "target": 53,
+      "target": 54,
       "overhead": [
         {
           "field": "num_clauses",
@@ -819,7 +826,7 @@
     },
     {
       "source": 27,
-      "target": 57,
+      "target": 58,
       "overhead": [
         {
           "field": "num_spins",
@@ -1265,7 +1272,7 @@
     },
     {
       "source": 51,
-      "target": 56,
+      "target": 57,
       "overhead": [
         {
           "field": "num_spins",
@@ -1275,7 +1282,7 @@
       "doc_path": "rules/spinglass_qubo/index.html"
     },
     {
-      "source": 53,
+      "source": 54,
       "target": 4,
       "overhead": [
         {
@@ -1290,7 +1297,7 @@
       "doc_path": "rules/sat_circuitsat/index.html"
     },
     {
-      "source": 53,
+      "source": 54,
       "target": 17,
       "overhead": [
         {
@@ -1305,7 +1312,7 @@
       "doc_path": "rules/sat_coloring/index.html"
     },
     {
-      "source": 53,
+      "source": 54,
       "target": 22,
       "overhead": [
         {
@@ -1320,7 +1327,7 @@
       "doc_path": "rules/sat_ksat/index.html"
     },
     {
-      "source": 53,
+      "source": 54,
       "target": 32,
       "overhead": [
         {
@@ -1335,7 +1342,7 @@
       "doc_path": "rules/sat_maximumindependentset/index.html"
     },
     {
-      "source": 53,
+      "source": 54,
       "target": 41,
       "overhead": [
         {
@@ -1350,7 +1357,7 @@
       "doc_path": "rules/sat_minimumdominatingset/index.html"
     },
     {
-      "source": 56,
+      "source": 57,
       "target": 51,
       "overhead": [
         {
@@ -1361,7 +1368,7 @@
       "doc_path": "rules/spinglass_qubo/index.html"
     },
     {
-      "source": 57,
+      "source": 58,
       "target": 27,
       "overhead": [
         {
@@ -1376,8 +1383,8 @@
       "doc_path": "rules/spinglass_maxcut/index.html"
     },
     {
-      "source": 57,
-      "target": 56,
+      "source": 58,
+      "target": 57,
       "overhead": [
         {
           "field": "num_spins",
@@ -1391,7 +1398,7 @@
       "doc_path": "rules/spinglass_casts/index.html"
     },
     {
-      "source": 62,
+      "source": 63,
       "target": 13,
       "overhead": [
         {
@@ -1406,7 +1413,7 @@
       "doc_path": "rules/travelingsalesman_ilp/index.html"
     },
     {
-      "source": 62,
+      "source": 63,
       "target": 51,
       "overhead": [
         {

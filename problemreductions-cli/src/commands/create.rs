@@ -11,7 +11,7 @@ use problemreductions::models::graph::{
 };
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, ShortestCommonSupersequence, SubsetSum,
+    PaintShop, RectilinearPictureCompression, ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -292,6 +292,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
         }
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
+        "RectilinearPictureCompression" => {
+            "--matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --k 2"
+        }
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
@@ -986,6 +989,21 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             (ser(BMF::new(matrix, rank))?, resolved_variant.clone())
+        }
+
+        // RectilinearPictureCompression
+        "RectilinearPictureCompression" => {
+            let matrix = parse_bool_matrix(args)?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "RectilinearPictureCompression requires --matrix and --k\n\n\
+                     Usage: pred create RectilinearPictureCompression --matrix \"1,1,0,0;1,1,0,0;0,0,1,1;0,0,1,1\" --k 2"
+                )
+            })?;
+            (
+                ser(RectilinearPictureCompression::new(matrix, k))?,
+                resolved_variant.clone(),
+            )
         }
 
         // LongestCommonSubsequence

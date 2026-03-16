@@ -630,6 +630,22 @@
     ]
   },
   {
+    "name": "RectilinearPictureCompression",
+    "description": "Cover all 1-entries of a binary matrix with at most K axis-aligned all-1 rectangles",
+    "fields": [
+      {
+        "name": "matrix",
+        "type_name": "Vec<Vec<bool>>",
+        "description": "m x n binary matrix"
+      },
+      {
+        "name": "bound_k",
+        "type_name": "usize",
+        "description": "Maximum number of rectangles allowed"
+      }
+    ]
+  },
+  {
     "name": "RuralPostman",
     "description": "Find a circuit covering required edges with total length at most B (Rural Postman Problem)",
     "fields": [

@@ -246,6 +246,7 @@ Flags by problem type:
   FVS                             --arcs [--weights] [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
+  RectilinearPictureCompression   --matrix (0/1), --k
   SCS                             --strings, --bound [--alphabet-size]
   D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   ILP, CircuitSAT                 (via reduction only)
