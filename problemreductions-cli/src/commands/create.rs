@@ -296,7 +296,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
         "TwoDimensionalConsecutiveSets" => {
-            "--universe 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
+            "--alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
         }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
@@ -1078,21 +1078,24 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // TwoDimensionalConsecutiveSets
         "TwoDimensionalConsecutiveSets" => {
-            let universe = args.universe.ok_or_else(|| {
+            let alphabet_size = args.alphabet_size.or(args.universe).ok_or_else(|| {
                 anyhow::anyhow!(
-                    "TwoDimensionalConsecutiveSets requires --universe and --sets\n\n\
-                     Usage: pred create TwoDimensionalConsecutiveSets --universe 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
+                    "TwoDimensionalConsecutiveSets requires --alphabet-size (or --universe) and --sets\n\n\
+                     Usage: pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\""
                 )
             })?;
+            if alphabet_size == 0 {
+                bail!("Alphabet size must be positive");
+            }
             let sets = parse_sets(args)?;
             for (i, set) in sets.iter().enumerate() {
                 for &element in set {
-                    if element >= universe {
+                    if element >= alphabet_size {
                         bail!(
                             "Set {} contains element {} which is outside alphabet of size {}",
                             i,
                             element,
-                            universe
+                            alphabet_size
                         );
                     }
                 }
@@ -1100,7 +1103,8 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(
                     problemreductions::models::set::TwoDimensionalConsecutiveSets::new(
-                        universe, sets,
+                        alphabet_size,
+                        sets,
                     ),
                 )?,
                 resolved_variant.clone(),

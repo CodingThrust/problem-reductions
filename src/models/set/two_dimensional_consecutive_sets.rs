@@ -7,6 +7,7 @@
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
+use serde::de::Error as _;
 use serde::{Deserialize, Serialize};
 use std::collections::HashSet;
 
@@ -52,12 +53,59 @@ inventory::submit! {
 /// // config[i] = group index of symbol i
 /// assert!(problem.evaluate(&[0, 1, 2, 2, 3, 1]));
 /// ```
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct TwoDimensionalConsecutiveSets {
     /// Size of the alphabet (elements are 0..alphabet_size-1).
     alphabet_size: usize,
     /// Collection of subsets, each a sorted list of alphabet elements.
     subsets: Vec<Vec<usize>>,
+}
+
+#[derive(Debug, Deserialize)]
+struct TwoDimensionalConsecutiveSetsUnchecked {
+    alphabet_size: usize,
+    subsets: Vec<Vec<usize>>,
+}
+
+fn validation_error(alphabet_size: usize, subsets: &mut [Vec<usize>]) -> Option<String> {
+    if alphabet_size == 0 {
+        return Some("Alphabet size must be positive".to_string());
+    }
+
+    for (i, subset) in subsets.iter_mut().enumerate() {
+        let mut seen = HashSet::new();
+        for &elem in subset.iter() {
+            if elem >= alphabet_size {
+                return Some(format!(
+                    "Subset {} contains element {} which is outside alphabet of size {}",
+                    i, elem, alphabet_size
+                ));
+            }
+            if !seen.insert(elem) {
+                return Some(format!("Subset {} contains duplicate element {}", i, elem));
+            }
+        }
+        subset.sort();
+    }
+
+    None
+}
+
+impl<'de> Deserialize<'de> for TwoDimensionalConsecutiveSets {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let mut unchecked = TwoDimensionalConsecutiveSetsUnchecked::deserialize(deserializer)?;
+        if let Some(message) = validation_error(unchecked.alphabet_size, &mut unchecked.subsets) {
+            return Err(D::Error::custom(message));
+        }
+
+        Ok(Self {
+            alphabet_size: unchecked.alphabet_size,
+            subsets: unchecked.subsets,
+        })
+    }
 }
 
 impl TwoDimensionalConsecutiveSets {
@@ -68,26 +116,9 @@ impl TwoDimensionalConsecutiveSets {
     /// Panics if `alphabet_size` is 0, if any subset contains elements
     /// outside the alphabet, or if any subset has duplicate elements.
     pub fn new(alphabet_size: usize, subsets: Vec<Vec<usize>>) -> Self {
-        assert!(alphabet_size > 0, "Alphabet size must be positive");
         let mut subsets = subsets;
-        for (i, subset) in subsets.iter_mut().enumerate() {
-            let mut seen = HashSet::new();
-            for &elem in subset.iter() {
-                assert!(
-                    elem < alphabet_size,
-                    "Subset {} contains element {} which is outside alphabet of size {}",
-                    i,
-                    elem,
-                    alphabet_size
-                );
-                assert!(
-                    seen.insert(elem),
-                    "Subset {} contains duplicate element {}",
-                    i,
-                    elem
-                );
-            }
-            subset.sort();
+        if let Some(message) = validation_error(alphabet_size, &mut subsets) {
+            panic!("{message}");
         }
         Self {
             alphabet_size,

@@ -1046,6 +1046,60 @@ fn test_create_set_basis_rejects_out_of_range_elements() {
 }
 
 #[test]
+fn test_create_two_dimensional_consecutive_sets_accepts_alphabet_size_flag() {
+    let output_file =
+        std::env::temp_dir().join("pred_test_create_two_dimensional_consecutive_sets.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "TwoDimensionalConsecutiveSets",
+            "--alphabet-size",
+            "6",
+            "--sets",
+            "0,1,2;3,4,5;1,3;2,4;0,5",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "TwoDimensionalConsecutiveSets");
+    assert_eq!(json["data"]["alphabet_size"], 6);
+    assert_eq!(json["data"]["subsets"][0], serde_json::json!([0, 1, 2]));
+
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
+fn test_create_two_dimensional_consecutive_sets_rejects_zero_alphabet_size_without_panic() {
+    let output = pred()
+        .args([
+            "create",
+            "TwoDimensionalConsecutiveSets",
+            "--alphabet-size",
+            "0",
+            "--sets",
+            "0",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("Alphabet size must be positive"),
+        "stderr: {stderr}"
+    );
+    assert!(!stderr.contains("panicked at"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_then_evaluate() {
     // Create a problem
     let problem_file = std::env::temp_dir().join("pred_test_create_eval.json");

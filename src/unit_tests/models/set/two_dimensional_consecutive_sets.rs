@@ -92,6 +92,13 @@ fn test_two_dimensional_consecutive_sets_serialization() {
 }
 
 #[test]
+fn test_two_dimensional_consecutive_sets_deserialization_rejects_out_of_range_elements() {
+    let json = r#"{"alphabet_size":3,"subsets":[[0,5]]}"#;
+    let err = serde_json::from_str::<TwoDimensionalConsecutiveSets>(json).unwrap_err();
+    assert!(err.to_string().contains("outside alphabet"), "error: {err}");
+}
+
+#[test]
 fn test_two_dimensional_consecutive_sets_empty_subsets() {
     // All empty subsets — trivially satisfiable
     let problem = TwoDimensionalConsecutiveSets::new(3, vec![vec![], vec![]]);

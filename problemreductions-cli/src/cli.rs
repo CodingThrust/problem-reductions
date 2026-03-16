@@ -235,7 +235,7 @@ Flags by problem type:
   MinimumSetCovering              --universe, --sets [--weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   SetBasis                        --universe, --sets, --k
-  TwoDimensionalConsecutiveSets   --universe, --sets
+  TwoDimensionalConsecutiveSets   --alphabet-size, --sets
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   SteinerTree                     --graph, --edge-weights, --terminals
@@ -276,7 +276,7 @@ Examples:
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
   pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
   pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3
-  pred create TwoDimensionalConsecutiveSets --universe 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\"")]
+  pred create TwoDimensionalConsecutiveSets --alphabet-size 6 --sets \"0,1,2;3,4,5;1,3;2,4;0,5\"")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT). Omit when using --example.
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -455,7 +455,7 @@ pub struct CreateArgs {
     /// Number of processors/machines for FlowShopScheduling
     #[arg(long)]
     pub num_processors: Option<usize>,
-    /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
+    /// Alphabet size for SCS (optional) or TwoDimensionalConsecutiveSets
     #[arg(long)]
     pub alphabet_size: Option<usize>,
 }
