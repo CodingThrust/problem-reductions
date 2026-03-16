@@ -2998,6 +2998,11 @@ fn test_create_multiple_copy_file_allocation() {
     let stdout = String::from_utf8(output.stdout).unwrap();
     let json: serde_json::Value = serde_json::from_str(&stdout).unwrap();
     assert_eq!(json["type"], "MultipleCopyFileAllocation");
+    assert_eq!(json["data"]["usage"], serde_json::json!([5, 4, 3, 2]));
+    assert_eq!(json["data"]["storage"], serde_json::json!([1, 1, 1, 1]));
+    assert_eq!(json["data"]["bound"], 8);
+    assert_eq!(json["data"]["graph"]["inner"]["nodes"].as_array().unwrap().len(), 4);
+    assert_eq!(json["data"]["graph"]["inner"]["edges"].as_array().unwrap().len(), 3);
 }
 
 #[test]
@@ -3047,6 +3052,31 @@ fn test_create_multiple_copy_file_allocation_rejects_length_mismatch() {
     assert!(
         stderr.contains("usage"),
         "expected usage-length diagnostic, got: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_multiple_copy_file_allocation_rejects_storage_length_mismatch() {
+    let output = pred()
+        .args([
+            "create",
+            "MultipleCopyFileAllocation",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--usage",
+            "5,4,3,2",
+            "--storage",
+            "1,1",
+            "--bound",
+            "8",
+        ])
+        .output()
+        .unwrap();
+    assert!(!output.status.success());
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("storage"),
+        "expected storage-length diagnostic, got: {stderr}"
     );
 }
 
