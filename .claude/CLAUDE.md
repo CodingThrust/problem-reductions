@@ -207,7 +207,7 @@ New code must have >95% test coverage. Run `make coverage` to check.
 ### Naming
 
 - Reduction tests: `test_<source>_to_<target>_closed_loop`
-- Model tests: `test_<model>_basic`, `test_<model>_serialization`
+- Model tests: descriptive names — e.g., `test_<model>_creation`, `test_<model>_evaluate_*`, `test_<model>_direction`, `test_<model>_solver`, `test_<model>_serialization`. Use whichever are relevant; there is no fixed per-model naming set.
 - Solver tests: `test_<solver>_<problem>`
 
 ### Key Testing Patterns
@@ -217,6 +217,8 @@ See Key Patterns above for solver API signatures. Follow the reference files for
 ### File Organization
 
 Unit tests in `src/unit_tests/` linked via `#[path]` (see Core Modules above). Integration tests in `tests/suites/`, consolidated through `tests/main.rs`. Canonical example-db coverage lives in `src/unit_tests/example_db.rs`.
+
+Model review automation expects a dedicated file under `src/unit_tests/models/...`. The exact split of creation/evaluation/direction/solver coverage is judged per model during review rather than by a single rigid filename or function-name checklist.
 
 ## Documentation Locations
 - `README.md` — Project overview and quickstart

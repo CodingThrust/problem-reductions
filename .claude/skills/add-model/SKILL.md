@@ -195,20 +195,22 @@ This example is now the canonical source for:
 
 Create `src/unit_tests/models/<category>/<name>.rs`:
 
-Required tests:
-- `test_<name>_creation` -- construct an instance, verify dimensions
-- `test_<name>_evaluation` -- verify `evaluate()` on valid and invalid configs
-- `test_<name>_direction` -- verify optimization direction (if optimization problem)
-- `test_<name>_serialization` -- round-trip serde test (optional but recommended)
-- `test_<name>_solver` -- verify brute-force solver finds correct solutions
-- `test_<name>_paper_example` -- **use the same instance from the paper example** (Step 6), verify the issue's expected outcome is valid/optimal and the solution count matches
+Recommended coverage (adjust to the model rather than forcing a fixed checklist):
+- Add at least one creation/basic test that exercises constructor inputs and key accessors. Include `dims()` or `num_variables()` assertions when they help document the configuration space.
+- Add evaluation tests for valid and invalid configs so the feasibility boundary is explicit.
+- Add a direction test for optimization problems.
+- Add a brute-force solver test when the model is small enough to solve directly in unit tests.
+- Add a round-trip serde test when the model is serialized through CLI/example-db flows.
+- Add a paper-example test when the paper section includes a worked example and the issue provides a concrete expected outcome.
 
-The `test_<name>_paper_example` test is critical for consistency between code and paper. It must:
-1. Construct the exact same instance shown in the paper's example figure
+The structural completeness automation currently checks for the presence of the dedicated model test file. Reviewers still inspect whether the coverage in that file is appropriate for the model's semantics.
+
+When you add `test_<name>_paper_example`, it should:
+1. Construct the same instance shown in the paper's example figure
 2. Evaluate the solution from the issue's **Expected Outcome** section as shown in the paper and assert it is valid (and optimal for optimization problems)
-3. Use `BruteForce` to find all optimal/satisfying solutions and assert the count matches the paper's claim
+3. Use `BruteForce` to confirm the claimed optimum/satisfying solution count when the instance is small enough for unit tests
 
-This test should be written **after** Step 6 (paper entry), once the example instance and expected outcome are finalized. If writing tests before the paper, use the issue's Example Instance + Expected Outcome as the source of truth and come back to verify consistency.
+This test is usually written **after** Step 6 (paper entry), once the example instance and expected outcome are finalized. If writing tests before the paper, use the issue's Example Instance + Expected Outcome as the source of truth and come back to verify consistency.
 
 Link the test file via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the model file.
 
