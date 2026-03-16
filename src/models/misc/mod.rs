@@ -20,6 +20,7 @@ mod longest_common_subsequence;
 mod minimum_tardiness_sequencing;
 pub(crate) mod paintshop;
 mod sequencing_within_intervals;
+mod staff_scheduling;
 pub(crate) mod shortest_common_supersequence;
 mod subset_sum;
 
@@ -31,6 +32,7 @@ pub use longest_common_subsequence::LongestCommonSubsequence;
 pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use paintshop::PaintShop;
 pub use sequencing_within_intervals::SequencingWithinIntervals;
+pub use staff_scheduling::StaffScheduling;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
 pub use subset_sum::SubsetSum;
 
@@ -40,6 +42,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(factoring::canonical_model_example_specs());
     specs.extend(paintshop::canonical_model_example_specs());
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
+    specs.extend(staff_scheduling::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
     specs.extend(minimum_tardiness_sequencing::canonical_model_example_specs());
     specs

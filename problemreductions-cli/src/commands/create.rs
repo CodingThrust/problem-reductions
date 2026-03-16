@@ -82,6 +82,9 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.task_lengths.is_none()
         && args.deadline.is_none()
         && args.num_processors.is_none()
+        && args.schedules.is_none()
+        && args.requirements.is_none()
+        && args.num_workers.is_none()
         && args.alphabet_size.is_none()
         && args.capacities.is_none()
         && args.source_1.is_none()
@@ -229,11 +232,11 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<u64>" => "comma-separated integers: 1,1,2",
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
+        "Vec<Vec<bool>>" => "semicolon-separated binary rows: \"1,1,0;0,1,1\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
         "Vec<Vec<usize>>" => "semicolon-separated groups: \"0,1;2,3\"",
         "usize" => "integer",
         "u64" => "integer",
-        "Vec<u64>" => "comma-separated integers: 0,0,5",
         "i64" => "integer",
         "BigUint" => "nonnegative decimal integer",
         "Vec<BigUint>" => "comma-separated nonnegative decimal integers: 3,7,1,8",
@@ -280,6 +283,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "PartitionIntoTriangles" => "--graph 0-1,1-2,0-2",
         "Factoring" => "--target 15 --m 4 --n 4",
         "SequencingWithinIntervals" => "--release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1",
+        "StaffScheduling" => {
+            "--schedules \"1,1,1,1,1,0,0;0,1,1,1,1,1,0;0,0,1,1,1,1,1;1,0,0,1,1,1,1;1,1,0,0,1,1,1\" --requirements 2,2,2,3,3,2,1 --num-workers 4 --k 5"
+        }
         "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
         "DirectedTwoCommodityIntegralFlow" => {
@@ -305,6 +311,7 @@ fn help_flag_name(canonical: &str, field_name: &str) -> String {
     match (canonical, field_name) {
         ("BoundedComponentSpanningForest", "max_components") => return "k".to_string(),
         ("BoundedComponentSpanningForest", "max_weight") => return "bound".to_string(),
+        ("StaffScheduling", "shifts_per_schedule") => return "k".to_string(),
         _ => {}
     }
     // General field-name overrides (previously in cli_flag_name)
@@ -1307,6 +1314,29 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // StaffScheduling
+        "StaffScheduling" => {
+            let usage = "Usage: pred create StaffScheduling --schedules \"1,1,1,1,1,0,0;0,1,1,1,1,1,0;0,0,1,1,1,1,1;1,0,0,1,1,1,1;1,1,0,0,1,1,1\" --requirements 2,2,2,3,3,2,1 --num-workers 4 --k 5";
+            let schedules = parse_schedules(args, usage)?;
+            let requirements = parse_requirements(args, usage)?;
+            let num_workers = args.num_workers.ok_or_else(|| {
+                anyhow::anyhow!("StaffScheduling requires --num-workers\n\n{usage}")
+            })?;
+            let shifts_per_schedule = args
+                .k
+                .ok_or_else(|| anyhow::anyhow!("StaffScheduling requires --k\n\n{usage}"))?;
+
+            (
+                ser(problemreductions::models::misc::StaffScheduling::new(
+                    shifts_per_schedule,
+                    schedules,
+                    requirements,
+                    num_workers,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // DirectedTwoCommodityIntegralFlow
         "DirectedTwoCommodityIntegralFlow" => {
             let arcs_str = args.arcs.as_deref().ok_or_else(|| {
@@ -2070,6 +2100,36 @@ fn parse_bool_matrix(args: &CreateArgs) -> Result<Vec<Vec<bool>>> {
         .collect()
 }
 
+fn parse_schedules(args: &CreateArgs, usage: &str) -> Result<Vec<Vec<bool>>> {
+    let schedules_str = args
+        .schedules
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("StaffScheduling requires --schedules\n\n{usage}"))?;
+    schedules_str
+        .split(';')
+        .map(|row| {
+            row.trim()
+                .split(',')
+                .map(|entry| match entry.trim() {
+                    "1" | "true" => Ok(true),
+                    "0" | "false" => Ok(false),
+                    other => Err(anyhow::anyhow!(
+                        "Invalid schedule entry '{other}': expected 0/1 or true/false"
+                    )),
+                })
+                .collect()
+        })
+        .collect()
+}
+
+fn parse_requirements(args: &CreateArgs, usage: &str) -> Result<Vec<u64>> {
+    let requirements_str = args
+        .requirements
+        .as_deref()
+        .ok_or_else(|| anyhow::anyhow!("StaffScheduling requires --requirements\n\n{usage}"))?;
+    util::parse_comma_list(requirements_str)
+}
+
 /// Parse `--matrix` as semicolon-separated rows of comma-separated f64 values.
 /// E.g., "1,0.5;0.5,2"
 fn parse_matrix(args: &CreateArgs) -> Result<Vec<Vec<f64>>> {
@@ -2412,7 +2472,12 @@ fn create_random(
 
 #[cfg(test)]
 mod tests {
+    use super::create;
     use super::problem_help_flag_name;
+    use crate::cli::{Cli, Commands};
+    use crate::output::OutputConfig;
+    use clap::Parser;
+    use std::time::{SystemTime, UNIX_EPOCH};
 
     #[test]
     fn test_problem_help_uses_bound_for_length_bounded_disjoint_paths() {
@@ -2433,5 +2498,50 @@ mod tests {
             ),
             "num-paths-required"
         );
+    }
+
+    #[test]
+    fn test_create_staff_scheduling_outputs_problem_json() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "StaffScheduling",
+            "--schedules",
+            "1,1,1,1,1,0,0;0,1,1,1,1,1,0;0,0,1,1,1,1,1;1,0,0,1,1,1,1;1,1,0,0,1,1,1",
+            "--requirements",
+            "2,2,2,3,3,2,1",
+            "--num-workers",
+            "4",
+            "--k",
+            "5",
+        ])
+        .unwrap();
+
+        let args = match cli.command {
+            Commands::Create(args) => args,
+            _ => panic!("expected create command"),
+        };
+
+        let suffix = SystemTime::now()
+            .duration_since(UNIX_EPOCH)
+            .unwrap()
+            .as_nanos();
+        let output_path =
+            std::env::temp_dir().join(format!("staff-scheduling-create-{suffix}.json"));
+        let out = OutputConfig {
+            output: Some(output_path.clone()),
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+
+        create(&args, &out).unwrap();
+
+        let json: serde_json::Value =
+            serde_json::from_str(&std::fs::read_to_string(&output_path).unwrap()).unwrap();
+        assert_eq!(json["type"], "StaffScheduling");
+        assert_eq!(json["data"]["num_workers"], 4);
+        assert_eq!(json["data"]["requirements"], serde_json::json!([2, 2, 2, 3, 3, 2, 1]));
+        std::fs::remove_file(output_path).unwrap();
     }
 }
