@@ -73,6 +73,7 @@ fn test_consecutive_block_minimization_empty_matrix() {
     assert_eq!(problem.num_rows(), 0);
     assert_eq!(problem.num_cols(), 0);
     assert!(problem.evaluate(&[]));
+    assert!(!problem.evaluate(&[0]));
 }
 
 #[test]

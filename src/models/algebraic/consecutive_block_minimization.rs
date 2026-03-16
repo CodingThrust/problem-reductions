@@ -162,11 +162,6 @@ impl Problem for ConsecutiveBlockMinimization {
     }
 
     fn evaluate(&self, config: &[usize]) -> bool {
-        if self.num_cols == 0 {
-            // Empty matrix: zero blocks, always satisfies any bound.
-            return true;
-        }
-
         match self.count_consecutive_blocks(config) {
             Some(total) => total <= self.bound_k,
             None => false,
