@@ -137,6 +137,7 @@ Scan the PR diff for dangerous actions:
 - **Unrelated changes**: Files modified that don't belong to this PR (e.g., changes to unrelated models/rules, CI config, Cargo.toml dependency changes not needed for this PR)
 - **Force push indicators**: Any sign of history rewriting
 - **Broad modifications**: Changes to core traits, macros, or shared infrastructure that could affect other features
+- **`examples.json` one-line rule**: `examples.json` is only allowed to change one line per PR (each PR adds exactly one model or one rule). If the diff shows more than one changed line in `examples.json`, flag it.
 
 Report findings:
 
