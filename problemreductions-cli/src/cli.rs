@@ -234,6 +234,7 @@ Flags by problem type:
   MinimumSetCovering              --universe, --sets [--weights]
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   SetBasis                        --universe, --sets, --k
+  MinimumCardinalityKey           --num-attributes, --dependencies, --k
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
   SteinerTree                     --graph, --edge-weights, --terminals
@@ -272,7 +273,8 @@ Examples:
   pred create FVS --arcs \"0>1,1>2,2>0\" --weights 1,1,1
   pred create UndirectedTwoCommodityIntegralFlow --graph 0-2,1-2,2-3 --capacities 1,1,2 --source-1 0 --sink-1 3 --source-2 1 --sink-2 3 --requirement-1 1 --requirement-2 1
   pred create X3C --universe 9 --sets \"0,1,2;0,2,4;3,4,5;3,5,7;6,7,8;1,4,6;2,5,8\"
-  pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3")]
+  pred create SetBasis --universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3
+  pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2")]
 pub struct CreateArgs {
     /// Problem type (e.g., MIS, QUBO, SAT). Omit when using --example.
     #[arg(value_parser = crate::problem_name::ProblemNameParser)]
@@ -448,6 +450,12 @@ pub struct CreateArgs {
     /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+    /// Functional dependencies for MinimumCardinalityKey (semicolon-separated "lhs>rhs" pairs, e.g., "0,1>2;0,2>3")
+    #[arg(long)]
+    pub dependencies: Option<String>,
+    /// Number of attributes for MinimumCardinalityKey
+    #[arg(long)]
+    pub num_attributes: Option<usize>,
 }
 
 #[derive(clap::Args)]

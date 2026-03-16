@@ -77,6 +77,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.deadline.is_none()
         && args.num_processors.is_none()
         && args.alphabet_size.is_none()
+        && args.dependencies.is_none()
+        && args.num_attributes.is_none()
         && args.capacities.is_none()
         && args.source_1.is_none()
         && args.sink_1.is_none()
@@ -300,6 +302,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
+        "MinimumCardinalityKey" => {
+            "--num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+        }
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
         _ => "",
     }
@@ -973,6 +978,33 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             (
                 ser(problemreductions::models::set::SetBasis::new(
                     universe, sets, k,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // MinimumCardinalityKey
+        "MinimumCardinalityKey" => {
+            let num_attributes = args.num_attributes.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCardinalityKey requires --num-attributes (or --num-vertices), --dependencies, and --k\n\n\
+                     Usage: pred create MinimumCardinalityKey --num-attributes 6 --dependencies \"0,1>2;0,2>3;1,3>4;2,4>5\" --k 2"
+                )
+            })?;
+            let k = args.k.ok_or_else(|| {
+                anyhow::anyhow!("MinimumCardinalityKey requires --k (bound on key cardinality)")
+            })?;
+            let deps_str = args.dependencies.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumCardinalityKey requires --dependencies (e.g., \"0,1>2;0,2>3\")"
+                )
+            })?;
+            let dependencies = parse_dependencies(deps_str)?;
+            (
+                ser(problemreductions::models::set::MinimumCardinalityKey::new(
+                    num_attributes,
+                    dependencies,
+                    k,
                 ))?,
                 resolved_variant.clone(),
             )
@@ -1845,6 +1877,40 @@ fn parse_sets(args: &CreateArgs) -> Result<Vec<Vec<usize>>> {
                         .map_err(|e| anyhow::anyhow!("Invalid set element: {}", e))
                 })
                 .collect()
+        })
+        .collect()
+}
+
+/// Parse `--dependencies` as semicolon-separated "lhs>rhs" pairs.
+/// E.g., "0,1>2;0,2>3;1,3>4;2,4>5" means {0,1}->{2}, {0,2}->{3}, etc.
+fn parse_dependencies(input: &str) -> Result<Vec<(Vec<usize>, Vec<usize>)>> {
+    input
+        .split(';')
+        .map(|dep| {
+            let parts: Vec<&str> = dep.trim().split('>').collect();
+            if parts.len() != 2 {
+                bail!(
+                    "Invalid dependency format: expected 'lhs>rhs', got '{}'",
+                    dep.trim()
+                );
+            }
+            let lhs: Vec<usize> = parts[0]
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid attribute index: {}", e))
+                })
+                .collect::<Result<_>>()?;
+            let rhs: Vec<usize> = parts[1]
+                .split(',')
+                .map(|s| {
+                    s.trim()
+                        .parse::<usize>()
+                        .map_err(|e| anyhow::anyhow!("Invalid attribute index: {}", e))
+                })
+                .collect::<Result<_>>()?;
+            Ok((lhs, rhs))
         })
         .collect()
 }
