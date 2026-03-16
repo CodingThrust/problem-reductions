@@ -722,12 +722,17 @@ fn verify_rule_fixtures_match_computed() {
             loaded_rule.solutions.len(),
             computed_rule.solutions.len(),
             "solution count mismatch for {} -> {} — regenerate fixtures",
+            loaded_rule.source.problem,
+            loaded_rule.target.problem
+        );
+        let label = format!(
+            "{} -> {}",
             loaded_rule.source.problem, loaded_rule.target.problem
         );
-        let label =
-            format!("{} -> {}", loaded_rule.source.problem, loaded_rule.target.problem);
-        for (loaded_pair, computed_pair) in
-            loaded_rule.solutions.iter().zip(computed_rule.solutions.iter())
+        for (loaded_pair, computed_pair) in loaded_rule
+            .solutions
+            .iter()
+            .zip(computed_rule.solutions.iter())
         {
             let loaded_target_problem = load_dyn(
                 &loaded_rule.target.problem,
@@ -735,10 +740,8 @@ fn verify_rule_fixtures_match_computed() {
                 loaded_rule.target.instance.clone(),
             )
             .unwrap_or_else(|e| panic!("{label}: load target: {e}"));
-            let loaded_energy =
-                loaded_target_problem.evaluate_dyn(&loaded_pair.target_config);
-            let computed_energy =
-                loaded_target_problem.evaluate_dyn(&computed_pair.target_config);
+            let loaded_energy = loaded_target_problem.evaluate_dyn(&loaded_pair.target_config);
+            let computed_energy = loaded_target_problem.evaluate_dyn(&computed_pair.target_config);
             assert_eq!(
                 loaded_energy, computed_energy,
                 "{label}: target energy mismatch — regenerate fixtures"

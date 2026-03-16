@@ -202,6 +202,7 @@ fn type_format_hint(type_name: &str, graph_type: Option<&str>) -> &'static str {
         "Vec<W>" => "comma-separated: 1,2,3",
         "Vec<CNFClause>" => "semicolon-separated clauses: \"1,2;-1,3\"",
         "Vec<Vec<W>>" => "semicolon-separated rows: \"1,0.5;0.5,2\"",
+        "Vec<u64>" => "comma-separated integers: 4,5,3,2,6",
         "usize" => "integer",
         "u64" => "integer",
         "i64" => "integer",
@@ -1116,7 +1117,6 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 resolved_variant.clone(),
             )
         }
-
         _ => bail!("{}", crate::problem_name::unknown_problem_error(canonical)),
     };
 

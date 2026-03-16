@@ -1,8 +1,9 @@
 //! Multiprocessor Scheduling problem implementation.
 //!
-//! Given `n` tasks with positive processing times, `m` identical processors, and
-//! a deadline `D`, determine whether all tasks can be assigned to processors so
-//! that every processor finishes by time `D`.
+//! Given a set of tasks with positive processing times, a number of identical
+//! processors, and a global deadline, determine whether the tasks can be
+//! partitioned among the processors so that every processor's total load is at
+//! most the deadline.
 
 use crate::registry::{FieldInfo, ProblemSchemaEntry};
 use crate::traits::{Problem, SatisfactionProblem};
@@ -42,7 +43,7 @@ inventory::submit! {
 ///
 /// ```
 /// use problemreductions::models::misc::MultiprocessorScheduling;
-/// use problemreductions::{BruteForce, Problem, Solver};
+/// use problemreductions::{BruteForce, Solver};
 ///
 /// let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
 /// let solver = BruteForce::new();
@@ -82,7 +83,7 @@ impl MultiprocessorScheduling {
         self.num_processors
     }
 
-    /// Returns the deadline.
+    /// Returns the global deadline.
     pub fn deadline(&self) -> u64 {
         self.deadline
     }
@@ -138,7 +139,10 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
         id: "multiprocessor_scheduling",
         build: || {
             let problem = MultiprocessorScheduling::new(vec![4, 5, 3, 2, 6], 2, 10);
-            crate::example_db::specs::satisfaction_example(problem, vec![vec![0, 1, 1, 1, 0]])
+            crate::example_db::specs::satisfaction_example(
+                problem,
+                vec![vec![0, 1, 1, 1, 0], vec![0, 0, 0, 0, 0]],
+            )
         },
     }]
 }

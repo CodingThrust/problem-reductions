@@ -1798,11 +1798,22 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
 ]
 
 #problem-def("MultiprocessorScheduling")[
-  Given task lengths $ell_0, dots, ell_(n-1) in ZZ^+$, a number $m in ZZ^+$ of identical processors, and a deadline $D in ZZ^+$, determine whether there exists an assignment $p : {0, dots, n - 1} -> {0, dots, m - 1}$ such that for every processor $j$, the total assigned load satisfies $sum_(i : p(i) = j) ell_i lt.eq D$.
+  Given task lengths $ell_1, ell_2, dots, ell_n in ZZ^+$, a positive integer $m$, and a deadline $D in ZZ^+$, determine whether the tasks can be assigned to $m$ identical processors so that the total assigned load on every processor is at most $D$.
 ][
-  Multiprocessor Scheduling is the classical decision version of identical-machine makespan minimization (Garey & Johnson A5 SS8) @garey1979. Garey and Johnson formulate the problem using start times $sigma(t)$, but for non-preemptive independent tasks on identical processors this is equivalent to the load-balancing formulation above: once tasks assigned to a processor have total load at most $D$, they can be executed back-to-back and still meet the deadline. The problem is NP-complete even for $m = 2$ by transformation from Partition @garey1979, and strongly NP-complete when $m$ is part of the input; the broader complexity landscape is surveyed by Brucker, Lenstra, and Rinnooy Kan @brucker1977. For fixed $m$, pseudo-polynomial dynamic programming runs in $O(n D^(m - 1))$ time. For general $m$, the best known exact algorithm runs in $O^*(2^n)$ via set partitioning @bjorklund2009.
+  Multiprocessor Scheduling is the classical decision problem SS8 in Garey and Johnson @garey1979. It generalizes Partition: when $m = 2$ and $D$ is half the total work, feasibility asks whether the jobs can be split into two equal-load groups. For fixed $m$, pseudo-polynomial dynamic programming gives $O(n D^(m - 1))$ time algorithms, while the case where $m$ is part of the input is strongly NP-complete; see the scheduling complexity survey of Brucker, Lenstra, and Rinnooy Kan @brucker1977. The brute-force formulation used by this project checks all $m^n$ task-to-processor assignments, and subset-based exact partitioning methods improve the general bound to $O^*(2^n)$ @bjorklund2009.
 
-  *Example.* Let task lengths be $(4, 5, 3, 2, 6)$, with $m = 2$ processors and deadline $D = 10$. Assign tasks $(4, 6)$ to processor 1 and $(5, 3, 2)$ to processor 2. Both processors receive total load $10$, so each can execute its assigned tasks sequentially and finish by the deadline. Therefore the instance is satisfiable.
+  Because the processors are identical and there are no precedence constraints, the usual start-time formulation is equivalent to a simpler load-balancing view: once a set of tasks is assigned to a processor, they can be executed back-to-back in any order. A configuration is therefore feasible exactly when every processor's total assigned load is at most $D$.
+
+  *Example.* Consider task lengths $(4, 5, 3, 2, 6)$, $m = 2$, and deadline $D = 10$. Assigning tasks $(t_1, t_5)$ to processor 1 and $(t_2, t_3, t_4)$ to processor 2 yields loads $4 + 6 = 10$ and $5 + 3 + 2 = 10$, so the instance is feasible.
+
+  #table(
+    columns: (auto, 1fr, auto),
+    inset: (x: 4pt, y: 3pt),
+    align: (left, left, center),
+    table.header([Processor], [Assigned tasks], [Load]),
+    [1], [$t_1, t_5$], [$10$],
+    [2], [$t_2, t_3, t_4$], [$10$],
+  )
 ]
 
 #{
