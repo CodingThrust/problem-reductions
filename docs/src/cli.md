@@ -309,6 +309,27 @@ The output file uses a standard wrapper format:
 }
 ```
 
+#### Example: Bounded Component Spanning Forest
+
+`BoundedComponentSpanningForest` uses one component label per vertex in the
+evaluation config. If the graph has `n` vertices and limit `k`, then
+`--config` expects `n` comma-separated integers in `0..k-1`.
+
+```bash
+pred create BoundedComponentSpanningForest \
+  --graph 0-1,1-2,2-3,3-4,4-5,5-6,6-7,0-7,1-5,2-6 \
+  --weights 2,3,1,2,3,1,2,1 \
+  --k 3 \
+  --bound 6 \
+  -o bcsf.json
+
+pred evaluate bcsf.json --config 0,0,1,1,1,2,2,0
+pred solve bcsf.json --solver brute-force
+```
+
+The brute-force solver is required here because this model does not yet have an
+ILP reduction path.
+
 ### `pred evaluate` — Evaluate a configuration
 
 Evaluate a configuration against a problem instance:
@@ -414,7 +435,8 @@ Source evaluation: Valid(2)
 ```
 
 > **Note:** The ILP solver requires a reduction path from the target problem to ILP.
-> Some problems (e.g., QUBO, SpinGlass, MaxCut, CircuitSAT) do not have this path yet.
+> Some problems (e.g., QUBO, SpinGlass, MaxCut, CircuitSAT,
+> BoundedComponentSpanningForest) do not have this path yet.
 > Use `--solver brute-force` for these, or reduce to a problem that supports ILP first.
 
 ## Shell Completions

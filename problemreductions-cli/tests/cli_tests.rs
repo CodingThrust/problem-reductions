@@ -1281,6 +1281,70 @@ fn test_create_bounded_component_spanning_forest_rejects_out_of_range_bound() {
 }
 
 #[test]
+fn test_create_bounded_component_spanning_forest_no_flags_shows_actual_cli_flags() {
+    let output = pred()
+        .args(["create", "BoundedComponentSpanningForest"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "should exit non-zero when showing help without data flags"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(
+        stderr.contains("--k"),
+        "expected '--k' in help output, got: {stderr}"
+    );
+    assert!(
+        stderr.contains("--bound"),
+        "expected '--bound' in help output, got: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--max-components"),
+        "help should not advertise nonexistent '--max-components' flag: {stderr}"
+    );
+    assert!(
+        !stderr.contains("--max-weight"),
+        "help should not advertise nonexistent '--max-weight' flag: {stderr}"
+    );
+}
+
+#[test]
+fn test_create_ola_rejects_negative_bound() {
+    let output = pred()
+        .args([
+            "create",
+            "OptimalLinearArrangement",
+            "--graph",
+            "0-1,1-2,2-3",
+            "--bound",
+            "-1",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "negative bound should be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+}
+
+#[test]
+fn test_create_scs_rejects_negative_bound() {
+    let output = pred()
+        .args(["create", "SCS", "--strings", "0,1,2;1,2,0", "--bound", "-1"])
+        .output()
+        .unwrap();
+    assert!(
+        !output.status.success(),
+        "negative bound should be rejected"
+    );
+    let stderr = String::from_utf8_lossy(&output.stderr);
+    assert!(stderr.contains("nonnegative --bound"), "stderr: {stderr}");
+}
+
+#[test]
 fn test_create_spinglass() {
     let output_file = std::env::temp_dir().join("pred_test_create_sg.json");
     let output = pred()

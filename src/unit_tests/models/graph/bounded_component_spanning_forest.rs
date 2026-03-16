@@ -2,6 +2,53 @@ use super::*;
 use crate::solvers::{BruteForce, Solver};
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
+use std::alloc::{GlobalAlloc, Layout, System};
+use std::cell::Cell;
+use std::sync::atomic::{AtomicUsize, Ordering};
+
+struct CountingAllocator;
+
+static ALLOCATION_COUNT: AtomicUsize = AtomicUsize::new(0);
+
+thread_local! {
+    static COUNT_ALLOCATIONS: Cell<bool> = const { Cell::new(false) };
+}
+
+#[global_allocator]
+static GLOBAL_ALLOCATOR: CountingAllocator = CountingAllocator;
+
+unsafe impl GlobalAlloc for CountingAllocator {
+    unsafe fn alloc(&self, layout: Layout) -> *mut u8 {
+        COUNT_ALLOCATIONS.with(|enabled| {
+            if enabled.get() {
+                ALLOCATION_COUNT.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        unsafe { System.alloc(layout) }
+    }
+
+    unsafe fn dealloc(&self, ptr: *mut u8, layout: Layout) {
+        unsafe { System.dealloc(ptr, layout) }
+    }
+
+    unsafe fn realloc(&self, ptr: *mut u8, layout: Layout, new_size: usize) -> *mut u8 {
+        COUNT_ALLOCATIONS.with(|enabled| {
+            if enabled.get() {
+                ALLOCATION_COUNT.fetch_add(1, Ordering::Relaxed);
+            }
+        });
+        unsafe { System.realloc(ptr, layout, new_size) }
+    }
+}
+
+fn count_allocations<T>(f: impl FnOnce() -> T) -> (T, usize) {
+    ALLOCATION_COUNT.store(0, Ordering::Relaxed);
+    COUNT_ALLOCATIONS.with(|enabled| enabled.set(true));
+    let result = f();
+    COUNT_ALLOCATIONS.with(|enabled| enabled.set(false));
+    let allocations = ALLOCATION_COUNT.swap(0, Ordering::Relaxed);
+    (result, allocations)
+}
 
 fn yes_instance() -> BoundedComponentSpanningForest<SimpleGraph, i32> {
     let graph = SimpleGraph::new(
@@ -70,6 +117,20 @@ fn test_bounded_component_spanning_forest_rejects_out_of_range_component() {
 fn test_bounded_component_spanning_forest_rejects_wrong_length() {
     let problem = yes_instance();
     assert!(!problem.evaluate(&[0, 0, 1]));
+}
+
+#[test]
+fn test_bounded_component_spanning_forest_evaluate_uses_fixed_allocation_budget() {
+    let problem = BoundedComponentSpanningForest::new(SimpleGraph::empty(16), vec![1; 16], 16, 1);
+    let config: Vec<usize> = (0..16).collect();
+
+    let (is_valid, allocations) = count_allocations(|| problem.evaluate(&config));
+
+    assert!(is_valid);
+    assert!(
+        allocations <= 6,
+        "expected evaluate to use only a fixed number of allocations, got {allocations}"
+    );
 }
 
 #[test]

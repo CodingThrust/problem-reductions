@@ -256,6 +256,31 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
     }
 }
 
+fn help_flag_name(canonical: &str, field_name: &str) -> String {
+    match (canonical, field_name) {
+        ("BoundedComponentSpanningForest", "max_components") => "k".to_string(),
+        ("BoundedComponentSpanningForest", "max_weight") => "bound".to_string(),
+        _ => field_name.replace('_', "-"),
+    }
+}
+
+fn help_flag_hint(
+    canonical: &str,
+    field_name: &str,
+    type_name: &str,
+    graph_type: Option<&str>,
+) -> &'static str {
+    match (canonical, field_name) {
+        ("BoundedComponentSpanningForest", "max_weight") => "integer",
+        _ => type_format_hint(type_name, graph_type),
+    }
+}
+
+fn parse_nonnegative_usize_bound(bound: i64, problem_name: &str, usage: &str) -> Result<usize> {
+    usize::try_from(bound)
+        .map_err(|_| anyhow::anyhow!("{problem_name} requires nonnegative --bound\n\n{usage}"))
+}
+
 fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
     let is_geometry = matches!(
         graph_type,
@@ -280,10 +305,10 @@ fn print_problem_help(canonical: &str, graph_type: Option<&str>) -> Result<()> {
                 let hint = type_format_hint(&field.type_name, graph_type);
                 eprintln!("  --{:<16} {} ({})", "arcs", field.description, hint);
             } else {
-                let hint = type_format_hint(&field.type_name, graph_type);
+                let hint = help_flag_hint(canonical, &field.name, &field.type_name, graph_type);
                 eprintln!(
                     "  --{:<16} {} ({})",
-                    field.name.replace('_', "-"),
+                    help_flag_name(canonical, &field.name),
                     field.description,
                     hint
                 );
@@ -912,17 +937,15 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
 
         // OptimalLinearArrangement — graph + bound
         "OptimalLinearArrangement" => {
-            let (graph, _) = parse_graph(args).map_err(|e| {
+            let usage = "Usage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3 --bound 5";
+            let (graph, _) = parse_graph(args).map_err(|e| anyhow::anyhow!("{e}\n\n{usage}"))?;
+            let bound_raw = args.bound.ok_or_else(|| {
                 anyhow::anyhow!(
-                    "{e}\n\nUsage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3 --bound 5"
+                    "OptimalLinearArrangement requires --bound (upper bound K on total edge length)\n\n{usage}"
                 )
             })?;
-            let bound = args.bound.ok_or_else(|| {
-                anyhow::anyhow!(
-                    "OptimalLinearArrangement requires --bound (upper bound K on total edge length)\n\n\
-                     Usage: pred create OptimalLinearArrangement --graph 0-1,1-2,2-3 --bound 5"
-                )
-            })? as usize;
+            let bound =
+                parse_nonnegative_usize_bound(bound_raw, "OptimalLinearArrangement", usage)?;
             (
                 ser(OptimalLinearArrangement::new(graph, bound))?,
                 resolved_variant.clone(),
@@ -1086,9 +1109,11 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             let strings_str = args.strings.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("ShortestCommonSupersequence requires --strings\n\n{usage}")
             })?;
-            let bound = args.bound.ok_or_else(|| {
+            let bound_raw = args.bound.ok_or_else(|| {
                 anyhow::anyhow!("ShortestCommonSupersequence requires --bound\n\n{usage}")
-            })? as usize;
+            })?;
+            let bound =
+                parse_nonnegative_usize_bound(bound_raw, "ShortestCommonSupersequence", usage)?;
             let strings: Vec<Vec<usize>> = strings_str
                 .split(';')
                 .map(|s| {
@@ -1780,9 +1805,11 @@ fn create_random(
             let graph = util::create_random_graph(num_vertices, edge_prob, args.seed);
             // Default bound: (n-1) * num_edges ensures satisfiability (max edge stretch is n-1)
             let n = graph.num_vertices();
+            let usage = "Usage: pred create OptimalLinearArrangement --random --num-vertices 5 [--edge-prob 0.5] [--seed 42] [--bound 10]";
             let bound = args
                 .bound
-                .map(|b| b as usize)
+                .map(|b| parse_nonnegative_usize_bound(b, "OptimalLinearArrangement", usage))
+                .transpose()?
                 .unwrap_or((n.saturating_sub(1)) * graph.num_edges());
             let variant = variant_map(&[("graph", "SimpleGraph")]);
             (ser(OptimalLinearArrangement::new(graph, bound))?, variant)

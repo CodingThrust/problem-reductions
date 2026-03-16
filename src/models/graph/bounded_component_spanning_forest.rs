@@ -115,32 +115,66 @@ impl<G: Graph, W: WeightElement> BoundedComponentSpanningForest<G, W> {
 
     /// Check if a configuration is a valid bounded-component partition.
     pub fn is_valid_solution(&self, config: &[usize]) -> bool {
-        if config.len() != self.graph.num_vertices() {
+        let num_vertices = self.graph.num_vertices();
+        if config.len() != num_vertices {
             return false;
         }
 
-        let mut component_vertices = vec![Vec::new(); self.max_components];
+        let mut component_weights = vec![W::Sum::zero(); self.max_components];
+        let mut component_sizes = vec![0usize; self.max_components];
+        let mut component_starts = vec![usize::MAX; self.max_components];
+        let mut used_components = Vec::with_capacity(self.max_components);
+
         for (vertex, &component) in config.iter().enumerate() {
             if component >= self.max_components {
                 return false;
             }
-            component_vertices[component].push(vertex);
+
+            if component_sizes[component] == 0 {
+                component_starts[component] = vertex;
+                used_components.push(component);
+            }
+
+            component_sizes[component] += 1;
+            component_weights[component] += self.weights[vertex].to_sum();
+            if component_weights[component] > self.max_weight {
+                return false;
+            }
         }
 
-        for vertices in component_vertices {
-            if vertices.is_empty() {
+        if used_components
+            .iter()
+            .all(|&component| component_sizes[component] <= 1)
+        {
+            return true;
+        }
+
+        let mut visited_marks = vec![0usize; num_vertices];
+        let mut queue = VecDeque::with_capacity(num_vertices);
+
+        for (mark, component) in used_components.into_iter().enumerate() {
+            let component_size = component_sizes[component];
+            if component_size <= 1 {
                 continue;
             }
 
-            let mut total_weight = W::Sum::zero();
-            for &vertex in &vertices {
-                total_weight += self.weights[vertex].to_sum();
-            }
-            if total_weight > self.max_weight {
-                return false;
+            let start = component_starts[component];
+            queue.clear();
+            queue.push_back(start);
+            visited_marks[start] = mark + 1;
+            let mut visited_count = 0usize;
+
+            while let Some(vertex) = queue.pop_front() {
+                visited_count += 1;
+                for neighbor in self.graph.neighbors(vertex) {
+                    if config[neighbor] == component && visited_marks[neighbor] != mark + 1 {
+                        visited_marks[neighbor] = mark + 1;
+                        queue.push_back(neighbor);
+                    }
+                }
             }
 
-            if !is_connected_component(&self.graph, &vertices) {
+            if visited_count != component_size {
                 return false;
             }
         }
@@ -177,34 +211,6 @@ where
 {
 }
 
-fn is_connected_component<G: Graph>(graph: &G, vertices: &[usize]) -> bool {
-    if vertices.len() <= 1 {
-        return true;
-    }
-
-    let mut in_component = vec![false; graph.num_vertices()];
-    for &vertex in vertices {
-        in_component[vertex] = true;
-    }
-
-    let mut visited = vec![false; graph.num_vertices()];
-    let mut queue = VecDeque::from([vertices[0]]);
-    visited[vertices[0]] = true;
-    let mut visited_count = 0usize;
-
-    while let Some(vertex) = queue.pop_front() {
-        visited_count += 1;
-        for neighbor in graph.neighbors(vertex) {
-            if in_component[neighbor] && !visited[neighbor] {
-                visited[neighbor] = true;
-                queue.push_back(neighbor);
-            }
-        }
-    }
-
-    visited_count == vertices.len()
-}
-
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
     vec![crate::example_db::specs::ModelExampleSpec {
@@ -236,7 +242,7 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
 }
 
 crate::declare_variants! {
-    default sat BoundedComponentSpanningForest<SimpleGraph, i32> => "max_components^num_vertices",
+    default sat BoundedComponentSpanningForest<SimpleGraph, i32> => "3^num_vertices",
 }
 
 #[cfg(test)]

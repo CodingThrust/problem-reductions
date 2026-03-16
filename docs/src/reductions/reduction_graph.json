@@ -40,7 +40,7 @@
       },
       "category": "graph",
       "doc_path": "models/graph/struct.BoundedComponentSpanningForest.html",
-      "complexity": "max_components^num_vertices"
+      "complexity": "3^num_vertices"
     },
     {
       "name": "CircuitSAT",
