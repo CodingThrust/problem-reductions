@@ -3551,6 +3551,43 @@ fn test_inspect_stdin() {
 }
 
 #[test]
+fn test_inspect_rejects_zero_length_sequencing_problem_from_stdin() {
+    let create_out = pred()
+        .args(["create", "--example", "SequencingToMinimizeWeightedCompletionTime"])
+        .output()
+        .unwrap();
+    assert!(
+        create_out.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&create_out.stderr)
+    );
+
+    let mut json: serde_json::Value = serde_json::from_slice(&create_out.stdout).unwrap();
+    json["data"]["lengths"][0] = serde_json::json!(0);
+    let invalid_json = serde_json::to_vec(&json).unwrap();
+
+    use std::io::Write;
+    let mut child = pred()
+        .args(["inspect", "-"])
+        .stdin(std::process::Stdio::piped())
+        .stdout(std::process::Stdio::piped())
+        .stderr(std::process::Stdio::piped())
+        .spawn()
+        .unwrap();
+    child
+        .stdin
+        .take()
+        .unwrap()
+        .write_all(&invalid_json)
+        .unwrap();
+    let result = child.wait_with_output().unwrap();
+
+    assert!(!result.status.success());
+    let stderr = String::from_utf8(result.stderr).unwrap();
+    assert!(stderr.contains("task lengths must be positive"), "{stderr}");
+}
+
+#[test]
 fn test_inspect_json_output() {
     let problem_file = std::env::temp_dir().join("pred_test_inspect_json_in.json");
     let result_file = std::env::temp_dir().join("pred_test_inspect_json_out.json");

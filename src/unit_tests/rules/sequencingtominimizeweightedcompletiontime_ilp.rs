@@ -126,6 +126,28 @@ fn test_reduction_panics_when_total_processing_time_exceeds_i32_domain() {
 }
 
 #[test]
+#[should_panic(expected = "weighted completion objective must fit exactly in f64")]
+fn test_reduction_panics_when_a_weight_exceeds_exact_f64_integer_range() {
+    let problem = SequencingToMinimizeWeightedCompletionTime::new(
+        vec![1],
+        vec![(1u64 << 53) + 1],
+        vec![],
+    );
+    let _: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+}
+
+#[test]
+#[should_panic(expected = "weighted completion objective must fit exactly in f64")]
+fn test_reduction_panics_when_weighted_completion_objective_exceeds_exact_f64_range() {
+    let problem = SequencingToMinimizeWeightedCompletionTime::new(
+        vec![1, 1],
+        vec![1 << 52, 1 << 52],
+        vec![],
+    );
+    let _: ReductionSTMWCTToILP = ReduceTo::<ILP<i32>>::reduce_to(&problem);
+}
+
+#[test]
 fn test_solve_reduced_matches_source_optimum() {
     let problem = SequencingToMinimizeWeightedCompletionTime::new(
         vec![2, 1, 3, 1, 2],

@@ -2163,7 +2163,7 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   let total-time = elapsed
   [
     #problem-def("SequencingToMinimizeWeightedCompletionTime")[
-      Given a set $T$ of $n$ tasks, a processing-time function $l: T -> ZZ^+$, a weight function $w: T -> ZZ^+$, and a partial order $prec.eq$ on $T$, find a one-machine schedule minimizing $sum_(t in T) w(t) C(t)$, where $C(t)$ is the completion time of task $t$ and every precedence relation $t_i prec.eq t_j$ must satisfy $C(t_i) < C(t_j)$.
+      Given a set $T$ of $n$ tasks, a processing-time function $l: T -> ZZ^+$, a weight function $w: T -> ZZ^+$, and a partial order $prec.eq$ on $T$, find a one-machine schedule minimizing $sum_(t in T) w(t) C(t)$, where $C(t)$ is the completion time of task $t$ and every precedence relation $t_i prec.eq t_j$ requires task $t_i$ to complete before task $t_j$ starts.
     ][
       Sequencing to Minimize Weighted Completion Time is the single-machine precedence-constrained scheduling problem catalogued as SS4 in Garey & Johnson @garey1979, usually written $1 | "prec" | sum w_j C_j$. Lawler showed that arbitrary precedence constraints make the problem NP-complete, while series-parallel precedence orders admit an $O(n log n)$ algorithm @lawler1978. Without precedence constraints, Smith's ratio rule orders jobs by non-increasing $w_j / l_j$ and is optimal @smith1956.
 

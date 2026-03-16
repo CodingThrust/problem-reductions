@@ -34,14 +34,52 @@ inventory::submit! {
 /// task `t`.
 ///
 /// Configurations use Lehmer code with `dims() = [n, n-1, ..., 1]`.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct SequencingToMinimizeWeightedCompletionTime {
     lengths: Vec<u64>,
     weights: Vec<u64>,
     precedences: Vec<(usize, usize)>,
 }
 
+#[derive(Deserialize)]
+struct SequencingToMinimizeWeightedCompletionTimeSerde {
+    lengths: Vec<u64>,
+    weights: Vec<u64>,
+    precedences: Vec<(usize, usize)>,
+}
+
 impl SequencingToMinimizeWeightedCompletionTime {
+    fn validate(
+        lengths: &[u64],
+        weights: &[u64],
+        precedences: &[(usize, usize)],
+    ) -> Result<(), String> {
+        if lengths.len() != weights.len() {
+            return Err("lengths length must equal weights length".to_string());
+        }
+        if lengths.contains(&0) {
+            return Err("task lengths must be positive".to_string());
+        }
+
+        let num_tasks = lengths.len();
+        for &(pred, succ) in precedences {
+            if pred >= num_tasks {
+                return Err(format!(
+                    "predecessor index {} out of range (num_tasks = {})",
+                    pred, num_tasks
+                ));
+            }
+            if succ >= num_tasks {
+                return Err(format!(
+                    "successor index {} out of range (num_tasks = {})",
+                    succ, num_tasks
+                ));
+            }
+        }
+
+        Ok(())
+    }
+
     /// Create a new sequencing instance.
     ///
     /// # Panics
@@ -49,31 +87,7 @@ impl SequencingToMinimizeWeightedCompletionTime {
     /// Panics if `lengths.len() != weights.len()` or if any precedence endpoint
     /// is out of range.
     pub fn new(lengths: Vec<u64>, weights: Vec<u64>, precedences: Vec<(usize, usize)>) -> Self {
-        assert_eq!(
-            lengths.len(),
-            weights.len(),
-            "lengths length must equal weights length"
-        );
-        assert!(
-            lengths.iter().all(|&length| length > 0),
-            "task lengths must be positive"
-        );
-
-        let num_tasks = lengths.len();
-        for &(pred, succ) in &precedences {
-            assert!(
-                pred < num_tasks,
-                "predecessor index {} out of range (num_tasks = {})",
-                pred,
-                num_tasks
-            );
-            assert!(
-                succ < num_tasks,
-                "successor index {} out of range (num_tasks = {})",
-                succ,
-                num_tasks
-            );
-        }
+        Self::validate(&lengths, &weights, &precedences).unwrap_or_else(|err| panic!("{err}"));
 
         Self {
             lengths,
@@ -162,6 +176,31 @@ impl SequencingToMinimizeWeightedCompletionTime {
             })
             .expect("weighted completion time overflowed u64");
         SolutionSize::Valid(total)
+    }
+}
+
+impl TryFrom<SequencingToMinimizeWeightedCompletionTimeSerde>
+    for SequencingToMinimizeWeightedCompletionTime
+{
+    type Error = String;
+
+    fn try_from(value: SequencingToMinimizeWeightedCompletionTimeSerde) -> Result<Self, Self::Error> {
+        Self::validate(&value.lengths, &value.weights, &value.precedences)?;
+        Ok(Self {
+            lengths: value.lengths,
+            weights: value.weights,
+            precedences: value.precedences,
+        })
+    }
+}
+
+impl<'de> Deserialize<'de> for SequencingToMinimizeWeightedCompletionTime {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        let value = SequencingToMinimizeWeightedCompletionTimeSerde::deserialize(deserializer)?;
+        Self::try_from(value).map_err(serde::de::Error::custom)
     }
 }
 
