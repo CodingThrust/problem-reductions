@@ -168,11 +168,7 @@ fn test_minimum_tardiness_sequencing_invalid_precedence() {
 #[test]
 fn test_minimum_tardiness_sequencing_cyclic_precedences() {
     // Cyclic precedences: 0 -> 1 -> 2 -> 0. No valid schedule exists.
-    let problem = MinimumTardinessSequencing::new(
-        3,
-        vec![3, 3, 3],
-        vec![(0, 1), (1, 2), (2, 0)],
-    );
+    let problem = MinimumTardinessSequencing::new(3, vec![3, 3, 3], vec![(0, 1), (1, 2), (2, 0)]);
     let solver = BruteForce::new();
     assert!(solver.find_best(&problem).is_none());
 }

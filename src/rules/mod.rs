@@ -34,6 +34,8 @@ pub(crate) mod sat_minimumdominatingset;
 mod spinglass_casts;
 pub(crate) mod spinglass_maxcut;
 pub(crate) mod spinglass_qubo;
+#[cfg(test)]
+pub(crate) mod test_helpers;
 mod traits;
 pub(crate) mod travelingsalesman_qubo;
 

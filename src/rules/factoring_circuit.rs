@@ -294,10 +294,11 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
             let source = Factoring::new(3, 3, 35);
             let reduction = ReduceTo::<CircuitSAT>::reduce_to(&source);
             let target = reduction.target_problem();
-            let source_solutions = BruteForce::new().find_all_best(&source);
             let var_names = target.variable_names();
-            let solutions = source_solutions
+            let solutions = BruteForce::new()
+                .find_all_best(&source)
                 .into_iter()
+                .min()
                 .map(|source_config| {
                     let mut inputs: HashMap<String, bool> = HashMap::new();
                     for (i, &bit) in source_config.iter().enumerate().take(source.m()) {
@@ -315,18 +316,13 @@ pub(crate) fn canonical_rule_example_specs() -> Vec<crate::example_db::specs::Ru
                         .iter()
                         .map(|name| usize::from(*values.get(name).unwrap_or(&false)))
                         .collect();
-                    SolutionPair {
+                    vec![SolutionPair {
                         source_config,
                         target_config,
-                    }
+                    }]
                 })
-                .collect();
-            crate::example_db::specs::assemble_rule_example(
-                &source,
-                target,
-                crate::example_db::specs::direct_overhead::<Factoring, CircuitSAT>(),
-                solutions,
-            )
+                .unwrap_or_default();
+            crate::example_db::specs::assemble_rule_example(&source, target, solutions)
         },
     }]
 }

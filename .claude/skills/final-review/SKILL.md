@@ -31,6 +31,7 @@ GitHub Project board IDs (for `gh project item-edit`):
 ### Step 0: Generate the Final-Review Report
 
 Step 0 should be a single report-generation step. Do not manually unpack board selection, PR metadata, merge prep, or deterministic checks with shell snippets.
+The expensive full-context call here is `python3 scripts/pipeline_skill_context.py final-review ...` (backed by `build_final_review_context()`). It is allowed exactly once per top-level `final-review` invocation. After it succeeds, reuse the packet for the rest of the review and do not rerun Step 0 just to fetch the same context in another format.
 
 ```bash
 REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
@@ -59,7 +60,7 @@ Branch from the report:
 - `Bundle status: ready` => continue normally (check warnings — a self-review warning means the reviewer is the PR author; flag it but do not block)
 - `Bundle status: ready-with-warnings` => continue only with the narrow warning fallback described in the report
 
-When you need to take actions later, use the identifiers already printed in the report (`Board item`, `PR`, URL). If you absolutely need raw structured data for a corner case, rerun the same command with `--format json`, but do not rebuild Step 0 manually.
+When you need to take actions later, use the identifiers already printed in the report (`Board item`, `PR`, URL). If you need structured data for a corner case, derive it from the existing packet whenever possible instead of rerunning Step 0.
 
 ### Step 1: Push the Merge with Main
 
@@ -184,6 +185,7 @@ Verify the PR includes all required components. Check:
 - [ ] Paper section in `docs/paper/reductions.typ` (`problem-def` entry)
 - [ ] `display-name` entry in paper
 - [ ] `trait_consistency.rs` entry in `src/unit_tests/trait_consistency.rs` (`test_all_problems_implement_trait_correctly`, plus `test_direction` for optimization)
+- [ ] Aliases: if provided, verify they are standard literature abbreviations (not made up); if empty, confirm no well-known abbreviation is missing; check no conflict with existing aliases
 
 **For [Rule] PRs:**
 - [ ] Reduction implementation (`src/rules/...`)
@@ -196,10 +198,10 @@ Verify the PR includes all required components. Check:
 
 **Paper-example consistency check (both Model and Rule PRs):**
 
-The paper example must use data from the generated JSON (`docs/paper/examples/generated/`), not hand-written data. To verify:
-1. Run `make examples` on the PR branch to regenerate `docs/paper/examples/generated/models.json` and `rules.json`.
-2. For **[Rule] PRs**: the paper's `reduction-rule` entry must call `load-example(source, target)` (defined in `reductions.typ`) to load the canonical example from `rules.json`, and derive all concrete values from the loaded data using Typst array operations — no hand-written instance data.
-3. For **[Model] PRs**: read the problem's entry in `models.json` and compare its `instance` field against the paper's `problem-def` example. The paper example must use the same instance (allowing 0-indexed JSON vs 1-indexed math notation). If they differ, flag: "Paper example does not match `example_db` canonical instance in `models.json`."
+The paper example must use data from the canonical fixture JSON (`src/example_db/fixtures/examples.json`), not hand-written data. To verify:
+1. If the PR changes example builders/specs, run `make regenerate-fixtures` on the PR branch.
+2. For **[Rule] PRs**: the paper's `reduction-rule` entry must call `load-example(source, target, ...)` (defined in `reductions.typ`) to load the canonical example from `examples.json`, and derive all concrete values from the loaded data using Typst array operations — no hand-written instance data.
+3. For **[Model] PRs**: read the problem's entry in `examples.json` under `models` and compare its `instance` field against the paper's `problem-def` example. The paper example must use the same instance (allowing 0-indexed JSON vs 1-indexed math notation). If they differ, flag: "Paper example does not match `example_db` canonical instance in `examples.json`."
 
 **Issue–test round-trip consistency check (both Model and Rule PRs):**
 

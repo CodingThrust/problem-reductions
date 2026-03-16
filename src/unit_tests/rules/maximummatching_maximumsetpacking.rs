@@ -1,4 +1,5 @@
 use super::*;
+use crate::rules::test_helpers::assert_optimization_round_trip_from_optimization_target;
 use crate::solvers::BruteForce;
 use crate::topology::SimpleGraph;
 use crate::traits::Problem;
@@ -169,15 +170,11 @@ fn test_jl_parity_matching_to_setpacking() {
         );
         let result = ReduceTo::<MaximumSetPacking<i32>>::reduce_to(&source);
         let solver = BruteForce::new();
-        let best_target = solver.find_all_best(result.target_problem());
         let best_source: HashSet<Vec<usize>> = solver.find_all_best(&source).into_iter().collect();
-        let extracted: HashSet<Vec<usize>> = best_target
-            .iter()
-            .map(|t| result.extract_solution(t))
-            .collect();
-        assert!(
-            extracted.is_subset(&best_source),
-            "Matching->SP [{label}]: extracted not subset"
+        assert_optimization_round_trip_from_optimization_target(
+            &source,
+            &result,
+            &format!("Matching->SP [{label}]"),
         );
         for case in data["cases"].as_array().unwrap() {
             assert_eq!(

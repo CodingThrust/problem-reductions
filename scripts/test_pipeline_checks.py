@@ -1,6 +1,8 @@
 #!/usr/bin/env python3
+import subprocess
 import tempfile
 import unittest
+from unittest import mock
 from pathlib import Path
 
 import pipeline_checks
@@ -16,6 +18,46 @@ from pipeline_checks import (
 
 
 class PipelineChecksTests(unittest.TestCase):
+    @mock.patch("pipeline_checks.run_gh_json")
+    def test_fetch_existing_prs_falls_back_to_rest_search_on_pr_list_failure(
+        self,
+        run_gh_json: mock.Mock,
+    ) -> None:
+        run_gh_json.side_effect = [
+            subprocess.CalledProcessError(1, ["gh", "pr", "list"]),
+            {
+                "items": [
+                    {
+                        "number": 223,
+                        "pull_request": {
+                            "url": "https://api.github.com/repos/CodingThrust/problem-reductions/pulls/223"
+                        },
+                    }
+                ]
+            },
+            {
+                "number": 223,
+                "head": {"ref": "issue-212-multiprocessor-scheduling"},
+                "html_url": "https://example.test/pull/223",
+            },
+        ]
+
+        prs = pipeline_checks.fetch_existing_prs(
+            "CodingThrust/problem-reductions",
+            212,
+        )
+
+        self.assertEqual(
+            prs,
+            [
+                {
+                    "number": 223,
+                    "headRefName": "issue-212-multiprocessor-scheduling",
+                    "url": "https://example.test/pull/223",
+                }
+            ],
+        )
+
     def test_detect_scope_reports_model_review_for_new_model_file(self) -> None:
         scope = detect_scope_from_paths(
             added_files=["src/models/graph/graph_partitioning.rs"],

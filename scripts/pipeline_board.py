@@ -7,6 +7,7 @@ import argparse
 import json
 import subprocess
 import sys
+import time
 from collections import Counter
 from datetime import datetime, timezone
 from pathlib import Path
@@ -70,8 +71,29 @@ def run_gh(*args: str) -> str:
     return subprocess.check_output(["gh", *args], text=True)
 
 
-def fetch_board_items(owner: str, project_number: int, limit: int) -> dict:
-    return json.loads(
+def fetch_board_items(
+    owner: str,
+    project_number: int,
+    limit: int,
+    *,
+    cache_file: Path | None = None,
+    cache_max_age: float = 120,
+) -> dict:
+    """Fetch project board items, optionally using a file cache.
+
+    When *cache_file* is set and the file exists and is younger than
+    *cache_max_age* seconds, the cached JSON is returned without an API call.
+    Otherwise the board is fetched from GitHub and written to the cache file.
+    """
+    if cache_file is not None:
+        try:
+            age = time.time() - cache_file.stat().st_mtime
+            if age < cache_max_age:
+                return json.loads(cache_file.read_text())
+        except (FileNotFoundError, json.JSONDecodeError):
+            pass
+
+    data = json.loads(
         run_gh(
             "project",
             "item-list",
@@ -84,6 +106,12 @@ def fetch_board_items(owner: str, project_number: int, limit: int) -> dict:
             str(limit),
         )
     )
+
+    if cache_file is not None:
+        cache_file.parent.mkdir(parents=True, exist_ok=True)
+        cache_file.write_text(json.dumps(data))
+
+    return data
 
 
 def fetch_pr_reviews(repo: str, pr_number: int) -> list[dict]:
@@ -122,6 +150,96 @@ def fetch_pr_info(repo: str, pr_number: int) -> dict:
     if not isinstance(data, dict):
         raise ValueError(f"Unexpected PR payload for #{pr_number}: {data!r}")
     return data
+
+
+def batch_fetch_prs_with_reviews(repo: str, pr_numbers: list[int]) -> dict[int, dict]:
+    """Fetch PR info + reviews for multiple PRs in a single GraphQL call.
+
+    Returns dict keyed by PR number with keys: number, state, title, url, reviews.
+    """
+    if not pr_numbers:
+        return {}
+
+    owner, name = repo.split("/", 1)
+
+    fragments = []
+    for n in pr_numbers:
+        fragments.append(
+            f"pr_{n}: pullRequest(number: {n}) {{"
+            f"  number state title url"
+            f"  reviews(last: 50) {{ nodes {{ author {{ login }} state }} }}"
+            f"}}"
+        )
+
+    query = (
+        f'query {{ repository(owner: "{owner}", name: "{name}") {{'
+        + " ".join(fragments)
+        + "}}"
+    )
+
+    raw = json.loads(run_gh("api", "graphql", "-f", f"query={query}"))
+    repo_data = raw.get("data", {}).get("repository", {})
+
+    result: dict[int, dict] = {}
+    for n in pr_numbers:
+        pr_data = repo_data.get(f"pr_{n}")
+        if pr_data is None:
+            continue
+        reviews_nodes = pr_data.get("reviews", {}).get("nodes", [])
+        result[n] = {
+            "number": pr_data["number"],
+            "state": pr_data["state"],
+            "title": pr_data.get("title", ""),
+            "url": pr_data.get("url", ""),
+            "reviews": reviews_nodes,
+        }
+    return result
+
+
+def batch_fetch_issues(repo: str, issue_numbers: list[int]) -> dict[int, dict]:
+    """Fetch issue metadata for multiple issues in a single GraphQL call.
+
+    Returns dict keyed by issue number with keys: number, title, body, state, url, labels, comments.
+    """
+    if not issue_numbers:
+        return {}
+
+    owner, name = repo.split("/", 1)
+
+    fragments = []
+    for n in issue_numbers:
+        fragments.append(
+            f"issue_{n}: issue(number: {n}) {{"
+            f"  number title body state url"
+            f"  labels(first: 20) {{ nodes {{ name }} }}"
+            f"  comments(first: 50) {{ nodes {{ body }} }}"
+            f"}}"
+        )
+
+    query = (
+        f'query {{ repository(owner: "{owner}", name: "{name}") {{'
+        + " ".join(fragments)
+        + "}}"
+    )
+
+    raw = json.loads(run_gh("api", "graphql", "-f", f"query={query}"))
+    repo_data = raw.get("data", {}).get("repository", {})
+
+    result: dict[int, dict] = {}
+    for n in issue_numbers:
+        issue_data = repo_data.get(f"issue_{n}")
+        if issue_data is None:
+            continue
+        result[n] = {
+            "number": issue_data["number"],
+            "title": issue_data.get("title", ""),
+            "body": issue_data.get("body", ""),
+            "state": issue_data.get("state", ""),
+            "url": issue_data.get("url", ""),
+            "labels": issue_data.get("labels", {}).get("nodes", []),
+            "comments": issue_data.get("comments", {}).get("nodes", []),
+        }
+    return result
 
 
 def resolve_issue_pr(repo: str, issue_number: int) -> int | None:
@@ -264,24 +382,35 @@ def ready_entries(board_data: dict) -> dict[str, dict]:
     return entries
 
 
-def status_items(board_data: dict, status_name: str) -> list[dict]:
+def status_items(
+    board_data: dict,
+    status_name: str,
+    *,
+    content_types: set[str] | None = None,
+) -> list[dict]:
+    if content_types is None:
+        content_types = {"Issue"}
     items = []
     for item in board_data.get("items", []):
         if item.get("status") != status_name:
             continue
 
         content = item.get("content") or {}
-        if content.get("type") != "Issue":
+        item_type = content.get("type")
+        if item_type not in content_types:
             continue
 
         number = content.get("number")
         if number is None:
             continue
 
+        issue_number = int(number) if item_type == "Issue" else None
+        pr_number = int(number) if item_type == "PullRequest" else None
         entry = build_entry(
             item,
             number=int(number),
-            issue_number=int(number),
+            issue_number=issue_number,
+            pr_number=pr_number,
         )
         entry["item_id"] = item_identity(item)
         items.append(entry)
@@ -352,7 +481,37 @@ def review_candidates(
     review_fetcher: Callable[[str, int], list[dict]],
     pr_resolver: Callable[[str, int], int | None] | None,
     pr_info_fetcher: Callable[[str, int], dict],
+    *,
+    batch_pr_fetcher: Callable[[str, list[int]], dict[int, dict]] | None = None,
 ) -> list[dict]:
+    # Pre-fetch all known PR numbers in one batch if batch fetcher is available
+    pr_cache: dict[int, dict] = {}
+    if batch_pr_fetcher is not None:
+        all_pr_numbers: list[int] = []
+        for item in board_data.get("items", []):
+            if item.get("status") != STATUS_REVIEW_POOL:
+                continue
+            content = item.get("content") or {}
+            number = content.get("number")
+            if number is None:
+                continue
+            if content.get("type") == "PullRequest":
+                all_pr_numbers.append(int(number))
+            else:
+                all_pr_numbers.extend(linked_pr_numbers(item, repo))
+        if all_pr_numbers:
+            pr_cache = batch_pr_fetcher(repo, all_pr_numbers)
+
+    def _get_pr_info(pr_num: int) -> dict:
+        if pr_num in pr_cache:
+            return pr_cache[pr_num]
+        return pr_info_fetcher(repo, pr_num)
+
+    def _get_reviews(pr_num: int) -> list[dict]:
+        if pr_num in pr_cache:
+            return pr_cache[pr_num].get("reviews", [])
+        return review_fetcher(repo, pr_num)
+
     candidates = []
     for item in board_data.get("items", []):
         if item.get("status") != STATUS_REVIEW_POOL:
@@ -370,7 +529,7 @@ def review_candidates(
 
         if item_type == "PullRequest":
             pr_number = int(number)
-            pr_info = pr_info_fetcher(repo, pr_number)
+            pr_info = _get_pr_info(pr_number)
             state = pr_info.get("state")
             base_entry.update({"number": pr_number, "pr_number": pr_number})
             if state != "OPEN":
@@ -383,7 +542,7 @@ def review_candidates(
                 candidates.append(base_entry)
                 continue
 
-            reviews = review_fetcher(repo, pr_number)
+            reviews = _get_reviews(pr_number)
             if has_copilot_review(reviews):
                 base_entry.update({"eligibility": "eligible", "reason": "copilot reviewed"})
             else:
@@ -402,7 +561,7 @@ def review_candidates(
         base_entry["issue_number"] = issue_number
         linked_numbers = linked_pr_numbers(item, repo)
         if len(linked_numbers) > 1:
-            linked_infos = [pr_info_fetcher(repo, pr_number) for pr_number in linked_numbers]
+            linked_infos = [_get_pr_info(pr_number) for pr_number in linked_numbers]
             open_numbers = [
                 int(info["number"])
                 for info in linked_infos
@@ -431,7 +590,7 @@ def review_candidates(
 
         if len(linked_numbers) == 1:
             pr_number = linked_numbers[0]
-            pr_info = pr_info_fetcher(repo, pr_number)
+            pr_info = _get_pr_info(pr_number)
             state = pr_info.get("state")
             base_entry.update({"number": pr_number, "pr_number": pr_number})
             if state != "OPEN":
@@ -460,7 +619,7 @@ def review_candidates(
                 continue
             base_entry.update({"number": pr_number, "pr_number": pr_number})
 
-        reviews = review_fetcher(repo, pr_number)
+        reviews = _get_reviews(pr_number)
         if has_copilot_review(reviews):
             base_entry.update({"eligibility": "eligible", "reason": "copilot reviewed"})
         else:
@@ -599,26 +758,13 @@ def process_snapshot(
     return str(next_entry["item_id"]), int(next_entry["number"])
 
 
-def select_next_entry(
-    mode: str,
-    board_data: dict,
+def select_entry_from_entries(
+    current_visible: dict[str, dict],
     state_file: Path,
-    repo: str | None = None,
-    review_fetcher: Callable[[str, int], list[dict]] | None = None,
-    pr_resolver: Callable[[str, int], int | None] | None = None,
-    pr_state_fetcher: Callable[[str, int], str] | None = None,
     target_number: int | None = None,
 ) -> dict | None:
     state = load_state(state_file)
     previous_visible = state["visible"]
-    current_visible = current_entries(
-        mode,
-        board_data,
-        repo,
-        review_fetcher,
-        pr_resolver,
-        pr_state_fetcher,
-    )
 
     pending = [item_id for item_id in state["pending"] if item_id in current_visible]
     entered = sorted(
@@ -655,6 +801,31 @@ def select_next_entry(
     entry = dict(current_visible[item_id])
     entry["item_id"] = item_id
     return entry
+
+
+def select_next_entry(
+    mode: str,
+    board_data: dict,
+    state_file: Path,
+    repo: str | None = None,
+    review_fetcher: Callable[[str, int], list[dict]] | None = None,
+    pr_resolver: Callable[[str, int], int | None] | None = None,
+    pr_state_fetcher: Callable[[str, int], str] | None = None,
+    target_number: int | None = None,
+) -> dict | None:
+    current_visible = current_entries(
+        mode,
+        board_data,
+        repo,
+        review_fetcher,
+        pr_resolver,
+        pr_state_fetcher,
+    )
+    return select_entry_from_entries(
+        current_visible,
+        state_file,
+        target_number=target_number,
+    )
 
 
 def ack_item(state_file: Path, item_id: str) -> None:
@@ -851,25 +1022,16 @@ def claimed_status_for_mode(mode: str) -> str:
     raise ValueError(f"Unsupported claim-next mode: {mode}")
 
 
-def claim_next_entry(
+def claim_entry_from_entries(
     mode: str,
-    board_data: dict,
+    current_visible: dict[str, dict],
     state_file: Path,
-    repo: str | None = None,
-    review_fetcher: Callable[[str, int], list[dict]] | None = None,
-    pr_resolver: Callable[[str, int], int | None] | None = None,
-    pr_state_fetcher: Callable[[str, int], str] | None = None,
     target_number: int | None = None,
     mover: Callable[[str, str], None] | None = None,
 ) -> dict | None:
-    next_entry = select_next_entry(
-        mode,
-        board_data,
+    next_entry = select_entry_from_entries(
+        current_visible,
         state_file,
-        repo=repo,
-        review_fetcher=review_fetcher,
-        pr_resolver=pr_resolver,
-        pr_state_fetcher=pr_state_fetcher,
         target_number=target_number,
     )
     if next_entry is None:
@@ -883,6 +1045,57 @@ def claim_next_entry(
         "claimed": True,
         "claimed_status": claimed_status,
     }
+
+
+def claim_next_entry(
+    mode: str,
+    board_data: dict,
+    state_file: Path,
+    repo: str | None = None,
+    review_fetcher: Callable[[str, int], list[dict]] | None = None,
+    pr_resolver: Callable[[str, int], int | None] | None = None,
+    pr_state_fetcher: Callable[[str, int], str] | None = None,
+    target_number: int | None = None,
+    mover: Callable[[str, str], None] | None = None,
+) -> dict | None:
+    current_visible = current_entries(
+        mode,
+        board_data,
+        repo=repo,
+        review_fetcher=review_fetcher,
+        pr_resolver=pr_resolver,
+        pr_state_fetcher=pr_state_fetcher,
+    )
+    return claim_entry_from_entries(
+        mode,
+        current_visible,
+        state_file,
+        target_number=target_number,
+        mover=mover,
+    )
+
+
+def eligible_review_candidate_entries(candidates: list[dict]) -> dict[str, dict]:
+    entries: dict[str, dict] = {}
+    for candidate in candidates:
+        if candidate.get("eligibility") != "eligible":
+            continue
+
+        item_id = candidate.get("item_id")
+        number = candidate.get("pr_number") or candidate.get("number")
+        if item_id is None or number is None:
+            continue
+
+        issue_number = candidate.get("issue_number")
+        pr_number = candidate.get("pr_number")
+        entries[str(item_id)] = {
+            "number": int(number),
+            "issue_number": int(issue_number) if issue_number is not None else None,
+            "pr_number": int(pr_number) if pr_number is not None else int(number),
+            "status": candidate.get("status"),
+            "title": candidate.get("title"),
+        }
+    return entries
 
 
 def move_item(
@@ -999,6 +1212,7 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     next_parser.add_argument("--limit", type=int, default=500)
     next_parser.add_argument("--number", type=int)
     next_parser.add_argument("--format", choices=["text", "json"], default="text")
+    next_parser.add_argument("--board-cache", type=Path, default=None)
 
     claim_parser = subparsers.add_parser("claim-next")
     claim_parser.add_argument("mode", choices=["ready", "review"])
@@ -1011,18 +1225,23 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     claim_parser.add_argument("--format", choices=["text", "json"], default="json")
     claim_parser.add_argument("--project-id", default=PROJECT_ID)
     claim_parser.add_argument("--field-id", default=STATUS_FIELD_ID)
+    claim_parser.add_argument("--board-cache", type=Path, default=None)
 
     ack_parser = subparsers.add_parser("ack")
     ack_parser.add_argument("state_file", type=Path)
     ack_parser.add_argument("item_id")
 
     list_parser = subparsers.add_parser("list")
-    list_parser.add_argument("mode", choices=["ready", "in-progress", "review"])
+    list_parser.add_argument(
+        "mode",
+        choices=["ready", "in-progress", "review-pool", "review", "final-review"],
+    )
     list_parser.add_argument("--repo")
     list_parser.add_argument("--owner", default="CodingThrust")
     list_parser.add_argument("--project-number", type=int, default=8)
     list_parser.add_argument("--limit", type=int, default=500)
     list_parser.add_argument("--format", choices=["text", "json"], default="text")
+    list_parser.add_argument("--board-cache", type=Path, default=None)
 
     move_parser = subparsers.add_parser("move")
     move_parser.add_argument("item_id")
@@ -1052,34 +1271,65 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "claim-next":
         if args.mode == "review" and not args.repo:
             raise SystemExit("--repo is required in claim-next review mode")
-        board_data = fetch_board_items(args.owner, args.project_number, args.limit)
-        claim_result = claim_next_entry(
-            args.mode,
-            board_data,
-            args.state_file,
-            repo=args.repo,
-            review_fetcher=fetch_pr_reviews,
-            pr_resolver=resolve_issue_pr,
-            pr_state_fetcher=fetch_pr_state,
-            target_number=args.number,
-            mover=lambda item_id, status: move_item(
-                item_id,
-                status,
-                project_id=args.project_id,
-                field_id=args.field_id,
-            ),
-        )
+        board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache)
+        if args.mode == "review":
+            review_entries_map = eligible_review_candidate_entries(
+                review_candidates(
+                    board_data,
+                    args.repo,
+                    fetch_pr_reviews,
+                    resolve_issue_pr,
+                    fetch_pr_info,
+                    batch_pr_fetcher=batch_fetch_prs_with_reviews,
+                )
+            )
+            claim_result = claim_entry_from_entries(
+                args.mode,
+                review_entries_map,
+                args.state_file,
+                target_number=args.number,
+                mover=lambda item_id, status: move_item(
+                    item_id,
+                    status,
+                    project_id=args.project_id,
+                    field_id=args.field_id,
+                ),
+            )
+        else:
+            claim_result = claim_next_entry(
+                args.mode,
+                board_data,
+                args.state_file,
+                repo=args.repo,
+                review_fetcher=fetch_pr_reviews,
+                pr_resolver=resolve_issue_pr,
+                pr_state_fetcher=fetch_pr_state,
+                target_number=args.number,
+                mover=lambda item_id, status: move_item(
+                    item_id,
+                    status,
+                    project_id=args.project_id,
+                    field_id=args.field_id,
+                ),
+            )
         return print_claim_result(claim_result, mode=args.mode, fmt=args.format)
 
     if args.command == "list":
         if args.mode == "review" and not args.repo:
             raise SystemExit("--repo is required in list review mode")
-        board_data = fetch_board_items(args.owner, args.project_number, args.limit)
+        board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache)
         if args.mode == "ready":
             items = status_items(board_data, STATUS_READY)
             return print_candidate_list(args.mode, items, fmt=args.format)
         if args.mode == "in-progress":
             items = status_items(board_data, STATUS_IN_PROGRESS)
+            return print_candidate_list(args.mode, items, fmt=args.format)
+        if args.mode == "review-pool":
+            items = status_items(
+                board_data,
+                STATUS_REVIEW_POOL,
+                content_types={"Issue", "PullRequest"},
+            )
             return print_candidate_list(args.mode, items, fmt=args.format)
         if args.mode == "review":
             items = review_candidates(
@@ -1088,6 +1338,14 @@ def main(argv: list[str] | None = None) -> int:
                 fetch_pr_reviews,
                 resolve_issue_pr,
                 fetch_pr_info,
+                batch_pr_fetcher=batch_fetch_prs_with_reviews,
+            )
+            return print_candidate_list(args.mode, items, fmt=args.format)
+        if args.mode == "final-review":
+            items = status_items(
+                board_data,
+                STATUS_FINAL_REVIEW,
+                content_types={"Issue", "PullRequest"},
             )
             return print_candidate_list(args.mode, items, fmt=args.format)
         raise SystemExit(f"Unsupported list mode: {args.mode}")
@@ -1095,17 +1353,34 @@ def main(argv: list[str] | None = None) -> int:
     if args.mode in {"review", "final-review"} and not args.repo:
         raise SystemExit(f"--repo is required in {args.mode} mode")
 
-    board_data = fetch_board_items(args.owner, args.project_number, args.limit)
-    next_item = select_next_entry(
-        args.mode,
-        board_data,
-        args.state_file,
-        repo=args.repo,
-        review_fetcher=fetch_pr_reviews,
-        pr_resolver=resolve_issue_pr,
-        pr_state_fetcher=fetch_pr_state,
-        target_number=args.number,
-    )
+    board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache)
+    if args.mode == "review":
+        review_entries_map = eligible_review_candidate_entries(
+            review_candidates(
+                board_data,
+                args.repo,
+                fetch_pr_reviews,
+                resolve_issue_pr,
+                fetch_pr_info,
+                batch_pr_fetcher=batch_fetch_prs_with_reviews,
+            )
+        )
+        next_item = select_entry_from_entries(
+            review_entries_map,
+            args.state_file,
+            target_number=args.number,
+        )
+    else:
+        next_item = select_next_entry(
+            args.mode,
+            board_data,
+            args.state_file,
+            repo=args.repo,
+            review_fetcher=fetch_pr_reviews,
+            pr_resolver=resolve_issue_pr,
+            pr_state_fetcher=fetch_pr_state,
+            target_number=args.number,
+        )
     return print_next_item(next_item, mode=args.mode, fmt=args.format)
 
 
