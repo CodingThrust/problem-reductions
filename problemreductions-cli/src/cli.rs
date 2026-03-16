@@ -243,6 +243,7 @@ Flags by problem type:
   OptimalLinearArrangement        --graph, --bound
   RuralPostman (RPP)              --graph, --edge-weights, --required-edges, --bound
   MultipleChoiceBranching         --arcs [--weights] --partition --bound [--num-vertices]
+  AdditionalKey                   --num-attributes, --dependencies, --relation-attrs, --known-keys
   SubgraphIsomorphism             --graph (host), --pattern (pattern)
   LCS                             --strings
   FAS                             --arcs [--weights] [--num-vertices]
@@ -456,6 +457,18 @@ pub struct CreateArgs {
     /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+    /// Number of attributes for AdditionalKey
+    #[arg(long)]
+    pub num_attributes: Option<usize>,
+    /// Functional dependencies for AdditionalKey (e.g., "0,1:2,3;2,3:4,5")
+    #[arg(long)]
+    pub dependencies: Option<String>,
+    /// Relation scheme attributes for AdditionalKey (comma-separated, e.g., "0,1,2,3,4,5")
+    #[arg(long)]
+    pub relation_attrs: Option<String>,
+    /// Known candidate keys for AdditionalKey (e.g., "0,1;2,3")
+    #[arg(long)]
+    pub known_keys: Option<String>,
 }
 
 #[derive(clap::Args)]

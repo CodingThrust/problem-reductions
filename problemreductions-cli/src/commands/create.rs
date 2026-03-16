@@ -13,8 +13,9 @@ use problemreductions::models::graph::{
     SteinerTree,
 };
 use problemreductions::models::misc::{
-    BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
+    AdditionalKey, BinPacking, FlowShopScheduling, LongestCommonSubsequence,
+    MinimumTardinessSequencing, PaintShop, SequencingWithinIntervals,
+    ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -90,6 +91,10 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.sink_2.is_none()
         && args.requirement_1.is_none()
         && args.requirement_2.is_none()
+        && args.num_attributes.is_none()
+        && args.dependencies.is_none()
+        && args.relation_attrs.is_none()
+        && args.known_keys.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -292,6 +297,7 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "MultipleChoiceBranching" => {
             "--arcs \"0>1,0>2,1>3,2>3,1>4,3>5,4>5,2>4\" --weights 3,2,4,1,2,3,1,3 --partition \"0,1;2,3;4,7;5,6\" --bound 10"
         }
+        "AdditionalKey" => "--num-attributes 6 --dependencies \"0,1:2,3;2,3:4,5;4,5:0,1\" --relation-attrs 0,1,2,3,4,5 --known-keys \"0,1;2,3;4,5\"",
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "SetBasis" => "--universe 4 --sets \"0,1;1,2;0,2;0,1,2\" --k 3",
@@ -930,6 +936,57 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     resolved_variant.clone(),
                 )
             }
+        }
+
+        // AdditionalKey
+        "AdditionalKey" => {
+            let usage = "Usage: pred create AdditionalKey --num-attributes 6 --dependencies \"0,1:2,3;2,3:4,5\" --relation-attrs \"0,1,2,3,4,5\" --known-keys \"0,1;2,3\"";
+            let num_attributes = args.num_attributes.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "AdditionalKey requires --num-attributes\n\n{usage}"
+                )
+            })?;
+            let deps_str = args.dependencies.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "AdditionalKey requires --dependencies\n\n{usage}"
+                )
+            })?;
+            let ra_str = args.relation_attrs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "AdditionalKey requires --relation-attrs\n\n{usage}"
+                )
+            })?;
+            let dependencies: Vec<(Vec<usize>, Vec<usize>)> = deps_str
+                .split(';')
+                .map(|dep| {
+                    let parts: Vec<&str> = dep.trim().split(':').collect();
+                    anyhow::ensure!(
+                        parts.len() == 2,
+                        "Invalid dependency format '{}', expected 'lhs:rhs' (e.g., '0,1:2,3')",
+                        dep.trim()
+                    );
+                    let lhs: Vec<usize> = util::parse_comma_list(parts[0].trim())?;
+                    let rhs: Vec<usize> = util::parse_comma_list(parts[1].trim())?;
+                    Ok((lhs, rhs))
+                })
+                .collect::<Result<Vec<_>>>()?;
+            let relation_attrs: Vec<usize> = util::parse_comma_list(ra_str)?;
+            let known_keys: Vec<Vec<usize>> = match args.known_keys.as_deref() {
+                Some(s) if !s.is_empty() => s
+                    .split(';')
+                    .map(|k| util::parse_comma_list(k.trim()))
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            (
+                ser(AdditionalKey::new(
+                    num_attributes,
+                    dependencies,
+                    relation_attrs,
+                    known_keys,
+                ))?,
+                resolved_variant.clone(),
+            )
         }
 
         // SubsetSum

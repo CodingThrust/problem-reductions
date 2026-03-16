@@ -1,6 +1,7 @@
 //! Miscellaneous problems.
 //!
 //! Problems with unique input structures that don't fit other categories:
+//! - [`AdditionalKey`]: Determine whether a relational schema has an additional candidate key
 //! - [`BinPacking`]: Bin Packing (minimize bins)
 //! - [`Factoring`]: Integer factorization
 //! - [`FlowShopScheduling`]: Flow Shop Scheduling (meet deadline on m processors)
@@ -12,6 +13,7 @@
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
 //! - [`SubsetSum`]: Find a subset summing to exactly a target value
 
+pub(crate) mod additional_key;
 mod bin_packing;
 pub(crate) mod factoring;
 mod flow_shop_scheduling;
@@ -23,6 +25,7 @@ mod sequencing_within_intervals;
 pub(crate) mod shortest_common_supersequence;
 mod subset_sum;
 
+pub use additional_key::AdditionalKey;
 pub use bin_packing::BinPacking;
 pub use factoring::Factoring;
 pub use flow_shop_scheduling::FlowShopScheduling;
@@ -42,5 +45,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(sequencing_within_intervals::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
     specs.extend(minimum_tardiness_sequencing::canonical_model_example_specs());
+    specs.extend(additional_key::canonical_model_example_specs());
     specs
 }
