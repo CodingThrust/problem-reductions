@@ -201,14 +201,18 @@ def checkout_pr_worktree(
         "--repo",
         repo,
         "--json",
-        "headRefName,headRefOid,baseRefOid",
+        "headRefName,headRefOid,baseRefName",
     )
+
+    # baseRefOid is not available via gh pr view --json; resolve it locally
+    run_git_checked(repo_root, "fetch", "origin", pr_data["baseRefName"])
+    base_sha = run_git(repo_root, "rev-parse", f"origin/{pr_data['baseRefName']}").strip()
 
     plan = plan_pr_worktree(
         repo_root,
         pr_number=pr_number,
         head_ref_name=pr_data["headRefName"],
-        base_sha=pr_data["baseRefOid"],
+        base_sha=base_sha,
         head_sha=pr_data["headRefOid"],
     )
 

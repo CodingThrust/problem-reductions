@@ -9,7 +9,7 @@
 //! matched source position per `(r, p)`, character consistency, and strictly
 //! increasing matched positions within each source string.
 
-use crate::models::algebraic::{ILP, LinearConstraint, ObjectiveSense};
+use crate::models::algebraic::{LinearConstraint, ObjectiveSense, ILP};
 use crate::models::misc::LongestCommonSubsequence;
 use crate::reduction;
 use crate::rules::traits::{ReduceTo, ReductionResult};

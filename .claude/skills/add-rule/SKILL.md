@@ -170,8 +170,8 @@ Checklist: notation self-contained, complexity cited, overhead consistent, examp
 ## Step 6: Regenerate exports and verify
 
 ```bash
-cargo run --example export_graph    # Update reduction_graph.json
-cargo run --example export_schemas  # Update problem schemas
+cargo run --example export_graph    # Generate reduction_graph.json for docs/paper builds
+cargo run --example export_schemas  # Generate problem schemas for docs/paper builds
 make test clippy                    # Must pass
 ```
 

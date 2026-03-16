@@ -40,6 +40,8 @@ fn test_lcs_basic() {
     assert_eq!(problem.bound(), 3);
     assert_eq!(problem.total_length(), 36);
     assert_eq!(problem.sum_squared_lengths(), 216);
+    assert_eq!(problem.sum_triangular_lengths(), 126);
+    assert_eq!(problem.num_transitions(), 2);
     assert_eq!(problem.dims(), vec![2; 3]);
     assert_eq!(
         <LongestCommonSubsequence as Problem>::NAME,
@@ -104,6 +106,8 @@ fn test_lcs_find_all_satisfying_contains_issue_witness() {
 fn test_lcs_empty_bound() {
     let problem = LongestCommonSubsequence::new(1, vec![vec![0, 0, 0], vec![0, 0]], 0);
     assert_eq!(problem.dims(), Vec::<usize>::new());
+    assert_eq!(problem.sum_triangular_lengths(), 9);
+    assert_eq!(problem.num_transitions(), 0);
     assert!(problem.evaluate(&[]));
 }
 

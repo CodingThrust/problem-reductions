@@ -31,8 +31,11 @@ fn test_lcs_to_ilp_no_instance() {
 
 #[test]
 fn test_lcs_to_ilp_closed_loop_three_strings() {
-    let problem =
-        LongestCommonSubsequence::new(2, vec![vec![0, 1, 0], vec![1, 0, 1, 0], vec![0, 0, 1, 0]], 2);
+    let problem = LongestCommonSubsequence::new(
+        2,
+        vec![vec![0, 1, 0], vec![1, 0, 1, 0], vec![0, 0, 1, 0]],
+        2,
+    );
 
     let reduction: ReductionLCSToILP = ReduceTo::<ILP<bool>>::reduce_to(&problem);
     let ilp = reduction.target_problem();
