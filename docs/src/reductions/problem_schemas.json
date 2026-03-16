@@ -690,6 +690,27 @@
     ]
   },
   {
+    "name": "SumOfSquaresPartition",
+    "description": "Partition positive integers into K groups minimizing sum of squared group sums, subject to bound J",
+    "fields": [
+      {
+        "name": "sizes",
+        "type_name": "Vec<i64>",
+        "description": "Positive integer size s(a) for each element a in A"
+      },
+      {
+        "name": "num_groups",
+        "type_name": "usize",
+        "description": "Number of groups K in the partition"
+      },
+      {
+        "name": "bound",
+        "type_name": "i64",
+        "description": "Upper bound J on the sum of squared group sums"
+      }
+    ]
+  },
+  {
     "name": "TravelingSalesman",
     "description": "Find minimum weight Hamiltonian cycle in a graph (Traveling Salesman Problem)",
     "fields": [

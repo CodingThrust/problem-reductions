@@ -227,6 +227,7 @@ Flags by problem type:
   Factoring                       --target, --m, --n
   BinPacking                      --sizes, --capacity
   SubsetSum                       --sizes, --target
+  SumOfSquaresPartition           --sizes, --num-groups, --bound
   PaintShop                       --sequence
   MaximumSetPacking               --sets [--weights]
   MinimumSetCovering              --universe, --sets [--weights]
@@ -407,6 +408,9 @@ pub struct CreateArgs {
     /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+    /// Number of groups for SumOfSquaresPartition
+    #[arg(long)]
+    pub num_groups: Option<usize>,
 }
 
 #[derive(clap::Args)]

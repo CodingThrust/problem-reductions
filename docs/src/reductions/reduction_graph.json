@@ -526,6 +526,13 @@
       "complexity": "2^(num_elements / 2)"
     },
     {
+      "name": "SumOfSquaresPartition",
+      "variant": {},
+      "category": "misc",
+      "doc_path": "models/misc/struct.SumOfSquaresPartition.html",
+      "complexity": "num_groups^num_elements"
+    },
+    {
       "name": "TravelingSalesman",
       "variant": {
         "graph": "SimpleGraph",
@@ -1361,7 +1368,7 @@
       "doc_path": "rules/spinglass_casts/index.html"
     },
     {
-      "source": 59,
+      "source": 60,
       "target": 12,
       "overhead": [
         {
@@ -1376,7 +1383,7 @@
       "doc_path": "rules/travelingsalesman_ilp/index.html"
     },
     {
-      "source": 59,
+      "source": 60,
       "target": 49,
       "overhead": [
         {

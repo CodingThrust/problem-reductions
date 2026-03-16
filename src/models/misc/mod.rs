@@ -10,6 +10,7 @@
 //! - [`PaintShop`]: Minimize color switches in paint shop scheduling
 //! - [`ShortestCommonSupersequence`]: Find a common supersequence of bounded length
 //! - [`SubsetSum`]: Find a subset summing to exactly a target value
+//! - [`SumOfSquaresPartition`]: Partition integers into K groups minimizing sum of squared group sums
 
 mod bin_packing;
 pub(crate) mod factoring;
@@ -20,6 +21,7 @@ mod minimum_tardiness_sequencing;
 pub(crate) mod paintshop;
 pub(crate) mod shortest_common_supersequence;
 mod subset_sum;
+pub(crate) mod sum_of_squares_partition;
 
 pub use bin_packing::BinPacking;
 pub use factoring::Factoring;
@@ -30,6 +32,7 @@ pub use minimum_tardiness_sequencing::MinimumTardinessSequencing;
 pub use paintshop::PaintShop;
 pub use shortest_common_supersequence::ShortestCommonSupersequence;
 pub use subset_sum::SubsetSum;
+pub use sum_of_squares_partition::SumOfSquaresPartition;
 
 #[cfg(feature = "example-db")]
 pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::ModelExampleSpec> {
@@ -38,5 +41,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(paintshop::canonical_model_example_specs());
     specs.extend(shortest_common_supersequence::canonical_model_example_specs());
     specs.extend(minimum_tardiness_sequencing::canonical_model_example_specs());
+    specs.extend(sum_of_squares_partition::canonical_model_example_specs());
     specs
 }

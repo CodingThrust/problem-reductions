@@ -138,6 +138,10 @@ fn test_all_problems_implement_trait_correctly() {
         &MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]),
         "MinimumTardinessSequencing",
     );
+    check_problem_trait(
+        &SumOfSquaresPartition::new(vec![5, 3, 8, 2, 7, 1], 3, 240),
+        "SumOfSquaresPartition",
+    );
 }
 
 #[test]
