@@ -90,6 +90,22 @@
     ]
   },
   {
+    "name": "ConsecutiveBlockMinimization",
+    "description": "Permute columns of a binary matrix to have at most K consecutive blocks of 1s",
+    "fields": [
+      {
+        "name": "matrix",
+        "type_name": "Vec<Vec<bool>>",
+        "description": "Binary matrix A (m x n)"
+      },
+      {
+        "name": "bound_k",
+        "type_name": "usize",
+        "description": "Upper bound K on total consecutive blocks"
+      }
+    ]
+  },
+  {
     "name": "ExactCoverBy3Sets",
     "description": "Determine if a collection of 3-element subsets contains an exact cover",
     "fields": [

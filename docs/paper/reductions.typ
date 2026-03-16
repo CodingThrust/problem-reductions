@@ -105,6 +105,7 @@
   "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
+  "ConsecutiveBlockMinimization": [Consecutive Block Minimization],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1492,6 +1493,40 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
       },
       caption: [Boolean matrix factorization: $A = B circle.tiny C$ with rank $k = #k$. Factor 1 (red) covers the top-left block; factor 2 (teal) covers the bottom-right block.],
     ) <fig:bmf>
+    ]
+  ]
+}
+
+#{
+  let x = load-model-example("ConsecutiveBlockMinimization")
+  let mat = x.instance.matrix
+  let K = x.instance.bound_k
+  let n-rows = mat.len()
+  let n-cols = if n-rows > 0 { mat.at(0).len() } else { 0 }
+  let sol = x.optimal.at(0)
+  let perm = sol.config
+  // Count blocks under the satisfying permutation
+  let total-blocks = 0
+  for row in mat {
+    let in-block = false
+    for p in perm {
+      if row.at(p) {
+        if not in-block {
+          total-blocks += 1
+          in-block = true
+        }
+      } else {
+        in-block = false
+      }
+    }
+  }
+  [
+    #problem-def("ConsecutiveBlockMinimization")[
+      Given an $m times n$ binary matrix $A$ and a positive integer $K$, determine whether there exists a permutation of the columns of $A$ such that the resulting matrix has at most $K$ maximal blocks of consecutive 1-entries (summed over all rows). A _block_ is a maximal contiguous run of 1-entries within a single row.
+    ][
+    Consecutive Block Minimization (SR17 in Garey & Johnson) arises in consecutive file organization for information retrieval systems, where records stored on a linear medium must be arranged so that each query's relevant records form a contiguous segment. Applications also include scheduling, production planning, the glass cutting industry, and data compression. NP-complete by reduction from Hamiltonian Path @kou1977. When $K$ equals the number of non-all-zero rows, the problem reduces to testing the _consecutive ones property_, solvable in polynomial time via PQ-trees @booth1975. A 1.5-approximation is known @haddadi2008. The best known exact algorithm runs in $O^*(n!)$ by brute-force enumeration of all column permutations.
+
+    *Example.* Let $A$ be the #n-rows$times$#n-cols matrix with rows #mat.enumerate().map(((i, row)) => [$r_#i = (#row.map(v => if v {$1$} else {$0$}).join($,$))$]).join(", ") and $K = #K$. The column permutation $pi = (#perm.map(p => str(p)).join(", "))$ yields #total-blocks total blocks, so #total-blocks $<= #K$ and the answer is YES.
     ]
   ]
 }

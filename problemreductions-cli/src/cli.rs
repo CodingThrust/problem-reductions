@@ -233,6 +233,7 @@ Flags by problem type:
   X3C (ExactCoverBy3Sets)         --universe, --sets (3 elements each)
   BicliqueCover                   --left, --right, --biedges, --k
   BMF                             --matrix (0/1), --rank
+  ConsecutiveBlockMinimization    --matrix (JSON 2D bool), --bound-k
   SteinerTree                     --graph, --edge-weights, --terminals
   CVP                             --basis, --target-vec [--bounds]
   OptimalLinearArrangement        --graph, --bound
@@ -407,6 +408,10 @@ pub struct CreateArgs {
     /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
     #[arg(long)]
     pub alphabet_size: Option<usize>,
+
+    /// Upper bound K on consecutive blocks for ConsecutiveBlockMinimization
+    #[arg(long)]
+    pub bound_k: Option<usize>,
 }
 
 #[derive(clap::Args)]

@@ -5,14 +5,17 @@
 //! - [`ILP`]: Integer Linear Programming
 //! - [`ClosestVectorProblem`]: Closest Vector Problem (minimize lattice distance)
 //! - [`BMF`]: Boolean Matrix Factorization
+//! - [`ConsecutiveBlockMinimization`]: Consecutive Block Minimization
 
 pub(crate) mod bmf;
 pub(crate) mod closest_vector_problem;
+pub(crate) mod consecutive_block_minimization;
 pub(crate) mod ilp;
 pub(crate) mod qubo;
 
 pub use bmf::BMF;
 pub use closest_vector_problem::{ClosestVectorProblem, VarBounds};
+pub use consecutive_block_minimization::ConsecutiveBlockMinimization;
 pub use ilp::{Comparison, LinearConstraint, ObjectiveSense, VariableDomain, ILP};
 pub use qubo::QUBO;
 
@@ -23,5 +26,6 @@ pub(crate) fn canonical_model_example_specs() -> Vec<crate::example_db::specs::M
     specs.extend(ilp::canonical_model_example_specs());
     specs.extend(closest_vector_problem::canonical_model_example_specs());
     specs.extend(bmf::canonical_model_example_specs());
+    specs.extend(consecutive_block_minimization::canonical_model_example_specs());
     specs
 }

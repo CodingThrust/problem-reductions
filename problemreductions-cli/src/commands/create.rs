@@ -5,7 +5,9 @@ use crate::problem_name::{resolve_problem_ref, unknown_problem_error};
 use crate::util;
 use anyhow::{bail, Context, Result};
 use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExample};
-use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
+use problemreductions::models::algebraic::{
+    ClosestVectorProblem, ConsecutiveBlockMinimization, BMF,
+};
 use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
@@ -64,6 +66,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.deadline.is_none()
         && args.num_processors.is_none()
         && args.alphabet_size.is_none()
+        && args.bound_k.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -249,6 +252,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "SubgraphIsomorphism" => "--graph 0-1,1-2,2-0 --pattern 0-1",
         "SubsetSum" => "--sizes 3,7,1,8,2,4 --target 11",
         "ShortestCommonSupersequence" => "--strings \"0,1,2;1,2,0\" --bound 4",
+        "ConsecutiveBlockMinimization" => {
+            "--matrix '[[true,false,true],[false,true,true]]' --bound-k 2"
+        }
         _ => "",
     }
 }
@@ -750,6 +756,28 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 )
             })?;
             (ser(BMF::new(matrix, rank))?, resolved_variant.clone())
+        }
+
+        // ConsecutiveBlockMinimization
+        "ConsecutiveBlockMinimization" => {
+            let matrix_str = args.matrix.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ConsecutiveBlockMinimization requires --matrix and --bound-k\n\n\
+                     Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound-k 2"
+                )
+            })?;
+            let bound_k = args.bound_k.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ConsecutiveBlockMinimization requires --bound-k\n\n\
+                     Usage: pred create ConsecutiveBlockMinimization --matrix '[[true,false,true],[false,true,true]]' --bound-k 2"
+                )
+            })?;
+            let matrix: Vec<Vec<bool>> = serde_json::from_str(matrix_str)
+                .context("Failed to parse --matrix as JSON 2D bool array")?;
+            (
+                ser(ConsecutiveBlockMinimization::new(matrix, bound_k))?,
+                resolved_variant.clone(),
+            )
         }
 
         // LongestCommonSubsequence
