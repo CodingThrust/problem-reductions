@@ -1,6 +1,8 @@
 // Test remaining example binaries to keep them compiling and correct.
 // Examples with `pub fn run()` are included directly; others are run as subprocesses.
 
+use std::path::{Path, PathBuf};
+
 // --- Chained reduction demo (has pub fn run()) ---
 
 #[cfg(feature = "ilp-solver")]
@@ -25,14 +27,54 @@ fn run_example(name: &str) {
     assert!(status.success(), "Example {name} failed with {status}");
 }
 
+fn temp_output_path(name: &str) -> PathBuf {
+    let timestamp = std::time::SystemTime::now()
+        .duration_since(std::time::UNIX_EPOCH)
+        .expect("Clock must be after UNIX_EPOCH")
+        .as_nanos();
+    std::env::temp_dir().join(format!(
+        "problemreductions_{name}_{}_{}.json",
+        std::process::id(),
+        timestamp
+    ))
+}
+
+fn run_example_with_output(name: &str, output_path: &Path) {
+    let output = output_path
+        .to_str()
+        .unwrap_or_else(|| panic!("Non-UTF-8 temp path for {name}: {output_path:?}"));
+    let status = std::process::Command::new(env!("CARGO"))
+        .args([
+            "run",
+            "--example",
+            name,
+            "--features",
+            "ilp-highs",
+            "--",
+            output,
+        ])
+        .status()
+        .unwrap_or_else(|e| panic!("Failed to run example {name}: {e}"));
+    assert!(status.success(), "Example {name} failed with {status}");
+    assert!(
+        output_path.is_file(),
+        "Example {name} did not create expected output file at {}",
+        output_path.display()
+    );
+}
+
 #[test]
 fn test_export_graph() {
-    run_example("export_graph");
+    let output_path = temp_output_path("export_graph");
+    run_example_with_output("export_graph", &output_path);
+    let _ = std::fs::remove_file(output_path);
 }
 
 #[test]
 fn test_export_schemas() {
-    run_example("export_schemas");
+    let output_path = temp_output_path("export_schemas");
+    run_example_with_output("export_schemas", &output_path);
+    let _ = std::fs::remove_file(output_path);
 }
 
 #[test]
