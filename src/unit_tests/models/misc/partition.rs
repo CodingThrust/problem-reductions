@@ -62,7 +62,8 @@ fn test_partition_solver_all() {
     let problem = Partition::new(vec![3, 1, 1, 2, 2, 1]);
     let solver = BruteForce::new();
     let solutions = solver.find_all_satisfying(&problem);
-    assert!(!solutions.is_empty());
+    // 10 satisfying configs for {3,1,1,2,2,1} with target half-sum 5
+    assert_eq!(solutions.len(), 10);
     for sol in &solutions {
         assert!(problem.evaluate(sol));
     }
