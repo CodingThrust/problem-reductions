@@ -247,6 +247,7 @@ Flags by problem type:
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
   SCS                             --strings, --bound [--alphabet-size]
+  D2CIF                           --arcs, --capacities, --source-1, --sink-1, --source-2, --sink-2, --requirement-1, --requirement-2
   ILP, CircuitSAT                 (via reduction only)
 
 Geometry graph variants (use slash notation, e.g., MIS/KingsSubgraph):

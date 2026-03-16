@@ -76,6 +76,13 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.deadline.is_none()
         && args.num_processors.is_none()
         && args.alphabet_size.is_none()
+        && args.capacities.is_none()
+        && args.source_1.is_none()
+        && args.sink_1.is_none()
+        && args.source_2.is_none()
+        && args.sink_2.is_none()
+        && args.requirement_1.is_none()
+        && args.requirement_2.is_none()
 }
 
 fn emit_problem_output(output: &ProblemJsonOutput, out: &OutputConfig) -> Result<()> {
@@ -277,6 +284,9 @@ fn example_for(canonical: &str, graph_type: Option<&str>) -> &'static str {
         "Factoring" => "--target 15 --m 4 --n 4",
         "SteinerTree" => "--graph 0-1,1-2,1-3,3-4 --edge-weights 2,2,1,1 --terminals 0,2,4",
         "OptimalLinearArrangement" => "--graph 0-1,1-2,2-3 --bound 5",
+        "DirectedTwoCommodityIntegralFlow" => {
+            "--arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" --capacities 1,1,1,1,1,1,1,1 --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 --requirement-1 1 --requirement-2 1"
+        }
         "MinimumFeedbackArcSet" => "--arcs \"0>1,1>2,2>0\"",
         "RuralPostman" => {
             "--graph 0-1,1-2,2-3,3-0 --edge-weights 1,1,1,1 --required-edges 0,2 --bound 4"
@@ -1150,6 +1160,67 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                     num_processors,
                     task_lengths,
                     deadline,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // DirectedTwoCommodityIntegralFlow
+        "DirectedTwoCommodityIntegralFlow" => {
+            let arcs_str = args.arcs.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "DirectedTwoCommodityIntegralFlow requires --arcs\n\n\
+                     Usage: pred create DirectedTwoCommodityIntegralFlow \
+                     --arcs \"0>2,0>3,1>2,1>3,2>4,2>5,3>4,3>5\" \
+                     --capacities 1,1,1,1,1,1,1,1 \
+                     --source-1 0 --sink-1 4 --source-2 1 --sink-2 5 \
+                     --requirement-1 1 --requirement-2 1"
+                )
+            })?;
+            let (graph, num_arcs) = parse_directed_graph(arcs_str, args.num_vertices)?;
+            let capacities: Vec<u64> = if let Some(ref s) = args.capacities {
+                util::parse_comma_list(s)?
+            } else {
+                vec![1; num_arcs]
+            };
+            anyhow::ensure!(
+                capacities.len() == num_arcs,
+                "capacities length ({}) must match number of arcs ({num_arcs})",
+                capacities.len()
+            );
+            let n = graph.num_vertices();
+            let source_1 = args.source_1.ok_or_else(|| {
+                anyhow::anyhow!("DirectedTwoCommodityIntegralFlow requires --source-1")
+            })?;
+            let sink_1 = args.sink_1.ok_or_else(|| {
+                anyhow::anyhow!("DirectedTwoCommodityIntegralFlow requires --sink-1")
+            })?;
+            let source_2 = args.source_2.ok_or_else(|| {
+                anyhow::anyhow!("DirectedTwoCommodityIntegralFlow requires --source-2")
+            })?;
+            let sink_2 = args.sink_2.ok_or_else(|| {
+                anyhow::anyhow!("DirectedTwoCommodityIntegralFlow requires --sink-2")
+            })?;
+            for (name, idx) in [
+                ("source_1", source_1),
+                ("sink_1", sink_1),
+                ("source_2", source_2),
+                ("sink_2", sink_2),
+            ] {
+                anyhow::ensure!(idx < n, "{name} ({idx}) >= num_vertices ({n})");
+            }
+            let requirement_1 = args.requirement_1.unwrap_or(1);
+            let requirement_2 = args.requirement_2.unwrap_or(1);
+            (
+                ser(DirectedTwoCommodityIntegralFlow::new(
+                    graph,
+                    capacities,
+                    source_1,
+                    sink_1,
+                    source_2,
+                    sink_2,
+                    requirement_1,
+                    requirement_2,
                 ))?,
                 resolved_variant.clone(),
             )
