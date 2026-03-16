@@ -49,6 +49,8 @@ ISSUE_JSON=$(python3 scripts/pipeline_checks.py issue-context \
   --format json)
 ```
 
+This `issue-context` packet is the expensive deterministic preflight call for `issue-to-pr`. It is allowed exactly once per top-level `issue-to-pr` invocation. After it succeeds, reuse `ISSUE_JSON` for all later guards, resume/create decisions, and summaries instead of calling `issue-context` again.
+
 Treat `ISSUE_JSON` as the source of truth for the deterministic preflight data:
 - `title`, `body`, `labels`, and `comments` provide the issue summary and comment thread
 - `kind`, `source_problem`, and `target_problem` provide parsed issue metadata

@@ -30,6 +30,7 @@ These repo-local skills live under `.claude/skills/*/SKILL.md`.
 - In Codex, read the relevant `SKILL.md` directly and follow it; do not assume slash-command support exists.
 - The Makefile targets `run-plan`, `run-issue`, `run-pipeline`, and `run-review` already translate these workflows into explicit `SKILL.md` prompts for Codex.
 - The default Codex model in the Makefile is `gpt-5.4`. Override it with `CODEX_MODEL=<model>` if needed.
+- The Step 0/Step 1 packet builders under `scripts/pipeline_skill_context.py` and `scripts/pipeline_checks.py` are expensive GitHub-backed calls. Per top-level skill invocation, generate each packet at most once and reuse the resulting text/JSON for all later steps unless the skill explicitly requires a fresh rerun.
 
 ## Commands
 ```bash

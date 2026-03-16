@@ -758,26 +758,13 @@ def process_snapshot(
     return str(next_entry["item_id"]), int(next_entry["number"])
 
 
-def select_next_entry(
-    mode: str,
-    board_data: dict,
+def select_entry_from_entries(
+    current_visible: dict[str, dict],
     state_file: Path,
-    repo: str | None = None,
-    review_fetcher: Callable[[str, int], list[dict]] | None = None,
-    pr_resolver: Callable[[str, int], int | None] | None = None,
-    pr_state_fetcher: Callable[[str, int], str] | None = None,
     target_number: int | None = None,
 ) -> dict | None:
     state = load_state(state_file)
     previous_visible = state["visible"]
-    current_visible = current_entries(
-        mode,
-        board_data,
-        repo,
-        review_fetcher,
-        pr_resolver,
-        pr_state_fetcher,
-    )
 
     pending = [item_id for item_id in state["pending"] if item_id in current_visible]
     entered = sorted(
@@ -814,6 +801,31 @@ def select_next_entry(
     entry = dict(current_visible[item_id])
     entry["item_id"] = item_id
     return entry
+
+
+def select_next_entry(
+    mode: str,
+    board_data: dict,
+    state_file: Path,
+    repo: str | None = None,
+    review_fetcher: Callable[[str, int], list[dict]] | None = None,
+    pr_resolver: Callable[[str, int], int | None] | None = None,
+    pr_state_fetcher: Callable[[str, int], str] | None = None,
+    target_number: int | None = None,
+) -> dict | None:
+    current_visible = current_entries(
+        mode,
+        board_data,
+        repo,
+        review_fetcher,
+        pr_resolver,
+        pr_state_fetcher,
+    )
+    return select_entry_from_entries(
+        current_visible,
+        state_file,
+        target_number=target_number,
+    )
 
 
 def ack_item(state_file: Path, item_id: str) -> None:
@@ -1010,25 +1022,16 @@ def claimed_status_for_mode(mode: str) -> str:
     raise ValueError(f"Unsupported claim-next mode: {mode}")
 
 
-def claim_next_entry(
+def claim_entry_from_entries(
     mode: str,
-    board_data: dict,
+    current_visible: dict[str, dict],
     state_file: Path,
-    repo: str | None = None,
-    review_fetcher: Callable[[str, int], list[dict]] | None = None,
-    pr_resolver: Callable[[str, int], int | None] | None = None,
-    pr_state_fetcher: Callable[[str, int], str] | None = None,
     target_number: int | None = None,
     mover: Callable[[str, str], None] | None = None,
 ) -> dict | None:
-    next_entry = select_next_entry(
-        mode,
-        board_data,
+    next_entry = select_entry_from_entries(
+        current_visible,
         state_file,
-        repo=repo,
-        review_fetcher=review_fetcher,
-        pr_resolver=pr_resolver,
-        pr_state_fetcher=pr_state_fetcher,
         target_number=target_number,
     )
     if next_entry is None:
@@ -1042,6 +1045,57 @@ def claim_next_entry(
         "claimed": True,
         "claimed_status": claimed_status,
     }
+
+
+def claim_next_entry(
+    mode: str,
+    board_data: dict,
+    state_file: Path,
+    repo: str | None = None,
+    review_fetcher: Callable[[str, int], list[dict]] | None = None,
+    pr_resolver: Callable[[str, int], int | None] | None = None,
+    pr_state_fetcher: Callable[[str, int], str] | None = None,
+    target_number: int | None = None,
+    mover: Callable[[str, str], None] | None = None,
+) -> dict | None:
+    current_visible = current_entries(
+        mode,
+        board_data,
+        repo=repo,
+        review_fetcher=review_fetcher,
+        pr_resolver=pr_resolver,
+        pr_state_fetcher=pr_state_fetcher,
+    )
+    return claim_entry_from_entries(
+        mode,
+        current_visible,
+        state_file,
+        target_number=target_number,
+        mover=mover,
+    )
+
+
+def eligible_review_candidate_entries(candidates: list[dict]) -> dict[str, dict]:
+    entries: dict[str, dict] = {}
+    for candidate in candidates:
+        if candidate.get("eligibility") != "eligible":
+            continue
+
+        item_id = candidate.get("item_id")
+        number = candidate.get("pr_number") or candidate.get("number")
+        if item_id is None or number is None:
+            continue
+
+        issue_number = candidate.get("issue_number")
+        pr_number = candidate.get("pr_number")
+        entries[str(item_id)] = {
+            "number": int(number),
+            "issue_number": int(issue_number) if issue_number is not None else None,
+            "pr_number": int(pr_number) if pr_number is not None else int(number),
+            "status": candidate.get("status"),
+            "title": candidate.get("title"),
+        }
+    return entries
 
 
 def move_item(
@@ -1215,22 +1269,46 @@ def main(argv: list[str] | None = None) -> int:
         if args.mode == "review" and not args.repo:
             raise SystemExit("--repo is required in claim-next review mode")
         board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache)
-        claim_result = claim_next_entry(
-            args.mode,
-            board_data,
-            args.state_file,
-            repo=args.repo,
-            review_fetcher=fetch_pr_reviews,
-            pr_resolver=resolve_issue_pr,
-            pr_state_fetcher=fetch_pr_state,
-            target_number=args.number,
-            mover=lambda item_id, status: move_item(
-                item_id,
-                status,
-                project_id=args.project_id,
-                field_id=args.field_id,
-            ),
-        )
+        if args.mode == "review":
+            review_entries_map = eligible_review_candidate_entries(
+                review_candidates(
+                    board_data,
+                    args.repo,
+                    fetch_pr_reviews,
+                    resolve_issue_pr,
+                    fetch_pr_info,
+                    batch_pr_fetcher=batch_fetch_prs_with_reviews,
+                )
+            )
+            claim_result = claim_entry_from_entries(
+                args.mode,
+                review_entries_map,
+                args.state_file,
+                target_number=args.number,
+                mover=lambda item_id, status: move_item(
+                    item_id,
+                    status,
+                    project_id=args.project_id,
+                    field_id=args.field_id,
+                ),
+            )
+        else:
+            claim_result = claim_next_entry(
+                args.mode,
+                board_data,
+                args.state_file,
+                repo=args.repo,
+                review_fetcher=fetch_pr_reviews,
+                pr_resolver=resolve_issue_pr,
+                pr_state_fetcher=fetch_pr_state,
+                target_number=args.number,
+                mover=lambda item_id, status: move_item(
+                    item_id,
+                    status,
+                    project_id=args.project_id,
+                    field_id=args.field_id,
+                ),
+            )
         return print_claim_result(claim_result, mode=args.mode, fmt=args.format)
 
     if args.command == "list":
@@ -1266,16 +1344,33 @@ def main(argv: list[str] | None = None) -> int:
         raise SystemExit(f"--repo is required in {args.mode} mode")
 
     board_data = fetch_board_items(args.owner, args.project_number, args.limit, cache_file=args.board_cache)
-    next_item = select_next_entry(
-        args.mode,
-        board_data,
-        args.state_file,
-        repo=args.repo,
-        review_fetcher=fetch_pr_reviews,
-        pr_resolver=resolve_issue_pr,
-        pr_state_fetcher=fetch_pr_state,
-        target_number=args.number,
-    )
+    if args.mode == "review":
+        review_entries_map = eligible_review_candidate_entries(
+            review_candidates(
+                board_data,
+                args.repo,
+                fetch_pr_reviews,
+                resolve_issue_pr,
+                fetch_pr_info,
+                batch_pr_fetcher=batch_fetch_prs_with_reviews,
+            )
+        )
+        next_item = select_entry_from_entries(
+            review_entries_map,
+            args.state_file,
+            target_number=args.number,
+        )
+    else:
+        next_item = select_next_entry(
+            args.mode,
+            board_data,
+            args.state_file,
+            repo=args.repo,
+            review_fetcher=fetch_pr_reviews,
+            pr_resolver=resolve_issue_pr,
+            pr_state_fetcher=fetch_pr_state,
+            target_number=args.number,
+        )
     return print_next_item(next_item, mode=args.mode, fmt=args.format)
 
 

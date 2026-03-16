@@ -243,9 +243,8 @@ watch_and_dispatch() {
     repo=${4-}
     interval=${POLL_INTERVAL:-600}
 
-    state_file=$(mktemp /tmp/problemreductions-${mode}-state.XXXXXX)
-    board_cache="/tmp/problemreductions-${mode}-board-cache.json"
-    trap 'rm -f "$state_file" "$board_cache"' EXIT INT TERM
+    state_file=${STATE_FILE:-/tmp/problemreductions-${mode}-forever-state.json}
+    board_cache="/tmp/problemreductions-${mode}-forever-board-cache.json"
 
     echo "Watching for new ${label} (polling every $((interval / 60))m)..."
     while true; do
@@ -265,6 +264,8 @@ watch_and_dispatch() {
             echo "$(date '+%Y-%m-%d %H:%M:%S') New ${label}: item $number ($item_id)"
             if ${MAKE:-make} "$make_target" N="$number"; then
                 ack_polled_item "$state_file" "$item_id" || exit $?
+                echo "$(date '+%Y-%m-%d %H:%M:%S') Processed ${label} item $number; sleeping $((interval / 60))m..."
+                sleep "$interval"
             else
                 dispatch_status=$?
                 echo "$(date '+%Y-%m-%d %H:%M:%S') Dispatch failed for ${label} item $number; will retry after sleep." >&2

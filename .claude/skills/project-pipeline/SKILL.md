@@ -39,6 +39,7 @@ This skill runs **fully autonomously** — no confirmation prompts, no user ques
 ### 0. Generate the Project-Pipeline Report
 
 Step 0 should be a single report-generation step. Do not manually list Ready items, list In-progress items, grep model declarations, or re-derive blocked rules with separate shell commands.
+The expensive full-context call here is `python3 scripts/pipeline_skill_context.py project-pipeline ...` (backed by `build_project_pipeline_context()`). For a single top-level `project-pipeline` invocation, call it once and reuse the packet for scoring, ranking, and choosing the issue. Do not rerun it in the single-issue path after the packet exists.
 
 ```bash
 set -- python3 scripts/pipeline_skill_context.py project-pipeline --repo CodingThrust/problem-reductions --repo-root . --format text
@@ -117,7 +118,7 @@ The report should already have stopped you before this point if the requested is
 
 After successful validation, extract `ITEM_ID`, `ISSUE`, and `TITLE` from `CLAIM` using the same commands shown below.
 
-**If `--all`:** proceed with all eligible issues in ranked order (highest score first). Models before Rules at same score. Blocked rules are skipped. After each issue is processed, regenerate the report before the next claim, because a just-merged Model may unblock pending rules.
+**If `--all`:** proceed with all eligible issues in ranked order (highest score first). Models before Rules at same score. Blocked rules are skipped. After each issue is processed, regenerate the report before the next claim, because a just-merged Model may unblock pending rules. This is the only normal case in this skill where a second full-context packet is expected.
 
 **Otherwise (no args):** score the eligible issues from the report, pick the highest-scored one, and proceed immediately (no confirmation). After picking the issue number, claim it through the scripted bundle:
 

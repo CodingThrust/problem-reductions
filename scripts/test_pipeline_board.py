@@ -21,10 +21,13 @@ from pipeline_board import (
     batch_fetch_prs_with_reviews,
     claim_next_entry,
     build_recovery_plan,
+    claim_entry_from_entries,
+    eligible_review_candidate_entries,
     normalize_status_name,
     print_next_item,
     process_snapshot,
     review_candidates,
+    select_entry_from_entries,
     select_next_entry,
     status_items,
 )
@@ -206,6 +209,73 @@ class PipelineBoardPollTests(unittest.TestCase):
                 pr_state_fetcher=fake_pr_state_fetcher,
             )
             self.assertIsNone(no_item)
+
+
+class ReviewCandidateQueueTests(unittest.TestCase):
+    def test_select_entry_from_entries_tracks_pending_until_ack(self) -> None:
+        entries = eligible_review_candidate_entries(
+            [
+                {
+                    "item_id": "PVTI_1",
+                    "issue_number": 117,
+                    "pr_number": 570,
+                    "status": "Review pool",
+                    "title": "[Model] GraphPartitioning",
+                    "eligibility": "eligible",
+                },
+                {
+                    "item_id": "PVTI_2",
+                    "issue_number": 118,
+                    "pr_number": 571,
+                    "status": "Review pool",
+                    "title": "[Rule] BinPacking to ILP",
+                    "eligibility": "eligible",
+                },
+            ]
+        )
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "review-candidates.json"
+
+            first = select_entry_from_entries(entries, state_file)
+            self.assertEqual(first["item_id"], "PVTI_1")
+            self.assertEqual(first["pr_number"], 570)
+
+            retry = select_entry_from_entries(entries, state_file)
+            self.assertEqual(retry["item_id"], "PVTI_1")
+
+            ack_item(state_file, "PVTI_1")
+            second = select_entry_from_entries(entries, state_file)
+            self.assertEqual(second["item_id"], "PVTI_2")
+            self.assertEqual(second["pr_number"], 571)
+
+    def test_claim_entry_from_entries_moves_selected_review_item(self) -> None:
+        entries = eligible_review_candidate_entries(
+            [
+                {
+                    "item_id": "PVTI_11",
+                    "issue_number": 117,
+                    "pr_number": 570,
+                    "status": "Review pool",
+                    "title": "[Model] GraphPartitioning",
+                    "eligibility": "eligible",
+                }
+            ]
+        )
+        moves: list[tuple[str, str]] = []
+
+        with tempfile.TemporaryDirectory() as tmpdir:
+            state_file = Path(tmpdir) / "review-candidates.json"
+            claimed = claim_entry_from_entries(
+                "review",
+                entries,
+                state_file,
+                mover=lambda item_id, status: moves.append((item_id, status)),
+            )
+
+        self.assertEqual(claimed["item_id"], "PVTI_11")
+        self.assertEqual(claimed["claimed_status"], STATUS_UNDER_REVIEW)
+        self.assertEqual(moves, [("PVTI_11", STATUS_UNDER_REVIEW)])
 
 
 class PipelineBoardRecoveryTests(unittest.TestCase):
