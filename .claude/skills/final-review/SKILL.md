@@ -137,6 +137,7 @@ Scan the PR diff for dangerous actions:
 - **Unrelated changes**: Files modified that don't belong to this PR (e.g., changes to unrelated models/rules, CI config, Cargo.toml dependency changes not needed for this PR)
 - **Force push indicators**: Any sign of history rewriting
 - **Broad modifications**: Changes to core traits, macros, or shared infrastructure that could affect other features
+- **`examples.json` one-line rule**: `examples.json` is only allowed to change one line per PR (each PR adds exactly one model or one rule). If the diff shows more than one changed line in `examples.json`, flag it.
 
 Report findings:
 
@@ -184,7 +185,6 @@ Verify the PR includes all required components. Check:
 - [ ] Canonical model example function in the model file
 - [ ] Paper section in `docs/paper/reductions.typ` (`problem-def` entry)
 - [ ] `display-name` entry in paper
-- [ ] `trait_consistency.rs` entry in `src/unit_tests/trait_consistency.rs` (`test_all_problems_implement_trait_correctly`, plus `test_direction` for optimization)
 - [ ] Aliases: if provided, verify they are standard literature abbreviations (not made up); if empty, confirm no well-known abbreviation is missing; check no conflict with existing aliases
 
 **For [Rule] PRs:**

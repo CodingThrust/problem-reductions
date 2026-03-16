@@ -121,8 +121,7 @@ fn test_sequencing_to_minimize_maximum_cumulative_cost_invalid_precedence_endpoi
 fn test_sequencing_to_minimize_maximum_cumulative_cost_serialization() {
     let problem = issue_example(4);
     let json = serde_json::to_value(&problem).unwrap();
-    let restored: SequencingToMinimizeMaximumCumulativeCost =
-        serde_json::from_value(json).unwrap();
+    let restored: SequencingToMinimizeMaximumCumulativeCost = serde_json::from_value(json).unwrap();
     assert_eq!(restored.costs(), problem.costs());
     assert_eq!(restored.precedences(), problem.precedences());
     assert_eq!(restored.bound(), problem.bound());
