@@ -1266,6 +1266,42 @@ fn test_create_steiner_tree_rejects_duplicate_terminals() {
 }
 
 #[test]
+fn test_create_sequencing_to_minimize_weighted_completion_time() {
+    let output_file = std::env::temp_dir()
+        .join("pred_test_create_sequencing_to_minimize_weighted_completion_time.json");
+    let output = pred()
+        .args([
+            "-o",
+            output_file.to_str().unwrap(),
+            "create",
+            "SequencingToMinimizeWeightedCompletionTime",
+            "--lengths",
+            "2,1,3,1,2",
+            "--weights",
+            "3,5,1,4,2",
+            "--precedence-pairs",
+            "0>2,1>4",
+        ])
+        .output()
+        .unwrap();
+    assert!(
+        output.status.success(),
+        "stderr: {}",
+        String::from_utf8_lossy(&output.stderr)
+    );
+    let content = std::fs::read_to_string(&output_file).unwrap();
+    let json: serde_json::Value = serde_json::from_str(&content).unwrap();
+    assert_eq!(json["type"], "SequencingToMinimizeWeightedCompletionTime");
+    assert_eq!(json["data"]["lengths"], serde_json::json!([2, 1, 3, 1, 2]));
+    assert_eq!(json["data"]["weights"], serde_json::json!([3, 5, 1, 4, 2]));
+    assert_eq!(
+        json["data"]["precedences"],
+        serde_json::json!([[0, 2], [1, 4]])
+    );
+    std::fs::remove_file(&output_file).ok();
+}
+
+#[test]
 fn test_create_with_edge_weights() {
     let output_file = std::env::temp_dir().join("pred_test_create_ew.json");
     let output = pred()

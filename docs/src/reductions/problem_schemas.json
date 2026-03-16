@@ -595,6 +595,27 @@
     ]
   },
   {
+    "name": "SequencingToMinimizeWeightedCompletionTime",
+    "description": "Schedule tasks with lengths, weights, and precedence constraints to minimize total weighted completion time",
+    "fields": [
+      {
+        "name": "lengths",
+        "type_name": "Vec<u64>",
+        "description": "Processing time l(t) for each task"
+      },
+      {
+        "name": "weights",
+        "type_name": "Vec<u64>",
+        "description": "Weight w(t) for each task"
+      },
+      {
+        "name": "precedences",
+        "type_name": "Vec<(usize, usize)>",
+        "description": "Precedence pairs (predecessor, successor)"
+      }
+    ]
+  },
+  {
     "name": "ShortestCommonSupersequence",
     "description": "Find a common supersequence of bounded length for a set of strings",
     "fields": [

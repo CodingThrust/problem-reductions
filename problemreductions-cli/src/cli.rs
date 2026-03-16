@@ -243,6 +243,7 @@ Flags by problem type:
   FVS                             --arcs [--weights] [--num-vertices]
   FlowShopScheduling              --task-lengths, --deadline [--num-processors]
   MinimumTardinessSequencing      --n, --deadlines [--precedence-pairs]
+  SequencingToMinimizeWeightedCompletionTime --lengths, --weights [--precedence-pairs]
   SCS                             --strings, --bound [--alphabet-size]
   ILP, CircuitSAT                 (via reduction only)
 
@@ -392,6 +393,9 @@ pub struct CreateArgs {
     /// Deadlines for MinimumTardinessSequencing (comma-separated, e.g., "5,5,5,3,3")
     #[arg(long)]
     pub deadlines: Option<String>,
+    /// Task lengths for SequencingToMinimizeWeightedCompletionTime (comma-separated, e.g., "2,1,3,1,2")
+    #[arg(long)]
+    pub lengths: Option<String>,
     /// Precedence pairs for MinimumTardinessSequencing (e.g., "0>3,1>3,1>4,2>4")
     #[arg(long)]
     pub precedence_pairs: Option<String>,

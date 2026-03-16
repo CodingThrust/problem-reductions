@@ -20,6 +20,7 @@ pub use graph::{
 };
 pub use misc::{
     BinPacking, Factoring, FlowShopScheduling, Knapsack, LongestCommonSubsequence,
-    MinimumTardinessSequencing, PaintShop, ShortestCommonSupersequence, SubsetSum,
+    MinimumTardinessSequencing, PaintShop, SequencingToMinimizeWeightedCompletionTime,
+    ShortestCommonSupersequence, SubsetSum,
 };
 pub use set::{ExactCoverBy3Sets, MaximumSetPacking, MinimumSetCovering};

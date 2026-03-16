@@ -9,7 +9,7 @@ use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
 use problemreductions::models::misc::{
     BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
-    PaintShop, ShortestCommonSupersequence, SubsetSum,
+    PaintShop, SequencingToMinimizeWeightedCompletionTime, ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -59,6 +59,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.strings.is_none()
         && args.arcs.is_none()
         && args.deadlines.is_none()
+        && args.lengths.is_none()
         && args.precedence_pairs.is_none()
         && args.task_lengths.is_none()
         && args.deadline.is_none()
@@ -857,6 +858,66 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                 ser(MinimumTardinessSequencing::new(
                     num_tasks,
                     deadlines,
+                    precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
+        // SequencingToMinimizeWeightedCompletionTime
+        "SequencingToMinimizeWeightedCompletionTime" => {
+            let lengths_str = args.lengths.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeWeightedCompletionTime requires --lengths and --weights\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedCompletionTime --lengths 2,1,3,1,2 --weights 3,5,1,4,2 [--precedence-pairs \"0>2,1>4\"]"
+                )
+            })?;
+            let weights_str = args.weights.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "SequencingToMinimizeWeightedCompletionTime requires --weights\n\n\
+                     Usage: pred create SequencingToMinimizeWeightedCompletionTime --lengths 2,1,3,1,2 --weights 3,5,1,4,2"
+                )
+            })?;
+            let lengths: Vec<u64> = util::parse_comma_list(lengths_str)?;
+            let weights: Vec<u64> = util::parse_comma_list(weights_str)?;
+            anyhow::ensure!(
+                lengths.len() == weights.len(),
+                "lengths length ({}) must equal weights length ({})",
+                lengths.len(),
+                weights.len()
+            );
+            let num_tasks = lengths.len();
+            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
+                Some(s) if !s.is_empty() => s
+                    .split(',')
+                    .map(|pair| {
+                        let parts: Vec<&str> = pair.trim().split('>').collect();
+                        anyhow::ensure!(
+                            parts.len() == 2,
+                            "Invalid precedence format '{}', expected 'u>v'",
+                            pair.trim()
+                        );
+                        Ok((
+                            parts[0].trim().parse::<usize>()?,
+                            parts[1].trim().parse::<usize>()?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            for &(pred, succ) in &precedences {
+                anyhow::ensure!(
+                    pred < num_tasks && succ < num_tasks,
+                    "precedence index out of range: ({}, {}) but num_tasks = {}",
+                    pred,
+                    succ,
+                    num_tasks
+                );
+            }
+            (
+                ser(SequencingToMinimizeWeightedCompletionTime::new(
+                    lengths,
+                    weights,
                     precedences,
                 ))?,
                 resolved_variant.clone(),

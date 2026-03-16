@@ -105,6 +105,7 @@
   "PartitionIntoTriangles": [Partition Into Triangles],
   "FlowShopScheduling": [Flow Shop Scheduling],
   "MinimumTardinessSequencing": [Minimum Tardiness Sequencing],
+  "SequencingToMinimizeWeightedCompletionTime": [Sequencing to Minimize Weighted Completion Time],
 )
 
 // Definition label: "def:<ProblemName>" — each definition block must have a matching label
@@ -1939,6 +1940,72 @@ NP-completeness was established by Garey, Johnson, and Stockmeyer @gareyJohnsonS
   ]
 }
 
+#{
+  let x = load-model-example("SequencingToMinimizeWeightedCompletionTime")
+  let lengths = x.instance.lengths
+  let weights = x.instance.weights
+  let precs = x.instance.precedences
+  let ntasks = lengths.len()
+  let sol = x.optimal.at(0)
+  let opt = sol.metric.Valid
+  let lehmer = sol.config
+  let schedule = {
+    let avail = range(ntasks)
+    let result = ()
+    for c in lehmer {
+      result.push(avail.at(c))
+      avail = avail.enumerate().filter(((i, v)) => i != c).map(((i, v)) => v)
+    }
+    result
+  }
+  let starts = ()
+  let finishes = ()
+  let elapsed = 0
+  for task in schedule {
+    starts.push(elapsed)
+    elapsed += lengths.at(task)
+    finishes.push(elapsed)
+  }
+  let total-time = elapsed
+  [
+    #problem-def("SequencingToMinimizeWeightedCompletionTime")[
+      Given a set $T$ of $n$ tasks, a processing-time function $l: T -> ZZ^+$, a weight function $w: T -> ZZ^+$, and a partial order $prec.eq$ on $T$, find a one-machine schedule minimizing $sum_(t in T) w(t) C(t)$, where $C(t)$ is the completion time of task $t$ and every precedence relation $t_i prec.eq t_j$ must satisfy $C(t_i) < C(t_j)$.
+    ][
+      Sequencing to Minimize Weighted Completion Time is the single-machine precedence-constrained scheduling problem catalogued as SS4 in Garey & Johnson @garey1979, usually written $1 | "prec" | sum w_j C_j$. Lawler showed that arbitrary precedence constraints make the problem NP-complete, while series-parallel precedence orders admit an $O(n log n)$ algorithm @lawler1978. Without precedence constraints, Smith's ratio rule orders jobs by non-increasing $w_j / l_j$ and is optimal @smith1956.
+
+      *Example.* Consider tasks with lengths $l = (#lengths.map(v => str(v)).join(", "))$, weights $w = (#weights.map(v => str(v)).join(", "))$, and precedence constraints #{precs.map(p => [$t_#(p.at(0)) prec.eq t_#(p.at(1))$]).join(", ")}. An optimal schedule is $(#schedule.map(t => $t_#t$).join(", "))$, with completion times $(#finishes.map(v => str(v)).join(", "))$ along the machine timeline and objective value $#opt$.
+
+      #figure(
+        canvas(length: 1cm, {
+          import draw: *
+          let colors = (rgb("#4e79a7"), rgb("#e15759"), rgb("#76b7b2"), rgb("#f28e2b"), rgb("#59a14f"))
+          let scale = 0.55
+          let row-h = 0.7
+
+          for (pos, task) in schedule.enumerate() {
+            let x0 = starts.at(pos) * scale
+            let x1 = finishes.at(pos) * scale
+            let color = colors.at(calc.rem(task, colors.len()))
+            rect((x0, -row-h / 2), (x1, row-h / 2),
+              fill: color.transparentize(30%), stroke: 0.4pt + color)
+            content(((x0 + x1) / 2, 0), text(7pt, $t_#task$))
+          }
+
+          let y-axis = -row-h / 2 - 0.22
+          line((0, y-axis), (total-time * scale, y-axis), stroke: 0.4pt)
+          for t in range(total-time + 1) {
+            let x = t * scale
+            line((x, y-axis), (x, y-axis - 0.08), stroke: 0.4pt)
+            content((x, y-axis - 0.22), text(6pt, str(t)))
+          }
+          content((total-time * scale / 2, y-axis - 0.45), text(7pt)[time])
+        }),
+        caption: [Optimal single-machine schedule for the canonical weighted-completion-time instance. Each block width equals the processing time $l_j$.],
+      ) <fig:stmwct>
+    ]
+  ]
+}
+
 // Completeness check: warn about problem types in JSON but missing from paper
 #{
   let json-models = {
@@ -2668,6 +2735,28 @@ The following reductions to Integer Linear Programming are straightforward formu
   _Correctness._ ($arrow.r.double$) A valid packing assigns each item to exactly one bin (satisfying (1)); each bin's load is at most $C$ and $y_j = 1$ for any used bin (satisfying (2)). ($arrow.l.double$) Any feasible solution assigns each item to one bin by (1), respects capacity by (2), and the objective counts the number of open bins.
 
   _Solution extraction._ For each item $i$, find the unique $j$ with $x_(i j) = 1$; assign item $i$ to bin $j$.
+]
+
+#reduction-rule("SequencingToMinimizeWeightedCompletionTime", "ILP")[
+  Completion times are natural integer variables, precedence constraints compare those completion times directly, and one binary order variable per task pair enforces that a single machine cannot overlap two jobs.
+][
+  _Construction._ For each task $j$, introduce an integer completion-time variable $C_j$. For each unordered pair $i < j$, introduce a binary order variable $y_(i j)$ with $y_(i j) = 1$ meaning task $i$ finishes before task $j$. Let $M = sum_h l_h$.
+
+  _Bounds._ $l_j <= C_j <= M$ for every task $j$, and $y_(i j) in {0, 1}$.
+
+  _Precedence constraints._ If $i prec.eq j$, require $C_j - C_i >= l_j$.
+
+  _Single-machine disjunction._ For every pair $i < j$, require
+  $C_j - C_i + M (1 - y_(i j)) >= l_j$
+  and
+  $C_i - C_j + M y_(i j) >= l_i$.
+  Exactly one of the two orderings is therefore active.
+
+  _Objective._ Minimize $sum_j w_j C_j$.
+
+  _Correctness._ ($arrow.r.double$) Any feasible schedule defines completion times and pairwise order values satisfying the bounds, precedence inequalities, and disjunctive machine constraints; its weighted completion time is exactly the ILP objective. ($arrow.l.double$) Any feasible ILP solution assigns a strict order to every task pair and forbids overlap, so the completion times correspond to a valid single-machine schedule that respects all precedences. Minimizing the ILP objective therefore minimizes the original weighted completion-time objective.
+
+  _Solution extraction._ Sort tasks by their completion times $C_j$ and encode that order back into the source schedule representation.
 ]
 
 #reduction-rule("TravelingSalesman", "ILP",

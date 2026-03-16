@@ -138,6 +138,14 @@ fn test_all_problems_implement_trait_correctly() {
         &MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]),
         "MinimumTardinessSequencing",
     );
+    check_problem_trait(
+        &SequencingToMinimizeWeightedCompletionTime::new(
+            vec![2, 1, 3],
+            vec![3, 5, 1],
+            vec![(0, 2)],
+        ),
+        "SequencingToMinimizeWeightedCompletionTime",
+    );
 }
 
 #[test]
@@ -177,6 +185,11 @@ fn test_direction() {
     assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
     assert_eq!(
         MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]).direction(),
+        Direction::Minimize
+    );
+    assert_eq!(
+        SequencingToMinimizeWeightedCompletionTime::new(vec![2, 1, 3], vec![3, 5, 1], vec![(0, 2)])
+            .direction(),
         Direction::Minimize
     );
     assert_eq!(
