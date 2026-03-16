@@ -1137,7 +1137,7 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
                      Usage: pred create SchedulingWithIndividualDeadlines --n 7 --num-processors 3 --deadlines 2,1,2,2,3,3,2"
                 )
             })?;
-            let num_processors = args.num_processors.or(args.m).ok_or_else(|| {
+            let num_processors = args.num_processors.ok_or_else(|| {
                 anyhow::anyhow!(
                     "SchedulingWithIndividualDeadlines requires --num-processors\n\n\
                      Usage: pred create SchedulingWithIndividualDeadlines --n 7 --num-processors 3 --deadlines 2,1,2,2,3,3,2"
@@ -2355,7 +2355,10 @@ fn create_random(
 
 #[cfg(test)]
 mod tests {
-    use super::problem_help_flag_name;
+    use super::{create, problem_help_flag_name};
+    use crate::cli::{Cli, Commands};
+    use crate::output::OutputConfig;
+    use clap::Parser;
 
     #[test]
     fn test_problem_help_uses_bound_for_length_bounded_disjoint_paths() {
@@ -2376,5 +2379,35 @@ mod tests {
             ),
             "num-paths-required"
         );
+    }
+
+    #[test]
+    fn test_create_scheduling_with_individual_deadlines_rejects_m_alias() {
+        let cli = Cli::try_parse_from([
+            "pred",
+            "create",
+            "SchedulingWithIndividualDeadlines",
+            "--n",
+            "3",
+            "--deadlines",
+            "1,1,2",
+            "--m",
+            "2",
+        ])
+        .expect("parse create command");
+
+        let Commands::Create(args) = cli.command else {
+            panic!("expected create subcommand");
+        };
+
+        let out = OutputConfig {
+            output: None,
+            quiet: true,
+            json: false,
+            auto_json: false,
+        };
+        let err = create(&args, &out).expect_err("`--m` should not satisfy --num-processors");
+
+        assert!(err.to_string().contains("requires --num-processors"));
     }
 }

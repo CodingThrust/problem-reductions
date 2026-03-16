@@ -431,10 +431,10 @@ pub struct CreateArgs {
     /// Directed arcs for directed graph problems (e.g., 0>1,1>2,2>0)
     #[arg(long)]
     pub arcs: Option<String>,
-    /// Deadlines for MinimumTardinessSequencing (comma-separated, e.g., "5,5,5,3,3")
+    /// Deadlines for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines (comma-separated, e.g., "5,5,5,3,3")
     #[arg(long)]
     pub deadlines: Option<String>,
-    /// Precedence pairs for MinimumTardinessSequencing (e.g., "0>3,1>3,1>4,2>4")
+    /// Precedence pairs for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines (e.g., "0>3,1>3,1>4,2>4")
     #[arg(long)]
     pub precedence_pairs: Option<String>,
     /// Task lengths for FlowShopScheduling (semicolon-separated rows: "3,4,2;2,3,5;4,1,3")
@@ -443,7 +443,7 @@ pub struct CreateArgs {
     /// Deadline for FlowShopScheduling
     #[arg(long)]
     pub deadline: Option<u64>,
-    /// Number of processors/machines for FlowShopScheduling
+    /// Number of processors/machines for FlowShopScheduling or SchedulingWithIndividualDeadlines
     #[arg(long)]
     pub num_processors: Option<usize>,
     /// Alphabet size for SCS (optional; inferred from max symbol + 1 if omitted)
@@ -564,5 +564,37 @@ pub fn print_subcommand_help_hint(error_msg: &str) {
             }
             return;
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::Cli;
+    use clap::CommandFactory;
+
+    #[test]
+    fn test_create_help_mentions_scheduling_with_individual_deadlines_shared_flags() {
+        let mut cmd = Cli::command();
+        let create = cmd
+            .find_subcommand_mut("create")
+            .expect("create subcommand");
+        let mut help = Vec::new();
+        create
+            .write_long_help(&mut help)
+            .expect("render create help");
+        let help = String::from_utf8(help).expect("utf8 help");
+
+        assert!(help.contains(
+            "Deadlines for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines"
+        ));
+        assert!(help.contains(
+            "Precedence pairs for MinimumTardinessSequencing or SchedulingWithIndividualDeadlines"
+        ));
+        assert!(
+            help.contains(
+                "Number of processors/machines for FlowShopScheduling or SchedulingWithIndividualDeadlines"
+            ),
+            "create help should describe --num-processors for both scheduling models"
+        );
     }
 }

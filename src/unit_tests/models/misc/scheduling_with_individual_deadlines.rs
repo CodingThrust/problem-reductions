@@ -76,10 +76,8 @@ fn test_scheduling_with_individual_deadlines_brute_force_satisfiable() {
     let problem = SchedulingWithIndividualDeadlines::new(3, 2, vec![1, 1, 2], vec![(0, 2)]);
     let solver = BruteForce::new();
 
-    let solution = solver
-        .find_satisfying(&problem)
-        .expect("should find a schedule");
-    assert!(problem.evaluate(&solution));
+    assert_eq!(solver.find_all_satisfying(&problem), vec![vec![0, 0, 1]]);
+    assert_eq!(solver.find_satisfying(&problem), Some(vec![0, 0, 1]));
 }
 
 #[test]
@@ -107,8 +105,14 @@ fn test_scheduling_with_individual_deadlines_paper_example() {
     let problem = issue_example_problem();
     let solver = BruteForce::new();
 
+    let satisfying = solver.find_all_satisfying(&problem);
+
     assert!(problem.evaluate(&[0, 0, 0, 1, 2, 1, 1]));
-    assert!(solver.find_satisfying(&problem).is_some());
+    assert!(satisfying.contains(&vec![0, 0, 0, 1, 2, 1, 1]));
+    assert_eq!(
+        solver.find_satisfying(&problem),
+        satisfying.into_iter().next()
+    );
 }
 
 #[test]
