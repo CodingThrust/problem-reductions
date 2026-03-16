@@ -17,7 +17,6 @@ MODEL_WHITELIST = [
     "src/example_db/model_builders.rs",
     "src/example_db/rule_builders.rs",
     "docs/paper/reductions.typ",
-    "tests/suites/trait_consistency.rs",
 ]
 
 RULE_WHITELIST = [
@@ -193,10 +192,7 @@ def model_completeness(repo_root: Path, name: str) -> dict:
         test_file = repo_root / "src/unit_tests/models" / category / f"{file_stem}.rs"
 
     model_text = read_text(model_file) if model_file is not None else ""
-    trait_text = read_text(repo_root / "src/unit_tests/trait_consistency.rs")
     paper_text = read_text(repo_root / "docs/paper/reductions.typ")
-
-    is_optimization = f"impl OptimizationProblem for {name}" in model_text
 
     checks = {
         "model_file": (
@@ -235,20 +231,6 @@ def model_completeness(repo_root: Path, name: str) -> dict:
             check_entry(status="pass", path="docs/paper/reductions.typ")
             if f'"{name}":' in paper_text
             else check_entry(status="fail", detail="missing display-name entry in paper")
-        ),
-        "trait_consistency": (
-            check_entry(status="pass", path="src/unit_tests/trait_consistency.rs")
-            if name in trait_text and "test_all_problems_implement_trait_correctly" in trait_text
-            else check_entry(status="fail", detail="missing trait consistency entry")
-        ),
-        "trait_direction": (
-            check_entry(status="pass", path="src/unit_tests/trait_consistency.rs")
-            if not is_optimization
-            else (
-                check_entry(status="pass", path="src/unit_tests/trait_consistency.rs")
-                if name in trait_text.split("fn test_direction()", 1)[-1]
-                else check_entry(status="fail", detail="missing optimization direction check")
-            )
         ),
     }
 

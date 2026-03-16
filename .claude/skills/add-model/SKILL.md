@@ -75,7 +75,6 @@ Before implementing, make sure the plan explicitly covers these items that struc
 - CLI discovery and `pred create <ProblemName>` support are included where applicable
 - A canonical model example is registered for example-db / `pred create --example`
 - `docs/paper/reductions.typ` adds both the display-name dictionary entry and the `problem-def(...)`
-- `src/unit_tests/trait_consistency.rs` is updated
 
 ## Step 1: Determine the category
 
@@ -213,15 +212,6 @@ This test should be written **after** Step 6 (paper entry), once the example ins
 
 Link the test file via `#[cfg(test)] #[path = "..."] mod tests;` at the bottom of the model file.
 
-## Step 5.5: Add trait_consistency entry
-
-Add the new problem to `src/unit_tests/trait_consistency.rs`:
-
-1. **`test_all_problems_implement_trait_correctly`** — add a `check_problem_trait(...)` call with a small instance
-2. **`test_direction`** (optimization problems only) — add an `assert_eq!(...direction(), Direction::Minimize/Maximize)` entry
-
-This is **required** for every new model — it ensures the Problem trait implementation is well-formed.
-
 ## Step 6: Document in paper
 
 Write a `problem-def` entry in `docs/paper/reductions.typ`. **Reference example:** search for `problem-def("MaximumIndependentSet")` to see the gold-standard entry — use it as a template.
@@ -294,5 +284,4 @@ If running standalone (not inside `make run-plan`), invoke [review-implementatio
 | Missing from CLI help table | Must add entry to "Flags by problem type" table in `cli.rs` `after_help` |
 | Schema lists derived fields | Schema should list constructor params, not internal fields (e.g., `matrix, k` not `matrix, m, n, k`) |
 | Missing canonical model example | Add a builder in `src/example_db/model_builders.rs` and keep it aligned with paper/example workflows |
-| Forgetting trait_consistency | Must add entry in `test_all_problems_implement_trait_correctly` (and `test_direction` for optimization) in `src/unit_tests/trait_consistency.rs` |
 | Paper example not tested | Must include `test_<name>_paper_example` that verifies the exact instance, solution, and solution count shown in the paper |

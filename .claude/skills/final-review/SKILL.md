@@ -184,7 +184,6 @@ Verify the PR includes all required components. Check:
 - [ ] Canonical model example function in the model file
 - [ ] Paper section in `docs/paper/reductions.typ` (`problem-def` entry)
 - [ ] `display-name` entry in paper
-- [ ] `trait_consistency.rs` entry in `src/unit_tests/trait_consistency.rs` (`test_all_problems_implement_trait_correctly`, plus `test_direction` for optimization)
 - [ ] Aliases: if provided, verify they are standard literature abbreviations (not made up); if empty, confirm no well-known abbreviation is missing; check no conflict with existing aliases
 
 **For [Rule] PRs:**

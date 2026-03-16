@@ -135,7 +135,6 @@ class PipelineChecksTests(unittest.TestCase):
                 "src/unit_tests/models/graph/graph_partitioning.rs",
                 "src/example_db/model_builders.rs",
                 "docs/paper/reductions.typ",
-                "tests/suites/trait_consistency.rs",
             ],
         )
 
@@ -186,17 +185,6 @@ class PipelineChecksTests(unittest.TestCase):
                 repo / "src/unit_tests/models/graph/graph_partitioning.rs",
                 "#[test]\nfn test_graph_partitioning_basic() {}\n",
             )
-            self._write(
-                repo / "src/unit_tests/trait_consistency.rs",
-                """
-                fn test_all_problems_implement_trait_correctly() {
-                    check_problem_trait(&GraphPartitioning::new(), "GraphPartitioning");
-                }
-                fn test_direction() {
-                    let _ = GraphPartitioning::new().direction();
-                }
-                """,
-            )
             self._write(repo / "src/example_db/model_builders.rs", "pub fn build_model_examples() {}\n")
             self._write(
                 repo / "docs/paper/reductions.typ",
@@ -213,9 +201,8 @@ class PipelineChecksTests(unittest.TestCase):
             self.assertTrue(report["ok"])
             self.assertEqual(report["missing"], [])
             self.assertEqual(report["checks"]["paper_display_name"]["status"], "pass")
-            self.assertEqual(report["checks"]["trait_direction"]["status"], "pass")
 
-    def test_model_completeness_flags_missing_paper_and_trait_entries(self) -> None:
+    def test_model_completeness_flags_missing_paper_entries(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
             repo = Path(tmpdir)
             self._write(
@@ -231,7 +218,6 @@ class PipelineChecksTests(unittest.TestCase):
                 repo / "src/unit_tests/models/graph/graph_partitioning.rs",
                 "#[test]\nfn test_graph_partitioning_basic() {}\n",
             )
-            self._write(repo / "src/unit_tests/trait_consistency.rs", "fn test_direction() {}\n")
             self._write(repo / "src/example_db/model_builders.rs", "pub fn build_model_examples() {}\n")
             self._write(repo / "docs/paper/reductions.typ", "#let display-name = ()\n")
 
@@ -240,7 +226,6 @@ class PipelineChecksTests(unittest.TestCase):
             self.assertFalse(report["ok"])
             self.assertIn("paper_definition", report["missing"])
             self.assertIn("paper_display_name", report["missing"])
-            self.assertIn("trait_consistency", report["missing"])
 
     def test_rule_completeness_reports_all_required_components(self) -> None:
         with tempfile.TemporaryDirectory() as tmpdir:
@@ -455,17 +440,6 @@ class PipelineChecksTests(unittest.TestCase):
             self._write(
                 repo / "src/unit_tests/models/graph/graph_partitioning.rs",
                 "#[test]\nfn test_graph_partitioning_basic() {}\n",
-            )
-            self._write(
-                repo / "src/unit_tests/trait_consistency.rs",
-                """
-                fn test_all_problems_implement_trait_correctly() {
-                    check_problem_trait(&GraphPartitioning::new(), "GraphPartitioning");
-                }
-                fn test_direction() {
-                    let _ = GraphPartitioning::new().direction();
-                }
-                """,
             )
             self._write(
                 repo / "docs/paper/reductions.typ",

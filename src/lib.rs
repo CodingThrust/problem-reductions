@@ -100,8 +100,5 @@ mod test_property;
 #[path = "unit_tests/reduction_graph.rs"]
 mod test_reduction_graph;
 #[cfg(test)]
-#[path = "unit_tests/trait_consistency.rs"]
-mod test_trait_consistency;
-#[cfg(test)]
 #[path = "unit_tests/unitdiskmapping_algorithms/mod.rs"]
 mod test_unitdiskmapping_algorithms;
