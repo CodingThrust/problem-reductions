@@ -8,8 +8,8 @@ use problemreductions::export::{ModelExample, ProblemRef, ProblemSide, RuleExamp
 use problemreductions::models::algebraic::{ClosestVectorProblem, BMF};
 use problemreductions::models::graph::{GraphPartitioning, HamiltonianPath};
 use problemreductions::models::misc::{
-    BinPacking, FlowShopScheduling, LongestCommonSubsequence, PaintShop, SequencingWithinIntervals,
-    ShortestCommonSupersequence, SubsetSum,
+    BinPacking, FlowShopScheduling, LongestCommonSubsequence, MinimumTardinessSequencing,
+    PaintShop, SequencingWithinIntervals, ShortestCommonSupersequence, SubsetSum,
 };
 use problemreductions::prelude::*;
 use problemreductions::registry::collect_schemas;
@@ -52,7 +52,7 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.target_vec.is_none()
         && args.bounds.is_none()
         && args.release_times.is_none()
-        && args.deadlines_flag.is_none()
+        && args.deadlines.is_none()
         && args.lengths.is_none()
         && args.tree.is_none()
         && args.required_edges.is_none()
@@ -60,6 +60,8 @@ fn all_data_flags_empty(args: &CreateArgs) -> bool {
         && args.pattern.is_none()
         && args.strings.is_none()
         && args.arcs.is_none()
+        && args.deadlines.is_none()
+        && args.precedence_pairs.is_none()
         && args.task_lengths.is_none()
         && args.deadline.is_none()
         && args.num_processors.is_none()
@@ -662,6 +664,50 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // ExactCoverBy3Sets
+        "ExactCoverBy3Sets" => {
+            let universe = args.universe.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "ExactCoverBy3Sets requires --universe and --sets\n\n\
+                     Usage: pred create X3C --universe 6 --sets \"0,1,2;3,4,5\""
+                )
+            })?;
+            if universe % 3 != 0 {
+                bail!("Universe size must be divisible by 3, got {}", universe);
+            }
+            let sets = parse_sets(args)?;
+            // Validate each set has exactly 3 distinct elements within the universe
+            for (i, set) in sets.iter().enumerate() {
+                if set.len() != 3 {
+                    bail!(
+                        "Subset {} has {} elements, but X3C requires exactly 3 elements per subset",
+                        i,
+                        set.len()
+                    );
+                }
+                if set[0] == set[1] || set[0] == set[2] || set[1] == set[2] {
+                    bail!("Subset {} contains duplicate elements: {:?}", i, set);
+                }
+                for &elem in set {
+                    if elem >= universe {
+                        bail!(
+                            "Subset {} contains element {} which is outside universe of size {}",
+                            i,
+                            elem,
+                            universe
+                        );
+                    }
+                }
+            }
+            let subsets: Vec<[usize; 3]> = sets.into_iter().map(|s| [s[0], s[1], s[2]]).collect();
+            (
+                ser(problemreductions::models::set::ExactCoverBy3Sets::new(
+                    universe, subsets,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // BicliqueCover
         "BicliqueCover" => {
             let left = args.left.ok_or_else(|| {
@@ -749,13 +795,71 @@ pub fn create(args: &CreateArgs, out: &OutputConfig) -> Result<()> {
             )
         }
 
+        // MinimumTardinessSequencing
+        "MinimumTardinessSequencing" => {
+            let deadlines_str = args.deadlines.as_deref().ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumTardinessSequencing requires --deadlines and --n\n\n\
+                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3 [--precedence-pairs \"0>3,1>3,1>4,2>4\"]"
+                )
+            })?;
+            let num_tasks = args.n.ok_or_else(|| {
+                anyhow::anyhow!(
+                    "MinimumTardinessSequencing requires --n (number of tasks)\n\n\
+                     Usage: pred create MinimumTardinessSequencing --n 5 --deadlines 5,5,5,3,3"
+                )
+            })?;
+            let deadlines: Vec<usize> = util::parse_comma_list(deadlines_str)?;
+            let precedences: Vec<(usize, usize)> = match args.precedence_pairs.as_deref() {
+                Some(s) if !s.is_empty() => s
+                    .split(',')
+                    .map(|pair| {
+                        let parts: Vec<&str> = pair.trim().split('>').collect();
+                        anyhow::ensure!(
+                            parts.len() == 2,
+                            "Invalid precedence format '{}', expected 'u>v'",
+                            pair.trim()
+                        );
+                        Ok((
+                            parts[0].trim().parse::<usize>()?,
+                            parts[1].trim().parse::<usize>()?,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>>>()?,
+                _ => vec![],
+            };
+            anyhow::ensure!(
+                deadlines.len() == num_tasks,
+                "deadlines length ({}) must equal num_tasks ({})",
+                deadlines.len(),
+                num_tasks
+            );
+            for &(pred, succ) in &precedences {
+                anyhow::ensure!(
+                    pred < num_tasks && succ < num_tasks,
+                    "precedence index out of range: ({}, {}) but num_tasks = {}",
+                    pred,
+                    succ,
+                    num_tasks
+                );
+            }
+            (
+                ser(MinimumTardinessSequencing::new(
+                    num_tasks,
+                    deadlines,
+                    precedences,
+                ))?,
+                resolved_variant.clone(),
+            )
+        }
+
         // SequencingWithinIntervals
         "SequencingWithinIntervals" => {
             let usage = "Usage: pred create SequencingWithinIntervals --release-times 0,0,5 --deadlines 11,11,6 --lengths 3,1,1";
             let rt_str = args.release_times.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("SequencingWithinIntervals requires --release-times\n\n{usage}")
             })?;
-            let dl_str = args.deadlines_flag.as_deref().ok_or_else(|| {
+            let dl_str = args.deadlines.as_deref().ok_or_else(|| {
                 anyhow::anyhow!("SequencingWithinIntervals requires --deadlines\n\n{usage}")
             })?;
             let len_str = args.lengths.as_deref().ok_or_else(|| {

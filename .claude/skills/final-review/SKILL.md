@@ -28,51 +28,74 @@ GitHub Project board IDs (for `gh project item-edit`):
 
 ## Workflow
 
-### Step 0: Discover "Final review" PRs
+### Step 0: Generate the Final-Review Report
 
-If a specific PR number was given, use it directly. Otherwise:
+Step 0 should be a single report-generation step. Do not manually unpack board selection, PR metadata, merge prep, or deterministic checks with shell snippets.
+The expensive full-context call here is `python3 scripts/pipeline_skill_context.py final-review ...` (backed by `build_final_review_context()`). It is allowed exactly once per top-level `final-review` invocation. After it succeeds, reuse the packet for the rest of the review and do not rerun Step 0 just to fetch the same context in another format.
 
-1. Fetch all project board items:
-   ```bash
-   gh project item-list 8 --owner CodingThrust --limit 500 --format json
-   ```
-2. Filter items where `Status == "Final review"`. Items may be Issues (with linked PRs) or PRs directly.
-3. If none found, report "No items in the Final review column" and stop.
-4. Pick the first one. If the item is an Issue, find the linked PR by searching open PRs for `Fix #<issue_number>` in the title. Print title, PR number, issue number, and URL.
+```bash
+REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)
+STATE_FILE=/tmp/problemreductions-final-review-selection.json
+set -- python3 scripts/pipeline_skill_context.py final-review --repo "$REPO" --state-file "$STATE_FILE" --format text
+if [ -n "${PR:-}" ]; then
+  set -- "$@" --pr "$PR"
+fi
+REPORT=$("$@")
+printf '%s\n' "$REPORT"
+```
 
-### Step 1: Gather PR context
+The report is the Step 0 packet. It already includes **all** mechanical context:
+- Selection: board item, PR number, linked issue, title, URL
+- Recommendation Seed: suggested mode and deterministic blockers
+- Subject
+- Comment Summary (with linked issue context)
+- Merge Prep
+- Deterministic Checks
+- Changed Files
+- Diff Stat
+- Full Diff
 
-Collect all information needed for the review:
+Branch from the report:
+- `Bundle status: empty` => stop with `No items in the Final review column`
+- `Bundle status: ready` => continue normally (check warnings — a self-review warning means the reviewer is the PR author; flag it but do not block)
+- `Bundle status: ready-with-warnings` => continue only with the narrow warning fallback described in the report
 
-1a. **PR metadata**: `gh pr view <number> --json title,body,labels,files,additions,deletions,commits,headRefName,baseRefName,url,state`
+When you need to take actions later, use the identifiers already printed in the report (`Board item`, `PR`, URL). If you need structured data for a corner case, derive it from the existing packet whenever possible instead of rerunning Step 0.
 
-1b. **PR diff**: `gh pr diff <number>` — read the full diff to understand all changes.
+### Step 1: Push the Merge with Main
 
-1c. **Linked issue**: Extract the linked issue number from PR body (look for `Fixes #N`, `Closes #N`, or `#N` references). Fetch issue body: `gh issue view <N> --json title,body,labels`
+The context script already merged `origin/main` into the PR branch in the worktree. Read the report's `Merge Prep` section:
 
-1d. **Determine PR type**: From labels and title, classify as `[Model]` or `[Rule]`.
-  - For `[Model]`: identify the problem name being added
-  - For `[Rule]`: identify the source and target problem names
+- **Merge status: clean** — push the merge commit from the worktree:
+  ```bash
+  cd <worktree path from report>
+  git push
+  ```
+- **Merge status: conflicted** — note the conflicts. You can still continue with the review steps below and decide whether to resolve or hold in Step 6.
+- **Merge prep failed** — skip this step; the warning fallback applies.
 
-1e. **Existing problems**: Run `pred list` (CLI tool, not MCP) to show all currently registered problems and reductions. This provides context for evaluating usefulness.
+### Step 1a: Use the Bundled Review Context
 
-1f. **Check for conflicts with main**: Run `gh pr view <number> --json mergeable`. If there are merge conflicts, launch a subagent to merge `origin/main` into the PR branch (in a worktree) and push the merge commit.
+**Trust the report.** The Step 0 report already contains all mechanical context — selection, comments, linked issue, merge prep, deterministic checks, changed files, diff stat, full diff, and `pred list` output. Do NOT re-fetch any of this data with separate tool calls (e.g., `gh api` for comments, `gh pr diff`, `gh pr view`, `pred list`). Extract everything directly from the report text.
 
-1g. **PR / issue comment audit (REQUIRED)**: Final review must check the comment history before recommending merge.
-  - Set `REPO=$(gh repo view --json nameWithOwner --jq .nameWithOwner)`
-  - Fetch and read:
-    - PR conversation comments: `gh api repos/$REPO/issues/<number>/comments`
-    - PR inline review comments: `gh api repos/$REPO/pulls/<number>/comments`
-    - PR review bodies: `gh api repos/$REPO/pulls/<number>/reviews`
-    - linked issue comments, if an issue exists
-  - Build a list of every actionable comment and classify each as:
-    - `addressed`
-    - `superseded / no longer applicable`
-    - `still open`
-  - Pay special attention to the `## Review Pipeline Report` comment. If it contains a `Remaining issues for final review` section, those items must be reviewed explicitly here.
-  - Do **not** recommend merge until every actionable comment has been dispositioned.
+If the report is in the warning fallback path, keep the fallback narrow. Prefer hold/manual follow-up over reconstructing the whole pipeline inside the skill.
 
-1h. **Comment status summary**: Prepare a short summary for later steps:
+### Step 1b: Comment Audit (REQUIRED)
+
+Final review must check the comment history before recommending merge.
+
+Use the report's `Comment Summary` and `Linked Issue Context` sections as the starting point. If you need to inspect the underlying comment threads in detail, do that only after reading the report.
+
+Build a list of every actionable comment and classify each as:
+- `addressed`
+- `superseded / no longer applicable`
+- `still open`
+
+Pay special attention to the `## Review Pipeline Report` comment. If it contains a `Remaining issues for final review` section, those items must be reviewed explicitly here.
+
+Do **not** recommend merge until every actionable comment has been dispositioned.
+
+Prepare a short summary for later steps:
 
 > **Comment Audit**
 >
@@ -130,31 +153,11 @@ Use `AskUserQuestion` to confirm:
 
 ### Step 3b: File whitelist check
 
-Check that the PR only touches files expected for its type. Any file outside the whitelist is flagged for review — it may be a legacy pattern or an unrelated change.
+Use the report's `Deterministic Checks` section directly in the common path.
 
-**Whitelist for [Model] PRs:**
-- `src/models/<category>/<name>.rs` — model implementation
-- `src/unit_tests/models/<category>/<name>.rs` — unit tests
-- `src/example_db/model_builders.rs` — canonical example registration
-- `src/example_db/rule_builders.rs` — only if updating nonempty-style assertions
-- `docs/paper/reductions.typ` — paper entry
-- `docs/src/reductions/problem_schemas.json` — schema export
-- `docs/src/reductions/reduction_graph.json` — graph export
-- `tests/suites/trait_consistency.rs` — trait consistency entry
-- `problemreductions-cli/tests/cli_tests.rs` — CLI integration tests for `pred create`
+If the report says whitelist is unavailable because of the warning fallback, call that out explicitly and keep the fallback narrow: either fix the prep problem first or hold the PR instead of rebuilding the deterministic pipeline manually inside the skill.
 
-**Whitelist for [Rule] PRs:**
-- `src/rules/<source>_<target>.rs` — reduction implementation
-- `src/rules/mod.rs` — module registration
-- `src/unit_tests/rules/<source>_<target>.rs` — unit tests
-- `src/example_db/rule_builders.rs` — canonical example registration
-- `src/models/<category>/<name>.rs` — only if adding getters needed for overhead expressions
-- `docs/paper/reductions.typ` — paper entry
-- `docs/src/reductions/reduction_graph.json` — graph export
-- `docs/src/reductions/problem_schemas.json` — only if updating field descriptions
-- `problemreductions-cli/tests/cli_tests.rs` — CLI integration tests if adding CLI support
-
-If any file falls outside these whitelists, flag it:
+If the report says files fall outside the whitelist, flag it:
 
 > **File Whitelist Check**
 >
@@ -167,32 +170,54 @@ If all files are whitelisted, report "All files within expected whitelist" and c
 
 ### Step 4: Completeness check
 
+Use the report's `Deterministic Checks` section as the baseline checklist for files, paper entries, examples, variants/overhead forms, and trait-consistency coverage. Then apply maintainer judgment on anything the script cannot prove.
+
+Read the review subject from the report's `Subject` section to understand whether the PR is being reviewed as a model, rule, or generic change. If the deterministic checks are unavailable because of the warning fallback, that should usually push you toward hold/manual follow-up rather than a full merge recommendation.
+
 Verify the PR includes all required components. Check:
 
 **For [Model] PRs:**
 - [ ] Model implementation (`src/models/...`)
 - [ ] Unit tests (`src/unit_tests/models/...`)
 - [ ] `declare_variants!` macro with explicit `opt`/`sat` solver-kind markers and intended default variant
-- [ ] CLI `pred create` support / help text as needed
-- [ ] Canonical model example in `src/example_db/model_builders.rs`
+- [ ] Schema / registry entry for CLI-facing model creation (`ProblemSchemaEntry`)
+- [ ] Canonical model example function in the model file
 - [ ] Paper section in `docs/paper/reductions.typ` (`problem-def` entry)
 - [ ] `display-name` entry in paper
-- [ ] `trait_consistency.rs` entry in `test_all_problems_implement_trait_correctly` (+ `test_direction` for optimization)
+- [ ] `trait_consistency.rs` entry in `src/unit_tests/trait_consistency.rs` (`test_all_problems_implement_trait_correctly`, plus `test_direction` for optimization)
+- [ ] Aliases: if provided, verify they are standard literature abbreviations (not made up); if empty, confirm no well-known abbreviation is missing; check no conflict with existing aliases
 
 **For [Rule] PRs:**
 - [ ] Reduction implementation (`src/rules/...`)
+- [ ] `src/rules/mod.rs` registration
 - [ ] Unit tests (`src/unit_tests/rules/...`)
 - [ ] `#[reduction(overhead = {...})]` with correct expressions
-- [ ] Uses only the `overhead` form of `#[reduction]` and does not duplicate a primitive exact endpoint registration
-- [ ] Canonical rule example in `src/example_db/rule_builders.rs`
+- [ ] Uses only the `overhead` form of `#[reduction]`
+- [ ] Canonical rule example function in the rule file
 - [ ] Paper section in `docs/paper/reductions.typ` (`reduction-rule` entry)
 
 **Paper-example consistency check (both Model and Rule PRs):**
 
-The paper example must use data from the generated JSON (`docs/paper/examples/generated/`), not hand-written data. To verify:
-1. Run `make examples` on the PR branch to regenerate `docs/paper/examples/generated/models.json` and `rules.json`.
-2. For **[Rule] PRs**: the paper's `reduction-rule` entry must call `load-example(source, target)` (defined in `reductions.typ`) to load the canonical example from `rules.json`, and derive all concrete values from the loaded data using Typst array operations — no hand-written instance data.
-3. For **[Model] PRs**: read the problem's entry in `models.json` and compare its `instance` field against the paper's `problem-def` example. The paper example must use the same instance (allowing 0-indexed JSON vs 1-indexed math notation). If they differ, flag: "Paper example does not match `example_db` canonical instance in `models.json`."
+The paper example must use data from the canonical fixture JSON (`src/example_db/fixtures/examples.json`), not hand-written data. To verify:
+1. If the PR changes example builders/specs, run `make regenerate-fixtures` on the PR branch.
+2. For **[Rule] PRs**: the paper's `reduction-rule` entry must call `load-example(source, target, ...)` (defined in `reductions.typ`) to load the canonical example from `examples.json`, and derive all concrete values from the loaded data using Typst array operations — no hand-written instance data.
+3. For **[Model] PRs**: read the problem's entry in `examples.json` under `models` and compare its `instance` field against the paper's `problem-def` example. The paper example must use the same instance (allowing 0-indexed JSON vs 1-indexed math notation). If they differ, flag: "Paper example does not match `example_db` canonical instance in `examples.json`."
+
+**Issue–test round-trip consistency check (both Model and Rule PRs):**
+
+The unit test's example instance and expected solution must match the issue's example. Compare using the report's `Linked Issue Context` and `Full Diff`:
+
+1. **Instance match**: The unit test's `example_instance()` (or equivalent setup) must construct the same graph/weights/parameters as described in the issue's "Example Instance" section. Check vertex count, edge list, weights, and any problem-specific fields (e.g., terminals, clauses).
+2. **Solution match**: The expected optimal value in the test (e.g., `SolutionSize::Valid(6)`) must equal the issue's stated optimal. For rules, the closed-loop test must verify that reducing and solving the target gives the same optimum as solving the source directly.
+3. **Brute-force verification**: A brute-force test must exist that independently confirms the expected optimum, not just assert a hardcoded value.
+
+If any mismatch is found, flag it:
+
+> **Issue–Test Consistency**
+>
+> Mismatch: [describe what differs — e.g., "Issue says optimal cost = 6 but test asserts 7"]
+
+If all match, report "Issue example and unit tests are consistent."
 
 Report missing items:
 
@@ -256,42 +281,68 @@ Present a summary table:
 
 Then present all numbered issues from Step 5 as a multi-select `AskUserQuestion`:
 
-> **Which issues should be fixed before merging?** (select all that apply, or "Merge as-is")
-> - "Merge as-is" — no fixes needed
-> - "Fix 1: [short description]" — [one-line summary]
-> - "Fix 2: [short description]" — [one-line summary]
+> **How should we proceed?** (select all that apply)
+> - "Approve & Merge" — approve the PR, then squash-merge and move to Done
+> - "Record 1: [short description]" — record for follow-up fix (does not block merge)
+> - "Record 2: [short description]" — record for follow-up fix
+> - ...
+> - "Quick fix 1: [short description]" — fix now before merging
+> - "Quick fix 2: [short description]" — fix now before merging
 > - ...
 > - "OnHold" — move to OnHold column with a reason
 
-This lets the reviewer cherry-pick exactly which issues to fix. If the reviewer selects fixes, proceed to Step 7 Quick fix. If "Merge as-is", proceed to Step 7 Merge.
+"Record" items are non-blocking — they get posted as a follow-up comment on the PR/issue but do not prevent merging. "Quick fix" items are applied immediately before merging.
 
-If any actionable PR / issue comment from Step 1g is still open, `Merge as-is` must **not** be your recommendation. Recommend either **Quick fix** or **OnHold** instead.
+If any actionable PR / issue comment from Step 1b is still open, `Approve & Merge` must **not** be your recommendation. Recommend either **Quick fix** or **OnHold** instead.
 
 ### Step 7: Execute decision
 
-**If Merge:**
-1. Print the PR URL prominently: `https://github.com/CodingThrust/problem-reductions/pull/<number>`
-2. Say: "Please merge this PR in your browser. After merging, I'll move the linked issue to Done."
-3. Wait for user confirmation, then move the project board item to `Done` (`6aca54fa`).
+**If Approve & Merge:**
+1. If any "Record" items were selected, post them as a follow-up comment:
+   ```bash
+   COMMENT_FILE=$(mktemp)
+   cat > "$COMMENT_FILE" <<'EOF'
+   **Follow-up items** (recorded during final review):
+   - [item 1]
+   - [item 2]
+   EOF
+   python3 scripts/pipeline_pr.py comment --repo "$REPO" --pr "<number>" --body-file "$COMMENT_FILE"
+   rm -f "$COMMENT_FILE"
+   ```
+2. Approve and merge the PR (approve may fail if you are the PR author — that's OK, continue to merge):
+   ```bash
+   gh pr review <number> --approve || true
+   gh pr merge <number> --squash --delete-branch
+   ```
+3. Move the project board item to `Done`:
+   ```bash
+   python3 scripts/pipeline_board.py move <ITEM_ID> done
+   ```
 
 **If OnHold:**
 1. Ask the reviewer for the reason (use `AskUserQuestion` with free text).
 2. Post a comment on the PR (or linked issue) with the reason:
    ```bash
-   gh pr comment <number> --body "**On Hold**: <reason>"
+   COMMENT_FILE=$(mktemp)
+   printf '**On Hold**: %s\n' "<reason>" > "$COMMENT_FILE"
+   python3 scripts/pipeline_pr.py comment --repo "$REPO" --pr "<number>" --body-file "$COMMENT_FILE"
+   rm -f "$COMMENT_FILE"
    ```
-3. Move the project board item to `OnHold` (`48dfe446`):
+3. Move the project board item to `OnHold`:
    ```bash
-   gh project item-edit --project-id PVT_kwDOBrtarc4BRNVy --id <ITEM_ID> --field-id PVTSSF_lADOBrtarc4BRNVyzg_GmQc --single-select-option-id 48dfe446
+   python3 scripts/pipeline_board.py move <ITEM_ID> on-hold
    ```
 
 **If Quick fix:**
 1. Apply only the fixes the reviewer selected in Step 6.
-2. Checkout the PR branch in a worktree, apply fixes, commit, push.
+2. Work in the worktree from Step 0, apply fixes, commit, push.
 3. After push, go back to Step 6 to re-confirm the decision.
 
 **If Reject:**
 1. Ask the reviewer for the reason.
 2. Post a comment explaining the rejection.
 3. Close the PR: `gh pr close <number> --comment "<reason>"`
-4. Move the project board item to `OnHold` (`48dfe446`).
+4. Move the project board item to `OnHold`:
+   ```bash
+   python3 scripts/pipeline_board.py move <ITEM_ID> on-hold
+   ```

@@ -9,11 +9,11 @@ pub fn build_rule_examples() -> Vec<RuleExample> {
 
 #[cfg(test)]
 mod tests {
-    use super::*;
-
     #[test]
     fn builds_all_canonical_rule_examples() {
-        let examples = build_rule_examples();
+        let examples = crate::example_db::compute_rule_db()
+            .expect("compute should succeed")
+            .rules;
 
         assert!(!examples.is_empty());
         assert!(examples

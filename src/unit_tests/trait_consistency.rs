@@ -70,6 +70,10 @@ fn test_all_problems_implement_trait_correctly() {
         &MaximumSetPacking::<i32>::new(vec![vec![0, 1]]),
         "MaximumSetPacking",
     );
+    check_problem_trait(
+        &ExactCoverBy3Sets::new(6, vec![[0, 1, 2], [3, 4, 5]]),
+        "ExactCoverBy3Sets",
+    );
     check_problem_trait(&PaintShop::new(vec!["a", "a"]), "PaintShop");
     check_problem_trait(&BMF::new(vec![vec![true]], 1), "BMF");
     check_problem_trait(
@@ -123,6 +127,10 @@ fn test_all_problems_implement_trait_correctly() {
         "FlowShopScheduling",
     );
     check_problem_trait(
+        &MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]),
+        "MinimumTardinessSequencing",
+    );
+    check_problem_trait(
         &SequencingWithinIntervals::new(vec![0, 2, 4], vec![3, 5, 7], vec![2, 2, 2]),
         "SequencingWithinIntervals",
     );
@@ -163,6 +171,10 @@ fn test_direction() {
         Direction::Minimize
     );
     assert_eq!(Factoring::new(6, 2, 2).direction(), Direction::Minimize);
+    assert_eq!(
+        MinimumTardinessSequencing::new(3, vec![2, 3, 1], vec![(0, 2)]).direction(),
+        Direction::Minimize
+    );
     assert_eq!(
         BicliqueCover::new(BipartiteGraph::new(2, 2, vec![(0, 0)]), 1).direction(),
         Direction::Minimize
